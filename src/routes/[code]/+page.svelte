@@ -535,7 +535,14 @@
 								<ul>
 									{#each profile.emergency_contacts as contact}
 										<li>
-											<strong>{contact.contact_name}</strong> ({contact.contact_relationship}) – {contact.contact_phone}
+											<strong>{contact.contact_name}</strong> ({contact.contact_relationship}) –
+											<a
+												href="tel:{normalizePhoneNumber(contact.contact_phone)}"
+												target="_blank"
+												class="font-bold"
+											>
+												{profile?.phone ? formatPhoneNumber(contact.contact_phone) : ''}
+											</a>
 										</li>
 									{/each}
 								</ul>
