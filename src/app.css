@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@import 'tailwindcss';
+
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/optional/presets';
+@import '@skeletonlabs/skeleton/themes/nouveau';
+@import '../src/3fp.css';
+
+@source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	color: var(--color-primary-50);
+	text-align: center;
+}
+
+.label {
+	text-transform: uppercase;
+	font-size: 0.75rem;
+}
