@@ -4,6 +4,10 @@
 	import { AppBar } from '@skeletonlabs/skeleton-svelte';
 </script>
 
+<svelte:head>
+	<title>SafeSpokes | 3 Feet Please</title>
+</svelte:head>
+
 <div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
 	<AppBar background="bg-primary-500" classes="text-surface-950">
 		{#snippet lead()}
