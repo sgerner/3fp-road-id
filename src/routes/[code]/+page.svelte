@@ -85,13 +85,7 @@
 	};
 
 	// Common allergy & medication chip logic
-	const allergyOptions = [
-		'Latex',
-		'Penicillin',
-		'Sulfa Drugs',
-		'Iodine/Contrast Media',
-		'Anesthetic Agents'
-	];
+	const allergyOptions = ['Latex', 'Penicillin', 'Sulfa', 'Iodine'];
 	const getAllergyArray = () =>
 		profile?.allergies ? profile.allergies.split(',').map((s) => s.trim()) : [];
 	const isAllergySelected = (allergy) => getAllergyArray().includes(allergy);
@@ -106,15 +100,7 @@
 		handleProfileUpdate();
 	};
 
-	const medicineOptions = [
-		'Insulin',
-		'Warfarin',
-		'Aspirin',
-		'Metformin',
-		'Lisinopril',
-		'Atorvastatin',
-		'Albuterol'
-	];
+	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Asprin'];
 	const getMedicationArray = () =>
 		profile?.medication ? profile.medication.split(',').map((s) => s.trim()) : [];
 	const isMedicationSelected = (med) => getMedicationArray().includes(med);
