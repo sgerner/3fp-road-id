@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 </script>
 
-<div class="mx-auto max-w-md space-y-10 p-4">
+<div class="mx-auto max-w-md space-y-10">
 	<!-- Header with gradient background -->
 	<header>
 		<h1 class="text-3xl font-bold">SafeSpokes</h1>
