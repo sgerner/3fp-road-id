@@ -198,7 +198,7 @@
 	};
 </script>
 
-<div class="max-w-md">
+<div class="max-w-screen">
 	<!-- Skeleton UI Tabs -->
 	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
 		{#snippet list()}
@@ -211,7 +211,9 @@
 		{#snippet content()}
 			<!-- The tab content panels -->
 			<Tabs.Panel value="profile">
-				<div class="card preset-outlined-primary-500 flex flex-col gap-4 p-4">
+				<div
+					class="card preset-outlined-primary-500 bg-surface-950 card-hover flex flex-col gap-4 p-4"
+				>
 					{#if notFound}
 						<section>
 							<h1 class="h1">Code Not Found</h1>
@@ -482,7 +484,7 @@
 					{:else}
 						<!-- Public / read-only view -->
 						<section>
-							<h1>Emergency Information</h1>
+							<h6 class="h6 !mb-0">Emergency Information</h6>
 							<div class="flex flex-col gap-4">
 								<div class="card">
 									<span class="label">Name</span><strong>{profile?.full_name}</strong>
@@ -516,7 +518,7 @@
 								{/if}
 							</div>
 
-							<h2 class="mt-6">Emergency Contacts</h2>
+							<h6 class="h6 mt-4">Emergency Contacts</h6>
 							{#if profile?.emergency_contacts && profile.emergency_contacts.length}
 								<ul>
 									{#each profile.emergency_contacts as contact}
