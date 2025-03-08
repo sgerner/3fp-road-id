@@ -57,11 +57,8 @@
 		<p class="pl-8 indent-[-1.5rem]">
 			📚 Our mission is to provide <strong>essential emergency resources</strong> for the cycling community.
 		</p>
-		<button
-			class="btn btn-sm preset-outlined-success-500 mt-4 w-full"
-			onclick={() => goto('https://3feetplease.org')}
-		>
-			Learn more
+		<button class="btn btn-sm preset-outlined-success-500 mt-4 w-full">
+			<a href="https://3feetplease.org" target="_blank" rel="noopener noreferrer"> Learn more </a>
 		</button>
 	</section>
 
