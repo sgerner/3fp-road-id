@@ -15,7 +15,7 @@ export async function PUT({ request }) {
 	const { user_id, ...updatedFields } = body;
 
 	const { data, error } = await supabase
-		.from('profiles')
+		.from('road_id_profiles')
 		.update(updatedFields)
 		.eq('user_id', user_id);
 

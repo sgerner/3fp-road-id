@@ -72,7 +72,7 @@
 	const handleProfileUpdate = async () => {
 		const { emergency_contacts, ...profileUpdate } = profile;
 
-		const res = await fetch('/api/v1/profile', {
+		const res = await fetch('/api/v1/road-id-profile', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(profileUpdate)

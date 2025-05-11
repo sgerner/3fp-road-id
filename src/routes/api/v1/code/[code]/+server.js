@@ -11,7 +11,7 @@ export async function GET({ params }) {
 			`
 			code,
 			created_at,
-			profile:profiles (
+			profile:road_id_profiles (
 				user_id,
 				full_name,
 				phone,
