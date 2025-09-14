@@ -7,6 +7,15 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+	import IconGlobe from '@lucide/svelte/icons/globe';
+	import IconMail from '@lucide/svelte/icons/mail';
+	import IconPhone from '@lucide/svelte/icons/phone';
+	import IconFacebook from '@lucide/svelte/icons/facebook';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconTwitter from '@lucide/svelte/icons/twitter';
+	import IconMusic from '@lucide/svelte/icons/music';
+	import IconLink from '@lucide/svelte/icons/link';
+	import IconMountain from '@lucide/svelte/icons/mountain';
 
 	let L; // loaded dynamically on client
 
@@ -427,6 +436,9 @@
 		if (!key) return;
 		let val = el.value;
 		if (key === 'country') val = (val || '').toUpperCase();
+		if (key === 'website_url') websiteLocal = val;
+		if (key === 'public_contact_email') emailLocal = val;
+		if (key === 'public_phone_number') phoneLocal = val;
 		queueSave({ fields: { [key]: val } });
 	}
 
@@ -485,7 +497,134 @@
 			})()
 		};
 		const cleaned = Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
+		socialsLocal = { ...cleaned };
 		queueSave({ fields: { social_links: Object.keys(cleaned).length ? cleaned : null } });
+	}
+
+	// Preferred CTA
+	function onCtaKindChange(e) {
+		const kind = e?.target?.value || 'auto';
+		ctaKind = kind;
+		queueSave({
+			fields: { preferred_cta_kind: kind, preferred_cta_label: null, preferred_cta_url: null }
+		});
+	}
+
+	function onCtaLabelInput(e) {
+		const el = e.currentTarget;
+		let v = (el.value || '').slice(0, 10);
+		if (v !== el.value) el.value = v;
+		ctaLabel = v;
+		queueSave({ fields: { preferred_cta_label: v } });
+	}
+
+	function onCtaUrlInput(e) {
+		const v = e.currentTarget.value || '';
+		ctaUrl = v;
+		if (/^https?:\/\/.+/i.test(v)) {
+			queueSave({ fields: { preferred_cta_url: v } });
+		}
+	}
+
+	let ctaKind = $state(data.group?.preferred_cta_kind || 'auto');
+	let ctaLabel = $state(data.group?.preferred_cta_label || '');
+	let ctaUrl = $state(data.group?.preferred_cta_url || '');
+	let customUrlValid = $derived(!ctaUrl || /^https?:\/\/.+/i.test(ctaUrl));
+
+	// Live values for availability and preview
+	let websiteLocal = $state(data.group?.website_url || '');
+	let emailLocal = $state(data.group?.public_contact_email || '');
+	let phoneLocal = $state(data.group?.public_phone_number || '');
+	let socialsLocal = $state({ ...(data.group?.social_links || {}) });
+
+	const ctaChoices = [
+		{ key: 'auto', label: 'Auto', icon: IconLink },
+		{ key: 'website', label: 'Website', icon: IconGlobe },
+		{ key: 'email', label: 'Email', icon: IconMail },
+		{ key: 'phone', label: 'Phone', icon: IconPhone },
+		{ key: 'facebook', label: 'Facebook', icon: IconFacebook },
+		{ key: 'instagram', label: 'Instagram', icon: IconInstagram },
+		{ key: 'strava', label: 'Strava', icon: IconMountain },
+		{ key: 'x', label: 'X', icon: IconTwitter },
+		{ key: 'tiktok', label: 'TikTok', icon: IconMusic },
+		{ key: 'custom', label: 'Custom', icon: null }
+	];
+
+	function setCtaKind(kind) {
+		ctaKind = kind;
+		onCtaKindChange({ target: { value: kind } });
+	}
+
+	let availableByKind = $derived(() => ({
+		auto: true,
+		custom: true,
+		website: !!(websiteLocal || '').trim(),
+		email: !!(emailLocal || '').trim(),
+		phone: !!(phoneLocal || '').trim(),
+		facebook: !!(socialsLocal.facebook || '').trim(),
+		instagram: !!(socialsLocal.instagram || '').trim(),
+		strava: !!(socialsLocal.strava || '').trim(),
+		x: !!(socialsLocal.x || '').trim(),
+		tiktok: !!(socialsLocal.tiktok || '').trim()
+	}));
+
+	function ctaUnavailableReason(kind) {
+		switch (kind) {
+			case 'website':
+				return 'Add a Website URL above to enable';
+			case 'email':
+				return 'Add a Public Email above to enable';
+			case 'phone':
+				return 'Add a Public Phone above to enable';
+			case 'facebook':
+				return 'Add your Facebook link under Socials to enable';
+			case 'instagram':
+				return 'Add your Instagram link under Socials to enable';
+			case 'strava':
+				return 'Add your Strava link under Socials to enable';
+			case 'x':
+				return 'Add your X (Twitter) link under Socials to enable';
+			case 'tiktok':
+				return 'Add your TikTok link under Socials to enable';
+			default:
+				return '';
+		}
+	}
+
+	function pickCtaPreview() {
+		const kind = ctaKind || 'auto';
+		const website = (websiteLocal || '').trim()
+			? { key: 'website', href: (websiteLocal || '').trim(), label: 'Website' }
+			: null;
+		const email = (emailLocal || '').trim()
+			? { key: 'email', href: `mailto:${(emailLocal || '').trim()}`, label: 'Email' }
+			: null;
+		const phone = (phoneLocal || '').trim()
+			? { key: 'phone', href: `tel:${(phoneLocal || '').trim()}`, label: 'Call' }
+			: null;
+		const socials = socialsLocal || {};
+		const mapSocial = (k, label) => (socials[k] ? { key: k, href: socials[k], label } : null);
+		const fb = mapSocial('facebook', 'Facebook');
+		const ig = mapSocial('instagram', 'Instagram');
+		const st = mapSocial('strava', 'Strava');
+		const xx = mapSocial('x', 'X');
+		const tt = mapSocial('tiktok', 'TikTok');
+
+		if (kind === 'custom') {
+			if (ctaLabel && /^https?:\/\/.+/i.test(ctaUrl))
+				return { key: 'custom', href: ctaUrl, label: ctaLabel };
+		}
+		if (kind === 'website' && website) return website;
+		if (kind === 'email' && email) return email;
+		if (kind === 'phone' && phone) return phone;
+		if (kind === 'facebook' && fb) return fb;
+		if (kind === 'instagram' && ig) return ig;
+		if (kind === 'strava' && st) return st;
+		if (kind === 'x' && xx) return xx;
+		if (kind === 'tiktok' && tt) return tt;
+
+		// Auto fallback
+		return website || email || phone || fb || ig || st || xx || tt || null;
 	}
 
 	function tooLarge(files) {
@@ -729,6 +868,96 @@
 					/>
 				</div>
 			</div>
+
+			<!-- Preferred CTA selection -->
+			<section class="card border-surface-600/50 bg-surface-900 my-2 space-y-2 border p-3">
+				<div class="label">Preferred Call-to-Action</div>
+				<div class="flex flex-wrap gap-2">
+					{#each ctaChoices as opt}
+						<button
+							type="button"
+							class={`chip ${ctaKind === opt.key ? 'preset-filled-primary-500' : 'preset-tonal-surface'} flex items-center gap-2`}
+							onclick={() => setCtaKind(opt.key)}
+						>
+							{#if opt.icon}
+								<svelte:component this={opt.icon} class="h-4 w-4" />
+							{/if}
+							<span>{opt.label}</span>
+						</button>
+					{/each}
+				</div>
+				{#if ctaKind === 'custom'}
+					<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+						<div class="flex flex-col">
+							<label class="label" for="preferred_cta_label">Custom CTA Label (10 char max)</label>
+							<input
+								id="preferred_cta_label"
+								name="preferred_cta_label"
+								class="input bg-primary-950/30"
+								maxlength="10"
+								bind:value={ctaLabel}
+								oninput={onCtaLabelInput}
+							/>
+						</div>
+						<div class="flex flex-col">
+							<label class="label" for="preferred_cta_url">Custom CTA URL</label>
+							<input
+								id="preferred_cta_url"
+								name="preferred_cta_url"
+								class="input bg-primary-950/30 {ctaUrl && !customUrlValid
+									? 'border border-red-500'
+									: ''}"
+								bind:value={ctaUrl}
+								oninput={onCtaUrlInput}
+								placeholder="https://example.com/join"
+							/>
+							<small class="text-surface-400 mt-1 text-xs"
+								>Use a full URL starting with http:// or https://</small
+							>
+							{#if ctaUrl && !customUrlValid}
+								<small class="text-xs text-red-400"
+									>Enter a valid URL beginning with http:// or https://</small
+								>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- CTA Preview -->
+				<div class="mt-2">
+					<div class="text-surface-300 mb-1 text-xs">Preview</div>
+					{#if pickCtaPreview()}
+						{#key ctaKind + ctaLabel + ctaUrl}
+							{#await Promise.resolve(pickCtaPreview()) then cp}
+								<button
+									href={cp.href}
+									target="_blank"
+									rel="noopener"
+									class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
+								>
+									{#if cp.key !== 'custom'}
+										<!-- icon mapping -->
+										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+										{:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
+										{:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
+										{:else if cp.key === 'strava'}<IconMountain class="h-4 w-4" />
+										{:else if cp.key === 'x'}<IconTwitter class="h-4 w-4" />
+										{:else if cp.key === 'tiktok'}<IconMusic class="h-4 w-4" />
+										{:else}<IconLink class="h-4 w-4" />{/if}
+									{/if}
+									<span>{cp.label}</span>
+								</button>
+							{/await}
+						{/key}
+					{:else}
+						<span class="text-surface-400 text-xs"
+							>No valid CTA available based on current selection.</span
+						>
+					{/if}
+				</div>
+			</section>
 
 			<div class="flex flex-col">
 				<label class="label" for="description">Description</label>

@@ -210,6 +210,12 @@ export const actions = {
       activity_frequency: form.get('activity_frequency')?.toString().trim() || null,
       typical_activity_day_time: form.get('typical_activity_day_time')?.toString().trim() || null,
       membership_info: form.get('membership_info')?.toString().trim() || null,
+      preferred_cta_kind: (() => {
+        const v = (form.get('preferred_cta_kind')?.toString() || 'auto').toLowerCase();
+        return ['auto', 'website', 'email', 'phone', 'custom', 'facebook', 'instagram', 'strava', 'x', 'tiktok'].includes(v) ? v : 'auto';
+      })(),
+      preferred_cta_label: null,
+      preferred_cta_url: null,
       // logo/cover handled below (mirror to storage first)
       social_links: (() => {
         const get = (k) => form.get(k)?.toString().trim() || '';
@@ -257,6 +263,15 @@ export const actions = {
         return Object.keys(cleaned).length ? cleaned : null;
       })()
     };
+
+    if (payload.preferred_cta_kind === 'custom') {
+      const lbl = (form.get('preferred_cta_label')?.toString().trim() || '').slice(0, 10);
+      const url = form.get('preferred_cta_url')?.toString().trim() || '';
+      if (!lbl) return fail(400, { error: 'Custom CTA label is required and must be 10 characters or fewer.' });
+      if (!url) return fail(400, { error: 'Custom CTA URL is required.' });
+      payload.preferred_cta_label = lbl;
+      payload.preferred_cta_url = url;
+    }
 
     // Optional name update (avoid null overwriting not-null column)
     const incomingName = form.get('name')?.toString().trim() || '';

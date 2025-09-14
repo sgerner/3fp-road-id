@@ -22,7 +22,10 @@ const UPDATABLE_FIELDS = new Set([
   'membership_info',
   'logo_url',
   'cover_photo_url',
-  'social_links'
+  'social_links',
+  'preferred_cta_kind',
+  'preferred_cta_label',
+  'preferred_cta_url'
 ]);
 
 export const POST = async ({ params, request }) => {
@@ -43,6 +46,27 @@ export const POST = async ({ params, request }) => {
   const updates = {};
   for (const [k, v] of Object.entries(payload.fields || {})) {
     if (UPDATABLE_FIELDS.has(k)) updates[k] = v;
+  }
+
+  // Normalize preferred CTA
+  if (Object.prototype.hasOwnProperty.call(updates, 'preferred_cta_kind')) {
+    const kind = (updates.preferred_cta_kind || 'auto').toString();
+    if (!['auto', 'website', 'email', 'phone', 'custom', 'facebook', 'instagram', 'strava', 'x', 'tiktok'].includes(kind)) {
+      updates.preferred_cta_kind = 'auto';
+    } else {
+      updates.preferred_cta_kind = kind;
+    }
+  }
+  if (updates.preferred_cta_kind === 'custom') {
+    if (typeof updates.preferred_cta_label === 'string') {
+      updates.preferred_cta_label = updates.preferred_cta_label.slice(0, 10);
+    } else {
+      updates.preferred_cta_label = null;
+    }
+  } else {
+    // Clear custom fields when not custom
+    if (Object.prototype.hasOwnProperty.call(updates, 'preferred_cta_label')) updates.preferred_cta_label = null;
+    if (Object.prototype.hasOwnProperty.call(updates, 'preferred_cta_url')) updates.preferred_cta_url = null;
   }
 
   // Handle cropped data URLs for logo / cover

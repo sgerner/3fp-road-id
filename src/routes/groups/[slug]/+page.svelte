@@ -13,7 +13,7 @@
 	import IconMusic from '@lucide/svelte/icons/music';
 	import IconCloud from '@lucide/svelte/icons/cloud';
 	import IconMountain from '@lucide/svelte/icons/mountain';
-	import { onMount } from 'svelte';
+import { onMount } from 'svelte';
     import { page } from '$app/stores';
 
 	// UI state
@@ -189,18 +189,74 @@
 
 	let aboutExpanded = $state(false);
 
-	// Derive a primary CTA from contact links
+	// Derive a primary CTA from owner's preference or fallback
 	const primaryCta = (() => {
-		const website = contactLinks.find((c) => c.key === 'website');
-		if (website) return { ...website, label: 'Website' };
-		const email = contactLinks.find((c) => c.key === 'email');
-		if (email) return { ...email, label: 'Email' };
-		const phone = contactLinks.find((c) => c.key === 'phone');
-		if (phone) return { ...phone, label: 'Call' };
-		const first = contactLinks[0];
-		if (first) return { ...first, label: 'Open Link' };
+		const g = data.group || {};
+		const kind = g.preferred_cta_kind || 'auto';
+		if (kind === 'custom') {
+			const label = (g.preferred_cta_label || '').slice(0, 10);
+			const href = g.preferred_cta_url || '';
+			if (label && href) return { key: 'custom', href, label };
+		}
+    if (kind === 'website') {
+        const website = contactLinks.find((c) => c.key === 'website');
+        if (website) return { ...website, label: 'Website' };
+    }
+    if (kind === 'email') {
+        const email = contactLinks.find((c) => c.key === 'email');
+        if (email) return { ...email, label: 'Email' };
+    }
+    if (kind === 'phone') {
+        const phone = contactLinks.find((c) => c.key === 'phone');
+        if (phone) return { ...phone, label: 'Call' };
+    }
+    if (kind === 'facebook') {
+        const fb = contactLinks.find((c) => c.key === 'facebook');
+        if (fb) return { ...fb, label: 'Facebook' };
+    }
+    if (kind === 'instagram') {
+        const ig = contactLinks.find((c) => c.key === 'instagram');
+        if (ig) return { ...ig, label: 'Instagram' };
+    }
+    if (kind === 'strava') {
+        const st = contactLinks.find((c) => c.key === 'strava');
+        if (st) return { ...st, label: 'Strava' };
+    }
+    if (kind === 'x') {
+        const xx = contactLinks.find((c) => c.key === 'x');
+        if (xx) return { ...xx, label: 'X' };
+    }
+    if (kind === 'tiktok') {
+        const tt = contactLinks.find((c) => c.key === 'tiktok');
+        if (tt) return { ...tt, label: 'TikTok' };
+    }
+		// Fallback auto logic
+    const website = contactLinks.find((c) => c.key === 'website');
+    if (website) return { ...website, label: 'Website' };
+    const email = contactLinks.find((c) => c.key === 'email');
+    if (email) return { ...email, label: 'Email' };
+    const phone = contactLinks.find((c) => c.key === 'phone');
+    if (phone) return { ...phone, label: 'Call' };
+    const fb = contactLinks.find((c) => c.key === 'facebook'); if (fb) return { ...fb, label: 'Facebook' };
+    const ig = contactLinks.find((c) => c.key === 'instagram'); if (ig) return { ...ig, label: 'Instagram' };
+    const st = contactLinks.find((c) => c.key === 'strava'); if (st) return { ...st, label: 'Strava' };
+    const xx = contactLinks.find((c) => c.key === 'x'); if (xx) return { ...xx, label: 'X' };
+    const tt = contactLinks.find((c) => c.key === 'tiktok'); if (tt) return { ...tt, label: 'TikTok' };
+    const first = contactLinks[0];
+    if (first) return { ...first, label: 'Open Link' };
 		return null;
 	})();
+
+    const ctaIcons = {
+        website: IconGlobe,
+        email: IconMail,
+        phone: IconPhone,
+        facebook: IconFacebook,
+        instagram: IconInstagram,
+        strava: IconMountain,
+        x: IconTwitter,
+        tiktok: IconMusic
+    };
 
     // Notices via query params
     const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
@@ -241,19 +297,24 @@
 								{#if data.group?.city}{data.group.city},&nbsp;
 								{/if}{data.group?.state_region} · {data.group?.country}
 							</p>
-							{#if data.is_owner}
-								<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
-							{:else if primaryCta}
-								<a
-									href={primaryCta.href}
-									target={primaryCta.key === 'email' || primaryCta.key === 'phone'
-										? '_self'
-										: '_blank'}
-									rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-										? undefined
-										: 'noopener noreferrer'}
-									class="chip preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a>
-							{/if}
+                            {#if data.is_owner}
+                                <a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
+                            {:else if primaryCta}
+                                <a
+                                    href={primaryCta.href}
+                                    target={primaryCta.key === 'email' || primaryCta.key === 'phone'
+                                        ? '_self'
+                                        : '_blank'}
+                                    rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+                                        ? undefined
+                                        : 'noopener noreferrer'}
+                                    class="chip preset-filled-primary-500 shrink-0 font-bold flex items-center gap-2">
+                                    {#if primaryCta.key !== 'custom'}
+                                        <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-4 w-4" />
+                                    {/if}
+                                    <span>{primaryCta.label}</span>
+                                    </a>
+                            {/if}
 						</div>
 					</div>
 				</div>
@@ -281,13 +342,18 @@
 					{#if data.is_owner}
 						<a href={`/groups/${data.group.slug}/edit`} class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
 					{:else if primaryCta}
-						<a
-							href={primaryCta.href}
-							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-								? undefined
-								: 'noopener noreferrer'}
-							class="btn preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a>
+                        <a
+                            href={primaryCta.href}
+                            target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+                            rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+                                ? undefined
+                                : 'noopener noreferrer'}
+                            class="btn preset-filled-primary-500 shrink-0 font-bold flex items-center gap-2">
+                            {#if primaryCta.key !== 'custom'}
+                                <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-5 w-5" />
+                            {/if}
+                            <span>{primaryCta.label}</span>
+                            </a>
 					{/if}
 				</div>
 			</div>
@@ -385,17 +451,22 @@
 						</div>
 					</div>
 				</div>
-				{#if data.is_owner}
-					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">Edit Group</a>
-				{:else if primaryCta}
-					<a
-						href={primaryCta.href}
-						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-							? undefined
-							: 'noopener noreferrer'}
-						class="chip preset-filled-primary-500">{primaryCta.label}</a>
-				{/if}
+                {#if data.is_owner}
+                    <a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">Edit Group</a>
+                {:else if primaryCta}
+                    <a
+                        href={primaryCta.href}
+                        target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+                        rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+                            ? undefined
+                            : 'noopener noreferrer'}
+                        class="chip preset-filled-primary-500 flex items-center gap-2">
+                        {#if primaryCta.key !== 'custom'}
+                            <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-4 w-4" />
+                        {/if}
+                        <span>{primaryCta.label}</span>
+                    </a>
+                {/if}
 			</div>
 		</div>
 	{/if}
