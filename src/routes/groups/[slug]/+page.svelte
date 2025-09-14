@@ -1,0 +1,450 @@
+<script>
+	let { data } = $props();
+	import IconGlobe from '@lucide/svelte/icons/globe';
+	import IconMail from '@lucide/svelte/icons/mail';
+	import IconPhone from '@lucide/svelte/icons/phone';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconFacebook from '@lucide/svelte/icons/facebook';
+	import IconTwitter from '@lucide/svelte/icons/twitter';
+	import IconYoutube from '@lucide/svelte/icons/youtube';
+	import IconLinkedin from '@lucide/svelte/icons/linkedin';
+	import IconLink from '@lucide/svelte/icons/link';
+	import IconAtSign from '@lucide/svelte/icons/at-sign';
+	import IconMusic from '@lucide/svelte/icons/music';
+	import IconCloud from '@lucide/svelte/icons/cloud';
+	import IconMountain from '@lucide/svelte/icons/mountain';
+	import { onMount } from 'svelte';
+
+	// UI state
+	let showSticky = $state(false);
+	let heroSentinel = $state(null);
+
+	// Leaflet map (loaded client-side)
+	let L;
+	let mapEl = $state(null);
+	let map;
+	let marker;
+
+	const hasCoords = Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
+	const lat = hasCoords ? Number(data.group.latitude) : undefined;
+	const lng = hasCoords ? Number(data.group.longitude) : undefined;
+
+	function ensureMap() {
+		if (!L || !mapEl || map) return;
+		const z = 12;
+		map = L.map(mapEl).setView([lat, lng], z);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			maxZoom: 19,
+			attribution: '&copy; OpenStreetMap contributors'
+		}).addTo(map);
+		marker = L.marker([lat, lng]).addTo(map);
+	}
+
+	onMount(async () => {
+		if (!hasCoords) return;
+		try {
+			const mod = await import('leaflet');
+			L = mod.default || mod;
+		} catch (e) {
+			console.error('Failed to load Leaflet', e);
+			return;
+		}
+		// Defer to ensure the element is laid out
+		requestAnimationFrame(() => ensureMap());
+	});
+
+	// Sticky subheader observer
+	onMount(() => {
+		if (!heroSentinel) return;
+		const obs = new IntersectionObserver((entries) => {
+			const e = entries[0];
+			showSticky = !e.isIntersecting;
+		});
+		obs.observe(heroSentinel);
+		return () => obs.disconnect();
+	});
+
+	function pickNames(all, ids) {
+		const set = new Set(ids || []);
+		return (all || []).filter((x) => set.has(x.id)).map((x) => x.name);
+	}
+
+	const types = pickNames(data.group_types, data.selected?.group_type_ids);
+	const audiences = pickNames(data.audience_focuses, data.selected?.audience_focus_ids);
+	const disciplines = pickNames(data.riding_disciplines, data.selected?.riding_discipline_ids);
+	const skills = pickNames(data.skill_levels, data.selected?.skill_level_ids);
+
+	const socials = (() => {
+		if (data.group?.social_links && typeof data.group.social_links === 'object') {
+			try {
+				const obj = data.group.social_links;
+				return Object.entries(obj)
+					.filter(([_, v]) => !!v)
+					.map(([k, v]) => ({ k, v }));
+			} catch {}
+		}
+		return [];
+	})();
+
+	// primary CTA is computed after contactLinks
+
+	const contactLinks = (() => {
+		const g = data.group || {};
+		const website = g.website_url ? [{ key: 'website', href: g.website_url }] : [];
+		// Socials first
+		const socialIcons = {
+			instagram: IconInstagram,
+			facebook: IconFacebook,
+			x: IconTwitter,
+			youtube: IconYoutube,
+			linkedin: IconLinkedin,
+			threads: IconAtSign,
+			tiktok: IconMusic,
+			strava: IconMountain,
+			bluesky: IconCloud
+		};
+		const socialsList = socials.map((s) => ({
+			key: s.k,
+			href: s.v,
+			icon: socialIcons[s.k] || IconLink
+		}));
+		// Email/Phone at the end
+		const tail = [];
+		if (g.public_contact_email)
+			tail.push({
+				key: 'email',
+				href: `mailto:${g.public_contact_email}`,
+				icon: IconMail,
+				label: g.public_contact_email,
+				showText: true
+			});
+		if (g.public_phone_number)
+			tail.push({
+				key: 'phone',
+				href: `tel:${g.public_phone_number}`,
+				icon: IconPhone,
+				label: g.public_phone_number,
+				showText: true
+			});
+		return [...website, ...socialsList, ...tail];
+	})();
+
+	let aboutExpanded = $state(false);
+
+	// Derive a primary CTA from contact links
+	const primaryCta = (() => {
+		const website = contactLinks.find((c) => c.key === 'website');
+		if (website) return { ...website, label: 'Website' };
+		const email = contactLinks.find((c) => c.key === 'email');
+		if (email) return { ...email, label: 'Email' };
+		const phone = contactLinks.find((c) => c.key === 'phone');
+		if (phone) return { ...phone, label: 'Call' };
+		const first = contactLinks[0];
+		if (first) return { ...first, label: 'Open Link' };
+		return null;
+	})();
+</script>
+
+<div class="mx-auto w-full max-w-4xl space-y-6">
+	<!-- Hero cover + logo -->
+	<section class="card border-surface-300 bg-surface-900 overflow-hidden border">
+		<div
+			class="from-primary-800/60 to-primary-600/40 relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-r"
+		>
+			{#if data.group?.cover_photo_url}
+				<img
+					src={data.group.cover_photo_url}
+					alt="{data.group.name} cover"
+					loading="lazy"
+					class="absolute inset-0 h-full w-full object-cover"
+				/>
+			{/if}
+			<!-- Bottom overlay: minimal (logo, name, location, one CTA) -->
+			<div
+				class="absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:from-black/50 md:via-black/40 md:to-black/20 md:backdrop-blur-xs"
+			>
+				<!-- Compact badge for small screens -->
+				<div class="flex gap-2 rounded-md bg-black/30 p-2 backdrop-blur-xs md:hidden">
+					{#if data.group?.logo_url}
+						<img
+							src={data.group.logo_url}
+							alt="{data.group.name} logo"
+							loading="lazy"
+							class="h-14 w-14 rounded-md border border-white/30 bg-black/30 object-cover"
+						/>
+					{/if}
+					<div class="w-full min-w-0">
+						<h1 class="truncate !text-left text-base font-bold text-white">{data.group?.name}</h1>
+						<div class="flex items-start gap-2">
+							<p class="grow truncate text-[11px] text-white/90">
+								{#if data.group?.city}{data.group.city},&nbsp;
+								{/if}{data.group?.state_region} · {data.group?.country}
+							</p>
+							{#if primaryCta}
+								<a
+									href={primaryCta.href}
+									target={primaryCta.key === 'email' || primaryCta.key === 'phone'
+										? '_self'
+										: '_blank'}
+									rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+										? undefined
+										: 'noopener noreferrer'}
+									class="chip preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a
+								>
+							{/if}
+						</div>
+					</div>
+				</div>
+				<!-- Full overlay for md+ screens -->
+				<div class="mx-auto hidden items-center justify-between gap-4 px-4 py-1 md:flex">
+					{#if data.group?.logo_url}
+						<img
+							src={data.group.logo_url}
+							alt="{data.group.name} logo"
+							loading="lazy"
+							class="h-24 w-24 rounded-md border border-white/30 bg-black/30 object-cover"
+						/>
+					{/if}
+					<div class="min-w-0">
+						<h1 class="truncate !text-left text-2xl font-bold text-white">{data.group?.name}</h1>
+						{#if data.group?.tagline}
+							<p class="text-sm text-white/90">{data.group.tagline}</p>
+						{/if}
+						<p class="text-sm text-white/80">
+							{#if data.group?.city}{data.group.city},
+							{/if}
+							{data.group?.state_region} · {data.group?.country}
+						</p>
+					</div>
+					{#if primaryCta}
+						<a
+							href={primaryCta.href}
+							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+								? undefined
+								: 'noopener noreferrer'}
+							class="btn preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a
+						>
+					{/if}
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Sticky subheader (appears after hero scrolls out) -->
+	{#if showSticky}
+		<div class="border-surface-700 bg-surface-900/80 sticky top-0 z-40 border-b backdrop-blur">
+			<div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-3 py-2">
+				<div class="flex min-w-0 items-center gap-3">
+					{#if data.group?.logo_url}
+						<img src={data.group.logo_url} alt="{data.group.name} logo" class="h-8 w-8 rounded" />
+					{/if}
+					<div class="min-w-0">
+						<div class="truncate text-sm font-semibold">{data.group?.name}</div>
+						<div class="text-surface-300 truncate text-xs">
+							{#if data.group?.city}{data.group.city},
+							{/if}{data.group?.state_region} · {data.group?.country}
+						</div>
+					</div>
+				</div>
+				{#if primaryCta}
+					<a
+						href={primaryCta.href}
+						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+							? undefined
+							: 'noopener noreferrer'}
+						class="chip preset-filled-primary-500">{primaryCta.label}</a
+					>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Sentinel for sticky observer -->
+	<div bind:this={heroSentinel}></div>
+
+	<!-- Identity card -->
+	<section class="">
+		<div class="border-surface-300 bg-surface-950/90 mx-auto rounded-xl border p-4">
+			<!-- Top row: type chip rail + compact contact icons -->
+			<div class="flex items-start justify-between gap-3">
+				{#if types.length}
+					<div class="flex w-full gap-2 overflow-x-auto pr-1 whitespace-nowrap">
+						{#each types as t}
+							<button type="button" class="chip preset-tonal-primary shrink-0">{t}</button>
+						{/each}
+					</div>
+				{/if}
+				{#if contactLinks.length}
+					<div class="ml-auto flex shrink-0 items-center gap-2">
+						{#each contactLinks.slice(0, 6) as c}
+							<a
+								href={c.href}
+								title={c.key}
+								target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
+								rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
+								class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
+							>
+								{#if c.key === 'website'}
+									<IconGlobe class="h-5 w-5" />
+								{:else if c.key === 'email'}
+									<IconMail class="h-5 w-5" />
+								{:else if c.key === 'phone'}
+									<IconPhone class="h-5 w-5" />
+								{:else if c.key === 'instagram'}
+									<IconInstagram class="h-5 w-5" />
+								{:else if c.key === 'facebook'}
+									<IconFacebook class="h-5 w-5" />
+								{:else if c.key === 'x'}
+									<IconTwitter class="h-5 w-5" />
+								{:else if c.key === 'youtube'}
+									<IconYoutube class="h-5 w-5" />
+								{:else if c.key === 'linkedin'}
+									<IconLinkedin class="h-5 w-5" />
+								{:else if c.key === 'threads'}
+									<IconAtSign class="h-5 w-5" />
+								{:else if c.key === 'tiktok'}
+									<IconMusic class="h-5 w-5" />
+								{:else if c.key === 'strava'}
+									<IconMountain class="h-5 w-5" />
+								{:else if c.key === 'bluesky'}
+									<IconCloud class="h-5 w-5" />
+								{:else}
+									<IconLink class="h-5 w-5" />
+								{/if}
+							</a>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- About preview -->
+			{#if data.group?.description}
+				<div class="mt-3">
+					<div
+						class={'text-surface-200 whitespace-pre-wrap ' +
+							(aboutExpanded ? '' : 'max-h-24 overflow-hidden')}
+					>
+						{data.group.description}
+					</div>
+					{#if data.group.description?.length > 220}
+						<button
+							type="button"
+							class="text-primary-300 hover:text-primary-200 mt-2 text-sm"
+							onclick={() => (aboutExpanded = !aboutExpanded)}
+						>
+							{aboutExpanded ? 'Show less' : 'Read more'}
+						</button>
+					{/if}
+				</div>
+			{/if}
+			<!-- Info belt: audience and discipline chip rails -->
+			<div class="mt-3 space-y-1">
+				{#if audiences.length || disciplines.length}
+					{#if audiences.length}
+						<div class="flex items-center gap-2">
+							<div class="text-surface-300 mr-2 text-sm">Audience</div>
+							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
+								{#each audiences as a}
+									<button type="button" class="chip preset-tonal-secondary shrink-0">{a}</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+					{#if disciplines.length}
+						<div class="flex items-center gap-2 py-2">
+							<div class="text-surface-300 min-w-24 text-sm">Discipline</div>
+							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
+								{#each disciplines as d}
+									<button type="button" class="chip preset-tonal-surface shrink-0">{d}</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	</section>
+
+	<!-- Contact next + categories -->
+	<!-- Removed bulky contact/categories card to declutter header. -->
+
+	<!-- Additional details -->
+	{#if data.group?.membership_info || data.group?.service_area_description || data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.preferred_contact_method_instructions || data.group?.specific_meeting_point_address || (Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude)) || data.group?.zip_code || skills.length || data.group?.how_to_join_instructions}
+		<section class="card border-surface-300 bg-surface-950 card-hover space-y-4 border p-4">
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				{#if data.group?.membership_info}
+					<div>
+						<div class="label">Membership Info</div>
+						<p class="text-surface-200 whitespace-pre-wrap">{data.group.membership_info}</p>
+					</div>
+				{/if}
+				{#if data.group?.how_to_join_instructions}
+					<div>
+						<div class="label">How to Join</div>
+						<p class="text-surface-200 whitespace-pre-wrap">
+							{data.group.how_to_join_instructions}
+						</p>
+					</div>
+				{/if}
+				{#if data.group?.zip_code}
+					<div>
+						<div class="label">ZIP / Postal Code</div>
+						<p class="text-surface-200">{data.group.zip_code}</p>
+					</div>
+				{/if}
+				{#if data.group?.preferred_contact_method_instructions}
+					<div>
+						<div class="label">Preferred Contact Method</div>
+						<p class="text-surface-200">{data.group.preferred_contact_method_instructions}</p>
+					</div>
+				{/if}
+				{#if skills.length}
+					<div>
+						<div class="label">Skill Levels</div>
+						<p class="text-surface-200">{skills.join(', ')}</p>
+					</div>
+				{/if}
+			</div>
+			{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+					{#if data.group?.activity_frequency}
+						<div>
+							<div class="label">Activity Frequency</div>
+							<p class="text-surface-200">{data.group.activity_frequency}</p>
+						</div>
+					{/if}
+					{#if data.group?.typical_activity_day_time}
+						<div>
+							<div class="label">Typical Day/Time</div>
+							<p class="text-surface-200">{data.group.typical_activity_day_time}</p>
+						</div>
+					{/if}
+					{#if data.group?.specific_meeting_point_address}
+						<div>
+							<div class="label">Meeting Point</div>
+							<p class="text-surface-200">{data.group.specific_meeting_point_address}</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
+			{#if data.group?.service_area_description || hasCoords}
+				<div>
+					<div class="label">Service Area</div>
+					{#if data.group?.service_area_description}
+						<p class="text-surface-200 whitespace-pre-wrap">
+							{data.group.service_area_description}
+						</p>
+					{/if}
+					{#if hasCoords}
+						<div class="border-surface-700/50 mt-3 overflow-hidden rounded-md border">
+							<!-- Leaflet map container -->
+							<div bind:this={mapEl} class="h-64 w-full"></div>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
+</div>
