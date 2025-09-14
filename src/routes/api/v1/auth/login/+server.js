@@ -8,23 +8,28 @@ import { PUBLIC_URL_BASE } from '$env/static/public';
 //    email: "user@example.com",
 //    createProfile: true   // if creating a new profile; false for normal login
 // }
-export async function POST({ request }) {
+export async function POST({ request, url }) {
 	try {
-		const { code, email, createProfile } = await request.json();
+		const { code, email, createProfile, returnTo } = await request.json();
 
 		// Construct the redirect URL so the magic link returns the user to your app
 		// and appends the code as a query parameter.
 		// Ensure you have set PUBLIC_BASE_URL in your environment.
-		const redirectUrl = `${PUBLIC_URL_BASE}/auth/confirm?code=${code}`;
+		// Build confirm URL with return_to to get users back where they started
+		const safeReturn = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/';
+		const params = new URLSearchParams({ return_to: safeReturn });
+		if (code) params.set('rid', code);
+		// Ensure at least one param so your email template `&token_hash=` works
+		const redirectUrl = `${PUBLIC_URL_BASE}/auth/confirm?${params.toString()}`;
 
 		// Call signInWithOtp (Magic Link) with shouldCreateUser toggled.
-		const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
-			email,
-			options: {
-				shouldCreateUser: createProfile,
-				emailRedirectTo: redirectUrl
-			}
-		});
+    const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+            shouldCreateUser: createProfile,
+            emailRedirectTo: redirectUrl
+        }
+    });
 
 		if (authError) {
 			return json({ error: authError.message }, { status: 400 });
