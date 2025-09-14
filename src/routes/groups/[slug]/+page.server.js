@@ -1,6 +1,6 @@
 import { supabase } from '$lib/supabaseClient';
 
-export const load = async ({ params }) => {
+export const load = async ({ params, cookies }) => {
   const slug = params.slug;
 
   const { data: group, error: groupError } = await supabase
@@ -34,6 +34,28 @@ export const load = async ({ params }) => {
       riding_discipline_ids: (rx.data ?? []).map((r) => r.riding_discipline_id),
       skill_level_ids: (sx.data ?? []).map((r) => r.skill_level_id)
     },
-    owners_count: (owners.data ?? []).length
+    owners_count: (owners.data ?? []).length,
+    // Determine if current user is an owner
+    is_owner: await (async () => {
+      try {
+        const session = cookies.get('sb_session');
+        if (!session) return false;
+        const parsed = JSON.parse(session);
+        const access_token = parsed?.access_token;
+        if (!access_token) return false;
+        const { data: userRes } = await supabase.auth.getUser(access_token);
+        const user_id = userRes?.user?.id;
+        if (!user_id) return false;
+        const { data: ownerRows } = await supabase
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', group.id)
+          .eq('role', 'owner')
+          .eq('user_id', user_id);
+        return !!(ownerRows && ownerRows.length);
+      } catch {
+        return false;
+      }
+    })()
   };
 };

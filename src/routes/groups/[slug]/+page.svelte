@@ -14,6 +14,7 @@
 	import IconCloud from '@lucide/svelte/icons/cloud';
 	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { onMount } from 'svelte';
+    import { page } from '$app/stores';
 
 	// UI state
 	let showSticky = $state(false);
@@ -200,6 +201,9 @@
 		if (first) return { ...first, label: 'Open Link' };
 		return null;
 	})();
+
+    // Notices via query params
+    const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
 </script>
 
 <div class="mx-auto w-full max-w-4xl space-y-6">
@@ -237,7 +241,9 @@
 								{#if data.group?.city}{data.group.city},&nbsp;
 								{/if}{data.group?.state_region} · {data.group?.country}
 							</p>
-							{#if primaryCta}
+							{#if data.is_owner}
+								<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
+							{:else if primaryCta}
 								<a
 									href={primaryCta.href}
 									target={primaryCta.key === 'email' || primaryCta.key === 'phone'
@@ -246,8 +252,7 @@
 									rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
 										? undefined
 										: 'noopener noreferrer'}
-									class="chip preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a
-								>
+									class="chip preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a>
 							{/if}
 						</div>
 					</div>
@@ -273,20 +278,41 @@
 							{data.group?.state_region} · {data.group?.country}
 						</p>
 					</div>
-					{#if primaryCta}
+					{#if data.is_owner}
+						<a href={`/groups/${data.group.slug}/edit`} class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
+					{:else if primaryCta}
 						<a
 							href={primaryCta.href}
 							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
 							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
 								? undefined
 								: 'noopener noreferrer'}
-							class="btn preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a
-						>
+							class="btn preset-filled-primary-500 shrink-0 font-bold">{primaryCta.label}</a>
 					{/if}
 				</div>
 			</div>
 		</div>
 	</section>
+
+    {#if authFlag === 'required' || authFlag === 'forbidden'}
+    <section class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required' ? 'border-warning-600/40 bg-warning-900/20' : 'border-error-600/40 bg-error-900/20'}">
+        {#if authFlag === 'required'}
+            <div class="text-sm">
+                <strong>Please log in to edit this group.</strong>
+                <div class="text-surface-300">Use the “Log in / Register” button in the header, then try again.</div>
+            </div>
+        {:else}
+            <div class="text-sm">
+                <strong>You don’t have permission to edit this group.</strong>
+                {#if (data.owners_count ?? 0) === 0}
+                    <div class="text-surface-300">If you represent this group, claim it below to become an owner.</div>
+                {:else}
+                    <div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
+                {/if}
+            </div>
+        {/if}
+    </section>
+    {/if}
 
 	{#if !hasOwner}
 		<section
@@ -359,15 +385,16 @@
 						</div>
 					</div>
 				</div>
-				{#if primaryCta}
+				{#if data.is_owner}
+					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">Edit Group</a>
+				{:else if primaryCta}
 					<a
 						href={primaryCta.href}
 						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
 						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
 							? undefined
 							: 'noopener noreferrer'}
-						class="chip preset-filled-primary-500">{primaryCta.label}</a
-					>
+						class="chip preset-filled-primary-500">{primaryCta.label}</a>
 				{/if}
 			</div>
 		</div>
@@ -388,6 +415,7 @@
 						{/each}
 					</div>
 				{/if}
+				<div class="ml-auto flex shrink-0 items-center gap-2">
 				{#if contactLinks.length}
 					<div class="ml-auto flex shrink-0 items-center gap-2">
 						{#each contactLinks.slice(0, 6) as c}
@@ -429,6 +457,7 @@
 						{/each}
 					</div>
 				{/if}
+				</div>
 			</div>
 
 			<!-- About preview -->
