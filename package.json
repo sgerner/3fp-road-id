@@ -42,6 +42,7 @@
 		"@google/genai": "^1.19.0",
 		"@lucide/svelte": "^0.544.0",
 		"@supabase/ssr": "^0.7.0",
-		"@supabase/supabase-js": "^2.49.1"
+		"@supabase/supabase-js": "^2.49.1",
+		"leaflet": "^1.9.4"
 	}
 }
