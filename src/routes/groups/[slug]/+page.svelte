@@ -74,6 +74,63 @@
 	const disciplines = pickNames(data.riding_disciplines, data.selected?.riding_discipline_ids);
 	const skills = pickNames(data.skill_levels, data.selected?.skill_level_ids);
 
+	// Claim group support
+	const hasOwner = (data.owners_count ?? 0) > 0;
+	let claimOpen = $state(false);
+	let claimEmail = $state('');
+	let claimLoading = $state(false);
+	let claimError = $state('');
+	let claimSuccess = $state('');
+	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
+
+	async function claimGroup() {
+		claimError = '';
+		try {
+			const res = await fetch(`/api/groups/${data.group.slug}/claim`, { method: 'POST' });
+			if (res.status === 401) {
+				claimOpen = true; // prompt login/register
+				return;
+			}
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				throw new Error(j.error || 'Unable to claim group');
+			}
+			window.location.href = `/groups/${data.group.slug}/edit`;
+		} catch (e) {
+			claimError = e.message;
+		}
+	}
+
+	async function sendClaimLogin(e) {
+		e?.preventDefault?.();
+		claimError = '';
+		claimSuccess = '';
+		if (!claimEmailValid) {
+			claimError = 'Enter a valid email address.';
+			return;
+		}
+		claimLoading = true;
+		try {
+			const url = new URL(window.location.href);
+			url.searchParams.set('auto_claim_group', data.group.slug);
+			const rt = `${url.pathname}${url.search}${url.hash}`;
+			const res = await fetch('/api/v1/auth/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email: claimEmail, createProfile: true, returnTo: rt })
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				throw new Error(j.error || 'Failed to send magic link');
+			}
+			claimSuccess = `We sent a login link to ${claimEmail}. After logging in, you'll be directed to the edit page for this group.`;
+		} catch (err) {
+			claimError = err.message || 'Login failed.';
+		} finally {
+			claimLoading = false;
+		}
+	}
+
 	const socials = (() => {
 		if (data.group?.social_links && typeof data.group.social_links === 'object') {
 			try {
@@ -230,6 +287,61 @@
 			</div>
 		</div>
 	</section>
+
+	{#if !hasOwner}
+		<section
+			class="border-warning-600/40 bg-warning-900/20 mx-auto max-w-3xl rounded-xl border p-4"
+		>
+			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+				<div class="min-w-0">
+					<div class="text-lg font-semibold">This group hasn’t been claimed yet</div>
+					<p class="text-surface-300 text-sm">
+						If you represent this group, claim it to manage details, photos and more.
+					</p>
+				</div>
+				{#if data.user}
+					<button class="btn preset-filled-warning-500 shrink-0" onclick={claimGroup}
+						>Claim Group</button
+					>
+				{:else}
+					<button class="btn preset-filled-warning-500 shrink-0" onclick={() => (claimOpen = true)}
+						>Claim Group</button
+					>
+				{/if}
+			</div>
+			{#if claimOpen && !data.user}
+				<form
+					class="border-surface-700 bg-surface-900 mt-4 rounded-md border p-3"
+					onsubmit={sendClaimLogin}
+				>
+					<label for="claim-email" class="text-surface-300 mb-1 block text-xs"
+						>Log in / Register to continue</label
+					>
+					<input
+						id="claim-email"
+						type="email"
+						bind:value={claimEmail}
+						placeholder="you@example.com"
+						class="input w-full"
+						required
+					/>
+					{#if claimError}
+						<div class="mt-2 text-xs text-red-400">{claimError}</div>
+					{/if}
+					{#if claimSuccess}
+						<div class="mt-2 text-xs text-green-400">{claimSuccess}</div>
+					{/if}
+					<button
+						type="submit"
+						class="btn preset-filled-primary-500 mt-3 w-full {claimLoading
+							? 'animate-pulse'
+							: ''} {!claimEmailValid || claimLoading ? 'cursor-not-allowed opacity-50' : ''}"
+						disabled={!claimEmailValid || claimLoading}>Send Magic Link</button
+					>
+				</form>
+			{/if}
+		</section>
+	{/if}
 
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}

@@ -10,7 +10,7 @@ export const load = async ({ params }) => {
     .single();
   if (groupError) return { error: groupError.message };
 
-  const [gt, af, rd, sl, gx, ax, rx, sx] = await Promise.all([
+  const [gt, af, rd, sl, gx, ax, rx, sx, owners] = await Promise.all([
     supabase.from('group_types').select('id, name').order('name'),
     supabase.from('audience_focuses').select('id, name').order('name'),
     supabase.from('riding_disciplines').select('id, name').order('name'),
@@ -18,7 +18,8 @@ export const load = async ({ params }) => {
     supabase.from('group_x_group_types').select('group_type_id').eq('group_id', group.id),
     supabase.from('group_x_audience_focuses').select('audience_focus_id').eq('group_id', group.id),
     supabase.from('group_x_riding_disciplines').select('riding_discipline_id').eq('group_id', group.id),
-    supabase.from('group_x_skill_levels').select('skill_level_id').eq('group_id', group.id)
+    supabase.from('group_x_skill_levels').select('skill_level_id').eq('group_id', group.id),
+    supabase.from('group_members').select('user_id').eq('group_id', group.id).eq('role', 'owner')
   ]);
 
   return {
@@ -32,6 +33,7 @@ export const load = async ({ params }) => {
       audience_focus_ids: (ax.data ?? []).map((r) => r.audience_focus_id),
       riding_discipline_ids: (rx.data ?? []).map((r) => r.riding_discipline_id),
       skill_level_ids: (sx.data ?? []).map((r) => r.skill_level_id)
-    }
+    },
+    owners_count: (owners.data ?? []).length
   };
 };
