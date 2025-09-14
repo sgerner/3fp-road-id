@@ -87,8 +87,23 @@ async function uploadDataUrlToStorage(dataUrl, destBasePath) {
   return data?.publicUrl || null;
 }
 
-export const load = async ({ params }) => {
+export const load = async ({ params, cookies }) => {
   const slug = params.slug;
+
+  // Require authenticated user
+  const sessionCookie = cookies.get('sb_session');
+  if (!sessionCookie) throw redirect(303, `/groups/${slug}?auth=required`);
+  let parsed;
+  try {
+    parsed = JSON.parse(sessionCookie);
+  } catch {
+    parsed = null;
+  }
+  const access_token = parsed?.access_token;
+  if (!access_token) throw redirect(303, `/groups/${slug}?auth=required`);
+  const { data: userRes } = await supabase.auth.getUser(access_token);
+  const user_id = userRes?.user?.id;
+  if (!user_id) throw redirect(303, `/groups/${slug}?auth=required`);
 
   const { data: group, error: groupError } = await supabase
     .from('groups')
@@ -96,6 +111,16 @@ export const load = async ({ params }) => {
     .eq('slug', slug)
     .single();
   if (groupError) return { error: groupError.message };
+
+  // Ownership check
+  const { data: ownerRows, error: ownerErr } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', group.id)
+    .eq('role', 'owner')
+    .eq('user_id', user_id);
+  if (ownerErr) throw redirect(303, `/groups/${slug}`);
+  if (!ownerRows || ownerRows.length === 0) throw redirect(303, `/groups/${slug}?auth=forbidden`);
 
   const [gt, af, rd, sl, gx, ax, rx, sx] = await Promise.all([
     supabase.from('group_types').select('id, name').order('name'),
@@ -124,8 +149,19 @@ export const load = async ({ params }) => {
 };
 
 export const actions = {
-  default: async ({ params, request }) => {
+  default: async ({ params, request, cookies }) => {
     const slug = params.slug;
+
+    // Require authenticated owner
+    const sessionCookie = cookies.get('sb_session');
+    if (!sessionCookie) return fail(401, { error: 'Authentication required.' });
+    let parsed;
+    try { parsed = JSON.parse(sessionCookie); } catch { parsed = null; }
+    const access_token = parsed?.access_token;
+    if (!access_token) return fail(401, { error: 'Authentication required.' });
+    const { data: userRes } = await supabase.auth.getUser(access_token);
+    const user_id = userRes?.user?.id;
+    if (!user_id) return fail(401, { error: 'Authentication required.' });
     const { data: group, error: ge } = await supabase
       .from('groups')
       .select('id, slug, logo_url, cover_photo_url')
@@ -133,6 +169,14 @@ export const actions = {
       .single();
     if (ge || !group) return fail(404, { error: 'Group not found' });
     const group_id = group.id;
+
+    const { data: ownerRows } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', group_id)
+      .eq('role', 'owner')
+      .eq('user_id', user_id);
+    if (!ownerRows || ownerRows.length === 0) return fail(403, { error: 'You do not have permission to edit this group.' });
 
     const form = await request.formData();
 
