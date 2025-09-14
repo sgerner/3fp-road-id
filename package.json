@@ -39,9 +39,9 @@
 		"vite": "^7.0.0"
 	},
 	"dependencies": {
-		"@google/genai": "^0.8.0",
+		"@google/genai": "^1.19.0",
+		"@lucide/svelte": "^0.544.0",
 		"@supabase/ssr": "^0.7.0",
-		"@supabase/supabase-js": "^2.49.1",
-		"lucide-svelte": "^0.544.0"
+		"@supabase/supabase-js": "^2.49.1"
 	}
 }
