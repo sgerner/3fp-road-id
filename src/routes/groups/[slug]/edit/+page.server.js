@@ -122,6 +122,27 @@ export const load = async ({ params, cookies }) => {
   if (ownerErr) throw redirect(303, `/groups/${slug}`);
   if (!ownerRows || ownerRows.length === 0) throw redirect(303, `/groups/${slug}?auth=forbidden`);
 
+  // Fetch all owners for display
+  const { data: allOwners, error: allOwnersErr } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', group.id)
+    .eq('role', 'owner');
+  if (allOwnersErr) {
+    return { error: allOwnersErr.message };
+  }
+
+  // Fetch emails for owners from profiles mapping
+  const ownerIds = (allOwners ?? []).map((r) => r.user_id);
+  let ownerEmails = [];
+  if (ownerIds.length) {
+    const { data: emailsData } = await supabase
+      .from('profiles')
+      .select('user_id, email')
+      .in('user_id', ownerIds);
+    ownerEmails = emailsData || [];
+  }
+
   const [gt, af, rd, sl, gx, ax, rx, sx] = await Promise.all([
     supabase.from('group_types').select('id, name').order('name'),
     supabase.from('audience_focuses').select('id, name').order('name'),
@@ -144,7 +165,12 @@ export const load = async ({ params, cookies }) => {
       audience_focus_ids: (ax.data ?? []).map((r) => r.audience_focus_id),
       riding_discipline_ids: (rx.data ?? []).map((r) => r.riding_discipline_id),
       skill_level_ids: (sx.data ?? []).map((r) => r.skill_level_id)
-    }
+    },
+    owners: (allOwners ?? []).map((r) => ({
+      user_id: r.user_id,
+      email: (ownerEmails.find((e) => e.user_id === r.user_id)?.email) || ''
+    })),
+    current_user_id: user_id
   };
 };
 

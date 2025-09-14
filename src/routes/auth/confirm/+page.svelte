@@ -72,21 +72,40 @@
       // Auto-claim group if requested
       let dest = '/';
       let autoClaimSlug = '';
+      let autoAddOwnerSlug = '';
       if (returnTo && returnTo.startsWith('/')) {
         dest = returnTo;
         try {
           const rtUrl = new URL(returnTo, window.location.origin);
           autoClaimSlug = rtUrl.searchParams.get('auto_claim_group') || '';
+          autoAddOwnerSlug = rtUrl.searchParams.get('auto_add_owner') || '';
         } catch {}
       } else if (rid) {
         dest = `/roadid/${encodeURIComponent(rid)}`;
       }
+
+      // Upsert email into profiles for display in owner lists
+      try {
+        const u = session?.user;
+        if (u?.id && u?.email) {
+          await supabase.from('profiles').upsert({ user_id: u.id, email: u.email });
+        }
+      } catch {}
 
       if (autoClaimSlug) {
         try {
           const claimRes = await fetch(`/api/groups/${encodeURIComponent(autoClaimSlug)}/claim`, { method: 'POST' });
           if (claimRes.ok) {
             dest = `/groups/${encodeURIComponent(autoClaimSlug)}/edit`;
+          }
+        } catch {}
+      }
+
+      if (autoAddOwnerSlug) {
+        try {
+          const ownerRes = await fetch(`/api/groups/${encodeURIComponent(autoAddOwnerSlug)}/owners`, { method: 'POST' });
+          if (ownerRes.ok) {
+            dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/edit`;
           }
         } catch {}
       }

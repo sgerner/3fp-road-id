@@ -526,6 +526,69 @@
 		}
 	}
 
+// Owner invite
+let ownerEmail = $state('');
+let ownerLoading = $state(false);
+let ownerError = $state('');
+let ownerSuccess = $state('');
+let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
+async function inviteOwner(e) {
+  e?.preventDefault?.();
+  ownerError = '';
+  ownerSuccess = '';
+  if (!ownerValid) {
+    ownerError = 'Enter a valid email address.';
+    return;
+  }
+  ownerLoading = true;
+  try {
+    const rtUrl = new URL(window.location.href);
+    rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: ownerEmail, createProfile: true, returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash })
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || 'Failed to send invite');
+    }
+    ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
+    ownerEmail = '';
+  } catch (err) {
+    ownerError = err.message || 'Failed to send invite.';
+  } finally {
+    ownerLoading = false;
+  }
+}
+
+async function removeOwner(uid, email) {
+  try {
+    const label = email || uid;
+    if (typeof window !== 'undefined') {
+      const ok = window.confirm(`Remove owner ${label}?`);
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/groups/${data.group?.slug}/owners/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid })
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || 'Failed to remove owner');
+    }
+    // Optimistically update the list
+    const idx = (data.owners || []).findIndex((x) => x.user_id === uid);
+    if (idx > -1) data.owners.splice(idx, 1);
+    ownerSuccess = `Owner ${label} removed.`;
+    ownerError = '';
+  } catch (err) {
+    ownerError = err.message || 'Failed to remove owner.';
+    ownerSuccess = '';
+  }
+}
+
 	let ctaKind = $state(data.group?.preferred_cta_kind || 'auto');
 	let ctaLabel = $state(data.group?.preferred_cta_label || '');
 	let ctaUrl = $state(data.group?.preferred_cta_url || '');
@@ -957,6 +1020,38 @@
 						>
 					{/if}
 				</div>
+			</section>
+
+			<!-- Owners management -->
+			<section class="card border-surface-600/50 bg-surface-900 my-2 space-y-2 border p-3">
+				<div class="label">Owners</div>
+				<div class="text-surface-300 text-sm">Add another owner by email. We’ll send them a secure login link; when they sign in, they’ll be added automatically.</div>
+				<div class="mt-2 flex flex-col gap-2 md:flex-row">
+					<input type="email" placeholder="owner@example.com" bind:value={ownerEmail} class="input bg-primary-950/30 md:w-80" required onkeydown={(e) => { if (e.key === 'Enter') inviteOwner(e); }} />
+					<button type="button" class="btn preset-filled-primary-500 md:w-auto {ownerLoading ? 'animate-pulse' : ''}" disabled={!ownerValid || ownerLoading} onclick={inviteOwner}>Send Invite</button>
+				</div>
+				{#if ownerError}
+					<div class="text-error-400 text-xs">{ownerError}</div>
+				{/if}
+				{#if ownerSuccess}
+					<div class="text-success-400 text-xs">{ownerSuccess}</div>
+				{/if}
+
+				{#if data.owners?.length}
+					<div class="mt-3">
+						<div class="text-surface-300 text-xs mb-1">Current owners</div>
+						<ul class="divide-y divide-surface-700/50 rounded-md border border-surface-700/50">
+							{#each data.owners as o (o.user_id)}
+								<li class="flex items-center justify-between gap-2 p-2">
+									<div class="truncate text-sm">{o.user_id === data.current_user_id ? 'You' : (o.email || o.user_id)}</div>
+									{#if o.user_id !== data.current_user_id}
+                            <button type="button" class="btn btn-xs preset-outlined-error-500" onclick={() => removeOwner(o.user_id, o.email)}>Remove</button>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</section>
 
 			<div class="flex flex-col">
