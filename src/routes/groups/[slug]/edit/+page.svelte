@@ -654,7 +654,15 @@
 				<div class="col-span-3">
 					<!-- Places search + Leaflet map -->
 					<div class="border-primary-950/30 bg-primary-950/30 my-2 border p-2">
-						<label class="label">Map Location</label>
+						<label class="label" for="map_location">Map Location</label>
+						<input
+							id="map_location"
+							name="map_location"
+							type="text"
+							class="sr-only"
+							tabindex="-1"
+							aria-hidden="true"
+						/>
 
 						<div bind:this={placesContainer} class=""></div>
 						<small class="text-surface-400 my-2 text-xs"
