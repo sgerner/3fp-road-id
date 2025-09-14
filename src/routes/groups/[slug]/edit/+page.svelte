@@ -532,6 +532,8 @@ let ownerLoading = $state(false);
 let ownerError = $state('');
 let ownerSuccess = $state('');
 let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
+// Local reactive owners list so UI updates on removal
+let owners = $state((data.owners || []).slice());
 async function inviteOwner(e) {
   e?.preventDefault?.();
   ownerError = '';
@@ -579,8 +581,8 @@ async function removeOwner(uid, email) {
       throw new Error(j.error || 'Failed to remove owner');
     }
     // Optimistically update the list
-    const idx = (data.owners || []).findIndex((x) => x.user_id === uid);
-    if (idx > -1) data.owners.splice(idx, 1);
+    const idx = owners.findIndex((x) => x.user_id === uid);
+    if (idx > -1) owners.splice(idx, 1);
     ownerSuccess = `Owner ${label} removed.`;
     ownerError = '';
   } catch (err) {
@@ -1037,15 +1039,15 @@ async function removeOwner(uid, email) {
 					<div class="text-success-400 text-xs">{ownerSuccess}</div>
 				{/if}
 
-				{#if data.owners?.length}
+				{#if owners?.length}
 					<div class="mt-3">
 						<div class="text-surface-300 text-xs mb-1">Current owners</div>
 						<ul class="divide-y divide-surface-700/50 rounded-md border border-surface-700/50">
-							{#each data.owners as o (o.user_id)}
+							{#each owners as o (o.user_id)}
 								<li class="flex items-center justify-between gap-2 p-2">
 									<div class="truncate text-sm">{o.user_id === data.current_user_id ? 'You' : (o.email || o.user_id)}</div>
 									{#if o.user_id !== data.current_user_id}
-                            <button type="button" class="btn btn-xs preset-outlined-error-500" onclick={() => removeOwner(o.user_id, o.email)}>Remove</button>
+										<button type="button" class="btn btn-xs preset-outlined-error-500" onclick={() => removeOwner(o.user_id, o.email)}>Remove</button>
 									{/if}
 								</li>
 							{/each}
