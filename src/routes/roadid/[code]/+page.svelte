@@ -47,11 +47,12 @@
 		}
 		errorMessage = '';
 
-		const payload = {
-			code,
-			email: newProfile.email,
-			createProfile: true
-		};
+    const payload = {
+        code,
+        email: newProfile.email,
+        createProfile: true,
+        returnTo: typeof window !== 'undefined' ? window.location.pathname + window.location.search + window.location.hash : `/roadid/${code}`
+    };
 
 		const res = await fetch('/api/v1/auth/login', {
 			method: 'POST',
