@@ -13,8 +13,8 @@
 	import IconMusic from '@lucide/svelte/icons/music';
 	import IconCloud from '@lucide/svelte/icons/cloud';
 	import IconMountain from '@lucide/svelte/icons/mountain';
-import { onMount } from 'svelte';
-    import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 
 	// UI state
 	let showSticky = $state(false);
@@ -64,6 +64,8 @@ import { onMount } from 'svelte';
 		obs.observe(heroSentinel);
 		return () => obs.disconnect();
 	});
+
+// Do not auto-load Instagram embeds to respect content blockers; load on user action
 
 	function pickNames(all, ids) {
 		const set = new Set(ids || []);
@@ -144,6 +146,8 @@ import { onMount } from 'svelte';
 		return [];
 	})();
 
+	// Instagram gallery/embeds removed per request
+
 	// primary CTA is computed after contactLinks
 
 	const contactLinks = (() => {
@@ -198,68 +202,73 @@ import { onMount } from 'svelte';
 			const href = g.preferred_cta_url || '';
 			if (label && href) return { key: 'custom', href, label };
 		}
-    if (kind === 'website') {
-        const website = contactLinks.find((c) => c.key === 'website');
-        if (website) return { ...website, label: 'Website' };
-    }
-    if (kind === 'email') {
-        const email = contactLinks.find((c) => c.key === 'email');
-        if (email) return { ...email, label: 'Email' };
-    }
-    if (kind === 'phone') {
-        const phone = contactLinks.find((c) => c.key === 'phone');
-        if (phone) return { ...phone, label: 'Call' };
-    }
-    if (kind === 'facebook') {
-        const fb = contactLinks.find((c) => c.key === 'facebook');
-        if (fb) return { ...fb, label: 'Facebook' };
-    }
-    if (kind === 'instagram') {
-        const ig = contactLinks.find((c) => c.key === 'instagram');
-        if (ig) return { ...ig, label: 'Instagram' };
-    }
-    if (kind === 'strava') {
-        const st = contactLinks.find((c) => c.key === 'strava');
-        if (st) return { ...st, label: 'Strava' };
-    }
-    if (kind === 'x') {
-        const xx = contactLinks.find((c) => c.key === 'x');
-        if (xx) return { ...xx, label: 'X' };
-    }
-    if (kind === 'tiktok') {
-        const tt = contactLinks.find((c) => c.key === 'tiktok');
-        if (tt) return { ...tt, label: 'TikTok' };
-    }
+		if (kind === 'website') {
+			const website = contactLinks.find((c) => c.key === 'website');
+			if (website) return { ...website, label: 'Website' };
+		}
+		if (kind === 'email') {
+			const email = contactLinks.find((c) => c.key === 'email');
+			if (email) return { ...email, label: 'Email' };
+		}
+		if (kind === 'phone') {
+			const phone = contactLinks.find((c) => c.key === 'phone');
+			if (phone) return { ...phone, label: 'Call' };
+		}
+		if (kind === 'facebook') {
+			const fb = contactLinks.find((c) => c.key === 'facebook');
+			if (fb) return { ...fb, label: 'Facebook' };
+		}
+		if (kind === 'instagram') {
+			const ig = contactLinks.find((c) => c.key === 'instagram');
+			if (ig) return { ...ig, label: 'Instagram' };
+		}
+		if (kind === 'strava') {
+			const st = contactLinks.find((c) => c.key === 'strava');
+			if (st) return { ...st, label: 'Strava' };
+		}
+		if (kind === 'x') {
+			const xx = contactLinks.find((c) => c.key === 'x');
+			if (xx) return { ...xx, label: 'X' };
+		}
+		if (kind === 'tiktok') {
+			const tt = contactLinks.find((c) => c.key === 'tiktok');
+			if (tt) return { ...tt, label: 'TikTok' };
+		}
 		// Fallback auto logic
-    const website = contactLinks.find((c) => c.key === 'website');
-    if (website) return { ...website, label: 'Website' };
-    const email = contactLinks.find((c) => c.key === 'email');
-    if (email) return { ...email, label: 'Email' };
-    const phone = contactLinks.find((c) => c.key === 'phone');
-    if (phone) return { ...phone, label: 'Call' };
-    const fb = contactLinks.find((c) => c.key === 'facebook'); if (fb) return { ...fb, label: 'Facebook' };
-    const ig = contactLinks.find((c) => c.key === 'instagram'); if (ig) return { ...ig, label: 'Instagram' };
-    const st = contactLinks.find((c) => c.key === 'strava'); if (st) return { ...st, label: 'Strava' };
-    const xx = contactLinks.find((c) => c.key === 'x'); if (xx) return { ...xx, label: 'X' };
-    const tt = contactLinks.find((c) => c.key === 'tiktok'); if (tt) return { ...tt, label: 'TikTok' };
-    const first = contactLinks[0];
-    if (first) return { ...first, label: 'Open Link' };
+		const website = contactLinks.find((c) => c.key === 'website');
+		if (website) return { ...website, label: 'Website' };
+		const email = contactLinks.find((c) => c.key === 'email');
+		if (email) return { ...email, label: 'Email' };
+		const phone = contactLinks.find((c) => c.key === 'phone');
+		if (phone) return { ...phone, label: 'Call' };
+		const fb = contactLinks.find((c) => c.key === 'facebook');
+		if (fb) return { ...fb, label: 'Facebook' };
+		const ig = contactLinks.find((c) => c.key === 'instagram');
+		if (ig) return { ...ig, label: 'Instagram' };
+		const st = contactLinks.find((c) => c.key === 'strava');
+		if (st) return { ...st, label: 'Strava' };
+		const xx = contactLinks.find((c) => c.key === 'x');
+		if (xx) return { ...xx, label: 'X' };
+		const tt = contactLinks.find((c) => c.key === 'tiktok');
+		if (tt) return { ...tt, label: 'TikTok' };
+		const first = contactLinks[0];
+		if (first) return { ...first, label: 'Open Link' };
 		return null;
 	})();
 
-    const ctaIcons = {
-        website: IconGlobe,
-        email: IconMail,
-        phone: IconPhone,
-        facebook: IconFacebook,
-        instagram: IconInstagram,
-        strava: IconMountain,
-        x: IconTwitter,
-        tiktok: IconMusic
-    };
+	const ctaIcons = {
+		website: IconGlobe,
+		email: IconMail,
+		phone: IconPhone,
+		facebook: IconFacebook,
+		instagram: IconInstagram,
+		strava: IconMountain,
+		x: IconTwitter,
+		tiktok: IconMusic
+	};
 
-    // Notices via query params
-    const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
+	// Notices via query params
+	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
 </script>
 
 <div class="mx-auto w-full max-w-4xl space-y-6">
@@ -297,24 +306,29 @@ import { onMount } from 'svelte';
 								{#if data.group?.city}{data.group.city},&nbsp;
 								{/if}{data.group?.state_region} · {data.group?.country}
 							</p>
-                            {#if data.is_owner}
-                                <a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
-                            {:else if primaryCta}
-                                <a
-                                    href={primaryCta.href}
-                                    target={primaryCta.key === 'email' || primaryCta.key === 'phone'
-                                        ? '_self'
-                                        : '_blank'}
-                                    rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-                                        ? undefined
-                                        : 'noopener noreferrer'}
-                                    class="chip preset-filled-primary-500 shrink-0 font-bold flex items-center gap-2">
+							{#if data.is_owner}
+								<a
+									href={`/groups/${data.group.slug}/edit`}
+									class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
+								>
+							{:else if primaryCta}
+								<a
+									href={primaryCta.href}
+									target={primaryCta.key === 'email' || primaryCta.key === 'phone'
+										? '_self'
+										: '_blank'}
+									rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+										? undefined
+										: 'noopener noreferrer'}
+									class="chip preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
+								>
                                     {#if primaryCta.key !== 'custom'}
-                                        <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-4 w-4" />
+                                        {@const IconComp = ctaIcons[primaryCta.key] || IconLink}
+                                        <IconComp class="h-4 w-4" />
                                     {/if}
-                                    <span>{primaryCta.label}</span>
-                                    </a>
-                            {/if}
+									<span>{primaryCta.label}</span>
+								</a>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -340,45 +354,58 @@ import { onMount } from 'svelte';
 						</p>
 					</div>
 					{#if data.is_owner}
-						<a href={`/groups/${data.group.slug}/edit`} class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a>
+						<a
+							href={`/groups/${data.group.slug}/edit`}
+							class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
+						>
 					{:else if primaryCta}
-                        <a
-                            href={primaryCta.href}
-                            target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-                            rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-                                ? undefined
-                                : 'noopener noreferrer'}
-                            class="btn preset-filled-primary-500 shrink-0 font-bold flex items-center gap-2">
+						<a
+							href={primaryCta.href}
+							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+								? undefined
+								: 'noopener noreferrer'}
+							class="btn preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
+						>
                             {#if primaryCta.key !== 'custom'}
-                                <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-5 w-5" />
+                                {@const IconComp2 = ctaIcons[primaryCta.key] || IconLink}
+                                <IconComp2 class="h-5 w-5" />
                             {/if}
-                            <span>{primaryCta.label}</span>
-                            </a>
+							<span>{primaryCta.label}</span>
+						</a>
 					{/if}
 				</div>
 			</div>
 		</div>
 	</section>
 
-    {#if authFlag === 'required' || authFlag === 'forbidden'}
-    <section class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required' ? 'border-warning-600/40 bg-warning-900/20' : 'border-error-600/40 bg-error-900/20'}">
-        {#if authFlag === 'required'}
-            <div class="text-sm">
-                <strong>Please log in to edit this group.</strong>
-                <div class="text-surface-300">Use the “Log in / Register” button in the header, then try again.</div>
-            </div>
-        {:else}
-            <div class="text-sm">
-                <strong>You don’t have permission to edit this group.</strong>
-                {#if (data.owners_count ?? 0) === 0}
-                    <div class="text-surface-300">If you represent this group, claim it below to become an owner.</div>
-                {:else}
-                    <div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
-                {/if}
-            </div>
-        {/if}
-    </section>
-    {/if}
+	{#if authFlag === 'required' || authFlag === 'forbidden'}
+		<section
+			class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
+				? 'border-warning-600/40 bg-warning-900/20'
+				: 'border-error-600/40 bg-error-900/20'}"
+		>
+			{#if authFlag === 'required'}
+				<div class="text-sm">
+					<strong>Please log in to edit this group.</strong>
+					<div class="text-surface-300">
+						Use the “Log in / Register” button in the header, then try again.
+					</div>
+				</div>
+			{:else}
+				<div class="text-sm">
+					<strong>You don’t have permission to edit this group.</strong>
+					{#if (data.owners_count ?? 0) === 0}
+						<div class="text-surface-300">
+							If you represent this group, claim it below to become an owner.
+						</div>
+					{:else}
+						<div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	{#if !hasOwner}
 		<section
@@ -451,22 +478,26 @@ import { onMount } from 'svelte';
 						</div>
 					</div>
 				</div>
-                {#if data.is_owner}
-                    <a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">Edit Group</a>
-                {:else if primaryCta}
-                    <a
-                        href={primaryCta.href}
-                        target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-                        rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-                            ? undefined
-                            : 'noopener noreferrer'}
-                        class="chip preset-filled-primary-500 flex items-center gap-2">
+				{#if data.is_owner}
+					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500"
+						>Edit Group</a
+					>
+				{:else if primaryCta}
+					<a
+						href={primaryCta.href}
+						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+							? undefined
+							: 'noopener noreferrer'}
+						class="chip preset-filled-primary-500 flex items-center gap-2"
+					>
                         {#if primaryCta.key !== 'custom'}
-                            <svelte:component this={ctaIcons[primaryCta.key] || IconLink} class="h-4 w-4" />
+                            {@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
+                            <IconComp3 class="h-4 w-4" />
                         {/if}
-                        <span>{primaryCta.label}</span>
-                    </a>
-                {/if}
+						<span>{primaryCta.label}</span>
+					</a>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -487,47 +518,47 @@ import { onMount } from 'svelte';
 					</div>
 				{/if}
 				<div class="ml-auto flex shrink-0 items-center gap-2">
-				{#if contactLinks.length}
-					<div class="ml-auto flex shrink-0 items-center gap-2">
-						{#each contactLinks.slice(0, 6) as c}
-							<a
-								href={c.href}
-								title={c.key}
-								target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
-								rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
-								class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
-							>
-								{#if c.key === 'website'}
-									<IconGlobe class="h-5 w-5" />
-								{:else if c.key === 'email'}
-									<IconMail class="h-5 w-5" />
-								{:else if c.key === 'phone'}
-									<IconPhone class="h-5 w-5" />
-								{:else if c.key === 'instagram'}
-									<IconInstagram class="h-5 w-5" />
-								{:else if c.key === 'facebook'}
-									<IconFacebook class="h-5 w-5" />
-								{:else if c.key === 'x'}
-									<IconTwitter class="h-5 w-5" />
-								{:else if c.key === 'youtube'}
-									<IconYoutube class="h-5 w-5" />
-								{:else if c.key === 'linkedin'}
-									<IconLinkedin class="h-5 w-5" />
-								{:else if c.key === 'threads'}
-									<IconAtSign class="h-5 w-5" />
-								{:else if c.key === 'tiktok'}
-									<IconMusic class="h-5 w-5" />
-								{:else if c.key === 'strava'}
-									<IconMountain class="h-5 w-5" />
-								{:else if c.key === 'bluesky'}
-									<IconCloud class="h-5 w-5" />
-								{:else}
-									<IconLink class="h-5 w-5" />
-								{/if}
-							</a>
-						{/each}
-					</div>
-				{/if}
+					{#if contactLinks.length}
+						<div class="ml-auto flex shrink-0 items-center gap-2">
+							{#each contactLinks.slice(0, 6) as c}
+								<a
+									href={c.href}
+									title={c.key}
+									target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
+									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
+									class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
+								>
+									{#if c.key === 'website'}
+										<IconGlobe class="h-5 w-5" />
+									{:else if c.key === 'email'}
+										<IconMail class="h-5 w-5" />
+									{:else if c.key === 'phone'}
+										<IconPhone class="h-5 w-5" />
+									{:else if c.key === 'instagram'}
+										<IconInstagram class="h-5 w-5" />
+									{:else if c.key === 'facebook'}
+										<IconFacebook class="h-5 w-5" />
+									{:else if c.key === 'x'}
+										<IconTwitter class="h-5 w-5" />
+									{:else if c.key === 'youtube'}
+										<IconYoutube class="h-5 w-5" />
+									{:else if c.key === 'linkedin'}
+										<IconLinkedin class="h-5 w-5" />
+									{:else if c.key === 'threads'}
+										<IconAtSign class="h-5 w-5" />
+									{:else if c.key === 'tiktok'}
+										<IconMusic class="h-5 w-5" />
+									{:else if c.key === 'strava'}
+										<IconMountain class="h-5 w-5" />
+									{:else if c.key === 'bluesky'}
+										<IconCloud class="h-5 w-5" />
+									{:else}
+										<IconLink class="h-5 w-5" />
+									{/if}
+								</a>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -659,4 +690,6 @@ import { onMount } from 'svelte';
 			{/if}
 		</section>
 	{/if}
+
+	<!-- Instagram gallery/embeds removed per request -->
 </div>
