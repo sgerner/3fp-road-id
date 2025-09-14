@@ -285,6 +285,8 @@ export const actions = {
     // Handle images: prefer uploaded file, else mirror remote URL, empty clears
     const incomingLogo = form.get('logo_url')?.toString().trim() || '';
     const incomingCover = form.get('cover_photo_url')?.toString().trim() || '';
+    const clearLogo = (form.get('clear_logo')?.toString() || '') === '1';
+    const clearCover = (form.get('clear_cover')?.toString() || '') === '1';
     const logoFile = form.get('logo_file');
     const coverFile = form.get('cover_file');
     const logoCropped = form.get('logo_file_cropped')?.toString() || '';
@@ -306,8 +308,8 @@ export const actions = {
       const parsed = parseDataUrl(coverCropped);
       if (!parsed || parsed.buffer.length > MAX_BYTES) return fail(400, { error: 'Cropped cover exceeds 10MB limit.' });
     }
-    if (incomingLogo === '') payload.logo_url = null;
-    if (incomingCover === '') payload.cover_photo_url = null;
+    if (clearLogo) payload.logo_url = null;
+    if (clearCover) payload.cover_photo_url = null;
     if (logoCropped) {
       const newLogo = await uploadDataUrlToStorage(logoCropped, `groups/${group_id}/logo`);
       if (newLogo) payload.logo_url = newLogo;
@@ -316,7 +318,7 @@ export const actions = {
       const newLogo = await uploadLocalImageToStorage(logoFile, `groups/${group_id}/logo`);
       if (newLogo) payload.logo_url = newLogo;
       else if (group.logo_url) payload.logo_url = group.logo_url;
-    } else if (/^https?:\/\//i.test(incomingLogo)) {
+    } else if (incomingLogo && /^https?:\/\//i.test(incomingLogo)) {
       const newLogo = await mirrorRemoteImageToStorage(incomingLogo, `groups/${group_id}/logo`);
       if (newLogo) payload.logo_url = newLogo;
       else if (group.logo_url) payload.logo_url = group.logo_url; // keep previous if mirror fails
@@ -329,7 +331,7 @@ export const actions = {
       const newCover = await uploadLocalImageToStorage(coverFile, `groups/${group_id}/cover`);
       if (newCover) payload.cover_photo_url = newCover;
       else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
-    } else if (/^https?:\/\//i.test(incomingCover)) {
+    } else if (incomingCover && /^https?:\/\//i.test(incomingCover)) {
       const newCover = await mirrorRemoteImageToStorage(incomingCover, `groups/${group_id}/cover`);
       if (newCover) payload.cover_photo_url = newCover;
       else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;

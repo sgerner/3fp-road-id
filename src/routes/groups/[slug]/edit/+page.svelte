@@ -686,8 +686,8 @@
 			logoFiles = [];
 			const input = document.getElementById('logo_file_cropped');
 			if (input) input.value = '';
-			const urlInput = document.getElementById('logo_url');
-			if (urlInput) urlInput.value = '';
+			const clear = document.getElementById('clear_logo');
+			if (clear) clear.value = '1';
 			// Do not mutate data.group; leave server to persist on submit
 		} else if (which === 'cover') {
 			coverApi?.clearFiles();
@@ -696,8 +696,8 @@
 			coverFiles = [];
 			const input = document.getElementById('cover_file_cropped');
 			if (input) input.value = '';
-			const urlInput = document.getElementById('cover_photo_url');
-			if (urlInput) urlInput.value = '';
+			const clear = document.getElementById('clear_cover');
+			if (clear) clear.value = '1';
 			// Do not mutate data.group; leave server to persist on submit
 		}
 	}
@@ -1206,9 +1206,11 @@
 				</div>
 			</div>
 
-			<!-- Hidden inputs for cropped data URLs -->
+			<!-- Hidden inputs for cropped data URLs and clear flags -->
 			<input type="hidden" id="logo_file_cropped" name="logo_file_cropped" />
 			<input type="hidden" id="cover_file_cropped" name="cover_file_cropped" />
+			<input type="hidden" id="clear_logo" name="clear_logo" />
+			<input type="hidden" id="clear_cover" name="clear_cover" />
 
 			{#if submitError}
 				<p class="text-error-400 text-sm">{submitError}</p>
