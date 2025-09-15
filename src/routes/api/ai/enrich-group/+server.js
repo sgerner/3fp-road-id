@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { supabase } from '$lib/supabaseClient';
 import { GoogleGenAI } from '@google/genai';
 import { env } from '$env/dynamic/private';
 
@@ -168,6 +169,22 @@ Context name (if provided by user): ${name || ''}`;
 		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		if (!parsed) return json({ fields: {}, categories: {}, raw: text }, { status: 200 });
+
+		// Attempt to mirror any remote logo/cover to Supabase storage and replace URLs
+		try {
+			const now = Date.now();
+			if (parsed?.fields?.logo_url && /^https?:\/\//i.test(parsed.fields.logo_url)) {
+				const url = await mirrorRemoteImageToStorage(parsed.fields.logo_url, `enrich/${now}/logo`);
+				if (url) parsed.fields.logo_url = url;
+			}
+			if (parsed?.fields?.cover_photo_url && /^https?:\/\//i.test(parsed.fields.cover_photo_url)) {
+				const url = await mirrorRemoteImageToStorage(parsed.fields.cover_photo_url, `enrich/${now}/cover`);
+				if (url) parsed.fields.cover_photo_url = url;
+			}
+		} catch (e) {
+			// Non-fatal; keep original URLs
+		}
+
 		return json(parsed);
 	} catch (e) {
 		return new Response(`AI error: ${e.message || e}`, { status: 500 });
@@ -191,5 +208,31 @@ function safeParseJson(s) {
 		} catch {
 			return null;
 		}
+	}
+}
+
+async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
+	try {
+		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
+		const res = await fetch(remoteUrl, { redirect: 'follow' });
+		if (!res.ok) return null;
+		const ct = res.headers.get('content-type') || '';
+		if (!ct.startsWith('image/')) return null;
+		const ab = await res.arrayBuffer();
+		const ext = (() => {
+			const lower = ct.toLowerCase();
+			if (lower.includes('jpeg')) return 'jpg';
+			if (lower.includes('png')) return 'png';
+			if (lower.includes('webp')) return 'webp';
+			if (lower.includes('gif')) return 'gif';
+			return 'img';
+		})();
+		const path = `${destBasePath}.${ext}`;
+		const up = await supabase.storage.from('storage').upload(path, ab, { contentType: ct, upsert: true });
+		if (up.error) return null;
+		const { data } = supabase.storage.from('storage').getPublicUrl(path);
+		return data?.publicUrl || null;
+	} catch {
+		return null;
 	}
 }
