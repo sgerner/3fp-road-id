@@ -1,9 +1,15 @@
 <script>
 	import '../app.css';
 	let { children } = $props();
-	import { AppBar } from '@skeletonlabs/skeleton-svelte';
-	import { onMount } from 'svelte';
-	import { supabase } from '$lib/supabaseClient';
+    import { AppBar, Navigation } from '@skeletonlabs/skeleton-svelte';
+    import { onMount } from 'svelte';
+    import { supabase } from '$lib/supabaseClient';
+    import { page } from '$app/stores';
+    // Nav icons
+    import IconMenu from '@lucide/svelte/icons/menu';
+    import IconHome from '@lucide/svelte/icons/home';
+    import IconUsers from '@lucide/svelte/icons/users';
+    import IconIdCard from '@lucide/svelte/icons/id-card';
 
 	let user = $state(null);
 	let showLogin = $state(false);
@@ -11,7 +17,10 @@
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state('');
-	let loginBtnEl = $state(null);
+    let loginBtnEl = $state(null);
+    let mobileMenuBtnEl = $state(null);
+    let mobileMenuEl = $state(null);
+    let showMobileMenu = $state(false);
 	let loginContainerEl = $state(null);
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 
@@ -33,23 +42,35 @@
 				}
 			} catch {}
 		});
-		function onDocClick(e) {
-			if (!showLogin) return;
-			const t = e.target;
-			if (loginContainerEl?.contains?.(t) || loginBtnEl?.contains?.(t)) return;
-			showLogin = false;
-		}
-		function onKey(e) {
-			if (e.key === 'Escape') showLogin = false;
-		}
-		document.addEventListener('click', onDocClick);
-		document.addEventListener('keydown', onKey);
-		return () => {
-			sub.subscription?.unsubscribe?.();
-			document.removeEventListener('click', onDocClick);
-			document.removeEventListener('keydown', onKey);
-		};
-	});
+        function onDocClick(e) {
+            if (!showLogin) return;
+            const t = e.target;
+            if (loginContainerEl?.contains?.(t) || loginBtnEl?.contains?.(t)) return;
+            showLogin = false;
+        }
+        function onKey(e) {
+            if (e.key === 'Escape') showLogin = false;
+        }
+        // Also close mobile menu on outside click / escape
+        const onDocClickMenu = (e) => {
+            if (!showMobileMenu) return;
+            const t = e.target;
+            if (mobileMenuEl?.contains?.(t) || mobileMenuBtnEl?.contains?.(t)) return;
+            showMobileMenu = false;
+        };
+        const onKeyMenu = (e) => { if (e.key === 'Escape') showMobileMenu = false; };
+        document.addEventListener('click', onDocClick);
+        document.addEventListener('keydown', onKey);
+        document.addEventListener('click', onDocClickMenu);
+        document.addEventListener('keydown', onKeyMenu);
+        return () => {
+            sub.subscription?.unsubscribe?.();
+            document.removeEventListener('click', onDocClick);
+            document.removeEventListener('keydown', onKey);
+            document.removeEventListener('click', onDocClickMenu);
+            document.removeEventListener('keydown', onKeyMenu);
+        };
+    });
 
 	async function doLogin(e) {
 		e?.preventDefault?.();
@@ -97,13 +118,19 @@
 </svelte:head>
 
 <div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
-	<AppBar background="bg-primary-500" classes="text-surface-950">
-		{#snippet lead()}
-			<a href="/" class="flex items-center gap-2">
-				<img src="/3fp.png" alt="3 Feet Please" class="h-6 w-6" />
-				<span class="font-bold">3 Feet Please</span>
-			</a>
-		{/snippet}
+    <AppBar background="bg-primary-500" classes="text-surface-950">
+        {#snippet lead()}
+            <div class="flex items-center gap-2">
+                <!-- Mobile hamburger -->
+                <button class="md:hidden p-2 rounded hover:bg-white/20" bind:this={mobileMenuBtnEl} onclick={() => (showMobileMenu = !showMobileMenu)} aria-label="Menu" aria-expanded={showMobileMenu}>
+                    <IconMenu />
+                </button>
+                <a href="/" class="flex items-center gap-2">
+                    <img src="/3fp.png" alt="3 Feet Please" class="h-6 w-6" />
+                    <span class="font-bold">3 Feet Please</span>
+                </a>
+            </div>
+        {/snippet}
 		{#snippet trail()}
 			<div class="relative">
 				{#if user}
@@ -210,9 +237,67 @@
 				{/if}
 			</div>
 		{/snippet}
-	</AppBar>
+    </AppBar>
 
-	<main class="flex w-full flex-col items-center gap-4 p-4">
-		{@render children()}
-	</main>
+    <!-- Layout: Rail on md+, bottom bar on small screens -->
+    <div class="grid grid-cols-1 md:grid-cols-[auto_1fr]">
+        <!-- Left Rail (md+) -->
+        <aside class="hidden md:block">
+            <Navigation.Rail
+                background="bg-surface-900/90 backdrop-blur"
+                classes="text-white"
+                height="h-[100dvh]"
+                tilesJustify="justify-start"
+            >
+                {#snippet tiles()}
+                    <Navigation.Tile label="Home" href="/" selected={$page.url.pathname === '/'}>
+                        <IconHome />
+                    </Navigation.Tile>
+                    <Navigation.Tile label="Groups" href="/groups" selected={$page.url.pathname.startsWith('/groups')}>
+                        <IconUsers />
+                    </Navigation.Tile>
+                    <Navigation.Tile label="Road ID" href="/roadid" selected={$page.url.pathname.startsWith('/roadid')}>
+                        <IconIdCard />
+                    </Navigation.Tile>
+                {/snippet}
+            </Navigation.Rail>
+        </aside>
+
+        <!-- Content -->
+        <main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-4 pb-20 md:pb-4">
+            {@render children()}
+        </main>
+    </div>
+
+    <!-- Bottom Bar (mobile) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40">
+        <Navigation.Bar background="bg-surface-900/95 backdrop-blur" classes="text-white border-t border-surface-700">
+            <Navigation.Tile label="Home" href="/" selected={$page.url.pathname === '/'}>
+                <IconHome />
+            </Navigation.Tile>
+            <Navigation.Tile label="Groups" href="/groups" selected={$page.url.pathname.startsWith('/groups')}>
+                <IconUsers />
+            </Navigation.Tile>
+            <Navigation.Tile label="Road ID" href="/roadid" selected={$page.url.pathname.startsWith('/roadid')}>
+                <IconIdCard />
+            </Navigation.Tile>
+        </Navigation.Bar>
+    </nav>
+
+    <!-- Mobile dropdown menu (AppBar hamburger) -->
+    {#if showMobileMenu}
+        <div class="md:hidden fixed left-2 right-2 top-[56px] z-50" bind:this={mobileMenuEl}>
+            <div class="border-surface-700 bg-surface-900/95 backdrop-blur rounded-md border p-2 text-white shadow-xl">
+                <a href="/" class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10" onclick={() => (showMobileMenu = false)}>
+                    <IconHome /> <span>Home</span>
+                </a>
+                <a href="/groups" class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10" onclick={() => (showMobileMenu = false)}>
+                    <IconUsers /> <span>Groups</span>
+                </a>
+                <a href="/roadid" class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10" onclick={() => (showMobileMenu = false)}>
+                    <IconIdCard /> <span>Road ID</span>
+                </a>
+            </div>
+        </div>
+    {/if}
 </div>
