@@ -197,15 +197,17 @@
 		return Number.isFinite(g?.latitude) && Number.isFinite(g?.longitude);
 	}
 
-	onMount(async () => {
-		try {
-			const mod = await import('leaflet');
-			await import('leaflet.markercluster');
-			L = mod.default || mod;
-		} catch (e) {
-			console.error('Failed to load Leaflet or clustering', e);
-			return;
-		}
+    onMount(async () => {
+        try {
+            const mod = await import('leaflet');
+            await import('leaflet.markercluster');
+            L = mod.default || mod;
+            const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+            await ensureLeafletDefaultIcon(L);
+        } catch (e) {
+            console.error('Failed to load Leaflet or clustering', e);
+            return;
+        }
 		if (!mapEl) return;
 		map = L.map(mapEl);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

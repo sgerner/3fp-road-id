@@ -44,15 +44,17 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 		marker = L.marker([lat, lng]).addTo(map);
 	}
 
-	onMount(async () => {
-		if (!hasCoords) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-			return;
-		}
+    onMount(async () => {
+        if (!hasCoords) return;
+        try {
+            const mod = await import('leaflet');
+            L = mod.default || mod;
+            const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+            await ensureLeafletDefaultIcon(L);
+        } catch (e) {
+            console.error('Failed to load Leaflet', e);
+            return;
+        }
 		// Defer to ensure the element is laid out
 		requestAnimationFrame(() => ensureMap());
 	});

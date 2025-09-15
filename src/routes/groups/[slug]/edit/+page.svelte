@@ -206,12 +206,14 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 			coverPreview = data.group.cover_photo_url;
 		}
 		// Map init
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-		}
+        try {
+            const mod = await import('leaflet');
+            L = mod.default || mod;
+            const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+            await ensureLeafletDefaultIcon(L);
+        } catch (e) {
+            console.error('Failed to load Leaflet', e);
+        }
 		const hasCoords =
 			Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
 		const lat = hasCoords ? Number(data.group.latitude) : 37.8;
