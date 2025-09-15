@@ -326,16 +326,16 @@
 			{/if}
 			<!-- Bottom overlay: minimal (logo, name, location, one CTA) -->
 			<div
-				class="absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:from-black/50 md:via-black/40 md:to-black/20 md:backdrop-blur-xs"
+				class="absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:from-black/60 md:via-black/50 md:to-black/40 md:backdrop-blur-xs"
 			>
 				<!-- Compact badge for small screens -->
-				<div class="flex gap-2 rounded-md bg-black/30 p-2 backdrop-blur-xs md:hidden">
+				<div class="flex gap-2 rounded-md bg-black/40 p-2 backdrop-blur-xs md:hidden">
 					{#if data.group?.logo_url}
 						<img
 							src={data.group.logo_url}
 							alt="{data.group.name} logo"
 							loading="lazy"
-							class="h-14 w-14 rounded-md border border-white/30 bg-black/30 object-cover"
+							class="h-14 w-14 object-cover"
 						/>
 					{/if}
 					<div class="w-full min-w-0">
@@ -378,13 +378,13 @@
 							src={data.group.logo_url}
 							alt="{data.group.name} logo"
 							loading="lazy"
-							class="h-24 w-24 rounded-md border border-white/30 bg-black/30 object-cover"
+							class="h-24 w-24 object-cover"
 						/>
 					{/if}
 					<div class="min-w-0">
 						<h1 class="truncate !text-left text-2xl font-bold text-white">{data.group?.name}</h1>
 						{#if data.group?.tagline}
-							<p class="text-white/90">{data.group.tagline}</p>
+							<p class="!m-0 text-white">{data.group.tagline}</p>
 						{/if}
 						<p class="text-sm text-white/80">
 							{#if data.group?.city}{data.group.city},
