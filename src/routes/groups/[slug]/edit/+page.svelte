@@ -7,15 +7,20 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
-	import IconGlobe from '@lucide/svelte/icons/globe';
-	import IconMail from '@lucide/svelte/icons/mail';
-	import IconPhone from '@lucide/svelte/icons/phone';
-	import IconFacebook from '@lucide/svelte/icons/facebook';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
-	import IconTwitter from '@lucide/svelte/icons/twitter';
-	import IconMusic from '@lucide/svelte/icons/music';
-	import IconLink from '@lucide/svelte/icons/link';
-	import IconMountain from '@lucide/svelte/icons/mountain';
+import IconGlobe from '@lucide/svelte/icons/globe';
+import IconMail from '@lucide/svelte/icons/mail';
+import IconPhone from '@lucide/svelte/icons/phone';
+import IconFacebook from '@lucide/svelte/icons/facebook';
+import IconInstagram from '@lucide/svelte/icons/instagram';
+import BrandX from '$lib/icons/BrandX.svelte';
+import BrandStrava from '$lib/icons/BrandStrava.svelte';
+import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
+import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
+import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
+import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
+import BrandThreads from '$lib/icons/BrandThreads.svelte';
+import IconLink from '@lucide/svelte/icons/link';
+import IconMountain from '@lucide/svelte/icons/mountain';
 
 	let L; // loaded dynamically on client
 
@@ -471,6 +476,18 @@
 			facebook: buildUrl(getVal('social_facebook'), 'https://www.facebook.com/'),
 			x: buildUrl(getVal('social_x'), 'https://x.com/'),
 			threads: buildUrl(getVal('social_threads'), 'https://www.threads.net/@'),
+			mastodon: (() => {
+				const v = getVal('social_mastodon');
+				if (!v) return null;
+				if (/^https?:\/\//i.test(v)) return v;
+				const s = v.replace(/^@/, '');
+				if (s.includes('@')) {
+					const [user, host] = s.split('@');
+					if (user && host) return `https://${host}/@${user}`;
+				}
+				// Fallback to mastodon.social if only username provided
+				return `https://mastodon.social/@${s}`;
+			})(),
 			youtube: (() => {
 				const v = getVal('social_youtube');
 				if (!v) return null;
@@ -490,6 +507,13 @@
 				if (!v) return null;
 				if (/^https?:\/\//i.test(v)) return v;
 				return `https://bsky.app/profile/${v.replace(/^@/, '')}`;
+			})(),
+			discord: (() => {
+				const v = getVal('social_discord');
+				if (!v) return null;
+				if (/^https?:\/\//i.test(v)) return v;
+				// Accept invite codes or vanity names
+				return `https://discord.gg/${v.replace(/^@/, '')}`;
 			})(),
 			linkedin: (() => {
 				const v = getVal('social_linkedin');
@@ -604,25 +628,27 @@ async function removeOwner(uid, email) {
 	let phoneLocal = $state(data.group?.public_phone_number || '');
 	let socialsLocal = $state({ ...(data.group?.social_links || {}) });
 
-	const ctaChoices = [
+const ctaChoices = [
 		{ key: 'auto', label: 'Auto', icon: IconLink },
 		{ key: 'website', label: 'Website', icon: IconGlobe },
 		{ key: 'email', label: 'Email', icon: IconMail },
 		{ key: 'phone', label: 'Phone', icon: IconPhone },
 		{ key: 'facebook', label: 'Facebook', icon: IconFacebook },
 		{ key: 'instagram', label: 'Instagram', icon: IconInstagram },
-		{ key: 'strava', label: 'Strava', icon: IconMountain },
-		{ key: 'x', label: 'X', icon: IconTwitter },
-		{ key: 'tiktok', label: 'TikTok', icon: IconMusic },
+		{ key: 'strava', label: 'Strava', icon: BrandStrava },
+		{ key: 'x', label: 'X', icon: BrandX },
+		{ key: 'tiktok', label: 'TikTok', icon: BrandTikTok },
+		{ key: 'mastodon', label: 'Mastodon', icon: BrandMastodon },
+		{ key: 'discord', label: 'Discord', icon: BrandDiscord },
 		{ key: 'custom', label: 'Custom', icon: null }
-	];
+];
 
 	function setCtaKind(kind) {
 		ctaKind = kind;
 		onCtaKindChange({ target: { value: kind } });
 	}
 
-	let availableByKind = $derived(() => ({
+let availableByKind = $derived(() => ({
 		auto: true,
 		custom: true,
 		website: !!(websiteLocal || '').trim(),
@@ -632,8 +658,10 @@ async function removeOwner(uid, email) {
 		instagram: !!(socialsLocal.instagram || '').trim(),
 		strava: !!(socialsLocal.strava || '').trim(),
 		x: !!(socialsLocal.x || '').trim(),
-		tiktok: !!(socialsLocal.tiktok || '').trim()
-	}));
+		tiktok: !!(socialsLocal.tiktok || '').trim(),
+		mastodon: !!(socialsLocal.mastodon || '').trim(),
+		discord: !!(socialsLocal.discord || '').trim()
+}));
 
 	function ctaUnavailableReason(kind) {
 		switch (kind) {
@@ -676,6 +704,8 @@ async function removeOwner(uid, email) {
 		const st = mapSocial('strava', 'Strava');
 		const xx = mapSocial('x', 'X');
 		const tt = mapSocial('tiktok', 'TikTok');
+		const md = mapSocial('mastodon', 'Mastodon');
+		const dc = mapSocial('discord', 'Discord');
 
 		if (kind === 'custom') {
 			if (ctaLabel && /^https?:\/\/.+/i.test(ctaUrl))
@@ -686,12 +716,14 @@ async function removeOwner(uid, email) {
 		if (kind === 'phone' && phone) return phone;
 		if (kind === 'facebook' && fb) return fb;
 		if (kind === 'instagram' && ig) return ig;
-		if (kind === 'strava' && st) return st;
-		if (kind === 'x' && xx) return xx;
-		if (kind === 'tiktok' && tt) return tt;
+			if (kind === 'strava') return st || { key: 'strava', href: '#', label: 'Strava' };
+			if (kind === 'x') return xx || { key: 'x', href: '#', label: 'X' };
+			if (kind === 'tiktok') return tt || { key: 'tiktok', href: '#', label: 'TikTok' };
+			if (kind === 'mastodon') return md || { key: 'mastodon', href: '#', label: 'Mastodon' };
+			if (kind === 'discord') return dc || { key: 'discord', href: '#', label: 'Discord' };
 
 		// Auto fallback
-		return website || email || phone || fb || ig || st || xx || tt || null;
+		return website || email || phone || fb || ig || st || xx || tt || md || dc || null;
 	}
 
 	function tooLarge(files) {
@@ -946,9 +978,9 @@ async function removeOwner(uid, email) {
 							class={`chip ${ctaKind === opt.key ? 'preset-filled-primary-500' : 'preset-tonal-surface'} flex items-center gap-2`}
 							onclick={() => setCtaKind(opt.key)}
 						>
-							{#if opt.icon}
-								<svelte:component this={opt.icon} class="h-4 w-4" />
-							{/if}
+								{#if opt.icon}
+									<svelte:component this={opt.icon} class="h-4 w-4" className="h-4 w-4" />
+								{/if}
 							<span>{opt.label}</span>
 						</button>
 					{/each}
@@ -1004,15 +1036,17 @@ async function removeOwner(uid, email) {
 								>
 									{#if cp.key !== 'custom'}
 										<!-- icon mapping -->
-										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
-										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
-										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-										{:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
-										{:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
-										{:else if cp.key === 'strava'}<IconMountain class="h-4 w-4" />
-										{:else if cp.key === 'x'}<IconTwitter class="h-4 w-4" />
-										{:else if cp.key === 'tiktok'}<IconMusic class="h-4 w-4" />
-										{:else}<IconLink class="h-4 w-4" />{/if}
+                            {#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+                            {:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+                            {:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+                            {:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
+                            {:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
+                            {:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
+                            {:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
+                            {:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
+                            {:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
+                            {:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
+                            {:else}<IconLink class="h-4 w-4" />{/if}
 									{/if}
 									<span>{cp.label}</span>
 								</button>
@@ -1086,7 +1120,8 @@ async function removeOwner(uid, email) {
 						id="membership_info"
 						name="membership_info"
 						class="textarea bg-primary-950/30"
-						rows="3">{data.group?.membership_info || ''}</textarea
+						rows="3"
+						oninput={onField}>{data.group?.membership_info || ''}</textarea
 					>
 				</div>
 			</div>
@@ -1532,6 +1567,17 @@ async function removeOwner(uid, email) {
 						/>
 					</div>
 					<div class="flex flex-col">
+						<label class="label" for="social_mastodon">Mastodon</label>
+						<input
+							id="social_mastodon"
+							name="social_mastodon"
+							class="input bg-primary-950/30"
+							value={(data.group?.social_links && data.group.social_links.mastodon) || ''}
+							placeholder="@user@instance or full URL"
+							oninput={onSocialsChange}
+						/>
+					</div>
+					<div class="flex flex-col">
 						<label class="label" for="social_tiktok">TikTok</label>
 						<input
 							id="social_tiktok"
@@ -1561,6 +1607,17 @@ async function removeOwner(uid, email) {
 							class="input bg-primary-950/30"
 							value={(data.group?.social_links && data.group.social_links.bluesky) || ''}
 							placeholder="handle or full URL"
+							oninput={onSocialsChange}
+						/>
+					</div>
+					<div class="flex flex-col">
+						<label class="label" for="social_discord">Discord</label>
+						<input
+							id="social_discord"
+							name="social_discord"
+							class="input bg-primary-950/30"
+							value={(data.group?.social_links && data.group.social_links.discord) || ''}
+							placeholder="invite code or full URL"
 							oninput={onSocialsChange}
 						/>
 					</div>
