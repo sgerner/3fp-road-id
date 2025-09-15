@@ -9,6 +9,8 @@
 @import '@skeletonlabs/skeleton/themes/nouveau';
 @import '../src/3fp.css';
 @import 'leaflet/dist/leaflet.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 @source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 
