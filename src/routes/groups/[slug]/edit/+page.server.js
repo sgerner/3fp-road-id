@@ -116,21 +116,17 @@ export const load = async ({ params, cookies }) => {
   let isAdmin = false;
   let profileRow = null;
   try {
-    const { data: prof, error: profErr } = await supabase
+    const { data: prof } = await supabase
       .from('profiles')
       .select('user_id, email, admin')
       .eq('user_id', user_id)
       .maybeSingle();
     profileRow = prof || null;
     isAdmin = !!prof?.admin;
-    if (profErr) console.log('[groups/edit load] profiles query error:', profErr);
   } catch (e) {
-    console.log('[groups/edit load] profiles query exception:', e);
+    // ignore
   }
 
-  try {
-    console.log('[groups/edit load] user_id=%s isAdmin=%s profile=%o', user_id, isAdmin, profileRow);
-  } catch {}
 
   if (!isAdmin) {
     const { data: ownerRows, error: ownerErr } = await supabase
@@ -221,15 +217,14 @@ export const actions = {
     // Admin or owner can proceed
     let isAdmin = false;
     try {
-      const { data: prof, error: profErr } = await supabase
+      const { data: prof } = await supabase
         .from('profiles')
         .select('user_id, email, admin')
         .eq('user_id', user_id)
         .maybeSingle();
       isAdmin = !!prof?.admin;
-      if (profErr) console.log('[groups/edit action] profiles query error:', profErr);
     } catch (e) {
-      console.log('[groups/edit action] profiles query exception:', e);
+      // ignore
     }
     if (!isAdmin) {
       const { data: ownerRows } = await supabase
