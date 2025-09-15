@@ -45,6 +45,8 @@
 	// Crop viewport container ref (no measurements used)
 	let cropContainerEl = $state(null);
 
+	// Server logs now print profile; no client logging needed
+
 	// Map + Places
 	let mapEl;
 	let map;

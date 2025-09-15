@@ -112,15 +112,36 @@ export const load = async ({ params, cookies }) => {
     .single();
   if (groupError) return { error: groupError.message };
 
-  // Ownership check
-  const { data: ownerRows, error: ownerErr } = await supabase
-    .from('group_members')
-    .select('user_id')
-    .eq('group_id', group.id)
-    .eq('role', 'owner')
-    .eq('user_id', user_id);
-  if (ownerErr) throw redirect(303, `/groups/${slug}`);
-  if (!ownerRows || ownerRows.length === 0) throw redirect(303, `/groups/${slug}?auth=forbidden`);
+  // Admin or Ownership check
+  let isAdmin = false;
+  let profileRow = null;
+  try {
+    const { data: prof, error: profErr } = await supabase
+      .from('profiles')
+      .select('user_id, email, admin')
+      .eq('user_id', user_id)
+      .maybeSingle();
+    profileRow = prof || null;
+    isAdmin = !!prof?.admin;
+    if (profErr) console.log('[groups/edit load] profiles query error:', profErr);
+  } catch (e) {
+    console.log('[groups/edit load] profiles query exception:', e);
+  }
+
+  try {
+    console.log('[groups/edit load] user_id=%s isAdmin=%s profile=%o', user_id, isAdmin, profileRow);
+  } catch {}
+
+  if (!isAdmin) {
+    const { data: ownerRows, error: ownerErr } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', group.id)
+      .eq('role', 'owner')
+      .eq('user_id', user_id);
+    if (ownerErr) throw redirect(303, `/groups/${slug}`);
+    if (!ownerRows || ownerRows.length === 0) throw redirect(303, `/groups/${slug}?auth=forbidden`);
+  }
 
   // Fetch all owners for display
   const { data: allOwners, error: allOwnersErr } = await supabase
@@ -170,7 +191,8 @@ export const load = async ({ params, cookies }) => {
       user_id: r.user_id,
       email: (ownerEmails.find((e) => e.user_id === r.user_id)?.email) || ''
     })),
-    current_user_id: user_id
+    current_user_id: user_id,
+    current_profile: profileRow
   };
 };
 
@@ -196,13 +218,28 @@ export const actions = {
     if (ge || !group) return fail(404, { error: 'Group not found' });
     const group_id = group.id;
 
-    const { data: ownerRows } = await supabase
-      .from('group_members')
-      .select('user_id')
-      .eq('group_id', group_id)
-      .eq('role', 'owner')
-      .eq('user_id', user_id);
-    if (!ownerRows || ownerRows.length === 0) return fail(403, { error: 'You do not have permission to edit this group.' });
+    // Admin or owner can proceed
+    let isAdmin = false;
+    try {
+      const { data: prof, error: profErr } = await supabase
+        .from('profiles')
+        .select('user_id, email, admin')
+        .eq('user_id', user_id)
+        .maybeSingle();
+      isAdmin = !!prof?.admin;
+      if (profErr) console.log('[groups/edit action] profiles query error:', profErr);
+    } catch (e) {
+      console.log('[groups/edit action] profiles query exception:', e);
+    }
+    if (!isAdmin) {
+      const { data: ownerRows } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', group_id)
+        .eq('role', 'owner')
+        .eq('user_id', user_id);
+      if (!ownerRows || ownerRows.length === 0) return fail(403, { error: 'You do not have permission to edit this group.' });
+    }
 
     const form = await request.formData();
 
