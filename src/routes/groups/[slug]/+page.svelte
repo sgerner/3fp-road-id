@@ -5,16 +5,16 @@
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import IconFacebook from '@lucide/svelte/icons/facebook';
-import BrandX from '$lib/icons/BrandX.svelte';
+	import BrandX from '$lib/icons/BrandX.svelte';
 	import IconYoutube from '@lucide/svelte/icons/youtube';
 	import IconLinkedin from '@lucide/svelte/icons/linkedin';
-import IconLink from '@lucide/svelte/icons/link';
-import BrandThreads from '$lib/icons/BrandThreads.svelte';
-import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
-import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
-import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
-import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
-import BrandStrava from '$lib/icons/BrandStrava.svelte';
+	import IconLink from '@lucide/svelte/icons/link';
+	import BrandThreads from '$lib/icons/BrandThreads.svelte';
+	import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
+	import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
+	import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
+	import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
+	import BrandStrava from '$lib/icons/BrandStrava.svelte';
 	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -44,17 +44,17 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 		marker = L.marker([lat, lng]).addTo(map);
 	}
 
-    onMount(async () => {
-        if (!hasCoords) return;
-        try {
-            const mod = await import('leaflet');
-            L = mod.default || mod;
-            const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
-            await ensureLeafletDefaultIcon(L);
-        } catch (e) {
-            console.error('Failed to load Leaflet', e);
-            return;
-        }
+	onMount(async () => {
+		if (!hasCoords) return;
+		try {
+			const mod = await import('leaflet');
+			L = mod.default || mod;
+			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+			await ensureLeafletDefaultIcon(L);
+		} catch (e) {
+			console.error('Failed to load Leaflet', e);
+			return;
+		}
 		// Defer to ensure the element is laid out
 		requestAnimationFrame(() => ensureMap());
 	});
@@ -70,7 +70,7 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 		return () => obs.disconnect();
 	});
 
-// Do not auto-load Instagram embeds to respect content blockers; load on user action
+	// Do not auto-load Instagram embeds to respect content blockers; load on user action
 
 	function pickNames(all, ids) {
 		const set = new Set(ids || []);
@@ -159,19 +159,19 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 		const g = data.group || {};
 		const website = g.website_url ? [{ key: 'website', href: g.website_url }] : [];
 		// Socials first
-        const socialIcons = {
-            instagram: IconInstagram,
-            facebook: IconFacebook,
-            x: BrandX,
-            youtube: IconYoutube,
-            linkedin: IconLinkedin,
-            threads: BrandThreads,
-            mastodon: BrandMastodon,
-            tiktok: BrandTikTok,
-            strava: BrandStrava,
-            bluesky: BrandBluesky,
-            discord: BrandDiscord
-        };
+		const socialIcons = {
+			instagram: IconInstagram,
+			facebook: IconFacebook,
+			x: BrandX,
+			youtube: IconYoutube,
+			linkedin: IconLinkedin,
+			threads: BrandThreads,
+			mastodon: BrandMastodon,
+			tiktok: BrandTikTok,
+			strava: BrandStrava,
+			bluesky: BrandBluesky,
+			discord: BrandDiscord
+		};
 		const socialsList = socials.map((s) => ({
 			key: s.k,
 			href: s.v,
@@ -229,63 +229,63 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 			const ig = contactLinks.find((c) => c.key === 'instagram');
 			if (ig) return { ...ig, label: 'Instagram' };
 		}
-        if (kind === 'strava') {
-            const st = contactLinks.find((c) => c.key === 'strava');
-            if (st) return { ...st, label: 'Strava' };
-        }
-        if (kind === 'x') {
-            const xx = contactLinks.find((c) => c.key === 'x');
-            if (xx) return { ...xx, label: 'X' };
-        }
-        if (kind === 'tiktok') {
-            const tt = contactLinks.find((c) => c.key === 'tiktok');
-            if (tt) return { ...tt, label: 'TikTok' };
-        }
-        if (kind === 'mastodon') {
-            const md = contactLinks.find((c) => c.key === 'mastodon');
-            if (md) return { ...md, label: 'Mastodon' };
-        }
-        if (kind === 'discord') {
-            const dc = contactLinks.find((c) => c.key === 'discord');
-            if (dc) return { ...dc, label: 'Discord' };
-        }
+		if (kind === 'strava') {
+			const st = contactLinks.find((c) => c.key === 'strava');
+			if (st) return { ...st, label: 'Strava' };
+		}
+		if (kind === 'x') {
+			const xx = contactLinks.find((c) => c.key === 'x');
+			if (xx) return { ...xx, label: 'X' };
+		}
+		if (kind === 'tiktok') {
+			const tt = contactLinks.find((c) => c.key === 'tiktok');
+			if (tt) return { ...tt, label: 'TikTok' };
+		}
+		if (kind === 'mastodon') {
+			const md = contactLinks.find((c) => c.key === 'mastodon');
+			if (md) return { ...md, label: 'Mastodon' };
+		}
+		if (kind === 'discord') {
+			const dc = contactLinks.find((c) => c.key === 'discord');
+			if (dc) return { ...dc, label: 'Discord' };
+		}
 		// Fallback auto logic
-        const website = contactLinks.find((c) => c.key === 'website');
-        if (website) return { ...website, label: 'Website' };
-        const email = contactLinks.find((c) => c.key === 'email');
-        if (email) return { ...email, label: 'Email' };
-        const phone = contactLinks.find((c) => c.key === 'phone');
-        if (phone) return { ...phone, label: 'Call' };
-        const fb = contactLinks.find((c) => c.key === 'facebook');
-        if (fb) return { ...fb, label: 'Facebook' };
-        const ig = contactLinks.find((c) => c.key === 'instagram');
-        if (ig) return { ...ig, label: 'Instagram' };
-        const st = contactLinks.find((c) => c.key === 'strava');
-        if (st) return { ...st, label: 'Strava' };
-        const xx = contactLinks.find((c) => c.key === 'x');
-        if (xx) return { ...xx, label: 'X' };
-        const tt = contactLinks.find((c) => c.key === 'tiktok');
-        if (tt) return { ...tt, label: 'TikTok' };
-        const md = contactLinks.find((c) => c.key === 'mastodon');
-        if (md) return { ...md, label: 'Mastodon' };
-        const dc = contactLinks.find((c) => c.key === 'discord');
-        if (dc) return { ...dc, label: 'Discord' };
+		const website = contactLinks.find((c) => c.key === 'website');
+		if (website) return { ...website, label: 'Website' };
+		const email = contactLinks.find((c) => c.key === 'email');
+		if (email) return { ...email, label: 'Email' };
+		const phone = contactLinks.find((c) => c.key === 'phone');
+		if (phone) return { ...phone, label: 'Call' };
+		const fb = contactLinks.find((c) => c.key === 'facebook');
+		if (fb) return { ...fb, label: 'Facebook' };
+		const ig = contactLinks.find((c) => c.key === 'instagram');
+		if (ig) return { ...ig, label: 'Instagram' };
+		const st = contactLinks.find((c) => c.key === 'strava');
+		if (st) return { ...st, label: 'Strava' };
+		const xx = contactLinks.find((c) => c.key === 'x');
+		if (xx) return { ...xx, label: 'X' };
+		const tt = contactLinks.find((c) => c.key === 'tiktok');
+		if (tt) return { ...tt, label: 'TikTok' };
+		const md = contactLinks.find((c) => c.key === 'mastodon');
+		if (md) return { ...md, label: 'Mastodon' };
+		const dc = contactLinks.find((c) => c.key === 'discord');
+		if (dc) return { ...dc, label: 'Discord' };
 		const first = contactLinks[0];
 		if (first) return { ...first, label: 'Open Link' };
 		return null;
 	})();
 
 	const ctaIcons = {
-        website: IconGlobe,
-        email: IconMail,
-        phone: IconPhone,
-        facebook: IconFacebook,
-        instagram: IconInstagram,
-        strava: BrandStrava,
-        x: BrandX,
-        tiktok: BrandTikTok,
-        mastodon: BrandMastodon,
-        discord: BrandDiscord
+		website: IconGlobe,
+		email: IconMail,
+		phone: IconPhone,
+		facebook: IconFacebook,
+		instagram: IconInstagram,
+		strava: BrandStrava,
+		x: BrandX,
+		tiktok: BrandTikTok,
+		mastodon: BrandMastodon,
+		discord: BrandDiscord
 	};
 
 	// Icon map for quick rendering of contactLinks in the header rail
@@ -345,7 +345,7 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 								{#if data.group?.city}{data.group.city},&nbsp;
 								{/if}{data.group?.state_region} · {data.group?.country}
 							</p>
-							{#if data.is_owner}
+							{#if data.can_edit}
 								<a
 									href={`/groups/${data.group.slug}/edit`}
 									class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
@@ -361,10 +361,10 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 										: 'noopener noreferrer'}
 									class="chip preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
 								>
-                                    {#if primaryCta.key !== 'custom'}
-                                        {@const IconComp = ctaIcons[primaryCta.key] || IconLink}
-                                        <IconComp class="h-4 w-4" />
-                                    {/if}
+									{#if primaryCta.key !== 'custom'}
+										{@const IconComp = ctaIcons[primaryCta.key] || IconLink}
+										<IconComp class="h-4 w-4" />
+									{/if}
 									<span>{primaryCta.label}</span>
 								</a>
 							{/if}
@@ -384,7 +384,7 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 					<div class="min-w-0">
 						<h1 class="truncate !text-left text-2xl font-bold text-white">{data.group?.name}</h1>
 						{#if data.group?.tagline}
-							<p class="text-sm text-white/90">{data.group.tagline}</p>
+							<p class="text-white/90">{data.group.tagline}</p>
 						{/if}
 						<p class="text-sm text-white/80">
 							{#if data.group?.city}{data.group.city},
@@ -392,7 +392,7 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 							{data.group?.state_region} · {data.group?.country}
 						</p>
 					</div>
-					{#if data.is_owner}
+					{#if data.can_edit}
 						<a
 							href={`/groups/${data.group.slug}/edit`}
 							class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
@@ -406,10 +406,10 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 								: 'noopener noreferrer'}
 							class="btn preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
 						>
-                            {#if primaryCta.key !== 'custom'}
-                                {@const IconComp2 = ctaIcons[primaryCta.key] || IconLink}
-                                <IconComp2 class="h-5 w-5" />
-                            {/if}
+							{#if primaryCta.key !== 'custom'}
+								{@const IconComp2 = ctaIcons[primaryCta.key] || IconLink}
+								<IconComp2 class="h-5 w-5" />
+							{/if}
 							<span>{primaryCta.label}</span>
 						</a>
 					{/if}
@@ -530,10 +530,10 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 							: 'noopener noreferrer'}
 						class="chip preset-filled-primary-500 flex items-center gap-2"
 					>
-                        {#if primaryCta.key !== 'custom'}
-                            {@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
-                            <IconComp3 class="h-4 w-4" />
-                        {/if}
+						{#if primaryCta.key !== 'custom'}
+							{@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
+							<IconComp3 class="h-4 w-4" />
+						{/if}
 						<span>{primaryCta.label}</span>
 					</a>
 				{/if}
@@ -567,7 +567,11 @@ import BrandStrava from '$lib/icons/BrandStrava.svelte';
 									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
 									class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
 								>
-									<svelte:component this={contactIconByKey[c.key] || IconLink} class="h-5 w-5" className="h-5 w-5" />
+									<svelte:component
+										this={contactIconByKey[c.key] || IconLink}
+										class="h-5 w-5"
+										className="h-5 w-5"
+									/>
 								</a>
 							{/each}
 						</div>
