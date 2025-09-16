@@ -264,25 +264,10 @@
         </aside>
 
         <!-- Content -->
-        <main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-4 pb-20 md:pb-4">
+        <main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-4 pb-4">
             {@render children()}
         </main>
     </div>
-
-    <!-- Bottom Bar (mobile) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40">
-        <Navigation.Bar background="bg-surface-900/95 backdrop-blur" classes="text-white border-t border-surface-700">
-            <Navigation.Tile label="Home" href="/" selected={$page.url.pathname === '/'}>
-                <IconHome />
-            </Navigation.Tile>
-            <Navigation.Tile label="Groups" href="/groups" selected={$page.url.pathname.startsWith('/groups')}>
-                <IconUsers />
-            </Navigation.Tile>
-            <Navigation.Tile label="Road ID" href="/roadid" selected={$page.url.pathname.startsWith('/roadid')}>
-                <IconIdCard />
-            </Navigation.Tile>
-        </Navigation.Bar>
-    </nav>
 
     <!-- Mobile dropdown menu (AppBar hamburger) -->
     {#if showMobileMenu}
