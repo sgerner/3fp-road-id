@@ -257,7 +257,6 @@ Context name (if provided by user): ${name || ''}`;
 			model: 'gemini-2.5-flash',
 			contents,
 			config: {
-				responseMimeType: 'application/json',
 				responseSchema: RESPONSE_SCHEMA,
 				tools: [
 					{
