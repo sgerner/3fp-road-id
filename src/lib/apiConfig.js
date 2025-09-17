@@ -12,7 +12,15 @@ export const ALLOWED_API_TABLES = [
 	'group_announcements',
 	'group_resources',
 	'group_faqs',
-	'group_volunteer_ops'
+	'group_volunteer_ops',
+	'volunteer_events',
+	'volunteer_opportunities',
+	'volunteer_opportunity_shifts',
+	'volunteer_signups',
+	'volunteer_signup_shifts',
+	'volunteer_custom_questions',
+	'volunteer_signup_responses',
+	'volunteer_event_emails'
 ];
 
 // Define primary key columns for tables if not 'id' or if composite,
@@ -23,5 +31,13 @@ export const TABLE_PRIMARY_KEYS = {
 	group_events: 'id',
 	// For join tables with composite keys, DELETE/PUT might need .match() with body/query params
 	group_x_group_types: ['group_id', 'group_type_id'],
-	group_members: ['group_id', 'user_id', 'role']
+	group_members: ['group_id', 'user_id', 'role'],
+	volunteer_events: 'id',
+	volunteer_opportunities: 'id',
+	volunteer_opportunity_shifts: 'id',
+	volunteer_signups: 'id',
+	volunteer_signup_shifts: 'id',
+	volunteer_custom_questions: 'id',
+	volunteer_signup_responses: 'id',
+	volunteer_event_emails: 'id'
 };

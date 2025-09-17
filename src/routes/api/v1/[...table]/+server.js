@@ -28,6 +28,9 @@ export async function GET(event) {
 	const urlTableNameKebab = pathParts[0];
 	const tableName = kebabToSnake(urlTableNameKebab); // Convert kebab-case from URL to snake_case for DB
 	const recordId = pathParts[1];
+	const selectColumns = url.searchParams.get('select') || '*';
+	const countOption = url.searchParams.get('count');
+	const singleParam = url.searchParams.get('single');
 
 	if (!ALLOWED_API_TABLES.includes(tableName)) {
 		return json(
@@ -36,25 +39,28 @@ export async function GET(event) {
 		);
 	}
 
-	let query = sbInstance.from(tableName);
-
+	let query = sbInstance
+		.from(tableName)
+		.select(selectColumns, countOption ? { count: countOption } : undefined);
 	if (recordId) {
 		const primaryKeyColumn =
 			TABLE_PRIMARY_KEYS[tableName]?.[0] || TABLE_PRIMARY_KEYS[tableName] || 'id';
-		query = query
-			.select(url.searchParams.get('select') || '*')
-			.eq(primaryKeyColumn, recordId)
-			.maybeSingle();
-	} else {
-		query = query.select(url.searchParams.get('select') || '*');
+		query = query.eq(primaryKeyColumn, recordId);
 
+		if (singleParam === 'true') {
+			query = query.single();
+		} else {
+			query = query.maybeSingle();
+		}
+	} else {
 		for (const [key, value] of url.searchParams) {
 			if (
 				key === 'select' ||
 				key === 'order' ||
 				key === 'limit' ||
 				key === 'offset' ||
-				key === 'single'
+				key === 'single' ||
+				key === 'count'
 			)
 				continue;
 
@@ -79,7 +85,46 @@ export async function GET(event) {
 				query = query.eq(columnName, value);
 			}
 		}
-		// ... (rest of GET method: order, pagination, single remains the same)
+
+		const orderParams = url.searchParams.getAll('order');
+		for (const clause of orderParams) {
+			if (!clause) continue;
+			const [column, ...modifiers] = clause.split('.');
+			if (!column) continue;
+			let ascending = true;
+			let nullsFirst;
+			let nullsLast;
+			for (const modifier of modifiers) {
+				if (modifier === 'desc') ascending = false;
+				if (modifier === 'asc') ascending = true;
+				if (modifier === 'nullsfirst') nullsFirst = true;
+				if (modifier === 'nullslast') nullsLast = true;
+			}
+			query = query.order(column, {
+				ascending,
+				nullsFirst,
+				nullsLast
+			});
+		}
+
+		const limitParam = url.searchParams.get('limit');
+		const offsetParam = url.searchParams.get('offset');
+		const limitValue = limitParam ? parseInt(limitParam, 10) : undefined;
+		const offsetValue = offsetParam ? parseInt(offsetParam, 10) : undefined;
+		if (typeof limitValue === 'number' && !Number.isNaN(limitValue)) {
+			const safeLimit = Math.max(limitValue, 0);
+			const safeOffset =
+				typeof offsetValue === 'number' && !Number.isNaN(offsetValue) ? Math.max(offsetValue, 0) : 0;
+			if (safeLimit > 0) {
+				query = query.range(safeOffset, safeOffset + safeLimit - 1);
+			}
+		}
+
+		if (singleParam === 'true') {
+			query = query.single();
+		} else if (singleParam === 'maybe') {
+			query = query.maybeSingle();
+		}
 	}
 
 	const { data, error, count } = await query;
