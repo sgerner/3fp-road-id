@@ -34,60 +34,90 @@ p {
 }
 
 /* Animated multicolor border for AI panel: sweeping tracer + soft glow */
-.ai-panel { position: relative; border-radius: 0.75rem; }
+.ai-panel {
+	position: relative;
+	border-radius: 0.75rem;
+}
 
 /* Define an animatable custom property for the sweep angle */
 @property --ai-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
+	syntax: '<angle>';
+	inherits: false;
+	initial-value: 0deg;
 }
 
 /* Border tracer moving around the perimeter */
 .ai-panel::before {
-  content: '';
-  position: absolute;
-  inset: -2px; /* extend slightly to avoid clipping */
-  padding: 2px;
-  border-radius: inherit;
-  /* Narrow multicolor segment, rest transparent, masked to border ring */
-  background: conic-gradient(
-    from var(--ai-angle),
-    rgba(0,0,0,0) 0turn,
-    rgba(0,0,0,0) 0.82turn,
-    #ff6b6b 0.82turn,
-    #f7b801 0.85turn,
-    #6bff95 0.88turn,
-    #4dabf7 0.91turn,
-    #b76bff 0.94turn,
-    rgba(0,0,0,0) 0.97turn,
-    rgba(0,0,0,0) 1turn
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 150ms linear;
+	content: '';
+	position: absolute;
+	inset: -2px; /* extend slightly to avoid clipping */
+	padding: 2px;
+	border-radius: inherit;
+	/* Narrow multicolor segment, rest transparent, masked to border ring */
+	background: conic-gradient(
+		from var(--ai-angle),
+		rgba(0, 0, 0, 0) 0turn,
+		rgba(0, 0, 0, 0) 0.82turn,
+		#ff6b6b 0.82turn,
+		#f7b801 0.85turn,
+		#6bff95 0.88turn,
+		#4dabf7 0.91turn,
+		#b76bff 0.94turn,
+		rgba(0, 0, 0, 0) 0.97turn,
+		rgba(0, 0, 0, 0) 1turn
+	);
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 150ms linear;
 }
 
 /* Soft outer glow that gently pulses */
 .ai-panel::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from calc(var(--ai-angle) + 10deg),
-    #ff6b6b, #f7b801, #6bff95, #4dabf7, #b76bff, #ff6b6b
-  );
-  filter: blur(12px);
-  opacity: 0;
-  pointer-events: none;
+	content: '';
+	position: absolute;
+	inset: -6px;
+	border-radius: inherit;
+	background: conic-gradient(
+		from calc(var(--ai-angle) + 10deg),
+		#ff6b6b,
+		#f7b801,
+		#6bff95,
+		#4dabf7,
+		#b76bff,
+		#ff6b6b
+	);
+	filter: blur(12px);
+	opacity: 0;
+	pointer-events: none;
 }
 
-.ai-panel.is-loading::before { opacity: 1; animation: ai-sweep 2.4s linear infinite; }
-.ai-panel.is-loading::after { opacity: 0.28; animation: ai-sweep 2.4s linear infinite, ai-pulse 2.2s ease-in-out infinite; }
+.ai-panel.is-loading::before {
+	opacity: 1;
+	animation: ai-sweep 2.4s linear infinite;
+}
+.ai-panel.is-loading::after {
+	opacity: 0.28;
+	animation:
+		ai-sweep 2.4s linear infinite,
+		ai-pulse 2.2s ease-in-out infinite;
+}
 
-@keyframes ai-sweep { to { --ai-angle: 360deg; } }
-@keyframes ai-pulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.38; } }
+@keyframes ai-sweep {
+	to {
+		--ai-angle: 360deg;
+	}
+}
+@keyframes ai-pulse {
+	0%,
+	100% {
+		opacity: 0.22;
+	}
+	50% {
+		opacity: 0.38;
+	}
+}
