@@ -1658,6 +1658,7 @@
 						{showAdvancedCommunications}
 						{customQuestions}
 						{eventEmails}
+						{eventDetails}
 						{opportunities}
 						{fieldTypeOptions}
 						{emailTypeOptions}

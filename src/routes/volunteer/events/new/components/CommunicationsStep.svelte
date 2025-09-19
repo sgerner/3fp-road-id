@@ -8,7 +8,8 @@
 
 	export let showAdvancedCommunications = false;
 	export let customQuestions = [];
-	export let eventEmails = [];
+export let eventEmails = [];
+export let eventDetails = {};
 	export let opportunities = [];
 	export let fieldTypeOptions = [];
 	export let emailTypeOptions = [];
@@ -69,6 +70,91 @@
 	function removeOption(question, value) {
 		const next = parseOptions(question.optionsRaw).filter((option) => option !== value);
 		onUpdateQuestion(question.id, { optionsRaw: next.join('\n') });
+	}
+
+	function parseLocalDateTime(value) {
+		if (!value) return null;
+		const [datePart, timePart = '00:00'] = String(value).split('T');
+		if (!datePart) return null;
+		const [year, month, day] = datePart.split('-').map(Number);
+		if (!year || !month || !day) return null;
+		const [hour = 0, minute = 0] = timePart.split(':').map(Number);
+		return new Date(Date.UTC(year, month - 1, day, hour, minute));
+	}
+
+	function formatDateTime(value, timezone, { dateStyle = 'medium', timeStyle = 'short' } = {}) {
+		const date = parseLocalDateTime(value);
+		if (!date) return 'TBD';
+		try {
+			const options = { timeZone: timezone || eventDetails?.timezone || undefined };
+			if (dateStyle && dateStyle !== 'none') options.dateStyle = dateStyle;
+			if (timeStyle && timeStyle !== 'none') options.timeStyle = timeStyle;
+			if (!options.dateStyle && !options.timeStyle) options.timeStyle = 'short';
+			const formatter = new Intl.DateTimeFormat(undefined, options);
+			return formatter.format(date);
+		} catch {
+			return value || 'TBD';
+		}
+	}
+
+	function formatEventDayTime(details) {
+		if (!details) return 'Schedule coming soon';
+		const start = formatDateTime(details.eventStart, details.timezone, {
+			dateStyle: 'medium',
+			timeStyle: 'short'
+		});
+		const endDate = parseLocalDateTime(details.eventEnd);
+		const startDate = parseLocalDateTime(details.eventStart);
+		const end = endDate
+			? formatDateTime(details.eventEnd, details.timezone, {
+				dateStyle:
+					startDate && endDate && startDate.toDateString() === endDate.toDateString()
+						? undefined
+						: 'medium',
+				timeStyle: 'short'
+			})
+			: null;
+		const tzLabel = details.timezone ? ` (${details.timezone})` : '';
+		if (end && end !== 'TBD') {
+			const sameDay =
+				startDate && endDate && startDate.toDateString() === endDate.toDateString();
+			const endLabel = sameDay
+				? formatDateTime(details.eventEnd, details.timezone, {
+					dateStyle: undefined,
+					timeStyle: 'short'
+				})
+				: end;
+			return `${start} → ${endLabel}${tzLabel}`;
+		}
+		return `${start}${tzLabel}`;
+	}
+
+	function escapeRegExp(value) {
+		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
+
+	function resolveActivityTitle() {
+		const firstNamed = opportunities?.find((opp) => opp?.title?.trim());
+		return firstNamed?.title?.trim() || 'Volunteer activity';
+	}
+
+	function buildMergePreview(template) {
+		const replacements = {
+			'{{volunteer_name}}': 'Jordan Volunteer',
+			'{{event_title}}': eventDetails?.title?.trim() || 'Your volunteer event',
+			'{{event_day_time}}': formatEventDayTime(eventDetails) || 'Schedule coming soon',
+			'{{event_location}}':
+				eventDetails?.locationName?.trim() ||
+				eventDetails?.locationAddress?.trim() ||
+				'Location to be announced',
+			'{{event_start}}': formatDateTime(eventDetails?.eventStart, eventDetails?.timezone),
+			'{{activity_title}}': resolveActivityTitle()
+		};
+		let output = template ?? '';
+		for (const [token, value] of Object.entries(replacements)) {
+			output = output.replace(new RegExp(escapeRegExp(token), 'g'), value);
+		}
+		return output.trim() ? output : '';
 	}
 </script>
 
@@ -397,25 +483,39 @@
 								</label>
 							</div>
 
-							<label class="label flex flex-col gap-2">
-								<span>Subject *</span>
-								<input
-									class="input bg-surface-900/60"
-									value={email.subject}
-									oninput={(e) => onUpdateEmail(email.id, { subject: e.currentTarget.value })}
-									placeholder="Reminder: Your volunteer shift starts in 48 hours"
-								/>
-							</label>
+						<label class="label flex flex-col gap-2">
+							<span>Subject *</span>
+							<input
+								class="input bg-surface-900/60"
+								value={email.subject}
+								oninput={(e) => onUpdateEmail(email.id, { subject: e.currentTarget.value })}
+								placeholder="Reminder: Your volunteer shift starts in 48 hours"
+							/>
+							<div class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs">
+								<strong class="block text-[11px] uppercase tracking-wide text-surface-400">Subject preview</strong>
+								<p class="mt-1 whitespace-pre-wrap break-words text-surface-200">
+									{buildMergePreview(email.subject) ||
+										'Merge tags such as {{volunteer_name}} will render here exactly as written.'}
+								</p>
+							</div>
+						</label>
 
-							<label class="label flex flex-col gap-2">
-								<span>Body *</span>
-								<textarea
-									class="textarea bg-surface-900/60 min-h-32"
-									value={email.body}
-									oninput={(e) => onUpdateEmail(email.id, { body: e.currentTarget.value })}
-									placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
-								></textarea>
-							</label>
+						<label class="label flex flex-col gap-2">
+							<span>Body *</span>
+							<textarea
+								class="textarea bg-surface-900/60 min-h-32"
+								value={email.body}
+								oninput={(e) => onUpdateEmail(email.id, { body: e.currentTarget.value })}
+								placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
+							></textarea>
+							<div class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-3 text-xs">
+								<strong class="block text-[11px] uppercase tracking-wide text-surface-400">Body preview</strong>
+								<p class="mt-2 whitespace-pre-wrap break-words text-surface-200">
+									{buildMergePreview(email.body) ||
+										'Use merge tags like {{event_day_time}} and {{activity_title}}. They appear exactly where you place them.'}
+								</p>
+							</div>
+						</label>
 						</div>
 					{/each}
 
