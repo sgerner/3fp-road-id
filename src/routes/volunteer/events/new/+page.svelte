@@ -1,11 +1,9 @@
-
 <script>
 	import { onMount, tick } from 'svelte';
-	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { Avatar, Progress } from '@skeletonlabs/skeleton-svelte';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconSend from '@lucide/svelte/icons/send';
-	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -74,6 +72,25 @@
 		'email',
 		'url'
 	];
+	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
+	const emailMergeTags = [
+		'{{volunteer_name}}',
+		'{{event_title}}',
+		'{{event_day_time}}',
+		'{{event_location}}',
+		'{{event_start}}',
+		'{{activity_title}}'
+	];
+
+	function readValue(source, keys = []) {
+		if (!source) return undefined;
+		for (const key of keys) {
+			if (key in source && source[key] !== undefined) {
+				return source[key];
+			}
+		}
+		return undefined;
+	}
 
 	const steps = [
 		{
@@ -104,6 +121,7 @@
 	];
 
 	const hostGroups = data?.hostGroups ?? [];
+	const ownerGroupIds = data?.ownerGroupIds ?? [];
 	const eventTypes = data?.eventTypes ?? [];
 
 	const eventTypeOptions = eventTypes.map((item) => ({
@@ -117,7 +135,14 @@
 		.sort((a, b) => a.label.localeCompare(b.label));
 
 	const initialTimezone = FALLBACK_TIMEZONES[0];
-	const currentUser = $derived(page.data?.user ?? null);
+	const currentUser = $derived(data?.currentUser ?? null);
+	const loginReturnTo = $derived(() => data?.returnTo ?? '/volunteer/events/new');
+	const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	let loginEmail = $state('');
+	let loginLoading = $state(false);
+	let loginError = $state('');
+	let loginSuccess = $state('');
+	const loginEmailValid = $derived(emailPattern.test((loginEmail || '').trim()));
 
 	function sanitizeEventTypeSlug(value) {
 		if (!eventTypeOptions.length) return value || '';
@@ -132,6 +157,61 @@
 			if (labelMatch) return labelMatch.value;
 		}
 		return eventTypeOptions[0]?.value ?? value ?? '';
+	}
+
+	function sanitizeOpportunityType(value) {
+		if (!opportunityTypeOptions.length) return value || 'other';
+		if (value && opportunityTypeOptions.some((option) => option.value === value)) {
+			return value;
+		}
+		if (value) {
+			const normalized = slugify(value);
+			const directMatch = opportunityTypeOptions.find((option) => option.value === normalized);
+			if (directMatch) return directMatch.value;
+			const labelMatch = opportunityTypeOptions.find(
+				(option) => slugify(option.label) === normalized
+			);
+			if (labelMatch) return labelMatch.value;
+		}
+		return 'other';
+	}
+
+	async function requestLoginLink(eventObj) {
+		eventObj?.preventDefault?.();
+		loginError = '';
+		loginSuccess = '';
+		const email = (loginEmail || '').trim();
+		if (!loginEmailValid) {
+			loginError = 'Enter a valid email address to continue.';
+			return;
+		}
+		loginLoading = true;
+		try {
+			const fallbackReturnTo =
+				typeof window !== 'undefined'
+					? window.location.pathname + window.location.search + window.location.hash
+					: '/volunteer/events/new';
+			const targetReturnTo =
+				loginReturnTo && loginReturnTo.startsWith('/') ? loginReturnTo : fallbackReturnTo;
+			const res = await fetch('/api/v1/auth/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email,
+					createProfile: true,
+					returnTo: targetReturnTo
+				})
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error || 'Unable to send magic link.');
+			}
+			loginSuccess = `Check ${email} for your login link.`;
+		} catch (err) {
+			loginError = err?.message || 'Something went wrong.';
+		} finally {
+			loginLoading = false;
+		}
 	}
 
 	let timezoneOptions = $state(FALLBACK_TIMEZONES);
@@ -176,6 +256,7 @@
 			normalizedPatch.eventTypeSlug = sanitizeEventTypeSlug(normalizedPatch.eventTypeSlug);
 		}
 		const prevDefaults = { ...lastEventDefaults };
+		const prevEventDetails = eventDetails;
 		const next = { ...eventDetails, ...normalizedPatch };
 		eventDetails = next;
 		lastEventDefaults = {
@@ -192,15 +273,19 @@
 			propagateShiftDefaults(prevDefaults);
 		}
 
+		if ('eventStart' in normalizedPatch || 'eventEnd' in normalizedPatch) {
+			propagateShiftTimes(prevEventDetails, next);
+		}
+
 		if (options.slugSource === null) return;
 		if (options.slugSource) {
 			const preferred =
 				typeof options.slugSource === 'string'
 					? options.slugSource
-					: options.slugSource.preferred ?? options.slugSource.slug ?? options.slugSource.title;
+					: (options.slugSource.preferred ?? options.slugSource.slug ?? options.slugSource.title);
 			const fallback =
 				typeof options.slugSource === 'object'
-					? options.slugSource.fallback ?? options.slugSource.title ?? next.title
+					? (options.slugSource.fallback ?? options.slugSource.title ?? next.title)
 					: next.title;
 			scheduleSlugRefresh(preferred, fallback);
 			return;
@@ -239,31 +324,33 @@
 		);
 	}
 
-
 	function createOpportunity(partial = {}) {
-		return {
+		const defaultType = opportunityTypeOptions[0]?.value ?? 'coordination';
+		const base = {
 			id: crypto.randomUUID(),
 			title: '',
 			description: '',
-			opportunityType: 'coordination',
+			opportunityType: sanitizeOpportunityType(defaultType),
 			requiresApproval: false,
 			autoConfirmAttendance: true,
 			minVolunteers: 0,
 			maxVolunteers: '',
 			waitlistLimit: '',
 			locationName: eventDetails.locationName || '',
-			locationNotes: '',
+			locationNotes: eventDetails.locationAddress || '',
 			tags: [],
-			shifts: [createShift()],
-			...partial
+			shifts: [createShift()]
 		};
+		const result = { ...base, ...partial };
+		result.opportunityType = sanitizeOpportunityType(result.opportunityType);
+		return result;
 	}
 
 	function createShift(partial = {}) {
 		return {
 			id: crypto.randomUUID(),
-			startsAt: '',
-			endsAt: '',
+			startsAt: eventDetails.eventStart || '',
+			endsAt: eventDetails.eventEnd || '',
 			timezone: eventDetails.timezone || '',
 			capacity: '',
 			locationName: eventDetails.locationName || '',
@@ -324,6 +411,44 @@
 
 		if (hasChanges) {
 			opportunities = nextOpportunities;
+		}
+	}
+
+	function propagateShiftTimes(previous = {}, next = {}) {
+		const prevStart = previous.eventStart;
+		const prevEnd = previous.eventEnd;
+		const nextStart = next.eventStart;
+		const nextEnd = next.eventEnd;
+		if (!nextStart && !nextEnd) return;
+
+		let updated = false;
+		const alignedOpportunities = opportunities.map((opportunity) => {
+			let shiftsChanged = false;
+			const nextShifts = opportunity.shifts.map((shift) => {
+				const candidate = { ...shift };
+				if (nextStart && (!shift.startsAt || shift.startsAt === prevStart)) {
+					candidate.startsAt = nextStart;
+				}
+				if (nextEnd && (!shift.endsAt || shift.endsAt === prevEnd)) {
+					candidate.endsAt = nextEnd;
+				}
+
+				if (candidate.startsAt !== shift.startsAt || candidate.endsAt !== shift.endsAt) {
+					shiftsChanged = true;
+					return candidate;
+				}
+				return shift;
+			});
+
+			if (shiftsChanged) {
+				updated = true;
+				return { ...opportunity, shifts: nextShifts };
+			}
+			return opportunity;
+		});
+
+		if (updated) {
+			opportunities = alignedOpportunities;
 		}
 	}
 
@@ -408,6 +533,7 @@
 			fieldType: 'text',
 			isRequired: false,
 			optionsRaw: '',
+			optionDraft: '',
 			opportunityId: '',
 			...partial
 		};
@@ -422,6 +548,10 @@
 			body: '',
 			requireConfirmation: false,
 			surveyUrl: '',
+			aiPrompt: '',
+			aiError: '',
+			aiLoading: false,
+			aiComposerOpen: false,
 			...partial
 		};
 	}
@@ -447,7 +577,7 @@
 		})
 	]);
 	let chatPrompt = $state('');
-	let chatContainer;
+	let chatContainer = $state(null);
 	let aiLoading = $state(false);
 	let aiError = $state('');
 	let followUpQuestions = $state([]);
@@ -458,25 +588,52 @@
 	let saveError = $state('');
 	let saveSuccess = $state('');
 	let saving = $state(false);
+	let saveIntent = $state('publish');
 
 	onMount(() => {
 		try {
 			if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
 				timezoneOptions = Intl.supportedValuesOf('timeZone');
+				const userZone = (() => {
+					try {
+						return Intl.DateTimeFormat().resolvedOptions()?.timeZone;
+					} catch {
+						return null;
+					}
+				})();
 				if (!timezoneOptions.includes(eventDetails.timezone)) {
-					updateEventDetails({ timezone: timezoneOptions[0] });
+					const fallbackTimezone =
+						userZone && timezoneOptions.includes(userZone) ? userZone : timezoneOptions[0];
+					updateEventDetails({ timezone: fallbackTimezone });
+				} else if (
+					userZone &&
+					timezoneOptions.includes(userZone) &&
+					eventDetails.timezone === initialTimezone
+				) {
+					updateEventDetails({ timezone: userZone });
 				}
 			}
 		} catch {
 			// ignore unsupported browsers
 		}
 
-		if (!eventDetails.hostGroupId && hostGroups.length === 1) {
-			const onlyGroup = hostGroups[0];
-			hostGroupSelection = [onlyGroup.id];
-			updateEventDetails({ hostGroupId: onlyGroup.id });
-		} else if (eventDetails.hostGroupId) {
-			hostGroupSelection = [eventDetails.hostGroupId];
+		const ownedDefault = hostGroups.find((group) => ownerGroupIds.includes(group.id))?.id;
+		let initialHostGroupId = eventDetails.hostGroupId;
+		if (!initialHostGroupId) {
+			if (ownedDefault) {
+				initialHostGroupId = ownedDefault;
+			} else if (hostGroups.length === 1) {
+				initialHostGroupId = hostGroups[0].id;
+			}
+		}
+
+		if (initialHostGroupId) {
+			hostGroupSelection = [initialHostGroupId];
+			if (initialHostGroupId !== eventDetails.hostGroupId) {
+				updateEventDetails({ hostGroupId: initialHostGroupId });
+			}
+		} else {
+			hostGroupSelection = [];
 		}
 
 		filteredHostGroupOptions = hostGroupOptions;
@@ -661,21 +818,32 @@
 	}
 
 	function buildContextSnapshot() {
+		const buildMetadataClone = (source) => {
+			const clone = JSON.parse(JSON.stringify(source));
+			clone.location_notes = clone.locationAddress ?? '';
+			clone.location_address = clone.locationAddress ?? '';
+			return clone;
+		};
+
 		try {
 			return structuredClone({
-				metadata: eventDetails,
+				metadata: buildMetadataClone(eventDetails),
 				opportunities,
 				custom_questions: customQuestions,
 				emails: eventEmails,
-				event_type_options: eventTypeOptions
+				event_type_options: eventTypeOptions,
+				opportunity_type_options: opportunityTypeOptions,
+				email_merge_tags: emailMergeTags
 			});
 		} catch {
 			return {
-				metadata: JSON.parse(JSON.stringify(eventDetails)),
+				metadata: buildMetadataClone(eventDetails),
 				opportunities: JSON.parse(JSON.stringify(opportunities)),
 				custom_questions: JSON.parse(JSON.stringify(customQuestions)),
 				emails: JSON.parse(JSON.stringify(eventEmails)),
-				event_type_options: JSON.parse(JSON.stringify(eventTypeOptions))
+				event_type_options: JSON.parse(JSON.stringify(eventTypeOptions)),
+				opportunity_type_options: JSON.parse(JSON.stringify(opportunityTypeOptions)),
+				email_merge_tags: JSON.parse(JSON.stringify(emailMergeTags))
 			};
 		}
 	}
@@ -695,13 +863,15 @@
 			const res = await fetch('/api/ai/volunteer-event-writer', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						messages: buildConversationPayload([...chatMessages]),
-						context: buildContextSnapshot(),
-						event_type_options: eventTypeOptions,
-						goal: 'Help the host configure a volunteer event with metadata, opportunities, shifts, and communications'
-					})
-				});
+				body: JSON.stringify({
+					messages: buildConversationPayload([...chatMessages]),
+					context: buildContextSnapshot(),
+					event_type_options: eventTypeOptions,
+					opportunity_type_options: opportunityTypeOptions,
+					email_merge_tags: emailMergeTags,
+					goal: 'Help the host configure a volunteer event with metadata, opportunities, shifts, and communications'
+				})
+			});
 
 			if (!res.ok) {
 				const info = await res.json().catch(() => ({}));
@@ -731,6 +901,71 @@
 		}
 	}
 
+	async function composeEmailWithAi(emailId) {
+		const target = eventEmails.find((email) => email.id === emailId);
+		if (!target) return;
+		const prompt = target.aiPrompt?.trim();
+		if (!prompt) return;
+
+		updateEmailTemplate(emailId, { aiLoading: true, aiError: '' });
+
+		try {
+			const res = await fetch('/api/ai/volunteer-event-writer', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					messages: [
+						{
+							role: 'user',
+							content: `Compose a ${target.emailType} volunteer email. ${prompt}`
+						}
+					],
+					context: buildContextSnapshot(),
+					event_type_options: eventTypeOptions,
+					opportunity_type_options: opportunityTypeOptions,
+					email_merge_tags: emailMergeTags,
+					goal: `Generate subject and body copy for a ${target.emailType} volunteer email template.`,
+					constraints: [
+						'Keep the output focused on an email subject and body.',
+						'Use the provided merge tags for volunteer name, event timing, and location when relevant.',
+						'Aim for clear, encouraging language suitable for community volunteers.'
+					],
+					preferDraft: true
+				})
+			});
+
+			if (!res.ok) {
+				const info = await res.json().catch(() => ({}));
+				throw new Error(info.error || res.statusText || 'AI request failed');
+			}
+
+			const payload = await res.json();
+			const drafts = payload?.draft?.emails;
+			if (Array.isArray(drafts) && drafts.length) {
+				const generated = drafts[0] ?? {};
+				updateEmailTemplate(emailId, {
+					subject: generated.subject || target.subject || '',
+					body: generated.body || target.body || '',
+					aiPrompt: '',
+					aiComposerOpen: false,
+					aiLoading: false,
+					aiError: ''
+				});
+				return;
+			}
+
+			updateEmailTemplate(emailId, {
+				aiError: 'No email content returned. Add more detail and try again.',
+				aiLoading: false
+			});
+		} catch (error) {
+			updateEmailTemplate(emailId, {
+				aiError: error?.message || 'Unable to compose email right now.',
+				aiLoading: false
+			});
+		}
+	}
+
 	function handleChatSubmit(event) {
 		event?.preventDefault();
 		sendPrompt();
@@ -741,27 +976,61 @@
 
 		if (draft.metadata) {
 			const meta = draft.metadata;
+			const metaEventType =
+				readValue(meta, ['event_type_slug', 'eventTypeSlug', 'event_type']) ??
+				eventDetails.eventTypeSlug;
+			const metaEventStart = readValue(meta, ['event_start', 'eventStart']);
+			const metaEventEnd = readValue(meta, ['event_end', 'eventEnd']);
+			const metaMaxVolunteers = readValue(meta, ['max_volunteers', 'maxVolunteers']);
+			const metaSignupApproval = readValue(meta, [
+				'require_signup_approval',
+				'requireSignupApproval'
+			]);
+			const metaWaitlistEnabled = readValue(meta, ['waitlist_enabled', 'waitlistEnabled']);
+			const metaHostGroupId = readValue(meta, ['host_group_id', 'hostGroupId']);
+			const metaLatitude = readValue(meta, ['latitude', 'lat']);
+			const metaLongitude = readValue(meta, ['longitude', 'lng', 'long']);
+			const metaContactEmail = readValue(meta, ['contact_email', 'contactEmail']);
+			const metaContactPhone = readValue(meta, ['contact_phone', 'contactPhone']);
+			const metaLocationName = readValue(meta, [
+				'location_name',
+				'locationName',
+				'location_address',
+				'locationAddress'
+			]);
+			const metaLocationNotes = readValue(meta, ['location_notes', 'locationNotes']);
+			const rawLocationAddress = readValue(meta, ['location_address', 'locationAddress']);
+			const locationNameChanged =
+				metaLocationName != null && metaLocationName !== eventDetails.locationName;
+
 			const eventPatch = {
 				title: meta.title ?? eventDetails.title,
 				summary: meta.summary ?? eventDetails.summary,
 				description: meta.description ?? eventDetails.description,
-				eventTypeSlug: sanitizeEventTypeSlug(meta.event_type_slug ?? eventDetails.eventTypeSlug),
-				eventStart: meta.event_start ? toLocalDatetime(meta.event_start) : eventDetails.eventStart,
-				eventEnd: meta.event_end ? toLocalDatetime(meta.event_end) : eventDetails.eventEnd,
-				timezone: meta.timezone || eventDetails.timezone,
-				locationName: meta.location_name ?? eventDetails.locationName,
-				locationAddress: meta.location_address ?? eventDetails.locationAddress,
-				latitude: meta.latitude ?? eventDetails.latitude,
-				longitude: meta.longitude ?? eventDetails.longitude,
+				eventTypeSlug: sanitizeEventTypeSlug(metaEventType),
+				eventStart: metaEventStart ? toLocalDatetime(metaEventStart) : eventDetails.eventStart,
+				eventEnd: metaEventEnd ? toLocalDatetime(metaEventEnd) : eventDetails.eventEnd,
+				timezone: readValue(meta, ['timezone', 'time_zone', 'timeZone']) || eventDetails.timezone,
+				locationName: metaLocationName ?? eventDetails.locationName,
+				locationAddress:
+					metaLocationNotes != null
+						? metaLocationNotes
+						: rawLocationAddress &&
+							  rawLocationAddress !== (metaLocationName ?? eventDetails.locationName)
+							? rawLocationAddress
+							: eventDetails.locationAddress,
+				latitude:
+					metaLatitude != null ? metaLatitude : locationNameChanged ? '' : eventDetails.latitude,
+				longitude:
+					metaLongitude != null ? metaLongitude : locationNameChanged ? '' : eventDetails.longitude,
 				status: meta.status ?? eventDetails.status,
-				contactEmail: meta.contact_email ?? eventDetails.contactEmail,
-				contactPhone: meta.contact_phone ?? eventDetails.contactPhone,
+				contactEmail: metaContactEmail ?? eventDetails.contactEmail,
+				contactPhone: metaContactPhone ?? eventDetails.contactPhone,
 				maxVolunteers:
-					meta.max_volunteers != null ? `${meta.max_volunteers}` : eventDetails.maxVolunteers,
-				requireSignupApproval:
-					meta.require_signup_approval ?? eventDetails.requireSignupApproval,
-				waitlistEnabled: meta.waitlist_enabled ?? eventDetails.waitlistEnabled,
-				hostGroupId: meta.host_group_id ?? eventDetails.hostGroupId
+					metaMaxVolunteers != null ? `${metaMaxVolunteers}` : eventDetails.maxVolunteers,
+				requireSignupApproval: metaSignupApproval ?? eventDetails.requireSignupApproval,
+				waitlistEnabled: metaWaitlistEnabled ?? eventDetails.waitlistEnabled,
+				hostGroupId: eventDetails.hostGroupId
 			};
 
 			mergeEventDetails(eventPatch, {
@@ -770,27 +1039,31 @@
 					fallback: meta.title ?? eventPatch.title
 				}
 			});
-
-			if ('host_group_id' in meta) {
-				const groupId = meta.host_group_id ?? '';
-				hostGroupSelection = groupId ? [groupId] : [];
-				filteredHostGroupOptions = hostGroupOptions;
-			}
 		}
 
 		if (Array.isArray(draft.opportunities) && draft.opportunities.length) {
 			opportunities = draft.opportunities.map((opp) => {
+				const opportunityTypeValue = sanitizeOpportunityType(
+					readValue(opp, ['opportunity_type', 'opportunityType']) ?? 'other'
+				);
+				const opportunityLocationNotes = readValue(opp, ['location_notes', 'locationNotes']);
 				const next = createOpportunity({
 					title: opp.title ?? '',
 					description: opp.description ?? '',
-					opportunityType: opp.opportunity_type ?? 'other',
-					requiresApproval: opp.requires_approval ?? false,
-					autoConfirmAttendance: opp.auto_confirm_attendance ?? true,
-					minVolunteers: numberOrNull(opp.min_volunteers) ?? 0,
-					maxVolunteers: opp.max_volunteers != null ? `${opp.max_volunteers}` : '',
-					waitlistLimit: opp.waitlist_limit != null ? `${opp.waitlist_limit}` : '',
-					locationName: opp.location_name ?? eventDetails.locationName ?? '',
-					locationNotes: opp.location_notes ?? '',
+					opportunityType: opportunityTypeValue,
+					requiresApproval: opp.requires_approval ?? opp.requiresApproval ?? false,
+					autoConfirmAttendance: opp.auto_confirm_attendance ?? opp.autoConfirmAttendance ?? true,
+					minVolunteers: numberOrNull(readValue(opp, ['min_volunteers', 'minVolunteers'])) ?? 0,
+					maxVolunteers: (() => {
+						const candidate = readValue(opp, ['max_volunteers', 'maxVolunteers']);
+						return candidate != null ? `${candidate}` : '';
+					})(),
+					waitlistLimit: (() => {
+						const candidate = readValue(opp, ['waitlist_limit', 'waitlistLimit']);
+						return candidate != null ? `${candidate}` : '';
+					})(),
+					locationName: opp.location_name ?? opp.locationName ?? eventDetails.locationName ?? '',
+					...(opportunityLocationNotes != null ? { locationNotes: opportunityLocationNotes } : {}),
 					tags: Array.isArray(opp.tags) ? opp.tags.filter(Boolean) : []
 				});
 
@@ -800,17 +1073,22 @@
 
 				next.shifts =
 					Array.isArray(opp.shifts) && opp.shifts.length
-						? opp.shifts.map((shift) =>
-								createShift({
-									startsAt: shift.starts_at ? toLocalDatetime(shift.starts_at) : '',
-									endsAt: shift.ends_at ? toLocalDatetime(shift.ends_at) : '',
+						? opp.shifts.map((shift) => {
+								const startsAt = readValue(shift, ['starts_at', 'startsAt']);
+								const endsAt = readValue(shift, ['ends_at', 'endsAt']);
+								const capacity = readValue(shift, ['capacity']);
+								return createShift({
+									startsAt: startsAt ? toLocalDatetime(startsAt) : '',
+									endsAt: endsAt ? toLocalDatetime(endsAt) : '',
 									timezone: shift.timezone || defaultTimezone || '',
-									capacity: shift.capacity != null ? `${shift.capacity}` : '',
-									locationName: shift.location_name ?? defaultLocationName ?? '',
-									locationAddress: shift.location_address ?? defaultLocationAddress ?? '',
+									capacity: capacity != null ? `${capacity}` : '',
+									locationName:
+										shift.location_name ?? shift.locationName ?? defaultLocationName ?? '',
+									locationAddress:
+										shift.location_address ?? shift.locationAddress ?? defaultLocationAddress ?? '',
 									notes: shift.notes ?? ''
-								})
-							)
+								});
+							})
 						: [createShift()];
 				return next;
 			});
@@ -819,13 +1097,17 @@
 		if (Array.isArray(draft.custom_questions)) {
 			customQuestions = draft.custom_questions.map((q, idx) =>
 				createQuestion({
-					fieldKey: q.field_key || slugify(q.label || `question-${idx + 1}`),
-					label: q.label ?? '',
-					helpText: q.help_text ?? '',
-					fieldType: q.field_type ?? 'text',
-					isRequired: q.is_required ?? false,
-					opportunityId: q.opportunity_id ?? '',
-					optionsRaw: Array.isArray(q.options) ? q.options.join('\n') : ''
+					fieldKey: q.field_key || slugify(q.label || q.question || `question-${idx + 1}`),
+					label: q.label ?? q.question ?? '',
+					helpText: q.help_text ?? q.helpText ?? '',
+					fieldType: q.field_type ?? q.fieldType ?? q.questionType ?? 'text',
+					isRequired: q.is_required ?? q.isRequired ?? false,
+					opportunityId: q.opportunity_id ?? q.opportunityId ?? '',
+					optionsRaw: Array.isArray(q.options)
+						? q.options.join('\n')
+						: Array.isArray(q.choices)
+							? q.choices.join('\n')
+							: ''
 				})
 			);
 		}
@@ -833,12 +1115,12 @@
 		if (Array.isArray(draft.emails)) {
 			eventEmails = draft.emails.map((email) =>
 				createEmailTemplate({
-					emailType: email.email_type ?? 'reminder',
-					sendOffsetMinutes: email.send_offset_minutes != null ? email.send_offset_minutes : 720,
+					emailType: readValue(email, ['email_type', 'emailType']) ?? 'reminder',
+					sendOffsetMinutes: readValue(email, ['send_offset_minutes', 'sendOffsetMinutes']) ?? 720,
 					subject: email.subject ?? '',
 					body: email.body ?? '',
-					requireConfirmation: email.require_confirmation ?? false,
-					surveyUrl: email.survey_url ?? ''
+					requireConfirmation: email.require_confirmation ?? email.requireConfirmation ?? false,
+					surveyUrl: email.survey_url ?? email.surveyUrl ?? ''
 				})
 			);
 		}
@@ -929,7 +1211,19 @@
 	}
 
 	function updateQuestion(id, patch) {
-		customQuestions = customQuestions.map((q) => (q.id === id ? { ...q, ...patch } : q));
+		customQuestions = customQuestions.map((q) => {
+			if (q.id !== id) return q;
+			const next = { ...q, ...patch };
+			if ('fieldKey' in patch) return next;
+			if ('label' in patch) {
+				next.fieldKey = ensureFieldKey(patch.label, q.fieldKey || next.fieldKey || q.id);
+			}
+			if ('fieldType' in patch && !optionFieldTypes.has(patch.fieldType)) {
+				next.optionsRaw = '';
+				next.optionDraft = '';
+			}
+			return next;
+		});
 	}
 
 	function addEmailTemplate() {
@@ -938,7 +1232,15 @@
 
 	function removeEmailTemplate(id) {
 		if (eventEmails.length === 1) {
-			eventEmails = eventEmails.map((email) => ({ ...email, subject: '', body: '' }));
+			eventEmails = eventEmails.map((email) => ({
+				...email,
+				subject: '',
+				body: '',
+				aiPrompt: '',
+				aiError: '',
+				aiComposerOpen: false,
+				aiLoading: false
+			}));
 			return;
 		}
 		eventEmails = eventEmails.filter((email) => email.id !== id);
@@ -970,15 +1272,20 @@
 		return base || `custom-field-${Math.random().toString(36).slice(2, 6)}`;
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(targetStatus = 'published') {
+		if (saving) return;
 		saving = true;
 		saveError = '';
 		saveSuccess = '';
+		const normalizedStatus = targetStatus === 'published' ? 'published' : 'draft';
+		const previousStatus = eventDetails.status;
 
 		try {
 			if (!currentUser?.id) throw new Error('You must be logged in to create an event.');
 			if (!eventDetails.title) throw new Error('Event title is required');
 			if (!eventDetails.eventStart) throw new Error('Event start is required');
+
+			updateEventDetails({ status: normalizedStatus });
 
 			const eventPayload = {
 				title: eventDetails.title,
@@ -995,7 +1302,7 @@
 				latitude: numberOrNull(eventDetails.latitude),
 				longitude: numberOrNull(eventDetails.longitude),
 				max_volunteers: numberOrNull(eventDetails.maxVolunteers),
-				status: eventDetails.status || 'draft',
+				status: normalizedStatus,
 				contact_email: eventDetails.contactEmail || null,
 				contact_phone: eventDetails.contactPhone || null,
 				require_signup_approval: !!eventDetails.requireSignupApproval,
@@ -1083,294 +1390,366 @@
 				await createVolunteerEventEmail(payload);
 			}
 
-			saveSuccess = 'Volunteer event created and ready for host review.';
+			saveSuccess =
+				normalizedStatus === 'published'
+					? 'Volunteer event published and ready for volunteers.'
+					: 'Draft saved. You can publish when you are ready.';
+			if (normalizedStatus === 'published' && createdEvent.slug) {
+				await goto(`/volunteer/events/${encodeURIComponent(createdEvent.slug)}`);
+				return;
+			}
 			activeStep = steps.length - 1;
 		} catch (error) {
+			if (previousStatus !== normalizedStatus) {
+				updateEventDetails({ status: previousStatus });
+			}
 			saveError = error?.message || 'Unable to save event right now.';
 		} finally {
 			saving = false;
 		}
 	}
+
+	const handlePublish = () => {
+		saveIntent = 'publish';
+		return handleSubmit('published');
+	};
+	const handleSaveDraft = () => {
+		saveIntent = 'draft';
+		return handleSubmit('draft');
+	};
 </script>
 
 <svelte:head>
 	<title>Volunteer Event Builder • 3FP</title>
 </svelte:head>
-
-<main class="mx-auto flex max-w-6xl flex-col gap-8 pb-24">
-	<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
-		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-			<div class="space-y-2">
-				<h1 class="text-3xl font-semibold">Volunteer Event Builder</h1>
-				<p class="text-surface-400 max-w-3xl text-sm">
-					Guide your volunteer leads, mechanics, educators, hospitality crew, and outreach teams
-					from idea to launch. Team up with Volunteer Muse up top, then walk through the steps to
-					plan your next community event.
-				</p>
-			</div>
-			<div class="text-surface-400 flex items-center gap-2 text-sm">
-				<IconMessageCircle class="h-5 w-5" />
-				<span>Drafts autosave when you submit</span>
-			</div>
-		</div>
-	</header>
-
-	<section
-		class={`card border-secondary-500/20 bg-surface-950/70 card-hover ai-panel border p-6 ${
-			aiLoading ? 'is-loading' : ''
-		}`}
-		aria-busy={aiLoading}
-	>
-		<div class="flex items-center gap-3">
-			<div class="bg-secondary-500/10 text-secondary-300 rounded-full p-2">
-				<IconSparkles class="h-5 w-5" />
-			</div>
-			<div>
-				<h2 class="text-xl font-semibold">Volunteer Muse — Generative teammate</h2>
-				<p class="text-surface-400 text-sm">
-					Describe your event in plain language. Volunteer Muse will suggest copy, staffing plans,
-					and reminders, and double-check details with quick follow-up questions.
-				</p>
-			</div>
-		</div>
-
-		{#if aiLoading}
-			<div
-				class="border-secondary-500/30 bg-secondary-500/10 mt-4 flex flex-col gap-3 rounded border p-4"
-				role="status"
-				aria-live="polite"
-			>
-				<div class="text-secondary-100 flex items-center gap-2">
-					<IconLoader class="h-4 w-4 animate-spin" />
-					<span>Volunteer Muse is drafting shifts and reminders…</span>
+{#if currentUser?.id}
+	<main class="mx-auto flex max-w-6xl flex-col gap-8 pb-24">
+		<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+			<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+				<div class="space-y-2">
+					<h1 class="!text-left text-3xl font-semibold">Volunteer Event Builder</h1>
+					<p class="text-surface-400 max-w-3xl text-sm">
+						Guide your volunteer leads, mechanics, educators, hospitality crew, and outreach teams
+						from idea to launch. Team up with Volunteer Muse up top, then walk through the steps to
+						plan your next community event.
+					</p>
 				</div>
-				<Progress value={null} class="w-full" />
 			</div>
-		{/if}
+		</header>
 
-		<div class="mt-5 space-y-4">
-			<section
-				bind:this={chatContainer}
-				class="max-h-[360px] w-full space-y-4 overflow-y-auto pr-1"
-			>
-				{#each chatMessages as bubble (bubble.id)}
-					{#if bubble.host}
-						<div class="grid grid-cols-[1fr_auto] items-start gap-2">
-							<div class={`card preset-tonal-primary rounded-tr-none p-4 ${bubble.color}`}>
-								<header class="flex items-center justify-between gap-4 text-sm">
-									<p class="font-semibold">{bubble.name}</p>
-									<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
-								</header>
-								<div class="space-y-2 leading-relaxed">
-									{@html renderChatContent(bubble.content)}
+		<section
+			class={`card border-secondary-500/20 bg-surface-950/70 card-hover ai-panel border p-6 ${
+				aiLoading ? 'is-loading' : ''
+			}`}
+			aria-busy={aiLoading}
+		>
+			<div class="flex items-center gap-3">
+				<div class="bg-secondary-500/10 text-secondary-300 rounded-full p-2">
+					<IconSparkles class="h-5 w-5" />
+				</div>
+				<div>
+					<h2 class="text-xl font-semibold">Volunteer Muse — Generative teammate</h2>
+					<p class="text-surface-400 text-sm">
+						Describe your event in plain language. Volunteer Muse will suggest copy, staffing plans,
+						and reminders, and double-check details with quick follow-up questions.
+					</p>
+				</div>
+			</div>
+
+			{#if aiLoading}
+				<div
+					class="border-secondary-500/30 bg-secondary-500/10 mt-4 flex flex-col gap-3 rounded border p-4"
+					role="status"
+					aria-live="polite"
+				>
+					<div class="text-secondary-100 flex items-center gap-2">
+						<IconLoader class="h-4 w-4 animate-spin" />
+						<span>Volunteer Muse is drafting shifts and reminders…</span>
+					</div>
+					<Progress value={null} class="w-full" />
+				</div>
+			{/if}
+
+			<div class="mt-5 space-y-4">
+				<section
+					bind:this={chatContainer}
+					class="max-h-[360px] w-full space-y-4 overflow-y-auto pr-1"
+				>
+					{#each chatMessages as bubble (bubble.id)}
+						{#if bubble.host}
+							<div class="grid grid-cols-[1fr_auto] items-start gap-2">
+								<div class={`card preset-tonal-primary rounded-tr-none p-4 ${bubble.color}`}>
+									<header class="flex items-center justify-between gap-4 text-sm">
+										<p class="font-semibold">{bubble.name}</p>
+										<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
+									</header>
+									<div class="space-y-2 leading-relaxed">
+										{@html renderChatContent(bubble.content)}
+									</div>
+								</div>
+								<Avatar
+									src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+									name={bubble.name}
+									size="size-12"
+								/>
+							</div>
+						{:else}
+							<div class="grid grid-cols-[auto_1fr] items-start gap-2">
+								<Avatar
+									src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+									name={bubble.name}
+									size="size-12"
+								/>
+								<div class={`card rounded-tl-none p-4 ${bubble.color}`}>
+									<header class="flex items-center justify-between gap-4 text-sm">
+										<p class="font-semibold">{bubble.name}</p>
+										<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
+									</header>
+									<div class="space-y-2 leading-relaxed">
+										{@html renderChatContent(bubble.content)}
+									</div>
 								</div>
 							</div>
-							<Avatar
-								src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-								name={bubble.name}
-								size="size-12"
-							/>
-						</div>
-					{:else}
-						<div class="grid grid-cols-[auto_1fr] items-start gap-2">
-							<Avatar
-								src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-								name={bubble.name}
-								size="size-12"
-							/>
-							<div class={`card rounded-tl-none p-4 ${bubble.color}`}>
-								<header class="flex items-center justify-between gap-4 text-sm">
-									<p class="font-semibold">{bubble.name}</p>
-									<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
-								</header>
-								<div class="space-y-2 leading-relaxed">
-									{@html renderChatContent(bubble.content)}
-								</div>
-							</div>
+						{/if}
+					{/each}
+					{#if aiLoading}
+						<div class="text-surface-400 flex items-center gap-2 text-sm">
+							<IconLoader class="h-4 w-4 animate-spin" />
+							<p>Volunteer Muse is thinking…</p>
 						</div>
 					{/if}
-				{/each}
-				{#if aiLoading}
-					<div class="text-surface-400 flex items-center gap-2 text-sm">
-						<IconLoader class="h-4 w-4 animate-spin" />
-						<p>Volunteer Muse is thinking…</p>
+				</section>
+
+				{#if followUpQuestions.length}
+					<div class="border-warning-500/40 bg-warning-500/10 rounded border p-3 text-sm">
+						<p class="text-warning-200 font-semibold">Volunteer Muse still needs:</p>
+						<ul class="text-warning-100 mt-2 list-disc space-y-1 pl-5">
+							{#each followUpQuestions as question}
+								<li>{question}</li>
+							{/each}
+						</ul>
 					</div>
 				{/if}
-			</section>
 
-			{#if followUpQuestions.length}
-				<div class="border-warning-500/40 bg-warning-500/10 rounded border p-3 text-sm">
-					<p class="text-warning-200 font-semibold">Volunteer Muse still needs:</p>
-					<ul class="text-warning-100 mt-2 list-disc space-y-1 pl-5">
-						{#each followUpQuestions as question}
-							<li>{question}</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-
-			{#if aiError}
-				<p class="border-error-500/40 bg-error-500/10 text-error-200 rounded border p-3 text-sm">
-					{aiError}
-				</p>
-			{/if}
-
-			<form
-				onsubmit={handleChatSubmit}
-				class="card border-primary-500/20 bg-surface-900/60 flex flex-col gap-3 rounded border p-4"
-			>
-				<label class="label text-sm font-semibold" for="chat-prompt">Describe or ask anything</label
-				>
-				<textarea
-					id="chat-prompt"
-					class="textarea bg-surface-950/70 min-h-24"
-					bind:value={chatPrompt}
-					placeholder="We need 20 volunteers for a pop-up repair station with tune-up and greeting shifts…"
-				></textarea>
-				<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-					<p class="text-surface-500 text-xs">
-						Volunteer Muse can suggest titles, staffing plans, shifts, and reminder emails. Mention
-						date, time, meeting spot, expected turnout, and what support you need.
+				{#if aiError}
+					<p class="border-error-500/40 bg-error-500/10 text-error-200 rounded border p-3 text-sm">
+						{aiError}
 					</p>
-					<button
-						type="submit"
-						class="btn preset-filled-secondary-500 flex items-center gap-2"
-						disabled={aiLoading}
+				{/if}
+
+				<form
+					onsubmit={handleChatSubmit}
+					class="card border-primary-500/20 bg-surface-900/60 flex flex-col gap-3 rounded border p-4"
+				>
+					<label class="label text-sm font-semibold" for="chat-prompt"
+						>Describe or ask anything</label
 					>
-						<IconSend class="h-4 w-4" />
-						<span>{aiLoading ? 'Sending…' : 'Send to Volunteer Muse'}</span>
+					<textarea
+						id="chat-prompt"
+						class="textarea bg-surface-950/70 min-h-24"
+						bind:value={chatPrompt}
+						placeholder="We need 20 volunteers for a pop-up repair station with tune-up and greeting shifts…"
+					></textarea>
+					<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<p class="text-surface-500 text-xs">
+							Volunteer Muse can suggest titles, staffing plans, shifts, and reminder emails.
+							Mention date, time, meeting spot, expected turnout, and what support you need.
+						</p>
+						<button
+							type="submit"
+							class="btn preset-filled-secondary-500 flex items-center gap-2"
+							disabled={aiLoading}
+						>
+							<IconSend class="h-4 w-4" />
+							<span>{aiLoading ? 'Sending…' : 'Send to Volunteer Muse'}</span>
+						</button>
+					</div>
+				</form>
+			</div>
+
+			{#if draftAppliedAt}
+				<div
+					class="border-secondary-500/30 bg-secondary-500/10 mt-5 flex flex-col gap-2 rounded border p-4"
+				>
+					<div class="text-secondary-100 flex items-center gap-2">
+						<IconCheck class="h-4 w-4" />
+						<h3 class="text-sm font-semibold">Volunteer Muse suggestions applied</h3>
+					</div>
+					<p class="text-secondary-200 text-sm">
+						The latest plan filled in the event builder automatically. Give the sections below a
+						quick review.
+					</p>
+					<small class="text-secondary-300 text-xs">Updated {formatTimestamp(draftAppliedAt)}</small
+					>
+				</div>
+			{/if}
+		</section>
+
+		<section class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6">
+			<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+				<div class="space-y-2">
+					<h2 class="text-xl font-semibold">Build the volunteer experience</h2>
+					<p class="text-surface-400 text-sm">
+						Step through the flow to capture the logistics, people power, and follow-up moments that
+						make your volunteer event hum.
+					</p>
+				</div>
+				<div class="flex w-full flex-col gap-2 md:w-64">
+					<Progress value={progressValue()} />
+					<p class="text-surface-500 text-right text-xs">Step {activeStep + 1} of {steps.length}</p>
+				</div>
+			</div>
+			<nav class="mt-6 grid gap-2 md:grid-cols-5">
+				{#each steps as step, idx}
+					<button
+						type="button"
+						onclick={() => goToStep(idx)}
+						class={`card border ${
+							idx === activeStep
+								? 'border-primary-400 bg-primary-400/20'
+								: 'bg-surface-900/60 hover:border-primary-500/40 border-transparent'
+						} p-3 text-left transition`}
+					>
+						<p class="font-semibold md:hidden">Step {idx + 1}: {step.title}</p>
+						<div class="hidden md:block">
+							<p class="text-surface-500 text-xs tracking-wide uppercase">Step {idx + 1}</p>
+							<p class="font-semibold">{step.title}</p>
+							<p class="text-surface-400 text-xs">{step.description}</p>
+						</div>
 					</button>
-				</div>
-			</form>
-		</div>
-
-		{#if draftAppliedAt}
-			<div
-				class="border-secondary-500/30 bg-secondary-500/10 mt-5 flex flex-col gap-2 rounded border p-4"
-			>
-				<div class="text-secondary-100 flex items-center gap-2">
-					<IconCheck class="h-4 w-4" />
-					<h3 class="text-sm font-semibold">Volunteer Muse suggestions applied</h3>
-				</div>
-				<p class="text-secondary-200 text-sm">
-					The latest plan filled in the event builder automatically. Give the sections below a quick
-					review.
-				</p>
-				<small class="text-secondary-300 text-xs">Updated {formatTimestamp(draftAppliedAt)}</small>
+				{/each}
+			</nav>
+			<div class="mt-6">
+				{#if activeStep === 0}
+					<EventOverviewStep
+						{eventDetails}
+						{eventTypeOptions}
+						{statusOptions}
+						{hostGroupSelection}
+						{filteredHostGroupOptions}
+						{showAdvancedSettings}
+						currentEventTypeDescription={currentEventType()?.description ?? ''}
+						hasHostGroups={hostGroupOptions.length > 0}
+						onEventDetailsChange={updateEventDetails}
+						onHostGroupValueChange={handleHostGroupValueChange}
+						onHostGroupSearch={handleHostGroupSearch}
+						onClearHostGroup={() => handleHostGroupValueChange([])}
+						onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
+					/>
+				{:else if activeStep === 1}
+					<ScheduleStep
+						{eventDetails}
+						{timezoneOptions}
+						onEventDetailsChange={updateEventDetails}
+					/>
+				{:else if activeStep === 2}
+					<RolesStep
+						{opportunities}
+						{opportunityTypeOptions}
+						onAddOpportunity={addOpportunity}
+						onRemoveOpportunity={removeOpportunity}
+						onUpdateOpportunity={updateOpportunity}
+						onAddShift={addShift}
+						onRemoveShift={removeShift}
+						onUpdateShift={updateShift}
+					/>
+				{:else if activeStep === 3}
+					<CommunicationsStep
+						{showAdvancedCommunications}
+						{customQuestions}
+						{eventEmails}
+						{opportunities}
+						{fieldTypeOptions}
+						{emailTypeOptions}
+						onToggleAdvanced={() => (showAdvancedCommunications = !showAdvancedCommunications)}
+						onAddQuestion={addQuestion}
+						onRemoveQuestion={removeQuestion}
+						onUpdateQuestion={updateQuestion}
+						onAddEmail={addEmailTemplate}
+						onRemoveEmail={removeEmailTemplate}
+						onUpdateEmail={updateEmailTemplate}
+						onComposeEmail={composeEmailWithAi}
+					/>
+				{:else if activeStep === 4}
+					<ReviewStep
+						{eventDetails}
+						{opportunities}
+						{customQuestions}
+						{eventEmails}
+						{saveError}
+						{saveSuccess}
+						{saving}
+						saveIntent={saveIntent}
+						onSubmit={handlePublish}
+						onSaveDraft={handleSaveDraft}
+					/>
+				{/if}
 			</div>
-		{/if}
-	</section>
-
-	<section class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6">
-		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-			<div class="space-y-2">
-				<h2 class="text-xl font-semibold">Build the volunteer experience</h2>
-				<p class="text-surface-400 text-sm">
-					Step through the flow to capture the logistics, people power, and follow-up moments that
-					make your volunteer event hum.
-				</p>
-			</div>
-			<div class="flex w-full flex-col gap-2 md:w-64">
-				<Progress value={progressValue()} />
-				<p class="text-surface-500 text-right text-xs">Step {activeStep + 1} of {steps.length}</p>
-			</div>
-		</div>
-		<nav class="mt-6 grid gap-2 md:grid-cols-5">
-			{#each steps as step, idx}
+			<div class="mt-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<button
 					type="button"
-					onclick={() => goToStep(idx)}
-					class={`card border ${
-						idx === activeStep
-							? 'border-primary-400 bg-primary-400/20'
-							: 'bg-surface-900/60 hover:border-primary-500/40 border-transparent'
-					} p-3 text-left transition`}
+					class="btn preset-tonal-primary flex items-center gap-2"
+					onclick={prevStep}
+					disabled={activeStep === 0}
 				>
-					<p class="text-surface-500 text-xs tracking-wide uppercase">Step {idx + 1}</p>
-					<p class="font-semibold">{step.title}</p>
-					<p class="text-surface-400 text-xs">{step.description}</p>
+					<IconArrowLeft class="h-4 w-4" />
+					<span>Back</span>
 				</button>
-			{/each}
-		</nav>
-		<div class="mt-6">
-			{#if activeStep === 0}
-				<EventOverviewStep
-					{eventDetails}
-					{eventTypeOptions}
-					{statusOptions}
-					{hostGroupSelection}
-					{filteredHostGroupOptions}
-					{showAdvancedSettings}
-					currentEventTypeDescription={currentEventType()?.description ?? ''}
-					hasHostGroups={hostGroupOptions.length > 0}
-					onEventDetailsChange={updateEventDetails}
-					onHostGroupValueChange={handleHostGroupValueChange}
-					onHostGroupSearch={handleHostGroupSearch}
-					onClearHostGroup={() => handleHostGroupValueChange([])}
-					onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
-					slugCheckInFlight={slugCheckInFlight}
+				<button
+					type="button"
+					class="btn preset-filled-primary-500 flex items-center gap-2"
+					onclick={nextStep}
+					disabled={activeStep === steps.length - 1}
+				>
+					<span>Next</span>
+					<IconArrowRight class="h-4 w-4" />
+				</button>
+			</div>
+		</section>
+	</main>
+{:else}
+	<main class="mx-auto flex max-w-3xl flex-col gap-8 py-16">
+		<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+			<h1 class="text-3xl font-semibold">Log in to create a volunteer event</h1>
+			<p class="text-surface-400 mt-2 text-sm">
+				Use a magic link to log in or register. After you confirm your email, we’ll bring you right
+				back here.
+			</p>
+		</header>
+		<section class="card border-surface-700 bg-surface-900 card-hover border p-6">
+			<form class="space-y-3" onsubmit={requestLoginLink}>
+				<label
+					for="login-email"
+					class="text-surface-300 text-xs font-semibold tracking-wide uppercase">Email</label
+				>
+				<input
+					id="login-email"
+					type="email"
+					class="input w-full"
+					bind:value={loginEmail}
+					placeholder="you@example.com"
+					required
 				/>
-			{:else if activeStep === 1}
-				<ScheduleStep {eventDetails} {timezoneOptions} onEventDetailsChange={updateEventDetails} />
-			{:else if activeStep === 2}
-				<RolesStep
-					{opportunities}
-					{opportunityTypeOptions}
-					onAddOpportunity={addOpportunity}
-					onRemoveOpportunity={removeOpportunity}
-					onUpdateOpportunity={updateOpportunity}
-					onAddShift={addShift}
-					onRemoveShift={removeShift}
-					onUpdateShift={updateShift}
-				/>
-			{:else if activeStep === 3}
-				<CommunicationsStep
-					{showAdvancedCommunications}
-					{customQuestions}
-					{eventEmails}
-					{opportunities}
-					{fieldTypeOptions}
-					{emailTypeOptions}
-					onToggleAdvanced={() => (showAdvancedCommunications = !showAdvancedCommunications)}
-					onAddQuestion={addQuestion}
-					onRemoveQuestion={removeQuestion}
-					onUpdateQuestion={updateQuestion}
-					onAddEmail={addEmailTemplate}
-					onRemoveEmail={removeEmailTemplate}
-					onUpdateEmail={updateEmailTemplate}
-				/>
-			{:else if activeStep === 4}
-				<ReviewStep
-					{eventDetails}
-					{opportunities}
-					{customQuestions}
-					{eventEmails}
-					{saveError}
-					{saveSuccess}
-					{saving}
-					onSubmit={handleSubmit}
-				/>
-			{/if}
-		</div>
-		<div class="mt-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<button
-				type="button"
-				class="btn preset-tonal-primary flex items-center gap-2"
-				onclick={prevStep}
-				disabled={activeStep === 0}
-			>
-				<IconArrowLeft class="h-4 w-4" />
-				<span>Back</span>
-			</button>
-			<button
-				type="button"
-				class="btn preset-filled-primary-500 flex items-center gap-2"
-				onclick={nextStep}
-				disabled={activeStep === steps.length - 1}
-			>
-				<span>Next</span>
-				<IconArrowRight class="h-4 w-4" />
-			</button>
-		</div>
-	</section>
-</main>
+				{#if loginError}
+					<div class="text-xs text-red-400">{loginError}</div>
+				{/if}
+				{#if loginSuccess}
+					<div class="text-xs text-green-400">{loginSuccess}</div>
+				{/if}
+				<button
+					type="submit"
+					class={`btn preset-filled-primary-500 w-full ${loginLoading ? 'animate-pulse' : ''} ${
+						!loginEmailValid || loginLoading ? 'cursor-not-allowed opacity-50' : ''
+					}`}
+					disabled={!loginEmailValid || loginLoading}
+				>
+					Send Magic Link
+				</button>
+				<p class="text-surface-400 text-xs">
+					We’ll send a login link to your email. After you sign in, we’ll return you here to
+					continue building your event.
+				</p>
+			</form>
+		</section>
+	</main>
+{/if}

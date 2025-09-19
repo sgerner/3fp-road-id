@@ -2,7 +2,6 @@
 	import { Combobox } from '@skeletonlabs/skeleton-svelte';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
 
 	export let eventDetails;
 	export let eventTypeOptions = [];
@@ -17,7 +16,6 @@
 	export let onHostGroupSearch = () => {};
 	export let onClearHostGroup = () => {};
 	export let onToggleAdvanced = () => {};
-	export let slugCheckInFlight = false;
 </script>
 
 <section class="space-y-6">
@@ -44,26 +42,10 @@
 					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
-			{#if currentEventTypeDescription}
-				<p class="text-xs text-surface-500">{currentEventTypeDescription}</p>
-			{/if}
-		</div>
-		<div class="flex flex-col gap-2">
-			<label class="label" for="event-public-link">Public link</label>
-			<div
-				id="event-public-link"
-				class="input bg-surface-900/40 flex items-center justify-between gap-2 text-sm"
-			>
-				<code class="text-primary-200">/volunteer/events/{eventDetails.slug || 'your-event'}</code>
-				{#if slugCheckInFlight}
-					<span class="inline-flex items-center gap-1 text-xs text-primary-200">
-						<IconLoader class="h-3 w-3 animate-spin" />
-						Checking…
-					</span>
-				{/if}
-			</div>
-			<p class="text-xs text-surface-500">Slug updates automatically as you edit the title.</p>
-		</div>
+		{#if currentEventTypeDescription}
+			<p class="text-xs text-surface-500">{currentEventTypeDescription}</p>
+		{/if}
+	</div>
 		<div class="flex flex-col gap-2">
 			<Combobox
 				data={filteredHostGroupOptions}

@@ -91,7 +91,7 @@
 			const AutocompleteElement = gmaps.places.PlaceAutocompleteElement;
 			if (AutocompleteElement) {
 				placesAutocomplete = new AutocompleteElement();
-				const initialValue = eventDetails.locationName || eventDetails.locationAddress || '';
+				const initialValue = eventDetails.locationName || '';
 				if (initialValue) placesAutocomplete.value = initialValue;
 				placesContainer.innerHTML = '';
 				placesContainer.appendChild(placesAutocomplete);
@@ -103,7 +103,7 @@
 			const input = document.createElement('input');
 			input.className = 'input bg-surface-900/60';
 
-			input.placeholder = 'Start typing a meetup spot…';
+			input.placeholder = 'Start typing an address…';
 			if (eventDetails.locationName) input.value = eventDetails.locationName;
 			placesContainer.innerHTML = '';
 			placesContainer.appendChild(input);
@@ -123,8 +123,11 @@
 						placeMarker(lat, lng, { fly: true, updateForm: true });
 					}
 					const patch = {};
-					if (place.name) patch.locationName = place.name;
-					if (place.formatted_address) patch.locationAddress = place.formatted_address;
+					if (place.formatted_address) {
+						patch.locationName = place.formatted_address;
+					} else if (place.name) {
+						patch.locationName = place.name;
+					}
 					if (Object.keys(patch).length) onEventDetailsChange(patch);
 				});
 			}
@@ -148,8 +151,11 @@
 			const addressCandidate = place.formattedAddress || prediction.secondaryText || '';
 			const loc = place.location;
 			const patch = {};
-			if (nameCandidate) patch.locationName = nameCandidate;
-			if (addressCandidate) patch.locationAddress = addressCandidate;
+			if (addressCandidate) {
+				patch.locationName = addressCandidate;
+			} else if (nameCandidate) {
+				patch.locationName = nameCandidate;
+			}
 			if (Object.keys(patch).length) onEventDetailsChange(patch);
 			if (loc) {
 				const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
@@ -238,10 +244,10 @@
 
 	$: if (
 		googleReady &&
-		eventDetails.locationAddress &&
+		eventDetails.locationName &&
 		(!eventDetails.latitude || !eventDetails.longitude)
 	) {
-		scheduleAddressGeocode(eventDetails.locationAddress);
+		scheduleAddressGeocode(eventDetails.locationName);
 	}
 </script>
 
@@ -280,23 +286,24 @@
 		</select>
 	</div>
 	<div class="flex flex-col gap-2 md:col-span-2">
-		<label class="label" for="event-location-name">Meetup location</label>
+		<label class="label" for="event-location-name">Address</label>
 		<input
 			id="event-location-name"
 			class="input bg-surface-900/60"
 			value={eventDetails.locationName}
 			oninput={(e) => onEventDetailsChange({ locationName: e.currentTarget.value })}
-			placeholder="Sellwood Park Boat Launch"
+			onblur={(e) => scheduleAddressGeocode(e.currentTarget.value.trim())}
+			placeholder="123 River Rd, Tempe, AZ 85281"
 		/>
 	</div>
 	<div class="flex flex-col gap-2 md:col-span-2">
-		<label class="label" for="event-location-address">Address or notes</label>
+		<label class="label" for="event-location-address">Location notes</label>
 		<textarea
 			id="event-location-address"
-			class="textarea min-h-24 bg-surface-900/60"
+			class="textarea bg-surface-900/60 min-h-24"
 			value={eventDetails.locationAddress}
 			oninput={(e) => onEventDetailsChange({ locationAddress: e.currentTarget.value })}
-			placeholder="123 River Rd, meet by the picnic tables. Parking is limited — roll or carpool if you can."
+			placeholder="Look for the bike repair tent near the main entrance. Parking is limited — roll or carpool if you can."
 		></textarea>
 	</div>
 	<div class="space-y-3 md:col-span-2">
@@ -307,27 +314,27 @@
 			bind:this={placesContainer}
 		>
 			{#if placesLoading}
-				<span class="text-xs text-surface-400">Loading search…</span>
+				<span class="text-surface-400 text-xs">Loading search…</span>
 			{/if}
 		</div>
 		{#if placesError}
-			<p class="text-xs text-error-400">{placesError}</p>
+			<p class="text-error-400 text-xs">{placesError}</p>
 		{/if}
 		<div
-			class="h-64 w-full overflow-hidden rounded-lg border border-surface-700 bg-surface-950"
+			class="border-surface-700 bg-surface-950 h-64 w-full overflow-hidden rounded-lg border"
 			bind:this={mapContainer}
 		></div>
 		{#if eventDetails.latitude && eventDetails.longitude}
 			{#if Number.isFinite(Number(eventDetails.latitude)) && Number.isFinite(Number(eventDetails.longitude))}
-				<p class="text-xs text-surface-500">
+				<p class="text-surface-500 text-xs">
 					Pinned at {Number(eventDetails.latitude).toFixed(6)},
 					{Number(eventDetails.longitude).toFixed(6)}
 				</p>
 			{:else}
-				<p class="text-xs text-surface-500">Coordinates pending refinement.</p>
+				<p class="text-surface-500 text-xs">Coordinates pending refinement.</p>
 			{/if}
 		{:else}
-			<p class="text-xs text-surface-500">
+			<p class="text-surface-500 text-xs">
 				Drop a pin or click the map to set coordinates. We'll save it automatically.
 			</p>
 		{/if}
