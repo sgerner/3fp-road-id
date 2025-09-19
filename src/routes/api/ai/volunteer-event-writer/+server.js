@@ -238,6 +238,18 @@ export const POST = async ({ request }) => {
 		)
 		.filter(Boolean)
 		.join('\n');
+	const opportunityTypeOptions = Array.isArray(payload.opportunity_type_options)
+		? payload.opportunity_type_options.filter(Boolean)
+		: [];
+	const opportunityTypeCatalog = opportunityTypeOptions
+		.map((option) =>
+			`${option?.value ?? ''}${option?.label ? ` (${option.label})` : ''}`.trim()
+		)
+		.filter(Boolean)
+		.join('\n');
+	const emailMergeTags = Array.isArray(payload.email_merge_tags)
+		? payload.email_merge_tags.filter(Boolean)
+		: [];
 	const preferDraft = payload.preferDraft !== false; // default true
 
 	const planner = `You are ${DEFAULT_ASSISTANT_NAME}, an AI co-host helping volunteer event organizers craft high-energy ride listings and supporting materials.
@@ -246,12 +258,18 @@ ${STYLE_GUIDE}
 Responsibilities:
 - Ask short follow-up questions when critical details are missing (especially date, time, meetup spot, ride difficulty, capacity limits, equipment expectations, accessibility notes).
 - Provide structured suggestions for the Event Builder when the organizer gives enough detail. Include realistic schedules, opportunities, shifts, and reminder emails.
+- Populate metadata.event_start and metadata.event_end whenever timing information is available, and ensure shift windows align with the event when unspecified.
+- Choose opportunity_type values for activities from the allowed list so they align with the host's description.
+- Leave metadata.host_group_id untouched unless the organizer explicitly confirms a change.
+- Set metadata.location_name to the full street address. Place additional wayfinding details in metadata.location_address (or metadata.location_notes when available).
 - Keep instructions actionable and friendly. Avoid legal claims or medical advice.
 - If the organizer requests help rewriting or brainstorming, respond in the style guide.
 ${goal ? `\nOrganizer Goal:\n${goal}` : ''}
 ${constraints ? `\nAdditional Constraints:\n${constraints}` : ''}
 ${contextBlock ? `\n${contextBlock}` : ''}
 ${eventTypeCatalog ? `\nEvent type slugs available (value — label):\n${eventTypeCatalog}\nAlways set draft.metadata.event_type_slug to one of these slugs.` : ''}
+${opportunityTypeCatalog ? `\nOpportunity type values available (value — label):\n${opportunityTypeCatalog}\nAlways set draft.opportunities[*].opportunity_type to one of these values.` : ''}
+${emailMergeTags.length ? `\nEmail merge tags available for templated copy: ${emailMergeTags.join(', ')}.` : ''}
 
 Return JSON with keys:
 - reply: string (your next chat message)
