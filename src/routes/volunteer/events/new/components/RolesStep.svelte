@@ -92,15 +92,6 @@
 						placeholder="Optional limit"
 					/>
 				</label>
-				<label class="label flex flex-col gap-2">
-					<span>Station location</span>
-					<input
-						class="input bg-surface-900/60"
-						value={opportunity.locationName}
-						oninput={(e) => onUpdateOpportunity(opportunity.id, { locationName: e.currentTarget.value })}
-						placeholder="Dispatch tent, finish arch, or roving"
-					/>
-				</label>
 				<div class="flex flex-col gap-2">
 					<label class="label">Requires approval?</label>
 					<label class="flex items-center gap-3 text-sm">
@@ -123,15 +114,6 @@
 						<span>Mark as confirmed automatically</span>
 					</label>
 				</div>
-				<label class="label flex flex-col gap-2 md:col-span-2">
-					<span>Location notes</span>
-					<textarea
-						class="textarea min-h-20 bg-surface-900/60"
-						value={opportunity.locationNotes}
-						oninput={(e) => onUpdateOpportunity(opportunity.id, { locationNotes: e.currentTarget.value })}
-						placeholder="Where should this crew station themselves?"
-					></textarea>
-				</label>
 			</div>
 
 			<div class="mt-6 space-y-4">
@@ -188,15 +170,6 @@
 								value={shift.capacity}
 								oninput={(e) => onUpdateShift(opportunity.id, shift.id, { capacity: e.currentTarget.value })}
 								min="0"
-							/>
-						</label>
-						<label class="label flex flex-col gap-2">
-							<span>Location</span>
-							<input
-								class="input bg-surface-900/60"
-								value={shift.locationName}
-								oninput={(e) => onUpdateShift(opportunity.id, shift.id, { locationName: e.currentTarget.value })}
-								placeholder="Check-in tent, outbound route, station 3"
 							/>
 						</label>
 						<label class="label flex flex-col gap-2 md:col-span-2">
