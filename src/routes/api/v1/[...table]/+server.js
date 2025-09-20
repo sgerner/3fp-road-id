@@ -70,16 +70,19 @@ export async function GET(event) {
 			const parts = value.split('.');
 			if (parts.length === 2) {
 				const [operator, filterValue] = parts;
-				if (typeof query[operator] === 'function') {
+				if (operator === 'in') {
+					if (filterValue.startsWith('(') && filterValue.endsWith(')')) {
+						const inValuesRaw = filterValue.substring(1, filterValue.length - 1);
+						if (inValuesRaw) {
+							const inValues = inValuesRaw.split(',');
+							query = query.in(columnName, inValues);
+						}
+					}
+				} else if (typeof query[operator] === 'function') {
 					query = query[operator](columnName, filterValue);
 				} else {
-					if (operator === 'in' && filterValue.startsWith('(') && filterValue.endsWith(')')) {
-						const inValues = filterValue.substring(1, filterValue.length - 1).split(',');
-						query = query.in(columnName, inValues);
-					} else {
-						console.warn(`Unsupported operator or format: ${operator} for key ${columnName}`);
-						query = query.eq(columnName, value);
-					}
+					console.warn(`Unsupported operator or format: ${operator} for key ${columnName}`);
+					query = query.eq(columnName, value);
 				}
 			} else {
 				query = query.eq(columnName, value);
@@ -133,10 +136,14 @@ export async function GET(event) {
 
 	if (error) {
 		console.error('Supabase GET error:', error);
-		return json(
-			{ error: error.message },
-			{ status: error.code && !isNaN(parseInt(error.code)) ? parseInt(error.code) : 400 }
-		);
+		let statusCode = 400;
+		if (error.code) {
+			const parsedCode = parseInt(error.code, 10);
+			if (parsedCode >= 200 && parsedCode <= 599) {
+				statusCode = parsedCode;
+			}
+		}
+		return json({ error: error.message }, { status: statusCode });
 	}
 	return json({ data, count });
 }
@@ -164,10 +171,14 @@ export async function POST(event) {
 
 		if (error) {
 			console.error('Supabase POST error:', error);
-			return json(
-				{ error: error.message },
-				{ status: error.code && !isNaN(parseInt(error.code)) ? parseInt(error.code) : 400 }
-			);
+			let statusCode = 400;
+			if (error.code) {
+				const parsedCode = parseInt(error.code, 10);
+				if (parsedCode >= 200 && parsedCode <= 599) {
+					statusCode = parsedCode;
+				}
+			}
+			return json({ error: error.message }, { status: statusCode });
 		}
 		return json({ data: data?.[0] || data }, { status: 201 });
 	} catch (e) {
@@ -219,10 +230,14 @@ export async function PUT(event) {
 
 		if (error) {
 			console.error('Supabase PUT error:', error);
-			return json(
-				{ error: error.message },
-				{ status: error.code && !isNaN(parseInt(error.code)) ? parseInt(error.code) : 400 }
-			);
+			let statusCode = 400;
+			if (error.code) {
+				const parsedCode = parseInt(error.code, 10);
+				if (parsedCode >= 200 && parsedCode <= 599) {
+					statusCode = parsedCode;
+				}
+			}
+			return json({ error: error.message }, { status: statusCode });
 		}
 		if (!data || data.length === 0) {
 			return json({ error: 'Record not found or user lacks permission.' }, { status: 404 });
@@ -293,10 +308,14 @@ export async function DELETE(event) {
 
 	if (error) {
 		console.error('Supabase DELETE error:', error);
-		return json(
-			{ error: error.message },
-			{ status: error.code && !isNaN(parseInt(error.code)) ? parseInt(error.code) : 400 }
-		);
+		let statusCode = 400;
+		if (error.code) {
+			const parsedCode = parseInt(error.code, 10);
+			if (parsedCode >= 200 && parsedCode <= 599) {
+				statusCode = parsedCode;
+			}
+		}
+		return json({ error: error.message }, { status: statusCode });
 	}
 	return json(
 		{ message: 'Delete successful or record not found/no permission.', deleted: data },
