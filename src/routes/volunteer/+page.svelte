@@ -60,7 +60,7 @@
 	$effect(() => {
 		if (!browser) return;
 		const sp = new URLSearchParams(window.location.search);
-		searchInput = search = sp.get('search') ?? '';
+		searchInput = sp.get('search') ?? '';
 		locationQ = sp.get('location') ?? '';
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
