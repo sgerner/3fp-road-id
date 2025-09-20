@@ -50,6 +50,7 @@
 			<Combobox
 				data={filteredHostGroupOptions}
 				key="value"
+				defaultValue={hostGroupSelection}
 				value={hostGroupSelection}
 				onValueChange={(e) => onHostGroupValueChange(e.value)}
 				onInputValueChange={(e) => onHostGroupSearch(e.inputValue)}
