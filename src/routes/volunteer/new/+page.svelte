@@ -136,7 +136,7 @@
 
 	const initialTimezone = FALLBACK_TIMEZONES[0];
 	const currentUser = $derived(data?.currentUser ?? null);
-	const loginReturnTo = $derived(() => data?.returnTo ?? '/volunteer/events/new');
+	const loginReturnTo = $derived(() => data?.returnTo ?? '/volunteer/new');
 	const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	let loginEmail = $state('');
 	let loginLoading = $state(false);
@@ -190,7 +190,7 @@
 			const fallbackReturnTo =
 				typeof window !== 'undefined'
 					? window.location.pathname + window.location.search + window.location.hash
-					: '/volunteer/events/new';
+					: '/volunteer/new';
 			const targetReturnTo =
 				loginReturnTo && loginReturnTo.startsWith('/') ? loginReturnTo : fallbackReturnTo;
 			const res = await fetch('/api/v1/auth/login', {
@@ -1395,7 +1395,7 @@
 					? 'Volunteer event published and ready for volunteers.'
 					: 'Draft saved. You can publish when you are ready.';
 			if (normalizedStatus === 'published' && createdEvent.slug) {
-				await goto(`/volunteer/events/${encodeURIComponent(createdEvent.slug)}`);
+				await goto(`/volunteer/${encodeURIComponent(createdEvent.slug)}`);
 				return;
 			}
 			activeStep = steps.length - 1;
