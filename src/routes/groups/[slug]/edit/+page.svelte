@@ -964,16 +964,12 @@
 		<h1 class="text-3xl font-bold">Edit {data.group?.name}</h1>
 	</header>
 
-	{#if saving}
-		<div class="text-surface-400 text-right text-xs">Saving…</div>
-	{/if}
-
 	<section class="card border-primary-300 bg-surface-950 card-hover border p-4">
 		<form
 			method="POST"
 			enctype="multipart/form-data"
 			class="grid grid-cols-1 gap-4"
-			on:submit|preventDefault
+			onsubmit={(event) => event.preventDefault()}
 		>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-1">
 				<div class="flex flex-col">
