@@ -1,3 +1,5 @@
+import { isRedirect } from '@sveltejs/kit';
+
 const VOLUNTEER_TABLES = {
 	events: 'volunteer_events',
 	opportunities: 'volunteer_opportunities',
@@ -54,6 +56,7 @@ async function callVolunteerApi({
 	const tableSegment = tableToSegment(table);
 	const queryString = buildQueryString(query);
 	const url = `/api/v1/${tableSegment}${id ? `/${id}` : ''}${queryString ? `?${queryString}` : ''}`;
+
 	const requestInit = {
 		method,
 		headers: { ...headers }

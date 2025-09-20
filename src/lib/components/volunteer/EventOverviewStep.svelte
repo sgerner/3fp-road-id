@@ -49,6 +49,7 @@
 		<div class="flex flex-col gap-2">
 			<Combobox
 				data={filteredHostGroupOptions}
+				key="value"
 				value={hostGroupSelection}
 				onValueChange={(e) => onHostGroupValueChange(e.value)}
 				onInputValueChange={(e) => onHostGroupSearch(e.inputValue)}
