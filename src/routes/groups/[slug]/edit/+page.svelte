@@ -7,6 +7,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+	import { toaster } from '../../../toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
@@ -496,9 +497,13 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ logo_file_cropped: dataUrl })
 				});
-				if (res.ok) savedAt = new Date().toLocaleTimeString();
+				if (!res.ok) {
+					throw new Error(await res.text());
+				}
+				notifySaved('Logo updated');
 			} catch (e) {
 				console.error('Autosave cropped logo failed', e);
+				notifyError('Failed to save logo');
 			} finally {
 				saving = false;
 			}
@@ -515,9 +520,13 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ cover_file_cropped: dataUrl })
 				});
-				if (res.ok) savedAt = new Date().toLocaleTimeString();
+				if (!res.ok) {
+					throw new Error(await res.text());
+				}
+				notifySaved('Cover photo updated');
 			} catch (e) {
 				console.error('Autosave cropped cover failed', e);
+				notifyError('Failed to save cover photo');
 			} finally {
 				saving = false;
 			}
@@ -536,7 +545,20 @@
 	let saveTimer;
 	let pending = {};
 	let saving = $state(false);
-	let savedAt = $state('');
+
+	function notifySaved(title = 'Changes saved') {
+		toaster.success({
+			title,
+			duration: 2500
+		});
+	}
+
+	function notifyError(title = 'Failed to save changes') {
+		toaster.error({
+			title,
+			duration: 4000
+		});
+	}
 
 	function queueSave(partial) {
 		pending = { ...pending, ...partial };
@@ -546,6 +568,9 @@
 	async function runSave() {
 		const body = { ...pending };
 		pending = {};
+		if (!Object.keys(body).length) {
+			return;
+		}
 		saving = true;
 		try {
 			const res = await fetch(`/api/groups/${data.group?.slug}/autosave`, {
@@ -554,9 +579,10 @@
 				body: JSON.stringify(body)
 			});
 			if (!res.ok) throw new Error(await res.text());
-			savedAt = new Date().toLocaleTimeString();
+			notifySaved();
 		} catch (e) {
 			console.error('Autosave failed', e);
+			notifyError();
 		} finally {
 			saving = false;
 		}
@@ -908,14 +934,6 @@
 		// Just surface a generic message; Skeleton will handle UI for rejection
 		submitError = 'One or more files were rejected. Ensure they are images under 10MB.';
 	}
-	function validateBeforeSubmit(e) {
-		submitError = '';
-		if (logoTooLarge || coverTooLarge) {
-			e.preventDefault();
-			submitError = 'Please remove files over 10MB before saving.';
-		}
-	}
-
 	function removeImage(which) {
 		if (which === 'logo') {
 			logoApi?.clearFiles();
@@ -946,20 +964,16 @@
 		<h1 class="text-3xl font-bold">Edit {data.group?.name}</h1>
 	</header>
 
-	<div class="text-surface-400 text-right text-xs">
-		{#if saving}
-			Saving…
-		{:else if savedAt}
-			Saved at {savedAt}
-		{/if}
-	</div>
+	{#if saving}
+		<div class="text-surface-400 text-right text-xs">Saving…</div>
+	{/if}
 
 	<section class="card border-primary-300 bg-surface-950 card-hover border p-4">
 		<form
 			method="POST"
 			enctype="multipart/form-data"
 			class="grid grid-cols-1 gap-4"
-			onsubmit={validateBeforeSubmit}
+			on:submit|preventDefault
 		>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-1">
 				<div class="flex flex-col">
@@ -1796,10 +1810,6 @@
 				<p class="text-surface-400 mt-1 text-xs">
 					Enter usernames or full URLs. We’ll format the links automatically.
 				</p>
-			</div>
-
-			<div class="mt-2 flex justify-end">
-				<button class="btn preset-filled-primary-500">Save Changes</button>
 			</div>
 		</form>
 	</section>

@@ -1,10 +1,11 @@
 <script>
 	import '../app.css';
 	let { children } = $props();
-    import { AppBar, Navigation } from '@skeletonlabs/skeleton-svelte';
+    import { AppBar, Navigation, Toaster } from '@skeletonlabs/skeleton-svelte';
     import { onMount } from 'svelte';
     import { supabase } from '$lib/supabaseClient';
     import { page } from '$app/stores';
+    import { toaster } from './toaster-svelte';
     // Nav icons
     import IconMenu from '@lucide/svelte/icons/menu';
     import IconHome from '@lucide/svelte/icons/home';
@@ -118,6 +119,7 @@
 </svelte:head>
 
 <div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
+    <Toaster {toaster} />
     <AppBar background="bg-primary-500" classes="text-surface-950">
         {#snippet lead()}
             <div class="flex items-center gap-2">
