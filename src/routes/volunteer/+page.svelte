@@ -1,238 +1,283 @@
 <script>
-        import { browser } from '$app/environment';
-        import { tick, onDestroy } from 'svelte';
-        import 'leaflet/dist/leaflet.css';
+	import { browser } from '$app/environment';
+	import { tick } from 'svelte';
+	import 'leaflet/dist/leaflet.css';
+	import IconPlus from '@lucide/svelte/icons/plus';
 
-        export let data;
+	const { data } = $props();
 
-        const events = (data.events || []).filter(Boolean);
-        const hostGroups = (data.hostGroups || []).filter(Boolean);
-        const eventTypes = (data.eventTypes || []).filter(Boolean);
+	// ===== Data from server =====
+	const events = (data?.events ?? []).filter(Boolean);
+	const hostGroups = (data?.hostGroups ?? []).filter(Boolean);
+	const eventTypes = (data?.eventTypes ?? []).filter(Boolean);
 
-        const hostGroupMap = new Map();
-        for (const group of hostGroups) {
-                if (group?.id == null) continue;
-                hostGroupMap.set(group.id, group);
-        }
+	// These two are not returned by the current server code, but we keep graceful support:
+	const hostOrgs = (data?.hostOrgs ?? data?.organizations ?? []).filter(Boolean);
+	const opportunities = (
+		data?.volunteer_opportunities ??
+		data?.volunteerOpportunities ??
+		[]
+	).filter(Boolean);
 
-        function eventHostGroup(event) {
-                if (!event || event.host_group_id == null) return undefined;
-                const id = Number(event.host_group_id);
-                if (Number.isNaN(id)) return undefined;
-                return hostGroupMap.get(id);
-        }
+	// ===== Lookups =====
+	// Use STRING KEYS (Supabase IDs are often UUID strings)
+	const hostGroupMap = new Map();
+	for (const g of hostGroups) if (g?.id != null) hostGroupMap.set(String(g.id), g);
 
-        const eventTypeMap = new Map();
-        for (const type of eventTypes) {
-                if (!type?.slug) continue;
-                eventTypeMap.set(type.slug, type);
-        }
+	const eventTypeMap = new Map();
+	for (const t of eventTypes) if (t?.slug) eventTypeMap.set(t.slug, t);
 
-        const defaultFilters = {
-                search: '',
-                startDate: '',
-                endDate: '',
-                location: '',
-                hostGroupId: '',
-                eventType: '',
-                view: 'list'
-        };
-
-        let filters = { ...defaultFilters };
-
-        function resetFilters() {
-                filters = { ...defaultFilters };
-        }
-
-        function updateFilter(key, value) {
-                filters = { ...filters, [key]: value };
-        }
-
-        function parseDate(value) {
-                if (!value) return null;
-                const normalized = value.length === 10 ? `${value}T00:00:00` : value;
-                const parsed = new Date(normalized);
-                return Number.isNaN(parsed.getTime()) ? null : parsed;
-        }
-
-        function parseEventDate(value) {
-                if (!value) return null;
-                const parsed = new Date(value);
-                return Number.isNaN(parsed.getTime()) ? null : parsed;
-        }
-
-        function endOfDay(date) {
-                if (!date) return null;
-                const copy = new Date(date);
-                copy.setHours(23, 59, 59, 999);
-                return copy;
-        }
-
-	const sortedEvents = [...events].sort((a, b) => {
-		const startA = parseEventDate(a?.event_start) ?? new Date(0);
-		const startB = parseEventDate(b?.event_start) ?? new Date(0);
-		return startA.getTime() - startB.getTime();
-	});
-
-	$: startDateFilter = parseDate(filters.startDate);
-	$: endDateFilter = endOfDay(parseDate(filters.endDate));
-
-        function hostGroupLocation(group) {
-                if (!group) return '';
-                const pieces = [group.city, group.state_region, group.country]
-                        .map((part) => (part || '').trim())
-                        .filter(Boolean);
-                return pieces.join(', ');
-        }
-
-        function eventLocation(event) {
-                if (!event) return '';
-                if (event.location_name) return event.location_name;
-                const group = eventHostGroup(event);
-                if (group?.city || group?.state_region || group?.country) {
-                        return hostGroupLocation(group);
+	// Optional host orgs map (if ever provided)
+	const hostOrgMap = new Map();
+	for (const o of hostOrgs) {
+		const ids = [o?.id, o?.organization_id, o?.org_id].filter((v) => v != null);
+		for (const id of ids) hostOrgMap.set(String(id), o);
+	}
+	function getHostOrgNameById(id) {
+		const org = hostOrgMap.get(String(id));
+		return org?.name ?? org?.title ?? org?.org_name ?? '';
+	}
+	function getHostOrgNameForEvent(e) {
+		// If the event ever carries an org id field, prefer that
+		const id = e?.host_org_id ?? e?.host_organization_id ?? e?.organization_id ?? e?.org_id ?? null;
+		if (id != null) {
+			const name = getHostOrgNameById(id);
+			if (name) return name;
 		}
-		return event.location_address || '';
+		// fallback if the event embeds org object
+		return e?.host_org?.name ?? e?.host_org?.title ?? e?.host_org_name ?? '';
 	}
 
-        function eventTimeRange(event) {
-                const start = parseEventDate(event.event_start);
-                const end = parseEventDate(event.event_end);
-                if (!start) return 'Date to be announced';
-                const dateFormatter = new Intl.DateTimeFormat(undefined, {
-                        dateStyle: 'full'
-		});
-		const timeFormatter = new Intl.DateTimeFormat(undefined, {
-			timeStyle: 'short'
-		});
+	// ===== local state (filters) =====
+	let searchInput = $state('');
+	let search = $state('');
+	let locationQ = $state('');
+	let hostGroupId = $state('');
+	let eventType = $state('');
+	let view = $state('list'); // 'list' | 'calendar' | 'map'
+
+	// init from URL once (no sync after)
+	$effect(() => {
+		if (!browser) return;
+		const sp = new URLSearchParams(window.location.search);
+		searchInput = search = sp.get('search') ?? '';
+		locationQ = sp.get('location') ?? '';
+		hostGroupId = sp.get('hostGroupId') ?? '';
+		eventType = sp.get('eventType') ?? '';
+		view = sp.get('view') ?? 'list';
+	});
+
+	// debounce search
+	let searchTimer;
+	$effect(() => {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			search = searchInput;
+		}, 200);
+		return () => clearTimeout(searchTimer);
+	});
+
+	// ===== helpers =====
+	function eventHostGroup(event) {
+		const id = event?.host_group_id;
+		return id != null ? hostGroupMap.get(String(id)) : undefined;
+	}
+	function parseEventDate(value) {
+		if (!value) return null;
+		const d = new Date(value);
+		return Number.isNaN(d.getTime()) ? null : d;
+	}
+	function hostGroupLocation(group) {
+		if (!group) return '';
+		return [group.city, group.state_region, group.country]
+			.map((p) => (p || '').trim())
+			.filter(Boolean)
+			.join(', ');
+	}
+	function eventLocation(event) {
+		if (event?.location_name) return event.location_name;
+		const g = eventHostGroup(event);
+		if (g?.city || g?.state_region || g?.country) return hostGroupLocation(g);
+		return event?.location_address || '';
+	}
+	function eventTypeLabel(event) {
+		return eventTypeMap.get(event?.event_type_slug)?.event_type || '';
+	}
+	function hostGroupLabel(event) {
+		return eventHostGroup(event)?.name || '';
+	}
+
+	const df = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
+
+	function eventDateRange(event) {
+		const start = parseEventDate(event?.event_start);
+		const end = parseEventDate(event?.event_end);
+		if (!start) return 'Date to be announced';
+		if (!end || end.getTime() === start.getTime() || start.toDateString() === end.toDateString()) {
+			return df.format(start);
+		}
+		return `${df.format(start)} → ${df.format(end)}`;
+	}
+
+	function eventTimeRangeOnly(event) {
+		const start = parseEventDate(event?.event_start);
+		const end = parseEventDate(event?.event_end);
+		if (!start) return '';
 		if (!end || end.getTime() === start.getTime()) {
-			return `${dateFormatter.format(start)} · ${timeFormatter.format(start)} ${
-				event.timezone ? event.timezone : ''
-			}`.trim();
+			return tf.format(start);
 		}
 		const sameDay = start.toDateString() === end.toDateString();
 		if (sameDay) {
-			return `${dateFormatter.format(start)} · ${timeFormatter.format(start)} – ${timeFormatter.format(end)} ${
-				event.timezone ? event.timezone : ''
-			}`.trim();
+			return `${tf.format(start)} – ${tf.format(end)}`;
 		}
-		return `${dateFormatter.format(start)} ${timeFormatter.format(start)} → ${dateFormatter.format(end)} ${timeFormatter.format(
-			end
-		)} ${event.timezone ? event.timezone : ''}`.trim();
+		return `${tf.format(start)} → ${tf.format(end)}`;
 	}
 
-        function eventTypeLabel(event) {
-                if (!event?.event_type_slug) return '';
-                const type = eventTypeMap.get(event.event_type_slug);
-                return type?.event_type || '';
-        }
-
-        function hostGroupLabel(event) {
-                const group = eventHostGroup(event);
-                return group?.name || '';
-        }
-
-        function matchesSearch(text, query) {
-                if (!query) return true;
-                const haystack = (text || '').toLowerCase();
-                return haystack.includes(query);
-        }
-
-	$: normalizedSearch = filters.search.trim().toLowerCase();
-	$: normalizedLocation = filters.location.trim().toLowerCase();
-	$: selectedHostId = filters.hostGroupId?.trim() ? filters.hostGroupId.trim() : '';
-	$: selectedEventType = filters.eventType?.trim() ? filters.eventType.trim() : '';
-
-        function eventMatchesFilters(event) {
-                if (!event) return false;
-                const start = parseEventDate(event.event_start);
-                const end = parseEventDate(event.event_end) ?? start;
-                if (startDateFilter && end && end < startDateFilter) return false;
-		if (endDateFilter && start && start > endDateFilter) return false;
-
-		if (normalizedSearch) {
-                        const group = eventHostGroup(event);
-			const fields = [
-				event.title,
-				event.summary,
-				event.description,
-				event.location_name,
-				event.location_address,
-				group?.name,
-				hostGroupLocation(group)
-			];
-			const matchesAny = fields.some((field) => matchesSearch(field, normalizedSearch));
-			if (!matchesAny) return false;
+	function eventTimeRange(event) {
+		const start = parseEventDate(event?.event_start);
+		const end = parseEventDate(event?.event_end);
+		if (!start) return 'Date to be announced';
+		if (!end || end.getTime() === start.getTime()) {
+			return `${df.format(start)} · ${tf.format(start)}`.trim();
 		}
-
-		if (normalizedLocation) {
-                        const group = eventHostGroup(event);
-			const fields = [event.location_name, event.location_address, hostGroupLocation(group)];
-			const matchesAny = fields.some((field) => matchesSearch(field, normalizedLocation));
-			if (!matchesAny) return false;
+		const sameDay = start.toDateString() === end.toDateString();
+		if (sameDay) {
+			return `${df.format(start)} · ${tf.format(start)} – ${tf.format(end)}`.trim();
 		}
+		return `${df.format(start)} ${tf.format(start)} → ${df.format(end)} ${tf.format(end)}`.trim();
+	}
+
+	function coordsFor(e) {
+		if (e?.latitude != null && e?.longitude != null)
+			return [Number(e.latitude), Number(e.longitude)];
+		const g = eventHostGroup(e);
+		if (g?.latitude != null && g?.longitude != null)
+			return [Number(g.latitude), Number(g.longitude)];
+		return null;
+	}
+
+	// ===== pre-index events =====
+	const indexedEvents = $derived(
+		events.map((e) => {
+			const g = eventHostGroup(e);
+			const hostOrgName = getHostOrgNameForEvent(e); // if ever present
+			const searchBlob = [
+				e.title,
+				e.summary,
+				e.description,
+				e.location_name,
+				e.location_address,
+				g?.name,
+				hostGroupLocation(g),
+				hostOrgName
+			]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
+
+			const locBlob = [e.location_name, e.location_address, hostGroupLocation(g)]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
+
+			return {
+				...e,
+				_search: searchBlob,
+				_loc: locBlob,
+				_coords: coordsFor(e),
+				_hostGroupName: hostGroupLabel(e),
+				_hostOrgName: hostOrgName
+			};
+		})
+	);
+
+	// ===== derived filters =====
+	const normalizedSearch = $derived(search.trim().toLowerCase());
+	const normalizedLocation = $derived(locationQ.trim().toLowerCase());
+	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
+	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
+
+	// only today or future
+	const todayStart = $derived(() => {
+		const d = new Date();
+		d.setHours(0, 0, 0, 0);
+		return d;
+	});
+
+	// ===== sort & filter =====
+	const sortedEvents = $derived(
+		[...indexedEvents].sort((a, b) => {
+			const aS = parseEventDate(a?.event_start) ?? new Date(0);
+			const bS = parseEventDate(b?.event_start) ?? new Date(0);
+			return aS - bS;
+		})
+	);
+
+	function eventMatchesFilters(e) {
+		const start = parseEventDate(e?.event_start);
+		if (!start || start < todayStart) return false; // future-only
+
+		if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
+		if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
 
 		if (selectedHostId) {
-			if (!event.host_group_id || String(event.host_group_id) !== selectedHostId) return false;
+			if (!e.host_group_id || String(e.host_group_id) !== String(selectedHostId)) return false;
 		}
-
-		if (selectedEventType && event.event_type_slug !== selectedEventType) return false;
+		if (selectedEventType && e.event_type_slug !== selectedEventType) return false;
 
 		return true;
 	}
 
-        let filteredEvents = [];
-        $: filteredEvents = sortedEvents.filter((event) => eventMatchesFilters(event));
+	const filteredEvents = $derived(sortedEvents.filter(eventMatchesFilters));
+	const totalUpcoming = $derived(filteredEvents.length);
 
-        let totalUpcoming = 0;
-        $: totalUpcoming = filteredEvents.length;
-
-        function toDateKey(date) {
-                if (!date) return '';
-                return date.toISOString().slice(0, 10);
-        }
-
-        let eventsByDate = {};
-        $: eventsByDate = filteredEvents.reduce(
-                (acc, event) => {
-                        const start = parseEventDate(event.event_start);
-                        const key = toDateKey(start);
-                        if (!key) return acc;
-			if (!acc[key]) acc[key] = [];
-			acc[key].push(event);
+	// ===== calendar helpers =====
+	function toDateKey(date) {
+		if (!date) return '';
+		return date.toISOString().slice(0, 10);
+	}
+	const eventsByDate = $derived(
+		filteredEvents.reduce((acc, e) => {
+			const key = toDateKey(parseEventDate(e.event_start));
+			if (!key) return acc;
+			(acc[key] ??= []).push(e);
 			return acc;
-                },
-                {}
-        );
+		}, /** @type {Record<string, any[]>} */ ({}))
+	);
 
-        function startOfMonth(date) {
-                return new Date(date.getFullYear(), date.getMonth(), 1);
-        }
-
-        function earliestEventMonth() {
-                const first = filteredEvents[0] ?? sortedEvents[0];
+	function startOfMonth(date) {
+		return new Date(date.getFullYear(), date.getMonth(), 1);
+	}
+	function earliestEventMonth() {
+		const first = filteredEvents[0] ?? sortedEvents[0];
 		const start = parseEventDate(first?.event_start);
 		return start ? startOfMonth(start) : startOfMonth(new Date());
 	}
 
-	let calendarReference = earliestEventMonth();
+	let calendarReference = $state(earliestEventMonth());
+	function changeMonth(offset) {
+		const next = new Date(calendarReference);
+		next.setMonth(next.getMonth() + offset);
+		calendarReference = startOfMonth(next);
+	}
 
-        $: calendarMatrix = buildCalendarMatrix(calendarReference, eventsByDate);
+	// Build month matrix
+	const calendarMatrix = $derived(buildCalendarMatrix(calendarReference, eventsByDate));
+	function buildCalendarMatrix(reference, lookup) {
+		const monthStart = startOfMonth(reference);
+		const month = monthStart.getMonth();
+		const year = monthStart.getFullYear();
+		const firstWeekday = monthStart.getDay();
+		const firstDate = new Date(monthStart);
+		firstDate.setDate(firstDate.getDate() - firstWeekday);
 
-        function buildCalendarMatrix(reference, lookup) {
-                const monthStart = startOfMonth(reference);
-                const month = monthStart.getMonth();
-                const year = monthStart.getFullYear();
-                const firstWeekday = monthStart.getDay();
-                const firstDate = new Date(monthStart);
-                firstDate.setDate(firstDate.getDate() - firstWeekday);
-
-                const weeks = [];
-                for (let week = 0; week < 6; week += 1) {
-                        const days = [];
-                        for (let day = 0; day < 7; day += 1) {
-                                const current = new Date(firstDate);
-                                current.setDate(firstDate.getDate() + week * 7 + day);
+		const weeks = [];
+		for (let w = 0; w < 6; w += 1) {
+			const days = [];
+			for (let d = 0; d < 7; d += 1) {
+				const current = new Date(firstDate);
+				current.setDate(firstDate.getDate() + w * 7 + d);
 				const key = toDateKey(current);
 				days.push({
 					date: current,
@@ -243,19 +288,58 @@
 			}
 			weeks.push(days);
 		}
-                return weeks;
-        }
+		return weeks;
+	}
 
-        function changeMonth(offset) {
-                const next = new Date(calendarReference);
-                next.setMonth(next.getMonth() + offset);
-                calendarReference = startOfMonth(next);
-        }
+	// Calendar header: month + earliest start time in that month
+	// Calendar header: month + earliest start time in that month
+	const tfShort = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
+	const calendarHeaderText = $derived.by(() => {
+		const monthLabel = new Intl.DateTimeFormat(undefined, {
+			month: 'long',
+			year: 'numeric'
+		}).format(calendarReference);
 
-        let mapContainer = null;
-        let leafletModule = null;
-        let mapInstance = null;
-        let markerLayer = null;
+		// Find the first event in the visible month by iterating through the calendar grid.
+		let earliestEvent = null;
+		for (const week of calendarMatrix) {
+			for (const day of week) {
+				if (day.inMonth && day.events.length > 0) {
+					// Since events are pre-sorted, the first event on the first day is the earliest.
+					earliestEvent = day.events[0];
+					break;
+				}
+			}
+			if (earliestEvent) break;
+		}
+
+		if (earliestEvent) {
+			const earliestDate = parseEventDate(earliestEvent.event_start);
+			if (earliestDate) {
+				return `${monthLabel}`;
+			}
+		}
+		return monthLabel;
+	});
+
+	// Mobile single-week view
+	const mobileWeekDays = $derived.by(() => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const weekWithToday = calendarMatrix.find((week) =>
+			week.some((d) => d.date.toDateString() === today.toDateString())
+		);
+		if (weekWithToday) return weekWithToday;
+
+		const weekWithEvents = calendarMatrix.find((week) => week.some((d) => d.events?.length));
+		return weekWithEvents ?? calendarMatrix[0] ?? [];
+	});
+
+	// ===== Map (Leaflet) =====
+	let mapContainer = $state(null);
+	let leafletModule = $state(null);
+	let mapInstance = $state(null);
+	let markerLayer = $state(null);
 
 	async function ensureMap() {
 		if (!browser) return;
@@ -277,77 +361,68 @@
 		}
 	}
 
-        function eventCoordinates(event) {
-                if (event.latitude != null && event.longitude != null) {
-                        const pair = [Number(event.latitude), Number(event.longitude)];
-                        return pair;
-                }
-                const group = eventHostGroup(event);
-                if (group?.latitude != null && group?.longitude != null) {
-                        const pair = [Number(group.latitude), Number(group.longitude)];
-                        return pair;
-                }
-                return null;
-        }
-
+	let markerQueued = false;
+	function queueMarkerUpdate() {
+		if (markerQueued) return;
+		markerQueued = true;
+		requestAnimationFrame(() => {
+			markerQueued = false;
+			updateMarkers();
+		});
+	}
 	function updateMarkers() {
-		if (!browser) return;
-		const module = leafletModule;
-		if (!module || !mapInstance || !markerLayer) return;
+		if (!browser || !leafletModule || !mapInstance || !markerLayer) return;
 		markerLayer.clearLayers();
-                const points = [];
-                for (const event of filteredEvents) {
-                        const coords = eventCoordinates(event);
-                        if (!coords) continue;
-			const marker = module.marker(coords).addTo(markerLayer);
+		const pts = [];
+		for (const e of filteredEvents) {
+			const coords = e._coords;
+			if (!coords) continue;
+			const m = leafletModule.marker(coords).addTo(markerLayer);
 			const popup = document.createElement('div');
 			popup.className = 'space-y-1 text-sm';
-			const titleLink = document.createElement('a');
-			titleLink.href = `/volunteer/${event.slug}`;
-			titleLink.className = 'text-secondary-400 font-semibold hover:underline';
-			titleLink.textContent = event.title || 'Volunteer event';
-			popup.appendChild(titleLink);
-			const time = document.createElement('div');
-			time.textContent = eventTimeRange(event);
-			popup.appendChild(time);
-			const location = eventLocation(event);
-			if (location) {
-				const locEl = document.createElement('div');
-				locEl.textContent = location;
-				popup.appendChild(locEl);
+			const link = document.createElement('a');
+			link.href = `/volunteer/${e.slug}`;
+			link.className = 'text-secondary-400 font-semibold hover:underline';
+			link.textContent = e.title || 'Volunteer event';
+			popup.appendChild(link);
+			const t = document.createElement('div');
+			t.textContent = eventTimeRange(e);
+			popup.appendChild(t);
+			const loc = eventLocation(e);
+			if (loc) {
+				const el = document.createElement('div');
+				el.textContent = loc;
+				popup.appendChild(el);
 			}
-			const hostName = hostGroupLabel(event);
+			const hostName = hostGroupLabel(e) || e._hostOrgName;
 			if (hostName) {
-				const hostEl = document.createElement('div');
-				hostEl.textContent = `Hosted by ${hostName}`;
-				popup.appendChild(hostEl);
+				const el = document.createElement('div');
+				el.textContent = `Hosted by ${hostName}`;
+				popup.appendChild(el);
 			}
-			marker.bindPopup(popup);
-			points.push(marker.getLatLng());
+			m.bindPopup(popup);
+			pts.push(m.getLatLng());
 		}
-		if (points.length) {
-			const bounds = module.latLngBounds(points);
-			mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+		if (pts.length) {
+			const bounds = leafletModule.latLngBounds(pts);
+			mapInstance.fitBounds(bounds, { padding: [32, 32], maxZoom: 13 });
 		} else {
 			mapInstance.setView([39.5, -98.35], 3);
 		}
 	}
-
 	async function activateMap() {
 		if (!browser) return;
 		await ensureMap();
-		updateMarkers();
+		queueMarkerUpdate();
 	}
 
-	$: if (browser && filters.view === 'map') {
-		tick().then(() => activateMap());
-	}
-
-	$: if (browser && filters.view === 'map' && mapInstance) {
-		updateMarkers();
-	}
-
-	onDestroy(() => {
+	$effect(() => {
+		if (browser && view === 'map') tick().then(() => activateMap());
+	});
+	$effect(() => {
+		if (browser && view === 'map' && mapInstance) queueMarkerUpdate();
+	});
+	$effect(() => () => {
 		if (mapInstance) {
 			mapInstance.remove();
 			mapInstance = null;
@@ -360,66 +435,52 @@
 	<title>Volunteer Hub</title>
 </svelte:head>
 
-<section class="mx-auto max-w-6xl space-y-10 px-4 py-12">
-	<header class="space-y-4 text-center md:text-left">
-		<h1 class="text-secondary-100 text-3xl font-bold md:text-4xl">Volunteer Opportunities</h1>
-		<p class="text-surface-200">
-			Browse rides, pop-up shops, workshops, and every kind of volunteer-powered moment that keeps
-			our bike community humming. Filter by host group, date, and location to find the right place
-			to pitch in.
+<section class="mx-auto w-full max-w-5xl space-y-6">
+	<header class="space-y-2">
+		<div class="flex items-center justify-center gap-3">
+			<h1 class="m-0 text-center text-3xl font-bold">Volunteer Opportunities</h1>
+			<a type="button" href="/volunteer/new" class="btn btn-sm preset-outlined-secondary-500">
+				<IconPlus class="h-4 w-4" />
+				Add Event
+			</a>
+		</div>
+		<p class="text-surface-400 text-center">
+			Browse rides, pop-up shops, workshops, and more. Filter by host, type, and location to find
+			the right place to pitch in.
 		</p>
 	</header>
 
-	<div class="bg-surface-900/60 border-surface-400/20 space-y-6 rounded-2xl border p-6 shadow-xl">
-		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-			<label class="space-y-2 text-sm">
+	<div class="bg-surface-900/60 border-surface-400/20 space-y-5 rounded-2xl border p-5 shadow-xl">
+		<!-- Filters -->
+		<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+			<label class="space-y-1 text-sm">
 				<span class="text-surface-100 font-semibold">Search</span>
 				<input
 					type="search"
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					placeholder="Find by title, host, or description"
-					value={filters.search}
-					on:input={(event) => updateFilter('search', event.currentTarget.value)}
+					placeholder="Find by title, host, org, or description"
+					value={searchInput}
+					oninput={(e) => (searchInput = e.currentTarget.value)}
 				/>
 			</label>
 
-			<label class="space-y-2 text-sm">
-				<span class="text-surface-100 font-semibold">Start after</span>
-				<input
-					type="date"
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					value={filters.startDate}
-					on:input={(event) => updateFilter('startDate', event.currentTarget.value)}
-				/>
-			</label>
-
-			<label class="space-y-2 text-sm">
-				<span class="text-surface-100 font-semibold">Finish before</span>
-				<input
-					type="date"
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					value={filters.endDate}
-					on:input={(event) => updateFilter('endDate', event.currentTarget.value)}
-				/>
-			</label>
-
-			<label class="space-y-2 text-sm">
+			<label class="space-y-1 text-sm">
 				<span class="text-surface-100 font-semibold">Location</span>
 				<input
 					type="search"
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					placeholder="City, state, or neighborhood"
-					value={filters.location}
-					on:input={(event) => updateFilter('location', event.currentTarget.value)}
+					value={locationQ}
+					oninput={(e) => (locationQ = e.currentTarget.value)}
 				/>
 			</label>
 
-			<label class="space-y-2 text-sm">
+			<label class="space-y-1 text-sm">
 				<span class="text-surface-100 font-semibold">Host group</span>
 				<select
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					value={filters.hostGroupId}
-					on:change={(event) => updateFilter('hostGroupId', event.currentTarget.value)}
+					value={hostGroupId}
+					onchange={(e) => (hostGroupId = e.currentTarget.value)}
 				>
 					<option value="">Any host</option>
 					{#each hostGroups as group}
@@ -428,12 +489,12 @@
 				</select>
 			</label>
 
-			<label class="space-y-2 text-sm">
+			<label class="space-y-1 text-sm">
 				<span class="text-surface-100 font-semibold">Opportunity type</span>
 				<select
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					value={filters.eventType}
-					on:change={(event) => updateFilter('eventType', event.currentTarget.value)}
+					value={eventType}
+					onchange={(e) => (eventType = e.currentTarget.value)}
 				>
 					<option value="">Any type</option>
 					{#each eventTypes as type}
@@ -443,8 +504,8 @@
 			</label>
 		</div>
 
-		<div class="flex flex-wrap items-center justify-between gap-4">
-			<div class="text-surface-300 text-sm">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="text-surface-300 text-sm" aria-live="polite">
 				{#if totalUpcoming === 0}
 					No volunteer events match the filters.
 				{:else if totalUpcoming === 1}
@@ -453,223 +514,253 @@
 					Showing {totalUpcoming} volunteer opportunities
 				{/if}
 			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<div
-					class="border-surface-700 bg-surface-900/60 inline-flex overflow-hidden rounded-full border text-sm"
-				>
-					<button
-						type="button"
-						class={`px-4 py-2 transition ${
-							filters.view === 'list'
-								? 'bg-secondary-500 text-surface-950'
-								: 'text-surface-100 hover:bg-surface-800/80'
-						}`}
-						on:click={() => updateFilter('view', 'list')}
-					>
-						List
-					</button>
-					<button
-						type="button"
-						class={`px-4 py-2 transition ${
-							filters.view === 'calendar'
-								? 'bg-secondary-500 text-surface-950'
-								: 'text-surface-100 hover:bg-surface-800/80'
-						}`}
-						on:click={() => updateFilter('view', 'calendar')}
-					>
-						Calendar
-					</button>
-					<button
-						type="button"
-						class={`px-4 py-2 transition ${
-							filters.view === 'map'
-								? 'bg-secondary-500 text-surface-950'
-								: 'text-surface-100 hover:bg-surface-800/80'
-						}`}
-						on:click={() => updateFilter('view', 'map')}
-					>
-						Map
-					</button>
-				</div>
-				<button
-					type="button"
-					class="text-secondary-300 hover:text-secondary-200 text-sm font-semibold"
-					on:click={resetFilters}
-				>
-					Clear filters
-				</button>
-			</div>
+
+			<button
+				type="button"
+				class="text-secondary-300 hover:text-secondary-200 text-sm font-semibold"
+				onclick={() => {
+					searchInput = search = locationQ = hostGroupId = eventType = '';
+					view = 'list';
+					calendarReference = earliestEventMonth();
+				}}
+			>
+				Clear filters
+			</button>
 		</div>
 	</div>
 
-	{#if filters.view === 'calendar'}
-		<div class="bg-surface-900/60 border-surface-400/20 space-y-4 rounded-2xl border p-6 shadow-xl">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div class="text-surface-100 text-lg font-semibold">
-					{new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
-						calendarReference
-					)}
-				</div>
-				<div class="flex items-center gap-2">
-					<button
-						type="button"
-						class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-2 text-sm"
-						on:click={() => changeMonth(-1)}
-					>
-						Previous
-					</button>
-					<button
-						type="button"
-						class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-2 text-sm"
-						on:click={() => (calendarReference = earliestEventMonth())}
-					>
-						Today
-					</button>
-					<button
-						type="button"
-						class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-2 text-sm"
-						on:click={() => changeMonth(1)}
-					>
-						Next
-					</button>
-				</div>
-			</div>
-			<div
-				class="text-surface-300 grid grid-cols-7 gap-3 text-center text-xs font-semibold tracking-wide uppercase"
-			>
-				<div>Sun</div>
-				<div>Mon</div>
-				<div>Tue</div>
-				<div>Wed</div>
-				<div>Thu</div>
-				<div>Fri</div>
-				<div>Sat</div>
-			</div>
-			<div class="grid grid-cols-7 gap-3">
-				{#each calendarMatrix as week}
-					{#each week as day}
-						<div
-							class={`bg-surface-950/40 border-surface-500/20 flex h-36 flex-col rounded-xl border p-3 text-left ${
-								day.inMonth ? 'text-surface-100' : 'text-surface-500'
-							}`}
+	<div
+		class="border-surface-700 bg-surface-900/60 mx-auto w-fit overflow-hidden rounded-full border text-sm"
+	>
+		<button
+			type="button"
+			class={`px-4 py-1.5 transition ${view === 'list' ? 'bg-secondary-500 text-surface-950' : 'text-surface-100 hover:bg-surface-800/80'}`}
+			onclick={() => (view = 'list')}>List</button
+		>
+		<button
+			type="button"
+			class={`px-4 py-1.5 transition ${view === 'calendar' ? 'bg-secondary-500 text-surface-950' : 'text-surface-100 hover:bg-surface-800/80'}`}
+			onclick={() => (view = 'calendar')}>Calendar</button
+		>
+		<button
+			type="button"
+			class={`px-4 py-1.5 transition ${view === 'map' ? 'bg-secondary-500 text-surface-950' : 'text-surface-100 hover:bg-surface-800/80'}`}
+			onclick={() => (view = 'map')}>Map</button
+		>
+	</div>
+
+	<div class="mx-auto flex flex-wrap items-center justify-center gap-2">
+		{#if view === 'calendar'}
+			<!-- Mobile: single week stacked; Desktop: dense month grid -->
+			<div class="w-full space-y-3">
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<div class="text-surface-100 text-base font-semibold">{calendarHeaderText}</div>
+					<div class="flex items-center gap-2">
+						<button
+							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => changeMonth(-1)}>Previous</button
 						>
-							<div class="text-xs font-semibold">{day.date.getDate()}</div>
-							<div class="mt-2 space-y-2 overflow-y-auto">
+						<button
+							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => (calendarReference = earliestEventMonth())}>Today</button
+						>
+						<button
+							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => changeMonth(1)}>Next</button
+						>
+					</div>
+				</div>
+
+				<!-- Mobile single-week (stacked) -->
+				<div class="grid gap-2 sm:hidden">
+					{#each mobileWeekDays as day}
+						<div
+							class={`bg-surface-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-100' : 'text-surface-500'}`}
+						>
+							<div class="flex items-center justify-between">
+								<div class="text-xs font-semibold">
+									{new Intl.DateTimeFormat(undefined, {
+										weekday: 'short',
+										month: 'short',
+										day: 'numeric'
+									}).format(day.date)}
+								</div>
+								<div class="text-[11px]">
+									{day.events.length} event{day.events.length === 1 ? '' : 's'}
+								</div>
+							</div>
+							<div class="mt-2 space-y-1.5">
 								{#if day.events.length === 0}
 									<p class="text-surface-500 text-xs">No events</p>
 								{:else}
-									{#each day.events.slice(0, 3) as event}
+									{#each day.events as event}
 										<a
 											class="bg-secondary-500/10 text-secondary-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
 											href={`/volunteer/${event.slug}`}
 										>
+											<span class="text-secondary-400 font-mono text-xs"
+												>{tf.format(parseEventDate(event.event_start))} -
+											</span>
 											{event.title}
 										</a>
 									{/each}
-									{#if day.events.length > 3}
-										<div class="text-secondary-300 text-[11px] font-medium">
-											+{day.events.length - 3} more
-										</div>
-									{/if}
 								{/if}
 							</div>
 						</div>
 					{/each}
-				{/each}
-			</div>
-		</div>
-	{:else if filters.view === 'map'}
-		<div class="bg-surface-900/60 border-surface-400/20 rounded-2xl border shadow-xl">
-			<div bind:this={mapContainer} class="h-[520px] w-full rounded-2xl"></div>
-			<div class="text-surface-300 border-surface-500/30 border-t px-6 py-3 text-sm">
-				Zoom and click markers to preview event details. Some opportunities without mapped
-				coordinates are hidden from the map view.
-			</div>
-		</div>
-	{:else}
-		<div class="space-y-6">
-			{#if filteredEvents.length === 0}
-				<div
-					class="bg-surface-900/60 border-surface-400/20 text-surface-300 rounded-2xl border p-8 text-center"
-				>
-					<p class="text-lg font-semibold">No volunteer events found</p>
-					<p class="mt-2 text-sm">
-						Try adjusting the filters or check back soon for fresh opportunities.
-					</p>
 				</div>
-			{:else}
-				<ul class="space-y-5">
-					{#each filteredEvents as event}
-						<li
-							class="bg-surface-900/60 border-surface-400/20 hover:border-secondary-400/40 rounded-2xl border p-6 shadow-lg transition"
-						>
-							<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-								<div class="space-y-3">
-									<a
-										href={`/volunteer/${event.slug}`}
-										class="text-secondary-200 hover:text-secondary-100 text-xl font-semibold"
-									>
-										{event.title}
-									</a>
-									{#if eventTypeLabel(event)}
-										<div class="text-secondary-300 text-sm font-medium tracking-wide uppercase">
-											{eventTypeLabel(event)}
-										</div>
-									{/if}
-									<div class="text-surface-300 text-sm leading-relaxed">
-										{#if event.summary}
-											{event.summary}
-										{:else if event.description}
-											{event.description.slice(0, 160)}{event.description.length > 160 ? '…' : ''}
-										{:else}
-											Details coming soon.
-										{/if}
-									</div>
-									<div class="text-surface-400 text-sm">
-										{#if hostGroupLabel(event)}
-											Hosted by <span class="text-surface-100 font-medium"
-												>{hostGroupLabel(event)}</span
-											>
-										{:else}
-											Community organized
-										{/if}
-									</div>
-								</div>
+
+				<!-- Desktop/month: denser grid -->
+				<div class="hidden sm:block">
+					<div
+						class="text-surface-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
+					>
+						<div>Sun</div>
+						<div>Mon</div>
+						<div>Tue</div>
+						<div>Wed</div>
+						<div>Thu</div>
+						<div>Fri</div>
+						<div>Sat</div>
+					</div>
+					<div class="grid grid-cols-7 gap-0">
+						{#each calendarMatrix as week}
+							{#each week as day}
 								<div
-									class="bg-surface-800/70 border-surface-400/20 text-surface-200 space-y-3 rounded-xl border px-5 py-4 text-sm"
+									class={`bg-surface-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left ${day.inMonth ? 'text-surface-100' : 'text-surface-500'}`}
 								>
-									<div>
-										<div class="text-surface-500 text-xs tracking-wide uppercase">When</div>
-										<div class="text-surface-100 mt-1 font-semibold">{eventTimeRange(event)}</div>
+									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
+									<div class="mt-1 space-y-1 overflow-y-auto">
+										{#if day.events.length === 0}
+											<p class="text-surface-500 text-[11px]">No events</p>
+										{:else}
+											{#each day.events.slice(0, 3) as event}
+												<a
+													class="bg-secondary-500/10 text-secondary-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
+													href={`/volunteer/${event.slug}`}
+												>
+													<span class="text-secondary-400 font-mono text-xs"
+														>{tf.format(parseEventDate(event.event_start))} -
+													</span>
+													{event.title}
+												</a>
+											{/each}
+											{#if day.events.length > 3}
+												<div class="text-secondary-300 text-[10px] font-medium">
+													+{day.events.length - 3} more
+												</div>
+											{/if}
+										{/if}
 									</div>
-									<div>
-										<div class="text-surface-500 text-xs tracking-wide uppercase">Where</div>
-										<div class="text-surface-100 mt-1">
-											{eventLocation(event) || 'Location coming soon'}
-										</div>
-									</div>
-									{#if event.max_volunteers}
-										<div>
-											<div class="text-surface-500 text-xs tracking-wide uppercase">
-												Volunteer slots
-											</div>
-											<div class="text-surface-100 mt-1">
-												Up to {event.max_volunteers} volunteers
-											</div>
-										</div>
-									{/if}
-									<a
-										href={`/volunteer/${event.slug}`}
-										class="bg-secondary-500 text-surface-900 hover:bg-secondary-400 block rounded-lg px-4 py-2 text-center text-sm font-semibold"
-									>
-										View event details
-									</a>
 								</div>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
-	{/if}
+							{/each}
+						{/each}
+					</div>
+				</div>
+			</div>
+		{:else if view === 'map'}
+			<div class="bg-surface-900/60 border-surface-400/20 rounded-2xl border shadow-xl">
+				<div bind:this={mapContainer} class="h-[480px] w-full rounded-2xl"></div>
+				<div class="text-surface-300 border-surface-500/30 border-t px-6 py-3 text-sm">
+					Zoom and click markers to preview event details. Some opportunities without mapped
+					coordinates are hidden from the map view.
+				</div>
+			</div>
+		{:else}
+			<!-- List view: standardized widths via grid -->
+			<div class="space-y-4">
+				{#if filteredEvents.length === 0}
+					<div
+						class="bg-surface-900/60 border-surface-400/20 text-surface-300 rounded-2xl border p-6 text-center"
+					>
+						<p class="text-lg font-semibold">No volunteer events found</p>
+						<p class="mt-1 text-sm">
+							Try adjusting the filters or check back soon for fresh opportunities.
+						</p>
+					</div>
+				{:else}
+					<ul class="space-y-4">
+						{#each filteredEvents as event}
+							<li
+								class="bg-surface-900/60 border-surface-400/20 hover:border-secondary-400/40 rounded-2xl border p-5 shadow-lg transition"
+							>
+								<div class="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-start">
+									<!-- Left: title/desc/org -->
+									<div class="space-y-2.5 md:col-span-6">
+										<a
+											href={`/volunteer/${event.slug}`}
+											class="text-secondary-200 hover:text-secondary-100 text-xl font-semibold"
+										>
+											{event.title}
+										</a>
+
+										{#if eventTypeLabel(event)}
+											<div class="text-secondary-300 text-xs font-medium tracking-wide uppercase">
+												{eventTypeLabel(event)}
+											</div>
+										{/if}
+
+										<div class="text-surface-300 text-sm leading-relaxed">
+											{#if event.summary}
+												{event.summary}
+											{:else if event.description}
+												{event.description.slice(0, 160)}{event.description.length > 160 ? '…' : ''}
+											{:else}
+												Details coming soon.
+											{/if}
+										</div>
+
+										<a
+											href={`/volunteer/${event.slug}`}
+											class="btn preset-tonal-primary mt-4 font-semibold"
+										>
+											Event Details
+										</a>
+									</div>
+
+									<!-- Right: when/where/host -->
+									<div class="md:col-span-6">
+										<div
+											class="bg-surface-800/70 border-surface-400/20 text-surface-200 space-y-2.5 rounded-xl border px-4 py-3 text-sm"
+										>
+											<div>
+												<div class="text-surface-500 text-[11px] tracking-wide uppercase">When</div>
+												<div class="text-surface-100 mt-0.5 font-semibold">
+													{eventDateRange(event)}<br />
+												</div>
+												<div class="text-surface-100 mt-0.5">
+													{eventTimeRangeOnly(event)}
+												</div>
+											</div>
+											<div>
+												<div class="text-surface-500 text-[11px] tracking-wide uppercase">
+													Where
+												</div>
+												<div class="text-surface-100 mt-0.5">
+													{eventLocation(event) || 'Location coming soon'}
+												</div>
+											</div>
+											<div>
+												<!-- Host / Org line: prefer host group, else optional host org -->
+												{#if hostGroupLabel(event) || event._hostOrgName}
+													<div class="text-surface-400 text-sm">
+														<div class="text-surface-500 text-[11px] tracking-wide uppercase">
+															Host
+														</div>
+														<div class="text-surface-100 mt-0.5">
+															{hostGroupLabel(event) || event._hostOrgName}
+														</div>
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </section>
