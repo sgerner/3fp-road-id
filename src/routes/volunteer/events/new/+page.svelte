@@ -15,11 +15,11 @@
 		createVolunteerCustomQuestion,
 		createVolunteerEventEmail
 	} from '$lib';
-	import EventOverviewStep from './components/EventOverviewStep.svelte';
-	import ScheduleStep from './components/ScheduleStep.svelte';
-	import RolesStep from './components/RolesStep.svelte';
-	import CommunicationsStep from './components/CommunicationsStep.svelte';
-	import ReviewStep from './components/ReviewStep.svelte';
+	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
+	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
+	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
+	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
+	import ReviewStep from '$lib/components/volunteer/ReviewStep.svelte';
 
 	const { data } = $props();
 
@@ -1680,7 +1680,7 @@
 						{saveError}
 						{saveSuccess}
 						{saving}
-						saveIntent={saveIntent}
+						{saveIntent}
 						onSubmit={handlePublish}
 						onSaveDraft={handleSaveDraft}
 					/>
