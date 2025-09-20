@@ -29,11 +29,7 @@ export const load = async ({ cookies, url }) => {
 			.select('slug, event_type, description')
 			.order('event_type'),
 		userId
-			? supabase
-					.from('group_members')
-					.select('group_id')
-					.eq('user_id', userId)
-					.eq('role', 'owner')
+			? supabase.from('group_members').select('group_id').eq('user_id', userId).eq('role', 'owner')
 			: Promise.resolve({ data: [], error: null })
 	]);
 
@@ -42,8 +38,8 @@ export const load = async ({ cookies, url }) => {
 		: [];
 
 	return {
-		hostGroups: groupsError ? [] : groups ?? [],
-		eventTypes: eventTypesError ? [] : eventTypes ?? [],
+		hostGroups: groupsError ? [] : (groups ?? []),
+		eventTypes: eventTypesError ? [] : (eventTypes ?? []),
 		ownerGroupIds,
 		currentUser,
 		returnTo: url.pathname + url.search

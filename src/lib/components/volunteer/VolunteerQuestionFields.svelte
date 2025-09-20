@@ -72,8 +72,9 @@
 
 <div class="space-y-4">
 	{#each questions as question (question.id)}
+		{@const questionInputId = `question-input-${question.id}`}
 		<div class="space-y-2">
-			<label class="text-surface-200 block text-sm font-semibold">
+			<label class="text-surface-200 block text-sm font-semibold" for={questionInputId}>
 				<span class="flex items-center gap-2">
 					{question.label}
 					{#if question.is_required}
@@ -90,23 +91,28 @@
 
 			{#if question.field_type === 'textarea'}
 				<textarea
+					id={questionInputId}
 					class="input bg-surface-950/40 min-h-[120px]"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleTextChange(question, event)}
 				></textarea>
 			{:else if question.field_type === 'select'}
 				<select
+					id={questionInputId}
 					class="input bg-surface-950/40"
 					onchange={(event) => handleSelectChange(question, event)}
 					value={getValue(question.id) ?? ''}
 				>
 					<option value="">Select an option</option>
-					{#each optionsFor(question) as option}
+					{#each optionsFor(question) as option (option)}
 						<option value={option}>{option}</option>
 					{/each}
 				</select>
 			{:else if question.field_type === 'multiselect'}
-				<div class="bg-surface-950/40 border-surface-500/30 space-y-2 rounded-xl border p-3">
+				<div
+					id={questionInputId}
+					class="bg-surface-950/40 border-surface-500/30 space-y-2 rounded-xl border p-3"
+				>
 					{#each optionsFor(question) as option (option)}
 						<label class="flex items-center gap-2 text-sm">
 							<input
@@ -123,6 +129,7 @@
 			{:else if question.field_type === 'checkbox'}
 				<label class="flex items-center gap-2 text-sm">
 					<input
+						id={questionInputId}
 						type="checkbox"
 						class="checkbox"
 						checked={Boolean(getValue(question.id))}
@@ -132,6 +139,7 @@
 				</label>
 			{:else if question.field_type === 'number'}
 				<input
+					id={questionInputId}
 					type="number"
 					class="input bg-surface-950/40"
 					value={getValue(question.id) ?? ''}
@@ -139,6 +147,7 @@
 				/>
 			{:else}
 				<input
+					id={questionInputId}
 					type={inputType(question)}
 					class="input bg-surface-950/40"
 					value={getValue(question.id) ?? ''}

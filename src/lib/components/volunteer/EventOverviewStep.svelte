@@ -42,10 +42,10 @@
 					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
-		{#if currentEventTypeDescription}
-			<p class="text-xs text-surface-500">{currentEventTypeDescription}</p>
-		{/if}
-	</div>
+			{#if currentEventTypeDescription}
+				<p class="text-surface-500 text-xs">{currentEventTypeDescription}</p>
+			{/if}
+		</div>
 		<div class="flex flex-col gap-2">
 			<Combobox
 				data={filteredHostGroupOptions}
@@ -61,16 +61,18 @@
 			{#if hostGroupSelection.length}
 				<button
 					type="button"
-					class="text-left text-xs text-primary-300 underline"
+					class="text-primary-300 text-left text-xs underline"
 					onclick={onClearHostGroup}
 				>
 					Clear selection
 				</button>
 			{:else}
-				<p class="text-xs text-surface-500">Leave blank if this event is not owned by a host group.</p>
+				<p class="text-surface-500 text-xs">
+					Leave blank if this event is not owned by a host group.
+				</p>
 			{/if}
 		</div>
-		<div class="md:col-span-2 flex flex-col gap-2">
+		<div class="flex flex-col gap-2 md:col-span-2">
 			<label class="label" for="event-summary">Short summary</label>
 			<input
 				id="event-summary"
@@ -80,11 +82,11 @@
 				placeholder="Neighborhood celebration with repair stations, youth rodeo, and info booths."
 			/>
 		</div>
-		<div class="md:col-span-2 flex flex-col gap-2">
+		<div class="flex flex-col gap-2 md:col-span-2">
 			<label class="label" for="event-description">Full description</label>
 			<textarea
 				id="event-description"
-				class="textarea min-h-36 bg-surface-900/60"
+				class="textarea bg-surface-900/60 min-h-36"
 				value={eventDetails.description}
 				oninput={(e) => onEventDetailsChange({ description: e.currentTarget.value })}
 				placeholder="Share the vibe, call out volunteer roles, and explain why the event matters."
@@ -94,7 +96,7 @@
 
 	<button
 		type="button"
-		class="inline-flex items-center gap-2 text-sm font-semibold text-primary-300"
+		class="text-primary-300 inline-flex items-center gap-2 text-sm font-semibold"
 		onclick={onToggleAdvanced}
 	>
 		{#if showAdvancedSettings}
@@ -140,7 +142,8 @@
 						type="checkbox"
 						id="event-require-approval"
 						checked={eventDetails.requireSignupApproval}
-						onchange={(e) => onEventDetailsChange({ requireSignupApproval: e.currentTarget.checked })}
+						onchange={(e) =>
+							onEventDetailsChange({ requireSignupApproval: e.currentTarget.checked })}
 					/>
 					<span>Hold signups for host approval</span>
 				</label>

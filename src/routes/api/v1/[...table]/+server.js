@@ -114,7 +114,9 @@ export async function GET(event) {
 		if (typeof limitValue === 'number' && !Number.isNaN(limitValue)) {
 			const safeLimit = Math.max(limitValue, 0);
 			const safeOffset =
-				typeof offsetValue === 'number' && !Number.isNaN(offsetValue) ? Math.max(offsetValue, 0) : 0;
+				typeof offsetValue === 'number' && !Number.isNaN(offsetValue)
+					? Math.max(offsetValue, 0)
+					: 0;
 			if (safeLimit > 0) {
 				query = query.range(safeOffset, safeOffset + safeLimit - 1);
 			}

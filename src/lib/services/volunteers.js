@@ -123,17 +123,13 @@ export {
 
 export const listVolunteerEvents = (options) => volunteerEventsApi.list(options);
 export const getVolunteerEvent = (id, options) => volunteerEventsApi.get(id, options);
-export const createVolunteerEvent = (body, options) =>
-	volunteerEventsApi.create(body, options);
+export const createVolunteerEvent = (body, options) => volunteerEventsApi.create(body, options);
 export const updateVolunteerEvent = (id, body, options) =>
 	volunteerEventsApi.update(id, body, options);
-export const deleteVolunteerEvent = (id, options) =>
-	volunteerEventsApi.remove(id, options);
+export const deleteVolunteerEvent = (id, options) => volunteerEventsApi.remove(id, options);
 
-export const listVolunteerOpportunities = (options) =>
-	volunteerOpportunitiesApi.list(options);
-export const getVolunteerOpportunity = (id, options) =>
-	volunteerOpportunitiesApi.get(id, options);
+export const listVolunteerOpportunities = (options) => volunteerOpportunitiesApi.list(options);
+export const getVolunteerOpportunity = (id, options) => volunteerOpportunitiesApi.get(id, options);
 export const createVolunteerOpportunity = (body, options) =>
 	volunteerOpportunitiesApi.create(body, options);
 export const updateVolunteerOpportunity = (id, body, options) =>
@@ -143,24 +139,20 @@ export const deleteVolunteerOpportunity = (id, options) =>
 
 export const listVolunteerShifts = (options) => volunteerShiftsApi.list(options);
 export const getVolunteerShift = (id, options) => volunteerShiftsApi.get(id, options);
-export const createVolunteerShift = (body, options) =>
-	volunteerShiftsApi.create(body, options);
+export const createVolunteerShift = (body, options) => volunteerShiftsApi.create(body, options);
 export const updateVolunteerShift = (id, body, options) =>
 	volunteerShiftsApi.update(id, body, options);
 export const deleteVolunteerShift = (id, options) => volunteerShiftsApi.remove(id, options);
 
 export const listVolunteerSignups = (options) => volunteerSignupsApi.list(options);
 export const getVolunteerSignup = (id, options) => volunteerSignupsApi.get(id, options);
-export const createVolunteerSignup = (body, options) =>
-	volunteerSignupsApi.create(body, options);
+export const createVolunteerSignup = (body, options) => volunteerSignupsApi.create(body, options);
 export const updateVolunteerSignup = (id, body, options) =>
 	volunteerSignupsApi.update(id, body, options);
 export const deleteVolunteerSignup = (id, options) => volunteerSignupsApi.remove(id, options);
 
-export const listVolunteerSignupShifts = (options) =>
-	volunteerSignupShiftsApi.list(options);
-export const getVolunteerSignupShift = (id, options) =>
-	volunteerSignupShiftsApi.get(id, options);
+export const listVolunteerSignupShifts = (options) => volunteerSignupShiftsApi.list(options);
+export const getVolunteerSignupShift = (id, options) => volunteerSignupShiftsApi.get(id, options);
 export const createVolunteerSignupShift = (body, options) =>
 	volunteerSignupShiftsApi.create(body, options);
 export const updateVolunteerSignupShift = (id, body, options) =>
@@ -168,8 +160,7 @@ export const updateVolunteerSignupShift = (id, body, options) =>
 export const deleteVolunteerSignupShift = (id, options) =>
 	volunteerSignupShiftsApi.remove(id, options);
 
-export const listVolunteerCustomQuestions = (options) =>
-	volunteerCustomQuestionsApi.list(options);
+export const listVolunteerCustomQuestions = (options) => volunteerCustomQuestionsApi.list(options);
 export const getVolunteerCustomQuestion = (id, options) =>
 	volunteerCustomQuestionsApi.get(id, options);
 export const createVolunteerCustomQuestion = (body, options) =>
@@ -179,8 +170,7 @@ export const updateVolunteerCustomQuestion = (id, body, options) =>
 export const deleteVolunteerCustomQuestion = (id, options) =>
 	volunteerCustomQuestionsApi.remove(id, options);
 
-export const listVolunteerSignupResponses = (options) =>
-	volunteerSignupResponsesApi.list(options);
+export const listVolunteerSignupResponses = (options) => volunteerSignupResponsesApi.list(options);
 export const getVolunteerSignupResponse = (id, options) =>
 	volunteerSignupResponsesApi.get(id, options);
 export const createVolunteerSignupResponse = (body, options) =>
@@ -190,10 +180,8 @@ export const updateVolunteerSignupResponse = (id, body, options) =>
 export const deleteVolunteerSignupResponse = (id, options) =>
 	volunteerSignupResponsesApi.remove(id, options);
 
-export const listVolunteerEventEmails = (options) =>
-	volunteerEventEmailsApi.list(options);
-export const getVolunteerEventEmail = (id, options) =>
-	volunteerEventEmailsApi.get(id, options);
+export const listVolunteerEventEmails = (options) => volunteerEventEmailsApi.list(options);
+export const getVolunteerEventEmail = (id, options) => volunteerEventEmailsApi.get(id, options);
 export const createVolunteerEventEmail = (body, options) =>
 	volunteerEventEmailsApi.create(body, options);
 export const updateVolunteerEventEmail = (id, body, options) =>

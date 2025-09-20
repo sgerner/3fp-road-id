@@ -8,8 +8,8 @@
 
 	export let showAdvancedCommunications = false;
 	export let customQuestions = [];
-export let eventEmails = [];
-export let eventDetails = {};
+	export let eventEmails = [];
+	export let eventDetails = {};
 	export let opportunities = [];
 	export let fieldTypeOptions = [];
 	export let emailTypeOptions = [];
@@ -107,22 +107,21 @@ export let eventDetails = {};
 		const startDate = parseLocalDateTime(details.eventStart);
 		const end = endDate
 			? formatDateTime(details.eventEnd, details.timezone, {
-				dateStyle:
-					startDate && endDate && startDate.toDateString() === endDate.toDateString()
-						? undefined
-						: 'medium',
-				timeStyle: 'short'
-			})
+					dateStyle:
+						startDate && endDate && startDate.toDateString() === endDate.toDateString()
+							? undefined
+							: 'medium',
+					timeStyle: 'short'
+				})
 			: null;
 		const tzLabel = details.timezone ? ` (${details.timezone})` : '';
 		if (end && end !== 'TBD') {
-			const sameDay =
-				startDate && endDate && startDate.toDateString() === endDate.toDateString();
+			const sameDay = startDate && endDate && startDate.toDateString() === endDate.toDateString();
 			const endLabel = sameDay
 				? formatDateTime(details.eventEnd, details.timezone, {
-					dateStyle: undefined,
-					timeStyle: 'short'
-				})
+						dateStyle: undefined,
+						timeStyle: 'short'
+					})
 				: end;
 			return `${start} → ${endLabel}${tzLabel}`;
 		}
@@ -226,9 +225,10 @@ export let eventDetails = {};
 									</select>
 								</label>
 								<div class="flex flex-col gap-2">
-									<label class="label">Required?</label>
+									<label class="label" for={`question-required-${question.id}`}>Required?</label>
 									<label class="flex items-center gap-3 text-sm">
 										<input
+											id={`question-required-${question.id}`}
 											type="checkbox"
 											checked={question.isRequired}
 											onchange={(e) =>
@@ -461,9 +461,12 @@ export let eventDetails = {};
 									<p class="text-surface-500 text-xs">We convert this to minutes automatically.</p>
 								</label>
 								<div class="flex flex-col gap-2">
-									<label class="label">Require confirmation?</label>
+									<label class="label" for={`email-confirm-${email.id}`}
+										>Require confirmation?</label
+									>
 									<label class="flex items-center gap-3 text-sm">
 										<input
+											id={`email-confirm-${email.id}`}
 											type="checkbox"
 											checked={email.requireConfirmation}
 											onchange={(e) =>
@@ -483,39 +486,47 @@ export let eventDetails = {};
 								</label>
 							</div>
 
-						<label class="label flex flex-col gap-2">
-							<span>Subject *</span>
-							<input
-								class="input bg-surface-900/60"
-								value={email.subject}
-								oninput={(e) => onUpdateEmail(email.id, { subject: e.currentTarget.value })}
-								placeholder="Reminder: Your volunteer shift starts in 48 hours"
-							/>
-							<div class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs">
-								<strong class="block text-[11px] uppercase tracking-wide text-surface-400">Subject preview</strong>
-								<p class="mt-1 whitespace-pre-wrap break-words text-surface-200">
-									{buildMergePreview(email.subject) ||
-										'Merge tags such as {{volunteer_name}} will render here exactly as written.'}
-								</p>
-							</div>
-						</label>
+							<label class="label flex flex-col gap-2">
+								<span>Subject *</span>
+								<input
+									class="input bg-surface-900/60"
+									value={email.subject}
+									oninput={(e) => onUpdateEmail(email.id, { subject: e.currentTarget.value })}
+									placeholder="Reminder: Your volunteer shift starts in 48 hours"
+								/>
+								<div
+									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+								>
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase"
+										>Subject preview</strong
+									>
+									<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap">
+										{buildMergePreview(email.subject) ||
+											'Merge tags such as {{volunteer_name}} will render here exactly as written.'}
+									</p>
+								</div>
+							</label>
 
-						<label class="label flex flex-col gap-2">
-							<span>Body *</span>
-							<textarea
-								class="textarea bg-surface-900/60 min-h-32"
-								value={email.body}
-								oninput={(e) => onUpdateEmail(email.id, { body: e.currentTarget.value })}
-								placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
-							></textarea>
-							<div class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-3 text-xs">
-								<strong class="block text-[11px] uppercase tracking-wide text-surface-400">Body preview</strong>
-								<p class="mt-2 whitespace-pre-wrap break-words text-surface-200">
-									{buildMergePreview(email.body) ||
-										'Use merge tags like {{event_day_time}} and {{activity_title}}. They appear exactly where you place them.'}
-								</p>
-							</div>
-						</label>
+							<label class="label flex flex-col gap-2">
+								<span>Body *</span>
+								<textarea
+									class="textarea bg-surface-900/60 min-h-32"
+									value={email.body}
+									oninput={(e) => onUpdateEmail(email.id, { body: e.currentTarget.value })}
+									placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
+								></textarea>
+								<div
+									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-3 text-xs"
+								>
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase"
+										>Body preview</strong
+									>
+									<p class="text-surface-200 mt-2 break-words whitespace-pre-wrap">
+										{buildMergePreview(email.body) ||
+											'Use merge tags like {{event_day_time}} and {{activity_title}}. They appear exactly where you place them.'}
+									</p>
+								</div>
+							</label>
 						</div>
 					{/each}
 

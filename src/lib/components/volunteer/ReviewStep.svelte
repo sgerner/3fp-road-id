@@ -4,13 +4,13 @@
 	export let eventDetails;
 	export let opportunities = [];
 	export let customQuestions = [];
-export let eventEmails = [];
-export let saveError = '';
-export let saveSuccess = '';
-export let saving = false;
-export let onSubmit = () => {};
-export let onSaveDraft = null;
-export let saveIntent = 'publish';
+	export let eventEmails = [];
+	export let saveError = '';
+	export let saveSuccess = '';
+	export let saving = false;
+	export let onSubmit = () => {};
+	export let onSaveDraft = null;
+	export let saveIntent = 'publish';
 
 	function parseLocalDateTime(value) {
 		if (!value) return null;

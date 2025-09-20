@@ -70,7 +70,10 @@
 		geocoder = geocoder || new maps.Geocoder();
 		googleReady = true;
 		if (pendingGeocode?.query) {
-			scheduleGeocode(pendingGeocode.query, pendingGeocode.country, { immediate: true, force: true });
+			scheduleGeocode(pendingGeocode.query, pendingGeocode.country, {
+				immediate: true,
+				force: true
+			});
 		}
 		if (window.initGroupsNewPlaces === initGooglePlaces) delete window.initGroupsNewPlaces;
 	}
@@ -103,7 +106,7 @@
 		const currentKey = config.key;
 		const execute = async () => {
 			try {
-			const coords = await fetchLatLngWithGeocoder(config.query, config.country);
+				const coords = await fetchLatLngWithGeocoder(config.query, config.country);
 				if (!coords) return;
 				if (pendingGeocode?.key && pendingGeocode.key !== currentKey) return;
 				lastGeocodeKey = currentKey;
@@ -135,7 +138,7 @@
 	let pendingGeocode;
 	let lastGeocodeKey = '';
 	let geocodeTimeout;
-let geocoder;
+	let geocoder;
 	async function suggestFromAI() {
 		aiError = '';
 		aiLoading = true;

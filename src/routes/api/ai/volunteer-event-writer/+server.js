@@ -93,8 +93,8 @@ const RESPONSE_SCHEMA = {
 									type: 'object',
 									additionalProperties: false,
 									properties: {
-									starts_at: { type: 'string', nullable: true, format: 'date-time' },
-									ends_at: { type: 'string', nullable: true, format: 'date-time' },
+										starts_at: { type: 'string', nullable: true, format: 'date-time' },
+										ends_at: { type: 'string', nullable: true, format: 'date-time' },
 										capacity: { type: 'number', nullable: true },
 										timezone: { type: 'string', nullable: true },
 										location_name: { type: 'string', nullable: true },
@@ -233,18 +233,14 @@ export const POST = async ({ request }) => {
 		? payload.event_type_options.filter(Boolean)
 		: [];
 	const eventTypeCatalog = eventTypeOptions
-		.map((option) =>
-			`${option?.value ?? ''}${option?.label ? ` (${option.label})` : ''}`.trim()
-		)
+		.map((option) => `${option?.value ?? ''}${option?.label ? ` (${option.label})` : ''}`.trim())
 		.filter(Boolean)
 		.join('\n');
 	const opportunityTypeOptions = Array.isArray(payload.opportunity_type_options)
 		? payload.opportunity_type_options.filter(Boolean)
 		: [];
 	const opportunityTypeCatalog = opportunityTypeOptions
-		.map((option) =>
-			`${option?.value ?? ''}${option?.label ? ` (${option.label})` : ''}`.trim()
-		)
+		.map((option) => `${option?.value ?? ''}${option?.label ? ` (${option.label})` : ''}`.trim())
 		.filter(Boolean)
 		.join('\n');
 	const emailMergeTags = Array.isArray(payload.email_merge_tags)
@@ -283,7 +279,11 @@ Default shift timezones to the event timezone when none is provided and mirror t
 	try {
 		const useSchema = !schemaUnsupported;
 		const response = await generateWithSchema({
-			contents: [planner, conversation, preferDraft ? 'Provide draft suggestions when feasible.' : ''],
+			contents: [
+				planner,
+				conversation,
+				preferDraft ? 'Provide draft suggestions when feasible.' : ''
+			],
 			useSchema
 		});
 
@@ -300,7 +300,11 @@ Default shift timezones to the event timezone when none is provided and mirror t
 			schemaUnsupported = true;
 			try {
 				const fallbackResponse = await generateWithSchema({
-					contents: [planner, conversation, preferDraft ? 'Provide draft suggestions when feasible.' : ''],
+					contents: [
+						planner,
+						conversation,
+						preferDraft ? 'Provide draft suggestions when feasible.' : ''
+					],
 					useSchema: false
 				});
 

@@ -23,13 +23,13 @@ export async function POST({ request, url }) {
 		const redirectUrl = `${PUBLIC_URL_BASE}/auth/confirm?${params.toString()}`;
 
 		// Call signInWithOtp (Magic Link) with shouldCreateUser toggled.
-    const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-            shouldCreateUser: createProfile,
-            emailRedirectTo: redirectUrl
-        }
-    });
+		const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
+			email,
+			options: {
+				shouldCreateUser: createProfile,
+				emailRedirectTo: redirectUrl
+			}
+		});
 
 		if (authError) {
 			return json({ error: authError.message }, { status: 400 });

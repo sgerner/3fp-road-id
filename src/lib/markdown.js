@@ -83,7 +83,9 @@ export function renderMarkdown(text) {
 
 	const flushList = () => {
 		if (!currentList) return;
-		const items = currentList.items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('');
+		const items = currentList.items
+			.map((item) => `<li>${renderInlineMarkdown(item)}</li>`)
+			.join('');
 		blocks.push(`<${currentList.type}>${items}</${currentList.type}>`);
 		currentList = null;
 	};

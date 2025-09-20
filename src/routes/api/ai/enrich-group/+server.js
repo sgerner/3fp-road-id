@@ -69,7 +69,18 @@ const RESPONSE_SCHEMA = {
 					type: 'object',
 					nullable: true,
 					additionalProperties: false,
-					required: ['instagram', 'facebook', 'x', 'threads', 'youtube', 'tiktok', 'strava', 'bluesky', 'linkedin', 'other'],
+					required: [
+						'instagram',
+						'facebook',
+						'x',
+						'threads',
+						'youtube',
+						'tiktok',
+						'strava',
+						'bluesky',
+						'linkedin',
+						'other'
+					],
 					properties: {
 						instagram: { type: 'string', nullable: true },
 						facebook: { type: 'string', nullable: true },
@@ -184,9 +195,7 @@ export const POST = async ({ request }) => {
 
 	const hints = buildHighLevelHints(scraped, { urls, name });
 	const hintBlock = hints.length
-		? `High-level cues derived from retrieved content:\n${hints
-				.map((h) => `- ${h}`)
-				.join('\n')}\n`
+		? `High-level cues derived from retrieved content:\n${hints.map((h) => `- ${h}`).join('\n')}\n`
 		: '';
 	const priorityList = PRIORITY_FIELDS.map((f) => `fields.${f}`).join(', ');
 	const voiceList = VOICE_FIELDS.join(', ');
@@ -242,15 +251,15 @@ When social profiles (Instagram, Facebook, etc.) are provided, call the urlConte
 Context name (if provided by user): ${name || ''}`;
 
 	const contents = [instruction];
-		// Include raw URLs to enable urlContext tool
+	// Include raw URLs to enable urlContext tool
 	for (const u of urls) contents.push(u);
-			// Include scraped text chunks and any structured data we found
-			for (const doc of scraped) {
-				contents.push(`Content from ${doc.url}:\n${doc.text}`);
-				for (const snippet of doc.structured || []) {
-					contents.push(`Structured data from ${doc.url} (${snippet.label}):\n${snippet.json}`);
-				}
-			}
+	// Include scraped text chunks and any structured data we found
+	for (const doc of scraped) {
+		contents.push(`Content from ${doc.url}:\n${doc.text}`);
+		for (const snippet of doc.structured || []) {
+			contents.push(`Structured data from ${doc.url} (${snippet.label}):\n${snippet.json}`);
+		}
+	}
 
 	try {
 		const response = await ai.models.generateContent({
@@ -472,7 +481,10 @@ async function scrapeFacebookPage(url) {
 	const attempts = [
 		{ url: `https://m.facebook.com${path}?_rdr`, label: `${url} (m.facebook)` },
 		{ url: `https://mbasic.facebook.com${path}?_rdr`, label: `${url} (mbasic)` },
-		{ url: `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(url)}&tabs=timeline&width=500&height=600&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`, label: `${url} (plugin)` },
+		{
+			url: `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(url)}&tabs=timeline&width=500&height=600&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`,
+			label: `${url} (plugin)`
+		},
 		{ url: `https://r.jina.ai/https://m.facebook.com${path}?_rdr`, label: `${url} (via jina.ai)` }
 	];
 
@@ -492,7 +504,9 @@ function extractInstagramUsername(input) {
 	const trimmed = input.replace(/^@/, '').trim();
 	if (!trimmed) return null;
 	try {
-		const url = new URL(trimmed.includes('instagram.com') ? trimmed : `https://www.instagram.com/${trimmed}`);
+		const url = new URL(
+			trimmed.includes('instagram.com') ? trimmed : `https://www.instagram.com/${trimmed}`
+		);
 		const segments = url.pathname.split('/').filter(Boolean);
 		if (!segments.length) return null;
 		const first = segments[0];
@@ -553,7 +567,8 @@ function instagramUserToText(user) {
 	if (bio) parts.push(`Bio: ${bio}`);
 	const category = user.category_name || user.business_category_name;
 	if (category) parts.push(`Category: ${category}`);
-	if (typeof user.is_verified === 'boolean') parts.push(`Verified: ${user.is_verified ? 'yes' : 'no'}`);
+	if (typeof user.is_verified === 'boolean')
+		parts.push(`Verified: ${user.is_verified ? 'yes' : 'no'}`);
 	const followers = user.edge_followed_by?.count ?? user.follower_count;
 	if (typeof followers === 'number') parts.push(`Followers: ${formatNumber(followers)}`);
 	const following = user.edge_follow?.count ?? user.following_count;
@@ -586,7 +601,10 @@ function dedupeDocs(docs) {
 
 function buildHighLevelHints(docs, { urls = [], name } = {}) {
 	const hints = [];
-	const combined = docs.map((doc) => doc?.text || '').join(' ').toLowerCase();
+	const combined = docs
+		.map((doc) => doc?.text || '')
+		.join(' ')
+		.toLowerCase();
 	const add = (condition, message) => {
 		if (condition) hints.push(message);
 	};
@@ -595,29 +613,70 @@ function buildHighLevelHints(docs, { urls = [], name } = {}) {
 	if (urls.length) add(true, `Social/context links available: ${urls.join(', ')}.`);
 
 	const keywordRules = [
-		{ pattern: /women|female|femme|ladies|girlboss|she\/her/, message: 'Audience likely centers women, femme, or non-men riders.' },
-		{ pattern: /beginner|new rider|no experience|learn to ride|first ride/, message: 'Stresses beginner-friendly programming — call out accessible options.' },
-		{ pattern: /youth|kid|teen|family|school/, message: 'Youth or family engagement is mentioned; include that audience focus.' },
-		{ pattern: /gravel|mtb|mountain|trail|singletrack/, message: 'Off-road / gravel / MTB riding appears important.' },
+		{
+			pattern: /women|female|femme|ladies|girlboss|she\/her/,
+			message: 'Audience likely centers women, femme, or non-men riders.'
+		},
+		{
+			pattern: /beginner|new rider|no experience|learn to ride|first ride/,
+			message: 'Stresses beginner-friendly programming — call out accessible options.'
+		},
+		{
+			pattern: /youth|kid|teen|family|school/,
+			message: 'Youth or family engagement is mentioned; include that audience focus.'
+		},
+		{
+			pattern: /gravel|mtb|mountain|trail|singletrack/,
+			message: 'Off-road / gravel / MTB riding appears important.'
+		},
 		{ pattern: /cyclocross|cross race/, message: 'Cyclocross activity detected.' },
-		{ pattern: /road ride|road cycling|road race/, message: 'Road riding emphasis appears in the sources.' },
+		{
+			pattern: /road ride|road cycling|road race/,
+			message: 'Road riding emphasis appears in the sources.'
+		},
 		{ pattern: /track cycling|velodrome/, message: 'Track cycling references present.' },
 		{ pattern: /bmx/, message: 'BMX activity mentioned.' },
-		{ pattern: /advocacy|nonprofit|501c3|campaign/, message: 'Advocacy or nonprofit mission is highlighted.' },
-		{ pattern: /weekly|every (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|each week/, message: 'Regular weekly cadence noted — capture activity_frequency and timing.' },
-		{ pattern: /monthly|once a month|every month/, message: 'Monthly programming noted — record cadence.' },
-		{ pattern: /saturday|sunday|monday|tuesday|wednesday|thursday|friday/, message: 'Specific day of week mentioned; capture typical_activity_day_time.' },
-		{ pattern: /am\b|pm\b|morning|afternoon|evening|sunrise|sunset/, message: 'Specific time-of-day cues present; include in typical_activity_day_time.' },
-		{ pattern: /membership|dues|join|sign up|register|rsvp/, message: 'Joining instructions or membership details available — summarize clearly.' },
-		{ pattern: /meetup|start point|meet at|location|parking/, message: 'Physical meetup/start location referenced — capture specific_meeting_point_address if possible.' }
+		{
+			pattern: /advocacy|nonprofit|501c3|campaign/,
+			message: 'Advocacy or nonprofit mission is highlighted.'
+		},
+		{
+			pattern: /weekly|every (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|each week/,
+			message: 'Regular weekly cadence noted — capture activity_frequency and timing.'
+		},
+		{
+			pattern: /monthly|once a month|every month/,
+			message: 'Monthly programming noted — record cadence.'
+		},
+		{
+			pattern: /saturday|sunday|monday|tuesday|wednesday|thursday|friday/,
+			message: 'Specific day of week mentioned; capture typical_activity_day_time.'
+		},
+		{
+			pattern: /am\b|pm\b|morning|afternoon|evening|sunrise|sunset/,
+			message: 'Specific time-of-day cues present; include in typical_activity_day_time.'
+		},
+		{
+			pattern: /membership|dues|join|sign up|register|rsvp/,
+			message: 'Joining instructions or membership details available — summarize clearly.'
+		},
+		{
+			pattern: /meetup|start point|meet at|location|parking/,
+			message:
+				'Physical meetup/start location referenced — capture specific_meeting_point_address if possible.'
+		}
 	];
 
 	for (const rule of keywordRules) add(rule.pattern.test(combined), rule.message);
 
-	const followersMatch = /followers:\s*([^\n]+)/i.exec(docs.map((doc) => doc?.text || '').join('\n'));
+	const followersMatch = /followers:\s*([^\n]+)/i.exec(
+		docs.map((doc) => doc?.text || '').join('\n')
+	);
 	if (followersMatch) add(true, `Instagram follower count noted as ${followersMatch[1].trim()}.`);
 
-	const externalLinkMatch = /External link:\s*([^\n]+)/i.exec(docs.map((doc) => doc?.text || '').join('\n'));
+	const externalLinkMatch = /External link:\s*([^\n]+)/i.exec(
+		docs.map((doc) => doc?.text || '').join('\n')
+	);
 	if (externalLinkMatch) add(true, `External website referenced: ${externalLinkMatch[1].trim()}.`);
 
 	const sentences = [];
@@ -633,7 +692,10 @@ function buildHighLevelHints(docs, { urls = [], name } = {}) {
 		if (sentences.length >= 2) break;
 	}
 	if (sentences.length) {
-		add(true, `Representative snippets: ${sentences.map((s) => `"${truncate(s, 140)}"`).join(' / ')}`);
+		add(
+			true,
+			`Representative snippets: ${sentences.map((s) => `"${truncate(s, 140)}"`).join(' / ')}`
+		);
 	}
 
 	return hints.slice(0, 8);
