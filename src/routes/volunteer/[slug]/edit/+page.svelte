@@ -101,7 +101,7 @@
 		'UTC'
 	];
 
-	const statusOptions = ['raft', 'published', 'cancelled', 'archived'];
+	const statusOptions = ['draft', 'published', 'cancelled', 'archived'];
 	const opportunityTypeOptions = [
 		{ value: 'coordination', label: 'Coordination & Leads' },
 		{ value: 'check-in', label: 'Check-in & Registration' },
