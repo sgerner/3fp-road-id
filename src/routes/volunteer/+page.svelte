@@ -458,28 +458,13 @@
 				<input
 					type="search"
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					placeholder="City, state, or neighborhood"
-					value={locationQ}
-					oninput={(e) => (locationQ = e.currentTarget.value)}
+					placeholder="City and/or state"
+					bind:value={locationQ}
 				/>
 			</label>
 
 			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Host group</span>
-				<select
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					value={hostGroupId}
-					onchange={(e) => (hostGroupId = e.currentTarget.value)}
-				>
-					<option value="">Any host</option>
-					{#each hostGroups as group}
-						<option value={group.id}>{group.name}</option>
-					{/each}
-				</select>
-			</label>
-
-			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Opportunity type</span>
+				<span class="text-surface-100 font-semibold">Type</span>
 				<select
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					value={eventType}
