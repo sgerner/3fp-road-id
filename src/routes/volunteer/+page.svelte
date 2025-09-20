@@ -3,6 +3,7 @@
 	import { tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
+	import { blur, slide } from 'svelte/transition';
 
 	const { data } = $props();
 
@@ -50,7 +51,6 @@
 
 	// ===== local state (filters) =====
 	let searchInput = $state('');
-	let search = $state('');
 	let locationQ = $state('');
 	let hostGroupId = $state('');
 	let eventType = $state('');
@@ -65,16 +65,6 @@
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
 		view = sp.get('view') ?? 'list';
-	});
-
-	// debounce search
-	let searchTimer;
-	$effect(() => {
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
-			search = searchInput;
-		}, 200);
-		return () => clearTimeout(searchTimer);
 	});
 
 	// ===== helpers =====
@@ -193,7 +183,7 @@
 	);
 
 	// ===== derived filters =====
-	const normalizedSearch = $derived(search.trim().toLowerCase());
+	const normalizedSearch = $derived(searchInput.trim().toLowerCase());
 	const normalizedLocation = $derived(locationQ.trim().toLowerCase());
 	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
 	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
@@ -214,22 +204,22 @@
 		})
 	);
 
-	function eventMatchesFilters(e) {
-		const start = parseEventDate(e?.event_start);
-		if (!start || start < todayStart) return false; // future-only
+	const filteredEvents = $derived(
+		sortedEvents.filter((e) => {
+			const start = parseEventDate(e?.event_start);
+			if (!start || start < todayStart) return false; // future-only
 
-		if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
-		if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
+			if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
+			if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
 
-		if (selectedHostId) {
-			if (!e.host_group_id || String(e.host_group_id) !== String(selectedHostId)) return false;
-		}
-		if (selectedEventType && e.event_type_slug !== selectedEventType) return false;
+			if (selectedHostId) {
+				if (!e.host_group_id || String(e.host_group_id) !== String(selectedHostId)) return false;
+			}
+			if (selectedEventType && e.event_type_slug !== selectedEventType) return false;
 
-		return true;
-	}
-
-	const filteredEvents = $derived(sortedEvents.filter(eventMatchesFilters));
+			return true;
+		})
+	);
 	const totalUpcoming = $derived(filteredEvents.length);
 
 	// ===== calendar helpers =====
@@ -459,8 +449,7 @@
 					type="search"
 					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					placeholder="Find by title, host, org, or description"
-					value={searchInput}
-					oninput={(e) => (searchInput = e.currentTarget.value)}
+					bind:value={searchInput}
 				/>
 			</label>
 
@@ -552,7 +541,7 @@
 	<div class="mx-auto flex flex-wrap items-center justify-center gap-2">
 		{#if view === 'calendar'}
 			<!-- Mobile: single week stacked; Desktop: dense month grid -->
-			<div class="w-full space-y-3">
+			<div transition:blur class="w-full space-y-3">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div class="text-surface-100 text-base font-semibold">{calendarHeaderText}</div>
 					<div class="flex items-center gap-2">
@@ -659,7 +648,10 @@
 				</div>
 			</div>
 		{:else if view === 'map'}
-			<div class="bg-surface-900/60 border-surface-400/20 rounded-2xl border shadow-xl">
+			<div
+				transition:blur
+				class="bg-surface-900/60 border-surface-400/20 rounded-2xl border shadow-xl"
+			>
 				<div bind:this={mapContainer} class="h-[480px] w-full rounded-2xl"></div>
 				<div class="text-surface-300 border-surface-500/30 border-t px-6 py-3 text-sm">
 					Zoom and click markers to preview event details. Some opportunities without mapped
@@ -668,20 +660,33 @@
 			</div>
 		{:else}
 			<!-- List view: standardized widths via grid -->
-			<div class="space-y-4">
+			<div transition:blur class="space-y-4">
 				{#if filteredEvents.length === 0}
 					<div
+						transition:slide
 						class="bg-surface-900/60 border-surface-400/20 text-surface-300 rounded-2xl border p-6 text-center"
 					>
 						<p class="text-lg font-semibold">No volunteer events found</p>
 						<p class="mt-1 text-sm">
 							Try adjusting the filters or check back soon for fresh opportunities.
 						</p>
+						<button
+							type="button"
+							class="text-secondary-300 hover:text-secondary-200 text-sm font-semibold"
+							onclick={() => {
+								searchInput = locationQ = hostGroupId = eventType = '';
+								view = 'list';
+								calendarReference = earliestEventMonth();
+							}}
+						>
+							Clear filters
+						</button>
 					</div>
 				{:else}
-					<ul class="space-y-4">
+					<ul transition:slide class="space-y-4">
 						{#each filteredEvents as event}
 							<li
+								transition:slide
 								class="bg-surface-900/60 border-surface-400/20 hover:border-secondary-400/40 rounded-2xl border p-5 shadow-lg transition"
 							>
 								<div class="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-start">
