@@ -154,6 +154,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 
 	let signupIds = unique(signups.map((s) => s.id));
 	let signupShifts = [];
+	let signupResponses = [];
 	if (signupIds.length) {
 		try {
 			const batches = chunk(signupIds, 20);
@@ -166,9 +167,19 @@ export const load = async ({ params, fetch, cookies, url }) => {
 				)
 			);
 			signupShifts = responses.flat();
+			const responseBatches = await Promise.all(
+				batches.map((batch) =>
+					fetchList(fetch, 'volunteer-signup-responses', {
+						signup_id: `in.(${batch.join(',')})`,
+						order: 'created_at.asc'
+					})
+				)
+			);
+			signupResponses = responseBatches.flat();
 		} catch (err) {
 			if (err?.status !== 403) throw err;
 			signupShifts = [];
+			signupResponses = [];
 		}
 	}
 
@@ -260,6 +271,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		customQuestions,
 		signups,
 		signupShifts,
+		signupResponses,
 		shiftSignupCounts,
 		approvalCounts,
 		user,

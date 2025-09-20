@@ -8,7 +8,10 @@
 		createVolunteerSignup,
 		updateVolunteerSignup,
 		createVolunteerSignupShift,
-		deleteVolunteerSignupShift
+		deleteVolunteerSignupShift,
+		createVolunteerSignupResponse,
+		updateVolunteerSignupResponse,
+		deleteVolunteerSignupResponse
 	} from '$lib/services/volunteers';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
@@ -19,10 +22,13 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconLayers from '@lucide/svelte/icons/layers';
 	import IconBuilding from '@lucide/svelte/icons/building';
+	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
-	import VolunteerSignupForm from '$lib/components/volunteer/VolunteerSignupForm.svelte';
-	import VolunteerQuestionList from '$lib/components/volunteer/VolunteerQuestionList.svelte';
+	import VolunteerQuestionFields from '$lib/components/volunteer/VolunteerQuestionFields.svelte';
+	import VolunteerContactFields from '$lib/components/volunteer/VolunteerContactFields.svelte';
+	import VolunteerSelectedShifts from '$lib/components/volunteer/VolunteerSelectedShifts.svelte';
+	import { slide } from 'svelte/transition';
 
 	const event = data.event ?? {};
 	const hostGroup = data.hostGroup ?? null;
@@ -34,6 +40,7 @@
 	const canManage = data.canManageEvent ?? false;
 	let signups = [...(data.signups ?? [])];
 	let signupShifts = [...(data.signupShifts ?? [])];
+	let signupResponses = [...(data.signupResponses ?? [])];
 	let shiftSignupCounts = { ...(data.shiftSignupCounts ?? {}) };
 	const user = data.user ?? null;
 	let profile = data.profile ?? null;
@@ -63,6 +70,90 @@
 		email: 'Email',
 		url: 'Link'
 	};
+
+	function emptyValueForQuestion(question) {
+		switch (question?.field_type) {
+			case 'multiselect':
+				return [];
+			case 'checkbox':
+				return false;
+			default:
+				return '';
+		}
+	}
+
+	function normalizeResponseValue(question, responseRow) {
+		const rawValue =
+			responseRow && typeof responseRow === 'object' && 'response' in responseRow
+				? responseRow.response
+				: responseRow;
+		if (rawValue === null || rawValue === undefined) return emptyValueForQuestion(question);
+		if (question?.field_type === 'checkbox') {
+			return Boolean(rawValue);
+		}
+		if (question?.field_type === 'multiselect') {
+			if (Array.isArray(rawValue)) return rawValue;
+			if (typeof rawValue === 'string' && rawValue.trim()) {
+				try {
+					const parsed = JSON.parse(rawValue);
+					if (Array.isArray(parsed)) return parsed;
+				} catch {
+					return [rawValue];
+				}
+				return [rawValue];
+			}
+			return [];
+		}
+		if (question?.field_type === 'number') {
+			if (rawValue === '') return '';
+			if (typeof rawValue === 'number') return rawValue;
+			const parsed = Number(rawValue);
+			return Number.isNaN(parsed) ? rawValue : parsed;
+		}
+		if (typeof rawValue === 'string') return rawValue;
+		return rawValue ?? '';
+	}
+
+	function isResponseEmpty(question, value) {
+		switch (question?.field_type) {
+			case 'multiselect':
+				return !Array.isArray(value) || value.length === 0;
+			case 'checkbox':
+				return value !== true;
+			case 'number':
+				return value === '' || value === null || Number.isNaN(value);
+			default:
+				return !value || (typeof value === 'string' && value.trim().length === 0);
+		}
+	}
+
+	function formatResponseForApi(question, value) {
+		if (question?.field_type === 'multiselect') {
+			return Array.isArray(value) ? value : [];
+		}
+		if (question?.field_type === 'checkbox') {
+			return Boolean(value);
+		}
+		if (question?.field_type === 'number') {
+			if (value === '' || value === null || value === undefined) return null;
+			const parsed = Number(value);
+			return Number.isNaN(parsed) ? null : parsed;
+		}
+		if (typeof value === 'string') return value.trim();
+		return value ?? null;
+	}
+
+	function requiredQuestionMessage(question) {
+		if (question?.field_type === 'checkbox') return 'Please confirm this checkbox.';
+		return 'This question is required.';
+	}
+
+	function requireValidationMessage(result) {
+		if (result?.reason === 'validation') {
+			return 'Please resolve the highlighted questions before submitting.';
+		}
+		return result?.error || 'Unable to save signups. Please try again.';
+	}
 
 	const eventDescriptionHtml = renderMarkdown(event.description || event.summary || '');
 
@@ -99,15 +190,20 @@
 		acc[row.signup_id].push(row);
 		return acc;
 	}, {});
+	let responsesBySignup = signupResponses.reduce((acc, row) => {
+		const signupId = row?.signup_id;
+		const questionId = row?.question_id;
+		if (!signupId || !questionId) return acc;
+		if (!acc[signupId]) acc[signupId] = {};
+		acc[signupId][questionId] = row;
+		return acc;
+	}, {});
 
 	const opportunitiesRaw = data.opportunities ?? [];
 	const mapOpportunityMeta = (opportunity) => {
 		const userSignup = signupByOpportunity[opportunity.id];
 		const userShiftRows = userSignup ? (shiftRowsBySignup[userSignup.id] ?? []) : [];
-		let shiftIds = userShiftRows.map((row) => row.shift_id);
-		if (!shiftIds.length && opportunity.shifts?.length === 1) {
-			shiftIds = [opportunity.shifts[0].id];
-		}
+		const shiftIds = userShiftRows.map((row) => row.shift_id);
 		return {
 			...opportunity,
 			userSignup,
@@ -123,8 +219,38 @@
 	const defaultEmergencyName = (profile?.emergency_contact_name || '').trim();
 	const defaultEmergencyPhone = (profile?.emergency_contact_phone || '').trim();
 
+	const eventQuestionDefaults = eventQuestions.reduce((acc, question) => {
+		let existingValue = emptyValueForQuestion(question);
+		const relatedSignup = userSignups.find((signup) => {
+			const responses = responsesBySignup[signup.id];
+			return responses && responses[question.id];
+		});
+		if (relatedSignup) {
+			const responseRow = responsesBySignup[relatedSignup.id]?.[question.id];
+			existingValue = normalizeResponseValue(question, responseRow);
+		}
+		acc[question.id] = existingValue;
+		return acc;
+	}, {});
+
 	const signupFormDefaults = opportunities.reduce((acc, opportunity) => {
 		const existing = opportunity.userSignup;
+		const responseMap = existing?.id ? (responsesBySignup[existing.id] ?? {}) : {};
+		const opportunityQuestions = getQuestionsForOpportunity(opportunity.id);
+		const questionResponses = opportunityQuestions.reduce((map, question) => {
+			map[question.id] = normalizeResponseValue(question, responseMap[question.id]);
+			return map;
+		}, {});
+		const questionRecords = opportunityQuestions.reduce((map, question) => {
+			const row = responseMap[question.id];
+			if (row?.id) map[question.id] = row;
+			return map;
+		}, {});
+		const eventQuestionRecords = eventQuestions.reduce((map, question) => {
+			const row = responseMap[question.id];
+			if (row?.id) map[question.id] = row;
+			return map;
+		}, {});
 		acc[opportunity.id] = {
 			volunteerName: existing?.volunteer_name?.trim() || defaultName || '',
 			volunteerEmail: existing?.volunteer_email?.trim() || defaultEmail || '',
@@ -132,6 +258,10 @@
 			emergencyContactName: existing?.emergency_contact_name?.trim() || defaultEmergencyName,
 			emergencyContactPhone: existing?.emergency_contact_phone?.trim() || defaultEmergencyPhone,
 			shiftIds: [...(opportunity.defaultShiftIds ?? [])],
+			questionResponses,
+			questionRecords,
+			eventQuestionRecords,
+			questionErrors: {},
 			loading: false,
 			success: '',
 			error: ''
@@ -139,11 +269,76 @@
 		return acc;
 	}, {});
 
+	let eventQuestionResponses = $state(eventQuestionDefaults);
+	let eventQuestionErrors = $state({});
+
 	let signupForms = $state(signupFormDefaults);
+
+	const sharedDetailsDefaults = (() => {
+		const firstOpportunity = opportunities[0];
+		if (!firstOpportunity) {
+			return {
+				volunteerName: defaultName || '',
+				volunteerEmail: defaultEmail || '',
+				volunteerPhone: defaultPhone || '',
+				emergencyContactName: defaultEmergencyName || '',
+				emergencyContactPhone: defaultEmergencyPhone || ''
+			};
+		}
+		const initialForm = signupFormDefaults[firstOpportunity.id] ?? {};
+		return {
+			volunteerName: initialForm.volunteerName ?? '',
+			volunteerEmail: initialForm.volunteerEmail ?? '',
+			volunteerPhone: initialForm.volunteerPhone ?? '',
+			emergencyContactName: initialForm.emergencyContactName ?? '',
+			emergencyContactPhone: initialForm.emergencyContactPhone ?? ''
+		};
+	})();
+
+	let sharedDetails = $state(sharedDetailsDefaults);
+
+	function applySharedDetailsToForms(details) {
+		const nextForms = {};
+		for (const opportunity of opportunities) {
+			const id = opportunity.id;
+			const current = signupForms[id] ?? signupFormDefaults[id] ?? {};
+			nextForms[id] = {
+				...current,
+				volunteerName: details.volunteerName ?? '',
+				volunteerEmail: details.volunteerEmail ?? '',
+				volunteerPhone: details.volunteerPhone ?? '',
+				emergencyContactName: details.emergencyContactName ?? '',
+				emergencyContactPhone: details.emergencyContactPhone ?? ''
+			};
+		}
+		signupForms = nextForms;
+	}
+
+	function updateSharedDetail(key, value) {
+		const nextDetails = { ...sharedDetails, [key]: value };
+		sharedDetails = nextDetails;
+		applySharedDetailsToForms(nextDetails);
+	}
+
+	function updateEventQuestionResponse(questionId, value) {
+		eventQuestionResponses = { ...eventQuestionResponses, [questionId]: value };
+		if (eventQuestionErrors[questionId]) {
+			const nextErrors = { ...eventQuestionErrors };
+			delete nextErrors[questionId];
+			eventQuestionErrors = nextErrors;
+		}
+	}
+
+	if (opportunities.length) {
+		applySharedDetailsToForms(sharedDetailsDefaults);
+	}
+
+	const selectedOpportunities = $derived(getSelectedOpportunities());
 	let loginEmail = $state(defaultEmail || '');
 	let loginError = $state('');
 	let loginSuccess = $state('');
 	let loginLoading = $state(false);
+	let bulkSubmit = $state({ loading: false, success: '', error: '' });
 
 	let mapEl = $state(null);
 	let map;
@@ -281,7 +476,7 @@
 			: null;
 		if (startTime && endTime) {
 			if (isSameDay(startIso, endIso, tz)) {
-				return `${startTime} – ${endTime} ${tz || ''}`.trim();
+				return `${startTime} – ${endTime}`.trim();
 			}
 			const startDate = formatDateTime(startIso, tz, { dateStyle: 'short', timeStyle: 'none' });
 			const endDate = formatDateTime(endIso, tz, { dateStyle: 'short', timeStyle: 'none' });
@@ -322,13 +517,6 @@
 		);
 	}
 
-	function getOpportunityShiftSignupTotal(opportunity) {
-		return (opportunity.shifts ?? []).reduce(
-			(sum, shift) => sum + (shiftSignupCounts[shift.id] || 0),
-			0
-		);
-	}
-
 	function getShiftSignupCount(shiftId) {
 		return shiftSignupCounts[shiftId] || 0;
 	}
@@ -346,6 +534,55 @@
 				return { id: shiftId, label: formatShiftRange(shift) };
 			})
 			.filter(Boolean);
+	}
+
+	function getSelectedOpportunities() {
+		return opportunities.filter((opportunity) => {
+			const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id];
+			return getSelectedShiftEntries(opportunity, form).length > 0;
+		});
+	}
+
+	async function handleBulkSignupSubmission() {
+		if (bulkSubmit.loading) return;
+		const selected = getSelectedOpportunities();
+		if (!selected.length) {
+			bulkSubmit = {
+				loading: false,
+				success: '',
+				error: 'Select at least one shift above to enable signup.'
+			};
+			return;
+		}
+		bulkSubmit = { loading: true, success: '', error: '' };
+		try {
+			for (const opportunity of selected) {
+				const result = await handleSignupSubmission(null, opportunity, { skipRefresh: true });
+				if (!result?.ok) {
+					bulkSubmit = {
+						loading: false,
+						success: '',
+						error: result?.error || requireValidationMessage(result)
+					};
+					return;
+				}
+			}
+			bulkSubmit = { loading: false, success: 'Signups saved! Refreshing...', error: '' };
+			if (typeof window !== 'undefined') {
+				await new Promise((resolve) => setTimeout(resolve, 650));
+				await goto(window.location.pathname + window.location.search, {
+					replaceState: true,
+					keepFocus: true,
+					noScroll: true
+				});
+			}
+		} catch (err) {
+			bulkSubmit = {
+				loading: false,
+				success: '',
+				error: err?.message || 'Unable to save signups. Please try again.'
+			};
+		}
 	}
 
 	function updateSignupForm(opportunityId, patch) {
@@ -410,7 +647,8 @@
 		return `${total} volunteers registered`;
 	}
 
-	async function handleSignupSubmission(eventObj, opportunity) {
+	async function handleSignupSubmission(eventObj, opportunity, options = {}) {
+		const { skipRefresh = false } = options ?? {};
 		eventObj?.preventDefault?.();
 		const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id];
 
@@ -419,7 +657,7 @@
 				error: 'Please sign in with a magic link to volunteer.',
 				success: ''
 			});
-			return;
+			return { ok: false, reason: 'auth', error: 'Please sign in with a magic link to volunteer.' };
 		}
 
 		const volunteerName = (form.volunteerName || '').trim();
@@ -434,16 +672,50 @@
 				error: 'Add your name so the host can confirm you.',
 				success: ''
 			});
-			return;
+			return { ok: false, reason: 'validation' };
 		}
 		if (!emailPattern.test(volunteerEmail)) {
 			updateSignupForm(opportunity.id, {
 				error: 'Enter a valid email address.',
 				success: ''
 			});
-			return;
+			return { ok: false, reason: 'validation' };
 		}
-		updateSignupForm(opportunity.id, { loading: true, error: '', success: '' });
+
+		const opportunityQuestions = getQuestionsForOpportunity(opportunity.id);
+		const questionResponses = form.questionResponses ?? {};
+		const questionErrors = {};
+		let hasQuestionErrors = false;
+
+		for (const question of opportunityQuestions) {
+			const value = questionResponses[question.id];
+			if (question.is_required && isResponseEmpty(question, value)) {
+				questionErrors[question.id] = requiredQuestionMessage(question);
+				hasQuestionErrors = true;
+			}
+		}
+
+		const eventErrors = {};
+		for (const question of eventQuestions) {
+			const value = eventQuestionResponses[question.id];
+			if (question.is_required && isResponseEmpty(question, value)) {
+				eventErrors[question.id] = requiredQuestionMessage(question);
+				hasQuestionErrors = true;
+			}
+		}
+
+		if (hasQuestionErrors) {
+			updateSignupForm(opportunity.id, {
+				questionErrors,
+				error: '',
+				success: ''
+			});
+			eventQuestionErrors = eventErrors;
+			return { ok: false, reason: 'validation' };
+		}
+
+		eventQuestionErrors = {};
+		updateSignupForm(opportunity.id, { loading: true, error: '', success: '', questionErrors: {} });
 
 		try {
 			const basePayload = {
@@ -528,18 +800,24 @@
 				return acc;
 			}, {});
 
+			await syncSignupResponses(signupRecord, opportunity, form);
+
 			updateSignupForm(opportunity.id, {
 				loading: false,
-				success: 'Signup saved! Refreshing...',
-				error: ''
+				success: skipRefresh ? 'Signup saved!' : 'Signup saved! Refreshing...',
+				error: '',
+				questionErrors: {}
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 650));
-			await goto(window.location.pathname + window.location.search, {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
-			});
+			if (!skipRefresh && typeof window !== 'undefined') {
+				await new Promise((resolve) => setTimeout(resolve, 650));
+				await goto(window.location.pathname + window.location.search, {
+					replaceState: true,
+					keepFocus: true,
+					noScroll: true
+				});
+			}
+			return { ok: true, signup: signupRecord };
 		} catch (err) {
 			console.error(err);
 			updateSignupForm(opportunity.id, {
@@ -547,7 +825,69 @@
 				error: err?.message || 'Unable to save signup. Please try again.',
 				success: ''
 			});
+			return { ok: false, error: err?.message || 'Unable to save signup. Please try again.' };
 		}
+	}
+
+	async function syncSignupResponses(signupRecord, opportunity, form) {
+		const signupId = signupRecord?.id;
+		if (!signupId) return;
+		const opportunityQuestions = getQuestionsForOpportunity(opportunity.id);
+		const questionResponses = form.questionResponses ?? {};
+		const questionRecords = { ...(form.questionRecords ?? {}) };
+		const eventRecords = { ...(form.eventQuestionRecords ?? {}) };
+
+		const upsertResponse = async (question, value, existingRecord, recordMap) => {
+			if (isResponseEmpty(question, value)) {
+				if (existingRecord?.id) {
+					await deleteVolunteerSignupResponse(existingRecord.id);
+					delete recordMap[question.id];
+				}
+				return;
+			}
+			const payload = {
+				signup_id: signupId,
+				question_id: question.id,
+				response: formatResponseForApi(question, value)
+			};
+			if (existingRecord?.id) {
+				const response = await updateVolunteerSignupResponse(existingRecord.id, payload);
+				const updated = response?.data ?? response ?? existingRecord;
+				recordMap[question.id] = updated;
+			} else {
+				const response = await createVolunteerSignupResponse(payload);
+				const created = response?.data ?? response;
+				if (created?.id) recordMap[question.id] = created;
+			}
+		};
+
+		for (const question of opportunityQuestions) {
+			await upsertResponse(
+				question,
+				questionResponses[question.id],
+				questionRecords[question.id],
+				questionRecords
+			);
+		}
+
+		for (const question of eventQuestions) {
+			await upsertResponse(
+				question,
+				eventQuestionResponses[question.id],
+				eventRecords[question.id],
+				eventRecords
+			);
+		}
+
+		updateSignupForm(opportunity.id, {
+			questionRecords,
+			eventQuestionRecords: eventRecords
+		});
+
+		responsesBySignup = {
+			...responsesBySignup,
+			[signupId]: { ...questionRecords, ...eventRecords }
+		};
 	}
 
 	async function requestMagicLink(eventObj) {
@@ -756,23 +1096,22 @@
 								<p class="text-surface-400 text-xs">
 									{hostLocationLabel() || 'Local volunteer crew'}
 								</p>
-
-								{#if hostWebsite}
-									<p class="mt-2 text-xs">
-										<a
-											href={hostWebsite}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="text-secondary-200 hover:text-secondary-100 underline"
-										>
-											Visit host website
-										</a>
-									</p>
-								{/if}
 								{#if hostSocialLinks.length}
 									<ul
 										class="text-surface-400 mt-2 flex flex-wrap gap-2 text-[11px] tracking-wide uppercase"
 									>
+										{#if hostWebsite}
+											<li>
+												<a
+													href={hostWebsite}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="hover:text-secondary-100"
+												>
+													Website
+												</a>
+											</li>
+										{/if}
 										{#each hostSocialLinks as link}
 											<li>
 												<a
@@ -923,58 +1262,6 @@
 									</div>
 								</header>
 
-								<div class="mt-4 grid gap-4 md:grid-cols-3">
-									<div
-										class="border-surface-500/30 bg-surface-800/30 rounded-2xl border p-4 text-sm"
-									>
-										<p class="text-surface-400 text-xs tracking-wide uppercase">Volunteer slots</p>
-										<p class="text-surface-100 font-semibold">
-											{#if opportunity.min_volunteers || opportunity.max_volunteers}
-												{opportunity.min_volunteers ?? 0} - {opportunity.max_volunteers ??
-													'Flexible'}
-												volunteers
-											{:else}
-												Capacity flexible
-											{/if}
-										</p>
-										{#if opportunity.waitlist_limit}
-											<p class="text-surface-400 text-xs">
-												Waitlist up to {opportunity.waitlist_limit}
-											</p>
-										{/if}
-									</div>
-									<div
-										class="border-surface-500/30 bg-surface-800/30 rounded-2xl border p-4 text-sm"
-									>
-										<p class="text-surface-400 text-xs tracking-wide uppercase">Location</p>
-										<p class="text-surface-100 font-semibold">
-											{opportunity.location_name || event.location_name || 'Same as meetup'}
-										</p>
-										{#if opportunity.location_notes}
-											<p class="text-surface-400 text-xs">{opportunity.location_notes}</p>
-										{/if}
-									</div>
-									<div
-										class="border-surface-500/30 bg-surface-800/30 rounded-2xl border p-4 text-sm"
-									>
-										<p class="text-surface-400 text-xs tracking-wide uppercase">Coverage</p>
-										<p class="text-surface-100 font-semibold">
-											{#if opportunity.shifts?.length}
-												{opportunity.shifts.length} shift{opportunity.shifts.length === 1
-													? ''
-													: 's'} planned
-											{:else}
-												Shifts coming soon
-											{/if}
-										</p>
-										{#if opportunity.shifts?.length}
-											<p class="text-surface-400 text-xs">
-												{getOpportunityShiftSignupTotal(opportunity)} volunteers scheduled
-											</p>
-										{/if}
-									</div>
-								</div>
-
 								{#if opportunity.descriptionHtml}
 									<div
 										class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-3 text-sm"
@@ -985,13 +1272,16 @@
 
 								<div class="mt-6 space-y-6">
 									<div class="space-y-2">
-										<h4 class="text-secondary-100 text-lg font-semibold">Sign up for this role</h4>
 										{#if !user}
 											<p class="text-surface-400 text-xs">
 												Log in above to choose shifts and share your details.
 											</p>
 										{:else}
-											<p class="text-surface-400 text-xs">Signed in as {user.email}</p>
+											<p
+												class="bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 text-sm font-semibold"
+											>
+												Pick the shifts you want to cover, then finish your signup below.
+											</p>
 										{/if}
 									</div>
 
@@ -1017,7 +1307,7 @@
 															type="button"
 															class={`focus:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition focus:ring-2 focus:outline-none ${
 																isSelected
-																	? 'border-secondary-500 bg-secondary-500/15 text-secondary-50'
+																	? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 ring-secondary-300 font-semibold shadow-md ring-2'
 																	: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-400/50'
 															}`}
 															aria-pressed={isSelected}
@@ -1069,13 +1359,6 @@
 											</ul>
 										{/if}
 									</div>
-
-									{#if user}
-										<p class="text-surface-400 text-xs">
-											Finish your signup in the section below once you're happy with your shift
-											selections.
-										</p>
-									{/if}
 								</div>
 							</article>
 						{/each}
@@ -1088,55 +1371,97 @@
 						<h2 class="text-secondary-100 text-2xl font-semibold">
 							Complete your volunteer signup
 						</h2>
-						<p class="text-surface-400 text-xs sm:text-sm">Signed in as {user.email}</p>
+						<p class="text-surface-300 text-xs sm:text-sm">Signed in as {user.email}</p>
 					</div>
-					{#if eventQuestions.length}
-						<div class="mt-4">
-							<VolunteerQuestionList questions={eventQuestions} heading="Event-wide questions" />
-						</div>
-					{/if}
-					{#if opportunities.length}
-						<div class="mt-6 space-y-6">
-							{#each opportunities as opportunity (opportunity.id)}
+
+					{#if selectedOpportunities.length}
+						<div class="mt-6 space-y-6" transition:slide>
+							<h3 class="text-secondary-100 text-lg font-semibold tracking-wide uppercase">
+								Selected shifts
+							</h3>
+							{#each selectedOpportunities as opportunity (opportunity.id)}
 								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
 								{@const selectedShifts = getSelectedShiftEntries(opportunity, form)}
-								{@const requiresShiftSelection = (opportunity.shifts?.length ?? 0) > 0}
 								{@const opportunityQuestions = getQuestionsForOpportunity(opportunity.id)}
-								<article
-									class="border-surface-400/20 bg-surface-900/60 space-y-4 rounded-3xl border p-6 shadow-lg"
-								>
-									<header class="flex flex-wrap items-center justify-between gap-3">
-										<div>
-											<h3 class="text-surface-50 text-lg font-semibold">
-												{opportunity.title || 'Untitled role'}
-											</h3>
-											<p class="text-surface-400 text-xs tracking-wide uppercase">
-												{typeLabel(opportunity.opportunity_type)}
-											</p>
-										</div>
-										<span class="chip preset-tonal-surface text-xs tracking-wide uppercase">
-											{signupStatusText(opportunity)}
-										</span>
-									</header>
-									<VolunteerSignupForm
-										{form}
-										{requiresShiftSelection}
+								<article transition:slide>
+									<VolunteerSelectedShifts
 										{selectedShifts}
-										questions={opportunityQuestions}
-										hasExistingSignup={Boolean(opportunity.userSignup)}
+										{opportunity}
+										requiresSelection={false}
 										onRemoveShift={(shiftId) => toggleShiftSelection(opportunity.id, shiftId)}
-										onFieldChange={(key, value) =>
-											updateSignupForm(opportunity.id, { [key]: value })}
-										onSubmit={(eventObj) => handleSignupSubmission(eventObj, opportunity)}
+										optionalSelectionMessage="No shifts selected."
 									/>
+
+									{#if opportunityQuestions.length}
+										<VolunteerQuestionFields
+											questions={opportunityQuestions}
+											values={form.questionResponses ?? {}}
+											errors={form.questionErrors ?? {}}
+											onChange={(questionId, value) => {
+												const nextResponses = {
+													...(form.questionResponses ?? {}),
+													[questionId]: value
+												};
+												const nextErrors = { ...(form.questionErrors ?? {}) };
+												if (nextErrors[questionId]) delete nextErrors[questionId];
+												updateSignupForm(opportunity.id, {
+													questionResponses: nextResponses,
+													questionErrors: nextErrors
+												});
+											}}
+										/>
+									{/if}
 								</article>
 							{/each}
 						</div>
 					{:else}
 						<p class="text-surface-400 mt-4 text-sm">
-							No volunteer opportunities are available yet.
+							Select at least one shift above to review your signup details.
 						</p>
 					{/if}
+
+					<div
+						class="border-surface-500/30 bg-surface-900/60 mt-8 space-y-4 rounded-3xl border p-6"
+					>
+						<h3 class="text-secondary-100 text-lg font-semibold tracking-wide uppercase">
+							Volunteer details & questions
+						</h3>
+						<p class="text-surface-400 text-xs">
+							These contact details apply to every role you sign up for above.
+						</p>
+						<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
+						{#if eventQuestions.length}
+							<VolunteerQuestionFields
+								questions={eventQuestions}
+								values={eventQuestionResponses}
+								errors={eventQuestionErrors}
+								onChange={(questionId, value) => updateEventQuestionResponse(questionId, value)}
+							/>
+						{/if}
+
+						<div class="space-y-3 pt-2">
+							<div class="text-surface-400 text-xs">
+								We’ll send confirmations to the contact details above once you submit.
+							</div>
+							<button
+								type="button"
+								class="btn preset-filled-primary-500 flex items-center gap-2"
+								disabled={bulkSubmit.loading || selectedOpportunities.length === 0}
+								onclick={handleBulkSignupSubmission}
+							>
+								{#if bulkSubmit.loading}
+									<IconLoader class="h-4 w-4 animate-spin" />
+								{/if}
+								<span>Sign me up!</span>
+							</button>
+							{#if bulkSubmit.error}
+								<p class="text-error-200 text-xs">{bulkSubmit.error}</p>
+							{/if}
+							{#if bulkSubmit.success}
+								<p class="text-success-200 text-xs">{bulkSubmit.success}</p>
+							{/if}
+						</div>
+					</div>
 				</section>
 			{/if}
 		</div>
