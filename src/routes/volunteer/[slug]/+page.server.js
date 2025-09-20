@@ -161,8 +161,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 			const responses = await Promise.all(
 				batches.map((batch) =>
 					fetchList(fetch, 'volunteer-signup-shifts', {
-						signup_id: `in.(${batch.join(',')})`,
-						order: 'created_at.asc'
+						signup_id: `in.(${batch.join(',')})`
 					})
 				)
 			);
@@ -170,8 +169,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 			const responseBatches = await Promise.all(
 				batches.map((batch) =>
 					fetchList(fetch, 'volunteer-signup-responses', {
-						signup_id: `in.(${batch.join(',')})`,
-						order: 'created_at.asc'
+						signup_id: `in.(${batch.join(',')})`
 					})
 				)
 			);
