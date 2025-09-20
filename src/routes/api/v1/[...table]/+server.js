@@ -43,8 +43,8 @@ export async function GET(event) {
 		.from(tableName)
 		.select(selectColumns, countOption ? { count: countOption } : undefined);
 	if (recordId) {
-		const primaryKeyColumn =
-			TABLE_PRIMARY_KEYS[tableName]?.[0] || TABLE_PRIMARY_KEYS[tableName] || 'id';
+		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
+		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		query = query.eq(primaryKeyColumn, recordId);
 
 		if (singleParam === 'true') {
@@ -213,11 +213,10 @@ export async function PUT(event) {
 			{ status: 400 }
 		);
 	}
-	// ... (rest of PUT method body processing logic remains the same, assumes body keys are snake_case)
 	try {
 		const body = await request.json(); // Expects snake_case keys in the body
-		const primaryKeyColumn =
-			TABLE_PRIMARY_KEYS[tableName]?.[0] || TABLE_PRIMARY_KEYS[tableName] || 'id';
+		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
+		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		if (body[primaryKeyColumn]) {
 			delete body[primaryKeyColumn];
 		}
@@ -272,8 +271,8 @@ export async function DELETE(event) {
 	let query = sbInstance.from(tableName).delete();
 
 	if (recordId) {
-		const primaryKeyColumn =
-			TABLE_PRIMARY_KEYS[tableName]?.[0] || TABLE_PRIMARY_KEYS[tableName] || 'id';
+		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
+		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		query = query.eq(primaryKeyColumn, recordId);
 	} else {
 		const matchConditions = {};
