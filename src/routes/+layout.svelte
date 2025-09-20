@@ -11,6 +11,7 @@
 	import IconHome from '@lucide/svelte/icons/home';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
+	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 
 	let user = $state(null);
 	let showLogin = $state(false);
@@ -117,7 +118,7 @@
 </script>
 
 <svelte:head>
-	<title>SafeSpokes | 3 Feet Please</title>
+	<title>3 Feet Please</title>
 </svelte:head>
 
 <div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
@@ -275,6 +276,13 @@
 						<IconUsers />
 					</Navigation.Tile>
 					<Navigation.Tile
+						label="Volunteer"
+						href="/volunteer"
+						selected={$page.url.pathname.startsWith('/volunteer')}
+					>
+						<IconHandHeart />
+					</Navigation.Tile>
+					<Navigation.Tile
 						label="Road ID"
 						href="/roadid"
 						selected={$page.url.pathname.startsWith('/roadid')}
@@ -310,6 +318,13 @@
 					onclick={() => (showMobileMenu = false)}
 				>
 					<IconUsers /> <span>Groups</span>
+				</a>
+				<a
+					href="/volunteer"
+					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
+					onclick={() => (showMobileMenu = false)}
+				>
+					<IconHandHeart /> <span>Volunteer</span>
 				</a>
 				<a
 					href="/roadid"
