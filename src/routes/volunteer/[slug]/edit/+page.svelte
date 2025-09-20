@@ -101,7 +101,7 @@
 		'UTC'
 	];
 
-	const statusOptions = ['draft', 'published', 'cancelled', 'archived'];
+	const statusOptions = ['raft', 'published', 'cancelled', 'archived'];
 	const opportunityTypeOptions = [
 		{ value: 'coordination', label: 'Coordination & Leads' },
 		{ value: 'check-in', label: 'Check-in & Registration' },
@@ -296,7 +296,7 @@
 		);
 		updateEventDetails(patch);
 	}
-	
+
 	function scheduleDetailsChange(...args) {
 		const patch = _nullishCoalesce(
 			_optionalChain([args, 'optionalAccess', (_14) => _14[0]]),
