@@ -1,6 +1,7 @@
 <script>
 	let { data } = $props();
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabaseClient';
 	import { renderMarkdown } from '$lib/markdown';
@@ -929,6 +930,9 @@
 		if (event.max_volunteers) return `Max ${event.max_volunteers} volunteers`;
 		return 'Flexible roster';
 	}
+
+	// Notices via query params
+	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
 </script>
 
 <svelte:head>
@@ -992,6 +996,28 @@
 	</section>
 {:else}
 	<section class="mx-auto max-w-6xl space-y-12 px-4 py-12">
+		{#if authFlag === 'required' || authFlag === 'forbidden'}
+			<section
+				class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
+					? 'border-warning-600/40 bg-warning-900/20'
+					: 'border-error-600/40 bg-error-900/20'}"
+			>
+				{#if authFlag === 'required'}
+					<div class="text-sm">
+						<strong>Please log in to edit this event.</strong>
+						<div class="text-surface-300">
+							Use the “Log in / Register” button in the header, then try again.
+						</div>
+					</div>
+				{:else}
+					<div class="text-sm">
+						<strong>You don’t have permission to edit this event.</strong>
+
+						<div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
+					</div>
+				{/if}
+			</section>
+		{/if}
 		<header
 			class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-8 shadow-2xl shadow-black/20"
 		>
@@ -1030,7 +1056,22 @@
 						<p class="text-surface-200 max-w-2xl text-base">{event.summary}</p>
 					{/if}
 				</div>
-				{#if hostGroup?.slug}
+				{#if canManage}
+					<div class="flex items-center gap-2 self-start">
+						<a
+							href={`/volunteer/${event.slug}/manage`}
+							class="btn preset-outlined-secondary-500 flex items-center gap-2"
+						>
+							<span>Manage</span>
+						</a>
+						<a
+							href={`/volunteer/${event.slug}/edit`}
+							class="btn preset-outlined-success-500 flex items-center gap-2"
+						>
+							<span>Edit</span>
+						</a>
+					</div>
+				{:else if hostGroup?.slug}
 					<a
 						href={`/groups/${hostGroup.slug}`}
 						class="btn preset-filled-secondary-500 flex items-center gap-2 self-start"
