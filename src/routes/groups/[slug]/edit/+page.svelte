@@ -7,20 +7,20 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
-import IconGlobe from '@lucide/svelte/icons/globe';
-import IconMail from '@lucide/svelte/icons/mail';
-import IconPhone from '@lucide/svelte/icons/phone';
-import IconFacebook from '@lucide/svelte/icons/facebook';
-import IconInstagram from '@lucide/svelte/icons/instagram';
-import BrandX from '$lib/icons/BrandX.svelte';
-import BrandStrava from '$lib/icons/BrandStrava.svelte';
-import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
-import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
-import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
-import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
-import BrandThreads from '$lib/icons/BrandThreads.svelte';
-import IconLink from '@lucide/svelte/icons/link';
-import IconMountain from '@lucide/svelte/icons/mountain';
+	import IconGlobe from '@lucide/svelte/icons/globe';
+	import IconMail from '@lucide/svelte/icons/mail';
+	import IconPhone from '@lucide/svelte/icons/phone';
+	import IconFacebook from '@lucide/svelte/icons/facebook';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandX from '$lib/icons/BrandX.svelte';
+	import BrandStrava from '$lib/icons/BrandStrava.svelte';
+	import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
+	import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
+	import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
+	import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
+	import BrandThreads from '$lib/icons/BrandThreads.svelte';
+	import IconLink from '@lucide/svelte/icons/link';
+	import IconMountain from '@lucide/svelte/icons/mountain';
 
 	let L; // loaded dynamically on client
 
@@ -60,7 +60,18 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 	let placesEl;
 	let placesLoading = $state(false);
 	let searchText = $state('');
+	let cityValue = $state((data.group?.city || '').trim());
+	let stateValue = $state((data.group?.state_region || '').trim());
+	let countryValue = $state((data.group?.country || 'US').toUpperCase());
+	let locationGeocodeTimeout;
+	let locationPendingGeocode;
+	let locationLastKey = '';
+	let locationGeocoder;
+	let googlePlacesReady = false;
+	let meetingAddress = $state((data.group?.specific_meeting_point_address || '').trim());
 	function formatDefaultSearch() {
+		const meetingTrim = (meetingAddress || '').trim();
+		if (meetingTrim) return meetingTrim;
 		const p = [];
 		if (data.group?.city) p.push(data.group.city);
 		if (data.group?.state_region) p.push(data.group.state_region);
@@ -104,15 +115,112 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 			queueSave({ fields: { latitude: lat, longitude: lng } });
 		});
 	}
+	function syncLatLngInputs(lat, lng) {
+		const latInput = document.getElementById('latitude');
+		const lngInput = document.getElementById('longitude');
+		const latNum = Number(lat);
+		const lngNum = Number(lng);
+		const latStr = Number.isFinite(latNum) ? latNum.toFixed(6) : '';
+		const lngStr = Number.isFinite(lngNum) ? lngNum.toFixed(6) : '';
+		if (latInput) latInput.value = latStr;
+		if (lngInput) lngInput.value = lngStr;
+	}
 	function placeMarker(lat, lng) {
+		syncLatLngInputs(lat, lng);
 		if (!map) return;
 		if (!marker) marker = L.marker([lat, lng]).addTo(map);
 		marker.setLatLng([lat, lng]);
 		map.setView([lat, lng], Math.max(map.getZoom(), 12));
 	}
+	function ensurePlacesHelpers() {
+		if (typeof window === 'undefined') return false;
+		const maps = window.google?.maps;
+		if (!maps?.places) return false;
+		if (!locationGeocoder) locationGeocoder = new maps.Geocoder();
+		googlePlacesReady = Boolean(locationGeocoder);
+		return googlePlacesReady;
+	}
+	function buildLocationConfig() {
+		const countryTrim = (countryValue || '').trim().toUpperCase();
+		const meetingTrim = (meetingAddress || '').trim();
+		if (meetingTrim) {
+			const meetingCountry = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
+			return {
+				query: meetingTrim,
+				country: meetingCountry,
+				key: `${meetingTrim}|${meetingCountry}`
+			};
+		}
+		const cityTrim = (cityValue || '').trim();
+		const stateTrim = (stateValue || '').trim();
+		const parts = [];
+		if (cityTrim) parts.push(cityTrim);
+		if (stateTrim) parts.push(stateTrim);
+		if (!parts.length) return null;
+		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
+		const query = parts.join(', ');
+		if (!query) return null;
+		const countryCode = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
+		return { query, country: countryCode, key: `${query}|${countryCode}` };
+	}
+	function scheduleLocationGeocode(options = {}) {
+		const config = buildLocationConfig();
+		if (!config) return;
+		if (!options.force && config.key === locationLastKey) return;
+		locationPendingGeocode = config;
+		if (!ensurePlacesHelpers()) return;
+		const run = () => runLocationGeocode(config);
+		clearTimeout(locationGeocodeTimeout);
+		if (options.immediate) run();
+		else locationGeocodeTimeout = setTimeout(run, 600);
+	}
+	async function runLocationGeocode(config) {
+		if (!config) return;
+		const active = locationPendingGeocode;
+		try {
+			const coords = await fetchLocationWithGeocoder(config.query, config.country);
+			if (!coords) return;
+			if (active && active.key !== config.key) return;
+			locationLastKey = config.key;
+			placeMarker(coords.lat, coords.lng);
+			queueSave({ fields: { latitude: coords.lat, longitude: coords.lng } });
+		} catch (error) {
+			console.error('Failed to geocode city/state', error);
+		}
+	}
+	function fetchLocationWithGeocoder(query, countryCode) {
+		if (!locationGeocoder) return Promise.resolve(null);
+		return new Promise((resolve) => {
+			const request = { address: query };
+			if (countryCode) request.componentRestrictions = { country: countryCode };
+			locationGeocoder.geocode(request, (results, status) => {
+				const okStatus = window.google?.maps?.GeocoderStatus?.OK;
+				if (status !== 'OK' && status !== okStatus) {
+					resolve(null);
+					return;
+				}
+				const result = results?.[0];
+				const loc = result?.geometry?.location;
+				if (!loc) {
+					resolve(null);
+					return;
+				}
+				const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+				const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+				if (typeof lat === 'number' && typeof lng === 'number') resolve({ lat, lng });
+				else resolve(null);
+			});
+		});
+	}
+	function onLocationBlur() {
+		scheduleLocationGeocode({ immediate: true, force: true });
+	}
 	function loadGooglePlaces() {
 		if (typeof window === 'undefined') return;
-		if (window.google?.maps?.places) return initPlaces();
+		if (window.google?.maps?.places) {
+			ensurePlacesHelpers();
+			return initPlaces();
+		}
 		const key = env.PUBLIC_GOOGLE_MAPS_API_KEY;
 		if (!key) {
 			console.warn('Missing PUBLIC_GOOGLE_MAPS_API_KEY');
@@ -123,7 +231,7 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 		placesLoading = true;
 		const s = document.createElement('script');
 		s.id = 'gmaps-places';
-		s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=beta&callback=initGooglePlaces`;
+		s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=beta&callback=initGooglePlaces`;
 		s.async = true;
 		s.defer = true;
 		s.onerror = () => {
@@ -135,6 +243,11 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 	function initPlaces() {
 		placesLoading = false;
 		try {
+			if (!ensurePlacesHelpers()) return;
+			googlePlacesReady = true;
+			if (locationPendingGeocode?.query) {
+				scheduleLocationGeocode({ immediate: true, force: true });
+			}
 			if (!placesContainer || !window.google?.maps?.places) return;
 			const PAE = window.google.maps.places.PlaceAutocompleteElement;
 			if (PAE) {
@@ -198,6 +311,12 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 	onMount(async () => {
 		// Make initPlaces globally available for the callback
 		window.initGooglePlaces = initPlaces;
+		const readVal = (id) => document.getElementById(id)?.value?.trim() || '';
+		meetingAddress = readVal('specific_meeting_point_address');
+		cityValue = readVal('city');
+		stateValue = readVal('state_region');
+		const countryEl = document.getElementById('country');
+		if (countryEl) countryValue = (countryEl.value || countryValue).toUpperCase();
 
 		if (data.group?.logo_url) {
 			logoPreview = data.group.logo_url;
@@ -206,14 +325,14 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 			coverPreview = data.group.cover_photo_url;
 		}
 		// Map init
-        try {
-            const mod = await import('leaflet');
-            L = mod.default || mod;
-            const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
-            await ensureLeafletDefaultIcon(L);
-        } catch (e) {
-            console.error('Failed to load Leaflet', e);
-        }
+		try {
+			const mod = await import('leaflet');
+			L = mod.default || mod;
+			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+			await ensureLeafletDefaultIcon(L);
+		} catch (e) {
+			console.error('Failed to load Leaflet', e);
+		}
 		const hasCoords =
 			Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
 		const lat = hasCoords ? Number(data.group.latitude) : 37.8;
@@ -225,12 +344,16 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 		if (placesContainer) {
 			loadGooglePlaces();
 		}
+		if (!hasCoords && (meetingAddress || '').trim()) {
+			scheduleLocationGeocode({ force: true });
+		}
 
 		return () => {
 			// Cleanup the global function when the component is destroyed
 			if (window.initGooglePlaces === initPlaces) {
 				delete window.initGooglePlaces;
 			}
+			if (locationGeocodeTimeout) clearTimeout(locationGeocodeTimeout);
 		};
 	});
 
@@ -444,7 +567,17 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 		const key = el.name;
 		if (!key) return;
 		let val = el.value;
-		if (key === 'country') val = (val || '').toUpperCase();
+		if (key === 'city') cityValue = (val || '').trim();
+		if (key === 'state_region') stateValue = (val || '').trim();
+		if (key === 'specific_meeting_point_address') {
+			meetingAddress = (val || '').trim();
+			scheduleLocationGeocode({ force: true });
+		}
+		if (key === 'country') {
+			val = (val || '').toUpperCase();
+			countryValue = val;
+			scheduleLocationGeocode({ immediate: true, force: true });
+		}
 		if (key === 'website_url') websiteLocal = val;
 		if (key === 'public_contact_email') emailLocal = val;
 		if (key === 'public_phone_number') phoneLocal = val;
@@ -554,70 +687,74 @@ import IconMountain from '@lucide/svelte/icons/mountain';
 		}
 	}
 
-// Owner invite
-let ownerEmail = $state('');
-let ownerLoading = $state(false);
-let ownerError = $state('');
-let ownerSuccess = $state('');
-let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
-// Local reactive owners list so UI updates on removal
-let owners = $state((data.owners || []).slice());
-async function inviteOwner(e) {
-  e?.preventDefault?.();
-  ownerError = '';
-  ownerSuccess = '';
-  if (!ownerValid) {
-    ownerError = 'Enter a valid email address.';
-    return;
-  }
-  ownerLoading = true;
-  try {
-    const rtUrl = new URL(window.location.href);
-    rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
-    const res = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: ownerEmail, createProfile: true, returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash })
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j.error || 'Failed to send invite');
-    }
-    ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
-    ownerEmail = '';
-  } catch (err) {
-    ownerError = err.message || 'Failed to send invite.';
-  } finally {
-    ownerLoading = false;
-  }
-}
+	// Owner invite
+	let ownerEmail = $state('');
+	let ownerLoading = $state(false);
+	let ownerError = $state('');
+	let ownerSuccess = $state('');
+	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
+	// Local reactive owners list so UI updates on removal
+	let owners = $state((data.owners || []).slice());
+	async function inviteOwner(e) {
+		e?.preventDefault?.();
+		ownerError = '';
+		ownerSuccess = '';
+		if (!ownerValid) {
+			ownerError = 'Enter a valid email address.';
+			return;
+		}
+		ownerLoading = true;
+		try {
+			const rtUrl = new URL(window.location.href);
+			rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
+			const res = await fetch('/api/v1/auth/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email: ownerEmail,
+					createProfile: true,
+					returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash
+				})
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				throw new Error(j.error || 'Failed to send invite');
+			}
+			ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
+			ownerEmail = '';
+		} catch (err) {
+			ownerError = err.message || 'Failed to send invite.';
+		} finally {
+			ownerLoading = false;
+		}
+	}
 
-async function removeOwner(uid, email) {
-  try {
-    const label = email || uid;
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm(`Remove owner ${label}?`);
-      if (!ok) return;
-    }
-    const res = await fetch(`/api/groups/${data.group?.slug}/owners/remove`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: uid })
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j.error || 'Failed to remove owner');
-    }
-    // Optimistically update the list
-    const idx = owners.findIndex((x) => x.user_id === uid);
-    if (idx > -1) owners.splice(idx, 1);
-    ownerSuccess = `Owner ${label} removed.`;
-    ownerError = '';
-  } catch (err) {
-    ownerError = err.message || 'Failed to remove owner.';
-    ownerSuccess = '';
-  }
-}
+	async function removeOwner(uid, email) {
+		try {
+			const label = email || uid;
+			if (typeof window !== 'undefined') {
+				const ok = window.confirm(`Remove owner ${label}?`);
+				if (!ok) return;
+			}
+			const res = await fetch(`/api/groups/${data.group?.slug}/owners/remove`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ user_id: uid })
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				throw new Error(j.error || 'Failed to remove owner');
+			}
+			// Optimistically update the list
+			const idx = owners.findIndex((x) => x.user_id === uid);
+			if (idx > -1) owners.splice(idx, 1);
+			ownerSuccess = `Owner ${label} removed.`;
+			ownerError = '';
+		} catch (err) {
+			ownerError = err.message || 'Failed to remove owner.';
+			ownerSuccess = '';
+		}
+	}
 
 	let ctaKind = $state(data.group?.preferred_cta_kind || 'auto');
 	let ctaLabel = $state(data.group?.preferred_cta_label || '');
@@ -630,7 +767,7 @@ async function removeOwner(uid, email) {
 	let phoneLocal = $state(data.group?.public_phone_number || '');
 	let socialsLocal = $state({ ...(data.group?.social_links || {}) });
 
-const ctaChoices = [
+	const ctaChoices = [
 		{ key: 'auto', label: 'Auto', icon: IconLink },
 		{ key: 'website', label: 'Website', icon: IconGlobe },
 		{ key: 'email', label: 'Email', icon: IconMail },
@@ -643,14 +780,14 @@ const ctaChoices = [
 		{ key: 'mastodon', label: 'Mastodon', icon: BrandMastodon },
 		{ key: 'discord', label: 'Discord', icon: BrandDiscord },
 		{ key: 'custom', label: 'Custom', icon: null }
-];
+	];
 
 	function setCtaKind(kind) {
 		ctaKind = kind;
 		onCtaKindChange({ target: { value: kind } });
 	}
 
-let availableByKind = $derived(() => ({
+	let availableByKind = $derived(() => ({
 		auto: true,
 		custom: true,
 		website: !!(websiteLocal || '').trim(),
@@ -663,7 +800,7 @@ let availableByKind = $derived(() => ({
 		tiktok: !!(socialsLocal.tiktok || '').trim(),
 		mastodon: !!(socialsLocal.mastodon || '').trim(),
 		discord: !!(socialsLocal.discord || '').trim()
-}));
+	}));
 
 	function ctaUnavailableReason(kind) {
 		switch (kind) {
@@ -718,11 +855,11 @@ let availableByKind = $derived(() => ({
 		if (kind === 'phone' && phone) return phone;
 		if (kind === 'facebook' && fb) return fb;
 		if (kind === 'instagram' && ig) return ig;
-			if (kind === 'strava') return st || { key: 'strava', href: '#', label: 'Strava' };
-			if (kind === 'x') return xx || { key: 'x', href: '#', label: 'X' };
-			if (kind === 'tiktok') return tt || { key: 'tiktok', href: '#', label: 'TikTok' };
-			if (kind === 'mastodon') return md || { key: 'mastodon', href: '#', label: 'Mastodon' };
-			if (kind === 'discord') return dc || { key: 'discord', href: '#', label: 'Discord' };
+		if (kind === 'strava') return st || { key: 'strava', href: '#', label: 'Strava' };
+		if (kind === 'x') return xx || { key: 'x', href: '#', label: 'X' };
+		if (kind === 'tiktok') return tt || { key: 'tiktok', href: '#', label: 'TikTok' };
+		if (kind === 'mastodon') return md || { key: 'mastodon', href: '#', label: 'Mastodon' };
+		if (kind === 'discord') return dc || { key: 'discord', href: '#', label: 'Discord' };
 
 		// Auto fallback
 		return website || email || phone || fb || ig || st || xx || tt || md || dc || null;
@@ -846,6 +983,18 @@ let availableByKind = $derived(() => ({
 					oninput={onField}
 				/>
 			</div>
+			<div class="flex flex-col">
+				<label class="label" for="specific_meeting_point_address">Meeting Point Address</label>
+				<input
+					id="specific_meeting_point_address"
+					name="specific_meeting_point_address"
+					class="input bg-primary-950/30"
+					value={meetingAddress}
+					oninput={onField}
+					onblur={onLocationBlur}
+					placeholder="Street, city, state"
+				/>
+			</div>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
 				<div class="flex flex-col">
 					<label class="label" for="city">City</label>
@@ -855,6 +1004,7 @@ let availableByKind = $derived(() => ({
 						class="input bg-primary-950/30"
 						value={data.group?.city || ''}
 						oninput={onField}
+						onblur={onLocationBlur}
 					/>
 				</div>
 				<div class="flex flex-col">
@@ -866,6 +1016,7 @@ let availableByKind = $derived(() => ({
 						required
 						value={data.group?.state_region || ''}
 						oninput={onField}
+						onblur={onLocationBlur}
 					/>
 				</div>
 				<div class="flex flex-col">
@@ -980,9 +1131,11 @@ let availableByKind = $derived(() => ({
 							class={`chip ${ctaKind === opt.key ? 'preset-filled-primary-500' : 'preset-tonal-surface'} flex items-center gap-2`}
 							onclick={() => setCtaKind(opt.key)}
 						>
+							{#if opt.icon}
 								{#if opt.icon}
-									<svelte:component this={opt.icon} class="h-4 w-4" className="h-4 w-4" />
+									<opt.icon class="h-4 w-4" />
 								{/if}
+							{/if}
 							<span>{opt.label}</span>
 						</button>
 					{/each}
@@ -1038,17 +1191,17 @@ let availableByKind = $derived(() => ({
 								>
 									{#if cp.key !== 'custom'}
 										<!-- icon mapping -->
-                            {#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
-                            {:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
-                            {:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-                            {:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
-                            {:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
-                            {:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
-                            {:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
-                            {:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
-                            {:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
-                            {:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
-                            {:else}<IconLink class="h-4 w-4" />{/if}
+										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+										{:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
+										{:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
+										{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
+										{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
+										{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
+										{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
+										{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
+										{:else}<IconLink class="h-4 w-4" />{/if}
 									{/if}
 									<span>{cp.label}</span>
 								</button>
@@ -1065,10 +1218,27 @@ let availableByKind = $derived(() => ({
 			<!-- Owners management -->
 			<section class="card border-surface-600/50 bg-surface-900 my-2 space-y-2 border p-3">
 				<div class="label">Owners</div>
-				<div class="text-surface-300 text-sm">Add another owner by email. We’ll send them a secure login link; when they sign in, they’ll be added automatically.</div>
+				<div class="text-surface-300 text-sm">
+					Add another owner by email. We’ll send them a secure login link; when they sign in,
+					they’ll be added automatically.
+				</div>
 				<div class="mt-2 flex flex-col gap-2 md:flex-row">
-					<input type="email" placeholder="owner@example.com" bind:value={ownerEmail} class="input bg-primary-950/30 md:w-80" required onkeydown={(e) => { if (e.key === 'Enter') inviteOwner(e); }} />
-					<button type="button" class="btn preset-filled-primary-500 md:w-auto {ownerLoading ? 'animate-pulse' : ''}" disabled={!ownerValid || ownerLoading} onclick={inviteOwner}>Send Invite</button>
+					<input
+						type="email"
+						placeholder="owner@example.com"
+						bind:value={ownerEmail}
+						class="input bg-primary-950/30 md:w-80"
+						required
+						onkeydown={(e) => {
+							if (e.key === 'Enter') inviteOwner(e);
+						}}
+					/>
+					<button
+						type="button"
+						class="btn preset-filled-primary-500 md:w-auto {ownerLoading ? 'animate-pulse' : ''}"
+						disabled={!ownerValid || ownerLoading}
+						onclick={inviteOwner}>Send Invite</button
+					>
 				</div>
 				{#if ownerError}
 					<div class="text-error-400 text-xs">{ownerError}</div>
@@ -1079,13 +1249,19 @@ let availableByKind = $derived(() => ({
 
 				{#if owners?.length}
 					<div class="mt-3">
-						<div class="text-surface-300 text-xs mb-1">Current owners</div>
-						<ul class="divide-y divide-surface-700/50 rounded-md border border-surface-700/50">
+						<div class="text-surface-300 mb-1 text-xs">Current owners</div>
+						<ul class="divide-surface-700/50 border-surface-700/50 divide-y rounded-md border">
 							{#each owners as o (o.user_id)}
 								<li class="flex items-center justify-between gap-2 p-2">
-									<div class="truncate text-sm">{o.user_id === data.current_user_id ? 'You' : (o.email || o.user_id)}</div>
+									<div class="truncate text-sm">
+										{o.user_id === data.current_user_id ? 'You' : o.email || o.user_id}
+									</div>
 									{#if o.user_id !== data.current_user_id}
-										<button type="button" class="btn btn-xs preset-outlined-error-500" onclick={() => removeOwner(o.user_id, o.email)}>Remove</button>
+										<button
+											type="button"
+											class="btn btn-xs preset-outlined-error-500"
+											onclick={() => removeOwner(o.user_id, o.email)}>Remove</button
+										>
 									{/if}
 								</li>
 							{/each}
@@ -1128,45 +1304,27 @@ let availableByKind = $derived(() => ({
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
-					<label class="label" for="specific_meeting_point_address">Meeting Point Address</label>
-					<input
-						id="specific_meeting_point_address"
-						name="specific_meeting_point_address"
-						class="input bg-primary-950/30"
-						value={data.group?.specific_meeting_point_address || ''}
-						oninput={onField}
-					/>
-				</div>
-				<div class="grid grid-cols-2 gap-2">
-					<div class="flex flex-col">
-						<label class="label hidden" for="latitude">Latitude</label>
-						<input
-							id="latitude"
-							name="latitude"
-							type="number"
-							step="any"
-							class="input bg-primary-950/30"
-							value={data.group?.latitude ?? ''}
-							oninput={onField}
-							hidden
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label hidden" for="longitude">Longitude</label>
-						<input
-							id="longitude"
-							name="longitude"
-							type="number"
-							step="any"
-							class="input bg-primary-950/30"
-							value={data.group?.longitude ?? ''}
-							oninput={onField}
-							hidden
-						/>
-					</div>
-				</div>
+			<div class="hidden">
+				<input
+					id="latitude"
+					name="latitude"
+					type="number"
+					step="any"
+					class="input bg-primary-950/30"
+					value={data.group?.latitude ?? ''}
+					oninput={onField}
+					hidden
+				/>
+				<input
+					id="longitude"
+					name="longitude"
+					type="number"
+					step="any"
+					class="input bg-primary-950/30"
+					value={data.group?.longitude ?? ''}
+					oninput={onField}
+					hidden
+				/>
 			</div>
 
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">

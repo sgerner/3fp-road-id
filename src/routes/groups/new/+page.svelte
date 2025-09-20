@@ -1,6 +1,8 @@
 <script>
 	let { data } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { env } from '$env/dynamic/public';
 
 	// Simple client-side slug preview
 	let name = $state('');
@@ -27,6 +29,113 @@
 	let hiddenTypicalTime = $state('');
 	let hiddenLogoUrl = $state('');
 	let hiddenCoverUrl = $state('');
+	function applyLocationValue(id, value) {
+		const v = value == null ? '' : `${value}`.trim();
+		if (id === 'city') city = v;
+		if (id === 'state_region') stateRegion = v;
+		if (id === 'country') {
+			const c = v || country;
+			country = c ? c.toUpperCase() : '';
+		}
+	}
+	function updateHiddenLatLng(lat, lng) {
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+		hiddenLat = lat.toFixed(6);
+		hiddenLng = lng.toFixed(6);
+	}
+	function loadGooglePlaces() {
+		if (typeof window === 'undefined') return;
+		if (window.google?.maps?.places) {
+			initGooglePlaces();
+			return;
+		}
+		const key = env.PUBLIC_GOOGLE_MAPS_API_KEY;
+		if (!key) {
+			console.warn('Missing PUBLIC_GOOGLE_MAPS_API_KEY; cannot geocode group location.');
+			return;
+		}
+		if (document.getElementById('gmaps-places-groups-new')) return;
+		const script = document.createElement('script');
+		script.id = 'gmaps-places-groups-new';
+		script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=beta&callback=initGroupsNewPlaces`;
+		script.async = true;
+		script.defer = true;
+		script.onerror = () => console.error('Failed to load Google Maps Places for new group form.');
+		window.initGroupsNewPlaces = initGooglePlaces;
+		document.head.appendChild(script);
+	}
+	function initGooglePlaces() {
+		const maps = window.google?.maps;
+		if (!maps?.places) return;
+		geocoder = geocoder || new maps.Geocoder();
+		googleReady = true;
+		if (pendingGeocode?.query) {
+			scheduleGeocode(pendingGeocode.query, pendingGeocode.country, { immediate: true, force: true });
+		}
+		if (window.initGroupsNewPlaces === initGooglePlaces) delete window.initGroupsNewPlaces;
+	}
+	function fetchLatLngWithGeocoder(query, countryCode) {
+		if (!geocoder) return Promise.resolve(null);
+		return new Promise((resolve) => {
+			const request = { address: query };
+			if (countryCode) request.componentRestrictions = { country: countryCode };
+			geocoder.geocode(request, (results, status) => {
+				const okStatus = window.google?.maps?.GeocoderStatus?.OK;
+				if (status !== 'OK' && status !== okStatus) {
+					resolve(null);
+					return;
+				}
+				const result = results?.[0];
+				const loc = result?.geometry?.location;
+				if (!loc) {
+					resolve(null);
+					return;
+				}
+				const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+				const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+				if (typeof lat === 'number' && typeof lng === 'number') resolve({ lat, lng });
+				else resolve(null);
+			});
+		});
+	}
+	function runGeocode(config) {
+		if (!config) return;
+		const currentKey = config.key;
+		const execute = async () => {
+			try {
+			const coords = await fetchLatLngWithGeocoder(config.query, config.country);
+				if (!coords) return;
+				if (pendingGeocode?.key && pendingGeocode.key !== currentKey) return;
+				lastGeocodeKey = currentKey;
+				updateHiddenLatLng(coords.lat, coords.lng);
+			} catch (error) {
+				console.error('Unable to geocode new group location', error);
+			}
+		};
+		void execute();
+	}
+	function scheduleGeocode(query, countryCode, options = {}) {
+		const q = (query || '').trim();
+		if (!q) return;
+		const countryCodeNorm = (countryCode || '').trim().toUpperCase();
+		const key = `${q}|${countryCodeNorm}`;
+		if (!options.force && key === lastGeocodeKey) return;
+		const config = { query: q, country: countryCodeNorm, key };
+		pendingGeocode = config;
+		if (!googleReady) return;
+		const run = () => runGeocode(config);
+		clearTimeout(geocodeTimeout);
+		if (options.immediate) run();
+		else geocodeTimeout = setTimeout(run, 600);
+	}
+	let city = $state('');
+	let stateRegion = $state('');
+	let country = $state('US');
+	let googleReady = $state(false);
+	let pendingGeocode;
+	let lastGeocodeKey = '';
+	let geocodeTimeout;
+let geocoder;
 	async function suggestFromAI() {
 		aiError = '';
 		aiLoading = true;
@@ -48,9 +157,11 @@
 			const payload = await res.json();
 			const f = payload.fields || {};
 			const setVal = (id, v) => {
-				if (v == null || v === '') return;
+				if (v == null) return;
+				const str = typeof v === 'string' ? v : `${v}`;
 				const el = document.getElementById(id);
-				if (el) el.value = v;
+				if (el) el.value = str;
+				applyLocationValue(id, str);
 			};
 			// Allow AI to suggest or correct the name
 			if (f.name) {
@@ -70,6 +181,7 @@
 			if (f.country) {
 				const sel = document.getElementById('country');
 				if (sel) sel.value = f.country;
+				applyLocationValue('country', f.country);
 			}
 			// Hidden fields not shown on this page
 			hiddenSuggestedWebsite = f.website_url || hiddenSuggestedWebsite;
@@ -144,6 +256,21 @@
 			hiddenSocialLinks = '';
 		}
 	});
+	$effect(() => {
+		const aiAddress = (hiddenMeetingAddress || '').trim();
+		const cityPart = (city || '').trim();
+		const statePart = (stateRegion || '').trim();
+		const countryPart = (country || '').trim().toUpperCase();
+		const manualParts = [];
+		if (cityPart) manualParts.push(cityPart);
+		if (statePart) manualParts.push(statePart);
+		if (manualParts.length && countryPart && countryPart !== 'OTHER') manualParts.push(countryPart);
+		const manualQuery = manualParts.join(', ');
+		const query = aiAddress || manualQuery;
+		if (!query) return;
+		const countryForRequest = countryPart && countryPart !== 'OTHER' ? countryPart : '';
+		scheduleGeocode(query, countryForRequest, { immediate: Boolean(aiAddress) });
+	});
 	function slugify(text) {
 		return (text || '')
 			.toString()
@@ -179,6 +306,21 @@
 				handleStatus = '';
 			}
 		}, 350);
+	});
+	onMount(() => {
+		if (typeof window === 'undefined') return;
+		const read = (id) => document.getElementById(id)?.value?.trim() || '';
+		city = read('city');
+		stateRegion = read('state_region');
+		const countryEl = document.getElementById('country');
+		if (countryEl) country = (countryEl.value || country).trim().toUpperCase() || country;
+		loadGooglePlaces();
+	});
+	onDestroy(() => {
+		if (geocodeTimeout) clearTimeout(geocodeTimeout);
+		if (typeof window !== 'undefined' && window.initGroupsNewPlaces === initGooglePlaces) {
+			delete window.initGroupsNewPlaces;
+		}
 	});
 </script>
 
@@ -337,16 +479,29 @@
 						name="city"
 						class="input bg-primary-950/30"
 						placeholder="Leave blank if statewide"
+						bind:value={city}
 					/>
 				</div>
 				<div class="flex flex-col">
 					<label class="label" for="state_region">State/Region * Required</label>
-					<input id="state_region" name="state_region" class="input bg-primary-950/30" required />
+					<input
+						id="state_region"
+						name="state_region"
+						class="input bg-primary-950/30"
+						required
+						bind:value={stateRegion}
+					/>
 				</div>
 				<div class="flex flex-col">
 					<label class="label" for="country">Country * Required</label>
-					<select id="country" name="country" class="select bg-primary-950/30" required>
-						<option value="US" selected>United States</option>
+					<select
+						id="country"
+						name="country"
+						class="select bg-primary-950/30"
+						required
+						bind:value={country}
+					>
+						<option value="US">United States</option>
 						<option value="CA">Canada</option>
 						<option value="MX">Mexico</option>
 						<option value="GB">United Kingdom</option>
