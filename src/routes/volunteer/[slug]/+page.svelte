@@ -2,7 +2,6 @@
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabaseClient';
 	import { renderMarkdown } from '$lib/markdown';
 	import {
@@ -568,15 +567,11 @@
 					return;
 				}
 			}
-			bulkSubmit = { loading: false, success: 'Signups saved! Refreshing...', error: '' };
-			if (typeof window !== 'undefined') {
-				await new Promise((resolve) => setTimeout(resolve, 650));
-				await goto(window.location.pathname + window.location.search, {
-					replaceState: true,
-					keepFocus: true,
-					noScroll: true
-				});
-			}
+			bulkSubmit = {
+				loading: false,
+				success: "Thanks for volunteering! We'll be in touch soon.",
+				error: ''
+			};
 		} catch (err) {
 			bulkSubmit = {
 				loading: false,
@@ -1258,155 +1253,168 @@
 				</section>
 			{/if}
 
-			<section class="space-y-6">
-				<div class="flex items-start justify-between gap-3">
-					<h2 class="text-secondary-100 text-2xl font-semibold">Volunteer roles & shifts</h2>
-				</div>
+			{#if bulkSubmit.success}
+				<section
+					class="border-success-500/30 bg-success-500/10 text-success-100 rounded-3xl border p-6 text-center shadow-lg"
+				>
+					<h2 class="text-2xl font-semibold">Thank you for volunteering!</h2>
+					<p class="text-success-50 mt-3 text-sm">
+						We received your signup and look forward to seeing you there.
+					</p>
+				</section>
+			{/if}
 
-				{#if opportunities.length === 0}
-					<div
-						class="border-primary-500/40 bg-primary-500/5 text-primary-100 rounded-3xl border border-dashed p-6 text-center text-sm"
-					>
-						No volunteer opportunities defined yet. Organizers can add roles, capacities, and shift
-						coverage once planning begins.
+			{#if !bulkSubmit.success}
+				<section class="space-y-6">
+					<div class="flex items-start justify-between gap-3">
+						<h2 class="text-secondary-100 text-2xl font-semibold">Volunteer roles & shifts</h2>
 					</div>
-				{:else}
-					<div class="space-y-6">
-						{#each opportunities as opportunity (opportunity.id)}
-							{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
-							<article
-								class="border-surface-400/20 bg-surface-900/60 rounded-3xl border p-6 shadow-lg"
-							>
-								<header class="flex flex-wrap items-center justify-between gap-4">
-									<div>
-										<h3 class="text-surface-50 text-xl font-semibold">
-											{opportunity.title || 'Untitled role'}
-										</h3>
-										<p class="text-surface-400 text-xs tracking-wide uppercase">
-											{typeLabel(opportunity.opportunity_type)}
-										</p>
-									</div>
-									<div
-										class="text-surface-300 flex flex-wrap items-center gap-2 text-xs tracking-wide uppercase"
-									>
-										<span class="chip preset-tonal-surface">{signupStatusText(opportunity)}</span>
-										{#if opportunity.requires_approval}
-											<span class="chip preset-tonal-warning text-warning-200"
-												>Approval required</span
-											>
-										{/if}
-										{#if opportunity.auto_confirm_attendance}
-											<span class="chip preset-tonal-success text-success-100"
-												>Auto-confirm shifts</span
-											>
-										{/if}
-									</div>
-								</header>
 
-								{#if opportunity.descriptionHtml}
-									<div
-										class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-3 text-sm"
-									>
-										{@html opportunity.descriptionHtml}
-									</div>
-								{/if}
-
-								<div class="mt-6 space-y-6">
-									<div class="space-y-2">
-										{#if !user}
-											<p class="text-surface-400 text-xs">
-												Log in above to choose shifts and share your details.
+					{#if opportunities.length === 0}
+						<div
+							class="border-primary-500/40 bg-primary-500/5 text-primary-100 rounded-3xl border border-dashed p-6 text-center text-sm"
+						>
+							No volunteer opportunities defined yet. Organizers can add roles, capacities, and
+							shift coverage once planning begins.
+						</div>
+					{:else}
+						<div class="space-y-6">
+							{#each opportunities as opportunity (opportunity.id)}
+								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
+								<article
+									class="border-surface-400/20 bg-surface-900/60 rounded-3xl border p-6 shadow-lg"
+								>
+									<header class="flex flex-wrap items-center justify-between gap-4">
+										<div>
+											<h3 class="text-surface-50 text-xl font-semibold">
+												{opportunity.title || 'Untitled role'}
+											</h3>
+											<p class="text-surface-400 text-xs tracking-wide uppercase">
+												{typeLabel(opportunity.opportunity_type)}
 											</p>
-										{:else}
-											<p
-												class="bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 text-sm font-semibold"
-											>
-												Pick the shifts you want to cover, then finish your signup below.
-											</p>
-										{/if}
-									</div>
-
-									<div class="space-y-3">
-										<h5
-											class="text-surface-300 flex items-center gap-2 text-sm font-semibold tracking-wide uppercase"
+										</div>
+										<div
+											class="text-surface-300 flex flex-wrap items-center gap-2 text-xs tracking-wide uppercase"
 										>
-											<IconLayers class="h-4 w-4" /> Shift coverage
-										</h5>
-										{#if !opportunity.shifts || opportunity.shifts.length === 0}
-											<p
-												class="border-surface-500/40 bg-surface-800/40 text-surface-300 rounded-2xl border border-dashed p-4 text-sm"
+											<span class="chip preset-tonal-surface">{signupStatusText(opportunity)}</span>
+											{#if opportunity.requires_approval}
+												<span class="chip preset-tonal-warning text-warning-200"
+													>Approval required</span
+												>
+											{/if}
+											{#if opportunity.auto_confirm_attendance}
+												<span class="chip preset-tonal-success text-success-100"
+													>Auto-confirm shifts</span
+												>
+											{/if}
+										</div>
+									</header>
+
+									{#if opportunity.descriptionHtml}
+										<div
+											class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-3 text-sm"
+										>
+											{@html opportunity.descriptionHtml}
+										</div>
+									{/if}
+
+									<div class="mt-6 space-y-6">
+										<div class="space-y-2">
+											{#if !user}
+												<p class="text-surface-400 text-xs">
+													Log in above to choose shifts and share your details.
+												</p>
+											{:else}
+												<p
+													class="bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 text-sm font-semibold"
+												>
+													Pick the shifts you want to cover, then finish your signup below.
+												</p>
+											{/if}
+										</div>
+
+										<div class="space-y-3">
+											<h5
+												class="text-surface-300 flex items-center gap-2 text-sm font-semibold tracking-wide uppercase"
 											>
-												Organizers will add shift timing soon. Volunteers can still express interest
-												below.
-											</p>
-										{:else}
-											<ul class="grid gap-2 md:grid-cols-2">
-												{#each opportunity.shifts as shift (shift.id)}
-													{@const isSelected = form.shiftIds?.includes(shift.id)}
-													<li>
-														<button
-															type="button"
-															class={`focus:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition focus:ring-2 focus:outline-none ${
-																isSelected
-																	? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 ring-secondary-300 font-semibold shadow-md ring-2'
-																	: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-400/50'
-															}`}
-															aria-pressed={isSelected}
-															disabled={!user}
-															onclick={() => {
-																if (!user) return;
-																toggleShiftSelection(opportunity.id, shift.id);
-															}}
-														>
-															<div class="flex flex-wrap items-center justify-between gap-3">
-																<div class="flex items-center gap-3">
-																	<span
-																		class={`${
-																			isSelected
-																				? 'bg-secondary-500/40 text-secondary-50'
-																				: 'bg-primary-500/10 text-primary-200'
-																		} rounded-lg p-2`}
-																	>
-																		<IconClock class="h-4 w-4" />
-																	</span>
-																	<div class="min-w-0">
-																		<p class="text-surface-50 text-sm font-semibold">
-																			{formatShiftRange(shift)}
-																		</p>
-																		<p class="text-surface-400 text-xs">
-																			{shift.timezone || event.timezone || 'Timezone TBD'}
-																		</p>
+												<IconLayers class="h-4 w-4" /> Shift coverage
+											</h5>
+											{#if !opportunity.shifts || opportunity.shifts.length === 0}
+												<p
+													class="border-surface-500/40 bg-surface-800/40 text-surface-300 rounded-2xl border border-dashed p-4 text-sm"
+												>
+													Organizers will add shift timing soon. Volunteers can still express
+													interest below.
+												</p>
+											{:else}
+												<ul class="grid gap-2 md:grid-cols-2">
+													{#each opportunity.shifts as shift (shift.id)}
+														{@const isSelected = form.shiftIds?.includes(shift.id)}
+														<li>
+															<button
+																type="button"
+																class={`focus:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition focus:ring-2 focus:outline-none ${
+																	isSelected
+																		? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 ring-secondary-300 font-semibold shadow-md ring-2'
+																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-400/50'
+																}`}
+																aria-pressed={isSelected}
+																disabled={!user}
+																onclick={() => {
+																	if (!user) return;
+																	toggleShiftSelection(opportunity.id, shift.id);
+																}}
+															>
+																<div class="flex flex-wrap items-center justify-between gap-3">
+																	<div class="flex items-center gap-3">
+																		<span
+																			class={`${
+																				isSelected
+																					? 'bg-secondary-500/40 text-secondary-50'
+																					: 'bg-primary-500/10 text-primary-200'
+																			} rounded-lg p-2`}
+																		>
+																			<IconClock class="h-4 w-4" />
+																		</span>
+																		<div class="min-w-0">
+																			<p class="text-surface-50 text-sm font-semibold">
+																				{formatShiftRange(shift)}
+																			</p>
+																			<p class="text-surface-400 text-xs">
+																				{shift.timezone || event.timezone || 'Timezone TBD'}
+																			</p>
+																		</div>
+																	</div>
+																	<div class="text-surface-300 ml-auto text-right text-xs">
+																		<span class="text-surface-100 font-semibold">
+																			{getShiftSignupCount(shift.id)} volunteer{getShiftSignupCount(
+																				shift.id
+																			) === 1
+																				? ''
+																				: 's'}
+																		</span>
+																		{#if Number(shift.capacity)}
+																			<span> / {Number(shift.capacity)} slots</span>
+																		{/if}
+																		{#if shift.notes}
+																			<p class="text-surface-400 text-xs">{shift.notes}</p>
+																		{/if}
 																	</div>
 																</div>
-																<div class="text-surface-300 ml-auto text-right text-xs">
-																	<span class="text-surface-100 font-semibold">
-																		{getShiftSignupCount(shift.id)} volunteer{getShiftSignupCount(
-																			shift.id
-																		) === 1
-																			? ''
-																			: 's'}
-																	</span>
-																	{#if Number(shift.capacity)}
-																		<span> / {Number(shift.capacity)} slots</span>
-																	{/if}
-																	{#if shift.notes}
-																		<p class="text-surface-400 text-xs">{shift.notes}</p>
-																	{/if}
-																</div>
-															</div>
-														</button>
-													</li>
-												{/each}
-											</ul>
-										{/if}
+															</button>
+														</li>
+													{/each}
+												</ul>
+											{/if}
+										</div>
 									</div>
-								</div>
-							</article>
-						{/each}
-					</div>
-				{/if}
-			</section>
-			{#if user}
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
+			{#if user && !bulkSubmit.success}
 				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<h2 class="text-secondary-100 text-2xl font-semibold">
@@ -1497,9 +1505,6 @@
 							</button>
 							{#if bulkSubmit.error}
 								<p class="text-error-200 text-xs">{bulkSubmit.error}</p>
-							{/if}
-							{#if bulkSubmit.success}
-								<p class="text-success-200 text-xs">{bulkSubmit.success}</p>
 							{/if}
 						</div>
 					</div>
