@@ -144,8 +144,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 	let signups = [];
 	try {
 		signups = await fetchList(fetch, 'volunteer-signups', {
-			event_id: `eq.${event.id}`,
-			order: 'created_at.asc'
+			event_id: `eq.${event.id}`
 		});
 	} catch (err) {
 		if (err?.status !== 403) throw err;

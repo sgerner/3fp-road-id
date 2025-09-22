@@ -156,6 +156,36 @@
 	}
 
 	const eventDescriptionHtml = renderMarkdown(event.description || event.summary || '');
+	const TRUNCATE_LIMIT = 360;
+
+	const plainTextFromHtml = (html) => {
+		if (!html) return '';
+		return html
+			.replace(/<[^>]*>/g, ' ')
+			.replace(/&nbsp;/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+	};
+
+	const truncateText = (text, limit = TRUNCATE_LIMIT) => {
+		if (!text) return '';
+		if (text.length <= limit) return text;
+		return `${text.slice(0, limit).trimEnd()}...`;
+	};
+
+	const eventDescriptionPlain = plainTextFromHtml(eventDescriptionHtml);
+	let showFullOverview = $state(false);
+	let expandedOpportunityDescriptions = $state(new Set());
+
+	const toggleOpportunityDescription = (id) => {
+		const next = new Set(expandedOpportunityDescriptions);
+		if (next.has(id)) {
+			next.delete(id);
+		} else {
+			next.add(id);
+		}
+		expandedOpportunityDescriptions = next;
+	};
 
 	function humanizeSlug(value) {
 		return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -204,11 +234,13 @@
 		const userSignup = signupByOpportunity[opportunity.id];
 		const userShiftRows = userSignup ? (shiftRowsBySignup[userSignup.id] ?? []) : [];
 		const shiftIds = userShiftRows.map((row) => row.shift_id);
+		const descriptionHtml = renderMarkdown(opportunity.description || '');
 		return {
 			...opportunity,
 			userSignup,
 			defaultShiftIds: shiftIds,
-			descriptionHtml: renderMarkdown(opportunity.description || '')
+			descriptionHtml,
+			descriptionPlain: plainTextFromHtml(descriptionHtml)
 		};
 	};
 	const opportunities = opportunitiesRaw.map(mapOpportunityMeta);
@@ -1198,8 +1230,21 @@
 				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
 					<h2 class="text-secondary-100 text-2xl font-semibold">Overview</h2>
 					<div class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-4">
-						{@html eventDescriptionHtml}
+						{#if showFullOverview || eventDescriptionPlain.length <= TRUNCATE_LIMIT}
+							{@html eventDescriptionHtml}
+						{:else}
+							<p>{truncateText(eventDescriptionPlain)}</p>
+						{/if}
 					</div>
+					{#if eventDescriptionPlain.length > TRUNCATE_LIMIT}
+						<button
+							class="btn preset-tonal-secondary mt-4 text-sm"
+							type="button"
+							onclick={() => (showFullOverview = !showFullOverview)}
+						>
+							{showFullOverview ? 'Show less' : 'Show full details'}
+						</button>
+					{/if}
 				</section>
 			{/if}
 
@@ -1279,6 +1324,19 @@
 						</div>
 					{:else}
 						<div class="space-y-6">
+							<div class="space-y-2">
+								{#if !user}
+									<h5 class="h5 text-surface-400">
+										Log in above to choose shifts and share your details.
+									</h5>
+								{:else}
+									<h5
+										class="h5 bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 font-semibold"
+									>
+										Pick the shifts you want to cover, then finish your signup below.
+									</h5>
+								{/if}
+							</div>
 							{#each opportunities as opportunity (opportunity.id)}
 								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
 								<article
@@ -1314,25 +1372,26 @@
 										<div
 											class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-3 text-sm"
 										>
-											{@html opportunity.descriptionHtml}
+											{#if expandedOpportunityDescriptions.has(opportunity.id) || opportunity.descriptionPlain.length <= TRUNCATE_LIMIT}
+												{@html opportunity.descriptionHtml}
+											{:else}
+												<p>{truncateText(opportunity.descriptionPlain)}</p>
+											{/if}
 										</div>
+										{#if opportunity.descriptionPlain.length > TRUNCATE_LIMIT}
+											<button
+												class="btn preset-tonal-secondary mt-3 text-xs"
+												type="button"
+												onclick={() => toggleOpportunityDescription(opportunity.id)}
+											>
+												{expandedOpportunityDescriptions.has(opportunity.id)
+													? 'Show less'
+													: 'Show full details'}
+											</button>
+										{/if}
 									{/if}
 
 									<div class="mt-6 space-y-6">
-										<div class="space-y-2">
-											{#if !user}
-												<p class="text-surface-400 text-xs">
-													Log in above to choose shifts and share your details.
-												</p>
-											{:else}
-												<p
-													class="bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 text-sm font-semibold"
-												>
-													Pick the shifts you want to cover, then finish your signup below.
-												</p>
-											{/if}
-										</div>
-
 										<div class="space-y-3">
 											<h5
 												class="text-surface-300 flex items-center gap-2 text-sm font-semibold tracking-wide uppercase"
