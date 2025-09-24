@@ -8,6 +8,7 @@
 
 	export let showAdvancedCommunications = false;
 	export let customQuestions = [];
+	export let showCustomQuestionsSection = true;
 	export let eventEmails = [];
 	export let eventDetails = {};
 	export let opportunities = [];
@@ -184,149 +185,152 @@
 
 		{#if showAdvancedCommunications}
 			<div class="space-y-6">
-				<section class="space-y-4">
-					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
-						Custom intake questions
-					</h4>
-					{#each customQuestions as question, idx (question.id)}
-						<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
-							<div class="flex items-center justify-between">
-								<h3 class="font-semibold">Question {idx + 1}</h3>
-								<button
-									type="button"
-									class="btn preset-tonal-error flex items-center gap-2"
-									onclick={() => onRemoveQuestion(question.id)}
-								>
-									<IconTrash class="h-4 w-4" />
-									<span>Remove</span>
-								</button>
-							</div>
-
-							<div class="mt-4 grid gap-4 md:grid-cols-2">
-								<label class="label flex flex-col gap-2">
-									<span>Label *</span>
-									<input
-										class="input bg-surface-900/60"
-										value={question.label}
-										oninput={(e) => onUpdateQuestion(question.id, { label: e.currentTarget.value })}
-									/>
-								</label>
-								<label class="label flex flex-col gap-2">
-									<span>Field type</span>
-									<select
-										class="select bg-surface-900/60"
-										value={question.fieldType}
-										onchange={(e) =>
-											onUpdateQuestion(question.id, { fieldType: e.currentTarget.value })}
+				{#if showCustomQuestionsSection}
+					<section class="space-y-4">
+						<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+							Custom intake questions
+						</h4>
+						{#each customQuestions as question, idx (question.id)}
+							<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
+								<div class="flex items-center justify-between">
+									<h3 class="font-semibold">Question {idx + 1}</h3>
+									<button
+										type="button"
+										class="btn preset-tonal-error flex items-center gap-2"
+										onclick={() => onRemoveQuestion(question.id)}
 									>
-										{#each fieldTypeOptions as option}
-											<option value={option}>{option}</option>
-										{/each}
-									</select>
-								</label>
-								<div class="flex flex-col gap-2">
-									<label class="label" for={`question-required-${question.id}`}>Required?</label>
-									<label class="flex items-center gap-3 text-sm">
+										<IconTrash class="h-4 w-4" />
+										<span>Remove</span>
+									</button>
+								</div>
+
+								<div class="mt-4 grid gap-4 md:grid-cols-2">
+									<label class="label flex flex-col gap-2">
+										<span>Label *</span>
 										<input
-											id={`question-required-${question.id}`}
-											type="checkbox"
-											checked={question.isRequired}
-											onchange={(e) =>
-												onUpdateQuestion(question.id, { isRequired: e.currentTarget.checked })}
+											class="input bg-surface-900/60"
+											value={question.label}
+											oninput={(e) =>
+												onUpdateQuestion(question.id, { label: e.currentTarget.value })}
 										/>
-										<span>Volunteers must answer</span>
+									</label>
+									<label class="label flex flex-col gap-2">
+										<span>Field type</span>
+										<select
+											class="select bg-surface-900/60"
+											value={question.fieldType}
+											onchange={(e) =>
+												onUpdateQuestion(question.id, { fieldType: e.currentTarget.value })}
+										>
+											{#each fieldTypeOptions as option (option)}
+												<option value={option}>{option}</option>
+											{/each}
+										</select>
+									</label>
+									<div class="flex flex-col gap-2">
+										<label class="label" for={`question-required-${question.id}`}>Required?</label>
+										<label class="flex items-center gap-3 text-sm">
+											<input
+												id={`question-required-${question.id}`}
+												type="checkbox"
+												checked={question.isRequired}
+												onchange={(e) =>
+													onUpdateQuestion(question.id, { isRequired: e.currentTarget.checked })}
+											/>
+											<span>Volunteers must answer</span>
+										</label>
+									</div>
+									<label class="label flex flex-col gap-2 md:col-span-2">
+										<span>Help text</span>
+										<textarea
+											class="textarea bg-surface-900/60 min-h-20"
+											value={question.helpText}
+											oninput={(e) =>
+												onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
+											placeholder="Give volunteers context, links, or clarifications."
+										></textarea>
+									</label>
+									{#if supportsOptionField(question.fieldType)}
+										<div class="space-y-2 md:col-span-2">
+											<div class="label flex flex-col gap-2">
+												<span>Options</span>
+												<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+													<input
+														class="input bg-surface-900/60 md:flex-1"
+														value={question.optionDraft}
+														oninput={(e) =>
+															onUpdateQuestion(question.id, { optionDraft: e.currentTarget.value })}
+														placeholder="Add a choice"
+														onkeydown={(event) => {
+															if (event.key === 'Enter') {
+																event.preventDefault();
+																addOption(question);
+															}
+														}}
+													/>
+													<button
+														type="button"
+														class="btn preset-filled-primary-500 flex items-center gap-2 md:w-auto"
+														onclick={() => addOption(question)}
+														disabled={!question.optionDraft?.trim()}
+													>
+														<IconPlus class="h-4 w-4" />
+														<span>Add option</span>
+													</button>
+												</div>
+											</div>
+											{#if parseOptions(question.optionsRaw).length}
+												<div class="flex flex-wrap gap-2">
+													{#each parseOptions(question.optionsRaw) as option (option)}
+														<span
+															class="bg-surface-900/80 text-surface-200 border-surface-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
+														>
+															{option}
+															<button
+																type="button"
+																class="text-error-300 hover:text-error-200 text-xs"
+																onclick={() => removeOption(question, option)}
+															>
+																Remove
+															</button>
+														</span>
+													{/each}
+												</div>
+											{:else}
+												<p class="text-surface-500 text-xs">
+													Add at least one option for this field.
+												</p>
+											{/if}
+										</div>
+									{/if}
+									<label class="label flex flex-col gap-2 md:col-span-2">
+										<span>Limit to activity</span>
+										<select
+											class="select bg-surface-900/60"
+											value={question.opportunityId}
+											onchange={(e) =>
+												onUpdateQuestion(question.id, { opportunityId: e.currentTarget.value })}
+										>
+											<option value="">Applies to all signups</option>
+											{#each opportunities as opp (opp.id)}
+												<option value={opp.id}>{opp.title || 'Unnamed activity'}</option>
+											{/each}
+										</select>
 									</label>
 								</div>
-								<label class="label flex flex-col gap-2 md:col-span-2">
-									<span>Help text</span>
-									<textarea
-										class="textarea bg-surface-900/60 min-h-20"
-										value={question.helpText}
-										oninput={(e) =>
-											onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
-										placeholder="Give volunteers context, links, or clarifications."
-									></textarea>
-								</label>
-								{#if supportsOptionField(question.fieldType)}
-									<div class="space-y-2 md:col-span-2">
-										<div class="label flex flex-col gap-2">
-											<span>Options</span>
-											<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-												<input
-													class="input bg-surface-900/60 md:flex-1"
-													value={question.optionDraft}
-													oninput={(e) =>
-														onUpdateQuestion(question.id, { optionDraft: e.currentTarget.value })}
-													placeholder="Add a choice"
-													onkeydown={(event) => {
-														if (event.key === 'Enter') {
-															event.preventDefault();
-															addOption(question);
-														}
-													}}
-												/>
-												<button
-													type="button"
-													class="btn preset-filled-primary-500 flex items-center gap-2 md:w-auto"
-													onclick={() => addOption(question)}
-													disabled={!question.optionDraft?.trim()}
-												>
-													<IconPlus class="h-4 w-4" />
-													<span>Add option</span>
-												</button>
-											</div>
-										</div>
-										{#if parseOptions(question.optionsRaw).length}
-											<div class="flex flex-wrap gap-2">
-												{#each parseOptions(question.optionsRaw) as option (option)}
-													<span
-														class="bg-surface-900/80 text-surface-200 border-surface-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
-													>
-														{option}
-														<button
-															type="button"
-															class="text-error-300 hover:text-error-200 text-xs"
-															onclick={() => removeOption(question, option)}
-														>
-															Remove
-														</button>
-													</span>
-												{/each}
-											</div>
-										{:else}
-											<p class="text-surface-500 text-xs">
-												Add at least one option for this field.
-											</p>
-										{/if}
-									</div>
-								{/if}
-								<label class="label flex flex-col gap-2 md:col-span-2">
-									<span>Limit to activity</span>
-									<select
-										class="select bg-surface-900/60"
-										value={question.opportunityId}
-										onchange={(e) =>
-											onUpdateQuestion(question.id, { opportunityId: e.currentTarget.value })}
-									>
-										<option value="">Applies to all signups</option>
-										{#each opportunities as opp}
-											<option value={opp.id}>{opp.title || 'Unnamed activity'}</option>
-										{/each}
-									</select>
-								</label>
 							</div>
-						</div>
-					{/each}
+						{/each}
 
-					<button
-						type="button"
-						onclick={onAddQuestion}
-						class="btn preset-filled-primary-500 flex items-center gap-2"
-					>
-						<IconPlus class="h-4 w-4" />
-						<span>Add question</span>
-					</button>
-				</section>
+						<button
+							type="button"
+							onclick={onAddQuestion}
+							class="btn preset-filled-primary-500 flex items-center gap-2"
+						>
+							<IconPlus class="h-4 w-4" />
+							<span>Add question</span>
+						</button>
+					</section>
+				{/if}
 
 				<section class="space-y-4">
 					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
@@ -422,7 +426,7 @@
 										value={email.emailType}
 										onchange={(e) => onUpdateEmail(email.id, { emailType: e.currentTarget.value })}
 									>
-										{#each emailTypeOptions as option}
+										{#each emailTypeOptions as option (option)}
 											<option value={option}>{option}</option>
 										{/each}
 									</select>

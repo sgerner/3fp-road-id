@@ -181,16 +181,24 @@ export const load = async ({ params, fetch, cookies, url }) => {
 	}
 
 	const shiftSignupCounts = signupShifts.reduce((acc, row) => {
-		const shiftId = row?.shift_id;
+		const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId;
 		if (!shiftId) return acc;
-		acc[shiftId] = (acc[shiftId] || 0) + 1;
+		if (!acc[shiftId]) {
+			acc[shiftId] = { approved: 0, waitlisted: 0 };
+		}
+
+		if (row.status === 'approved') {
+			acc[shiftId].approved += 1;
+		} else if (row.status === 'waitlisted') {
+			acc[shiftId].waitlisted += 1;
+		}
 		return acc;
 	}, {});
 
-	const approvalCounts = signups.reduce(
-		(acc, signup) => {
-			if (signup?.status === 'approved' || signup?.status === 'confirmed') acc.confirmed += 1;
-			if (signup?.status === 'pending') acc.pending += 1;
+	const approvalCounts = signupShifts.reduce(
+		(acc, shift) => {
+			if (shift?.status === 'approved' || shift?.status === 'confirmed') acc.confirmed += 1;
+			if (shift?.status === 'pending') acc.pending += 1;
 			return acc;
 		},
 		{ confirmed: 0, pending: 0 }

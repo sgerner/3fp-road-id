@@ -2,6 +2,7 @@
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabaseClient';
 	import { renderMarkdown } from '$lib/markdown';
 	import {
@@ -18,8 +19,6 @@
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
-	import IconLink from '@lucide/svelte/icons/link';
 	import IconLayers from '@lucide/svelte/icons/layers';
 	import IconBuilding from '@lucide/svelte/icons/building';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
@@ -57,18 +56,6 @@
 		safety: 'Safety & Course Marshals',
 		outreach: 'Outreach & Info Booths',
 		other: 'Other'
-	};
-
-	const fieldTypeLabels = {
-		text: 'Short text',
-		textarea: 'Long text',
-		number: 'Number',
-		select: 'Single select',
-		multiselect: 'Multi select',
-		checkbox: 'Checkbox',
-		phone: 'Phone',
-		email: 'Email',
-		url: 'Link'
 	};
 
 	function emptyValueForQuestion(question) {
@@ -198,7 +185,6 @@
 			: '';
 
 	const hostWebsite = (hostGroup?.website_url || '').trim();
-	const hostServiceArea = (hostGroup?.service_area_description || '').trim();
 	const hostSocialLinks = (() => {
 		const raw = hostGroup?.social_links;
 		if (!raw || typeof raw !== 'object') return [];
@@ -517,14 +503,6 @@
 		return (startTime || endTime || 'Time coming soon') + (tz ? ` ${tz}` : '');
 	}
 
-	function questionScope(question) {
-		if (question?.opportunity_id) {
-			const match = opportunities.find((opp) => opp.id === question.opportunity_id);
-			return match?.title || 'Specific role';
-		}
-		return 'All signups';
-	}
-
 	function getQuestionsForOpportunity(opportunityId) {
 		if (!customQuestions.length) return [];
 		return customQuestions.filter((question) => question?.opportunity_id === opportunityId);
@@ -549,8 +527,25 @@
 		);
 	}
 
+	function ensureShiftCountEntry(shiftId) {
+		const current = shiftSignupCounts[shiftId];
+		if (current && typeof current === 'object') {
+			const approved = Number(current.approved) || 0;
+			const waitlisted = Number(current.waitlisted) || 0;
+			return { approved, waitlisted };
+		}
+		if (typeof current === 'number') {
+			return { approved: current, waitlisted: 0 };
+		}
+		return { approved: 0, waitlisted: 0 };
+	}
+
 	function getShiftSignupCount(shiftId) {
-		return shiftSignupCounts[shiftId] || 0;
+		return ensureShiftCountEntry(shiftId).approved || 0;
+	}
+
+	function getShiftWaitlistCount(shiftId) {
+		return ensureShiftCountEntry(shiftId).waitlisted || 0;
 	}
 
 	function findShift(opportunity, shiftId) {
@@ -792,18 +787,35 @@
 			const toAdd = selectedShiftIds.filter((shiftId) => !existingShiftIds.includes(shiftId));
 			const toRemove = existingShiftIds.filter((shiftId) => !selectedShiftIds.includes(shiftId));
 
+			const status = opportunity.requires_approval ? 'pending' : 'approved';
+
 			for (const shiftId of toAdd) {
 				const response = await createVolunteerSignupShift({
 					signup_id: signupRecord.id,
-					shift_id: shiftId
+					shift_id: shiftId,
+					status
 				});
 				const created = response?.data ?? response;
 				if (created?.id) {
 					signupShifts = [...signupShifts, created];
-					shiftSignupCounts = {
-						...shiftSignupCounts,
-						[shiftId]: (shiftSignupCounts[shiftId] || 0) + 1
-					};
+					const counts = ensureShiftCountEntry(shiftId);
+					if (status === 'approved') {
+						shiftSignupCounts = {
+							...shiftSignupCounts,
+							[shiftId]: {
+								...counts,
+								approved: counts.approved + 1
+							}
+						};
+					} else if (status === 'waitlisted') {
+						shiftSignupCounts = {
+							...shiftSignupCounts,
+							[shiftId]: {
+								...counts,
+								waitlisted: counts.waitlisted + 1
+							}
+						};
+					}
 				}
 			}
 
@@ -814,10 +826,24 @@
 				if (row?.id) {
 					await deleteVolunteerSignupShift(row.id);
 					signupShifts = signupShifts.filter((existing) => existing.id !== row.id);
-					shiftSignupCounts = {
-						...shiftSignupCounts,
-						[shiftId]: Math.max((shiftSignupCounts[shiftId] || 1) - 1, 0)
-					};
+					const counts = ensureShiftCountEntry(shiftId);
+					if (row.status === 'approved') {
+						shiftSignupCounts = {
+							...shiftSignupCounts,
+							[shiftId]: {
+								...counts,
+								approved: Math.max(counts.approved - 1, 0)
+							}
+						};
+					} else if (row.status === 'waitlisted') {
+						shiftSignupCounts = {
+							...shiftSignupCounts,
+							[shiftId]: {
+								...counts,
+								waitlisted: Math.max(counts.waitlisted - 1, 0)
+							}
+						};
+					}
 				}
 			}
 
@@ -944,18 +970,6 @@
 		} finally {
 			loginLoading = false;
 		}
-	}
-
-	function volunteerCapacityLabel() {
-		const volunteerCapacity = opportunities.reduce((sum, opportunity) => {
-			const shiftCapacity = getOpportunityShiftCapacity(opportunity);
-			if (shiftCapacity) return sum + shiftCapacity;
-			if (Number(opportunity.max_volunteers)) return sum + Number(opportunity.max_volunteers);
-			return sum;
-		}, 0);
-		if (volunteerCapacity) return `Targeting ${volunteerCapacity} volunteers`;
-		if (event.max_volunteers) return `Max ${event.max_volunteers} volunteers`;
-		return 'Flexible roster';
 	}
 
 	// Notices via query params
@@ -1409,6 +1423,8 @@
 												<ul class="grid gap-2 md:grid-cols-2">
 													{#each opportunity.shifts as shift (shift.id)}
 														{@const isSelected = form.shiftIds?.includes(shift.id)}
+														{@const approvedCount = getShiftSignupCount(shift.id)}
+														{@const waitlistedCount = getShiftWaitlistCount(shift.id)}
 														<li>
 															<button
 																type="button"
@@ -1446,15 +1462,16 @@
 																	</div>
 																	<div class="text-surface-300 ml-auto text-right text-xs">
 																		<span class="text-surface-100 font-semibold">
-																			{getShiftSignupCount(shift.id)} volunteer{getShiftSignupCount(
-																				shift.id
-																			) === 1
-																				? ''
-																				: 's'}
+																			{approvedCount} volunteer{approvedCount === 1 ? '' : 's'}
 																		</span>
 																		{#if Number(shift.capacity)}
 																			<span> / {Number(shift.capacity)} slots</span>
 																		{/if}
+																		<p
+																			class={`mt-1 ${waitlistedCount > 0 ? 'font-semibold text-amber-200' : 'text-surface-500'}`}
+																		>
+																			Waitlisted: {waitlistedCount}
+																		</p>
 																		{#if shift.notes}
 																			<p class="text-surface-400 text-xs">{shift.notes}</p>
 																		{/if}
