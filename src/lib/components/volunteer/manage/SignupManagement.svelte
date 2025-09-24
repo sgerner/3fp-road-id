@@ -1,139 +1,90 @@
 <script>
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap } from 'svelte/reactivity';
 
-	export let volunteers = [];
-	export let statusFilters = [];
-	export let activityFilters = [];
-	export let shiftFilters = [];
-	export let shifts = [];
-	export let selectedStatus = 'all';
-	export let selectedActivity = 'all';
-	export let selectedShift = 'all';
-	export let searchTerm = '';
-	export let onStatusChange = () => {};
-	export let onActivityChange = () => {};
-	export let onShiftChange = () => {};
-	export let onSearch = () => {};
-	export let onApprove = () => {};
-	export let onDecline = () => {};
-	export let onWaitlist = () => {};
-	export let onMoveShift = () => {};
-	export let onPresent = () => {};
+	const {
+		volunteers = [],
+		statusFilters = [],
+		activityFilters = [],
+		shiftFilters = [],
+		shifts = [],
+		selectedStatus = 'all',
+		selectedActivity = 'all',
+		selectedShift = 'all',
+		searchTerm = '',
+		onStatusChange = () => {},
+		onActivityChange = () => {},
+		onShiftChange = () => {},
+		onSearch = () => {},
+		onApprove = (/** @type {string} */ assignmentId) => {},
+		onDecline = (/** @type {string} */ assignmentId) => {},
+		onWaitlist = (/** @type {string} */ assignmentId) => {},
+		onMoveShift = (/** @type {string} */ volunteerId, /** @type {string | null} */ shiftId) => {},
+		onPresent = (/** @type {string} */ assignmentId, /** @type {boolean} */ isPresent) => {}
+	} = $props();
 
-	let expandedVolunteers = new SvelteSet();
-	$: shiftLookup = new SvelteMap(shifts.map((shift) => [shift.id, shift]));
-	function toggleVolunteerShifts(id) {
-		if (!id) return;
-		const next = new SvelteSet(expandedVolunteers);
-		if (next.has(id)) {
-			next.delete(id);
-		} else {
-			next.add(id);
-		}
-		expandedVolunteers = next;
-	}
-	function isVolunteerExpanded(id) {
-		if (!id) return false;
-		return expandedVolunteers.has(id);
-	}
-	function volunteerShiftCount(volunteer) {
-		return (volunteer?.shiftIds ?? []).filter(Boolean).length;
-	}
-	function volunteerShiftEntries(volunteer) {
-		const entries = [];
-		const ids = (volunteer?.shiftIds ?? []).filter(Boolean);
-		if (ids.length) {
-			ids.forEach((shiftId, index) => {
-				const shift = shiftLookup.get(shiftId ?? '') ?? null;
-				const keyBase = volunteer?.id ?? volunteer?.signupId ?? `volunteer-${index}`;
-				if (shift) {
-					entries.push({
-						key: `${keyBase}-${shiftId}-${index}`,
-						title: shift.opportunityTitle || 'Volunteer shift',
-						label: shift.optionLabel || shift.windowLabel || 'Scheduled shift',
-						windowLabel: shift.windowLabel || shift.optionLabel || '',
-						shiftId
+	const shiftMap = $derived(new SvelteMap(shifts.map((shift) => [shift.id, shift])));
+
+	const individualShifts = $derived.by(() => {
+		const flattened = [];
+		for (const volunteer of volunteers) {
+			const assignments = volunteer.assignments ?? [];
+			if (assignments.length === 0) {
+				// Handle volunteers with no specific shift assignment
+				flattened.push({
+					key: `${volunteer.id}-unassigned`,
+					volunteer,
+					assignment: { id: null, status: volunteer.status, attended: volunteer.attended },
+					shiftDetails: {
+						optionLabel: 'Unassigned',
+						windowLabel: 'No shift selected'
+					},
+					hasMultipleShifts: false
+				});
+			} else {
+				for (const assignment of assignments) {
+					flattened.push({
+						key: `${volunteer.id}-${assignment.id}`,
+						volunteer,
+						assignment,
+						shiftDetails: shiftMap.get(assignment.shiftId ?? '') ?? {},
+						hasMultipleShifts: (volunteer.shiftIds?.length ?? 0) > 1
 					});
-					return;
 				}
-				const fallbackLabel =
-					volunteer?.displayShifts?.[index] ??
-					volunteer?.displayShifts?.[0] ??
-					'Shift details unavailable';
-				entries.push({
-					key: `${keyBase}-fallback-${index}`,
-					title: 'Volunteer shift',
-					label: fallbackLabel,
-					windowLabel: fallbackLabel,
-					shiftId
-				});
-			});
-			return entries;
-		}
-		if (Array.isArray(volunteer?.displayShifts) && volunteer.displayShifts.length) {
-			volunteer.displayShifts.forEach((label, index) => {
-				const keyBase = volunteer?.id ?? volunteer?.signupId ?? `volunteer-${index}`;
-				entries.push({
-					key: `${keyBase}-display-${index}`,
-					title: 'Volunteer shift',
-					label,
-					windowLabel: label,
-					shiftId: null
-				});
-			});
-		}
-		if (!entries.length) {
-			const keyBase = volunteer?.id ?? volunteer?.signupId ?? 'volunteer';
-			entries.push({
-				key: `${keyBase}-unassigned`,
-				title: 'Volunteer shift',
-				label: 'Unassigned',
-				windowLabel: 'No shift selected',
-				shiftId: null
-			});
-		}
-		return entries;
-	}
-
-	function buildShiftGroups(list = []) {
-		const map = new SvelteMap();
-		for (const shift of list) {
-			if (!shift?.id) continue;
-			const key = shift.opportunityId ?? 'default';
-			if (!map.has(key)) {
-				map.set(key, {
-					id: key,
-					title: shift.opportunityTitle || 'Volunteer activity',
-					shifts: []
-				});
 			}
-			map.get(key)?.shifts.push(shift);
 		}
-		for (const entry of map.values()) {
-			entry.shifts.sort((a, b) => {
-				const timeA = a.startsAt ? new Date(a.startsAt).getTime() : 0;
-				const timeB = b.startsAt ? new Date(b.startsAt).getTime() : 0;
-				return timeA - timeB;
-			});
-		}
-		return Array.from(map.values());
-	}
 
-	$: groupedShifts = buildShiftGroups(shifts);
+		flattened.sort((a, b) => {
+			const startTimeA = a.shiftDetails.startsAt ? new Date(a.shiftDetails.startsAt).getTime() : 0;
+			const startTimeB = b.shiftDetails.startsAt ? new Date(b.shiftDetails.startsAt).getTime() : 0;
+			if (startTimeA !== startTimeB) {
+				return startTimeA - startTimeB;
+			}
+			const createdAtA = a.volunteer.signup.created_at
+				? new Date(a.volunteer.signup.created_at).getTime()
+				: 0;
+			const createdAtB = b.volunteer.signup.created_at
+				? new Date(b.volunteer.signup.created_at).getTime()
+				: 0;
+			return createdAtA - createdAtB;
+		});
+
+		return flattened;
+	});
 
 	function statusClass(status) {
 		switch (status) {
 			case 'approved':
+			case 'checked_in':
 				return 'bg-success-500/20 text-success-200';
 			case 'pending':
 				return 'bg-warning-500/20 text-warning-200';
 			case 'waitlisted':
 				return 'bg-surface-500/20 text-surface-100';
 			case 'declined':
-				return 'bg-error-500/20 text-error-200';
 			case 'cancelled':
+			case 'no_show':
 				return 'bg-error-500/20 text-error-200';
 			default:
 				return 'bg-surface-500/20 text-surface-100';
@@ -212,181 +163,122 @@
 			<thead class="text-surface-400 text-xs tracking-wide uppercase">
 				<tr>
 					<th class="px-3 py-2">Volunteer</th>
-					<th class="px-3 py-2">Status</th>
 					<th class="px-3 py-2">Shift</th>
-					<th class="px-3 py-2">Present</th>
+					<th class="px-3 py-2">Status</th>
+					<th class="px-3 py-2">Presence</th>
 					<th class="px-3 py-2">Actions</th>
 				</tr>
 			</thead>
 			<tbody class="divide-surface-800/60 divide-y">
-				{#if !volunteers.length}
+				{#if !individualShifts.length}
 					<tr>
-						<td class="text-surface-400 px-3 py-6 text-center" colspan="6"
+						<td class="text-surface-400 px-3 py-6 text-center" colspan="5"
 							>No volunteers match the selected filters.</td
 						>
 					</tr>
 				{:else}
-					{#each volunteers as volunteer (volunteer.id)}
-						<tr class={volunteer.status === 'waitlisted' ? 'bg-amber-500/10' : ''}>
+					{#each individualShifts as item, i (item.key)}
+						{@const prevItem = individualShifts[i - 1] ?? null}
+						{@const showDivider =
+							prevItem && item.shiftDetails.startsAt !== prevItem.shiftDetails.startsAt}
+						<tr
+							class:border-t-2={showDivider}
+							class:border-surface-600={showDivider}
+							class={item.assignment.status === 'waitlisted' ? 'bg-amber-500/10' : ''}
+						>
 							<td class="px-3 py-3">
-								<div class="font-semibold text-white">{volunteer.name}</div>
-								{#if volunteer.email}
-									<div class="text-surface-400 flex items-center gap-1 text-xs">
+								<div class="flex items-center gap-2">
+									<span class="font-semibold text-white">{item.volunteer.name}</span>
+									{#if item.hasMultipleShifts}
+										<span
+											class="chip preset-tonal-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
+											>Multiple Shifts</span
+										>
+									{/if}
+								</div>
+								{#if item.volunteer.email}
+									<div class="text-surface-400 mt-1 flex items-center gap-1 text-xs">
 										<IconMail class="h-3.5 w-3.5" />
-										<span>{volunteer.email}</span>
+										<span>{item.volunteer.email}</span>
 									</div>
 								{/if}
-								{#if volunteer.phone}
+								{#if item.volunteer.phone}
 									<div class="text-surface-500 flex items-center gap-1 text-xs">
 										<IconPhone class="h-3.5 w-3.5" />
-										<span>{volunteer.phone}</span>
+										<span>{item.volunteer.phone}</span>
 									</div>
 								{/if}
-								{#if volunteerShiftCount(volunteer) > 1}
-									<button
-										type="button"
-										class={`chip preset-tonal-secondary-500 mt-2 px-2 py-0.5 text-[11px] tracking-wide uppercase ${
-											isVolunteerExpanded(volunteer.id) ? 'ring-secondary-400/60 ring-1' : ''
-										}`}
-										onclick={() => toggleVolunteerShifts(volunteer.id)}
-										aria-expanded={isVolunteerExpanded(volunteer.id)}
-									>
-										{isVolunteerExpanded(volunteer.id)
-											? 'Hide shifts'
-											: `${volunteerShiftCount(volunteer)} shifts`}
-									</button>
-								{/if}
+							</td>
+							<td class="px-3 py-3">
+								<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
+								<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
 							</td>
 							<td class="px-3 py-3">
 								<span
-									class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(volunteer.status)}`}
+									class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
+										item.assignment.status
+									)}`}
 								>
-									{volunteer.status}
+									{item.assignment.status.replace('_', ' ')}
 								</span>
 							</td>
 							<td class="px-3 py-3">
-								<select
-									class="border-surface-600 bg-surface-950/60 w-48 rounded-lg border px-2 py-1"
-									value={volunteer.primaryShiftId || ''}
-									onchange={(event) => onMoveShift(volunteer.id, event.currentTarget.value || null)}
-								>
-									<option value="">Unassigned</option>
-									{#each groupedShifts as group (group.id)}
-										<optgroup label={group.title}>
-											{#each group.shifts as shift (shift.id)}
-												<option value={shift.id}>{shift.optionLabel}</option>
-											{/each}
-										</optgroup>
-									{/each}
-								</select>
-								{#if volunteer.status === 'waitlisted'}
-									<p class="mt-1 text-xs text-amber-300">Waitlisted</p>
+								{#if item.assignment.id}
+									<label class="flex cursor-pointer items-center">
+										<div class="relative">
+											<input
+												type="checkbox"
+												class="peer sr-only"
+												checked={item.assignment.attended}
+												onchange={(event) =>
+													onPresent(item.assignment.id, event.currentTarget.checked)}
+											/>
+											<div
+												class="bg-surface-600 peer-checked:bg-primary-500 h-6 w-10 rounded-full"
+											></div>
+											<div
+												class="peer-checked:border-primary-500 peer-checked:translate-x-full absolute top-0.5 left-0.5 h-5 w-5 rounded-full border border-transparent bg-white transition"
+											></div>
+										</div>
+										<div class="text-surface-300 ml-3 text-xs">
+											{item.assignment.attended ? 'Present' : 'No-show'}
+										</div>
+									</label>
+								{:else}
+									<span class="text-surface-500 text-xs">N/A</span>
 								{/if}
 							</td>
 							<td class="px-3 py-3">
-								<label class="text-surface-200 flex items-center gap-2 text-xs">
-									<input
-										type="checkbox"
-										class="border-surface-600 bg-surface-950 rounded"
-										checked={volunteer.attended}
-										onchange={(event) => onPresent(volunteer.id, event.currentTarget.checked)}
-									/>
-									Present
-								</label>
-								<p class="text-surface-500 mt-1 text-xs">
-									{volunteer.attended && volunteer.checkIn
-										? `Checked in ${volunteer.checkIn}`
-										: 'No check-in recorded'}
-								</p>
-							</td>
-
-							<td class="px-3 py-3">
-								<div class="flex flex-wrap gap-2">
-									{#if volunteer.status !== 'approved'}
+								{#if item.assignment.id}
+									<div class="flex flex-wrap gap-2">
+										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
+											<button
+												class="chip preset-filled-primary-500 px-2 py-1 text-xs"
+												onclick={() => onApprove(item.assignment.id)}
+											>
+												Approve
+											</button>
+										{/if}
+										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
+											<button
+												class="chip preset-tonal-error px-2 py-1 text-xs"
+												onclick={() => onDecline(item.assignment.id)}
+											>
+												Decline
+											</button>
+										{/if}
 										<button
-											class="chip preset-filled-primary-500 px-2 py-1 text-xs"
-											onclick={() => onApprove(volunteer.id)}
+											class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
+											onclick={() => onWaitlist(item.assignment.id)}
 										>
-											Approve
+											{item.assignment.status === 'waitlisted'
+												? 'Remove waitlist'
+												: 'Move to waitlist'}
 										</button>
-									{/if}
-									{#if volunteer.status !== 'declined'}
-										<button
-											class="chip preset-tonal-error px-2 py-1 text-xs"
-											onclick={() => onDecline(volunteer.id)}
-										>
-											Decline
-										</button>
-									{/if}
-									<button
-										class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-										onclick={() => onWaitlist(volunteer.id)}
-									>
-										{volunteer.status === 'waitlisted' ? 'Remove waitlist' : 'Move to waitlist'}
-									</button>
-								</div>
+									</div>
+								{/if}
 							</td>
 						</tr>
-						{#if isVolunteerExpanded(volunteer.id)}
-							<tr class="bg-surface-900/60">
-								<td class="px-3 pt-0 pb-5" colspan="5">
-									<div class="text-surface-300 text-xs font-semibold tracking-wide uppercase">
-										All registered shifts
-									</div>
-									<div class="mt-3 space-y-2">
-										{#each volunteerShiftEntries(volunteer) as shiftEntry (shiftEntry.key)}
-											<div
-												class="border-surface-800/70 bg-surface-950/40 rounded-xl border px-4 py-3"
-											>
-												<div
-													class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-												>
-													<div class="space-y-1">
-														<div class="text-sm font-semibold text-white">
-															{shiftEntry.title}
-														</div>
-														<div class="text-surface-400 text-xs">
-															{shiftEntry.label}
-														</div>
-														{#if shiftEntry.windowLabel && shiftEntry.windowLabel !== shiftEntry.label}
-															<div class="text-surface-500 text-xs">
-																{shiftEntry.windowLabel}
-															</div>
-														{/if}
-													</div>
-													<div class="flex flex-wrap gap-2">
-														{#if volunteer.status !== 'approved'}
-															<button
-																class="chip preset-filled-primary-500 px-2 py-1 text-xs"
-																onclick={() => onApprove(volunteer.id)}
-															>
-																Approve
-															</button>
-														{/if}
-														{#if volunteer.status !== 'declined'}
-															<button
-																class="chip preset-tonal-error px-2 py-1 text-xs"
-																onclick={() => onDecline(volunteer.id)}
-															>
-																Decline
-															</button>
-														{/if}
-														<button
-															class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-															onclick={() => onWaitlist(volunteer.id)}
-														>
-															{volunteer.status === 'waitlisted'
-																? 'Remove waitlist'
-																: 'Move to waitlist'}
-														</button>
-													</div>
-												</div>
-											</div>
-										{/each}
-									</div>
-								</td>
-							</tr>
-						{/if}
 					{/each}
 				{/if}
 			</tbody>

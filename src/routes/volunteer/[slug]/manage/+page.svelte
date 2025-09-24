@@ -386,94 +386,86 @@
 		return volunteers.find((volunteer) => volunteer.id === id);
 	}
 
-	async function updateVolunteerShiftsStatus(volunteer, status) {
-		const updatedAssignments = await Promise.all(
-			volunteer.assignments.map(async (assignment) => {
-				if (!assignment.id) return assignment;
-				const response = await updateVolunteerSignupShift(assignment.id, { status });
-				return normalizeAssignment(response?.data ?? response ?? { ...assignment, status });
-			})
-		);
-		updateVolunteerState(volunteer.id, { assignments: updatedAssignments });
-	}
+	async function updateAssignmentStatus(assignmentId, status) {
+		if (!assignmentId) return;
+		let volunteerToUpdate = null;
+		let assignmentToUpdate = null;
 
-	async function approveVolunteer(id) {
-		const volunteer = volunteerById(id);
-		if (!volunteer?.signupId) return;
-		try {
-			await updateVolunteerShiftsStatus(volunteer, 'approved');
-			addActivityEntry(`Approved ${volunteer.name}.`);
-		} catch (error) {
-			console.error('Failed to approve volunteer', error);
-			addActivityEntry(`Failed to approve ${volunteer.name}.`);
+		for (const v of volunteers) {
+			const found = v.assignments.find((a) => a.id === assignmentId);
+			if (found) {
+				volunteerToUpdate = v;
+				assignmentToUpdate = found;
+				break;
+			}
 		}
-	}
 
-	async function declineVolunteer(id) {
-		const volunteer = volunteerById(id);
-		if (!volunteer?.signupId) return;
-		try {
-			await updateVolunteerShiftsStatus(volunteer, 'declined');
-			addActivityEntry(`Declined ${volunteer.name}.`);
-		} catch (error) {
-			console.error('Failed to decline volunteer', error);
-			addActivityEntry(`Failed to decline ${volunteer.name}.`);
-		}
-	}
+		if (!volunteerToUpdate || !assignmentToUpdate) return;
 
-	async function toggleWaitlist(id) {
-		const volunteer = volunteerById(id);
-		if (!volunteer?.signupId) return;
-		const nextWaitlisted = volunteer.status !== 'waitlisted';
-		const nextStatus = nextWaitlisted ? 'waitlisted' : 'pending';
 		try {
-			await updateVolunteerShiftsStatus(volunteer, nextStatus);
-			addActivityEntry(
-				`${nextWaitlisted ? 'Moved' : 'Returned'} ${volunteer.name} ${
-					nextWaitlisted ? 'to' : 'from'
-				} the waitlist.`
+			const response = await updateVolunteerSignupShift(assignmentId, { status });
+			const updatedAssignment = normalizeAssignment(
+				response?.data ?? response ?? { ...assignmentToUpdate, status }
 			);
+
+			const nextAssignments = volunteerToUpdate.assignments.map((a) =>
+				a.id === assignmentId ? updatedAssignment : a
+			);
+			updateVolunteerState(volunteerToUpdate.id, { assignments: nextAssignments });
+			addActivityEntry(`Set status to ${status} for ${volunteerToUpdate.name}'s shift.`);
 		} catch (error) {
-			console.error('Failed to toggle waitlist', error);
-			addActivityEntry(`Failed to update waitlist for ${volunteer.name}.`);
+			console.error(`Failed to set status to ${status}`, error);
+			addActivityEntry(`Failed to update status for ${volunteerToUpdate.name}.`);
 		}
 	}
 
-	async function setVolunteerPresent(id, present) {
-		const volunteer = volunteerById(id);
+	function approveAssignment(assignmentId) {
+		updateAssignmentStatus(assignmentId, 'approved');
+	}
+
+	function declineAssignment(assignmentId) {
+		updateAssignmentStatus(assignmentId, 'declined');
+	}
+
+	function waitlistAssignment(assignmentId) {
+		const volunteer = volunteers.find((v) => v.assignments.some((a) => a.id === assignmentId));
 		if (!volunteer) return;
-		const assignments = volunteer.assignments ?? [];
-		if (!assignments.length) {
-			addActivityEntry(`Assign a shift before marking ${volunteer.name} present.`);
-			return;
+		const isWaitlisted = volunteer.status === 'waitlisted';
+		updateAssignmentStatus(assignmentId, isWaitlisted ? 'pending' : 'waitlisted');
+	}
+
+	async function setAssignmentPresent(assignmentId, present) {
+		if (!assignmentId) return;
+		let volunteerToUpdate = null;
+		let assignmentToUpdate = null;
+
+		for (const v of volunteers) {
+			const found = v.assignments.find((a) => a.id === assignmentId);
+			if (found) {
+				volunteerToUpdate = v;
+				assignmentToUpdate = found;
+				break;
+			}
 		}
-		const updates = [];
+
+		if (!volunteerToUpdate || !assignmentToUpdate) return;
+
 		try {
 			const nextStatus = present ? 'checked_in' : 'no_show';
-			const nextCheckIn = present ? new Date().toISOString() : null;
-
-			for (const assignment of assignments) {
-				if (!assignment?.id) {
-					updates.push({
-						...assignment,
-						attendanceStatus: nextStatus,
-						attended: present,
-						checkedInAt: nextCheckIn
-					});
-					continue;
-				}
-				const response = await updateVolunteerSignupShift(assignment.id, {
-					status: nextStatus
-				});
-				const payload = response?.data ?? response ?? assignment;
-				updates.push(normalizeAssignment(payload));
-			}
-			const nextAssignments = updates.length ? updates : assignments;
-			updateVolunteerState(id, { assignments: nextAssignments });
-			addActivityEntry(`${present ? 'Marked present' : 'Cleared presence'} for ${volunteer.name}.`);
+			const response = await updateVolunteerSignupShift(assignmentId, { status: nextStatus });
+			const updatedAssignment = normalizeAssignment(
+				response?.data ?? response ?? { ...assignmentToUpdate, status: nextStatus }
+			);
+			const nextAssignments = volunteerToUpdate.assignments.map((a) =>
+				a.id === assignmentId ? updatedAssignment : a
+			);
+			updateVolunteerState(volunteerToUpdate.id, { assignments: nextAssignments });
+			addActivityEntry(
+				`${present ? 'Marked present' : 'Cleared presence'} for ${volunteerToUpdate.name}.`
+			);
 		} catch (error) {
 			console.error('Failed to update attendance', error);
-			addActivityEntry(`Failed to update attendance for ${volunteer.name}.`);
+			addActivityEntry(`Failed to update attendance for ${volunteerToUpdate.name}.`);
 		}
 	}
 
@@ -875,11 +867,11 @@
 		onActivityChange={handleActivityChange}
 		onShiftChange={(value) => (selectedShiftId = value)}
 		onSearch={(value) => (searchTerm = value)}
-		onApprove={approveVolunteer}
-		onDecline={declineVolunteer}
-		onWaitlist={toggleWaitlist}
+		onApprove={approveAssignment}
+		onDecline={declineAssignment}
+		onWaitlist={waitlistAssignment}
 		onMoveShift={moveVolunteerToShift}
-		onPresent={setVolunteerPresent}
+		onPresent={setAssignmentPresent}
 	/>
 
 	<ApprovedRoster volunteers={approvedVolunteers} {shiftMap} />
