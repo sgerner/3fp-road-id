@@ -156,132 +156,142 @@
 		</label>
 	</div>
 
-	<div class="mt-6 overflow-x-auto">
-		<table
-			class="divide-surface-700 text-surface-100 w-full min-w-[760px] divide-y text-left text-sm"
+	<div class="mt-6">
+		<!-- Desktop header -->
+		<div
+			class="text-surface-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
 		>
-			<thead class="text-surface-400 text-xs tracking-wide uppercase">
-				<tr>
-					<th class="px-3 py-2">Volunteer</th>
-					<th class="px-3 py-2">Shift</th>
-					<th class="px-3 py-2">Status</th>
-					<th class="px-3 py-2">Presence</th>
-					<th class="px-3 py-2">Actions</th>
-				</tr>
-			</thead>
-			<tbody class="divide-surface-800/60 divide-y">
-				{#if !individualShifts.length}
-					<tr>
-						<td class="text-surface-400 px-3 py-6 text-center" colspan="5"
-							>No volunteers match the selected filters.</td
-						>
-					</tr>
-				{:else}
-					{#each individualShifts as item, i (item.key)}
-						{@const prevItem = individualShifts[i - 1] ?? null}
-						{@const showDivider =
-							prevItem && item.shiftDetails.startsAt !== prevItem.shiftDetails.startsAt}
-						<tr
-							class:border-t-2={showDivider}
-							class:border-surface-600={showDivider}
-							class={item.assignment.status === 'waitlisted' ? 'bg-amber-500/10' : ''}
-						>
-							<td class="px-3 py-3">
-								<div class="flex items-center gap-2">
-									<span class="font-semibold text-white">{item.volunteer.name}</span>
-									{#if item.hasMultipleShifts}
-										<span
-											class="chip preset-tonal-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
-											>Multiple Shifts</span
-										>
-									{/if}
-								</div>
-								{#if item.volunteer.email}
-									<div class="text-surface-400 mt-1 flex items-center gap-1 text-xs">
-										<IconMail class="h-3.5 w-3.5" />
-										<span>{item.volunteer.email}</span>
+			<div class="col-span-1">Volunteer</div>
+			<div class="col-span-1">Shift</div>
+			<div class="col-span-1">Status</div>
+			<!-- Disable Presence <div class="col-span-1">Presence</div> -->
+			<div class="col-span-1">Actions</div>
+		</div>
+		<!-- Volunteer list -->
+		<div class="space-y-4 md:space-y-0">
+			{#if !individualShifts.length}
+				<div class="text-surface-400 px-3 py-6 text-center">
+					No volunteers match the selected filters.
+				</div>
+			{:else}
+				{#each individualShifts as item, i (item.key)}
+					{@const prevItem = individualShifts[i - 1] ?? null}
+					{@const showDivider =
+						prevItem && item.shiftDetails.startsAt !== prevItem.shiftDetails.startsAt}
+					<div
+						class:border-t-2={showDivider}
+						class:border-surface-600={showDivider}
+						class="divide-surface-700/60 border-surface-700 text-surface-100 rounded-lg border bg-transparent p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0 {item
+							.assignment.status === 'waitlisted'
+							? 'bg-amber-500/10'
+							: ''}"
+					>
+						<!-- Volunteer -->
+						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+								Volunteer
+							</div>
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-semibold text-white">{item.volunteer.name}</span>
+								{#if item.hasMultipleShifts}
+									<span
+										class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
+										>Multiple Shifts</span
+									>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Shift -->
+						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Shift</div>
+							<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
+							<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
+						</div>
+
+						<!-- Status -->
+						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Status</div>
+							<span
+								class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
+									item.assignment.status
+								)}`}
+							>
+								{item.assignment.status.replace('_', ' ')}
+							</span>
+						</div>
+
+						<!-- Temp Disable Presence
+						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+						<div class="mb-1 text-xs font-bold uppercase text-surface-400 md:hidden">
+							Presence
+						</div>
+						
+							{#if item.assignment.id}
+								<label class="flex cursor-pointer items-center">
+									<div class="relative">
+										<input
+											type="checkbox"
+											class="peer sr-only"
+											checked={item.assignment.attended}
+											onchange={(event) =>
+												onPresent(item.assignment.id, event.currentTarget.checked)}
+										/>
+										<div
+											class="bg-surface-600 peer-checked:bg-primary-500 h-6 w-10 rounded-full"
+										></div>
+										<div
+											class="peer-checked:border-primary-500 absolute top-0.5 left-0.5 h-5 w-5 rounded-full border border-transparent bg-white transition peer-checked:translate-x-full"
+										></div>
 									</div>
-								{/if}
-								{#if item.volunteer.phone}
-									<div class="text-surface-500 flex items-center gap-1 text-xs">
-										<IconPhone class="h-3.5 w-3.5" />
-										<span>{item.volunteer.phone}</span>
+									<div class="text-surface-300 ml-3 text-xs">
+										{item.assignment.attended ? 'Present' : 'No-show'}
 									</div>
-								{/if}
-							</td>
-							<td class="px-3 py-3">
-								<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
-								<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
-							</td>
-							<td class="px-3 py-3">
-								<span
-									class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
-										item.assignment.status
-									)}`}
-								>
-									{item.assignment.status.replace('_', ' ')}
-								</span>
-							</td>
-							<td class="px-3 py-3">
-								{#if item.assignment.id}
-									<label class="flex cursor-pointer items-center">
-										<div class="relative">
-											<input
-												type="checkbox"
-												class="peer sr-only"
-												checked={item.assignment.attended}
-												onchange={(event) =>
-													onPresent(item.assignment.id, event.currentTarget.checked)}
-											/>
-											<div
-												class="bg-surface-600 peer-checked:bg-primary-500 h-6 w-10 rounded-full"
-											></div>
-											<div
-												class="peer-checked:border-primary-500 peer-checked:translate-x-full absolute top-0.5 left-0.5 h-5 w-5 rounded-full border border-transparent bg-white transition"
-											></div>
-										</div>
-										<div class="text-surface-300 ml-3 text-xs">
-											{item.assignment.attended ? 'Present' : 'No-show'}
-										</div>
-									</label>
-								{:else}
-									<span class="text-surface-500 text-xs">N/A</span>
-								{/if}
-							</td>
-							<td class="px-3 py-3">
-								{#if item.assignment.id}
-									<div class="flex flex-wrap gap-2">
-										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
-											<button
-												class="chip preset-filled-primary-500 px-2 py-1 text-xs"
-												onclick={() => onApprove(item.assignment.id)}
-											>
-												Approve
-											</button>
-										{/if}
-										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
-											<button
-												class="chip preset-tonal-error px-2 py-1 text-xs"
-												onclick={() => onDecline(item.assignment.id)}
-											>
-												Decline
-											</button>
-										{/if}
+									
+								</label>
+						    
+							{:else}
+								<span class="text-surface-500 text-xs">N/A</span>
+							{/if}
+							
+						</div>
+						-->
+
+						<!-- Actions -->
+						<div class="md:col-span-1 md:px-3 md:py-3">
+							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Actions</div>
+							{#if item.assignment.id}
+								<div class="flex flex-wrap gap-2">
+									{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
 										<button
-											class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-											onclick={() => onWaitlist(item.assignment.id)}
+											class="chip preset-filled-primary-500 px-2 py-1 text-xs"
+											onclick={() => onApprove(item.assignment.id)}
 										>
-											{item.assignment.status === 'waitlisted'
-												? 'Remove waitlist'
-												: 'Move to waitlist'}
+											Approve
 										</button>
-									</div>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
+									{/if}
+									{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
+										<button
+											class="chip preset-tonal-error px-2 py-1 text-xs"
+											onclick={() => onDecline(item.assignment.id)}
+										>
+											Decline
+										</button>
+									{/if}
+									<button
+										class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
+										onclick={() => onWaitlist(item.assignment.id)}
+									>
+										{item.assignment.status === 'waitlisted'
+											? 'Remove waitlist'
+											: 'Move to waitlist'}
+									</button>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			{/if}
+		</div>
 	</div>
 </section>
