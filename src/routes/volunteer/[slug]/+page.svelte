@@ -1036,7 +1036,7 @@
 		</div>
 	</section>
 {:else}
-	<section class="mx-auto max-w-6xl space-y-12 px-4 py-12">
+	<section class="mx-auto max-w-6xl space-y-12 px-2 py-12">
 		{#if authFlag === 'required' || authFlag === 'forbidden'}
 			<section
 				class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
@@ -1060,7 +1060,7 @@
 			</section>
 		{/if}
 		<header
-			class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-8 shadow-2xl shadow-black/20"
+			class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-2xl shadow-black/20"
 		>
 			<div class="flex flex-wrap items-center gap-3">
 				{#if eventTypeLabel}

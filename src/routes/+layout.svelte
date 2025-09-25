@@ -294,7 +294,7 @@
 		</aside>
 
 		<!-- Content -->
-		<main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-4 pb-4">
+		<main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-2 pb-4">
 			{@render children()}
 		</main>
 	</div>

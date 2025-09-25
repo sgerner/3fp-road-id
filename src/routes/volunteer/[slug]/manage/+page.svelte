@@ -832,7 +832,7 @@
 	<title>Volunteer Event Management</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
+<div class="mx-auto flex max-w-6xl flex-col gap-8 px-2 py-10">
 	<EventSummary
 		title={event?.title || 'Volunteer Event Management'}
 		status={eventStatusLabel}
