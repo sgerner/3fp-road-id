@@ -61,6 +61,19 @@
 		expandedContacts.set(assignmentId, !current);
 	}
 
+	function formatPhoneNumber(value) {
+		if (!value) return '';
+		const digits = String(value).replace(/\D/g, '');
+		if (digits.length < 10) {
+			return String(value).trim();
+		}
+		const tenDigits = digits.slice(-10);
+		const area = tenDigits.slice(0, 3);
+		const prefix = tenDigits.slice(3, 6);
+		const line = tenDigits.slice(6);
+		return `${area}-${prefix}-${line}`;
+	}
+
 	function formatCsvValue(value) {
 		if (value === null || value === undefined) return '""';
 		const str = String(value).replace(/"/g, '""');
@@ -177,14 +190,20 @@
 								<header class="flex items-start justify-between gap-4">
 									<div>
 										<p class="text-lg font-semibold text-white">{volunteer.name}</p>
-										<div class="text-surface-400 mt-1 flex items-center gap-2 text-sm">
+										<a
+											href={`mailto:${volunteer.email}`}
+											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+										>
 											<IconMail class="h-4 w-4 flex-shrink-0" />
 											<span>{volunteer.email}</span>
-										</div>
-										<div class="text-surface-400 mt-1 flex items-center gap-2 text-sm">
+										</a>
+										<a
+											href={`tel:${volunteer.phone}`}
+											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+										>
 											<IconPhone class="h-4 w-4 flex-shrink-0" />
-											<span>{volunteer.phone}</span>
-										</div>
+											<span>{formatPhoneNumber(volunteer.phone)}</span>
+										</a>
 									</div>
 									<div class="no-print flex-shrink-0">
 										<label class="flex cursor-pointer items-center">
@@ -216,13 +235,16 @@
 										</button>
 										{#if expandedContacts.get(volunteer.assignmentId)}
 											<div class="mt-2 flex items-center gap-2 text-sm" transition:slide>
-												<IconPhone class="text-surface-500 h-4 w-4 flex-shrink-0" />
 												<div>
 													<p class="font-medium text-white">{volunteer.emergencyContactName}</p>
 													{#if volunteer.emergencyContactPhone}
-														<p class="text-surface-400 text-xs">
-															{volunteer.emergencyContactPhone}
-														</p>
+														<a
+															href={`tel:${volunteer.emergencyContactPhone}`}
+															class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+														>
+															<IconPhone class="text-surface-500 h-4 w-4 flex-shrink-0" />
+															<span>{formatPhoneNumber(volunteer.emergencyContactPhone)}</span>
+														</a>
 													{/if}
 												</div>
 											</div>
