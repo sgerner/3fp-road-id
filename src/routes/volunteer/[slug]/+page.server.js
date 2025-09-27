@@ -248,7 +248,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 					const { data: prof } = await supabase
 						.from('profiles')
 						.select(
-							'user_id, full_name, email, phone, emergency_contact_name, emergency_contact_phone'
+							'user_id, full_name, email, phone, emergency_contact_name, emergency_contact_phone, admin'
 						)
 						.eq('user_id', user.id)
 						.maybeSingle();
@@ -279,6 +279,9 @@ export const load = async ({ params, fetch, cookies, url }) => {
 			} catch (err) {
 				console.warn('Error checking group owner permissions', err);
 			}
+		}
+		if (!canManageEvent && profile?.admin) {
+			canManageEvent = true;
 		}
 	}
 
