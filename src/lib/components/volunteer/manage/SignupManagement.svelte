@@ -90,6 +90,21 @@
 				return 'bg-surface-500/20 text-surface-100';
 		}
 	}
+
+	function cardStatusClass(status) {
+		switch (status) {
+			case 'approved':
+				return 'preset-tonal-success';
+			case 'waitlisted':
+				return 'bg-secondary-800/10';
+			case 'declined':
+				return 'bg-error-800/10';
+			case 'cancelled':
+				return 'preset-tonal-warning';
+			default:
+				return '';
+		}
+	}
 </script>
 
 <section
@@ -164,7 +179,6 @@
 			<div class="col-span-1">Volunteer</div>
 			<div class="col-span-1">Shift</div>
 			<div class="col-span-1">Status</div>
-			<!-- Disable Presence <div class="col-span-1">Presence</div> -->
 			<div class="col-span-1">Actions</div>
 		</div>
 		<!-- Volunteer list -->
@@ -181,10 +195,8 @@
 					<div
 						class:border-t-2={showDivider}
 						class:border-surface-600={showDivider}
-						class="divide-surface-700/60 border-surface-700 text-surface-100 rounded-lg border bg-transparent p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0 {item
-							.assignment.status === 'waitlisted'
-							? 'bg-amber-500/10'
-							: ''}"
+						class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
+						${cardStatusClass(item.assignment.status)}`}
 					>
 						<!-- Volunteer -->
 						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
@@ -221,47 +233,11 @@
 							</span>
 						</div>
 
-						<!-- Temp Disable Presence
-						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-						<div class="mb-1 text-xs font-bold uppercase text-surface-400 md:hidden">
-							Presence
-						</div>
-						
-							{#if item.assignment.id}
-								<label class="flex cursor-pointer items-center">
-									<div class="relative">
-										<input
-											type="checkbox"
-											class="peer sr-only"
-											checked={item.assignment.attended}
-											onchange={(event) =>
-												onPresent(item.assignment.id, event.currentTarget.checked)}
-										/>
-										<div
-											class="bg-surface-600 peer-checked:bg-primary-500 h-6 w-10 rounded-full"
-										></div>
-										<div
-											class="peer-checked:border-primary-500 absolute top-0.5 left-0.5 h-5 w-5 rounded-full border border-transparent bg-white transition peer-checked:translate-x-full"
-										></div>
-									</div>
-									<div class="text-surface-300 ml-3 text-xs">
-										{item.assignment.attended ? 'Present' : 'No-show'}
-									</div>
-									
-								</label>
-						    
-							{:else}
-								<span class="text-surface-500 text-xs">N/A</span>
-							{/if}
-							
-						</div>
-						-->
-
 						<!-- Actions -->
 						<div class="md:col-span-1 md:px-3 md:py-3">
 							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Actions</div>
 							{#if item.assignment.id}
-								<div class="flex flex-wrap gap-2">
+								<div class="flex gap-2">
 									{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
 										<button
 											class="chip preset-filled-primary-500 px-2 py-1 text-xs"
@@ -272,7 +248,7 @@
 									{/if}
 									{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
 										<button
-											class="chip preset-tonal-error px-2 py-1 text-xs"
+											class="chip preset-outlined-error-500 px-2 py-1 text-xs"
 											onclick={() => onDecline(item.assignment.id)}
 										>
 											Decline
@@ -282,9 +258,7 @@
 										class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
 										onclick={() => onWaitlist(item.assignment.id)}
 									>
-										{item.assignment.status === 'waitlisted'
-											? 'Remove waitlist'
-											: 'Move to waitlist'}
+										{item.assignment.status === 'waitlisted' ? 'Remove waitlist' : 'Waitlist'}
 									</button>
 								</div>
 							{/if}
