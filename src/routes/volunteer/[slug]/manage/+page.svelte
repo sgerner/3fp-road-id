@@ -435,7 +435,7 @@
 		updateAssignmentStatus(assignmentId, isWaitlisted ? 'pending' : 'waitlisted');
 	}
 
-	async function setAssignmentPresent(assignmentId, present) {
+	async function setAssignmentPresent(assignmentId, status) {
 		if (!assignmentId) return;
 		let volunteerToUpdate = null;
 		let assignmentToUpdate = null;
@@ -452,21 +452,19 @@
 		if (!volunteerToUpdate || !assignmentToUpdate) return;
 
 		try {
-			const nextStatus = present ? 'checked_in' : 'no_show';
-			const response = await updateVolunteerSignupShift(assignmentId, { status: nextStatus });
+			const response = await updateVolunteerSignupShift(assignmentId, { status });
 			const updatedAssignment = normalizeAssignment(
-				response?.data ?? response ?? { ...assignmentToUpdate, status: nextStatus }
+				response?.data ?? response ?? { ...assignmentToUpdate, status }
 			);
+
 			const nextAssignments = volunteerToUpdate.assignments.map((a) =>
 				a.id === assignmentId ? updatedAssignment : a
 			);
 			updateVolunteerState(volunteerToUpdate.id, { assignments: nextAssignments });
-			addActivityEntry(
-				`${present ? 'Marked present' : 'Cleared presence'} for ${volunteerToUpdate.name}.`
-			);
+			addActivityEntry(`Set status to ${status} for ${volunteerToUpdate.name}'s shift.`);
 		} catch (error) {
-			console.error('Failed to update attendance', error);
-			addActivityEntry(`Failed to update attendance for ${volunteerToUpdate.name}.`);
+			console.error(`Failed to set status to ${status}`, error);
+			addActivityEntry(`Failed to update status for ${volunteerToUpdate.name}.`);
 		}
 	}
 
@@ -624,10 +622,6 @@
 			return matchesStatus && matchesActivity && matchesShift && matchesSearch;
 		});
 	});
-
-	const approvedVolunteers = $derived(
-		volunteers.filter((volunteer) => volunteer.status === 'approved')
-	);
 
 	const volunteerCounts = $derived({
 		total: volunteers.length,
@@ -827,11 +821,11 @@
 	}
 
 	const customQuestions = customQuestionsRaw ?? [];
-	async function setAssignmentsPresent(assignmentIds) {
+		async function setAssignmentsPresent(assignmentIds, status) {
 		for (const assignmentId of assignmentIds) {
-			await setAssignmentPresent(assignmentId, true);
+			await setAssignmentPresent(assignmentId, status);
 		}
-		addActivityEntry(`Marked ${assignmentIds.length} volunteers as present.`);
+		addActivityEntry(`Set status to ${status} for ${assignmentIds.length} volunteers.`);
 	}
 </script>
 
@@ -850,15 +844,6 @@
 	/>
 
 	<AnalyticsOverview counts={volunteerCounts} shiftGroups={shiftSummaries} />
-
-	<!--
-	<HostReportingPanel
-		onExportRoster={exportRoster}
-		onAttendanceReport={generateAttendanceReport}
-		onNoShowReport={logNoShowReview}
-		onHoursSummary={summarizeVolunteerHours}
-	/>
-	-->
 
 	<SignupManagement
 		volunteers={filteredVolunteers}
@@ -882,10 +867,10 @@
 	/>
 
 	<ApprovedRoster
-		volunteers={approvedVolunteers}
+		volunteers={volunteers}
 		{shiftMap}
-		onPresent={setAssignmentPresent}
-		onBulkPresent={setAssignmentsPresent}
+		onStatusChange={setAssignmentPresent}
+		onBulkStatusChange={setAssignmentsPresent}
 	/>
 
 	<section

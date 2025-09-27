@@ -4,23 +4,24 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconDownload from '@lucide/svelte/icons/download';
 	import IconPrinter from '@lucide/svelte/icons/printer';
+	import IconBrush from '@lucide/svelte/icons/brush-cleaning';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 
 	const {
 		volunteers = [],
 		shiftMap = new SvelteMap(),
-		onPresent = (/** @type {string} */ assignmentId, /** @type {boolean} */ isPresent) => {},
-		onBulkPresent = (/** @type {string[]} */ assignmentIds) => {}
+		onStatusChange = (assignmentId, status) => {},
+		onBulkStatusChange = (assignmentIds, status) => {}
 	} = $props();
 
 	const shiftsWithVolunteers = $derived.by(() => {
 		const map = new SvelteMap();
 		for (const volunteer of volunteers) {
-			// Only include approved volunteers in this roster
-			if (volunteer.status !== 'approved') continue;
-
 			for (const assignment of volunteer.assignments) {
+				// Only include approved, checked_in, and no_show assignments in this roster
+				if (!['approved', 'checked_in', 'no_show'].includes(assignment.status)) continue;
+
 				const shiftId = assignment.shiftId;
 				if (!shiftId) continue;
 
@@ -33,7 +34,8 @@
 				map.get(shiftId)?.volunteers.push({
 					...volunteer,
 					assignmentId: assignment.id,
-					attended: assignment.attended
+					attended: assignment.attended,
+					status: assignment.status
 				});
 			}
 		}
@@ -50,7 +52,7 @@
 			.map((v) => v.assignmentId)
 			.filter((id) => id !== null && id !== undefined);
 		if (assignmentIds.length > 0) {
-			onBulkPresent(assignmentIds);
+			onBulkStatusChange(assignmentIds, 'checked_in');
 		}
 	}
 
@@ -59,6 +61,10 @@
 		if (!assignmentId) return;
 		const current = expandedContacts.get(assignmentId) ?? false;
 		expandedContacts.set(assignmentId, !current);
+	}
+
+	function handleStatusChange(assignmentId, status) {
+		onStatusChange(assignmentId, status);
 	}
 
 	function formatPhoneNumber(value) {
@@ -107,7 +113,7 @@
 					formatCsvValue(v.emergencyContactPhone),
 					formatCsvValue(opportunityTitle),
 					formatCsvValue(shiftLabel),
-					formatCsvValue(v.attended ? 'Present' : 'Not Present')
+					formatCsvValue(v.status) // Use status for CSV
 				].join(',');
 				csvContent += row + '\n';
 			});
@@ -186,6 +192,8 @@
 					</div>
 					<div class="mt-4 grid gap-4 md:grid-cols-2">
 						{#each group.volunteers as volunteer (volunteer.assignmentId)}
+							{@const checkInSelected = volunteer.status === 'checked_in'}
+							{@const noShowSelected = volunteer.status === 'no_show'}
 							<article class="bg-surface-950/40 border-surface-700/60 rounded-xl border p-4">
 								<header class="flex items-start justify-between gap-4">
 									<div>
@@ -206,23 +214,35 @@
 										</a>
 									</div>
 									<div class="no-print flex-shrink-0">
-										<label class="flex cursor-pointer items-center">
-											<div class="relative">
-												<input
-													type="checkbox"
-													class="peer sr-only"
-													checked={volunteer.attended}
-													onchange={(event) =>
-														onPresent(volunteer.assignmentId, event.currentTarget.checked)}
-												/>
-												<div
-													class="bg-surface-600 peer-checked:bg-primary-500 h-6 w-10 rounded-full"
-												></div>
-												<div
-													class="peer-checked:border-primary-500 absolute top-0.5 left-0.5 h-5 w-5 rounded-full border border-transparent bg-white transition peer-checked:translate-x-full"
-												></div>
-											</div>
-										</label>
+										<div class="attendance-actions no-print flex gap-1">
+											<button
+												type="button"
+												class={`chip ${
+													checkInSelected
+														? 'preset-filled-success-500'
+														: 'preset-outlined-success-500'
+												}`}
+												onclick={() => handleStatusChange(volunteer.assignmentId, 'checked_in')}
+											>
+												Check In
+											</button>
+											<button
+												type="button"
+												class={`chip ${
+													noShowSelected ? 'preset-filled-error-500' : 'preset-outlined-error-500'
+												}`}
+												onclick={() => handleStatusChange(volunteer.assignmentId, 'no_show')}
+											>
+												No Show
+											</button>
+											<button
+												type="button"
+												class="chip preset-tonal-warning p-1"
+												onclick={() => handleStatusChange(volunteer.assignmentId, 'approved')}
+											>
+												<IconBrush class="h-4 w-4" />
+											</button>
+										</div>
 									</div>
 								</header>
 								{#if volunteer.emergencyContactName}
