@@ -20,7 +20,8 @@ export const ALLOWED_API_TABLES = [
 	'volunteer_signup_shifts',
 	'volunteer_custom_questions',
 	'volunteer_signup_responses',
-	'volunteer_event_emails'
+	'volunteer_event_emails',
+	'profiles'
 ];
 
 // Define primary key columns for tables if not 'id' or if composite,
