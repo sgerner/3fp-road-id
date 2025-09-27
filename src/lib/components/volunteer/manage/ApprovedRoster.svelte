@@ -5,6 +5,7 @@
 	import IconDownload from '@lucide/svelte/icons/download';
 	import IconPrinter from '@lucide/svelte/icons/printer';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { slide } from 'svelte/transition';
 
 	const {
 		volunteers = [],
@@ -51,6 +52,13 @@
 		if (assignmentIds.length > 0) {
 			onBulkPresent(assignmentIds);
 		}
+	}
+
+	let expandedContacts = new SvelteMap();
+	function toggleEmergencyVisibility(assignmentId) {
+		if (!assignmentId) return;
+		const current = expandedContacts.get(assignmentId) ?? false;
+		expandedContacts.set(assignmentId, !current);
 	}
 
 	function formatCsvValue(value) {
@@ -120,23 +128,25 @@
 >
 	<div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
 		<div class="flex-1">
-			<h2 class="!text-left text-xl font-semibold text-white">Approved Volunteers</h2>
+			<h2 class="!text-left text-xl font-semibold text-white">
+				Approved Volunteers
+				<span
+					class="bg-surface-800 text-surface-200 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm"
+				>
+					<IconUsers class="h-4 w-4" />
+					{volunteers.length}
+				</span>
+			</h2>
 			<p class="text-surface-300 text-sm">Day-of roster for quick reference and contact.</p>
 		</div>
 		<div class="no-print flex flex-wrap items-center gap-2">
-			<span
-				class="bg-surface-800 text-surface-200 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm"
-			>
-				<IconUsers class="h-4 w-4" />
-				{volunteers.length} approved
-			</span>
 			<button class="chip preset-tonal-primary-500" onclick={exportCsv}>
 				<IconDownload class="h-4 w-4" />
-				<span>Export CSV</span>
+				<span>Export</span>
 			</button>
 			<button class="chip preset-tonal-primary-500" onclick={printRoster}>
 				<IconPrinter class="h-4 w-4" />
-				<span>Print Roster</span>
+				<span>Print</span>
 			</button>
 		</div>
 	</div>
@@ -148,17 +158,17 @@
 			{#each shiftsWithVolunteers as group (group.shift.id)}
 				<div class="shift-group">
 					<div
-						class="border-surface-700 flex flex-col items-start justify-between gap-3 border-b pb-3 md:flex-row md:items-center"
+						class="border-surface-700 flex flex-col items-center justify-between gap-3 border-b pb-3 md:flex-row md:items-center"
 					>
-						<div>
-							<h3 class="font-semibold text-white">{group.shift.opportunityTitle}</h3>
-							<p class="text-surface-300 text-sm">{group.shift.optionLabel}</p>
+						<div class="flex items-center gap-4">
+							<h3 class="h6 font-semibold text-white">{group.shift.opportunityTitle}</h3>
+							<span class="font-bold">{group.shift.optionLabel}</span>
 						</div>
 						<button
 							class="no-print chip preset-filled-secondary-500"
 							onclick={() => handleMarkAllPresent(group.volunteers)}
 						>
-							Mark All Present
+							Check In All
 						</button>
 					</div>
 					<div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -196,26 +206,29 @@
 										</label>
 									</div>
 								</header>
-								<div class="border-surface-700/60 mt-4 border-t pt-4">
-									<h4 class="text-surface-400 text-xs font-semibold tracking-wide uppercase">
-										Emergency Contact
-									</h4>
-									{#if volunteer.emergencyContactName}
-										<div class="mt-2 flex items-center gap-2 text-sm">
-											<IconPhone class="text-surface-500 h-4 w-4 flex-shrink-0" />
-											<div>
-												<p class="font-medium text-white">{volunteer.emergencyContactName}</p>
-												{#if volunteer.emergencyContactPhone}
-													<p class="text-surface-400 text-xs">
-														{volunteer.emergencyContactPhone}
-													</p>
-												{/if}
+								{#if volunteer.emergencyContactName}
+									<div class="mt-4">
+										<button
+											class="chip preset-tonal-tertiary capitalize"
+											onclick={() => toggleEmergencyVisibility(volunteer.assignmentId)}
+										>
+											Emergency Contact
+										</button>
+										{#if expandedContacts.get(volunteer.assignmentId)}
+											<div class="mt-2 flex items-center gap-2 text-sm" transition:slide>
+												<IconPhone class="text-surface-500 h-4 w-4 flex-shrink-0" />
+												<div>
+													<p class="font-medium text-white">{volunteer.emergencyContactName}</p>
+													{#if volunteer.emergencyContactPhone}
+														<p class="text-surface-400 text-xs">
+															{volunteer.emergencyContactPhone}
+														</p>
+													{/if}
+												</div>
 											</div>
-										</div>
-									{:else}
-										<p class="text-surface-500 mt-2 text-sm">Not provided</p>
-									{/if}
-								</div>
+										{/if}
+									</div>
+								{/if}
 							</article>
 						{/each}
 					</div>
