@@ -10,6 +10,7 @@
 
 	const {
 		volunteers = [],
+		event = {},
 		shiftMap = new SvelteMap(),
 		onStatusChange = (assignmentId, status) => {},
 		onBulkStatusChange = (assignmentIds, status) => {}
@@ -281,32 +282,35 @@
 </section>
 
 <div class="printable-roster-table">
-	<h1>Approved Volunteer Roster</h1>
+	<h1>{event.title} Volunteers</h1>
 	<table>
 		<thead>
 			<tr>
+				<th>Shift</th>
 				<th>Name</th>
-				<th>Email</th>
 				<th>Phone</th>
 				<th>Emergency Contact</th>
-				<th>Emergency Phone</th>
-				<th>Assignment</th>
-				<th>Shift Time</th>
-				<th>Status</th>
+				<th>Check In</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each shiftsWithVolunteers as group}
 				{#each group.volunteers as v}
 					<tr>
+						<td
+							>{group.shift?.opportunityTitle ?? ''} | {group.shift?.optionLabel ??
+								group.shift?.windowLabel ??
+								''}</td
+						>
 						<td>{v.name ?? ''}</td>
-						<td>{v.email ?? ''}</td>
-						<td>{v.phone ?? ''}</td>
-						<td>{v.emergencyContactName ?? ''}</td>
-						<td>{v.emergencyContactPhone ?? ''}</td>
-						<td>{group.shift?.opportunityTitle ?? ''}</td>
-						<td>{group.shift?.optionLabel ?? group.shift?.windowLabel ?? ''}</td>
-						<td>{v.attended ? 'Present' : 'Not Present'}</td>
+						<td>{formatPhoneNumber(v.phone) ?? v.phone ?? ''}</td>
+						<td
+							>{v.emergencyContactName ?? ''} @ {formatPhoneNumber(v.emergencyContactPhone) ??
+								v.emergencyContactPhone ??
+								''}</td
+						>
+
+						<td>__________</td>
 					</tr>
 				{/each}
 			{/each}
@@ -321,7 +325,7 @@
 
 	@media print {
 		body * {
-			visibility: hidden;
+			display: none !important;
 		}
 		.printable-roster-table,
 		.printable-roster-table * {
@@ -346,12 +350,15 @@
 		}
 		th,
 		td {
-			border: 1px solid #ddd;
 			padding: 0.5rem;
 			text-align: left;
+			border-bottom: 1px solid #000 !important;
 		}
 		th {
 			background-color: #f2f2f2;
+		}
+		table tr {
+			border-bottom: 1px solid #000 !important;
 		}
 		.no-print {
 			display: none;

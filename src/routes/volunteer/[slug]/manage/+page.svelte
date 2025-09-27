@@ -821,7 +821,7 @@
 	}
 
 	const customQuestions = customQuestionsRaw ?? [];
-		async function setAssignmentsPresent(assignmentIds, status) {
+	async function setAssignmentsPresent(assignmentIds, status) {
 		for (const assignmentId of assignmentIds) {
 			await setAssignmentPresent(assignmentId, status);
 		}
@@ -867,7 +867,8 @@
 	/>
 
 	<ApprovedRoster
-		volunteers={volunteers}
+		{volunteers}
+		{event}
 		{shiftMap}
 		onStatusChange={setAssignmentPresent}
 		onBulkStatusChange={setAssignmentsPresent}
