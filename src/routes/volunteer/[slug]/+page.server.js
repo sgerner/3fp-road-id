@@ -180,6 +180,36 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		}
 	}
 
+	let profiles = [];
+	const volunteerUserIds = unique(
+		signups.map(
+			(signup) =>
+				signup?.volunteer_user_id ??
+				signup?.volunteerUserId ??
+				signup?.user_id ??
+				signup?.userId ??
+				null
+		)
+	);
+	if (volunteerUserIds.length) {
+		try {
+			const batches = chunk(volunteerUserIds, 20);
+			const responses = await Promise.all(
+				batches.map((batch) =>
+					fetchList(fetch, 'profiles', {
+						user_id: `in.(${batch.join(',')})`,
+						select:
+							'id,user_id,full_name,email,phone,emergency_contact_name,emergency_contact_phone'
+					})
+				)
+			);
+			profiles = responses.flat();
+		} catch (err) {
+			if (err?.status !== 403) throw err;
+			profiles = [];
+		}
+	}
+
 	const shiftSignupCounts = signupShifts.reduce((acc, row) => {
 		const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId;
 		if (!shiftId) return acc;
@@ -277,6 +307,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		signups,
 		signupShifts,
 		signupResponses,
+		profiles,
 		shiftSignupCounts,
 		approvalCounts,
 		user,
