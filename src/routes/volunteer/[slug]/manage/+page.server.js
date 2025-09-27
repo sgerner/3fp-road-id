@@ -265,40 +265,33 @@ export const load = async (event) => {
 			)
 			.filter((value) => value !== null && value !== undefined);
 
-		const uniqueProfileFilters = new Set([
-			...volunteerUserIds.map((value) => String(value)),
-			...volunteerProfileIds.map((value) => String(value))
-		]);
+		const uniqueUserIds = [...new Set(volunteerUserIds.map(String))];
+		const uniqueProfileIds = [...new Set(volunteerProfileIds.map(Number).filter(Boolean))];
 
-		const formatInFilter = (values) =>
-			values
-				.map((value) => {
-					const safe = String(value).replace(/"/g, '""');
-					return `"${safe}"`;
-				})
-				.join(',');
+		const orClauses = [];
+		if (uniqueUserIds.length) {
+			const userIdsIn = uniqueUserIds.map((id) => `"${id}"`).join(',');
+			orClauses.push(`user_id.in.(${userIdsIn})`);
+		}
+		if (uniqueProfileIds.length) {
+			const profileIdsIn = uniqueProfileIds.join(',');
+			orClauses.push(`id.in.(${profileIdsIn})`);
+		}
 
-		if (uniqueProfileFilters.size) {
-			const idValues = Array.from(uniqueProfileFilters);
-			const batches = chunk(idValues, 20);
+		if (orClauses.length) {
 			try {
-				const responses = await Promise.all(
-					batches.map((batch) =>
-						fetchList(event.fetch, 'profiles', {
-							select: [
-								'id',
-								'user_id',
-								'full_name',
-								'email',
-								'phone',
-								'emergency_contact_name',
-								'emergency_contact_phone'
-							].join(','),
-							or: `user_id.in.(${formatInFilter(batch)}),id.in.(${formatInFilter(batch)})`
-						})
-					)
-				);
-				volunteerProfiles = responses.flat();
+				volunteerProfiles = await fetchList(event.fetch, 'profiles', {
+					select: [
+						'id',
+						'user_id',
+						'full_name',
+						'email',
+						'phone',
+						'emergency_contact_name',
+						'emergency_contact_phone'
+					].join(','),
+					or: orClauses.join(',')
+				});
 			} catch (err) {
 				console.warn('Unable to load volunteer profiles', err);
 				volunteerProfiles = [];

@@ -282,18 +282,19 @@
 	function findProfileForSignup(signup) {
 		const userId =
 			signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
-		if (userId && profilesByUserId.has(String(userId))) {
-			return profilesByUserId.get(String(userId));
-		}
 		const profileId =
 			signup?.volunteer_profile_id ??
 			signup?.volunteerProfileId ??
 			signup?.profile_id ??
 			signup?.profileId;
-		if (profileId && profilesById.has(String(profileId))) {
-			return profilesById.get(String(profileId));
-		}
-		return null;
+
+		return (
+			profilesRaw.find((p) => {
+				if (userId && String(p.user_id) === String(userId)) return true;
+				if (profileId && String(p.id) === String(profileId)) return true;
+				return false;
+			}) ?? null
+		);
 	}
 
 	function normalizeVolunteer(signup, assignments, responses, profile) {
@@ -826,6 +827,12 @@
 	}
 
 	const customQuestions = customQuestionsRaw ?? [];
+	async function setAssignmentsPresent(assignmentIds) {
+		for (const assignmentId of assignmentIds) {
+			await setAssignmentPresent(assignmentId, true);
+		}
+		addActivityEntry(`Marked ${assignmentIds.length} volunteers as present.`);
+	}
 </script>
 
 <svelte:head>
@@ -874,10 +881,15 @@
 		onPresent={setAssignmentPresent}
 	/>
 
-	<ApprovedRoster volunteers={approvedVolunteers} {shiftMap} />
+	<ApprovedRoster
+		volunteers={approvedVolunteers}
+		{shiftMap}
+		onPresent={setAssignmentPresent}
+		onBulkPresent={setAssignmentsPresent}
+	/>
 
 	<section
-		class="border-surface-700 bg-surface-900/70 rounded-2xl border p-6 shadow-xl shadow-black/30"
+		class="border-surface-700 bg-surface-900/70 rounded-2xl border p-2 shadow-xl shadow-black/30"
 	>
 		<CommunicationsStep
 			showAdvancedCommunications={true}

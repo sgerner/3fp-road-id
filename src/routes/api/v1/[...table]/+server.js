@@ -64,6 +64,11 @@ export async function GET(event) {
 			)
 				continue;
 
+			if (key === 'or') {
+				query = query.or(value);
+				continue;
+			}
+
 			// Assuming query param keys (column names) are still snake_case
 			const columnName = key; // No conversion for query param keys in this option
 
