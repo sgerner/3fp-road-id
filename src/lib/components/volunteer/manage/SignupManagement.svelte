@@ -2,6 +2,7 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { slide } from 'svelte/transition';
 
 	const {
 		volunteers = [],
@@ -184,7 +185,7 @@
 		<!-- Volunteer list -->
 		<div class="space-y-4 md:space-y-0">
 			{#if !individualShifts.length}
-				<div class="text-surface-400 px-3 py-6 text-center">
+				<div class="text-surface-400 px-3 py-6 text-center" transition:slide>
 					No volunteers match the selected filters.
 				</div>
 			{:else}
@@ -195,6 +196,7 @@
 					<div
 						class:border-t-2={showDivider}
 						class:border-surface-600={showDivider}
+						transition:slide
 						class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
 						${cardStatusClass(item.assignment.status)}`}
 					>
@@ -254,12 +256,14 @@
 											Decline
 										</button>
 									{/if}
-									<button
-										class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-										onclick={() => onWaitlist(item.assignment.id)}
-									>
-										{item.assignment.status === 'waitlisted' ? 'Remove waitlist' : 'Waitlist'}
-									</button>
+									{#if item.assignment.status !== 'waitlisted'}
+										<button
+											class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
+											onclick={() => onWaitlist(item.assignment.id)}
+										>
+											Waitlist
+										</button>
+									{/if}
 								</div>
 							{/if}
 						</div>
