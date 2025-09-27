@@ -4,11 +4,13 @@
 	import 'leaflet/dist/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import { blur, slide } from 'svelte/transition';
+	import { listVolunteerEvents } from '$lib/services/volunteers';
 
 	const { data } = $props();
 
 	// ===== Data from server =====
 	const events = (data?.events ?? []).filter(Boolean);
+	const currentUser = $derived(data?.user ?? null);
 	const hostGroups = (data?.hostGroups ?? []).filter(Boolean);
 	const eventTypes = (data?.eventTypes ?? []).filter(Boolean);
 
@@ -56,6 +58,88 @@
 	let eventType = $state('');
 	let view = $state('list'); // 'list' | 'calendar' | 'map'
 
+	// ===== Managed events (hosted by the current user or their owned groups) =====
+	let managedEvents = $state([]);
+	let managedEventsLoading = $state(false);
+	let managedEventsError = $state('');
+	let managedEventsLoadedFor = $state('');
+
+	async function fetchManagedEventsFor(userId) {
+		if (!browser || !userId) return;
+
+		managedEventsLoading = true;
+		managedEventsError = '';
+
+		try {
+			const ownerGroupIds = await loadOwnedGroupIds(userId);
+
+			const eventMap = new Map();
+
+			const hostResponse = await listVolunteerEvents({
+				fetch,
+				query: {
+					host_user_id: `eq.${userId}`,
+					order: 'event_start.desc',
+					limit: 100
+				}
+			});
+			const hostEvents = Array.isArray(hostResponse?.data) ? hostResponse.data : [];
+			for (const event of hostEvents) {
+				if (event?.id != null) eventMap.set(event.id, event);
+			}
+
+			if (ownerGroupIds.size) {
+				const ids = Array.from(ownerGroupIds).join(',');
+				const ownerResponse = await listVolunteerEvents({
+					fetch,
+					query: {
+						host_group_id: `in.(${ids})`,
+						order: 'event_start.desc',
+						limit: 100
+					}
+				});
+				const ownerEvents = Array.isArray(ownerResponse?.data) ? ownerResponse.data : [];
+				for (const event of ownerEvents) {
+					if (event?.id != null) eventMap.set(event.id, event);
+				}
+			}
+
+			const combined = Array.from(eventMap.values());
+			combined.sort((a, b) => {
+				const aStart = parseEventDate(a?.event_start) ?? new Date(0);
+				const bStart = parseEventDate(b?.event_start) ?? new Date(0);
+				return bStart - aStart;
+			});
+
+			managedEvents = combined;
+			managedEventsLoadedFor = userId;
+		} catch (error) {
+			console.error('Failed to load managed volunteer events', error);
+			managedEventsError = 'Unable to load your hosted events right now.';
+			managedEventsLoadedFor = userId;
+		} finally {
+			managedEventsLoading = false;
+		}
+	}
+
+	async function loadOwnedGroupIds(userId) {
+		const ownerGroupIds = new Set();
+		try {
+			const response = await fetch(`/api/v1/group-members?user_id=eq.${userId}&role=eq.owner`);
+			if (!response.ok) {
+				throw new Error(`Owner group lookup failed with status ${response.status}`);
+			}
+			const payload = await response.json();
+			const rows = Array.isArray(payload?.data) ? payload.data : [];
+			for (const row of rows) {
+				if (row?.group_id != null) ownerGroupIds.add(String(row.group_id));
+			}
+		} catch (error) {
+			console.warn('Failed to load owned groups for volunteer events', error);
+		}
+		return ownerGroupIds;
+	}
+
 	// init from URL once (no sync after)
 	$effect(() => {
 		if (!browser) return;
@@ -65,6 +149,21 @@
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
 		view = sp.get('view') ?? 'list';
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const userId = currentUser?.id ?? '';
+		if (!userId) {
+			managedEvents = [];
+			managedEventsError = '';
+			managedEventsLoadedFor = '';
+			managedEventsLoading = false;
+			return;
+		}
+		if (managedEventsLoading) return;
+		if (managedEventsLoadedFor === userId) return;
+		fetchManagedEventsFor(userId);
 	});
 
 	// ===== helpers =====
@@ -439,6 +538,62 @@
 			the right place to pitch in.
 		</p>
 	</header>
+
+	{#if currentUser?.id && managedEvents.length > 0}
+		<div class="border-surface-700 bg-surface-900/70 rounded-2xl border p-4">
+			<div class="flex items-center justify-between gap-3">
+				<h2 class="text-lg font-semibold">Your hosted events</h2>
+				<a class="btn btn-sm preset-outlined-secondary-500" href="/volunteer/new">
+					<IconPlus class="h-3 w-3" />
+					New event
+				</a>
+			</div>
+			{#if managedEventsLoading}
+				<p class="text-surface-400 mt-2 text-sm">Loading your events…</p>
+			{:else if managedEventsError}
+				<p class="text-error-300 mt-2 text-sm">{managedEventsError}</p>
+			{:else if managedEvents.length === 0}
+				<p class="text-surface-400 mt-2 text-sm">
+					You don't have any hosted events yet. When you create or manage events, they'll show up
+					here.
+				</p>
+			{:else}
+				<ul class="mt-3 space-y-2">
+					{#each managedEvents as managedEvent (managedEvent.id)}
+						<li
+							class="border-surface-700 bg-surface-950/60 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-2"
+						>
+							<div class="space-y-1">
+								<a
+									class="text-secondary-300 font-semibold hover:underline"
+									href={`/volunteer/${managedEvent.slug}`}
+								>
+									{managedEvent.title || 'Untitled event'}
+								</a>
+								<div class="text-surface-400 text-xs">
+									{eventTimeRange(managedEvent)}
+								</div>
+							</div>
+							<div class="flex flex-wrap gap-2">
+								<a
+									class="btn btn-sm preset-outlined-secondary-500"
+									href={`/volunteer/${managedEvent.slug}/edit`}
+								>
+									Edit
+								</a>
+								<a
+									class="btn btn-sm preset-tonal-tertiary"
+									href={`/volunteer/${managedEvent.slug}/manage`}
+								>
+									Manage
+								</a>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	{/if}
 
 	<div class="bg-surface-900/60 border-surface-400/20 space-y-5 rounded-2xl border p-5 shadow-xl">
 		<!-- Filters -->
