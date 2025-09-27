@@ -121,3 +121,42 @@ p {
 		opacity: 0.38;
 	}
 }
+
+@media print {
+	body * {
+		visibility: hidden;
+	}
+	.printable-roster-table,
+	.printable-roster-table * {
+		visibility: visible;
+	}
+	.printable-roster-table {
+		display: block;
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		padding: 1rem;
+	}
+	h1 {
+		font-size: 1.5rem;
+		margin-bottom: 1rem;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9rem;
+	}
+	th,
+	td {
+		border: 1px solid #ddd;
+		padding: 0.5rem;
+		text-align: left;
+	}
+	th {
+		background-color: #f2f2f2;
+	}
+	.no-print {
+		display: none;
+	}
+}
