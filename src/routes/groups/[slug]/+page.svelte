@@ -306,6 +306,52 @@
 		discord: BrandDiscord
 	};
 
+	const upcomingVolunteerEvents = $derived(
+		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
+	);
+
+	function parseVolunteerDate(value) {
+		if (!value) return null;
+		const d = new Date(value);
+		return Number.isNaN(d.getTime()) ? null : d;
+	}
+
+	const volunteerDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+	const volunteerTimeFormatter = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
+
+	function volunteerEventDateRange(event) {
+		const start = parseVolunteerDate(event?.event_start);
+		const end = parseVolunteerDate(event?.event_end);
+		if (!start) return 'Date to be announced';
+		if (!end || end.getTime() === start.getTime() || start.toDateString() === end.toDateString()) {
+			return volunteerDateFormatter.format(start);
+		}
+		return `${volunteerDateFormatter.format(start)} → ${volunteerDateFormatter.format(end)}`;
+	}
+
+	function volunteerEventTimeRange(event) {
+		const start = parseVolunteerDate(event?.event_start);
+		const end = parseVolunteerDate(event?.event_end);
+		if (!start) return '';
+		if (!end || end.getTime() === start.getTime()) {
+			return volunteerTimeFormatter.format(start);
+		}
+		const sameDay = start.toDateString() === end.toDateString();
+		if (sameDay) {
+			return `${volunteerTimeFormatter.format(start)} – ${volunteerTimeFormatter.format(end)}`;
+		}
+		return `${volunteerTimeFormatter.format(start)} → ${volunteerTimeFormatter.format(end)}`;
+	}
+
+	function volunteerEventLocation(event) {
+		if (event?.location_name) return event.location_name;
+		if (event?.location_address) return event.location_address;
+		const parts = [data.group?.city, data.group?.state_region, data.group?.country]
+			.map((part) => (part || '').trim())
+			.filter(Boolean);
+		return parts.length ? parts.join(', ') : 'Location details coming soon';
+	}
+
 	// Notices via query params
 	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
 </script>
@@ -626,6 +672,77 @@
 			</div>
 		</div>
 	</section>
+
+	{#if upcomingVolunteerEvents.length}
+		<section class="card border-surface-300 bg-surface-950 card-hover space-y-4 border p-4">
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<h2 class="text-surface-100 !text-left text-lg font-semibold">
+						Upcoming Volunteer Opportunities
+					</h2>
+					<p class="text-surface-400 text-sm">
+						Support {data.group?.name} by lending a hand at an upcoming event.
+					</p>
+				</div>
+			</div>
+			<ul class="space-y-4">
+				{#each upcomingVolunteerEvents as event}
+					<li class="bg-surface-900/60 border-surface-500/20 rounded-xl border p-4">
+						<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+							<div class="space-y-3">
+								<div class="space-y-1">
+									<a
+										href={`/volunteer/${event.slug}`}
+										class="text-secondary-200 hover:text-secondary-100 text-lg font-semibold"
+									>
+										{event.title}
+									</a>
+									<div
+										class="text-surface-300 max-w-2xl truncate overflow-hidden text-sm leading-relaxed text-ellipsis whitespace-nowrap"
+									>
+										{#if event.summary}
+											{event.summary}
+										{:else}
+											Details coming soon.
+										{/if}
+									</div>
+								</div>
+								<div class="space-y-1 text-sm">
+									<div class="text-surface-100 font-medium">
+										<strong class="mr-4">{volunteerEventDateRange(event)}</strong>
+										{volunteerEventTimeRange(event)}
+									</div>
+								</div>
+							</div>
+							<div class="flex flex-wrap items-center gap-2 md:justify-end">
+								{#if event.can_manage}
+									<a
+										href={`/volunteer/${event.slug}/edit`}
+										class="btn preset-tonal-primary whitespace-nowrap"
+									>
+										Edit
+									</a>
+									<a
+										href={`/volunteer/${event.slug}/manage`}
+										class="btn preset-filled-primary-500 whitespace-nowrap"
+									>
+										Manage Signups
+									</a>
+								{:else}
+									<a
+										href={`/volunteer/${event.slug}`}
+										class="btn preset-outlined-primary-500 whitespace-nowrap"
+									>
+										Volunteer
+									</a>
+								{/if}
+							</div>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 
 	<!-- Contact next + categories -->
 	<!-- Removed bulky contact/categories card to declutter header. -->
