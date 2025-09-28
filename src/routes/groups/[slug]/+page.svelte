@@ -718,15 +718,15 @@
 								{#if event.can_manage}
 									<a
 										href={`/volunteer/${event.slug}/edit`}
-										class="btn preset-tonal-primary whitespace-nowrap"
+										class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
 									>
 										Edit
 									</a>
 									<a
 										href={`/volunteer/${event.slug}/manage`}
-										class="btn preset-filled-primary-500 whitespace-nowrap"
+										class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
 									>
-										Manage Signups
+										Manage
 									</a>
 								{:else}
 									<a
