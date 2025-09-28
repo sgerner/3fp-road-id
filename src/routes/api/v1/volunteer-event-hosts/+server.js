@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 
 async function getSupabaseInstance(event) {
+	const { accessToken } = resolveSession(event.cookies);
+	const supabase = createRequestSupabaseClient(accessToken);
 	return { supabase };
 }
 

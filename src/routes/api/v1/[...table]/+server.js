@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient'; // Your Supabase client
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 import { ALLOWED_API_TABLES, TABLE_PRIMARY_KEYS } from '$lib/apiConfig';
 
 // Helper function to convert kebab-case to snake_case
@@ -8,13 +9,8 @@ function kebabToSnake(str) {
 }
 
 async function getSupabaseInstance(event) {
-	// If using SvelteKit Supabase Auth Helpers, you'd get the session-specific client
-	// const { supabase, session } = await event.locals.safeGetSession()
-	// if (!session) return { supabase: null, error: json({ error: 'Unauthorized' }, { status: 401 })};
-	// return { supabase };
-
-	// Using the global client from $lib/supabaseClient as per your example
-	// Ensure RLS is fully utilized for security.
+	const { accessToken } = resolveSession(event.cookies);
+	const supabase = createRequestSupabaseClient(accessToken);
 	return { supabase };
 }
 
