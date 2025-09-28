@@ -3,9 +3,11 @@ export const ALLOWED_API_TABLES = [
 	'group_types', // Read-only for most users, admin-managed
 	'riding_disciplines', // Read-only for most users, admin-managed
 	'audience_focuses', // Read-only for most users, admin-managed
+	'skill_levels',
 	'group_x_group_types',
 	'group_x_riding_disciplines',
 	'group_x_audience_focuses',
+	'group_x_skill_levels',
 	'group_members',
 	'group_events',
 	'group_gallery_images',
@@ -22,6 +24,7 @@ export const ALLOWED_API_TABLES = [
 	'volunteer_signup_responses',
 	'volunteer_event_emails',
 	'volunteer_event_hosts',
+	'volunteer_event_types',
 	'v_volunteer_event_hosts_with_profiles',
 	'profiles'
 ];

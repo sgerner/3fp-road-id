@@ -1,6 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
-
+import { resolveSession } from '$lib/server/session';
 function buildQuery(params) {
 	const search = new URLSearchParams();
 	if (params && typeof params === 'object') {
@@ -62,20 +61,6 @@ function chunk(array, size) {
 	return result;
 }
 
-async function resolveSessionUser(cookies) {
-	const session = cookies.get('sb_session');
-	if (!session) return null;
-	try {
-		const parsed = JSON.parse(session);
-		const accessToken = parsed?.access_token;
-		if (!accessToken) return null;
-		const { data: userRes } = await supabase.auth.getUser(accessToken);
-		return userRes?.user ?? null;
-	} catch {
-		return null;
-	}
-}
-
 export const load = async ({ params, fetch, cookies, url }) => {
 	const slug = params.slug?.trim();
 	if (!slug) throw error(404, 'Volunteer event not found');
@@ -94,7 +79,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 
 	if (!event) throw error(404, 'Volunteer event not found');
 
-	const sessionUser = await resolveSessionUser(cookies);
+	const { user: sessionUser } = resolveSession(cookies);
 
 	const eventStatus = event.status ?? event.volunteer_event_status ?? null;
 	const isDraft = !eventStatus || eventStatus === 'draft';
@@ -241,32 +226,26 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		{ confirmed: 0, pending: 0 }
 	);
 
-	const sessionCookie = cookies.get('sb_session');
-	let user = sessionUser;
+	const user = sessionUser && sessionUser.id ? { ...sessionUser } : null;
 	let profile = null;
-	if (sessionCookie) {
+	if (user?.id) {
 		try {
-			const parsed = JSON.parse(sessionCookie);
-			const access_token = parsed?.access_token;
-			if (access_token) {
-				const { data: userRes } = await supabase.auth.getUser(access_token);
-				user = userRes?.user ?? null;
-				if (user?.id) {
-					const { data: prof } = await supabase
-						.from('profiles')
-						.select(
-							'user_id, full_name, email, phone, emergency_contact_name, emergency_contact_phone, admin'
-						)
-						.eq('user_id', user.id)
-						.maybeSingle();
-					profile = prof ?? null;
-				}
+			profile = await fetchSingle(fetch, 'profiles', {
+				user_id: `eq.${user.id}`,
+				select:
+					'user_id,full_name,email,phone,emergency_contact_name,emergency_contact_phone,admin',
+				single: 'true'
+			});
+			if (user && profile?.email && !user.email) {
+				user.email = profile.email;
 			}
 		} catch (err) {
-			console.warn('Failed to hydrate user profile for volunteer event', err);
-			user = null;
+			console.warn('Failed to load session profile for volunteer event', err);
 			profile = null;
 		}
+	}
+	if (user && profile?.email && !user.email) {
+		user.email = profile.email;
 	}
 
 	if (user?.id) {
@@ -287,6 +266,19 @@ export const load = async ({ params, fetch, cookies, url }) => {
 				console.warn('Error checking group owner permissions', err);
 			}
 		}
+		if (!canManageEvent && event.id) {
+			try {
+				const hostRows = await fetchList(fetch, 'volunteer-event-hosts', {
+					event_id: `eq.${event.id}`,
+					user_id: `eq.${user.id}`
+				});
+				if (hostRows.some((row) => row?.user_id === user.id)) {
+					canManageEvent = true;
+				}
+			} catch (err) {
+				console.warn('Error checking volunteer event host permissions', err);
+			}
+		}
 		if (!canManageEvent && profile?.admin) {
 			canManageEvent = true;
 		}
@@ -300,11 +292,12 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		}
 	}
 
+	const userEmail = user?.email ?? profile?.email ?? null;
 	const userSignups = user
 		? signups.filter((signup) => {
 				if (!signup) return false;
 				if (signup.volunteer_user_id && signup.volunteer_user_id === user.id) return true;
-				return signup.volunteer_email && signup.volunteer_email === user.email;
+				return userEmail && signup.volunteer_email && signup.volunteer_email === userEmail;
 			})
 		: [];
 

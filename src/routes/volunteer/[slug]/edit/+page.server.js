@@ -1,5 +1,5 @@
 import { redirect, error } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 import {
 	listVolunteerEvents,
 	listVolunteerOpportunities,
@@ -8,21 +8,70 @@ import {
 	listVolunteerEventEmails
 } from '$lib';
 
-function parseSessionCookie(raw) {
-	if (!raw) return null;
+function buildQuery(params) {
+	const search = new URLSearchParams();
+	if (params && typeof params === 'object') {
+		for (const [key, value] of Object.entries(params)) {
+			if (value === null || value === undefined) continue;
+			if (Array.isArray(value)) {
+				for (const item of value) {
+					if (item === null || item === undefined) continue;
+					search.append(key, String(item));
+				}
+				continue;
+			}
+			search.set(key, String(value));
+		}
+	}
+	const qs = search.toString();
+	return qs ? `?${qs}` : '';
+}
+
+async function callApi(fetchImpl, resource, params) {
+	const qs = buildQuery(params);
+	const response = await fetchImpl(`/api/v1/${resource}${qs}`);
+	const text = await response.text();
+	let payload = null;
+	if (text) {
+		try {
+			payload = JSON.parse(text);
+		} catch {
+			payload = text;
+		}
+	}
+	if (!response.ok) {
+		const message = payload?.error || payload?.message || `Failed to load ${resource}`;
+		const apiError = new Error(message);
+		apiError.status = response.status;
+		apiError.payload = payload;
+		throw apiError;
+	}
+	return payload ?? {};
+}
+
+async function fetchSingle(fetchImpl, resource, params) {
 	try {
-		return JSON.parse(raw);
-	} catch {
-		return null;
+		const payload = await callApi(fetchImpl, resource, params);
+		return payload?.data ?? payload ?? null;
+	} catch (err) {
+		if (err?.status === 404) return null;
+		throw err;
 	}
 }
 
-async function resolveCurrentUser(cookies) {
-	const session = parseSessionCookie(cookies.get('sb_session'));
-	const accessToken = session?.access_token;
-	if (!accessToken) return null;
-	const { data: userResponse } = await supabase.auth.getUser(accessToken);
-	return userResponse?.user ?? null;
+async function fetchList(fetchImpl, resource, params) {
+	try {
+		const payload = await callApi(fetchImpl, resource, params);
+		const data = payload?.data ?? payload;
+		if (Array.isArray(data)) return data;
+		if (data === null || data === undefined) return [];
+		return [data];
+	} catch (err) {
+		if (err?.status === 403 || err?.status === 404) {
+			return [];
+		}
+		throw err;
+	}
 }
 
 function chunk(values, size) {
@@ -44,7 +93,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const slug = params.slug?.trim();
 	if (!slug) throw error(404, 'Volunteer event not found');
 
-	const currentUser = await resolveCurrentUser(cookies);
+	const { user: currentUser } = resolveSession(cookies);
 	const userId = currentUser?.id ?? null;
 	if (!userId) throw redirect(303, `/volunteer/${slug}?auth=required`);
 
@@ -61,37 +110,58 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const eventId = eventRecord.id;
 
 	let isAdmin = false;
-	const { data: profileRow } = await supabase
-		.from('profiles')
-		.select('admin')
-		.eq('user_id', userId)
-		.maybeSingle();
-	isAdmin = !!profileRow?.admin;
+	try {
+		const profileRow = await fetchSingle(fetch, 'profiles', {
+			user_id: `eq.${userId}`,
+			select: 'admin',
+			single: 'true'
+		});
+		isAdmin = !!profileRow?.admin;
+	} catch (err) {
+		console.warn('Failed to load profile for volunteer edit permissions', err);
+		isAdmin = false;
+	}
 
-	if (!isAdmin) {
-		const hostUserId = eventRecord.host_user_id ?? eventRecord.hostUserId ?? null;
-		const creatorId = eventRecord.created_by_user_id ?? eventRecord.createdByUserId ?? null;
-		const hostGroupId = eventRecord.host_group_id ?? eventRecord.hostGroupId ?? null;
+	const hostUserId = eventRecord.host_user_id ?? eventRecord.hostUserId ?? null;
+	const creatorId = eventRecord.created_by_user_id ?? eventRecord.createdByUserId ?? null;
+	const hostGroupId = eventRecord.host_group_id ?? eventRecord.hostGroupId ?? null;
 
-		const isHostUser = hostUserId && hostUserId === userId;
-		const isCreator = creatorId && creatorId === userId;
+	const isHostUser = hostUserId && hostUserId === userId;
+	const isCreator = creatorId && creatorId === userId;
 
-		if (!isHostUser && !isCreator) {
-			if (hostGroupId) {
-				const { data: membershipRows, error: membershipError } = await supabase
-					.from('group_members')
-					.select('user_id')
-					.eq('group_id', hostGroupId)
-					.eq('user_id', userId)
-					.eq('role', 'owner');
-				if (membershipError) throw redirect(303, `/volunteer/${slug}`);
-				if (!membershipRows || membershipRows.length === 0) {
-					throw redirect(303, `/volunteer/${slug}?auth=forbidden`);
-				}
-			} else {
-				throw redirect(303, `/volunteer/${slug}?auth=forbidden`);
+	let canManage = isAdmin || isHostUser || isCreator;
+
+	if (!canManage && eventId) {
+		try {
+			const eventHostRows = await fetchList(fetch, 'volunteer-event-hosts', {
+				event_id: `eq.${eventId}`,
+				user_id: `eq.${userId}`
+			});
+			if (eventHostRows.some((row) => row?.user_id === userId)) {
+				canManage = true;
 			}
+		} catch (err) {
+			console.warn('Failed to check volunteer event host permissions', err);
 		}
+	}
+
+	if (!canManage && hostGroupId) {
+		try {
+			const membershipRows = await fetchList(fetch, 'group-members', {
+				group_id: `eq.${hostGroupId}`,
+				user_id: `eq.${userId}`,
+				role: 'eq.owner'
+			});
+			if (membershipRows.some((row) => row?.user_id === userId)) {
+				canManage = true;
+			}
+		} catch (err) {
+			console.warn('Failed to check group ownership permissions', err);
+		}
+	}
+
+	if (!canManage) {
+		throw redirect(303, `/volunteer/${slug}?auth=forbidden`);
 	}
 
 	const opportunityResponse = await listVolunteerOpportunities({
@@ -156,17 +226,30 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		shifts: shiftsByOpportunity.get(opportunity.id) ?? []
 	}));
 
-	const [{ data: hostGroups }, { data: eventTypes }, ownerMembershipResponse] = await Promise.all([
-		supabase.from('groups').select('id, name').order('name'),
-		supabase
-			.from('volunteer_event_types')
-			.select('slug, event_type, description')
-			.order('event_type'),
-		supabase.from('group_members').select('group_id').eq('user_id', userId).eq('role', 'owner')
+	const [hostGroups, eventTypes, ownerMembershipRows] = await Promise.all([
+		fetchList(fetch, 'groups', { select: 'id,name', order: 'name.asc' }).catch((err) => {
+			console.warn('Failed to load host groups for volunteer edit page', err);
+			return [];
+		}),
+		fetchList(fetch, 'volunteer-event-types', {
+			select: 'slug,event_type,description',
+			order: 'event_type.asc'
+		}).catch((err) => {
+			console.warn('Failed to load volunteer event types for edit page', err);
+			return [];
+		}),
+		fetchList(fetch, 'group-members', {
+			select: 'group_id',
+			user_id: `eq.${userId}`,
+			role: 'eq.owner'
+		}).catch((err) => {
+			console.warn('Failed to load group ownership for volunteer edit page', err);
+			return [];
+		})
 	]);
 
-	const ownerGroupIds = Array.isArray(ownerMembershipResponse?.data)
-		? ownerMembershipResponse.data.map((row) => row?.group_id).filter((value) => Boolean(value))
+	const ownerGroupIds = Array.isArray(ownerMembershipRows)
+		? ownerMembershipRows.map((row) => row?.group_id).filter((value) => Boolean(value))
 		: [];
 
 	return {
