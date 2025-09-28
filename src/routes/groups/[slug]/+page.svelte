@@ -1,20 +1,13 @@
 <script>
 	let { data } = $props();
-	import IconGlobe from '@lucide/svelte/icons/globe';
-	import IconMail from '@lucide/svelte/icons/mail';
-	import IconPhone from '@lucide/svelte/icons/phone';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
-	import IconFacebook from '@lucide/svelte/icons/facebook';
-	import BrandX from '$lib/icons/BrandX.svelte';
-	import IconYoutube from '@lucide/svelte/icons/youtube';
-	import IconLinkedin from '@lucide/svelte/icons/linkedin';
 	import IconLink from '@lucide/svelte/icons/link';
-	import BrandThreads from '$lib/icons/BrandThreads.svelte';
-	import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
-	import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
-	import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
-	import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
-	import BrandStrava from '$lib/icons/BrandStrava.svelte';
+	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
+	import {
+		buildContactLinks,
+		selectPrimaryCta,
+		CTA_ICON_MAP,
+		CONTACT_ICON_MAP
+	} from '$lib/groups/contactLinks';
 	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -139,172 +132,13 @@
 		}
 	}
 
-	const socials = (() => {
-		if (data.group?.social_links && typeof data.group.social_links === 'object') {
-			try {
-				const obj = data.group.social_links;
-				return Object.entries(obj)
-					.filter(([_, v]) => !!v)
-					.map(([k, v]) => ({ k, v }));
-			} catch {}
-		}
-		return [];
-	})();
-
-	// Instagram gallery/embeds removed per request
-
-	// primary CTA is computed after contactLinks
-
-	const contactLinks = (() => {
-		const g = data.group || {};
-		const website = g.website_url ? [{ key: 'website', href: g.website_url }] : [];
-		// Socials first
-		const socialIcons = {
-			instagram: IconInstagram,
-			facebook: IconFacebook,
-			x: BrandX,
-			youtube: IconYoutube,
-			linkedin: IconLinkedin,
-			threads: BrandThreads,
-			mastodon: BrandMastodon,
-			tiktok: BrandTikTok,
-			strava: BrandStrava,
-			bluesky: BrandBluesky,
-			discord: BrandDiscord
-		};
-		const socialsList = socials.map((s) => ({
-			key: s.k,
-			href: s.v,
-			icon: socialIcons[s.k] || IconLink
-		}));
-		// Email/Phone at the end
-		const tail = [];
-		if (g.public_contact_email)
-			tail.push({
-				key: 'email',
-				href: `mailto:${g.public_contact_email}`,
-				icon: IconMail,
-				label: g.public_contact_email,
-				showText: true
-			});
-		if (g.public_phone_number)
-			tail.push({
-				key: 'phone',
-				href: `tel:${g.public_phone_number}`,
-				icon: IconPhone,
-				label: g.public_phone_number,
-				showText: true
-			});
-		return [...website, ...socialsList, ...tail];
-	})();
+	const contactLinks = $derived(buildContactLinks(data.group));
 
 	let aboutExpanded = $state(false);
 
-	// Derive a primary CTA from owner's preference or fallback
-	const primaryCta = (() => {
-		const g = data.group || {};
-		const kind = g.preferred_cta_kind || 'auto';
-		if (kind === 'custom') {
-			const label = (g.preferred_cta_label || '').slice(0, 10);
-			const href = g.preferred_cta_url || '';
-			if (label && href) return { key: 'custom', href, label };
-		}
-		if (kind === 'website') {
-			const website = contactLinks.find((c) => c.key === 'website');
-			if (website) return { ...website, label: 'Website' };
-		}
-		if (kind === 'email') {
-			const email = contactLinks.find((c) => c.key === 'email');
-			if (email) return { ...email, label: 'Email' };
-		}
-		if (kind === 'phone') {
-			const phone = contactLinks.find((c) => c.key === 'phone');
-			if (phone) return { ...phone, label: 'Call' };
-		}
-		if (kind === 'facebook') {
-			const fb = contactLinks.find((c) => c.key === 'facebook');
-			if (fb) return { ...fb, label: 'Facebook' };
-		}
-		if (kind === 'instagram') {
-			const ig = contactLinks.find((c) => c.key === 'instagram');
-			if (ig) return { ...ig, label: 'Instagram' };
-		}
-		if (kind === 'strava') {
-			const st = contactLinks.find((c) => c.key === 'strava');
-			if (st) return { ...st, label: 'Strava' };
-		}
-		if (kind === 'x') {
-			const xx = contactLinks.find((c) => c.key === 'x');
-			if (xx) return { ...xx, label: 'X' };
-		}
-		if (kind === 'tiktok') {
-			const tt = contactLinks.find((c) => c.key === 'tiktok');
-			if (tt) return { ...tt, label: 'TikTok' };
-		}
-		if (kind === 'mastodon') {
-			const md = contactLinks.find((c) => c.key === 'mastodon');
-			if (md) return { ...md, label: 'Mastodon' };
-		}
-		if (kind === 'discord') {
-			const dc = contactLinks.find((c) => c.key === 'discord');
-			if (dc) return { ...dc, label: 'Discord' };
-		}
-		// Fallback auto logic
-		const website = contactLinks.find((c) => c.key === 'website');
-		if (website) return { ...website, label: 'Website' };
-		const email = contactLinks.find((c) => c.key === 'email');
-		if (email) return { ...email, label: 'Email' };
-		const phone = contactLinks.find((c) => c.key === 'phone');
-		if (phone) return { ...phone, label: 'Call' };
-		const fb = contactLinks.find((c) => c.key === 'facebook');
-		if (fb) return { ...fb, label: 'Facebook' };
-		const ig = contactLinks.find((c) => c.key === 'instagram');
-		if (ig) return { ...ig, label: 'Instagram' };
-		const st = contactLinks.find((c) => c.key === 'strava');
-		if (st) return { ...st, label: 'Strava' };
-		const xx = contactLinks.find((c) => c.key === 'x');
-		if (xx) return { ...xx, label: 'X' };
-		const tt = contactLinks.find((c) => c.key === 'tiktok');
-		if (tt) return { ...tt, label: 'TikTok' };
-		const md = contactLinks.find((c) => c.key === 'mastodon');
-		if (md) return { ...md, label: 'Mastodon' };
-		const dc = contactLinks.find((c) => c.key === 'discord');
-		if (dc) return { ...dc, label: 'Discord' };
-		const first = contactLinks[0];
-		if (first) return { ...first, label: 'Open Link' };
-		return null;
-	})();
-
-	const ctaIcons = {
-		website: IconGlobe,
-		email: IconMail,
-		phone: IconPhone,
-		facebook: IconFacebook,
-		instagram: IconInstagram,
-		strava: BrandStrava,
-		x: BrandX,
-		tiktok: BrandTikTok,
-		mastodon: BrandMastodon,
-		discord: BrandDiscord
-	};
-
-	// Icon map for quick rendering of contactLinks in the header rail
-	const contactIconByKey = {
-		website: IconGlobe,
-		email: IconMail,
-		phone: IconPhone,
-		instagram: IconInstagram,
-		facebook: IconFacebook,
-		x: BrandX,
-		youtube: IconYoutube,
-		linkedin: IconLinkedin,
-		threads: BrandThreads,
-		tiktok: BrandTikTok,
-		strava: BrandStrava,
-		bluesky: BrandBluesky,
-		mastodon: BrandMastodon,
-		discord: BrandDiscord
-	};
+	const primaryCta = $derived(selectPrimaryCta(data.group, contactLinks));
+	const ctaIcons = CTA_ICON_MAP;
+	const contactIconByKey = CONTACT_ICON_MAP;
 
 	const upcomingVolunteerEvents = $derived(
 		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
@@ -357,112 +191,7 @@
 </script>
 
 <div class="mx-auto w-full max-w-4xl space-y-6">
-	<!-- Hero cover + logo -->
-	<section class="card border-surface-300 bg-surface-900 overflow-hidden border">
-		<div
-			class="from-primary-800/60 to-primary-600/40 relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-r"
-		>
-			{#if data.group?.cover_photo_url}
-				<img
-					src={data.group.cover_photo_url}
-					alt="{data.group.name} cover"
-					loading="lazy"
-					class="absolute inset-0 h-full w-full object-cover"
-				/>
-			{/if}
-			<!-- Bottom overlay: minimal (logo, name, location, one CTA) -->
-			<div
-				class="absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:from-black/60 md:via-black/50 md:to-black/40 md:backdrop-blur-xs"
-			>
-				<!-- Compact badge for small screens -->
-				<div class="flex gap-2 rounded-md bg-black/40 p-2 backdrop-blur-xs md:hidden">
-					{#if data.group?.logo_url}
-						<img
-							src={data.group.logo_url}
-							alt="{data.group.name} logo"
-							loading="lazy"
-							class="h-14 w-14 object-cover"
-						/>
-					{/if}
-					<div class="w-full min-w-0">
-						<h1 class="truncate !text-left text-base font-bold text-white">{data.group?.name}</h1>
-						<div class="flex items-start gap-2">
-							<p class="grow truncate text-[11px] text-white/90">
-								{#if data.group?.city}{data.group.city},&nbsp;
-								{/if}{data.group?.state_region} · {data.group?.country}
-							</p>
-							{#if data.can_edit}
-								<a
-									href={`/groups/${data.group.slug}/edit`}
-									class="chip preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
-								>
-							{:else if primaryCta}
-								<a
-									href={primaryCta.href}
-									target={primaryCta.key === 'email' || primaryCta.key === 'phone'
-										? '_self'
-										: '_blank'}
-									rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-										? undefined
-										: 'noopener noreferrer'}
-									class="chip preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
-								>
-									{#if primaryCta.key !== 'custom'}
-										{@const IconComp = ctaIcons[primaryCta.key] || IconLink}
-										<IconComp class="h-4 w-4" />
-									{/if}
-									<span>{primaryCta.label}</span>
-								</a>
-							{/if}
-						</div>
-					</div>
-				</div>
-				<!-- Full overlay for md+ screens -->
-				<div class="mx-auto hidden items-center justify-between gap-4 px-4 py-1 md:flex">
-					{#if data.group?.logo_url}
-						<img
-							src={data.group.logo_url}
-							alt="{data.group.name} logo"
-							loading="lazy"
-							class="h-24 w-24 object-cover"
-						/>
-					{/if}
-					<div class="min-w-0">
-						<h1 class="truncate !text-left text-2xl font-bold text-white">{data.group?.name}</h1>
-						{#if data.group?.tagline}
-							<p class="!m-0 text-white">{data.group.tagline}</p>
-						{/if}
-						<p class="text-sm text-white/80">
-							{#if data.group?.city}{data.group.city},
-							{/if}
-							{data.group?.state_region} · {data.group?.country}
-						</p>
-					</div>
-					{#if data.can_edit}
-						<a
-							href={`/groups/${data.group.slug}/edit`}
-							class="btn preset-filled-primary-500 shrink-0 font-bold">Edit Group</a
-						>
-					{:else if primaryCta}
-						<a
-							href={primaryCta.href}
-							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-								? undefined
-								: 'noopener noreferrer'}
-							class="btn preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
-						>
-							{#if primaryCta.key !== 'custom'}
-								{@const IconComp2 = ctaIcons[primaryCta.key] || IconLink}
-								<IconComp2 class="h-5 w-5" />
-							{/if}
-							<span>{primaryCta.label}</span>
-						</a>
-					{/if}
-				</div>
-			</div>
-		</div>
-	</section>
+	<GroupHeroCard group={data.group} canEdit={data.can_edit} {contactLinks} {primaryCta} />
 
 	{#if authFlag === 'required' || authFlag === 'forbidden'}
 		<section
