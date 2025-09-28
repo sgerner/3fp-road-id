@@ -72,9 +72,11 @@ export async function GET(event) {
 			// Assuming query param keys (column names) are still snake_case
 			const columnName = key; // No conversion for query param keys in this option
 
-			const parts = value.split('.');
-			if (parts.length === 2) {
-				const [operator, filterValue] = parts;
+			const dotIndex = value.indexOf('.');
+			if (dotIndex > 0) {
+				const operator = value.substring(0, dotIndex);
+				const filterValue = value.substring(dotIndex + 1);
+
 				if (operator === 'in') {
 					if (filterValue.startsWith('(') && filterValue.endsWith(')')) {
 						const inValuesRaw = filterValue.substring(1, filterValue.length - 1);
