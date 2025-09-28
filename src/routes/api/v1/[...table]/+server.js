@@ -140,7 +140,9 @@ export async function GET(event) {
 	if (error) {
 		console.error('Supabase GET error:', error);
 		let statusCode = 400;
-		if (error.code) {
+		if (error.code === 'PGRST116') {
+			statusCode = 404;
+		} else if (error.code) {
 			const parsedCode = parseInt(error.code, 10);
 			if (parsedCode >= 200 && parsedCode <= 599) {
 				statusCode = parsedCode;
