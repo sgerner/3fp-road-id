@@ -4,6 +4,7 @@
 	import SignupManagement from '$lib/components/volunteer/manage/SignupManagement.svelte';
 	import ApprovedRoster from '$lib/components/volunteer/manage/ApprovedRoster.svelte';
 	import ActivityLog from '$lib/components/volunteer/manage/ActivityLog.svelte';
+	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import {
@@ -24,7 +25,11 @@
 	const signupResponsesRaw = data?.signupResponses ?? [];
 	const customQuestionsRaw = data?.customQuestions ?? [];
 	const eventEmailsRaw = data?.eventEmails ?? [];
-	const profilesRaw = data?.profiles ?? [];
+	let profileRecords = $state(data?.profiles ?? []);
+	const eventHosts = data?.eventHosts ?? [];
+	const groupOwners = data?.groupOwners ?? [];
+	const primaryHost =
+		data?.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
 
 	function toNumber(value) {
 		const numeric = Number(value);
@@ -159,14 +164,20 @@
 			.filter(([key]) => key)
 	);
 
-	const profilesByUserId = new SvelteMap(
-		profilesRaw
-			.filter((profile) => profile?.user_id || profile?.userId)
-			.map((profile) => [String(profile.user_id ?? profile.userId), profile])
+	const profilesByUserId = $derived(
+		new SvelteMap(
+			profileRecords
+				.filter((profile) => profile?.user_id || profile?.userId)
+				.map((profile) => [String(profile.user_id ?? profile.userId), profile])
+		)
 	);
 
-	const profilesById = new SvelteMap(
-		profilesRaw.filter((profile) => profile?.id).map((profile) => [String(profile.id), profile])
+	const profilesById = $derived(
+		new SvelteMap(
+			profileRecords
+				.filter((profile) => profile?.id)
+				.map((profile) => [String(profile.id), profile])
+		)
 	);
 
 	const responsesBySignupId = new SvelteMap();
@@ -289,7 +300,7 @@
 			signup?.profileId;
 
 		return (
-			profilesRaw.find((p) => {
+			profileRecords.find((p) => {
 				if (userId && String(p.user_id) === String(userId)) return true;
 				if (profileId && String(p.id) === String(profileId)) return true;
 				return false;
@@ -484,6 +495,7 @@
 						console.warn('Failed to clear shift assignment', error);
 					}
 				}
+
 				updateVolunteerState(id, { assignments: [] });
 				addActivityEntry(`Removed ${volunteer.name} from all shifts.`);
 			} catch (error) {
@@ -569,6 +581,212 @@
 		}
 	}
 
+	function profileMatchesEmail(profile, email) {
+		if (!profile) return false;
+		const profileEmail = (profile?.email ?? '').trim().toLowerCase();
+		return profileEmail && profileEmail === email;
+	}
+
+	function normalizeProfileForVolunteer(profile, details) {
+		if (!profile) {
+			return {
+				email: details.email,
+				full_name: details.name || null,
+				phone: details.phone || null,
+				emergency_contact_name: details.emergencyContactName || null,
+				emergency_contact_phone: details.emergencyContactPhone || null
+			};
+		}
+
+		return {
+			...profile,
+			email: details.email,
+			full_name: details.name || profile.full_name || profile.name || null,
+			phone: details.phone || profile.phone || null,
+			emergency_contact_name:
+				details.emergencyContactName || profile.emergency_contact_name || null,
+			emergency_contact_phone:
+				details.emergencyContactPhone || profile.emergency_contact_phone || null
+		};
+	}
+
+	async function addVolunteerToShift(details) {
+		const email = (details?.email ?? '').trim();
+		const normalizedEmail = email.toLowerCase();
+		if (!email) {
+			return { ok: false, error: 'Email is required.' };
+		}
+
+		const shiftId = details?.shiftId ?? '';
+		const shift = shiftMap.get(shiftId);
+		if (!shift) {
+			return { ok: false, error: 'Select a valid shift to assign the volunteer.' };
+		}
+
+		const duplicate = volunteers.find(
+			(volunteer) =>
+				volunteer.email?.toLowerCase() === normalizedEmail &&
+				(volunteer.assignments ?? []).some((assignment) => assignment.shiftId === shiftId)
+		);
+		if (duplicate) {
+			return {
+				ok: false,
+				error: 'That volunteer is already assigned to the selected shift.'
+			};
+		}
+
+		const name = (details?.name ?? '').trim();
+		const phone = (details?.phone ?? '').trim();
+		const emergencyContactName = (details?.emergencyContactName ?? '').trim();
+		const emergencyContactPhone = (details?.emergencyContactPhone ?? '').trim();
+		const status = details?.status ?? 'approved';
+
+		let profile = null;
+		if (details?.profileId) {
+			profile = profileRecords.find((p) => String(p.id) === String(details.profileId)) ?? null;
+		}
+		if (!profile) {
+			profile = profileRecords.find((p) => profileMatchesEmail(p, normalizedEmail)) ?? null;
+		}
+
+		if (!profile) {
+			try {
+				const response = await fetch('/api/v1/profiles', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						email,
+						full_name: name || null,
+						phone: phone || null,
+						emergency_contact_name: emergencyContactName || null,
+						emergency_contact_phone: emergencyContactPhone || null
+					})
+				});
+				const payload = await response.json();
+				if (!response.ok) {
+					throw new Error(payload?.error || 'Unable to create profile.');
+				}
+				profile = payload?.data ?? payload ?? null;
+				if (profile) {
+					profileRecords = [profile, ...profileRecords];
+				}
+			} catch (error) {
+				console.error('Failed to create volunteer profile', error);
+				return {
+					ok: false,
+					error: error?.message || 'Unable to create volunteer profile.'
+				};
+			}
+		} else if (profile?.id) {
+			const updates = {};
+			if (name && name !== (profile.full_name ?? profile.name ?? '')) {
+				updates.full_name = name;
+			}
+			if (phone && phone !== (profile.phone ?? '')) {
+				updates.phone = phone;
+			}
+			if (emergencyContactName && emergencyContactName !== (profile.emergency_contact_name ?? '')) {
+				updates.emergency_contact_name = emergencyContactName;
+			}
+			if (
+				emergencyContactPhone &&
+				emergencyContactPhone !== (profile.emergency_contact_phone ?? '')
+			) {
+				updates.emergency_contact_phone = emergencyContactPhone;
+			}
+
+			if (Object.keys(updates).length > 0) {
+				try {
+					const response = await fetch(`/api/v1/profiles/${profile.id}`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(updates)
+					});
+					const payload = await response.json();
+					if (response.ok) {
+						profile = payload?.data ?? payload ?? profile;
+						profileRecords = profileRecords.map((row) =>
+							String(row.id) === String(profile.id) ? profile : row
+						);
+					} else {
+						console.warn('Unable to update profile details', payload?.error);
+					}
+				} catch (error) {
+					console.warn('Failed to update volunteer profile details', error);
+				}
+			}
+		}
+
+		const volunteerUserId =
+			details?.userId ?? profile?.user_id ?? profile?.userId ?? profile?.volunteer_user_id ?? null;
+		const volunteerProfileId = profile?.id ?? null;
+		const volunteerName = profile?.full_name || email;
+
+		let signupRecord;
+		try {
+			const response = await createVolunteerSignup({
+				event_id: event?.id ?? null,
+				opportunity_id: shift?.opportunityId ?? shift?.groupId ?? null,
+				volunteer_user_id: volunteerUserId,
+				volunteer_profile_id: volunteerProfileId,
+				volunteer_name: volunteerName,
+				volunteer_email: email,
+				volunteer_phone: phone || profile?.phone || null,
+				emergency_contact_name: emergencyContactName || profile?.emergency_contact_name || null,
+				emergency_contact_phone: emergencyContactPhone || profile?.emergency_contact_phone || null,
+				signed_waiver: true,
+				source: 'host-added'
+			});
+			signupRecord = response?.data ?? response;
+			if (!signupRecord?.id) {
+				throw new Error('Signup creation failed.');
+			}
+		} catch (error) {
+			console.error('Failed to create volunteer signup', error);
+			return {
+				ok: false,
+				error: error?.message || 'Unable to create the volunteer signup.'
+			};
+		}
+
+		let assignment;
+		try {
+			const response = await createVolunteerSignupShift({
+				signup_id: signupRecord.id,
+				shift_id: shiftId,
+				status
+			});
+			const created = response?.data ??
+				response ?? {
+					signup_id: signupRecord.id,
+					shift_id: shiftId,
+					status
+				};
+			assignment = normalizeAssignment(created);
+		} catch (error) {
+			console.error('Failed to create volunteer shift assignment', error);
+			return {
+				ok: false,
+				error: error?.message || 'Unable to assign the volunteer to the shift.'
+			};
+		}
+
+		const volunteerProfile = normalizeProfileForVolunteer(profile, {
+			email,
+			name,
+			phone,
+			emergencyContactName,
+			emergencyContactPhone
+		});
+		const volunteerEntry = normalizeVolunteer(signupRecord, [assignment], [], volunteerProfile);
+		volunteers = [volunteerEntry, ...volunteers];
+		addActivityEntry(`Added ${volunteerEntry.name} to ${shift.optionLabel} as ${status}.`);
+
+		return {
+			ok: true,
+			message: `${volunteerEntry.name} was added to ${shift.optionLabel}.`
+		};
+	}
 	const statusFilters = [
 		{ value: 'all', label: 'All statuses' },
 		{ value: 'approved', label: 'Approved' },
@@ -851,6 +1069,7 @@
 		activityFilters={activityFilterOptions}
 		shiftFilters={shiftFilterOptions}
 		shifts={shiftOptions}
+		profiles={profileRecords}
 		{selectedStatus}
 		selectedActivity={selectedActivityId}
 		selectedShift={selectedShiftId}
@@ -864,6 +1083,7 @@
 		onWaitlist={waitlistAssignment}
 		onMoveShift={moveVolunteerToShift}
 		onPresent={setAssignmentPresent}
+		onAddVolunteer={addVolunteerToShift}
 	/>
 
 	<ApprovedRoster
@@ -900,6 +1120,14 @@
 			fieldTypeOptions={['short_text', 'long_text', 'select', 'checkbox']}
 		/>
 	</section>
+
+	<EventHostManagement
+		{event}
+		{groupOwners}
+		hosts={eventHosts}
+		{primaryHost}
+		currentUser={data.session?.user}
+	/>
 
 	<ActivityLog entries={activityLog} />
 </div>

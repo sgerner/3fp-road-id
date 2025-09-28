@@ -21,6 +21,8 @@ export const ALLOWED_API_TABLES = [
 	'volunteer_custom_questions',
 	'volunteer_signup_responses',
 	'volunteer_event_emails',
+	'volunteer_event_hosts',
+	'v_volunteer_event_hosts_with_profiles',
 	'profiles'
 ];
 

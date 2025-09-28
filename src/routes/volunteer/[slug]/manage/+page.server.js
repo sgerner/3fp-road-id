@@ -105,6 +105,33 @@ export const load = async (event) => {
 	let signupShifts = baseData?.signupShifts ?? [];
 	let signupResponses = baseData?.signupResponses ?? [];
 	let volunteerProfiles = [];
+	let eventHosts = [];
+	let groupOwners = [];
+	let primaryHost = null;
+
+	if (eventDetails?.host_user_id) {
+		primaryHost = await fetchSingle(event.fetch, 'profiles', {
+			user_id: `eq.${eventDetails.host_user_id}`,
+			select: 'user_id,email,full_name',
+			single: 'true'
+		});
+	}
+
+	if (eventDetails?.host_group_id) {
+		groupOwners = await fetchList(event.fetch, 'group-members', {
+			group_id: `eq.${eventDetails.host_group_id}`,
+			role: 'eq.owner',
+			select: 'user_id,profile:profiles(email)'
+		});
+	}
+	if (eventDetails?.id) {
+		eventHosts = await fetchList(event.fetch, 'v-volunteer-event-hosts-with-profiles', {
+			event_id: `eq.${eventDetails.id}`
+		});
+	}
+	if (!primaryHost && eventDetails?.host_user_id) {
+		primaryHost = { user_id: eventDetails.host_user_id };
+	}
 
 	if (!eventDetails && slug) {
 		eventDetails = await fetchSingle(event.fetch, 'volunteer-events', {
@@ -309,6 +336,9 @@ export const load = async (event) => {
 		signupResponses,
 		profiles: volunteerProfiles,
 		eventEmails,
+		eventHosts,
+		groupOwners,
+		primaryHost,
 		returnTo
 	};
 };

@@ -80,10 +80,17 @@ export const load = async ({ params, fetch, cookies, url }) => {
 	const slug = params.slug?.trim();
 	if (!slug) throw error(404, 'Volunteer event not found');
 
-	const event = await fetchSingle(fetch, 'volunteer-events', {
+	const eventResponse = await fetchSingle(fetch, 'volunteer-events', {
 		slug: `eq.${slug}`,
-		single: 'true'
+		single: 'true',
+		select: '*,host_group_id(*)'
 	});
+
+	const event = {
+		...eventResponse,
+		host_group_details: eventResponse?.host_group_id ?? null,
+		host_group_id: eventResponse?.host_group_id?.id ?? null
+	};
 
 	if (!event) throw error(404, 'Volunteer event not found');
 
