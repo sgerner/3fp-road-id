@@ -372,7 +372,7 @@
 </script>
 
 <section
-	class="border-surface-700 bg-surface-900/70 rounded-2xl border p-6 shadow-xl shadow-black/30"
+	class="border-surface-700 bg-surface-900/70 overflow-clip rounded-2xl border p-6 shadow-xl shadow-black/30"
 >
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div class="space-y-1">
@@ -383,8 +383,8 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
-		<label class="text-surface-200 flex flex-col text-sm md:w-44">
+	<div class="mt-4 flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
+		<label class="text-surface-200 flex flex-col text-sm md:w-34">
 			<span class="mb-1 font-medium">Status</span>
 			<select
 				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
@@ -396,10 +396,10 @@
 				{/each}
 			</select>
 		</label>
-		<label class="text-surface-200 flex flex-col text-sm md:w-52">
+		<label class="text-surface-200 flex flex-col text-sm">
 			<span class="mb-1 font-medium">Shift activity</span>
 			<select
-				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2 pr-6"
 				value={selectedActivity}
 				onchange={(event) => onActivityChange(event.currentTarget.value)}
 			>
@@ -409,7 +409,7 @@
 				{/each}
 			</select>
 		</label>
-		<label class="text-surface-200 flex flex-col text-sm md:w-56">
+		<label class="text-surface-200 flex flex-col text-sm">
 			<span class="mb-1 font-medium">Shift day &amp; time</span>
 			<select
 				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
@@ -438,7 +438,7 @@
 	<div class="mt-6">
 		<!-- Desktop header -->
 		<div
-			class="text-surface-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
+			class="text-surface-400 hidden grid-cols-4 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
 		>
 			<div class="col-span-1">Volunteer</div>
 			<div class="col-span-1">Shift</div>
@@ -460,7 +460,7 @@
 						class:border-t-2={showDivider}
 						class:border-surface-600={showDivider}
 						transition:slide
-						class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
+						class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-4 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
 						${cardStatusClass(item.assignment.status)}`}
 					>
 						<!-- Volunteer -->
@@ -473,8 +473,9 @@
 								{#if item.hasMultipleShifts}
 									<span
 										class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
-										>Multiple Shifts</span
 									>
+										Multiple Shifts
+									</span>
 								{/if}
 							</div>
 						</div>

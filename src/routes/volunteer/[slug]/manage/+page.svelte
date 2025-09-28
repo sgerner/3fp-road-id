@@ -15,6 +15,8 @@
 		deleteVolunteerSignupShift,
 		updateVolunteerSignupShift
 	} from '$lib/services/volunteers.js';
+	import { Segment } from '@skeletonlabs/skeleton-svelte';
+	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
@@ -1045,89 +1047,157 @@
 		}
 		addActivityEntry(`Set status to ${status} for ${assignmentIds.length} volunteers.`);
 	}
+
+	const sections = [
+		{ id: 'signups', label: 'Signups' },
+		{ id: 'overview', label: 'Summary' },
+		{ id: 'roster', label: 'Roster' },
+		{ id: 'communications', label: 'Communications' },
+		{ id: 'hosts', label: 'Hosts' },
+		{ id: 'activity', label: 'Activity' }
+	];
+
+	let activeSection = $state(sections[0].id);
+
+	function setActiveSection(id) {
+		if (sections.some((section) => section.id === id)) {
+			activeSection = id;
+		}
+	}
+
+	function isSectionActive(id) {
+		return activeSection === id;
+	}
+
+	$effect(() => {
+		if (!sections.some((section) => section.id === activeSection)) {
+			activeSection = sections[0].id;
+		}
+	});
 </script>
 
 <svelte:head>
 	<title>Volunteer Event Management</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-6xl flex-col gap-8 px-2 py-10">
-	<EventSummary
-		title={event?.title || 'Volunteer Event Management'}
-		status={eventStatusLabel}
-		schedule={eventWindowLabel}
-		location={eventLocationLabel}
-		description={eventDescription}
-		counts={volunteerCounts}
-	/>
-
-	<AnalyticsOverview counts={volunteerCounts} shiftGroups={shiftSummaries} />
-
-	<SignupManagement
-		volunteers={filteredVolunteers}
-		{statusFilters}
-		activityFilters={activityFilterOptions}
-		shiftFilters={shiftFilterOptions}
-		shifts={shiftOptions}
-		profiles={profileRecords}
-		{selectedStatus}
-		selectedActivity={selectedActivityId}
-		selectedShift={selectedShiftId}
-		{searchTerm}
-		onStatusChange={(value) => (selectedStatus = value)}
-		onActivityChange={handleActivityChange}
-		onShiftChange={(value) => (selectedShiftId = value)}
-		onSearch={(value) => (searchTerm = value)}
-		onApprove={approveAssignment}
-		onDecline={declineAssignment}
-		onWaitlist={waitlistAssignment}
-		onMoveShift={moveVolunteerToShift}
-		onPresent={setAssignmentPresent}
-		onAddVolunteer={addVolunteerToShift}
-	/>
-
-	<ApprovedRoster
-		{volunteers}
-		{event}
-		{shiftMap}
-		onStatusChange={setAssignmentPresent}
-		onBulkStatusChange={setAssignmentsPresent}
-	/>
-
-	<section
-		class="border-surface-700 bg-surface-900/70 rounded-2xl border p-2 shadow-xl shadow-black/30"
-	>
-		<CommunicationsStep
-			showAdvancedCommunications={true}
-			showCustomQuestionsSection={false}
-			{customQuestions}
-			{eventEmails}
-			eventDetails={{
-				title: event?.title || 'Volunteer event',
-				eventStart: event.event_start || event.starts_at || event.eventStart,
-				eventEnd: event.event_end || event.ends_at || event.eventEnd,
-				timezone: eventTimezone,
-				locationName: event?.location_name,
-				locationAddress: event?.location_address
-			}}
-			opportunities={opportunityGroups.map((group) => ({ id: group.id, title: group.title }))}
-			onAddEmail={addEmailTemplate}
-			onRemoveEmail={removeEmailTemplate}
-			onUpdateEmail={updateEmailTemplate}
-			onComposeEmail={() => {}}
-			onToggleAdvanced={() => {}}
-			emailTypeOptions={['reminder', 'thankyou', 'custom']}
-			fieldTypeOptions={['short_text', 'long_text', 'select', 'checkbox']}
+<div class="mx-auto flex max-w-6xl flex-col gap-6 overflow-hidden px-2 py-10">
+	<div id="section-overview" class="flex flex-col gap-8">
+		<EventSummary
+			title={event?.title || 'Volunteer Event Management'}
+			status={eventStatusLabel}
+			schedule={eventWindowLabel}
+			location={eventLocationLabel}
+			description={eventDescription}
+			counts={volunteerCounts}
 		/>
-	</section>
+	</div>
 
-	<EventHostManagement
-		{event}
-		{groupOwners}
-		hosts={eventHosts}
-		{primaryHost}
-		currentUser={data.session?.user}
-	/>
+	<div class="mx-auto flex max-w-fit flex-col gap-3">
+		<Segment
+			classes="!flex-col sm:!flex-row bg-tertiary-800/30 transition !p-1"
+			name="align"
+			value={activeSection}
+			onValueChange={(e) => setActiveSection(e.value)}
+		>
+			{#each sections as section}
+				<Segment.Item classes="hover:preset-filled-primary-500" value={section.id}>
+					<span style="">{section.label}</span>
+				</Segment.Item>
+			{/each}
+		</Segment>
+	</div>
 
-	<ActivityLog entries={activityLog} />
+	{#if activeSection === 'overview'}
+		<section transition:slide>
+			<AnalyticsOverview counts={volunteerCounts} shiftGroups={shiftSummaries} />
+		</section>
+	{/if}
+
+	{#if activeSection === 'signups'}
+		<section id="section-signups" class="flex flex-col gap-6" transition:slide>
+			<SignupManagement
+				volunteers={filteredVolunteers}
+				{statusFilters}
+				activityFilters={activityFilterOptions}
+				shiftFilters={shiftFilterOptions}
+				shifts={shiftOptions}
+				profiles={profileRecords}
+				{selectedStatus}
+				selectedActivity={selectedActivityId}
+				selectedShift={selectedShiftId}
+				{searchTerm}
+				onStatusChange={(value) => (selectedStatus = value)}
+				onActivityChange={handleActivityChange}
+				onShiftChange={(value) => (selectedShiftId = value)}
+				onSearch={(value) => (searchTerm = value)}
+				onApprove={approveAssignment}
+				onDecline={declineAssignment}
+				onWaitlist={waitlistAssignment}
+				onMoveShift={moveVolunteerToShift}
+				onPresent={setAssignmentPresent}
+				onAddVolunteer={addVolunteerToShift}
+			/>
+		</section>
+	{/if}
+
+	{#if activeSection === 'roster'}
+		<section id="section-roster" class="flex flex-col gap-6" transition:slide>
+			<ApprovedRoster
+				{volunteers}
+				{event}
+				{shiftMap}
+				onStatusChange={setAssignmentPresent}
+				onBulkStatusChange={setAssignmentsPresent}
+			/>
+		</section>
+	{/if}
+
+	{#if activeSection === 'communications'}
+		<section
+			id="section-communications"
+			class="border-surface-700 bg-surface-900/70 rounded-2xl border p-2 shadow-xl shadow-black/30"
+			transition:slide
+		>
+			<CommunicationsStep
+				showAdvancedCommunications={true}
+				showCustomQuestionsSection={false}
+				{customQuestions}
+				{eventEmails}
+				eventDetails={{
+					title: event?.title || 'Volunteer event',
+					eventStart: event.event_start || event.starts_at || event.eventStart,
+					eventEnd: event.event_end || event.ends_at || event.eventEnd,
+					timezone: eventTimezone,
+					locationName: event?.location_name,
+					locationAddress: event?.location_address
+				}}
+				opportunities={opportunityGroups.map((group) => ({ id: group.id, title: group.title }))}
+				onAddEmail={addEmailTemplate}
+				onRemoveEmail={removeEmailTemplate}
+				onUpdateEmail={updateEmailTemplate}
+				onComposeEmail={() => {}}
+				onToggleAdvanced={() => {}}
+				emailTypeOptions={['reminder', 'thankyou', 'custom']}
+				fieldTypeOptions={['short_text', 'long_text', 'select', 'checkbox']}
+			/>
+		</section>
+	{/if}
+
+	{#if activeSection === 'hosts'}
+		<section id="section-hosts" class="flex flex-col gap-6" transition:slide>
+			<EventHostManagement
+				{event}
+				{groupOwners}
+				hosts={eventHosts}
+				{primaryHost}
+				currentUser={data.session?.user}
+			/>
+		</section>
+	{/if}
+
+	{#if activeSection === 'activity'}
+		<section id="section-activity" class="flex flex-col gap-6" transition:slide>
+			<ActivityLog entries={activityLog} />
+		</section>
+	{/if}
 </div>

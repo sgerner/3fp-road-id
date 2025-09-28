@@ -22,7 +22,7 @@
 	const statusLabel = status ? status : 'Active';
 </script>
 
-<section class="border-surface-700 flex flex-col gap-6 border-b pb-6">
+<section class="flex flex-col gap-6 pb-6">
 	<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 		<div class="space-y-2">
 			<h1 class="!text-left text-3xl font-bold text-white">{title}</h1>

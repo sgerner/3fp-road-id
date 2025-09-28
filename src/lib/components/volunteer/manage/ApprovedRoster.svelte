@@ -196,25 +196,11 @@
 							{@const checkInSelected = volunteer.status === 'checked_in'}
 							{@const noShowSelected = volunteer.status === 'no_show'}
 							<article class="bg-surface-950/40 border-surface-700/60 rounded-xl border p-4">
-								<header class="flex items-start justify-between gap-4">
-									<div>
-										<p class="text-lg font-semibold text-white">{volunteer.name}</p>
-										<a
-											href={`mailto:${volunteer.email}`}
-											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
-										>
-											<IconMail class="h-4 w-4 flex-shrink-0" />
-											<span>{volunteer.email}</span>
-										</a>
-										<a
-											href={`tel:${volunteer.phone}`}
-											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
-										>
-											<IconPhone class="h-4 w-4 flex-shrink-0" />
-											<span>{formatPhoneNumber(volunteer.phone)}</span>
-										</a>
-									</div>
-									<div class="no-print flex-shrink-0">
+								<header class="flex flex-wrap items-start justify-between gap-2">
+									<div class="flex w-full flex-wrap items-center justify-between gap-2">
+										<div class="flex-grow text-lg font-semibold text-white">
+											{volunteer.name}
+										</div>
 										<div class="attendance-actions no-print flex gap-1">
 											<button
 												type="button"
@@ -244,6 +230,22 @@
 												<IconBrush class="h-4 w-4" />
 											</button>
 										</div>
+									</div>
+									<div>
+										<a
+											href={`mailto:${volunteer.email}`}
+											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+										>
+											<IconMail class="h-4 w-4 flex-shrink-0" />
+											<span>{volunteer.email}</span>
+										</a>
+										<a
+											href={`tel:${volunteer.phone}`}
+											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+										>
+											<IconPhone class="h-4 w-4 flex-shrink-0" />
+											<span>{formatPhoneNumber(volunteer.phone)}</span>
+										</a>
 									</div>
 								</header>
 								{#if volunteer.emergencyContactName}

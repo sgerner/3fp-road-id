@@ -21,13 +21,13 @@
 	{#if shiftGroups.length}
 		<div class="space-y-3">
 			<header class="flex flex-col gap-1">
-				<h3 class="h3 !text-left font-semibold text-white">Shift Summary</h3>
+				<h3 class="!text-left text-xl font-semibold text-white">Shift Summary</h3>
 				<p class="text-surface-400 text-sm">Review coverage by activity.</p>
 			</header>
 			<div class="space-y-3">
 				{#each shiftGroups as group (group.id)}
 					<div class="space-y-3">
-						<h4 class="text-surface-200 text-sm font-semibold tracking-wide uppercase">
+						<h4 class="text-surface-200 !text-left text-lg font-semibold tracking-wide uppercase">
 							{group.title}
 						</h4>
 						<div class="grid gap-3 md:grid-cols-3">
