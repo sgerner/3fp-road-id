@@ -133,7 +133,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 
 	if (!canManage && eventId) {
 		try {
-			const eventHostRows = await fetchList(fetch, 'volunteer-event-hosts', {
+			const eventHostRows = await fetchList(fetch, 'v-volunteer-event-hosts-with-profiles', {
 				event_id: `eq.${eventId}`,
 				user_id: `eq.${userId}`
 			});

@@ -203,7 +203,7 @@ export const load = async ({ params, cookies, fetch }) => {
 				.filter((value) => value !== null && value !== undefined);
 			if (eventIds.length) {
 				try {
-					const hostRows = await fetchList(fetch, 'volunteer-event-hosts', {
+					const hostRows = await fetchList(fetch, 'v-volunteer-event-hosts-with-profiles', {
 						event_id: `in.(${eventIds.join(',')})`,
 						user_id: `eq.${sessionUserId}`
 					});

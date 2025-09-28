@@ -81,6 +81,30 @@ export const load = async ({ params, fetch, cookies, url }) => {
 
 	const { user: sessionUser } = resolveSession(cookies);
 
+	const eventContactEmail =
+		event?.contact_email?.trim?.() ||
+		event?.contactEmail?.trim?.() ||
+		event?.contactEmailAddress?.trim?.() ||
+		'';
+
+	let organizerEmail = eventContactEmail || '';
+
+	if (!organizerEmail && event?.host_user_id) {
+		try {
+			const hostProfile = await fetchSingle(fetch, 'profiles', {
+				user_id: `eq.${event.host_user_id}`,
+				select: 'email',
+				single: 'true'
+			});
+			organizerEmail = hostProfile?.email?.trim?.() || '';
+		} catch (err) {
+			if (err?.status !== 404 && err?.status !== 403) {
+				throw err;
+			}
+			organizerEmail = '';
+		}
+	}
+
 	const eventStatus = event.status ?? event.volunteer_event_status ?? null;
 	const isDraft = !eventStatus || eventStatus === 'draft';
 	let authRequired = false;
@@ -268,7 +292,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		}
 		if (!canManageEvent && event.id) {
 			try {
-				const hostRows = await fetchList(fetch, 'volunteer-event-hosts', {
+				const hostRows = await fetchList(fetch, 'v-volunteer-event-hosts-with-profiles', {
 					event_id: `eq.${event.id}`,
 					user_id: `eq.${user.id}`
 				});
@@ -319,6 +343,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		returnTo: url.pathname + url.search,
 		authRequired,
 		draftForbidden,
-		canManageEvent
+		canManageEvent,
+		organizerEmail
 	};
 };
