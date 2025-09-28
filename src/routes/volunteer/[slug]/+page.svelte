@@ -193,6 +193,7 @@
 			.map(([key, value]) => ({ key, url: value.trim() }));
 	})();
 
+	const organizerEmail = (data.organizerEmail || '').trim();
 	const contactEmail = (event.contact_email || '').trim();
 	const contactPhone = (event.contact_phone || '').trim();
 
@@ -357,6 +358,135 @@
 	let loginSuccess = $state('');
 	let loginLoading = $state(false);
 	let bulkSubmit = $state({ loading: false, success: '', error: '' });
+
+	const defaultQuestionSubject = event.title
+		? `Question about ${event.title}`
+		: 'Question about your volunteer event';
+
+	let questionForm = $state({
+		replyTo: defaultEmail || '',
+		subject: defaultQuestionSubject,
+		message: ''
+	});
+	let questionErrors = $state({});
+	let questionStatus = $state({ loading: false, success: '', error: '' });
+
+	const questionEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+	function updateQuestionField(key, value) {
+		questionForm = { ...questionForm, [key]: value };
+		if (questionErrors[key]) {
+			const nextErrors = { ...questionErrors };
+			delete nextErrors[key];
+			questionErrors = nextErrors;
+		}
+		if (questionStatus.success || questionStatus.error) {
+			questionStatus = { ...questionStatus, success: '', error: '' };
+		}
+	}
+
+	function escapeQuestionHtml(value = '') {
+		return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+
+	function formatQuestionHtml(message) {
+		if (!message) return '';
+		const escaped = escapeQuestionHtml(message.trim());
+		if (!escaped) return '';
+		return escaped
+			.split(/\n{2,}/)
+			.map((block) => block.trim())
+			.filter(Boolean)
+			.map((block) => `<p>${block.replace(/\n/g, '<br />')}</p>`)
+			.join('');
+	}
+
+	async function handleQuestionSubmit() {
+		if (!organizerEmail) {
+			questionStatus = {
+				loading: false,
+				success: '',
+				error: 'We could not find a contact for this event just yet. Please try again later.'
+			};
+			return;
+		}
+
+		const replyTo = (questionForm.replyTo || '').trim();
+		const subject = (questionForm.subject || '').trim();
+		const message = (questionForm.message || '').trim();
+
+		const nextErrors = {};
+		if (!replyTo || !questionEmailPattern.test(replyTo)) {
+			nextErrors.replyTo = 'Enter a valid email address so the organizer can respond.';
+		}
+		if (subject.length < 3) {
+			nextErrors.subject = 'Subject must be at least 3 characters long.';
+		}
+		if (!message) {
+			nextErrors.message = 'Please include a question or message for the organizer.';
+		}
+
+		if (Object.keys(nextErrors).length) {
+			questionErrors = nextErrors;
+			questionStatus = {
+				loading: false,
+				success: '',
+				error: 'Please fix the highlighted fields before sending your question.'
+			};
+			return;
+		}
+
+		questionErrors = {};
+		questionStatus = { loading: true, success: '', error: '' };
+
+		try {
+			const htmlBody = formatQuestionHtml(message);
+			const payload = {
+				to: organizerEmail,
+				subject,
+				text: message,
+				replyTo,
+				...(htmlBody ? { html: htmlBody } : {}),
+				tags: [
+					{ Name: 'context', Value: 'volunteer-question' },
+					event?.id ? { Name: 'volunteer_event_id', Value: String(event.id) } : null
+				].filter(Boolean)
+			};
+
+			const response = await fetch('/api/v1/email', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			let responseBody = null;
+			try {
+				responseBody = await response.json();
+			} catch {
+				responseBody = null;
+			}
+
+			if (!response.ok) {
+				const errorMessage =
+					(responseBody && responseBody.error) ||
+					'We could not send your question. Please try again.';
+				throw new Error(errorMessage);
+			}
+
+			questionStatus = {
+				loading: false,
+				success: 'Your question was sent to the event organizer.',
+				error: ''
+			};
+			questionForm = { ...questionForm, message: '' };
+		} catch (err) {
+			questionStatus = {
+				loading: false,
+				success: '',
+				error: err?.message || 'We could not send your question. Please try again.'
+			};
+		}
+	}
 
 	let mapEl = $state(null);
 	let map;
@@ -1259,6 +1389,104 @@
 							{showFullOverview ? 'Show less' : 'Show full details'}
 						</button>
 					{/if}
+				</section>
+			{/if}
+
+			{#if organizerEmail}
+				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<h2 class="text-secondary-100 text-2xl font-semibold">Have a question?</h2>
+						{#if !questionStatus.success && questionStatus.error}
+							<p class="text-error-200 text-xs sm:text-sm">{questionStatus.error}</p>
+						{/if}
+					</div>
+					<p class="text-surface-400 mt-3 text-sm">
+						Send the event organizer a message. We&rsquo;ll share your email address so they can
+						reply directly.
+					</p>
+					{#if questionStatus.success}
+						<div transition:slide class="card preset-tonal-success p-4">
+							{questionStatus.success}
+						</div>
+					{:else}
+						<form class="mt-6 space-y-4" onsubmit={handleQuestionSubmit} transition:slide>
+							<div class="grid gap-4 md:grid-cols-2">
+								<label class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase">
+									<span>Your email</span>
+									<input
+										type="email"
+										class="input bg-surface-950/40"
+										autocomplete="email"
+										required
+										value={questionForm.replyTo}
+										oninput={(event) => updateQuestionField('replyTo', event.currentTarget.value)}
+									/>
+									{#if questionErrors.replyTo}
+										<span class="text-error-200 text-[11px] tracking-normal normal-case">
+											{questionErrors.replyTo}
+										</span>
+									{/if}
+								</label>
+								<label class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase">
+									<span>Subject</span>
+									<input
+										type="text"
+										class="input bg-surface-950/40"
+										required
+										minlength="3"
+										value={questionForm.subject}
+										oninput={(event) => updateQuestionField('subject', event.currentTarget.value)}
+									/>
+									{#if questionErrors.subject}
+										<span class="text-error-200 text-[11px] tracking-normal normal-case">
+											{questionErrors.subject}
+										</span>
+									{/if}
+								</label>
+							</div>
+							<label class="text-surface-400 flex flex-col gap-2 text-xs tracking-wide uppercase">
+								<span>Message</span>
+								<textarea
+									class="textarea bg-surface-950/40"
+									required
+									rows="3"
+									oninput={(event) => updateQuestionField('message', event.currentTarget.value)}
+								>
+									{questionForm.message}
+								</textarea>
+								{#if questionErrors.message}
+									<span class="text-error-200 text-[11px] tracking-normal normal-case">
+										{questionErrors.message}
+									</span>
+								{/if}
+							</label>
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+								<button
+									type="submit"
+									class="btn preset-filled-secondary-500 flex items-center gap-2"
+									disabled={questionStatus.loading}
+								>
+									{#if questionStatus.loading}
+										<IconLoader class="h-4 w-4 animate-spin" />
+									{/if}
+									<span>Send question</span>
+								</button>
+								{#if !questionStatus.success && !questionStatus.error}
+									<p class="text-surface-500 text-xs">
+										Responses will go to {questionForm.replyTo || 'your email'}.
+									</p>
+								{/if}
+							</div>
+						</form>
+					{/if}
+				</section>
+			{:else}
+				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
+					<h2 class="text-secondary-100 text-2xl font-semibold">Organizer contact coming soon</h2>
+					<p class="text-surface-400 mt-3 text-sm">
+						We&rsquo;re getting the organizer&rsquo;s contact information ready. Please check back
+						later if you need to get in touch.
+					</p>
 				</section>
 			{/if}
 
