@@ -470,6 +470,14 @@
 					</li>
 				{/each}
 			</ul>
+			<div class="flex w-full justify-end">
+				<a
+					href={`/volunteer/groups/${data.group.slug}`}
+					class="btn preset-filled-tertiary-500 font-bold whitespace-nowrap"
+				>
+					All Volunteer Events →
+				</a>
+			</div>
 		</section>
 	{/if}
 
