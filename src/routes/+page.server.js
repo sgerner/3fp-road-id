@@ -1,12 +1,26 @@
-import { supabase } from '$lib/supabaseClient';
+export const load = async ({ fetch }) => {
+	const cols = [
+		'id',
+		'slug',
+		'name',
+		'tagline',
+		'city',
+		'state_region',
+		'country',
+		'logo_url',
+		'cover_photo_url'
+	];
+	const resp = await fetch(
+		`/api/v1/groups?select=${cols.join(
+			','
+		)}&cover_photo_url=not.is.null&logo_url=not.is.null&limit=64`
+	);
 
-export const load = async () => {
-	const { data, error } = await supabase
-		.from('groups')
-		.select('id, slug, name, tagline, city, state_region, country, logo_url, cover_photo_url')
-		.not('cover_photo_url', 'is', null)
-		.not('logo_url', 'is', null)
-		.limit(64);
+	if (!resp.ok) {
+		return { highlights: [], error: 'Failed to load groups' };
+	}
+
+	const { data, error } = await resp.json();
 
 	const rows = Array.isArray(data) ? data.slice() : [];
 	// Fisher-Yates shuffle
