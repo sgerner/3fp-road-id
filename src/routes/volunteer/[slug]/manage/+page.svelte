@@ -3,7 +3,6 @@
 	import AnalyticsOverview from '$lib/components/volunteer/manage/AnalyticsOverview.svelte';
 	import SignupManagement from '$lib/components/volunteer/manage/SignupManagement.svelte';
 	import ApprovedRoster from '$lib/components/volunteer/manage/ApprovedRoster.svelte';
-	import ActivityLog from '$lib/components/volunteer/manage/ActivityLog.svelte';
 	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -1053,8 +1052,7 @@
 		{ id: 'overview', label: 'Summary' },
 		{ id: 'roster', label: 'Roster' },
 		{ id: 'communications', label: 'Communications' },
-		{ id: 'hosts', label: 'Hosts' },
-		{ id: 'activity', label: 'Activity' }
+		{ id: 'hosts', label: 'Hosts' }
 	];
 
 	let activeSection = $state(sections[0].id);
@@ -1192,12 +1190,6 @@
 				{primaryHost}
 				currentUser={data.session?.user}
 			/>
-		</section>
-	{/if}
-
-	{#if activeSection === 'activity'}
-		<section id="section-activity" class="flex flex-col gap-6" transition:slide>
-			<ActivityLog entries={activityLog} />
 		</section>
 	{/if}
 </div>
