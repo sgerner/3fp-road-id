@@ -6,6 +6,7 @@
 	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { sendEmail } from '$lib/services/email';
 	import {
 		createVolunteerEventEmail,
 		updateVolunteerEventEmail,
@@ -14,6 +15,7 @@
 		deleteVolunteerSignupShift,
 		updateVolunteerSignupShift
 	} from '$lib/services/volunteers.js';
+	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates';
 	import { Segment } from '@skeletonlabs/skeleton-svelte';
 	import { slide } from 'svelte/transition';
 
@@ -31,6 +33,11 @@
 	const groupOwners = data?.groupOwners ?? [];
 	const primaryHost =
 		data?.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
+	const hostGroup = data?.hostGroup ?? null;
+	const organizerEmail = data?.organizerEmail?.trim?.() || '';
+	const contactEmail =
+		event?.contact_email?.trim?.() || event?.contactEmail?.trim?.() || organizerEmail;
+	const contactPhone = event?.contact_phone?.trim?.() || event?.contactPhone?.trim?.() || '';
 
 	function toNumber(value) {
 		const numeric = Number(value);
@@ -164,6 +171,36 @@
 			.flatMap((group) => group.shifts.map((shift) => [shift.id, { ...shift, groupId: group.id }]))
 			.filter(([key]) => key)
 	);
+
+	const rawOpportunityMap = new SvelteMap(
+		opportunitiesRaw
+			.map((opportunity) => [String(opportunity?.id ?? ''), opportunity])
+			.filter(([key]) => key && key !== 'null' && key !== 'undefined')
+	);
+
+	const rawShiftMap = new SvelteMap();
+	for (const opportunity of opportunitiesRaw) {
+		const opportunityId = opportunity?.id ? String(opportunity.id) : null;
+		for (const shift of coerceArray(opportunity?.shifts)) {
+			if (!shift?.id) continue;
+			const key = String(shift.id);
+			rawShiftMap.set(key, {
+				...shift,
+				opportunity_id:
+					shift?.opportunity_id ??
+					shift?.volunteer_opportunity_id ??
+					(opportunityId ? Number(opportunityId) : null)
+			});
+		}
+	}
+
+	const emailStatusTriggers = new Set([
+		'approved',
+		'waitlisted',
+		'declined',
+		'cancelled',
+		'confirmed'
+	]);
 
 	const profilesByUserId = $derived(
 		new SvelteMap(
@@ -378,16 +415,27 @@
 
 	let volunteers = $state(initialVolunteers);
 	let activityLog = $state([]);
+	let emailQueue = $state([]);
+	let emailQueueSending = $state(false);
+	let emailQueueError = $state('');
 
 	function updateVolunteerState(id, updates) {
+		let updatedVolunteer = null;
 		volunteers = volunteers.map((volunteer) => {
 			if (volunteer.id !== id) return volunteer;
 			const nextSignup = updates.signup ?? volunteer.signup;
 			const nextAssignments = updates.assignments ?? volunteer.assignments;
 			const nextResponses = updates.responses ?? volunteer.responses;
 			const nextProfile = updates.profile ?? volunteer.profile;
-			return normalizeVolunteer(nextSignup, nextAssignments, nextResponses, nextProfile);
+			updatedVolunteer = normalizeVolunteer(
+				nextSignup,
+				nextAssignments,
+				nextResponses,
+				nextProfile
+			);
+			return updatedVolunteer;
 		});
+		return updatedVolunteer;
 	}
 
 	function addActivityEntry(message) {
@@ -395,8 +443,179 @@
 		activityLog = [message, ...activityLog].slice(0, 50);
 	}
 
+	if (typeof window !== 'undefined') {
+		$effect(() => {
+			const handleBeforeUnload = (event) => {
+				if (!emailQueue.length) return;
+				event.preventDefault();
+				event.returnValue = 'You have unsent volunteer emails in your queue.';
+				return event.returnValue;
+			};
+			window.addEventListener('beforeunload', handleBeforeUnload);
+			return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+		});
+	}
+
 	function volunteerById(id) {
 		return volunteers.find((volunteer) => volunteer.id === id);
+	}
+
+	function removeEmailFromQueue(queueId) {
+		if (!queueId) return;
+		let removed = null;
+		emailQueue = emailQueue.filter((entry) => {
+			if (entry.id === queueId) removed = entry;
+			return entry.id !== queueId;
+		});
+		if (removed) {
+			addActivityEntry(`Removed queued email for ${removed.volunteerName}.`);
+			if (!emailQueue.length) {
+				emailQueueError = '';
+			}
+		}
+	}
+
+	function clearEmailQueue() {
+		if (!emailQueue.length) return;
+		emailQueue = [];
+		emailQueueError = '';
+		addActivityEntry('Cleared all queued volunteer emails.');
+	}
+
+	async function sendQueuedEmail(queueId) {
+		if (!queueId || !emailQueue.length) return;
+		const entry = emailQueue.find((item) => item.id === queueId);
+		if (!entry) return;
+		emailQueueSending = true;
+		emailQueueError = '';
+		try {
+			await sendEmail(entry.emailPayload);
+			emailQueue = emailQueue.filter((item) => item.id !== queueId);
+			if (!emailQueue.length) {
+				emailQueueError = '';
+			}
+			addActivityEntry(`Sent queued email to ${entry.volunteerName}.`);
+		} catch (error) {
+			console.error('Failed to send volunteer shift email', error);
+			emailQueueError = error?.message || 'Failed to send volunteer shift email.';
+		} finally {
+			emailQueueSending = false;
+		}
+	}
+
+	async function sendAllQueuedEmails() {
+		if (!emailQueue.length) return;
+		emailQueueSending = true;
+		emailQueueError = '';
+		const entries = [...emailQueue];
+		for (const entry of entries) {
+			try {
+				await sendEmail(entry.emailPayload);
+				emailQueue = emailQueue.filter((item) => item.id !== entry.id);
+				addActivityEntry(`Sent queued email to ${entry.volunteerName}.`);
+			} catch (error) {
+				console.error('Failed to send volunteer shift email', error);
+				emailQueueError = error?.message || 'Failed to send volunteer shift email.';
+				break;
+			}
+		}
+		if (!emailQueue.length) {
+			emailQueueError = '';
+		}
+		emailQueueSending = false;
+	}
+
+	function queueShiftStatusEmail({ volunteer, assignment, previousStatus }) {
+		if (!assignment?.id || !assignment?.shiftId) return;
+		const targetStatus = assignment.status ? String(assignment.status) : '';
+		if (!emailStatusTriggers.has(targetStatus)) return;
+
+		const volunteerEmail =
+			volunteer?.email?.trim?.() ||
+			volunteer?.signup?.volunteer_email?.trim?.() ||
+			volunteer?.signup?.email?.trim?.() ||
+			volunteer?.profile?.email?.trim?.() ||
+			'';
+		if (!volunteerEmail) return;
+
+		const normalizedShift = shiftMap.get(assignment.shiftId) ?? null;
+		const rawShift = rawShiftMap.get(assignment.shiftId) ?? null;
+		const shiftsForEmail = rawShift ? [rawShift] : [];
+		if (!shiftsForEmail.length) return;
+
+		let eventUrl = '';
+		let origin = '';
+		if (typeof window !== 'undefined') {
+			eventUrl = window.location.href;
+			origin = window.location.origin;
+		}
+		let shiftsUrl = '';
+		try {
+			shiftsUrl = origin ? new URL('/volunteer/shifts', origin).toString() : '';
+		} catch (error) {
+			console.warn('Unable to resolve volunteer shifts URL', error);
+			shiftsUrl = '';
+		}
+
+		const opportunityId =
+			normalizedShift?.opportunityId ??
+			rawShift?.opportunity_id ??
+			rawShift?.volunteer_opportunity_id ??
+			null;
+		const opportunity =
+			opportunityId !== null && opportunityId !== undefined
+				? (rawOpportunityMap.get(String(opportunityId)) ?? null)
+				: null;
+
+		const volunteerName =
+			volunteer?.name?.trim?.() ||
+			volunteer?.signup?.volunteer_name?.trim?.() ||
+			volunteer?.signup?.full_name?.trim?.() ||
+			volunteerEmail;
+
+		const emailPayload = buildVolunteerStatusUpdateEmail({
+			event,
+			opportunity,
+			shifts: shiftsForEmail,
+			volunteer: { name: volunteerName, email: volunteerEmail },
+			hostGroup,
+			contactEmail,
+			contactPhone,
+			hostEmail: organizerEmail,
+			eventUrl,
+			shiftsUrl,
+			status: targetStatus
+		});
+
+		if (!emailPayload) return;
+
+		const queueId =
+			globalThis?.crypto?.randomUUID?.() ??
+			`email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+		const previous = previousStatus ? String(previousStatus) : '';
+
+		emailQueue = [
+			...emailQueue.filter(
+				(entry) => !(entry.assignmentId === assignment.id && entry.status === assignment.status)
+			),
+			{
+				id: queueId,
+				assignmentId: assignment.id,
+				shiftId: assignment.shiftId,
+				volunteerId: volunteer.id,
+				volunteerName,
+				volunteerEmail,
+				status: assignment.status,
+				previousStatus: previous,
+				opportunityTitle: normalizedShift?.opportunityTitle || opportunity?.title || '',
+				shiftLabel: normalizedShift?.optionLabel || normalizedShift?.windowLabel || '',
+				queuedAt: new Date().toISOString(),
+				emailPayload
+			}
+		];
+
+		addActivityEntry(`Queued an email for ${volunteerName} about their shift status change.`);
 	}
 
 	async function updateAssignmentStatus(assignmentId, status) {
@@ -415,6 +634,8 @@
 
 		if (!volunteerToUpdate || !assignmentToUpdate) return;
 
+		const previousStatus = assignmentToUpdate.status;
+
 		try {
 			const response = await updateVolunteerSignupShift(assignmentId, { status });
 			const updatedAssignment = normalizeAssignment(
@@ -424,7 +645,17 @@
 			const nextAssignments = volunteerToUpdate.assignments.map((a) =>
 				a.id === assignmentId ? updatedAssignment : a
 			);
-			updateVolunteerState(volunteerToUpdate.id, { assignments: nextAssignments });
+			const updatedVolunteer = updateVolunteerState(volunteerToUpdate.id, {
+				assignments: nextAssignments
+			});
+
+			if (previousStatus !== updatedAssignment.status) {
+				queueShiftStatusEmail({
+					volunteer: updatedVolunteer,
+					assignment: updatedAssignment,
+					previousStatus
+				});
+			}
 			addActivityEntry(`Set status to ${status} for ${volunteerToUpdate.name}'s shift.`);
 		} catch (error) {
 			console.error(`Failed to set status to ${status}`, error);
@@ -443,7 +674,9 @@
 	function waitlistAssignment(assignmentId) {
 		const volunteer = volunteers.find((v) => v.assignments.some((a) => a.id === assignmentId));
 		if (!volunteer) return;
-		const isWaitlisted = volunteer.status === 'waitlisted';
+		const assignment = volunteer.assignments.find((a) => a.id === assignmentId);
+		if (!assignment) return;
+		const isWaitlisted = assignment.status === 'waitlisted';
 		updateAssignmentStatus(assignmentId, isWaitlisted ? 'pending' : 'waitlisted');
 	}
 
@@ -1134,6 +1367,13 @@
 				onMoveShift={moveVolunteerToShift}
 				onPresent={setAssignmentPresent}
 				onAddVolunteer={addVolunteerToShift}
+				{emailQueue}
+				{emailQueueSending}
+				{emailQueueError}
+				onSendQueuedEmail={sendQueuedEmail}
+				onRemoveQueuedEmail={removeEmailFromQueue}
+				onSendAllQueuedEmails={sendAllQueuedEmails}
+				onClearEmailQueue={clearEmailQueue}
 			/>
 		</section>
 	{/if}

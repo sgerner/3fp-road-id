@@ -36,7 +36,7 @@ export async function sendEmail(
 ) {
 	const fetchFn = resolveFetch(fetchImpl);
 
-	const response = await fetchFn('/api/email', {
+	const response = await fetchFn('/api/v1/email', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json'

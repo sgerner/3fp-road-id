@@ -14,7 +14,7 @@
 		updateVolunteerSignupResponse,
 		deleteVolunteerSignupResponse
 	} from '$lib/services/volunteers';
-	import { buildVolunteerSignupConfirmationEmail } from '$lib/volunteer/email-templates';
+	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates.js';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconClock from '@lucide/svelte/icons/clock';
@@ -794,7 +794,7 @@
 		profile = updated ?? { ...current, ...payload };
 	}
 
-	async function sendVolunteerSignupConfirmationEmail({ shifts, opportunity, status, volunteer }) {
+	async function sendVolunteerStatusUpdateEmail({ shifts, opportunity, status, volunteer }) {
 		if (!Array.isArray(shifts) || !shifts.length) return;
 		const volunteerName = volunteer?.name ?? '';
 		const volunteerEmail = volunteer?.email ?? '';
@@ -815,7 +815,7 @@
 
 		const shiftsUrl = origin ? new URL('/volunteer/shifts', origin).toString() : '';
 
-		const emailPayload = buildVolunteerSignupConfirmationEmail({
+		const emailPayload = buildVolunteerStatusUpdateEmail({
 			event,
 			opportunity,
 			shifts,
@@ -826,7 +826,7 @@
 			hostEmail: organizerEmail,
 			eventUrl,
 			shiftsUrl,
-			autoApproved: status === 'approved'
+			status
 		});
 
 		if (!emailPayload) return;
@@ -840,10 +840,10 @@
 
 			if (!response.ok) {
 				const errorText = await response.text().catch(() => '');
-				console.error('Failed to send volunteer confirmation email', response.status, errorText);
+				console.error('Failed to send volunteer status update email', response.status, errorText);
 			}
 		} catch (emailError) {
-			console.error('Failed to send volunteer confirmation email', emailError);
+			console.error('Failed to send volunteer status update email', emailError);
 		}
 	}
 
@@ -1008,7 +1008,7 @@
 			}
 
 			if (newlyAddedShifts.length) {
-				await sendVolunteerSignupConfirmationEmail({
+				await sendVolunteerStatusUpdateEmail({
 					shifts: newlyAddedShifts,
 					opportunity,
 					status,

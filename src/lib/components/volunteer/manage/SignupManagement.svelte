@@ -24,7 +24,14 @@
 		onWaitlist = (/** @type {string} */ assignmentId) => {},
 		onMoveShift = (/** @type {string} */ volunteerId, /** @type {string | null} */ shiftId) => {},
 		onPresent = (/** @type {string} */ assignmentId, /** @type {boolean} */ isPresent) => {},
-		onAddVolunteer = async () => ({ ok: false, error: 'Not implemented' })
+		onAddVolunteer = async () => ({ ok: false, error: 'Not implemented' }),
+		emailQueue = [],
+		emailQueueSending = false,
+		emailQueueError = '',
+		onSendQueuedEmail = (/** @type {string} */ queueId) => {},
+		onRemoveQueuedEmail = (/** @type {string} */ queueId) => {},
+		onSendAllQueuedEmails = () => {},
+		onClearEmailQueue = () => {}
 	} = $props();
 
 	const shiftMap = $derived(new SvelteMap(shifts.map((shift) => [shift.id, shift])));
@@ -369,6 +376,10 @@
 				return '';
 		}
 	}
+
+	function formatStatusLabel(status) {
+		return (status || '').replace(/_/g, ' ');
+	}
 </script>
 
 <section
@@ -383,56 +394,158 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
-		<label class="text-surface-200 flex flex-col text-sm md:w-34">
-			<span class="mb-1 font-medium">Status</span>
-			<select
-				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
-				value={selectedStatus}
-				onchange={(event) => onStatusChange(event.currentTarget.value)}
+	<div class="mt-4 space-y-4">
+		{#if emailQueue.length || emailQueueError}
+			<div
+				class="border-surface-700/70 bg-surface-950/60 text-surface-200 rounded-xl border px-4 py-4 text-sm"
+				transition:slide
 			>
-				{#each statusFilters as option (option.value)}
-					<option value={option.value}>{option.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="text-surface-200 flex flex-col text-sm">
-			<span class="mb-1 font-medium">Shift activity</span>
-			<select
-				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2 pr-6"
-				value={selectedActivity}
-				onchange={(event) => onActivityChange(event.currentTarget.value)}
-			>
-				<option value="all">All activities</option>
-				{#each activityFilters as option (option.value)}
-					<option value={option.value}>{option.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="text-surface-200 flex flex-col text-sm">
-			<span class="mb-1 font-medium">Shift day &amp; time</span>
-			<select
-				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
-				value={selectedShift}
-				onchange={(event) => onShiftChange(event.currentTarget.value)}
-				disabled={selectedActivity === 'all'}
-			>
-				<option value="all">All times</option>
-				{#each shiftFilters as option (option.value)}
-					<option value={option.value}>{option.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="text-surface-200 flex flex-1 flex-col text-sm">
-			<span class="mb-1 font-medium">Search</span>
-			<input
-				type="search"
-				class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
-				value={searchTerm}
-				oninput={(event) => onSearch(event.currentTarget.value)}
-				placeholder="Name, email, phone"
-			/>
-		</label>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h3 class="text-base font-semibold text-white">Queued emails</h3>
+						<p class="text-surface-300 text-xs">Review and send shift updates when you're ready.</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class="preset-filled-primary-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+							disabled={!emailQueue.length || emailQueueSending}
+							onclick={() => onSendAllQueuedEmails()}
+						>
+							{#if emailQueueSending}
+								Sending…
+							{:else}
+								Send all ({emailQueue.length})
+							{/if}
+						</button>
+						<button
+							type="button"
+							class="preset-outlined-error-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+							disabled={!emailQueue.length || emailQueueSending}
+							onclick={() => onClearEmailQueue()}
+						>
+							Remove all
+						</button>
+					</div>
+				</div>
+				{#if emailQueueError}
+					<div
+						class="bg-error-500/10 border-error-500/40 text-error-200 mt-3 rounded-lg border px-3 py-2 text-sm"
+					>
+						{emailQueueError}
+					</div>
+				{/if}
+				{#if emailQueue.length}
+					<ul class="mt-3 space-y-2">
+						{#each emailQueue as queueItem (queueItem.id)}
+							<li class="border-surface-800/70 bg-surface-900/50 rounded-lg border px-3 py-2">
+								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+									<div>
+										<div class="font-semibold text-white">
+											{queueItem.volunteerName}
+										</div>
+										<div class="text-surface-300 text-xs">
+											{queueItem.volunteerEmail}
+										</div>
+									</div>
+									<div class="text-surface-300 text-xs md:max-w-xs md:text-right">
+										<div class="text-surface-100 font-medium">
+											{queueItem.opportunityTitle || 'Volunteer shift'}
+										</div>
+										{#if queueItem.shiftLabel}
+											<div class="text-surface-200">
+												{queueItem.shiftLabel}
+											</div>
+										{/if}
+									</div>
+									<div class="text-surface-300 text-xs md:text-right">
+										<span class="font-semibold text-white capitalize">
+											{formatStatusLabel(queueItem.status)}
+										</span>
+										{#if queueItem.previousStatus}
+											<span class="text-surface-400 ml-1">
+												from {formatStatusLabel(queueItem.previousStatus)}
+											</span>
+										{/if}
+									</div>
+									<div class="flex flex-wrap justify-end gap-2">
+										<button
+											type="button"
+											class="preset-filled-primary-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-60"
+											disabled={emailQueueSending}
+											onclick={() => onSendQueuedEmail(queueItem.id)}
+										>
+											Send
+										</button>
+										<button
+											type="button"
+											class="preset-outlined-error-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-60"
+											disabled={emailQueueSending}
+											onclick={() => onRemoveQueuedEmail(queueItem.id)}
+										>
+											Remove
+										</button>
+									</div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{:else if !emailQueueError}
+					<div class="text-surface-300 mt-3 text-sm">No emails are waiting to be sent.</div>
+				{/if}
+			</div>
+		{/if}
+		<div class="flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
+			<label class="text-surface-200 flex flex-col text-sm md:w-34">
+				<span class="mb-1 font-medium">Status</span>
+				<select
+					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					value={selectedStatus}
+					onchange={(event) => onStatusChange(event.currentTarget.value)}
+				>
+					{#each statusFilters as option (option.value)}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</label>
+			<label class="text-surface-200 flex flex-col text-sm">
+				<span class="mb-1 font-medium">Shift activity</span>
+				<select
+					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2 pr-6"
+					value={selectedActivity}
+					onchange={(event) => onActivityChange(event.currentTarget.value)}
+				>
+					<option value="all">All activities</option>
+					{#each activityFilters as option (option.value)}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</label>
+			<label class="text-surface-200 flex flex-col text-sm">
+				<span class="mb-1 font-medium">Shift day &amp; time</span>
+				<select
+					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					value={selectedShift}
+					onchange={(event) => onShiftChange(event.currentTarget.value)}
+					disabled={selectedActivity === 'all'}
+				>
+					<option value="all">All times</option>
+					{#each shiftFilters as option (option.value)}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</label>
+			<label class="text-surface-200 flex flex-1 flex-col text-sm">
+				<span class="mb-1 font-medium">Search</span>
+				<input
+					type="search"
+					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					value={searchTerm}
+					oninput={(event) => onSearch(event.currentTarget.value)}
+					placeholder="Name, email, phone"
+				/>
+			</label>
+		</div>
 	</div>
 
 	<div class="mt-6">

@@ -126,7 +126,7 @@ function textList(items) {
 	return items.map((item) => `• ${item}`).join('\n');
 }
 
-export function buildVolunteerSignupConfirmationEmail(options) {
+export function buildVolunteerStatusUpdateEmail(options) {
 	if (!options) return null;
 	const {
 		event,
@@ -139,7 +139,7 @@ export function buildVolunteerSignupConfirmationEmail(options) {
 		hostEmail,
 		eventUrl,
 		shiftsUrl,
-		autoApproved
+		status
 	} = options;
 
 	if (!volunteer?.email) return null;
@@ -159,17 +159,40 @@ export function buildVolunteerSignupConfirmationEmail(options) {
 
 	const replyTo = contactDetails.email || undefined;
 
-	const subject = autoApproved
-		? `You're confirmed for ${eventDetails.title}`
-		: `Thanks for volunteering for ${eventDetails.title}`;
+	let subject = `An update on your volunteer application for ${eventDetails.title}`;
+	let introHtml = 'Thanks for your interest in this volunteer opportunity.';
+	let introText = 'Thanks for your interest in this volunteer opportunity.';
 
-	const introHtml = autoApproved
-		? `We're excited to see you! Your shift is confirmed and the host appreciates you volunteering.`
-		: `Thanks for signing up! The host reviews volunteer signups before confirming shifts. We'll notify you once your shift is approved.`;
-
-	const introText = autoApproved
-		? `We're excited to see you! Your shift is confirmed and the host appreciates you volunteering.`
-		: `Thanks for signing up! The host reviews volunteer signups before confirming shifts. We'll notify you once your shift is approved.`;
+	switch (status) {
+		case 'approved':
+			subject = `You're confirmed for ${eventDetails.title}`;
+			introHtml =
+				"We're excited to see you! Your shift is confirmed and the host appreciates you volunteering.";
+			introText =
+				"We're excited to see you! Your shift is confirmed and the host appreciates you volunteering.";
+			break;
+		case 'pending':
+			subject = `Thanks for volunteering for ${eventDetails.title}`;
+			introHtml =
+				"Thanks for signing up! The host reviews volunteer signups before confirming shifts. We'll notify you once your shift is approved.";
+			introText =
+				"Thanks for signing up! The host reviews volunteer signups before confirming shifts. We'll notify you once your shift is approved.";
+			break;
+		case 'waitlisted':
+			subject = `You're on the waitlist for ${eventDetails.title}`;
+			introHtml =
+				"Thank you for your interest in volunteering! The shift you signed up for is currently full, so we've added you to the waitlist. We'll notify you right away if a spot opens up.";
+			introText =
+				"Thank you for your interest in volunteering! The shift you signed up for is currently full, so we've added you to the waitlist. We'll notify you right away if a spot opens up.";
+			break;
+		case 'declined':
+			subject = `An update on your volunteer application for ${eventDetails.title}`;
+			introHtml =
+				'Thank you for your interest in volunteering for this event. Unfortunately, the host has declined your application for this shift. Sometimes shifts fill up quickly or plans change. We appreciate you offering to help and encourage you to look for other volunteer opportunities.';
+			introText =
+				'Thank you for your interest in volunteering for this event. Unfortunately, the host has declined your application for this shift. Sometimes shifts fill up quickly or plans change. We appreciate you offering to help and encourage you to look for other volunteer opportunities.';
+			break;
+	}
 
 	const shiftHtmlItems = shiftDetails.map((shift) => {
 		const pieces = [
