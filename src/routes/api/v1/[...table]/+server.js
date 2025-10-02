@@ -61,7 +61,11 @@ export async function GET(event) {
 				continue;
 
 			if (key === 'or') {
-				query = query.or(value);
+				let orValue = value;
+				if (orValue.startsWith('(') && orValue.endsWith(')')) {
+					orValue = orValue.substring(1, orValue.length - 1);
+				}
+				query = query.or(orValue);
 				continue;
 			}
 
