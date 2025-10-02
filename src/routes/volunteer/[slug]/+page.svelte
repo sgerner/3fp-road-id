@@ -401,7 +401,8 @@
 			.join('');
 	}
 
-	async function handleQuestionSubmit() {
+	async function handleQuestionSubmit(event) {
+		event.preventDefault();
 		if (!organizerEmail) {
 			questionStatus = {
 				loading: false,
@@ -413,7 +414,7 @@
 
 		const replyTo = (questionForm.replyTo || '').trim();
 		const subject = (questionForm.subject || '').trim();
-		const message = (questionForm.message || '').trim();
+		const message = questionForm.message;
 
 		const nextErrors = {};
 		if (!replyTo || !questionEmailPattern.test(replyTo)) {
@@ -1450,9 +1451,8 @@
 									class="textarea bg-surface-950/40"
 									required
 									rows="3"
-									oninput={(event) => updateQuestionField('message', event.currentTarget.value)}
+									bind:value={questionForm.message}
 								>
-									{questionForm.message}
 								</textarea>
 								{#if questionErrors.message}
 									<span class="text-error-200 text-[11px] tracking-normal normal-case">
