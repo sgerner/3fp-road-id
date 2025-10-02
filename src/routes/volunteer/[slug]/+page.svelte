@@ -14,6 +14,7 @@
 		updateVolunteerSignupResponse,
 		deleteVolunteerSignupResponse
 	} from '$lib/services/volunteers';
+	import { buildVolunteerSignupConfirmationEmail } from '$lib/volunteer/email-templates';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconClock from '@lucide/svelte/icons/clock';
@@ -793,6 +794,59 @@
 		profile = updated ?? { ...current, ...payload };
 	}
 
+	async function sendVolunteerSignupConfirmationEmail({ shifts, opportunity, status, volunteer }) {
+		if (!Array.isArray(shifts) || !shifts.length) return;
+		const volunteerName = volunteer?.name ?? '';
+		const volunteerEmail = volunteer?.email ?? '';
+		if (!volunteerEmail) return;
+
+		let eventUrl = '';
+		let origin = '';
+
+		if ($page?.url) {
+			eventUrl = $page.url.href;
+			origin = $page.url.origin;
+		}
+
+		if ((!eventUrl || !origin) && typeof window !== 'undefined') {
+			eventUrl = eventUrl || window.location.href;
+			origin = origin || window.location.origin;
+		}
+
+		const shiftsUrl = origin ? new URL('/volunteer/shifts', origin).toString() : '';
+
+		const emailPayload = buildVolunteerSignupConfirmationEmail({
+			event,
+			opportunity,
+			shifts,
+			volunteer: { name: volunteerName, email: volunteerEmail },
+			hostGroup,
+			contactEmail,
+			contactPhone,
+			hostEmail: organizerEmail,
+			eventUrl,
+			shiftsUrl,
+			autoApproved: status === 'approved'
+		});
+
+		if (!emailPayload) return;
+
+		try {
+			const response = await fetch('/api/v1/email', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(emailPayload)
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text().catch(() => '');
+				console.error('Failed to send volunteer confirmation email', response.status, errorText);
+			}
+		} catch (emailError) {
+			console.error('Failed to send volunteer confirmation email', emailError);
+		}
+	}
+
 	function signupStatusText(opportunity) {
 		const total = getOpportunitySignupCount(opportunity.id);
 		const max = Number(opportunity.max_volunteers) || null;
@@ -919,6 +973,7 @@
 			const toRemove = existingShiftIds.filter((shiftId) => !selectedShiftIds.includes(shiftId));
 
 			const status = opportunity.requires_approval ? 'pending' : 'approved';
+			const newlyAddedShifts = [];
 
 			for (const shiftId of toAdd) {
 				const response = await createVolunteerSignupShift({
@@ -930,6 +985,8 @@
 				if (created?.id) {
 					signupShifts = [...signupShifts, created];
 					const counts = ensureShiftCountEntry(shiftId);
+					const shiftDetails = findShift(opportunity, shiftId);
+					if (shiftDetails) newlyAddedShifts.push(shiftDetails);
 					if (status === 'approved') {
 						shiftSignupCounts = {
 							...shiftSignupCounts,
@@ -948,6 +1005,15 @@
 						};
 					}
 				}
+			}
+
+			if (newlyAddedShifts.length) {
+				await sendVolunteerSignupConfirmationEmail({
+					shifts: newlyAddedShifts,
+					opportunity,
+					status,
+					volunteer: { name: volunteerName, email: volunteerEmail }
+				});
 			}
 
 			for (const shiftId of toRemove) {
