@@ -344,6 +344,50 @@
 		return flattened;
 	});
 
+	const groupedShiftBlocks = $derived.by(() => {
+		const groups = [];
+		let currentGroup = null;
+
+		const ensureLabel = (value, fallback) => {
+			if (typeof value === 'string' && value.trim().length > 0) {
+				return value.trim();
+			}
+			return fallback;
+		};
+
+		for (const item of individualShifts) {
+			const activityLabel = ensureLabel(item.shiftDetails?.opportunityTitle, 'Unassigned shift');
+			const timeLabel = ensureLabel(
+				item.shiftDetails?.optionLabel ?? item.shiftDetails?.windowLabel,
+				'No shift selected'
+			);
+			const groupKey = `${activityLabel}__${timeLabel}`;
+
+			if (!currentGroup || currentGroup.key !== groupKey) {
+				currentGroup = {
+					key: groupKey,
+					activityLabel,
+					timeLabel,
+					approvedCount: 0,
+					waitlistedCount: 0,
+					items: []
+				};
+				groups.push(currentGroup);
+			}
+
+			currentGroup.items.push(item);
+
+			const status = item.assignment?.status ?? '';
+			if (status === 'waitlisted') {
+				currentGroup.waitlistedCount += 1;
+			} else if (status === 'approved' || status === 'checked_in') {
+				currentGroup.approvedCount += 1;
+			}
+		}
+
+		return groups;
+	});
+
 	function statusClass(status) {
 		switch (status) {
 			case 'approved':
@@ -559,91 +603,123 @@
 			<div class="col-span-1">Actions</div>
 		</div>
 		<!-- Volunteer list -->
-		<div class="space-y-4 md:space-y-0">
-			{#if !individualShifts.length}
+		<div class="space-y-6 md:space-y-0">
+			{#if !groupedShiftBlocks.length}
 				<div class="text-surface-400 px-3 py-6 text-center" transition:slide>
 					No volunteers match the selected filters.
 				</div>
 			{:else}
-				{#each individualShifts as item, i (item.key)}
-					{@const prevItem = individualShifts[i - 1] ?? null}
-					{@const showDivider =
-						prevItem && item.shiftDetails.startsAt !== prevItem.shiftDetails.startsAt}
+				{#each groupedShiftBlocks as group, groupIndex (group.key)}
+					{@const isFirstGroup = groupIndex === 0}
 					<div
-						class:border-t-2={showDivider}
-						class:border-surface-600={showDivider}
-						transition:slide
-						class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-4 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
-						${cardStatusClass(item.assignment.status)}`}
+						class={`space-y-3 md:space-y-0${
+							isFirstGroup ? '' : ' md:border-surface-700/60 md:border-t md:pt-4'
+						}`}
 					>
-						<!-- Volunteer -->
-						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
-								Volunteer
+						<div
+							class="preset-tonal-tertiary flex flex-wrap items-center justify-between gap-3 p-2 text-sm"
+						>
+							<div class="text-surface-100">{group.activityLabel}</div>
+							<div class="font-bold tracking-wide uppercase md:text-sm md:normal-case">
+								{group.timeLabel}
 							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								<span class="font-semibold text-white">{item.volunteer.name}</span>
-								{#if item.hasMultipleShifts}
-									<span
-										class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
-									>
-										Multiple Shifts
+							<div class="text-surface-300 flex flex-wrap gap-4 text-xs tracking-wide uppercase">
+								<span>
+									Approved
+									<span class="font-semibold text-white">
+										{group.approvedCount}
 									</span>
-								{/if}
+								</span>
+								<span>
+									Waitlisted
+									<span class="font-semibold text-white">
+										{group.waitlistedCount}
+									</span>
+								</span>
 							</div>
 						</div>
-
-						<!-- Shift -->
-						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Shift</div>
-							<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
-							<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
-						</div>
-
-						<!-- Status -->
-						<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Status</div>
-							<span
-								class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
-									item.assignment.status
-								)}`}
+						{#each group.items as item (item.key)}
+							<div
+								transition:slide
+								class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-4 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
+                                                                ${cardStatusClass(item.assignment.status)}`}
 							>
-								{item.assignment.status.replace('_', ' ')}
-							</span>
-						</div>
+								<!-- Volunteer -->
+								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+										Volunteer
+									</div>
+									<div class="flex flex-wrap items-center gap-2">
+										<span class="font-semibold text-white">{item.volunteer.name}</span>
+										{#if item.hasMultipleShifts}
+											<span
+												class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
+											>
+												Multiple Shifts
+											</span>
+										{/if}
+									</div>
+								</div>
 
-						<!-- Actions -->
-						<div class="md:col-span-1 md:px-3 md:py-3">
-							<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">Actions</div>
-							{#if item.assignment.id}
-								<div class="flex gap-2">
-									{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
-										<button
-											class="chip preset-filled-primary-500 px-2 py-1 text-xs"
-											onclick={() => onApprove(item.assignment.id)}
-										>
-											Approve
-										</button>
-									{/if}
-									{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
-										<button
-											class="chip preset-outlined-error-500 px-2 py-1 text-xs"
-											onclick={() => onDecline(item.assignment.id)}
-										>
-											Decline
-										</button>
-									{/if}
-									{#if item.assignment.status !== 'waitlisted'}
-										<button
-											class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-											onclick={() => onWaitlist(item.assignment.id)}
-										>
-											Waitlist
-										</button>
+								<!-- Shift -->
+								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+										Shift
+									</div>
+									<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
+									<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
+								</div>
+
+								<!-- Status -->
+								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+										Status
+									</div>
+									<span
+										class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
+											item.assignment.status
+										)}`}
+									>
+										{item.assignment.status.replace('_', ' ')}
+									</span>
+								</div>
+
+								<!-- Actions -->
+								<div class="md:col-span-1 md:px-3 md:py-3">
+									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+										Actions
+									</div>
+									{#if item.assignment.id}
+										<div class="flex gap-2">
+											{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
+												<button
+													class="chip preset-filled-primary-500 px-2 py-1 text-xs"
+													onclick={() => onApprove(item.assignment.id)}
+												>
+													Approve
+												</button>
+											{/if}
+											{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
+												<button
+													class="chip preset-outlined-error-500 px-2 py-1 text-xs"
+													onclick={() => onDecline(item.assignment.id)}
+												>
+													Decline
+												</button>
+											{/if}
+											{#if item.assignment.status !== 'waitlisted'}
+												<button
+													class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
+													onclick={() => onWaitlist(item.assignment.id)}
+												>
+													Waitlist
+												</button>
+											{/if}
+										</div>
 									{/if}
 								</div>
-							{/if}
-						</div>
+							</div>
+						{/each}
 					</div>
 				{/each}
 			{/if}
