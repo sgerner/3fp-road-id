@@ -249,21 +249,26 @@
 		});
 	}
 
-	function normalizeAssignment(row) {
-		if (!row) return null;
-		const id = row?.id ? String(row.id) : null;
-		const signupId = row?.signup_id ?? row?.volunteer_signup_id ?? row?.signupId;
-		const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId ?? null;
-		const status = row?.status || row?.attendance_status || 'pending';
-		const attendanceStatus = status.toLowerCase();
-		const attended =
-			row?.attended === true ||
-			['checked_in', 'present', 'attended', 'complete', 'confirmed'].includes(attendanceStatus);
+        function normalizeAssignmentStatus(status) {
+                if (typeof status !== 'string') return '';
+                return status.toLowerCase().replace(/-/g, '_');
+        }
 
-		const recordedHours = toNumber(
-			row?.hours_recorded ?? row?.hours_logged ?? row?.confirmed_hours ?? row?.hours
-		);
-		return {
+        function normalizeAssignment(row) {
+                if (!row) return null;
+                const id = row?.id ? String(row.id) : null;
+                const signupId = row?.signup_id ?? row?.volunteer_signup_id ?? row?.signupId;
+                const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId ?? null;
+                const status = row?.status || row?.attendance_status || 'pending';
+                const attendanceStatus = normalizeAssignmentStatus(status);
+                const attended =
+                        row?.attended === true ||
+                        ['checked_in', 'present', 'attended', 'complete', 'confirmed'].includes(attendanceStatus);
+
+                const recordedHours = toNumber(
+                        row?.hours_recorded ?? row?.hours_logged ?? row?.confirmed_hours ?? row?.hours
+                );
+                return {
 			id,
 			signupId: signupId ? String(signupId) : null,
 			shiftId: shiftId ? String(shiftId) : null,
@@ -330,29 +335,31 @@
 		return total;
 	}
 
-	function findProfileForSignup(signup) {
-		const userId =
-			signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
-		const profileId = signup?.volunteer_user_id;
+        function findProfileForSignup(signup) {
+                const userId =
+                        signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
+                const profileId = signup?.volunteer_user_id;
 
-		return (
+                return (
 			profileRecords.find((p) => {
 				if (userId && String(p.user_id) === String(userId)) return true;
 				if (profileId && String(p.id) === String(profileId)) return true;
 				return false;
 			}) ?? null
-		);
-	}
+                );
+        }
 
-	function normalizeVolunteer(signup, assignments, responses, profile) {
-		const statuses = assignments.map((a) => a.status);
-		let status = 'pending';
-		if (statuses.includes('approved')) {
-			status = 'approved';
-		} else if (statuses.includes('waitlisted')) {
-			status = 'waitlisted';
-		} else if (statuses.includes('declined')) {
-			status = 'declined';
+        function normalizeVolunteer(signup, assignments, responses, profile) {
+                const statuses = assignments
+                        .map((assignment) => normalizeAssignmentStatus(assignment.status))
+                        .filter(Boolean);
+                let status = 'pending';
+                if (statuses.some((value) => value === 'approved' || value === 'checked_in')) {
+                        status = 'approved';
+                } else if (statuses.includes('waitlisted')) {
+                        status = 'waitlisted';
+                } else if (statuses.includes('declined')) {
+                        status = 'declined';
 		} else if (statuses.includes('cancelled')) {
 			status = 'cancelled';
 		}
@@ -1121,53 +1128,82 @@
 						v.assignments.length === 0 &&
 						v.status === 'waitlisted'
 				);
-				const attending = assigned.filter((v) => v.attended);
+                                const attending = assigned.filter((v) => v.attended);
+                                const pending = volunteers.filter(
+                                        (v) =>
+                                                String(v.signup.opportunity_id) === opportunityId &&
+                                                v.assignments.length === 0 &&
+                                                v.status === 'pending'
+                                ).length;
 
-				return {
-					id: group.id,
-					title: group.title,
-					shifts: [
-						{
-							id: group.id,
-							label: 'All participants',
-							windowLabel: '',
-							capacity: capacity > 0 ? capacity : null,
-							approved: assigned.length,
-							waitlisted: waitlisted.length,
-							attending: attending.length
-						}
-					]
-				};
-			}
+                                return {
+                                        id: group.id,
+                                        title: group.title,
+                                        shifts: [
+                                                {
+                                                        id: group.id,
+                                                        label: 'All participants',
+                                                        windowLabel: '',
+                                                        capacity: capacity > 0 ? capacity : null,
+                                                        approved: assigned.length,
+                                                        waitlisted: waitlisted.length,
+                                                        pending,
+                                                        attending: attending.length
+                                                }
+                                        ]
+                                };
+                        }
 
-			return {
-				id: group.id,
-				title: group.title,
-				shifts: group.shifts.map((shift) => {
-					const assigned = volunteers.filter(
-						(volunteer) =>
-							(volunteer.assignments ?? []).some((a) => a.shiftId === shift.id) &&
-							volunteer.status === 'approved'
-					);
-					const waitlisted = volunteers.filter(
-						(volunteer) =>
-							(volunteer.assignments ?? []).some((a) => a.shiftId === shift.id) &&
-							volunteer.status === 'waitlisted'
-					);
-					const attending = assigned.filter((volunteer) => volunteer.attended);
-					return {
-						id: shift.id,
-						label: shift.optionLabel,
-						windowLabel: shift.windowLabel,
-						capacity: shift.capacity,
-						approved: assigned.length,
-						waitlisted: waitlisted.length,
-						attending: attending.length
-					};
-				})
-			};
-		})
-	);
+                return {
+                        id: group.id,
+                        title: group.title,
+                        shifts: group.shifts.map((shift) => {
+                                const shiftAssignments = volunteers
+                                        .map((volunteer) => {
+                                                const assignmentsForShift = (volunteer.assignments ?? []).filter(
+                                                        (assignment) => assignment.shiftId === shift.id
+                                                );
+                                                if (!assignmentsForShift.length) return null;
+                                                return { volunteer, assignments: assignmentsForShift };
+                                        })
+                                        .filter(Boolean);
+
+                                const totals = shiftAssignments.reduce(
+                                        (accumulator, entry) => {
+                                                const statuses = entry.assignments.map((assignment) =>
+                                                        normalizeAssignmentStatus(assignment.status)
+                                                );
+
+                                                if (entry.assignments.some((assignment) => assignment.attended)) {
+                                                        accumulator.attending += 1;
+                                                }
+
+                                                if (statuses.some((status) => status === 'approved' || status === 'checked_in')) {
+                                                        accumulator.approved += 1;
+                                                } else if (statuses.includes('waitlisted')) {
+                                                        accumulator.waitlisted += 1;
+                                                } else if (statuses.includes('pending')) {
+                                                        accumulator.pending += 1;
+                                                }
+
+                                                return accumulator;
+                                        },
+                                        { approved: 0, waitlisted: 0, pending: 0, attending: 0 }
+                                );
+                                return {
+                                        id: shift.id,
+                                        label: shift.optionLabel,
+                                        windowLabel: shift.windowLabel,
+                                        capacity: shift.capacity,
+                                        approved: totals.approved,
+                                        waitlisted: totals.waitlisted,
+                                        pending: totals.pending,
+                                        attending: totals.attending
+                                };
+                        })
+                };
+        })
+        );
 
 	function normalizeEmailRecord(row) {
 		if (!row) return null;
