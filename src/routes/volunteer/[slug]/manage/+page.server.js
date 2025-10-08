@@ -283,13 +283,7 @@ export const load = async (event) => {
 			.filter((value) => value !== null && value !== undefined);
 
 		const volunteerProfileIds = signups
-			.map(
-				(signup) =>
-					signup?.volunteer_profile_id ??
-					signup?.volunteerProfileId ??
-					signup?.profile_id ??
-					signup?.profileId
-			)
+			.map((signup) => signup?.volunteer_user_id)
 			.filter((value) => value !== null && value !== undefined);
 
 		const uniqueUserIds = [...new Set(volunteerUserIds.map(String))];

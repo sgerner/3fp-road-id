@@ -11,6 +11,7 @@
 		createVolunteerEventEmail,
 		updateVolunteerEventEmail,
 		deleteVolunteerEventEmail,
+		createVolunteerSignup,
 		createVolunteerSignupShift,
 		deleteVolunteerSignupShift,
 		updateVolunteerSignupShift
@@ -332,11 +333,7 @@
 	function findProfileForSignup(signup) {
 		const userId =
 			signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
-		const profileId =
-			signup?.volunteer_profile_id ??
-			signup?.volunteerProfileId ??
-			signup?.profile_id ??
-			signup?.profileId;
+		const profileId = signup?.volunteer_user_id;
 
 		return (
 			profileRecords.find((p) => {
@@ -884,6 +881,21 @@
 			profile = profileRecords.find((p) => profileMatchesEmail(p, normalizedEmail)) ?? null;
 		}
 
+		const hasProfileReference = Boolean(details?.profileId || details?.userId);
+		const profileFromReferenceOnly = !profile && hasProfileReference;
+
+		if (profileFromReferenceOnly) {
+			profile = {
+				id: details?.profileId ?? null,
+				user_id: details?.userId ?? null,
+				email,
+				full_name: name || null,
+				phone: phone || null,
+				emergency_contact_name: emergencyContactName || null,
+				emergency_contact_phone: emergencyContactPhone || null
+			};
+		}
+
 		if (!profile) {
 			try {
 				const response = await fetch('/api/v1/profiles', {
@@ -912,7 +924,7 @@
 					error: error?.message || 'Unable to create volunteer profile.'
 				};
 			}
-		} else if (profile?.id) {
+		} else if (!profileFromReferenceOnly && profile?.id) {
 			const updates = {};
 			if (name && name !== (profile.full_name ?? profile.name ?? '')) {
 				updates.full_name = name;
@@ -963,7 +975,6 @@
 				event_id: event?.id ?? null,
 				opportunity_id: shift?.opportunityId ?? shift?.groupId ?? null,
 				volunteer_user_id: volunteerUserId,
-				volunteer_profile_id: volunteerProfileId,
 				volunteer_name: volunteerName,
 				volunteer_email: email,
 				volunteer_phone: phone || profile?.phone || null,
