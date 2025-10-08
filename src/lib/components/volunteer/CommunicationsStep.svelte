@@ -5,6 +5,18 @@
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconSend from '@lucide/svelte/icons/send';
+	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import { Segment } from '@skeletonlabs/skeleton-svelte';
+	import { tick, onMount } from 'svelte';
+	import {
+		createPreviewContext,
+		renderEmailBody,
+		renderSubject,
+		VOLUNTEER_MERGE_TAGS,
+		getMergeTagExample
+	} from '$lib/volunteer/merge-tags';
+	import { slide } from 'svelte/transition';
 
 	export let showAdvancedCommunications = false;
 	export let customQuestions = [];
@@ -22,10 +34,23 @@
 	export let onRemoveEmail = () => {};
 	export let onUpdateEmail = () => {};
 	export let onComposeEmail = () => {};
+	export let showImmediateEmailOption = false;
+	export let approvedVolunteerCount = 0;
+	export let onSendImmediateEmail = async () => {};
 
 	const OPTION_FIELD_TYPES = new Set(['select', 'multiselect', 'checkbox']);
 
 	const supportsOptionField = (type) => OPTION_FIELD_TYPES.has(type);
+
+	function formatEmailType(type) {
+		if (type === 'thankyou') {
+			return 'Thank You';
+		}
+		if (type) {
+			return type.charAt(0).toUpperCase() + type.slice(1);
+		}
+		return '';
+	}
 
 	function parseOptions(raw) {
 		return (raw || '')
@@ -37,20 +62,33 @@
 	function getEmailTiming(minutes) {
 		const value = Number(minutes);
 		if (!Number.isFinite(value) || value === 0) {
-			return { days: 0, direction: 'before' };
+			return { hours: 0, direction: 'before' };
 		}
 		return {
-			days: Math.abs(value) / 1440,
+			hours: Math.abs(value) / 60,
 			direction: value >= 0 ? 'before' : 'after'
 		};
 	}
 
-	function handleTimingChange(id, { days, direction }) {
-		const parsedDays = Number(days);
-		const numericDays = Number.isFinite(parsedDays) && parsedDays >= 0 ? parsedDays : 0;
+	function handleTimingChange(id, { hours, direction }) {
+		const parsedHours = Number(hours);
+		const numericHours = Number.isFinite(parsedHours) && parsedHours >= 0 ? parsedHours : 0;
 		const safeDirection = direction === 'after' ? 'after' : 'before';
-		const minutes = numericDays * 1440 * (safeDirection === 'before' ? 1 : -1);
+		const minutes = numericHours * 60 * (safeDirection === 'before' ? 1 : -1);
 		onUpdateEmail(id, { sendOffsetMinutes: minutes });
+	}
+
+	function handleConfirmationChange(event, email) {
+		const { checked } = event.currentTarget;
+		let body = email.body || '';
+		if (checked) {
+			body = ensureConfirmationBlock(body);
+		} else {
+			body = removeConfirmationBlock(body);
+		}
+
+		onUpdateEmail(email.id, { requireConfirmation: checked, body });
+		resetSendNowFeedback(email.id);
 	}
 
 	function addOption(question) {
@@ -73,89 +111,306 @@
 		onUpdateQuestion(question.id, { optionsRaw: next.join('\n') });
 	}
 
-	function parseLocalDateTime(value) {
-		if (!value) return null;
-		const [datePart, timePart = '00:00'] = String(value).split('T');
-		if (!datePart) return null;
-		const [year, month, day] = datePart.split('-').map(Number);
-		if (!year || !month || !day) return null;
-		const [hour = 0, minute = 0] = timePart.split(':').map(Number);
-		return new Date(Date.UTC(year, month - 1, day, hour, minute));
+	const previewOrigin =
+		typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+
+	let activeInput = null;
+	let activeEmailId = null;
+	let activeFieldType = null;
+	let immediateEmail = { subject: '', body: '', requireConfirmation: false };
+	let immediateEmailSending = false;
+	let immediateEmailError = '';
+	let immediateEmailSuccess = '';
+	let sendNowFeedback = {};
+	let warnBeforeUnload = false;
+	let openMergePreviews = {};
+	let immediateValuesInitialised = false;
+	let lastImmediateSubject = immediateEmail.subject ?? '';
+	let lastImmediateBody = immediateEmail.body ?? '';
+	const markdownHints = ['**bold**', '_italic_', '`inline code`', '[links](https://example.org)'];
+	const BEFORE_UNLOAD_MESSAGE =
+		'You drafted an immediate email that has not been sent. Are you sure you want to leave?';
+	const CONFIRMATION_TOKEN = '{{shift_confirmation_block}}';
+	const CONFIRMATION_PATTERN = /\s*\{\{shift_confirmation_block\}\}\s*/gi;
+
+	function removeConfirmationBlock(content = '') {
+		return content
+			.replace(CONFIRMATION_PATTERN, '\n\n')
+			.replace(/\n{3,}/g, '\n\n')
+			.trim();
 	}
 
-	function formatDateTime(value, timezone, { dateStyle = 'medium', timeStyle = 'short' } = {}) {
-		const date = parseLocalDateTime(value);
-		if (!date) return 'TBD';
-		try {
-			const options = { timeZone: timezone || eventDetails?.timezone || undefined };
-			if (dateStyle && dateStyle !== 'none') options.dateStyle = dateStyle;
-			if (timeStyle && timeStyle !== 'none') options.timeStyle = timeStyle;
-			if (!options.dateStyle && !options.timeStyle) options.timeStyle = 'short';
-			const formatter = new Intl.DateTimeFormat(undefined, options);
-			return formatter.format(date);
-		} catch {
-			return value || 'TBD';
+	function ensureConfirmationBlock(content = '') {
+		const base = removeConfirmationBlock(content);
+		if (!base) return CONFIRMATION_TOKEN;
+		return `${base}\n\n${CONFIRMATION_TOKEN}`;
+	}
+
+	$: previewContext = createPreviewContext({ eventDetails, opportunities, origin: previewOrigin });
+	$: mergeTagPreviews = VOLUNTEER_MERGE_TAGS.map((tag) => ({
+		...tag,
+		exampleHtml: getMergeTagExample(tag.token, previewContext, 'html'),
+		exampleText: getMergeTagExample(tag.token, previewContext, 'text')
+	}));
+	$: immediateBodyPreview = renderEmailBody(immediateEmail.body ?? '', previewContext);
+	$: immediateSubjectPreview = renderSubject(immediateEmail.subject ?? '', previewContext);
+
+	$: {
+		const nextSubject = immediateEmail.subject ?? '';
+		const nextBody = immediateEmail.body ?? '';
+		if (immediateValuesInitialised) {
+			if (nextSubject !== lastImmediateSubject || nextBody !== lastImmediateBody) {
+				resetImmediateFeedback();
+			}
+		} else {
+			immediateValuesInitialised = true;
+		}
+		lastImmediateSubject = nextSubject;
+		lastImmediateBody = nextBody;
+	}
+
+	function buildBodyPreview(email) {
+		return renderEmailBody(email.body ?? '', previewContext);
+	}
+
+	function buildSubjectPreview(email) {
+		return renderSubject(email.subject ?? '', previewContext);
+	}
+
+	function setActiveEditor(emailId, field, element) {
+		activeEmailId = emailId;
+		activeFieldType = field;
+		activeInput = element;
+	}
+
+	function clearActiveEditor(element) {
+		if (activeInput === element) {
+			activeInput = null;
+			activeEmailId = null;
+			activeFieldType = null;
 		}
 	}
 
-	function formatEventDayTime(details) {
-		if (!details) return 'Schedule coming soon';
-		const start = formatDateTime(details.eventStart, details.timezone, {
-			dateStyle: 'medium',
-			timeStyle: 'short'
-		});
-		const endDate = parseLocalDateTime(details.eventEnd);
-		const startDate = parseLocalDateTime(details.eventStart);
-		const end = endDate
-			? formatDateTime(details.eventEnd, details.timezone, {
-					dateStyle:
-						startDate && endDate && startDate.toDateString() === endDate.toDateString()
-							? undefined
-							: 'medium',
-					timeStyle: 'short'
-				})
-			: null;
-		const tzLabel = details.timezone ? ` (${details.timezone})` : '';
-		if (end && end !== 'TBD') {
-			const sameDay = startDate && endDate && startDate.toDateString() === endDate.toDateString();
-			const endLabel = sameDay
-				? formatDateTime(details.eventEnd, details.timezone, {
-						dateStyle: undefined,
-						timeStyle: 'short'
-					})
-				: end;
-			return `${start} → ${endLabel}${tzLabel}`;
-		}
-		return `${start}${tzLabel}`;
+	function getTimingModeFromMinutes(minutes) {
+		if (!Number.isFinite(minutes)) return 'now';
+		if (minutes === 0) return 'now';
+		return minutes > 0 ? 'before' : 'after';
 	}
 
-	function escapeRegExp(value) {
-		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}
-
-	function resolveActivityTitle() {
-		const firstNamed = opportunities?.find((opp) => opp?.title?.trim());
-		return firstNamed?.title?.trim() || 'Volunteer activity';
-	}
-
-	function buildMergePreview(template) {
-		const replacements = {
-			'{{volunteer_name}}': 'Jordan Volunteer',
-			'{{event_title}}': eventDetails?.title?.trim() || 'Your volunteer event',
-			'{{event_day_time}}': formatEventDayTime(eventDetails) || 'Schedule coming soon',
-			'{{event_location}}':
-				eventDetails?.locationName?.trim() ||
-				eventDetails?.locationAddress?.trim() ||
-				'Location to be announced',
-			'{{event_start}}': formatDateTime(eventDetails?.eventStart, eventDetails?.timezone),
-			'{{activity_title}}': resolveActivityTitle()
+	function setSendNowFeedback(id, patch) {
+		const current = sendNowFeedback[id] ?? {};
+		sendNowFeedback = {
+			...sendNowFeedback,
+			[id]: { ...current, ...patch }
 		};
-		let output = template ?? '';
-		for (const [token, value] of Object.entries(replacements)) {
-			output = output.replace(new RegExp(escapeRegExp(token), 'g'), value);
-		}
-		return output.trim() ? output : '';
 	}
+
+	function resetSendNowFeedback(id) {
+		if (!id || !sendNowFeedback[id]) return;
+		sendNowFeedback = {
+			...sendNowFeedback,
+			[id]: { sending: false, error: '', success: '' }
+		};
+	}
+
+	async function handleSendScheduledNow(email) {
+		const key = email?.id ?? '';
+		if (!key) return;
+		setSendNowFeedback(key, { sending: true, error: '', success: '' });
+
+		try {
+			if (!approvedVolunteerCount) {
+				throw new Error('No approved volunteers are ready to email yet.');
+			}
+			if (!email.subject?.trim()) {
+				throw new Error('Subject is required before sending.');
+			}
+			let bodyToSend = email.body ?? '';
+			if (email.requireConfirmation) {
+				bodyToSend = ensureConfirmationBlock(bodyToSend);
+				if (bodyToSend !== (email.body ?? '')) {
+					onUpdateEmail(email.id, { body: bodyToSend });
+				}
+			}
+			if (!bodyToSend.trim()) {
+				throw new Error('Body is required before sending.');
+			}
+
+			const result = await onSendImmediateEmail({
+				subject: email.subject,
+				body: bodyToSend,
+				requireConfirmation: email.requireConfirmation
+			});
+			const sentCount = result?.sentCount ?? approvedVolunteerCount;
+			setSendNowFeedback(key, {
+				success: `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
+			});
+		} catch (error) {
+			setSendNowFeedback(key, {
+				error: error?.message || 'Unable to send the volunteer email right now.'
+			});
+		} finally {
+			setSendNowFeedback(key, { sending: false });
+		}
+	}
+
+	async function handleEmailInput(event, email, field) {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+		let { selectionStart, selectionEnd, value } = target;
+		if (field === 'subject') {
+			onUpdateEmail(email.id, { subject: value });
+			resetSendNowFeedback(email.id);
+		} else if (field === 'body') {
+			if (email.requireConfirmation) {
+				value = ensureConfirmationBlock(value);
+			}
+			onUpdateEmail(email.id, { body: value });
+			resetSendNowFeedback(email.id);
+		}
+		await tick();
+		if (document.activeElement === target && selectionStart !== null && selectionEnd !== null) {
+			try {
+				target.setSelectionRange(selectionStart, selectionEnd);
+			} catch (error) {
+				console.warn('Unable to restore cursor', error);
+			}
+		}
+	}
+
+	async function insertMergeTag(token) {
+		if (!token || !activeInput) return;
+		const target = activeInput;
+		const start = target.selectionStart ?? target.value.length;
+		const end = target.selectionEnd ?? start;
+		const nextValue = `${target.value.slice(0, start)}${token}${target.value.slice(end)}`;
+		target.value = nextValue;
+
+		if (activeFieldType === 'subject') {
+			onUpdateEmail(activeEmailId, { subject: nextValue });
+		} else if (activeFieldType === 'body') {
+			onUpdateEmail(activeEmailId, { body: nextValue });
+		} else if (activeFieldType === 'immediate-subject') {
+			resetImmediateFeedback();
+			immediateEmail = { ...immediateEmail, subject: nextValue };
+		} else if (activeFieldType === 'immediate-body') {
+			resetImmediateFeedback();
+			immediateEmail = { ...immediateEmail, body: nextValue };
+		}
+
+		const cursor = start + token.length;
+		await tick();
+		try {
+			target.setSelectionRange(cursor, cursor);
+			target.focus();
+		} catch (error) {
+			console.warn('Unable to set cursor after merge tag insert', error);
+		}
+	}
+
+	async function handleSendImmediateEmail() {
+		immediateEmailError = '';
+		immediateEmailSuccess = '';
+		if (!immediateEmail.subject?.trim()) {
+			immediateEmailError = 'Subject is required before sending.';
+			return;
+		}
+		if (!immediateEmail.body?.trim()) {
+			immediateEmailError = 'Body is required before sending.';
+			return;
+		}
+		if (!approvedVolunteerCount) {
+			immediateEmailError = 'No approved volunteers are ready to email yet.';
+			return;
+		}
+		immediateEmailSending = true;
+		try {
+			const result = await onSendImmediateEmail({ ...immediateEmail });
+			const sentCount = result?.sentCount ?? approvedVolunteerCount;
+			immediateEmailSuccess = `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`;
+		} catch (error) {
+			immediateEmailError = error?.message || 'Unable to send the volunteer email right now.';
+		} finally {
+			immediateEmailSending = false;
+		}
+	}
+
+	function resetImmediateFeedback() {
+		immediateEmailError = '';
+		immediateEmailSuccess = '';
+	}
+
+	function insertBodyTag(emailId, token, immediate = false) {
+		if (typeof document === 'undefined') return;
+		const elementId = immediate ? 'immediate-email-body' : `email-body-${emailId}`;
+		const element = document.getElementById(elementId);
+		if (!(element instanceof HTMLTextAreaElement)) return;
+		const hadFocus = document.activeElement === element;
+		setActiveEditor(
+			immediate ? 'immediate' : emailId,
+			immediate ? 'immediate-body' : 'body',
+			element
+		);
+		element.focus();
+		if (!hadFocus) {
+			const cursor = element.value.length;
+			try {
+				element.setSelectionRange(cursor, cursor);
+			} catch (error) {
+				console.warn('Unable to set cursor for merge tag insert', error);
+			}
+		}
+		insertMergeTag(token);
+	}
+
+	function getMergePreviewKey(scope, token) {
+		return `${scope ?? 'global'}:${token}`;
+	}
+	function toggleMergePreview(scope, token) {
+		if (!token) return;
+		const key = getMergePreviewKey(scope, token);
+		openMergePreviews[key] = !openMergePreviews[key];
+		openMergePreviews = openMergePreviews;
+	}
+	function isMergePreviewOpen(scope, token) {
+		return !!openMergePreviews[getMergePreviewKey(scope, token)];
+	}
+
+	$: {
+		if (Array.isArray(eventEmails)) {
+			for (const email of eventEmails) {
+				if (!email?.id) continue;
+				if (email.emailType !== 'reminder') continue;
+				if (!email.requireConfirmation) continue;
+				if (email.body?.includes(CONFIRMATION_TOKEN)) continue;
+				onUpdateEmail(email.id, { body: ensureConfirmationBlock(email.body ?? '') });
+			}
+		}
+	}
+
+	$: immediateDraftDirty =
+		showImmediateEmailOption &&
+		!immediateEmailSending &&
+		!immediateEmailSuccess &&
+		((immediateEmail.subject ?? '').trim() || (immediateEmail.body ?? '').trim());
+	$: warnBeforeUnload = immediateDraftDirty;
+
+	onMount(() => {
+		const handleBeforeUnload = (event) => {
+			if (!warnBeforeUnload) return;
+			event.preventDefault();
+			event.returnValue = BEFORE_UNLOAD_MESSAGE;
+			return BEFORE_UNLOAD_MESSAGE;
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('beforeunload', handleBeforeUnload);
+		}
+		return () => {
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('beforeunload', handleBeforeUnload);
+			}
+		};
+	});
 </script>
 
 <div class="space-y-6">
@@ -172,7 +427,7 @@
 		<button
 			type="button"
 			class="text-primary-300 inline-flex items-center gap-2 text-sm font-semibold"
-			onclick={onToggleAdvanced}
+			on:click={onToggleAdvanced}
 		>
 			{#if showAdvancedCommunications}
 				<IconChevronUp class="h-4 w-4" />
@@ -197,7 +452,7 @@
 									<button
 										type="button"
 										class="btn preset-tonal-error flex items-center gap-2"
-										onclick={() => onRemoveQuestion(question.id)}
+										on:click={() => onRemoveQuestion(question.id)}
 									>
 										<IconTrash class="h-4 w-4" />
 										<span>Remove</span>
@@ -210,7 +465,7 @@
 										<input
 											class="input bg-surface-900/60"
 											value={question.label}
-											oninput={(e) =>
+											on:input={(e) =>
 												onUpdateQuestion(question.id, { label: e.currentTarget.value })}
 										/>
 									</label>
@@ -219,7 +474,7 @@
 										<select
 											class="select bg-surface-900/60"
 											value={question.fieldType}
-											onchange={(e) =>
+											on:change={(e) =>
 												onUpdateQuestion(question.id, { fieldType: e.currentTarget.value })}
 										>
 											{#each fieldTypeOptions as option (option)}
@@ -234,7 +489,7 @@
 												id={`question-required-${question.id}`}
 												type="checkbox"
 												checked={question.isRequired}
-												onchange={(e) =>
+												on:change={(e) =>
 													onUpdateQuestion(question.id, { isRequired: e.currentTarget.checked })}
 											/>
 											<span>Volunteers must answer</span>
@@ -245,7 +500,7 @@
 										<textarea
 											class="textarea bg-surface-900/60 min-h-20"
 											value={question.helpText}
-											oninput={(e) =>
+											on:input={(e) =>
 												onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
 											placeholder="Give volunteers context, links, or clarifications."
 										></textarea>
@@ -258,10 +513,10 @@
 													<input
 														class="input bg-surface-900/60 md:flex-1"
 														value={question.optionDraft}
-														oninput={(e) =>
+														on:input={(e) =>
 															onUpdateQuestion(question.id, { optionDraft: e.currentTarget.value })}
 														placeholder="Add a choice"
-														onkeydown={(event) => {
+														on:keydown={(event) => {
 															if (event.key === 'Enter') {
 																event.preventDefault();
 																addOption(question);
@@ -271,7 +526,7 @@
 													<button
 														type="button"
 														class="btn preset-filled-primary-500 flex items-center gap-2 md:w-auto"
-														onclick={() => addOption(question)}
+														on:click={() => addOption(question)}
 														disabled={!question.optionDraft?.trim()}
 													>
 														<IconPlus class="h-4 w-4" />
@@ -289,7 +544,7 @@
 															<button
 																type="button"
 																class="text-error-300 hover:text-error-200 text-xs"
-																onclick={() => removeOption(question, option)}
+																on:click={() => removeOption(question, option)}
 															>
 																Remove
 															</button>
@@ -308,7 +563,7 @@
 										<select
 											class="select bg-surface-900/60"
 											value={question.opportunityId}
-											onchange={(e) =>
+											on:change={(e) =>
 												onUpdateQuestion(question.id, { opportunityId: e.currentTarget.value })}
 										>
 											<option value="">Applies to all signups</option>
@@ -323,7 +578,7 @@
 
 						<button
 							type="button"
-							onclick={onAddQuestion}
+							on:click={onAddQuestion}
 							class="btn preset-filled-primary-500 flex items-center gap-2"
 						>
 							<IconPlus class="h-4 w-4" />
@@ -334,16 +589,258 @@
 
 				<section class="space-y-4">
 					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
-						Automated emails
+						Volunteer emails & updates
 					</h4>
+
+					{#if showImmediateEmailOption}
+						<div class="card border-primary-500/20 bg-surface-900/70 space-y-4 border p-4">
+							<div class="flex flex-wrap items-start justify-between gap-3">
+								<div class="space-y-1">
+									<div class="flex items-center gap-2">
+										<IconSend class="text-primary-300 h-4 w-4" />
+										<h3 class="text-surface-100 text-base font-semibold">
+											Send an update to approved volunteers
+										</h3>
+									</div>
+									<p class="text-surface-400 text-sm">
+										This message sends immediately to everyone already approved.
+									</p>
+								</div>
+								<div class="flex flex-col items-end gap-2 text-xs md:items-start md:text-left">
+									<span
+										class="bg-surface-950/60 text-surface-300 border-surface-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold tracking-wide uppercase"
+									>
+										Approved: {approvedVolunteerCount}
+									</span>
+									<span class="text-surface-400 flex items-center gap-2">
+										<span
+											class="border-primary-500/30 bg-primary-500/10 text-primary-200 rounded-full border px-2 py-0.5 font-semibold tracking-wide uppercase"
+										>
+											Send timing: Now
+										</span>
+									</span>
+								</div>
+							</div>
+
+							{#if !approvedVolunteerCount}
+								<div
+									class="border-warning-500/40 bg-warning-500/10 text-warning-200 flex items-start gap-3 rounded-md border p-3 text-xs"
+								>
+									<IconAlertCircle class="mt-0.5 h-4 w-4 flex-shrink-0" />
+									<p>
+										No volunteers are approved yet. Approve at least one volunteer to enable
+										sending.
+									</p>
+								</div>
+							{/if}
+
+							<div class="grid gap-4 md:grid-cols-2">
+								<label class="label flex flex-col gap-2">
+									<span>Subject *</span>
+									<input
+										id="immediate-email-subject"
+										class="input bg-surface-950/60"
+										bind:value={immediateEmail.subject}
+										on:focus={(event) =>
+											setActiveEditor('immediate', 'immediate-subject', event.currentTarget)}
+										on:blur={(event) => clearActiveEditor(event.currentTarget)}
+										on:keydown={resetImmediateFeedback}
+										placeholder="Urgent update for {eventDetails.title}"
+										disabled={immediateEmailSending}
+									/>
+									<div
+										class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+									>
+										<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+											Subject preview
+										</strong>
+										<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap !normal-case">
+											{immediateSubjectPreview ||
+												'Merge tags render here so you can double-check personalisation.'}
+										</p>
+									</div>
+								</label>
+								<div
+									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+								>
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+										Markdown & merge tips
+									</strong>
+									<p class="text-surface-400 mt-1">
+										Markdown supported: {#each markdownHints as hint, idx}
+											<code>{hint}</code>{idx < markdownHints.length - 1 ? ', ' : ''}
+										{/each}
+										. Use the merge tag chips below the body field to personalise content.
+									</p>
+								</div>
+							</div>
+
+							<label class="label flex flex-col gap-2">
+								<span>Body *</span>
+								<textarea
+									id="immediate-email-body"
+									class="textarea bg-surface-950/60 min-h-32"
+									bind:value={immediateEmail.body}
+									on:focus={(event) =>
+										setActiveEditor('immediate', 'immediate-body', event.currentTarget)}
+									on:blur={(event) => clearActiveEditor(event.currentTarget)}
+									on:keydown={resetImmediateFeedback}
+									placeholder="Share meetup adjustments, last-minute needs, or celebration notes."
+									disabled={immediateEmailSending}
+								></textarea>
+								<div
+									class="border-surface-700/60 bg-surface-950/50 text-surface-300 space-y-2 rounded-md border p-3 text-xs"
+								>
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+										Body preview
+									</strong>
+									{#if immediateBodyPreview?.html}
+										<div
+											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+											id="immediate-email-preview"
+										>
+											{@html immediateBodyPreview.html}
+										</div>
+									{:else}
+										<p class="text-surface-400 !normal-case">
+											Use merge tags like &#123;&#123;event_details_block&#125;&#125; or
+											&#123;&#123;volunteer_portal_block&#125;&#125; to add formatted context.
+										</p>
+									{/if}
+								</div>
+								{#if mergeTagPreviews.length}
+									<div class="space-y-2">
+										<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+											Merge tags
+										</strong>
+										<div class="flex flex-wrap gap-2">
+											{#each mergeTagPreviews as tag (tag.token)}
+												<div class="space-y-1">
+													<div class="flex items-center gap-1">
+														<button
+															type="button"
+															class="bg-surface-950/70 text-surface-200 hover:border-primary-400/60 border-surface-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+															on:click={() => insertBodyTag('immediate', tag.token, true)}
+														>
+															{tag.label}
+														</button>
+														<button
+															type="button"
+															class="text-surface-400 hover:text-surface-200 rounded-full p-1"
+															aria-label={`Toggle preview for ${tag.label}`}
+															aria-expanded={!!openMergePreviews[
+																getMergePreviewKey('immediate', tag.token)
+															]}
+															on:click={() => toggleMergePreview('immediate', tag.token)}
+														>
+															{#if !!openMergePreviews[getMergePreviewKey('immediate', tag.token)]}
+																<IconChevronUp class="h-4 w-4" />
+															{:else}
+																<IconChevronDown class="h-4 w-4" />
+															{/if}
+														</button>
+													</div>
+													{#if !!openMergePreviews[getMergePreviewKey('immediate', tag.token)]}
+														<div
+															class="border-surface-700/60 bg-surface-950/70 text-surface-200 space-y-2 rounded-md border p-3 text-xs"
+														>
+															<div class="flex items-center justify-between gap-2">
+																<code class="text-primary-200 text-xs">{tag.token}</code>
+															</div>
+
+															{#if tag.block && tag.exampleHtml}
+																<div
+																	class="pointer-events-none space-y-2 !normal-case"
+																	aria-hidden="true"
+																>
+																	{@html tag.exampleHtml}
+																</div>
+																{#if tag.exampleText}
+																	<p class="text-surface-100 text-[11px] !normal-case">
+																		Plain text preview: {tag.exampleText}
+																	</p>
+																{/if}
+															{:else if tag.exampleHtml}
+																<div class="pointer-events-none" aria-hidden="true">
+																	{@html tag.exampleHtml}
+																</div>
+															{:else if tag.exampleText}
+																<p class="text-surface-200">{tag.exampleText}</p>
+															{:else}
+																<p class="text-surface-500">Preview coming soon.</p>
+															{/if}
+														</div>
+													{/if}
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							</label>
+
+							{#if immediateEmailError}
+								<p class="text-error-300 text-xs">{immediateEmailError}</p>
+							{/if}
+							{#if immediateEmailSuccess}
+								<p class="text-success-300 text-xs">{immediateEmailSuccess}</p>
+							{/if}
+
+							<div class="flex flex-wrap items-center justify-between gap-3">
+								<button
+									type="button"
+									class="btn preset-filled-primary-500 flex items-center gap-2"
+									on:click={handleSendImmediateEmail}
+									disabled={immediateEmailSending || !approvedVolunteerCount}
+								>
+									{#if immediateEmailSending}
+										<IconLoader class="h-4 w-4 animate-spin" />
+										<span>Sending…</span>
+									{:else}
+										<IconSend class="h-4 w-4" />
+										<span>Send email now</span>
+									{/if}
+								</button>
+								<button
+									type="button"
+									class="btn preset-tonal-surface text-xs"
+									on:click={() => {
+										immediateEmail = { subject: '', body: '', requireConfirmation: false };
+										resetImmediateFeedback();
+									}}
+									disabled={immediateEmailSending}
+								>
+									Clear draft
+								</button>
+							</div>
+						</div>
+					{/if}
+
 					{#each eventEmails as email, idx (email.id)}
+						{@const subjectPreview = buildSubjectPreview(email)}
+						{@const bodyPreview = buildBodyPreview(email)}
+						{@const timingMode = getTimingModeFromMinutes(email.sendOffsetMinutes)}
+						{@const feedback = sendNowFeedback[email.id] ?? {
+							sending: false,
+							error: '',
+							success: ''
+						}}
 						<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
-							<div class="flex items-center justify-between">
-								<h3 class="font-semibold">Email {idx + 1}</h3>
+							<div class="flex flex-wrap items-center justify-between gap-3">
+								<h3 class="font-bold">
+									{formatEmailType(email.emailType)}
+									<span class="text-tertiary-500 ml-2 text-sm italic"
+										>{#if timingMode === 'now'}
+											Now
+										{:else}
+											{getEmailTiming(email.sendOffsetMinutes).hours} hrs
+											{getEmailTiming(email.sendOffsetMinutes).direction}
+										{/if}
+									</span>
+								</h3>
 								<button
 									type="button"
 									class="btn preset-tonal-error flex items-center gap-2"
-									onclick={() => onRemoveEmail(email.id)}
+									on:click={() => onRemoveEmail(email.id)}
 								>
 									<IconTrash class="h-4 w-4" />
 									<span>Remove</span>
@@ -351,12 +848,33 @@
 							</div>
 
 							<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+								<div class="flex flex-col gap-2">
+									<span class="label">Email type</span>
+									<Segment
+										name={`email-type-${email.id}`}
+										value={email.emailType}
+										onValueChange={(e) => {
+											if (e.value) {
+												const patch = { emailType: e.value };
+												if (e.value !== 'reminder' && email.requireConfirmation) {
+													patch.requireConfirmation = false;
+													patch.body = removeConfirmationBlock(email.body ?? '');
+												}
+												onUpdateEmail(email.id, patch);
+												resetSendNowFeedback(email.id);
+											}
+										}}
+										class="w-full"
+									>
+										{#each emailTypeOptions as option (option)}
+											<Segment.Item value={option}>{formatEmailType(option)}</Segment.Item>
+										{/each}
+									</Segment>
+								</div>
 								<button
 									type="button"
-									class={`btn flex items-center gap-2 ${
-										email.aiComposerOpen ? 'preset-tonal-secondary-500' : 'preset-tonal-primary'
-									}`}
-									onclick={() =>
+									class={`btn flex items-center gap-2 ${email.aiComposerOpen ? 'preset-outlined-error-500' : 'preset-tonal-primary'}`}
+									on:click={() =>
 										onUpdateEmail(email.id, { aiComposerOpen: !email.aiComposerOpen, aiError: '' })}
 									disabled={email.aiLoading}
 								>
@@ -368,6 +886,7 @@
 							{#if email.aiComposerOpen}
 								<div
 									class="border-primary-400/30 bg-primary-400/10 mt-4 space-y-3 rounded border p-4"
+									transition:slide
 								>
 									<label class="label text-sm font-semibold" for={`email-ai-prompt-${email.id}`}>
 										Describe the message
@@ -376,7 +895,7 @@
 										id={`email-ai-prompt-${email.id}`}
 										class="textarea bg-surface-950/80 min-h-20"
 										value={email.aiPrompt}
-										oninput={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
+										on:input={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
 										placeholder="Share the tone, reminders, or updates you'd like this email to cover."
 										disabled={email.aiLoading}
 									></textarea>
@@ -384,7 +903,7 @@
 										<button
 											type="button"
 											class="btn preset-filled-secondary-500 flex items-center gap-2"
-											onclick={() => onComposeEmail(email.id)}
+											on:click={() => onComposeEmail(email.id)}
 											disabled={!email.aiPrompt?.trim() || email.aiLoading}
 										>
 											{#if email.aiLoading}
@@ -398,7 +917,7 @@
 										<button
 											type="button"
 											class="btn preset-tonal-surface flex items-center gap-2"
-											onclick={() =>
+											on:click={() =>
 												onUpdateEmail(email.id, { aiComposerOpen: false, aiError: '' })}
 											disabled={email.aiLoading}
 										>
@@ -409,104 +928,119 @@
 										<p class="text-error-300 text-xs">{email.aiError}</p>
 									{/if}
 									<p class="text-surface-400 text-xs">
-										Merge tags available: <code>&#123;&#123;volunteer_name&#125;&#125;</code>,
-										<code>&#123;&#123;event_day_time&#125;&#125;</code>,
-										<code>&#123;&#123;event_location&#125;&#125;</code>,
-										<code>&#123;&#123;event_title&#125;&#125;</code>, and
-										<code>&#123;&#123;activity_title&#125;&#125;</code>.
+										Focus a field and use the merge tag chips below to add blocks like
+										<code>&#123;&#123;event_details_block&#125;&#125;</code> or
+										<code>&#123;&#123;shift_details_block&#125;&#125;</code>.
 									</p>
 								</div>
 							{/if}
 
 							<div class="mt-4 grid gap-4 md:grid-cols-2">
 								<label class="label flex flex-col gap-2">
-									<span>Email type</span>
-									<select
-										class="select bg-surface-900/60"
-										value={email.emailType}
-										onchange={(e) => onUpdateEmail(email.id, { emailType: e.currentTarget.value })}
-									>
-										{#each emailTypeOptions as option (option)}
-											<option value={option}>{option}</option>
-										{/each}
-									</select>
-								</label>
-								<label class="label flex flex-col gap-2">
 									<span>Send timing</span>
-									<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-										<input
-											type="number"
-											min="0"
-											step="0.5"
-											class="input bg-surface-900/60 md:w-28"
-											value={getEmailTiming(email.sendOffsetMinutes).days}
-											oninput={(e) => {
-												const currentTiming = getEmailTiming(email.sendOffsetMinutes);
-												handleTimingChange(email.id, {
-													days: e.currentTarget.value,
-													direction: currentTiming.direction
-												});
-											}}
-										/>
+									<div class="flex flex-col gap-2">
 										<select
-											class="select bg-surface-900/60 md:w-56"
-											value={getEmailTiming(email.sendOffsetMinutes).direction}
-											onchange={(e) => {
-												handleTimingChange(email.id, {
-													days: getEmailTiming(email.sendOffsetMinutes).days,
-													direction: e.currentTarget.value
-												});
+											class="select bg-surface-900/60 md:w-48"
+											value={timingMode}
+											on:change={(e) => {
+												resetSendNowFeedback(email.id);
+												const mode = e.currentTarget.value;
+												if (mode === 'now') {
+													handleTimingChange(email.id, { hours: 0, direction: 'before' });
+												} else {
+													const direction = mode === 'after' ? 'after' : 'before';
+													const currentTiming = getEmailTiming(email.sendOffsetMinutes);
+													const nextHours =
+														currentTiming.direction === direction ? currentTiming.hours : 12;
+													handleTimingChange(email.id, {
+														hours: nextHours,
+														direction
+													});
+												}
 											}}
 										>
-											<option value="before">days before event</option>
-											<option value="after">days after event</option>
+											<option value="now">Now (manual send)</option>
+											<option value="before">Hours before the event</option>
+											<option value="after">Hours after the event</option>
 										</select>
+										{#if timingMode !== 'now'}
+											<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+												<input
+													type="number"
+													min="0"
+													step="1"
+													class="input bg-surface-900/60 md:w-28"
+													value={getEmailTiming(email.sendOffsetMinutes).hours}
+													on:input={(e) => {
+														handleTimingChange(email.id, {
+															hours: e.currentTarget.value,
+															direction: getEmailTiming(email.sendOffsetMinutes).direction
+														});
+													}}
+												/>
+												<select
+													class="select bg-surface-900/60"
+													value={getEmailTiming(email.sendOffsetMinutes).direction}
+													on:change={(e) => {
+														handleTimingChange(email.id, {
+															hours: getEmailTiming(email.sendOffsetMinutes).hours,
+															direction: e.currentTarget.value
+														});
+													}}
+												>
+													<option value="before">hours before</option>
+													<option value="after">hours after</option>
+												</select>
+											</div>
+											<p class="text-surface-500 text-xs">
+												This email sends automatically relative to the event start.
+											</p>
+										{:else}
+											<p class="text-surface-400 text-xs">
+												This email is scheduled for the event start. Click “Send email now” to send
+												an immediate copy as well.
+											</p>
+										{/if}
 									</div>
-									<p class="text-surface-500 text-xs">We convert this to minutes automatically.</p>
 								</label>
-								<div class="flex flex-col gap-2">
-									<label class="label" for={`email-confirm-${email.id}`}
-										>Require confirmation?</label
-									>
-									<label class="flex items-center gap-3 text-sm">
-										<input
-											id={`email-confirm-${email.id}`}
-											type="checkbox"
-											checked={email.requireConfirmation}
-											onchange={(e) =>
-												onUpdateEmail(email.id, { requireConfirmation: e.currentTarget.checked })}
-										/>
-										<span>Require volunteers to confirm attendance</span>
-									</label>
-								</div>
-								<label class="label flex flex-col gap-2">
-									<span>Survey or follow-up link</span>
-									<input
-										class="input bg-surface-900/60"
-										value={email.surveyUrl}
-										oninput={(e) => onUpdateEmail(email.id, { surveyUrl: e.currentTarget.value })}
-										placeholder="Optional form or thank-you link"
-									/>
-								</label>
+								{#if email.emailType === 'reminder'}
+									<div class="flex flex-col gap-2">
+										<label class="label" for={`email-confirm-${email.id}`}
+											>Require confirmation?</label
+										>
+										<label class="flex items-center gap-3 text-sm">
+											<input
+												id={`email-confirm-${email.id}`}
+												type="checkbox"
+												checked={email.requireConfirmation}
+												on:change={(e) => handleConfirmationChange(e, email)}
+											/>
+											<span>Require volunteers to confirm attendance</span>
+										</label>
+									</div>
+								{/if}
 							</div>
 
 							<label class="label flex flex-col gap-2">
 								<span>Subject *</span>
 								<input
+									id={`email-subject-${email.id}`}
 									class="input bg-surface-900/60"
 									value={email.subject}
-									oninput={(e) => onUpdateEmail(email.id, { subject: e.currentTarget.value })}
-									placeholder="Reminder: Your volunteer shift starts in 48 hours"
+									on:focus={(event) => setActiveEditor(email.id, 'subject', event.currentTarget)}
+									on:blur={(event) => clearActiveEditor(event.currentTarget)}
+									on:input={(event) => handleEmailInput(event, email, 'subject')}
+									placeholder="Reminder: {eventDetails.title} starts soon"
 								/>
 								<div
 									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
 								>
-									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase"
-										>Subject preview</strong
-									>
-									<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap">
-										{buildMergePreview(email.subject) ||
-											'Merge tags such as {{volunteer_name}} will render here exactly as written.'}
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+										Subject preview
+									</strong>
+									<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap !normal-case">
+										{subjectPreview ||
+											'Merge tags render here so you can double-check personalisation.'}
 									</p>
 								</div>
 							</label>
@@ -514,42 +1048,143 @@
 							<label class="label flex flex-col gap-2">
 								<span>Body *</span>
 								<textarea
+									id={`email-body-${email.id}`}
 									class="textarea bg-surface-900/60 min-h-32"
 									value={email.body}
-									oninput={(e) => onUpdateEmail(email.id, { body: e.currentTarget.value })}
+									on:focus={(event) => setActiveEditor(email.id, 'body', event.currentTarget)}
+									on:blur={(event) => clearActiveEditor(event.currentTarget)}
+									on:input={(event) => handleEmailInput(event, email, 'body')}
 									placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
 								></textarea>
 								<div
-									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-3 text-xs"
+									class="border-surface-700/60 bg-surface-950/50 text-surface-300 space-y-2 rounded-md border p-3 text-xs"
 								>
-									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase"
-										>Body preview</strong
-									>
-									<p class="text-surface-200 mt-2 break-words whitespace-pre-wrap">
-										{buildMergePreview(email.body) ||
-											'Use merge tags like {{event_day_time}} and {{activity_title}}. They appear exactly where you place them.'}
-									</p>
+									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+										Body preview
+									</strong>
+									{#if bodyPreview?.html}
+										<div
+											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+											id={`email-preview-${email.id}`}
+										>
+											{@html bodyPreview.html}
+										</div>
+									{:else}
+										<p class="text-surface-400">
+											Use the merge tag chips below to add event, shift, and confirmation blocks.
+											Markdown like
+											<code>**bold**</code> or <code>[links](https://example.org)</code> is supported.
+										</p>
+									{/if}
+									{#if mergeTagPreviews.length}
+										<div class="space-y-2">
+											<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+												Merge tags
+											</strong>
+											<div class="flex flex-wrap gap-2">
+												{#each mergeTagPreviews as tag (tag.token)}
+													<div class="space-y-1">
+														<div class="flex items-center gap-1">
+															<button
+																type="button"
+																class="bg-surface-900/70 text-surface-200 hover:border-primary-400/60 border-surface-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+																on:click={() => insertBodyTag(email.id, tag.token)}
+															>
+																{tag.label}
+															</button>
+															<button
+																type="button"
+																class="text-surface-400 hover:text-surface-200 rounded-full p-1"
+																aria-label={`Toggle preview for ${tag.label}`}
+																aria-expanded={!!openMergePreviews[
+																	getMergePreviewKey(`email-${email.id}`, tag.token)
+																]}
+																on:click={() => toggleMergePreview(`email-${email.id}`, tag.token)}
+															>
+																{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
+																	<IconChevronUp class="h-4 w-4" />
+																{:else}
+																	<IconChevronDown class="h-4 w-4" />
+																{/if}
+															</button>
+														</div>
+														{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
+															<div
+																class="border-surface-700/60 bg-surface-900/70 text-surface-200 space-y-2 rounded-md border p-3 text-xs"
+															>
+																<div class="flex items-center justify-between gap-2">
+																	<code class="text-primary-200 text-xs">{tag.token}</code>
+																</div>
+
+																{#if tag.block && tag.exampleHtml}
+																	<div
+																		class="pointer-events-none space-y-2 !normal-case"
+																		aria-hidden="true"
+																	>
+																		{@html tag.exampleHtml}
+																	</div>
+																	{#if tag.exampleText}
+																		<p class="text-surface-100 text-[11px] !normal-case">
+																			Plain text preview: {tag.exampleText}
+																		</p>
+																	{/if}
+																{:else if tag.exampleHtml}
+																	<div class="pointer-events-none !normal-case" aria-hidden="true">
+																		{@html tag.exampleHtml}
+																	</div>
+																{:else if tag.exampleText}
+																	<p class="text-surface-200">{tag.exampleText}</p>
+																{:else}
+																	<p class="text-surface-500">Preview coming soon.</p>
+																{/if}
+															</div>
+														{/if}
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/if}
 								</div>
 							</label>
+
+							{#if timingMode === 'now'}
+								<div class="mt-4 space-y-2">
+									<button
+										type="button"
+										class="btn preset-filled-primary-500 flex items-center gap-2"
+										on:click={() => handleSendScheduledNow(email)}
+										disabled={feedback.sending || !approvedVolunteerCount}
+									>
+										{#if feedback.sending}
+											<IconLoader class="h-4 w-4 animate-spin" />
+											<span>Sending…</span>
+										{:else}
+											<IconSend class="h-4 w-4" />
+											<span>Send email now</span>
+										{/if}
+									</button>
+									{#if !approvedVolunteerCount}
+										<p class="text-warning-300 text-xs">No approved volunteers are ready yet.</p>
+									{/if}
+									{#if feedback.error}
+										<p class="text-error-300 text-xs">{feedback.error}</p>
+									{/if}
+									{#if feedback.success}
+										<p class="text-success-300 text-xs">{feedback.success}</p>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					{/each}
 
 					<button
 						type="button"
-						onclick={onAddEmail}
+						on:click={onAddEmail}
 						class="btn preset-filled-primary-500 flex items-center gap-2"
 					>
 						<IconPlus class="h-4 w-4" />
-						<span>Add email</span>
+						<span>Add Scheduled Email</span>
 					</button>
-					<p class="text-surface-500 text-xs">
-						Tip: use <code>&#123;&#123;volunteer_name&#125;&#125;</code>,
-						<code>&#123;&#123;event_title&#125;&#125;</code>,
-						<code>&#123;&#123;event_day_time&#125;&#125;</code>,
-						<code>&#123;&#123;event_location&#125;&#125;</code>,
-						<code>&#123;&#123;event_start&#125;&#125;</code>, and
-						<code>&#123;&#123;activity_title&#125;&#125;</code> to personalise messages.
-					</p>
 				</section>
 			</div>
 		{:else}

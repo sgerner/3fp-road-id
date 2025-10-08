@@ -16,6 +16,7 @@
 		updateVolunteerSignupShift
 	} from '$lib/services/volunteers.js';
 	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates';
+	import { createMergeContext, renderEmailBody, renderSubject } from '$lib/volunteer/merge-tags';
 	import { Segment } from '@skeletonlabs/skeleton-svelte';
 	import { slide } from 'svelte/transition';
 
@@ -1220,9 +1221,9 @@
 		const payload = {
 			event_id: event.id,
 			email_type: 'reminder',
-			subject: '',
-			body: '',
-			send_offset_minutes: 1440,
+			subject: 'Reminder: {{event_title}} starts soon',
+			body: "We're excited to have you on the crew!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}",
+			send_offset_minutes: 2160,
 			require_confirmation: false,
 			survey_url: ''
 		};
@@ -1270,6 +1271,90 @@
 		} catch (error) {
 			console.error('Failed to update volunteer email', error);
 		}
+	}
+
+	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation }) {
+		const approvedVolunteers = volunteers.filter((volunteer) => volunteer.status === 'approved');
+		if (!approvedVolunteers.length) {
+			throw new Error('No approved volunteers are available to email.');
+		}
+		if (!subject?.trim()) {
+			throw new Error('Subject is required to send a volunteer email.');
+		}
+		if (!body?.trim()) {
+			throw new Error('Body is required to send a volunteer email.');
+		}
+		const origin =
+			typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+		const eventDetailsForContext = {
+			title: event?.title || 'Volunteer event',
+			eventStart:
+				event?.event_start || event?.eventStart || event?.starts_at || event?.start || null,
+			eventEnd: event?.event_end || event?.eventEnd || event?.ends_at || event?.end || null,
+			timezone: eventTimezone,
+			locationName: event?.location_name || event?.locationName || '',
+			locationAddress: event?.location_address || event?.locationAddress || ''
+		};
+
+		let sentCount = 0;
+		for (const volunteer of approvedVolunteers) {
+			const recipientEmail =
+				volunteer?.email?.trim?.() ||
+				volunteer?.signup?.volunteer_email?.trim?.() ||
+				volunteer?.signup?.email?.trim?.() ||
+				volunteer?.profile?.email?.trim?.() ||
+				'';
+			if (!recipientEmail) continue;
+
+			const assignments = (volunteer.assignments ?? []).map((assignment) => ({
+				...assignment,
+				shift: shiftMap.get(assignment.shiftId ?? '') ?? null
+			}));
+
+			const context = createMergeContext({
+				event,
+				eventDetails: eventDetailsForContext,
+				opportunities: opportunityGroups,
+				volunteer: { name: volunteer.name, email: recipientEmail },
+				assignments,
+				host: {
+					contactEmail,
+					contactPhone,
+					hostName: hostGroup?.name || event?.contact_name || event?.contactName || ''
+				},
+				origin,
+				requireConfirmation
+			});
+
+			const finalSubject = renderSubject(subject, context) || subject || 'Volunteer update';
+			const bodyOutput = renderEmailBody(body, context);
+			const htmlBody = bodyOutput?.html?.trim?.() ? bodyOutput.html : null;
+			const textBody = bodyOutput?.text?.trim?.() ? bodyOutput.text : null;
+			if (!htmlBody && !textBody) continue;
+
+			try {
+				await sendEmail({
+					to: recipientEmail,
+					subject: finalSubject,
+					html: htmlBody ?? undefined,
+					text: textBody ?? undefined,
+					replyTo: contactEmail || undefined
+				});
+				sentCount += 1;
+			} catch (error) {
+				console.error('Failed to send immediate volunteer email', error);
+				throw new Error(error?.message || 'Unable to send the volunteer email.');
+			}
+		}
+
+		if (!sentCount) {
+			throw new Error('No approved volunteers had a valid email address.');
+		}
+
+		addActivityEntry(
+			`Sent immediate volunteer email to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
+		);
+		return { sentCount };
 	}
 
 	const customQuestions = customQuestionsRaw ?? [];
@@ -1409,12 +1494,15 @@
 					locationName: event?.location_name,
 					locationAddress: event?.location_address
 				}}
-				opportunities={opportunityGroups.map((group) => ({ id: group.id, title: group.title }))}
+				opportunities={opportunityGroups}
+				showImmediateEmailOption={true}
+				approvedVolunteerCount={volunteerCounts.approved}
 				onAddEmail={addEmailTemplate}
 				onRemoveEmail={removeEmailTemplate}
 				onUpdateEmail={updateEmailTemplate}
 				onComposeEmail={() => {}}
 				onToggleAdvanced={() => {}}
+				onSendImmediateEmail={sendImmediateVolunteerEmail}
 				emailTypeOptions={['reminder', 'thankyou', 'custom']}
 				fieldTypeOptions={['short_text', 'long_text', 'select', 'checkbox']}
 			/>

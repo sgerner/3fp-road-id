@@ -73,14 +73,18 @@
 		'url'
 	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
-	const emailMergeTags = [
-		'{{volunteer_name}}',
-		'{{event_title}}',
-		'{{event_day_time}}',
-		'{{event_location}}',
-		'{{event_start}}',
-		'{{activity_title}}'
-	];
+        const emailMergeTags = [
+                '{{volunteer_name}}',
+                '{{event_title}}',
+                '{{event_day_time}}',
+                '{{event_location}}',
+                '{{event_start}}',
+                '{{event_details_block}}',
+                '{{shift_details_block}}',
+                '{{shift_confirmation_block}}',
+                '{{volunteer_portal_block}}',
+                '{{host_contact_block}}'
+        ];
 
 	function readValue(source, keys = []) {
 		if (!source) return undefined;
@@ -539,35 +543,39 @@
 		};
 	}
 
-	function createEmailTemplate(partial = {}) {
-		return {
-			id: crypto.randomUUID(),
-			emailType: 'reminder',
-			sendOffsetMinutes: 1440,
-			subject: '',
-			body: '',
-			requireConfirmation: false,
-			surveyUrl: '',
-			aiPrompt: '',
-			aiError: '',
-			aiLoading: false,
-			aiComposerOpen: false,
-			...partial
-		};
-	}
+        function createEmailTemplate(partial = {}) {
+                const type = partial.emailType ?? 'reminder';
+                const defaultOffset = partial.sendOffsetMinutes ?? (type === 'thankyou' ? -720 : 2160);
+                return {
+                        id: crypto.randomUUID(),
+                        emailType: type,
+                        sendOffsetMinutes: defaultOffset,
+                        subject: '',
+                        body: '',
+                        requireConfirmation: false,
+                        surveyUrl: '',
+                        aiPrompt: '',
+                        aiError: '',
+                        aiLoading: false,
+                        aiComposerOpen: false,
+                        ...partial,
+                        emailType: partial.emailType ?? type,
+                        sendOffsetMinutes: partial.sendOffsetMinutes ?? defaultOffset
+                };
+        }
 
 	let opportunities = $state([
 		createOpportunity({ title: 'Lead Volunteer', opportunityType: 'coordination' })
 	]);
 	let customQuestions = $state([]);
-	let eventEmails = $state([
-		createEmailTemplate({
-			emailType: 'reminder',
-			sendOffsetMinutes: 720,
-			subject: 'Reminder: {{event_title}} starts soon',
-			body: "Your volunteer shift is coming up and your spot is ready. Confirm if you're still in or give us a quick heads-up if plans changed."
-		})
-	]);
+        let eventEmails = $state([
+                createEmailTemplate({
+                        emailType: 'reminder',
+                        sendOffsetMinutes: 2160,
+                        subject: 'Reminder: {{event_title}} starts soon',
+                        body: "We're excited to see you at {{event_title}}!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}"
+                })
+        ]);
 
 	let chatMessages = $state([
 		createChatMessage({
@@ -925,11 +933,11 @@
 					opportunity_type_options: opportunityTypeOptions,
 					email_merge_tags: emailMergeTags,
 					goal: `Generate subject and body copy for a ${target.emailType} volunteer email template.`,
-					constraints: [
-						'Keep the output focused on an email subject and body.',
-						'Use the provided merge tags for volunteer name, event timing, and location when relevant.',
-						'Aim for clear, encouraging language suitable for community volunteers.'
-					],
+                                        constraints: [
+                                                'Keep the output focused on an email subject and body.',
+                                                'Use the merge tags and blocks (e.g. {{event_details_block}}, {{shift_details_block}}, {{volunteer_portal_block}}, {{shift_confirmation_block}} when confirmations are required) to personalise details.',
+                                                'Aim for clear, encouraging language suitable for community volunteers.'
+                                        ],
 					preferDraft: true
 				})
 			});

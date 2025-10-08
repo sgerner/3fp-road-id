@@ -211,10 +211,6 @@ function detectContentIssues(subject: string, textBody: string, htmlBody?: strin
 		}
 	}
 
-	if (/(.)\1{7,}/.test(combinedForChecks)) {
-		issues.push('Email contains excessive character repetition, which is characteristic of spam.');
-	}
-
 	for (const { pattern, message } of SUSPICIOUS_PATTERNS) {
 		if (pattern.test(combinedForChecks)) {
 			issues.push(`Email failed policy check: ${message}`);
