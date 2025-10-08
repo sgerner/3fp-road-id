@@ -49,6 +49,7 @@
 		phone: '',
 		emergencyContactName: '',
 		emergencyContactPhone: '',
+		shiftActivityId: '',
 		shiftId: '',
 		status: 'approved'
 	});
@@ -62,6 +63,88 @@
 	let profileLookupRequestId = 0;
 	let emailSuggestions = $state([]);
 	let suggestionTimeout = null;
+
+	const activityLabelMap = $derived.by(() => {
+		const map = new SvelteMap();
+		for (const option of activityFilters) {
+			if (!option) continue;
+			const rawValue = option.value;
+			if (rawValue === undefined || rawValue === null) continue;
+			const key = String(rawValue);
+			if (!key) continue;
+			map.set(key, option.label ?? 'Volunteer activity');
+		}
+		return map;
+	});
+
+	const shiftsByActivity = $derived.by(() => {
+		const map = new SvelteMap();
+		for (const shift of shifts) {
+			if (!shift) continue;
+			const rawActivityId = shift.groupId ?? shift.opportunityId ?? null;
+			if (rawActivityId === null || rawActivityId === undefined) continue;
+			const activityId = String(rawActivityId);
+			if (!activityId) continue;
+			if (!map.has(activityId)) {
+				map.set(activityId, []);
+			}
+			map.get(activityId)?.push(shift);
+		}
+
+		for (const [, list] of map) {
+			list.sort((a, b) => {
+				const timeA = a?.startsAt ? new Date(a.startsAt).getTime() : 0;
+				const timeB = b?.startsAt ? new Date(b.startsAt).getTime() : 0;
+				if (timeA !== timeB) {
+					return timeA - timeB;
+				}
+				return (a?.optionLabel || '').localeCompare(b?.optionLabel || '');
+			});
+		}
+
+		return map;
+	});
+
+	const addActivityOptions = $derived.by(() => {
+		const options = [];
+		const usedIds = new Set();
+
+		for (const option of activityFilters) {
+			if (!option) continue;
+			const rawValue = option.value;
+			if (rawValue === undefined || rawValue === null) continue;
+			const activityId = String(rawValue);
+			if (!activityId) continue;
+			const shiftList = shiftsByActivity.get(activityId) ?? [];
+			if (!shiftList.length) continue;
+			options.push({
+				value: activityId,
+				label: option.label ?? 'Volunteer activity',
+				shifts: shiftList
+			});
+			usedIds.add(activityId);
+		}
+
+		for (const [activityId, shiftList] of shiftsByActivity) {
+			if (!shiftList?.length || usedIds.has(activityId)) continue;
+			const label =
+				activityLabelMap.get(activityId) ?? shiftList[0]?.opportunityTitle ?? 'Volunteer activity';
+			options.push({ value: activityId, label, shifts: shiftList });
+		}
+
+		return options;
+	});
+
+	const selectedAddActivity = $derived.by(
+		() => addActivityOptions.find((option) => option.value === addForm.shiftActivityId) ?? null
+	);
+
+	const shiftTimeOptions = $derived.by(() => selectedAddActivity?.shifts ?? []);
+
+	const isShiftActivitySelectDisabled = $derived(() => addActivityOptions.length === 1);
+	const isShiftTimeSelectDisabled = $derived(
+		() => !addForm.shiftActivityId || shiftTimeOptions.length <= 1
+	);
 
 	async function fetchEmailSuggestions(term) {
 		if (term.length < 2) {
@@ -168,10 +251,35 @@
 	}
 
 	$effect(() => {
-		if (!addForm.shiftId && shifts.length) {
-			const initialShift = shifts[0];
-			if (initialShift?.id) {
-				addForm = { ...addForm, shiftId: initialShift.id };
+		const options = addActivityOptions;
+		const currentActivityId = addForm.shiftActivityId;
+
+		if (options.length === 1 && options[0]?.value !== currentActivityId) {
+			const onlyOption = options[0];
+			const onlyShiftId = onlyOption.shifts.length === 1 ? (onlyOption.shifts[0]?.id ?? '') : '';
+			addForm = {
+				...addForm,
+				shiftActivityId: onlyOption.value,
+				shiftId: onlyShiftId
+			};
+			return;
+		}
+
+		const activeOption = options.find((option) => option.value === currentActivityId) ?? null;
+
+		if (!activeOption) {
+			if (currentActivityId || addForm.shiftId) {
+				addForm = { ...addForm, shiftActivityId: '', shiftId: '' };
+			}
+			return;
+		}
+
+		const hasValidShift = activeOption.shifts.some((shift) => shift.id === addForm.shiftId);
+		if (!hasValidShift) {
+			const defaultShiftId =
+				activeOption.shifts.length === 1 ? (activeOption.shifts[0]?.id ?? '') : '';
+			if (addForm.shiftId !== defaultShiftId) {
+				addForm = { ...addForm, shiftId: defaultShiftId };
 			}
 		}
 	});
@@ -222,6 +330,7 @@
 				phone: '',
 				emergencyContactName: '',
 				emergencyContactPhone: '',
+				shiftActivityId: addForm.shiftActivityId,
 				shiftId: addForm.shiftId,
 				status: addForm.status
 			};
@@ -236,6 +345,7 @@
 			phone: '',
 			emergencyContactName: '',
 			emergencyContactPhone: '',
+			shiftActivityId: addForm.shiftActivityId,
 			shiftId: addForm.shiftId,
 			status: addForm.status
 		};
@@ -258,6 +368,10 @@
 			addError = 'Choose a shift to assign the volunteer to.';
 			return;
 		}
+
+		const currentStatus = addForm.status;
+		const currentShiftActivityId = addForm.shiftActivityId;
+		const currentShiftId = addForm.shiftId;
 
 		addLoading = true;
 
@@ -287,8 +401,9 @@
 				phone: '',
 				emergencyContactName: '',
 				emergencyContactPhone: '',
-				shiftId: shifts[0]?.id ?? '',
-				status: addForm.status
+				shiftActivityId: currentShiftActivityId,
+				shiftId: currentShiftId,
+				status: currentStatus
 			};
 		} catch (error) {
 			addError = error?.message || 'Unable to add volunteer. Please try again.';
@@ -606,7 +721,7 @@
 				</select>
 			</label>
 			<label class="text-surface-200 flex flex-col text-sm">
-				<span class="mb-1 font-medium">Shift activity</span>
+				<span class="mb-1 font-medium">Shift Activity</span>
 				<select
 					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2 pr-6"
 					value={selectedActivity}
@@ -619,7 +734,7 @@
 				</select>
 			</label>
 			<label class="text-surface-200 flex flex-col text-sm">
-				<span class="mb-1 font-medium">Shift day &amp; time</span>
+				<span class="mb-1 font-medium">Shift Time</span>
 				<select
 					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
 					value={selectedShift}
@@ -879,24 +994,6 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-shift"
-						>Shift</label
-					>
-					<select
-						id="add-shift"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
-						value={addForm.shiftId}
-						onchange={(event) => (addForm = { ...addForm, shiftId: event.currentTarget.value })}
-						required
-					>
-						<option value="" disabled>Select a shift</option>
-						{#each shifts as shift (shift.id)}
-							<option value={shift.id}>{shift.optionLabel}</option>
-						{/each}
-					</select>
-				</div>
-
-				<div class="md:col-span-1">
 					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-phone"
 						>Phone (optional)</label
 					>
@@ -908,6 +1005,58 @@
 						value={addForm.phone}
 						oninput={(event) => (addForm = { ...addForm, phone: event.currentTarget.value })}
 					/>
+				</div>
+
+				<div class="md:col-span-1">
+					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-shift-activity">
+						Shift Activity
+					</label>
+					<select
+						id="add-shift-activity"
+						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						value={addForm.shiftActivityId}
+						onchange={(event) =>
+							(addForm = {
+								...addForm,
+								shiftActivityId: event.currentTarget.value,
+								shiftId: ''
+							})}
+					>
+						{#if addActivityOptions.length === 0}
+							<option value="">No shift activities available</option>
+						{:else}
+							{#if addActivityOptions.length > 1}
+								<option value="" disabled>Select a shift activity</option>
+							{/if}
+							{#each addActivityOptions as option (option.value)}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						{/if}
+					</select>
+				</div>
+
+				<div class="md:col-span-1">
+					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-shift-time">
+						Shift Time
+					</label>
+					<select
+						id="add-shift-time"
+						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						value={addForm.shiftId}
+						onchange={(event) => (addForm = { ...addForm, shiftId: event.currentTarget.value })}
+						required
+					>
+						{#if !addForm.shiftActivityId}
+							<option value="">Select a shift activity first</option>
+						{:else if !shiftTimeOptions.length}
+							<option value="">No shift times available</option>
+						{:else if shiftTimeOptions.length > 1}
+							<option value="" disabled>Select a shift time</option>
+						{/if}
+						{#each shiftTimeOptions as shift (shift.id)}
+							<option value={shift.id}>{shift.optionLabel}</option>
+						{/each}
+					</select>
 				</div>
 
 				<div class="md:col-span-1">
