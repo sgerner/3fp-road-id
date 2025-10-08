@@ -297,9 +297,64 @@
 		}
 	}
 
+	function formatRelativeTime(date) {
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+			return '—';
+		}
+
+		const now = new Date();
+		let diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+		if (diffInSeconds < 0) {
+			diffInSeconds = 0;
+		}
+
+		if (diffInSeconds < 10) {
+			return 'just now';
+		}
+
+		const units = [
+			{ limit: 60, divisor: 1, singular: 'sec', plural: 'sec' },
+			{ limit: 3600, divisor: 60, singular: 'min', plural: 'min' },
+			{ limit: 86400, divisor: 3600, singular: 'hr', plural: 'hrs' },
+			{ limit: 604800, divisor: 86400, singular: 'day', plural: 'days' },
+			{ limit: 2629800, divisor: 604800, singular: 'wk', plural: 'wks' },
+			{ limit: 31557600, divisor: 2629800, singular: 'mo', plural: 'mos' },
+			{ limit: Infinity, divisor: 31557600, singular: 'yr', plural: 'yrs' }
+		];
+
+		for (const unit of units) {
+			if (diffInSeconds < unit.limit) {
+				const value = Math.max(1, Math.floor(diffInSeconds / unit.divisor));
+				const label = value === 1 ? unit.singular : unit.plural;
+				return `${value} ${label} ago`;
+			}
+		}
+
+		return '—';
+	}
+
+	function buildSignupInfo(createdAt) {
+		if (!createdAt) {
+			return { createdAt: null, timestamp: 0, relative: '—' };
+		}
+
+		const parsed = new Date(createdAt);
+		if (Number.isNaN(parsed.getTime())) {
+			return { createdAt, timestamp: 0, relative: '—' };
+		}
+
+		return {
+			createdAt,
+			timestamp: parsed.getTime(),
+			relative: formatRelativeTime(parsed)
+		};
+	}
+
 	const individualShifts = $derived.by(() => {
 		const flattened = [];
 		for (const volunteer of volunteers) {
+			const signupInfo = buildSignupInfo(volunteer.signup?.created_at ?? null);
 			const assignments = volunteer.assignments ?? [];
 			if (assignments.length === 0) {
 				// Handle volunteers with no specific shift assignment
@@ -311,7 +366,8 @@
 						optionLabel: 'Unassigned',
 						windowLabel: 'No shift selected'
 					},
-					hasMultipleShifts: false
+					hasMultipleShifts: false,
+					signup: signupInfo
 				});
 			} else {
 				for (const assignment of assignments) {
@@ -320,7 +376,8 @@
 						volunteer,
 						assignment,
 						shiftDetails: shiftMap.get(assignment.shiftId ?? '') ?? {},
-						hasMultipleShifts: (volunteer.shiftIds?.length ?? 0) > 1
+						hasMultipleShifts: (volunteer.shiftIds?.length ?? 0) > 1,
+						signup: signupInfo
 					});
 				}
 			}
@@ -332,12 +389,8 @@
 			if (startTimeA !== startTimeB) {
 				return startTimeA - startTimeB;
 			}
-			const createdAtA = a.volunteer.signup.created_at
-				? new Date(a.volunteer.signup.created_at).getTime()
-				: 0;
-			const createdAtB = b.volunteer.signup.created_at
-				? new Date(b.volunteer.signup.created_at).getTime()
-				: 0;
+			const createdAtA = a.signup?.timestamp ?? 0;
+			const createdAtB = b.signup?.timestamp ?? 0;
 			return createdAtA - createdAtB;
 		});
 
@@ -595,9 +648,10 @@
 	<div class="mt-6">
 		<!-- Desktop header -->
 		<div
-			class="text-surface-400 hidden grid-cols-4 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
+			class="text-surface-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
 		>
 			<div class="col-span-1">Volunteer</div>
+			<div class="col-span-1">Signed up</div>
 			<div class="col-span-1">Shift</div>
 			<div class="col-span-1">Status</div>
 			<div class="col-span-1">Actions</div>
@@ -641,7 +695,7 @@
 						{#each group.items as item (item.key)}
 							<div
 								transition:slide
-								class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-4 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
+								class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
                                                                 ${cardStatusClass(item.assignment.status)}`}
 							>
 								<!-- Volunteer -->
@@ -659,6 +713,20 @@
 											</span>
 										{/if}
 									</div>
+								</div>
+
+								<!-- Signup time -->
+								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
+									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+										Signed up
+									</div>
+									{#if item.signup?.relative && item.signup.relative !== '—'}
+										<div class="text-surface-200 text-sm" title={item.signup.createdAt ?? ''}>
+											{item.signup.relative}
+										</div>
+									{:else}
+										<div class="text-surface-500 text-sm">—</div>
+									{/if}
 								</div>
 
 								<!-- Shift -->
