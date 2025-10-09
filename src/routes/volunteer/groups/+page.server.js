@@ -236,8 +236,6 @@ export const load = async ({ fetch, cookies }) => {
 			return aStart - bStart;
 		});
 
-	console.log(groups);
-
 	return {
 		groups,
 		retrievedAt: now.toISOString()
