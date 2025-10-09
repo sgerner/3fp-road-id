@@ -1,6 +1,5 @@
 import { escapeHtml, renderMarkdown } from '$lib/markdown';
-
-const VOLUNTEER_PORTAL_PATH = '/volunteer/shifts';
+import { VOLUNTEER_PORTAL_PATH, wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
 
 function safeString(value, fallback = '') {
 	if (value === null || value === undefined) return fallback;
@@ -229,11 +228,11 @@ function normalizeHost(hostLike = {}, event = {}) {
 }
 
 function ensureOrigin(origin) {
-	if (origin) return origin.replace(/\/$/, '');
-	if (typeof window !== 'undefined' && window.location?.origin) {
-		return window.location.origin.replace(/\/$/, '');
-	}
-	return 'https://example.org';
+        if (origin) return origin.replace(/\/$/, '');
+        if (typeof window !== 'undefined' && window.location?.origin) {
+                return window.location.origin.replace(/\/$/, '');
+        }
+        return 'https://example.org';
 }
 
 function buildShiftDetails({ assignments = [], opportunities = [], event, origin }) {
@@ -605,20 +604,40 @@ function htmlToPlainText(html) {
 }
 
 export function renderEmailBody(template, context) {
-	const placeholders = new Map();
-	const markdownWithPlaceholders = applyTokens(template, context, 'html', placeholders);
-	const htmlMarkdown = renderMarkdown(markdownWithPlaceholders);
-	let htmlOutput = htmlMarkdown || '';
-	for (const [marker, value] of placeholders.entries()) {
-		htmlOutput = htmlOutput.replaceAll(`<p>${marker}</p>`, value);
-		htmlOutput = htmlOutput.replaceAll(marker, value);
-	}
+        const placeholders = new Map();
+        const markdownWithPlaceholders = applyTokens(template, context, 'html', placeholders);
+        const htmlMarkdown = renderMarkdown(markdownWithPlaceholders);
+        let htmlOutput = htmlMarkdown || '';
+        for (const [marker, value] of placeholders.entries()) {
+                htmlOutput = htmlOutput.replaceAll(`<p>${marker}</p>`, value);
+                htmlOutput = htmlOutput.replaceAll(marker, value);
+        }
 
-	const textMarkdown = applyTokens(template, context, 'text', new Map());
-	const textHtml = renderMarkdown(textMarkdown);
-	const textOutput = htmlToPlainText(textHtml || textMarkdown || '');
+        const textMarkdown = applyTokens(template, context, 'text', new Map());
+        const textHtml = renderMarkdown(textMarkdown);
+        const textOutput = htmlToPlainText(textHtml || textMarkdown || '');
 
-	return { html: htmlOutput, text: textOutput, markdown: textMarkdown };
+        const eventTitle = safeString(context?.event?.title ?? '');
+        const brandingOptions = {
+                origin: context?.origin,
+                portalUrl: context?.portalUrl,
+                category: 'Volunteer update',
+                subjectLine: eventTitle
+        };
+
+        const trimmedHtml = htmlOutput?.trim?.() ? htmlOutput.trim() : '';
+        const brandedHtml = trimmedHtml ? wrapHtmlWithBranding(trimmedHtml, brandingOptions) : '';
+
+        const trimmedText = textOutput?.trim?.() ? textOutput.trim() : '';
+        const brandedText = trimmedText ? wrapTextWithBranding(trimmedText, brandingOptions) : '';
+
+        return {
+                html: trimmedHtml,
+                text: trimmedText,
+                markdown: textMarkdown,
+                brandedHtml,
+                brandedText
+        };
 }
 
 export function renderSubject(template, context) {

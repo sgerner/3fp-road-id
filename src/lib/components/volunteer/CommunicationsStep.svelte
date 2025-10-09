@@ -694,14 +694,14 @@
 									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
 										Body preview
 									</strong>
-									{#if immediateBodyPreview?.html}
-										<div
-											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
-											id="immediate-email-preview"
-										>
-											{@html immediateBodyPreview.html}
-										</div>
-									{:else}
+                                                                        {#if immediateBodyPreview?.brandedHtml}
+                                                                                <div
+                                                                                        class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+                                                                                        id="immediate-email-preview"
+                                                                                >
+                                                                                        {@html immediateBodyPreview.brandedHtml}
+                                                                                </div>
+                                                                        {:else}
 										<p class="text-surface-400 !normal-case">
 											Use merge tags like &#123;&#123;event_details_block&#125;&#125; or
 											&#123;&#123;volunteer_portal_block&#125;&#125; to add formatted context.
@@ -1062,14 +1062,14 @@
 									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
 										Body preview
 									</strong>
-									{#if bodyPreview?.html}
-										<div
-											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
-											id={`email-preview-${email.id}`}
-										>
-											{@html bodyPreview.html}
-										</div>
-									{:else}
+                                                                        {#if bodyPreview?.brandedHtml}
+                                                                                <div
+                                                                                        class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+                                                                                        id={`email-preview-${email.id}`}
+                                                                                >
+                                                                                        {@html bodyPreview.brandedHtml}
+                                                                                </div>
+                                                                        {:else}
 										<p class="text-surface-400">
 											Use the merge tag chips below to add event, shift, and confirmation blocks.
 											Markdown like
