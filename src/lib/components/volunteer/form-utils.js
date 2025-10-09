@@ -200,16 +200,17 @@ export function mapEmailRecordToFormDetails(record) {
 		emailType: nullableString(record.email_type ?? record.emailType) || 'reminder',
 		sendOffsetMinutes: Number(record.send_offset_minutes ?? record.sendOffsetMinutes ?? 0) || 0,
 		subject: nullableString(record.subject),
-		body: nullableString(record.body),
-		requireConfirmation: ensureBoolean(
-			record.require_confirmation ?? record.requireConfirmation ?? false
-		),
-		surveyUrl: nullableString(record.survey_url ?? record.surveyUrl),
-		aiComposerOpen: false,
-		aiPrompt: '',
-		aiLoading: false,
-		aiError: ''
-	};
+                body: nullableString(record.body),
+                requireConfirmation: ensureBoolean(
+                        record.require_confirmation ?? record.requireConfirmation ?? false
+                ),
+                surveyUrl: nullableString(record.survey_url ?? record.surveyUrl),
+                lastSentAt: nullableString(record.last_sent_at ?? record.lastSentAt),
+                aiComposerOpen: false,
+                aiPrompt: '',
+                aiLoading: false,
+                aiError: ''
+        };
 }
 export function buildEmailPayload(patch, eventId) {
 	const payload = {};

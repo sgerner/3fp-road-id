@@ -1212,21 +1212,22 @@
 		);
 		const rawType = (row.email_type ?? row.emailType ?? 'reminder').toLowerCase();
 		const normalizedType = rawType === 'thank_you' ? 'thankyou' : rawType;
-		return {
-			id: row.id ? String(row.id) : null,
-			eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
-			emailType: ['reminder', 'thankyou', 'custom'].includes(normalizedType)
-				? normalizedType
-				: 'reminder',
-			subject: row.subject ?? '',
-			body: row.body ?? '',
-			sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : 1440,
-			requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
-			surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
-			createdAt: row.created_at ?? row.createdAt ?? null,
-			updatedAt: row.updated_at ?? row.updatedAt ?? null
-		};
-	}
+                        return {
+                                id: row.id ? String(row.id) : null,
+                                eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
+                                emailType: ['reminder', 'thankyou', 'custom'].includes(normalizedType)
+                                        ? normalizedType
+                                        : 'reminder',
+                                subject: row.subject ?? '',
+                                body: row.body ?? '',
+                                sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : 1440,
+                                requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
+                                surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
+                                lastSentAt: row.last_sent_at ?? row.lastSentAt ?? null,
+                                createdAt: row.created_at ?? row.createdAt ?? null,
+                                updatedAt: row.updated_at ?? row.updatedAt ?? null
+                        };
+                }
 
 	let eventEmails = $state(
 		eventEmailsRaw.map((record) => normalizeEmailRecord(record)).filter(Boolean)
@@ -1320,7 +1321,7 @@
 		}
 	}
 
-	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation }) {
+        async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId }) {
 		const approvedVolunteers = volunteers.filter((volunteer) => volunteer.status === 'approved');
 		if (!approvedVolunteers.length) {
 			throw new Error('No approved volunteers are available to email.');
@@ -1394,15 +1395,37 @@
 			}
 		}
 
-		if (!sentCount) {
-			throw new Error('No approved volunteers had a valid email address.');
-		}
+                if (!sentCount) {
+                        throw new Error('No approved volunteers had a valid email address.');
+                }
 
-		addActivityEntry(
-			`Sent immediate volunteer email to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
-		);
-		return { sentCount };
-	}
+                let recordedSentAt = null;
+                if (emailId) {
+                        const timestamp = new Date().toISOString();
+                        try {
+                                const response = await updateVolunteerEventEmail(emailId, {
+                                        last_sent_at: timestamp
+                                });
+                                const updated = response?.data ?? response ?? null;
+                                recordedSentAt = updated?.last_sent_at ?? updated?.lastSentAt ?? timestamp;
+                                if (updated) {
+                                        upsertEmail(updated);
+                                } else {
+                                        updateEmailLocal(emailId, { lastSentAt: recordedSentAt });
+                                }
+                        } catch (error) {
+                                console.error('Failed to persist volunteer email last_sent_at', error);
+                                throw new Error(
+                                        'The email was sent, but we could not record the send time. Please try again.'
+                                );
+                        }
+                }
+
+                addActivityEntry(
+                        `Sent immediate volunteer email to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
+                );
+                return { sentCount, lastSentAt: recordedSentAt };
+        }
 
 	const customQuestions = customQuestionsRaw ?? [];
 	async function setAssignmentsPresent(assignmentIds, status) {

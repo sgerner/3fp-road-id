@@ -554,6 +554,7 @@
                         body: '',
                         requireConfirmation: false,
                         surveyUrl: '',
+                        lastSentAt: partial.lastSentAt ?? null,
                         aiPrompt: '',
                         aiError: '',
                         aiLoading: false,
