@@ -6,130 +6,130 @@ import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding'
 
 const MAX_RECIPIENTS = 10;
 const MAX_BODY_LENGTH = 5000;
-const MAX_URLS = 5;
+const MAX_URLS = 9;
 const MIN_SUBJECT_LENGTH = 3;
 
 const ALLOWED_HTML_TAGS = new Set([
-        'a',
-        'b',
-        'body',
-        'br',
-        'div',
-        'em',
-        'head',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'html',
-        'i',
-        'img',
-        'li',
-        'meta',
-        'ol',
-        'p',
-        'section',
-        'span',
-        'strong',
-        'table',
-        'tbody',
-        'td',
-        'tfoot',
-        'th',
-        'thead',
-        'title',
-        'tr',
-        'u',
-        'ul'
+	'a',
+	'b',
+	'body',
+	'br',
+	'div',
+	'em',
+	'head',
+	'h1',
+	'h2',
+	'h3',
+	'h4',
+	'h5',
+	'h6',
+	'html',
+	'i',
+	'img',
+	'li',
+	'meta',
+	'ol',
+	'p',
+	'section',
+	'span',
+	'strong',
+	'table',
+	'tbody',
+	'td',
+	'tfoot',
+	'th',
+	'thead',
+	'title',
+	'tr',
+	'u',
+	'ul'
 ]);
 const SELF_CLOSING_TAGS = new Set(['br', 'img', 'meta']);
 
 const GLOBAL_ALLOWED_ATTRIBUTES = new Set([
-        'align',
-        'aria-hidden',
-        'aria-label',
-        'border',
-        'cellpadding',
-        'cellspacing',
-        'colspan',
-        'height',
-        'role',
-        'rowspan',
-        'style',
-        'valign',
-        'width'
+	'align',
+	'aria-hidden',
+	'aria-label',
+	'border',
+	'cellpadding',
+	'cellspacing',
+	'colspan',
+	'height',
+	'role',
+	'rowspan',
+	'style',
+	'valign',
+	'width'
 ]);
 
 const TAG_SPECIFIC_ATTRIBUTES: Record<string, Set<string>> = {
-        a: new Set(['href', 'rel', 'target', 'title']),
-        body: new Set(['style']),
-        div: new Set(['style']),
-        h1: new Set(['style']),
-        h2: new Set(['style']),
-        h3: new Set(['style']),
-        h4: new Set(['style']),
-        h5: new Set(['style']),
-        h6: new Set(['style']),
-        html: new Set(['lang']),
-        img: new Set(['src', 'alt', 'width', 'height', 'style']),
-        li: new Set(['style']),
-        meta: new Set(['charset', 'content', 'http-equiv', 'name']),
-        ol: new Set(['style']),
-        p: new Set(['style']),
-        section: new Set(['style']),
-        span: new Set(['style']),
-        table: new Set(['role', 'cellpadding', 'cellspacing', 'border', 'width', 'style']),
-        tbody: new Set(['style']),
-        td: new Set(['align', 'valign', 'colspan', 'rowspan', 'width', 'height', 'style']),
-        tfoot: new Set(['style']),
-        th: new Set(['align', 'valign', 'colspan', 'rowspan', 'width', 'height', 'style']),
-        thead: new Set(['style']),
-        tr: new Set(['align', 'valign', 'style']),
-        ul: new Set(['style'])
+	a: new Set(['href', 'rel', 'target', 'title']),
+	body: new Set(['style']),
+	div: new Set(['style']),
+	h1: new Set(['style']),
+	h2: new Set(['style']),
+	h3: new Set(['style']),
+	h4: new Set(['style']),
+	h5: new Set(['style']),
+	h6: new Set(['style']),
+	html: new Set(['lang']),
+	img: new Set(['src', 'alt', 'width', 'height', 'style']),
+	li: new Set(['style']),
+	meta: new Set(['charset', 'content', 'http-equiv', 'name']),
+	ol: new Set(['style']),
+	p: new Set(['style']),
+	section: new Set(['style']),
+	span: new Set(['style']),
+	table: new Set(['role', 'cellpadding', 'cellspacing', 'border', 'width', 'style']),
+	tbody: new Set(['style']),
+	td: new Set(['align', 'valign', 'colspan', 'rowspan', 'width', 'height', 'style']),
+	tfoot: new Set(['style']),
+	th: new Set(['align', 'valign', 'colspan', 'rowspan', 'width', 'height', 'style']),
+	thead: new Set(['style']),
+	tr: new Set(['align', 'valign', 'style']),
+	ul: new Set(['style'])
 };
 
 const ALLOWED_STYLE_PROPERTIES = new Set([
-        'background',
-        'background-color',
-        'background-image',
-        'border',
-        'border-bottom',
-        'border-color',
-        'border-left',
-        'border-radius',
-        'border-right',
-        'border-style',
-        'border-top',
-        'border-width',
-        'box-shadow',
-        'color',
-        'display',
-        'font-family',
-        'font-size',
-        'font-weight',
-        'height',
-        'letter-spacing',
-        'line-height',
-        'margin',
-        'margin-bottom',
-        'margin-left',
-        'margin-right',
-        'margin-top',
-        'max-width',
-        'min-width',
-        'overflow',
-        'padding',
-        'padding-bottom',
-        'padding-left',
-        'padding-right',
-        'padding-top',
-        'text-align',
-        'text-decoration',
-        'text-transform',
-        'vertical-align',
-        'width'
+	'background',
+	'background-color',
+	'background-image',
+	'border',
+	'border-bottom',
+	'border-color',
+	'border-left',
+	'border-radius',
+	'border-right',
+	'border-style',
+	'border-top',
+	'border-width',
+	'box-shadow',
+	'color',
+	'display',
+	'font-family',
+	'font-size',
+	'font-weight',
+	'height',
+	'letter-spacing',
+	'line-height',
+	'margin',
+	'margin-bottom',
+	'margin-left',
+	'margin-right',
+	'margin-top',
+	'max-width',
+	'min-width',
+	'overflow',
+	'padding',
+	'padding-bottom',
+	'padding-left',
+	'padding-right',
+	'padding-top',
+	'text-align',
+	'text-decoration',
+	'text-transform',
+	'vertical-align',
+	'width'
 ]);
 
 const SUSPICIOUS_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
@@ -167,16 +167,16 @@ const SUSPICIOUS_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
 ];
 
 const DISALLOWED_HTML_SNIPPETS = [
-        /<\s*script/gi,
-        /<\s*iframe/gi,
-        /<\s*object/gi,
-        /<\s*embed/gi,
-        /<\s*form/gi,
-        /<\s*input/gi,
-        /<\s*button/gi,
-        /<\s*textarea/gi,
-        /<\s*style/gi,
-        /javascript:/gi
+	/<\s*script/gi,
+	/<\s*iframe/gi,
+	/<\s*object/gi,
+	/<\s*embed/gi,
+	/<\s*form/gi,
+	/<\s*input/gi,
+	/<\s*button/gi,
+	/<\s*textarea/gi,
+	/<\s*style/gi,
+	/javascript:/gi
 ];
 
 type SesTag = { Name: string; Value: string };
@@ -186,9 +186,9 @@ const PUBLIC_BRAND_BASE = (PUBLIC_URL_BASE || '').trim().replace(/\/+$/, '');
 let cachedClient: SESClient | null = null;
 
 function ensureSesClient(): SESClient {
-        if (cachedClient) {
-                return cachedClient;
-        }
+	if (cachedClient) {
+		return cachedClient;
+	}
 
 	const region = env.AWS_SES_REGION;
 	const accessKeyId = env.AWS_SES_ACCESS_KEY_ID;
@@ -206,55 +206,58 @@ function ensureSesClient(): SESClient {
 		credentials: { accessKeyId, secretAccessKey }
 	});
 
-        return cachedClient;
+	return cachedClient;
 }
 
 function normalizeOrigin(value?: string | null): string {
-        if (!value) return '';
-        return value.trim().replace(/\/+$/, '');
+	if (!value) return '';
+	return value.trim().replace(/\/+$/, '');
 }
 
 function deriveRequestOrigin(request: Request): string {
-        const headers = request.headers;
-        const forwardedHost = headers.get('x-forwarded-host');
-        const forwardedProto = headers.get('x-forwarded-proto');
+	const headers = request.headers;
+	const forwardedHost = headers.get('x-forwarded-host');
+	const forwardedProto = headers.get('x-forwarded-proto');
 
-        if (forwardedHost) {
-                const host = forwardedHost.split(',')[0]?.trim();
-                if (host) {
-                        const proto = forwardedProto?.split(',')[0]?.trim().toLowerCase() || 'https';
-                        return normalizeOrigin(`${proto}://${host}`);
-                }
-        }
+	if (forwardedHost) {
+		const host = forwardedHost.split(',')[0]?.trim();
+		if (host) {
+			const proto = forwardedProto?.split(',')[0]?.trim().toLowerCase() || 'https';
+			return normalizeOrigin(`${proto}://${host}`);
+		}
+	}
 
-        const originHeader = headers.get('origin');
-        if (originHeader) {
-                return normalizeOrigin(originHeader);
-        }
+	const originHeader = headers.get('origin');
+	if (originHeader) {
+		return normalizeOrigin(originHeader);
+	}
 
-        const hostHeader = headers.get('host');
-        if (hostHeader) {
-                const url = new URL(request.url);
-                const protocol = forwardedProto?.split(',')[0]?.trim().toLowerCase() || url.protocol.replace(':', '') || 'https';
-                return normalizeOrigin(`${protocol}://${hostHeader.trim()}`);
-        }
+	const hostHeader = headers.get('host');
+	if (hostHeader) {
+		const url = new URL(request.url);
+		const protocol =
+			forwardedProto?.split(',')[0]?.trim().toLowerCase() ||
+			url.protocol.replace(':', '') ||
+			'https';
+		return normalizeOrigin(`${protocol}://${hostHeader.trim()}`);
+	}
 
-        return normalizeOrigin(PUBLIC_BRAND_BASE);
+	return normalizeOrigin(PUBLIC_BRAND_BASE);
 }
 
 function deriveBrandingCategory(tags: SesTag[] | undefined): string {
-        if (!tags || tags.length === 0) return 'Message';
+	if (!tags || tags.length === 0) return 'Message';
 
-        for (const tag of tags) {
-                if (!tag?.Name) continue;
-                if (tag.Name.toLowerCase() !== 'context') continue;
-                const value = tag.Value ?? '';
-                if (/volunteer/i.test(value)) {
-                        return 'Volunteer update';
-                }
-        }
+	for (const tag of tags) {
+		if (!tag?.Name) continue;
+		if (tag.Name.toLowerCase() !== 'context') continue;
+		const value = tag.Value ?? '';
+		if (/volunteer/i.test(value)) {
+			return 'Volunteer update';
+		}
+	}
 
-        return 'Message';
+	return 'Message';
 }
 
 function normalizeRecipients(recipientInput: unknown): string[] {
@@ -292,143 +295,155 @@ function sanitizePlainText(content: string): string {
 }
 
 function escapeHtmlAttribute(value: string): string {
-        return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/'/g, '&#39;');
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/"/g, '&quot;')
+		.replace(/</g, '&lt;')
+		.replace(/'/g, '&#39;');
 }
 
 function sanitizeStyleAttribute(value: string): string {
-        const declarations = value
-                .split(';')
-                .map((declaration) => declaration.trim())
-                .filter(Boolean);
+	const declarations = value
+		.split(';')
+		.map((declaration) => declaration.trim())
+		.filter(Boolean);
 
-        const safeDeclarations: string[] = [];
+	const safeDeclarations: string[] = [];
 
-        for (const declaration of declarations) {
-                const [propertyRaw, ...valueParts] = declaration.split(':');
-                if (!propertyRaw || valueParts.length === 0) continue;
+	for (const declaration of declarations) {
+		const [propertyRaw, ...valueParts] = declaration.split(':');
+		if (!propertyRaw || valueParts.length === 0) continue;
 
-                const property = propertyRaw.trim().toLowerCase();
-                if (!ALLOWED_STYLE_PROPERTIES.has(property)) continue;
+		const property = propertyRaw.trim().toLowerCase();
+		if (!ALLOWED_STYLE_PROPERTIES.has(property)) continue;
 
-                const propertyValue = valueParts.join(':').trim();
-                if (!propertyValue) continue;
+		const propertyValue = valueParts.join(':').trim();
+		if (!propertyValue) continue;
 
-                if (/url\s*\(/i.test(propertyValue)) continue;
-                if (/expression|javascript|@import/i.test(propertyValue)) continue;
+		if (/url\s*\(/i.test(propertyValue)) continue;
+		if (/expression|javascript|@import/i.test(propertyValue)) continue;
 
-                safeDeclarations.push(`${property}:${propertyValue}`);
-        }
+		safeDeclarations.push(`${property}:${propertyValue}`);
+	}
 
-        return safeDeclarations.join('; ');
+	return safeDeclarations.join('; ');
 }
 
 function sanitizeHtml(rawHtml: string): string {
-        let sanitized = rawHtml;
+	let sanitized = rawHtml;
 
-        for (const snippet of DISALLOWED_HTML_SNIPPETS) {
-                sanitized = sanitized.replace(snippet, '');
-        }
+	for (const snippet of DISALLOWED_HTML_SNIPPETS) {
+		sanitized = sanitized.replace(snippet, '');
+	}
 
-        return sanitized.replace(/<\s*\/?\s*([a-z0-9]+)([^>]*)>/gi, (match, tag, attrs) => {
-                const lowerTag = String(tag).toLowerCase();
-                const isClosing = /^<\s*\//.test(match);
+	return sanitized.replace(/<\s*\/?\s*([a-z0-9]+)([^>]*)>/gi, (match, tag, attrs) => {
+		const lowerTag = String(tag).toLowerCase();
+		const isClosing = /^<\s*\//.test(match);
 
-                if (!ALLOWED_HTML_TAGS.has(lowerTag)) {
-                        return '';
-                }
+		if (!ALLOWED_HTML_TAGS.has(lowerTag)) {
+			return '';
+		}
 
-                if (isClosing) {
-                        return `</${lowerTag}>`;
-                }
+		if (isClosing) {
+			return `</${lowerTag}>`;
+		}
 
-                const attributeSource = attrs ?? '';
-                const allowedAttributes = new Set<string>(GLOBAL_ALLOWED_ATTRIBUTES);
-                const tagSpecific = TAG_SPECIFIC_ATTRIBUTES[lowerTag];
-                if (tagSpecific) {
-                        for (const attribute of tagSpecific) {
-                                allowedAttributes.add(attribute);
-                        }
-                }
+		const attributeSource = attrs ?? '';
+		const allowedAttributes = new Set<string>(GLOBAL_ALLOWED_ATTRIBUTES);
+		const tagSpecific = TAG_SPECIFIC_ATTRIBUTES[lowerTag];
+		if (tagSpecific) {
+			for (const attribute of tagSpecific) {
+				allowedAttributes.add(attribute);
+			}
+		}
 
-                const renderedAttributes: string[] = [];
-                const attributePattern = /([a-z0-9:-]+)(\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+)))?/gi;
-                let attributeMatch: RegExpExecArray | null;
+		const renderedAttributes: string[] = [];
+		const attributePattern = /([a-z0-9:-]+)(\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+)))?/gi;
+		let attributeMatch: RegExpExecArray | null;
 
-                while ((attributeMatch = attributePattern.exec(attributeSource))) {
-                        const attrNameRaw = attributeMatch[1];
-                        if (!attrNameRaw) continue;
-                        const attrName = attrNameRaw.toLowerCase();
+		while ((attributeMatch = attributePattern.exec(attributeSource))) {
+			const attrNameRaw = attributeMatch[1];
+			if (!attrNameRaw) continue;
+			const attrName = attrNameRaw.toLowerCase();
 
-                        if (attrName.startsWith('on')) {
-                                continue;
-                        }
+			if (attrName.startsWith('on')) {
+				continue;
+			}
 
-                        if (!allowedAttributes.has(attrName)) {
-                                continue;
-                        }
+			if (!allowedAttributes.has(attrName)) {
+				continue;
+			}
 
-                        const value = attributeMatch[4] ?? attributeMatch[5] ?? attributeMatch[6] ?? '';
-                        const trimmedValue = value.trim();
+			const value = attributeMatch[4] ?? attributeMatch[5] ?? attributeMatch[6] ?? '';
+			const trimmedValue = value.trim();
 
-                        if (!trimmedValue) {
-                                continue;
-                        }
+			if (!trimmedValue) {
+				continue;
+			}
 
-                        if (attrName === 'style') {
-                                const safeStyle = sanitizeStyleAttribute(trimmedValue);
-                                if (safeStyle) {
-                                        renderedAttributes.push(`style="${escapeHtmlAttribute(safeStyle)}"`);
-                                }
-                                continue;
-                        }
+			if (attrName === 'style') {
+				const safeStyle = sanitizeStyleAttribute(trimmedValue);
+				if (safeStyle) {
+					renderedAttributes.push(`style="${escapeHtmlAttribute(safeStyle)}"`);
+				}
+				continue;
+			}
 
-                        if (attrName === 'href') {
-                                if (!/^https?:\/\//i.test(trimmedValue) && !/^mailto:/i.test(trimmedValue)) {
-                                        continue;
-                                }
-                                renderedAttributes.push(`href="${escapeHtmlAttribute(trimmedValue)}"`);
-                                if (!attributeSource.toLowerCase().includes('rel=')) {
-                                        renderedAttributes.push('rel="noopener noreferrer"');
-                                }
-                                continue;
-                        }
+			if (attrName === 'href') {
+				if (!/^https?:\/\//i.test(trimmedValue) && !/^mailto:/i.test(trimmedValue)) {
+					continue;
+				}
+				renderedAttributes.push(`href="${escapeHtmlAttribute(trimmedValue)}"`);
+				if (!attributeSource.toLowerCase().includes('rel=')) {
+					renderedAttributes.push('rel="noopener noreferrer"');
+				}
+				continue;
+			}
 
-                        if (attrName === 'src') {
-                                if (!/^https?:\/\//i.test(trimmedValue)) {
-                                        continue;
-                                }
-                                renderedAttributes.push(`src="${escapeHtmlAttribute(trimmedValue)}"`);
-                                continue;
-                        }
+			if (attrName === 'src') {
+				if (!/^https?:\/\//i.test(trimmedValue)) {
+					continue;
+				}
+				renderedAttributes.push(`src="${escapeHtmlAttribute(trimmedValue)}"`);
+				continue;
+			}
 
-                        if (attrName === 'target') {
-                                const lowerValue = trimmedValue.toLowerCase();
-                                if (lowerValue !== '_blank' && lowerValue !== '_self') {
-                                        continue;
-                                }
-                                renderedAttributes.push(`target="${escapeHtmlAttribute(lowerValue)}"`);
-                                continue;
-                        }
+			if (attrName === 'target') {
+				const lowerValue = trimmedValue.toLowerCase();
+				if (lowerValue !== '_blank' && lowerValue !== '_self') {
+					continue;
+				}
+				renderedAttributes.push(`target="${escapeHtmlAttribute(lowerValue)}"`);
+				continue;
+			}
 
-                        if (attrName === 'width' || attrName === 'height' || attrName === 'cellpadding' || attrName === 'cellspacing' || attrName === 'border' || attrName === 'colspan' || attrName === 'rowspan') {
-                                if (!/^\d{1,4}(%|px)?$/i.test(trimmedValue)) {
-                                        continue;
-                                }
-                                renderedAttributes.push(`${attrName}="${escapeHtmlAttribute(trimmedValue)}"`);
-                                continue;
-                        }
+			if (
+				attrName === 'width' ||
+				attrName === 'height' ||
+				attrName === 'cellpadding' ||
+				attrName === 'cellspacing' ||
+				attrName === 'border' ||
+				attrName === 'colspan' ||
+				attrName === 'rowspan'
+			) {
+				if (!/^\d{1,4}(%|px)?$/i.test(trimmedValue)) {
+					continue;
+				}
+				renderedAttributes.push(`${attrName}="${escapeHtmlAttribute(trimmedValue)}"`);
+				continue;
+			}
 
-                        renderedAttributes.push(`${attrName}="${escapeHtmlAttribute(trimmedValue)}"`);
-                }
+			renderedAttributes.push(`${attrName}="${escapeHtmlAttribute(trimmedValue)}"`);
+		}
 
-                const attributeString = renderedAttributes.length ? ` ${renderedAttributes.join(' ')}` : '';
+		const attributeString = renderedAttributes.length ? ` ${renderedAttributes.join(' ')}` : '';
 
-                if (SELF_CLOSING_TAGS.has(lowerTag)) {
-                        return `<${lowerTag}${attributeString} />`;
-                }
+		if (SELF_CLOSING_TAGS.has(lowerTag)) {
+			return `<${lowerTag}${attributeString} />`;
+		}
 
-                return `<${lowerTag}${attributeString}>`;
-        });
+		return `<${lowerTag}${attributeString}>`;
+	});
 }
 
 function htmlToPlainText(html: string): string {
@@ -533,10 +548,10 @@ function validateRequestPayload(payload: Record<string, unknown>) {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-        let payload: Record<string, unknown>;
+	let payload: Record<string, unknown>;
 
-        try {
-                payload = await request.json();
+	try {
+		payload = await request.json();
 	} catch (error) {
 		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
 	}
@@ -555,77 +570,77 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	let client: SESClient;
-        try {
-                client = ensureSesClient();
-        } catch (error) {
-                console.error('SES configuration error', error);
-                return json({ error: 'Email service is not configured correctly.' }, { status: 500 });
-        }
+	try {
+		client = ensureSesClient();
+	} catch (error) {
+		console.error('SES configuration error', error);
+		return json({ error: 'Email service is not configured correctly.' }, { status: 500 });
+	}
 
-        const normalizedTags: SesTag[] = Array.isArray(payload.tags)
-                ? payload.tags
-                                .filter(
-                                        (tag): tag is SesTag =>
-                                                !!tag &&
-                                                typeof tag === 'object' &&
-                                                typeof (tag as { Name?: unknown }).Name === 'string' &&
-                                                typeof (tag as { Value?: unknown }).Value === 'string'
-                                )
-                                .slice(0, 10)
-                : [];
+	const normalizedTags: SesTag[] = Array.isArray(payload.tags)
+		? payload.tags
+				.filter(
+					(tag): tag is SesTag =>
+						!!tag &&
+						typeof tag === 'object' &&
+						typeof (tag as { Name?: unknown }).Name === 'string' &&
+						typeof (tag as { Value?: unknown }).Value === 'string'
+				)
+				.slice(0, 10)
+		: [];
 
-        const brandingCategory = deriveBrandingCategory(normalizedTags);
-        const requestOrigin = deriveRequestOrigin(request);
-        const brandingOrigin = requestOrigin || (PUBLIC_BRAND_BASE ? PUBLIC_BRAND_BASE : undefined);
+	const brandingCategory = deriveBrandingCategory(normalizedTags);
+	const requestOrigin = deriveRequestOrigin(request);
+	const brandingOrigin = requestOrigin || (PUBLIC_BRAND_BASE ? PUBLIC_BRAND_BASE : undefined);
 
-        const sanitizedHtmlBody = validation.sanitizedHtml?.trim?.()
-                ? validation.sanitizedHtml.trim()
-                : '';
-        const sanitizedTextBody = validation.normalizedText?.trim?.()
-                ? validation.normalizedText.trim()
-                : '';
+	const sanitizedHtmlBody = validation.sanitizedHtml?.trim?.()
+		? validation.sanitizedHtml.trim()
+		: '';
+	const sanitizedTextBody = validation.normalizedText?.trim?.()
+		? validation.normalizedText.trim()
+		: '';
 
-        const brandingOptions = {
-                origin: brandingOrigin,
-                category: brandingCategory,
-                subjectLine: validation.subject
-        };
+	const brandingOptions = {
+		origin: brandingOrigin,
+		category: brandingCategory,
+		subjectLine: validation.subject
+	};
 
-        const brandedHtml = sanitizedHtmlBody
-                ? wrapHtmlWithBranding(sanitizedHtmlBody, brandingOptions)
-                : '';
-        const brandedText = sanitizedTextBody
-                ? wrapTextWithBranding(sanitizedTextBody, brandingOptions)
-                : '';
+	const brandedHtml = sanitizedHtmlBody
+		? wrapHtmlWithBranding(sanitizedHtmlBody, brandingOptions)
+		: '';
+	const brandedText = sanitizedTextBody
+		? wrapTextWithBranding(sanitizedTextBody, brandingOptions)
+		: '';
 
-        const command = new SendEmailCommand({
-                Source: fromAddress,
-                Destination: {
-                        ToAddresses: validation.to
-                },
-                ReplyToAddresses: validation.replyTo ? [validation.replyTo] : undefined,
-                Message: {
-                        Subject: {
-                                Data: validation.subject,
-                                Charset: 'UTF-8'
-                        },
-                        Body: {
-                                Text: brandedText
-                                        ? {
-                                                        Data: brandedText,
-                                                        Charset: 'UTF-8'
-                                                }
-                                        : undefined,
-                                Html: brandedHtml
-                                        ? {
-                                                        Data: brandedHtml,
-                                                        Charset: 'UTF-8'
-                                                }
-                                        : undefined
-                        }
-                },
-                Tags: normalizedTags.length ? normalizedTags : undefined
-        });
+	const command = new SendEmailCommand({
+		Source: fromAddress,
+		Destination: {
+			ToAddresses: validation.to
+		},
+		ReplyToAddresses: validation.replyTo ? [validation.replyTo] : undefined,
+		Message: {
+			Subject: {
+				Data: validation.subject,
+				Charset: 'UTF-8'
+			},
+			Body: {
+				Text: brandedText
+					? {
+							Data: brandedText,
+							Charset: 'UTF-8'
+						}
+					: undefined,
+				Html: brandedHtml
+					? {
+							Data: brandedHtml,
+							Charset: 'UTF-8'
+						}
+					: undefined
+			}
+		},
+		Tags: normalizedTags.length ? normalizedTags : undefined
+	});
 
 	try {
 		const response = await client.send(command);
