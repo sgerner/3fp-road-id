@@ -42,12 +42,12 @@
 	"dependencies": {
 		"@aws-sdk/client-ses": "^3.896.0",
 		"@google/genai": "^1.19.0",
-		"@lucide/svelte": "^0.544.0",
+		"@lucide/svelte": "^0.545.0",
 		"@supabase/ssr": "^0.7.0",
 		"@supabase/supabase-js": "^2.49.1",
 		"date-fns": "^4.1.0",
 		"leaflet": "^1.9.4",
 		"leaflet.markercluster": "^1.5.3",
-		"simple-icons": "^13.21.0"
+		"simple-icons": "^15.0.0"
 	}
 }
