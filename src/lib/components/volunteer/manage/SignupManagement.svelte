@@ -1,4 +1,5 @@
 <script>
+	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -449,6 +450,45 @@
 		return '—';
 	}
 
+	function parseDateValue(value) {
+		if (!value) return null;
+		const date = value instanceof Date ? value : new Date(value);
+		if (Number.isNaN(date.getTime())) {
+			return null;
+		}
+		return date;
+	}
+
+	function formatExactDate(date, timezone) {
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+			return '';
+		}
+		try {
+			const formatter = new Intl.DateTimeFormat(undefined, {
+				dateStyle: 'medium',
+				timeStyle: 'short',
+				...(timezone ? { timeZone: timezone } : {})
+			});
+			return formatter.format(date);
+		} catch (error) {
+			return date.toLocaleString();
+		}
+	}
+
+	function buildConfirmationDisplay(confirmedAt, timezone) {
+		const date = parseDateValue(confirmedAt);
+		if (!date) {
+			return null;
+		}
+		const relative = formatRelativeTime(date);
+		return {
+			date,
+			timestamp: date.getTime(),
+			relative: relative === '—' ? '' : relative,
+			exact: formatExactDate(date, timezone)
+		};
+	}
+
 	function buildSignupInfo(createdAt) {
 		if (!createdAt) {
 			return { createdAt: null, timestamp: 0, relative: '—' };
@@ -482,17 +522,23 @@
 						windowLabel: 'No shift selected'
 					},
 					hasMultipleShifts: false,
-					signup: signupInfo
+					signup: signupInfo,
+					confirmation: null
 				});
 			} else {
 				for (const assignment of assignments) {
+					const shiftDetails = shiftMap.get(assignment.shiftId ?? '') ?? {};
 					flattened.push({
 						key: `${volunteer.id}-${assignment.id}`,
 						volunteer,
 						assignment,
-						shiftDetails: shiftMap.get(assignment.shiftId ?? '') ?? {},
+						shiftDetails,
 						hasMultipleShifts: (volunteer.shiftIds?.length ?? 0) > 1,
-						signup: signupInfo
+						signup: signupInfo,
+						confirmation: buildConfirmationDisplay(
+							assignment.confirmedAt,
+							shiftDetails?.timezone ?? shiftDetails?.time_zone ?? null
+						)
 					});
 				}
 			}
@@ -567,6 +613,7 @@
 				return 'bg-surface-500/20 text-surface-100';
 			case 'declined':
 			case 'cancelled':
+				return 'bg-warning-500/20 text-warning-200';
 			case 'no_show':
 				return 'bg-error-500/20 text-error-200';
 			default:
@@ -583,7 +630,7 @@
 			case 'declined':
 				return 'bg-error-800/10';
 			case 'cancelled':
-				return 'preset-tonal-warning';
+				return 'preset-tonal-error';
 			default:
 				return '';
 		}
@@ -842,6 +889,24 @@
 									{:else}
 										<div class="text-surface-500 text-sm">—</div>
 									{/if}
+									{#if item.confirmation}
+										<div
+											class="text-success-300 mt-2 flex items-center gap-1 text-xs font-semibold"
+											title={item.confirmation.exact
+												? `Confirmed ${item.confirmation.exact}`
+												: 'Confirmed by volunteer'}
+										>
+											<IconCheckCircle class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+											<span>
+												Confirmed
+												{#if item.confirmation.relative}
+													<span class="text-success-200/80 ml-1 font-normal">
+														({item.confirmation.relative})
+													</span>
+												{/if}
+											</span>
+										</div>
+									{/if}
 								</div>
 
 								<!-- Shift -->
@@ -890,7 +955,7 @@
 													Decline
 												</button>
 											{/if}
-											{#if item.assignment.status !== 'waitlisted'}
+											{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled'}
 												<button
 													class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
 													onclick={() => onWaitlist(item.assignment.id)}

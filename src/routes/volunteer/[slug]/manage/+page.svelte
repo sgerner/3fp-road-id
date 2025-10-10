@@ -269,16 +269,23 @@
                 const recordedHours = toNumber(
                         row?.hours_recorded ?? row?.hours_logged ?? row?.confirmed_hours ?? row?.hours
                 );
+                const confirmedAtRaw = row?.confirmed_at ?? row?.confirmedAt ?? null;
                 return {
-			id,
-			signupId: signupId ? String(signupId) : null,
-			shiftId: shiftId ? String(shiftId) : null,
-			status,
-			attendanceStatus,
-			attended,
-			recordedHours: recordedHours > 0 ? recordedHours : 0
-		};
-	}
+                        id,
+                        signupId: signupId ? String(signupId) : null,
+                        shiftId: shiftId ? String(shiftId) : null,
+                        status,
+                        attendanceStatus,
+                        attended,
+                        recordedHours: recordedHours > 0 ? recordedHours : 0,
+                        confirmedAt:
+                                confirmedAtRaw instanceof Date
+                                        ? confirmedAtRaw.toISOString()
+                                        : confirmedAtRaw
+                                                ? String(confirmedAtRaw)
+                                                : null
+                };
+        }
 
 	const assignmentsBySignupId = new SvelteMap();
 	for (const row of signupShiftsRaw ?? []) {
