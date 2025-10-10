@@ -52,22 +52,22 @@
 		return '';
 	}
 
-        function formatSentTimestamp(timestamp) {
-                if (!timestamp) return '';
-                try {
-                        const date = new Date(timestamp);
-                        if (Number.isNaN(date.getTime())) return String(timestamp);
-                        return new Intl.DateTimeFormat(undefined, {
-                                dateStyle: 'medium',
-                                timeStyle: 'short'
-                        }).format(date);
-                } catch (error) {
-                        console.warn('Unable to format sent timestamp', error);
-                        return String(timestamp);
-                }
-        }
+	function formatSentTimestamp(timestamp) {
+		if (!timestamp) return '';
+		try {
+			const date = new Date(timestamp);
+			if (Number.isNaN(date.getTime())) return String(timestamp);
+			return new Intl.DateTimeFormat(undefined, {
+				dateStyle: 'medium',
+				timeStyle: 'short'
+			}).format(date);
+		} catch (error) {
+			console.warn('Unable to format sent timestamp', error);
+			return String(timestamp);
+		}
+	}
 
-        function parseOptions(raw) {
+	function parseOptions(raw) {
 		return (raw || '')
 			.split(/\r?\n/)
 			.map((value) => value.trim())
@@ -139,6 +139,7 @@
 	let sendNowFeedback = {};
 	let warnBeforeUnload = false;
 	let openMergePreviews = {};
+	let openSentEmails = {};
 	let immediateValuesInitialised = false;
 	let lastImmediateSubject = immediateEmail.subject ?? '';
 	let lastImmediateBody = immediateEmail.body ?? '';
@@ -190,6 +191,43 @@
 
 	function buildSubjectPreview(email) {
 		return renderSubject(email.subject ?? '', previewContext);
+	}
+
+	function truncateSubject(value, maxLength = 80) {
+		const text = (value ?? '').trim();
+		if (!text) return 'No subject';
+		if (text.length <= maxLength) return text;
+		return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+	}
+
+	function compareSentEmail(a, b) {
+		const aTime = new Date(a?.lastSentAt ?? a?.last_sent_at ?? 0).getTime();
+		const bTime = new Date(b?.lastSentAt ?? b?.last_sent_at ?? 0).getTime();
+		return bTime - aTime;
+	}
+
+	function getSentEmailKey(email) {
+		if (!email) return '';
+		if (email.id) return String(email.id);
+		if (email.lastSentAt) return `sent:${email.lastSentAt}`;
+		return `sent:${email.subject ?? Math.random()}`;
+	}
+
+	function isScheduledEmail(email) {
+		if (!email) return false;
+		if (email.emailType === 'immediate') return false;
+		return !email.lastSentAt;
+	}
+
+	function toggleSentEmail(key) {
+		if (!key) return;
+		openSentEmails[key] = !openSentEmails[key];
+		openSentEmails = openSentEmails;
+	}
+
+	function isSentEmailOpen(key) {
+		if (!key) return false;
+		return !!openSentEmails[key];
 	}
 
 	function setActiveEditor(emailId, field, element) {
@@ -251,19 +289,19 @@
 				throw new Error('Body is required before sending.');
 			}
 
-                        const result = await onSendImmediateEmail({
-                                subject: email.subject,
-                                body: bodyToSend,
-                                requireConfirmation: email.requireConfirmation,
-                                emailId: email.id
-                        });
-                        const sentCount = result?.sentCount ?? approvedVolunteerCount;
-                        if (result?.lastSentAt) {
-                                onUpdateEmail(email.id, { lastSentAt: result.lastSentAt });
-                        }
-                        setSendNowFeedback(key, {
-                                success: `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
-                        });
+			const result = await onSendImmediateEmail({
+				subject: email.subject,
+				body: bodyToSend,
+				requireConfirmation: email.requireConfirmation,
+				emailId: email.id
+			});
+			const sentCount = result?.sentCount ?? approvedVolunteerCount;
+			if (result?.lastSentAt) {
+				onUpdateEmail(email.id, { lastSentAt: result.lastSentAt });
+			}
+			setSendNowFeedback(key, {
+				success: `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
+			});
 		} catch (error) {
 			setSendNowFeedback(key, {
 				error: error?.message || 'Unable to send the volunteer email right now.'
@@ -395,6 +433,14 @@
 		return !!openMergePreviews[getMergePreviewKey(scope, token)];
 	}
 
+	$: scheduledEmails = Array.isArray(eventEmails)
+		? eventEmails.filter((email) => isScheduledEmail(email))
+		: [];
+
+	$: sentEmailHistory = Array.isArray(eventEmails)
+		? [...eventEmails].filter((email) => email?.lastSentAt).sort(compareSentEmail)
+		: [];
+
 	$: {
 		if (Array.isArray(eventEmails)) {
 			for (const email of eventEmails) {
@@ -479,7 +525,7 @@
 								</div>
 
 								<div class="mt-4 grid gap-4 md:grid-cols-2">
-                                                        <label class="label flex flex-col gap-2">
+									<label class="label flex flex-col gap-2">
 										<span>Label *</span>
 										<input
 											class="input bg-surface-900/60"
@@ -606,6 +652,82 @@
 					</section>
 				{/if}
 
+				{#if sentEmailHistory.length > 0}
+					<p class="text-surface-500 text-sm">No volunteer emails have been sent yet.</p>
+					<section class="space-y-3">
+						<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+							Sent email history
+						</h4>
+
+						<ul class="space-y-3">
+							{#each sentEmailHistory as historyEmail (getSentEmailKey(historyEmail))}
+								{@const historyKey = getSentEmailKey(historyEmail)}
+								{@const historySubject = buildSubjectPreview(historyEmail)}
+								{@const historyBody = buildBodyPreview(historyEmail)}
+								<li
+									class="even:bg-tertiary-500/10 border-primary-500/30 rounded-lg border odd:bg-black/70"
+								>
+									<button
+										type="button"
+										class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+										on:click={() => {
+											toggleSentEmail(historyKey);
+										}}
+									>
+										<div class="min-w-0 space-y-1">
+											<p class="text-surface-100 truncate text-sm font-semibold">
+												{truncateSubject(historySubject || historyEmail.subject || 'No subject')}
+											</p>
+											<p class="text-surface-500 text-xs">
+												{formatSentTimestamp(historyEmail.lastSentAt)}
+											</p>
+										</div>
+										{#if openSentEmails[historyKey]}
+											<IconChevronUp class="text-surface-400 h-4 w-4 flex-shrink-0" />
+										{:else}
+											<IconChevronDown class="text-surface-400 h-4 w-4 flex-shrink-0" />
+										{/if}
+									</button>
+									{#if openSentEmails[historyKey]}
+										<div
+											class="border-surface-800/60 space-y-3 border-t px-4 py-3 text-sm"
+											transition:slide
+										>
+											<div class="space-y-1">
+												<span class="text-surface-400 text-[11px] tracking-wide uppercase"
+													>Subject</span
+												>
+												<p class="text-surface-100 font-semibold">
+													{historySubject || historyEmail.subject || 'No subject'}
+												</p>
+											</div>
+											<div class="space-y-1">
+												<span class="text-surface-400 text-[11px] tracking-wide uppercase"
+													>Body</span
+												>
+												<div
+													class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+												>
+													{#if historyBody?.html}
+														<div aria-live="polite">{@html historyBody.html}</div>
+													{:else if historyBody?.text}
+														<p class="whitespace-pre-wrap">{historyBody.text}</p>
+													{:else}
+														<p class="text-surface-500 italic">No body content provided.</p>
+													{/if}
+												</div>
+											</div>
+											<p class="text-surface-500 text-xs">
+												Sent {formatSentTimestamp(historyEmail.lastSentAt)}
+											</p>
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+
 				<section class="space-y-4">
 					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
 						Volunteer emails & updates
@@ -713,14 +835,14 @@
 									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
 										Body preview
 									</strong>
-                                                                        {#if immediateBodyPreview?.brandedHtml}
-                                                                                <div
-                                                                                        class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
-                                                                                        id="immediate-email-preview"
-                                                                                >
-                                                                                        {@html immediateBodyPreview.brandedHtml}
-                                                                                </div>
-                                                                        {:else}
+									{#if immediateBodyPreview?.brandedHtml}
+										<div
+											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+											id="immediate-email-preview"
+										>
+											{@html immediateBodyPreview.brandedHtml}
+										</div>
+									{:else}
 										<p class="text-surface-400 !normal-case">
 											Use merge tags like &#123;&#123;event_details_block&#125;&#125; or
 											&#123;&#123;volunteer_portal_block&#125;&#125; to add formatted context.
@@ -834,69 +956,54 @@
 						</div>
 					{/if}
 
-					{#each eventEmails as email, idx (email.id)}
+					{#each scheduledEmails as email, idx (email.id)}
 						{@const subjectPreview = buildSubjectPreview(email)}
 						{@const bodyPreview = buildBodyPreview(email)}
-                                                {@const timingMode = getTimingModeFromMinutes(email.sendOffsetMinutes)}
-                                                {@const feedback = sendNowFeedback[email.id] ?? {
-                                                        sending: false,
-                                                        error: '',
-                                                        success: ''
-                                                }}
-                                                {@const emailSent = !!email.lastSentAt}
-                                                <div class="card border-primary-500/20 bg-surface-900/70 border p-4">
-                                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                                                <div class="space-y-1">
-                                                                        <h3 class="font-bold">{formatEmailType(email.emailType)}</h3>
-                                                                        <p class="text-tertiary-500 text-sm italic">
-                                                                                {#if emailSent}
-                                                                                        Sent {formatSentTimestamp(email.lastSentAt)}
-                                                                                {:else if timingMode === 'now'}
-                                                                                        Manual send
-                                                                                {:else}
-                                                                                        {getEmailTiming(email.sendOffsetMinutes).hours} hrs
-                                                                                        {getEmailTiming(email.sendOffsetMinutes).direction}
-                                                                                {/if}
-                                                                        </p>
-                                                                </div>
-                                                                {#if !emailSent}
-                                                                        <button
-                                                                                type="button"
-                                                                                class="btn preset-tonal-error flex items-center gap-2"
-                                                                                on:click={() => onRemoveEmail(email.id)}
-                                                                        >
-                                                                                <IconTrash class="h-4 w-4" />
-                                                                                <span>Remove</span>
-                                                                        </button>
-                                                                {/if}
-                                                        </div>
+						{@const timingMode = getTimingModeFromMinutes(email.sendOffsetMinutes)}
+						{@const feedback = sendNowFeedback[email.id] ?? {
+							sending: false,
+							error: '',
+							success: ''
+						}}
+						{@const emailSent = !!email.lastSentAt}
+						<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
+							<div class="flex flex-wrap items-start justify-between gap-3">
+								<div class="space-y-1">
+									<h3 class="font-bold">{formatEmailType(email.emailType)}</h3>
+									<p class="text-tertiary-500 text-sm italic">
+										{#if emailSent}
+											Sent {formatSentTimestamp(email.lastSentAt)}
+										{:else if timingMode === 'now'}
+											Manual send
+										{:else}
+											{getEmailTiming(email.sendOffsetMinutes).hours} hrs
+											{getEmailTiming(email.sendOffsetMinutes).direction}
+										{/if}
+									</p>
+								</div>
+								{#if !emailSent}
+									<button
+										type="button"
+										class="btn preset-tonal-error flex items-center gap-2"
+										on:click={() => onRemoveEmail(email.id)}
+									>
+										<IconTrash class="h-4 w-4" />
+										<span>Remove</span>
+									</button>
+								{/if}
+							</div>
 
-                                                        {#if emailSent}
-                                                                <div class="mt-4 space-y-4">
-                                                                        <div class="space-y-1">
-                                                                                <span class="text-surface-400 text-xs uppercase tracking-wide">Subject</span>
-                                                                                <div class="border-surface-700/60 bg-surface-950/50 rounded-md border p-3">
-                                                                                        <p class="text-surface-100 text-sm font-semibold">
-                                                                                                {subjectPreview || 'No subject'}
-                                                                                        </p>
-                                                                                </div>
-                                                                        </div>
-                                                                        <div class="space-y-2">
-                                                                                <span class="text-surface-400 text-xs uppercase tracking-wide">Body</span>
-                                                                                <div class="border-surface-700/60 bg-surface-950/50 text-surface-100 space-y-3 rounded-md border p-3 text-sm leading-relaxed !normal-case">
-                                                                                        {#if bodyPreview?.html}
-                                                                                                <div aria-live="polite">{@html bodyPreview.html}</div>
-                                                                                        {:else if bodyPreview?.text}
-                                                                                                <p class="whitespace-pre-wrap">{bodyPreview.text}</p>
-                                                                                        {:else}
-                                                                                                <p class="text-surface-500 italic">No body content provided.</p>
-                                                                                        {/if}
-                                                                                </div>
-                                                                        </div>
-                                                                        <p class="text-surface-400 text-xs">Sent {formatSentTimestamp(email.lastSentAt)}</p>
-                                                                </div>
-                                                        {:else}
-                                                                <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+							{#if emailSent}
+								<div
+									class="border-surface-700/60 bg-surface-950/40 text-surface-400 mt-4 rounded-md border p-3 text-xs"
+								>
+									<p>
+										Sent {formatSentTimestamp(email.lastSentAt)}. View the full message in the sent
+										email history above.
+									</p>
+								</div>
+							{/if}
+							<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
 								<div class="flex flex-col gap-2">
 									<span class="label">Email type</span>
 									<Segment
@@ -1012,10 +1119,10 @@
 											<option value="before">Hours before the event</option>
 											<option value="after">Hours after the event</option>
 										</select>
-                                                                                {#if timingMode !== 'now'}
-                                                                                        <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-                                                                                                <input
-                                                                                                        type="number"
+										{#if timingMode !== 'now'}
+											<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+												<input
+													type="number"
 													min="0"
 													step="1"
 													class="input bg-surface-900/60 md:w-28"
@@ -1041,17 +1148,17 @@
 													<option value="after">hours after</option>
 												</select>
 											</div>
-                                                                                        <p class="text-surface-500 text-xs">
-                                                                                                This email sends automatically relative to the event start.
-                                                                                        </p>
-                                                                                {:else}
-                                                                                        <p class="text-surface-400 text-xs">
-                                                                                                This email won't send automatically. Use “Send email now” when you're ready
-                                                                                                to deliver it.
-                                                                                        </p>
-                                                                                {/if}
-                                                                        </div>
-                                                                </label>
+											<p class="text-surface-500 text-xs">
+												This email sends automatically relative to the event start.
+											</p>
+										{:else}
+											<p class="text-surface-400 text-xs">
+												This email won't send automatically. Use “Send email now” when you're ready
+												to deliver it.
+											</p>
+										{/if}
+									</div>
+								</label>
 								{#if email.emailType === 'reminder'}
 									<div class="flex flex-col gap-2">
 										<label class="label" for={`email-confirm-${email.id}`}
@@ -1070,7 +1177,7 @@
 								{/if}
 							</div>
 
-                                                        <label class="label flex flex-col gap-2">
+							<label class="label flex flex-col gap-2">
 								<span>Subject *</span>
 								<input
 									id={`email-subject-${email.id}`}
@@ -1111,14 +1218,14 @@
 									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
 										Body preview
 									</strong>
-                                                                        {#if bodyPreview?.brandedHtml}
-                                                                                <div
-                                                                                        class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
-                                                                                        id={`email-preview-${email.id}`}
-                                                                                >
-                                                                                        {@html bodyPreview.brandedHtml}
-                                                                                </div>
-                                                                        {:else}
+									{#if bodyPreview?.brandedHtml}
+										<div
+											class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+											id={`email-preview-${email.id}`}
+										>
+											{@html bodyPreview.brandedHtml}
+										</div>
+									{:else}
 										<p class="text-surface-400">
 											Use the merge tag chips below to add event, shift, and confirmation blocks.
 											Markdown like
@@ -1196,37 +1303,36 @@
 								</div>
 							</label>
 
-                                                        <div class="mt-4 space-y-2">
-                                                                <button
-                                                                        type="button"
-                                                                        class="btn preset-filled-primary-500 flex items-center gap-2"
-                                                                        on:click={() => handleSendScheduledNow(email)}
-                                                                        disabled={feedback.sending || !approvedVolunteerCount}
-                                                                >
-                                                                        {#if feedback.sending}
-                                                                                <IconLoader class="h-4 w-4 animate-spin" />
-                                                                                <span>Sending…</span>
-                                                                        {:else}
-                                                                                <IconSend class="h-4 w-4" />
-                                                                                <span>{timingMode === 'now' ? 'Send email now' : 'Send immediately'}</span>
-                                                                        {/if}
-                                                                </button>
-                                                                {#if !approvedVolunteerCount}
-                                                                        <p class="text-warning-300 text-xs">No approved volunteers are ready yet.</p>
-                                                                {/if}
-                                                                {#if timingMode !== 'now'}
-                                                                        <p class="text-surface-400 text-xs">
-                                                                                Sending now will override the scheduled delivery.
-                                                                        </p>
-                                                                {/if}
-                                                                {#if feedback.error}
-                                                                        <p class="text-error-300 text-xs">{feedback.error}</p>
-                                                                {/if}
-                                                                {#if feedback.success}
-                                                                        <p class="text-success-300 text-xs">{feedback.success}</p>
-                                                                {/if}
-                                                        </div>
-                                                        {/if}
+							<div class="mt-4 space-y-2">
+								<button
+									type="button"
+									class="btn preset-filled-primary-500 flex items-center gap-2"
+									on:click={() => handleSendScheduledNow(email)}
+									disabled={feedback.sending || !approvedVolunteerCount}
+								>
+									{#if feedback.sending}
+										<IconLoader class="h-4 w-4 animate-spin" />
+										<span>Sending…</span>
+									{:else}
+										<IconSend class="h-4 w-4" />
+										<span>{timingMode === 'now' ? 'Send email now' : 'Send immediately'}</span>
+									{/if}
+								</button>
+								{#if !approvedVolunteerCount}
+									<p class="text-warning-300 text-xs">No approved volunteers are ready yet.</p>
+								{/if}
+								{#if timingMode !== 'now'}
+									<p class="text-surface-400 text-xs">
+										Sending now will override the scheduled delivery.
+									</p>
+								{/if}
+								{#if feedback.error}
+									<p class="text-error-300 text-xs">{feedback.error}</p>
+								{/if}
+								{#if feedback.success}
+									<p class="text-success-300 text-xs">{feedback.success}</p>
+								{/if}
+							</div>
 						</div>
 					{/each}
 
