@@ -73,18 +73,18 @@
 		'url'
 	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
-        const emailMergeTags = [
-                '{{volunteer_name}}',
-                '{{event_title}}',
-                '{{event_day_time}}',
-                '{{event_location}}',
-                '{{event_start}}',
-                '{{event_details_block}}',
-                '{{shift_details_block}}',
-                '{{shift_confirmation_block}}',
-                '{{volunteer_portal_block}}',
-                '{{host_contact_block}}'
-        ];
+	const emailMergeTags = [
+		'{{volunteer_name}}',
+		'{{event_title}}',
+		'{{event_day_time}}',
+		'{{event_location}}',
+		'{{event_start}}',
+		'{{event_details_block}}',
+		'{{shift_details_block}}',
+		'{{shift_confirmation_block}}',
+		'{{volunteer_portal_block}}',
+		'{{host_contact_block}}'
+	];
 
 	function readValue(source, keys = []) {
 		if (!source) return undefined;
@@ -543,40 +543,40 @@
 		};
 	}
 
-        function createEmailTemplate(partial = {}) {
-                const type = partial.emailType ?? 'reminder';
-                const defaultOffset = partial.sendOffsetMinutes ?? (type === 'thankyou' ? -720 : 2160);
-                return {
-                        id: crypto.randomUUID(),
-                        emailType: type,
-                        sendOffsetMinutes: defaultOffset,
-                        subject: '',
-                        body: '',
-                        requireConfirmation: false,
-                        surveyUrl: '',
-                        lastSentAt: partial.lastSentAt ?? null,
-                        aiPrompt: '',
-                        aiError: '',
-                        aiLoading: false,
-                        aiComposerOpen: false,
-                        ...partial,
-                        emailType: partial.emailType ?? type,
-                        sendOffsetMinutes: partial.sendOffsetMinutes ?? defaultOffset
-                };
-        }
+	function createEmailTemplate(partial = {}) {
+		const type = partial.emailType ?? 'reminder';
+		const defaultOffset = partial.sendOffsetMinutes ?? (type === 'thankyou' ? -720 : 2160);
+		return {
+			id: crypto.randomUUID(),
+			emailType: type,
+			sendOffsetMinutes: defaultOffset,
+			subject: '',
+			body: '',
+			requireConfirmation: false,
+			surveyUrl: '',
+			lastSentAt: partial.lastSentAt ?? null,
+			aiPrompt: '',
+			aiError: '',
+			aiLoading: false,
+			aiComposerOpen: false,
+			...partial,
+			emailType: partial.emailType ?? type,
+			sendOffsetMinutes: partial.sendOffsetMinutes ?? defaultOffset
+		};
+	}
 
 	let opportunities = $state([
 		createOpportunity({ title: 'Lead Volunteer', opportunityType: 'coordination' })
 	]);
 	let customQuestions = $state([]);
-        let eventEmails = $state([
-                createEmailTemplate({
-                        emailType: 'reminder',
-                        sendOffsetMinutes: 2160,
-                        subject: 'Reminder: {{event_title}} starts soon',
-                        body: "We're excited to see you at {{event_title}}!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}"
-                })
-        ]);
+	let eventEmails = $state([
+		createEmailTemplate({
+			emailType: 'reminder',
+			sendOffsetMinutes: 2160,
+			subject: 'Reminder: {{event_title}} starts soon',
+			body: "We're excited to see you at {{event_title}}!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}"
+		})
+	]);
 
 	let chatMessages = $state([
 		createChatMessage({
@@ -934,11 +934,11 @@
 					opportunity_type_options: opportunityTypeOptions,
 					email_merge_tags: emailMergeTags,
 					goal: `Generate subject and body copy for a ${target.emailType} volunteer email template.`,
-                                        constraints: [
-                                                'Keep the output focused on an email subject and body.',
-                                                'Use the merge tags and blocks (e.g. {{event_details_block}}, {{shift_details_block}}, {{volunteer_portal_block}}, {{shift_confirmation_block}} when confirmations are required) to personalise details.',
-                                                'Aim for clear, encouraging language suitable for community volunteers.'
-                                        ],
+					constraints: [
+						'Keep the output focused on an email subject and body.',
+						'Use the merge tags and blocks (e.g. {{event_details_block}}, {{shift_details_block}}, {{volunteer_portal_block}}, {{shift_confirmation_block}} when confirmations are required) to personalise details.',
+						'Aim for clear, encouraging language suitable for community volunteers.'
+					],
 					preferDraft: true
 				})
 			});
