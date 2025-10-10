@@ -196,14 +196,14 @@
 		}
 	}
 
-        const emailStatusTriggers = new Set([
-                'approved',
-                'waitlisted',
-                'declined',
-                'cancelled',
-                'confirmed'
-        ]);
-        const manualStatusEmailTriggers = new Set(['approved', 'waitlisted']);
+	const emailStatusTriggers = new Set([
+		'approved',
+		'waitlisted',
+		'declined',
+		'cancelled',
+		'confirmed'
+	]);
+	const manualStatusEmailTriggers = new Set(['approved', 'waitlisted']);
 
 	const profilesByUserId = $derived(
 		new SvelteMap(
@@ -250,42 +250,42 @@
 		});
 	}
 
-        function normalizeAssignmentStatus(status) {
-                if (typeof status !== 'string') return '';
-                return status.toLowerCase().replace(/-/g, '_');
-        }
+	function normalizeAssignmentStatus(status) {
+		if (typeof status !== 'string') return '';
+		return status.toLowerCase().replace(/-/g, '_');
+	}
 
-        function normalizeAssignment(row) {
-                if (!row) return null;
-                const id = row?.id ? String(row.id) : null;
-                const signupId = row?.signup_id ?? row?.volunteer_signup_id ?? row?.signupId;
-                const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId ?? null;
-                const status = row?.status || row?.attendance_status || 'pending';
-                const attendanceStatus = normalizeAssignmentStatus(status);
-                const attended =
-                        row?.attended === true ||
-                        ['checked_in', 'present', 'attended', 'complete', 'confirmed'].includes(attendanceStatus);
+	function normalizeAssignment(row) {
+		if (!row) return null;
+		const id = row?.id ? String(row.id) : null;
+		const signupId = row?.signup_id ?? row?.volunteer_signup_id ?? row?.signupId;
+		const shiftId = row?.shift_id ?? row?.volunteer_shift_id ?? row?.shiftId ?? null;
+		const status = row?.status || row?.attendance_status || 'pending';
+		const attendanceStatus = normalizeAssignmentStatus(status);
+		const attended =
+			row?.attended === true ||
+			['checked_in', 'present', 'attended', 'complete', 'confirmed'].includes(attendanceStatus);
 
-                const recordedHours = toNumber(
-                        row?.hours_recorded ?? row?.hours_logged ?? row?.confirmed_hours ?? row?.hours
-                );
-                const confirmedAtRaw = row?.confirmed_at ?? row?.confirmedAt ?? null;
-                return {
-                        id,
-                        signupId: signupId ? String(signupId) : null,
-                        shiftId: shiftId ? String(shiftId) : null,
-                        status,
-                        attendanceStatus,
-                        attended,
-                        recordedHours: recordedHours > 0 ? recordedHours : 0,
-                        confirmedAt:
-                                confirmedAtRaw instanceof Date
-                                        ? confirmedAtRaw.toISOString()
-                                        : confirmedAtRaw
-                                                ? String(confirmedAtRaw)
-                                                : null
-                };
-        }
+		const recordedHours = toNumber(
+			row?.hours_recorded ?? row?.hours_logged ?? row?.confirmed_hours ?? row?.hours
+		);
+		const confirmedAtRaw = row?.confirmed_at ?? row?.confirmedAt ?? null;
+		return {
+			id,
+			signupId: signupId ? String(signupId) : null,
+			shiftId: shiftId ? String(shiftId) : null,
+			status,
+			attendanceStatus,
+			attended,
+			recordedHours: recordedHours > 0 ? recordedHours : 0,
+			confirmedAt:
+				confirmedAtRaw instanceof Date
+					? confirmedAtRaw.toISOString()
+					: confirmedAtRaw
+						? String(confirmedAtRaw)
+						: null
+		};
+	}
 
 	const assignmentsBySignupId = new SvelteMap();
 	for (const row of signupShiftsRaw ?? []) {
@@ -343,31 +343,31 @@
 		return total;
 	}
 
-        function findProfileForSignup(signup) {
-                const userId =
-                        signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
-                const profileId = signup?.volunteer_user_id;
+	function findProfileForSignup(signup) {
+		const userId =
+			signup?.volunteer_user_id ?? signup?.volunteerUserId ?? signup?.user_id ?? signup?.userId;
+		const profileId = signup?.volunteer_user_id;
 
-                return (
+		return (
 			profileRecords.find((p) => {
 				if (userId && String(p.user_id) === String(userId)) return true;
 				if (profileId && String(p.id) === String(profileId)) return true;
 				return false;
 			}) ?? null
-                );
-        }
+		);
+	}
 
-        function normalizeVolunteer(signup, assignments, responses, profile) {
-                const statuses = assignments
-                        .map((assignment) => normalizeAssignmentStatus(assignment.status))
-                        .filter(Boolean);
-                let status = 'pending';
-                if (statuses.some((value) => value === 'approved' || value === 'checked_in')) {
-                        status = 'approved';
-                } else if (statuses.includes('waitlisted')) {
-                        status = 'waitlisted';
-                } else if (statuses.includes('declined')) {
-                        status = 'declined';
+	function normalizeVolunteer(signup, assignments, responses, profile) {
+		const statuses = assignments
+			.map((assignment) => normalizeAssignmentStatus(assignment.status))
+			.filter(Boolean);
+		let status = 'pending';
+		if (statuses.some((value) => value === 'approved' || value === 'checked_in')) {
+			status = 'approved';
+		} else if (statuses.includes('waitlisted')) {
+			status = 'waitlisted';
+		} else if (statuses.includes('declined')) {
+			status = 'declined';
 		} else if (statuses.includes('cancelled')) {
 			status = 'cancelled';
 		}
@@ -488,147 +488,143 @@
 		}
 	}
 
-        function clearEmailQueue() {
-                if (!emailQueue.length) return;
-                emailQueue = [];
-                emailQueueError = '';
-                addActivityEntry('Cleared all queued volunteer emails.');
-        }
+	function clearEmailQueue() {
+		if (!emailQueue.length) return;
+		emailQueue = [];
+		emailQueueError = '';
+		addActivityEntry('Cleared all queued volunteer emails.');
+	}
 
-        function resolveVolunteerEmail(volunteer) {
-                const candidates = [
-                        volunteer?.email,
-                        volunteer?.signup?.volunteer_email,
-                        volunteer?.signup?.email,
-                        volunteer?.profile?.email
-                ];
-                for (const value of candidates) {
-                        if (typeof value !== 'string') continue;
-                        const trimmed = value.trim();
-                        if (trimmed) return trimmed;
-                }
-                return '';
-        }
+	function resolveVolunteerEmail(volunteer) {
+		const candidates = [
+			volunteer?.email,
+			volunteer?.signup?.volunteer_email,
+			volunteer?.signup?.email,
+			volunteer?.profile?.email
+		];
+		for (const value of candidates) {
+			if (typeof value !== 'string') continue;
+			const trimmed = value.trim();
+			if (trimmed) return trimmed;
+		}
+		return '';
+	}
 
-        function resolveVolunteerName(volunteer, fallbackEmail) {
-                const candidates = [
-                        volunteer?.name,
-                        volunteer?.signup?.volunteer_name,
-                        volunteer?.signup?.full_name
-                ];
-                for (const value of candidates) {
-                        if (typeof value !== 'string') continue;
-                        const trimmed = value.trim();
-                        if (trimmed) return trimmed;
-                }
-                return fallbackEmail;
-        }
+	function resolveVolunteerName(volunteer, fallbackEmail) {
+		const candidates = [
+			volunteer?.name,
+			volunteer?.signup?.volunteer_name,
+			volunteer?.signup?.full_name
+		];
+		for (const value of candidates) {
+			if (typeof value !== 'string') continue;
+			const trimmed = value.trim();
+			if (trimmed) return trimmed;
+		}
+		return fallbackEmail;
+	}
 
-        function buildShiftStatusEmailDetails({ volunteer, assignment, statusOverride }) {
-                if (!assignment?.shiftId) return null;
+	function buildShiftStatusEmailDetails({ volunteer, assignment, statusOverride }) {
+		if (!assignment?.shiftId) return null;
 
-                const targetStatus = statusOverride
-                        ? String(statusOverride)
-                        : assignment?.status
-                        ? String(assignment.status)
-                        : '';
-                if (!targetStatus || !emailStatusTriggers.has(targetStatus)) return null;
+		const targetStatus = statusOverride
+			? String(statusOverride)
+			: assignment?.status
+				? String(assignment.status)
+				: '';
+		if (!targetStatus || !emailStatusTriggers.has(targetStatus)) return null;
 
-                const volunteerEmail = resolveVolunteerEmail(volunteer);
-                if (!volunteerEmail) return null;
+		const volunteerEmail = resolveVolunteerEmail(volunteer);
+		if (!volunteerEmail) return null;
 
-                const normalizedShift = shiftMap.get(assignment.shiftId) ?? null;
-                const rawShift = rawShiftMap.get(assignment.shiftId) ?? null;
-                const fallbackShift = !rawShift && normalizedShift
-                        ? {
-                                  id: normalizedShift.id,
-                                  title:
-                                          normalizedShift.optionLabel ||
-                                          normalizedShift.windowLabel ||
-                                          'Volunteer shift',
-                                  starts_at: normalizedShift.startsAt ?? null,
-                                  ends_at: normalizedShift.endsAt ?? null,
-                                  timezone: normalizedShift.timezone ?? eventTimezone,
-                                  location_name: '',
-                                  location_address: '',
-                                  notes: ''
-                          }
-                        : null;
-                const shiftsForEmail = rawShift ? [rawShift] : fallbackShift ? [fallbackShift] : [];
-                if (!shiftsForEmail.length) return null;
+		const normalizedShift = shiftMap.get(assignment.shiftId) ?? null;
+		const rawShift = rawShiftMap.get(assignment.shiftId) ?? null;
+		const fallbackShift =
+			!rawShift && normalizedShift
+				? {
+						id: normalizedShift.id,
+						title: normalizedShift.optionLabel || normalizedShift.windowLabel || 'Volunteer shift',
+						starts_at: normalizedShift.startsAt ?? null,
+						ends_at: normalizedShift.endsAt ?? null,
+						timezone: normalizedShift.timezone ?? eventTimezone,
+						location_name: '',
+						location_address: '',
+						notes: ''
+					}
+				: null;
+		const shiftsForEmail = rawShift ? [rawShift] : fallbackShift ? [fallbackShift] : [];
+		if (!shiftsForEmail.length) return null;
 
-                let eventUrl = '';
-                let origin = '';
-                if (typeof window !== 'undefined') {
-                        eventUrl = window.location.href;
-                        origin = window.location.origin;
-                }
+		let eventUrl = '';
+		let origin = '';
+		if (typeof window !== 'undefined') {
+			eventUrl = window.location.href;
+			origin = window.location.origin;
+		}
 
-                let shiftsUrl = '';
-                if (origin) {
-                        try {
-                                shiftsUrl = new URL('/volunteer/shifts', origin).toString();
-                        } catch (error) {
-                                console.warn('Unable to resolve volunteer shifts URL', error);
-                                shiftsUrl = '';
-                        }
-                }
+		let shiftsUrl = '';
+		if (origin) {
+			try {
+				shiftsUrl = new URL('/volunteer/shifts', origin).toString();
+			} catch (error) {
+				console.warn('Unable to resolve volunteer shifts URL', error);
+				shiftsUrl = '';
+			}
+		}
 
-                const opportunityId =
-                        normalizedShift?.opportunityId ??
-                        rawShift?.opportunity_id ??
-                        rawShift?.volunteer_opportunity_id ??
-                        null;
-                const rawOpportunity =
-                        opportunityId !== null && opportunityId !== undefined
-                                ? rawOpportunityMap.get(String(opportunityId)) ?? null
-                                : null;
-                const fallbackOpportunity = normalizedShift
-                        ? { title: normalizedShift.opportunityTitle || 'Volunteer activity' }
-                        : null;
-                const opportunity = rawOpportunity ?? fallbackOpportunity;
+		const opportunityId =
+			normalizedShift?.opportunityId ??
+			rawShift?.opportunity_id ??
+			rawShift?.volunteer_opportunity_id ??
+			null;
+		const rawOpportunity =
+			opportunityId !== null && opportunityId !== undefined
+				? (rawOpportunityMap.get(String(opportunityId)) ?? null)
+				: null;
+		const fallbackOpportunity = normalizedShift
+			? { title: normalizedShift.opportunityTitle || 'Volunteer activity' }
+			: null;
+		const opportunity = rawOpportunity ?? fallbackOpportunity;
 
-                const volunteerName = resolveVolunteerName(volunteer, volunteerEmail);
+		const volunteerName = resolveVolunteerName(volunteer, volunteerEmail);
 
-                const emailPayload = buildVolunteerStatusUpdateEmail({
-                        event,
-                        opportunity,
-                        shifts: shiftsForEmail,
-                        volunteer: { name: volunteerName, email: volunteerEmail },
-                        hostGroup,
-                        contactEmail,
-                        contactPhone,
-                        hostEmail: organizerEmail,
-                        eventUrl,
-                        shiftsUrl,
-                        status: targetStatus
-                });
+		const emailPayload = buildVolunteerStatusUpdateEmail({
+			event,
+			opportunity,
+			shifts: shiftsForEmail,
+			volunteer: { name: volunteerName, email: volunteerEmail },
+			hostGroup,
+			contactEmail,
+			contactPhone,
+			hostEmail: organizerEmail,
+			eventUrl,
+			shiftsUrl,
+			status: targetStatus
+		});
 
-                if (!emailPayload) return null;
+		if (!emailPayload) return null;
 
-                const shiftLabel =
-                        normalizedShift?.optionLabel ||
-                        normalizedShift?.windowLabel ||
-                        rawShift?.title ||
-                        fallbackShift?.title ||
-                        '';
-                const opportunityTitle =
-                        normalizedShift?.opportunityTitle ||
-                        (opportunity?.title?.trim?.() || '') ||
-                        '';
+		const shiftLabel =
+			normalizedShift?.optionLabel ||
+			normalizedShift?.windowLabel ||
+			rawShift?.title ||
+			fallbackShift?.title ||
+			'';
+		const opportunityTitle =
+			normalizedShift?.opportunityTitle || opportunity?.title?.trim?.() || '' || '';
 
-                return {
-                        emailPayload,
-                        volunteerName,
-                        volunteerEmail,
-                        status: targetStatus,
-                        shiftId: assignment.shiftId,
-                        opportunityTitle,
-                        shiftLabel
-                };
-        }
+		return {
+			emailPayload,
+			volunteerName,
+			volunteerEmail,
+			status: targetStatus,
+			shiftId: assignment.shiftId,
+			opportunityTitle,
+			shiftLabel
+		};
+	}
 
-        async function sendQueuedEmail(queueId) {
+	async function sendQueuedEmail(queueId) {
 		if (!queueId || !emailQueue.length) return;
 		const entry = emailQueue.find((item) => item.id === queueId);
 		if (!entry) return;
@@ -671,42 +667,42 @@
 		emailQueueSending = false;
 	}
 
-        function queueShiftStatusEmail({ volunteer, assignment, previousStatus }) {
-                if (!assignment?.id || !assignment?.shiftId) return;
+	function queueShiftStatusEmail({ volunteer, assignment, previousStatus }) {
+		if (!assignment?.id || !assignment?.shiftId) return;
 
-                const emailDetails = buildShiftStatusEmailDetails({ volunteer, assignment });
-                if (!emailDetails) return;
+		const emailDetails = buildShiftStatusEmailDetails({ volunteer, assignment });
+		if (!emailDetails) return;
 
-                const queueId =
-                        globalThis?.crypto?.randomUUID?.() ??
-                        `email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+		const queueId =
+			globalThis?.crypto?.randomUUID?.() ??
+			`email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-                const previous = previousStatus ? String(previousStatus) : '';
+		const previous = previousStatus ? String(previousStatus) : '';
 
-                emailQueue = [
-                        ...emailQueue.filter(
-                                (entry) => !(entry.assignmentId === assignment.id && entry.status === assignment.status)
-                        ),
-                        {
-                                id: queueId,
-                                assignmentId: assignment.id,
-                                shiftId: emailDetails.shiftId,
-                                volunteerId: volunteer.id,
-                                volunteerName: emailDetails.volunteerName,
-                                volunteerEmail: emailDetails.volunteerEmail,
-                                status: assignment.status,
-                                previousStatus: previous,
-                                opportunityTitle: emailDetails.opportunityTitle,
-                                shiftLabel: emailDetails.shiftLabel,
-                                queuedAt: new Date().toISOString(),
-                                emailPayload: emailDetails.emailPayload
-                        }
-                ];
+		emailQueue = [
+			...emailQueue.filter(
+				(entry) => !(entry.assignmentId === assignment.id && entry.status === assignment.status)
+			),
+			{
+				id: queueId,
+				assignmentId: assignment.id,
+				shiftId: emailDetails.shiftId,
+				volunteerId: volunteer.id,
+				volunteerName: emailDetails.volunteerName,
+				volunteerEmail: emailDetails.volunteerEmail,
+				status: assignment.status,
+				previousStatus: previous,
+				opportunityTitle: emailDetails.opportunityTitle,
+				shiftLabel: emailDetails.shiftLabel,
+				queuedAt: new Date().toISOString(),
+				emailPayload: emailDetails.emailPayload
+			}
+		];
 
-                addActivityEntry(
-                        `Queued an email for ${emailDetails.volunteerName} about their shift status change.`
-                );
-        }
+		addActivityEntry(
+			`Queued an email for ${emailDetails.volunteerName} about their shift status change.`
+		);
+	}
 
 	async function updateAssignmentStatus(assignmentId, status) {
 		if (!assignmentId) return;
@@ -1116,41 +1112,41 @@
 			emergencyContactName,
 			emergencyContactPhone
 		});
-                const volunteerEntry = normalizeVolunteer(signupRecord, [assignment], [], volunteerProfile);
-                volunteers = [volunteerEntry, ...volunteers];
+		const volunteerEntry = normalizeVolunteer(signupRecord, [assignment], [], volunteerProfile);
+		volunteers = [volunteerEntry, ...volunteers];
 
-                let emailActivityMessage = null;
-                if (manualStatusEmailTriggers.has(status)) {
-                        try {
-                                const emailDetails = buildShiftStatusEmailDetails({
-                                        volunteer: volunteerEntry,
-                                        assignment,
-                                        statusOverride: status
-                                });
-                                if (emailDetails) {
-                                        await sendEmail(emailDetails.emailPayload);
-                                        const statusLabel = status === 'waitlisted' ? 'waitlist' : 'approval';
-                                        emailActivityMessage = `Sent ${statusLabel} email to ${emailDetails.volunteerName}.`;
-                                } else {
-                                        emailActivityMessage = `Unable to send ${status} email to ${volunteerEntry.name}.`;
-                                }
-                        } catch (error) {
-                                console.error('Failed to send volunteer status email for manual addition', error);
-                                emailActivityMessage = `Failed to send ${status} email to ${volunteerEntry.name}.`;
-                        }
-                }
+		let emailActivityMessage = null;
+		if (manualStatusEmailTriggers.has(status)) {
+			try {
+				const emailDetails = buildShiftStatusEmailDetails({
+					volunteer: volunteerEntry,
+					assignment,
+					statusOverride: status
+				});
+				if (emailDetails) {
+					await sendEmail(emailDetails.emailPayload);
+					const statusLabel = status === 'waitlisted' ? 'waitlist' : 'approval';
+					emailActivityMessage = `Sent ${statusLabel} email to ${emailDetails.volunteerName}.`;
+				} else {
+					emailActivityMessage = `Unable to send ${status} email to ${volunteerEntry.name}.`;
+				}
+			} catch (error) {
+				console.error('Failed to send volunteer status email for manual addition', error);
+				emailActivityMessage = `Failed to send ${status} email to ${volunteerEntry.name}.`;
+			}
+		}
 
-                if (emailActivityMessage) {
-                        addActivityEntry(emailActivityMessage);
-                }
+		if (emailActivityMessage) {
+			addActivityEntry(emailActivityMessage);
+		}
 
-                const additionMessage = `Added ${volunteerEntry.name} to ${shift.optionLabel} as ${status}.`;
-                addActivityEntry(additionMessage);
+		const additionMessage = `Added ${volunteerEntry.name} to ${shift.optionLabel} as ${status}.`;
+		addActivityEntry(additionMessage);
 
-                return {
-                        ok: true,
-                        message: `${volunteerEntry.name} was added to ${shift.optionLabel}.`
-                };
+		return {
+			ok: true,
+			message: `${volunteerEntry.name} was added to ${shift.optionLabel}.`
+		};
 	}
 	const statusFilters = [
 		{ value: 'all', label: 'All statuses' },
@@ -1240,82 +1236,84 @@
 						v.assignments.length === 0 &&
 						v.status === 'waitlisted'
 				);
-                                const attending = assigned.filter((v) => v.attended);
-                                const pending = volunteers.filter(
-                                        (v) =>
-                                                String(v.signup.opportunity_id) === opportunityId &&
-                                                v.assignments.length === 0 &&
-                                                v.status === 'pending'
-                                ).length;
+				const attending = assigned.filter((v) => v.attended);
+				const pending = volunteers.filter(
+					(v) =>
+						String(v.signup.opportunity_id) === opportunityId &&
+						v.assignments.length === 0 &&
+						v.status === 'pending'
+				).length;
 
-                                return {
-                                        id: group.id,
-                                        title: group.title,
-                                        shifts: [
-                                                {
-                                                        id: group.id,
-                                                        label: 'All participants',
-                                                        windowLabel: '',
-                                                        capacity: capacity > 0 ? capacity : null,
-                                                        approved: assigned.length,
-                                                        waitlisted: waitlisted.length,
-                                                        pending,
-                                                        attending: attending.length
-                                                }
-                                        ]
-                                };
-                        }
+				return {
+					id: group.id,
+					title: group.title,
+					shifts: [
+						{
+							id: group.id,
+							label: 'All participants',
+							windowLabel: '',
+							capacity: capacity > 0 ? capacity : null,
+							approved: assigned.length,
+							waitlisted: waitlisted.length,
+							pending,
+							attending: attending.length
+						}
+					]
+				};
+			}
 
-                return {
-                        id: group.id,
-                        title: group.title,
-                        shifts: group.shifts.map((shift) => {
-                                const shiftAssignments = volunteers
-                                        .map((volunteer) => {
-                                                const assignmentsForShift = (volunteer.assignments ?? []).filter(
-                                                        (assignment) => assignment.shiftId === shift.id
-                                                );
-                                                if (!assignmentsForShift.length) return null;
-                                                return { volunteer, assignments: assignmentsForShift };
-                                        })
-                                        .filter(Boolean);
+			return {
+				id: group.id,
+				title: group.title,
+				shifts: group.shifts.map((shift) => {
+					const shiftAssignments = volunteers
+						.map((volunteer) => {
+							const assignmentsForShift = (volunteer.assignments ?? []).filter(
+								(assignment) => assignment.shiftId === shift.id
+							);
+							if (!assignmentsForShift.length) return null;
+							return { volunteer, assignments: assignmentsForShift };
+						})
+						.filter(Boolean);
 
-                                const totals = shiftAssignments.reduce(
-                                        (accumulator, entry) => {
-                                                const statuses = entry.assignments.map((assignment) =>
-                                                        normalizeAssignmentStatus(assignment.status)
-                                                );
+					const totals = shiftAssignments.reduce(
+						(accumulator, entry) => {
+							const statuses = entry.assignments.map((assignment) =>
+								normalizeAssignmentStatus(assignment.status)
+							);
 
-                                                if (entry.assignments.some((assignment) => assignment.attended)) {
-                                                        accumulator.attending += 1;
-                                                }
+							if (entry.assignments.some((assignment) => assignment.attended)) {
+								accumulator.attending += 1;
+							}
 
-                                                if (statuses.some((status) => status === 'approved' || status === 'checked_in')) {
-                                                        accumulator.approved += 1;
-                                                } else if (statuses.includes('waitlisted')) {
-                                                        accumulator.waitlisted += 1;
-                                                } else if (statuses.includes('pending')) {
-                                                        accumulator.pending += 1;
-                                                }
+							if (statuses.some((status) => status === 'approved' || status === 'checked_in')) {
+								accumulator.approved += 1;
+							} else if (statuses.includes('waitlisted')) {
+								accumulator.waitlisted += 1;
+							} else if (statuses.includes('pending')) {
+								accumulator.pending += 1;
+							}
 
-                                                return accumulator;
-                                        },
-                                        { approved: 0, waitlisted: 0, pending: 0, attending: 0 }
-                                );
-                                return {
-                                        id: shift.id,
-                                        label: shift.optionLabel,
-                                        windowLabel: shift.windowLabel,
-                                        capacity: shift.capacity,
-                                        approved: totals.approved,
-                                        waitlisted: totals.waitlisted,
-                                        pending: totals.pending,
-                                        attending: totals.attending
-                                };
-                        })
-                };
-        })
-        );
+							return accumulator;
+						},
+						{ approved: 0, waitlisted: 0, pending: 0, attending: 0 }
+					);
+					return {
+						id: shift.id,
+						label: shift.optionLabel,
+						windowLabel: shift.windowLabel,
+						capacity: shift.capacity,
+						approved: totals.approved,
+						waitlisted: totals.waitlisted,
+						pending: totals.pending,
+						attending: totals.attending
+					};
+				})
+			};
+		})
+	);
+
+	const allowedEmailTypes = new Set(['reminder', 'thankyou', 'custom', 'immediate']);
 
 	function normalizeEmailRecord(row) {
 		if (!row) return null;
@@ -1324,22 +1322,22 @@
 		);
 		const rawType = (row.email_type ?? row.emailType ?? 'reminder').toLowerCase();
 		const normalizedType = rawType === 'thank_you' ? 'thankyou' : rawType;
-                        return {
-                                id: row.id ? String(row.id) : null,
-                                eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
-                                emailType: ['reminder', 'thankyou', 'custom'].includes(normalizedType)
-                                        ? normalizedType
-                                        : 'reminder',
-                                subject: row.subject ?? '',
-                                body: row.body ?? '',
-                                sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : 1440,
-                                requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
-                                surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
-                                lastSentAt: row.last_sent_at ?? row.lastSentAt ?? null,
-                                createdAt: row.created_at ?? row.createdAt ?? null,
-                                updatedAt: row.updated_at ?? row.updatedAt ?? null
-                        };
-                }
+		const emailType = allowedEmailTypes.has(normalizedType) ? normalizedType : 'reminder';
+		const defaultSendOffset = emailType === 'immediate' ? 0 : 1440;
+		return {
+			id: row.id ? String(row.id) : null,
+			eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
+			emailType,
+			subject: row.subject ?? '',
+			body: row.body ?? '',
+			sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : defaultSendOffset,
+			requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
+			surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
+			lastSentAt: row.last_sent_at ?? row.lastSentAt ?? null,
+			createdAt: row.created_at ?? row.createdAt ?? null,
+			updatedAt: row.updated_at ?? row.updatedAt ?? null
+		};
+	}
 
 	let eventEmails = $state(
 		eventEmailsRaw.map((record) => normalizeEmailRecord(record)).filter(Boolean)
@@ -1433,7 +1431,7 @@
 		}
 	}
 
-        async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId }) {
+	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId }) {
 		const approvedVolunteers = volunteers.filter((volunteer) => volunteer.status === 'approved');
 		if (!approvedVolunteers.length) {
 			throw new Error('No approved volunteers are available to email.');
@@ -1507,37 +1505,65 @@
 			}
 		}
 
-                if (!sentCount) {
-                        throw new Error('No approved volunteers had a valid email address.');
-                }
+		if (!sentCount) {
+			throw new Error('No approved volunteers had a valid email address.');
+		}
 
-                let recordedSentAt = null;
-                if (emailId) {
-                        const timestamp = new Date().toISOString();
-                        try {
-                                const response = await updateVolunteerEventEmail(emailId, {
-                                        last_sent_at: timestamp
-                                });
-                                const updated = response?.data ?? response ?? null;
-                                recordedSentAt = updated?.last_sent_at ?? updated?.lastSentAt ?? timestamp;
-                                if (updated) {
-                                        upsertEmail(updated);
-                                } else {
-                                        updateEmailLocal(emailId, { lastSentAt: recordedSentAt });
-                                }
-                        } catch (error) {
-                                console.error('Failed to persist volunteer email last_sent_at', error);
-                                throw new Error(
-                                        'The email was sent, but we could not record the send time. Please try again.'
-                                );
-                        }
-                }
+		const timestamp = new Date().toISOString();
+		let recordedSentAt = timestamp;
+		if (emailId) {
+			try {
+				const response = await updateVolunteerEventEmail(emailId, {
+					last_sent_at: timestamp
+				});
+				const updated = response?.data ?? response ?? null;
+				recordedSentAt = updated?.last_sent_at ?? updated?.lastSentAt ?? timestamp;
+				if (updated) {
+					upsertEmail(updated);
+				} else {
+					updateEmailLocal(emailId, { lastSentAt: recordedSentAt });
+				}
+			} catch (error) {
+				console.error('Failed to persist volunteer email last_sent_at', error);
+				throw new Error(
+					'The email was sent, but we could not record the send time. Please try again.'
+				);
+			}
+		} else {
+			if (!event?.id) {
+				throw new Error(
+					'The email was sent, but we could not record it for this event. Please try again.'
+				);
+			}
+			try {
+				const response = await createVolunteerEventEmail({
+					event_id: event.id,
+					email_type: 'immediate',
+					subject,
+					body,
+					send_offset_minutes: 0,
+					require_confirmation: !!requireConfirmation,
+					survey_url: '',
+					last_sent_at: timestamp
+				});
+				const created = response?.data ?? response ?? null;
+				recordedSentAt = created?.last_sent_at ?? created?.lastSentAt ?? timestamp;
+				if (created) {
+					upsertEmail(created);
+				}
+			} catch (error) {
+				console.error('Failed to create immediate volunteer email record', error);
+				throw new Error(
+					'The email was sent, but we could not record the send time. Please try again.'
+				);
+			}
+		}
 
-                addActivityEntry(
-                        `Sent immediate volunteer email to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
-                );
-                return { sentCount, lastSentAt: recordedSentAt };
-        }
+		addActivityEntry(
+			`Sent immediate volunteer email to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`
+		);
+		return { sentCount, lastSentAt: recordedSentAt };
+	}
 
 	const customQuestions = customQuestionsRaw ?? [];
 	async function setAssignmentsPresent(assignmentIds, status) {

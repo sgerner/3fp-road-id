@@ -385,6 +385,11 @@
 			const result = await onSendImmediateEmail({ ...immediateEmail });
 			const sentCount = result?.sentCount ?? approvedVolunteerCount;
 			immediateEmailSuccess = `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`;
+			const clearedEmail = { subject: '', body: '', requireConfirmation: false };
+			immediateValuesInitialised = false;
+			lastImmediateSubject = clearedEmail.subject;
+			lastImmediateBody = clearedEmail.body;
+			immediateEmail = clearedEmail;
 		} catch (error) {
 			immediateEmailError = error?.message || 'Unable to send the volunteer email right now.';
 		} finally {
@@ -665,7 +670,7 @@
 								{@const historySubject = buildSubjectPreview(historyEmail)}
 								{@const historyBody = buildBodyPreview(historyEmail)}
 								<li
-									class="even:bg-tertiary-500/10 border-primary-500/30 rounded-lg border odd:bg-black/70"
+									class="even:bg-secondary-500/10 border-primary-500/30 rounded-lg border odd:bg-black/70"
 								>
 									<button
 										type="button"
