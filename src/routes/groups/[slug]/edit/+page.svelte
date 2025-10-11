@@ -22,6 +22,8 @@
 	import BrandThreads from '$lib/icons/BrandThreads.svelte';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMountain from '@lucide/svelte/icons/mountain';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	let L; // loaded dynamically on client
 
@@ -719,8 +721,31 @@
 	let ownerError = $state('');
 	let ownerSuccess = $state('');
 	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
+	let ownerHoneypot = $state('');
+	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let ownerTurnstileEl = $state(null);
+	let ownerTurnstileWidgetId = $state(null);
 	// Local reactive owners list so UI updates on removal
 	let owners = $state((data.owners || []).slice());
+
+	async function initOwnerTurnstile() {
+		if (!turnstileEnabled || !ownerTurnstileEl || ownerTurnstileWidgetId) return;
+		try {
+			const widgetId = await renderTurnstile(ownerTurnstileEl, {
+				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+				size: 'invisible'
+			});
+			ownerTurnstileWidgetId = widgetId;
+		} catch (err) {
+			console.error('Failed to initialize Turnstile widget', err);
+		}
+	}
+
+	$effect(() => {
+		if (turnstileEnabled && ownerTurnstileEl && !ownerTurnstileWidgetId) {
+			initOwnerTurnstile();
+		}
+	});
 	async function inviteOwner(e) {
 		e?.preventDefault?.();
 		ownerError = '';
@@ -729,8 +754,27 @@
 			ownerError = 'Enter a valid email address.';
 			return;
 		}
+		if (ownerHoneypot.trim()) {
+			ownerError = 'Invalid submission.';
+			return;
+		}
 		ownerLoading = true;
 		try {
+			let turnstileToken = '';
+			if (turnstileEnabled) {
+				await initOwnerTurnstile();
+				if (!ownerTurnstileWidgetId) {
+					ownerError = 'Verification failed. Please reload and try again.';
+					ownerLoading = false;
+					return;
+				}
+				turnstileToken = await executeTurnstile(ownerTurnstileWidgetId);
+				if (!turnstileToken) {
+					ownerError = 'Verification failed. Please try again.';
+					ownerLoading = false;
+					return;
+				}
+			}
 			const rtUrl = new URL(window.location.href);
 			rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
 			const res = await fetch('/api/v1/auth/login', {
@@ -739,7 +783,9 @@
 				body: JSON.stringify({
 					email: ownerEmail,
 					createProfile: true,
-					returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash
+					returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash,
+					honeypot: ownerHoneypot,
+					turnstileToken
 				})
 			});
 			if (!res.ok) {
@@ -748,10 +794,14 @@
 			}
 			ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
 			ownerEmail = '';
+			ownerHoneypot = '';
 		} catch (err) {
 			ownerError = err.message || 'Failed to send invite.';
 		} finally {
 			ownerLoading = false;
+			if (turnstileEnabled && ownerTurnstileWidgetId) {
+				resetTurnstile(ownerTurnstileWidgetId);
+			}
 		}
 	}
 
@@ -1243,6 +1293,21 @@
 							if (e.key === 'Enter') inviteOwner(e);
 						}}
 					/>
+					<input
+						type="text"
+						name="website"
+						bind:value={ownerHoneypot}
+						autocomplete="off"
+						tabindex="-1"
+						aria-hidden="true"
+						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+					/>
+					<div
+						aria-hidden="true"
+						style="position: absolute; width: 0; height: 0; overflow: hidden;"
+					>
+						<div bind:this={ownerTurnstileEl}></div>
+					</div>
 					<button
 						type="button"
 						class="btn preset-filled-primary-500 md:w-auto {ownerLoading ? 'animate-pulse' : ''}"

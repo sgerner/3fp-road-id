@@ -29,6 +29,8 @@
 	import VolunteerContactFields from '$lib/components/volunteer/VolunteerContactFields.svelte';
 	import VolunteerSelectedShifts from '$lib/components/volunteer/VolunteerSelectedShifts.svelte';
 	import { slide } from 'svelte/transition';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	const event = data.event ?? {};
 	const hostGroup = data.hostGroup ?? null;
@@ -358,6 +360,28 @@
 	let loginError = $state('');
 	let loginSuccess = $state('');
 	let loginLoading = $state(false);
+	let loginHoneypot = $state('');
+	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEl = $state(null);
+	let turnstileWidgetId = $state(null);
+	async function initTurnstile() {
+		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
+		try {
+			const widgetId = await renderTurnstile(turnstileEl, {
+				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+				size: 'invisible'
+			});
+			turnstileWidgetId = widgetId;
+		} catch (err) {
+			console.error('Failed to initialize Turnstile widget', err);
+		}
+	}
+
+	$effect(() => {
+		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
+			initTurnstile();
+		}
+	});
 	let bulkSubmit = $state({ loading: false, success: '', error: '' });
 
 	const defaultQuestionSubject = event.title
@@ -1150,22 +1174,51 @@
 			loginError = 'Enter a valid email address to continue.';
 			return;
 		}
+		if (loginHoneypot.trim()) {
+			loginError = 'Invalid submission.';
+			return;
+		}
 		loginLoading = true;
 		try {
+			let turnstileToken = '';
+			if (turnstileEnabled) {
+				await initTurnstile();
+				if (!turnstileWidgetId) {
+					loginError = 'Verification failed. Please reload and try again.';
+					loginLoading = false;
+					return;
+				}
+				turnstileToken = await executeTurnstile(turnstileWidgetId);
+				if (!turnstileToken) {
+					loginError = 'Verification failed. Please try again.';
+					loginLoading = false;
+					return;
+				}
+			}
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, createProfile: true, returnTo: loginReturnTo })
+				body: JSON.stringify({
+					email,
+					createProfile: true,
+					returnTo: loginReturnTo,
+					honeypot: loginHoneypot,
+					turnstileToken
+				})
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
 				throw new Error(body.error || 'Unable to send magic link.');
 			}
 			loginSuccess = `Check ${email} for your login link.`;
+			loginHoneypot = '';
 		} catch (err) {
 			loginError = err.message || 'Something went wrong.';
 		} finally {
 			loginLoading = false;
+			if (turnstileEnabled && turnstileWidgetId) {
+				resetTurnstile(turnstileWidgetId);
+			}
 		}
 	}
 
@@ -1204,6 +1257,18 @@
 				This event is still in draft. Enter your email to receive a magic link and continue.
 			</p>
 			<form class="mt-6 space-y-3" onsubmit={requestMagicLink}>
+				<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+					<div bind:this={turnstileEl}></div>
+				</div>
+				<input
+					type="text"
+					name="website"
+					bind:value={loginHoneypot}
+					autocomplete="off"
+					tabindex="-1"
+					aria-hidden="true"
+					style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+				/>
 				<label
 					class="text-warning-200 text-xs font-semibold tracking-wide uppercase"
 					for="draft-login-email">Email</label
@@ -1569,6 +1634,21 @@
 						class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
 						onsubmit={requestMagicLink}
 					>
+						<div
+							aria-hidden="true"
+							style="position: absolute; width: 0; height: 0; overflow: hidden;"
+						>
+							<div bind:this={turnstileEl}></div>
+						</div>
+						<input
+							type="text"
+							name="website"
+							bind:value={loginHoneypot}
+							autocomplete="off"
+							tabindex="-1"
+							aria-hidden="true"
+							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+						/>
 						<label
 							class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase sm:flex-1"
 						>

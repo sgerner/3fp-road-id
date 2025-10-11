@@ -4,6 +4,8 @@
 	import { normalizePhoneNumber, formatPhoneNumber } from '$lib/utils/phone';
 	import AlertSystem from '$lib/components/AlertSystem.svelte';
 	import CrashResponse from '$lib/components/CrashResponse.svelte';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	let { data } = $props();
 	const code = data.code;
@@ -31,9 +33,32 @@
 	let emailTouched = $state(false);
 	let errorMessage = $state('');
 	let submissionSuccess = $state(false);
+	let honeypot = $state('');
+	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEl = $state(null);
+	let turnstileWidgetId = $state(null);
 
 	// Email validation
 	let emailIsValid = $derived(/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(newProfile.email));
+
+	async function initTurnstile() {
+		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
+		try {
+			const widgetId = await renderTurnstile(turnstileEl, {
+				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+				size: 'invisible'
+			});
+			turnstileWidgetId = widgetId;
+		} catch (err) {
+			console.error('Failed to initialize Turnstile widget', err);
+		}
+	}
+
+	$effect(() => {
+		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
+			initTurnstile();
+		}
+	});
 
 	// Claim/Login via magic link
 	const handleSubmit = async (event) => {
@@ -45,7 +70,28 @@
 			loading = false;
 			return;
 		}
+		if (honeypot.trim()) {
+			errorMessage = 'Invalid submission.';
+			loading = false;
+			return;
+		}
 		errorMessage = '';
+
+		let turnstileToken = '';
+		if (turnstileEnabled) {
+			await initTurnstile();
+			if (!turnstileWidgetId) {
+				errorMessage = 'Verification failed. Please reload and try again.';
+				loading = false;
+				return;
+			}
+			turnstileToken = await executeTurnstile(turnstileWidgetId);
+			if (!turnstileToken) {
+				errorMessage = 'Verification failed. Please try again.';
+				loading = false;
+				return;
+			}
+		}
 
 		const payload = {
 			code,
@@ -54,7 +100,9 @@
 			returnTo:
 				typeof window !== 'undefined'
 					? window.location.pathname + window.location.search + window.location.hash
-					: `/roadid/${code}`
+					: `/roadid/${code}`,
+			honeypot,
+			turnstileToken
 		};
 
 		const res = await fetch('/api/v1/auth/login', {
@@ -65,11 +113,15 @@
 
 		if (res.ok) {
 			submissionSuccess = true;
+			honeypot = '';
 		} else {
 			const err = await res.json();
 			errorMessage = err.error || 'An error occurred';
 		}
 		loading = false;
+		if (turnstileEnabled && turnstileWidgetId) {
+			resetTurnstile(turnstileWidgetId);
+		}
 	};
 
 	// Update profile fields (excluding emergency_contacts).
@@ -203,6 +255,9 @@
 </script>
 
 <div class="max-w-screen">
+	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+		<div bind:this={turnstileEl}></div>
+	</div>
 	<!-- Skeleton UI Tabs -->
 	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
 		{#snippet list()}
@@ -253,6 +308,15 @@
 									This profile hasn’t been claimed yet. Please enter your details below to claim it.
 								</p>
 								<form class="flex w-full max-w-md flex-col gap-4" onsubmit={handleSubmit}>
+									<input
+										type="text"
+										name="website"
+										bind:value={honeypot}
+										autocomplete="off"
+										tabindex="-1"
+										aria-hidden="true"
+										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+									/>
 									<div class="flex flex-col gap-2">
 										<label for="email" class="label">Email</label>
 										<input
@@ -565,6 +629,15 @@
 										onsubmit={handleSubmit}
 										transition:slide
 									>
+										<input
+											type="text"
+											name="website"
+											bind:value={honeypot}
+											autocomplete="off"
+											tabindex="-1"
+											aria-hidden="true"
+											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+										/>
 										<div class="flex flex-col gap-2">
 											<div class="input-group grid-cols-[auto_1fr_auto]">
 												<div class="ig-cell preset-tonal">Email</div>

@@ -11,6 +11,8 @@
 	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	// UI state
 	let showSticky = $state(false);
@@ -82,7 +84,30 @@
 	let claimLoading = $state(false);
 	let claimError = $state('');
 	let claimSuccess = $state('');
+	let claimHoneypot = $state('');
 	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
+	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEl = $state(null);
+	let turnstileWidgetId = $state(null);
+
+	async function initTurnstile() {
+		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
+		try {
+			const widgetId = await renderTurnstile(turnstileEl, {
+				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+				size: 'invisible'
+			});
+			turnstileWidgetId = widgetId;
+		} catch (err) {
+			console.error('Failed to initialize Turnstile widget', err);
+		}
+	}
+
+	$effect(() => {
+		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
+			initTurnstile();
+		}
+	});
 
 	async function claimGroup() {
 		claimError = '';
@@ -110,25 +135,54 @@
 			claimError = 'Enter a valid email address.';
 			return;
 		}
+		if (claimHoneypot.trim()) {
+			claimError = 'Invalid submission.';
+			return;
+		}
 		claimLoading = true;
 		try {
+			let turnstileToken = '';
+			if (turnstileEnabled) {
+				await initTurnstile();
+				if (!turnstileWidgetId) {
+					claimError = 'Verification failed. Please reload and try again.';
+					claimLoading = false;
+					return;
+				}
+				turnstileToken = await executeTurnstile(turnstileWidgetId);
+				if (!turnstileToken) {
+					claimError = 'Verification failed. Please try again.';
+					claimLoading = false;
+					return;
+				}
+			}
 			const url = new URL(window.location.href);
 			url.searchParams.set('auto_claim_group', data.group.slug);
 			const rt = `${url.pathname}${url.search}${url.hash}`;
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email: claimEmail, createProfile: true, returnTo: rt })
+				body: JSON.stringify({
+					email: claimEmail,
+					createProfile: true,
+					returnTo: rt,
+					honeypot: claimHoneypot,
+					turnstileToken
+				})
 			});
 			if (!res.ok) {
 				const j = await res.json().catch(() => ({}));
 				throw new Error(j.error || 'Failed to send magic link');
 			}
 			claimSuccess = `We sent a login link to ${claimEmail}. After logging in, you'll be directed to the edit page for this group.`;
+			claimHoneypot = '';
 		} catch (err) {
 			claimError = err.message || 'Login failed.';
 		} finally {
 			claimLoading = false;
+			if (turnstileEnabled && turnstileWidgetId) {
+				resetTurnstile(turnstileWidgetId);
+			}
 		}
 	}
 
@@ -247,6 +301,21 @@
 					class="border-surface-700 bg-surface-900 mt-4 rounded-md border p-3"
 					onsubmit={sendClaimLogin}
 				>
+					<div
+						aria-hidden="true"
+						style="position: absolute; width: 0; height: 0; overflow: hidden;"
+					>
+						<div bind:this={turnstileEl}></div>
+					</div>
+					<input
+						type="text"
+						name="website"
+						bind:value={claimHoneypot}
+						autocomplete="off"
+						tabindex="-1"
+						aria-hidden="true"
+						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+					/>
 					<label for="claim-email" class="text-surface-300 mb-1 block text-xs"
 						>Log in / Register to continue</label
 					>

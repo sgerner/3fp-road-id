@@ -6,6 +6,8 @@
 	import { supabase } from '$lib/supabaseClient';
 	import { page } from '$app/stores';
 	import { toaster } from './toaster-svelte';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconHome from '@lucide/svelte/icons/home';
@@ -19,12 +21,35 @@
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state('');
+	let honeypot = $state('');
 	let loginBtnEl = $state(null);
 	let mobileMenuBtnEl = $state(null);
 	let mobileMenuEl = $state(null);
 	let showMobileMenu = $state(false);
 	let loginContainerEl = $state(null);
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
+	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEl = $state(null);
+	let turnstileWidgetId = $state(null);
+
+	async function initTurnstile() {
+		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
+		try {
+			const widgetId = await renderTurnstile(turnstileEl, {
+				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
+				size: 'invisible'
+			});
+			turnstileWidgetId = widgetId;
+		} catch (err) {
+			console.error('Failed to initialize Turnstile widget', err);
+		}
+	}
+
+	$effect(() => {
+		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
+			initTurnstile();
+		}
+	});
 
 	onMount(async () => {
 		const { data } = await supabase.auth.getSession();
@@ -80,9 +105,26 @@
 		success = '';
 		loading = true;
 		try {
+			if (honeypot.trim()) {
+				error = 'Invalid submission.';
+				return;
+			}
 			if (!emailValid) {
 				error = 'Enter a valid email address.';
 				return;
+			}
+			let turnstileToken = '';
+			if (turnstileEnabled) {
+				await initTurnstile();
+				if (!turnstileWidgetId) {
+					error = 'Verification failed. Please reload and try again.';
+					return;
+				}
+				turnstileToken = await executeTurnstile(turnstileWidgetId);
+				if (!turnstileToken) {
+					error = 'Verification failed. Please try again.';
+					return;
+				}
 			}
 			const rt =
 				typeof window !== 'undefined'
@@ -91,17 +133,27 @@
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, createProfile: true, returnTo: rt })
+				body: JSON.stringify({
+					email,
+					createProfile: true,
+					returnTo: rt,
+					honeypot,
+					turnstileToken
+				})
 			});
 			if (!res.ok) {
 				const j = await res.json().catch(() => ({}));
 				throw new Error(j.error || 'Failed to send magic link');
 			}
 			success = `We sent a login link to ${email}.`;
+			honeypot = '';
 		} catch (err) {
 			error = err.message || 'Login failed.';
 		} finally {
 			loading = false;
+			if (turnstileEnabled && turnstileWidgetId) {
+				resetTurnstile(turnstileWidgetId);
+			}
 		}
 	}
 
@@ -123,6 +175,9 @@
 
 <div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
 	<Toaster {toaster} />
+	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+		<div bind:this={turnstileEl}></div>
+	</div>
 	<AppBar background="bg-primary-500" classes="text-surface-950">
 		{#snippet lead()}
 			<div class="flex items-center gap-2">
@@ -177,6 +232,15 @@
 								class="border-surface-700 bg-surface-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
 								onsubmit={doLogin}
 							>
+								<input
+									type="text"
+									name="website"
+									bind:value={honeypot}
+									autocomplete="off"
+									tabindex="-1"
+									aria-hidden="true"
+									style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+								/>
 								<div class="mb-2 flex items-center justify-between">
 									<h3 class="text-base font-semibold">Log in / Register</h3>
 									<button
@@ -219,6 +283,15 @@
 								class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-2 hidden w-64 rounded-md border p-3 shadow-lg md:block md:w-80"
 								onsubmit={doLogin}
 							>
+								<input
+									type="text"
+									name="website"
+									bind:value={honeypot}
+									autocomplete="off"
+									tabindex="-1"
+									aria-hidden="true"
+									style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+								/>
 								<label for="login-email" class="text-surface-300 mb-1 block text-xs">Email</label>
 								<input
 									id="login-email"

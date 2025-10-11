@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
 import { PUBLIC_URL_BASE } from '$env/static/public';
+import { TURNSTILE_SECRET_KEY } from '$env/static/private';
 
 // Expect a payload like:
 // {
@@ -8,9 +9,48 @@ import { PUBLIC_URL_BASE } from '$env/static/public';
 //    email: "user@example.com",
 //    createProfile: true   // if creating a new profile; false for normal login
 // }
-export async function POST({ request, url }) {
+const hasTurnstileSecret = Boolean(TURNSTILE_SECRET_KEY);
+let missingSecretWarned = false;
+
+export async function POST({ request }) {
 	try {
-		const { code, email, createProfile, returnTo } = await request.json();
+		const { code, email, createProfile, returnTo, honeypot, turnstileToken } = await request.json();
+
+		if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
+			return json({ error: 'Invalid submission.' }, { status: 400 });
+		}
+
+		if (hasTurnstileSecret) {
+			if (!turnstileToken || typeof turnstileToken !== 'string') {
+				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
+			}
+			const payload = new URLSearchParams({
+				secret: TURNSTILE_SECRET_KEY,
+				response: turnstileToken
+			});
+			const connectingIp =
+				request.headers.get('cf-connecting-ip') ||
+				(request.headers.get('x-forwarded-for') || '').split(',')[0]?.trim();
+			if (connectingIp) {
+				payload.append('remoteip', connectingIp);
+			}
+			const verify = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+				method: 'POST',
+				body: payload
+			});
+			if (!verify.ok) {
+				console.error('Turnstile verification failed to respond:', verify.status);
+				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
+			}
+			const verification = await verify.json().catch(() => ({ success: false }));
+			if (!verification?.success) {
+				console.warn('Turnstile verification failure', verification);
+				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
+			}
+		} else if (!missingSecretWarned) {
+			console.warn('TURNSTILE_SECRET_KEY is not configured; skipping verification.');
+			missingSecretWarned = true;
+		}
 
 		// Construct the redirect URL so the magic link returns the user to your app
 		// and appends the code as a query parameter.
