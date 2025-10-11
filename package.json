@@ -45,6 +45,7 @@
 		"@lucide/svelte": "^0.545.0",
 		"@supabase/ssr": "^0.7.0",
 		"@supabase/supabase-js": "^2.49.1",
+		"@vercel/analytics": "^1.5.0",
 		"date-fns": "^4.1.0",
 		"leaflet": "^1.9.4",
 		"leaflet.markercluster": "^1.5.3",
