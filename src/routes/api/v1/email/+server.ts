@@ -46,6 +46,50 @@ const ALLOWED_HTML_TAGS = new Set([
 ]);
 const SELF_CLOSING_TAGS = new Set(['br', 'img', 'meta']);
 
+const ADDRESS_STREET_SUFFIXES = [
+	'Street',
+	'St',
+	'Avenue',
+	'Ave',
+	'Road',
+	'Rd',
+	'Boulevard',
+	'Blvd',
+	'Lane',
+	'Ln',
+	'Drive',
+	'Dr',
+	'Court',
+	'Ct',
+	'Way',
+	'Wy',
+	'Terrace',
+	'Ter',
+	'Place',
+	'Pl',
+	'Trail',
+	'Trl',
+	'Parkway',
+	'Pkwy',
+	'Circle',
+	'Cir',
+	'Highway',
+	'Hwy'
+];
+
+const ADDRESS_SUFFIX_PATTERN = ADDRESS_STREET_SUFFIXES.join('|');
+
+const ADDRESS_REGEX = new RegExp(
+	String.raw`\b\d{1,6}\s+(?:[A-Za-z0-9.'-]+\s+){0,6}(?:${ADDRESS_SUFFIX_PATTERN})\.?` +
+		String.raw`(?:\s+(?:Suite|Ste\.?|Apt\.?|Unit|#)\s*[A-Za-z0-9-]+)?` +
+		String.raw`(?:\s*,\s*[A-Za-z.'-]+){0,3}` +
+		String.raw`(?:\s*,\s*[A-Z]{2})?` +
+		String.raw`(?:\s+\d{5}(?:-\d{4})?)?`,
+	'gi'
+);
+
+const GOOGLE_MAPS_SEARCH_URL = 'https://www.google.com/maps/search/?api=1&query=';
+
 const GLOBAL_ALLOWED_ATTRIBUTES = new Set([
 	'align',
 	'aria-hidden',
@@ -446,6 +490,61 @@ function sanitizeHtml(rawHtml: string): string {
 	});
 }
 
+const ANCHOR_PLACEHOLDER_PREFIX = '__ANCHOR_PLACEHOLDER__';
+
+function wrapAddressesWithMapsLinks(html: string): string {
+	if (!html) {
+		return html;
+	}
+
+	ADDRESS_REGEX.lastIndex = 0;
+	if (!ADDRESS_REGEX.test(html)) {
+		return html;
+	}
+	ADDRESS_REGEX.lastIndex = 0;
+
+	const preservedAnchors: string[] = [];
+	let processed = html.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (anchor) => {
+		preservedAnchors.push(anchor);
+		return `${ANCHOR_PLACEHOLDER_PREFIX}${preservedAnchors.length - 1}__`;
+	});
+
+	const segments = processed.split(/(<[^>]+>)/g);
+	for (let i = 0; i < segments.length; i += 1) {
+		const segment = segments[i];
+		if (!segment) continue;
+		if (segment.startsWith('<')) continue;
+		if (segment.includes(ANCHOR_PLACEHOLDER_PREFIX)) continue;
+
+		const pattern = new RegExp(ADDRESS_REGEX.source, 'gi');
+		segments[i] = segment.replace(pattern, (match) => {
+			const leadingWhitespace = match.match(/^\s*/)?.[0] ?? '';
+			const trailingWhitespace = match.match(/\s*$/)?.[0] ?? '';
+			const address = match.trim();
+
+			if (!address) {
+				return match;
+			}
+
+			const encodedQuery = encodeURIComponent(address);
+			return (
+				`${leadingWhitespace}<a href="${GOOGLE_MAPS_SEARCH_URL}${encodedQuery}" target="_blank" rel="noopener noreferrer">${address}</a>` +
+				`${trailingWhitespace}`
+			);
+		});
+	}
+
+	processed = segments.join('');
+
+	const placeholderPattern = new RegExp(`${ANCHOR_PLACEHOLDER_PREFIX}(\\d+)__`, 'g');
+	processed = processed.replace(placeholderPattern, (_match, index) => {
+		const anchorIndex = Number.parseInt(index, 10);
+		return Number.isNaN(anchorIndex) ? '' : preservedAnchors[anchorIndex] ?? '';
+	});
+
+	return processed;
+}
+
 function htmlToPlainText(html: string): string {
 	return html
 		.replace(/<br\s*\/?>/gi, '\n')
@@ -522,7 +621,7 @@ function validateRequestPayload(payload: Record<string, unknown>) {
 	const htmlBodyRaw = typeof payload.html === 'string' ? payload.html : '';
 
 	const sanitizedText = textBodyRaw ? sanitizePlainText(textBodyRaw) : '';
-	const sanitizedHtml = htmlBodyRaw ? sanitizeHtml(htmlBodyRaw) : '';
+	const sanitizedHtml = htmlBodyRaw ? wrapAddressesWithMapsLinks(sanitizeHtml(htmlBodyRaw)) : '';
 	const normalizedText = sanitizedText || (sanitizedHtml ? htmlToPlainText(sanitizedHtml) : '');
 
 	if (!normalizedText) {
