@@ -318,12 +318,6 @@
 		if (field === 'subject') {
 			onUpdateEmail(email.id, { subject: value });
 			resetSendNowFeedback(email.id);
-		} else if (field === 'body') {
-			if (email.requireConfirmation) {
-				value = ensureConfirmationBlock(value);
-			}
-			onUpdateEmail(email.id, { body: value });
-			resetSendNowFeedback(email.id);
 		}
 		await tick();
 		if (document.activeElement === target && selectionStart !== null && selectionEnd !== null) {
@@ -1182,10 +1176,10 @@
 								<textarea
 									id={`email-body-${email.id}`}
 									class="textarea bg-surface-900/60 min-h-32"
-									value={email.body}
+									bind:value={email.body}
 									on:focus={(event) => setActiveEditor(email.id, 'body', event.currentTarget)}
 									on:blur={(event) => clearActiveEditor(event.currentTarget)}
-									on:input={(event) => handleEmailInput(event, email, 'body')}
+									on:keydown={() => resetSendNowFeedback(email.id)}
 									placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
 								></textarea>
 								<div
