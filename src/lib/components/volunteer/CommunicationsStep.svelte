@@ -1088,11 +1088,6 @@
 									{#if email.aiError}
 										<p class="text-error-300 text-xs">{email.aiError}</p>
 									{/if}
-									<p class="text-surface-400 text-xs">
-										Focus a field and use the merge tag chips below to add blocks like
-										<code>&#123;&#123;event_details_block&#125;&#125;</code> or
-										<code>&#123;&#123;shift_details_block&#125;&#125;</code>.
-									</p>
 								</div>
 							{/if}
 
@@ -1100,30 +1095,6 @@
 								<label class="label flex flex-col gap-2">
 									<span>Send timing</span>
 									<div class="flex flex-col gap-2">
-										<select
-											class="select bg-surface-900/60 md:w-48"
-											value={timingMode}
-											on:change={(e) => {
-												resetSendNowFeedback(email.id);
-												const mode = e.currentTarget.value;
-												if (mode === 'now') {
-													handleTimingChange(email.id, { hours: 0, direction: 'before' });
-												} else {
-													const direction = mode === 'after' ? 'after' : 'before';
-													const currentTiming = getEmailTiming(email.sendOffsetMinutes);
-													const nextHours =
-														currentTiming.direction === direction ? currentTiming.hours : 12;
-													handleTimingChange(email.id, {
-														hours: nextHours,
-														direction
-													});
-												}
-											}}
-										>
-											<option value="now">Now (manual send)</option>
-											<option value="before">Hours before the event</option>
-											<option value="after">Hours after the event</option>
-										</select>
 										{#if timingMode !== 'now'}
 											<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
 												<input

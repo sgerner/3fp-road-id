@@ -8,13 +8,18 @@
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
-	import {
-		createVolunteerEvent,
-		createVolunteerOpportunity,
-		createVolunteerShift,
-		createVolunteerCustomQuestion,
-		createVolunteerEventEmail
-	} from '$lib';
+        import {
+                createVolunteerEvent,
+                createVolunteerOpportunity,
+                createVolunteerShift,
+                createVolunteerCustomQuestion,
+                createVolunteerEventEmail
+        } from '$lib';
+        import {
+                buildVolunteerCommunicationsContextSnapshot,
+                createVolunteerEmailComposer
+        } from '$lib/volunteer/communications-ai';
+        import { VOLUNTEER_MERGE_TAGS } from '$lib/volunteer/merge-tags';
 	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
@@ -73,18 +78,7 @@
 		'url'
 	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
-	const emailMergeTags = [
-		'{{volunteer_name}}',
-		'{{event_title}}',
-		'{{event_day_time}}',
-		'{{event_location}}',
-		'{{event_start}}',
-		'{{event_details_block}}',
-		'{{shift_details_block}}',
-		'{{shift_confirmation_block}}',
-		'{{volunteer_portal_block}}',
-		'{{host_contact_block}}'
-	];
+        const emailMergeTags = VOLUNTEER_MERGE_TAGS.map((tag) => tag.token);
 
 	function readValue(source, keys = []) {
 		if (!source) return undefined;
@@ -826,36 +820,16 @@
 		}
 	}
 
-	function buildContextSnapshot() {
-		const buildMetadataClone = (source) => {
-			const clone = JSON.parse(JSON.stringify(source));
-			clone.location_notes = clone.locationAddress ?? '';
-			clone.location_address = clone.locationAddress ?? '';
-			return clone;
-		};
-
-		try {
-			return structuredClone({
-				metadata: buildMetadataClone(eventDetails),
-				opportunities,
-				custom_questions: customQuestions,
-				emails: eventEmails,
-				event_type_options: eventTypeOptions,
-				opportunity_type_options: opportunityTypeOptions,
-				email_merge_tags: emailMergeTags
-			});
-		} catch {
-			return {
-				metadata: buildMetadataClone(eventDetails),
-				opportunities: JSON.parse(JSON.stringify(opportunities)),
-				custom_questions: JSON.parse(JSON.stringify(customQuestions)),
-				emails: JSON.parse(JSON.stringify(eventEmails)),
-				event_type_options: JSON.parse(JSON.stringify(eventTypeOptions)),
-				opportunity_type_options: JSON.parse(JSON.stringify(opportunityTypeOptions)),
-				email_merge_tags: JSON.parse(JSON.stringify(emailMergeTags))
-			};
-		}
-	}
+        const buildContextSnapshot = () =>
+                buildVolunteerCommunicationsContextSnapshot({
+                        eventDetails,
+                        opportunities,
+                        customQuestions,
+                        eventEmails,
+                        eventTypeOptions,
+                        opportunityTypeOptions,
+                        mergeTags: VOLUNTEER_MERGE_TAGS
+                });
 
 	async function sendPrompt() {
 		aiError = '';
@@ -910,70 +884,14 @@
 		}
 	}
 
-	async function composeEmailWithAi(emailId) {
-		const target = eventEmails.find((email) => email.id === emailId);
-		if (!target) return;
-		const prompt = target.aiPrompt?.trim();
-		if (!prompt) return;
-
-		updateEmailTemplate(emailId, { aiLoading: true, aiError: '' });
-
-		try {
-			const res = await fetch('/api/ai/volunteer-event-writer', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					messages: [
-						{
-							role: 'user',
-							content: `Compose a ${target.emailType} volunteer email. ${prompt}`
-						}
-					],
-					context: buildContextSnapshot(),
-					event_type_options: eventTypeOptions,
-					opportunity_type_options: opportunityTypeOptions,
-					email_merge_tags: emailMergeTags,
-					goal: `Generate subject and body copy for a ${target.emailType} volunteer email template.`,
-					constraints: [
-						'Keep the output focused on an email subject and body.',
-						'Use the merge tags and blocks (e.g. {{event_details_block}}, {{shift_details_block}}, {{volunteer_portal_block}}, {{shift_confirmation_block}} when confirmations are required) to personalise details.',
-						'Aim for clear, encouraging language suitable for community volunteers.'
-					],
-					preferDraft: true
-				})
-			});
-
-			if (!res.ok) {
-				const info = await res.json().catch(() => ({}));
-				throw new Error(info.error || res.statusText || 'AI request failed');
-			}
-
-			const payload = await res.json();
-			const drafts = payload?.draft?.emails;
-			if (Array.isArray(drafts) && drafts.length) {
-				const generated = drafts[0] ?? {};
-				updateEmailTemplate(emailId, {
-					subject: generated.subject || target.subject || '',
-					body: generated.body || target.body || '',
-					aiPrompt: '',
-					aiComposerOpen: false,
-					aiLoading: false,
-					aiError: ''
-				});
-				return;
-			}
-
-			updateEmailTemplate(emailId, {
-				aiError: 'No email content returned. Add more detail and try again.',
-				aiLoading: false
-			});
-		} catch (error) {
-			updateEmailTemplate(emailId, {
-				aiError: error?.message || 'Unable to compose email right now.',
-				aiLoading: false
-			});
-		}
-	}
+        const composeEmailWithAi = createVolunteerEmailComposer({
+                getEmails: () => eventEmails,
+                updateEmailTemplate,
+                buildContextSnapshot,
+                eventTypeOptions,
+                opportunityTypeOptions,
+                mergeTags: VOLUNTEER_MERGE_TAGS
+        });
 
 	function handleChatSubmit(event) {
 		event?.preventDefault();
