@@ -229,42 +229,53 @@
 										</div>
 										<div class="flex flex-col gap-2 md:items-end">
 											<div class="flex flex-wrap gap-2">
-													{#if record.canUncancel}
-														<form method="POST" action="?/uncancel">
-															<input type="hidden" name="assignment_id" value={record.id} />
-															<button
-																type="submit"
-																class="btn btn-sm preset-outlined-primary-500"
-															>
-																Un-cancel
-															</button>
-														</form>
-													{:else}
-														<form method="POST" action="?/confirm">
-															<input type="hidden" name="assignment_id" value={record.id} />
-															<button
-																type="submit"
-																class="btn btn-sm preset-filled-secondary-500"
-																disabled={!record.canConfirm}
-															>
-																Confirm
-															</button>
-														</form>
-														<form method="POST" action="?/cancel">
-															<input type="hidden" name="assignment_id" value={record.id} />
-															<button
-																type="submit"
-																class="btn btn-sm preset-outlined-error-500"
-																disabled={!record.canCancel}
-															>
-																Cancel
-															</button>
-														</form>
-													{/if}
+												{#if record.canUncancel}
+													<form method="POST" action="?/uncancel">
+														<input type="hidden" name="assignment_id" value={record.id} />
+														<button type="submit" class="btn btn-sm preset-outlined-primary-500">
+															Un-cancel
+														</button>
+													</form>
+												{:else}
+													<form method="POST" action="?/confirm">
+														<input type="hidden" name="assignment_id" value={record.id} />
+														<button
+															type="submit"
+															class="btn btn-sm preset-filled-secondary-500"
+															disabled={!record.canConfirm}
+														>
+															Confirm
+														</button>
+													</form>
+													<form method="POST" action="?/cancel">
+														<input type="hidden" name="assignment_id" value={record.id} />
+														<button
+															type="submit"
+															class="btn btn-sm preset-outlined-error-500"
+															disabled={!record.canCancel}
+														>
+															Cancel
+														</button>
+													</form>
+												{/if}
 											</div>
 											{#if !record.canConfirm}
 												<p class="text-surface-500 text-xs">
-													Confirm {confirmWindowHours} hr before.
+													{#if record.confirmBlockedReason === 'not_approved'}
+														Awaiting approval before you can confirm.
+													{:else if record.confirmBlockedReason === 'waitlisted'}
+														This shift is currently waitlisted.
+													{:else if record.confirmBlockedReason === 'cancelled'}
+														This shift has been cancelled.
+													{:else if record.confirmBlockedReason === 'already_confirmed'}
+														This shift has already been confirmed.
+													{:else if record.confirmBlockedReason === 'missing_start'}
+														Confirmation will open once the schedule is finalized.
+													{:else if record.confirmBlockedReason === 'already_started'}
+														This shift has already started.
+													{:else}
+														Confirm {confirmWindowHours} hr before.
+													{/if}
 												</p>
 											{/if}
 											<div

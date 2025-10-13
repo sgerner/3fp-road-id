@@ -4,6 +4,7 @@ import { fail } from '@sveltejs/kit';
 const CONFIRM_WINDOW_HOURS = 48;
 const CANCELLED_STATUSES = new Set(['cancelled', 'no_show', 'declined']);
 const WAITLIST_STATUSES = new Set(['waitlisted']);
+const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
 
 function buildQueryString(params) {
 	if (!params) return '';
@@ -118,6 +119,11 @@ function isCancelled(status) {
 function isWaitlisted(status) {
 	if (!status) return false;
 	return WAITLIST_STATUSES.has(String(status).toLowerCase());
+}
+
+function isApproved(status) {
+	if (!status) return false;
+	return APPROVED_STATUSES.has(String(status).toLowerCase());
 }
 
 function ownsSignup(identity, signup) {
@@ -372,6 +378,30 @@ export async function confirmShiftAction(event, assignmentId) {
 			success: false,
 			reason: 'cancelled',
 			message: 'This shift has already been cancelled.'
+		});
+	}
+
+	if (isWaitlisted(context.assignment?.status)) {
+		return buildActionResult({
+			success: false,
+			reason: 'waitlisted',
+			message: 'This shift is currently waitlisted and cannot be confirmed.'
+		});
+	}
+
+	if (!isApproved(context.assignment?.status)) {
+		return buildActionResult({
+			success: false,
+			reason: 'not_approved',
+			message: 'This shift has not been approved yet.'
+		});
+	}
+
+	if (context.assignment?.confirmed_at) {
+		return buildActionResult({
+			success: false,
+			reason: 'already_confirmed',
+			message: 'This shift has already been confirmed.'
 		});
 	}
 
@@ -712,5 +742,6 @@ export {
 	parseDate,
 	isCancelled,
 	isWaitlisted,
+	isApproved,
 	loadAssignmentContext
 };

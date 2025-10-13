@@ -7,11 +7,17 @@ import {
 	normalizeId,
 	parseDate,
 	isCancelled,
-	isWaitlisted
+	isWaitlisted,
+	isApproved
 } from './shift-actions.server.js';
 
-const { confirmShiftAction, cancelShiftAction, uncancelShiftAction, rescheduleShiftAction, CONFIRM_WINDOW_HOURS } =
-	shiftActionsHelpers;
+const {
+	confirmShiftAction,
+	cancelShiftAction,
+	uncancelShiftAction,
+	rescheduleShiftAction,
+	CONFIRM_WINDOW_HOURS
+} = shiftActionsHelpers;
 
 function unique(values) {
 	return Array.from(new Set(values.filter((value) => value !== null && value !== undefined)));
@@ -406,13 +412,24 @@ export const load = async ({ fetch, cookies, url }) => {
 			const hoursUntil = shiftStart
 				? (shiftStart.getTime() - now.getTime()) / (1000 * 60 * 60)
 				: null;
-			const canConfirm =
-				!!shiftStart &&
-				hoursUntil !== null &&
-				hoursUntil >= 0 &&
-				hoursUntil <= CONFIRM_WINDOW_HOURS &&
-				!assignment.cancelled_at &&
-				!isCancelled(assignment.status);
+			const status = assignment.status ?? null;
+			let confirmBlockedReason = null;
+			if (assignment.cancelled_at || isCancelled(status)) {
+				confirmBlockedReason = 'cancelled';
+			} else if (isWaitlisted(status)) {
+				confirmBlockedReason = 'waitlisted';
+			} else if (!isApproved(status)) {
+				confirmBlockedReason = 'not_approved';
+			} else if (assignment.confirmed_at) {
+				confirmBlockedReason = 'already_confirmed';
+			} else if (!shiftStart) {
+				confirmBlockedReason = 'missing_start';
+			} else if (hoursUntil !== null && hoursUntil < 0) {
+				confirmBlockedReason = 'already_started';
+			} else if (hoursUntil !== null && hoursUntil > CONFIRM_WINDOW_HOURS) {
+				confirmBlockedReason = 'too_early';
+			}
+			const canConfirm = !confirmBlockedReason;
 			const shiftEnd = parseDate(shift.ends_at);
 			const canCancel =
 				!assignment.cancelled_at &&
@@ -433,6 +450,7 @@ export const load = async ({ fetch, cookies, url }) => {
 				canConfirm,
 				canCancel,
 				canUncancel,
+				confirmBlockedReason,
 				canReschedule: hasRescheduleOption && shiftStart && shiftStart.getTime() > now.getTime(),
 				hoursUntilStart: hoursUntil,
 				shiftStartIso
