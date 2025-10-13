@@ -29,9 +29,39 @@
 			{#if description}
 				<p class="text-surface-300 max-w-2xl text-sm leading-relaxed">{description}</p>
 			{/if}
+			<div class="grid gap-4 md:grid-cols-3">
+				<article
+					class="bg-surface-900/70 border-surface-700 rounded-xl border px-4 py-1 shadow-lg shadow-black/20"
+				>
+					<div class="text-surface-300 flex items-center justify-between text-sm">
+						<span class=" text-2xl font-semibold text-white">{counts.total ?? 0}</span>
+						<span>Signups</span>
+						<IconUsers class="h-5 w-5" />
+					</div>
+				</article>
+				<article
+					class="bg-surface-900/70 border-surface-700 rounded-xl border px-4 py-1 shadow-lg shadow-black/20"
+				>
+					<div class="text-surface-300 flex items-center justify-between text-sm">
+						<span class="text-2xl font-semibold text-white">{counts.approved ?? 0}</span>
+						<span>Approved</span>
+						<IconCheckSquare class="h-5 w-5" />
+					</div>
+				</article>
+
+				<article
+					class="bg-surface-900/70 border-surface-700 rounded-xl border px-4 py-1 shadow-lg shadow-black/20"
+				>
+					<div class="text-surface-300 flex items-center justify-between text-sm">
+						<span class="text-2xl font-semibold text-white">{counts.pending ?? 0}</span>
+						<span>Pending</span>
+						<IconUserX class="h-5 w-5" />
+					</div>
+				</article>
+			</div>
 		</div>
 		<div
-			class="bg-surface-900/70 border-surface-700 flex max-w-sm flex-col gap-3 rounded-2xl border p-4 shadow-xl shadow-black/30"
+			class="bg-surface-900/70 border-surface-700 flex flex-col gap-3 rounded-2xl border p-4 shadow-xl shadow-black/30"
 		>
 			<div>
 				<p class="text-surface-400 text-xs tracking-wide uppercase">Schedule</p>
@@ -46,41 +76,5 @@
 				</p>
 			</div>
 		</div>
-	</div>
-
-	<div class="grid gap-4 md:grid-cols-3">
-		<article
-			class="bg-surface-900/70 border-surface-700 rounded-xl border p-4 shadow-lg shadow-black/20"
-		>
-			<div class="text-surface-300 flex items-center justify-between text-sm">
-				<span>Total signups</span>
-				<IconUsers class="h-5 w-5" />
-			</div>
-			<p class="mt-2 text-2xl font-semibold text-white">{counts.total ?? 0}</p>
-			<p class="text-surface-400 text-xs">
-				{counts.pending ?? 0} pending • {counts.waitlisted ?? 0} waitlisted
-			</p>
-		</article>
-		<article
-			class="bg-surface-900/70 border-surface-700 rounded-xl border p-4 shadow-lg shadow-black/20"
-		>
-			<div class="text-surface-300 flex items-center justify-between text-sm">
-				<span>Approved roster</span>
-				<IconCheckSquare class="h-5 w-5" />
-			</div>
-			<p class="mt-2 text-2xl font-semibold text-white">{counts.approved ?? 0}</p>
-			<p class="text-surface-400 text-xs">{counts.attending ?? 0} marked present</p>
-		</article>
-
-		<article
-			class="bg-surface-900/70 border-surface-700 rounded-xl border p-4 shadow-lg shadow-black/20"
-		>
-			<div class="text-surface-300 flex items-center justify-between text-sm">
-				<span>Waitlist</span>
-				<IconUserX class="h-5 w-5" />
-			</div>
-			<p class="mt-2 text-2xl font-semibold text-white">{counts.waitlisted ?? 0}</p>
-			<p class="text-surface-400 text-xs">Move volunteers as spaces open</p>
-		</article>
 	</div>
 </section>
