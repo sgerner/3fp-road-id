@@ -34,6 +34,7 @@
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	const event = data.event ?? {};
+	const eventFinished = data.eventFinished ?? false;
 	const hostGroup = data.hostGroup ?? null;
 	const eventType = data.eventType ?? null;
 	const customQuestions = data.customQuestions ?? [];
@@ -728,6 +729,15 @@
 	}
 
 	async function handleBulkSignupSubmission() {
+		if (eventFinished) {
+			bulkSubmit = {
+				loading: false,
+				success: '',
+				error: 'Sign-ups have closed for this event.'
+			};
+			return;
+		}
+
 		if (bulkSubmit.loading) return;
 		const selected = getSelectedOpportunities();
 		if (!selected.length) {
@@ -817,6 +827,7 @@
 	}
 
 	function toggleShiftSelection(opportunityId, shiftId) {
+		if (eventFinished) return;
 		const current = signupForms[opportunityId] ?? signupFormDefaults[opportunityId];
 		const next = new Set(current.shiftIds || []);
 		if (next.has(shiftId)) next.delete(shiftId);
@@ -1494,6 +1505,17 @@
 			{/if}
 		</header>
 
+		{#if eventFinished}
+			<section
+				class="border-warning-500/40 bg-warning-900/30 text-warning-50 rounded-3xl border p-6 shadow-lg"
+			>
+				<h2 class="text-warning-100 text-xl font-semibold">This event has finished</h2>
+				<p class="text-warning-200 mt-2 text-sm">
+					Sign-ups are closed, but you can still review the event details below.
+				</p>
+			</section>
+		{/if}
+
 		<div class="space-y-10">
 			{#if eventDescriptionHtml}
 				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
@@ -1614,7 +1636,7 @@
 				</section>
 			{/if}
 
-			{#if !user}
+			{#if !user && !eventFinished}
 				<section
 					class="border-secondary-500/30 bg-secondary-500/5 rounded-3xl border p-6 shadow-lg"
 				>
@@ -1801,9 +1823,9 @@
 																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-400/50'
 																}`}
 																aria-pressed={isSelected}
-																disabled={!user}
+																disabled={!user || eventFinished}
 																onclick={() => {
-																	if (!user) return;
+																	if (!user || eventFinished) return;
 																	toggleShiftSelection(opportunity.id, shift.id);
 																}}
 															>
@@ -1857,7 +1879,7 @@
 					{/if}
 				</section>
 			{/if}
-			{#if user && !bulkSubmit.success}
+			{#if user && !bulkSubmit.success && !eventFinished}
 				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<h2 class="text-secondary-100 text-2xl font-semibold">

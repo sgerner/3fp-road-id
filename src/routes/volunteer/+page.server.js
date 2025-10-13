@@ -50,7 +50,20 @@ export const load = async ({ fetch }) => {
 		};
 	}
 
-	const events = normalizeVolunteerEvents(eventRows);
+	const events = normalizeVolunteerEvents(eventRows).filter((event) => {
+		const startDate = event?.event_start ? new Date(event.event_start) : null;
+		const endDate = event?.event_end ? new Date(event.event_end) : null;
+
+		if (endDate && !Number.isNaN(endDate.getTime())) {
+			return endDate >= now;
+		}
+
+		if (startDate && !Number.isNaN(startDate.getTime())) {
+			return startDate >= now;
+		}
+
+		return true;
+	});
 	const hostGroupIds = Array.from(
 		new Set(
 			events.map((event) => event.host_group_id).filter((id) => id !== null && id !== undefined)

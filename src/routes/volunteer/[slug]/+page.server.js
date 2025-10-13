@@ -79,6 +79,17 @@ export const load = async ({ params, fetch, cookies, url }) => {
 
 	if (!event) throw error(404, 'Volunteer event not found');
 
+	const now = new Date();
+	const eventStartDate = event?.event_start ? new Date(event.event_start) : null;
+	const eventEndDate = event?.event_end ? new Date(event.event_end) : null;
+	const eventFinished = Boolean(
+		(eventEndDate && !Number.isNaN(eventEndDate.getTime()) && eventEndDate < now) ||
+			(!eventEndDate &&
+				eventStartDate &&
+				!Number.isNaN(eventStartDate.getTime()) &&
+				eventStartDate < now)
+	);
+
 	const { user: sessionUser } = resolveSession(cookies);
 
 	const eventContactEmail =
@@ -344,6 +355,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 		authRequired,
 		draftForbidden,
 		canManageEvent,
-		organizerEmail
+		organizerEmail,
+		eventFinished
 	};
 };
