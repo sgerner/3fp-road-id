@@ -229,26 +229,38 @@
 										</div>
 										<div class="flex flex-col gap-2 md:items-end">
 											<div class="flex flex-wrap gap-2">
-												<form method="POST" action="?/confirm">
-													<input type="hidden" name="assignment_id" value={record.id} />
-													<button
-														type="submit"
-														class="btn btn-sm preset-filled-secondary-500"
-														disabled={!record.canConfirm}
-													>
-														Confirm
-													</button>
-												</form>
-												<form method="POST" action="?/cancel">
-													<input type="hidden" name="assignment_id" value={record.id} />
-													<button
-														type="submit"
-														class="btn btn-sm preset-outlined-error-500"
-														disabled={!record.canCancel}
-													>
-														Cancel
-													</button>
-												</form>
+													{#if record.canUncancel}
+														<form method="POST" action="?/uncancel">
+															<input type="hidden" name="assignment_id" value={record.id} />
+															<button
+																type="submit"
+																class="btn btn-sm preset-outlined-primary-500"
+															>
+																Un-cancel
+															</button>
+														</form>
+													{:else}
+														<form method="POST" action="?/confirm">
+															<input type="hidden" name="assignment_id" value={record.id} />
+															<button
+																type="submit"
+																class="btn btn-sm preset-filled-secondary-500"
+																disabled={!record.canConfirm}
+															>
+																Confirm
+															</button>
+														</form>
+														<form method="POST" action="?/cancel">
+															<input type="hidden" name="assignment_id" value={record.id} />
+															<button
+																type="submit"
+																class="btn btn-sm preset-outlined-error-500"
+																disabled={!record.canCancel}
+															>
+																Cancel
+															</button>
+														</form>
+													{/if}
 											</div>
 											{#if !record.canConfirm}
 												<p class="text-surface-500 text-xs">

@@ -10,7 +10,7 @@ import {
 	isWaitlisted
 } from './shift-actions.server.js';
 
-const { confirmShiftAction, cancelShiftAction, rescheduleShiftAction, CONFIRM_WINDOW_HOURS } =
+const { confirmShiftAction, cancelShiftAction, uncancelShiftAction, rescheduleShiftAction, CONFIRM_WINDOW_HOURS } =
 	shiftActionsHelpers;
 
 function unique(values) {
@@ -32,6 +32,8 @@ function formatFeedback(notice, errorMessage) {
 			return { type: 'success', message: 'Shift confirmed. Thanks for being ready to help!' };
 		case 'cancel_success':
 			return { type: 'success', message: 'Shift cancelled. Your spot has been released.' };
+		case 'uncancel_success':
+			return { type: 'success', message: 'Shift re-activated. We look forward to seeing you!' };
 		case 'reschedule_success':
 			return { type: 'success', message: 'Shift updated. We saved your new time.' };
 		case 'login_required':
@@ -416,6 +418,10 @@ export const load = async ({ fetch, cookies, url }) => {
 				!assignment.cancelled_at &&
 				!isCancelled(assignment.status) &&
 				(!shiftEnd || shiftEnd.getTime() > now.getTime());
+			const canUncancel =
+				(!!assignment.cancelled_at || isCancelled(assignment.status)) &&
+				shiftStart &&
+				shiftStart.getTime() > now.getTime();
 			const eventAvailable = availableByEvent.get(entry.event.id) ?? [];
 			const hasRescheduleOption = eventAvailable.some(
 				(candidate) => candidate.shift.id !== assignment.shift_id
@@ -426,6 +432,7 @@ export const load = async ({ fetch, cookies, url }) => {
 				id: assignment.id,
 				canConfirm,
 				canCancel,
+				canUncancel,
 				canReschedule: hasRescheduleOption && shiftStart && shiftStart.getTime() > now.getTime(),
 				hoursUntilStart: hoursUntil,
 				shiftStartIso
@@ -528,6 +535,24 @@ export const actions = {
 		}
 		return fail(400, {
 			error: result.message ?? 'Unable to cancel shift.',
+			assignmentId: normalizeId(assignmentId)
+		});
+	},
+	uncancel: async (event) => {
+		const data = await event.request.formData();
+		const assignmentId = data.get('assignment_id');
+		if (!assignmentId) {
+			return fail(400, { error: 'Missing shift reference.' });
+		}
+		const result = await uncancelShiftAction(event, assignmentId);
+		if (result.success) {
+			throw redirect(303, `/volunteer/shifts?${buildRedirectParams(result, 'uncancel_success')}`);
+		}
+		if (result.reason === 'login_required') {
+			throw redirect(303, `/volunteer/shifts?${buildRedirectParams(result, 'login_required')}`);
+		}
+		return fail(400, {
+			error: result.message ?? 'Unable to un-cancel shift.',
 			assignmentId: normalizeId(assignmentId)
 		});
 	},

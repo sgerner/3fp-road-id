@@ -465,6 +465,68 @@ export async function cancelShiftAction(event, assignmentId) {
 	});
 }
 
+export async function uncancelShiftAction(event, assignmentId) {
+	const { fetch, cookies } = event;
+	const identity = await getIdentity(fetch, cookies);
+	if (!identity.userId && !identity.email) {
+		return buildActionResult({
+			success: false,
+			reason: 'login_required',
+			message: 'Sign in to manage shifts.'
+		});
+	}
+
+	let context;
+	try {
+		context = await loadAssignmentContext(fetch, assignmentId);
+	} catch (err) {
+		if (err?.status === 404) {
+			return buildActionResult({ success: false, reason: 'not_found', message: err.message });
+		}
+		throw err;
+	}
+
+	if (!ownsSignup(identity, context.signup)) {
+		return buildActionResult({
+			success: false,
+			reason: 'forbidden',
+			message: 'You do not have access to this shift.'
+		});
+	}
+
+	const shiftStart = parseDate(context.shift?.starts_at ?? context.shift?.startsAt ?? null);
+	if (!shiftStart || shiftStart.getTime() <= Date.now()) {
+		return buildActionResult({
+			success: false,
+			reason: 'past_shift',
+			message: 'This shift has already started and cannot be changed.'
+		});
+	}
+
+	await assertCapacityAvailable(fetch, context.shift);
+
+	const body = {
+		cancelled_at: null,
+		status: 'pending',
+		confirmed_at: null
+	};
+
+	await callApi(fetch, 'volunteer-signup-shifts', {
+		id: assignmentId,
+		method: 'PUT',
+		body
+	});
+
+	await sendHostNotification(fetch, assignmentId, 'register');
+
+	return buildActionResult({
+		success: true,
+		assignmentId,
+		event: context.event,
+		shift: context.shift
+	});
+}
+
 export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 	const { fetch, cookies } = event;
 	const identity = await getIdentity(fetch, cookies);
@@ -637,6 +699,7 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 export const shiftActionsHelpers = {
 	confirmShiftAction,
 	cancelShiftAction,
+	uncancelShiftAction,
 	rescheduleShiftAction,
 	CONFIRM_WINDOW_HOURS
 };
