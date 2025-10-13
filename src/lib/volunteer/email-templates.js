@@ -48,7 +48,7 @@ function formatShiftRange(shift, eventTimezone) {
 	if (!shift) return 'Shift time coming soon';
 	const tz = shift.timezone || eventTimezone;
 	const start = formatDateTime(shift.starts_at, tz, { dateStyle: 'medium', timeStyle: 'short' });
-	const end = formatDateTime(shift.ends_at, tz, { dateStyle: 'none', timeStyle: 'short' });
+	const end = formatDateTime(shift.ends_at, tz, { dateStyle: 'medium', timeStyle: 'short' });
 	if (shift.starts_at && shift.ends_at) {
 		return isSameDay(shift.starts_at, shift.ends_at, tz)
 			? `${start} - ${end}`
@@ -197,7 +197,6 @@ export function buildVolunteerStatusUpdateEmail(options) {
 	const shiftHtmlItems = shiftDetails.map((shift) => {
 		const pieces = [
 			`<strong>${escapeHtml(shift.title)}</strong>: ${escapeHtml(shift.time)}`,
-			shift.location ? `Location: ${escapeHtml(shift.location)}` : '',
 			shift.notes ? `Notes: ${escapeHtml(shift.notes)}` : ''
 		].filter(Boolean);
 		return pieces.join('<br />');

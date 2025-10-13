@@ -1,7 +1,8 @@
 type FetchLike = typeof fetch;
 
 export interface VolunteerHostNotificationPayload {
-	assignmentId: string | number;
+	assignmentId?: string | number;
+	assignmentIds?: (string | number)[];
 	type: 'register' | 'cancel';
 }
 
@@ -21,6 +22,7 @@ export async function notifyVolunteerHosts(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
 			assignment_id: payload.assignmentId,
+			assignment_ids: payload.assignmentIds,
 			type: payload.type
 		})
 	});

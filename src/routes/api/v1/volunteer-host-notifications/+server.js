@@ -157,49 +157,52 @@ async function loadEventHostRecipients(fetchImpl, eventRecord) {
 	return Array.from(recipients.values());
 }
 
-function buildEmailContent({ type, eventRecord, shift, opportunity, signup, origin }) {
+function buildEmailContent({ type, eventRecord, contexts, origin }) {
 	const eventTitle = safeTrim(eventRecord?.title) || 'Volunteer event';
-	const opportunityTitle = safeTrim(opportunity?.title) || 'Volunteer shift';
-	const shiftSchedule = formatShiftWindow({ shift, event: eventRecord });
-	const locationLabel =
-		safeTrim(shift?.location_name ?? shift?.locationName) ||
-		safeTrim(eventRecord?.location_name ?? eventRecord?.locationName) ||
-		'';
+
+	// All contexts should be for the same volunteer, but let's be safe
+	const firstContext = contexts[0] || {};
+	const { signup } = firstContext;
 	const volunteerName = safeTrim(signup?.volunteer_name);
-	const volunteerEmail = safeTrim(signup?.volunteer_email);
-	const volunteerPhone = safeTrim(signup?.volunteer_phone);
 
 	const action =
 		type === 'register'
-			? 'signed up for'
-			: type === 'cancel'
-				? 'cancelled their shift for'
-				: 'updated their shift for';
+			? 'has signed up for the following shifts'
+			: 'has cancelled the following shifts';
 
-	const lines = [
-		`${volunteerName} ${action} ${opportunityTitle}.`,
-		shiftSchedule ? `Shift: ${shiftSchedule}` : null,
-		locationLabel ? `Location: ${locationLabel}` : null
-	]
-		.filter(Boolean)
-		.join('\n');
+	const shiftLines = contexts
+		.map((context) => {
+			const opportunityTitle = safeTrim(context.opportunity?.title) || 'Volunteer shift';
+			const shiftSchedule = formatShiftWindow({ shift: context.shift, event: eventRecord });
+			return `<li><strong>${escapeHtml(opportunityTitle)}</strong>: ${escapeHtml(shiftSchedule)}</li>`;
+		})
+		.join('');
+
+	const lines = `<p><strong>${escapeHtml(
+		volunteerName
+	)}</strong> ${action} for ${escapeHtml(eventTitle)}:</p><ul>${shiftLines}</ul>`;
 
 	const manageUrl = buildManageUrl(origin, eventRecord);
 	const subjectPrefix = type === 'register' ? 'New volunteer signup' : 'Volunteer cancellation';
 	const subject = `${subjectPrefix}: ${eventTitle}`;
 
 	const volunteerDetails = [
-		volunteerName ? `Name: ${volunteerName}` : null,
-		volunteerEmail ? `Email: ${volunteerEmail}` : null,
-		volunteerPhone ? `Phone: ${volunteerPhone}` : null
+		volunteerName ? `<strong>Name:</strong> ${volunteerName}` : null,
+		signup?.volunteer_email ? `<strong>Email:</strong> ${signup.volunteer_email}` : null,
+		signup?.volunteer_phone ? `<strong>Phone:</strong> ${signup.volunteer_phone}` : null
 	]
 		.filter(Boolean)
-		.join('\n');
+		.join('<br />');
+
+	const textLines = contexts.map(
+		(c) => `- ${c.opportunity?.title}: ${formatShiftWindow({ shift: c.shift, event: eventRecord })}`
+	);
 
 	const textParts = [
 		`Hello host,`,
 		'',
-		lines,
+		`${volunteerName} ${action} for ${eventTitle}:`,
+		...textLines,
 		volunteerDetails ? `\nVolunteer contact:\n${volunteerDetails}` : null,
 		manageUrl ? `\nReview the roster: ${manageUrl}` : null,
 		'',
@@ -208,13 +211,17 @@ function buildEmailContent({ type, eventRecord, shift, opportunity, signup, orig
 
 	const htmlParts = [
 		'<p>Hello host,</p>',
-		`<p><strong>${escapeHtml(volunteerName)}</strong> ${escapeHtml(action)} <strong>${escapeHtml(opportunityTitle)}</strong>.</p>`,
-		shiftSchedule ? `<strong>Shift</strong>: ${escapeHtml(shiftSchedule)}` : '',
+		lines,
 		volunteerDetails
-			? `<p><strong>Volunteer contact</strong><br />${escapeHtml(volunteerDetails).replace(/\n/g, '<br />')}</p>`
+			? `<p><strong>Volunteer contact</strong><br />${escapeHtml(volunteerDetails).replace(
+					'\n',
+					'<br />'
+				)}</p>`
 			: '',
 		manageUrl
-			? `<p><a href="${escapeHtml(manageUrl)}" style="color:#2563eb;text-decoration:underline;">Open event management</a></p>`
+			? `<p><a href="${escapeHtml(
+					manageUrl
+				)}" style="color:#2563eb;text-decoration:underline;">Open event management</a></p>`
 			: '',
 		'<p>Thanks for supporting your volunteer team!</p>'
 	].filter(Boolean);
@@ -225,8 +232,6 @@ function buildEmailContent({ type, eventRecord, shift, opportunity, signup, orig
 		html: htmlParts.join('\n')
 	};
 }
-
-
 
 export const POST = async (event) => {
 	let body;
@@ -241,81 +246,94 @@ export const POST = async (event) => {
 		return json({ error: 'Unsupported notification type.' }, { status: 400 });
 	}
 
-	const assignmentId = normalizeId(
-		body?.assignment_id ?? body?.assignmentId ?? body?.signup_shift_id ?? body?.signupShiftId
-	);
-	if (!assignmentId) {
-		return json({ error: 'assignment_id is required.' }, { status: 400 });
+	const assignmentId = normalizeId(body?.assignment_id);
+	const assignmentIdsRaw = Array.isArray(body?.assignment_ids) ? body.assignment_ids : [];
+	let assignmentIds = [assignmentId, ...assignmentIdsRaw].map(normalizeId).filter(Boolean);
+
+	if (assignmentIds.length === 0) {
+		return json({ error: 'assignment_id or assignment_ids is required.' }, { status: 400 });
+	}
+	assignmentIds = [...new Set(assignmentIds)]; // Make unique
+
+	const contexts = await Promise.all(
+		assignmentIds.map((id) =>
+			loadAssignmentContext(event.fetch, id).catch((err) => {
+				console.warn(`Failed to load context for assignment ${id}`, err);
+				return null;
+			})
+		)
+	).then((results) => results.filter(Boolean));
+
+	if (contexts.length === 0) {
+		return json({ error: 'No valid assignment contexts could be loaded.' }, { status: 404 });
 	}
 
-	let context;
-	try {
-		context = await loadAssignmentContext(event.fetch, assignmentId);
-	} catch (error) {
-		if (error?.status === 404) {
-			return json({ error: 'Shift assignment not found.' }, { status: 404 });
+	// Group contexts by event
+	const contextsByEvent = contexts.reduce((acc, context) => {
+		const eventId = context.event?.id;
+		if (!eventId) return acc;
+		if (!acc.has(eventId)) {
+			acc.set(eventId, []);
 		}
-		console.error('Volunteer host notification context error', error);
-		return json({ error: 'Unable to load shift context.' }, { status: 500 });
-	}
+		acc.get(eventId).push(context);
+		return acc;
+	}, new Map());
 
-	const eventRecord = context?.event;
-	if (!eventRecord) {
-		return json({ error: 'Volunteer event not found.' }, { status: 404 });
-	}
+	let sentCount = 0;
 
-	const notificationsEnabled =
-		typeRaw === 'register'
-			? truthy(eventRecord.register_notifications ?? eventRecord.registerNotifications)
-			: truthy(eventRecord.cancel_notifications ?? eventRecord.cancelNotifications);
+	for (const [eventId, eventContexts] of contextsByEvent.entries()) {
+		const firstContext = eventContexts[0];
+		const { event: eventRecord } = firstContext;
 
-	if (!notificationsEnabled) {
-		return json({ skipped: true, reason: 'notifications_disabled' });
-	}
+		if (!eventRecord) continue;
 
-	const recipients = await loadEventHostRecipients(event.fetch, eventRecord);
-	if (!recipients.length) {
-		return json({ skipped: true, reason: 'no_recipients' });
-	}
+		const notificationsEnabled =
+			typeRaw === 'register'
+				? truthy(eventRecord.register_notifications ?? eventRecord.registerNotifications)
+				: truthy(eventRecord.cancel_notifications ?? eventRecord.cancelNotifications);
 
-	const emailContent = buildEmailContent({
-		type: typeRaw,
-		eventRecord,
-		shift: context.shift,
-		opportunity: context.opportunity,
-		signup: context.signup,
-		origin: event.url.origin
-	});
-
-	try {
-		const tags = [
-			{ Name: 'context', Value: 'volunteer-host-notification' },
-			{ Name: 'volunteer_event_id', Value: String(eventRecord.id) },
-			{ Name: 'volunteer_notification_type', Value: typeRaw }
-		];
-		const shiftTagValue = context.shift?.id;
-		if (shiftTagValue !== null && shiftTagValue !== undefined) {
-			tags.push({ Name: 'volunteer_shift_id', Value: String(shiftTagValue) });
+		if (!notificationsEnabled) {
+			continue;
 		}
 
-		await sendEmail(
-			{
-				to: recipients.map((entry) => entry.email),
-				subject: emailContent.subject,
-				text: emailContent.text,
-				html: emailContent.html,
-				replyTo: safeTrim(eventRecord.contact_email ?? eventRecord.contactEmail) || undefined,
-				tags
-			},
-			{ fetch: event.fetch }
-		);
-	} catch (error) {
-		console.error('Failed to send volunteer host notification', error);
-		return json({ error: 'Unable to send host notification.' }, { status: 500 });
+		const recipients = await loadEventHostRecipients(event.fetch, eventRecord);
+		if (!recipients.length) {
+			continue;
+		}
+
+		const emailContent = buildEmailContent({
+			type: typeRaw,
+			eventRecord,
+			contexts: eventContexts,
+			origin: event.url.origin
+		});
+
+		try {
+			const tags = [
+				{ Name: 'context', Value: 'volunteer-host-notification-bulk' },
+				{ Name: 'volunteer_event_id', Value: String(eventId) },
+				{ Name: 'volunteer_notification_type', Value: typeRaw }
+			];
+
+			await sendEmail(
+				{
+					to: recipients.map((entry) => entry.email),
+					subject: emailContent.subject,
+					text: emailContent.text,
+					html: emailContent.html,
+					replyTo: safeTrim(eventRecord.contact_email ?? eventRecord.contactEmail) || undefined,
+					tags
+				},
+				{ fetch: event.fetch }
+			);
+			sentCount += recipients.length;
+		} catch (error) {
+			console.error(`Failed to send bulk volunteer host notification for event ${eventId}`, error);
+		}
 	}
 
 	return json({
 		success: true,
-		recipients: recipients.length
+		recipients: sentCount
 	});
 };

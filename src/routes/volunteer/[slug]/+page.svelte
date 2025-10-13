@@ -739,6 +739,11 @@
 			return;
 		}
 		bulkSubmit = { loading: true, success: '', error: '' };
+
+		const allCreatedAssignmentIds = [];
+		const allNewlyAddedShifts = [];
+		let volunteerInfo = null;
+
 		try {
 			for (const opportunity of selected) {
 				const result = await handleSignupSubmission(null, opportunity, { skipRefresh: true });
@@ -750,7 +755,45 @@
 					};
 					return;
 				}
+				if (result.createdAssignmentIds?.length) {
+					allCreatedAssignmentIds.push(...result.createdAssignmentIds);
+				}
+				if (result.newlyAddedShifts?.length) {
+					allNewlyAddedShifts.push({
+						opportunity: result.opportunity,
+						shifts: result.newlyAddedShifts,
+						status: result.status
+					});
+				}
+				if (result.volunteer && !volunteerInfo) {
+					volunteerInfo = result.volunteer;
+				}
 			}
+
+			// Send grouped notifications
+			if (allCreatedAssignmentIds.length) {
+				notifyVolunteerHosts({ assignmentIds: allCreatedAssignmentIds, type: 'register' }).catch(
+					(error) => {
+						console.warn('Failed to notify hosts about new volunteer signups', error);
+					}
+				);
+			}
+
+			if (allNewlyAddedShifts.length && volunteerInfo) {
+				const allShifts = allNewlyAddedShifts.flatMap((item) => item.shifts);
+				const status = allNewlyAddedShifts[0]?.status; // Assume status is the same for all
+				// The opportunity is ambiguous here. For the email, we can pass just the first one
+				// as the template likely uses event-level details more.
+				const firstOpportunity = allNewlyAddedShifts[0]?.opportunity;
+
+				await sendVolunteerStatusUpdateEmail({
+					shifts: allShifts,
+					opportunity: firstOpportunity,
+					status,
+					volunteer: volunteerInfo
+				});
+			}
+
 			bulkSubmit = {
 				loading: false,
 				success: "Thanks for volunteering! We'll be in touch soon.",
@@ -1034,78 +1077,15 @@
 				}
 			}
 
-			if (createdAssignmentIds.length) {
-				await Promise.all(
-					createdAssignmentIds.map((assignmentId) =>
-						notifyVolunteerHosts({ assignmentId, type: 'register' }).catch((error) => {
-							console.warn('Failed to notify hosts about new volunteer signup', error);
-						})
-					)
-				);
-			}
-
-			if (newlyAddedShifts.length) {
-				await sendVolunteerStatusUpdateEmail({
-					shifts: newlyAddedShifts,
-					opportunity,
-					status,
-					volunteer: { name: volunteerName, email: volunteerEmail }
-				});
-			}
-
-			for (const shiftId of toRemove) {
-				const row = signupShifts.find(
-					(existing) => existing.signup_id === signupRecord.id && existing.shift_id === shiftId
-				);
-				if (row?.id) {
-					await deleteVolunteerSignupShift(row.id);
-					signupShifts = signupShifts.filter((existing) => existing.id !== row.id);
-					const counts = ensureShiftCountEntry(shiftId);
-					if (row.status === 'approved') {
-						shiftSignupCounts = {
-							...shiftSignupCounts,
-							[shiftId]: {
-								...counts,
-								approved: Math.max(counts.approved - 1, 0)
-							}
-						};
-					} else if (row.status === 'waitlisted') {
-						shiftSignupCounts = {
-							...shiftSignupCounts,
-							[shiftId]: {
-								...counts,
-								waitlisted: Math.max(counts.waitlisted - 1, 0)
-							}
-						};
-					}
-				}
-			}
-
-			shiftRowsBySignup = signupShifts.reduce((acc, row) => {
-				if (!row?.signup_id) return acc;
-				if (!acc[row.signup_id]) acc[row.signup_id] = [];
-				acc[row.signup_id].push(row);
-				return acc;
-			}, {});
-
-			await syncSignupResponses(signupRecord, opportunity, form);
-
-			updateSignupForm(opportunity.id, {
-				loading: false,
-				success: skipRefresh ? 'Signup saved!' : 'Signup saved! Refreshing...',
-				error: '',
-				questionErrors: {}
-			});
-
-			if (!skipRefresh && typeof window !== 'undefined') {
-				await new Promise((resolve) => setTimeout(resolve, 650));
-				await goto(window.location.pathname + window.location.search, {
-					replaceState: true,
-					keepFocus: true,
-					noScroll: true
-				});
-			}
-			return { ok: true, signup: signupRecord };
+			return {
+				ok: true,
+				signup: signupRecord,
+				createdAssignmentIds,
+				newlyAddedShifts,
+				volunteer: { name: volunteerName, email: volunteerEmail },
+				opportunity,
+				status
+			};
 		} catch (err) {
 			console.error(err);
 			updateSignupForm(opportunity.id, {
