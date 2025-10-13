@@ -1813,11 +1813,7 @@
 	{/if}
 
 	{#if activeSection === 'communications'}
-		<section
-			id="section-communications"
-			class="border-surface-700 bg-surface-900/70 rounded-2xl border p-2 shadow-xl shadow-black/30"
-			transition:slide
-		>
+		<section id="section-communications" class="" transition:slide>
 			<CommunicationsStep
 				showAdvancedCommunications={true}
 				showCustomQuestionsSection={false}
