@@ -9,6 +9,7 @@
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { Segment } from '@skeletonlabs/skeleton-svelte';
 	import { tick, onMount } from 'svelte';
+	import HostNotificationSettings from './HostNotificationSettings.svelte';
 	import {
 		createPreviewContext,
 		renderEmailBody,
@@ -37,6 +38,10 @@
 	export let showImmediateEmailOption = false;
 	export let approvedVolunteerCount = 0;
 	export let onSendImmediateEmail = async () => {};
+	export let hostNotificationSettings = { register: true, cancel: true };
+	export let onHostNotificationChange = () => {};
+	export let hostNotificationSaving = false;
+	export let hostNotificationDisabled = false;
 
 	const OPTION_FIELD_TYPES = new Set(['select', 'multiselect', 'checkbox']);
 
@@ -486,6 +491,13 @@
 			structure.
 		</p>
 	</div>
+
+	<HostNotificationSettings
+		value={hostNotificationSettings}
+		onChange={onHostNotificationChange}
+		disabled={hostNotificationDisabled}
+		saving={hostNotificationSaving}
+	/>
 
 	<div class="space-y-4">
 		<button

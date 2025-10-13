@@ -186,7 +186,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	const signup = await fetchSingle(fetchImpl, 'volunteer-signups', {
 		id: signupId,
 		params: {
-			select: 'id,event_id,volunteer_user_id,volunteer_email'
+			select: 'id,event_id,volunteer_user_id,volunteer_email,volunteer_name,volunteer_phone'
 		}
 	});
 	if (!signup) {
@@ -226,7 +226,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 				id: eventId,
 				params: {
 					select:
-						'id,slug,title,event_start,event_end,timezone,location_name,location_address,status'
+						'id,slug,title,event_start,event_end,timezone,location_name,location_address,status,host_user_id,host_group_id,contact_email,contact_phone,cancel_notifications,register_notifications'
 				}
 			})
 		: null;
@@ -320,6 +320,24 @@ function buildActionResult({
 	};
 }
 
+async function sendHostNotification(fetchImpl, assignmentId, type) {
+	const normalizedId = normalizeId(assignmentId);
+	const normalizedType = typeof type === 'string' ? type.toLowerCase() : '';
+	if (!normalizedId) return;
+	if (!['register', 'cancel'].includes(normalizedType)) return;
+	try {
+		await callApi(fetchImpl, 'volunteer-host-notifications', {
+			method: 'POST',
+			body: {
+				assignment_id: normalizedId,
+				type: normalizedType
+			}
+		});
+	} catch (error) {
+		console.warn('Failed to trigger volunteer host notification', error);
+	}
+}
+
 export async function confirmShiftAction(event, assignmentId) {
 	const { fetch, cookies } = event;
 	const identity = await getIdentity(fetch, cookies);
@@ -376,6 +394,8 @@ export async function confirmShiftAction(event, assignmentId) {
 		method: 'PUT',
 		body
 	});
+
+	await sendHostNotification(fetch, assignmentId, 'cancel');
 
 	return buildActionResult({
 		success: true,
@@ -434,6 +454,8 @@ export async function cancelShiftAction(event, assignmentId) {
 		method: 'PUT',
 		body
 	});
+
+	await sendHostNotification(fetch, assignmentId, 'cancel');
 
 	return buildActionResult({
 		success: true,
@@ -575,6 +597,8 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 		}
 	});
 
+	await sendHostNotification(fetch, assignmentId, 'cancel');
+
 	const createResponse = await callApi(fetch, 'volunteer-signup-shifts', {
 		method: 'POST',
 		body: {
@@ -586,6 +610,10 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 
 	const created = createResponse?.data ?? createResponse;
 	const newAssignmentId = normalizeId(created?.id ?? null);
+
+	if (newAssignmentId) {
+		await sendHostNotification(fetch, newAssignmentId, 'register');
+	}
 
 	const targetEvent = targetEventId
 		? await fetchSingle(fetch, 'volunteer-events', {
@@ -613,4 +641,13 @@ export const shiftActionsHelpers = {
 	CONFIRM_WINDOW_HOURS
 };
 
-export { callApi, fetchList, fetchSingle, normalizeId, parseDate, isCancelled, isWaitlisted };
+export {
+	callApi,
+	fetchList,
+	fetchSingle,
+	normalizeId,
+	parseDate,
+	isCancelled,
+	isWaitlisted,
+	loadAssignmentContext
+};

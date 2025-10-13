@@ -248,11 +248,6 @@
 													>
 														Cancel
 													</button>
-													{#if !record.canCancel}
-														<p class="text-surface-500 mt-1 text-xs">
-															Cancellation unavailable once a shift has passed.
-														</p>
-													{/if}
 												</form>
 											</div>
 											{#if !record.canConfirm}

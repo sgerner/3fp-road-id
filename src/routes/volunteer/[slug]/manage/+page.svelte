@@ -5,30 +5,32 @@
 	import ApprovedRoster from '$lib/components/volunteer/manage/ApprovedRoster.svelte';
 	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
-        import { SvelteMap } from 'svelte/reactivity';
-        import { sendEmail } from '$lib/services/email';
-        import {
-                createVolunteerEventEmail,
-                updateVolunteerEventEmail,
-                deleteVolunteerEventEmail,
-                createVolunteerSignup,
-                createVolunteerSignupShift,
-                deleteVolunteerSignupShift,
-                updateVolunteerSignupShift
-        } from '$lib/services/volunteers.js';
-        import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates';
-        import {
-                createMergeContext,
-                renderEmailBody,
-                renderSubject,
-                VOLUNTEER_MERGE_TAGS
-        } from '$lib/volunteer/merge-tags';
-        import {
-                buildVolunteerCommunicationsContextSnapshot,
-                createVolunteerEmailComposer
-        } from '$lib/volunteer/communications-ai';
-        import { Segment } from '@skeletonlabs/skeleton-svelte';
-        import { slide } from 'svelte/transition';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { sendEmail } from '$lib/services/email';
+	import {
+		createVolunteerEventEmail,
+		updateVolunteerEventEmail,
+		deleteVolunteerEventEmail,
+		updateVolunteerEvent,
+		createVolunteerSignup,
+		createVolunteerSignupShift,
+		deleteVolunteerSignupShift,
+		updateVolunteerSignupShift
+	} from '$lib/services/volunteers.js';
+	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates';
+	import {
+		createMergeContext,
+		renderEmailBody,
+		renderSubject,
+		VOLUNTEER_MERGE_TAGS
+	} from '$lib/volunteer/merge-tags';
+	import {
+		buildVolunteerCommunicationsContextSnapshot,
+		createVolunteerEmailComposer
+	} from '$lib/volunteer/communications-ai';
+	import { Segment } from '@skeletonlabs/skeleton-svelte';
+	import { slide } from 'svelte/transition';
+	import { toaster } from '../../../toaster-svelte';
 
 	const { data } = $props();
 
@@ -37,9 +39,9 @@
 	const signupsRaw = data?.signups ?? [];
 	const signupShiftsRaw = data?.signupShifts ?? [];
 	const signupResponsesRaw = data?.signupResponses ?? [];
-        const customQuestionsRaw = data?.customQuestions ?? [];
-        const eventEmailsRaw = data?.eventEmails ?? [];
-        const customQuestions = customQuestionsRaw ?? [];
+	const customQuestionsRaw = data?.customQuestions ?? [];
+	const eventEmailsRaw = data?.eventEmails ?? [];
+	const customQuestions = customQuestionsRaw ?? [];
 	let profileRecords = $state(data?.profiles ?? []);
 	const eventHosts = data?.eventHosts ?? [];
 	const groupOwners = data?.groupOwners ?? [];
@@ -50,6 +52,16 @@
 	const contactEmail =
 		event?.contact_email?.trim?.() || event?.contactEmail?.trim?.() || organizerEmail;
 	const contactPhone = event?.contact_phone?.trim?.() || event?.contactPhone?.trim?.() || '';
+
+	const initialRegisterNotifications =
+		event?.register_notifications ?? event?.registerNotifications ?? false;
+	const initialCancelNotifications =
+		event?.cancel_notifications ?? event?.cancelNotifications ?? false;
+	let hostNotificationSettings = $state({
+		register: Boolean(initialRegisterNotifications),
+		cancel: Boolean(initialCancelNotifications)
+	});
+	let hostNotificationSaving = $state(false);
 
 	function toNumber(value) {
 		const numeric = Number(value);
@@ -132,28 +144,28 @@
 			.replace(/\b\w/g, (char) => char.toUpperCase());
 	})();
 
-        const eventDescription =
-                event?.summary?.trim() ||
-                event?.short_description?.trim() ||
-                event?.description?.trim() ||
-                event?.details?.trim() ||
-                '';
+	const eventDescription =
+		event?.summary?.trim() ||
+		event?.short_description?.trim() ||
+		event?.description?.trim() ||
+		event?.details?.trim() ||
+		'';
 
-        const communicationsEventDetails = {
-                title: event?.title || 'Volunteer event',
-                summary: eventDescription,
-                description: event?.description ?? event?.details ?? '',
-                eventStart: event.event_start || event.starts_at || event.eventStart,
-                eventEnd: event.event_end || event.ends_at || event.eventEnd,
-                timezone: eventTimezone,
-                locationName: event?.location_name || event?.locationName || '',
-                locationAddress: event?.location_address || event?.locationAddress || '',
-                contactEmail,
-                contactPhone,
-                hostGroupId: hostGroup?.id ? String(hostGroup.id) : null,
-                hostGroupName: hostGroup?.name ?? '',
-                status: event?.status ?? event?.volunteer_event_status ?? event?.event_status ?? ''
-        };
+	const communicationsEventDetails = {
+		title: event?.title || 'Volunteer event',
+		summary: eventDescription,
+		description: event?.description ?? event?.details ?? '',
+		eventStart: event.event_start || event.starts_at || event.eventStart,
+		eventEnd: event.event_end || event.ends_at || event.eventEnd,
+		timezone: eventTimezone,
+		locationName: event?.location_name || event?.locationName || '',
+		locationAddress: event?.location_address || event?.locationAddress || '',
+		contactEmail,
+		contactPhone,
+		hostGroupId: hostGroup?.id ? String(hostGroup.id) : null,
+		hostGroupName: hostGroup?.name ?? '',
+		status: event?.status ?? event?.volunteer_event_status ?? event?.event_status ?? ''
+	};
 
 	function normalizeShift(opportunity, shift) {
 		if (!shift) return null;
@@ -274,6 +286,51 @@
 			const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
 			return timeA - timeB;
 		});
+	}
+
+	async function handleHostNotificationSettingsChange(patch) {
+		if (!patch || typeof patch !== 'object') return;
+		const next = {
+			register: patch.register !== undefined ? !!patch.register : hostNotificationSettings.register,
+			cancel: patch.cancel !== undefined ? !!patch.cancel : hostNotificationSettings.cancel
+		};
+		if (
+			next.register === hostNotificationSettings.register &&
+			next.cancel === hostNotificationSettings.cancel
+		) {
+			return;
+		}
+
+		const previous = { ...hostNotificationSettings };
+		hostNotificationSettings = next;
+		if (!event?.id) {
+			hostNotificationSettings = previous;
+			return;
+		}
+
+		hostNotificationSaving = true;
+		try {
+			const payload = {};
+			if (patch.register !== undefined) {
+				payload.register_notifications = next.register;
+			}
+			if (patch.cancel !== undefined) {
+				payload.cancel_notifications = next.cancel;
+			}
+			if (Object.keys(payload).length === 0) {
+				return;
+			}
+			await updateVolunteerEvent(event.id, payload);
+			toaster.success({ title: 'Host notification preferences updated.' });
+		} catch (error) {
+			hostNotificationSettings = previous;
+			toaster.error({
+				title: 'Update failed',
+				message: error?.message || 'Unable to update notification preferences.'
+			});
+		} finally {
+			hostNotificationSaving = false;
+		}
 	}
 
 	function normalizeAssignmentStatus(status) {
@@ -1350,93 +1407,93 @@
 		const normalizedType = rawType === 'thank_you' ? 'thankyou' : rawType;
 		const emailType = allowedEmailTypes.has(normalizedType) ? normalizedType : 'reminder';
 		const defaultSendOffset = emailType === 'immediate' ? 0 : 1440;
-                return {
-                        id: row.id ? String(row.id) : null,
-                        eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
-                        emailType,
-                        subject: row.subject ?? '',
-                        body: row.body ?? '',
-                        sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : defaultSendOffset,
-                        requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
-                        surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
-                        lastSentAt: row.last_sent_at ?? row.lastSentAt ?? null,
-                        createdAt: row.created_at ?? row.createdAt ?? null,
-                        updatedAt: row.updated_at ?? row.updatedAt ?? null,
-                        ...(row.ai_prompt !== undefined || row.aiPrompt !== undefined
-                                ? { aiPrompt: row.ai_prompt ?? row.aiPrompt ?? '' }
-                                : {}),
-                        ...(row.ai_error !== undefined || row.aiError !== undefined
-                                ? { aiError: row.ai_error ?? row.aiError ?? '' }
-                                : {})
-                };
-        }
+		return {
+			id: row.id ? String(row.id) : null,
+			eventId: row.event_id ? String(row.event_id) : event?.id ? String(event.id) : null,
+			emailType,
+			subject: row.subject ?? '',
+			body: row.body ?? '',
+			sendOffsetMinutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : defaultSendOffset,
+			requireConfirmation: !!(row.require_confirmation ?? row.requireConfirmation),
+			surveyUrl: row.survey_url ?? row.surveyUrl ?? '',
+			lastSentAt: row.last_sent_at ?? row.lastSentAt ?? null,
+			createdAt: row.created_at ?? row.createdAt ?? null,
+			updatedAt: row.updated_at ?? row.updatedAt ?? null,
+			...(row.ai_prompt !== undefined || row.aiPrompt !== undefined
+				? { aiPrompt: row.ai_prompt ?? row.aiPrompt ?? '' }
+				: {}),
+			...(row.ai_error !== undefined || row.aiError !== undefined
+				? { aiError: row.ai_error ?? row.aiError ?? '' }
+				: {})
+		};
+	}
 
-        let eventEmails = $state(
-                eventEmailsRaw
-                        .map((record) => {
-                                const normalized = normalizeEmailRecord(record);
-                                if (!normalized) return null;
-                                return {
-                                        ...normalized,
-                                        aiPrompt: record?.ai_prompt ?? record?.aiPrompt ?? '',
-                                        aiError: record?.ai_error ?? record?.aiError ?? '',
-                                        aiLoading: false,
-                                        aiComposerOpen: false
-                                };
-                        })
-                        .filter(Boolean)
-        );
+	let eventEmails = $state(
+		eventEmailsRaw
+			.map((record) => {
+				const normalized = normalizeEmailRecord(record);
+				if (!normalized) return null;
+				return {
+					...normalized,
+					aiPrompt: record?.ai_prompt ?? record?.aiPrompt ?? '',
+					aiError: record?.ai_error ?? record?.aiError ?? '',
+					aiLoading: false,
+					aiComposerOpen: false
+				};
+			})
+			.filter(Boolean)
+	);
 
 	function updateEmailLocal(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
 	}
 
-        function upsertEmail(record) {
-                const normalized = normalizeEmailRecord(record);
-                if (!normalized) return;
-                const index = eventEmails.findIndex((email) => email.id === normalized.id);
-                if (index >= 0) {
-                        const next = [...eventEmails];
-                        next[index] = { ...next[index], ...normalized, aiLoading: false };
-                        eventEmails = next;
-                } else {
-                        eventEmails = [
-                                {
-                                        ...normalized,
-                                        aiPrompt: normalized.aiPrompt ?? '',
-                                        aiError: normalized.aiError ?? '',
-                                        aiLoading: false,
-                                        aiComposerOpen: false
-                                },
-                                ...eventEmails
-                        ];
-                }
-        }
+	function upsertEmail(record) {
+		const normalized = normalizeEmailRecord(record);
+		if (!normalized) return;
+		const index = eventEmails.findIndex((email) => email.id === normalized.id);
+		if (index >= 0) {
+			const next = [...eventEmails];
+			next[index] = { ...next[index], ...normalized, aiLoading: false };
+			eventEmails = next;
+		} else {
+			eventEmails = [
+				{
+					...normalized,
+					aiPrompt: normalized.aiPrompt ?? '',
+					aiError: normalized.aiError ?? '',
+					aiLoading: false,
+					aiComposerOpen: false
+				},
+				...eventEmails
+			];
+		}
+	}
 
-        function buildEmailPayload(email) {
-                const sendOffsetMinutes = Math.round(email.sendOffsetMinutes ?? 0);
-                const emailType = email.emailType === 'thankyou' ? 'thank_you' : email.emailType;
-                return {
-                        event_id: email.eventId ?? (event?.id ? String(event.id) : null),
-                        email_type: emailType,
-                        subject: email.subject ?? '',
-                        body: email.body ?? '',
-                        send_offset_minutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : 0,
-                        require_confirmation: email.requireConfirmation ?? false,
-                        survey_url: email.surveyUrl ?? ''
-                };
-        }
+	function buildEmailPayload(email) {
+		const sendOffsetMinutes = Math.round(email.sendOffsetMinutes ?? 0);
+		const emailType = email.emailType === 'thankyou' ? 'thank_you' : email.emailType;
+		return {
+			event_id: email.eventId ?? (event?.id ? String(event.id) : null),
+			email_type: emailType,
+			subject: email.subject ?? '',
+			body: email.body ?? '',
+			send_offset_minutes: Number.isFinite(sendOffsetMinutes) ? sendOffsetMinutes : 0,
+			require_confirmation: email.requireConfirmation ?? false,
+			survey_url: email.surveyUrl ?? ''
+		};
+	}
 
-        const buildContextSnapshot = () =>
-                buildVolunteerCommunicationsContextSnapshot({
-                        eventDetails: communicationsEventDetails,
-                        opportunities: opportunitiesRaw,
-                        customQuestions,
-                        eventEmails,
-                        eventTypeOptions: [],
-                        opportunityTypeOptions: [],
-                        mergeTags: VOLUNTEER_MERGE_TAGS
-                });
+	const buildContextSnapshot = () =>
+		buildVolunteerCommunicationsContextSnapshot({
+			eventDetails: communicationsEventDetails,
+			opportunities: opportunitiesRaw,
+			customQuestions,
+			eventEmails,
+			eventTypeOptions: [],
+			opportunityTypeOptions: [],
+			mergeTags: VOLUNTEER_MERGE_TAGS
+		});
 
 	async function addEmailTemplate() {
 		if (!event?.id) return;
@@ -1479,30 +1536,30 @@
 		'surveyUrl'
 	]);
 
-        async function updateEmailTemplate(id, patch) {
-                updateEmailLocal(id, patch);
-                const shouldPersist = Object.keys(patch).some((key) => persistableEmailFields.has(key));
-                if (!shouldPersist) return;
-                const current = eventEmails.find((email) => email.id === id);
-                if (!current) return;
-                try {
-                        const payload = buildEmailPayload(current);
-                        const response = await updateVolunteerEventEmail(id, payload);
-                        const updated = response?.data ?? response ?? current;
-                        upsertEmail(updated);
-                } catch (error) {
-                        console.error('Failed to update volunteer email', error);
-                }
-        }
+	async function updateEmailTemplate(id, patch) {
+		updateEmailLocal(id, patch);
+		const shouldPersist = Object.keys(patch).some((key) => persistableEmailFields.has(key));
+		if (!shouldPersist) return;
+		const current = eventEmails.find((email) => email.id === id);
+		if (!current) return;
+		try {
+			const payload = buildEmailPayload(current);
+			const response = await updateVolunteerEventEmail(id, payload);
+			const updated = response?.data ?? response ?? current;
+			upsertEmail(updated);
+		} catch (error) {
+			console.error('Failed to update volunteer email', error);
+		}
+	}
 
-        const composeEmailWithAi = createVolunteerEmailComposer({
-                getEmails: () => eventEmails,
-                updateEmailTemplate,
-                buildContextSnapshot,
-                eventTypeOptions: [],
-                opportunityTypeOptions: [],
-                mergeTags: VOLUNTEER_MERGE_TAGS
-        });
+	const composeEmailWithAi = createVolunteerEmailComposer({
+		getEmails: () => eventEmails,
+		updateEmailTemplate,
+		buildContextSnapshot,
+		eventTypeOptions: [],
+		opportunityTypeOptions: [],
+		mergeTags: VOLUNTEER_MERGE_TAGS
+	});
 
 	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId }) {
 		const approvedVolunteers = volunteers.filter((volunteer) => volunteer.status === 'approved');
@@ -1638,7 +1695,7 @@
 		return { sentCount, lastSentAt: recordedSentAt };
 	}
 
-        async function setAssignmentsPresent(assignmentIds, status) {
+	async function setAssignmentsPresent(assignmentIds, status) {
 		for (const assignmentId of assignmentIds) {
 			await setAssignmentPresent(assignmentId, status);
 		}
@@ -1765,15 +1822,19 @@
 				showAdvancedCommunications={true}
 				showCustomQuestionsSection={false}
 				{customQuestions}
-                                {eventEmails}
-                                eventDetails={communicationsEventDetails}
+				{eventEmails}
+				eventDetails={communicationsEventDetails}
 				opportunities={opportunityGroups}
 				showImmediateEmailOption={true}
 				approvedVolunteerCount={volunteerCounts.approved}
+				{hostNotificationSettings}
+				onHostNotificationChange={handleHostNotificationSettingsChange}
+				{hostNotificationSaving}
+				hostNotificationDisabled={hostNotificationSaving}
 				onAddEmail={addEmailTemplate}
 				onRemoveEmail={removeEmailTemplate}
-                                onUpdateEmail={updateEmailTemplate}
-                                onComposeEmail={composeEmailWithAi}
+				onUpdateEmail={updateEmailTemplate}
+				onComposeEmail={composeEmailWithAi}
 				onToggleAdvanced={() => {}}
 				onSendImmediateEmail={sendImmediateVolunteerEmail}
 				emailTypeOptions={['reminder', 'thankyou', 'custom']}

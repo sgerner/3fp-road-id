@@ -15,7 +15,8 @@
 		createVolunteerOpportunity,
 		createVolunteerShift,
 		createVolunteerCustomQuestion,
-		createVolunteerEventEmail
+		createVolunteerEventEmail,
+		notifyVolunteerHosts
 	} from '$lib';
 	import {
 		buildVolunteerCommunicationsContextSnapshot,
@@ -283,7 +284,9 @@
 		latitude: '',
 		longitude: '',
 		contactEmail: '',
-		contactPhone: ''
+		contactPhone: '',
+		registerNotifications: true,
+		cancelNotifications: true
 	});
 
 	let lastEventDefaults = $state({
@@ -302,6 +305,12 @@
 		const normalizedPatch = { ...patch };
 		if ('eventTypeSlug' in normalizedPatch) {
 			normalizedPatch.eventTypeSlug = sanitizeEventTypeSlug(normalizedPatch.eventTypeSlug);
+		}
+		if ('registerNotifications' in normalizedPatch) {
+			normalizedPatch.registerNotifications = !!normalizedPatch.registerNotifications;
+		}
+		if ('cancelNotifications' in normalizedPatch) {
+			normalizedPatch.cancelNotifications = !!normalizedPatch.cancelNotifications;
 		}
 		const prevDefaults = { ...lastEventDefaults };
 		const prevEventDetails = eventDetails;
@@ -363,6 +372,19 @@
 		filteredHostGroupOptions = hostGroupOptions.filter((option) =>
 			option.label.toLowerCase().includes(query)
 		);
+	}
+
+	function handleHostNotificationChange(patch) {
+		if (!patch || typeof patch !== 'object') return;
+		const updates = {};
+		if ('register' in patch) {
+			updates.registerNotifications = !!patch.register;
+		}
+		if ('cancel' in patch) {
+			updates.cancelNotifications = !!patch.cancel;
+		}
+		if (Object.keys(updates).length === 0) return;
+		mergeEventDetails(updates);
 	}
 
 	function currentEventType() {
@@ -1284,6 +1306,8 @@
 				contact_phone: eventDetails.contactPhone || null,
 				require_signup_approval: !!eventDetails.requireSignupApproval,
 				waitlist_enabled: !!eventDetails.waitlistEnabled,
+				register_notifications: !!eventDetails.registerNotifications,
+				cancel_notifications: !!eventDetails.cancelNotifications,
 				host_user_id: currentUser.id,
 				created_by_user_id: currentUser.id
 			};
@@ -1647,6 +1671,11 @@
 						onRemoveEmail={removeEmailTemplate}
 						onUpdateEmail={updateEmailTemplate}
 						onComposeEmail={composeEmailWithAi}
+						hostNotificationSettings={{
+							register: !!eventDetails.registerNotifications,
+							cancel: !!eventDetails.cancelNotifications
+						}}
+						onHostNotificationChange={handleHostNotificationChange}
 					/>
 				{:else if activeStep === 4}
 					<ReviewStep

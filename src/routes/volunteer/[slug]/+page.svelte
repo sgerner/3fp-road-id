@@ -14,6 +14,7 @@
 		updateVolunteerSignupResponse,
 		deleteVolunteerSignupResponse
 	} from '$lib/services/volunteers';
+	import { notifyVolunteerHosts } from '$lib/services/volunteerHostNotifications';
 	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates.js';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
@@ -998,6 +999,7 @@
 
 			const status = opportunity.requires_approval ? 'pending' : 'approved';
 			const newlyAddedShifts = [];
+			const createdAssignmentIds = [];
 
 			for (const shiftId of toAdd) {
 				const response = await createVolunteerSignupShift({
@@ -1007,6 +1009,7 @@
 				});
 				const created = response?.data ?? response;
 				if (created?.id) {
+					createdAssignmentIds.push(created.id);
 					signupShifts = [...signupShifts, created];
 					const counts = ensureShiftCountEntry(shiftId);
 					const shiftDetails = findShift(opportunity, shiftId);
@@ -1029,6 +1032,16 @@
 						};
 					}
 				}
+			}
+
+			if (createdAssignmentIds.length) {
+				await Promise.all(
+					createdAssignmentIds.map((assignmentId) =>
+						notifyVolunteerHosts({ assignmentId, type: 'register' }).catch((error) => {
+							console.warn('Failed to notify hosts about new volunteer signup', error);
+						})
+					)
+				);
 			}
 
 			if (newlyAddedShifts.length) {

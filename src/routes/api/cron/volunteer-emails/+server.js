@@ -381,7 +381,7 @@ async function handleCron(event) {
 	const emailQuery = await supabase
 		.from('volunteer_event_emails')
 		.select(
-			`id,event_id,email_type,subject,body,send_offset_minutes,require_confirmation,last_sent_at,event:volunteer_events(id,title,slug,event_start,event_end,timezone,location_name,location_address,contact_email,contact_phone,contact_name,host_name,host_group_id,status)`
+			`id,event_id,email_type,subject,body,send_offset_minutes,require_confirmation,last_sent_at,event:volunteer_events(id,title,slug,event_start,event_end,timezone,location_name,location_address,contact_email,contact_phone,host_group_id,status)`
 		);
 
 	if (emailQuery.error) {
