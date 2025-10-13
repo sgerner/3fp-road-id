@@ -186,13 +186,21 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 	const subjectPrefix = type === 'register' ? 'New volunteer signup' : 'Volunteer cancellation';
 	const subject = `${subjectPrefix}: ${eventTitle}`;
 
-	const volunteerDetails = [
-		volunteerName ? `<strong>Name:</strong> ${volunteerName}` : null,
-		signup?.volunteer_email ? `<strong>Email:</strong> ${signup.volunteer_email}` : null,
-		signup?.volunteer_phone ? `<strong>Phone:</strong> ${signup.volunteer_phone}` : null
+	const volunteerDetailsHtml = [
+		volunteerName ? `<strong>Name:</strong> ${escapeHtml(volunteerName)}` : null,
+		signup?.volunteer_email ? `<strong>Email:</strong> ${escapeHtml(signup.volunteer_email)}` : null,
+		signup?.volunteer_phone ? `<strong>Phone:</strong> ${escapeHtml(signup.volunteer_phone)}` : null
 	]
 		.filter(Boolean)
 		.join('<br />');
+
+	const volunteerDetailsText = [
+		volunteerName ? `Name: ${volunteerName}` : null,
+		signup?.volunteer_email ? `Email: ${signup.volunteer_email}` : null,
+		signup?.volunteer_phone ? `Phone: ${signup.volunteer_phone}` : null
+	]
+		.filter(Boolean)
+		.join('\n');
 
 	const textLines = contexts.map(
 		(c) => `- ${c.opportunity?.title}: ${formatShiftWindow({ shift: c.shift, event: eventRecord })}`
@@ -203,7 +211,7 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 		'',
 		`${volunteerName} ${action} for ${eventTitle}:`,
 		...textLines,
-		volunteerDetails ? `\nVolunteer contact:\n${volunteerDetails}` : null,
+		volunteerDetailsText ? `\nVolunteer contact:\n${volunteerDetailsText}` : null,
 		manageUrl ? `\nReview the roster: ${manageUrl}` : null,
 		'',
 		'Thanks for supporting your volunteer team!'
@@ -212,11 +220,8 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 	const htmlParts = [
 		'<p>Hello host,</p>',
 		lines,
-		volunteerDetails
-			? `<p><strong>Volunteer contact</strong><br />${escapeHtml(volunteerDetails).replace(
-					'\n',
-					'<br />'
-				)}</p>`
+		volunteerDetailsHtml
+			? `<p><strong>Volunteer contact</strong><br />${volunteerDetailsHtml}</p>`
 			: '',
 		manageUrl
 			? `<p><a href="${escapeHtml(
