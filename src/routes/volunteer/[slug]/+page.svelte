@@ -18,7 +18,8 @@
 	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates.js';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
-	import IconClock from '@lucide/svelte/icons/clock';
+	import IconCircle from '@lucide/svelte/icons/circle';
+	import IconCircleCheckBig from '@lucide/svelte/icons/circle-check-big';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLayers from '@lucide/svelte/icons/layers';
@@ -275,13 +276,21 @@
 			if (row?.id) map[question.id] = row;
 			return map;
 		}, {});
+		const initialShiftIds = (() => {
+			const preset = [...(opportunity.defaultShiftIds ?? [])];
+			if (!preset.length && opportunity.shifts?.length === 1) {
+				return [opportunity.shifts[0].id];
+			}
+			return preset;
+		})();
+
 		acc[opportunity.id] = {
 			volunteerName: existing?.volunteer_name?.trim() || defaultName || '',
 			volunteerEmail: existing?.volunteer_email?.trim() || defaultEmail || '',
 			volunteerPhone: existing?.volunteer_phone?.trim() || defaultPhone,
 			emergencyContactName: existing?.emergency_contact_name?.trim() || defaultEmergencyName,
 			emergencyContactPhone: existing?.emergency_contact_phone?.trim() || defaultEmergencyPhone,
-			shiftIds: [...(opportunity.defaultShiftIds ?? [])],
+			shiftIds: initialShiftIds,
 			questionResponses,
 			questionRecords,
 			eventQuestionRecords,
@@ -1396,7 +1405,7 @@
 							<IconCalendar class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-400 text-xs tracking-wide uppercase">Schedule</p>
+							<p class="text-surface-100 text-xs tracking-wide uppercase">Schedule</p>
 							<p class="text-surface-100 font-semibold">
 								{eventDateLabel(event.event_start, event.event_end, event.timezone)}
 							</p>
@@ -1412,7 +1421,7 @@
 							<IconMapPin class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-400 text-xs tracking-wide uppercase">Location</p>
+							<p class="text-surface-100 text-xs tracking-wide uppercase">Location</p>
 							<p class="text-surface-100 font-semibold">
 								{#if event.location_name}
 									{event.location_name}
@@ -1421,7 +1430,7 @@
 								{/if}
 							</p>
 							{#if event.location_address}
-								<p class="text-surface-400 text-xs">{event.location_address}</p>
+								<p class="text-surface-100 text-xs">{event.location_address}</p>
 							{/if}
 						</div>
 					</div>
@@ -1432,8 +1441,8 @@
 							<IconUsers class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-400 text-xs tracking-wide uppercase">Host</p>
-							<p class="text-surface-100 font-semibold">
+							<p class="text-surface-100 text-xs tracking-wide uppercase">Host</p>
+							<p class="text-surface-100 !mb-0 font-semibold">
 								{#if hostGroup}
 									{hostGroup.name}
 								{:else}
@@ -1441,12 +1450,12 @@
 								{/if}
 							</p>
 							{#if hostGroup}
-								<p class="text-surface-400 text-xs">
+								<p class="text-surface-400 !mb-2 text-xs">
 									{hostLocationLabel() || 'Local volunteer crew'}
 								</p>
 								{#if hostSocialLinks.length}
 									<ul
-										class="text-surface-400 mt-2 flex flex-wrap gap-2 text-[11px] tracking-wide uppercase"
+										class="text-surface-400 flex flex-wrap gap-2 text-[11px] tracking-wide uppercase"
 									>
 										{#if hostWebsite}
 											<li>
@@ -1475,7 +1484,7 @@
 									</ul>
 								{/if}
 							{/if}
-							<ul class="mt-2 space-y-1 text-xs">
+							<ul class="space-y-1 text-xs">
 								{#if contactEmail}
 									<li class="flex items-center gap-2">
 										<IconMail class="text-secondary-200 h-4 w-4" />
@@ -1547,7 +1556,7 @@
 							<p class="text-error-200 text-xs sm:text-sm">{questionStatus.error}</p>
 						{/if}
 					</div>
-					<p class="text-surface-400 mt-3 text-sm">
+					<p class="text-surface-100 mt-3 text-sm">
 						Send the event organizer a message. We&rsquo;ll share your email address so they can
 						reply directly.
 					</p>
@@ -1558,7 +1567,7 @@
 					{:else}
 						<form class="mt-6 space-y-4" onsubmit={handleQuestionSubmit} transition:slide>
 							<div class="grid gap-4 md:grid-cols-2">
-								<label class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase">
+								<label class="flex flex-col gap-1 text-xs tracking-wide uppercase">
 									<span>Your email</span>
 									<input
 										type="email"
@@ -1574,7 +1583,7 @@
 										</span>
 									{/if}
 								</label>
-								<label class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase">
+								<label class="flex flex-col gap-1 text-xs tracking-wide uppercase">
 									<span>Subject</span>
 									<input
 										type="text"
@@ -1591,7 +1600,7 @@
 									{/if}
 								</label>
 							</div>
-							<label class="text-surface-400 flex flex-col gap-2 text-xs tracking-wide uppercase">
+							<label class="flex flex-col gap-2 text-xs tracking-wide uppercase">
 								<span>Message</span>
 								<textarea
 									class="textarea bg-surface-950/40"
@@ -1629,7 +1638,7 @@
 			{:else}
 				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
 					<h2 class="text-secondary-100 text-2xl font-semibold">Organizer contact coming soon</h2>
-					<p class="text-surface-400 mt-3 text-sm">
+					<p class="text-surface-100 mt-3 text-sm">
 						We&rsquo;re getting the organizer&rsquo;s contact information ready. Please check back
 						later if you need to get in touch.
 					</p>
@@ -1665,7 +1674,7 @@
 							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 						/>
 						<label
-							class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase sm:flex-1"
+							class="text-surface-100 flex flex-col gap-1 text-xs tracking-wide uppercase sm:flex-1"
 						>
 							<span>Email</span>
 							<input
@@ -1729,7 +1738,7 @@
 						<div class="space-y-6">
 							<div class="space-y-2">
 								{#if !user}
-									<h5 class="h5 text-surface-400">
+									<h5 class="h5 text-surface-100">
 										Log in above to choose shifts and share your details.
 									</h5>
 								{:else}
@@ -1817,10 +1826,10 @@
 														<li>
 															<button
 																type="button"
-																class={`focus:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition focus:ring-2 focus:outline-none ${
+																class={`group focus-visible:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
 																	isSelected
-																		? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 ring-secondary-300 font-semibold shadow-md ring-2'
-																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-400/50'
+																		? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 shadow-lg'
+																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-300/60 hover:bg-secondary-500/10 hover:text-secondary-50 hover:shadow-md'
 																}`}
 																aria-pressed={isSelected}
 																disabled={!user || eventFinished}
@@ -1832,13 +1841,17 @@
 																<div class="flex flex-wrap items-center justify-between gap-3">
 																	<div class="flex items-center gap-3">
 																		<span
-																			class={`${
+																			class={`flex h-10 w-10 items-center justify-center transition-colors ${
 																				isSelected
-																					? 'bg-secondary-500/40 text-secondary-50'
-																					: 'bg-primary-500/10 text-primary-200'
-																			} rounded-lg p-2`}
+																					? 'text-secondary-50'
+																					: 'text-primary-200 group-hover:border-secondary-300 group-hover:text-secondary-100'
+																			}`}
 																		>
-																			<IconClock class="h-4 w-4" />
+																			{#if isSelected}
+																				<IconCircleCheckBig class="h-10 w-10" />
+																			{:else}
+																				<IconCircle class="h-10 w-10 " />
+																			{/if}
 																		</span>
 																		<div class="min-w-0">
 																			<p class="text-surface-50 text-sm font-semibold">
@@ -1862,7 +1875,7 @@
 																			Waitlisted: {waitlistedCount}
 																		</p>
 																		{#if shift.notes}
-																			<p class="text-surface-400 text-xs">{shift.notes}</p>
+																			<p class="text-surface-100 text-xs">{shift.notes}</p>
 																		{/if}
 																	</div>
 																</div>
@@ -1873,6 +1886,11 @@
 											{/if}
 										</div>
 									</div>
+									{#if !selectedOpportunities.length}
+										<p class="text-warning-500 animate-pulse pt-4 text-center font-semibold">
+											You haven't selected any shifts. Pick above to get started.
+										</p>
+									{/if}
 								</article>
 							{/each}
 						</div>
@@ -1929,7 +1947,7 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-surface-400 mt-4 text-sm">
+						<p class="text-surface-100 mt-4 text-sm">
 							Select at least one shift above to review your signup details.
 						</p>
 					{/if}
@@ -1940,7 +1958,7 @@
 						<h3 class="text-secondary-100 text-lg font-semibold tracking-wide uppercase">
 							Volunteer details & questions
 						</h3>
-						<p class="text-surface-400 text-xs">
+						<p class="text-surface-100 text-xs">
 							These contact details apply to every role you sign up for above.
 						</p>
 						<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
@@ -1954,7 +1972,7 @@
 						{/if}
 
 						<div class="space-y-3 pt-2">
-							<div class="text-surface-400 text-xs">
+							<div class="text-surface-100 text-xs">
 								We’ll send confirmations to the contact details above once you submit.
 							</div>
 							<button
@@ -1968,6 +1986,15 @@
 								{/if}
 								<span>Sign me up!</span>
 							</button>
+							{#if bulkSubmit.loading}
+								<p class="text-surface-100 text-xs">
+									We're processing your signup. Hang tight a moment.
+								</p>
+							{:else if selectedOpportunities.length === 0}
+								<p class="text-warning-500 text-xs">
+									Select at least one shift above to enable the button.
+								</p>
+							{/if}
 							{#if bulkSubmit.error}
 								<p class="text-error-200 text-xs">{bulkSubmit.error}</p>
 							{/if}

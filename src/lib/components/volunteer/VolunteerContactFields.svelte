@@ -14,7 +14,7 @@
 
 <div class="grid gap-3 md:grid-cols-2">
 	{#each fields as field}
-		<label class="text-surface-400 flex flex-col gap-1 text-xs tracking-wide uppercase">
+		<label class="flex flex-col gap-1 text-xs tracking-wide uppercase">
 			<span>{field.label}</span>
 			<input
 				type={field.type}
