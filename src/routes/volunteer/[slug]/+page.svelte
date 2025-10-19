@@ -277,11 +277,14 @@
 			return map;
 		}, {});
 		const initialShiftIds = (() => {
-			const preset = [...(opportunity.defaultShiftIds ?? [])];
-			if (!preset.length && opportunity.shifts?.length === 1) {
-				return [opportunity.shifts[0].id];
+			if (opportunitiesRaw?.length === 1) {
+				const preset = [...(opportunity.defaultShiftIds ?? [])];
+
+				if (!preset.length && opportunity.shifts?.length === 1) {
+					return [opportunity.shifts[0].id];
+				}
+				return preset;
 			}
-			return preset;
 		})();
 
 		acc[opportunity.id] = {
@@ -1742,11 +1745,11 @@
 										Log in above to choose shifts and share your details.
 									</h5>
 								{:else}
-									<h5
-										class="h5 bg-secondary-500/15 text-secondary-50 border-secondary-400/40 rounded-xl border px-3 py-2 font-semibold"
+									<p
+										class="bg-secondary-500/15 border-secondary-400/40 rounded-xl border px-3 py-2 text-center font-semibold"
 									>
-										Pick the shifts you want to cover, then finish your signup below.
-									</h5>
+										Click on any shift card below to select it.
+									</p>
 								{/if}
 							</div>
 							{#each opportunities as opportunity (opportunity.id)}
@@ -1805,11 +1808,6 @@
 
 									<div class="mt-6 space-y-6">
 										<div class="space-y-3">
-											<h5
-												class="text-surface-300 flex items-center gap-2 text-sm font-semibold tracking-wide uppercase"
-											>
-												<IconLayers class="h-4 w-4" /> Shift coverage
-											</h5>
 											{#if !opportunity.shifts || opportunity.shifts.length === 0}
 												<p
 													class="border-surface-500/40 bg-surface-800/40 text-surface-300 rounded-2xl border border-dashed p-4 text-sm"
@@ -1826,7 +1824,7 @@
 														<li>
 															<button
 																type="button"
-																class={`group focus-visible:ring-secondary-400 w-full rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
+																class={`group focus-visible:ring-secondary-400 w-full rounded-2xl border px-4 py-2 text-left shadow-xl/30 transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
 																	isSelected
 																		? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 shadow-lg'
 																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-300/60 hover:bg-secondary-500/10 hover:text-secondary-50 hover:shadow-md'
@@ -1838,26 +1836,26 @@
 																	toggleShiftSelection(opportunity.id, shift.id);
 																}}
 															>
-																<div class="flex flex-wrap items-center justify-between gap-3">
+																<div class="flex flex-wrap items-center justify-between gap-2">
 																	<div class="flex items-center gap-3">
 																		<span
 																			class={`flex h-10 w-10 items-center justify-center transition-colors ${
 																				isSelected
 																					? 'text-secondary-50'
-																					: 'text-primary-200 group-hover:border-secondary-300 group-hover:text-secondary-100'
+																					: 'text-surface-500 group-hover:border-secondary-300 group-hover:text-secondary-100'
 																			}`}
 																		>
 																			{#if isSelected}
 																				<IconCircleCheckBig class="h-10 w-10" />
 																			{:else}
-																				<IconCircle class="h-10 w-10 " />
+																				<IconCircleCheckBig class="h-10 w-10 " />
 																			{/if}
 																		</span>
 																		<div class="min-w-0">
-																			<p class="text-surface-50 text-sm font-semibold">
+																			<p class="text-surface-50 !mb-0 text-sm font-semibold">
 																				{formatShiftRange(shift)}
 																			</p>
-																			<p class="text-surface-400 text-xs">
+																			<p class="text-surface-400 !mb-0 text-xs">
 																				{shift.timezone || event.timezone || 'Timezone TBD'}
 																			</p>
 																		</div>
@@ -1870,14 +1868,14 @@
 																			<span> / {Number(shift.capacity)} slots</span>
 																		{/if}
 																		<p
-																			class={`mt-1 ${waitlistedCount > 0 ? 'font-semibold text-amber-200' : 'text-surface-500'}`}
+																			class={`!mb-0 ${waitlistedCount > 0 ? 'font-semibold text-amber-200' : 'text-surface-500'}`}
 																		>
 																			Waitlisted: {waitlistedCount}
 																		</p>
-																		{#if shift.notes}
-																			<p class="text-surface-100 text-xs">{shift.notes}</p>
-																		{/if}
 																	</div>
+																	{#if shift.notes}
+																		<p class="text-surface-100 !mb-0 text-xs">{shift.notes}</p>
+																	{/if}
 																</div>
 															</button>
 														</li>
@@ -1887,7 +1885,10 @@
 										</div>
 									</div>
 									{#if !selectedOpportunities.length}
-										<p class="text-warning-500 animate-pulse pt-4 text-center font-semibold">
+										<p
+											class="text-warning-500 animate-pulse pt-4 text-center font-semibold"
+											transition:slide
+										>
 											You haven't selected any shifts. Pick above to get started.
 										</p>
 									{/if}
