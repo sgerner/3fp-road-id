@@ -1,6 +1,7 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { slide } from 'svelte/transition';
+	import { goto, beforeNavigate } from '$app/navigation';
 	import { Avatar, Progress } from '@skeletonlabs/skeleton-svelte';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconSend from '@lucide/svelte/icons/send';
@@ -8,6 +9,9 @@
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
+	import IconSave from '@lucide/svelte/icons/save';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import {
@@ -316,6 +320,7 @@
 		const prevEventDetails = eventDetails;
 		const next = { ...eventDetails, ...normalizedPatch };
 		eventDetails = next;
+		isDirty = true;
 		lastEventDefaults = {
 			timezone: next.timezone,
 			locationName: next.locationName,
@@ -659,6 +664,58 @@
 	let draftAppliedAt = $state(null);
 	let showAdvancedSettings = $state(false);
 	let showAdvancedCommunications = $state(false);
+	let isMuseOpen = $state(true);
+	let isDirty = $state(false);
+
+	function handleManualInteraction() {
+		if (isMuseOpen) {
+			isMuseOpen = false;
+		}
+	}
+
+	beforeNavigate(({ cancel }) => {
+		if (isDirty && !window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+			cancel();
+		}
+	});
+
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			window.onbeforeunload = isDirty ? () => true : null;
+		}
+	});
+
+	const EVENT_TEMPLATES = {
+		advocacy:
+			'I want to organize an advocacy event. Help me customize it by asking about the title, time and date, and number of shifts.',
+		class:
+			'I want to organize a class. Help me customize it by asking about the title, time and date, and number of shifts.',
+		festival:
+			'I want to organize a festival. Help me customize it by asking about the title, time and date, and number of shifts.',
+		fundraiser:
+			'I want to organize a fundraiser. Help me customize it by asking about the title, time and date, and number of shifts.',
+		meeting:
+			'I want to organize a meeting. Help me customize it by asking about the title, time and date, and number of shifts.',
+		outreach:
+			'I want to organize an outreach event. Help me customize it by asking about the title, time and date, and number of shifts.',
+		race: 'I want to organize a race. Help me customize it by asking about the title, time and date, and number of shifts.',
+		repair:
+			'I want to organize a repair event. Help me customize it by asking about the title, time and date, and number of shifts.',
+		ride: 'I want to organize a ride. Help me customize it by asking about the title, time and date, and number of shifts.',
+		rodeo:
+			'I want to organize a rodeo. Help me customize it by asking about the title, time and date, and number of shifts.',
+		training:
+			'I want to organize a training event. Help me customize it by asking about the title, time and date, and number of shifts.',
+		valet:
+			'I want to organize a valet event. Help me customize it by asking about the title, time and date, and number of shifts.'
+	};
+
+	function applyTemplate(key) {
+		const template = EVENT_TEMPLATES[key];
+		if (!template) return;
+		chatPrompt = template;
+		sendPrompt();
+	}
 
 	let saveError = $state('');
 	let saveSuccess = $state('');
@@ -1143,6 +1200,7 @@
 
 	function updateOpportunity(id, patch) {
 		opportunities = opportunities.map((op) => (op.id === id ? { ...op, ...patch } : op));
+		isDirty = true;
 	}
 
 	function updateShift(opportunityId, shiftId, patch) {
@@ -1153,6 +1211,7 @@
 			);
 			return { ...op, shifts };
 		});
+		isDirty = true;
 	}
 
 	function removeShift(opportunityId, shiftId) {
@@ -1161,6 +1220,7 @@
 			const shifts = op.shifts.filter((shift) => shift.id !== shiftId);
 			return { ...op, shifts: shifts.length ? shifts : [createShift()] };
 		});
+		isDirty = true;
 	}
 
 	function addShift(opportunityId) {
@@ -1178,6 +1238,7 @@
 				]
 			};
 		});
+		isDirty = true;
 	}
 
 	function addOpportunity() {
@@ -1194,19 +1255,23 @@
 				]
 			})
 		];
+		isDirty = true;
 	}
 
 	function removeOpportunity(id) {
 		if (opportunities.length === 1) return;
 		opportunities = opportunities.filter((op) => op.id !== id);
+		isDirty = true;
 	}
 
 	function addQuestion() {
 		customQuestions = [...customQuestions, createQuestion()];
+		isDirty = true;
 	}
 
 	function removeQuestion(id) {
 		customQuestions = customQuestions.filter((q) => q.id !== id);
+		isDirty = true;
 	}
 
 	function updateQuestion(id, patch) {
@@ -1223,10 +1288,12 @@
 			}
 			return next;
 		});
+		isDirty = true;
 	}
 
 	function addEmailTemplate() {
 		eventEmails = [...eventEmails, createEmailTemplate()];
+		isDirty = true;
 	}
 
 	function removeEmailTemplate(id) {
@@ -1243,10 +1310,12 @@
 			return;
 		}
 		eventEmails = eventEmails.filter((email) => email.id !== id);
+		isDirty = true;
 	}
 
 	function updateEmailTemplate(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
+		isDirty = true;
 	}
 
 	function goToStep(step) {
@@ -1396,9 +1465,11 @@
 					? 'Volunteer event published and ready for volunteers.'
 					: 'Draft saved. You can publish when you are ready.';
 			if (normalizedStatus === 'published' && createdEvent.slug) {
+				isDirty = false;
 				await goto(`/volunteer/${encodeURIComponent(createdEvent.slug)}`);
 				return;
 			}
+			isDirty = false;
 			activeStep = steps.length - 1;
 		} catch (error) {
 			if (previousStatus !== normalizedStatus) {
@@ -1418,7 +1489,31 @@
 		saveIntent = 'draft';
 		return handleSubmit('draft');
 	};
+
+	function isStepComplete(idx) {
+		switch (idx) {
+			case 0: // Overview
+				return !!eventDetails.title && !!eventDetails.eventTypeSlug;
+			case 1: // Schedule
+				return !!eventDetails.eventStart && !!eventDetails.timezone;
+			case 2: // Roles
+				return opportunities.length > 0 && opportunities.every((o) => !!o.title);
+			case 3: // Communications
+				return true; // Mostly optional
+			default:
+				return false;
+		}
+	}
+
+	function handleKeydown(e) {
+		if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+			e.preventDefault();
+			handleSaveDraft();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
 	<title>Volunteer Event Builder • 3FP</title>
@@ -1430,9 +1525,8 @@
 				<div class="space-y-2">
 					<h1 class="!text-left text-3xl font-semibold">Volunteer Event Builder</h1>
 					<p class="text-surface-400 max-w-3xl text-sm">
-						Guide your volunteer leads, mechanics, educators, hospitality crew, and outreach teams
-						from idea to launch. Team up with Volunteer Muse up top, then walk through the steps to
-						plan your next community event.
+						Plan your event from idea to launch. Use Volunteer Muse for AI assistance, or manually
+						configure every detail below.
 					</p>
 				</div>
 			</div>
@@ -1444,129 +1538,168 @@
 			}`}
 			aria-busy={aiLoading}
 		>
-			<div class="flex items-center gap-3">
-				<div class="bg-secondary-500/10 text-secondary-300 rounded-full p-2">
-					<IconSparkles class="h-5 w-5" />
+			<div
+				class="flex cursor-pointer items-center justify-between"
+				onclick={() => (isMuseOpen = !isMuseOpen)}
+				role="button"
+				tabindex="0"
+				onkeydown={(e) => e.key === 'Enter' && (isMuseOpen = !isMuseOpen)}
+			>
+				<div class="flex items-center gap-3">
+					<div class="bg-secondary-500/10 text-secondary-300 rounded-full p-2">
+						<IconSparkles class="h-5 w-5" />
+					</div>
+					<div>
+						<h2 class="text-xl font-semibold">Volunteer Muse — Generative teammate</h2>
+						<p class="text-surface-400 text-sm">
+							Start with a template or describe your event. I'll help draft the details.
+						</p>
+					</div>
 				</div>
-				<div>
-					<h2 class="text-xl font-semibold">Volunteer Muse — Generative teammate</h2>
-					<p class="text-surface-400 text-sm">
-						Describe your event in plain language. Volunteer Muse will suggest copy, staffing plans,
-						and reminders, and double-check details with quick follow-up questions.
-					</p>
-				</div>
+				<button
+					type="button"
+					class="btn-icon btn-icon-sm variant-soft-secondary"
+					aria-label={isMuseOpen ? 'Collapse Volunteer Muse' : 'Expand Volunteer Muse'}
+				>
+					{#if isMuseOpen}
+						<IconChevronUp class="h-5 w-5" />
+					{:else}
+						<IconChevronDown class="h-5 w-5" />
+					{/if}
+				</button>
 			</div>
 
-			{#if aiLoading}
-				<div
-					class="border-secondary-500/30 bg-secondary-500/10 mt-4 flex flex-col gap-3 rounded border p-4"
-					role="status"
-					aria-live="polite"
-				>
-					<div class="text-secondary-100 flex items-center gap-2">
-						<IconLoader class="h-4 w-4 animate-spin" />
-						<span>Volunteer Muse is drafting shifts and reminders…</span>
-					</div>
-					<Progress value={null} class="w-full" />
-				</div>
-			{/if}
-
-			<div class="mt-5 space-y-4">
-				<section
-					bind:this={chatContainer}
-					class="max-h-[360px] w-full space-y-4 overflow-y-auto pr-1"
-				>
-					{#each chatMessages as bubble (bubble.id)}
-						{#if bubble.host}
-							<div class="grid grid-cols-[1fr_auto] items-start gap-2">
-								<div class={`card preset-tonal-primary rounded-tr-none p-4 ${bubble.color}`}>
-									<header class="flex items-center justify-between gap-4 text-sm">
-										<p class="font-semibold">{bubble.name}</p>
-										<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
-									</header>
-									<div class="space-y-2 leading-relaxed">
-										{@html renderChatContent(bubble.content)}
-									</div>
-								</div>
-								<Avatar
-									src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-									name={bubble.name}
-									size="size-12"
-								/>
-							</div>
-						{:else}
-							<div class="grid grid-cols-[auto_1fr] items-start gap-2">
-								<Avatar
-									src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-									name={bubble.name}
-									size="size-12"
-								/>
-								<div class={`card rounded-tl-none p-4 ${bubble.color}`}>
-									<header class="flex items-center justify-between gap-4 text-sm">
-										<p class="font-semibold">{bubble.name}</p>
-										<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
-									</header>
-									<div class="space-y-2 leading-relaxed">
-										{@html renderChatContent(bubble.content)}
-									</div>
-								</div>
-							</div>
-						{/if}
-					{/each}
-					{#if aiLoading}
-						<div class="text-surface-400 flex items-center gap-2 text-sm">
-							<IconLoader class="h-4 w-4 animate-spin" />
-							<p>Volunteer Muse is thinking…</p>
+			{#if isMuseOpen}
+				<div class="mt-4" transition:slide>
+					{#if !chatMessages.length || (chatMessages.length === 1 && chatMessages[0].role === 'assistant')}
+						<div class="flex flex-wrap gap-2 py-2">
+							{#each Object.keys(EVENT_TEMPLATES) as key}
+								<button
+									type="button"
+									class="chip preset-tonal-primary text-base capitalize transition-all"
+									onclick={() => applyTemplate(key)}
+									disabled={aiLoading}
+								>
+									{key}
+								</button>
+							{/each}
 						</div>
 					{/if}
-				</section>
 
-				{#if followUpQuestions.length}
-					<div class="border-warning-500/40 bg-warning-500/10 rounded border p-3 text-sm">
-						<p class="text-warning-200 font-semibold">Volunteer Muse still needs:</p>
-						<ul class="text-warning-100 mt-2 list-disc space-y-1 pl-5">
-							{#each followUpQuestions as question}
-								<li>{question}</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
-
-				{#if aiError}
-					<p class="border-error-500/40 bg-error-500/10 text-error-200 rounded border p-3 text-sm">
-						{aiError}
-					</p>
-				{/if}
-
-				<form
-					onsubmit={handleChatSubmit}
-					class="card border-primary-500/20 bg-surface-900/60 flex flex-col gap-3 rounded border p-4"
-				>
-					<label class="label text-sm font-semibold" for="chat-prompt"
-						>Describe or ask anything</label
-					>
-					<textarea
-						id="chat-prompt"
-						class="textarea bg-surface-950/70 min-h-24"
-						bind:value={chatPrompt}
-						placeholder="We need 20 volunteers for a pop-up repair station with tune-up and greeting shifts…"
-					></textarea>
-					<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-						<p class="text-surface-500 text-xs">
-							Volunteer Muse can suggest titles, staffing plans, shifts, and reminder emails.
-							Mention date, time, meeting spot, expected turnout, and what support you need.
-						</p>
-						<button
-							type="submit"
-							class="btn preset-filled-secondary-500 flex items-center gap-2"
-							disabled={aiLoading}
+					{#if aiLoading}
+						<div
+							class="border-secondary-500/30 bg-secondary-500/10 mt-4 flex flex-col gap-3 rounded border p-4"
+							role="status"
+							aria-live="polite"
 						>
-							<IconSend class="h-4 w-4" />
-							<span>{aiLoading ? 'Sending…' : 'Send to Volunteer Muse'}</span>
-						</button>
+							<div class="text-secondary-100 flex items-center gap-2">
+								<IconLoader class="h-4 w-4 animate-spin" />
+								<span>Volunteer Muse is drafting shifts and reminders…</span>
+							</div>
+							<Progress value={null} class="w-full" />
+						</div>
+					{/if}
+
+					<div class="mt-5 space-y-4">
+						<section
+							bind:this={chatContainer}
+							class="max-h-[360px] w-full space-y-4 overflow-y-auto pr-1"
+						>
+							{#each chatMessages as bubble (bubble.id)}
+								{#if bubble.host}
+									<div class="grid grid-cols-[1fr_auto] items-start gap-2">
+										<div class={`card preset-tonal-primary rounded-tr-none p-4 ${bubble.color}`}>
+											<header class="flex items-center justify-between gap-4 text-sm">
+												<p class="font-semibold">{bubble.name}</p>
+												<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
+											</header>
+											<div class="space-y-2 leading-relaxed">
+												{@html renderChatContent(bubble.content)}
+											</div>
+										</div>
+										<Avatar
+											src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+											name={bubble.name}
+											size="size-12"
+										/>
+									</div>
+								{:else}
+									<div class="grid grid-cols-[auto_1fr] items-start gap-2">
+										<Avatar
+											src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+											name={bubble.name}
+											size="size-12"
+										/>
+										<div class={`card rounded-tl-none p-4 ${bubble.color}`}>
+											<header class="flex items-center justify-between gap-4 text-sm">
+												<p class="font-semibold">{bubble.name}</p>
+												<small class="opacity-60">{formatTimestamp(bubble.timestamp)}</small>
+											</header>
+											<div class="space-y-2 leading-relaxed">
+												{@html renderChatContent(bubble.content)}
+											</div>
+										</div>
+									</div>
+								{/if}
+							{/each}
+							{#if aiLoading}
+								<div class="text-surface-400 flex items-center gap-2 text-sm">
+									<IconLoader class="h-4 w-4 animate-spin" />
+									<p>Volunteer Muse is thinking…</p>
+								</div>
+							{/if}
+						</section>
+
+						{#if followUpQuestions.length}
+							<div class="border-warning-500/40 bg-warning-500/10 rounded border p-3 text-sm">
+								<p class="text-warning-200 font-semibold">Volunteer Muse still needs:</p>
+								<ul class="text-warning-100 mt-2 list-disc space-y-1 pl-5">
+									{#each followUpQuestions as question}
+										<li>{question}</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+
+						{#if aiError}
+							<p
+								class="border-error-500/40 bg-error-500/10 text-error-200 rounded border p-3 text-sm"
+							>
+								{aiError}
+							</p>
+						{/if}
+
+						<form
+							onsubmit={handleChatSubmit}
+							class="card border-primary-500/20 bg-surface-900/60 flex flex-col gap-3 rounded border p-4"
+						>
+							<label class="label text-sm font-semibold" for="chat-prompt"
+								>Describe or ask anything</label
+							>
+							<textarea
+								id="chat-prompt"
+								class="textarea bg-surface-950/70 min-h-24"
+								bind:value={chatPrompt}
+								placeholder="We need 20 volunteers for a pop-up repair station with tune-up and greeting shifts…"
+							></textarea>
+							<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+								<p class="text-surface-500 text-xs">
+									Volunteer Muse can suggest titles, staffing plans, shifts, and reminder emails.
+									Mention date, time, meeting spot, expected turnout, and what support you need.
+								</p>
+								<button
+									type="submit"
+									class="btn preset-filled-secondary-500 flex items-center gap-2"
+									disabled={aiLoading}
+								>
+									<IconSend class="h-4 w-4" />
+									<span>{aiLoading ? 'Sending…' : 'Send to Volunteer Muse'}</span>
+								</button>
+							</div>
+						</form>
 					</div>
-				</form>
-			</div>
+				</div>
+			{/if}
 
 			{#if draftAppliedAt}
 				<div
@@ -1577,16 +1710,37 @@
 						<h3 class="text-sm font-semibold">Volunteer Muse suggestions applied</h3>
 					</div>
 					<p class="text-secondary-200 text-sm">
-						The latest plan filled in the event builder automatically. Give the sections below a
-						quick review.
+						The latest plan filled in the event builder automatically.
 					</p>
-					<small class="text-secondary-300 text-xs">Updated {formatTimestamp(draftAppliedAt)}</small
-					>
+					<div class="flex items-center justify-between gap-4">
+						<small class="text-secondary-300 text-xs"
+							>Updated {formatTimestamp(draftAppliedAt)}</small
+						>
+						<button
+							type="button"
+							class="btn btn-sm preset-filled-secondary-500"
+							onclick={() => {
+								isMuseOpen = false;
+								const el = document.getElementById('manual-builder');
+								el?.scrollIntoView({ behavior: 'smooth' });
+							}}
+						>
+							Review & Publish
+							<IconArrowRight class="h-4 w-4" />
+						</button>
+					</div>
 				</div>
 			{/if}
 		</section>
 
-		<section class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6">
+		<section
+			id="manual-builder"
+			class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6"
+			onfocusin={handleManualInteraction}
+			onclick={handleManualInteraction}
+			onkeydown={() => {}}
+			role="group"
+		>
 			<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 				<div class="space-y-2">
 					<h2 class="text-xl font-semibold">Build the volunteer experience</h2>
@@ -1710,6 +1864,17 @@
 				>
 					<span>Next</span>
 					<IconArrowRight class="h-4 w-4" />
+				</button>
+			</div>
+			<div class="mt-4 flex justify-center">
+				<button
+					type="button"
+					class="btn btn-sm variant-soft-secondary flex items-center gap-2"
+					onclick={handleSaveDraft}
+					disabled={saving}
+				>
+					<IconSave class="h-4 w-4" />
+					<span>Save Draft</span>
 				</button>
 			</div>
 		</section>
