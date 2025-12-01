@@ -20,6 +20,11 @@
 		createVolunteerShift,
 		createVolunteerCustomQuestion,
 		createVolunteerEventEmail,
+		listVolunteerEvents,
+		listVolunteerOpportunities,
+		listVolunteerShifts,
+		listVolunteerCustomQuestions,
+		listVolunteerEventEmails,
 		notifyVolunteerHosts
 	} from '$lib';
 	import {
@@ -27,6 +32,14 @@
 		createVolunteerEmailComposer
 	} from '$lib/volunteer/communications-ai';
 	import { VOLUNTEER_MERGE_TAGS } from '$lib/volunteer/merge-tags';
+	import {
+		ensureArray,
+		ensureDefaultEmail,
+		mapEmailRecordToFormDetails,
+		mapEventRecordToFormDetails,
+		mapOpportunityRecordToFormDetails,
+		mapQuestionRecordToFormDetails
+	} from '$lib/components/volunteer/form-utils';
 	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
@@ -86,6 +99,21 @@
 	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
 	const emailMergeTags = VOLUNTEER_MERGE_TAGS.map((tag) => tag.token);
+
+	function normalizeArray(value) {
+		if (Array.isArray(value)) return value;
+		if (value === null || value === undefined) return [];
+		return [value];
+	}
+
+	function chunk(values, size) {
+		if (!Array.isArray(values) || !values.length || size <= 0) return [];
+		const result = [];
+		for (let i = 0; i < values.length; i += size) {
+			result.push(values.slice(i, i + size));
+		}
+		return result;
+	}
 
 	function readValue(source, keys = []) {
 		if (!source) return undefined;
@@ -304,6 +332,14 @@
 	let slugUpdateToken = 0;
 	let slugDebounce;
 	let slugCheckInFlight = $state(false);
+	let cloneSearchOpen = $state(false);
+	let cloneSearchQuery = $state('');
+	let cloneSearchResults = $state([]);
+	let cloneSearchLoading = $state(false);
+	let cloneSearchError = $state('');
+	let cloneApplyError = $state('');
+	let cloneSuccess = $state('');
+	let cloneApplying = $state(false);
 
 	function mergeEventDetails(patch, options = {}) {
 		const normalizedPatch = { ...patch };
@@ -599,6 +635,232 @@
 		}, 180);
 	}
 
+	const cloneDateFormatter = new Intl.DateTimeFormat(undefined, {
+		dateStyle: 'medium',
+		timeStyle: 'short'
+	});
+	function formatCloneEventDate(event) {
+		const value = event?.event_start ?? event?.eventStart ?? '';
+		if (!value) return 'Date to be announced';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return 'Date to be announced';
+		return cloneDateFormatter.format(date);
+	}
+
+	async function searchCloneEvents(termOverride) {
+		const term = (termOverride ?? cloneSearchQuery ?? '').trim();
+		cloneSearchError = '';
+		cloneSuccess = '';
+		cloneApplyError = '';
+		if (term.length < 2) {
+			cloneSearchError = 'Type at least two characters to search events.';
+			cloneSearchResults = [];
+			return;
+		}
+
+		cloneSearchLoading = true;
+		try {
+			const response = await listVolunteerEvents({
+				fetch,
+				query: {
+					or: `title.ilike.%${term}%,summary.ilike.%${term}%`,
+					order: 'event_start.desc',
+					limit: 15
+				}
+			});
+			const rows = ensureArray(response?.data ?? response);
+			cloneSearchResults = rows;
+			if (!rows.length) {
+				cloneSearchError = 'No matching events found.';
+			}
+		} catch (error) {
+			console.error('Unable to search volunteer events to clone', error);
+			cloneSearchError = error?.message || 'Unable to search events right now.';
+			cloneSearchResults = [];
+		} finally {
+			cloneSearchLoading = false;
+		}
+	}
+
+	async function fetchCloneBundle(identifier) {
+		if (!identifier) throw new Error('Select an event to clone.');
+
+		const searchParams = { single: 'true' };
+		let eventResponse = null;
+		try {
+			eventResponse = await listVolunteerEvents({
+				fetch,
+				query: { ...searchParams, slug: `eq.${identifier}` }
+			});
+		} catch (error) {
+			console.warn('Unable to fetch event by slug for cloning', error);
+		}
+
+		let eventRecord = eventResponse?.data ?? eventResponse ?? null;
+		if (!eventRecord?.id) {
+			const fallbackResponse = await listVolunteerEvents({
+				fetch,
+				query: { ...searchParams, id: `eq.${identifier}` }
+			});
+			eventRecord = fallbackResponse?.data ?? fallbackResponse ?? null;
+		}
+
+		if (!eventRecord?.id) {
+			throw new Error('Volunteer event not found.');
+		}
+
+		const eventId = eventRecord.id;
+
+		const [opportunityResponse, questionResponse, emailResponse] = await Promise.all([
+			listVolunteerOpportunities({
+				fetch,
+				query: { event_id: `eq.${eventId}`, order: 'title.asc' }
+			}).catch(() => ({ data: [] })),
+			listVolunteerCustomQuestions({
+				fetch,
+				query: { event_id: `eq.${eventId}`, order: 'position.asc' }
+			}).catch(() => ({ data: [] })),
+			listVolunteerEventEmails({
+				fetch,
+				query: { event_id: `eq.${eventId}`, order: 'send_offset_minutes.asc' }
+			}).catch(() => ({ data: [] }))
+		]);
+
+		const opportunityRows = ensureArray(opportunityResponse?.data ?? opportunityResponse);
+		const opportunityIds = opportunityRows
+			.map((row) => row?.id)
+			.filter((value) => value !== null && value !== undefined);
+
+		let shiftRows = [];
+		if (opportunityIds.length) {
+			const batches = chunk(opportunityIds, 20);
+			const shiftResponses = await Promise.all(
+				batches.map((batch) =>
+					listVolunteerShifts({
+						fetch,
+						query: {
+							opportunity_id: `in.(${batch.join(',')})`,
+							order: 'starts_at.asc'
+						}
+					}).catch(() => ({ data: [] }))
+				)
+			);
+			shiftRows = shiftResponses.flatMap((response) => ensureArray(response?.data ?? response));
+		}
+
+		const shiftsByOpportunity = new Map();
+		for (const shift of shiftRows) {
+			const shiftId = shift?.opportunity_id ?? shift?.opportunityId;
+			if (shiftId === null || shiftId === undefined) continue;
+			const list = shiftsByOpportunity.get(shiftId) ?? [];
+			list.push(shift);
+			shiftsByOpportunity.set(shiftId, list);
+		}
+
+		const opportunities = opportunityRows.map((opportunity) => ({
+			...opportunity,
+			shifts: shiftsByOpportunity.get(opportunity.id) ?? []
+		}));
+
+		const customQuestions = ensureArray(questionResponse?.data ?? questionResponse);
+		const eventEmails = ensureArray(emailResponse?.data ?? emailResponse);
+
+		return { event: eventRecord, opportunities, customQuestions, eventEmails };
+	}
+
+	function mapClonedOpportunities(opportunities) {
+		return ensureArray(opportunities).map((opportunity) => {
+			const mapped = mapOpportunityRecordToFormDetails(
+				opportunity,
+				ensureArray(opportunity?.shifts ?? [])
+			);
+			const id = crypto.randomUUID();
+			const remappedShifts = mapped.shifts.map((shift) => ({
+				...shift,
+				id: crypto.randomUUID()
+			}));
+			return { ...mapped, id, shifts: remappedShifts };
+		});
+	}
+
+	function applyClonedBundle(bundle) {
+		if (!bundle?.event?.id) throw new Error('Invalid volunteer event to clone.');
+
+		const mappedEvent = mapEventRecordToFormDetails(bundle.event);
+		const detailPatch = {
+			...mappedEvent,
+			hostGroupId: mappedEvent.hostGroupId || '',
+			status: 'draft',
+			slug: '',
+			registerNotifications:
+				bundle.event.register_notifications ??
+				bundle.event.registerNotifications ??
+				eventDetails.registerNotifications,
+			cancelNotifications:
+				bundle.event.cancel_notifications ??
+				bundle.event.cancelNotifications ??
+				eventDetails.cancelNotifications,
+			requireSignupApproval: mappedEvent.requireSignupApproval ?? false,
+			waitlistEnabled: mappedEvent.waitlistEnabled ?? true
+		};
+
+		mergeEventDetails(detailPatch, { slugSource: mappedEvent.title || '' });
+		hostGroupSelection = detailPatch.hostGroupId ? [detailPatch.hostGroupId] : [];
+
+		const clonedOpportunities = mapClonedOpportunities(bundle.opportunities ?? []);
+		const idMap = new Map();
+		for (let i = 0; i < (bundle.opportunities ?? []).length; i += 1) {
+			const originalId = bundle.opportunities[i]?.id;
+			const newId = clonedOpportunities[i]?.id;
+			if (originalId != null && newId) {
+				idMap.set(String(originalId), newId);
+			}
+		}
+		opportunities = clonedOpportunities.length ? clonedOpportunities : opportunities;
+
+		customQuestions = ensureArray(bundle.customQuestions ?? []).map((question, index) => {
+			const mapped = mapQuestionRecordToFormDetails(question);
+			const targetOpportunityId = mapped.opportunityId && idMap.get(String(mapped.opportunityId));
+			return {
+				...mapped,
+				id: crypto.randomUUID(),
+				position: index,
+				opportunityId: targetOpportunityId ?? ''
+			};
+		});
+
+		const mappedEmails = ensureDefaultEmail(
+			ensureArray(bundle.eventEmails ?? []).map((email) => ({
+				...mapEmailRecordToFormDetails(email),
+				id: crypto.randomUUID(),
+				lastSentAt: null
+			}))
+		);
+		eventEmails = mappedEmails;
+
+		isDirty = true;
+		draftAppliedAt = new Date().toISOString();
+		activeStep = 0;
+	}
+
+	async function loadClone(identifier) {
+		cloneApplyError = '';
+		cloneSuccess = '';
+		cloneSearchError = '';
+		cloneApplying = true;
+		try {
+			const bundle = await fetchCloneBundle(identifier);
+			applyClonedBundle(bundle);
+			cloneSuccess = `Copied details from “${bundle.event?.title || 'Volunteer event'}”.`;
+			cloneSearchOpen = false;
+		} catch (error) {
+			console.error('Unable to apply cloned volunteer event', error);
+			cloneApplyError = error?.message || 'Unable to clone that event right now.';
+		} finally {
+			cloneApplying = false;
+		}
+	}
+
 	function createQuestion(partial = {}) {
 		return {
 			id: crypto.randomUUID(),
@@ -769,6 +1031,13 @@
 		}
 
 		filteredHostGroupOptions = hostGroupOptions;
+
+		const searchParams = new URLSearchParams(window.location.search);
+		const cloneId = searchParams.get('clone');
+		if (cloneId) {
+			cloneSearchOpen = true;
+			loadClone(cloneId);
+		}
 	});
 
 	function createChatMessage({ role = 'assistant', content }) {
@@ -1521,16 +1790,107 @@
 {#if currentUser?.id}
 	<main class="mx-auto flex max-w-6xl flex-col gap-8 pb-24">
 		<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
-			<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-				<div class="space-y-2">
+			<div class="space-y-2">
+				<div class="flex items-center justify-between">
 					<h1 class="!text-left text-3xl font-semibold">Volunteer Event Builder</h1>
-					<p class="text-surface-400 max-w-3xl text-sm">
-						Plan your event from idea to launch. Use Volunteer Muse for AI assistance, or manually
-						configure every detail below.
-					</p>
+					<button
+						class="btn btn-sm preset-outlined-secondary-500"
+						type="button"
+						onclick={() => (cloneSearchOpen = !cloneSearchOpen)}
+					>
+						{cloneSearchOpen ? 'Hide search' : 'Clone Existing Event'}
+					</button>
 				</div>
+
+				<p class="text-surface-400 max-w-3xl text-sm">
+					Plan your event from idea to launch. Use Volunteer Muse for AI assistance, or manually
+					configure every detail below.
+				</p>
+				{#if cloneSuccess}
+					<p transition:slide class="text-success-300 text-sm">{cloneSuccess}</p>
+				{/if}
+				{#if cloneApplyError}
+					<p transition:slide class="text-error-300 text-sm">{cloneApplyError}</p>
+				{/if}
 			</div>
 		</header>
+
+		{#if cloneSearchOpen}
+			<section class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+				<div class="space-y-1">
+					<h2 class="text-xl font-semibold">Clone an existing event</h2>
+					<p class="text-surface-400 text-sm">
+						Copy details from a volunteer event you've already set up.
+					</p>
+				</div>
+
+				<div class="mt-4 space-y-3" transition:slide>
+					<div class="flex items-end gap-2">
+						<label class="w-full space-y-1 text-sm font-semibold md:flex-1">
+							<span class="text-surface-200">Search events</span>
+							<input
+								type="search"
+								class="input bg-surface-900"
+								placeholder="Start typing a title or summary"
+								bind:value={cloneSearchQuery}
+								onkeydown={(e) => searchCloneEvents()}
+							/>
+						</label>
+					</div>
+
+					{#if cloneSearchError}
+						<p class="text-warning-300 text-sm" transition:slide>{cloneSearchError}</p>
+					{/if}
+
+					{#if cloneSearchLoading}
+						<p class="text-surface-400 text-sm" transition:slide>Searching events…</p>
+					{:else if cloneSearchResults.length}
+						<ul class="space-y-2" transition:slide>
+							{#each cloneSearchResults as result (result.id)}
+								<li
+									class="card preset-outlined-secondary-500 flex flex-col gap-3 rounded-xl border p-3 md:flex-row md:items-center md:justify-between"
+									transition:slide
+								>
+									<div class="space-y-1">
+										<p class="text-secondary-200 font-semibold">
+											{result.title || 'Untitled event'}
+										</p>
+										<div class="text-surface-400 text-sm">
+											{formatCloneEventDate(result)}
+										</div>
+										{#if result.location_name || result.locationName}
+											<div class="text-surface-500 text-xs">
+												{result.location_name || result.locationName}
+											</div>
+										{/if}
+									</div>
+									<div class="flex flex-wrap gap-2">
+										{#if result.slug}
+											<a
+												class="btn btn-sm preset-outlined-secondary-500"
+												href={`/volunteer/${result.slug}`}
+											>
+												View
+											</a>
+										{/if}
+										<button
+											type="button"
+											class="btn btn-sm preset-filled-secondary-500"
+											onclick={() => loadClone(result.slug || result.id)}
+											disabled={cloneApplying}
+										>
+											{cloneApplying ? 'Loading…' : 'Clone this event'}
+										</button>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="text-surface-500 text-sm font-light">Search to find an event to copy.</p>
+					{/if}
+				</div>
+			</section>
+		{/if}
 
 		<section
 			class={`card border-secondary-500/20 bg-surface-950/70 card-hover ai-panel border p-6 ${

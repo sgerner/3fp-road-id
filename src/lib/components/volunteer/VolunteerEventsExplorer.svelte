@@ -557,10 +557,18 @@
 							</div>
 							<div class="flex flex-wrap gap-2">
 								<a
-									class="btn btn-sm preset-outlined-secondary-500"
+									class="btn btn-sm preset-outlined-primary-500"
 									href={`/volunteer/${managedEvent.slug}/edit`}
 								>
 									Edit
+								</a>
+								<a
+									class="btn btn-sm preset-outlined-secondary-500"
+									href={`/volunteer/new?clone=${encodeURIComponent(
+										managedEvent.slug || managedEvent.id
+									)}`}
+								>
+									Clone
 								</a>
 								<a
 									class="btn btn-sm preset-tonal-tertiary"
