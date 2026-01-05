@@ -3,12 +3,14 @@
 Generated: auto-generated via MCP inspection
 
 ## Overview
+
 - Schema: `public`
 - Row-Level Security (RLS): Disabled on all public tables (no policies defined)
 - External references: Several foreign keys reference `auth.users`
 - System table: `spatial_ref_sys` (from PostGIS)
 
 ## Entity-Relationship Diagram
+
 ```mermaid
 erDiagram
   AUTH_USERS ||--o{ GROUPS : "approved_by_user_id"
@@ -46,6 +48,7 @@ erDiagram
 ## Tables
 
 ### audience_focuses
+
 - Primary key: `id int4`
 - Columns:
   - `id int4 not null default nextval('audience_focuses_id_seq')`
@@ -56,6 +59,7 @@ erDiagram
   - `group_x_audience_focuses.audience_focus_id → audience_focuses.id`
 
 ### emergency_contacts
+
 - Primary key: `id int8 identity by default`
 - Columns:
   - `id int8 not null identity`
@@ -69,6 +73,7 @@ erDiagram
   - `profile_id → road_id_profiles.user_id`
 
 ### group_announcements
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -84,6 +89,7 @@ erDiagram
   - `author_user_id → auth.users.id`
 
 ### group_events
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -107,6 +113,7 @@ erDiagram
   - `created_by_user_id → auth.users.id`
 
 ### group_faqs
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -123,6 +130,7 @@ erDiagram
   - `added_by_user_id → auth.users.id`
 
 ### group_gallery_images
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -137,6 +145,7 @@ erDiagram
   - `uploader_user_id → auth.users.id`
 
 ### group_members
+
 - Primary key: composite (`group_id`, `user_id`, `role`)
 - Columns:
   - `group_id uuid not null`
@@ -148,6 +157,7 @@ erDiagram
   - `user_id → auth.users.id`
 
 ### group_resources
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -164,6 +174,7 @@ erDiagram
   - `added_by_user_id → auth.users.id`
 
 ### group_types
+
 - Primary key: `id int4`
 - Columns:
   - `id int4 not null default nextval('group_types_id_seq')`
@@ -174,6 +185,7 @@ erDiagram
   - `group_x_group_types.group_type_id → group_types.id`
 
 ### group_x_audience_focuses
+
 - Primary key: composite (`group_id`, `audience_focus_id`)
 - Columns:
   - `group_id uuid not null`
@@ -184,6 +196,7 @@ erDiagram
 - Purpose: Join table mapping Groups ↔ Audience Focuses
 
 ### group_x_group_types
+
 - Primary key: composite (`group_id`, `group_type_id`)
 - Columns:
   - `group_id uuid not null`
@@ -194,6 +207,7 @@ erDiagram
 - Purpose: Join table mapping Groups ↔ Group Types
 
 ### group_x_riding_disciplines
+
 - Primary key: composite (`group_id`, `riding_discipline_id`)
 - Columns:
   - `group_id uuid not null`
@@ -204,6 +218,7 @@ erDiagram
 - Purpose: Join table mapping Groups ↔ Riding Disciplines
 
 ### groups
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default uuid_generate_v4()`
@@ -250,6 +265,7 @@ erDiagram
   - `group_x_riding_disciplines.group_id`
 
 ### qr_codes
+
 - Primary key: `code text`
 - Columns:
   - `code text not null`
@@ -262,6 +278,7 @@ erDiagram
   - `scan_logs.qr_code → qr_codes.code`
 
 ### riding_disciplines
+
 - Primary key: `id int4`
 - Columns:
   - `id int4 not null default nextval('riding_disciplines_id_seq')`
@@ -272,6 +289,7 @@ erDiagram
   - `group_x_riding_disciplines.riding_discipline_id → riding_disciplines.id`
 
 ### road_id_profiles
+
 - Primary key: `user_id uuid`
 - Columns:
   - `user_id uuid not null`
@@ -288,6 +306,7 @@ erDiagram
   - `qr_codes.profile_id`
 
 ### scan_logs
+
 - Primary key: `id uuid`
 - Columns:
   - `id uuid not null default gen_random_uuid()`
@@ -297,6 +316,7 @@ erDiagram
   - `qr_code → qr_codes.code`
 
 ### spatial_ref_sys
+
 - Primary key: `srid int4`
 - Columns:
   - `srid int4 not null check (srid > 0 AND srid <= 998999)`
@@ -307,9 +327,11 @@ erDiagram
 - Notes: Standard PostGIS table containing spatial reference definitions
 
 ## RLS Policies
+
 - No policies defined in `public` (RLS disabled on all tables).
 
 ## Notes
+
 - Enum type `group_member_role` is used by `group_members.role` with values: `owner`, `admin`, `editor`, `member` (default `member`).
 - Many tables reference `auth.users`; these are external to the `public` schema and not documented here.
 

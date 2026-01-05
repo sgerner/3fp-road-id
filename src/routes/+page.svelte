@@ -32,8 +32,8 @@
 		>
 			<IconIdCard class="h-6 w-6" />
 			<div>
-				<div class="text-lg font-semibold">Road ID</div>
-				<p class="text-surface-400 m-0 text-sm">Manage your emergency profile</p>
+				<div class="text-lg font-semibold">In Case</div>
+				<p class="text-surface-400 m-0 text-sm">In Case of emergency, manage your profile</p>
 			</div>
 		</a>
 	</div>

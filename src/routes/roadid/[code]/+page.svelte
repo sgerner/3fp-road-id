@@ -277,7 +277,7 @@
 						<section>
 							<h1 class="h1">Code Not Found</h1>
 							<p class="mb-4">
-								We haven't created a road ID bracelet for the code <strong>{code}</strong> yet.
+								We haven't created a In Case bracelet for the code <strong>{code}</strong> yet.
 							</p>
 							<p class="mb-4">
 								For more information about ordering a bracelet, please visit

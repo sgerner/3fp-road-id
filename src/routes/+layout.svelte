@@ -356,7 +356,7 @@
 						<IconHandHeart />
 					</Navigation.Tile>
 					<Navigation.Tile
-						label="Road ID"
+						label="In Case"
 						href="/roadid"
 						selected={$page.url.pathname.startsWith('/roadid')}
 					>
@@ -404,7 +404,7 @@
 					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
 					onclick={() => (showMobileMenu = false)}
 				>
-					<IconIdCard /> <span>Road ID</span>
+					<IconIdCard /> <span>In Case</span>
 				</a>
 			</div>
 		</div>
