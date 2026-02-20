@@ -32,12 +32,7 @@ let cachedServiceClient = null;
 let cachedServiceKey = null;
 
 export function createServiceSupabaseClient() {
-	const serviceKey =
-		env.SUPABASE_SERVICE_ROLE_KEY ||
-		env.SUPABASE_SERVICE_KEY ||
-		env.PRIVATE_SUPABASE_SERVICE_ROLE_KEY ||
-		env.PRIVATE_SUPABASE_SERVICE_KEY ||
-		null;
+	const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || null;
 
 	if (!serviceKey) {
 		return null;
