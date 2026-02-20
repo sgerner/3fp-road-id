@@ -217,11 +217,11 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	const opportunityId = normalizeId(shift.opportunity_id ?? shift.opportunityId);
 	const opportunity = opportunityId
 		? await fetchSingle(fetchImpl, 'volunteer-opportunities', {
-				id: opportunityId,
-				params: {
-					select: 'id,event_id,title,description'
-				}
-			})
+			id: opportunityId,
+			params: {
+				select: 'id,event_id,title,description'
+			}
+		})
 		: null;
 
 	const eventId = normalizeId(
@@ -229,12 +229,12 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	);
 	const event = eventId
 		? await fetchSingle(fetchImpl, 'volunteer-events', {
-				id: eventId,
-				params: {
-					select:
-						'id,slug,title,event_start,event_end,timezone,location_name,location_address,status,host_user_id,host_group_id,contact_email,contact_phone,cancel_notifications,register_notifications'
-				}
-			})
+			id: eventId,
+			params: {
+				select:
+					'id,slug,title,event_start,event_end,timezone,location_name,location_address,status,host_user_id,host_group_id,contact_email,contact_phone,cancel_notifications,register_notifications'
+			}
+		})
 		: null;
 
 	return { assignment, signup, shift, opportunity, event };
@@ -409,8 +409,6 @@ export async function confirmShiftAction(event, assignmentId) {
 		body
 	});
 
-	await sendHostNotification(fetch, assignmentId, 'cancel');
-
 	return buildActionResult({
 		success: true,
 		assignmentId,
@@ -560,21 +558,21 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 		}),
 		currentOppId
 			? fetchSingle(fetch, 'volunteer-opportunities', {
-					id: currentOppId,
-					params: {
-						select: 'id,event_id,title'
-					}
-				})
+				id: currentOppId,
+				params: {
+					select: 'id,event_id,title'
+				}
+			})
 			: Promise.resolve(null)
 	]);
 
 	const targetEventId = normalizeId(targetOpportunity?.event_id ?? targetOpportunity?.eventId);
 	const currentEventId = normalizeId(
 		currentOpportunity?.event_id ??
-			currentOpportunity?.eventId ??
-			context.signup?.event_id ??
-			context.signup?.eventId ??
-			null
+		currentOpportunity?.eventId ??
+		context.signup?.event_id ??
+		context.signup?.eventId ??
+		null
 	);
 
 	if (!targetEventId || !currentEventId || String(targetEventId) !== String(currentEventId)) {
@@ -645,12 +643,12 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 
 	const targetEvent = targetEventId
 		? await fetchSingle(fetch, 'volunteer-events', {
-				id: targetEventId,
-				params: {
-					select:
-						'id,slug,title,event_start,event_end,timezone,location_name,location_address,status'
-				}
-			})
+			id: targetEventId,
+			params: {
+				select:
+					'id,slug,title,event_start,event_end,timezone,location_name,location_address,status'
+			}
+		})
 		: context.event;
 
 	return buildActionResult({
