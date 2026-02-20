@@ -35,18 +35,18 @@
 								<article class="bg-surface-950/40 border-surface-700/60 rounded-xl border p-4">
 									<div class="text-surface-300 text-sm">{shift.label}</div>
 									<p class="mt-2 text-xl font-semibold text-white">{shift.approved}</p>
-                                                                        <p class="text-surface-400 text-xs">
-                                                                                {#if shift.capacity}
-                                                                                        Capacity {shift.capacity} •
-                                                                                {/if}
-                                                                                {shift.attending} present • {shift.waitlisted} waitlisted •
-                                                                                {shift.pending} pending
-                                                                        </p>
-                                                                </article>
-                                                        {/each}
-                                                </div>
-                                        </div>
-                                {/each}
+									<p class="text-surface-400 text-xs">
+										{#if shift.capacity}
+											Capacity {shift.capacity} •
+										{/if}
+										{shift.attending} present • {shift.waitlisted} waitlisted •
+										{shift.pending} pending
+									</p>
+								</article>
+							{/each}
+						</div>
+					</div>
+				{/each}
 			</div>
 		</div>
 	{/if}

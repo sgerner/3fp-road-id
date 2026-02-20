@@ -539,7 +539,7 @@ function wrapAddressesWithMapsLinks(html: string): string {
 	const placeholderPattern = new RegExp(`${ANCHOR_PLACEHOLDER_PREFIX}(\\d+)__`, 'g');
 	processed = processed.replace(placeholderPattern, (_match, index) => {
 		const anchorIndex = Number.parseInt(index, 10);
-		return Number.isNaN(anchorIndex) ? '' : preservedAnchors[anchorIndex] ?? '';
+		return Number.isNaN(anchorIndex) ? '' : (preservedAnchors[anchorIndex] ?? '');
 	});
 
 	return processed;

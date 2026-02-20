@@ -9,8 +9,18 @@ function kebabToSnake(str) {
 }
 
 async function getSupabaseInstance(event) {
-	const { accessToken } = resolveSession(event.cookies);
-	const supabase = createRequestSupabaseClient(accessToken);
+	const { accessToken, tokenPayload } = resolveSession(event.cookies);
+	let validToken = accessToken;
+
+	if (accessToken && tokenPayload?.exp) {
+		const now = Math.floor(Date.now() / 1000);
+		// Add a 5-second buffer to prevent expiry in transit
+		if (tokenPayload.exp <= now + 5) {
+			validToken = null;
+		}
+	}
+
+	const supabase = createRequestSupabaseClient(validToken);
 	return { supabase };
 }
 

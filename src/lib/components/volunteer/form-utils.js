@@ -200,17 +200,17 @@ export function mapEmailRecordToFormDetails(record) {
 		emailType: nullableString(record.email_type ?? record.emailType) || 'reminder',
 		sendOffsetMinutes: Number(record.send_offset_minutes ?? record.sendOffsetMinutes ?? 0) || 0,
 		subject: nullableString(record.subject),
-                body: nullableString(record.body),
-                requireConfirmation: ensureBoolean(
-                        record.require_confirmation ?? record.requireConfirmation ?? false
-                ),
-                surveyUrl: nullableString(record.survey_url ?? record.surveyUrl),
-                lastSentAt: nullableString(record.last_sent_at ?? record.lastSentAt),
-                aiComposerOpen: false,
-                aiPrompt: '',
-                aiLoading: false,
-                aiError: ''
-        };
+		body: nullableString(record.body),
+		requireConfirmation: ensureBoolean(
+			record.require_confirmation ?? record.requireConfirmation ?? false
+		),
+		surveyUrl: nullableString(record.survey_url ?? record.surveyUrl),
+		lastSentAt: nullableString(record.last_sent_at ?? record.lastSentAt),
+		aiComposerOpen: false,
+		aiPrompt: '',
+		aiLoading: false,
+		aiError: ''
+	};
 }
 export function buildEmailPayload(patch, eventId) {
 	const payload = {};
@@ -231,16 +231,16 @@ export function ensureArray(value) {
 	return [value];
 }
 export function ensureDefaultEmail(values) {
-        if (values.length) return values;
-        return [
-                createEmailTemplate({
-                        emailType: 'reminder',
-                        sendOffsetMinutes: 2160,
-                        subject: 'Reminder: {{event_title}} starts soon',
-                        body: "We're excited to have you on the crew!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}",
-                        requireConfirmation: false,
-                        surveyUrl: ''
-                })
-        ];
+	if (values.length) return values;
+	return [
+		createEmailTemplate({
+			emailType: 'reminder',
+			sendOffsetMinutes: 2160,
+			subject: 'Reminder: {{event_title}} starts soon',
+			body: "We're excited to have you on the crew!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}",
+			requireConfirmation: false,
+			surveyUrl: ''
+		})
+	];
 }
 export { toLocalDatetime, toIso, numberOrNull };

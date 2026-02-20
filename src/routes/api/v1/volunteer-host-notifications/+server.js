@@ -188,7 +188,9 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 
 	const volunteerDetailsHtml = [
 		volunteerName ? `<strong>Name:</strong> ${escapeHtml(volunteerName)}` : null,
-		signup?.volunteer_email ? `<strong>Email:</strong> ${escapeHtml(signup.volunteer_email)}` : null,
+		signup?.volunteer_email
+			? `<strong>Email:</strong> ${escapeHtml(signup.volunteer_email)}`
+			: null,
 		signup?.volunteer_phone ? `<strong>Phone:</strong> ${escapeHtml(signup.volunteer_phone)}` : null
 	]
 		.filter(Boolean)

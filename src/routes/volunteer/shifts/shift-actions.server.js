@@ -345,15 +345,7 @@ async function sendHostNotification(fetchImpl, assignmentId, type) {
 }
 
 export async function confirmShiftAction(event, assignmentId) {
-	const { fetch, cookies } = event;
-	const identity = await getIdentity(fetch, cookies);
-	if (!identity.userId && !identity.email) {
-		return buildActionResult({
-			success: false,
-			reason: 'login_required',
-			message: 'Sign in to confirm shifts.'
-		});
-	}
+	const { fetch } = event;
 
 	let context;
 	try {
@@ -363,14 +355,6 @@ export async function confirmShiftAction(event, assignmentId) {
 			return buildActionResult({ success: false, reason: 'not_found', message: err.message });
 		}
 		throw err;
-	}
-
-	if (!ownsSignup(identity, context.signup)) {
-		return buildActionResult({
-			success: false,
-			reason: 'forbidden',
-			message: 'You do not have access to this shift.'
-		});
 	}
 
 	if (isCancelled(context.assignment?.status) || context.assignment?.cancelled_at) {
@@ -436,15 +420,7 @@ export async function confirmShiftAction(event, assignmentId) {
 }
 
 export async function cancelShiftAction(event, assignmentId) {
-	const { fetch, cookies } = event;
-	const identity = await getIdentity(fetch, cookies);
-	if (!identity.userId && !identity.email) {
-		return buildActionResult({
-			success: false,
-			reason: 'login_required',
-			message: 'Sign in to cancel shifts.'
-		});
-	}
+	const { fetch } = event;
 
 	let context;
 	try {
@@ -454,14 +430,6 @@ export async function cancelShiftAction(event, assignmentId) {
 			return buildActionResult({ success: false, reason: 'not_found', message: err.message });
 		}
 		throw err;
-	}
-
-	if (!ownsSignup(identity, context.signup)) {
-		return buildActionResult({
-			success: false,
-			reason: 'forbidden',
-			message: 'You do not have access to this shift.'
-		});
 	}
 
 	const cancellation = canCancelShift(context.shift, context.assignment);
@@ -496,15 +464,7 @@ export async function cancelShiftAction(event, assignmentId) {
 }
 
 export async function uncancelShiftAction(event, assignmentId) {
-	const { fetch, cookies } = event;
-	const identity = await getIdentity(fetch, cookies);
-	if (!identity.userId && !identity.email) {
-		return buildActionResult({
-			success: false,
-			reason: 'login_required',
-			message: 'Sign in to manage shifts.'
-		});
-	}
+	const { fetch } = event;
 
 	let context;
 	try {
@@ -514,14 +474,6 @@ export async function uncancelShiftAction(event, assignmentId) {
 			return buildActionResult({ success: false, reason: 'not_found', message: err.message });
 		}
 		throw err;
-	}
-
-	if (!ownsSignup(identity, context.signup)) {
-		return buildActionResult({
-			success: false,
-			reason: 'forbidden',
-			message: 'You do not have access to this shift.'
-		});
 	}
 
 	const shiftStart = parseDate(context.shift?.starts_at ?? context.shift?.startsAt ?? null);
@@ -558,15 +510,7 @@ export async function uncancelShiftAction(event, assignmentId) {
 }
 
 export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
-	const { fetch, cookies } = event;
-	const identity = await getIdentity(fetch, cookies);
-	if (!identity.userId && !identity.email) {
-		return buildActionResult({
-			success: false,
-			reason: 'login_required',
-			message: 'Sign in to manage shifts.'
-		});
-	}
+	const { fetch } = event;
 
 	let context;
 	try {
@@ -576,14 +520,6 @@ export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 			return buildActionResult({ success: false, reason: 'not_found', message: err.message });
 		}
 		throw err;
-	}
-
-	if (!ownsSignup(identity, context.signup)) {
-		return buildActionResult({
-			success: false,
-			reason: 'forbidden',
-			message: 'You do not have access to this shift.'
-		});
 	}
 
 	if (!newShiftId) {

@@ -96,7 +96,7 @@ export function resolveSession(cookies) {
 		null;
 	const tokenPayload = decodeAccessToken(accessToken);
 	const user = extractSessionUser(parsedSession, tokenPayload);
-	return { session: parsedSession, accessToken, user };
+	return { session: parsedSession, accessToken, user, tokenPayload };
 }
 
 export function getAccessToken(cookies) {

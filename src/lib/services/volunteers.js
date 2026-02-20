@@ -45,57 +45,52 @@ const SESSION_MAX_AGE = 60 * 24 * 60 * 60;
 let refreshPromise = null;
 
 function persistSession(session) {
-        if (!browser) return;
-        try {
-                if (session) {
-                        const payload = JSON.stringify(session);
-                        document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(payload)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax`;
-                } else {
-                        document.cookie = `${SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
-                }
-        } catch {
-                // ignore cookie errors in non-browser environments
-        }
+	if (!browser) return;
+	try {
+		if (session) {
+			const payload = JSON.stringify(session);
+			document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(payload)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax`;
+		} else {
+			document.cookie = `${SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+		}
+	} catch {
+		// ignore cookie errors in non-browser environments
+	}
 }
 
 async function refreshSessionIfNeeded() {
-        if (!browser || typeof supabase?.auth?.refreshSession !== 'function') return null;
-        if (!refreshPromise) {
-                refreshPromise = (async () => {
-                        try {
-                                const { data, error } = await supabase.auth.refreshSession();
-                                if (error) {
-                                        console.warn('Unable to refresh Supabase session', error);
-                                        return null;
-                                }
-                                const session = data?.session ?? null;
-                                persistSession(session);
-                                return session;
-                        } catch (error) {
-                                console.warn('Unexpected error refreshing Supabase session', error);
-                                return null;
-                        } finally {
-                                refreshPromise = null;
-                        }
-                })();
-        }
-        return refreshPromise;
+	if (!browser || typeof supabase?.auth?.refreshSession !== 'function') return null;
+	if (!refreshPromise) {
+		refreshPromise = (async () => {
+			try {
+				const { data, error } = await supabase.auth.refreshSession();
+				if (error) {
+					console.warn('Unable to refresh Supabase session', error);
+					return null;
+				}
+				const session = data?.session ?? null;
+				persistSession(session);
+				return session;
+			} catch (error) {
+				console.warn('Unexpected error refreshing Supabase session', error);
+				return null;
+			} finally {
+				refreshPromise = null;
+			}
+		})();
+	}
+	return refreshPromise;
 }
 
 function isExpiredTokenError(message) {
-        if (!message || typeof message !== 'string') return false;
-        return message.toLowerCase().includes('jwt expired');
+	if (!message || typeof message !== 'string') return false;
+	return message.toLowerCase().includes('jwt expired');
 }
 
-async function callVolunteerApi({
-        fetch: fetchImpl = globalThis.fetch,
-        table,
-        method = 'GET',
-        id,
-        query,
-        body,
-        headers = {}
-}, attempt = 0) {
+async function callVolunteerApi(
+	{ fetch: fetchImpl = globalThis.fetch, table, method = 'GET', id, query, body, headers = {} },
+	attempt = 0
+) {
 	if (!table) throw new Error('Table name is required for volunteer API requests.');
 	if (typeof fetchImpl !== 'function') {
 		throw new Error('A fetch implementation must be provided to call the volunteer API.');
@@ -128,30 +123,28 @@ async function callVolunteerApi({
 		}
 	}
 
-        if (!response.ok) {
-                const message = payload?.error || response.statusText || 'Volunteer API request failed';
+	if (!response.ok) {
+		const message = payload?.error || response.statusText || 'Volunteer API request failed';
 
-                if (attempt === 0 && isExpiredTokenError(message)) {
-                        const session = await refreshSessionIfNeeded();
-                        if (session) {
-                                return callVolunteerApi(
-                                        { fetch: fetchImpl, table, method, id, query, body, headers },
-                                        attempt + 1
-                                );
-                        }
-                }
+		if (attempt === 0 && isExpiredTokenError(message)) {
+			const session = await refreshSessionIfNeeded();
+			if (session) {
+				return callVolunteerApi(
+					{ fetch: fetchImpl, table, method, id, query, body, headers },
+					attempt + 1
+				);
+			}
+		}
 
-                const error = new Error(
-                        isExpiredTokenError(message)
-                                ? 'Your session has expired. Please log in again.'
-                                : message
-                );
-                error.status = response.status;
-                error.payload = payload;
-                throw error;
-        }
+		const error = new Error(
+			isExpiredTokenError(message) ? 'Your session has expired. Please log in again.' : message
+		);
+		error.status = response.status;
+		error.payload = payload;
+		throw error;
+	}
 
-        return payload ?? null;
+	return payload ?? null;
 }
 
 function createTableService(table) {
