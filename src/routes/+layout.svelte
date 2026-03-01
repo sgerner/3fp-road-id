@@ -21,10 +21,13 @@
 		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
 		{ value: 'cerberus', label: 'Cerberus' },
-		{ value: 'modern', label: 'Modern' },
+		{ value: 'catppuccin', label: 'Catppuccin' },
+		{ value: 'legacy', label: 'Legacy' },
+		{ value: 'nouveau', label: 'Nouveau' },
+		{ value: 'rose', label: 'Rose' },
+		{ value: 'sahara', label: 'Sahara' },
 		{ value: 'seafoam', label: 'Seafoam' },
-		{ value: 'rocket', label: 'Rocket' },
-		{ value: 'pine', label: 'Pine' }
+		{ value: 'wintry', label: 'Wintry' }
 	];
 
 	let user = $state(null);

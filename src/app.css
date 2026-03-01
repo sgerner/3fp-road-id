@@ -6,10 +6,13 @@
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton/themes/mint';
 @import '@skeletonlabs/skeleton/themes/cerberus';
-@import '@skeletonlabs/skeleton/themes/modern';
+@import '@skeletonlabs/skeleton/themes/catppuccin';
+@import '@skeletonlabs/skeleton/themes/legacy';
+@import '@skeletonlabs/skeleton/themes/nouveau';
+@import '@skeletonlabs/skeleton/themes/rose';
+@import '@skeletonlabs/skeleton/themes/sahara';
 @import '@skeletonlabs/skeleton/themes/seafoam';
-@import '@skeletonlabs/skeleton/themes/rocket';
-@import '@skeletonlabs/skeleton/themes/pine';
+@import '@skeletonlabs/skeleton/themes/wintry';
 @import '../src/3fp.css';
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
