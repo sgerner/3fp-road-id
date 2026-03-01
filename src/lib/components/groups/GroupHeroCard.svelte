@@ -8,7 +8,7 @@
 	const IconComp = $derived(primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink);
 </script>
 
-<section class="card border-surface-300 bg-surface-900 overflow-hidden border">
+<section class="card border-surface-700-300 bg-surface-100-900 overflow-hidden border">
 	<div
 		class="from-primary-800/60 to-primary-600/40 relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-r"
 	>
@@ -21,9 +21,9 @@
 			/>
 		{/if}
 		<div
-			class="absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:from-black/60 md:via-black/50 md:to-black/40 md:backdrop-blur-xs"
+			class="md:from-surface-50-950/60 md:via-surface-50-950/50 md:to-surface-50-950/40 absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:backdrop-blur-xs"
 		>
-			<div class="flex gap-2 rounded-md bg-black/40 p-2 backdrop-blur-xs md:hidden">
+			<div class="bg-surface-50-950/40 flex gap-2 rounded-md p-2 backdrop-blur-xs md:hidden">
 				{#if group?.logo_url}
 					<img
 						src={group.logo_url}
@@ -33,9 +33,9 @@
 					/>
 				{/if}
 				<div class="w-full min-w-0">
-					<h1 class="truncate !text-left text-base font-bold text-white">{group?.name}</h1>
+					<h1 class="text-surface-950-50 truncate !text-left text-base font-bold">{group?.name}</h1>
 					<div class="flex items-start gap-2">
-						<p class="grow truncate text-[11px] text-white/90">
+						<p class="text-surface-900-100/90 grow truncate text-[11px]">
 							{#if group?.city}{group.city},&nbsp;{/if}{group?.state_region} · {group?.country}
 						</p>
 						{#if canEdit}
@@ -75,11 +75,11 @@
 					/>
 				{/if}
 				<div class="min-w-0">
-					<h1 class="truncate !text-left text-2xl font-bold text-white">{group?.name}</h1>
+					<h1 class="text-surface-950-50 truncate !text-left text-2xl font-bold">{group?.name}</h1>
 					{#if group?.tagline}
-						<p class="!m-0 text-white">{group.tagline}</p>
+						<p class="text-surface-950-50 !m-0">{group.tagline}</p>
 					{/if}
-					<p class="text-sm text-white/80">
+					<p class="text-surface-800-200/80 text-sm">
 						{#if group?.city}{group.city},{/if}
 						{group?.state_region} · {group?.country}
 					</p>

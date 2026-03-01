@@ -272,7 +272,7 @@
 
 		<Tabs.Content value="profile">
 			<div
-				class="card preset-outlined-primary-500 bg-surface-950 card-hover flex flex-col gap-4 p-4"
+				class="card preset-outlined-primary-500 bg-surface-50-950 card-hover flex flex-col gap-4 p-4"
 			>
 				{#if notFound}
 					<section>
@@ -325,22 +325,22 @@
 										id="email"
 										bind:value={newProfile.email}
 										placeholder="jane@example.com"
-										class="input bg-primary-950/30 {emailTouched && !emailIsValid
-											? 'border-red-500'
+										class="input bg-primary-50-950/30 {emailTouched && !emailIsValid
+											? 'border-error-500'
 											: emailTouched && emailIsValid
-												? 'border-green-500'
+												? 'border-success-500'
 												: ''}"
 										required
 										oninput={() => (emailTouched = true)}
 									/>
 									{#if emailTouched && !emailIsValid}
-										<p class="text-sm text-red-500" transition:slide>
+										<p class="text-error-500 text-sm" transition:slide>
 											Please enter a valid email address.
 										</p>
 									{/if}
 								</div>
 								{#if errorMessage}
-									<p class="text-red-500" transition:slide>{errorMessage}</p>
+									<p class="text-error-500" transition:slide>{errorMessage}</p>
 								{/if}
 								<button
 									type="submit"
@@ -363,7 +363,7 @@
 								type="text"
 								id="full_name"
 								value={profile?.full_name}
-								class="input bg-primary-950/30"
+								class="input bg-primary-50-950/30"
 								onblur={(e) => {
 									profile.full_name = e.target.value;
 									handleProfileUpdate();
@@ -377,7 +377,7 @@
 								type="text"
 								id="phone"
 								value={profile?.phone}
-								class="input bg-primary-950/30"
+								class="input bg-primary-50-950/30"
 								onblur={(e) => {
 									profile.phone = e.target.value;
 									handleProfileUpdate();
@@ -389,7 +389,7 @@
 							<label for="blood_type" class="label">Blood Type</label>
 							<select
 								id="blood_type"
-								class="select bg-primary-950/30"
+								class="select bg-primary-50-950/30"
 								onblur={(e) => {
 									profile.blood_type = e.target.value;
 									handleProfileUpdate();
@@ -427,7 +427,7 @@
 								id="allergies"
 								placeholder="Other allergies (comma-separated)"
 								value={profile?.allergies}
-								class="input bg-primary-950/30 mt-2"
+								class="input bg-primary-50-950/30 mt-2"
 								onblur={(e) => {
 									profile.allergies = e.target.value;
 									handleProfileUpdate();
@@ -454,7 +454,7 @@
 								id="medication"
 								rows="3"
 								placeholder="Other medications (comma-separated)"
-								class="textarea bg-primary-950/30 mt-2"
+								class="textarea bg-primary-50-950/30 mt-2"
 								onblur={(e) => {
 									profile.medication = e.target.value;
 									handleProfileUpdate();
@@ -465,7 +465,7 @@
 						<!-- Emergency Contacts Section: Always display input fields -->
 						<h6 class="h6">Emergency Contacts</h6>
 						{#if errorMessage}
-							<p class="text-red-500">{errorMessage}</p>
+							<p class="text-error-500">{errorMessage}</p>
 						{/if}
 						{#if profile?.emergency_contacts && profile.emergency_contacts.length}
 							<div class="flex flex-col gap-2">
@@ -476,21 +476,21 @@
 											<input
 												type="text"
 												bind:value={contact.contact_name}
-												class="input bg-primary-950/30"
+												class="input bg-primary-50-950/30"
 												onblur={() => handleUpdateContact(contact)}
 											/>
 											<p class="label">Relationship</p>
 											<input
 												type="text"
 												bind:value={contact.contact_relationship}
-												class="input bg-primary-950/30"
+												class="input bg-primary-50-950/30"
 												onblur={() => handleUpdateContact(contact)}
 											/>
 											<p class="label">Phone</p>
 											<input
 												type="text"
 												bind:value={contact.contact_phone}
-												class="input bg-primary-950/30"
+												class="input bg-primary-50-950/30"
 												onblur={() => handleUpdateContact(contact)}
 											/>
 											<button
@@ -517,7 +517,7 @@
 										type="text"
 										id="contact_name"
 										bind:value={newContact.contact_name}
-										class="input bg-primary-950/30"
+										class="input bg-primary-50-950/30"
 										required
 									/>
 								</div>
@@ -527,7 +527,7 @@
 										type="text"
 										id="contact_relationship"
 										bind:value={newContact.contact_relationship}
-										class="input bg-primary-950/30"
+										class="input bg-primary-50-950/30"
 										required
 									/>
 								</div>
@@ -537,7 +537,7 @@
 										type="text"
 										id="contact_phone"
 										bind:value={newContact.contact_phone}
-										class="input bg-primary-950/30"
+										class="input bg-primary-50-950/30"
 										required
 									/>
 								</div>
@@ -648,22 +648,22 @@
 												bind:value={newProfile.email}
 												placeholder="jane@example.com"
 												class="ig-input {emailTouched && !emailIsValid
-													? 'border-red-500'
+													? 'border-error-500'
 													: emailTouched && emailIsValid
-														? 'border-green-500'
+														? 'border-success-500'
 														: ''}"
 												required
 												oninput={() => (emailTouched = true)}
 											/>
 										</div>
 										{#if emailTouched && !emailIsValid}
-											<p class="text-sm text-red-500" transition:slide>
+											<p class="text-error-500 text-sm" transition:slide>
 												Please enter a valid email address.
 											</p>
 										{/if}
 									</div>
 									{#if errorMessage}
-										<p class="text-red-500" transition:slide>{errorMessage}</p>
+										<p class="text-error-500" transition:slide>{errorMessage}</p>
 									{/if}
 									<button
 										type="submit"

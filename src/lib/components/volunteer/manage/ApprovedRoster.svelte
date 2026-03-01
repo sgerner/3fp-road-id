@@ -144,20 +144,20 @@
 </script>
 
 <section
-	class="border-surface-700 bg-surface-900/70 printable-roster rounded-2xl border p-6 shadow-xl shadow-black/30"
+	class="border-surface-300-700 bg-surface-100-900/70 printable-roster rounded-2xl border p-6 shadow-xl"
 >
 	<div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
 		<div class="flex-1">
-			<h2 class="!text-left text-xl font-semibold text-white">
+			<h2 class="text-surface-950-50 !text-left text-xl font-semibold">
 				Approved Volunteers
 				<span
-					class="bg-surface-800 text-surface-200 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm"
+					class="bg-surface-200-800 text-surface-800-200 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm"
 				>
 					<IconUsers class="h-4 w-4" />
 					{volunteers.length}
 				</span>
 			</h2>
-			<p class="text-surface-300 text-sm">Day-of roster for quick reference and contact.</p>
+			<p class="text-surface-700-300 text-sm">Day-of roster for quick reference and contact.</p>
 		</div>
 		<div class="no-print flex flex-wrap items-center gap-2">
 			<button class="chip preset-tonal-primary-500" onclick={exportCsv}>
@@ -173,15 +173,15 @@
 
 	<div class="mt-6 space-y-6">
 		{#if shiftsWithVolunteers.length === 0}
-			<p class="text-surface-400 mt-4 text-sm">No approved volunteers yet.</p>
+			<p class="text-surface-600-400 mt-4 text-sm">No approved volunteers yet.</p>
 		{:else}
 			{#each shiftsWithVolunteers as group (group.shift.id)}
 				<div class="shift-group">
 					<div
-						class="border-surface-700 flex flex-col items-center justify-between gap-3 border-b pb-3 md:flex-row md:items-center"
+						class="border-surface-300-700 flex flex-col items-center justify-between gap-3 border-b pb-3 md:flex-row md:items-center"
 					>
 						<div class="flex items-center gap-4">
-							<h3 class="h6 font-semibold text-white">{group.shift.opportunityTitle}</h3>
+							<h3 class="h6 text-surface-950-50 font-semibold">{group.shift.opportunityTitle}</h3>
 							<span class="font-bold">{group.shift.optionLabel}</span>
 						</div>
 						<button
@@ -195,10 +195,10 @@
 						{#each group.volunteers as volunteer (volunteer.assignmentId)}
 							{@const checkInSelected = volunteer.status === 'checked_in'}
 							{@const noShowSelected = volunteer.status === 'no_show'}
-							<article class="bg-surface-950/40 border-surface-700/60 rounded-xl border p-4">
+							<article class="bg-surface-50-950/40 border-surface-300-700/60 rounded-xl border p-4">
 								<header class="flex flex-wrap items-start justify-between gap-2">
 									<div class="flex w-full flex-wrap items-center justify-between gap-2">
-										<div class="flex-grow text-lg font-semibold text-white">
+										<div class="text-surface-950-50 flex-grow text-lg font-semibold">
 											{volunteer.name}
 										</div>
 										<div class="attendance-actions no-print flex gap-1">
@@ -234,14 +234,14 @@
 									<div>
 										<a
 											href={`mailto:${volunteer.email}`}
-											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+											class="text-surface-600-400 mt-1 flex items-center gap-2 text-sm"
 										>
 											<IconMail class="h-4 w-4 flex-shrink-0" />
 											<span>{volunteer.email}</span>
 										</a>
 										<a
 											href={`tel:${volunteer.phone}`}
-											class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+											class="text-surface-600-400 mt-1 flex items-center gap-2 text-sm"
 										>
 											<IconPhone class="h-4 w-4 flex-shrink-0" />
 											<span>{formatPhoneNumber(volunteer.phone)}</span>
@@ -259,11 +259,13 @@
 										{#if expandedContacts.get(volunteer.assignmentId)}
 											<div class="mt-2 flex items-center gap-2 text-sm" transition:slide>
 												<div>
-													<p class="font-medium text-white">{volunteer.emergencyContactName}</p>
+													<p class="text-surface-950-50 font-medium">
+														{volunteer.emergencyContactName}
+													</p>
 													{#if volunteer.emergencyContactPhone}
 														<a
 															href={`tel:${volunteer.emergencyContactPhone}`}
-															class="text-surface-400 mt-1 flex items-center gap-2 text-sm"
+															class="text-surface-600-400 mt-1 flex items-center gap-2 text-sm"
 														>
 															<IconPhone class="text-surface-500 h-4 w-4 flex-shrink-0" />
 															<span>{formatPhoneNumber(volunteer.emergencyContactPhone)}</span>

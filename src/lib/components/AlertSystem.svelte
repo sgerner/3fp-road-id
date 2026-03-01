@@ -59,7 +59,7 @@
 		<div class="mb-4">
 			<div class="flex items-center text-xl font-bold">
 				<span
-					class="bg-primary-500 mr-2 flex h-8 w-8 items-center justify-center rounded-full font-extrabold text-black"
+					class="bg-primary-500 text-primary-contrast-500 mr-2 flex h-8 w-8 items-center justify-center rounded-full font-extrabold"
 				>
 					{section.letter}
 				</span>

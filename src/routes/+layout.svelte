@@ -243,20 +243,20 @@
 	<title>3 Feet Please</title>
 </svelte:head>
 
-<div class="bg-surface-950 min-h-dvh">
+<div class="min-h-dvh">
 	<Toast.Group {toaster} />
 	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
 		<div bind:this={turnstileEl}></div>
 	</div>
 	<header
-		class="border-b-primary-500/20 bg-surface-950/85 sticky top-0 z-30 border-b backdrop-blur"
+		class="border-b-primary-500/20 bg-surface-50-950/62 sticky top-0 z-30 border-b backdrop-blur-xl"
 	>
 		<div
 			class="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8"
 		>
 			<div class="flex items-center gap-3">
 				<button
-					class="rounded-lg border border-white/10 p-2 text-white hover:bg-white/10 md:hidden"
+					class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
 					bind:this={mobileMenuBtnEl}
 					onclick={() => (showMobileMenu = !showMobileMenu)}
 					aria-label="Menu"
@@ -264,21 +264,23 @@
 				>
 					<IconMenu class="h-5 w-5" />
 				</button>
-				<a href="/" class="flex items-center gap-3 text-white">
+				<a href="/" class="text-surface-950-50 flex items-center gap-3">
 					<img src="/3fp.png" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
 					<div>
-						<p class="text-primary-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+						<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
 					</div>
 				</a>
 			</div>
 
 			<div class="flex items-center gap-3">
 				<label class="hidden items-center gap-2 md:flex">
-					<span class="text-surface-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase">
+					<span
+						class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
+					>
 						Theme
 					</span>
 					<select
-						class="select bg-surface-900/70 min-w-[12rem] text-sm"
+						class="select bg-surface-100-900/70 min-w-[12rem] text-sm"
 						value={theme}
 						onchange={(e) => applyTheme(e.currentTarget.value)}
 						aria-label="Select theme"
@@ -292,7 +294,7 @@
 				<div class="relative">
 					{#if user}
 						<div class="flex items-center gap-2">
-							<span class="text-surface-300 hidden text-sm lg:inline">{user.email}</span>
+							<span class="text-surface-700-300 hidden text-sm lg:inline">{user.email}</span>
 							<button class="chip preset-tonal-surface-500" onclick={doLogout}>Logout</button>
 						</div>
 					{:else}
@@ -305,7 +307,7 @@
 						</button>
 						{#if showLogin}
 							<div
-								class="fixed inset-0 z-40 bg-black/50 md:hidden"
+								class="bg-surface-50-950/50 fixed inset-0 z-40 md:hidden"
 								onclick={() => (showLogin = false)}
 								onkeydown={(e) => {
 									if (e.key === 'Enter' || e.key === ' ') showLogin = false;
@@ -317,7 +319,7 @@
 
 							<div bind:this={loginContainerEl}>
 								<form
-									class="border-surface-700 bg-surface-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
+									class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
 									onsubmit={doLogin}
 								>
 									<input
@@ -337,7 +339,7 @@
 											onclick={() => (showLogin = false)}>Close</button
 										>
 									</div>
-									<label for="login-email-m" class="text-surface-300 mb-1 block text-xs"
+									<label for="login-email-m" class="text-surface-700-300 mb-1 block text-xs"
 										>Email</label
 									>
 									<input
@@ -345,14 +347,14 @@
 										type="email"
 										bind:value={email}
 										placeholder="you@example.com"
-										class="input bg-primary-950/30 w-full text-white"
+										class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 										required
 									/>
 									{#if error}
-										<div class="mt-2 text-xs text-red-400">{error}</div>
+										<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 									{/if}
 									{#if success}
-										<div class="mt-2 text-xs text-green-400">{success}</div>
+										<div class="text-success-600-400 mt-2 text-xs">{success}</div>
 									{/if}
 									<button
 										type="submit"
@@ -363,13 +365,13 @@
 									>
 										Send Magic Link
 									</button>
-									<div class="text-surface-400 mt-2 text-center text-[11px]">
+									<div class="text-surface-600-400 mt-2 text-center text-[11px]">
 										Use the same form to log in or create an account.
 									</div>
 								</form>
 
 								<form
-									class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
+									class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
 									onsubmit={doLogin}
 								>
 									<input
@@ -381,20 +383,22 @@
 										aria-hidden="true"
 										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 									/>
-									<label for="login-email" class="text-surface-300 mb-1 block text-xs">Email</label>
+									<label for="login-email" class="text-surface-700-300 mb-1 block text-xs"
+										>Email</label
+									>
 									<input
 										id="login-email"
 										type="email"
 										bind:value={email}
 										placeholder="you@example.com"
-										class="input bg-primary-950/30 w-full text-white"
+										class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 										required
 									/>
 									{#if error}
-										<div class="mt-2 text-xs text-red-400">{error}</div>
+										<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 									{/if}
 									{#if success}
-										<div class="mt-2 text-xs text-green-400">{success}</div>
+										<div class="text-success-600-400 mt-2 text-xs">{success}</div>
 									{/if}
 									<button
 										type="submit"
@@ -405,7 +409,7 @@
 									>
 										Send Magic Link
 									</button>
-									<div class="text-surface-400 mt-2 text-center text-[11px]">
+									<div class="text-surface-600-400 mt-2 text-center text-[11px]">
 										Use the same form to log in or create an account.
 									</div>
 								</form>
@@ -418,7 +422,7 @@
 	</header>
 
 	<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
-		<aside class="bg-surface-950/75 hidden border-r-white/5 md:block md:border-r">
+		<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
 			<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
 				<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
 					{#each navigationItems as item}
@@ -428,8 +432,8 @@
 							aria-label={item.label}
 							class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
 								isActiveNav(item)
-									? 'bg-primary-400 text-surface-950 shadow-primary-950/25 shadow-lg'
-									: 'text-surface-200 hover:bg-white/10 hover:text-white'
+									? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
+									: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
 							}`}
 						>
 							<item.icon class="h-6 w-6 shrink-0" />
@@ -449,15 +453,17 @@
 	{#if showMobileMenu}
 		<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
 			<div
-				class="border-surface-700 bg-surface-900/95 rounded-xl border p-2 text-white shadow-xl backdrop-blur"
+				class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
 			>
-				<div class="mb-2 border-b border-b-white/10 px-1 pb-3">
+				<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
 					<label class="flex flex-col gap-2">
-						<span class="text-surface-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase">
+						<span
+							class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
+						>
 							Theme
 						</span>
 						<select
-							class="select bg-surface-950/80 w-full"
+							class="select bg-surface-50-950/80 w-full"
 							value={theme}
 							onchange={(e) => applyTheme(e.currentTarget.value)}
 							aria-label="Select theme"
@@ -473,7 +479,9 @@
 						<a
 							href={item.href}
 							class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
-								isActiveNav(item) ? 'bg-primary-500 text-surface-950' : 'hover:bg-white/10'
+								isActiveNav(item)
+									? 'bg-primary-500 text-surface-50-950'
+									: 'hover:bg-surface-950-50/10'
 							}`}
 							onclick={() => (showMobileMenu = false)}
 						>

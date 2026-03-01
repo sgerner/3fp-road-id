@@ -811,19 +811,21 @@
 <div class="mx-auto w-full max-w-5xl space-y-8 pb-16">
 	<header class="space-y-1">
 		<h1 class="text-3xl font-bold">Edit volunteer event</h1>
-		<p class="text-surface-400 text-sm">
+		<p class="text-surface-600-400 text-sm">
 			Updates save automatically. You can leave this page when you see a success toast.
 		</p>
 	</header>
 
-	<section class="border-surface-700 bg-surface-950/70 space-y-6 rounded-lg border p-6 shadow-sm">
+	<section
+		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
+	>
 		<h2 class="text-xl font-semibold">Event basics</h2>
 		<div class="grid gap-4 md:grid-cols-2">
 			<div class="flex flex-col gap-2">
 				<label class="label" for="event-status">Status</label>
 				<select
 					id="event-status"
-					class="select bg-surface-900/60"
+					class="select bg-surface-100-900/60"
 					value={eventDetails.status}
 					onchange={(event) => updateEventDetails({ status: event.currentTarget.value })}
 				>
@@ -851,12 +853,16 @@
 		/>
 	</section>
 
-	<section class="border-surface-700 bg-surface-950/70 space-y-6 rounded-lg border p-6 shadow-sm">
+	<section
+		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
+	>
 		<h2 class="text-xl font-semibold">Schedule &amp; contact</h2>
 		<ScheduleStep {eventDetails} {timezoneOptions} onEventDetailsChange={scheduleDetailsChange} />
 	</section>
 
-	<section class="border-surface-700 bg-surface-950/70 space-y-6 rounded-lg border p-6 shadow-sm">
+	<section
+		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
+	>
 		<div class="flex items-center justify-between">
 			<h2 class="text-xl font-semibold">Roles &amp; shifts</h2>
 			<button type="button" class="btn preset-filled-primary-500" onclick={addOpportunity}>
@@ -875,7 +881,9 @@
 		/>
 	</section>
 
-	<section class="border-surface-700 bg-surface-950/70 space-y-6 rounded-lg border p-6 shadow-sm">
+	<section
+		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
+	>
 		<h2 class="text-xl font-semibold">Signup questions &amp; messaging</h2>
 		<CommunicationsStep
 			{customQuestions}

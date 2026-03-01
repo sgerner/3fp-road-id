@@ -62,18 +62,18 @@
 
 <div class="mx-auto w-full max-w-5xl space-y-6">
 	<header class="space-y-3">
-		<h1 class="text-surface-50 mx-auto text-center text-3xl font-bold">
+		<h1 class="text-surface-950-50 mx-auto text-center text-3xl font-bold">
 			Volunteer Opportunities by Group
 		</h1>
-		<p class="text-surface-300 mx-auto max-w-3xl text-center text-base">
+		<p class="text-surface-700-300 mx-auto max-w-3xl text-center text-base">
 			Discover upcoming ways to pitch in with local organizers. Each group below has volunteer
 			events on the calendar—join an event or explore everything they have planned.
 		</p>
 	</header>
 
-	<section class="border-surface-300 bg-surface-950 rounded-lg border p-4">
+	<section class="border-surface-700-300 bg-surface-50-950 rounded-lg border p-4">
 		<div class="w-full">
-			<label for="search-groups" class="text-surface-300 mb-1 block text-sm font-medium"
+			<label for="search-groups" class="text-surface-700-300 mb-1 block text-sm font-medium"
 				>Search by name, keyword, or location</label
 			>
 			<input
@@ -90,7 +90,7 @@
 		<ul class="space-y-6" transition:slide>
 			{#each filteredGroups as group}
 				<li
-					class="card card-hover border-surface-300 bg-surface-950 relative overflow-hidden rounded-lg border"
+					class="card card-hover border-surface-700-300 bg-surface-50-950 relative overflow-hidden rounded-lg border"
 					transition:slide
 				>
 					{#if group.cover_photo_url}
@@ -99,15 +99,18 @@
 							style="background-image: url({group.cover_photo_url});"
 						></div>
 						<div
-							class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30"
+							class="from-surface-50-950/70 via-surface-50-950/50 to-surface-50-950/30 absolute inset-0 bg-gradient-to-br"
 						></div>
 					{/if}
 					<div class="relative space-y-4 p-5">
 						<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 							<div class="space-y-1">
-								<h2 class="text-surface-50 !text-left text-2xl font-semibold">
+								<h2 class="text-surface-950-50 !text-left text-2xl font-semibold">
 									{#if group.slug}
-										<a href={`/volunteer/groups/${group.slug}`} class="hover:text-secondary-200">
+										<a
+											href={`/volunteer/groups/${group.slug}`}
+											class="hover:text-secondary-800-200"
+										>
 											{group.name}
 										</a>
 									{:else}
@@ -120,7 +123,7 @@
 									</p>
 								{/if}
 								{#if locationLabel(group)}
-									<p class="text-surface-400 !mb-0 text-sm">{locationLabel(group)}</p>
+									<p class="text-surface-600-400 !mb-0 text-sm">{locationLabel(group)}</p>
 								{/if}
 							</div>
 							{#if group.slug}
@@ -142,19 +145,19 @@
 						</div>
 						<ul class="space-y-4">
 							{#each group.events as event}
-								<li class="bg-surface-900/80 border-surface-500/20 rounded-xl border p-4">
+								<li class="bg-surface-100-900/80 border-surface-500/20 rounded-xl border p-4">
 									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 										<div class="space-y-2">
 											<div class="space-y-1">
 												<a
 													href={`/volunteer/${event.slug}`}
-													class="text-secondary-200 hover:text-secondary-100 text-lg font-semibold"
+													class="text-secondary-800-200 hover:text-secondary-900-100 text-lg font-semibold"
 												>
 													{event.title}
 												</a>
 											</div>
 											<div class="space-y-1 text-sm">
-												<div class="text-surface-100 font-medium">
+												<div class="text-surface-900-100 font-medium">
 													<strong class="mr-4">{eventDateRange(event)}</strong>
 													{#if eventTimeRange(event)}
 														{eventTimeRange(event)}
@@ -195,21 +198,21 @@
 		</ul>
 	{:else}
 		<div
-			class="border-surface-500/20 bg-surface-900/60 rounded-xl border p-6 text-center"
+			class="border-surface-500/20 bg-surface-100-900/60 rounded-xl border p-6 text-center"
 			transition:slide
 		>
-			<h2 class="text-surface-50 text-xl font-semibold">
+			<h2 class="text-surface-950-50 text-xl font-semibold">
 				{#if searchTerm}
 					No groups match “{searchTerm}”
 				{:else}
 					No upcoming volunteer events yet
 				{/if}
 			</h2>
-			<p class="text-surface-300 mt-2">
+			<p class="text-surface-700-300 mt-2">
 				{#if searchTerm}
 					Try a different search term or clear the filter to see all groups.
 				{:else}
-					Check back soon or browse <a class="text-secondary-200 underline" href="/volunteer"
+					Check back soon or browse <a class="text-secondary-800-200 underline" href="/volunteer"
 						>all volunteer opportunities</a
 					> to get involved.
 				{/if}

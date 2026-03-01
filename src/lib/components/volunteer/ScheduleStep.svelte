@@ -101,7 +101,7 @@
 			}
 
 			const input = document.createElement('input');
-			input.className = 'input bg-surface-900/60';
+			input.className = 'input bg-surface-100-900/60';
 
 			input.placeholder = 'Start typing an address…';
 			if (eventDetails.locationName) input.value = eventDetails.locationName;
@@ -257,7 +257,7 @@
 		<input
 			id="event-start"
 			type="datetime-local"
-			class="input bg-surface-900/60"
+			class="input bg-surface-100-900/60"
 			value={eventDetails.eventStart}
 			oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
 		/>
@@ -267,7 +267,7 @@
 		<input
 			id="event-end"
 			type="datetime-local"
-			class="input bg-surface-900/60"
+			class="input bg-surface-100-900/60"
 			value={eventDetails.eventEnd}
 			oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
 		/>
@@ -276,7 +276,7 @@
 		<label class="label" for="event-timezone">Timezone</label>
 		<select
 			id="event-timezone"
-			class="select bg-surface-900/60"
+			class="select bg-surface-100-900/60"
 			value={eventDetails.timezone}
 			onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
 		>
@@ -289,7 +289,7 @@
 		<label class="label" for="event-location-name">Address</label>
 		<input
 			id="event-location-name"
-			class="input bg-surface-900/60"
+			class="input bg-surface-100-900/60"
 			value={eventDetails.locationName}
 			oninput={(e) => onEventDetailsChange({ locationName: e.currentTarget.value })}
 			onblur={(e) => scheduleAddressGeocode(e.currentTarget.value.trim())}
@@ -300,7 +300,7 @@
 		<label class="label" for="event-location-address">Location notes</label>
 		<textarea
 			id="event-location-address"
-			class="textarea bg-surface-900/60 min-h-24"
+			class="textarea bg-surface-100-900/60 min-h-24"
 			value={eventDetails.locationAddress}
 			oninput={(e) => onEventDetailsChange({ locationAddress: e.currentTarget.value })}
 			placeholder="Look for the bike repair tent near the main entrance. Parking is limited — roll or carpool if you can."
@@ -310,18 +310,18 @@
 		<label class="label" for="event-map-search">Pin on map</label>
 		<div
 			id="event-map-search"
-			class="input bg-surface-900/60 flex items-center gap-2 text-sm"
+			class="input bg-surface-100-900/60 flex items-center gap-2 text-sm"
 			bind:this={placesContainer}
 		>
 			{#if placesLoading}
-				<span class="text-surface-400 text-xs">Loading search…</span>
+				<span class="text-surface-600-400 text-xs">Loading search…</span>
 			{/if}
 		</div>
 		{#if placesError}
-			<p class="text-error-400 text-xs">{placesError}</p>
+			<p class="text-error-600-400 text-xs">{placesError}</p>
 		{/if}
 		<div
-			class="border-surface-700 bg-surface-950 h-64 w-full overflow-hidden rounded-lg border"
+			class="border-surface-300-700 bg-surface-50-950 h-64 w-full overflow-hidden rounded-lg border"
 			bind:this={mapContainer}
 		></div>
 		{#if eventDetails.latitude && eventDetails.longitude}
@@ -343,7 +343,7 @@
 		<label class="label" for="event-contact-email">Contact email</label>
 		<input
 			id="event-contact-email"
-			class="input bg-surface-900/60"
+			class="input bg-surface-100-900/60"
 			type="email"
 			value={eventDetails.contactEmail}
 			oninput={(e) => onEventDetailsChange({ contactEmail: e.currentTarget.value })}
@@ -354,7 +354,7 @@
 		<label class="label" for="event-contact-phone">Contact phone</label>
 		<input
 			id="event-contact-phone"
-			class="input bg-surface-900/60"
+			class="input bg-surface-100-900/60"
 			type="tel"
 			value={eventDetails.contactPhone}
 			oninput={(e) => onEventDetailsChange({ contactPhone: e.currentTarget.value })}

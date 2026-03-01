@@ -492,13 +492,13 @@
 		<div class="space-y-6">
 			{#if showCustomQuestionsSection}
 				<section
-					class="card border-surface-700 bg-surface-900/70 space-y-4 rounded-2xl border p-4 shadow-xl shadow-black/30"
+					class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4 shadow-xl"
 				>
-					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+					<h4 class="text-surface-600-400 text-sm font-semibold tracking-wide uppercase">
 						Custom intake questions
 					</h4>
 					{#each customQuestions as question, idx (question.id)}
-						<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
+						<div class="card border-primary-500/20 bg-surface-100-900/70 border p-4">
 							<div class="flex items-center justify-between">
 								<h3 class="font-semibold">Question {idx + 1}</h3>
 								<button
@@ -515,7 +515,7 @@
 								<label class="label flex flex-col gap-2">
 									<span>Label *</span>
 									<input
-										class="input bg-surface-900/60"
+										class="input bg-surface-100-900/60"
 										value={question.label}
 										on:input={(e) =>
 											onUpdateQuestion(question.id, { label: e.currentTarget.value })}
@@ -524,7 +524,7 @@
 								<label class="label flex flex-col gap-2">
 									<span>Field type</span>
 									<select
-										class="select bg-surface-900/60"
+										class="select bg-surface-100-900/60"
 										value={question.fieldType}
 										on:change={(e) =>
 											onUpdateQuestion(question.id, { fieldType: e.currentTarget.value })}
@@ -550,7 +550,7 @@
 								<label class="label flex flex-col gap-2 md:col-span-2">
 									<span>Help text</span>
 									<textarea
-										class="textarea bg-surface-900/60 min-h-20"
+										class="textarea bg-surface-100-900/60 min-h-20"
 										value={question.helpText}
 										on:input={(e) =>
 											onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
@@ -563,7 +563,7 @@
 											<span>Options</span>
 											<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
 												<input
-													class="input bg-surface-900/60 md:flex-1"
+													class="input bg-surface-100-900/60 md:flex-1"
 													value={question.optionDraft}
 													on:input={(e) =>
 														onUpdateQuestion(question.id, { optionDraft: e.currentTarget.value })}
@@ -590,12 +590,12 @@
 											<div class="flex flex-wrap gap-2">
 												{#each parseOptions(question.optionsRaw) as option (option)}
 													<span
-														class="bg-surface-900/80 text-surface-200 border-surface-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
+														class="bg-surface-100-900/80 text-surface-800-200 border-surface-300-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
 													>
 														{option}
 														<button
 															type="button"
-															class="text-error-300 hover:text-error-200 text-xs"
+															class="text-error-700-300 hover:text-error-800-200 text-xs"
 															on:click={() => removeOption(question, option)}
 														>
 															Remove
@@ -613,7 +613,7 @@
 								<label class="label flex flex-col gap-2 md:col-span-2">
 									<span>Limit to activity</span>
 									<select
-										class="select bg-surface-900/60"
+										class="select bg-surface-100-900/60"
 										value={question.opportunityId}
 										on:change={(e) =>
 											onUpdateQuestion(question.id, { opportunityId: e.currentTarget.value })}
@@ -641,7 +641,7 @@
 
 			{#if sentEmailHistory.length > 0}
 				<section class="space-y-3">
-					<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+					<h4 class="text-surface-600-400 text-sm font-semibold tracking-wide uppercase">
 						Sent email history
 					</h4>
 
@@ -651,7 +651,7 @@
 							{@const historySubject = buildSubjectPreview(historyEmail)}
 							{@const historyBody = buildBodyPreview(historyEmail)}
 							<li
-								class="even:bg-secondary-500/10 border-primary-500/30 rounded-lg border odd:bg-black/70"
+								class="even:bg-secondary-500/10 border-primary-500/30 odd:bg-surface-50-950/70 rounded-lg border"
 							>
 								<button
 									type="button"
@@ -661,7 +661,7 @@
 									}}
 								>
 									<div class="min-w-0 space-y-1">
-										<p class="text-surface-100 truncate text-sm font-semibold">
+										<p class="text-surface-900-100 truncate text-sm font-semibold">
 											{truncateSubject(historySubject || historyEmail.subject || 'No subject')}
 										</p>
 										<p class="text-surface-500 text-xs">
@@ -669,27 +669,31 @@
 										</p>
 									</div>
 									{#if openSentEmails[historyKey]}
-										<IconChevronUp class="text-surface-400 h-4 w-4 flex-shrink-0" />
+										<IconChevronUp class="text-surface-600-400 h-4 w-4 flex-shrink-0" />
 									{:else}
-										<IconChevronDown class="text-surface-400 h-4 w-4 flex-shrink-0" />
+										<IconChevronDown class="text-surface-600-400 h-4 w-4 flex-shrink-0" />
 									{/if}
 								</button>
 								{#if openSentEmails[historyKey]}
 									<div
-										class="border-surface-800/60 space-y-3 border-t px-4 py-3 text-sm"
+										class="border-surface-200-800/60 space-y-3 border-t px-4 py-3 text-sm"
 										transition:slide
 									>
 										<div class="space-y-1">
-											<span class="text-surface-400 text-[11px] tracking-wide uppercase"
+											<span class="text-surface-600-400 text-[11px] tracking-wide uppercase"
 												>Subject</span
 											>
-											<p class="text-surface-100 font-semibold">
+											<p class="text-surface-900-100 font-semibold">
 												{historySubject || historyEmail.subject || 'No subject'}
 											</p>
 										</div>
 										<div class="space-y-1">
-											<span class="text-surface-400 text-[11px] tracking-wide uppercase">Body</span>
-											<div class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case">
+											<span class="text-surface-600-400 text-[11px] tracking-wide uppercase"
+												>Body</span
+											>
+											<div
+												class="text-surface-900-100 space-y-3 text-sm leading-relaxed !normal-case"
+											>
 												{#if historyBody?.html}
 													<div aria-live="polite">{@html historyBody.html}</div>
 												{:else if historyBody?.text}
@@ -711,31 +715,33 @@
 			{/if}
 
 			<section class="space-y-4">
-				<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+				<h4 class="text-surface-600-400 text-sm font-semibold tracking-wide uppercase">
 					Immediate emails
 				</h4>
 
 				{#if showImmediateEmailOption}
-					<div class="card border-primary-500/20 bg-surface-900/70 space-y-4 border p-4">
+					<div class="card border-primary-500/20 bg-surface-100-900/70 space-y-4 border p-4">
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div class="space-y-1">
 								<div class="flex items-center gap-2">
-									<IconSend class="text-primary-300 h-4 w-4" />
-									<h3 class="text-surface-100 text-base font-semibold">Send immediate update</h3>
+									<IconSend class="text-primary-700-300 h-4 w-4" />
+									<h3 class="text-surface-900-100 text-base font-semibold">
+										Send immediate update
+									</h3>
 								</div>
-								<p class="text-surface-400 text-sm">
+								<p class="text-surface-600-400 text-sm">
 									This message sends immediately to everyone already approved.
 								</p>
 							</div>
 							<div class="flex flex-col items-end gap-2 text-xs md:items-start md:text-left">
 								<span
-									class="bg-surface-950/60 text-surface-300 border-surface-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold tracking-wide uppercase"
+									class="bg-surface-50-950/60 text-surface-700-300 border-surface-300-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold tracking-wide uppercase"
 								>
 									Approved: {approvedVolunteerCount}
 								</span>
-								<span class="text-surface-400 flex items-center gap-2">
+								<span class="text-surface-600-400 flex items-center gap-2">
 									<span
-										class="border-primary-500/30 bg-primary-500/10 text-primary-200 rounded-full border px-2 py-0.5 font-semibold tracking-wide uppercase"
+										class="border-primary-500/30 bg-primary-500/10 text-primary-800-200 rounded-full border px-2 py-0.5 font-semibold tracking-wide uppercase"
 									>
 										Send timing: Now
 									</span>
@@ -745,7 +751,7 @@
 
 						{#if !approvedVolunteerCount}
 							<div
-								class="border-warning-500/40 bg-warning-500/10 text-warning-200 flex items-start gap-3 rounded-md border p-3 text-xs"
+								class="border-warning-500/40 bg-warning-500/10 text-warning-800-200 flex items-start gap-3 rounded-md border p-3 text-xs"
 							>
 								<IconAlertCircle class="mt-0.5 h-4 w-4 flex-shrink-0" />
 								<p>
@@ -759,7 +765,7 @@
 								<span>Subject *</span>
 								<input
 									id="immediate-email-subject"
-									class="input bg-surface-950/60"
+									class="input bg-surface-50-950/60"
 									bind:value={immediateEmail.subject}
 									on:focus={(event) =>
 										setActiveEditor('immediate', 'immediate-subject', event.currentTarget)}
@@ -769,24 +775,24 @@
 									disabled={immediateEmailSending}
 								/>
 								<div
-									class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+									class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 rounded-md border p-2 text-xs"
 								>
-									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+									<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 										Subject preview
 									</strong>
-									<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap !normal-case">
+									<p class="text-surface-800-200 mt-1 break-words whitespace-pre-wrap !normal-case">
 										{immediateSubjectPreview ||
 											'Merge tags render here so you can double-check personalisation.'}
 									</p>
 								</div>
 							</label>
 							<div
-								class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+								class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 rounded-md border p-2 text-xs"
 							>
-								<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+								<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 									Markdown & merge tips
 								</strong>
-								<p class="text-surface-400 mt-1">
+								<p class="text-surface-600-400 mt-1">
 									Markdown supported: {#each markdownHints as hint, idx}
 										<code>{hint}</code>{idx < markdownHints.length - 1 ? ', ' : ''}
 									{/each}
@@ -799,7 +805,7 @@
 							<span>Body *</span>
 							<textarea
 								id="immediate-email-body"
-								class="textarea bg-surface-950/60 min-h-32"
+								class="textarea bg-surface-50-950/60 min-h-32"
 								bind:value={immediateEmail.body}
 								on:focus={(event) =>
 									setActiveEditor('immediate', 'immediate-body', event.currentTarget)}
@@ -809,20 +815,20 @@
 								disabled={immediateEmailSending}
 							></textarea>
 							<div
-								class="border-surface-700/60 bg-surface-950/50 text-surface-300 space-y-2 rounded-md border p-3 text-xs"
+								class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 space-y-2 rounded-md border p-3 text-xs"
 							>
-								<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+								<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 									Body preview
 								</strong>
 								{#if immediateBodyPreview?.brandedHtml}
 									<div
-										class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+										class="text-surface-900-100 space-y-3 text-sm leading-relaxed !normal-case"
 										id="immediate-email-preview"
 									>
 										{@html immediateBodyPreview.brandedHtml}
 									</div>
 								{:else}
-									<p class="text-surface-400 !normal-case">
+									<p class="text-surface-600-400 !normal-case">
 										Use merge tags like &#123;&#123;event_details_block&#125;&#125; or
 										&#123;&#123;volunteer_portal_block&#125;&#125; to add formatted context.
 									</p>
@@ -830,7 +836,7 @@
 							</div>
 							{#if mergeTagPreviews.length}
 								<div class="space-y-2">
-									<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+									<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 										Merge tags
 									</strong>
 									<div class="flex flex-wrap gap-2">
@@ -839,14 +845,14 @@
 												<div class="flex items-center gap-1">
 													<button
 														type="button"
-														class="bg-surface-950/70 text-surface-200 hover:border-primary-400/60 border-surface-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+														class="bg-surface-50-950/70 text-surface-800-200 hover:border-primary-600-400/60 border-surface-300-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
 														on:click={() => insertBodyTag('immediate', tag.token, true)}
 													>
 														{tag.label}
 													</button>
 													<button
 														type="button"
-														class="text-surface-400 hover:text-surface-200 rounded-full p-1"
+														class="text-surface-600-400 hover:text-surface-800-200 rounded-full p-1"
 														aria-label={`Toggle preview for ${tag.label}`}
 														aria-expanded={!!openMergePreviews[
 															getMergePreviewKey('immediate', tag.token)
@@ -862,10 +868,10 @@
 												</div>
 												{#if !!openMergePreviews[getMergePreviewKey('immediate', tag.token)]}
 													<div
-														class="border-surface-700/60 bg-surface-950/70 text-surface-200 space-y-2 rounded-md border p-3 text-xs"
+														class="border-surface-300-700/60 bg-surface-50-950/70 text-surface-800-200 space-y-2 rounded-md border p-3 text-xs"
 													>
 														<div class="flex items-center justify-between gap-2">
-															<code class="text-primary-200 text-xs">{tag.token}</code>
+															<code class="text-primary-800-200 text-xs">{tag.token}</code>
 														</div>
 
 														{#if tag.block && tag.exampleHtml}
@@ -876,7 +882,7 @@
 																{@html tag.exampleHtml}
 															</div>
 															{#if tag.exampleText}
-																<p class="text-surface-100 text-[11px] !normal-case">
+																<p class="text-surface-900-100 text-[11px] !normal-case">
 																	Plain text preview: {tag.exampleText}
 																</p>
 															{/if}
@@ -885,7 +891,7 @@
 																{@html tag.exampleHtml}
 															</div>
 														{:else if tag.exampleText}
-															<p class="text-surface-200">{tag.exampleText}</p>
+															<p class="text-surface-800-200">{tag.exampleText}</p>
 														{:else}
 															<p class="text-surface-500">Preview coming soon.</p>
 														{/if}
@@ -899,10 +905,10 @@
 						</label>
 
 						{#if immediateEmailError}
-							<p class="text-error-300 text-xs">{immediateEmailError}</p>
+							<p class="text-error-700-300 text-xs">{immediateEmailError}</p>
 						{/if}
 						{#if immediateEmailSuccess}
-							<p class="text-success-300 text-xs">{immediateEmailSuccess}</p>
+							<p class="text-success-700-300 text-xs">{immediateEmailSuccess}</p>
 						{/if}
 
 						<div class="flex flex-wrap items-center justify-between gap-3">
@@ -935,7 +941,7 @@
 					</div>
 				{/if}
 
-				<h4 class="text-surface-400 text-sm font-semibold tracking-wide uppercase">
+				<h4 class="text-surface-600-400 text-sm font-semibold tracking-wide uppercase">
 					Scheduled Emails
 				</h4>
 
@@ -958,7 +964,7 @@
 						success: ''
 					}}
 					{@const emailSent = !!email.lastSentAt}
-					<div class="card border-primary-500/20 bg-surface-900/70 border p-4">
+					<div class="card border-primary-500/20 bg-surface-100-900/70 border p-4">
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div class="space-y-1">
 								<h3 class="font-bold">
@@ -1024,7 +1030,7 @@
 
 						{#if email.aiComposerOpen}
 							<div
-								class="border-primary-400/30 bg-primary-400/10 mt-4 space-y-3 rounded border p-4"
+								class="border-primary-600-400/30 bg-primary-600-400/10 mt-4 space-y-3 rounded border p-4"
 								transition:slide
 							>
 								<label class="label text-sm font-semibold" for={`email-ai-prompt-${email.id}`}>
@@ -1032,7 +1038,7 @@
 								</label>
 								<textarea
 									id={`email-ai-prompt-${email.id}`}
-									class="textarea bg-surface-950/80 min-h-20"
+									class="textarea bg-surface-50-950/80 min-h-20"
 									value={email.aiPrompt}
 									on:input={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
 									placeholder="Share the tone, reminders, or updates you'd like this email to cover."
@@ -1063,7 +1069,7 @@
 									</button>
 								</div>
 								{#if email.aiError}
-									<p class="text-error-300 text-xs">{email.aiError}</p>
+									<p class="text-error-700-300 text-xs">{email.aiError}</p>
 								{/if}
 							</div>
 						{/if}
@@ -1078,7 +1084,7 @@
 												type="number"
 												min="0"
 												step="1"
-												class="input bg-surface-900/60 md:w-28"
+												class="input bg-surface-100-900/60 md:w-28"
 												value={getEmailTiming(email.sendOffsetMinutes).hours}
 												on:input={(e) => {
 													handleTimingChange(email.id, {
@@ -1088,7 +1094,7 @@
 												}}
 											/>
 											<select
-												class="select bg-surface-900/60"
+												class="select bg-surface-100-900/60"
 												value={getEmailTiming(email.sendOffsetMinutes).direction}
 												on:change={(e) => {
 													handleTimingChange(email.id, {
@@ -1105,7 +1111,7 @@
 											This email sends automatically relative to the event start.
 										</p>
 									{:else}
-										<p class="text-surface-400 text-xs">
+										<p class="text-surface-600-400 text-xs">
 											This email won't send automatically. Use “Send email now” when you're ready to
 											deliver it.
 										</p>
@@ -1134,7 +1140,7 @@
 							<span>Subject *</span>
 							<input
 								id={`email-subject-${email.id}`}
-								class="input bg-surface-900/60"
+								class="input bg-surface-100-900/60"
 								value={email.subject}
 								on:focus={(event) => setActiveEditor(email.id, 'subject', event.currentTarget)}
 								on:blur={(event) => clearActiveEditor(event.currentTarget)}
@@ -1142,12 +1148,12 @@
 								placeholder="Reminder: {eventDetails.title} starts soon"
 							/>
 							<div
-								class="border-surface-700/60 bg-surface-950/50 text-surface-300 rounded-md border p-2 text-xs"
+								class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 rounded-md border p-2 text-xs"
 							>
-								<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+								<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 									Subject preview
 								</strong>
-								<p class="text-surface-200 mt-1 break-words whitespace-pre-wrap !normal-case">
+								<p class="text-surface-800-200 mt-1 break-words whitespace-pre-wrap !normal-case">
 									{subjectPreview ||
 										'Merge tags render here so you can double-check personalisation.'}
 								</p>
@@ -1158,7 +1164,7 @@
 							<span>Body *</span>
 							<textarea
 								id={`email-body-${email.id}`}
-								class="textarea bg-surface-900/60 min-h-32"
+								class="textarea bg-surface-100-900/60 min-h-32"
 								bind:value={email.body}
 								on:focus={(event) => setActiveEditor(email.id, 'body', event.currentTarget)}
 								on:blur={(event) => clearActiveEditor(event.currentTarget)}
@@ -1166,20 +1172,20 @@
 								placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
 							></textarea>
 							<div
-								class="border-surface-700/60 bg-surface-950/50 text-surface-300 space-y-2 rounded-md border p-3 text-xs"
+								class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 space-y-2 rounded-md border p-3 text-xs"
 							>
-								<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+								<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 									Body preview
 								</strong>
 								{#if bodyPreview?.brandedHtml}
 									<div
-										class="text-surface-100 space-y-3 text-sm leading-relaxed !normal-case"
+										class="text-surface-900-100 space-y-3 text-sm leading-relaxed !normal-case"
 										id={`email-preview-${email.id}`}
 									>
 										{@html bodyPreview.brandedHtml}
 									</div>
 								{:else}
-									<p class="text-surface-400">
+									<p class="text-surface-600-400">
 										Use the merge tag chips below to add event, shift, and confirmation blocks.
 										Markdown like
 										<code>**bold**</code> or <code>[links](https://example.org)</code> is supported.
@@ -1187,7 +1193,7 @@
 								{/if}
 								{#if mergeTagPreviews.length}
 									<div class="space-y-2">
-										<strong class="text-surface-400 block text-[11px] tracking-wide uppercase">
+										<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
 											Merge tags
 										</strong>
 										<div class="flex flex-wrap gap-2">
@@ -1196,14 +1202,14 @@
 													<div class="flex items-center gap-1">
 														<button
 															type="button"
-															class="bg-surface-900/70 text-surface-200 hover:border-primary-400/60 border-surface-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+															class="bg-surface-100-900/70 text-surface-800-200 hover:border-primary-600-400/60 border-surface-300-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
 															on:click={() => insertBodyTag(email.id, tag.token)}
 														>
 															{tag.label}
 														</button>
 														<button
 															type="button"
-															class="text-surface-400 hover:text-surface-200 rounded-full p-1"
+															class="text-surface-600-400 hover:text-surface-800-200 rounded-full p-1"
 															aria-label={`Toggle preview for ${tag.label}`}
 															aria-expanded={!!openMergePreviews[
 																getMergePreviewKey(`email-${email.id}`, tag.token)
@@ -1219,10 +1225,10 @@
 													</div>
 													{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
 														<div
-															class="border-surface-700/60 bg-surface-900/70 text-surface-200 space-y-2 rounded-md border p-3 text-xs"
+															class="border-surface-300-700/60 bg-surface-100-900/70 text-surface-800-200 space-y-2 rounded-md border p-3 text-xs"
 														>
 															<div class="flex items-center justify-between gap-2">
-																<code class="text-primary-200 text-xs">{tag.token}</code>
+																<code class="text-primary-800-200 text-xs">{tag.token}</code>
 															</div>
 
 															{#if tag.block && tag.exampleHtml}
@@ -1233,7 +1239,7 @@
 																	{@html tag.exampleHtml}
 																</div>
 																{#if tag.exampleText}
-																	<p class="text-surface-100 text-[11px] !normal-case">
+																	<p class="text-surface-900-100 text-[11px] !normal-case">
 																		Plain text preview: {tag.exampleText}
 																	</p>
 																{/if}
@@ -1242,7 +1248,7 @@
 																	{@html tag.exampleHtml}
 																</div>
 															{:else if tag.exampleText}
-																<p class="text-surface-200">{tag.exampleText}</p>
+																<p class="text-surface-800-200">{tag.exampleText}</p>
 															{:else}
 																<p class="text-surface-500">Preview coming soon.</p>
 															{/if}
@@ -1272,18 +1278,18 @@
 								{/if}
 							</button>
 							{#if !approvedVolunteerCount}
-								<p class="text-warning-300 text-xs">No approved volunteers are ready yet.</p>
+								<p class="text-warning-700-300 text-xs">No approved volunteers are ready yet.</p>
 							{/if}
 							{#if timingMode !== 'now'}
-								<p class="text-surface-400 text-xs">
+								<p class="text-surface-600-400 text-xs">
 									Sending now will override the scheduled delivery.
 								</p>
 							{/if}
 							{#if feedback.error}
-								<p class="text-error-300 text-xs">{feedback.error}</p>
+								<p class="text-error-700-300 text-xs">{feedback.error}</p>
 							{/if}
 							{#if feedback.success}
-								<p class="text-success-300 text-xs">{feedback.success}</p>
+								<p class="text-success-700-300 text-xs">{feedback.success}</p>
 							{/if}
 						</div>
 					</div>

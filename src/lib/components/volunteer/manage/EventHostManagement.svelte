@@ -137,14 +137,12 @@
 	}
 </script>
 
-<section
-	class="card border-surface-700 bg-surface-900/70 rounded-2xl border p-6 shadow-xl shadow-black/30"
->
-	<h2 class="!text-left text-xl font-semibold text-white">Event Hosts</h2>
-	<p class="text-surface-300 text-sm">Manage who can edit and manage this event.</p>
+<section class="card border-surface-300-700 bg-surface-100-900/70 rounded-2xl border p-6 shadow-xl">
+	<h2 class="text-surface-950-50 !text-left text-xl font-semibold">Event Hosts</h2>
+	<p class="text-surface-700-300 text-sm">Manage who can edit and manage this event.</p>
 
 	<div class="mt-4">
-		<ul class="divide-surface-700/50 border-surface-700/50 mt-2 divide-y rounded-md border">
+		<ul class="divide-surface-300-700/50 border-surface-300-700/50 mt-2 divide-y rounded-md border">
 			{#if primaryHostDetails}
 				<li class="flex items-center justify-between p-2">
 					<span class="truncate text-sm">{primaryHostDetails.label}</span>
@@ -170,7 +168,7 @@
 					type="email"
 					placeholder="new.host@example.com"
 					bind:value={newHostEmail}
-					class="input bg-surface-800/50 w-full"
+					class="input bg-surface-200-800/50 w-full"
 					disabled={loading}
 				/>
 				<button
@@ -189,13 +187,15 @@
 	</div>
 	{#if ownerItems.length > 0}
 		<div class="mt-4">
-			<h3 class="!text-left font-medium text-white">
+			<h3 class="text-surface-950-50 !text-left font-medium">
 				{event.host_group_details?.name ?? 'Host Group'} Admins
 			</h3>
-			<p class="text-surface-400 text-sm">
+			<p class="text-surface-600-400 text-sm">
 				Admins of the host group automatically can manage this event.
 			</p>
-			<ul class="divide-surface-700/50 border-surface-700/50 mt-2 divide-y rounded-md border">
+			<ul
+				class="divide-surface-300-700/50 border-surface-300-700/50 mt-2 divide-y rounded-md border"
+			>
 				{#each ownerItems as owner}
 					<li class="flex items-center justify-between p-2">
 						<span class="truncate text-sm">{owner.label}</span>

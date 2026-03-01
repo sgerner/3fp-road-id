@@ -9,7 +9,7 @@
 	</header>
 
 	<!-- About Section -->
-	<section class="card border-surface-300 bg-surface-950 card-hover border-[1px] p-2">
+	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
 		<p class="mb-2 border-b pb-2 text-center text-2xl font-bold">What is an In Case Bracelet?</p>
 		<ul class="mx-4 my-2 list-inside list-disc space-y-1">
 			<li>Durable silicone wristband with a unique QR code</li>
@@ -20,7 +20,7 @@
 	</section>
 
 	<!-- Production Notice Section -->
-	<section class="card border-warning-300 bg-error-800 card-hover border-[1px] p-2">
+	<section class="card border-warning-700-300 bg-error-200-800 card-hover border-[1px] p-2">
 		<p class="mb-2 border-b pb-2 text-center text-2xl font-bold">Important&nbsp;Update</p>
 		<ul class="mx-4 my-2 list-inside list-disc space-y-1">
 			<li><span class="font-semibold">New orders paused</span> while we evaluate tariff impacts</li>
@@ -30,7 +30,7 @@
 	</section>
 
 	<!-- Purpose Section -->
-	<section class="card border-surface-300 bg-surface-950 card-hover border-[1px] p-2">
+	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
 		<p class="mb-2 border-b pb-2 text-center text-2xl font-bold">Purpose</p>
 		<p class="pl-8 indent-[-1.5rem]">
 			🚑 <strong>Securely store your emergency medical information</strong>
@@ -44,7 +44,7 @@
 	</section>
 
 	<!-- How To Use Section -->
-	<section class="card border-surface-300 bg-surface-950 card-hover border-[1px] p-2">
+	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
 		<p class=" mb-2 border-b pb-2 text-center text-2xl font-bold">How to Use</p>
 		<p class="pl-8 indent-[-1.5rem]">
 			🤳 Simply <strong>scan your In Case bracelet</strong> to get started.

@@ -252,13 +252,13 @@
 	{#if authFlag === 'required' || authFlag === 'forbidden'}
 		<section
 			class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
-				? 'border-warning-600/40 bg-warning-900/20'
-				: 'border-error-600/40 bg-error-900/20'}"
+				? 'border-warning-400-600/40 bg-warning-100-900/20'
+				: 'border-error-400-600/40 bg-error-100-900/20'}"
 		>
 			{#if authFlag === 'required'}
 				<div class="text-sm">
 					<strong>Please log in to edit this group.</strong>
-					<div class="text-surface-300">
+					<div class="text-surface-700-300">
 						Use the “Log in / Register” button in the header, then try again.
 					</div>
 				</div>
@@ -266,11 +266,11 @@
 				<div class="text-sm">
 					<strong>You don’t have permission to edit this group.</strong>
 					{#if (data.owners_count ?? 0) === 0}
-						<div class="text-surface-300">
+						<div class="text-surface-700-300">
 							If you represent this group, claim it below to become an owner.
 						</div>
 					{:else}
-						<div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
+						<div class="text-surface-700-300">Ask an existing owner to add you as an owner.</div>
 					{/if}
 				</div>
 			{/if}
@@ -279,12 +279,12 @@
 
 	{#if !hasOwner}
 		<section
-			class="border-warning-600/40 bg-warning-900/20 mx-auto max-w-3xl rounded-xl border p-4"
+			class="border-warning-400-600/40 bg-warning-100-900/20 mx-auto max-w-3xl rounded-xl border p-4"
 		>
 			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div class="min-w-0">
 					<div class="text-lg font-semibold">This group hasn’t been claimed yet</div>
-					<p class="text-surface-300 text-sm">
+					<p class="text-surface-700-300 text-sm">
 						If you represent this group, claim it to manage details, photos and more.
 					</p>
 				</div>
@@ -300,7 +300,7 @@
 			</div>
 			{#if claimOpen && !data.user}
 				<form
-					class="border-surface-700 bg-surface-900 mt-4 rounded-md border p-3"
+					class="border-surface-300-700 bg-surface-100-900 mt-4 rounded-md border p-3"
 					onsubmit={sendClaimLogin}
 				>
 					<div
@@ -318,7 +318,7 @@
 						aria-hidden="true"
 						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 					/>
-					<label for="claim-email" class="text-surface-300 mb-1 block text-xs"
+					<label for="claim-email" class="text-surface-700-300 mb-1 block text-xs"
 						>Log in / Register to continue</label
 					>
 					<input
@@ -330,10 +330,10 @@
 						required
 					/>
 					{#if claimError}
-						<div class="mt-2 text-xs text-red-400">{claimError}</div>
+						<div class="text-error-600-400 mt-2 text-xs">{claimError}</div>
 					{/if}
 					{#if claimSuccess}
-						<div class="mt-2 text-xs text-green-400">{claimSuccess}</div>
+						<div class="text-success-600-400 mt-2 text-xs">{claimSuccess}</div>
 					{/if}
 					<button
 						type="submit"
@@ -349,7 +349,9 @@
 
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
-		<div class="border-surface-700 bg-surface-900/80 sticky top-0 z-40 border-b backdrop-blur">
+		<div
+			class="border-surface-300-700 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur"
+		>
 			<div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-3 py-2">
 				<div class="flex min-w-0 items-center gap-3">
 					{#if data.group?.logo_url}
@@ -357,7 +359,7 @@
 					{/if}
 					<div class="min-w-0">
 						<div class="truncate text-sm font-semibold">{data.group?.name}</div>
-						<div class="text-surface-300 truncate text-xs">
+						<div class="text-surface-700-300 truncate text-xs">
 							{#if data.group?.city}{data.group.city},
 							{/if}{data.group?.state_region} · {data.group?.country}
 						</div>
@@ -392,7 +394,7 @@
 
 	<!-- Identity card -->
 	<section class="">
-		<div class="border-surface-300 bg-surface-950/90 mx-auto rounded-xl border p-4">
+		<div class="border-surface-700-300 bg-surface-50-950/90 mx-auto rounded-xl border p-4">
 			<!-- Top row: type chip rail + compact contact icons -->
 			<div class="flex items-start justify-between gap-3">
 				{#if types.length}
@@ -412,7 +414,7 @@
 									title={c.key}
 									target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
 									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
-									class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
+									class="text-surface-900-100/90 hover:bg-surface-950-50/10 hover:text-surface-950-50 rounded-md p-2"
 								>
 									<ContactIcon class="h-5 w-5" className="h-5 w-5" />
 								</a>
@@ -426,7 +428,7 @@
 			{#if data.group?.description}
 				<div class="mt-3">
 					<div
-						class={'text-surface-200 whitespace-pre-wrap ' +
+						class={'text-surface-800-200 whitespace-pre-wrap ' +
 							(aboutExpanded ? '' : 'max-h-24 overflow-hidden')}
 					>
 						{data.group.description}
@@ -434,7 +436,7 @@
 					{#if data.group.description?.length > 220}
 						<button
 							type="button"
-							class="text-primary-300 hover:text-primary-200 mt-2 text-sm"
+							class="text-primary-700-300 hover:text-primary-800-200 mt-2 text-sm"
 							onclick={() => (aboutExpanded = !aboutExpanded)}
 						>
 							{aboutExpanded ? 'Show less' : 'Read more'}
@@ -447,7 +449,7 @@
 				{#if audiences.length || disciplines.length}
 					{#if audiences.length}
 						<div class="flex items-center gap-2">
-							<div class="text-surface-300 mr-2 text-sm">Audience</div>
+							<div class="text-surface-700-300 mr-2 text-sm">Audience</div>
 							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
 								{#each audiences as a}
 									<button type="button" class="chip preset-tonal-secondary shrink-0">{a}</button>
@@ -457,7 +459,7 @@
 					{/if}
 					{#if disciplines.length}
 						<div class="flex items-center gap-2 py-2">
-							<div class="text-surface-300 min-w-24 text-sm">Discipline</div>
+							<div class="text-surface-700-300 min-w-24 text-sm">Discipline</div>
 							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
 								{#each disciplines as d}
 									<button type="button" class="chip preset-tonal-surface shrink-0">{d}</button>
@@ -471,31 +473,31 @@
 	</section>
 
 	{#if upcomingVolunteerEvents.length}
-		<section class="card border-surface-300 bg-surface-950 card-hover space-y-4 border p-4">
+		<section class="card border-surface-700-300 bg-surface-50-950 card-hover space-y-4 border p-4">
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h2 class="text-surface-100 !text-left text-lg font-semibold">
+					<h2 class="text-surface-900-100 !text-left text-lg font-semibold">
 						Upcoming Volunteer Opportunities
 					</h2>
-					<p class="text-surface-400 text-sm">
+					<p class="text-surface-600-400 text-sm">
 						Support {data.group?.name} by lending a hand at an upcoming event.
 					</p>
 				</div>
 			</div>
 			<ul class="space-y-4">
 				{#each upcomingVolunteerEvents as event}
-					<li class="bg-surface-900/60 border-surface-500/20 rounded-xl border p-4">
+					<li class="bg-surface-100-900/60 border-surface-500/20 rounded-xl border p-4">
 						<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 							<div class="space-y-3">
 								<div class="space-y-1">
 									<a
 										href={`/volunteer/${event.slug}`}
-										class="text-secondary-200 hover:text-secondary-100 text-lg font-semibold"
+										class="text-secondary-800-200 hover:text-secondary-900-100 text-lg font-semibold"
 									>
 										{event.title}
 									</a>
 									<div
-										class="text-surface-300 max-w-2xl truncate overflow-hidden text-sm leading-relaxed text-ellipsis whitespace-nowrap"
+										class="text-surface-700-300 max-w-2xl truncate overflow-hidden text-sm leading-relaxed text-ellipsis whitespace-nowrap"
 									>
 										{#if event.summary}
 											{event.summary}
@@ -505,7 +507,7 @@
 									</div>
 								</div>
 								<div class="space-y-1 text-sm">
-									<div class="text-surface-100 font-medium">
+									<div class="text-surface-900-100 font-medium">
 										<strong class="mr-4">{volunteerEventDateRange(event)}</strong>
 										{volunteerEventTimeRange(event)}
 									</div>
@@ -554,18 +556,18 @@
 
 	<!-- Additional details -->
 	{#if data.group?.membership_info || data.group?.service_area_description || data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.preferred_contact_method_instructions || data.group?.specific_meeting_point_address || (Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude)) || data.group?.zip_code || skills.length || data.group?.how_to_join_instructions}
-		<section class="card border-surface-300 bg-surface-950 card-hover space-y-4 border p-4">
+		<section class="card border-surface-700-300 bg-surface-50-950 card-hover space-y-4 border p-4">
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 				{#if data.group?.membership_info}
 					<div>
 						<div class="label">Membership Info</div>
-						<p class="text-surface-200 whitespace-pre-wrap">{data.group.membership_info}</p>
+						<p class="text-surface-800-200 whitespace-pre-wrap">{data.group.membership_info}</p>
 					</div>
 				{/if}
 				{#if data.group?.how_to_join_instructions}
 					<div>
 						<div class="label">How to Join</div>
-						<p class="text-surface-200 whitespace-pre-wrap">
+						<p class="text-surface-800-200 whitespace-pre-wrap">
 							{data.group.how_to_join_instructions}
 						</p>
 					</div>
@@ -573,19 +575,19 @@
 				{#if data.group?.zip_code}
 					<div>
 						<div class="label">ZIP / Postal Code</div>
-						<p class="text-surface-200">{data.group.zip_code}</p>
+						<p class="text-surface-800-200">{data.group.zip_code}</p>
 					</div>
 				{/if}
 				{#if data.group?.preferred_contact_method_instructions}
 					<div>
 						<div class="label">Preferred Contact Method</div>
-						<p class="text-surface-200">{data.group.preferred_contact_method_instructions}</p>
+						<p class="text-surface-800-200">{data.group.preferred_contact_method_instructions}</p>
 					</div>
 				{/if}
 				{#if skills.length}
 					<div>
 						<div class="label">Skill Levels</div>
-						<p class="text-surface-200">{skills.join(', ')}</p>
+						<p class="text-surface-800-200">{skills.join(', ')}</p>
 					</div>
 				{/if}
 			</div>
@@ -594,19 +596,19 @@
 					{#if data.group?.activity_frequency}
 						<div>
 							<div class="label">Activity Frequency</div>
-							<p class="text-surface-200">{data.group.activity_frequency}</p>
+							<p class="text-surface-800-200">{data.group.activity_frequency}</p>
 						</div>
 					{/if}
 					{#if data.group?.typical_activity_day_time}
 						<div>
 							<div class="label">Typical Day/Time</div>
-							<p class="text-surface-200">{data.group.typical_activity_day_time}</p>
+							<p class="text-surface-800-200">{data.group.typical_activity_day_time}</p>
 						</div>
 					{/if}
 					{#if data.group?.specific_meeting_point_address}
 						<div>
 							<div class="label">Meeting Point</div>
-							<p class="text-surface-200">{data.group.specific_meeting_point_address}</p>
+							<p class="text-surface-800-200">{data.group.specific_meeting_point_address}</p>
 						</div>
 					{/if}
 				</div>
@@ -615,12 +617,12 @@
 				<div>
 					<div class="label">Service Area</div>
 					{#if data.group?.service_area_description}
-						<p class="text-surface-200 whitespace-pre-wrap">
+						<p class="text-surface-800-200 whitespace-pre-wrap">
 							{data.group.service_area_description}
 						</p>
 					{/if}
 					{#if hasCoords}
-						<div class="border-surface-700/50 mt-3 overflow-hidden rounded-md border">
+						<div class="border-surface-300-700/50 mt-3 overflow-hidden rounded-md border">
 							<!-- Leaflet map container -->
 							<div bind:this={mapEl} class="h-64 w-full"></div>
 						</div>

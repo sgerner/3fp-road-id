@@ -217,13 +217,15 @@
 <div class="mx-auto w-full max-w-md space-y-4 p-4">
 	<h1 class="text-center text-xl font-semibold">Auth Confirmation</h1>
 	{#if error}
-		<div class="rounded-md border border-red-600/50 bg-red-900/20 p-3 text-red-200">
+		<div
+			class="border-error-400-600/50 bg-error-100-900/20 text-error-800-200 rounded-md border p-3"
+		>
 			<p class="mb-1">{error}</p>
-			<p class="text-sm text-red-300">
+			<p class="text-error-700-300 text-sm">
 				Your link may be invalid or expired. You can request a new link below.
 			</p>
 		</div>
-		<form class="border-surface-700 bg-surface-900 rounded-md border p-3" onsubmit={resend}>
+		<form class="border-surface-300-700 bg-surface-100-900 rounded-md border p-3" onsubmit={resend}>
 			<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
 				<div bind:this={turnstileEl}></div>
 			</div>
@@ -236,7 +238,7 @@
 				aria-hidden="true"
 				style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 			/>
-			<label for="resend-email" class="text-surface-300 mb-1 block text-xs">Email</label>
+			<label for="resend-email" class="text-surface-700-300 mb-1 block text-xs">Email</label>
 			<input
 				id="resend-email"
 				type="email"
@@ -246,10 +248,10 @@
 				required
 			/>
 			{#if resendError}
-				<div class="mt-2 text-xs text-red-400">{resendError}</div>
+				<div class="text-error-600-400 mt-2 text-xs">{resendError}</div>
 			{/if}
 			{#if resendSuccess}
-				<div class="mt-2 text-xs text-green-400">{resendSuccess}</div>
+				<div class="text-success-600-400 mt-2 text-xs">{resendSuccess}</div>
 			{/if}
 			<button
 				type="submit"
@@ -258,11 +260,11 @@
 					: ''} {!emailValid || sending ? 'cursor-not-allowed opacity-50' : ''}"
 				disabled={!emailValid || sending}>Resend Magic Link</button
 			>
-			<div class="text-surface-400 mt-2 text-center text-[11px]">
+			<div class="text-surface-600-400 mt-2 text-center text-[11px]">
 				We’ll send a new link to the email above.
 			</div>
 		</form>
 	{:else}
-		<p class="text-surface-200 text-center">{message}</p>
+		<p class="text-surface-800-200 text-center">{message}</p>
 	{/if}
 </div>

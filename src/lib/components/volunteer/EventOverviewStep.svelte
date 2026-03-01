@@ -24,7 +24,7 @@
 			<label class="label" for="event-title">Event title *</label>
 			<input
 				id="event-title"
-				class="input bg-surface-900/60"
+				class="input bg-surface-100-900/60"
 				value={eventDetails.title}
 				oninput={(e) => onEventDetailsChange({ title: e.currentTarget.value })}
 				placeholder="Community Bike Festival"
@@ -34,7 +34,7 @@
 			<label class="label" for="event-type">Event type *</label>
 			<select
 				id="event-type"
-				class="select bg-surface-900/60"
+				class="select bg-surface-100-900/60"
 				value={eventDetails.eventTypeSlug}
 				onchange={(e) => onEventDetailsChange({ eventTypeSlug: e.currentTarget.value })}
 			>
@@ -57,13 +57,13 @@
 				label="Host group (Optional)"
 				placeholder={hasHostGroups ? 'Search groups…' : 'No groups available'}
 				classes="w-full"
-				inputGroupClasses="bg-surface-900/60"
-				contentClasses="bg-surface-900"
+				inputGroupClasses="bg-surface-100-900/60"
+				contentClasses="bg-surface-100-900"
 			/>
 			{#if hostGroupSelection.length}
 				<button
 					type="button"
-					class="text-primary-300 text-left text-xs underline"
+					class="text-primary-700-300 text-left text-xs underline"
 					onclick={onClearHostGroup}
 				>
 					Clear selection
@@ -78,7 +78,7 @@
 			<label class="label" for="event-summary">Short summary</label>
 			<input
 				id="event-summary"
-				class="input bg-surface-900/60"
+				class="input bg-surface-100-900/60"
 				value={eventDetails.summary}
 				oninput={(e) => onEventDetailsChange({ summary: e.currentTarget.value })}
 				placeholder="Neighborhood celebration with repair stations, youth rodeo, and info booths."
@@ -88,7 +88,7 @@
 			<label class="label" for="event-description">Full description</label>
 			<textarea
 				id="event-description"
-				class="textarea bg-surface-900/60 min-h-36"
+				class="textarea bg-surface-100-900/60 min-h-36"
 				value={eventDetails.description}
 				oninput={(e) => onEventDetailsChange({ description: e.currentTarget.value })}
 				placeholder="Share the vibe, call out volunteer roles, and explain why the event matters."
@@ -98,7 +98,7 @@
 
 	<button
 		type="button"
-		class="text-primary-300 inline-flex items-center gap-2 text-sm font-semibold"
+		class="text-primary-700-300 inline-flex items-center gap-2 text-sm font-semibold"
 		onclick={onToggleAdvanced}
 	>
 		{#if showAdvancedSettings}
@@ -116,7 +116,7 @@
 				<label class="label" for="event-status">Status</label>
 				<select
 					id="event-status"
-					class="select bg-surface-900/60"
+					class="select bg-surface-100-900/60"
 					value={eventDetails.status}
 					onchange={(e) => onEventDetailsChange({ status: e.currentTarget.value })}
 				>
@@ -129,7 +129,7 @@
 				<label class="label" for="event-max-volunteers">Max volunteers</label>
 				<input
 					id="event-max-volunteers"
-					class="input bg-surface-900/60"
+					class="input bg-surface-100-900/60"
 					type="number"
 					value={eventDetails.maxVolunteers}
 					oninput={(e) => onEventDetailsChange({ maxVolunteers: e.currentTarget.value })}

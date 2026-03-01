@@ -1800,7 +1800,7 @@
 </svelte:head>
 {#if currentUser?.id}
 	<main class="mx-auto flex max-w-6xl flex-col gap-8 pb-24">
-		<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+		<header class="card border-primary-500/20 bg-surface-50-950 card-hover border p-6">
 			<div class="space-y-2">
 				<div class="flex items-center justify-between">
 					<h1 class="!text-left text-3xl font-semibold">Volunteer Event Builder</h1>
@@ -1813,24 +1813,24 @@
 					</button>
 				</div>
 
-				<p class="text-surface-400 max-w-3xl text-sm">
+				<p class="text-surface-600-400 max-w-3xl text-sm">
 					Plan your event from idea to launch. Use Volunteer Muse for AI assistance, or manually
 					configure every detail below.
 				</p>
 				{#if cloneSuccess}
-					<p transition:slide class="text-success-300 text-sm">{cloneSuccess}</p>
+					<p transition:slide class="text-success-700-300 text-sm">{cloneSuccess}</p>
 				{/if}
 				{#if cloneApplyError}
-					<p transition:slide class="text-error-300 text-sm">{cloneApplyError}</p>
+					<p transition:slide class="text-error-700-300 text-sm">{cloneApplyError}</p>
 				{/if}
 			</div>
 		</header>
 
 		{#if cloneSearchOpen}
-			<section class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+			<section class="card border-primary-500/20 bg-surface-50-950 card-hover border p-6">
 				<div class="space-y-1">
 					<h2 class="text-xl font-semibold">Clone an existing event</h2>
-					<p class="text-surface-400 text-sm">
+					<p class="text-surface-600-400 text-sm">
 						Copy details from a volunteer event you've already set up.
 					</p>
 				</div>
@@ -1838,10 +1838,10 @@
 				<div class="mt-4 space-y-3" transition:slide>
 					<div class="flex items-end gap-2">
 						<label class="w-full space-y-1 text-sm font-semibold md:flex-1">
-							<span class="text-surface-200">Search events</span>
+							<span class="text-surface-800-200">Search events</span>
 							<input
 								type="search"
-								class="input bg-surface-900"
+								class="input bg-surface-100-900"
 								placeholder="Start typing a title or summary"
 								bind:value={cloneSearchQuery}
 								onkeydown={(e) => searchCloneEvents()}
@@ -1850,11 +1850,11 @@
 					</div>
 
 					{#if cloneSearchError}
-						<p class="text-warning-300 text-sm" transition:slide>{cloneSearchError}</p>
+						<p class="text-warning-700-300 text-sm" transition:slide>{cloneSearchError}</p>
 					{/if}
 
 					{#if cloneSearchLoading}
-						<p class="text-surface-400 text-sm" transition:slide>Searching events…</p>
+						<p class="text-surface-600-400 text-sm" transition:slide>Searching events…</p>
 					{:else if cloneSearchResults.length}
 						<ul class="space-y-2" transition:slide>
 							{#each cloneSearchResults as result (result.id)}
@@ -1863,10 +1863,10 @@
 									transition:slide
 								>
 									<div class="space-y-1">
-										<p class="text-secondary-200 font-semibold">
+										<p class="text-secondary-800-200 font-semibold">
 											{result.title || 'Untitled event'}
 										</p>
-										<div class="text-surface-400 text-sm">
+										<div class="text-surface-600-400 text-sm">
 											{formatCloneEventDate(result)}
 										</div>
 										{#if result.location_name || result.locationName}
@@ -1904,7 +1904,7 @@
 		{/if}
 
 		<section
-			class={`card border-secondary-500/20 bg-surface-950/70 card-hover ai-panel border p-6 ${
+			class={`card border-secondary-500/20 bg-surface-50-950/70 card-hover ai-panel border p-6 ${
 				aiLoading ? 'is-loading' : ''
 			}`}
 			aria-busy={aiLoading}
@@ -1917,12 +1917,12 @@
 				onkeydown={(e) => e.key === 'Enter' && (isMuseOpen = !isMuseOpen)}
 			>
 				<div class="flex items-center gap-3">
-					<div class="bg-secondary-500/10 text-secondary-300 rounded-full p-2">
+					<div class="bg-secondary-500/10 text-secondary-700-300 rounded-full p-2">
 						<IconSparkles class="h-5 w-5" />
 					</div>
 					<div>
 						<h2 class="text-xl font-semibold">Volunteer Muse — Generative teammate</h2>
-						<p class="text-surface-400 text-sm">
+						<p class="text-surface-600-400 text-sm">
 							Start with a template or describe your event. I'll help draft the details.
 						</p>
 					</div>
@@ -1963,7 +1963,7 @@
 							role="status"
 							aria-live="polite"
 						>
-							<div class="text-secondary-100 flex items-center gap-2">
+							<div class="text-secondary-900-100 flex items-center gap-2">
 								<IconLoader class="h-4 w-4 animate-spin" />
 								<span>Volunteer Muse is drafting shifts and reminders…</span>
 							</div>
@@ -2018,7 +2018,7 @@
 								{/if}
 							{/each}
 							{#if aiLoading}
-								<div class="text-surface-400 flex items-center gap-2 text-sm">
+								<div class="text-surface-600-400 flex items-center gap-2 text-sm">
 									<IconLoader class="h-4 w-4 animate-spin" />
 									<p>Volunteer Muse is thinking…</p>
 								</div>
@@ -2027,8 +2027,8 @@
 
 						{#if followUpQuestions.length}
 							<div class="border-warning-500/40 bg-warning-500/10 rounded border p-3 text-sm">
-								<p class="text-warning-200 font-semibold">Volunteer Muse still needs:</p>
-								<ul class="text-warning-100 mt-2 list-disc space-y-1 pl-5">
+								<p class="text-warning-800-200 font-semibold">Volunteer Muse still needs:</p>
+								<ul class="text-warning-900-100 mt-2 list-disc space-y-1 pl-5">
 									{#each followUpQuestions as question}
 										<li>{question}</li>
 									{/each}
@@ -2038,7 +2038,7 @@
 
 						{#if aiError}
 							<p
-								class="border-error-500/40 bg-error-500/10 text-error-200 rounded border p-3 text-sm"
+								class="border-error-500/40 bg-error-500/10 text-error-800-200 rounded border p-3 text-sm"
 							>
 								{aiError}
 							</p>
@@ -2046,14 +2046,14 @@
 
 						<form
 							onsubmit={handleChatSubmit}
-							class="card border-primary-500/20 bg-surface-900/60 flex flex-col gap-3 rounded border p-4"
+							class="card border-primary-500/20 bg-surface-100-900/60 flex flex-col gap-3 rounded border p-4"
 						>
 							<label class="label text-sm font-semibold" for="chat-prompt"
 								>Describe or ask anything</label
 							>
 							<textarea
 								id="chat-prompt"
-								class="textarea bg-surface-950/70 min-h-24"
+								class="textarea bg-surface-50-950/70 min-h-24"
 								bind:value={chatPrompt}
 								placeholder="We need 20 volunteers for a pop-up repair station with tune-up and greeting shifts…"
 							></textarea>
@@ -2080,15 +2080,15 @@
 				<div
 					class="border-secondary-500/30 bg-secondary-500/10 mt-5 flex flex-col gap-2 rounded border p-4"
 				>
-					<div class="text-secondary-100 flex items-center gap-2">
+					<div class="text-secondary-900-100 flex items-center gap-2">
 						<IconCheck class="h-4 w-4" />
 						<h3 class="text-sm font-semibold">Volunteer Muse suggestions applied</h3>
 					</div>
-					<p class="text-secondary-200 text-sm">
+					<p class="text-secondary-800-200 text-sm">
 						The latest plan filled in the event builder automatically.
 					</p>
 					<div class="flex items-center justify-between gap-4">
-						<small class="text-secondary-300 text-xs"
+						<small class="text-secondary-700-300 text-xs"
 							>Updated {formatTimestamp(draftAppliedAt)}</small
 						>
 						<button
@@ -2110,13 +2110,13 @@
 
 		<section
 			id="manual-builder"
-			class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6"
+			class="card border-primary-500/20 bg-surface-50-950/80 card-hover border p-6"
 			onfocusin={handleManualInteraction}
 		>
 			<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 				<div class="space-y-2">
 					<h2 class="text-xl font-semibold">Build the volunteer experience</h2>
-					<p class="text-surface-400 text-sm">
+					<p class="text-surface-600-400 text-sm">
 						Step through the flow to capture the logistics, people power, and follow-up moments that
 						make your volunteer event hum.
 					</p>
@@ -2133,15 +2133,15 @@
 						onclick={() => goToStep(idx)}
 						class={`card border ${
 							idx === activeStep
-								? 'border-primary-400 bg-primary-400/20'
-								: 'bg-surface-900/60 hover:border-primary-500/40 border-transparent'
+								? 'border-primary-600-400 bg-primary-600-400/20'
+								: 'bg-surface-100-900/60 hover:border-primary-500/40 border-transparent'
 						} p-3 text-left transition`}
 					>
 						<p class="font-semibold md:hidden">Step {idx + 1}: {step.title}</p>
 						<div class="hidden md:block">
 							<p class="text-surface-500 text-xs tracking-wide uppercase">Step {idx + 1}</p>
 							<p class="font-semibold">{step.title}</p>
-							<p class="text-surface-400 text-xs">{step.description}</p>
+							<p class="text-surface-600-400 text-xs">{step.description}</p>
 						</div>
 					</button>
 				{/each}
@@ -2253,14 +2253,14 @@
 	</main>
 {:else}
 	<main class="mx-auto flex max-w-3xl flex-col gap-8 py-16">
-		<header class="card border-primary-500/20 bg-surface-950 card-hover border p-6">
+		<header class="card border-primary-500/20 bg-surface-50-950 card-hover border p-6">
 			<h1 class="text-3xl font-semibold">Log in to create a volunteer event</h1>
-			<p class="text-surface-400 mt-2 text-sm">
+			<p class="text-surface-600-400 mt-2 text-sm">
 				Use a magic link to log in or register. After you confirm your email, we’ll bring you right
 				back here.
 			</p>
 		</header>
-		<section class="card border-surface-700 bg-surface-900 card-hover border p-6">
+		<section class="card border-surface-300-700 bg-surface-100-900 card-hover border p-6">
 			<form class="space-y-3" onsubmit={requestLoginLink}>
 				<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
 					<div bind:this={turnstileEl}></div>
@@ -2276,7 +2276,7 @@
 				/>
 				<label
 					for="login-email"
-					class="text-surface-300 text-xs font-semibold tracking-wide uppercase">Email</label
+					class="text-surface-700-300 text-xs font-semibold tracking-wide uppercase">Email</label
 				>
 				<input
 					id="login-email"
@@ -2287,10 +2287,10 @@
 					required
 				/>
 				{#if loginError}
-					<div class="text-xs text-red-400">{loginError}</div>
+					<div class="text-error-600-400 text-xs">{loginError}</div>
 				{/if}
 				{#if loginSuccess}
-					<div class="text-xs text-green-400">{loginSuccess}</div>
+					<div class="text-success-600-400 text-xs">{loginSuccess}</div>
 				{/if}
 				<button
 					type="submit"
@@ -2301,7 +2301,7 @@
 				>
 					Send Magic Link
 				</button>
-				<p class="text-surface-400 text-xs">
+				<p class="text-surface-600-400 text-xs">
 					We’ll send a login link to your email. After you sign in, we’ll return you here to
 					continue building your event.
 				</p>

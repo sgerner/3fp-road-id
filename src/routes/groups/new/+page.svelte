@@ -330,17 +330,19 @@
 <div class="mx-auto w-full max-w-3xl space-y-6">
 	<header class="space-y-2">
 		<h1 class="text-3xl font-bold">Add a Cycling Group</h1>
-		<p class="text-surface-400 text-center">Share local bike clubs, teams, and advocacy orgs.</p>
+		<p class="text-surface-600-400 text-center">
+			Share local bike clubs, teams, and advocacy orgs.
+		</p>
 	</header>
 
 	<!-- Optional AI assist section -->
 	<section
-		class="card border-primary-300 bg-surface-950 card-hover ai-panel border p-4 {aiLoading
+		class="card border-primary-700-300 bg-surface-50-950 card-hover ai-panel border p-4 {aiLoading
 			? 'is-loading'
 			: ''}"
 	>
 		<h2 class="h5 mb-2 text-center">Optional: Let AI Help Fill Details</h2>
-		<p class="text-surface-400 mb-3 text-center text-sm">
+		<p class="text-surface-600-400 mb-3 text-center text-sm">
 			Provide any of the following and we’ll suggest fields. Nothing is saved until you submit.
 		</p>
 		<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -348,7 +350,7 @@
 				<label class="label" for="aiInstagram">Instagram Username</label>
 				<input
 					id="aiInstagram"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					bind:value={aiInstagram}
 					placeholder="e.g. bikeclub"
 				/>
@@ -357,7 +359,7 @@
 				<label class="label" for="aiFacebook">Facebook Group Name</label>
 				<input
 					id="aiFacebook"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					bind:value={aiFacebook}
 					placeholder="e.g. mybikegroup"
 				/>
@@ -366,14 +368,14 @@
 				<label class="label" for="aiWebsite">Website</label>
 				<input
 					id="aiWebsite"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					bind:value={aiWebsite}
 					placeholder="https://example.org"
 				/>
 			</div>
 		</div>
 		{#if aiError}
-			<p class="text-error-400 mt-2 text-sm">{aiError}</p>
+			<p class="text-error-600-400 mt-2 text-sm">{aiError}</p>
 		{/if}
 		<div class="mt-3 flex items-center justify-end gap-3">
 			{#if aiLoading}
@@ -390,7 +392,7 @@
 		</div>
 	</section>
 
-	<section class="card border-primary-300 bg-surface-950 card-hover border p-4">
+	<section class="card border-primary-700-300 bg-surface-50-950 card-hover border p-4">
 		<form method="POST" class="grid grid-cols-1 gap-4">
 			<!-- Hidden AI-suggested fields to submit silently -->
 			<input type="hidden" name="suggested_website_url" value={hiddenSuggestedWebsite} />
@@ -436,7 +438,7 @@
 					<input
 						id="name"
 						name="name"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						required
 						bind:value={name}
 						oninput={(e) => {
@@ -449,7 +451,7 @@
 					<input
 						id="handle"
 						name="slug"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						bind:value={handle}
 						oninput={(e) => {
 							handleTouched = true;
@@ -458,17 +460,17 @@
 						autocomplete="off"
 					/>
 					<div class="mt-1 flex items-center justify-between">
-						<p class="text-surface-400 text-xs">
+						<p class="text-surface-600-400 text-xs">
 							Your page will be at <code>/groups/{handle || 'your-group'}</code>
 						</p>
 						{#if handleStatus === 'checking'}
-							<span class="text-surface-400 text-xs">Checking…</span>
+							<span class="text-surface-600-400 text-xs">Checking…</span>
 						{:else if handleStatus === 'available'}
-							<span class="text-success-400 text-xs">Available</span>
+							<span class="text-success-600-400 text-xs">Available</span>
 						{:else if handleStatus === 'taken'}
-							<span class="text-error-400 text-xs">Already taken</span>
+							<span class="text-error-600-400 text-xs">Already taken</span>
 						{:else if handleStatus === 'invalid'}
-							<span class="text-warning-400 text-xs">Use 3+ letters/numbers</span>
+							<span class="text-warning-600-400 text-xs">Use 3+ letters/numbers</span>
 						{/if}
 					</div>
 				</div>
@@ -480,7 +482,7 @@
 					<input
 						id="city"
 						name="city"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						placeholder="Leave blank if statewide"
 						bind:value={city}
 					/>
@@ -490,7 +492,7 @@
 					<input
 						id="state_region"
 						name="state_region"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						required
 						bind:value={stateRegion}
 					/>
@@ -500,7 +502,7 @@
 					<select
 						id="country"
 						name="country"
-						class="select bg-primary-950/30"
+						class="select bg-primary-50-950/30"
 						required
 						bind:value={country}
 					>
@@ -518,14 +520,14 @@
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
 				<div class="flex flex-col">
 					<label class="label" for="tagline">Tagline</label>
-					<input id="tagline" name="tagline" class="input bg-primary-950/30" />
+					<input id="tagline" name="tagline" class="input bg-primary-50-950/30" />
 				</div>
 				<div class="flex flex-col">
 					<label class="label" for="website_url">Website</label>
 					<input
 						id="website_url"
 						name="website_url"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						placeholder="https://example.org"
 					/>
 				</div>
@@ -533,7 +535,7 @@
 
 			<div class="flex flex-col">
 				<label class="label" for="description">Description</label>
-				<textarea id="description" name="description" class="textarea bg-primary-950/30" rows="4"
+				<textarea id="description" name="description" class="textarea bg-primary-50-950/30" rows="4"
 				></textarea>
 			</div>
 
@@ -543,7 +545,7 @@
 					<input
 						id="public_contact_email"
 						name="public_contact_email"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 					/>
 				</div>
 				<div class="flex flex-col">
@@ -551,7 +553,7 @@
 					<input
 						id="public_phone_number"
 						name="public_phone_number"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 					/>
 				</div>
 				<div class="flex flex-col">
@@ -559,7 +561,7 @@
 					<input
 						id="preferred_contact_method_instructions"
 						name="preferred_contact_method_instructions"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						placeholder="Best way to reach you"
 					/>
 				</div>
@@ -570,14 +572,14 @@
 				<textarea
 					id="how_to_join_instructions"
 					name="how_to_join_instructions"
-					class="textarea bg-primary-950/30"
+					class="textarea bg-primary-50-950/30"
 					rows="3"
 				></textarea>
 			</div>
 
 			<!-- Many-to-many selections -->
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Group Types</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.group_types as gt}
@@ -588,7 +590,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Audience Focus</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.audience_focuses as af}
@@ -599,7 +601,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Riding Disciplines</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.riding_disciplines as rd}
@@ -615,7 +617,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Skill Levels</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.skill_levels as sl}

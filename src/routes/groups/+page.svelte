@@ -90,30 +90,30 @@
 		scheduleApply();
 	}
 
-	// Deterministic chip color per group type name using Tailwind palettes (10 options)
+	// Deterministic chip styling per group type name using Skeleton presets (10 options)
 	const filledClasses = [
-		'chip text-xs border border-red-600 bg-red-600 text-white',
-		'chip text-xs border border-orange-600 bg-orange-600 text-white',
-		'chip text-xs border border-amber-600 bg-amber-600 text-black',
-		'chip text-xs border border-lime-600 bg-lime-600 text-black',
-		'chip text-xs border border-green-600 bg-green-600 text-white',
-		'chip text-xs border border-teal-600 bg-teal-600 text-white',
-		'chip text-xs border border-cyan-600 bg-cyan-600 text-black',
-		'chip text-xs border border-sky-600 bg-sky-600 text-white',
-		'chip text-xs border border-blue-600 bg-blue-600 text-white',
-		'chip text-xs border border-indigo-600 bg-indigo-600 text-white'
+		'chip text-xs preset-filled-primary-500',
+		'chip text-xs preset-filled-secondary-500',
+		'chip text-xs preset-filled-tertiary-500',
+		'chip text-xs preset-filled-success-500',
+		'chip text-xs preset-filled-warning-500',
+		'chip text-xs preset-filled-error-500',
+		'chip text-xs preset-tonal-primary',
+		'chip text-xs preset-tonal-secondary',
+		'chip text-xs preset-tonal-tertiary',
+		'chip text-xs preset-tonal-surface'
 	];
 	const outlinedClasses = [
-		'chip text-xs border border-red-500 bg-red-500/10 text-red-300',
-		'chip text-xs border border-orange-500 bg-orange-500/10 text-orange-300',
-		'chip text-xs border border-amber-500 bg-amber-500/10 text-amber-700',
-		'chip text-xs border border-lime-500 bg-lime-500/10 text-lime-700',
-		'chip text-xs border border-green-500 bg-green-500/10 text-green-300',
-		'chip text-xs border border-teal-500 bg-teal-500/10 text-teal-300',
-		'chip text-xs border border-cyan-500 bg-cyan-500/10 text-cyan-700',
-		'chip text-xs border border-sky-500 bg-sky-500/10 text-sky-300',
-		'chip text-xs border border-blue-500 bg-blue-500/10 text-blue-300',
-		'chip text-xs border border-indigo-500 bg-indigo-500/10 text-indigo-300'
+		'chip text-xs preset-outlined-primary-500',
+		'chip text-xs preset-outlined-secondary-500',
+		'chip text-xs preset-outlined-tertiary-500',
+		'chip text-xs preset-outlined-success-500',
+		'chip text-xs preset-outlined-warning-500',
+		'chip text-xs preset-outlined-error-500',
+		'chip text-xs preset-tonal-primary',
+		'chip text-xs preset-tonal-secondary',
+		'chip text-xs preset-tonal-tertiary',
+		'chip text-xs preset-tonal-surface'
 	];
 
 	function hashStr(s) {
@@ -271,16 +271,16 @@
 				<span>Add Group</span>
 			</a>
 		</div>
-		<p class="text-surface-400 text-center">Browse local clubs, teams, and advocacy orgs.</p>
+		<p class="text-surface-600-400 text-center">Browse local clubs, teams, and advocacy orgs.</p>
 	</header>
 
-	<section class="card border-primary-300 bg-surface-950 card-hover border p-4">
+	<section class="card border-primary-700-300 bg-surface-50-950 card-hover border p-4">
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-4">
 			<div class="flex flex-col md:col-span-2">
 				<label class="label" for="q">Search</label>
 				<input
 					id="q"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					bind:value={q}
 					placeholder="Name, city, description"
 					oninput={scheduleApply}
@@ -290,7 +290,7 @@
 				<label class="label" for="country">Country</label>
 				<select
 					id="country"
-					class="select bg-primary-950/30"
+					class="select bg-primary-50-950/30"
 					bind:value={country}
 					onchange={scheduleApply}
 				>
@@ -309,7 +309,7 @@
 				{#if hasStateList}
 					<select
 						id="state_region"
-						class="select bg-primary-950/30"
+						class="select bg-primary-50-950/30"
 						bind:value={state_region}
 						onchange={scheduleApply}
 					>
@@ -321,7 +321,7 @@
 				{:else}
 					<input
 						id="state_region"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						bind:value={state_region}
 						oninput={scheduleApply}
 					/>
@@ -437,12 +437,12 @@
 
 	<section class="space-y-3">
 		{#if data.error}
-			<p class="text-error-400">{data.error}</p>
+			<p class="text-error-600-400">{data.error}</p>
 		{/if}
 		<!-- Map of filtered groups -->
 		<div bind:this={mapEl} class="h-[420px] w-full overflow-hidden rounded-md"></div>
 		{#if !data.groups?.length}
-			<p class="text-surface-400" in:fade={{ duration: 120 }} out:fade={{ duration: 120 }}>
+			<p class="text-surface-600-400" in:fade={{ duration: 120 }} out:fade={{ duration: 120 }}>
 				No groups found.
 			</p>
 		{:else}
@@ -450,7 +450,7 @@
 				{#each data.groups as g (g.id)}
 					<a
 						href={`/groups/${g.slug}`}
-						class="card group border-surface-300 bg-surface-900 card-hover block overflow-hidden border"
+						class="card group border-surface-700-300 bg-surface-100-900 card-hover block overflow-hidden border"
 						in:fade={{ duration: 120 }}
 						out:fade={{ duration: 120 }}
 						animate:flip
@@ -477,7 +477,7 @@
 							{/if}
 							<div class="absolute inset-x-0 bottom-0">
 								<div
-									class="bg-surface-950/60 flex items-center gap-2 rounded-md p-2 backdrop-blur-xs"
+									class="bg-surface-50-950/60 flex items-center gap-2 rounded-md p-2 backdrop-blur-xs"
 								>
 									{#if g.logo_url}
 										<img
@@ -488,14 +488,16 @@
 										/>
 									{/if}
 									<div class="min-w-0">
-										<h3 class="truncate !text-left text-base font-bold text-white">{g.name}</h3>
-										<p class="!m-0 truncate text-[11px] text-white/90">
+										<h3 class="text-surface-950-50 truncate !text-left text-base font-bold">
+											{g.name}
+										</h3>
+										<p class="text-surface-900-100/90 !m-0 truncate text-[11px]">
 											{#if g.city}{g.city},
 											{/if}
 											{g.state_region} · {g.country}
 										</p>
 										{#if g.tagline}
-											<p class="line-clamp-1 hidden text-white/80 md:block">
+											<p class="text-surface-800-200/80 line-clamp-1 hidden md:block">
 												{g.tagline}
 											</p>
 										{/if}

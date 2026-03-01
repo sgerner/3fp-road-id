@@ -285,7 +285,7 @@
 			}
 			// Fallback to legacy Autocomplete
 			const input = document.createElement('input');
-			input.className = 'input bg-primary-950/30';
+			input.className = 'input bg-primary-50-950/30';
 			input.placeholder = 'Start typing a city or address…';
 			const def = formatDefaultSearch();
 			if (def) input.value = def;
@@ -1018,7 +1018,7 @@
 		<h1 class="text-3xl font-bold">Edit {data.group?.name}</h1>
 	</header>
 
-	<section class="card border-primary-300 bg-surface-950 card-hover border p-4">
+	<section class="card border-primary-700-300 bg-surface-50-950 card-hover border p-4">
 		<form
 			method="POST"
 			enctype="multipart/form-data"
@@ -1031,7 +1031,7 @@
 					<input
 						id="name"
 						name="name"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.name || ''}
 						oninput={onField}
 					/>
@@ -1042,7 +1042,7 @@
 				<input
 					id="tagline"
 					name="tagline"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					value={data.group?.tagline || ''}
 					oninput={onField}
 				/>
@@ -1052,7 +1052,7 @@
 				<input
 					id="specific_meeting_point_address"
 					name="specific_meeting_point_address"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					value={meetingAddress}
 					oninput={onField}
 					onblur={onLocationBlur}
@@ -1065,7 +1065,7 @@
 					<input
 						id="city"
 						name="city"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.city || ''}
 						oninput={onField}
 						onblur={onLocationBlur}
@@ -1076,7 +1076,7 @@
 					<input
 						id="state_region"
 						name="state_region"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						required
 						value={data.group?.state_region || ''}
 						oninput={onField}
@@ -1088,7 +1088,7 @@
 					<select
 						id="country"
 						name="country"
-						class="select bg-primary-950/30"
+						class="select bg-primary-50-950/30"
 						required
 						onchange={onField}
 					>
@@ -1108,7 +1108,7 @@
 
 				<div class="col-span-3">
 					<!-- Places search + Leaflet map -->
-					<div class="border-primary-950/30 bg-primary-950/30 my-2 border p-2">
+					<div class="border-primary-50-950/30 bg-primary-50-950/30 my-2 border p-2">
 						<label class="label" for="map_location">Map Location</label>
 						<input
 							id="map_location"
@@ -1120,19 +1120,19 @@
 						/>
 
 						<div bind:this={placesContainer} class=""></div>
-						<small class="text-surface-400 my-2 text-xs"
+						<small class="text-surface-600-400 my-2 text-xs"
 							>Search for a city or address to set the map marker.</small
 						>
 						{#if placesLoading}
-							<small class="text-surface-400 mt-1 text-xs">Loading places…</small>
+							<small class="text-surface-600-400 mt-1 text-xs">Loading places…</small>
 						{/if}
 						<div
-							class="border-surface-600 overflow-hidden rounded-md border"
+							class="border-surface-400-600 overflow-hidden rounded-md border"
 							style="height: 320px;"
 						>
 							<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
 						</div>
-						<small class="text-surface-400 text-xs"
+						<small class="text-surface-600-400 text-xs"
 							>Click the map to set the marker and coordinates.</small
 						>
 					</div>
@@ -1145,7 +1145,7 @@
 					<input
 						id="website_url"
 						name="website_url"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.website_url || ''}
 						oninput={onField}
 					/>
@@ -1155,7 +1155,7 @@
 					<input
 						id="public_contact_email"
 						name="public_contact_email"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.public_contact_email || ''}
 						oninput={onField}
 					/>
@@ -1168,7 +1168,7 @@
 					<input
 						id="public_phone_number"
 						name="public_phone_number"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.public_phone_number || ''}
 						oninput={onField}
 					/>
@@ -1178,7 +1178,7 @@
 					<input
 						id="preferred_contact_method_instructions"
 						name="preferred_contact_method_instructions"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.preferred_contact_method_instructions || ''}
 						oninput={onField}
 					/>
@@ -1186,7 +1186,7 @@
 			</div>
 
 			<!-- Preferred CTA selection -->
-			<section class="card border-surface-600/50 bg-surface-900 my-2 space-y-2 border p-3">
+			<section class="card border-surface-400-600/50 bg-surface-100-900 my-2 space-y-2 border p-3">
 				<div class="label">Preferred Call-to-Action</div>
 				<div class="flex flex-wrap gap-2">
 					{#each ctaChoices as opt}
@@ -1211,7 +1211,7 @@
 							<input
 								id="preferred_cta_label"
 								name="preferred_cta_label"
-								class="input bg-primary-950/30"
+								class="input bg-primary-50-950/30"
 								maxlength="10"
 								bind:value={ctaLabel}
 								oninput={onCtaLabelInput}
@@ -1222,18 +1222,18 @@
 							<input
 								id="preferred_cta_url"
 								name="preferred_cta_url"
-								class="input bg-primary-950/30 {ctaUrl && !customUrlValid
-									? 'border border-red-500'
+								class="input bg-primary-50-950/30 {ctaUrl && !customUrlValid
+									? 'border-error-500 border'
 									: ''}"
 								bind:value={ctaUrl}
 								oninput={onCtaUrlInput}
 								placeholder="https://example.com/join"
 							/>
-							<small class="text-surface-400 mt-1 text-xs"
+							<small class="text-surface-600-400 mt-1 text-xs"
 								>Use a full URL starting with http:// or https://</small
 							>
 							{#if ctaUrl && !customUrlValid}
-								<small class="text-xs text-red-400"
+								<small class="text-error-600-400 text-xs"
 									>Enter a valid URL beginning with http:// or https://</small
 								>
 							{/if}
@@ -1243,7 +1243,7 @@
 
 				<!-- CTA Preview -->
 				<div class="mt-2">
-					<div class="text-surface-300 mb-1 text-xs">Preview</div>
+					<div class="text-surface-700-300 mb-1 text-xs">Preview</div>
 					{#if pickCtaPreview()}
 						{#key ctaKind + ctaLabel + ctaUrl}
 							{#await Promise.resolve(pickCtaPreview()) then cp}
@@ -1272,7 +1272,7 @@
 							{/await}
 						{/key}
 					{:else}
-						<span class="text-surface-400 text-xs"
+						<span class="text-surface-600-400 text-xs"
 							>No valid CTA available based on current selection.</span
 						>
 					{/if}
@@ -1280,9 +1280,9 @@
 			</section>
 
 			<!-- Owners management -->
-			<section class="card border-surface-600/50 bg-surface-900 my-2 space-y-2 border p-3">
+			<section class="card border-surface-400-600/50 bg-surface-100-900 my-2 space-y-2 border p-3">
 				<div class="label">Owners</div>
-				<div class="text-surface-300 text-sm">
+				<div class="text-surface-700-300 text-sm">
 					Add another owner by email. We’ll send them a secure login link; when they sign in,
 					they’ll be added automatically.
 				</div>
@@ -1291,7 +1291,7 @@
 						type="email"
 						placeholder="owner@example.com"
 						bind:value={ownerEmail}
-						class="input bg-primary-950/30 md:w-80"
+						class="input bg-primary-50-950/30 md:w-80"
 						required
 						onkeydown={(e) => {
 							if (e.key === 'Enter') inviteOwner(e);
@@ -1320,16 +1320,18 @@
 					>
 				</div>
 				{#if ownerError}
-					<div class="text-error-400 text-xs">{ownerError}</div>
+					<div class="text-error-600-400 text-xs">{ownerError}</div>
 				{/if}
 				{#if ownerSuccess}
-					<div class="text-success-400 text-xs">{ownerSuccess}</div>
+					<div class="text-success-600-400 text-xs">{ownerSuccess}</div>
 				{/if}
 
 				{#if owners?.length}
 					<div class="mt-3">
-						<div class="text-surface-300 mb-1 text-xs">Current owners</div>
-						<ul class="divide-surface-700/50 border-surface-700/50 divide-y rounded-md border">
+						<div class="text-surface-700-300 mb-1 text-xs">Current owners</div>
+						<ul
+							class="divide-surface-300-700/50 border-surface-300-700/50 divide-y rounded-md border"
+						>
 							{#each owners as o (o.user_id)}
 								<li class="flex items-center justify-between gap-2 p-2">
 									<div class="truncate text-sm">
@@ -1354,7 +1356,7 @@
 				<textarea
 					id="description"
 					name="description"
-					class="textarea bg-primary-950/30"
+					class="textarea bg-primary-50-950/30"
 					rows="4"
 					oninput={onField}>{data.group?.description || ''}</textarea
 				>
@@ -1366,7 +1368,7 @@
 					<textarea
 						id="how_to_join_instructions"
 						name="how_to_join_instructions"
-						class="textarea bg-primary-950/30"
+						class="textarea bg-primary-50-950/30"
 						rows="3"
 						oninput={onField}>{data.group?.how_to_join_instructions || ''}</textarea
 					>
@@ -1376,7 +1378,7 @@
 					<textarea
 						id="membership_info"
 						name="membership_info"
-						class="textarea bg-primary-950/30"
+						class="textarea bg-primary-50-950/30"
 						rows="3"
 						oninput={onField}>{data.group?.membership_info || ''}</textarea
 					>
@@ -1389,7 +1391,7 @@
 					name="latitude"
 					type="number"
 					step="any"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					value={data.group?.latitude ?? ''}
 					oninput={onField}
 					hidden
@@ -1399,7 +1401,7 @@
 					name="longitude"
 					type="number"
 					step="any"
-					class="input bg-primary-950/30"
+					class="input bg-primary-50-950/30"
 					value={data.group?.longitude ?? ''}
 					oninput={onField}
 					hidden
@@ -1412,7 +1414,7 @@
 					<input
 						id="service_area_description"
 						name="service_area_description"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.service_area_description || ''}
 						oninput={onField}
 					/>
@@ -1422,7 +1424,7 @@
 					<input
 						id="activity_frequency"
 						name="activity_frequency"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.activity_frequency || ''}
 						oninput={onField}
 					/>
@@ -1435,7 +1437,7 @@
 					<input
 						id="typical_activity_day_time"
 						name="typical_activity_day_time"
-						class="input bg-primary-950/30"
+						class="input bg-primary-50-950/30"
 						value={data.group?.typical_activity_day_time || ''}
 						oninput={onField}
 					/>
@@ -1458,7 +1460,7 @@
 						{#snippet children()}
 							<button
 								type="button"
-								class="rounded-base border-surface-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
+								class="rounded-base border-surface-600-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
 								onclick={() => logoApi?.openFilePicker?.()}
 								aria-label="Select logo file or drag here"
 							>
@@ -1472,7 +1474,7 @@
 						<ul class="mt-2 space-y-2">
 							{#each logoFiles as f (f.name)}
 								<li
-									class="rounded-base bg-surface-800 flex items-center justify-between px-3 py-2 text-sm"
+									class="rounded-base bg-surface-200-800 flex items-center justify-between px-3 py-2 text-sm"
 								>
 									<span class="truncate">{f.name}</span>
 									<button
@@ -1489,13 +1491,13 @@
 					{/if}
 
 					{#if logoTooLarge}
-						<p class="text-error-400 text-xs">
+						<p class="text-error-600-400 text-xs">
 							Selected file exceeds 10MB limit. Please choose a smaller image.
 						</p>
 					{/if}
 					{#if logoPreview}
 						<div
-							class="border-surface-600 bg-surface-800 relative mt-2 h-24 w-24 overflow-hidden rounded-md border"
+							class="border-surface-400-600 bg-surface-200-800 relative mt-2 h-24 w-24 overflow-hidden rounded-md border"
 						>
 							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
 							<button
@@ -1523,7 +1525,7 @@
 						{#snippet children()}
 							<button
 								type="button"
-								class="rounded-base border-surface-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
+								class="rounded-base border-surface-600-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
 								onclick={() => coverApi?.openFilePicker?.()}
 								aria-label="Select cover image or drag here"
 							>
@@ -1537,7 +1539,7 @@
 						<ul class="mt-2 space-y-2">
 							{#each coverFiles as f (f.name)}
 								<li
-									class="rounded-base bg-surface-800 flex items-center justify-between px-3 py-2 text-sm"
+									class="rounded-base bg-surface-200-800 flex items-center justify-between px-3 py-2 text-sm"
 								>
 									<span class="truncate">{f.name}</span>
 									<button
@@ -1554,13 +1556,13 @@
 					{/if}
 
 					{#if coverTooLarge}
-						<p class="text-error-400 text-xs">
+						<p class="text-error-600-400 text-xs">
 							Selected file exceeds 10MB limit. Please choose a smaller image.
 						</p>
 					{/if}
 					{#if coverPreview}
 						<div
-							class="border-surface-600 bg-surface-800 relative mt-2 aspect-[16/9] w-full overflow-hidden rounded-md border"
+							class="border-surface-400-600 bg-surface-200-800 relative mt-2 aspect-[16/9] w-full overflow-hidden rounded-md border"
 						>
 							<img
 								src={coverPreview}
@@ -1586,15 +1588,15 @@
 			<input type="hidden" id="clear_cover" name="clear_cover" />
 
 			{#if submitError}
-				<p class="text-error-400 text-sm">{submitError}</p>
+				<p class="text-error-600-400 text-sm">{submitError}</p>
 			{/if}
 			{#if $page.form?.error}
-				<p class="text-error-400 text-sm">{$page.form.error}</p>
+				<p class="text-error-600-400 text-sm">{$page.form.error}</p>
 			{/if}
 
 			{#if cropping}
 				<div
-					class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+					class="bg-surface-50-950/70 fixed inset-0 z-50 flex items-center justify-center p-4"
 					role="dialog"
 					aria-modal="true"
 					tabindex="-1"
@@ -1602,7 +1604,7 @@
 					onpointerup={onCropPointerUp}
 					onpointercancel={onCropPointerUp}
 				>
-					<div class="card border-surface-600 bg-surface-900 w-full max-w-4xl border p-4">
+					<div class="card border-surface-400-600 bg-surface-100-900 w-full max-w-4xl border p-4">
 						<div class="mb-3 flex items-center justify-between">
 							<h3 class="text-xl font-semibold">
 								Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
@@ -1615,7 +1617,7 @@
 						</div>
 						<div
 							bind:this={cropContainerEl}
-							class="border-surface-600 bg-surface-800 relative mx-auto w-full overflow-hidden border"
+							class="border-surface-400-600 bg-surface-200-800 relative mx-auto w-full overflow-hidden border"
 							style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
 						>
 							<img
@@ -1628,20 +1630,20 @@
 								class={cropReady ? '' : 'opacity-0'}
 							/>
 							{#if !cropReady}
-								<div class="text-surface-300 absolute inset-0 grid place-items-center">
+								<div class="text-surface-700-300 absolute inset-0 grid place-items-center">
 									Loading…
 								</div>
 							{/if}
 							<!-- Rule-of-thirds and boundary guides -->
 							<div class="pointer-events-none absolute inset-0">
 								<!-- Vertical thirds -->
-								<div class="absolute top-0 bottom-0 left-[33.333%] w-px bg-white/40"></div>
-								<div class="absolute top-0 bottom-0 left-[66.666%] w-px bg-white/40"></div>
+								<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
+								<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
 								<!-- Horizontal thirds -->
-								<div class="absolute top-[33.333%] right-0 left-0 h-px bg-white/40"></div>
-								<div class="absolute top-[66.666%] right-0 left-0 h-px bg-white/40"></div>
+								<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
+								<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
 								<!-- Visible area border -->
-								<div class="absolute inset-0 border border-white/50"></div>
+								<div class="border-surface-950-50/50 absolute inset-0 border"></div>
 							</div>
 						</div>
 						<div class="mt-3 flex w-full flex-wrap items-center gap-3">
@@ -1676,7 +1678,7 @@
 
 			<!-- Many-to-many selections -->
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Group Types</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.group_types as gt}
@@ -1694,7 +1696,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Audience Focus</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.audience_focuses as af}
@@ -1712,7 +1714,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Riding Disciplines</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.riding_disciplines as rd}
@@ -1730,7 +1732,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-900 p-3">
+				<div class="card bg-surface-100-900 p-3">
 					<div class="font-semibold">Skill Levels</div>
 					<div class="mt-2 flex flex-col gap-2">
 						{#each data.skill_levels as sl}
@@ -1750,7 +1752,7 @@
 				</div>
 			</div>
 
-			<div class="card bg-surface-900 p-3">
+			<div class="card bg-surface-100-900 p-3">
 				<div class="mb-2 font-semibold">Social Links</div>
 				<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
 					<div class="flex flex-col">
@@ -1758,7 +1760,7 @@
 						<input
 							id="social_instagram"
 							name="social_instagram"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.instagram) || ''}
 							placeholder="username or full URL"
 							oninput={onSocialsChange}
@@ -1769,7 +1771,7 @@
 						<input
 							id="social_facebook"
 							name="social_facebook"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.facebook) || ''}
 							placeholder="username/page or full URL"
 							oninput={onSocialsChange}
@@ -1780,7 +1782,7 @@
 						<input
 							id="social_x"
 							name="social_x"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.x) || ''}
 							placeholder="handle or full URL"
 							oninput={onSocialsChange}
@@ -1791,7 +1793,7 @@
 						<input
 							id="social_threads"
 							name="social_threads"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.threads) || ''}
 							placeholder="@handle or full URL"
 							oninput={onSocialsChange}
@@ -1802,7 +1804,7 @@
 						<input
 							id="social_youtube"
 							name="social_youtube"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.youtube) || ''}
 							placeholder="@handle/channel or full URL"
 							oninput={onSocialsChange}
@@ -1813,7 +1815,7 @@
 						<input
 							id="social_mastodon"
 							name="social_mastodon"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.mastodon) || ''}
 							placeholder="@user@instance or full URL"
 							oninput={onSocialsChange}
@@ -1824,7 +1826,7 @@
 						<input
 							id="social_tiktok"
 							name="social_tiktok"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.tiktok) || ''}
 							placeholder="@handle or full URL"
 							oninput={onSocialsChange}
@@ -1835,7 +1837,7 @@
 						<input
 							id="social_strava"
 							name="social_strava"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.strava) || ''}
 							placeholder="club name/ID or full URL"
 							oninput={onSocialsChange}
@@ -1846,7 +1848,7 @@
 						<input
 							id="social_bluesky"
 							name="social_bluesky"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.bluesky) || ''}
 							placeholder="handle or full URL"
 							oninput={onSocialsChange}
@@ -1857,7 +1859,7 @@
 						<input
 							id="social_discord"
 							name="social_discord"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.discord) || ''}
 							placeholder="invite code or full URL"
 							oninput={onSocialsChange}
@@ -1868,14 +1870,14 @@
 						<input
 							id="social_linkedin"
 							name="social_linkedin"
-							class="input bg-primary-950/30"
+							class="input bg-primary-50-950/30"
 							value={(data.group?.social_links && data.group.social_links.linkedin) || ''}
 							placeholder="company/school or full URL"
 							oninput={onSocialsChange}
 						/>
 					</div>
 				</div>
-				<p class="text-surface-400 mt-1 text-xs">
+				<p class="text-surface-600-400 mt-1 text-xs">
 					Enter usernames or full URLs. We’ll format the links automatically.
 				</p>
 			</div>

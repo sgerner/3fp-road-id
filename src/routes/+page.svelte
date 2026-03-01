@@ -30,7 +30,7 @@
 	<!-- Decorative cycling road lines -->
 	<div class="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.06]">
 		<svg
-			class="h-full w-full"
+			class="text-surface-500 h-full w-full"
 			viewBox="0 0 1200 800"
 			preserveAspectRatio="xMidYMid slice"
 			fill="none"
@@ -40,7 +40,7 @@
 				y1="0"
 				x2="600"
 				y2="800"
-				stroke="white"
+				stroke="currentColor"
 				stroke-width="4"
 				stroke-dasharray="24 24"
 			/>
@@ -49,28 +49,42 @@
 				y1="400"
 				x2="1200"
 				y2="400"
-				stroke="white"
+				stroke="currentColor"
 				stroke-width="2"
 				stroke-dasharray="16 16"
 			/>
-			<circle cx="600" cy="400" r="200" stroke="white" stroke-width="2" stroke-dasharray="12 12" />
-			<circle cx="600" cy="400" r="350" stroke="white" stroke-width="1" stroke-dasharray="8 8" />
+			<circle
+				cx="600"
+				cy="400"
+				r="200"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-dasharray="12 12"
+			/>
+			<circle
+				cx="600"
+				cy="400"
+				r="350"
+				stroke="currentColor"
+				stroke-width="1"
+				stroke-dasharray="8 8"
+			/>
 		</svg>
 	</div>
 
 	<!-- Radial glow accent -->
 	<div
-		class="bg-primary-400/10 pointer-events-none absolute top-1/3 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+		class="bg-primary-600-400/10 pointer-events-none absolute top-1/3 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
 	></div>
 
 	<!-- Hero content -->
 	<div class="relative z-10 mx-auto max-w-5xl px-6 text-center">
 		<!-- Eyebrow -->
 		<div
-			class="border-primary-400/30 bg-primary-400/10 mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 backdrop-blur-sm"
+			class="border-primary-600-400/30 bg-primary-600-400/10 mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 backdrop-blur-sm"
 		>
-			<span class="bg-primary-400 h-1.5 w-1.5 animate-pulse rounded-full"></span>
-			<span class="text-primary-300 text-xs font-semibold tracking-[0.2em] uppercase"
+			<span class="bg-primary-600-400 h-1.5 w-1.5 animate-pulse rounded-full"></span>
+			<span class="text-primary-700-300 text-xs font-semibold tracking-[0.2em] uppercase"
 				>Community Hub</span
 			>
 		</div>
@@ -79,15 +93,15 @@
 		<h1
 			class="!text-center text-5xl leading-[1.08] font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
 		>
-			<span class="text-primary-50">Bicycle safety,</span><br />
+			<span class="text-primary-950-50">Bicycle safety,</span><br />
 			<span class="from-primary-300 to-primary-500 bg-linear-to-r bg-clip-text text-transparent">
 				volunteer coordination,
 			</span><br />
-			<span class="text-primary-50">and local groups.</span>
+			<span class="text-primary-950-50">and local groups.</span>
 		</h1>
 
 		<!-- Sub-headline -->
-		<p class="text-surface-300 mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
+		<p class="text-surface-700-300 mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
 			Find riding groups, manage volunteer events, and keep emergency contact details ready when
 			they matter most.
 		</p>
@@ -125,18 +139,18 @@
 	<div class="grid gap-5 md:grid-cols-3">
 		{#each [{ icon: IconShield, color: 'primary', title: 'Safety Nonprofit', desc: 'Dedicated to protecting riders through education, advocacy, and community resources.' }, { icon: IconMegaphone, color: 'tertiary', title: 'Road Awareness', desc: 'We advocate for safe riding practices and share the road awareness across the cycling community.' }, { icon: IconBookOpen, color: 'success', title: 'Essential Resources', desc: 'Crash response guides, safety systems, group directories and emergency contacts—all in one place.' }] as pillar}
 			<div
-				class="card border-surface-700/50 bg-surface-900/60 group relative overflow-hidden border p-6 backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+				class="card border-surface-300-700/50 bg-surface-100-900/60 group relative overflow-hidden border p-6 backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-xl"
 			>
 				<!-- Glow accent top-left -->
 				<div
-					class="bg-primary-400/10 pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full blur-2xl transition-all group-hover:opacity-80"
+					class="bg-primary-600-400/10 pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full blur-2xl transition-all group-hover:opacity-80"
 				></div>
 				<div class="relative">
-					<div class="bg-surface-800/80 mb-4 inline-flex rounded-xl p-3">
-						<pillar.icon class="text-primary-400 h-6 w-6" />
+					<div class="bg-surface-200-800/80 mb-4 inline-flex rounded-xl p-3">
+						<pillar.icon class="text-primary-600-400 h-6 w-6" />
 					</div>
-					<h3 class="text-primary-50 mb-2 !text-left text-lg font-bold">{pillar.title}</h3>
-					<p class="text-surface-300 !mb-0 text-sm leading-relaxed">{pillar.desc}</p>
+					<h3 class="text-primary-950-50 mb-2 !text-left text-lg font-bold">{pillar.title}</h3>
+					<p class="text-surface-700-300 !mb-0 text-sm leading-relaxed">{pillar.desc}</p>
 				</div>
 			</div>
 		{/each}
@@ -162,47 +176,53 @@
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 		<a
 			href="/groups"
-			class="card border-surface-700/50 bg-surface-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
+			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
 		>
-			<div class="bg-surface-800 group-hover:bg-primary-400/20 rounded-xl p-3 transition-colors">
-				<IconUsers class="text-primary-400 h-6 w-6" />
+			<div
+				class="bg-surface-200-800 group-hover:bg-primary-600-400/20 rounded-xl p-3 transition-colors"
+			>
+				<IconUsers class="text-primary-600-400 h-6 w-6" />
 			</div>
 			<div>
-				<div class="text-primary-50 font-semibold">Explore Groups</div>
-				<p class="text-surface-400 !mb-0 text-sm">Find local clubs, teams, and orgs</p>
+				<div class="text-primary-950-50 font-semibold">Explore Groups</div>
+				<p class="text-surface-600-400 !mb-0 text-sm">Find local clubs, teams, and orgs</p>
 			</div>
 			<IconArrowRight
-				class="text-surface-600 group-hover:text-primary-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
+				class="text-surface-400-600 group-hover:text-primary-600-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
 			/>
 		</a>
 		<a
 			href="/volunteer"
-			class="card border-surface-700/50 bg-surface-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
+			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
 		>
-			<div class="bg-surface-800 group-hover:bg-primary-400/20 rounded-xl p-3 transition-colors">
-				<IconHandHeart class="text-primary-400 h-6 w-6" />
+			<div
+				class="bg-surface-200-800 group-hover:bg-primary-600-400/20 rounded-xl p-3 transition-colors"
+			>
+				<IconHandHeart class="text-primary-600-400 h-6 w-6" />
 			</div>
 			<div>
-				<div class="text-primary-50 font-semibold">Volunteer</div>
-				<p class="text-surface-400 !mb-0 text-sm">Sign up for shifts and events</p>
+				<div class="text-primary-950-50 font-semibold">Volunteer</div>
+				<p class="text-surface-600-400 !mb-0 text-sm">Sign up for shifts and events</p>
 			</div>
 			<IconArrowRight
-				class="text-surface-600 group-hover:text-primary-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
+				class="text-surface-400-600 group-hover:text-primary-600-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
 			/>
 		</a>
 		<a
 			href="/roadid"
-			class="card border-surface-700/50 bg-surface-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
+			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
 		>
-			<div class="bg-surface-800 group-hover:bg-primary-400/20 rounded-xl p-3 transition-colors">
-				<IconIdCard class="text-primary-400 h-6 w-6" />
+			<div
+				class="bg-surface-200-800 group-hover:bg-primary-600-400/20 rounded-xl p-3 transition-colors"
+			>
+				<IconIdCard class="text-primary-600-400 h-6 w-6" />
 			</div>
 			<div>
-				<div class="text-primary-50 font-semibold">In Case</div>
-				<p class="text-surface-400 !mb-0 text-sm">Emergency profile & contacts</p>
+				<div class="text-primary-950-50 font-semibold">In Case</div>
+				<p class="text-surface-600-400 !mb-0 text-sm">Emergency profile & contacts</p>
 			</div>
 			<IconArrowRight
-				class="text-surface-600 group-hover:text-primary-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
+				class="text-surface-400-600 group-hover:text-primary-600-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
 			/>
 		</a>
 	</div>
@@ -217,7 +237,7 @@
 			<h2 class="!text-left text-2xl font-bold">Featured Groups</h2>
 			<a
 				href="/groups"
-				class="anchor text-primary-400 hover:text-primary-300 flex items-center gap-1 text-sm font-medium"
+				class="anchor text-primary-600-400 hover:text-primary-700-300 flex items-center gap-1 text-sm font-medium"
 			>
 				View all <IconArrowRight class="h-3.5 w-3.5" />
 			</a>
@@ -226,7 +246,7 @@
 			{#each data.highlights as g}
 				<a
 					href={`/groups/${g.slug}`}
-					class="card border-surface-700/50 bg-surface-900/80 group block overflow-hidden border backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-2xl"
+					class="card border-surface-300-700/50 bg-surface-100-900/80 group block overflow-hidden border backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-2xl"
 				>
 					<!-- Cover photo -->
 					<div
@@ -240,7 +260,7 @@
 						/>
 						<!-- Gradient overlay -->
 						<div
-							class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
+							class="from-surface-50-950/80 via-surface-50-950/20 absolute inset-0 bg-gradient-to-t to-transparent"
 						></div>
 
 						<!-- Info overlay at bottom -->
@@ -249,18 +269,20 @@
 								src={g.logo_url}
 								alt="{g.name} logo"
 								loading="lazy"
-								class="h-14 w-14 shrink-0 rounded-xl border-2 border-white/20 object-cover shadow-lg sm:h-16 sm:w-16"
+								class="border-surface-950-50/20 h-14 w-14 shrink-0 rounded-xl border-2 object-cover shadow-lg sm:h-16 sm:w-16"
 							/>
 							<div class="min-w-0 flex-1">
-								<h3 class="truncate !text-left text-lg font-bold text-white drop-shadow">
+								<h3 class="text-surface-950-50 truncate !text-left text-lg font-bold drop-shadow">
 									{g.name}
 								</h3>
-								<p class="!m-0 text-xs text-white/75">
+								<p class="text-surface-800-200/75 !m-0 text-xs">
 									{#if g.city}{g.city},
 									{/if}{g.state_region} · {g.country}
 								</p>
 								{#if g.tagline}
-									<p class="!m-0 mt-0.5 line-clamp-1 hidden text-sm text-white/65 md:block">
+									<p
+										class="text-surface-700-300/65 !m-0 mt-0.5 line-clamp-1 hidden text-sm md:block"
+									>
 										{g.tagline}
 									</p>
 								{/if}
@@ -281,10 +303,10 @@
 	<div class="mb-8 flex items-center gap-4">
 		<div class="to-surface-700/50 h-px flex-1 bg-gradient-to-r from-transparent"></div>
 		<div class="flex items-center gap-3">
-			<div class="bg-primary-400/15 rounded-full p-2">
-				<IconShield class="text-primary-400 h-5 w-5" />
+			<div class="bg-primary-600-400/15 rounded-full p-2">
+				<IconShield class="text-primary-600-400 h-5 w-5" />
 			</div>
-			<h2 class="text-primary-300 !text-center text-xl font-bold tracking-widest uppercase">
+			<h2 class="text-primary-700-300 !text-center text-xl font-bold tracking-widest uppercase">
 				Safety Resources
 			</h2>
 		</div>
@@ -293,11 +315,11 @@
 
 	<div class="grid gap-6 lg:grid-cols-2">
 		<!-- Crash Response card -->
-		<div class="card border-surface-700/50 bg-surface-900/60 border p-6 backdrop-blur-sm">
+		<div class="card border-surface-300-700/50 bg-surface-100-900/60 border p-6 backdrop-blur-sm">
 			<CrashResponse />
 		</div>
 		<!-- ALERT card -->
-		<div class="card border-surface-700/50 bg-surface-900/60 border p-6 backdrop-blur-sm">
+		<div class="card border-surface-300-700/50 bg-surface-100-900/60 border p-6 backdrop-blur-sm">
 			<AlertSystem />
 		</div>
 	</div>

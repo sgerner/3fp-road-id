@@ -464,7 +464,7 @@
 			popup.className = 'space-y-1 text-sm';
 			const link = document.createElement('a');
 			link.href = `/volunteer/${e.slug}`;
-			link.className = 'text-secondary-400 font-semibold hover:underline';
+			link.className = 'text-secondary-600-400 font-semibold hover:underline';
 			link.textContent = e.title || 'Volunteer event';
 			popup.appendChild(link);
 			const t = document.createElement('div');
@@ -525,12 +525,12 @@
 			{/if}
 		</div>
 		{#if description}
-			<p class="text-surface-400 text-center">{description}</p>
+			<p class="text-surface-600-400 text-center">{description}</p>
 		{/if}
 	</header>
 
 	{#if showManagedEventsSection && currentUser?.id && managedEvents.length > 0}
-		<div class="border-surface-700 bg-surface-900/70 rounded-2xl border p-4">
+		<div class="border-surface-300-700 bg-surface-100-900/70 rounded-2xl border p-4">
 			<div class="flex items-center justify-between gap-3">
 				<h2 class="text-lg font-semibold">Your hosted events</h2>
 				{#if showCreateButton}
@@ -541,11 +541,11 @@
 				{/if}
 			</div>
 			{#if managedEventsLoading}
-				<p class="text-surface-400 mt-2 text-sm">Loading your events…</p>
+				<p class="text-surface-600-400 mt-2 text-sm">Loading your events…</p>
 			{:else if managedEventsError}
-				<p class="text-error-300 mt-2 text-sm">{managedEventsError}</p>
+				<p class="text-error-700-300 mt-2 text-sm">{managedEventsError}</p>
 			{:else if managedEvents.length === 0}
-				<p class="text-surface-400 mt-2 text-sm">
+				<p class="text-surface-600-400 mt-2 text-sm">
 					You don't have any hosted events yet. When you create or manage events, they'll show up
 					here.
 				</p>
@@ -553,16 +553,16 @@
 				<ul class="mt-3 space-y-2">
 					{#each managedEvents as managedEvent (managedEvent.id)}
 						<li
-							class="border-surface-700 bg-surface-950/60 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-2"
+							class="border-surface-300-700 bg-surface-50-950/60 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-2"
 						>
 							<div class="space-y-1">
 								<a
-									class="text-secondary-300 font-semibold hover:underline"
+									class="text-secondary-700-300 font-semibold hover:underline"
 									href={`/volunteer/${managedEvent.slug}`}
 								>
 									{managedEvent.title || 'Untitled event'}
 								</a>
-								<div class="text-surface-400 text-xs">{eventTimeRange(managedEvent)}</div>
+								<div class="text-surface-600-400 text-xs">{eventTimeRange(managedEvent)}</div>
 							</div>
 							<div class="flex flex-wrap gap-2">
 								<a
@@ -593,32 +593,34 @@
 		</div>
 	{/if}
 
-	<div class="bg-surface-900/60 border-surface-400/20 space-y-5 rounded-2xl border p-5 shadow-xl">
+	<div
+		class="bg-surface-100-900/60 border-surface-600-400/20 space-y-5 rounded-2xl border p-5 shadow-xl"
+	>
 		<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
 			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Search</span>
+				<span class="text-surface-900-100 font-semibold">Search</span>
 				<input
 					type="search"
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
+					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					placeholder="Find by title, host, or description"
 					bind:value={searchInput}
 				/>
 			</label>
 
 			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Location</span>
+				<span class="text-surface-900-100 font-semibold">Location</span>
 				<input
 					type="search"
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
+					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					placeholder="City and/or state"
 					bind:value={locationQ}
 				/>
 			</label>
 
 			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Host group</span>
+				<span class="text-surface-900-100 font-semibold">Host group</span>
 				<select
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
+					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					bind:value={hostGroupId}
 				>
 					<option value="">All groups</option>
@@ -629,9 +631,9 @@
 			</label>
 
 			<label class="space-y-1 text-sm">
-				<span class="text-surface-100 font-semibold">Event type</span>
+				<span class="text-surface-900-100 font-semibold">Event type</span>
 				<select
-					class="bg-surface-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
+					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
 					bind:value={eventType}
 				>
 					<option value="">All types</option>
@@ -644,29 +646,29 @@
 
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<div
-				class="bg-surface-800/70 border-surface-500/40 mx-auto flex shrink-0 items-center overflow-hidden rounded-lg border"
+				class="bg-surface-200-800/70 border-surface-500/40 mx-auto flex shrink-0 items-center overflow-hidden rounded-lg border"
 			>
 				<button
-					class={`px-3 py-1.5 text-sm ${view === 'list' ? 'bg-secondary-500/20 text-secondary-200' : 'text-surface-300'}`}
+					class={`px-3 py-1.5 text-sm ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
 					onclick={() => (view = 'list')}
 				>
 					List
 				</button>
 				<button
-					class={`px-3 py-1.5 text-sm ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-200' : 'text-surface-300'}`}
+					class={`px-3 py-1.5 text-sm ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
 					onclick={() => (view = 'calendar')}
 				>
 					Calendar
 				</button>
 				<button
-					class={`px-3 py-1.5 text-sm ${view === 'map' ? 'bg-secondary-500/20 text-secondary-200' : 'text-surface-300'}`}
+					class={`px-3 py-1.5 text-sm ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
 					onclick={() => (view = 'map')}
 				>
 					Map
 				</button>
 			</div>
 			<div class="w-full space-y-0.5">
-				<div class="text-surface-100 text-center text-sm">
+				<div class="text-surface-900-100 text-center text-sm">
 					{totalUpcoming} upcoming event{totalUpcoming === 1 ? '' : 's'}
 				</div>
 			</div>
@@ -675,9 +677,11 @@
 		{#if view === 'list'}
 			<div class="space-y-4" transition:slide={{ duration: 200 }}>
 				{#if filteredEvents.length === 0}
-					<div class="border-surface-600/50 bg-surface-950/60 rounded-xl border p-6 text-center">
+					<div
+						class="border-surface-400-600/50 bg-surface-50-950/60 rounded-xl border p-6 text-center"
+					>
 						<h3 class="text-lg font-semibold">No volunteer events found</h3>
-						<p class="text-surface-400 text-sm">
+						<p class="text-surface-600-400 text-sm">
 							Try adjusting your filters or check back soon for new opportunities.
 						</p>
 					</div>
@@ -685,27 +689,29 @@
 					<ul class="space-y-3">
 						{#each filteredEvents as event (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
-							<li class="border-surface-600/50 bg-surface-950/60 rounded-xl border p-4">
+							<li class="border-surface-400-600/50 bg-surface-50-950/60 rounded-xl border p-4">
 								<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 									<div class="space-y-2">
-										<div class="text-secondary-400 text-sm font-semibold tracking-wide uppercase">
+										<div
+											class="text-secondary-600-400 text-sm font-semibold tracking-wide uppercase"
+										>
 											{eventTypeLabel(event)}
 										</div>
 										<a
-											class="text-secondary-200 text-xl font-bold hover:underline"
+											class="text-secondary-800-200 text-xl font-bold hover:underline"
 											href={`/volunteer/${event.slug}`}
 										>
 											{event.title}
 										</a>
-										<div class="text-surface-400 text-sm">{eventTimeRange(event)}</div>
+										<div class="text-surface-600-400 text-sm">{eventTimeRange(event)}</div>
 										{#if event.summary}
-											<p class="text-surface-300 text-sm">{event.summary}</p>
+											<p class="text-surface-700-300 text-sm">{event.summary}</p>
 										{/if}
-										<div class="text-surface-400 text-sm">
+										<div class="text-surface-600-400 text-sm">
 											<span class="font-semibold">Hosted by</span>
 											{#if hostGroup && hostGroup.slug}
 												<a
-													class="text-secondary-200 ml-1 hover:underline"
+													class="text-secondary-800-200 ml-1 hover:underline"
 													href={`/volunteer/groups/${hostGroup.slug}`}
 												>
 													{hostGroup.name}
@@ -716,7 +722,7 @@
 												<span class="ml-1">{event._hostOrgName}</span>
 											{/if}
 										</div>
-										<div class="text-surface-300 text-sm">
+										<div class="text-surface-700-300 text-sm">
 											<span class="font-semibold">Location:</span>
 											<span class="ml-1">{eventLocation(event) || 'Details coming soon'}</span>
 										</div>
@@ -727,7 +733,7 @@
 										</a>
 										{#if opportunities.length}
 											<a
-												class="text-secondary-300 text-sm hover:underline"
+												class="text-secondary-700-300 text-sm hover:underline"
 												href={`/volunteer/${event.slug}#opportunities`}
 											>
 												{opportunities.length} role{opportunities.length === 1 ? '' : 's'} available
@@ -746,19 +752,19 @@
 					<h3 class="text-xl font-semibold">{calendarHeaderText}</h3>
 					<div class="flex gap-2">
 						<button
-							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
-							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
 							onclick={() => (calendarReference = earliestEventMonth())}
 						>
 							Today
 						</button>
 						<button
-							class="bg-surface-800/80 hover:bg-surface-700 text-surface-100 rounded-lg px-3 py-1.5 text-sm"
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -769,7 +775,7 @@
 				<div class="grid gap-2 sm:hidden">
 					{#each mobileWeekDays as day}
 						<div
-							class={`bg-surface-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-100' : 'text-surface-500'}`}
+							class={`bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 						>
 							<div class="flex items-center justify-between">
 								<div class="text-xs font-semibold">
@@ -789,10 +795,10 @@
 								{:else}
 									{#each day.events as event}
 										<a
-											class="bg-secondary-500/10 text-secondary-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
+											class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
 											href={`/volunteer/${event.slug}`}
 										>
-											<span class="text-secondary-400 font-mono text-xs"
+											<span class="text-secondary-600-400 font-mono text-xs"
 												>{tf.format(parseEventDate(event.event_start))} -</span
 											>
 											{event.title}
@@ -806,7 +812,7 @@
 
 				<div class="hidden sm:block">
 					<div
-						class="text-surface-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
+						class="text-surface-700-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
 					>
 						<div>Sun</div>
 						<div>Mon</div>
@@ -820,7 +826,7 @@
 						{#each calendarMatrix as week}
 							{#each week as day}
 								<div
-									class={`bg-surface-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left ${day.inMonth ? 'text-surface-100' : 'text-surface-500'}`}
+									class={`bg-surface-50-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 								>
 									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
 									<div class="mt-1 space-y-1 overflow-y-auto">
@@ -829,17 +835,17 @@
 										{:else}
 											{#each day.events.slice(0, 3) as event}
 												<a
-													class="bg-secondary-500/10 text-secondary-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
+													class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
 													href={`/volunteer/${event.slug}`}
 												>
-													<span class="text-secondary-400 font-mono text-xs"
+													<span class="text-secondary-600-400 font-mono text-xs"
 														>{tf.format(parseEventDate(event.event_start))} -</span
 													>
 													{event.title}
 												</a>
 											{/each}
 											{#if day.events.length > 3}
-												<div class="text-secondary-300 text-[10px] font-medium">
+												<div class="text-secondary-700-300 text-[10px] font-medium">
 													+{day.events.length - 3} more
 												</div>
 											{/if}
@@ -854,10 +860,10 @@
 		{:else if view === 'map'}
 			<div
 				transition:slide
-				class="bg-surface-900/60 border-surface-400/20 rounded-2xl border shadow-xl"
+				class="bg-surface-100-900/60 border-surface-600-400/20 rounded-2xl border shadow-xl"
 			>
 				<div bind:this={mapContainer} class="h-[480px] w-full rounded-2xl"></div>
-				<div class="text-surface-300 border-surface-500/30 border-t px-6 py-3 text-sm">
+				<div class="text-surface-700-300 border-surface-500/30 border-t px-6 py-3 text-sm">
 					Zoom and click markers to preview event details. Some opportunities without mapped
 					coordinates are hidden from the map view.
 				</div>

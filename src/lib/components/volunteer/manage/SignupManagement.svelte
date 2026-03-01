@@ -606,18 +606,18 @@
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
-				return 'bg-success-500/20 text-success-200';
+				return 'bg-success-500/20 text-success-800-200';
 			case 'pending':
-				return 'bg-warning-500/20 text-warning-200';
+				return 'bg-warning-500/20 text-warning-800-200';
 			case 'waitlisted':
-				return 'bg-surface-500/20 text-surface-100';
+				return 'bg-surface-500/20 text-surface-900-100';
 			case 'declined':
 			case 'cancelled':
-				return 'bg-warning-500/20 text-warning-200';
+				return 'bg-warning-500/20 text-warning-800-200';
 			case 'no_show':
-				return 'bg-error-500/20 text-error-200';
+				return 'bg-error-500/20 text-error-800-200';
 			default:
-				return 'bg-surface-500/20 text-surface-100';
+				return 'bg-surface-500/20 text-surface-900-100';
 		}
 	}
 
@@ -626,9 +626,9 @@
 			case 'approved':
 				return 'preset-tonal-success';
 			case 'waitlisted':
-				return 'bg-secondary-800/10';
+				return 'bg-secondary-200-800/10';
 			case 'declined':
-				return 'bg-error-800/10';
+				return 'bg-error-200-800/10';
 			case 'cancelled':
 				return 'preset-tonal-error';
 			default:
@@ -642,12 +642,12 @@
 </script>
 
 <section
-	class="border-surface-700 bg-surface-900/70 overflow-clip rounded-2xl border p-6 shadow-xl shadow-black/30"
+	class="border-surface-300-700 bg-surface-100-900/70 overflow-clip rounded-2xl border p-6 shadow-xl"
 >
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div class="space-y-1">
-			<h2 class="!text-left text-xl font-semibold text-white">Signup Management</h2>
-			<p class="text-surface-300 text-sm">
+			<h2 class="text-surface-950-50 !text-left text-xl font-semibold">Signup Management</h2>
+			<p class="text-surface-700-300 text-sm">
 				Filter volunteers by status and shift, manage approvals, and confirm arrivals.
 			</p>
 		</div>
@@ -656,13 +656,15 @@
 	<div class="mt-4 space-y-4">
 		{#if emailQueue.length || emailQueueError}
 			<div
-				class="border-surface-700/70 bg-surface-950/60 text-surface-200 rounded-xl border px-4 py-4 text-sm"
+				class="border-surface-300-700/70 bg-surface-50-950/60 text-surface-800-200 rounded-xl border px-4 py-4 text-sm"
 				transition:slide
 			>
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
-						<h3 class="text-base font-semibold text-white">Queued emails</h3>
-						<p class="text-surface-300 text-xs">Review and send shift updates when you're ready.</p>
+						<h3 class="text-surface-950-50 text-base font-semibold">Queued emails</h3>
+						<p class="text-surface-700-300 text-xs">
+							Review and send shift updates when you're ready.
+						</p>
 					</div>
 					<div class="flex flex-wrap items-center gap-2">
 						<button
@@ -689,7 +691,7 @@
 				</div>
 				{#if emailQueueError}
 					<div
-						class="bg-error-500/10 border-error-500/40 text-error-200 mt-3 rounded-lg border px-3 py-2 text-sm"
+						class="bg-error-500/10 border-error-500/40 text-error-800-200 mt-3 rounded-lg border px-3 py-2 text-sm"
 					>
 						{emailQueueError}
 					</div>
@@ -697,32 +699,34 @@
 				{#if emailQueue.length}
 					<ul class="mt-3 space-y-2">
 						{#each emailQueue as queueItem (queueItem.id)}
-							<li class="border-surface-800/70 bg-surface-900/50 rounded-lg border px-3 py-2">
+							<li
+								class="border-surface-200-800/70 bg-surface-100-900/50 rounded-lg border px-3 py-2"
+							>
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div>
-										<div class="font-semibold text-white">
+										<div class="text-surface-950-50 font-semibold">
 											{queueItem.volunteerName}
 										</div>
-										<div class="text-surface-300 text-xs">
+										<div class="text-surface-700-300 text-xs">
 											{queueItem.volunteerEmail}
 										</div>
 									</div>
-									<div class="text-surface-300 text-xs md:max-w-xs md:text-right">
-										<div class="text-surface-100 font-medium">
+									<div class="text-surface-700-300 text-xs md:max-w-xs md:text-right">
+										<div class="text-surface-900-100 font-medium">
 											{queueItem.opportunityTitle || 'Volunteer shift'}
 										</div>
 										{#if queueItem.shiftLabel}
-											<div class="text-surface-200">
+											<div class="text-surface-800-200">
 												{queueItem.shiftLabel}
 											</div>
 										{/if}
 									</div>
-									<div class="text-surface-300 text-xs md:text-right">
-										<span class="font-semibold text-white capitalize">
+									<div class="text-surface-700-300 text-xs md:text-right">
+										<span class="text-surface-950-50 font-semibold capitalize">
 											{formatStatusLabel(queueItem.status)}
 										</span>
 										{#if queueItem.previousStatus}
-											<span class="text-surface-400 ml-1">
+											<span class="text-surface-600-400 ml-1">
 												from {formatStatusLabel(queueItem.previousStatus)}
 											</span>
 										{/if}
@@ -750,15 +754,15 @@
 						{/each}
 					</ul>
 				{:else if !emailQueueError}
-					<div class="text-surface-300 mt-3 text-sm">No emails are waiting to be sent.</div>
+					<div class="text-surface-700-300 mt-3 text-sm">No emails are waiting to be sent.</div>
 				{/if}
 			</div>
 		{/if}
 		<div class="flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
-			<label class="text-surface-200 flex flex-col text-sm md:w-34">
+			<label class="text-surface-800-200 flex flex-col text-sm md:w-34">
 				<span class="mb-1 font-medium">Status</span>
 				<select
-					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
 					value={selectedStatus}
 					onchange={(event) => onStatusChange(event.currentTarget.value)}
 				>
@@ -767,10 +771,10 @@
 					{/each}
 				</select>
 			</label>
-			<label class="text-surface-200 flex flex-col text-sm">
+			<label class="text-surface-800-200 flex flex-col text-sm">
 				<span class="mb-1 font-medium">Shift Activity</span>
 				<select
-					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2 pr-6"
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2 pr-6"
 					value={selectedActivity}
 					onchange={(event) => onActivityChange(event.currentTarget.value)}
 				>
@@ -780,10 +784,10 @@
 					{/each}
 				</select>
 			</label>
-			<label class="text-surface-200 flex flex-col text-sm">
+			<label class="text-surface-800-200 flex flex-col text-sm">
 				<span class="mb-1 font-medium">Shift Time</span>
 				<select
-					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
 					value={selectedShift}
 					onchange={(event) => onShiftChange(event.currentTarget.value)}
 					disabled={selectedActivity === 'all'}
@@ -794,11 +798,11 @@
 					{/each}
 				</select>
 			</label>
-			<label class="text-surface-200 flex flex-1 flex-col text-sm">
+			<label class="text-surface-800-200 flex flex-1 flex-col text-sm">
 				<span class="mb-1 font-medium">Search</span>
 				<input
 					type="search"
-					class="border-surface-600 bg-surface-950/60 rounded-lg border px-3 py-2"
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
 					value={searchTerm}
 					oninput={(event) => onSearch(event.currentTarget.value)}
 					placeholder="Name, email, phone"
@@ -810,7 +814,7 @@
 	<div class="mt-6">
 		<!-- Desktop header -->
 		<div
-			class="text-surface-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
+			class="text-surface-600-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
 		>
 			<div class="col-span-1">Volunteer</div>
 			<div class="col-span-1">Signed up</div>
@@ -821,7 +825,7 @@
 		<!-- Volunteer list -->
 		<div class="space-y-6 md:space-y-0">
 			{#if !groupedShiftBlocks.length}
-				<div class="text-surface-400 px-3 py-6 text-center" transition:slide>
+				<div class="text-surface-600-400 px-3 py-6 text-center" transition:slide>
 					No volunteers match the selected filters.
 				</div>
 			{:else}
@@ -829,26 +833,28 @@
 					{@const isFirstGroup = groupIndex === 0}
 					<div
 						class={`space-y-3 md:space-y-0${
-							isFirstGroup ? '' : ' md:border-surface-700/60 md:border-t md:pt-4'
+							isFirstGroup ? '' : ' md:border-surface-300-700/60 md:border-t md:pt-4'
 						}`}
 					>
 						<div
 							class="preset-tonal-tertiary flex flex-wrap items-center justify-between gap-3 p-2 text-sm"
 						>
-							<div class="text-surface-100">{group.activityLabel}</div>
+							<div class="text-surface-900-100">{group.activityLabel}</div>
 							<div class="font-bold tracking-wide uppercase md:text-sm md:normal-case">
 								{group.timeLabel}
 							</div>
-							<div class="text-surface-300 flex flex-wrap gap-4 text-xs tracking-wide uppercase">
+							<div
+								class="text-surface-700-300 flex flex-wrap gap-4 text-xs tracking-wide uppercase"
+							>
 								<span>
 									Approved
-									<span class="font-semibold text-white">
+									<span class="text-surface-950-50 font-semibold">
 										{group.approvedCount}
 									</span>
 								</span>
 								<span>
 									Waitlisted
-									<span class="font-semibold text-white">
+									<span class="text-surface-950-50 font-semibold">
 										{group.waitlistedCount}
 									</span>
 								</span>
@@ -857,16 +863,16 @@
 						{#each group.items as item (item.key)}
 							<div
 								transition:slide
-								class={`card divide-surface-700/60 border-surface-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
+								class={`card divide-surface-300-700/60 border-surface-800-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
                                                                 ${cardStatusClass(item.assignment.status)}`}
 							>
 								<!-- Volunteer -->
 								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
 										Volunteer
 									</div>
 									<div class="flex flex-wrap items-center gap-2">
-										<span class="font-semibold text-white">{item.volunteer.name}</span>
+										<span class="text-surface-950-50 font-semibold">{item.volunteer.name}</span>
 										{#if item.hasMultipleShifts}
 											<span
 												class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
@@ -879,11 +885,11 @@
 
 								<!-- Signup time -->
 								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
 										Signed up
 									</div>
 									{#if item.signup?.relative && item.signup.relative !== '—'}
-										<div class="text-surface-200 text-sm" title={item.signup.createdAt ?? ''}>
+										<div class="text-surface-800-200 text-sm" title={item.signup.createdAt ?? ''}>
 											{item.signup.relative}
 										</div>
 									{:else}
@@ -891,7 +897,7 @@
 									{/if}
 									{#if item.confirmation}
 										<div
-											class="text-success-300 mt-2 flex items-center gap-1 text-xs font-semibold"
+											class="text-success-700-300 mt-2 flex items-center gap-1 text-xs font-semibold"
 											title={item.confirmation.exact
 												? `Confirmed ${item.confirmation.exact}`
 												: 'Confirmed by volunteer'}
@@ -900,7 +906,7 @@
 											<span>
 												Confirmed
 												{#if item.confirmation.relative}
-													<span class="text-success-200/80 ml-1 font-normal">
+													<span class="text-success-800-200/80 ml-1 font-normal">
 														({item.confirmation.relative})
 													</span>
 												{/if}
@@ -911,16 +917,18 @@
 
 								<!-- Shift -->
 								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
 										Shift
 									</div>
-									<div class="font-medium text-white">{item.shiftDetails.opportunityTitle}</div>
-									<div class="text-surface-300 text-xs">{item.shiftDetails.optionLabel}</div>
+									<div class="text-surface-950-50 font-medium">
+										{item.shiftDetails.opportunityTitle}
+									</div>
+									<div class="text-surface-700-300 text-xs">{item.shiftDetails.optionLabel}</div>
 								</div>
 
 								<!-- Status -->
 								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
 										Status
 									</div>
 									<span
@@ -934,7 +942,7 @@
 
 								<!-- Actions -->
 								<div class="md:col-span-1 md:px-3 md:py-3">
-									<div class="text-surface-400 mb-1 text-xs font-bold uppercase md:hidden">
+									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
 										Actions
 									</div>
 									{#if item.assignment.id}
@@ -983,20 +991,20 @@
 
 	{#if addVolunteer}
 		<div transition:slide>
-			<p class="text-surface-300 mt-1 text-sm">
+			<p class="text-surface-700-300 mt-1 text-sm">
 				Look up a volunteer by email or create a new account instantly, then choose the shift and
 				status.
 			</p>
 
 			<form class="mt-4 grid gap-4 md:grid-cols-2" onsubmit={submitAddVolunteer}>
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-email">
+					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-email">
 						Email
 					</label>
 					<input
 						id="add-email"
 						type="email"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						placeholder="volunteer@example.com"
 						value={addForm.email}
 						oninput={(event) => handleEmailInput(event.currentTarget.value)}
@@ -1006,35 +1014,39 @@
 					{#if emailSuggestions.length > 0 && addForm.email.trim() && (!selectedProfile || selectedProfile.email.toLowerCase() !== addForm.email
 									.trim()
 									.toLowerCase())}
-						<div class="bg-surface-900/70 border-surface-700 mt-2 space-y-1 rounded-lg border p-2">
-							<p class="text-surface-300 text-xs tracking-wide uppercase">Matching volunteers</p>
+						<div
+							class="bg-surface-100-900/70 border-surface-300-700 mt-2 space-y-1 rounded-lg border p-2"
+						>
+							<p class="text-surface-700-300 text-xs tracking-wide uppercase">
+								Matching volunteers
+							</p>
 							{#each emailSuggestions as profile (profile.email)}
 								<button
 									type="button"
-									class="hover:bg-primary-500/10 text-surface-100 flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm"
+									class="hover:bg-primary-500/10 text-surface-900-100 flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm"
 									onclick={() => applyProfileToForm(profile)}
 								>
 									<span class="font-medium">{profile.name || 'Unnamed volunteer'}</span>
-									<span class="text-surface-300 text-xs">{profile.email}</span>
+									<span class="text-surface-700-300 text-xs">{profile.email}</span>
 								</button>
 							{/each}
 						</div>
 					{/if}
 
 					{#if profileLookupLoading}
-						<p class="text-surface-300 mt-2 text-xs">Looking up volunteer profile…</p>
+						<p class="text-surface-700-300 mt-2 text-xs">Looking up volunteer profile…</p>
 					{:else if profileLookupError}
-						<p class="text-error-300 mt-2 text-xs">{profileLookupError}</p>
+						<p class="text-error-700-300 mt-2 text-xs">{profileLookupError}</p>
 					{/if}
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-status"
+					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-status"
 						>Status</label
 					>
 					<select
 						id="add-status"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						value={addForm.status}
 						onchange={(event) => (addForm = { ...addForm, status: event.currentTarget.value })}
 					>
@@ -1045,13 +1057,13 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-name"
+					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-name"
 						>Full name</label
 					>
 					<input
 						id="add-name"
 						type="text"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						placeholder="Alex Volunteer"
 						value={addForm.name}
 						oninput={(event) => (addForm = { ...addForm, name: event.currentTarget.value })}
@@ -1059,13 +1071,13 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-phone"
+					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-phone"
 						>Phone (optional)</label
 					>
 					<input
 						id="add-phone"
 						type="tel"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						placeholder="(555) 555-1234"
 						value={addForm.phone}
 						oninput={(event) => (addForm = { ...addForm, phone: event.currentTarget.value })}
@@ -1073,12 +1085,15 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-shift-activity">
+					<label
+						class="text-surface-800-200 mb-1 block text-sm font-medium"
+						for="add-shift-activity"
+					>
 						Shift Activity
 					</label>
 					<select
 						id="add-shift-activity"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						value={addForm.shiftActivityId}
 						onchange={(event) =>
 							(addForm = {
@@ -1101,12 +1116,12 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-shift-time">
+					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-shift-time">
 						Shift Time
 					</label>
 					<select
 						id="add-shift-time"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						value={addForm.shiftId}
 						onchange={(event) => (addForm = { ...addForm, shiftId: event.currentTarget.value })}
 						required
@@ -1125,13 +1140,14 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-emergency-name"
-						>Emergency contact name</label
+					<label
+						class="text-surface-800-200 mb-1 block text-sm font-medium"
+						for="add-emergency-name">Emergency contact name</label
 					>
 					<input
 						id="add-emergency-name"
 						type="text"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						placeholder="Emergency contact"
 						value={addForm.emergencyContactName}
 						oninput={(event) =>
@@ -1143,13 +1159,14 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-200 mb-1 block text-sm font-medium" for="add-emergency-phone"
-						>Emergency contact phone</label
+					<label
+						class="text-surface-800-200 mb-1 block text-sm font-medium"
+						for="add-emergency-phone">Emergency contact phone</label
 					>
 					<input
 						id="add-emergency-phone"
 						type="tel"
-						class="border-surface-600 bg-surface-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
 						placeholder="(555) 555-7890"
 						value={addForm.emergencyContactPhone}
 						oninput={(event) =>
@@ -1162,16 +1179,16 @@
 
 				{#if selectedProfile}
 					<div
-						class="bg-primary-500/5 border-primary-500/40 rounded-lg border px-3 py-2 text-sm text-white md:col-span-2"
+						class="bg-primary-500/5 border-primary-500/40 text-surface-950-50 rounded-lg border px-3 py-2 text-sm md:col-span-2"
 					>
 						<div class="flex flex-wrap items-center gap-3">
 							<span class="font-semibold">Existing profile selected</span>
-							<span class="text-surface-200 flex items-center gap-1 text-xs">
+							<span class="text-surface-800-200 flex items-center gap-1 text-xs">
 								<IconMail class="size-3" />
 								{selectedProfile.email}
 							</span>
 							{#if selectedProfile.phone}
-								<span class="text-surface-200 flex items-center gap-1 text-xs">
+								<span class="text-surface-800-200 flex items-center gap-1 text-xs">
 									<IconPhone class="size-3" />
 									{selectedProfile.phone}
 								</span>
@@ -1180,7 +1197,7 @@
 					</div>
 				{:else if addForm.email.trim() && !profileLookupLoading && !profileLookupError}
 					<div
-						class="bg-secondary-500/5 border-secondary-500/30 text-surface-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-secondary-500/5 border-secondary-500/30 text-surface-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
 					>
 						No existing profile found for this email. A new volunteer account will be created when
 						you submit.
@@ -1189,14 +1206,14 @@
 
 				{#if addError}
 					<div
-						class="bg-error-500/10 border-error-500/40 text-error-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-error-500/10 border-error-500/40 text-error-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
 					>
 						{addError}
 					</div>
 				{/if}
 				{#if addSuccess}
 					<div
-						class="bg-success-500/10 border-success-500/40 text-success-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-success-500/10 border-success-500/40 text-success-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
 					>
 						{addSuccess}
 					</div>

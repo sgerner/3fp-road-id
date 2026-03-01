@@ -20,7 +20,7 @@
 				type={field.type}
 				required={field.required}
 				autocomplete={field.autocomplete}
-				class="input bg-surface-950/40"
+				class="input bg-surface-50-950/40"
 				value={values[field.key] ?? ''}
 				{disabled}
 				oninput={(event) => onChange(field.key, event.currentTarget.value)}

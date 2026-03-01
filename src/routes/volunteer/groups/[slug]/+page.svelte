@@ -60,7 +60,7 @@
 				title={contact.key}
 				target={contact.key === 'email' || contact.key === 'phone' ? '_self' : '_blank'}
 				rel={contact.key === 'email' || contact.key === 'phone' ? undefined : 'noopener noreferrer'}
-				class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
+				class="text-surface-900-100/90 hover:bg-surface-950-50/10 hover:text-surface-950-50 rounded-md p-2"
 			>
 				<ContactIcon class="h-5 w-5" className="h-5 w-5" />
 			</a>

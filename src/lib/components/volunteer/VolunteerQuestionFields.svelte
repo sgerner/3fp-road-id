@@ -74,17 +74,17 @@
 	{#each questions as question (question.id)}
 		{@const questionInputId = `question-input-${question.id}`}
 		<div class="space-y-2">
-			<label class="text-surface-200 block text-sm font-semibold" for={questionInputId}>
+			<label class="text-surface-800-200 block text-sm font-semibold" for={questionInputId}>
 				<span class="flex items-center gap-2">
 					{question.label}
 					{#if question.is_required}
-						<span class="text-warning-300 text-xs uppercase">Required</span>
+						<span class="text-warning-700-300 text-xs uppercase">Required</span>
 					{/if}
 				</span>
 			</label>
 
 			{#if question.help_text}
-				<div class="text-surface-400 text-xs">
+				<div class="text-surface-600-400 text-xs">
 					{@html renderMarkdown(question.help_text)}
 				</div>
 			{/if}
@@ -92,14 +92,14 @@
 			{#if question.field_type === 'textarea'}
 				<textarea
 					id={questionInputId}
-					class="input bg-surface-950/40 min-h-[120px]"
+					class="input bg-surface-50-950/40 min-h-[120px]"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleTextChange(question, event)}
 				></textarea>
 			{:else if question.field_type === 'select'}
 				<select
 					id={questionInputId}
-					class="input bg-surface-950/40"
+					class="input bg-surface-50-950/40"
 					onchange={(event) => handleSelectChange(question, event)}
 					value={getValue(question.id) ?? ''}
 				>
@@ -111,7 +111,7 @@
 			{:else if question.field_type === 'multiselect'}
 				<div
 					id={questionInputId}
-					class="bg-surface-950/40 border-surface-500/30 space-y-2 rounded-xl border p-3"
+					class="bg-surface-50-950/40 border-surface-500/30 space-y-2 rounded-xl border p-3"
 				>
 					{#each optionsFor(question) as option (option)}
 						<label class="flex items-center gap-2 text-sm">
@@ -141,7 +141,7 @@
 				<input
 					id={questionInputId}
 					type="number"
-					class="input bg-surface-950/40"
+					class="input bg-surface-50-950/40"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleNumberChange(question, event)}
 				/>
@@ -149,14 +149,14 @@
 				<input
 					id={questionInputId}
 					type={inputType(question)}
-					class="input bg-surface-950/40"
+					class="input bg-surface-50-950/40"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleTextChange(question, event)}
 				/>
 			{/if}
 
 			{#if errors?.[question.id]}
-				<p class="text-error-200 text-xs">{errors[question.id]}</p>
+				<p class="text-error-800-200 text-xs">{errors[question.id]}</p>
 			{/if}
 		</div>
 	{/each}

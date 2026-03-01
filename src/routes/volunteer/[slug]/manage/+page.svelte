@@ -1751,7 +1751,7 @@
 
 	<div class="mx-auto flex max-w-fit flex-col gap-3">
 		<SegmentedControl
-			class="bg-tertiary-800/30 !flex-col !p-1 transition sm:!flex-row"
+			class="bg-tertiary-200-800/30 !flex-col !p-1 transition sm:!flex-row"
 			name="align"
 			value={activeSection}
 			onValueChange={(e) => setActiveSection(e.value)}

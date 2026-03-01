@@ -16,13 +16,13 @@
 			{#each selectedShifts as item (item.id)}
 				<li
 					transition:slide
-					class="bg-surface-900/60 flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+					class="bg-surface-100-900/60 flex items-center justify-between gap-3 rounded-xl px-3 py-2"
 				>
 					<div>
 						<p class="font-semibold">
 							{opportunity.title || 'Untitled role'}
 						</p>
-						<span class="text-surface-100">{item.label}</span>
+						<span class="text-surface-900-100">{item.label}</span>
 					</div>
 					<button
 						type="button"
@@ -38,10 +38,10 @@
 	</div>
 {:else if requiresSelection}
 	<p
-		class="border-warning-500/30 bg-warning-500/10 text-warning-100 rounded-2xl border px-3 py-2 text-xs"
+		class="border-warning-500/30 bg-warning-500/10 text-warning-900-100 rounded-2xl border px-3 py-2 text-xs"
 	>
 		{requireSelectionMessage}
 	</p>
 {:else}
-	<p class="text-surface-400 text-xs">{optionalSelectionMessage}</p>
+	<p class="text-surface-600-400 text-xs">{optionalSelectionMessage}</p>
 {/if}

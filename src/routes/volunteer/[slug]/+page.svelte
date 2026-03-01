@@ -563,28 +563,28 @@
 		draft: {
 			label: 'Draft',
 			className:
-				'chip preset-tonal-warning border border-warning-400/40 bg-warning-500/10 text-warning-50 uppercase tracking-wide text-[11px]'
+				'chip preset-tonal-warning border border-warning-600-400/40 bg-warning-500/10 text-warning-950-50 uppercase tracking-wide text-[11px]'
 		},
 		published: {
 			label: 'Published',
 			className:
-				'chip preset-tonal-success border border-success-500/40 bg-success-500/10 text-success-50 uppercase tracking-wide text-[11px]'
+				'chip preset-tonal-success border border-success-500/40 bg-success-500/10 text-success-950-50 uppercase tracking-wide text-[11px]'
 		},
 		cancelled: {
 			label: 'Cancelled',
 			className:
-				'chip preset-tonal-error border border-error-500/40 bg-error-500/10 text-error-100 uppercase tracking-wide text-[11px]'
+				'chip preset-tonal-error border border-error-500/40 bg-error-500/10 text-error-900-100 uppercase tracking-wide text-[11px]'
 		},
 		archived: {
 			label: 'Archived',
 			className:
-				'chip preset-tonal-surface border border-surface-400/40 bg-surface-700/40 text-surface-100 uppercase tracking-wide text-[11px]'
+				'chip preset-tonal-surface border border-surface-600-400/40 bg-surface-300-700/40 text-surface-900-100 uppercase tracking-wide text-[11px]'
 		}
 	};
 	const statusInfo = statusStyles[event.status] ?? {
 		label: event.status ? event.status.replace(/_/g, ' ') : 'Unknown',
 		className:
-			'chip preset-tonal-surface border border-surface-500/40 bg-surface-700/40 text-surface-100 uppercase tracking-wide text-[11px]'
+			'chip preset-tonal-surface border border-surface-500/40 bg-surface-300-700/40 text-surface-900-100 uppercase tracking-wide text-[11px]'
 	};
 
 	function typeLabel(value) {
@@ -1258,10 +1258,10 @@
 {#if draftRestricted}
 	<section class="mx-auto max-w-3xl space-y-6 px-4 py-16">
 		<div
-			class="border-error-500/40 bg-error-900/30 text-error-100 rounded-3xl border p-8 shadow-lg"
+			class="border-error-500/40 bg-error-100-900/30 text-error-900-100 rounded-3xl border p-8 shadow-lg"
 		>
 			<h1 class="text-2xl font-semibold">This draft is locked</h1>
-			<p class="text-error-200 mt-3 text-sm">
+			<p class="text-error-800-200 mt-3 text-sm">
 				Only the event host or owners of the hosting group can view draft events. Ask the organizer
 				to publish or add you as an owner to continue.
 			</p>
@@ -1270,10 +1270,10 @@
 {:else if authRequired}
 	<section class="mx-auto max-w-3xl space-y-6 px-4 py-16">
 		<div
-			class="border-warning-500/40 bg-warning-900/30 text-warning-100 rounded-3xl border p-8 shadow-lg"
+			class="border-warning-500/40 bg-warning-100-900/30 text-warning-900-100 rounded-3xl border p-8 shadow-lg"
 		>
 			<h1 class="text-2xl font-semibold">Log in to view this draft event</h1>
-			<p class="text-warning-200 mt-3 text-sm">
+			<p class="text-warning-800-200 mt-3 text-sm">
 				This event is still in draft. Enter your email to receive a magic link and continue.
 			</p>
 			<form class="mt-6 space-y-3" onsubmit={requestMagicLink}>
@@ -1290,22 +1290,22 @@
 					style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 				/>
 				<label
-					class="text-warning-200 text-xs font-semibold tracking-wide uppercase"
+					class="text-warning-800-200 text-xs font-semibold tracking-wide uppercase"
 					for="draft-login-email">Email</label
 				>
 				<input
 					id="draft-login-email"
 					type="email"
-					class="input bg-surface-950/60"
+					class="input bg-surface-50-950/60"
 					bind:value={loginEmail}
 					required
 					placeholder="you@example.com"
 				/>
 				{#if loginError}
-					<p class="text-error-200 text-xs">{loginError}</p>
+					<p class="text-error-800-200 text-xs">{loginError}</p>
 				{/if}
 				{#if loginSuccess}
-					<p class="text-success-200 text-xs">{loginSuccess}</p>
+					<p class="text-success-800-200 text-xs">{loginSuccess}</p>
 				{/if}
 				<button
 					type="submit"
@@ -1322,13 +1322,13 @@
 		{#if authFlag === 'required' || authFlag === 'forbidden'}
 			<section
 				class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
-					? 'border-warning-600/40 bg-warning-900/20'
-					: 'border-error-600/40 bg-error-900/20'}"
+					? 'border-warning-400-600/40 bg-warning-100-900/20'
+					: 'border-error-400-600/40 bg-error-100-900/20'}"
 			>
 				{#if authFlag === 'required'}
 					<div class="text-sm">
 						<strong>Please log in to edit this event.</strong>
-						<div class="text-surface-300">
+						<div class="text-surface-700-300">
 							Use the “Log in / Register” button in the header, then try again.
 						</div>
 					</div>
@@ -1336,18 +1336,18 @@
 					<div class="text-sm">
 						<strong>You don’t have permission to edit this event.</strong>
 
-						<div class="text-surface-300">Ask an existing owner to add you as an owner.</div>
+						<div class="text-surface-700-300">Ask an existing owner to add you as an owner.</div>
 					</div>
 				{/if}
 			</section>
 		{/if}
 		<header
-			class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-2xl shadow-black/20"
+			class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-2xl"
 		>
 			<div class="flex flex-wrap items-center gap-3">
 				{#if eventTypeLabel}
 					<span
-						class="chip preset-tonal-secondary border-secondary-400/30 bg-secondary-500/10 text-secondary-100 border text-[11px] tracking-wide uppercase"
+						class="chip preset-tonal-secondary border-secondary-600-400/30 bg-secondary-500/10 text-secondary-900-100 border text-[11px] tracking-wide uppercase"
 					>
 						{eventTypeLabel}
 					</span>
@@ -1356,7 +1356,7 @@
 					<span class={statusInfo.className}>{statusInfo.label}</span>
 					{#if event.waitlist_enabled}
 						<span
-							class="chip preset-tonal-primary border-primary-400/30 bg-primary-500/10 text-primary-100 border text-[11px] tracking-wide uppercase"
+							class="chip preset-tonal-primary border-primary-600-400/30 bg-primary-500/10 text-primary-900-100 border text-[11px] tracking-wide uppercase"
 						>
 							Waitlist enabled
 						</span>
@@ -1365,18 +1365,18 @@
 			</div>
 			<div class="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 				<div class="space-y-3">
-					<h1 class="text-secondary-100 !text-left text-3xl font-bold md:text-4xl">
+					<h1 class="text-secondary-900-100 !text-left text-3xl font-bold md:text-4xl">
 						{event.title || 'Untitled volunteer event'}
 					</h1>
 					{#if eventType?.description}
-						<p class="text-surface-300 max-w-3xl text-sm">{eventType.description}</p>
+						<p class="text-surface-700-300 max-w-3xl text-sm">{eventType.description}</p>
 					{:else if eventTypeLabel}
-						<p class="text-surface-400 max-w-3xl text-sm">
+						<p class="text-surface-600-400 max-w-3xl text-sm">
 							{eventTypeLabel} volunteer opportunity.
 						</p>
 					{/if}
 					{#if event.summary}
-						<p class="text-surface-200 max-w-2xl text-base">{event.summary}</p>
+						<p class="text-surface-800-200 max-w-2xl text-base">{event.summary}</p>
 					{/if}
 				</div>
 				{#if canManage}
@@ -1406,30 +1406,30 @@
 			</div>
 
 			<div class="mt-8 grid gap-4 lg:grid-cols-3">
-				<div class="border-surface-400/20 bg-surface-800/40 rounded-2xl border p-4">
+				<div class="border-surface-600-400/20 bg-surface-200-800/40 rounded-2xl border p-4">
 					<div class="flex items-center gap-3 text-sm">
-						<span class="bg-primary-500/15 text-primary-200 rounded-lg p-2">
+						<span class="bg-primary-500/15 text-primary-800-200 rounded-lg p-2">
 							<IconCalendar class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-100 text-xs tracking-wide uppercase">Schedule</p>
-							<p class="text-surface-100 font-semibold">
+							<p class="text-surface-900-100 text-xs tracking-wide uppercase">Schedule</p>
+							<p class="text-surface-900-100 font-semibold">
 								{eventDateLabel(event.event_start, event.event_end, event.timezone)}
 							</p>
-							<p class="text-surface-300 text-xs">
+							<p class="text-surface-700-300 text-xs">
 								{eventTimeLabel(event.event_start, event.event_end, event.timezone)}
 							</p>
 						</div>
 					</div>
 				</div>
-				<div class="border-surface-400/20 bg-surface-800/40 rounded-2xl border p-4">
+				<div class="border-surface-600-400/20 bg-surface-200-800/40 rounded-2xl border p-4">
 					<div class="flex items-center gap-3 text-sm">
-						<span class="bg-secondary-500/15 text-secondary-200 rounded-lg p-2">
+						<span class="bg-secondary-500/15 text-secondary-800-200 rounded-lg p-2">
 							<IconMapPin class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-100 text-xs tracking-wide uppercase">Location</p>
-							<p class="text-surface-100 font-semibold">
+							<p class="text-surface-900-100 text-xs tracking-wide uppercase">Location</p>
+							<p class="text-surface-900-100 font-semibold">
 								{#if event.location_name}
 									{event.location_name}
 								{:else}
@@ -1437,19 +1437,19 @@
 								{/if}
 							</p>
 							{#if event.location_address}
-								<p class="text-surface-100 text-xs">{event.location_address}</p>
+								<p class="text-surface-900-100 text-xs">{event.location_address}</p>
 							{/if}
 						</div>
 					</div>
 				</div>
-				<div class="border-surface-400/20 bg-surface-800/40 rounded-2xl border p-4">
+				<div class="border-surface-600-400/20 bg-surface-200-800/40 rounded-2xl border p-4">
 					<div class="flex items-center gap-3 text-sm">
-						<span class="bg-primary-300/15 text-primary-100 rounded-lg p-2">
+						<span class="bg-primary-700-300/15 text-primary-900-100 rounded-lg p-2">
 							<IconUsers class="h-4 w-4" />
 						</span>
 						<div>
-							<p class="text-surface-100 text-xs tracking-wide uppercase">Host</p>
-							<p class="text-surface-100 !mb-0 font-semibold">
+							<p class="text-surface-900-100 text-xs tracking-wide uppercase">Host</p>
+							<p class="text-surface-900-100 !mb-0 font-semibold">
 								{#if hostGroup}
 									{hostGroup.name}
 								{:else}
@@ -1457,12 +1457,12 @@
 								{/if}
 							</p>
 							{#if hostGroup}
-								<p class="text-surface-400 !mb-2 text-xs">
+								<p class="text-surface-600-400 !mb-2 text-xs">
 									{hostLocationLabel() || 'Local volunteer crew'}
 								</p>
 								{#if hostSocialLinks.length}
 									<ul
-										class="text-surface-400 flex flex-wrap gap-2 text-[11px] tracking-wide uppercase"
+										class="text-surface-600-400 flex flex-wrap gap-2 text-[11px] tracking-wide uppercase"
 									>
 										{#if hostWebsite}
 											<li>
@@ -1470,7 +1470,7 @@
 													href={hostWebsite}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="hover:text-secondary-100"
+													class="hover:text-secondary-900-100"
 												>
 													Website
 												</a>
@@ -1482,7 +1482,7 @@
 													href={link.url}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="hover:text-secondary-100"
+													class="hover:text-secondary-900-100"
 												>
 													{humanizeSlug(link.key)}
 												</a>
@@ -1494,13 +1494,13 @@
 							<ul class="space-y-1 text-xs">
 								{#if contactEmail}
 									<li class="flex items-center gap-2">
-										<IconMail class="text-secondary-200 h-4 w-4" />
+										<IconMail class="text-secondary-800-200 h-4 w-4" />
 										<a href={`mailto:${contactEmail}`} class="hover:underline">{contactEmail}</a>
 									</li>
 								{/if}
 								{#if contactPhone}
 									<li class="flex items-center gap-2">
-										<IconPhone class="text-secondary-200 h-4 w-4" />
+										<IconPhone class="text-secondary-800-200 h-4 w-4" />
 										<a href={`tel:${contactPhone}`} class="hover:underline">{contactPhone}</a>
 									</li>
 								{/if}
@@ -1513,7 +1513,7 @@
 			{#if hasCoords}
 				<div class="mt-8">
 					<div
-						class="border-surface-400/20 bg-surface-900/40 h-72 w-full overflow-hidden rounded-3xl border"
+						class="border-surface-600-400/20 bg-surface-100-900/40 h-72 w-full overflow-hidden rounded-3xl border"
 					>
 						<div bind:this={mapEl} class="h-full w-full"></div>
 					</div>
@@ -1523,10 +1523,10 @@
 
 		{#if eventFinished}
 			<section
-				class="border-warning-500/40 bg-warning-900/30 text-warning-50 rounded-3xl border p-6 shadow-lg"
+				class="border-warning-500/40 bg-warning-100-900/30 text-warning-950-50 rounded-3xl border p-6 shadow-lg"
 			>
-				<h2 class="text-warning-100 text-xl font-semibold">This event has finished</h2>
-				<p class="text-warning-200 mt-2 text-sm">
+				<h2 class="text-warning-900-100 text-xl font-semibold">This event has finished</h2>
+				<p class="text-warning-800-200 mt-2 text-sm">
 					Sign-ups are closed, but you can still review the event details below.
 				</p>
 			</section>
@@ -1534,9 +1534,11 @@
 
 		<div class="space-y-10">
 			{#if eventDescriptionHtml}
-				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
-					<h2 class="text-secondary-100 text-2xl font-semibold">Overview</h2>
-					<div class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-4">
+				<section
+					class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-lg"
+				>
+					<h2 class="text-secondary-900-100 text-2xl font-semibold">Overview</h2>
+					<div class="prose prose-invert text-surface-900-100 mt-4 max-w-none space-y-4">
 						{#if showFullOverview || eventDescriptionPlain.length <= TRUNCATE_LIMIT}
 							{@html eventDescriptionHtml}
 						{:else}
@@ -1556,14 +1558,16 @@
 			{/if}
 
 			{#if organizerEmail}
-				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
+				<section
+					class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-lg"
+				>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<h2 class="text-secondary-100 text-2xl font-semibold">Have a question?</h2>
+						<h2 class="text-secondary-900-100 text-2xl font-semibold">Have a question?</h2>
 						{#if !questionStatus.success && questionStatus.error}
-							<p class="text-error-200 text-xs sm:text-sm">{questionStatus.error}</p>
+							<p class="text-error-800-200 text-xs sm:text-sm">{questionStatus.error}</p>
 						{/if}
 					</div>
-					<p class="text-surface-100 mt-3 text-sm">
+					<p class="text-surface-900-100 mt-3 text-sm">
 						Send the event organizer a message. We&rsquo;ll share your email address so they can
 						reply directly.
 					</p>
@@ -1578,14 +1582,14 @@
 									<span>Your email</span>
 									<input
 										type="email"
-										class="input bg-surface-950/40"
+										class="input bg-surface-50-950/40"
 										autocomplete="email"
 										required
 										value={questionForm.replyTo}
 										oninput={(event) => updateQuestionField('replyTo', event.currentTarget.value)}
 									/>
 									{#if questionErrors.replyTo}
-										<span class="text-error-200 text-[11px] tracking-normal normal-case">
+										<span class="text-error-800-200 text-[11px] tracking-normal normal-case">
 											{questionErrors.replyTo}
 										</span>
 									{/if}
@@ -1594,14 +1598,14 @@
 									<span>Subject</span>
 									<input
 										type="text"
-										class="input bg-surface-950/40"
+										class="input bg-surface-50-950/40"
 										required
 										minlength="3"
 										value={questionForm.subject}
 										oninput={(event) => updateQuestionField('subject', event.currentTarget.value)}
 									/>
 									{#if questionErrors.subject}
-										<span class="text-error-200 text-[11px] tracking-normal normal-case">
+										<span class="text-error-800-200 text-[11px] tracking-normal normal-case">
 											{questionErrors.subject}
 										</span>
 									{/if}
@@ -1610,14 +1614,14 @@
 							<label class="flex flex-col gap-2 text-xs tracking-wide uppercase">
 								<span>Message</span>
 								<textarea
-									class="textarea bg-surface-950/40"
+									class="textarea bg-surface-50-950/40"
 									required
 									rows="3"
 									bind:value={questionForm.message}
 								>
 								</textarea>
 								{#if questionErrors.message}
-									<span class="text-error-200 text-[11px] tracking-normal normal-case">
+									<span class="text-error-800-200 text-[11px] tracking-normal normal-case">
 										{questionErrors.message}
 									</span>
 								{/if}
@@ -1643,9 +1647,13 @@
 					{/if}
 				</section>
 			{:else}
-				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
-					<h2 class="text-secondary-100 text-2xl font-semibold">Organizer contact coming soon</h2>
-					<p class="text-surface-100 mt-3 text-sm">
+				<section
+					class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-lg"
+				>
+					<h2 class="text-secondary-900-100 text-2xl font-semibold">
+						Organizer contact coming soon
+					</h2>
+					<p class="text-surface-900-100 mt-3 text-sm">
 						We&rsquo;re getting the organizer&rsquo;s contact information ready. Please check back
 						later if you need to get in touch.
 					</p>
@@ -1656,8 +1664,8 @@
 				<section
 					class="border-secondary-500/30 bg-secondary-500/5 rounded-3xl border p-6 shadow-lg"
 				>
-					<h2 class="text-secondary-100 text-2xl font-semibold">Ready to volunteer?</h2>
-					<p class="text-surface-300 mt-2 text-sm">
+					<h2 class="text-secondary-900-100 text-2xl font-semibold">Ready to volunteer?</h2>
+					<p class="text-surface-700-300 mt-2 text-sm">
 						Enter your email to get a magic link. Once you’re logged in you’ll be able to pick
 						shifts and share the details organizers need.
 					</p>
@@ -1681,12 +1689,12 @@
 							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 						/>
 						<label
-							class="text-surface-100 flex flex-col gap-1 text-xs tracking-wide uppercase sm:flex-1"
+							class="text-surface-900-100 flex flex-col gap-1 text-xs tracking-wide uppercase sm:flex-1"
 						>
 							<span>Email</span>
 							<input
 								type="email"
-								class="input bg-surface-950/40"
+								class="input bg-surface-50-950/40"
 								bind:value={loginEmail}
 								required
 								placeholder="you@example.com"
@@ -1702,14 +1710,14 @@
 					</form>
 					{#if loginError}
 						<p
-							class="border-error-500/40 bg-error-500/10 text-error-200 mt-3 rounded-lg border px-3 py-2 text-xs"
+							class="border-error-500/40 bg-error-500/10 text-error-800-200 mt-3 rounded-lg border px-3 py-2 text-xs"
 						>
 							{loginError}
 						</p>
 					{/if}
 					{#if loginSuccess}
 						<p
-							class="border-success-500/40 bg-success-500/10 text-success-200 mt-3 rounded-lg border px-3 py-2 text-xs"
+							class="border-success-500/40 bg-success-500/10 text-success-800-200 mt-3 rounded-lg border px-3 py-2 text-xs"
 						>
 							{loginSuccess}
 						</p>
@@ -1719,10 +1727,10 @@
 
 			{#if bulkSubmit.success}
 				<section
-					class="border-success-500/30 bg-success-500/10 text-success-100 rounded-3xl border p-6 text-center shadow-lg"
+					class="border-success-500/30 bg-success-500/10 text-success-900-100 rounded-3xl border p-6 text-center shadow-lg"
 				>
 					<h2 class="text-2xl font-semibold">Thank you for volunteering!</h2>
-					<p class="text-success-50 mt-3 text-sm">
+					<p class="text-success-950-50 mt-3 text-sm">
 						We received your signup and look forward to seeing you there.
 					</p>
 				</section>
@@ -1731,12 +1739,12 @@
 			{#if !bulkSubmit.success}
 				<section class="space-y-6">
 					<div class="flex items-start justify-between gap-3">
-						<h2 class="text-secondary-100 text-2xl font-semibold">Volunteer roles & shifts</h2>
+						<h2 class="text-secondary-900-100 text-2xl font-semibold">Volunteer roles & shifts</h2>
 					</div>
 
 					{#if opportunities.length === 0}
 						<div
-							class="border-primary-500/40 bg-primary-500/5 text-primary-100 rounded-3xl border border-dashed p-6 text-center text-sm"
+							class="border-primary-500/40 bg-primary-500/5 text-primary-900-100 rounded-3xl border border-dashed p-6 text-center text-sm"
 						>
 							No volunteer opportunities defined yet. Organizers can add roles, capacities, and
 							shift coverage once planning begins.
@@ -1745,12 +1753,12 @@
 						<div class="space-y-6">
 							<div class="space-y-2">
 								{#if !user}
-									<h5 class="h5 text-surface-100">
+									<h5 class="h5 text-surface-900-100">
 										Log in above to choose shifts and share your details.
 									</h5>
 								{:else}
 									<p
-										class="bg-secondary-500/15 border-secondary-400/40 rounded-xl border px-3 py-2 text-center font-semibold"
+										class="bg-secondary-500/15 border-secondary-600-400/40 rounded-xl border px-3 py-2 text-center font-semibold"
 									>
 										Click on any shift card below to select it.
 									</p>
@@ -1759,28 +1767,28 @@
 							{#each opportunities as opportunity (opportunity.id)}
 								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
 								<article
-									class="border-surface-400/20 bg-surface-900/60 rounded-3xl border p-6 shadow-lg"
+									class="border-surface-600-400/20 bg-surface-100-900/60 rounded-3xl border p-6 shadow-lg"
 								>
 									<header class="flex flex-wrap items-center justify-between gap-4">
 										<div>
-											<h3 class="text-surface-50 text-xl font-semibold">
+											<h3 class="text-surface-950-50 text-xl font-semibold">
 												{opportunity.title || 'Untitled role'}
 											</h3>
-											<p class="text-surface-400 text-xs tracking-wide uppercase">
+											<p class="text-surface-600-400 text-xs tracking-wide uppercase">
 												{typeLabel(opportunity.opportunity_type)}
 											</p>
 										</div>
 										<div
-											class="text-surface-300 flex flex-wrap items-center gap-2 text-xs tracking-wide uppercase"
+											class="text-surface-700-300 flex flex-wrap items-center gap-2 text-xs tracking-wide uppercase"
 										>
 											<span class="chip preset-tonal-surface">{signupStatusText(opportunity)}</span>
 											{#if opportunity.requires_approval}
-												<span class="chip preset-tonal-warning text-warning-200"
+												<span class="chip preset-tonal-warning text-warning-800-200"
 													>Approval required</span
 												>
 											{/if}
 											{#if opportunity.auto_confirm_attendance}
-												<span class="chip preset-tonal-success text-success-100"
+												<span class="chip preset-tonal-success text-success-900-100"
 													>Auto-confirm shifts</span
 												>
 											{/if}
@@ -1789,7 +1797,7 @@
 
 									{#if opportunity.descriptionHtml}
 										<div
-											class="prose prose-invert text-surface-100 mt-4 max-w-none space-y-3 text-sm"
+											class="prose prose-invert text-surface-900-100 mt-4 max-w-none space-y-3 text-sm"
 										>
 											{#if expandedOpportunityDescriptions.has(opportunity.id) || opportunity.descriptionPlain.length <= TRUNCATE_LIMIT}
 												{@html opportunity.descriptionHtml}
@@ -1814,7 +1822,7 @@
 										<div class="space-y-3">
 											{#if !opportunity.shifts || opportunity.shifts.length === 0}
 												<p
-													class="border-surface-500/40 bg-surface-800/40 text-surface-300 rounded-2xl border border-dashed p-4 text-sm"
+													class="border-surface-500/40 bg-surface-200-800/40 text-surface-700-300 rounded-2xl border border-dashed p-4 text-sm"
 												>
 													Organizers will add shift timing soon. Volunteers can still express
 													interest below.
@@ -1828,10 +1836,10 @@
 														<li>
 															<button
 																type="button"
-																class={`group focus-visible:ring-secondary-400 w-full rounded-2xl border px-4 py-2 text-left shadow-xl/30 transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
+																class={`group focus-visible:ring-secondary-600-400 w-full rounded-2xl border px-4 py-2 text-left shadow-xl/30 transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
 																	isSelected
-																		? 'border-secondary-300 bg-secondary-500/25 text-secondary-50 shadow-lg'
-																		: 'border-surface-500/40 bg-surface-800/40 text-surface-200 hover:border-secondary-300/60 hover:bg-secondary-500/10 hover:text-secondary-50 hover:shadow-md'
+																		? 'border-secondary-700-300 bg-secondary-500/25 text-secondary-950-50 shadow-lg'
+																		: 'border-surface-500/40 bg-surface-200-800/40 text-surface-800-200 hover:border-secondary-700-300/60 hover:bg-secondary-500/10 hover:text-secondary-950-50 hover:shadow-md'
 																}`}
 																aria-pressed={isSelected}
 																disabled={!user || eventFinished}
@@ -1845,8 +1853,8 @@
 																		<span
 																			class={`flex h-10 w-10 items-center justify-center transition-colors ${
 																				isSelected
-																					? 'text-secondary-50'
-																					: 'text-surface-500 group-hover:border-secondary-300 group-hover:text-secondary-100'
+																					? 'text-secondary-950-50'
+																					: 'text-surface-500 group-hover:border-secondary-700-300 group-hover:text-secondary-900-100'
 																			}`}
 																		>
 																			{#if isSelected}
@@ -1856,29 +1864,29 @@
 																			{/if}
 																		</span>
 																		<div class="min-w-0">
-																			<p class="text-surface-50 !mb-0 text-sm font-semibold">
+																			<p class="text-surface-950-50 !mb-0 text-sm font-semibold">
 																				{formatShiftRange(shift)}
 																			</p>
-																			<p class="text-surface-400 !mb-0 text-xs">
+																			<p class="text-surface-600-400 !mb-0 text-xs">
 																				{shift.timezone || event.timezone || 'Timezone TBD'}
 																			</p>
 																		</div>
 																	</div>
-																	<div class="text-surface-300 ml-auto text-right text-xs">
-																		<span class="text-surface-100 font-semibold">
+																	<div class="text-surface-700-300 ml-auto text-right text-xs">
+																		<span class="text-surface-900-100 font-semibold">
 																			{approvedCount} volunteer{approvedCount === 1 ? '' : 's'}
 																		</span>
 																		{#if Number(shift.capacity)}
 																			<span> / {Number(shift.capacity)} slots</span>
 																		{/if}
 																		<p
-																			class={`!mb-0 ${waitlistedCount > 0 ? 'font-semibold text-amber-200' : 'text-surface-500'}`}
+																			class={`!mb-0 ${waitlistedCount > 0 ? 'text-warning-800-200 font-semibold' : 'text-surface-500'}`}
 																		>
 																			Waitlisted: {waitlistedCount}
 																		</p>
 																	</div>
 																	{#if shift.notes}
-																		<p class="text-surface-100 !mb-0 text-xs">{shift.notes}</p>
+																		<p class="text-surface-900-100 !mb-0 text-xs">{shift.notes}</p>
 																	{/if}
 																</div>
 															</button>
@@ -1903,17 +1911,19 @@
 				</section>
 			{/if}
 			{#if user && !bulkSubmit.success && !eventFinished}
-				<section class="border-surface-400/20 bg-surface-900/70 rounded-3xl border p-6 shadow-lg">
+				<section
+					class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-lg"
+				>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<h2 class="text-secondary-100 text-2xl font-semibold">
+						<h2 class="text-secondary-900-100 text-2xl font-semibold">
 							Complete your volunteer signup
 						</h2>
-						<p class="text-surface-300 text-xs sm:text-sm">Signed in as {user.email}</p>
+						<p class="text-surface-700-300 text-xs sm:text-sm">Signed in as {user.email}</p>
 					</div>
 
 					{#if selectedOpportunities.length}
 						<div class="mt-6 space-y-6" transition:slide>
-							<h3 class="text-secondary-100 text-lg font-semibold tracking-wide uppercase">
+							<h3 class="text-secondary-900-100 text-lg font-semibold tracking-wide uppercase">
 								Selected shifts
 							</h3>
 							{#each selectedOpportunities as opportunity (opportunity.id)}
@@ -1952,18 +1962,18 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-surface-100 mt-4 text-sm">
+						<p class="text-surface-900-100 mt-4 text-sm">
 							Select at least one shift above to review your signup details.
 						</p>
 					{/if}
 
 					<div
-						class="border-surface-500/30 bg-surface-900/60 mt-8 space-y-4 rounded-3xl border p-6"
+						class="border-surface-500/30 bg-surface-100-900/60 mt-8 space-y-4 rounded-3xl border p-6"
 					>
-						<h3 class="text-secondary-100 text-lg font-semibold tracking-wide uppercase">
+						<h3 class="text-secondary-900-100 text-lg font-semibold tracking-wide uppercase">
 							Volunteer details & questions
 						</h3>
-						<p class="text-surface-100 text-xs">
+						<p class="text-surface-900-100 text-xs">
 							These contact details apply to every role you sign up for above.
 						</p>
 						<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
@@ -1977,7 +1987,7 @@
 						{/if}
 
 						<div class="space-y-3 pt-2">
-							<div class="text-surface-100 text-xs">
+							<div class="text-surface-900-100 text-xs">
 								We’ll send confirmations to the contact details above once you submit.
 							</div>
 							<button
@@ -1992,7 +2002,7 @@
 								<span>Sign me up!</span>
 							</button>
 							{#if bulkSubmit.loading}
-								<p class="text-surface-100 text-xs">
+								<p class="text-surface-900-100 text-xs">
 									We're processing your signup. Hang tight a moment.
 								</p>
 							{:else if selectedOpportunities.length === 0}
@@ -2001,7 +2011,7 @@
 								</p>
 							{/if}
 							{#if bulkSubmit.error}
-								<p class="text-error-200 text-xs">{bulkSubmit.error}</p>
+								<p class="text-error-800-200 text-xs">{bulkSubmit.error}</p>
 							{/if}
 						</div>
 					</div>

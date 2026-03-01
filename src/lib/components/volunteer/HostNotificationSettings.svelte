@@ -36,12 +36,12 @@
 </script>
 
 <section
-	class="border-surface-700 bg-surface-900/70 flex flex-col gap-4 rounded-2xl border p-5 shadow-lg shadow-black/20"
+	class="border-surface-300-700 bg-surface-100-900/70 flex flex-col gap-4 rounded-2xl border p-5 shadow-lg"
 >
 	<div class="space-y-1">
-		<h3 class="!text-left text-lg font-semibold text-white">{title}</h3>
+		<h3 class="text-surface-950-50 !text-left text-lg font-semibold">{title}</h3>
 		{#if description}
-			<p class="text-surface-300 text-sm leading-relaxed">{description}</p>
+			<p class="text-surface-700-300 text-sm leading-relaxed">{description}</p>
 		{/if}
 	</div>
 
@@ -55,8 +55,8 @@
 				on:change={(event) => handleToggle('register', event.currentTarget.checked)}
 			/>
 			<div class="space-y-1">
-				<p class="font-medium text-white">When someone registers</p>
-				<p class="text-surface-400 text-xs leading-relaxed">
+				<p class="text-surface-950-50 font-medium">When someone registers</p>
+				<p class="text-surface-600-400 text-xs leading-relaxed">
 					Send a note to hosts any time a volunteer signs up for a shift—whether they’re approved
 					immediately or waiting for review.
 				</p>
@@ -72,8 +72,8 @@
 				on:change={(event) => handleToggle('cancel', event.currentTarget.checked)}
 			/>
 			<div class="space-y-1">
-				<p class="font-medium text-white">When a volunteer cancels</p>
-				<p class="text-surface-400 text-xs leading-relaxed">
+				<p class="text-surface-950-50 font-medium">When a volunteer cancels</p>
+				<p class="text-surface-600-400 text-xs leading-relaxed">
 					Hosts get an alert when someone backs out so they can invite replacements or adjust the
 					plan.
 				</p>
@@ -82,6 +82,6 @@
 	</div>
 
 	{#if saving}
-		<p class="text-surface-400 text-xs italic">Saving your notification preferences…</p>
+		<p class="text-surface-600-400 text-xs italic">Saving your notification preferences…</p>
 	{/if}
 </section>
