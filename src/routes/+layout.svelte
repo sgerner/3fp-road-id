@@ -18,7 +18,7 @@
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
 	const themeOptions = [
-		{ value: '3fp', label: 'Current (3 Feet Please)' },
+		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
 		{ value: 'cerberus', label: 'Cerberus' },
 		{ value: 'modern', label: 'Modern' },
@@ -272,13 +272,8 @@
 
 			<div class="flex items-center gap-3">
 				<label class="hidden items-center gap-2 md:flex">
-					<span
-						class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
-					>
-						Theme
-					</span>
 					<select
-						class="select bg-surface-100-900/70 min-w-[12rem] text-sm"
+						class="select bg-surface-100-900/70 text-sm"
 						value={theme}
 						onchange={(e) => applyTheme(e.currentTarget.value)}
 						aria-label="Select theme"
