@@ -93,11 +93,11 @@
 		<h1
 			class="!text-center text-5xl leading-[1.08] font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
 		>
-			<span class="text-primary-950-50">Bicycle safety,</span><br />
+			<span class="text-primary-950-50">Ride,</span><br />
 			<span class="from-primary-300 to-primary-500 bg-linear-to-r bg-clip-text text-transparent">
-				volunteer coordination,
+				volunteer,
 			</span><br />
-			<span class="text-primary-950-50">and local groups.</span>
+			<span class="text-primary-950-50">and advocate.</span>
 		</h1>
 
 		<!-- Sub-headline -->
@@ -250,7 +250,7 @@
 				>
 					<!-- Cover photo -->
 					<div
-						class="from-primary-800/60 to-surface-950/60 relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-r"
+						class="from-primary-800/60 to-surface-950/80 relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-r"
 					>
 						<img
 							src={g.cover_photo_url}
@@ -272,17 +272,15 @@
 								class="border-surface-950-50/20 h-14 w-14 shrink-0 rounded-xl border-2 object-cover shadow-lg sm:h-16 sm:w-16"
 							/>
 							<div class="min-w-0 flex-1">
-								<h3 class="text-surface-950-50 truncate !text-left text-lg font-bold drop-shadow">
+								<h3 class="text-primary-950-50 truncate !text-left text-lg font-bold drop-shadow">
 									{g.name}
 								</h3>
-								<p class="text-surface-800-200/75 !m-0 text-xs">
+								<p class="text-surface-950-50 !m-0 text-xs">
 									{#if g.city}{g.city},
 									{/if}{g.state_region} · {g.country}
 								</p>
 								{#if g.tagline}
-									<p
-										class="text-surface-700-300/65 !m-0 mt-0.5 line-clamp-1 hidden text-sm md:block"
-									>
+									<p class="text-surface-950-50 !m-0 mt-0.5 line-clamp-1 hidden text-sm md:block">
 										{g.tagline}
 									</p>
 								{/if}
