@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
+import { isTurnstileEnabled } from '$lib/server/turnstile';
 import { PUBLIC_URL_BASE } from '$env/static/public';
 import { TURNSTILE_SECRET_KEY } from '$env/static/private';
 
@@ -20,7 +21,9 @@ export async function POST({ request }) {
 			return json({ error: 'Invalid submission.' }, { status: 400 });
 		}
 
-		if (hasTurnstileSecret) {
+		const turnstileEnabled = isTurnstileEnabled();
+
+		if (turnstileEnabled && hasTurnstileSecret) {
 			if (!turnstileToken || typeof turnstileToken !== 'string') {
 				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
 			}
@@ -47,7 +50,7 @@ export async function POST({ request }) {
 				console.warn('Turnstile verification failure', verification);
 				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
 			}
-		} else if (!missingSecretWarned) {
+		} else if (turnstileEnabled && !missingSecretWarned) {
 			console.warn('TURNSTILE_SECRET_KEY is not configured; skipping verification.');
 			missingSecretWarned = true;
 		}

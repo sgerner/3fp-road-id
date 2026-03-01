@@ -1,4 +1,5 @@
 <script>
+	let { data } = $props();
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabaseClient';
 	import { goto } from '$app/navigation';
@@ -15,7 +16,9 @@
 	let returnToParam = $state('');
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(resendEmail));
 	let resendHoneypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEnabled = $derived(
+		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
+	);
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
 

@@ -1,6 +1,6 @@
 <script>
 	import '../app.css';
-	let { children } = $props();
+	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabaseClient';
@@ -41,7 +41,9 @@
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	let turnstileEnabled = $derived(
+		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
+	);
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
 	const navigationItems = [
