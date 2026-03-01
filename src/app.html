@@ -4,6 +4,28 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(() => {
+				const storageKey = '3fp-theme';
+				const allowedThemes = new Set([
+					'3fp',
+					'mint',
+					'cerberus',
+					'modern',
+					'seafoam',
+					'rocket',
+					'pine'
+				]);
+
+				try {
+					const storedTheme = window.localStorage.getItem(storageKey);
+					const theme = allowedThemes.has(storedTheme) ? storedTheme : '3fp';
+					document.documentElement.dataset.theme = theme;
+				} catch {
+					document.documentElement.dataset.theme = '3fp';
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" class="bg-transparent">

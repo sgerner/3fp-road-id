@@ -15,6 +15,18 @@
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 
+	const themeStorageKey = '3fp-theme';
+	const defaultTheme = '3fp';
+	const themeOptions = [
+		{ value: '3fp', label: 'Current (3 Feet Please)' },
+		{ value: 'mint', label: 'Mint' },
+		{ value: 'cerberus', label: 'Cerberus' },
+		{ value: 'modern', label: 'Modern' },
+		{ value: 'seafoam', label: 'Seafoam' },
+		{ value: 'rocket', label: 'Rocket' },
+		{ value: 'pine', label: 'Pine' }
+	];
+
 	let user = $state(null);
 	let showLogin = $state(false);
 	let email = $state('');
@@ -27,6 +39,7 @@
 	let mobileMenuEl = $state(null);
 	let showMobileMenu = $state(false);
 	let loginContainerEl = $state(null);
+	let theme = $state(defaultTheme);
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
 	let turnstileEl = $state(null);
@@ -53,6 +66,30 @@
 		}
 	];
 
+	function normalizeTheme(value) {
+		return themeOptions.some((option) => option.value === value) ? value : defaultTheme;
+	}
+
+	function applyTheme(value, persist = true) {
+		const nextTheme = normalizeTheme(value);
+		theme = nextTheme;
+		if (typeof document !== 'undefined') {
+			document.documentElement.dataset.theme = nextTheme;
+		}
+		if (persist && typeof window !== 'undefined') {
+			try {
+				window.localStorage.setItem(themeStorageKey, nextTheme);
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	async function initSession() {
+		const { data } = await supabase.auth.getSession();
+		user = data.session?.user || null;
+	}
+
 	async function initTurnstile() {
 		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
 		try {
@@ -72,9 +109,17 @@
 		}
 	});
 
-	onMount(async () => {
-		const { data } = await supabase.auth.getSession();
-		user = data.session?.user || null;
+	onMount(() => {
+		try {
+			const storedTheme = window.localStorage.getItem(themeStorageKey);
+			const initialTheme = normalizeTheme(storedTheme || document.documentElement.dataset.theme);
+			applyTheme(initialTheme);
+		} catch {
+			applyTheme(defaultTheme, false);
+		}
+
+		void initSession();
+
 		const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
 			user = session?.user || null;
 			try {
@@ -227,127 +272,147 @@
 				</a>
 			</div>
 
-			<div class="relative">
-				{#if user}
-					<div class="flex items-center gap-2">
-						<span class="text-surface-300 hidden text-sm lg:inline">{user.email}</span>
-						<button class="chip preset-tonal-surface-500" onclick={doLogout}>Logout</button>
-					</div>
-				{:else}
-					<button
-						class="chip preset-filled-primary-500"
-						bind:this={loginBtnEl}
-						onclick={() => (showLogin = !showLogin)}
+			<div class="flex items-center gap-3">
+				<label class="hidden items-center gap-2 md:flex">
+					<span class="text-surface-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase">
+						Theme
+					</span>
+					<select
+						class="select bg-surface-900/70 min-w-[12rem] text-sm"
+						value={theme}
+						onchange={(e) => applyTheme(e.currentTarget.value)}
+						aria-label="Select theme"
 					>
-						Log in / Register
-					</button>
-					{#if showLogin}
-						<div
-							class="fixed inset-0 z-40 bg-black/50 md:hidden"
-							onclick={() => (showLogin = false)}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') showLogin = false;
-							}}
-							role="button"
-							tabindex="0"
-							aria-label="Close login"
-						></div>
+						{#each themeOptions as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</label>
 
-						<div bind:this={loginContainerEl}>
-							<form
-								class="border-surface-700 bg-surface-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
-								onsubmit={doLogin}
-							>
-								<input
-									type="text"
-									name="website"
-									bind:value={honeypot}
-									autocomplete="off"
-									tabindex="-1"
-									aria-hidden="true"
-									style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-								/>
-								<div class="mb-2 flex items-center justify-between">
-									<h3 class="text-base font-semibold">Log in / Register</h3>
-									<button
-										type="button"
-										class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
-										onclick={() => (showLogin = false)}>Close</button
-									>
-								</div>
-								<label for="login-email-m" class="text-surface-300 mb-1 block text-xs">Email</label>
-								<input
-									id="login-email-m"
-									type="email"
-									bind:value={email}
-									placeholder="you@example.com"
-									class="input bg-primary-950/30 w-full text-white"
-									required
-								/>
-								{#if error}
-									<div class="mt-2 text-xs text-red-400">{error}</div>
-								{/if}
-								{#if success}
-									<div class="mt-2 text-xs text-green-400">{success}</div>
-								{/if}
-								<button
-									type="submit"
-									class="btn preset-filled-primary-500 mt-3 w-full {loading
-										? 'animate-pulse'
-										: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
-									disabled={loading || !emailValid}
-								>
-									Send Magic Link
-								</button>
-								<div class="text-surface-400 mt-2 text-center text-[11px]">
-									Use the same form to log in or create an account.
-								</div>
-							</form>
-
-							<form
-								class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
-								onsubmit={doLogin}
-							>
-								<input
-									type="text"
-									name="website"
-									bind:value={honeypot}
-									autocomplete="off"
-									tabindex="-1"
-									aria-hidden="true"
-									style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-								/>
-								<label for="login-email" class="text-surface-300 mb-1 block text-xs">Email</label>
-								<input
-									id="login-email"
-									type="email"
-									bind:value={email}
-									placeholder="you@example.com"
-									class="input bg-primary-950/30 w-full text-white"
-									required
-								/>
-								{#if error}
-									<div class="mt-2 text-xs text-red-400">{error}</div>
-								{/if}
-								{#if success}
-									<div class="mt-2 text-xs text-green-400">{success}</div>
-								{/if}
-								<button
-									type="submit"
-									class="btn preset-filled-primary-500 mt-3 w-full {loading
-										? 'animate-pulse'
-										: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
-									disabled={loading || !emailValid}
-								>
-									Send Magic Link
-								</button>
-								<div class="text-surface-400 mt-2 text-center text-[11px]">
-									Use the same form to log in or create an account.
-								</div>
-							</form>
+				<div class="relative">
+					{#if user}
+						<div class="flex items-center gap-2">
+							<span class="text-surface-300 hidden text-sm lg:inline">{user.email}</span>
+							<button class="chip preset-tonal-surface-500" onclick={doLogout}>Logout</button>
 						</div>
+					{:else}
+						<button
+							class="chip preset-filled-primary-500"
+							bind:this={loginBtnEl}
+							onclick={() => (showLogin = !showLogin)}
+						>
+							Log in / Register
+						</button>
+						{#if showLogin}
+							<div
+								class="fixed inset-0 z-40 bg-black/50 md:hidden"
+								onclick={() => (showLogin = false)}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') showLogin = false;
+								}}
+								role="button"
+								tabindex="0"
+								aria-label="Close login"
+							></div>
+
+							<div bind:this={loginContainerEl}>
+								<form
+									class="border-surface-700 bg-surface-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
+									onsubmit={doLogin}
+								>
+									<input
+										type="text"
+										name="website"
+										bind:value={honeypot}
+										autocomplete="off"
+										tabindex="-1"
+										aria-hidden="true"
+										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+									/>
+									<div class="mb-2 flex items-center justify-between">
+										<h3 class="text-base font-semibold">Log in / Register</h3>
+										<button
+											type="button"
+											class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
+											onclick={() => (showLogin = false)}>Close</button
+										>
+									</div>
+									<label for="login-email-m" class="text-surface-300 mb-1 block text-xs"
+										>Email</label
+									>
+									<input
+										id="login-email-m"
+										type="email"
+										bind:value={email}
+										placeholder="you@example.com"
+										class="input bg-primary-950/30 w-full text-white"
+										required
+									/>
+									{#if error}
+										<div class="mt-2 text-xs text-red-400">{error}</div>
+									{/if}
+									{#if success}
+										<div class="mt-2 text-xs text-green-400">{success}</div>
+									{/if}
+									<button
+										type="submit"
+										class="btn preset-filled-primary-500 mt-3 w-full {loading
+											? 'animate-pulse'
+											: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
+										disabled={loading || !emailValid}
+									>
+										Send Magic Link
+									</button>
+									<div class="text-surface-400 mt-2 text-center text-[11px]">
+										Use the same form to log in or create an account.
+									</div>
+								</form>
+
+								<form
+									class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
+									onsubmit={doLogin}
+								>
+									<input
+										type="text"
+										name="website"
+										bind:value={honeypot}
+										autocomplete="off"
+										tabindex="-1"
+										aria-hidden="true"
+										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+									/>
+									<label for="login-email" class="text-surface-300 mb-1 block text-xs">Email</label>
+									<input
+										id="login-email"
+										type="email"
+										bind:value={email}
+										placeholder="you@example.com"
+										class="input bg-primary-950/30 w-full text-white"
+										required
+									/>
+									{#if error}
+										<div class="mt-2 text-xs text-red-400">{error}</div>
+									{/if}
+									{#if success}
+										<div class="mt-2 text-xs text-green-400">{success}</div>
+									{/if}
+									<button
+										type="submit"
+										class="btn preset-filled-primary-500 mt-3 w-full {loading
+											? 'animate-pulse'
+											: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
+										disabled={loading || !emailValid}
+									>
+										Send Magic Link
+									</button>
+									<div class="text-surface-400 mt-2 text-center text-[11px]">
+										Use the same form to log in or create an account.
+									</div>
+								</form>
+							</div>
+						{/if}
 					{/if}
-				{/if}
+				</div>
 			</div>
 		</div>
 	</header>
@@ -386,6 +451,23 @@
 			<div
 				class="border-surface-700 bg-surface-900/95 rounded-xl border p-2 text-white shadow-xl backdrop-blur"
 			>
+				<div class="mb-2 border-b border-b-white/10 px-1 pb-3">
+					<label class="flex flex-col gap-2">
+						<span class="text-surface-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase">
+							Theme
+						</span>
+						<select
+							class="select bg-surface-950/80 w-full"
+							value={theme}
+							onchange={(e) => applyTheme(e.currentTarget.value)}
+							aria-label="Select theme"
+						>
+							{#each themeOptions as option}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
 				<nav aria-label="Mobile" class="space-y-1">
 					{#each navigationItems as item}
 						<a
