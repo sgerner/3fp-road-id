@@ -109,10 +109,10 @@
 	<title>My Volunteer Shifts</title>
 </svelte:head>
 
-<div class="w-full max-w-5xl space-y-6 py-6">
+<div class="mx-auto w-full max-w-5xl space-y-6 py-6">
 	<header class="space-y-2">
 		<h1 class="text-surface-950-50 text-3xl font-semibold">My Volunteer Shifts</h1>
-		<p class="text-surface-700-300 mx-auto max-w-3xl !text-center text-sm">
+		<p class="mx-auto max-w-3xl !text-center text-sm">
 			Review upcoming and past volunteer commitments, confirm your spot as the shift approaches,
 			cancel if plans change, or move into an open shift. Confirmation is available within {confirmWindowHours}
 			hours of a shift’s start time.
@@ -121,10 +121,10 @@
 
 	{#if !user}
 		<div
-			class="border-surface-400-600 bg-surface-100-900/70 text-surface-800-200 flex flex-col gap-2 rounded-lg border p-4"
+			class="border-surface-400-600 bg-surface-100-900/70 text-surface-900-100 flex flex-col gap-2 rounded-lg border p-4"
 		>
 			<p class="font-medium">Sign in to manage your volunteer shifts.</p>
-			<p class="text-surface-600-400 text-sm">
+			<p class="text-surface-900-100 text-sm">
 				Use the volunteer hub sign-in link sent with your confirmation email. Once signed in, you
 				can confirm, cancel, or reschedule your shifts here.
 			</p>
@@ -153,7 +153,7 @@
 		<section class="space-y-4">
 			<h2 class="text-surface-950-50 text-2xl font-semibold">Upcoming shifts</h2>
 			{#if !upcomingEvents.length}
-				<p class="text-surface-600-400 text-sm">
+				<p class="text-surface-900-100 text-sm">
 					You don’t have any upcoming volunteer shifts. Browse <a
 						class="text-secondary-800-200 underline"
 						href="/volunteer">volunteer opportunities</a
@@ -180,12 +180,12 @@
 										</h3>
 									{/if}
 									{#if formatEventRange(entry.event)}
-										<div class="text-surface-600-400 flex items-center gap-2 text-sm">
+										<div class="text-surface-900-100 flex items-center gap-2 text-sm">
 											<CalendarClock class="size-4" />
 											<span>{formatEventRange(entry.event)}</span>
 										</div>
 									{/if}
-									<div class="text-surface-600-400 flex items-start gap-2 text-sm">
+									<div class="text-surface-900-100 flex items-start gap-2 text-sm">
 										<MapPin class="mt-0.5 size-4" />
 										<span>
 											{#each formatLocation(null, entry.event) as part, i}
@@ -209,12 +209,12 @@
 											<p class="text-secondary-900-100 text-lg font-semibold">
 												{record.opportunity.title}
 											</p>
-											<p class="text-surface-700-300 text-sm">
+											<p class="text-surface-900-100 text-sm">
 												{formatShiftRange(record.shift, entry.event)}
 											</p>
 
 											<div
-												class="text-surface-600-400 flex items-center gap-2 text-xs tracking-wide uppercase"
+												class="text-surface-900-100 flex items-center gap-2 text-xs tracking-wide uppercase"
 											>
 												{#if record.assignment.confirmed_at}
 													<Check class="text-secondary-600-400 size-4" />
@@ -264,7 +264,7 @@
 												{/if}
 											</div>
 											{#if !record.canConfirm}
-												<p class="text-surface-500 text-xs">
+												<p class="text-secondary-500 text-xs">
 													{#if record.confirmBlockedReason === 'not_approved'}
 														Awaiting approval before you can confirm.
 													{:else if record.confirmBlockedReason === 'waitlisted'}
@@ -287,7 +287,7 @@
 											>
 												<div class="flex items-center justify-between gap-2">
 													<div
-														class="text-surface-800-200 flex items-center gap-2 text-sm font-medium"
+														class="text-surface-900-100 flex items-center gap-2 text-sm font-medium"
 													>
 														<RefreshCcw class="size-4" />
 														<span>Reschedule</span>
@@ -305,7 +305,7 @@
 														<form method="POST" action="?/reschedule" class="mt-3 space-y-2">
 															<input type="hidden" name="assignment_id" value={record.id} />
 															<label
-																class="text-surface-600-400 text-xs font-semibold tracking-wide uppercase"
+																class="text-surface-900-100 text-xs font-semibold tracking-wide uppercase"
 																for={`reschedule-${record.id}`}
 															>
 																Choose a new shift
@@ -328,7 +328,7 @@
 															>
 														</form>
 													{:else}
-														<p class="text-surface-500 mt-3 text-xs">
+														<p class="text-secondary-500 mt-3 text-xs">
 															No alternate shifts are currently available for this event.
 														</p>
 													{/if}
@@ -347,22 +347,22 @@
 		<section class="space-y-4">
 			<h2 class="text-surface-950-50 text-2xl font-semibold">Past shifts</h2>
 			{#if !pastEvents.length}
-				<p class="text-surface-500 text-sm">No past shifts yet.</p>
+				<p class="text-secondary-500 text-sm">No past shifts yet.</p>
 			{:else}
 				{#each pastEvents as entry (entry.event.id)}
-					<article class="border-surface-200-800 bg-surface-50-950/40 rounded-xl border p-5">
+					<article class="preset-filled-surface-500 border-primary-500 card border p-4">
 						<header class="flex flex-col gap-1">
 							<p class="text-secondary-800-200 text-lg font-semibold">{entry.event.title}</p>
 							{#if formatEventRange(entry.event)}
-								<p class="text-surface-500 text-sm">{formatEventRange(entry.event)}</p>
+								<p class="text-secondary-700-300 text-sm">{formatEventRange(entry.event)}</p>
 							{/if}
 						</header>
 						<ul class="mt-3 space-y-3 text-sm">
 							{#each entry.assignments as record (record.id)}
 								<li class="border-surface-200-800 bg-surface-100-900/40 rounded-lg border p-3">
-									<p class="text-surface-800-200 font-medium">{record.opportunity.title}</p>
-									<p class="text-surface-600-400">{formatShiftRange(record.shift, entry.event)}</p>
-									<p class="text-surface-500 text-xs tracking-wide uppercase">
+									<p class="text-surface-900-100 font-medium">{record.opportunity.title}</p>
+									<p class="text-surface-900-100">{formatShiftRange(record.shift, entry.event)}</p>
+									<p class="text-surface-900-100 text-xs tracking-wide uppercase">
 										{record.statusLabel}
 									</p>
 								</li>
