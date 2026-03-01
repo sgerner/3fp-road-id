@@ -253,8 +253,8 @@
 	<header
 		class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
 	>
-		<div class="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-			<div class="flex items-center gap-3">
+		<div class="flex items-center justify-between gap-4 p-4">
+			<div class="flex items-center gap-2">
 				<button
 					class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
 					bind:this={mobileMenuBtnEl}
@@ -289,8 +289,7 @@
 				<div class="relative">
 					{#if user}
 						<div class="flex items-center gap-2">
-							<span class="text-surface-700-300 hidden text-sm lg:inline">{user.email}</span>
-							<button class="chip preset-tonal-surface-500" onclick={doLogout}>Logout</button>
+							<button class="chip preset-tonal-surface" onclick={doLogout}>Logout</button>
 						</div>
 					{:else}
 						<button
@@ -439,7 +438,7 @@
 			</div>
 		</aside>
 
-		<main class="min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+		<main class="min-w-0 overflow-x-hidden p-4">
 			{@render children()}
 		</main>
 	</div>
