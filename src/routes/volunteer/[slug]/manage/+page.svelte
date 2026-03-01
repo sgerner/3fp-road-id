@@ -28,7 +28,7 @@
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer
 	} from '$lib/volunteer/communications-ai';
-	import { Segment } from '@skeletonlabs/skeleton-svelte';
+	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
 	import { slide } from 'svelte/transition';
 	import { toaster } from '../../../toaster-svelte';
 
@@ -1746,18 +1746,18 @@
 	</div>
 
 	<div class="mx-auto flex max-w-fit flex-col gap-3">
-		<Segment
-			classes="!flex-col sm:!flex-row bg-tertiary-800/30 transition !p-1"
+		<SegmentedControl
+			class="!flex-col sm:!flex-row bg-tertiary-800/30 transition !p-1"
 			name="align"
 			value={activeSection}
 			onValueChange={(e) => setActiveSection(e.value)}
 		>
 			{#each sections as section}
-				<Segment.Item classes="hover:preset-filled-primary-500" value={section.id}>
-					<span style="">{section.label}</span>
-				</Segment.Item>
+				<SegmentedControl.Item class="hover:preset-filled-primary-500" value={section.id}>
+					<SegmentedControl.ItemText>{section.label}</SegmentedControl.ItemText>
+				</SegmentedControl.Item>
 			{/each}
-		</Segment>
+		</SegmentedControl>
 	</div>
 
 	{#if activeSection === 'overview'}

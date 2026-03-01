@@ -260,16 +260,13 @@
 	</div>
 	<!-- Skeleton UI Tabs -->
 	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
-		{#snippet list()}
-			<!-- The tab controls -->
-			<Tabs.Control value="profile">Profile</Tabs.Control>
-			<Tabs.Control value="crash">Crash Response</Tabs.Control>
-			<Tabs.Control value="alert">Safety Tips</Tabs.Control>
-		{/snippet}
+		<Tabs.List>
+			<Tabs.Trigger value="profile">Profile</Tabs.Trigger>
+			<Tabs.Trigger value="crash">Crash Response</Tabs.Trigger>
+			<Tabs.Trigger value="alert">Safety Tips</Tabs.Trigger>
+		</Tabs.List>
 
-		{#snippet content()}
-			<!-- The tab content panels -->
-			<Tabs.Panel value="profile">
+		<Tabs.Content value="profile">
 				<div
 					class="card preset-outlined-primary-500 bg-surface-950 card-hover flex flex-col gap-4 p-4"
 				>
@@ -677,13 +674,12 @@
 						</section>
 					{/if}
 				</div>
-			</Tabs.Panel>
-			<Tabs.Panel value="crash">
-				<CrashResponse />
-			</Tabs.Panel>
-			<Tabs.Panel value="alert">
-				<AlertSystem />
-			</Tabs.Panel>
-		{/snippet}
+		</Tabs.Content>
+		<Tabs.Content value="crash">
+			<CrashResponse />
+		</Tabs.Content>
+		<Tabs.Content value="alert">
+			<AlertSystem />
+		</Tabs.Content>
 	</Tabs>
 </div>

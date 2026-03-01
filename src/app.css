@@ -2,17 +2,12 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
-@import 'tailwindcss';
-
 @import '@skeletonlabs/skeleton';
-@import '@skeletonlabs/skeleton/optional/presets';
 @import '@skeletonlabs/skeleton/themes/nouveau';
 @import '../src/3fp.css';
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-
-@source '../node_modules/@skeletonlabs/skeleton-svelte/dist';
 
 h1,
 h2,
@@ -22,6 +17,11 @@ h5,
 h6 {
 	color: var(--color-primary-50);
 	text-align: center;
+}
+
+html,
+body {
+	@apply h-full;
 }
 
 .label {

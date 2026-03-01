@@ -27,7 +27,7 @@
 		}
 		return value;
 	}
-	import { Toaster, createToaster } from '@skeletonlabs/skeleton-svelte';
+	import { Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
 	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
@@ -892,5 +892,5 @@
 		/>
 	</section>
 
-	<Toaster {toaster} />
+	<Toast.Group {toaster} />
 </div>

@@ -7,7 +7,7 @@
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
-	import { Segment } from '@skeletonlabs/skeleton-svelte';
+	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
 	import { tick, onMount } from 'svelte';
 	import HostNotificationSettings from './HostNotificationSettings.svelte';
 	import {
@@ -986,7 +986,7 @@
 						<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
 							<div class="flex flex-col gap-2">
 								<span class="label">Email type</span>
-								<Segment
+								<SegmentedControl
 									name={`email-type-${email.id}`}
 									value={email.emailType}
 									onValueChange={(e) => {
@@ -1003,9 +1003,13 @@
 									class="w-full"
 								>
 									{#each emailTypeOptions as option (option)}
-										<Segment.Item value={option}>{formatEmailType(option)}</Segment.Item>
+										<SegmentedControl.Item value={option}>
+											<SegmentedControl.ItemText>
+												{formatEmailType(option)}
+											</SegmentedControl.ItemText>
+										</SegmentedControl.Item>
 									{/each}
-								</Segment>
+								</SegmentedControl>
 							</div>
 							<button
 								type="button"

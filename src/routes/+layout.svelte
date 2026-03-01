@@ -1,7 +1,7 @@
 <script>
 	import '../app.css';
 	let { children } = $props();
-	import { AppBar, Navigation, Toaster } from '@skeletonlabs/skeleton-svelte';
+	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabaseClient';
 	import { page } from '$app/stores';
@@ -31,6 +31,27 @@
 	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
+	const navigationItems = [
+		{ href: '/', label: 'Home', icon: IconHome, match: (pathname) => pathname === '/' },
+		{
+			href: '/groups',
+			label: 'Groups',
+			icon: IconUsers,
+			match: (pathname) => pathname.startsWith('/groups')
+		},
+		{
+			href: '/volunteer',
+			label: 'Volunteer',
+			icon: IconHandHeart,
+			match: (pathname) => pathname.startsWith('/volunteer')
+		},
+		{
+			href: '/roadid',
+			label: 'In Case',
+			icon: IconIdCard,
+			match: (pathname) => pathname.startsWith('/roadid')
+		}
+	];
 
 	async function initTurnstile() {
 		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
@@ -167,41 +188,49 @@
 			// ignore
 		}
 	}
+
+	function isActiveNav(item) {
+		return item.match($page.url.pathname);
+	}
 </script>
 
 <svelte:head>
 	<title>3 Feet Please</title>
 </svelte:head>
 
-<div class="from-surface-950 to-surface-700 h-full min-h-screen bg-linear-to-br">
-	<Toaster {toaster} />
+<div class="bg-surface-950 min-h-dvh">
+	<Toast.Group {toaster} />
 	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
 		<div bind:this={turnstileEl}></div>
 	</div>
-	<AppBar background="bg-primary-500" classes="text-surface-950">
-		{#snippet lead()}
-			<div class="flex items-center gap-2">
-				<!-- Mobile hamburger -->
+	<header
+		class="border-b-primary-500/20 bg-surface-950/85 sticky top-0 z-30 border-b backdrop-blur"
+	>
+		<div
+			class="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8"
+		>
+			<div class="flex items-center gap-3">
 				<button
-					class="rounded p-2 hover:bg-white/20 md:hidden"
+					class="rounded-lg border border-white/10 p-2 text-white hover:bg-white/10 md:hidden"
 					bind:this={mobileMenuBtnEl}
 					onclick={() => (showMobileMenu = !showMobileMenu)}
 					aria-label="Menu"
 					aria-expanded={showMobileMenu}
 				>
-					<IconMenu />
+					<IconMenu class="h-5 w-5" />
 				</button>
-				<a href="/" class="flex items-center gap-2">
-					<img src="/3fp.png" alt="3 Feet Please" class="h-6 w-6" />
-					<span class="font-bold">3 Feet Please</span>
+				<a href="/" class="flex items-center gap-3 text-white">
+					<img src="/3fp.png" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
+					<div>
+						<p class="text-primary-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+					</div>
 				</a>
 			</div>
-		{/snippet}
-		{#snippet trail()}
+
 			<div class="relative">
 				{#if user}
 					<div class="flex items-center gap-2">
-						<span class="hidden text-sm md:inline">{user.email}</span>
+						<span class="text-surface-300 hidden text-sm lg:inline">{user.email}</span>
 						<button class="chip preset-tonal-surface-500" onclick={doLogout}>Logout</button>
 					</div>
 				{:else}
@@ -213,7 +242,6 @@
 						Log in / Register
 					</button>
 					{#if showLogin}
-						<!-- Backdrop + modal for mobile -->
 						<div
 							class="fixed inset-0 z-40 bg-black/50 md:hidden"
 							onclick={() => (showLogin = false)}
@@ -225,9 +253,7 @@
 							aria-label="Close login"
 						></div>
 
-						<!-- Container for login UI (used for click-outside) -->
 						<div bind:this={loginContainerEl}>
-							<!-- Mobile modal -->
 							<form
 								class="border-surface-700 bg-surface-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
 								onsubmit={doLogin}
@@ -278,9 +304,8 @@
 								</div>
 							</form>
 
-							<!-- Desktop dropdown -->
 							<form
-								class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-2 hidden w-64 rounded-md border p-3 shadow-lg md:block md:w-80"
+								class="border-surface-700 bg-surface-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
 								onsubmit={doLogin}
 							>
 								<input
@@ -324,88 +349,57 @@
 					{/if}
 				{/if}
 			</div>
-		{/snippet}
-	</AppBar>
+		</div>
+	</header>
 
-	<!-- Layout: Rail on md+, bottom bar on small screens -->
-	<div class="grid grid-cols-1 md:grid-cols-[auto_1fr]">
-		<!-- Left Rail (md+) -->
-		<aside class="hidden md:block">
-			<Navigation.Rail
-				background="bg-surface-900/90 backdrop-blur"
-				classes="text-white"
-				height="h-[100dvh]"
-				tilesJustify="justify-start"
-			>
-				{#snippet tiles()}
-					<Navigation.Tile label="Home" href="/" selected={$page.url.pathname === '/'}>
-						<IconHome />
-					</Navigation.Tile>
-					<Navigation.Tile
-						label="Groups"
-						href="/groups"
-						selected={$page.url.pathname.startsWith('/groups')}
-					>
-						<IconUsers />
-					</Navigation.Tile>
-					<Navigation.Tile
-						label="Volunteer"
-						href="/volunteer"
-						selected={$page.url.pathname.startsWith('/volunteer')}
-					>
-						<IconHandHeart />
-					</Navigation.Tile>
-					<Navigation.Tile
-						label="In Case"
-						href="/roadid"
-						selected={$page.url.pathname.startsWith('/roadid')}
-					>
-						<IconIdCard />
-					</Navigation.Tile>
-				{/snippet}
-			</Navigation.Rail>
+	<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
+		<aside class="bg-surface-950/75 hidden border-r-white/5 md:block md:border-r">
+			<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
+				<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
+					{#each navigationItems as item}
+						<a
+							href={item.href}
+							title={item.label}
+							aria-label={item.label}
+							class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
+								isActiveNav(item)
+									? 'bg-primary-400 text-surface-950 shadow-primary-950/25 shadow-lg'
+									: 'text-surface-200 hover:bg-white/10 hover:text-white'
+							}`}
+						>
+							<item.icon class="h-6 w-6 shrink-0" />
+							<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
+						</a>
+					{/each}
+				</nav>
+			</div>
 		</aside>
 
-		<!-- Content -->
-		<main class="flex min-h-[calc(100dvh-56px)] w-full flex-col items-center gap-4 p-2 pb-4">
+		<main class="min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
 			{@render children()}
 		</main>
 	</div>
 
 	<!-- Mobile dropdown menu (AppBar hamburger) -->
 	{#if showMobileMenu}
-		<div class="fixed top-[56px] right-2 left-2 z-50 md:hidden" bind:this={mobileMenuEl}>
+		<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
 			<div
-				class="border-surface-700 bg-surface-900/95 rounded-md border p-2 text-white shadow-xl backdrop-blur"
+				class="border-surface-700 bg-surface-900/95 rounded-xl border p-2 text-white shadow-xl backdrop-blur"
 			>
-				<a
-					href="/"
-					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
-					onclick={() => (showMobileMenu = false)}
-				>
-					<IconHome /> <span>Home</span>
-				</a>
-				<a
-					href="/groups"
-					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
-					onclick={() => (showMobileMenu = false)}
-				>
-					<IconUsers /> <span>Groups</span>
-				</a>
-				<a
-					href="/volunteer"
-					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
-					onclick={() => (showMobileMenu = false)}
-				>
-					<IconHandHeart /> <span>Volunteer</span>
-				</a>
-				<a
-					href="/roadid"
-					class="flex items-center gap-2 rounded px-2 py-2 hover:bg-white/10"
-					onclick={() => (showMobileMenu = false)}
-				>
-					<IconIdCard /> <span>In Case</span>
-				</a>
+				<nav aria-label="Mobile" class="space-y-1">
+					{#each navigationItems as item}
+						<a
+							href={item.href}
+							class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
+								isActiveNav(item) ? 'bg-primary-500 text-surface-950' : 'hover:bg-white/10'
+							}`}
+							onclick={() => (showMobileMenu = false)}
+						>
+							<item.icon class="h-5 w-5 shrink-0" />
+							<span>{item.label}</span>
+						</a>
+					{/each}
+				</nav>
 			</div>
 		</div>
 	{/if}

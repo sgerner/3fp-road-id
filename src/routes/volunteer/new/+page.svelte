@@ -100,6 +100,15 @@
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
 	const emailMergeTags = VOLUNTEER_MERGE_TAGS.map((tag) => tag.token);
 
+	function getInitials(value) {
+		return (value || '')
+			.trim()
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((part) => part[0]?.toUpperCase() ?? '')
+			.join('');
+	}
+
 	function normalizeArray(value) {
 		if (Array.isArray(value)) return value;
 		if (value === null || value === undefined) return [];
@@ -1977,19 +1986,23 @@
 												{@html renderChatContent(bubble.content)}
 											</div>
 										</div>
-										<Avatar
-											src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-											name={bubble.name}
-											size="size-12"
-										/>
+										<Avatar class="size-12">
+											<Avatar.Image
+												src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+												alt={bubble.name}
+											/>
+											<Avatar.Fallback>{getInitials(bubble.name)}</Avatar.Fallback>
+										</Avatar>
 									</div>
 								{:else}
 									<div class="grid grid-cols-[auto_1fr] items-start gap-2">
-										<Avatar
-											src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
-											name={bubble.name}
-											size="size-12"
-										/>
+										<Avatar class="size-12">
+											<Avatar.Image
+												src={`https://i.pravatar.cc/96?img=${bubble.avatarSeed}`}
+												alt={bubble.name}
+											/>
+											<Avatar.Fallback>{getInitials(bubble.name)}</Avatar.Fallback>
+										</Avatar>
 										<div class={`card rounded-tl-none p-4 ${bubble.color}`}>
 											<header class="flex items-center justify-between gap-4 text-sm">
 												<p class="font-semibold">{bubble.name}</p>
