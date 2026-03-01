@@ -50,75 +50,60 @@ body::after {
 
 body::before {
 	z-index: -2;
+	/* Extend inset to avoid edge clipping during animation */
+	inset: -5%;
+	opacity: 0.7;
 	background:
-		radial-gradient(
-			72rem 42rem at 12% 14%,
-			color-mix(in oklab, var(--color-primary-500) 24%, transparent) 0%,
-			transparent 62%
-		),
-		radial-gradient(
-			58rem 34rem at 84% 18%,
-			color-mix(in oklab, var(--color-secondary-500) 18%, transparent) 0%,
-			transparent 58%
-		),
-		radial-gradient(
-			66rem 40rem at 50% 108%,
-			color-mix(in oklab, var(--color-tertiary-500) 18%, transparent) 0%,
-			transparent 60%
-		),
-		radial-gradient(
-			40rem 28rem at 52% 38%,
-			color-mix(in oklab, var(--color-success-500) 8%, transparent) 0%,
-			transparent 70%
-		),
-		linear-gradient(
-			135deg,
-			color-mix(
-					in oklab,
-					light-dark(var(--color-surface-50), var(--color-surface-950)) 92%,
-					var(--color-primary-500) 8%
-				)
-				0%,
-			color-mix(
-					in oklab,
-					light-dark(var(--color-surface-100), var(--color-surface-900)) 95%,
-					var(--color-surface-500) 5%
-				)
-				46%,
-			color-mix(
-					in oklab,
-					light-dark(var(--color-surface-50), var(--color-surface-950)) 90%,
-					var(--color-secondary-500) 10%
-				)
-				100%
-		);
-	filter: saturate(115%);
+		radial-gradient(80rem 50rem at 10% 10%,
+			color-mix(in oklab, var(--color-primary-500) 40%, transparent) 0%,
+			transparent 65%),
+		radial-gradient(65rem 40rem at 90% 20%,
+			color-mix(in oklab, var(--color-secondary-500) 35%, transparent) 0%,
+			transparent 60%),
+		radial-gradient(75rem 45rem at 50% 115%,
+			color-mix(in oklab, var(--color-tertiary-500) 35%, transparent) 0%,
+			transparent 70%),
+		radial-gradient(55rem 35rem at 40% 60%,
+			color-mix(in oklab, var(--color-success-500) 22%, transparent) 0%,
+			transparent 75%),
+		linear-gradient(135deg,
+			color-mix(in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-950)) 85%,
+				var(--color-primary-500) 15%) 0%,
+			color-mix(in oklab,
+				light-dark(var(--color-surface-100), var(--color-surface-900)) 88%,
+				var(--color-surface-500) 12%) 46%,
+			color-mix(in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-950)) 80%,
+				var(--color-secondary-500) 20%) 100%);
+	filter: saturate(135%) contrast(105%);
+	animation: cinematic-bg-drift 40s ease-in-out infinite alternate;
+}
+
+@keyframes cinematic-bg-drift {
+	0% {
+		transform: scale(1) translate(0, 0);
+	}
+
+	100% {
+		transform: scale(1.05) translate(-1.5%, 1.5%);
+	}
 }
 
 body::after {
 	z-index: -1;
 	background:
-		linear-gradient(
-			to bottom,
-			color-mix(
-					in oklab,
-					light-dark(var(--color-surface-50), var(--color-surface-950)) 24%,
-					transparent
-				)
-				0%,
+		linear-gradient(to bottom,
+			color-mix(in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-950)) 24%,
+				transparent) 0%,
 			transparent 28%,
-			color-mix(
-					in oklab,
-					light-dark(var(--color-surface-950), var(--color-surface-50)) 12%,
-					transparent
-				)
-				100%
-		),
-		repeating-linear-gradient(
-			115deg,
+			color-mix(in oklab,
+				light-dark(var(--color-surface-950), var(--color-surface-50)) 12%,
+				transparent) 100%),
+		repeating-linear-gradient(115deg,
 			color-mix(in oklab, var(--color-surface-950) 5%, transparent) 0 2px,
-			transparent 2px 34px
-		);
+			transparent 2px 34px);
 	opacity: 0.75;
 }
 
@@ -148,22 +133,21 @@ p {
 .ai-panel::before {
 	content: '';
 	position: absolute;
-	inset: -2px; /* extend slightly to avoid clipping */
+	inset: -2px;
+	/* extend slightly to avoid clipping */
 	padding: 2px;
 	border-radius: inherit;
 	/* Narrow multicolor segment, rest transparent, masked to border ring */
-	background: conic-gradient(
-		from var(--ai-angle),
-		rgba(0, 0, 0, 0) 0turn,
-		rgba(0, 0, 0, 0) 0.82turn,
-		#ff6b6b 0.82turn,
-		#f7b801 0.85turn,
-		#6bff95 0.88turn,
-		#4dabf7 0.91turn,
-		#b76bff 0.94turn,
-		rgba(0, 0, 0, 0) 0.97turn,
-		rgba(0, 0, 0, 0) 1turn
-	);
+	background: conic-gradient(from var(--ai-angle),
+			rgba(0, 0, 0, 0) 0turn,
+			rgba(0, 0, 0, 0) 0.82turn,
+			#ff6b6b 0.82turn,
+			#f7b801 0.85turn,
+			#6bff95 0.88turn,
+			#4dabf7 0.91turn,
+			#b76bff 0.94turn,
+			rgba(0, 0, 0, 0) 0.97turn,
+			rgba(0, 0, 0, 0) 1turn);
 	-webkit-mask:
 		linear-gradient(#000 0 0) content-box,
 		linear-gradient(#000 0 0);
@@ -180,15 +164,13 @@ p {
 	position: absolute;
 	inset: -6px;
 	border-radius: inherit;
-	background: conic-gradient(
-		from calc(var(--ai-angle) + 10deg),
-		#ff6b6b,
-		#f7b801,
-		#6bff95,
-		#4dabf7,
-		#b76bff,
-		#ff6b6b
-	);
+	background: conic-gradient(from calc(var(--ai-angle) + 10deg),
+			#ff6b6b,
+			#f7b801,
+			#6bff95,
+			#4dabf7,
+			#b76bff,
+			#ff6b6b);
 	filter: blur(12px);
 	opacity: 0;
 	pointer-events: none;
@@ -198,6 +180,7 @@ p {
 	opacity: 1;
 	animation: ai-sweep 2.4s linear infinite;
 }
+
 .ai-panel.is-loading::after {
 	opacity: 0.28;
 	animation:
@@ -210,11 +193,14 @@ p {
 		--ai-angle: 360deg;
 	}
 }
+
 @keyframes ai-pulse {
+
 	0%,
 	100% {
 		opacity: 0.22;
 	}
+
 	50% {
 		opacity: 0.38;
 	}
@@ -224,10 +210,12 @@ p {
 	body * {
 		visibility: hidden;
 	}
+
 	.printable-roster-table,
 	.printable-roster-table * {
 		visibility: visible;
 	}
+
 	.printable-roster-table {
 		display: block;
 		position: absolute;
@@ -236,24 +224,29 @@ p {
 		width: 100%;
 		padding: 1rem;
 	}
+
 	h1 {
 		font-size: 1.5rem;
 		margin-bottom: 1rem;
 	}
+
 	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: 0.9rem;
 	}
+
 	th,
 	td {
 		border: 1px solid #ddd;
 		padding: 0.5rem;
 		text-align: left;
 	}
+
 	th {
 		background-color: #f2f2f2;
 	}
+
 	.no-print {
 		display: none;
 	}

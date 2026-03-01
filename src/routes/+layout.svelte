@@ -249,11 +249,9 @@
 		<div bind:this={turnstileEl}></div>
 	</div>
 	<header
-		class="border-b-primary-500/20 bg-surface-50-950/62 sticky top-0 z-30 border-b backdrop-blur-xl"
+		class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
 	>
-		<div
-			class="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8"
-		>
+		<div class="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
 			<div class="flex items-center gap-3">
 				<button
 					class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
