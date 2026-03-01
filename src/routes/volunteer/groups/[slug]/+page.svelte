@@ -77,6 +77,5 @@
 	user={currentUser}
 	{title}
 	{description}
-	showManagedEventsSection={false}
 	showCreateButton={false}
 />

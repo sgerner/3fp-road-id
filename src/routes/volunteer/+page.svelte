@@ -26,7 +26,6 @@
 	user={currentUser}
 	title="Volunteer Opportunities"
 	description="Browse rides, pop-up shops, workshops, and more. Filter by host, type, and location to find the right place to pitch in."
-	showManagedEventsSection={true}
 	showCreateButton={true}
 	createButtonHref="/volunteer/new"
 />
