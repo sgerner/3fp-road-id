@@ -34,23 +34,27 @@
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
-	const event = data.event ?? {};
-	const eventFinished = data.eventFinished ?? false;
-	const hostGroup = data.hostGroup ?? null;
-	const eventType = data.eventType ?? null;
-	const customQuestions = data.customQuestions ?? [];
+	function getPageData() {
+		return data ?? {};
+	}
+	const pageData = getPageData();
+	const event = pageData.event ?? {};
+	const eventFinished = pageData.eventFinished ?? false;
+	const hostGroup = pageData.hostGroup ?? null;
+	const eventType = pageData.eventType ?? null;
+	const customQuestions = pageData.customQuestions ?? [];
 	const eventQuestions = customQuestions.filter((question) => !question?.opportunity_id);
-	const authRequired = data.authRequired ?? false;
-	const draftRestricted = data.draftForbidden ?? false;
-	const canManage = data.canManageEvent ?? false;
-	let signups = [...(data.signups ?? [])];
-	let signupShifts = [...(data.signupShifts ?? [])];
-	let signupResponses = [...(data.signupResponses ?? [])];
-	let shiftSignupCounts = { ...(data.shiftSignupCounts ?? {}) };
-	const user = data.user ?? null;
-	let profile = data.profile ?? null;
-	let userSignups = [...(data.userSignups ?? [])];
-	let loginReturnTo = data.returnTo ?? '';
+	const authRequired = pageData.authRequired ?? false;
+	const draftRestricted = pageData.draftForbidden ?? false;
+	const canManage = pageData.canManageEvent ?? false;
+	let signups = [...(pageData.signups ?? [])];
+	let signupShifts = [...(pageData.signupShifts ?? [])];
+	let signupResponses = [...(pageData.signupResponses ?? [])];
+	let shiftSignupCounts = { ...(pageData.shiftSignupCounts ?? {}) };
+	const user = pageData.user ?? null;
+	let profile = pageData.profile ?? null;
+	let userSignups = [...(pageData.userSignups ?? [])];
+	let loginReturnTo = pageData.returnTo ?? '';
 
 	const opportunityTypeLabels = {
 		coordination: 'Coordination & Leads',
@@ -199,7 +203,7 @@
 			.map(([key, value]) => ({ key, url: value.trim() }));
 	})();
 
-	const organizerEmail = (data.organizerEmail || '').trim();
+	const organizerEmail = (pageData.organizerEmail || '').trim();
 	const contactEmail = (event.contact_email || '').trim();
 	const contactPhone = (event.contact_phone || '').trim();
 
@@ -222,7 +226,7 @@
 		return acc;
 	}, {});
 
-	const opportunitiesRaw = data.opportunities ?? [];
+	const opportunitiesRaw = pageData.opportunities ?? [];
 	const mapOpportunityMeta = (opportunity) => {
 		const userSignup = signupByOpportunity[opportunity.id];
 		const userShiftRows = userSignup ? (shiftRowsBySignup[userSignup.id] ?? []) : [];

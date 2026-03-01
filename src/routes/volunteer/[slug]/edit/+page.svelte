@@ -184,19 +184,23 @@
 		};
 	}
 
-	const eventTypes = _nullishCoalesce(data.eventTypes, () => []);
+	function getPageData() {
+		return _nullishCoalesce(data, () => ({}));
+	}
+	const pageData = getPageData();
+	const eventTypes = _nullishCoalesce(pageData.eventTypes, () => []);
 	const eventTypeOptions = eventTypes.map((item) => ({
 		value: String(_nullishCoalesce(item.slug, () => '')),
 		label: String(_nullishCoalesce(item.event_type, () => '')),
 		description: _nullishCoalesce(item.description, () => '')
 	}));
 
-	const eventRecordInitial = _nullishCoalesce(data.event, () => ({}));
+	const eventRecordInitial = _nullishCoalesce(pageData.event, () => ({}));
 	const eventId = _nullishCoalesce(eventRecordInitial.id, () => '');
 	let eventRecord = $state({ ...eventRecordInitial });
-	let eventDetails = $state(mapEventRecordToFormDetails(eventRecord));
+	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
-	const hostGroups = _nullishCoalesce(data.hostGroups, () => []);
+	const hostGroups = _nullishCoalesce(pageData.hostGroups, () => []);
 	const hostGroupOptions = hostGroups
 		.map((group) => ({ label: String(_nullishCoalesce(group.name, () => '')), value: group.id }))
 		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -305,7 +309,7 @@
 		updateEventDetails(patch);
 	}
 
-	const loadedOpportunities = ensureArray(_nullishCoalesce(data.opportunities, () => []));
+	const loadedOpportunities = ensureArray(_nullishCoalesce(pageData.opportunities, () => []));
 	let opportunities = $state(
 		loadedOpportunities.map((op) =>
 			mapOpportunityRecordToFormDetails(
@@ -556,7 +560,7 @@
 		getShiftAutosave(shiftId, opportunityId).queue(patch);
 	}
 
-	const loadedQuestions = ensureArray(_nullishCoalesce(data.customQuestions, () => []));
+	const loadedQuestions = ensureArray(_nullishCoalesce(pageData.customQuestions, () => []));
 	let customQuestions = $state(
 		loadedQuestions.map((question) => mapQuestionRecordToFormDetails(question))
 	);
@@ -646,7 +650,7 @@
 		getQuestionAutosave(id).queue(patch);
 	}
 
-	const loadedEmails = ensureArray(_nullishCoalesce(data.eventEmails, () => []));
+	const loadedEmails = ensureArray(_nullishCoalesce(pageData.eventEmails, () => []));
 	let eventEmails = $state(loadedEmails.map((email) => mapEmailRecordToFormDetails(email)));
 	const emailAutosaves = new Map();
 

@@ -24,6 +24,10 @@
 	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	function getPageData() {
+		return data ?? {};
+	}
+	const pageData = getPageData();
 
 	let L; // loaded dynamically on client
 
@@ -63,22 +67,22 @@
 	let placesEl;
 	let placesLoading = $state(false);
 	let searchText = $state('');
-	let cityValue = $state((data.group?.city || '').trim());
-	let stateValue = $state((data.group?.state_region || '').trim());
-	let countryValue = $state((data.group?.country || 'US').toUpperCase());
+	let cityValue = $state((pageData.group?.city || '').trim());
+	let stateValue = $state((pageData.group?.state_region || '').trim());
+	let countryValue = $state((pageData.group?.country || 'US').toUpperCase());
 	let locationGeocodeTimeout;
 	let locationPendingGeocode;
 	let locationLastKey = '';
 	let locationGeocoder;
 	let googlePlacesReady = false;
-	let meetingAddress = $state((data.group?.specific_meeting_point_address || '').trim());
+	let meetingAddress = $state((pageData.group?.specific_meeting_point_address || '').trim());
 	function formatDefaultSearch() {
 		const meetingTrim = (meetingAddress || '').trim();
 		if (meetingTrim) return meetingTrim;
 		const p = [];
-		if (data.group?.city) p.push(data.group.city);
-		if (data.group?.state_region) p.push(data.group.state_region);
-		if (data.group?.country) p.push(data.group.country);
+		if (pageData.group?.city) p.push(pageData.group.city);
+		if (pageData.group?.state_region) p.push(pageData.group.state_region);
+		if (pageData.group?.country) p.push(pageData.group.country);
 		return p.join(', ');
 	}
 	async function doSearch() {
@@ -726,7 +730,7 @@
 	let ownerTurnstileEl = $state(null);
 	let ownerTurnstileWidgetId = $state(null);
 	// Local reactive owners list so UI updates on removal
-	let owners = $state((data.owners || []).slice());
+	let owners = $state((pageData.owners || []).slice());
 
 	async function initOwnerTurnstile() {
 		if (!turnstileEnabled || !ownerTurnstileEl || ownerTurnstileWidgetId) return;
@@ -832,16 +836,16 @@
 		}
 	}
 
-	let ctaKind = $state(data.group?.preferred_cta_kind || 'auto');
-	let ctaLabel = $state(data.group?.preferred_cta_label || '');
-	let ctaUrl = $state(data.group?.preferred_cta_url || '');
+	let ctaKind = $state(pageData.group?.preferred_cta_kind || 'auto');
+	let ctaLabel = $state(pageData.group?.preferred_cta_label || '');
+	let ctaUrl = $state(pageData.group?.preferred_cta_url || '');
 	let customUrlValid = $derived(!ctaUrl || /^https?:\/\/.+/i.test(ctaUrl));
 
 	// Live values for availability and preview
-	let websiteLocal = $state(data.group?.website_url || '');
-	let emailLocal = $state(data.group?.public_contact_email || '');
-	let phoneLocal = $state(data.group?.public_phone_number || '');
-	let socialsLocal = $state({ ...(data.group?.social_links || {}) });
+	let websiteLocal = $state(pageData.group?.website_url || '');
+	let emailLocal = $state(pageData.group?.public_contact_email || '');
+	let phoneLocal = $state(pageData.group?.public_phone_number || '');
+	let socialsLocal = $state({ ...(pageData.group?.social_links || {}) });
 
 	const ctaChoices = [
 		{ key: 'auto', label: 'Auto', icon: IconLink },
@@ -1591,6 +1595,9 @@
 			{#if cropping}
 				<div
 					class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+					role="dialog"
+					aria-modal="true"
+					tabindex="-1"
 					onpointermove={onCropPointerMove}
 					onpointerup={onCropPointerUp}
 					onpointercancel={onCropPointerUp}

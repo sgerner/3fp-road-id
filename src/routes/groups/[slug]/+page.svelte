@@ -24,9 +24,11 @@
 	let map;
 	let marker;
 
-	const hasCoords = Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
-	const lat = hasCoords ? Number(data.group.latitude) : undefined;
-	const lng = hasCoords ? Number(data.group.longitude) : undefined;
+	const group = $derived(data.group ?? null);
+	const selected = $derived(data.selected ?? {});
+	const hasCoords = $derived(Number.isFinite(group?.latitude) && Number.isFinite(group?.longitude));
+	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
+	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
 	function ensureMap() {
 		if (!L || !mapEl || map) return;
@@ -72,13 +74,13 @@
 		return (all || []).filter((x) => set.has(x.id)).map((x) => x.name);
 	}
 
-	const types = pickNames(data.group_types, data.selected?.group_type_ids);
-	const audiences = pickNames(data.audience_focuses, data.selected?.audience_focus_ids);
-	const disciplines = pickNames(data.riding_disciplines, data.selected?.riding_discipline_ids);
-	const skills = pickNames(data.skill_levels, data.selected?.skill_level_ids);
+	const types = $derived(pickNames(data.group_types, selected?.group_type_ids));
+	const audiences = $derived(pickNames(data.audience_focuses, selected?.audience_focus_ids));
+	const disciplines = $derived(pickNames(data.riding_disciplines, selected?.riding_discipline_ids));
+	const skills = $derived(pickNames(data.skill_levels, selected?.skill_level_ids));
 
 	// Claim group support
-	const hasOwner = (data.owners_count ?? 0) > 0;
+	const hasOwner = $derived((data.owners_count ?? 0) > 0);
 	let claimOpen = $state(false);
 	let claimEmail = $state('');
 	let claimLoading = $state(false);
@@ -404,6 +406,7 @@
 					{#if contactLinks.length}
 						<div class="ml-auto flex shrink-0 items-center gap-2">
 							{#each contactLinks.slice(0, 6) as c}
+								{@const ContactIcon = contactIconByKey[c.key] || IconLink}
 								<a
 									href={c.href}
 									title={c.key}
@@ -411,11 +414,7 @@
 									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
 									class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
 								>
-									<svelte:component
-										this={contactIconByKey[c.key] || IconLink}
-										class="h-5 w-5"
-										className="h-5 w-5"
-									/>
+									<ContactIcon class="h-5 w-5" className="h-5 w-5" />
 								</a>
 							{/each}
 						</div>

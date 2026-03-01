@@ -8,9 +8,13 @@
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	let { data } = $props();
-	const code = data.code;
-	const notFound = data.notFound;
-	const user = data.user;
+	function getPageData() {
+		return data ?? {};
+	}
+	const pageData = getPageData();
+	const code = pageData.code;
+	const notFound = pageData.notFound;
+	const user = pageData.user;
 
 	// If there's no profile, create an empty one
 	const emptyProfile = {
@@ -21,7 +25,7 @@
 		allergies: '',
 		medication: ''
 	};
-	let profile = $state(data.qrData ? { ...data.qrData?.profile } : emptyProfile);
+	let profile = $state(pageData.qrData ? { ...pageData.qrData?.profile } : emptyProfile);
 	let showLogin = $state(false);
 
 	// Control which tab is active. 'profile' is default.
@@ -267,44 +271,365 @@
 		</Tabs.List>
 
 		<Tabs.Content value="profile">
-				<div
-					class="card preset-outlined-primary-500 bg-surface-950 card-hover flex flex-col gap-4 p-4"
-				>
-					{#if notFound}
-						<section>
-							<h1 class="h1">Code Not Found</h1>
-							<p class="mb-4">
-								We haven't created a In Case bracelet for the code <strong>{code}</strong> yet.
-							</p>
-							<p class="mb-4">
-								For more information about ordering a bracelet, please visit
-								<a
-									href="https://3feetplease.org"
-									target="_blank"
-									rel="noopener noreferrer"
-									class="anchor"
-								>
-									3 Feet Please
-								</a>.
-							</p>
-						</section>
-					{:else if !profile.user_id && !user}
-						<!-- Not logged in and no profile exists: show claim/login form -->
-						<section class="flex flex-col items-center justify-center">
-							{#if submissionSuccess}
-								<div class="rounded p-4" transition:slide>
-									<h2 class="h2">Check Your Email</h2>
-									<p>
-										A link has been sent to <strong>{newProfile.email}</strong>.
-									</p>
-									<p>Please click the link in your email to complete your sign-up.</p>
-								</div>
-							{:else}
-								<h2 class="h2">Claim Your Profile</h2>
-								<p class="mb-4">
-									This profile hasn’t been claimed yet. Please enter your details below to claim it.
+			<div
+				class="card preset-outlined-primary-500 bg-surface-950 card-hover flex flex-col gap-4 p-4"
+			>
+				{#if notFound}
+					<section>
+						<h1 class="h1">Code Not Found</h1>
+						<p class="mb-4">
+							We haven't created a In Case bracelet for the code <strong>{code}</strong> yet.
+						</p>
+						<p class="mb-4">
+							For more information about ordering a bracelet, please visit
+							<a
+								href="https://3feetplease.org"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="anchor"
+							>
+								3 Feet Please
+							</a>.
+						</p>
+					</section>
+				{:else if !profile.user_id && !user}
+					<!-- Not logged in and no profile exists: show claim/login form -->
+					<section class="flex flex-col items-center justify-center">
+						{#if submissionSuccess}
+							<div class="rounded p-4" transition:slide>
+								<h2 class="h2">Check Your Email</h2>
+								<p>
+									A link has been sent to <strong>{newProfile.email}</strong>.
 								</p>
-								<form class="flex w-full max-w-md flex-col gap-4" onsubmit={handleSubmit}>
+								<p>Please click the link in your email to complete your sign-up.</p>
+							</div>
+						{:else}
+							<h2 class="h2">Claim Your Profile</h2>
+							<p class="mb-4">
+								This profile hasn’t been claimed yet. Please enter your details below to claim it.
+							</p>
+							<form class="flex w-full max-w-md flex-col gap-4" onsubmit={handleSubmit}>
+								<input
+									type="text"
+									name="website"
+									bind:value={honeypot}
+									autocomplete="off"
+									tabindex="-1"
+									aria-hidden="true"
+									style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+								/>
+								<div class="flex flex-col gap-2">
+									<label for="email" class="label">Email</label>
+									<input
+										type="email"
+										id="email"
+										bind:value={newProfile.email}
+										placeholder="jane@example.com"
+										class="input bg-primary-950/30 {emailTouched && !emailIsValid
+											? 'border-red-500'
+											: emailTouched && emailIsValid
+												? 'border-green-500'
+												: ''}"
+										required
+										oninput={() => (emailTouched = true)}
+									/>
+									{#if emailTouched && !emailIsValid}
+										<p class="text-sm text-red-500" transition:slide>
+											Please enter a valid email address.
+										</p>
+									{/if}
+								</div>
+								{#if errorMessage}
+									<p class="text-red-500" transition:slide>{errorMessage}</p>
+								{/if}
+								<button
+									type="submit"
+									class="btn preset-outlined-success-500 mt-4 {loading ? 'animate-pulse' : ''}"
+									disabled={loading}
+								>
+									Claim This Profile
+								</button>
+							</form>
+						{/if}
+					</section>
+				{:else if (!profile.user_id && user) || user?.id === profile.user_id}
+					<!-- Signed-in user: show editable profile form -->
+					<section class="flex flex-col gap-4">
+						<h6 class="h6 !mb-0">Emergency Information</h6>
+
+						<div class="flex flex-col">
+							<label for="full_name" class="label">Your Name</label>
+							<input
+								type="text"
+								id="full_name"
+								value={profile?.full_name}
+								class="input bg-primary-950/30"
+								onblur={(e) => {
+									profile.full_name = e.target.value;
+									handleProfileUpdate();
+								}}
+							/>
+						</div>
+
+						<div class="flex flex-col">
+							<label for="phone" class="label">Phone</label>
+							<input
+								type="text"
+								id="phone"
+								value={profile?.phone}
+								class="input bg-primary-950/30"
+								onblur={(e) => {
+									profile.phone = e.target.value;
+									handleProfileUpdate();
+								}}
+							/>
+						</div>
+
+						<div class="flex flex-col">
+							<label for="blood_type" class="label">Blood Type</label>
+							<select
+								id="blood_type"
+								class="select bg-primary-950/30"
+								onblur={(e) => {
+									profile.blood_type = e.target.value;
+									handleProfileUpdate();
+								}}
+							>
+								<option value="">Select</option>
+								<option value="A+">A+</option>
+								<option value="A-">A-</option>
+								<option value="B+">B+</option>
+								<option value="B-">B-</option>
+								<option value="AB+">AB+</option>
+								<option value="AB-">AB-</option>
+								<option value="O+">O+</option>
+								<option value="O-">O-</option>
+							</select>
+						</div>
+
+						<div class="flex flex-col">
+							<p class="label">Allergies</p>
+							<div class="flex flex-wrap gap-2">
+								{#each allergyOptions as allergy}
+									<button
+										type="button"
+										class="chip {isAllergySelected(allergy)
+											? 'preset-filled-primary-500'
+											: 'preset-outlined-primary-500'}"
+										onclick={() => toggleAllergy(allergy)}
+									>
+										{allergy}
+									</button>
+								{/each}
+							</div>
+							<input
+								type="text"
+								id="allergies"
+								placeholder="Other allergies (comma-separated)"
+								value={profile?.allergies}
+								class="input bg-primary-950/30 mt-2"
+								onblur={(e) => {
+									profile.allergies = e.target.value;
+									handleProfileUpdate();
+								}}
+							/>
+						</div>
+
+						<div class="flex flex-col">
+							<p class="label">Medication</p>
+							<div class="flex flex-wrap gap-2">
+								{#each medicineOptions as med}
+									<button
+										type="button"
+										class="chip {isMedicationSelected(med)
+											? 'preset-filled-primary-500'
+											: 'preset-outlined-primary-500'}"
+										onclick={() => toggleMedication(med)}
+									>
+										{med}
+									</button>
+								{/each}
+							</div>
+							<textarea
+								id="medication"
+								rows="3"
+								placeholder="Other medications (comma-separated)"
+								class="textarea bg-primary-950/30 mt-2"
+								onblur={(e) => {
+									profile.medication = e.target.value;
+									handleProfileUpdate();
+								}}>{profile?.medication}</textarea
+							>
+						</div>
+
+						<!-- Emergency Contacts Section: Always display input fields -->
+						<h6 class="h6">Emergency Contacts</h6>
+						{#if errorMessage}
+							<p class="text-red-500">{errorMessage}</p>
+						{/if}
+						{#if profile?.emergency_contacts && profile.emergency_contacts.length}
+							<div class="flex flex-col gap-2">
+								{#each profile.emergency_contacts as contact}
+									<div class="card rounded border p-2">
+										<div class="flex flex-col gap-2">
+											<p class="label">Name</p>
+											<input
+												type="text"
+												bind:value={contact.contact_name}
+												class="input bg-primary-950/30"
+												onblur={() => handleUpdateContact(contact)}
+											/>
+											<p class="label">Relationship</p>
+											<input
+												type="text"
+												bind:value={contact.contact_relationship}
+												class="input bg-primary-950/30"
+												onblur={() => handleUpdateContact(contact)}
+											/>
+											<p class="label">Phone</p>
+											<input
+												type="text"
+												bind:value={contact.contact_phone}
+												class="input bg-primary-950/30"
+												onblur={() => handleUpdateContact(contact)}
+											/>
+											<button
+												class="btn btn-sm preset-outlined-error-500 hover:preset-filled-error-500"
+												onclick={() => handleDeleteContact(contact.id)}
+											>
+												Delete
+											</button>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p>No emergency contacts provided.</p>
+						{/if}
+
+						<!-- Add New Contact Form -->
+						<div class="card preset-outlined-success-500 mt-4 rounded p-2">
+							<h6 class="h6">Add a New Contact</h6>
+							<form class="flex flex-col gap-2" onsubmit={handleCreateContact}>
+								<div class="flex flex-col gap-1">
+									<label for="contact_name" class="label">Name</label>
+									<input
+										type="text"
+										id="contact_name"
+										bind:value={newContact.contact_name}
+										class="input bg-primary-950/30"
+										required
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label for="contact_relationship" class="label">Relationship</label>
+									<input
+										type="text"
+										id="contact_relationship"
+										bind:value={newContact.contact_relationship}
+										class="input bg-primary-950/30"
+										required
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label for="contact_phone" class="label">Phone</label>
+									<input
+										type="text"
+										id="contact_phone"
+										bind:value={newContact.contact_phone}
+										class="input bg-primary-950/30"
+										required
+									/>
+								</div>
+								<button
+									type="submit"
+									class="btn preset-outlined-success-500 btn-sm hover:preset-filled-success-500 mt-2"
+								>
+									Create Contact
+								</button>
+							</form>
+						</div>
+					</section>
+				{:else}
+					<!-- Public / read-only view -->
+					<section>
+						<h6 class="h6 !mb-0">Emergency Information</h6>
+						<div class="flex flex-col gap-4">
+							<div class="card">
+								<span class="label">Name</span><strong>{profile?.full_name}</strong>
+							</div>
+							{#if profile.phone}
+								<div class="card">
+									<span class="label">Phone</span>
+									<a
+										href="tel:{normalizePhoneNumber(profile.phone)}"
+										target="_blank"
+										class="font-bold"
+									>
+										{profile?.phone ? formatPhoneNumber(profile.phone) : ''}
+									</a>
+								</div>
+							{/if}
+							{#if profile.blood_type}
+								<div class="card">
+									<span class="label">Blood Type</span><strong>{profile?.blood_type}</strong>
+								</div>
+							{/if}
+							{#if profile.allergies}
+								<div class="card">
+									<span class="label">Allergies</span><strong>{profile?.allergies}</strong>
+								</div>
+							{/if}
+							{#if profile.medication}
+								<div class="card">
+									<span class="label">Medication</span><strong>{profile?.medication}</strong>
+								</div>
+							{/if}
+						</div>
+
+						<h6 class="h6 mt-4">Emergency Contacts</h6>
+						{#if profile?.emergency_contacts && profile.emergency_contacts.length}
+							<ul>
+								{#each profile.emergency_contacts as contact}
+									<li>
+										<strong>{contact.contact_name}</strong> ({contact.contact_relationship}) –
+										<a
+											href="tel:{normalizePhoneNumber(contact.contact_phone)}"
+											target="_blank"
+											class="font-bold"
+										>
+											{profile?.phone ? formatPhoneNumber(contact.contact_phone) : ''}
+										</a>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p>No emergency contacts provided.</p>
+						{/if}
+					</section>
+
+					<section class="border-success-500 rounded-md border">
+						{#if submissionSuccess}
+							<div class="rounded p-4" transition:slide>
+								<h4 class="h4">Check Your Email</h4>
+								<p>
+									A link has been sent to <strong>{newProfile.email}</strong>.
+								</p>
+								<p>Please click the link in your email to login.</p>
+							</div>
+						{:else}
+							<button
+								class="btn preset-tonal-success btn-sm hover:preset-filled-success-500 w-full"
+								onclick={() => (showLogin = !showLogin)}
+							>
+								Manage Profile
+							</button>
+							{#if showLogin}
+								<form
+									class="flex w-full max-w-md flex-col"
+									onsubmit={handleSubmit}
+									transition:slide
+								>
 									<input
 										type="text"
 										name="website"
@@ -315,20 +640,22 @@
 										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 									/>
 									<div class="flex flex-col gap-2">
-										<label for="email" class="label">Email</label>
-										<input
-											type="email"
-											id="email"
-											bind:value={newProfile.email}
-											placeholder="jane@example.com"
-											class="input bg-primary-950/30 {emailTouched && !emailIsValid
-												? 'border-red-500'
-												: emailTouched && emailIsValid
-													? 'border-green-500'
-													: ''}"
-											required
-											oninput={() => (emailTouched = true)}
-										/>
+										<div class="input-group grid-cols-[auto_1fr_auto]">
+											<div class="ig-cell preset-tonal">Email</div>
+											<input
+												type="email"
+												id="email"
+												bind:value={newProfile.email}
+												placeholder="jane@example.com"
+												class="ig-input {emailTouched && !emailIsValid
+													? 'border-red-500'
+													: emailTouched && emailIsValid
+														? 'border-green-500'
+														: ''}"
+												required
+												oninput={() => (emailTouched = true)}
+											/>
+										</div>
 										{#if emailTouched && !emailIsValid}
 											<p class="text-sm text-red-500" transition:slide>
 												Please enter a valid email address.
@@ -340,340 +667,17 @@
 									{/if}
 									<button
 										type="submit"
-										class="btn preset-outlined-success-500 mt-4 {loading ? 'animate-pulse' : ''}"
+										class="btn preset-filled-success-500 {loading ? 'animate-pulse' : ''}"
 										disabled={loading}
 									>
-										Claim This Profile
+										Login to Manage Profile
 									</button>
 								</form>
 							{/if}
-						</section>
-					{:else if (!profile.user_id && user) || user?.id === profile.user_id}
-						<!-- Signed-in user: show editable profile form -->
-						<section class="flex flex-col gap-4">
-							<h6 class="h6 !mb-0">Emergency Information</h6>
-
-							<div class="flex flex-col">
-								<label for="full_name" class="label">Your Name</label>
-								<input
-									type="text"
-									id="full_name"
-									value={profile?.full_name}
-									class="input bg-primary-950/30"
-									onblur={(e) => {
-										profile.full_name = e.target.value;
-										handleProfileUpdate();
-									}}
-								/>
-							</div>
-
-							<div class="flex flex-col">
-								<label for="phone" class="label">Phone</label>
-								<input
-									type="text"
-									id="phone"
-									value={profile?.phone}
-									class="input bg-primary-950/30"
-									onblur={(e) => {
-										profile.phone = e.target.value;
-										handleProfileUpdate();
-									}}
-								/>
-							</div>
-
-							<div class="flex flex-col">
-								<label for="blood_type" class="label">Blood Type</label>
-								<select
-									id="blood_type"
-									class="select bg-primary-950/30"
-									onblur={(e) => {
-										profile.blood_type = e.target.value;
-										handleProfileUpdate();
-									}}
-								>
-									<option value="">Select</option>
-									<option value="A+">A+</option>
-									<option value="A-">A-</option>
-									<option value="B+">B+</option>
-									<option value="B-">B-</option>
-									<option value="AB+">AB+</option>
-									<option value="AB-">AB-</option>
-									<option value="O+">O+</option>
-									<option value="O-">O-</option>
-								</select>
-							</div>
-
-							<div class="flex flex-col">
-								<label class="label">Allergies</label>
-								<div class="flex flex-wrap gap-2">
-									{#each allergyOptions as allergy}
-										<button
-											type="button"
-											class="chip {isAllergySelected(allergy)
-												? 'preset-filled-primary-500'
-												: 'preset-outlined-primary-500'}"
-											onclick={() => toggleAllergy(allergy)}
-										>
-											{allergy}
-										</button>
-									{/each}
-								</div>
-								<input
-									type="text"
-									id="allergies"
-									placeholder="Other allergies (comma-separated)"
-									value={profile?.allergies}
-									class="input bg-primary-950/30 mt-2"
-									onblur={(e) => {
-										profile.allergies = e.target.value;
-										handleProfileUpdate();
-									}}
-								/>
-							</div>
-
-							<div class="flex flex-col">
-								<label class="label">Medication</label>
-								<div class="flex flex-wrap gap-2">
-									{#each medicineOptions as med}
-										<button
-											type="button"
-											class="chip {isMedicationSelected(med)
-												? 'preset-filled-primary-500'
-												: 'preset-outlined-primary-500'}"
-											onclick={() => toggleMedication(med)}
-										>
-											{med}
-										</button>
-									{/each}
-								</div>
-								<textarea
-									id="medication"
-									rows="3"
-									placeholder="Other medications (comma-separated)"
-									class="textarea bg-primary-950/30 mt-2"
-									onblur={(e) => {
-										profile.medication = e.target.value;
-										handleProfileUpdate();
-									}}>{profile?.medication}</textarea
-								>
-							</div>
-
-							<!-- Emergency Contacts Section: Always display input fields -->
-							<h6 class="h6">Emergency Contacts</h6>
-							{#if errorMessage}
-								<p class="text-red-500">{errorMessage}</p>
-							{/if}
-							{#if profile?.emergency_contacts && profile.emergency_contacts.length}
-								<div class="flex flex-col gap-2">
-									{#each profile.emergency_contacts as contact}
-										<div class="card rounded border p-2">
-											<div class="flex flex-col gap-2">
-												<label class="label">Name</label>
-												<input
-													type="text"
-													bind:value={contact.contact_name}
-													class="input bg-primary-950/30"
-													onblur={() => handleUpdateContact(contact)}
-												/>
-												<label class="label">Relationship</label>
-												<input
-													type="text"
-													bind:value={contact.contact_relationship}
-													class="input bg-primary-950/30"
-													onblur={() => handleUpdateContact(contact)}
-												/>
-												<label class="label">Phone</label>
-												<input
-													type="text"
-													bind:value={contact.contact_phone}
-													class="input bg-primary-950/30"
-													onblur={() => handleUpdateContact(contact)}
-												/>
-												<button
-													class="btn btn-sm preset-outlined-error-500 hover:preset-filled-error-500"
-													onclick={() => handleDeleteContact(contact.id)}
-												>
-													Delete
-												</button>
-											</div>
-										</div>
-									{/each}
-								</div>
-							{:else}
-								<p>No emergency contacts provided.</p>
-							{/if}
-
-							<!-- Add New Contact Form -->
-							<div class="card preset-outlined-success-500 mt-4 rounded p-2">
-								<h6 class="h6">Add a New Contact</h6>
-								<form class="flex flex-col gap-2" onsubmit={handleCreateContact}>
-									<div class="flex flex-col gap-1">
-										<label for="contact_name" class="label">Name</label>
-										<input
-											type="text"
-											id="contact_name"
-											bind:value={newContact.contact_name}
-											class="input bg-primary-950/30"
-											required
-										/>
-									</div>
-									<div class="flex flex-col gap-1">
-										<label for="contact_relationship" class="label">Relationship</label>
-										<input
-											type="text"
-											id="contact_relationship"
-											bind:value={newContact.contact_relationship}
-											class="input bg-primary-950/30"
-											required
-										/>
-									</div>
-									<div class="flex flex-col gap-1">
-										<label for="contact_phone" class="label">Phone</label>
-										<input
-											type="text"
-											id="contact_phone"
-											bind:value={newContact.contact_phone}
-											class="input bg-primary-950/30"
-											required
-										/>
-									</div>
-									<button
-										type="submit"
-										class="btn preset-outlined-success-500 btn-sm hover:preset-filled-success-500 mt-2"
-									>
-										Create Contact
-									</button>
-								</form>
-							</div>
-						</section>
-					{:else}
-						<!-- Public / read-only view -->
-						<section>
-							<h6 class="h6 !mb-0">Emergency Information</h6>
-							<div class="flex flex-col gap-4">
-								<div class="card">
-									<span class="label">Name</span><strong>{profile?.full_name}</strong>
-								</div>
-								{#if profile.phone}
-									<div class="card">
-										<span class="label">Phone</span>
-										<a
-											href="tel:{normalizePhoneNumber(profile.phone)}"
-											target="_blank"
-											class="font-bold"
-										>
-											{profile?.phone ? formatPhoneNumber(profile.phone) : ''}
-										</a>
-									</div>
-								{/if}
-								{#if profile.blood_type}
-									<div class="card">
-										<span class="label">Blood Type</span><strong>{profile?.blood_type}</strong>
-									</div>
-								{/if}
-								{#if profile.allergies}
-									<div class="card">
-										<span class="label">Allergies</span><strong>{profile?.allergies}</strong>
-									</div>
-								{/if}
-								{#if profile.medication}
-									<div class="card">
-										<span class="label">Medication</span><strong>{profile?.medication}</strong>
-									</div>
-								{/if}
-							</div>
-
-							<h6 class="h6 mt-4">Emergency Contacts</h6>
-							{#if profile?.emergency_contacts && profile.emergency_contacts.length}
-								<ul>
-									{#each profile.emergency_contacts as contact}
-										<li>
-											<strong>{contact.contact_name}</strong> ({contact.contact_relationship}) –
-											<a
-												href="tel:{normalizePhoneNumber(contact.contact_phone)}"
-												target="_blank"
-												class="font-bold"
-											>
-												{profile?.phone ? formatPhoneNumber(contact.contact_phone) : ''}
-											</a>
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<p>No emergency contacts provided.</p>
-							{/if}
-						</section>
-
-						<section class="border-success-500 rounded-md border">
-							{#if submissionSuccess}
-								<div class="rounded p-4" transition:slide>
-									<h4 class="h4">Check Your Email</h4>
-									<p>
-										A link has been sent to <strong>{newProfile.email}</strong>.
-									</p>
-									<p>Please click the link in your email to login.</p>
-								</div>
-							{:else}
-								<button
-									class="btn preset-tonal-success btn-sm hover:preset-filled-success-500 w-full"
-									onclick={() => (showLogin = !showLogin)}
-								>
-									Manage Profile
-								</button>
-								{#if showLogin}
-									<form
-										class="flex w-full max-w-md flex-col"
-										onsubmit={handleSubmit}
-										transition:slide
-									>
-										<input
-											type="text"
-											name="website"
-											bind:value={honeypot}
-											autocomplete="off"
-											tabindex="-1"
-											aria-hidden="true"
-											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-										/>
-										<div class="flex flex-col gap-2">
-											<div class="input-group grid-cols-[auto_1fr_auto]">
-												<div class="ig-cell preset-tonal">Email</div>
-												<input
-													type="email"
-													id="email"
-													bind:value={newProfile.email}
-													placeholder="jane@example.com"
-													class="ig-input {emailTouched && !emailIsValid
-														? 'border-red-500'
-														: emailTouched && emailIsValid
-															? 'border-green-500'
-															: ''}"
-													required
-													oninput={() => (emailTouched = true)}
-												/>
-											</div>
-											{#if emailTouched && !emailIsValid}
-												<p class="text-sm text-red-500" transition:slide>
-													Please enter a valid email address.
-												</p>
-											{/if}
-										</div>
-										{#if errorMessage}
-											<p class="text-red-500" transition:slide>{errorMessage}</p>
-										{/if}
-										<button
-											type="submit"
-											class="btn preset-filled-success-500 {loading ? 'animate-pulse' : ''}"
-											disabled={loading}
-										>
-											Login to Manage Profile
-										</button>
-									</form>
-								{/if}
-							{/if}
-						</section>
-					{/if}
-				</div>
+						{/if}
+					</section>
+				{/if}
+			</div>
 		</Tabs.Content>
 		<Tabs.Content value="crash">
 			<CrashResponse />

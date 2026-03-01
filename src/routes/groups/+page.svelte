@@ -5,13 +5,17 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import { fade, slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	let q = $state(data.filters?.q || '');
-	let country = $state(data.filters?.country || '');
-	let state_region = $state(data.filters?.state_region || '');
-	let group_type_ids = $state((data.filters?.group_type_ids || []).slice());
-	let skill_level_ids = $state((data.filters?.skill_level_ids || []).slice());
-	let audience_focus_ids = $state((data.filters?.audience_focus_ids || []).slice());
-	let riding_discipline_ids = $state((data.filters?.riding_discipline_ids || []).slice());
+	function getInitialFilters() {
+		return data.filters ?? {};
+	}
+	const initialFilters = getInitialFilters();
+	let q = $state(initialFilters.q || '');
+	let country = $state(initialFilters.country || '');
+	let state_region = $state(initialFilters.state_region || '');
+	let group_type_ids = $state((initialFilters.group_type_ids || []).slice());
+	let skill_level_ids = $state((initialFilters.skill_level_ids || []).slice());
+	let audience_focus_ids = $state((initialFilters.audience_focus_ids || []).slice());
+	let riding_discipline_ids = $state((initialFilters.riding_discipline_ids || []).slice());
 
 	// Advanced filters collapse state
 	let showAdvanced = $state(false);

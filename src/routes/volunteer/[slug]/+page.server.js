@@ -84,10 +84,10 @@ export const load = async ({ params, fetch, cookies, url }) => {
 	const eventEndDate = event?.event_end ? new Date(event.event_end) : null;
 	const eventFinished = Boolean(
 		(eventEndDate && !Number.isNaN(eventEndDate.getTime()) && eventEndDate < now) ||
-			(!eventEndDate &&
-				eventStartDate &&
-				!Number.isNaN(eventStartDate.getTime()) &&
-				eventStartDate < now)
+		(!eventEndDate &&
+			eventStartDate &&
+			!Number.isNaN(eventStartDate.getTime()) &&
+			eventStartDate < now)
 	);
 
 	const { user: sessionUser } = resolveSession(cookies);

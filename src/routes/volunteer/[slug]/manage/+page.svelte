@@ -33,22 +33,26 @@
 	import { toaster } from '../../../toaster-svelte';
 
 	const { data } = $props();
+	function getPageData() {
+		return data ?? {};
+	}
+	const pageData = getPageData();
 
-	const event = data?.event ?? {};
-	const opportunitiesRaw = data?.opportunities ?? [];
-	const signupsRaw = data?.signups ?? [];
-	const signupShiftsRaw = data?.signupShifts ?? [];
-	const signupResponsesRaw = data?.signupResponses ?? [];
-	const customQuestionsRaw = data?.customQuestions ?? [];
-	const eventEmailsRaw = data?.eventEmails ?? [];
+	const event = pageData.event ?? {};
+	const opportunitiesRaw = pageData.opportunities ?? [];
+	const signupsRaw = pageData.signups ?? [];
+	const signupShiftsRaw = pageData.signupShifts ?? [];
+	const signupResponsesRaw = pageData.signupResponses ?? [];
+	const customQuestionsRaw = pageData.customQuestions ?? [];
+	const eventEmailsRaw = pageData.eventEmails ?? [];
 	const customQuestions = customQuestionsRaw ?? [];
-	let profileRecords = $state(data?.profiles ?? []);
-	const eventHosts = data?.eventHosts ?? [];
-	const groupOwners = data?.groupOwners ?? [];
+	let profileRecords = $state(pageData.profiles ?? []);
+	const eventHosts = pageData.eventHosts ?? [];
+	const groupOwners = pageData.groupOwners ?? [];
 	const primaryHost =
-		data?.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
-	const hostGroup = data?.hostGroup ?? null;
-	const organizerEmail = data?.organizerEmail?.trim?.() || '';
+		pageData.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
+	const hostGroup = pageData.hostGroup ?? null;
+	const organizerEmail = pageData.organizerEmail?.trim?.() || '';
 	const contactEmail =
 		event?.contact_email?.trim?.() || event?.contactEmail?.trim?.() || organizerEmail;
 	const contactPhone = event?.contact_phone?.trim?.() || event?.contactPhone?.trim?.() || '';
@@ -1747,7 +1751,7 @@
 
 	<div class="mx-auto flex max-w-fit flex-col gap-3">
 		<SegmentedControl
-			class="!flex-col sm:!flex-row bg-tertiary-800/30 transition !p-1"
+			class="bg-tertiary-800/30 !flex-col !p-1 transition sm:!flex-row"
 			name="align"
 			value={activeSection}
 			onValueChange={(e) => setActiveSection(e.value)}

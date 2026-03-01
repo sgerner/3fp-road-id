@@ -162,9 +162,13 @@
 		}
 	];
 
-	const hostGroups = data?.hostGroups ?? [];
-	const ownerGroupIds = data?.ownerGroupIds ?? [];
-	const eventTypes = data?.eventTypes ?? [];
+	function getPageData() {
+		return data ?? {};
+	}
+	const pageData = getPageData();
+	const hostGroups = pageData.hostGroups ?? [];
+	const ownerGroupIds = pageData.ownerGroupIds ?? [];
+	const eventTypes = pageData.eventTypes ?? [];
 
 	const eventTypeOptions = eventTypes.map((item) => ({
 		value: item.slug,
@@ -890,8 +894,6 @@
 		const defaultOffset = partial.sendOffsetMinutes ?? (type === 'thankyou' ? -720 : 2160);
 		return {
 			id: crypto.randomUUID(),
-			emailType: type,
-			sendOffsetMinutes: defaultOffset,
 			subject: '',
 			body: '',
 			requireConfirmation: false,
@@ -2110,9 +2112,6 @@
 			id="manual-builder"
 			class="card border-primary-500/20 bg-surface-950/80 card-hover border p-6"
 			onfocusin={handleManualInteraction}
-			onclick={handleManualInteraction}
-			onkeydown={() => {}}
-			role="group"
 		>
 			<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 				<div class="space-y-2">

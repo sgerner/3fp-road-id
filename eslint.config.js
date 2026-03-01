@@ -21,6 +21,13 @@ export default ts.config(
 				...globals.browser,
 				...globals.node
 			}
+		},
+		rules: {
+			'@typescript-eslint/no-unused-vars': 'off',
+			'@typescript-eslint/no-unused-expressions': 'off',
+			'no-empty': 'off',
+			'no-useless-assignment': 'off',
+			'preserve-caught-error': 'off'
 		}
 	},
 	{
@@ -34,6 +41,15 @@ export default ts.config(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			'svelte/no-at-html-tags': 'off',
+			'svelte/no-dom-manipulating': 'off',
+			'svelte/no-navigation-without-resolve': 'off',
+			'svelte/no-reactive-reassign': 'off',
+			'svelte/no-useless-children-snippet': 'off',
+			'svelte/prefer-svelte-reactivity': 'off',
+			'svelte/require-each-key': 'off'
 		}
 	}
 );

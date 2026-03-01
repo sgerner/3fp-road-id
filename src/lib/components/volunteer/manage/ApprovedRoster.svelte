@@ -326,7 +326,7 @@
 	}
 
 	@media print {
-		body * {
+		:global(body *) {
 			display: none !important;
 		}
 		.printable-roster-table,

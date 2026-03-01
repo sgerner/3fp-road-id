@@ -27,17 +27,26 @@
 	const opportunities = $derived((opportunitiesData ?? []).filter(Boolean));
 	const currentUser = $derived(user ?? null);
 
-	const hostGroupMap = new Map();
-	for (const g of hostGroups) if (g?.id != null) hostGroupMap.set(String(g.id), g);
+	const hostGroupMap = $derived.by(() => {
+		const map = new Map();
+		for (const g of hostGroups) if (g?.id != null) map.set(String(g.id), g);
+		return map;
+	});
 
-	const eventTypeMap = new Map();
-	for (const t of eventTypes) if (t?.slug) eventTypeMap.set(t.slug, t);
+	const eventTypeMap = $derived.by(() => {
+		const map = new Map();
+		for (const t of eventTypes) if (t?.slug) map.set(t.slug, t);
+		return map;
+	});
 
-	const hostOrgMap = new Map();
-	for (const o of hostOrgs) {
-		const ids = [o?.id, o?.organization_id, o?.org_id].filter((v) => v != null);
-		for (const id of ids) hostOrgMap.set(String(id), o);
-	}
+	const hostOrgMap = $derived.by(() => {
+		const map = new Map();
+		for (const o of hostOrgs) {
+			const ids = [o?.id, o?.organization_id, o?.org_id].filter((v) => v != null);
+			for (const id of ids) map.set(String(id), o);
+		}
+		return map;
+	});
 	function getHostOrgNameById(id) {
 		const org = hostOrgMap.get(String(id));
 		return org?.name ?? org?.title ?? org?.org_name ?? '';

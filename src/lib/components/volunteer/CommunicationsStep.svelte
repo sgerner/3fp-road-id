@@ -26,7 +26,6 @@
 	export let opportunities = [];
 	export let fieldTypeOptions = [];
 	export let emailTypeOptions = [];
-	export let onToggleAdvanced = () => {};
 	export let onAddQuestion = () => {};
 	export let onRemoveQuestion = () => {};
 	export let onUpdateQuestion = () => {};

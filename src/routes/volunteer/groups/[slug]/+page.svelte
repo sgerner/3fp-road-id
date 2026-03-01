@@ -3,6 +3,7 @@
 	import VolunteerEventsExplorer from '$lib/components/volunteer/VolunteerEventsExplorer.svelte';
 	import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
 	import { CTA_ICON_MAP, CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
+	import IconLink from '@lucide/svelte/icons/link';
 
 	const { data } = $props();
 
@@ -53,6 +54,7 @@
 {#if contactLinks?.length}
 	<div class=" hidden gap-2 md:flex">
 		{#each contactLinks.slice(0, 6) as contact}
+			{@const ContactIcon = contactIconByKey[contact.key] || IconLink}
 			<a
 				href={contact.href}
 				title={contact.key}
@@ -60,11 +62,7 @@
 				rel={contact.key === 'email' || contact.key === 'phone' ? undefined : 'noopener noreferrer'}
 				class="rounded-md p-2 text-white/90 hover:bg-white/10 hover:text-white"
 			>
-				<svelte:component
-					this={contactIconByKey[contact.key] || IconLink}
-					class="h-5 w-5"
-					className="h-5 w-5"
-				/>
+				<ContactIcon class="h-5 w-5" className="h-5 w-5" />
 			</a>
 		{/each}
 	</div>

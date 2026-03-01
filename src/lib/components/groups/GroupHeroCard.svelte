@@ -5,7 +5,7 @@
 	let { group, canEdit, primaryCta } = $props();
 
 	const ctaIcons = CTA_ICON_MAP;
-	const IconComp = primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink;
+	const IconComp = $derived(primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink);
 </script>
 
 <section class="card border-surface-300 bg-surface-900 overflow-hidden border">

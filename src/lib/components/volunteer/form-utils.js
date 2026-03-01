@@ -233,14 +233,20 @@ export function ensureArray(value) {
 export function ensureDefaultEmail(values) {
 	if (values.length) return values;
 	return [
-		createEmailTemplate({
+		{
+			id: crypto.randomUUID(),
 			emailType: 'reminder',
 			sendOffsetMinutes: 2160,
 			subject: 'Reminder: {{event_title}} starts soon',
 			body: "We're excited to have you on the crew!\n\n{{event_details_block}}\n\n{{shift_details_block}}\n\n{{volunteer_portal_block}}",
 			requireConfirmation: false,
-			surveyUrl: ''
-		})
+			surveyUrl: '',
+			lastSentAt: null,
+			aiPrompt: '',
+			aiError: '',
+			aiLoading: false,
+			aiComposerOpen: false
+		}
 	];
 }
 export { toLocalDatetime, toIso, numberOrNull };
