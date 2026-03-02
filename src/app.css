@@ -13,6 +13,7 @@
 @import '@skeletonlabs/skeleton/themes/sahara';
 @import '@skeletonlabs/skeleton/themes/seafoam';
 @import '@skeletonlabs/skeleton/themes/wintry';
+@import '@toast-ui/editor/dist/toastui-editor.css';
 @import '../src/3fp.css';
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
@@ -191,6 +192,151 @@ p {
 	animation:
 		ai-sweep 2.4s linear infinite,
 		ai-pulse 2.2s ease-in-out infinite;
+}
+
+.learn-editor .toastui-editor-defaultUI {
+	border: 0;
+	border-radius: 1.25rem;
+	background: color-mix(in oklab, var(--color-surface-950) 75%, transparent);
+}
+
+.learn-editor .toastui-editor-toolbar {
+	border-bottom-color: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+	background: transparent;
+}
+
+.learn-editor .toastui-editor-md-tab-container,
+.learn-editor .toastui-editor-defaultUI-toolbar {
+	background: transparent;
+}
+
+.learn-editor .toastui-editor-tabs {
+	border-bottom-color: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+}
+
+.learn-editor .toastui-editor-tab-item {
+	background: color-mix(in oklab, var(--color-surface-900) 90%, transparent);
+	color: var(--color-surface-200);
+	border-color: color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+}
+
+.learn-editor .toastui-editor-tab-item.active {
+	background: color-mix(in oklab, var(--color-surface-50) 95%, transparent);
+	color: var(--color-surface-950);
+}
+
+.learn-editor .toastui-editor-contents,
+.learn-editor .toastui-editor-md-container,
+.learn-editor .toastui-editor-ww-container {
+	background: transparent;
+	color: var(--color-surface-50) !important;
+}
+
+.learn-editor .toastui-editor-md-preview,
+.learn-editor .toastui-editor-md-preview-highlight,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents p,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents li,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents blockquote,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents code,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents pre,
+.learn-editor .toastui-editor-contents,
+.learn-editor .toastui-editor-contents p,
+.learn-editor .toastui-editor-contents li,
+.learn-editor .toastui-editor-contents blockquote {
+	color: var(--color-surface-50) !important;
+}
+
+.learn-editor .toastui-editor-md-preview {
+	background: color-mix(in oklab, var(--color-surface-950) 82%, transparent);
+}
+
+.learn-editor .toastui-editor-md-container .toastui-editor,
+.learn-editor .toastui-editor-md-container .toastui-editor *,
+.learn-editor .toastui-editor-defaultUI .ProseMirror,
+.learn-editor .toastui-editor-defaultUI .ProseMirror * {
+	color: var(--color-surface-50) !important;
+}
+
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents a {
+	color: var(--color-primary-300);
+}
+
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents code,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents pre {
+	background: color-mix(in oklab, var(--color-surface-900) 92%, transparent);
+}
+
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents table th,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents table td {
+	border-color: color-mix(in oklab, var(--color-surface-500) 22%, transparent);
+}
+
+.learn-editor .toastui-editor-contents h1,
+.learn-editor .toastui-editor-contents h2,
+.learn-editor .toastui-editor-contents h3,
+.learn-editor .toastui-editor-contents h4,
+.learn-editor .toastui-editor-contents h5,
+.learn-editor .toastui-editor-contents h6,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h1,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h2,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h3,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h4,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h5,
+.learn-editor .toastui-editor-ww-container .toastui-editor-contents h6,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h1,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h2,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h3,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h4,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h5,
+.learn-editor .toastui-editor-md-preview .toastui-editor-contents h6 {
+	color: var(--color-surface-50) !important;
+}
+
+.learn-editor .toastui-editor-md-heading,
+.learn-editor .toastui-editor-md-heading1,
+.learn-editor .toastui-editor-md-heading2,
+.learn-editor .toastui-editor-md-heading3,
+.learn-editor .toastui-editor-md-heading4,
+.learn-editor .toastui-editor-md-heading5,
+.learn-editor .toastui-editor-md-heading6,
+.learn-editor .toastui-editor-md-table .toastui-editor-md-table-cell,
+.learn-editor .toastui-editor-md-block-quote .toastui-editor-md-marked-text,
+.learn-editor .toastui-editor-md-meta,
+.learn-editor .toastui-editor-md-html,
+.learn-editor .toastui-editor-md-link.toastui-editor-md-link-url.toastui-editor-md-marked-text,
+.learn-editor .toastui-editor-md-link.toastui-editor-md-link-desc.toastui-editor-md-marked-text,
+.learn-editor .toastui-editor-md-delimiter,
+.learn-editor .toastui-editor-md-thematic-break,
+.learn-editor .toastui-editor-md-link,
+.learn-editor .toastui-editor-md-table,
+.learn-editor .toastui-editor-md-block-quote,
+.learn-editor .toastui-editor-md-marked-text,
+.learn-editor .toastui-editor-md-list-item-style,
+.learn-editor .toastui-editor-md-list-item .toastui-editor-md-meta {
+	color: var(--color-surface-50) !important;
+}
+
+.learn-editor .toastui-editor-md-code {
+	background-color: color-mix(in oklab, var(--color-surface-900) 92%, transparent) !important;
+}
+
+.learn-editor .toastui-editor-md-code.toastui-editor-md-marked-text,
+.learn-editor .toastui-editor-md-custom-block,
+.learn-editor .toastui-editor-md-custom-block .toastui-editor-md-meta {
+	color: color-mix(in oklab, var(--color-primary-200) 90%, white 10%) !important;
+}
+
+.learn-editor .toastui-editor-md-code-block-line-background,
+.learn-editor .toastui-editor-md-custom-block-line-background {
+	background-color: color-mix(in oklab, var(--color-surface-900) 94%, transparent) !important;
+}
+
+.learn-editor .toastui-editor-contents h1,
+.learn-editor .toastui-editor-contents h2,
+.learn-editor .toastui-editor-contents h3,
+.learn-editor .toastui-editor-contents h4 {
+	text-align: left;
 }
 
 @keyframes ai-sweep {

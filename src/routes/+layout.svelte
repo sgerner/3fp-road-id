@@ -15,6 +15,7 @@
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconBike from '@lucide/svelte/icons/bike';
+	import IconBookOpen from '@lucide/svelte/icons/book-open';
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
@@ -69,6 +70,12 @@
 			label: 'Volunteer',
 			icon: IconHandHeart,
 			match: (pathname) => pathname.startsWith('/volunteer')
+		},
+		{
+			href: '/learn',
+			label: 'Learn',
+			icon: IconBookOpen,
+			match: (pathname) => pathname.startsWith('/learn')
 		},
 		{
 			href: '/roadid',

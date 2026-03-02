@@ -20,6 +20,12 @@
 
 	let search = $state('');
 	let selectedDifficulty = $state('all');
+	let showMap = $state(true);
+
+	let mapEl;
+	let map;
+	let clusterLayer;
+	let L;
 
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
 	const difficultyOptions = $derived(
@@ -85,7 +91,10 @@
 		if (details.estimated_distance_miles)
 			bits.push({ icon: IconRuler, label: `${details.estimated_distance_miles} mi` });
 		if (details.estimated_duration_minutes)
-			bits.push({ icon: IconCalendarClock || IconClock, label: `${details.estimated_duration_minutes} min` });
+			bits.push({
+				icon: IconCalendarClock || IconClock,
+				label: `${details.estimated_duration_minutes} min`
+			});
 		if (details.elevation_gain_feet)
 			bits.push({ icon: IconTrendingUp, label: `${details.elevation_gain_feet} ft gain` });
 		return bits;
@@ -104,6 +113,96 @@
 	function disciplineChipClass(name) {
 		return disciplineColor[name] ?? 'preset-tonal-secondary';
 	}
+
+	import { onMount } from 'svelte';
+	import { slide, fade } from 'svelte/transition';
+	import 'leaflet/dist/leaflet.css';
+
+	async function initMap() {
+		if (!mapEl || map) return;
+
+		try {
+			const mod = await import('leaflet');
+			await import('leaflet.markercluster');
+			L = mod.default || mod;
+			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+			await ensureLeafletDefaultIcon(L);
+		} catch (e) {
+			console.error('Failed to load Leaflet or clustering', e);
+			return;
+		}
+
+		if (!mapEl || map) return; // verify after await
+		map = L.map(mapEl);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			maxZoom: 19,
+			attribution: '&copy; OpenStreetMap contributors'
+		}).addTo(map);
+		clusterLayer = L.markerClusterGroup();
+		map.addLayer(clusterLayer);
+		updateMarkers();
+	}
+
+	$effect(() => {
+		if (showMap && mapEl && !map) {
+			initMap();
+		} else if (!showMap && map) {
+			map.remove();
+			map = null;
+			clusterLayer = null;
+		}
+	});
+
+	onMount(() => {
+		return () => {
+			try {
+				map?.remove();
+				map = null;
+				clusterLayer = null;
+			} catch {}
+		};
+	});
+
+	function validCoords(r) {
+		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
+	}
+
+	function updateMarkers() {
+		if (!map || !clusterLayer) return;
+		clusterLayer.clearLayers();
+		const pts = [];
+
+		for (const r of filteredRides || []) {
+			if (!validCoords(r)) continue;
+			const lat = Number(r.startLatitude);
+			const lng = Number(r.startLongitude);
+			const m = L.marker([lat, lng]);
+			const timeStr = formatNext(r);
+			m.bindPopup(
+				`<div style="min-width:180px"><strong>${r.title}</strong><br/><small>${timeStr}</small><br/><a href="/ride/${r.slug}">View ride</a></div>`
+			);
+			clusterLayer.addLayer(m);
+			pts.push([lat, lng]);
+		}
+
+		if (pts.length) {
+			const b = L.latLngBounds(pts);
+			map.fitBounds(b.pad(0.1));
+		} else {
+			map.setView([37.8, -96], 4);
+		}
+	}
+
+	$effect(() => {
+		void filteredRides;
+		updateMarkers();
+	});
+
+	$effect(() => {
+		if (showMap && map) {
+			setTimeout(() => map?.invalidateSize(), 180);
+		}
+	});
 </script>
 
 <svelte:head>
@@ -347,16 +446,37 @@
 	     RIDE LISTING DIRECTORY
 	═══════════════════════════════════════════════ -->
 	<section id="ride-list" class="space-y-5">
-		<div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+		<div class="flex items-center justify-between gap-2">
 			<div>
 				<p class="label opacity-60">Directory</p>
 				<h2 class="text-2xl font-bold">Public ride listings</h2>
 			</div>
-			<p class="text-sm tabular-nums opacity-60">
-				{filteredRides.length}
-				{filteredRides.length === 1 ? 'ride' : 'rides'} match the current filters
-			</p>
+
+			<div class="flex flex-col items-end gap-2">
+				<p class="text-sm tabular-nums opacity-60">
+					{filteredRides.length}
+					{filteredRides.length === 1 ? 'ride' : 'rides'} match
+				</p>
+				<button
+					type="button"
+					class="btn btn-sm {showMap
+						? 'preset-filled-primary-500'
+						: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
+					onclick={() => (showMap = !showMap)}
+				>
+					<IconMapPin class="h-3.5 w-3.5" />
+					{showMap ? 'Hide Map' : 'Show Map'}
+				</button>
+			</div>
 		</div>
+
+		{#if showMap}
+			<div transition:slide={{ duration: 220 }}>
+				<div class="border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
+					<div bind:this={mapEl} class="h-[380px] w-full"></div>
+				</div>
+			</div>
+		{/if}
 
 		{#if filteredRides.length}
 			<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">

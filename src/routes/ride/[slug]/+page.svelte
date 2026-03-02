@@ -105,9 +105,15 @@
 
 	onMount(async () => {
 		const latitude =
-			selectedOccurrence?.start_latitude ?? activity?.start_latitude ?? activity?.startLatitude ?? null;
+			selectedOccurrence?.start_latitude ??
+			activity?.start_latitude ??
+			activity?.startLatitude ??
+			null;
 		const longitude =
-			selectedOccurrence?.start_longitude ?? activity?.start_longitude ?? activity?.startLongitude ?? null;
+			selectedOccurrence?.start_longitude ??
+			activity?.start_longitude ??
+			activity?.startLongitude ??
+			null;
 		if (!mapEl || latitude == null || longitude == null) return;
 		try {
 			const L = await import('leaflet');
@@ -133,10 +139,16 @@
 	<title>{activity?.title || 'Ride'}</title>
 </svelte:head>
 
-<div class="mx-auto w-full max-w-7xl space-y-6">
-	<section class="card preset-tonal-primary p-6">
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-			<div class="space-y-3">
+<div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
+	<section class="hero-section relative overflow-hidden rounded-3xl">
+		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+
+		<div
+			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
+		>
+			<div class="space-y-4">
 				<div class="flex flex-wrap gap-2">
 					{#each ride?.difficultyLevels ?? [] as level}
 						<span class="chip preset-tonal-warning">{level.name}</span>
@@ -145,17 +157,29 @@
 						<span class="chip preset-tonal-success">{discipline.name}</span>
 					{/each}
 				</div>
-				<h1 class="text-3xl font-bold">{activity?.title}</h1>
+				<h1 class="ride-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
+					{activity?.title}
+				</h1>
 				{#if activity?.summary}
-					<p class="max-w-3xl text-sm opacity-80">{activity.summary}</p>
+					<p class="max-w-3xl text-base leading-relaxed opacity-80">{activity.summary}</p>
 				{/if}
 			</div>
-			<div class="flex flex-wrap gap-3">
+			<div class="flex shrink-0 flex-wrap gap-3">
 				{#if canManage}
-					<a class="btn preset-outlined-secondary-500" href={`/ride/${activity.slug}/manage`}>Manage ride</a>
+					<a
+						class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
+						href={`/ride/${activity.slug}/manage`}>Manage ride</a
+					>
 				{/if}
 				{#if currentUser}
-					<button class="btn preset-filled-primary-500" onclick={() => submitRsvp(currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going')} disabled={rsvpLoadingId === selectedOccurrence?.id}>
+					<button
+						class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
+						onclick={() =>
+							submitRsvp(
+								currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
+							)}
+						disabled={rsvpLoadingId === selectedOccurrence?.id}
+					>
 						{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
 							Leave ride
 						{:else}
@@ -163,15 +187,22 @@
 						{/if}
 					</button>
 				{:else}
-					<a class="btn preset-filled-primary-500" href="/ride/new">Log in to RSVP</a>
+					<a
+						class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
+						href="/ride/new">Log in to RSVP</a
+					>
 				{/if}
 			</div>
 		</div>
 		{#if rsvpError}
-			<div class="card preset-tonal-error mt-4 p-3 text-sm">{rsvpError}</div>
+			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-10">
+				{rsvpError}
+			</div>
 		{/if}
 		{#if claimError}
-			<div class="card preset-tonal-error mt-4 p-3 text-sm">{claimError}</div>
+			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-10">
+				{claimError}
+			</div>
 		{/if}
 	</section>
 
@@ -208,7 +239,7 @@
 				</div>
 				<div class="grid gap-4 md:grid-cols-2">
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Organizer</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Organizer</div>
 						<div class="mt-1 font-semibold">
 							{#if activity?.host_group_id}
 								Organization-hosted ride
@@ -220,7 +251,7 @@
 						</div>
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Participant list</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Participant list</div>
 						<div class="mt-1 font-semibold">
 							{rideDetails?.participant_visibility === 'private' ? 'Private to hosts' : 'Public'}
 						</div>
@@ -235,41 +266,55 @@
 				</div>
 				<div class="grid gap-4 md:grid-cols-2">
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Meet</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Meet</div>
 						<div class="mt-1 font-semibold">{activity?.start_location_name}</div>
 						{#if activity?.start_location_address}
 							<div class="text-sm opacity-75">{activity.start_location_address}</div>
 						{/if}
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Finish</div>
-						<div class="mt-1 font-semibold">{rideDetails?.end_location_name || 'Same as start or route-dependent'}</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Finish</div>
+						<div class="mt-1 font-semibold">
+							{rideDetails?.end_location_name || 'Same as start or route-dependent'}
+						</div>
 						{#if rideDetails?.end_location_address}
 							<div class="text-sm opacity-75">{rideDetails.end_location_address}</div>
 						{/if}
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Distance</div>
-						<div class="mt-1 font-semibold">{rideDetails?.estimated_distance_miles ? `${rideDetails.estimated_distance_miles} miles` : 'TBD'}</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Distance</div>
+						<div class="mt-1 font-semibold">
+							{rideDetails?.estimated_distance_miles
+								? `${rideDetails.estimated_distance_miles} miles`
+								: 'TBD'}
+						</div>
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Duration</div>
-						<div class="mt-1 font-semibold">{rideDetails?.estimated_duration_minutes ? `${rideDetails.estimated_duration_minutes} min` : 'TBD'}</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Duration</div>
+						<div class="mt-1 font-semibold">
+							{rideDetails?.estimated_duration_minutes
+								? `${rideDetails.estimated_duration_minutes} min`
+								: 'TBD'}
+						</div>
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Elevation</div>
-						<div class="mt-1 font-semibold">{rideDetails?.elevation_gain_feet ? `${rideDetails.elevation_gain_feet} ft` : 'TBD'}</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Elevation</div>
+						<div class="mt-1 font-semibold">
+							{rideDetails?.elevation_gain_feet ? `${rideDetails.elevation_gain_feet} ft` : 'TBD'}
+						</div>
 					</div>
 					<div>
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Drop style</div>
-						<div class="mt-1 font-semibold">{rideDetails?.is_no_drop ? 'No-drop' : 'Drop ride'}</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Drop style</div>
+						<div class="mt-1 font-semibold">
+							{rideDetails?.is_no_drop ? 'No-drop' : 'Drop ride'}
+						</div>
 					</div>
 					<div class="md:col-span-2">
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Pace</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Pace</div>
 						<div class="mt-1">{rideDetails?.pace_notes || 'Not specified'}</div>
 					</div>
 					<div class="md:col-span-2">
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Surface</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Surface</div>
 						<div class="mt-2 flex flex-wrap gap-2">
 							{#each rideDetails?.surface_types ?? [] as surface}
 								<span class="chip preset-tonal-surface">{surface}</span>
@@ -277,7 +322,7 @@
 						</div>
 					</div>
 					<div class="md:col-span-2">
-						<div class="text-sm uppercase tracking-[0.18em] opacity-60">Bike suitability</div>
+						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Bike suitability</div>
 						<div class="mt-2 flex flex-wrap gap-2">
 							{#each rideDetails?.bike_suitability ?? [] as bike}
 								<span class="chip preset-tonal-secondary">{bike}</span>
@@ -286,14 +331,14 @@
 					</div>
 					{#if rideDetails?.accessibility_notes}
 						<div class="md:col-span-2">
-							<div class="text-sm uppercase tracking-[0.18em] opacity-60">Accessibility</div>
+							<div class="text-sm tracking-[0.18em] uppercase opacity-60">Accessibility</div>
 							<div class="mt-1">{rideDetails.accessibility_notes}</div>
 						</div>
 					{/if}
 					{#if activity?.description}
 						<div class="md:col-span-2">
-							<div class="text-sm uppercase tracking-[0.18em] opacity-60">About this ride</div>
-							<div class="mt-1 whitespace-pre-wrap leading-7">{activity.description}</div>
+							<div class="text-sm tracking-[0.18em] uppercase opacity-60">About this ride</div>
+							<div class="mt-1 leading-7 whitespace-pre-wrap">{activity.description}</div>
 						</div>
 					{/if}
 				</div>
@@ -306,10 +351,16 @@
 				</div>
 				<div class="space-y-3">
 					{#each visibleOccurrences as occurrence}
-						<button type="button" class={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${String(selectedOccurrenceId) === String(occurrence.id) ? 'border-primary-500 bg-primary-500/8' : 'border-surface-500/20'}`} onclick={() => (selectedOccurrenceId = occurrence.id)}>
+						<button
+							type="button"
+							class={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${String(selectedOccurrenceId) === String(occurrence.id) ? 'border-primary-500 bg-primary-500/8' : 'border-surface-500/20'}`}
+							onclick={() => (selectedOccurrenceId = occurrence.id)}
+						>
 							<div>
 								<div class="font-semibold">{occurrenceLabel(occurrence)}</div>
-								<div class="text-sm opacity-75">{occurrence.start_location_name || activity?.start_location_name}</div>
+								<div class="text-sm opacity-75">
+									{occurrence.start_location_name || activity?.start_location_name}
+								</div>
 							</div>
 							{#if currentUserRsvp(occurrence)?.status === 'going'}
 								<span class="chip preset-tonal-success">You're in</span>
@@ -330,11 +381,13 @@
 					Map
 				</div>
 				{#if activity?.start_latitude != null && activity?.start_longitude != null}
-					<div class="h-72 overflow-hidden rounded-xl border border-surface-500/20">
+					<div class="border-surface-500/20 h-72 overflow-hidden rounded-xl border">
 						<div bind:this={mapEl} class="h-full w-full"></div>
 					</div>
 				{:else}
-					<p class="text-sm opacity-70">Map pin will appear when the start location has coordinates.</p>
+					<p class="text-sm opacity-70">
+						Map pin will appear when the start location has coordinates.
+					</p>
 				{/if}
 			</section>
 
@@ -346,14 +399,14 @@
 				{#if participantListVisible}
 					<div class="space-y-3">
 						{#each selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going') ?? [] as rsvp}
-							<div class="rounded-xl border border-surface-500/20 p-3">
+							<div class="border-surface-500/20 rounded-xl border p-3">
 								<div class="font-medium">{rsvp.participantName}</div>
 								{#if canManage}
 									<div class="text-sm opacity-70">{rsvp.participantEmail}</div>
 								{/if}
 							</div>
 						{/each}
-						{#if !(selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going')?.length)}
+						{#if !selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going')?.length}
 							<p class="text-sm opacity-70">No RSVPs yet for the selected occurrence.</p>
 						{/if}
 					</div>
@@ -364,3 +417,58 @@
 		</aside>
 	</div>
 </div>
+
+<style>
+	.hero-section {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.hero-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(72px);
+		pointer-events: none;
+	}
+
+	.hero-orb-1 {
+		width: 55%;
+		height: 200%;
+		top: -50%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+
+	.hero-orb-2 {
+		width: 40%;
+		height: 160%;
+		top: -30%;
+		right: 5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	.hero-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 6%) scale(1.08);
+		}
+	}
+
+	.ride-headline {
+		color: var(--color-primary-50);
+		text-align: left;
+	}
+</style>
