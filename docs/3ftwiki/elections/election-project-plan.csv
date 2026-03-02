@@ -1,0 +1,6 @@
+Task,Phase,Owner,DueDate,Status,Notes
+"Finalize Questionnaire Questions",Questionnaire,Sarah,2025-08-01,Done,"Reviewed by board"
+"Send Questionnaire to Candidates",Questionnaire,Miguel,2025-08-05,In Progress,"Waiting on contact info for one candidate"
+"Book Venue for Candidate Forum",Events,Chloe,2025-08-15,Not Started,
+"Draft Press Release for Forum",Promotion,Miguel,2025-08-20,Not Started,
+"Schedule Post-Election Debrief",Post-Election,Sarah,2025-11-10,Not Started,

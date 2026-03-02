@@ -1,0 +1,5 @@
+VolunteerName,Email,PhoneNumber,Role,Availability,Notes
+"David Chen",david@example.com,555-1111,"Event Check-in","Evenings",""
+"Maria Garcia",maria@example.com,555-2222,"Timekeeper","Weekend",""
+"Ben Carter",ben@example.com,555-3333,"Ride Marshal","Weekend","Experienced ride leader"
+"Fatima Ahmed",fatima@example.com,555-4444,"Photographer","Any","Has own equipment"

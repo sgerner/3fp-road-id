@@ -14,6 +14,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconBike from '@lucide/svelte/icons/bike';
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
@@ -51,6 +52,12 @@
 	let turnstileWidgetId = $state(null);
 	const navigationItems = [
 		{ href: '/', label: 'Home', icon: IconHome, match: (pathname) => pathname === '/' },
+		{
+			href: '/ride',
+			label: 'Ride',
+			icon: IconBike,
+			match: (pathname) => pathname.startsWith('/ride')
+		},
 		{
 			href: '/groups',
 			label: 'Groups',

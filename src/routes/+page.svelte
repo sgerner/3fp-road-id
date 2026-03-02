@@ -3,6 +3,7 @@
 	import AlertSystem from '$lib/components/AlertSystem.svelte';
 	import CrashResponse from '$lib/components/CrashResponse.svelte';
 	import IconUsers from '@lucide/svelte/icons/users';
+	import IconBike from '@lucide/svelte/icons/bike';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconShield from '@lucide/svelte/icons/shield';
@@ -102,8 +103,8 @@
 
 		<!-- Sub-headline -->
 		<p class="text-surface-700-300 mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
-			Find riding groups, manage volunteer events, and keep emergency contact details ready when
-			they matter most.
+			Find public rides, discover riding groups, manage volunteer events, and keep emergency
+			contact details ready when they matter most.
 		</p>
 
 		<!-- CTA buttons -->
@@ -173,7 +174,24 @@
      ============================================================ -->
 <section class="mx-auto mb-16 w-full max-w-7xl" aria-label="Quick links">
 	<h2 class="mb-5 !text-left text-2xl font-bold">Get Started</h2>
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+		<a
+			href="/ride"
+			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
+		>
+			<div
+				class="bg-surface-200-800 group-hover:bg-primary-600-400/20 rounded-xl p-3 transition-colors"
+			>
+				<IconBike class="text-primary-600-400 h-6 w-6" />
+			</div>
+			<div>
+				<div class="text-primary-950-50 font-semibold">Ride</div>
+				<p class="text-surface-600-400 !mb-0 text-sm">Post and find public rides</p>
+			</div>
+			<IconArrowRight
+				class="text-surface-400-600 group-hover:text-primary-600-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
+			/>
+		</a>
 		<a
 			href="/groups"
 			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"

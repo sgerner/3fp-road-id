@@ -1,0 +1,4 @@
+CandidateName,Party,Website,Email,Phone,SocialMedia,QuestionnaireSent,QuestionnaireReceived,AttendedForum,Notes
+"Jane Doe",Independent,www.janedoe.com,jane@example.com,555-1234,@JaneDoe,2025-08-05,2025-08-15,Yes,"Met at farmers market"
+"John Smith",Green,www.johnsmith.org,john@example.com,555-5678,@JohnSmith,2025-08-05,No,"Declined to answer"
+"Emily White",Forward,www.emilywhite.net,emily@example.com,555-9012,@EmilyWhite,2025-08-05,2025-08-20,No,"Sent regrets, scheduling conflict"
