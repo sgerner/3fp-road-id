@@ -10,6 +10,9 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconBike from '@lucide/svelte/icons/bike';
 	import { fade, slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 
@@ -287,257 +290,329 @@
 	});
 </script>
 
-<div class="mx-auto w-full max-w-6xl space-y-5 pb-10">
-	<!-- ═══════════════════════════════ HERO HEADER ═══════════════════════════════ -->
-	<header class="relative overflow-hidden rounded-2xl px-8 py-10">
-		<!-- Subtle bg glow behind header -->
-		<div
-			class="from-primary-500/15 to-secondary-500/10 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br"
-		></div>
-		<div
-			class="border-primary-500/15 bg-surface-50-950/30 pointer-events-none absolute inset-0 rounded-2xl border backdrop-blur-sm"
-		></div>
+<div class="groups-page mx-auto flex w-full max-w-7xl flex-col gap-10">
+	<!-- ═══════════════════════════════════════════════
+	     HERO
+	═══════════════════════════════════════════════ -->
+	<section class="hero-section relative overflow-hidden rounded-3xl">
+		<!-- Animated orb background -->
+		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
 
-		<div class="relative z-10 flex flex-col items-center gap-3">
-			<div class="flex flex-wrap items-center justify-center gap-3">
-				<h1 class="m-0 text-4xl font-extrabold tracking-tight drop-shadow-sm">Cycling Groups</h1>
-				<a
-					href="/groups/new"
-					class="btn preset-filled-primary-500 flex items-center gap-1.5 shadow-md transition-transform hover:scale-105"
-				>
-					<IconPlus class="h-4 w-4" />
-					<span class="font-semibold">Add Group</span>
-				</a>
-			</div>
-			<p class="text-surface-600-400 m-0 text-center text-sm">
-				Discover local clubs, teams, and advocacy organizations near you.
-			</p>
-
-			<!-- Result count badge -->
-			{#key data.groups?.length}
-				<div class="flex items-center gap-2" in:fade={{ duration: 180 }}>
-					<span class="chip preset-tonal-surface text-xs font-medium">
+		<div
+			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
+		>
+			<!-- Left: headline + chips + stats -->
+			<div class="flex flex-col gap-7">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
 						<IconUsers class="h-3.5 w-3.5" />
-						{#if data.groups?.length === 1}
-							1 group found
-						{:else}
-							{data.groups?.length ?? 0} groups found
-						{/if}
+						Groups
 					</span>
+					<span class="chip preset-tonal-secondary">Community</span>
+					<span class="chip preset-tonal-tertiary">Clubs & Teams</span>
 				</div>
-			{/key}
-		</div>
-	</header>
 
-	<!-- ═══════════════════════════════ FILTER PANEL ══════════════════════════════ -->
-	<section
-		class="border-primary-500/20 bg-surface-50-950/40 rounded-2xl border p-4 shadow-sm backdrop-blur-xl"
-	>
-		<!-- Row 1: Search + Country + State -->
-		<div class="grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr_1fr]">
-			<!-- Search -->
-			<div class="flex flex-col gap-1">
-				<label class="label" for="q">Search</label>
-				<div class="relative">
-					<IconSearch
-						class="text-surface-500-400 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
-					/>
-					<input
-						id="q"
-						class="input bg-surface-950-50/5 pl-9"
-						bind:value={q}
-						placeholder="Name, city, description…"
-						oninput={scheduleApply}
-					/>
-				</div>
-			</div>
-
-			<!-- Country -->
-			<div class="flex flex-col gap-1">
-				<label class="label" for="country">Country</label>
-				<select
-					id="country"
-					class="select bg-surface-950-50/5"
-					bind:value={country}
-					onchange={scheduleApply}
-				>
-					<option value="">Any</option>
-					<option value="US">United States</option>
-					<option value="CA">Canada</option>
-					<option value="MX">Mexico</option>
-					<option value="GB">United Kingdom</option>
-					<option value="AU">Australia</option>
-					<option value="NZ">New Zealand</option>
-					<option value="OTHER">Other</option>
-				</select>
-			</div>
-
-			<!-- State / Region -->
-			<div class="flex flex-col gap-1">
-				<label class="label" for="state_region">State / Region</label>
-				{#if hasStateList}
-					<select
-						id="state_region"
-						class="select bg-surface-950-50/5"
-						bind:value={state_region}
-						onchange={scheduleApply}
+				<div class="space-y-4">
+					<h1
+						class="groups-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
 					>
-						<option value="">Any</option>
-						{#each statesByCountry[country] as st}
-							<option value={st}>{st}</option>
-						{/each}
-					</select>
-				{:else}
-					<input
-						id="state_region"
-						class="input bg-surface-950-50/5"
-						bind:value={state_region}
-						oninput={scheduleApply}
-						placeholder="e.g. AZ"
-					/>
-				{/if}
-			</div>
-		</div>
+						Find your people.<br />
+						<span class="groups-headline-accent">Ride together.</span>
+					</h1>
+					<p class="max-w-xl text-base leading-relaxed opacity-75">
+						Discover local clubs, teams, and advocacy organizations near you. Join a community that
+						matches your vibe and riding style.
+					</p>
+				</div>
 
-		<!-- Row 2: Group Type chips -->
-		<div class="mt-3">
-			<div class="label mb-1.5">Group Type</div>
-			<div class="flex flex-wrap gap-1.5">
-				<button
-					type="button"
-					class={group_type_ids.length === 0 ? chipFilled('All') : chipOutlined('All')}
-					onclick={() => {
-						group_type_ids = [];
-						scheduleApply();
-					}}
-				>
-					All
-				</button>
-				{#each data.group_types || [] as t}
+				<!-- Stat cards -->
+				<div class="grid gap-3 sm:grid-cols-3">
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-primary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconUsers class="h-4 w-4" />
+							Total Groups
+						</div>
+						<div class="text-3xl font-black tabular-nums">{data.groups?.length || 0}</div>
+					</div>
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-secondary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconMapPin class="h-4 w-4" />
+							Active Regions
+						</div>
+						<div class="text-3xl font-black tabular-nums">
+							{new Set((data.groups || []).map((g) => g.state_region).filter(Boolean)).size || 0}
+						</div>
+					</div>
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-tertiary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconMap class="h-4 w-4" />
+							Group Types
+						</div>
+						<div class="text-3xl font-black tabular-nums">{data.group_types?.length || 0}</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Right: search + actions -->
+			<div
+				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
+			>
+				<div class="space-y-1">
+					<div
+						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
+					>
+						<IconSparkles class="h-4 w-4" />
+						Explore groups
+					</div>
+					<h2 class="text-xl font-bold">Search by type, location, or name</h2>
+				</div>
+
+				<div class="flex flex-col gap-3">
+					<div class="relative">
+						<IconSearch
+							class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
+						/>
+						<input
+							class="input bg-surface-950-50/5 pl-9"
+							bind:value={q}
+							placeholder="Name, city, description…"
+							oninput={scheduleApply}
+						/>
+					</div>
+
+					<div class="grid grid-cols-2 gap-2">
+						<select
+							class="select bg-surface-950-50/5 text-sm"
+							bind:value={country}
+							onchange={scheduleApply}
+						>
+							<option value="">Any Country</option>
+							<option value="US">United States</option>
+							<option value="CA">Canada</option>
+							<option value="MX">Mexico</option>
+							<option value="GB">United Kingdom</option>
+							<option value="AU">Australia</option>
+							<option value="NZ">New Zealand</option>
+							<option value="OTHER">Other</option>
+						</select>
+
+						{#if hasStateList}
+							<select
+								class="select bg-surface-950-50/5 text-sm"
+								bind:value={state_region}
+								onchange={scheduleApply}
+							>
+								<option value="">Any Region</option>
+								{#each statesByCountry[country] as st}
+									<option value={st}>{st}</option>
+								{/each}
+							</select>
+						{:else}
+							<input
+								class="input bg-surface-950-50/5 text-sm"
+								bind:value={state_region}
+								oninput={scheduleApply}
+								placeholder="State/Region"
+							/>
+						{/if}
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					<div
+						class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
+					>
+						<IconSlidersHorizontal class="h-3.5 w-3.5" />
+						Group Type
+					</div>
+					<div class="flex flex-wrap gap-2">
+						<button
+							type="button"
+							class={`chip ${group_type_ids.length === 0 ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
+							onclick={() => {
+								group_type_ids = [];
+								scheduleApply();
+							}}
+						>
+							All
+						</button>
+						{#each (data.group_types || []).slice(0, 6) as t}
+							<button
+								type="button"
+								class={`chip ${group_type_ids.includes(t.id) ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
+								onclick={() => toggleType(t.id)}
+							>
+								{t.name}
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Advanced Settings Accordion -->
+				<div class="mt-2 text-sm">
 					<button
 						type="button"
-						class={group_type_ids.includes(t.id) ? chipFilled(t.name) : chipOutlined(t.name)}
-						onclick={() => toggleType(t.id)}>{t.name}</button
+						class="flex w-full items-center justify-between py-2 text-left font-medium opacity-80 hover:opacity-100"
+						onclick={() => (showAdvanced = !showAdvanced)}
+						aria-expanded={showAdvanced}
 					>
-				{/each}
-			</div>
-		</div>
+						<span class="flex items-center gap-2">
+							More Filters
+							{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length + Math.max(0, group_type_ids.length - 6) > 0}
+								<span
+									class="bg-primary-500 text-surface-50 ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+								>
+									{skill_level_ids.length +
+										audience_focus_ids.length +
+										riding_discipline_ids.length +
+										Math.max(0, group_type_ids.length - 6)}
+								</span>
+							{/if}
+						</span>
+						<IconChevronDown
+							class="h-4 w-4 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
+						/>
+					</button>
 
-		<!-- Row 3: Advanced toggle + clear -->
-		<div class="mt-3 flex items-center justify-between gap-2">
-			<button
-				type="button"
-				class="btn btn-sm preset-outlined-surface-500 flex items-center gap-1.5"
-				onclick={() => (showAdvanced = !showAdvanced)}
-				aria-expanded={showAdvanced}
-			>
-				<IconSlidersHorizontal class="h-3.5 w-3.5" />
-				<span>{showAdvanced ? 'Hide' : 'More'} Filters</span>
-				{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length > 0}
-					<span
-						class="bg-primary-500 text-surface-50 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+					{#if showAdvanced}
+						<div
+							class="border-surface-500/10 mt-2 space-y-4 border-t pt-3"
+							in:slide={{ duration: 180 }}
+							out:fade={{ duration: 120 }}
+						>
+							{#if (data.group_types || []).length > 6}
+								<div>
+									<div class="mb-1.5 text-xs font-semibold opacity-60">More Types</div>
+									<div class="flex flex-wrap gap-1.5">
+										{#each (data.group_types || []).slice(6) as t}
+											<button
+												type="button"
+												class={group_type_ids.includes(t.id)
+													? chipFilled(t.name)
+													: chipOutlined(t.name)}
+												onclick={() => toggleType(t.id)}>{t.name}</button
+											>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+							<div>
+								<div class="mb-1.5 text-xs font-semibold opacity-60">Skill Levels</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each data.skill_levels || [] as t}
+										<button
+											type="button"
+											class={skill_level_ids.includes(t.id)
+												? chipFilled(t.name)
+												: chipOutlined(t.name)}
+											onclick={() => toggleSkill(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
+							</div>
+
+							<div>
+								<div class="mb-1.5 text-xs font-semibold opacity-60">Audience Focus</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each data.audience_focuses || [] as t}
+										<button
+											type="button"
+											class={audience_focus_ids.includes(t.id)
+												? chipFilled(t.name)
+												: chipOutlined(t.name)}
+											onclick={() => toggleAudience(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
+							</div>
+
+							<div>
+								<div class="mb-1.5 text-xs font-semibold opacity-60">Riding Disciplines</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each data.riding_disciplines || [] as t}
+										<button
+											type="button"
+											class={riding_discipline_ids.includes(t.id)
+												? chipFilled(t.name)
+												: chipOutlined(t.name)}
+											onclick={() => toggleDiscipline(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
+					{#if activeFilterCount > 0}
+						<button
+							type="button"
+							class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
+							onclick={clearAll}
+							in:fade={{ duration: 120 }}
+						>
+							Clear filters
+						</button>
+					{:else}
+						<a
+							class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
+							href="#group-list"
+						>
+							Browse all
+						</a>
+					{/if}
+
+					<a
+						class="btn preset-filled-primary-500 gap-2 {activeFilterCount > 0
+							? 'col-span-1 sm:col-span-1'
+							: 'col-span-1 sm:col-span-1'}"
+						href="/groups/new"
 					>
-						{skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length}
-					</span>
-				{/if}
-				<IconChevronDown
-					class="h-3.5 w-3.5 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
-				/>
-			</button>
+						<IconPlus class="h-4 w-4" />
+						Create group
+					</a>
 
-			{#if activeFilterCount > 0}
-				<button
-					type="button"
-					class="btn btn-sm preset-tonal-error flex items-center gap-1"
-					onclick={clearAll}
-					in:fade={{ duration: 120 }}
-				>
-					<IconX class="h-3.5 w-3.5" />
-					Clear All
-				</button>
-			{/if}
-		</div>
-
-		<!-- Advanced filters -->
-		{#if showAdvanced}
-			<div class="mt-3 space-y-3" in:slide={{ duration: 180 }} out:fade={{ duration: 120 }}>
-				<div class="border-surface-500/10 border-t pt-3">
-					<!-- Skill Levels -->
-					<div class="mb-3">
-						<div class="label mb-1.5">Skill Levels</div>
-						<div class="flex flex-wrap gap-1.5">
-							<button
-								type="button"
-								class={skill_level_ids.length === 0 ? chipFilled('All') : chipOutlined('All')}
-								onclick={() => {
-									skill_level_ids = [];
-									scheduleApply();
-								}}>All</button
-							>
-							{#each data.skill_levels || [] as t}
-								<button
-									type="button"
-									class={skill_level_ids.includes(t.id) ? chipFilled(t.name) : chipOutlined(t.name)}
-									onclick={() => toggleSkill(t.id)}>{t.name}</button
-								>
-							{/each}
-						</div>
-					</div>
-
-					<!-- Audience Focus -->
-					<div class="mb-3">
-						<div class="label mb-1.5">Audience Focus</div>
-						<div class="flex flex-wrap gap-1.5">
-							<button
-								type="button"
-								class={audience_focus_ids.length === 0 ? chipFilled('All') : chipOutlined('All')}
-								onclick={() => {
-									audience_focus_ids = [];
-									scheduleApply();
-								}}>All</button
-							>
-							{#each data.audience_focuses || [] as t}
-								<button
-									type="button"
-									class={audience_focus_ids.includes(t.id)
-										? chipFilled(t.name)
-										: chipOutlined(t.name)}
-									onclick={() => toggleAudience(t.id)}>{t.name}</button
-								>
-							{/each}
-						</div>
-					</div>
-
-					<!-- Riding Disciplines -->
-					<div>
-						<div class="label mb-1.5">Riding Disciplines</div>
-						<div class="flex flex-wrap gap-1.5">
-							<button
-								type="button"
-								class={riding_discipline_ids.length === 0 ? chipFilled('All') : chipOutlined('All')}
-								onclick={() => {
-									riding_discipline_ids = [];
-									scheduleApply();
-								}}>All</button
-							>
-							{#each data.riding_disciplines || [] as t}
-								<button
-									type="button"
-									class={riding_discipline_ids.includes(t.id)
-										? chipFilled(t.name)
-										: chipOutlined(t.name)}
-									onclick={() => toggleDiscipline(t.id)}>{t.name}</button
-								>
-							{/each}
-						</div>
-					</div>
+					{#if activeFilterCount > 0}
+						<button
+							type="button"
+							class="btn preset-outlined-error-500 col-span-1 flex sm:hidden"
+							onclick={clearAll}
+						>
+							Clear filters
+						</button>
+					{/if}
 				</div>
 			</div>
-		{/if}
+		</div>
 	</section>
 
 	<!-- ═══════════════════════════════ RESULTS + MAP ═════════════════════════════ -->
-	<section class="space-y-4">
+	<section id="group-list" class="space-y-5">
 		{#if data.error}
 			<div class="bg-error-500/10 border-error-500/30 rounded-xl border px-4 py-3">
 				<p class="text-error-600-400 m-0 text-sm">{data.error}</p>
@@ -546,22 +621,27 @@
 
 		<!-- Results toolbar -->
 		<div class="flex items-center justify-between gap-2">
-			<p class="text-surface-600-400 m-0 text-sm">
-				{#if data.groups?.length}
-					Showing <strong class="text-surface-950-50">{data.groups.length}</strong>
-					{data.groups.length === 1 ? 'group' : 'groups'}
-				{/if}
-			</p>
-			<button
-				type="button"
-				class="btn btn-sm {showMap
-					? 'preset-filled-primary-500'
-					: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
-				onclick={() => (showMap = !showMap)}
-			>
-				<IconMap class="h-3.5 w-3.5" />
-				{showMap ? 'Hide Map' : 'Show Map'}
-			</button>
+			<div>
+				<p class="label opacity-60">Directory</p>
+				<h2 class="text-2xl font-bold">Group listings</h2>
+			</div>
+
+			<div class="flex flex-col items-end gap-2">
+				<p class="text-sm tabular-nums opacity-60">
+					{data.groups?.length ?? 0}
+					{data.groups?.length === 1 ? 'group' : 'groups'} match
+				</p>
+				<button
+					type="button"
+					class="btn btn-sm {showMap
+						? 'preset-filled-primary-500'
+						: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
+					onclick={() => (showMap = !showMap)}
+				>
+					<IconMapPin class="h-3.5 w-3.5" />
+					{showMap ? 'Hide Map' : 'Show Map'}
+				</button>
+			</div>
 		</div>
 
 		<!-- Map -->
@@ -577,37 +657,41 @@
 		{#if !data.groups?.length}
 			<!-- Empty state -->
 			<div
-				class="border-surface-500/15 bg-surface-50-950/30 flex flex-col items-center gap-4 rounded-2xl border py-16 text-center"
+				class="empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
 				in:fade={{ duration: 200 }}
 			>
-				<div class="bg-surface-500/10 flex h-16 w-16 items-center justify-center rounded-2xl">
-					<IconUsers class="text-surface-400-600 h-8 w-8" />
-				</div>
-				<div>
-					<h3 class="m-0 mb-1 text-lg font-semibold">No groups found</h3>
-					<p class="text-surface-600-400 m-0 text-sm">
-						Try adjusting your filters, or be the first to add a group!
+				<div class="empty-orb" aria-hidden="true"></div>
+				<div class="relative z-10 mx-auto max-w-lg space-y-4">
+					<div
+						class="empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
+					>
+						<IconUsers class="h-10 w-10 opacity-60" />
+					</div>
+					<h3 class="text-2xl font-bold">No groups match that filter yet</h3>
+					<p class="text-sm leading-relaxed opacity-70">
+						Try a broader search, clear some filters, or be the first to start a group in this area!
 					</p>
-				</div>
-				<div class="flex gap-2">
-					{#if activeFilterCount > 0}
-						<button type="button" class="btn btn-sm preset-tonal-surface" onclick={clearAll}>
-							Clear Filters
-						</button>
-					{/if}
-					<a href="/groups/new" class="btn btn-sm preset-filled-primary-500">
-						<IconPlus class="h-4 w-4" />
-						Add a Group
-					</a>
+					<div class="flex flex-wrap justify-center gap-3 pt-2">
+						{#if activeFilterCount > 0}
+							<button class="btn preset-outlined-surface-950-50" onclick={clearAll}>
+								Clear filters
+							</button>
+						{/if}
+						<a class="btn preset-filled-primary-500 gap-2" href="/groups/new">
+							<IconPlus class="h-4 w-4" />
+							Create group
+						</a>
+					</div>
 				</div>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each data.groups as g (g.id)}
+				{#each data.groups as g, i (g.id)}
 					<a
 						href={`/groups/${g.slug}`}
-						class="group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+						class="group-card group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
 						in:fade={{ duration: 120 }}
+						style="--stagger: {i % 9}"
 						out:fade={{ duration: 120 }}
 						animate:flip
 					>
@@ -693,3 +777,135 @@
 		{/if}
 	</section>
 </div>
+
+<style>
+	/* ── Hero ── */
+	.hero-section {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.hero-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(72px);
+		pointer-events: none;
+	}
+
+	.hero-orb-1 {
+		width: 55%;
+		height: 200%;
+		top: -50%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+
+	.hero-orb-2 {
+		width: 40%;
+		height: 160%;
+		top: -30%;
+		right: 5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	.hero-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 6%) scale(1.08);
+		}
+	}
+
+	/* ── Headline accent ── */
+	.groups-headline {
+		color: var(--color-primary-50);
+		text-align: left;
+	}
+
+	.groups-headline-accent {
+		background: linear-gradient(
+			120deg,
+			var(--color-primary-300),
+			var(--color-secondary-300),
+			var(--color-tertiary-300)
+		);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* ── Stat cards ── */
+	.stat-card {
+		transition:
+			transform 200ms ease,
+			box-shadow 200ms ease;
+	}
+
+	.stat-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.stat-card-glow {
+		position: absolute;
+		inset: 0;
+		opacity: 0.06;
+		pointer-events: none;
+	}
+
+	/* ── Search panel ── */
+	.search-panel {
+		backdrop-filter: blur(12px);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+	}
+
+	/* ── Empty state ── */
+	.empty-state {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	.empty-orb {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 60% 50% at 50% 60%,
+			color-mix(in oklab, var(--color-primary-500) 12%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.empty-icon-ring {
+		background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-800) 85%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
+	}
+
+	/* ── Card entrance animation ── */
+	.group-card {
+		animation: card-in 380ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 50ms);
+	}
+
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(16px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
