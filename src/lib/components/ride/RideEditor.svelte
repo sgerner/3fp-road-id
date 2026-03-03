@@ -1,7 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import {
 		DEFAULT_RIDE_FORM,
 		MONTH_POSITION_OPTIONS,
@@ -34,6 +34,25 @@
 
 	function cloneDefaultForm() {
 		return JSON.parse(JSON.stringify(DEFAULT_RIDE_FORM));
+	}
+
+	function supportedTimezoneOptions() {
+		try {
+			if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+				const values = Intl.supportedValuesOf('timeZone');
+				return values.length ? values : RIDE_TIMEZONES;
+			}
+		} catch {
+			// ignore unsupported browsers
+		}
+		return RIDE_TIMEZONES;
+	}
+
+	async function syncTimezoneFromCoordinates(latitude, longitude) {
+		const timezone = await resolveTimezoneForCoordinates(latitude, longitude);
+		if (timezone && timezone !== form.timezone) {
+			form = { ...form, timezone };
+		}
 	}
 
 	function safeTrim(value) {
@@ -75,7 +94,7 @@
 			slug: activity.slug || '',
 			summary: activity.summary || '',
 			description: activity.description || '',
-			status: activity.status || 'draft',
+			status: activity.status || 'published',
 			timezone: activity.timezone || base.timezone,
 			isHost: Boolean(activity.host_user_id),
 			startsAt: toLocalDateTimeValue(activity.starts_at),
@@ -185,7 +204,6 @@
 			summary: metadata.summary ?? form.summary,
 			description: metadata.description ?? form.description,
 			status: metadata.status ?? form.status,
-			timezone: metadata.timezone ?? form.timezone,
 			startsAt: metadata.starts_at ? toLocalDateTimeValue(metadata.starts_at) : form.startsAt,
 			endsAt: metadata.ends_at ? toLocalDateTimeValue(metadata.ends_at) : form.endsAt,
 			startLocationName: metadata.start_location_name ?? form.startLocationName,
@@ -335,6 +353,16 @@
 		return payload?.data?.[0] ?? null;
 	}
 
+	async function resolveTimezoneForCoordinates(latitude, longitude) {
+		if (latitude == null || longitude == null || latitude === '' || longitude === '') return null;
+		const response = await fetch(
+			`/api/timezone?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`
+		);
+		const payload = await response.json().catch(() => ({}));
+		if (!response.ok) return null;
+		return safeTrim(payload?.data?.timezone) || null;
+	}
+
 	async function geocode(prefix) {
 		const query =
 			prefix === 'start'
@@ -348,11 +376,14 @@
 			const match = await geocodeLocation(query);
 			if (!match) throw new Error('No matching location was found.');
 			if (prefix === 'start') {
+				const timezone =
+					(await resolveTimezoneForCoordinates(match.latitude, match.longitude)) || form.timezone;
 				form = {
 					...form,
 					startLocationAddress: form.startLocationAddress || match.label,
 					startLatitude: match.latitude,
-					startLongitude: match.longitude
+					startLongitude: match.longitude,
+					timezone
 				};
 			} else {
 				form = {
@@ -384,11 +415,14 @@
 				nextForm.startLocationAddress || nextForm.startLocationName
 			);
 			if (match) {
+				const timezone =
+					(await resolveTimezoneForCoordinates(match.latitude, match.longitude)) || nextForm.timezone;
 				nextForm = {
 					...nextForm,
 					startLocationAddress: nextForm.startLocationAddress || match.label,
 					startLatitude: match.latitude,
-					startLongitude: match.longitude
+					startLongitude: match.longitude,
+					timezone
 				};
 				didUpdate = true;
 			}
@@ -664,6 +698,7 @@
 	let hostGroupItems = $state([]);
 	let deleteError = $state('');
 	let deleting = $state(false);
+	let timezoneOptions = $state(RIDE_TIMEZONES);
 
 	const occurrenceEntries = $derived(initialRide?.occurrences ?? []);
 	const selectedOccurrence = $derived(
@@ -721,6 +756,48 @@
 			if (!aiMessagesEl) return;
 			aiMessagesEl.scrollTop = aiMessagesEl.scrollHeight;
 		});
+	});
+
+	onMount(() => {
+		void (async () => {
+			timezoneOptions = supportedTimezoneOptions();
+			const fallbackTimezone = timezoneOptions.includes(form.timezone)
+				? form.timezone
+				: timezoneOptions[0] || 'UTC';
+			let nextTimezone = fallbackTimezone;
+
+			try {
+				const browserTimezone = Intl.DateTimeFormat().resolvedOptions()?.timeZone;
+				if (
+					browserTimezone &&
+					timezoneOptions.includes(browserTimezone) &&
+					form.timezone === DEFAULT_RIDE_FORM.timezone
+				) {
+					nextTimezone = browserTimezone;
+				}
+			} catch {
+				// ignore unsupported browsers
+			}
+
+			if (form.startLatitude !== '' && form.startLongitude !== '') {
+				const coordinateTimezone = await resolveTimezoneForCoordinates(
+					form.startLatitude,
+					form.startLongitude
+				);
+				if (coordinateTimezone) nextTimezone = coordinateTimezone;
+			}
+
+			if (nextTimezone !== form.timezone) {
+				form = { ...form, timezone: nextTimezone };
+			}
+		})();
+
+		return undefined;
+	});
+
+	$effect(() => {
+		if (form.startLatitude === '' || form.startLongitude === '') return;
+		void syncTimezoneFromCoordinates(form.startLatitude, form.startLongitude);
 	});
 
 	function handleHostGroupValueChange(value) {
@@ -861,7 +938,7 @@
 						<label class="block">
 							<span class="label mb-1">Timezone</span>
 							<select class="select" bind:value={form.timezone}>
-								{#each RIDE_TIMEZONES as timezone}
+								{#each timezoneOptions as timezone}
 									<option value={timezone}>{timezone}</option>
 								{/each}
 							</select>

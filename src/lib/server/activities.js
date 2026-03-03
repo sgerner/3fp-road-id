@@ -1,5 +1,6 @@
 import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
+import { normalizeTimezone, resolveTimezoneFromCoordinates } from '$lib/server/timezones';
 
 const MAX_OCCURRENCE_MONTHS = 18;
 const ACTIVITY_SELECT = `
@@ -201,6 +202,13 @@ export function normalizeEmailTemplate(template = {}, index = 0) {
 }
 
 export function normalizeRidePayload(payload = {}) {
+	const submittedTimezone = safeTrim(payload.timezone);
+	const canonicalTimezone =
+		resolveTimezoneFromCoordinates(
+			payload.startLatitude ?? payload.start_latitude,
+			payload.startLongitude ?? payload.start_longitude
+		) || normalizeTimezone(submittedTimezone);
+
 	return {
 		activity: {
 			title: safeTrim(payload.title),
@@ -208,7 +216,7 @@ export function normalizeRidePayload(payload = {}) {
 			summary: safeTrim(payload.summary) || null,
 			description: safeTrim(payload.description) || null,
 			status: safeTrim(payload.status) || 'draft',
-			timezone: safeTrim(payload.timezone) || 'UTC',
+			timezone: canonicalTimezone,
 			is_host: coerceBoolean(payload.isHost ?? payload.is_host, true),
 			starts_at: toIso(payload.startsAt ?? payload.starts_at),
 			ends_at: toIso(payload.endsAt ?? payload.ends_at),

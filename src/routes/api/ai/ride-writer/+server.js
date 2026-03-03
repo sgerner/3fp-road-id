@@ -232,6 +232,7 @@ Required ride planning priorities:
 - Mention accessibility notes and waiver needs when relevant.
 - When recurrence is described, convert it into either a weekly or monthly pattern using weekdays (1=Mon ... 7=Sun) and optional set positions (1,2,3,4,-1).
 - Reminder email copy should be brief and practical.
+- Do not infer or guess the timezone from venue text, city names, or offsets. Only set draft.metadata.timezone when the organizer explicitly states it.
 
 Conversation:
 ${formatMessages(payload.messages)}
