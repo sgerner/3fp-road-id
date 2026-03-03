@@ -85,5 +85,29 @@ export const actions = {
             return fail(400, { error: 'Invalid order data' });
         }
         return { success: true };
+    },
+    deleteSubcategory: async ({ request, cookies }) => {
+        const { user, supabase } = getLearnClient(cookies);
+        if (!user) return fail(401, { error: 'Authentication required' });
+
+        const formData = await request.formData();
+        const slug = String(formData.get('slug') || '').trim();
+        if (!slug) return fail(400, { error: 'Slug is required' });
+
+        // Safety check: refuse if there are still articles in this subcategory
+        const { count, error: countError } = await supabase
+            .from('learn_articles')
+            .select('id', { count: 'exact', head: true })
+            .eq('subcategory_slug', slug);
+        if (countError) return fail(500, { error: countError.message });
+        if (count > 0) return fail(400, { error: 'Cannot delete a subcategory that still has articles.' });
+
+        const { error: deleteError } = await supabase
+            .from('learn_subcategories')
+            .delete()
+            .eq('slug', slug);
+        if (deleteError) return fail(500, { error: deleteError.message });
+
+        return { success: true };
     }
 };
