@@ -1013,181 +1013,275 @@
 	}
 </script>
 
-<div class="mx-auto w-full max-w-4xl space-y-6">
-	<header class="space-y-2">
-		<h1 class="text-3xl font-bold">Edit {data.group?.name}</h1>
+<div class="edit-page mx-auto w-full max-w-4xl space-y-5 pb-10">
+	<!-- ── Cinematic header ── -->
+	<header class="edit-header relative overflow-hidden rounded-2xl px-6 py-8">
+		<div class="edit-orb edit-orb-1" aria-hidden="true"></div>
+		<div class="edit-orb edit-orb-2" aria-hidden="true"></div>
+		<div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<a
+					href={`/groups/${data.group?.slug}`}
+					class="text-primary-200 mb-2 flex items-center gap-1 text-xs font-semibold transition-colors hover:text-white"
+				>
+					← Back to group
+				</a>
+				<h1 class="text-2xl font-extrabold tracking-tight md:text-3xl">
+					Edit <span class="text-secondary-700-300">{data.group?.name}</span>
+				</h1>
+				<p class="text-secondary-800-200 mt-1 text-sm opacity-80">
+					Changes are saved automatically as you type.
+				</p>
+			</div>
+			<!-- Autosave status -->
+			{#if saving}
+				<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+			{:else}
+				<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
+			{/if}
+		</div>
 	</header>
 
-	<section class="card border-primary-700-300 bg-surface-50-950 card-hover border p-4">
-		<form
-			method="POST"
-			enctype="multipart/form-data"
-			class="grid grid-cols-1 gap-4"
-			onsubmit={(event) => event.preventDefault()}
-		>
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-1">
-				<div class="flex flex-col">
+	<form
+		method="POST"
+		enctype="multipart/form-data"
+		class="space-y-5"
+		onsubmit={(event) => event.preventDefault()}
+	>
+		<!-- ── Identity ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Identity</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="name">Group Name</label>
 					<input
 						id="name"
 						name="name"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						value={data.group?.name || ''}
 						oninput={onField}
 					/>
 				</div>
-			</div>
-			<div class="flex flex-col">
-				<label class="label" for="tagline">Tagline</label>
-				<input
-					id="tagline"
-					name="tagline"
-					class="input bg-primary-50-950/30"
-					value={data.group?.tagline || ''}
-					oninput={onField}
-				/>
-			</div>
-			<div class="flex flex-col">
-				<label class="label" for="specific_meeting_point_address">Meeting Point Address</label>
-				<input
-					id="specific_meeting_point_address"
-					name="specific_meeting_point_address"
-					class="input bg-primary-50-950/30"
-					value={meetingAddress}
-					oninput={onField}
-					onblur={onLocationBlur}
-					placeholder="Street, city, state"
-				/>
-			</div>
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-				<div class="flex flex-col">
-					<label class="label" for="city">City</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="tagline">Tagline</label>
 					<input
-						id="city"
-						name="city"
-						class="input bg-primary-50-950/30"
-						value={data.group?.city || ''}
+						id="tagline"
+						name="tagline"
+						class="input preset-tonal-surface"
+						value={data.group?.tagline || ''}
 						oninput={onField}
-						onblur={onLocationBlur}
+						placeholder="A short, punchy sentence about your group"
 					/>
 				</div>
-				<div class="flex flex-col">
-					<label class="label" for="state_region">State/Region (Required)</label>
-					<input
-						id="state_region"
-						name="state_region"
-						class="input bg-primary-50-950/30"
-						required
-						value={data.group?.state_region || ''}
-						oninput={onField}
-						onblur={onLocationBlur}
-					/>
-				</div>
-				<div class="flex flex-col">
-					<label class="label" for="country">Country (Required)</label>
-					<select
-						id="country"
-						name="country"
-						class="select bg-primary-50-950/30"
-						required
-						onchange={onField}
+				<div class="flex flex-col gap-1">
+					<label class="label" for="description">Description</label>
+					<textarea
+						id="description"
+						name="description"
+						class="textarea preset-tonal-surface"
+						rows="4"
+						oninput={onField}>{data.group?.description || ''}</textarea
 					>
-						<option value="US" selected={data.group?.country === 'US'}>United States</option>
-						<option value="CA" selected={data.group?.country === 'CA'}>Canada</option>
-						<option value="MX" selected={data.group?.country === 'MX'}>Mexico</option>
-						<option value="GB" selected={data.group?.country === 'GB'}>United Kingdom</option>
-						<option value="AU" selected={data.group?.country === 'AU'}>Australia</option>
-						<option value="NZ" selected={data.group?.country === 'NZ'}>New Zealand</option>
-						<option
-							value="OTHER"
-							selected={data.group?.country &&
-								!['US', 'CA', 'MX', 'GB', 'AU', 'NZ'].includes(data.group.country)}>Other</option
+				</div>
+			</div>
+		</section>
+
+		<!-- ── Location ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Location</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4">
+				<div class="flex flex-col gap-1">
+					<label class="label" for="specific_meeting_point_address">Meeting Point Address</label>
+					<input
+						id="specific_meeting_point_address"
+						name="specific_meeting_point_address"
+						class="input preset-tonal-surface"
+						value={meetingAddress}
+						oninput={onField}
+						onblur={onLocationBlur}
+						placeholder="Street, city, state"
+					/>
+				</div>
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+					<div class="flex flex-col gap-1">
+						<label class="label" for="city">City</label>
+						<input
+							id="city"
+							name="city"
+							class="input preset-tonal-surface"
+							value={data.group?.city || ''}
+							oninput={onField}
+							onblur={onLocationBlur}
+						/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="label" for="state_region"
+							>State / Region <span class="text-error-400">*</span></label
 						>
-					</select>
+						<input
+							id="state_region"
+							name="state_region"
+							class="input preset-tonal-surface"
+							required
+							value={data.group?.state_region || ''}
+							oninput={onField}
+							onblur={onLocationBlur}
+						/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="label" for="country">Country <span class="text-error-400">*</span></label>
+						<select
+							id="country"
+							name="country"
+							class="select preset-tonal-surface"
+							required
+							onchange={onField}
+						>
+							<option value="US" selected={data.group?.country === 'US'}>United States</option>
+							<option value="CA" selected={data.group?.country === 'CA'}>Canada</option>
+							<option value="MX" selected={data.group?.country === 'MX'}>Mexico</option>
+							<option value="GB" selected={data.group?.country === 'GB'}>United Kingdom</option>
+							<option value="AU" selected={data.group?.country === 'AU'}>Australia</option>
+							<option value="NZ" selected={data.group?.country === 'NZ'}>New Zealand</option>
+							<option
+								value="OTHER"
+								selected={data.group?.country &&
+									!['US', 'CA', 'MX', 'GB', 'AU', 'NZ'].includes(data.group.country)}>Other</option
+							>
+						</select>
+					</div>
 				</div>
 
-				<div class="col-span-3">
-					<!-- Places search + Leaflet map -->
-					<div class="border-primary-50-950/30 bg-primary-50-950/30 my-2 border p-2">
-						<label class="label" for="map_location">Map Location</label>
-						<input
-							id="map_location"
-							name="map_location"
-							type="text"
-							class="sr-only"
-							tabindex="-1"
-							aria-hidden="true"
-						/>
+				<!-- Map -->
+				<div class="edit-map-panel rounded-xl p-3">
+					<label class="label mb-2" for="map_location">Map Location</label>
+					<input
+						id="map_location"
+						name="map_location"
+						type="text"
+						class="sr-only"
+						tabindex="-1"
+						aria-hidden="true"
+					/>
+					<div bind:this={placesContainer}></div>
+					<p class="text-surface-600-400 my-1.5 text-xs">
+						Search for a city or address to pin the map.
+					</p>
+					{#if placesLoading}
+						<p class="text-surface-600-400 text-xs">Loading places…</p>
+					{/if}
+					<div class="mt-2 overflow-hidden rounded-lg" style="height: 300px;">
+						<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
+					</div>
+					<p class="text-surface-600-400 mt-1.5 text-xs">
+						Or click directly on the map to set the pin.
+					</p>
+				</div>
 
-						<div bind:this={placesContainer} class=""></div>
-						<small class="text-surface-600-400 my-2 text-xs"
-							>Search for a city or address to set the map marker.</small
-						>
-						{#if placesLoading}
-							<small class="text-surface-600-400 mt-1 text-xs">Loading places…</small>
-						{/if}
-						<div
-							class="border-surface-400-600 overflow-hidden rounded-md border"
-							style="height: 320px;"
-						>
-							<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
-						</div>
-						<small class="text-surface-600-400 text-xs"
-							>Click the map to set the marker and coordinates.</small
-						>
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div class="flex flex-col gap-1">
+						<label class="label" for="service_area_description">Service Area</label>
+						<input
+							id="service_area_description"
+							name="service_area_description"
+							class="input preset-tonal-surface"
+							value={data.group?.service_area_description || ''}
+							oninput={onField}
+							placeholder="e.g. West Valley of Phoenix"
+						/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="label" for="zip_code">ZIP / Postal Code</label>
+						<input
+							id="zip_code"
+							name="zip_code"
+							class="input preset-tonal-surface"
+							value={data.group?.zip_code || ''}
+							oninput={onField}
+						/>
 					</div>
 				</div>
 			</div>
 
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
+			<!-- Hidden lat/lng -->
+			<div class="hidden">
+				<input
+					id="latitude"
+					name="latitude"
+					type="number"
+					step="any"
+					value={data.group?.latitude ?? ''}
+					oninput={onField}
+					hidden
+				/>
+				<input
+					id="longitude"
+					name="longitude"
+					type="number"
+					step="any"
+					value={data.group?.longitude ?? ''}
+					oninput={onField}
+					hidden
+				/>
+			</div>
+		</section>
+
+		<!-- ── Contact ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Contact & Reach</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="website_url">Website</label>
 					<input
 						id="website_url"
 						name="website_url"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						value={data.group?.website_url || ''}
 						oninput={onField}
+						placeholder="https://"
 					/>
 				</div>
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="public_contact_email">Public Email</label>
 					<input
 						id="public_contact_email"
 						name="public_contact_email"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						value={data.group?.public_contact_email || ''}
 						oninput={onField}
 					/>
 				</div>
-			</div>
-
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="public_phone_number">Public Phone</label>
 					<input
 						id="public_phone_number"
 						name="public_phone_number"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						value={data.group?.public_phone_number || ''}
 						oninput={onField}
 					/>
 				</div>
-				<div class="flex flex-col">
-					<label class="label" for="preferred_contact_method_instructions">Preferred Contact</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="preferred_contact_method_instructions"
+						>Preferred Contact Method</label
+					>
 					<input
 						id="preferred_contact_method_instructions"
 						name="preferred_contact_method_instructions"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						value={data.group?.preferred_contact_method_instructions || ''}
 						oninput={onField}
+						placeholder="e.g. Email for general inquiries"
 					/>
 				</div>
 			</div>
 
-			<!-- Preferred CTA selection -->
-			<section class="card border-surface-400-600/50 bg-surface-100-900 my-2 space-y-2 border p-3">
-				<div class="label">Preferred Call-to-Action</div>
+			<!-- Preferred CTA -->
+			<div class="mt-5">
+				<div class="label mb-2">Preferred Call-to-Action Button</div>
 				<div class="flex flex-wrap gap-2">
 					{#each ctaChoices as opt}
 						<button
@@ -1195,66 +1289,53 @@
 							class={`chip ${ctaKind === opt.key ? 'preset-filled-primary-500' : 'preset-tonal-surface'} flex items-center gap-2`}
 							onclick={() => setCtaKind(opt.key)}
 						>
-							{#if opt.icon}
-								{#if opt.icon}
-									<opt.icon class="h-4 w-4" />
-								{/if}
-							{/if}
+							{#if opt.icon}<opt.icon class="h-4 w-4" />{/if}
 							<span>{opt.label}</span>
 						</button>
 					{/each}
 				</div>
 				{#if ctaKind === 'custom'}
-					<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-						<div class="flex flex-col">
-							<label class="label" for="preferred_cta_label">Custom CTA Label (10 char max)</label>
+					<div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<label class="label" for="preferred_cta_label">Label (10 char max)</label>
 							<input
 								id="preferred_cta_label"
 								name="preferred_cta_label"
-								class="input bg-primary-50-950/30"
+								class="input preset-tonal-surface"
 								maxlength="10"
 								bind:value={ctaLabel}
 								oninput={onCtaLabelInput}
 							/>
 						</div>
-						<div class="flex flex-col">
-							<label class="label" for="preferred_cta_url">Custom CTA URL</label>
+						<div class="flex flex-col gap-1">
+							<label class="label" for="preferred_cta_url">URL</label>
 							<input
 								id="preferred_cta_url"
 								name="preferred_cta_url"
-								class="input bg-primary-50-950/30 {ctaUrl && !customUrlValid
+								class="input preset-tonal-surface {ctaUrl && !customUrlValid
 									? 'border-error-500 border'
 									: ''}"
 								bind:value={ctaUrl}
 								oninput={onCtaUrlInput}
 								placeholder="https://example.com/join"
 							/>
-							<small class="text-surface-600-400 mt-1 text-xs"
-								>Use a full URL starting with http:// or https://</small
-							>
 							{#if ctaUrl && !customUrlValid}
-								<small class="text-error-600-400 text-xs"
-									>Enter a valid URL beginning with http:// or https://</small
+								<small class="text-error-600-400 text-xs">Must start with http:// or https://</small
 								>
 							{/if}
 						</div>
 					</div>
 				{/if}
-
-				<!-- CTA Preview -->
-				<div class="mt-2">
-					<div class="text-surface-700-300 mb-1 text-xs">Preview</div>
-					{#if pickCtaPreview()}
+				{#if pickCtaPreview()}
+					<div class="mt-3">
+						<div class="text-surface-600-400 mb-1 text-xs">Preview</div>
 						{#key ctaKind + ctaLabel + ctaUrl}
 							{#await Promise.resolve(pickCtaPreview()) then cp}
 								<button
-									href={cp.href}
-									target="_blank"
-									rel="noopener"
+									type="button"
 									class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
 								>
 									{#if cp.key !== 'custom'}
-										<!-- icon mapping -->
 										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
 										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
 										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
@@ -1271,418 +1352,97 @@
 								</button>
 							{/await}
 						{/key}
-					{:else}
-						<span class="text-surface-600-400 text-xs"
-							>No valid CTA available based on current selection.</span
-						>
-					{/if}
-				</div>
-			</section>
-
-			<!-- Owners management -->
-			<section class="card border-surface-400-600/50 bg-surface-100-900 my-2 space-y-2 border p-3">
-				<div class="label">Owners</div>
-				<div class="text-surface-700-300 text-sm">
-					Add another owner by email. We’ll send them a secure login link; when they sign in,
-					they’ll be added automatically.
-				</div>
-				<div class="mt-2 flex flex-col gap-2 md:flex-row">
-					<input
-						type="email"
-						placeholder="owner@example.com"
-						bind:value={ownerEmail}
-						class="input bg-primary-50-950/30 md:w-80"
-						required
-						onkeydown={(e) => {
-							if (e.key === 'Enter') inviteOwner(e);
-						}}
-					/>
-					<input
-						type="text"
-						name="website"
-						bind:value={ownerHoneypot}
-						autocomplete="off"
-						tabindex="-1"
-						aria-hidden="true"
-						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-					/>
-					<div
-						aria-hidden="true"
-						style="position: absolute; width: 0; height: 0; overflow: hidden;"
-					>
-						<div bind:this={ownerTurnstileEl}></div>
-					</div>
-					<button
-						type="button"
-						class="btn preset-filled-primary-500 md:w-auto {ownerLoading ? 'animate-pulse' : ''}"
-						disabled={!ownerValid || ownerLoading}
-						onclick={inviteOwner}>Send Invite</button
-					>
-				</div>
-				{#if ownerError}
-					<div class="text-error-600-400 text-xs">{ownerError}</div>
-				{/if}
-				{#if ownerSuccess}
-					<div class="text-success-600-400 text-xs">{ownerSuccess}</div>
-				{/if}
-
-				{#if owners?.length}
-					<div class="mt-3">
-						<div class="text-surface-700-300 mb-1 text-xs">Current owners</div>
-						<ul
-							class="divide-surface-300-700/50 border-surface-300-700/50 divide-y rounded-md border"
-						>
-							{#each owners as o (o.user_id)}
-								<li class="flex items-center justify-between gap-2 p-2">
-									<div class="truncate text-sm">
-										{o.user_id === data.current_user_id ? 'You' : o.email || o.user_id}
-									</div>
-									{#if o.user_id !== data.current_user_id}
-										<button
-											type="button"
-											class="btn btn-xs preset-outlined-error-500"
-											onclick={() => removeOwner(o.user_id, o.email)}>Remove</button
-										>
-									{/if}
-								</li>
-							{/each}
-						</ul>
 					</div>
 				{/if}
-			</section>
-
-			<div class="flex flex-col">
-				<label class="label" for="description">Description</label>
-				<textarea
-					id="description"
-					name="description"
-					class="textarea bg-primary-50-950/30"
-					rows="4"
-					oninput={onField}>{data.group?.description || ''}</textarea
-				>
 			</div>
+		</section>
 
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
+		<!-- ── Social links ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Social Links</h2>
+			<p class="text-surface-600-400 mt-1 mb-4 text-xs">
+				Enter a username or full URL — we'll build the link automatically.
+			</p>
+			<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+				{#each [{ id: 'social_instagram', label: 'Instagram', placeholder: 'username or full URL' }, { id: 'social_facebook', label: 'Facebook', placeholder: 'page/username or full URL' }, { id: 'social_x', label: 'X (Twitter)', placeholder: 'handle or full URL' }, { id: 'social_threads', label: 'Threads', placeholder: '@handle or full URL' }, { id: 'social_youtube', label: 'YouTube', placeholder: '@channel or full URL' }, { id: 'social_mastodon', label: 'Mastodon', placeholder: '@user@instance or full URL' }, { id: 'social_tiktok', label: 'TikTok', placeholder: '@handle or full URL' }, { id: 'social_strava', label: 'Strava', placeholder: 'club name/ID or full URL' }, { id: 'social_bluesky', label: 'Bluesky', placeholder: 'handle or full URL' }, { id: 'social_discord', label: 'Discord', placeholder: 'invite code or full URL' }, { id: 'social_linkedin', label: 'LinkedIn', placeholder: 'company/school or full URL' }] as s}
+					<div class="flex flex-col gap-1">
+						<label class="label" for={s.id}>{s.label}</label>
+						<input
+							id={s.id}
+							name={s.id}
+							class="input preset-tonal-surface"
+							value={(data.group?.social_links &&
+								data.group.social_links[s.id.replace('social_', '')]) ||
+								''}
+							placeholder={s.placeholder}
+							oninput={onSocialsChange}
+						/>
+					</div>
+				{/each}
+			</div>
+		</section>
+
+		<!-- ── Activity details ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Activity Details</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div class="flex flex-col gap-1">
+					<label class="label" for="activity_frequency">Activity Frequency</label>
+					<input
+						id="activity_frequency"
+						name="activity_frequency"
+						class="input preset-tonal-surface"
+						value={data.group?.activity_frequency || ''}
+						oninput={onField}
+						placeholder="e.g. Weekly, Every Saturday"
+					/>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="typical_activity_day_time">Typical Day / Time</label>
+					<input
+						id="typical_activity_day_time"
+						name="typical_activity_day_time"
+						class="input preset-tonal-surface"
+						value={data.group?.typical_activity_day_time || ''}
+						oninput={onField}
+						placeholder="e.g. Saturdays at 7am"
+					/>
+				</div>
+				<div class="flex flex-col gap-1 md:col-span-2">
 					<label class="label" for="how_to_join_instructions">How to Join</label>
 					<textarea
 						id="how_to_join_instructions"
 						name="how_to_join_instructions"
-						class="textarea bg-primary-50-950/30"
+						class="textarea preset-tonal-surface"
 						rows="3"
 						oninput={onField}>{data.group?.how_to_join_instructions || ''}</textarea
 					>
 				</div>
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-1 md:col-span-2">
 					<label class="label" for="membership_info">Membership Info</label>
 					<textarea
 						id="membership_info"
 						name="membership_info"
-						class="textarea bg-primary-50-950/30"
+						class="textarea preset-tonal-surface"
 						rows="3"
 						oninput={onField}>{data.group?.membership_info || ''}</textarea
 					>
 				</div>
 			</div>
+		</section>
 
-			<div class="hidden">
-				<input
-					id="latitude"
-					name="latitude"
-					type="number"
-					step="any"
-					class="input bg-primary-50-950/30"
-					value={data.group?.latitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
-				<input
-					id="longitude"
-					name="longitude"
-					type="number"
-					step="any"
-					class="input bg-primary-50-950/30"
-					value={data.group?.longitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
-			</div>
-
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
-					<label class="label" for="service_area_description">Service Area</label>
-					<input
-						id="service_area_description"
-						name="service_area_description"
-						class="input bg-primary-50-950/30"
-						value={data.group?.service_area_description || ''}
-						oninput={onField}
-					/>
-				</div>
-				<div class="flex flex-col">
-					<label class="label" for="activity_frequency">Activity Frequency</label>
-					<input
-						id="activity_frequency"
-						name="activity_frequency"
-						class="input bg-primary-50-950/30"
-						value={data.group?.activity_frequency || ''}
-						oninput={onField}
-					/>
-				</div>
-			</div>
-
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
-					<label class="label" for="typical_activity_day_time">Typical Activity Day/Time</label>
-					<input
-						id="typical_activity_day_time"
-						name="typical_activity_day_time"
-						class="input bg-primary-50-950/30"
-						value={data.group?.typical_activity_day_time || ''}
-						oninput={onField}
-					/>
-				</div>
-			</div>
-
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				<div class="flex flex-col gap-2">
-					<label class="label" for="logo_url">Logo</label>
-					<FileUpload
-						name="logo_file"
-						accept="image/*"
-						maxFiles={1}
-						maxFileSize={MAX_BYTES}
-						classes="w-full"
-						onFileChange={onLogoChange}
-						onFileReject={onReject}
-						onApiReady={(api) => (logoApi = api)}
-					>
-						{#snippet children()}
-							<button
-								type="button"
-								class="rounded-base border-surface-600-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
-								onclick={() => logoApi?.openFilePicker?.()}
-								aria-label="Select logo file or drag here"
-							>
-								<IconDropzone class="size-8" />
-								<p>Select file or drag here</p>
-								<small class="text-xs opacity-60">Max 10MB. PNG/JPG/WEBP.</small>
-							</button>
-						{/snippet}
-					</FileUpload>
-					{#if logoFiles.length}
-						<ul class="mt-2 space-y-2">
-							{#each logoFiles as f (f.name)}
-								<li
-									class="rounded-base bg-surface-200-800 flex items-center justify-between px-3 py-2 text-sm"
-								>
-									<span class="truncate">{f.name}</span>
-									<button
-										type="button"
-										class="btn btn-xs preset-outlined-surface-400"
-										onclick={() => {
-											logoApi?.deleteFile?.(f);
-											onLogoChange({ acceptedFiles: logoApi?.acceptedFiles || [] });
-										}}>Remove</button
-									>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-
-					{#if logoTooLarge}
-						<p class="text-error-600-400 text-xs">
-							Selected file exceeds 10MB limit. Please choose a smaller image.
-						</p>
-					{/if}
-					{#if logoPreview}
-						<div
-							class="border-surface-400-600 bg-surface-200-800 relative mt-2 h-24 w-24 overflow-hidden rounded-md border"
-						>
-							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
-							<button
-								type="button"
-								class="btn btn-sm preset-icon-error-500 absolute top-1 right-1"
-								onclick={() => removeImage('logo')}
-							>
-								<IconRemove class="size-4" />
-							</button>
-						</div>
-					{/if}
-				</div>
-				<div class="flex flex-col gap-2">
-					<label class="label" for="cover_photo_url">Cover Photo</label>
-					<FileUpload
-						name="cover_file"
-						accept="image/*"
-						maxFiles={1}
-						maxFileSize={MAX_BYTES}
-						classes="w-full"
-						onFileChange={onCoverChange}
-						onFileReject={onReject}
-						onApiReady={(api) => (coverApi = api)}
-					>
-						{#snippet children()}
-							<button
-								type="button"
-								class="rounded-base border-surface-600-400/50 hover:preset-tonal flex w-full flex-col items-center gap-2 border border-dashed p-4"
-								onclick={() => coverApi?.openFilePicker?.()}
-								aria-label="Select cover image or drag here"
-							>
-								<IconDropzone class="size-8" />
-								<p>Select file or drag here</p>
-								<small class="text-xs opacity-60">Max 10MB. PNG/JPG/WEBP.</small>
-							</button>
-						{/snippet}
-					</FileUpload>
-					{#if coverFiles.length}
-						<ul class="mt-2 space-y-2">
-							{#each coverFiles as f (f.name)}
-								<li
-									class="rounded-base bg-surface-200-800 flex items-center justify-between px-3 py-2 text-sm"
-								>
-									<span class="truncate">{f.name}</span>
-									<button
-										type="button"
-										class="btn btn-xs preset-outlined-surface-400"
-										onclick={() => {
-											coverApi?.deleteFile?.(f);
-											onCoverChange({ acceptedFiles: coverApi?.acceptedFiles || [] });
-										}}>Remove</button
-									>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-
-					{#if coverTooLarge}
-						<p class="text-error-600-400 text-xs">
-							Selected file exceeds 10MB limit. Please choose a smaller image.
-						</p>
-					{/if}
-					{#if coverPreview}
-						<div
-							class="border-surface-400-600 bg-surface-200-800 relative mt-2 aspect-[16/9] w-full overflow-hidden rounded-md border"
-						>
-							<img
-								src={coverPreview}
-								alt="Cover preview"
-								class="absolute inset-0 h-full w-full object-cover"
-							/>
-							<button
-								type="button"
-								class="btn btn-sm preset-icon-error-500 absolute top-1 right-1"
-								onclick={() => removeImage('cover')}
-							>
-								<IconRemove class="size-4" />
-							</button>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Hidden inputs for cropped data URLs and clear flags -->
-			<input type="hidden" id="logo_file_cropped" name="logo_file_cropped" />
-			<input type="hidden" id="cover_file_cropped" name="cover_file_cropped" />
-			<input type="hidden" id="clear_logo" name="clear_logo" />
-			<input type="hidden" id="clear_cover" name="clear_cover" />
-
-			{#if submitError}
-				<p class="text-error-600-400 text-sm">{submitError}</p>
-			{/if}
-			{#if $page.form?.error}
-				<p class="text-error-600-400 text-sm">{$page.form.error}</p>
-			{/if}
-
-			{#if cropping}
-				<div
-					class="bg-surface-50-950/70 fixed inset-0 z-50 flex items-center justify-center p-4"
-					role="dialog"
-					aria-modal="true"
-					tabindex="-1"
-					onpointermove={onCropPointerMove}
-					onpointerup={onCropPointerUp}
-					onpointercancel={onCropPointerUp}
-				>
-					<div class="card border-surface-400-600 bg-surface-100-900 w-full max-w-4xl border p-4">
-						<div class="mb-3 flex items-center justify-between">
-							<h3 class="text-xl font-semibold">
-								Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
-							</h3>
-							<button
-								type="button"
-								class="btn btn-sm preset-outlined-surface-400"
-								onclick={closeCropper}>Cancel</button
-							>
-						</div>
-						<div
-							bind:this={cropContainerEl}
-							class="border-surface-400-600 bg-surface-200-800 relative mx-auto w-full overflow-hidden border"
-							style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
-						>
-							<img
-								id="crop-img"
-								src={cropSrc}
-								alt="Crop source"
-								onload={onCropImgLoad}
-								onpointerdown={onCropPointerDown}
-								style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
-								class={cropReady ? '' : 'opacity-0'}
-							/>
-							{#if !cropReady}
-								<div class="text-surface-700-300 absolute inset-0 grid place-items-center">
-									Loading…
-								</div>
-							{/if}
-							<!-- Rule-of-thirds and boundary guides -->
-							<div class="pointer-events-none absolute inset-0">
-								<!-- Vertical thirds -->
-								<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
-								<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
-								<!-- Horizontal thirds -->
-								<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
-								<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
-								<!-- Visible area border -->
-								<div class="border-surface-950-50/50 absolute inset-0 border"></div>
-							</div>
-						</div>
-						<div class="mt-3 flex w-full flex-wrap items-center gap-3">
-							<input
-								id="crop-zoom"
-								type="range"
-								min={ZOOM_MIN}
-								max={ZOOM_MAX}
-								step="0.01"
-								bind:value={cropScale}
-								class="range"
-							/>
-							<button
-								type="button"
-								class="btn preset-outlined-surface-400"
-								onclick={() => {
-									cropScale = 1;
-									cropOffset = { x: 0, y: 0 };
-								}}
-							>
-								Reset
-							</button>
-							<button
-								type="button"
-								class="btn preset-filled-primary-500 ml-auto"
-								onclick={applyCrop}>Apply</button
-							>
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Many-to-many selections -->
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Group Types</div>
-					<div class="mt-2 flex flex-col gap-2">
+		<!-- ── Categories ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Categories & Tags</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+				<div class="edit-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Group Types</div>
+					<div class="flex flex-col gap-2">
 						{#each data.group_types as gt}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input
 									type="checkbox"
 									name="group_type_ids"
@@ -1696,11 +1456,11 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Audience Focus</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="edit-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Audience Focus</div>
+					<div class="flex flex-col gap-2">
 						{#each data.audience_focuses as af}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input
 									type="checkbox"
 									name="audience_focus_ids"
@@ -1714,11 +1474,11 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Riding Disciplines</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="edit-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Riding Disciplines</div>
+					<div class="flex flex-col gap-2">
 						{#each data.riding_disciplines as rd}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input
 									type="checkbox"
 									name="riding_discipline_ids"
@@ -1732,11 +1492,11 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Skill Levels</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="edit-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Skill Levels</div>
+					<div class="flex flex-col gap-2">
 						{#each data.skill_levels as sl}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input
 									type="checkbox"
 									name="skill_level_ids"
@@ -1751,136 +1511,372 @@
 					</div>
 				</div>
 			</div>
+		</section>
 
-			<div class="card bg-surface-100-900 p-3">
-				<div class="mb-2 font-semibold">Social Links</div>
-				<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-					<div class="flex flex-col">
-						<label class="label" for="social_instagram">Instagram Username</label>
-						<input
-							id="social_instagram"
-							name="social_instagram"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.instagram) || ''}
-							placeholder="username or full URL"
-							oninput={onSocialsChange}
-						/>
+		<!-- ── Photos ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Photos</h2>
+			<div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+				<!-- Logo -->
+				<div class="flex flex-col gap-2">
+					<label class="label" for="logo_url"
+						>Logo <span class="text-surface-500 text-xs font-normal">(1:1)</span></label
+					>
+					<FileUpload
+						name="logo_file"
+						accept="image/*"
+						maxFiles={1}
+						maxFileSize={MAX_BYTES}
+						classes="w-full"
+						onFileChange={onLogoChange}
+						onFileReject={onReject}
+						onApiReady={(api) => (logoApi = api)}
+					>
+						{#snippet children()}
+							<button
+								type="button"
+								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
+								onclick={() => logoApi?.openFilePicker?.()}
+								aria-label="Select logo file or drag here"
+							>
+								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
+								<p class="text-sm">Select or drag a file</p>
+								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
+							</button>
+						{/snippet}
+					</FileUpload>
+					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
+					{#if logoPreview}
+						<div
+							class="relative mt-1 aspect-square w-24 overflow-hidden rounded-xl border border-white/10"
+						>
+							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+							<button
+								type="button"
+								class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5"
+								onclick={() => removeImage('logo')}
+							>
+								<IconRemove class="h-4 w-4 text-white" />
+							</button>
+						</div>
+					{/if}
+				</div>
+				<!-- Cover -->
+				<div class="flex flex-col gap-2">
+					<label class="label" for="cover_photo_url"
+						>Cover Photo <span class="text-surface-500 text-xs font-normal">(16:9)</span></label
+					>
+					<FileUpload
+						name="cover_file"
+						accept="image/*"
+						maxFiles={1}
+						maxFileSize={MAX_BYTES}
+						classes="w-full"
+						onFileChange={onCoverChange}
+						onFileReject={onReject}
+						onApiReady={(api) => (coverApi = api)}
+					>
+						{#snippet children()}
+							<button
+								type="button"
+								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
+								onclick={() => coverApi?.openFilePicker?.()}
+								aria-label="Select cover image or drag here"
+							>
+								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
+								<p class="text-sm">Select or drag a file</p>
+								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
+							</button>
+						{/snippet}
+					</FileUpload>
+					{#if coverTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
+					{#if coverPreview}
+						<div
+							class="relative mt-1 aspect-[16/9] overflow-hidden rounded-xl border border-white/10"
+						>
+							<img
+								src={coverPreview}
+								alt="Cover preview"
+								class="absolute inset-0 h-full w-full object-cover"
+							/>
+							<button
+								type="button"
+								class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5"
+								onclick={() => removeImage('cover')}
+							>
+								<IconRemove class="h-4 w-4 text-white" />
+							</button>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Hidden inputs -->
+			<input type="hidden" id="logo_file_cropped" name="logo_file_cropped" />
+			<input type="hidden" id="cover_file_cropped" name="cover_file_cropped" />
+			<input type="hidden" id="clear_logo" name="clear_logo" />
+			<input type="hidden" id="clear_cover" name="clear_cover" />
+		</section>
+
+		<!-- ── Owners ── -->
+		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
+			<h2 class="edit-section-title">Owners</h2>
+			<p class="text-surface-600-400 mt-1 mb-4 text-sm">
+				Add co-owners by email — we'll send a secure login link. They'll become an owner when they
+				sign in.
+			</p>
+			<div class="flex flex-col gap-2 md:flex-row">
+				<input
+					type="email"
+					placeholder="owner@example.com"
+					bind:value={ownerEmail}
+					class="input preset-tonal-surface md:w-80"
+					required
+					onkeydown={(e) => {
+						if (e.key === 'Enter') inviteOwner(e);
+					}}
+				/>
+				<input
+					type="text"
+					name="website"
+					bind:value={ownerHoneypot}
+					autocomplete="off"
+					tabindex="-1"
+					aria-hidden="true"
+					style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+				/>
+				<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+					<div bind:this={ownerTurnstileEl}></div>
+				</div>
+				<button
+					type="button"
+					class="btn preset-filled-primary-500 {ownerLoading ? 'animate-pulse' : ''}"
+					disabled={!ownerValid || ownerLoading}
+					onclick={inviteOwner}>Send Invite</button
+				>
+			</div>
+			{#if ownerError}<div class="text-error-600-400 mt-2 text-sm">{ownerError}</div>{/if}
+			{#if ownerSuccess}<div class="text-success-600-400 mt-2 text-sm">{ownerSuccess}</div>{/if}
+
+			{#if owners?.length}
+				<div class="mt-4">
+					<div class="text-surface-600-400 mb-2 text-xs font-medium tracking-wider uppercase">
+						Current owners
 					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_facebook">Facebook</label>
-						<input
-							id="social_facebook"
-							name="social_facebook"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.facebook) || ''}
-							placeholder="username/page or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_x">X (Twitter)</label>
-						<input
-							id="social_x"
-							name="social_x"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.x) || ''}
-							placeholder="handle or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_threads">Threads</label>
-						<input
-							id="social_threads"
-							name="social_threads"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.threads) || ''}
-							placeholder="@handle or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_youtube">YouTube</label>
-						<input
-							id="social_youtube"
-							name="social_youtube"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.youtube) || ''}
-							placeholder="@handle/channel or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_mastodon">Mastodon</label>
-						<input
-							id="social_mastodon"
-							name="social_mastodon"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.mastodon) || ''}
-							placeholder="@user@instance or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_tiktok">TikTok</label>
-						<input
-							id="social_tiktok"
-							name="social_tiktok"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.tiktok) || ''}
-							placeholder="@handle or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_strava">Strava</label>
-						<input
-							id="social_strava"
-							name="social_strava"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.strava) || ''}
-							placeholder="club name/ID or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_bluesky">Bluesky</label>
-						<input
-							id="social_bluesky"
-							name="social_bluesky"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.bluesky) || ''}
-							placeholder="handle or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_discord">Discord</label>
-						<input
-							id="social_discord"
-							name="social_discord"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.discord) || ''}
-							placeholder="invite code or full URL"
-							oninput={onSocialsChange}
-						/>
-					</div>
-					<div class="flex flex-col">
-						<label class="label" for="social_linkedin">LinkedIn</label>
-						<input
-							id="social_linkedin"
-							name="social_linkedin"
-							class="input bg-primary-50-950/30"
-							value={(data.group?.social_links && data.group.social_links.linkedin) || ''}
-							placeholder="company/school or full URL"
-							oninput={onSocialsChange}
-						/>
+					<ul class="divide-surface-700/20 border-surface-700/20 divide-y rounded-xl border">
+						{#each owners as o (o.user_id)}
+							<li class="flex items-center justify-between gap-3 px-3 py-2.5">
+								<div class="truncate text-sm">
+									{o.user_id === data.current_user_id ? '(You)' : o.email || o.user_id}
+								</div>
+								{#if o.user_id !== data.current_user_id}
+									<button
+										type="button"
+										class="btn btn-xs preset-outlined-error-500"
+										onclick={() => removeOwner(o.user_id, o.email)}>Remove</button
+									>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</section>
+
+		{#if submitError}<p class="text-error-600-400 text-sm">{submitError}</p>{/if}
+		{#if $page.form?.error}<p class="text-error-600-400 text-sm">{$page.form.error}</p>{/if}
+	</form>
+
+	<!-- ── Crop modal ── -->
+	{#if cropping}
+		<div
+			class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+			role="dialog"
+			aria-modal="true"
+			tabindex="-1"
+			onpointermove={onCropPointerMove}
+			onpointerup={onCropPointerUp}
+			onpointercancel={onCropPointerUp}
+		>
+			<div class="edit-card w-full max-w-4xl rounded-2xl p-5">
+				<div class="mb-4 flex items-center justify-between">
+					<h3 class="text-xl font-bold">
+						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
+					</h3>
+					<button
+						type="button"
+						class="btn btn-sm preset-outlined-surface-400"
+						onclick={closeCropper}>Cancel</button
+					>
+				</div>
+				<div
+					bind:this={cropContainerEl}
+					class="relative mx-auto w-full overflow-hidden rounded-xl border border-white/10"
+					style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
+				>
+					<img
+						id="crop-img"
+						src={cropSrc}
+						alt="Crop source"
+						onload={onCropImgLoad}
+						onpointerdown={onCropPointerDown}
+						style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
+						class={cropReady ? '' : 'opacity-0'}
+					/>
+					{#if !cropReady}<div
+							class="text-surface-700-300 absolute inset-0 grid place-items-center"
+						>
+							Loading…
+						</div>{/if}
+					<div class="pointer-events-none absolute inset-0">
+						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
+						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
+						<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
+						<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
+						<div class="border-surface-950-50/50 absolute inset-0 border"></div>
 					</div>
 				</div>
-				<p class="text-surface-600-400 mt-1 text-xs">
-					Enter usernames or full URLs. We’ll format the links automatically.
-				</p>
+				<div class="mt-4 flex flex-wrap items-center gap-3">
+					<input
+						id="crop-zoom"
+						type="range"
+						min={ZOOM_MIN}
+						max={ZOOM_MAX}
+						step="0.01"
+						bind:value={cropScale}
+						class="range flex-1"
+					/>
+					<button
+						type="button"
+						class="btn preset-outlined-surface-400"
+						onclick={() => {
+							cropScale = 1;
+							cropOffset = { x: 0, y: 0 };
+						}}>Reset</button
+					>
+					<button type="button" class="btn preset-filled-primary-500" onclick={applyCrop}
+						>Apply</button
+					>
+				</div>
 			</div>
-		</form>
-	</section>
+		</div>
+	{/if}
 </div>
+
+<style>
+	/* ── Edit page header ── */
+	.edit-header {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+	}
+
+	.edit-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(60px);
+		pointer-events: none;
+	}
+	.edit-orb-1 {
+		width: 45%;
+		height: 200%;
+		top: -60%;
+		left: -5%;
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+	.edit-orb-2 {
+		width: 35%;
+		height: 160%;
+		top: -40%;
+		right: 0;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 8%) scale(1.09);
+		}
+	}
+
+	/* ── Form section cards ── */
+	.edit-card {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+		animation: card-in 360ms ease both;
+	}
+
+	.edit-card-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		border-radius: 2rem 2rem 0 0;
+	}
+	.edit-card-accent-bar.primary {
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
+		opacity: 0.7;
+	}
+	.edit-card-accent-bar.secondary {
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+	}
+	.edit-card-accent-bar.tertiary {
+		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
+		opacity: 0.6;
+	}
+
+	.edit-section-title {
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		opacity: 0.55;
+		margin-bottom: 0;
+	}
+
+	/* ── Map panel ── */
+	.edit-map-panel {
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	/* ── Check cards ── */
+	.edit-check-card {
+		background: color-mix(in oklab, var(--color-surface-950) 55%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+	}
+
+	/* ── Dropzone ── */
+	.edit-dropzone {
+		width: 100%;
+		text-align: center;
+		border-color: color-mix(in oklab, var(--color-surface-500) 30%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
+		transition:
+			background 180ms ease,
+			border-color 180ms ease;
+	}
+	.edit-dropzone:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+	}
+
+	/* ── Card entrance ── */
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
