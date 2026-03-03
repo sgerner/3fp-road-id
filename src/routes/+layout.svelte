@@ -451,6 +451,14 @@
 							<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
 						</a>
 					{/each}
+					{#if data.isAdmin}
+						<a
+							href="/admin/rides/import"
+							class="text-surface-700-300 hover:text-surface-600-400 mt-4 w-full px-2 py-2 text-center text-[0.72rem] font-medium transition"
+						>
+							Import Rides
+						</a>
+					{/if}
 				</nav>
 			</div>
 		</aside>
