@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import {
 	ensureUniqueLearnSlug,
 	getLearnClient,
+	listLearnRecentAssets,
 	normalizeLearnPayload,
 	requireLearnUser,
 	withLearnReadingAid
@@ -13,15 +14,17 @@ export const load = async ({ cookies, url }) => {
 		throw redirect(303, `/learn?auth=required&returnTo=${encodeURIComponent(url.pathname)}`);
 	}
 
-	const [{ data: categories }, { data: subcategories }] = await Promise.all([
+	const [{ data: categories }, { data: subcategories }, recentAssets] = await Promise.all([
 		supabase.from('learn_categories').select('slug, name').order('name'),
-		supabase.from('learn_subcategories').select('slug, name, category_slug').order('sort_order')
+		supabase.from('learn_subcategories').select('slug, name, category_slug').order('sort_order'),
+		listLearnRecentAssets(supabase, { uploadedByUserId: user.id })
 	]);
 
 	return {
 		currentUser: user,
 		categories: categories ?? [],
 		subcategories: subcategories ?? [],
+		recentAssets,
 		initialValues: {
 			title: '',
 			slug: '',

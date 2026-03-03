@@ -102,7 +102,11 @@
 			</div>
 		</section>
 
-		<LearnMediaUploader />
+		<LearnMediaUploader
+			uploaded={data.recentAssets}
+			heading="Asset Library"
+			description="Recent uploads stay here so you can browse files, copy embed snippets, and reuse media while drafting."
+		/>
 
 		<section class="border-surface-500/20 bg-surface-900/55 rounded-[1.75rem] border p-5 shadow-lg">
 			<p class="label">Publishing model</p>

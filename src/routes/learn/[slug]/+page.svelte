@@ -289,13 +289,13 @@
 
 		<!-- ── BELOW-ARTICLE SECTIONS ─────────────────────────────────── -->
 		<section class="space-y-6">
-			{#if data.article.assets.length}
+			{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
 				<section
 					class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl"
 				>
 					<h2 class="text-left text-2xl font-bold">Attached media</h2>
 					<div class="mt-4 space-y-2">
-						{#each data.article.assets as asset}
+						{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
 							<a
 								class="border-surface-500/20 bg-surface-900/60 hover:border-primary-500/30 block rounded-2xl border p-4 text-sm transition"
 								href={asset.public_url}

@@ -9,7 +9,8 @@ const ALLOWED_TYPES = new Set([
 	'image/webp',
 	'image/gif',
 	'image/svg+xml',
-	'application/pdf'
+	'application/pdf',
+	'text/csv'
 ]);
 
 function buildObjectPath(userId, fileName) {
@@ -64,13 +65,33 @@ export async function POST({ request, cookies }) {
 					public_url: publicUrl,
 					file_name: file.name,
 					mime_type: file.type,
-					size_bytes: file.size
+					size_bytes: file.size,
+					source_type: 'upload',
+					metadata: {}
 				})
-				.select('id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at')
+				.select(
+					'id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at, source_type, source_path'
+				)
 				.single();
 
 			if (assetError) {
 				return json({ error: assetError.message }, { status: 500 });
+			}
+
+			if (articleId) {
+				const { error: linkError } = await supabase.from('learn_article_asset_links').upsert(
+					{
+						article_id: articleId,
+						asset_id: assetRow.id,
+						created_by_user_id: user.id,
+						usage_kind: file.type.startsWith('image/') ? 'embedded' : 'attachment'
+					},
+					{ onConflict: 'article_id,asset_id' }
+				);
+
+				if (linkError) {
+					return json({ error: linkError.message }, { status: 500 });
+				}
 			}
 
 			uploadedFiles.push({
@@ -80,7 +101,10 @@ export async function POST({ request, cookies }) {
 				fileName: assetRow.file_name,
 				mimeType: assetRow.mime_type,
 				sizeBytes: assetRow.size_bytes,
-				createdAt: assetRow.created_at
+				createdAt: assetRow.created_at,
+				sourceType: assetRow.source_type,
+				sourcePath: assetRow.source_path,
+				usageKind: file.type.startsWith('image/') ? 'embedded' : 'attachment'
 			});
 		}
 

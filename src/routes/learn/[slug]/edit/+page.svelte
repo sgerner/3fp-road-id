@@ -6,6 +6,9 @@
 	const { data, form } = $props();
 
 	const values = $derived(form?.values ?? data?.initialValues ?? {});
+	const assetLibrary = $derived(
+		Array.from(new Map([...(data.articleAssets ?? []), ...(data.recentAssets ?? [])].map((asset) => [asset.id, asset])).values())
+	);
 </script>
 
 <svelte:head>
@@ -72,7 +75,12 @@
 			</div>
 		</section>
 
-		<LearnMediaUploader articleId={data.article.id} />
+		<LearnMediaUploader
+			articleId={data.article.id}
+			uploaded={assetLibrary}
+			heading="Asset Library"
+			description="Browse files already attached to this article, reuse recent uploads, or add new media and documents."
+		/>
 
 		<section class="border-surface-500/20 bg-surface-900/55 rounded-[1.75rem] border p-5 shadow-lg">
 			<p class="label">Revision safety</p>

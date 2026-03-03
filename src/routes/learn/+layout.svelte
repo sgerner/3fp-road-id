@@ -35,24 +35,30 @@
 			}
 		];
 
+		const actionSection = {
+			label: '',
+			items: []
+		};
+
 		const currentCategorySlug = $page.data?.category?.slug ?? $page.data?.article?.category_slug;
 		const currentCategoryName = $page.data?.category?.name ?? $page.data?.article?.category_name;
 
 		if (currentCategorySlug) {
-			sections.push({
-				label: '',
-				items: [
-					{
-						label: currentCategoryName || 'Overview',
-						href: `/learn/category/${currentCategorySlug}`,
-						icon: IconBookOpen
-					}
-				]
-			});
+			sections[0].items.push(
+				{
+					label: '>',
+					kind: 'separator'
+				},
+				{
+					label: currentCategoryName || 'Overview',
+					href: `/learn/category/${currentCategorySlug}`,
+					tone: 'tertiary'
+				}
+			);
 		}
 
 		if (currentUser) {
-			sections[0].items.push({
+			actionSection.items.push({
 				label: 'Create Article',
 				href: '/learn/new',
 				icon: IconPlus,
@@ -61,10 +67,8 @@
 		}
 
 		if (currentArticleSlug) {
-			const articleItems = [];
-
 			if (canEditCurrentArticle) {
-				articleItems.push({
+				actionSection.items.push({
 					label: 'Edit Article',
 					href: `/learn/${currentArticleSlug}/edit`,
 					icon: IconSquarePen,
@@ -73,13 +77,18 @@
 			}
 
 			if ($page.data?.viewingRevision) {
-				articleItems.push({
+				actionSection.items.push({
 					label: `Revision ${$page.data.viewingRevision.revisionNumber}`,
 					href: `/learn/${currentArticleSlug}?revision=${$page.data.viewingRevision.id}`,
 					icon: IconHistory,
 					tone: 'tertiary'
 				});
 			}
+
+		}
+
+		if (actionSection.items.length) {
+			sections.push(actionSection);
 		}
 
 		return sections;

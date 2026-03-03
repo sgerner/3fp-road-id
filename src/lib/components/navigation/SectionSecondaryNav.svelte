@@ -11,6 +11,9 @@
 	}
 
 	function buttonClass(item) {
+		if (item?.kind === 'separator') {
+			return 'text-surface-700-300 flex shrink-0 items-center px-1 text-sm font-semibold';
+		}
 		if (isActive(item))
 			return 'btn btn-sm preset-filled-primary-500 shrink-0 gap-2 whitespace-nowrap';
 		switch (item?.tone) {
@@ -45,17 +48,21 @@
 						{/if}
 						<div class="flex min-w-0 flex-wrap gap-2">
 							{#each section.items as item}
-								<a
-									href={item.href}
-									class={buttonClass(item)}
-									aria-current={isActive(item) ? 'page' : undefined}
-									title={item.label}
-								>
-									{#if item.icon}
-										<item.icon class="h-4 w-4 shrink-0" />
-									{/if}
-									<span class="max-w-[14rem] truncate">{item.label}</span>
-								</a>
+								{#if item.kind === 'separator' || !item.href}
+									<span class={buttonClass(item)} aria-hidden="true">{item.label}</span>
+								{:else}
+									<a
+										href={item.href}
+										class={buttonClass(item)}
+										aria-current={isActive(item) ? 'page' : undefined}
+										title={item.label}
+									>
+										{#if item.icon}
+											<item.icon class="h-4 w-4 shrink-0" />
+										{/if}
+										<span class="max-w-[14rem] truncate">{item.label}</span>
+									</a>
+								{/if}
 							{/each}
 						</div>
 					</div>
@@ -74,17 +81,21 @@
 						{/if}
 						<div class="flex gap-2 overflow-x-auto px-1 pb-1 md:flex-wrap">
 							{#each section.items as item}
-								<a
-									href={item.href}
-									class={buttonClass(item)}
-									aria-current={isActive(item) ? 'page' : undefined}
-									title={item.label}
-								>
-									{#if item.icon}
-										<item.icon class="h-4 w-4 shrink-0" />
-									{/if}
-									<span class="max-w-[14rem] truncate">{item.label}</span>
-								</a>
+								{#if item.kind === 'separator' || !item.href}
+									<span class={buttonClass(item)} aria-hidden="true">{item.label}</span>
+								{:else}
+									<a
+										href={item.href}
+										class={buttonClass(item)}
+										aria-current={isActive(item) ? 'page' : undefined}
+										title={item.label}
+									>
+										{#if item.icon}
+											<item.icon class="h-4 w-4 shrink-0" />
+										{/if}
+										<span class="max-w-[14rem] truncate">{item.label}</span>
+									</a>
+								{/if}
 							{/each}
 						</div>
 					</div>

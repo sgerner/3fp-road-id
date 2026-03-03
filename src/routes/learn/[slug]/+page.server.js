@@ -3,7 +3,8 @@ import {
 	buildLearnArticleView,
 	getLearnArticleBySlug,
 	getLearnClient,
-	getLearnProfilesMap
+	getLearnProfilesMap,
+	listLearnAssetsForArticle
 } from '$lib/server/learn';
 
 export const load = async ({ params, url, cookies }) => {
@@ -16,7 +17,7 @@ export const load = async ({ params, url, cookies }) => {
 
 	const revisionId = url.searchParams.get('revision');
 
-	const [{ data: revisions, error: revisionsError }, { data: comments, error: commentsError }, { data: assets, error: assetsError }, { data: related, error: relatedError }] =
+	const [{ data: revisions, error: revisionsError }, { data: comments, error: commentsError }, assets, { data: related, error: relatedError }] =
 		await Promise.all([
 			supabase
 				.from('learn_article_revisions')
@@ -28,11 +29,7 @@ export const load = async ({ params, url, cookies }) => {
 				.select('*')
 				.eq('article_id', article.id)
 				.order('created_at', { ascending: true }),
-			supabase
-				.from('learn_assets')
-				.select('*')
-				.eq('article_id', article.id)
-				.order('created_at', { ascending: false }),
+			listLearnAssetsForArticle(supabase, article.id),
 			supabase
 				.from('learn_articles')
 				.select('id, title, slug, summary, category_name, updated_at')
@@ -45,7 +42,6 @@ export const load = async ({ params, url, cookies }) => {
 
 	if (revisionsError) throw revisionsError;
 	if (commentsError) throw commentsError;
-	if (assetsError) throw assetsError;
 	if (relatedError) throw relatedError;
 
 	const requestedRevision = revisionId ? (revisions ?? []).find((item) => item.id === revisionId) : null;

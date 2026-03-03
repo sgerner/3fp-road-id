@@ -160,6 +160,48 @@ export async function getLearnProfilesMap(supabase, userIds) {
 	return new Map((data ?? []).map((profile) => [profile.user_id, profile]));
 }
 
+function normalizeLearnAssetRecord(asset) {
+	if (!asset) return null;
+	const base = asset.asset ? { ...asset.asset } : { ...asset };
+	return {
+		...base,
+		link_id: asset.id ?? null,
+		usage_kind: asset.usage_kind ?? 'attachment',
+		sort_order: asset.sort_order ?? 0,
+		linked_at: asset.created_at ?? base.created_at ?? null
+	};
+}
+
+export async function listLearnAssetsForArticle(supabase, articleId) {
+	if (!articleId) return [];
+
+	const { data, error: queryError } = await supabase
+		.from('learn_article_asset_links')
+		.select('id, usage_kind, sort_order, created_at, asset:learn_assets(*)')
+		.eq('article_id', articleId)
+		.order('sort_order', { ascending: true })
+		.order('created_at', { ascending: true });
+
+	if (queryError) throw queryError;
+	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
+}
+
+export async function listLearnRecentAssets(supabase, { uploadedByUserId = null, limit = 18 } = {}) {
+	let query = supabase
+		.from('learn_assets')
+		.select('*')
+		.order('created_at', { ascending: false })
+		.limit(limit);
+
+	if (uploadedByUserId) {
+		query = query.eq('uploaded_by_user_id', uploadedByUserId);
+	}
+
+	const { data, error: queryError } = await query;
+	if (queryError) throw queryError;
+	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
+}
+
 export async function buildLearnArticleView(article, { revisions = [], comments = [], assets = [], profiles = new Map() } = {}) {
 	const headings = extractMarkdownHeadings(article?.body_markdown || '');
 	const { introMarkdown, sections } = splitMarkdownIntoSections(article?.body_markdown || '');
