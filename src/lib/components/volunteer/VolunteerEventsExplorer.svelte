@@ -3,7 +3,14 @@
 	import { tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import { slide } from 'svelte/transition';
+	import IconSearch from '@lucide/svelte/icons/search';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import IconUsers from '@lucide/svelte/icons/users';
+	import IconMap from '@lucide/svelte/icons/map';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
+	import { slide, fade } from 'svelte/transition';
 
 	let {
 		eventsData = [],
@@ -12,7 +19,7 @@
 		hostOrgsData = [],
 		opportunitiesData = [],
 		user = null,
-		title = 'Volunteer Opportunities',
+		title = 'Volunteer',
 		description = 'Browse rides, pop-up shops, workshops, and more. Filter by host, type, and location to find the right place to pitch in.',
 		showCreateButton = true,
 		createButtonHref = '/volunteer/new'
@@ -414,99 +421,200 @@
 	});
 </script>
 
-<section class="mx-auto w-full max-w-5xl space-y-6">
-	<header class="space-y-2">
-		<div class="flex flex-wrap items-center justify-center gap-3">
-			<h1 class="m-0 text-center text-3xl font-bold">{title}</h1>
-			{#if showCreateButton}
-				<a type="button" href={createButtonHref} class="btn btn-sm preset-outlined-secondary-500">
-					<IconPlus class="h-4 w-4" />
-					Add Event
-				</a>
-			{/if}
-		</div>
-		{#if description}
-			<p class="text-surface-600-400 text-center">{description}</p>
-		{/if}
-	</header>
+<section class="volunteer-hub-page mx-auto w-full max-w-7xl flex-col gap-10 space-y-7 pb-10">
+	<!-- ═══════════════════════════════════════════════
+	     HERO
+	═══════════════════════════════════════════════ -->
+	<div class="hero-section relative overflow-hidden rounded-3xl">
+		<!-- Animated orb background -->
+		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
 
-	<div
-		class="bg-surface-100-900/60 border-surface-600-400/20 space-y-5 rounded-2xl border p-5 shadow-xl"
-	>
-		<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-			<label class="space-y-1 text-sm">
-				<span class="text-surface-900-100 font-semibold">Search</span>
-				<input
-					type="search"
-					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					placeholder="Find by title, host, or description"
-					bind:value={searchInput}
-				/>
-			</label>
+		<div
+			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
+		>
+			<!-- Left: headline + chips + stats -->
+			<div class="flex flex-col gap-7">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
+						<IconHeartHandshake class="h-3.5 w-3.5" />
+						Volunteer
+					</span>
+					<span class="chip preset-tonal-secondary">Give Back</span>
+					<span class="chip preset-tonal-tertiary">Community</span>
+				</div>
 
-			<label class="space-y-1 text-sm">
-				<span class="text-surface-900-100 font-semibold">Location</span>
-				<input
-					type="search"
-					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					placeholder="City and/or state"
-					bind:value={locationQ}
-				/>
-			</label>
+				<div class="space-y-4">
+					<h1
+						class="volunteer-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
+					>
+						{title || 'Find your people.'}<br />
+						<span class="volunteer-headline-accent">Uplift your people.</span>
+					</h1>
+					{#if description}
+						<p class="max-w-xl text-base leading-relaxed opacity-75">
+							{description}
+						</p>
+					{/if}
+				</div>
 
-			<label class="space-y-1 text-sm">
-				<span class="text-surface-900-100 font-semibold">Host group</span>
-				<select
-					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					bind:value={hostGroupId}
-				>
-					<option value="">All groups</option>
-					{#each hostGroups as host (host.id)}
-						<option value={host.id}>{host.name}</option>
-					{/each}
-				</select>
-			</label>
-
-			<label class="space-y-1 text-sm">
-				<span class="text-surface-900-100 font-semibold">Event type</span>
-				<select
-					class="bg-surface-200-800/60 border-surface-500/40 focus:border-secondary-500 focus:ring-secondary-500 w-full rounded-lg border px-3 py-2 text-sm"
-					bind:value={eventType}
-				>
-					<option value="">All types</option>
-					{#each eventTypes as option (option.slug)}
-						<option value={option.slug}>{option.event_type}</option>
-					{/each}
-				</select>
-			</label>
-		</div>
-
-		<div class="flex flex-wrap items-center justify-between gap-2">
-			<div
-				class="bg-surface-200-800/70 border-surface-500/40 mx-auto flex shrink-0 items-center overflow-hidden rounded-lg border"
-			>
-				<button
-					class={`px-3 py-1.5 text-sm ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
-					onclick={() => (view = 'list')}
-				>
-					List
-				</button>
-				<button
-					class={`px-3 py-1.5 text-sm ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
-					onclick={() => (view = 'calendar')}
-				>
-					Calendar
-				</button>
-				<button
-					class={`px-3 py-1.5 text-sm ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200' : 'text-surface-700-300'}`}
-					onclick={() => (view = 'map')}
-				>
-					Map
-				</button>
+				<!-- Stat cards -->
+				<div class="grid gap-3 sm:grid-cols-3">
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-primary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconCalendar class="h-4 w-4" />
+							Upcoming Events
+						</div>
+						<div class="text-3xl font-black tabular-nums">{totalUpcoming}</div>
+					</div>
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-secondary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconUsers class="h-4 w-4" />
+							Host Groups
+						</div>
+						<div class="text-3xl font-black tabular-nums">{hostGroups.length}</div>
+					</div>
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div
+							class="stat-card-glow"
+							style="background: var(--color-tertiary-500);"
+							aria-hidden="true"
+						></div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconHeartHandshake class="h-4 w-4" />
+							Open Roles
+						</div>
+						<div class="text-3xl font-black tabular-nums">{opportunities.length}</div>
+					</div>
+				</div>
 			</div>
-			<div class="w-full space-y-0.5">
-				<div class="text-surface-900-100 text-center text-sm">
+
+			<!-- Right: search + actions -->
+			<div
+				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
+			>
+				<div class="space-y-1">
+					<div
+						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
+					>
+						<IconSparkles class="h-4 w-4" />
+						Explore opportunities
+					</div>
+					<h2 class="text-xl font-bold">Search by host, type, or location</h2>
+				</div>
+
+				<div class="flex flex-col gap-3">
+					<div class="relative">
+						<IconSearch
+							class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
+						/>
+						<input
+							type="search"
+							class="input bg-surface-950-50/5 pl-9"
+							bind:value={searchInput}
+							placeholder="Find by title, host, or description"
+						/>
+					</div>
+
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+						<div class="relative">
+							<IconMapPin
+								class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
+							/>
+							<input
+								type="search"
+								class="input bg-surface-950-50/5 pl-9 text-sm"
+								bind:value={locationQ}
+								placeholder="City and/or state"
+							/>
+						</div>
+
+						<select class="select bg-surface-950-50/5 text-sm" bind:value={hostGroupId}>
+							<option value="">All groups</option>
+							{#each hostGroups as host (host.id)}
+								<option value={host.id}>{host.name}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="space-y-2">
+						<div
+							class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
+						>
+							Event type
+						</div>
+						<select class="select bg-surface-950-50/5 text-sm" bind:value={eventType}>
+							<option value="">All types</option>
+							{#each eventTypes as option (option.slug)}
+								<option value={option.slug}>{option.event_type}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				{#if showCreateButton}
+					<div class="mt-auto grid pt-2">
+						<a class="btn preset-filled-primary-500 gap-2" href={createButtonHref}>
+							<IconPlus class="h-4 w-4" />
+							Create Event
+						</a>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+
+	<!-- ═══════════════════════════════ RESULTS + DIRECTORY ═════════════════════════════ -->
+	<div class="space-y-5 pt-4">
+		<!-- Results toolbar -->
+		<div class="flex items-center justify-between gap-2">
+			<div>
+				<p class="label opacity-60">Directory</p>
+				<h2 class="text-2xl font-bold">Event listings</h2>
+			</div>
+
+			<div class="flex flex-col items-end gap-2">
+				<p class="text-sm tabular-nums opacity-60">
 					{totalUpcoming} upcoming event{totalUpcoming === 1 ? '' : 's'}
+				</p>
+				<div
+					class="bg-surface-200-800/70 border-surface-500/40 flex shrink-0 items-center overflow-hidden rounded-lg border"
+				>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'list')}
+					>
+						List
+					</button>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'calendar')}
+					>
+						Calendar
+					</button>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'map')}
+					>
+						Map
+					</button>
 				</div>
 			</div>
 		</div>
@@ -514,68 +622,113 @@
 		{#if view === 'list'}
 			<div class="space-y-4" transition:slide={{ duration: 200 }}>
 				{#if filteredEvents.length === 0}
+					<!-- Empty state -->
 					<div
-						class="border-surface-400-600/50 bg-surface-50-950/60 rounded-xl border p-6 text-center"
+						class="empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+						in:fade={{ duration: 200 }}
 					>
-						<h3 class="text-lg font-semibold">No volunteer events found</h3>
-						<p class="text-surface-600-400 text-sm">
-							Try adjusting your filters or check back soon for new opportunities.
-						</p>
+						<div class="empty-orb" aria-hidden="true"></div>
+						<div class="relative z-10 mx-auto max-w-lg space-y-4">
+							<div
+								class="empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
+							>
+								<IconHeartHandshake class="h-10 w-10 opacity-60" />
+							</div>
+							<h3 class="text-2xl font-bold">No volunteer events found</h3>
+							<p class="text-sm leading-relaxed opacity-70">
+								Try a broader search, clear some filters, or be the first to start a volunteer
+								opportunity in this area!
+							</p>
+							<div class="flex flex-wrap justify-center gap-3 pt-2">
+								{#if searchInput || locationQ || hostGroupId || eventType}
+									<button
+										class="btn preset-outlined-surface-950-50"
+										onclick={() => {
+											searchInput = '';
+											locationQ = '';
+											hostGroupId = '';
+											eventType = '';
+										}}
+									>
+										Clear filters
+									</button>
+								{/if}
+								{#if showCreateButton}
+									<a class="btn preset-filled-primary-500 gap-2" href={createButtonHref}>
+										<IconPlus class="h-4 w-4" />
+										Create Event
+									</a>
+								{/if}
+							</div>
+						</div>
 					</div>
 				{:else}
-					<ul class="space-y-3">
-						{#each filteredEvents as event (event.id)}
+					<ul class="space-y-4">
+						{#each filteredEvents as event, i (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
-							<li class="border-surface-400-600/50 bg-surface-50-950/60 rounded-xl border p-4">
-								<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-									<div class="space-y-2">
-										<div
-											class="text-secondary-600-400 text-sm font-semibold tracking-wide uppercase"
-										>
-											{eventTypeLabel(event)}
+							<li
+								class="event-card border-surface-400-600/50 bg-surface-50-950/60 hover:border-primary-500/40 hover:shadow-primary-500/10 rounded-xl border p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+								style="--stagger: {i % 10}"
+							>
+								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+									<div class="space-y-2.5">
+										<div class="flex items-center gap-2">
+											<span class="chip preset-tonal-secondary text-xs font-semibold tracking-wide">
+												{eventTypeLabel(event)}
+											</span>
+											{#if opportunities.length}
+												<a
+													class="chip preset-tonal-tertiary hover:bg-tertiary-500/30 gap-1 text-xs transition-colors"
+													href={`/volunteer/${event.slug}#opportunities`}
+												>
+													<IconHeartHandshake class="h-3 w-3" />
+													{opportunities.length} role{opportunities.length === 1 ? '' : 's'} available
+												</a>
+											{/if}
 										</div>
 										<a
-											class="text-secondary-800-200 text-xl font-bold hover:underline"
+											class="text-surface-950-50 block text-xl font-bold hover:underline"
 											href={`/volunteer/${event.slug}`}
 										>
 											{event.title}
 										</a>
-										<div class="text-surface-600-400 text-sm">{eventTimeRange(event)}</div>
-										{#if event.summary}
-											<p class="text-surface-700-300 text-sm">{event.summary}</p>
-										{/if}
-										<div class="text-surface-600-400 text-sm">
-											<span class="font-semibold">Hosted by</span>
-											{#if hostGroup && hostGroup.slug}
-												<a
-													class="text-secondary-800-200 ml-1 hover:underline"
-													href={`/volunteer/groups/${hostGroup.slug}`}
-												>
-													{hostGroup.name}
-												</a>
-											{:else if hostGroup}
-												<span class="ml-1">{hostGroup.name}</span>
-											{:else if event._hostOrgName}
-												<span class="ml-1">{event._hostOrgName}</span>
-											{/if}
+										<div class="text-surface-600-400 text-sm font-medium">
+											{eventTimeRange(event)}
 										</div>
-										<div class="text-surface-700-300 text-sm">
-											<span class="font-semibold">Location:</span>
-											<span class="ml-1">{eventLocation(event) || 'Details coming soon'}</span>
+										{#if event.summary}
+											<p class="text-surface-700-300 text-sm leading-relaxed">{event.summary}</p>
+										{/if}
+										<div class="mt-2 space-y-1">
+											<div class="text-surface-600-400 flex items-center gap-1.5 text-sm">
+												<IconUsers class="h-4 w-4 shrink-0 opacity-70" />
+												<span class="font-semibold">Hosted by</span>
+												{#if hostGroup && hostGroup.slug}
+													<a
+														class="text-secondary-800-200 ml-0.5 hover:underline"
+														href={`/volunteer/groups/${hostGroup.slug}`}
+													>
+														{hostGroup.name}
+													</a>
+												{:else if hostGroup}
+													<span class="ml-0.5">{hostGroup.name}</span>
+												{:else if event._hostOrgName}
+													<span class="ml-0.5">{event._hostOrgName}</span>
+												{/if}
+											</div>
+											<div class="text-surface-700-300 flex items-center gap-1.5 text-sm">
+												<IconMapPin class="h-4 w-4 shrink-0 opacity-70" />
+												<span class="font-semibold">Location:</span>
+												<span class="ml-0.5">{eventLocation(event) || 'Details coming soon'}</span>
+											</div>
 										</div>
 									</div>
-									<div class="flex flex-col items-start gap-2 md:items-end">
-										<a class="btn preset-filled-secondary-500" href={`/volunteer/${event.slug}`}>
+									<div class="flex shrink-0 flex-col items-start gap-2 pt-1 md:items-end">
+										<a
+											class="btn preset-outlined-primary-500 w-full sm:w-auto"
+											href={`/volunteer/${event.slug}`}
+										>
 											View details
 										</a>
-										{#if opportunities.length}
-											<a
-												class="text-secondary-700-300 text-sm hover:underline"
-												href={`/volunteer/${event.slug}#opportunities`}
-											>
-												{opportunities.length} role{opportunities.length === 1 ? '' : 's'} available
-											</a>
-										{/if}
 									</div>
 								</div>
 							</li>
@@ -610,9 +763,10 @@
 				</div>
 
 				<div class="grid gap-2 sm:hidden">
-					{#each mobileWeekDays as day}
+					{#each mobileWeekDays as day, i}
 						<div
-							class={`bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+							class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+							style="--stagger: {i % 10}"
 						>
 							<div class="flex items-center justify-between">
 								<div class="text-xs font-semibold">
@@ -660,10 +814,11 @@
 						<div>Sat</div>
 					</div>
 					<div class="grid grid-cols-7 gap-0">
-						{#each calendarMatrix as week}
-							{#each week as day}
+						{#each calendarMatrix as week, i}
+							{#each week as day, j}
 								<div
-									class={`bg-surface-50-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+									class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+									style="--stagger: {(i * 7 + j) % 21}"
 								>
 									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
 									<div class="mt-1 space-y-1 overflow-y-auto">
@@ -708,3 +863,135 @@
 		{/if}
 	</div>
 </section>
+
+<style>
+	/* ── Hero ── */
+	.hero-section {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.hero-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(72px);
+		pointer-events: none;
+	}
+
+	.hero-orb-1 {
+		width: 55%;
+		height: 200%;
+		top: -50%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+
+	.hero-orb-2 {
+		width: 40%;
+		height: 160%;
+		top: -30%;
+		right: 5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	.hero-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 6%) scale(1.08);
+		}
+	}
+
+	/* ── Headline accent ── */
+	.volunteer-headline {
+		color: var(--color-primary-50);
+		text-align: left;
+	}
+
+	.volunteer-headline-accent {
+		background: linear-gradient(
+			120deg,
+			var(--color-primary-300),
+			var(--color-secondary-300),
+			var(--color-tertiary-300)
+		);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* ── Stat cards ── */
+	.stat-card {
+		transition:
+			transform 200ms ease,
+			box-shadow 200ms ease;
+	}
+
+	.stat-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.stat-card-glow {
+		position: absolute;
+		inset: 0;
+		opacity: 0.06;
+		pointer-events: none;
+	}
+
+	/* ── Search panel ── */
+	.search-panel {
+		backdrop-filter: blur(12px);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+	}
+
+	/* ── Empty state ── */
+	.empty-state {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	.empty-orb {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 60% 50% at 50% 60%,
+			color-mix(in oklab, var(--color-primary-500) 12%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.empty-icon-ring {
+		background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-800) 85%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
+	}
+
+	/* ── Card entrance animation ── */
+	.event-card {
+		animation: card-in 380ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 30ms);
+	}
+
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>

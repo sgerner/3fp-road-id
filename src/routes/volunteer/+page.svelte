@@ -24,7 +24,7 @@
 	hostOrgsData={hostOrgs}
 	opportunitiesData={opportunities}
 	user={currentUser}
-	title="Volunteer Opportunities"
+	title="Volunteer"
 	description="Browse rides, pop-up shops, workshops, and more. Filter by host, type, and location to find the right place to pitch in."
 	showCreateButton={true}
 	createButtonHref="/volunteer/new"
