@@ -1,5 +1,6 @@
 <script>
 	import IconLink from '@lucide/svelte/icons/link';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import { CTA_ICON_MAP } from '$lib/groups/contactLinks.js';
 
 	let { group, canEdit, primaryCta } = $props();
@@ -8,105 +9,151 @@
 	const IconComp = $derived(primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink);
 </script>
 
-<section class="card border-surface-700-300 bg-surface-100-900 overflow-hidden border">
-	<div
-		class="from-primary-800/60 to-primary-600/40 relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-r"
-	>
+<section class="group-hero-card relative overflow-hidden rounded-2xl">
+	<!-- Animated background orbs -->
+	<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+	<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+
+	<!-- Cover photo -->
+	<div class="relative aspect-[16/9] w-full overflow-hidden md:aspect-[21/9]">
 		{#if group?.cover_photo_url}
 			<img
 				src={group.cover_photo_url}
 				alt="{group.name} cover"
 				loading="lazy"
-				class="absolute inset-0 h-full w-full object-cover"
+				class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
 			/>
+		{:else}
+			<!-- Fallback gradient when no cover photo -->
+			<div class="from-primary-800/80 to-secondary-700/60 absolute inset-0 bg-gradient-to-br"></div>
 		{/if}
-		<div
-			class="md:from-surface-50-950/60 md:via-surface-50-950/50 md:to-surface-50-950/40 absolute inset-x-0 bottom-0 md:bg-gradient-to-t md:backdrop-blur-xs"
-		>
-			<div class="bg-surface-50-950/40 flex gap-2 rounded-md p-2 backdrop-blur-xs md:hidden">
+
+		<!-- Bottom gradient scrim -->
+		<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+
+		<!-- Bottom identity strip -->
+		<div class="absolute inset-x-0 bottom-0 p-4 md:p-6">
+			<div class="flex items-end gap-4">
+				<!-- Logo -->
 				{#if group?.logo_url}
-					<img
-						src={group.logo_url}
-						alt="{group.name} logo"
-						loading="lazy"
-						class="h-14 w-14 object-cover"
-					/>
-				{/if}
-				<div class="w-full min-w-0">
-					<h1 class="text-surface-950-50 truncate !text-left text-base font-bold">{group?.name}</h1>
-					<div class="flex items-start gap-2">
-						<p class="text-surface-900-100/90 grow truncate text-[11px]">
-							{#if group?.city}{group.city},&nbsp;{/if}{group?.state_region} · {group?.country}
-						</p>
-						{#if canEdit}
-							<a
-								href={`/groups/${group?.slug ?? ''}/edit`}
-								class="chip preset-filled-primary-500 shrink-0 font-bold"
-							>
-								Edit Group
-							</a>
-						{:else if primaryCta}
-							<a
-								href={primaryCta.href}
-								target={primaryCta.key === 'email' || primaryCta.key === 'phone'
-									? '_self'
-									: '_blank'}
-								rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-									? undefined
-									: 'noopener noreferrer'}
-								class="chip preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
-							>
-								{#if primaryCta.key !== 'custom'}
-									<IconComp class="h-4 w-4" />
-								{/if}
-								<span>{primaryCta.label}</span>
-							</a>
-						{/if}
+					<div class="logo-ring shrink-0">
+						<img
+							src={group.logo_url}
+							alt="{group.name} logo"
+							loading="lazy"
+							class="h-14 w-14 rounded-xl object-cover md:h-20 md:w-20"
+						/>
 					</div>
-				</div>
-			</div>
-			<div class="mx-auto hidden items-center justify-between gap-4 px-4 py-1 md:flex">
-				{#if group?.logo_url}
-					<img
-						src={group.logo_url}
-						alt="{group.name} logo"
-						loading="lazy"
-						class="h-24 w-24 object-cover"
-					/>
 				{/if}
-				<div class="min-w-0">
-					<h1 class="text-surface-950-50 truncate !text-left text-2xl font-bold">{group?.name}</h1>
+
+				<!-- Name + tagline + location -->
+				<div class="min-w-0 flex-1">
+					<h1
+						class="!text-left text-xl leading-tight font-extrabold text-white drop-shadow-sm md:text-3xl"
+					>
+						{group?.name}
+					</h1>
 					{#if group?.tagline}
-						<p class="text-surface-950-50 !m-0">{group.tagline}</p>
+						<p class="mt-0.5 line-clamp-1 text-sm text-white/75 drop-shadow-sm">{group.tagline}</p>
 					{/if}
-					<p class="text-surface-800-200/80 text-sm">
+					<p class="mt-1 flex items-center gap-1 text-[11px] text-white/60 md:text-xs">
+						<IconMapPin class="h-3 w-3 shrink-0" />
 						{#if group?.city}{group.city},{/if}
-						{group?.state_region} · {group?.country}
+						{group?.state_region}
+						{#if group?.state_region && group?.country}·{/if}
+						{group?.country}
 					</p>
 				</div>
-				{#if canEdit}
-					<a
-						href={`/groups/${group?.slug ?? ''}/edit`}
-						class="btn preset-filled-primary-500 shrink-0 font-bold"
-					>
-						Edit Group
-					</a>
-				{:else if primaryCta}
-					<a
-						href={primaryCta.href}
-						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-							? undefined
-							: 'noopener noreferrer'}
-						class="btn preset-filled-primary-500 flex shrink-0 items-center gap-2 font-bold"
-					>
-						{#if primaryCta.key !== 'custom'}
-							<IconComp class="h-5 w-5" />
-						{/if}
-						<span>{primaryCta.label}</span>
-					</a>
-				{/if}
+
+				<!-- CTA -->
+				<div class="shrink-0">
+					{#if canEdit}
+						<a
+							href={`/groups/${group?.slug ?? ''}/edit`}
+							class="btn preset-filled-primary-500 font-bold shadow-lg"
+						>
+							Edit Group
+						</a>
+					{:else if primaryCta}
+						<a
+							href={primaryCta.href}
+							target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+							rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+								? undefined
+								: 'noopener noreferrer'}
+							class="btn preset-filled-primary-500 cta-btn flex items-center gap-2 font-bold shadow-lg"
+						>
+							{#if primaryCta.key !== 'custom'}
+								<IconComp class="h-4 w-4" />
+							{/if}
+							<span>{primaryCta.label}</span>
+						</a>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
 </section>
+
+<style>
+	.group-hero-card {
+		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-950) 90%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+	}
+
+	.hero-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(64px);
+		pointer-events: none;
+		z-index: 0;
+	}
+
+	.hero-orb-1 {
+		width: 50%;
+		height: 200%;
+		top: -60%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+
+	.hero-orb-2 {
+		width: 40%;
+		height: 160%;
+		top: -40%;
+		right: 0%;
+		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 8%) scale(1.1);
+		}
+	}
+
+	.logo-ring {
+		border-radius: 0.875rem;
+		box-shadow:
+			0 0 0 3px color-mix(in oklab, var(--color-primary-400) 60%, transparent),
+			0 8px 24px -4px rgba(0, 0, 0, 0.5);
+	}
+
+	.cta-btn {
+		animation: cta-pulse 3s ease-in-out infinite;
+	}
+
+	@keyframes cta-pulse {
+		0%,
+		100% {
+			box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary-500) 0%, transparent);
+		}
+		50% {
+			box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		}
+	}
+</style>

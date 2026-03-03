@@ -1,6 +1,16 @@
 <script>
 	let { data } = $props();
 	import IconLink from '@lucide/svelte/icons/link';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconClock from '@lucide/svelte/icons/clock';
+	import IconUsers from '@lucide/svelte/icons/users';
+	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconDumbbell from '@lucide/svelte/icons/dumbbell';
+	import IconRepeat from '@lucide/svelte/icons/repeat-2';
+	import IconInfo from '@lucide/svelte/icons/info';
+	import IconFlag from '@lucide/svelte/icons/flag';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import {
 		buildContactLinks,
@@ -8,9 +18,9 @@
 		CTA_ICON_MAP,
 		CONTACT_ICON_MAP
 	} from '$lib/groups/contactLinks';
-	import IconMountain from '@lucide/svelte/icons/mountain';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { fade, slide } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
@@ -52,7 +62,6 @@
 			console.error('Failed to load Leaflet', e);
 			return;
 		}
-		// Defer to ensure the element is laid out
 		requestAnimationFrame(() => ensureMap());
 	});
 
@@ -66,8 +75,6 @@
 		obs.observe(heroSentinel);
 		return () => obs.disconnect();
 	});
-
-	// Do not auto-load Instagram embeds to respect content blockers; load on user action
 
 	function pickNames(all, ids) {
 		const set = new Set(ids || []);
@@ -116,7 +123,7 @@
 		try {
 			const res = await fetch(`/api/groups/${data.group.slug}/claim`, { method: 'POST' });
 			if (res.status === 401) {
-				claimOpen = true; // prompt login/register
+				claimOpen = true;
 				return;
 			}
 			if (!res.ok) {
@@ -244,105 +251,173 @@
 
 	// Notices via query params
 	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
+
+	// Deterministic chip coloring (same as /groups listing)
+	const filledClasses = [
+		'chip text-xs preset-filled-primary-500',
+		'chip text-xs preset-filled-secondary-500',
+		'chip text-xs preset-filled-tertiary-500',
+		'chip text-xs preset-filled-success-500',
+		'chip text-xs preset-filled-warning-500',
+		'chip text-xs preset-tonal-primary',
+		'chip text-xs preset-tonal-secondary',
+		'chip text-xs preset-tonal-tertiary'
+	];
+	function hashStr(s) {
+		let h = 0;
+		for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+		return Math.abs(h);
+	}
+	function chipFilled(name) {
+		return filledClasses[hashStr(name || '') % filledClasses.length];
+	}
+
+	// Whether the details section has anything to show
+	const hasDetails = $derived(
+		!!(
+			data.group?.membership_info ||
+			data.group?.service_area_description ||
+			data.group?.activity_frequency ||
+			data.group?.typical_activity_day_time ||
+			data.group?.preferred_contact_method_instructions ||
+			data.group?.specific_meeting_point_address ||
+			(Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude)) ||
+			data.group?.zip_code ||
+			skills.length ||
+			data.group?.how_to_join_instructions
+		)
+	);
 </script>
 
-<div class="mx-auto w-full max-w-4xl space-y-6">
+<div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
 	<GroupHeroCard group={data.group} canEdit={data.can_edit} {contactLinks} {primaryCta} />
 
+	<!-- Auth notice -->
 	{#if authFlag === 'required' || authFlag === 'forbidden'}
 		<section
-			class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
-				? 'border-warning-400-600/40 bg-warning-100-900/20'
-				: 'border-error-400-600/40 bg-error-100-900/20'}"
+			class="auth-notice rounded-2xl border p-4 {authFlag === 'required'
+				? 'border-warning-400-600/40 bg-warning-500/8'
+				: 'border-error-400-600/40 bg-error-500/8'}"
+			in:fade={{ duration: 180 }}
 		>
-			{#if authFlag === 'required'}
+			<div class="flex items-start gap-3">
+				<IconInfo
+					class="mt-0.5 h-5 w-5 shrink-0 {authFlag === 'required'
+						? 'text-warning-500'
+						: 'text-error-500'}"
+				/>
 				<div class="text-sm">
-					<strong>Please log in to edit this group.</strong>
-					<div class="text-surface-700-300">
-						Use the “Log in / Register” button in the header, then try again.
-					</div>
-				</div>
-			{:else}
-				<div class="text-sm">
-					<strong>You don’t have permission to edit this group.</strong>
-					{#if (data.owners_count ?? 0) === 0}
-						<div class="text-surface-700-300">
-							If you represent this group, claim it below to become an owner.
+					{#if authFlag === 'required'}
+						<strong>Please log in to edit this group.</strong>
+						<div class="text-surface-700-300 mt-0.5">
+							Use the "Log in / Register" button in the header, then try again.
 						</div>
 					{:else}
-						<div class="text-surface-700-300">Ask an existing owner to add you as an owner.</div>
+						<strong>You don't have permission to edit this group.</strong>
+						{#if (data.owners_count ?? 0) === 0}
+							<div class="text-surface-700-300 mt-0.5">
+								If you represent this group, claim it below to become an owner.
+							</div>
+						{:else}
+							<div class="text-surface-700-300 mt-0.5">
+								Ask an existing owner to add you as an owner.
+							</div>
+						{/if}
 					{/if}
 				</div>
-			{/if}
+			</div>
 		</section>
 	{/if}
 
+	<!-- Claim banner -->
 	{#if !hasOwner}
 		<section
-			class="border-warning-400-600/40 bg-warning-100-900/20 mx-auto max-w-3xl rounded-xl border p-4"
+			class="claim-panel relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 200 }}
 		>
-			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<div class="min-w-0">
-					<div class="text-lg font-semibold">This group hasn’t been claimed yet</div>
-					<p class="text-surface-700-300 text-sm">
-						If you represent this group, claim it to manage details, photos and more.
-					</p>
+			<div class="claim-glow" aria-hidden="true"></div>
+			<div class="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+				<div class="flex items-start gap-3">
+					<div
+						class="claim-icon-ring mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconFlag class="text-warning-400 h-5 w-5" />
+					</div>
+					<div class="min-w-0">
+						<div class="font-semibold">This group hasn't been claimed yet</div>
+						<p class="text-surface-700-300 mt-0.5 text-sm">
+							If you represent this group, claim it to manage details, photos, and more.
+						</p>
+					</div>
 				</div>
 				{#if data.user}
-					<button class="btn preset-filled-warning-500 shrink-0" onclick={claimGroup}
-						>Claim Group</button
+					<button
+						class="btn preset-filled-warning-500 shrink-0 font-bold shadow-lg"
+						onclick={claimGroup}
 					>
+						Claim Group
+					</button>
 				{:else}
-					<button class="btn preset-filled-warning-500 shrink-0" onclick={() => (claimOpen = true)}
-						>Claim Group</button
+					<button
+						class="btn preset-filled-warning-500 shrink-0 font-bold shadow-lg"
+						onclick={() => (claimOpen = true)}
 					>
+						Claim Group
+					</button>
 				{/if}
 			</div>
+
+			<!-- Email form for unauthenticated claim -->
 			{#if claimOpen && !data.user}
-				<form
-					class="border-surface-300-700 bg-surface-100-900 mt-4 rounded-md border p-3"
-					onsubmit={sendClaimLogin}
-				>
-					<div
-						aria-hidden="true"
-						style="position: absolute; width: 0; height: 0; overflow: hidden;"
+				<div class="relative z-10 mt-4" in:slide={{ duration: 180 }}>
+					<form
+						class="border-surface-300-700/50 bg-surface-100-900/50 rounded-xl border p-4 backdrop-blur-sm"
+						onsubmit={sendClaimLogin}
 					>
-						<div bind:this={turnstileEl}></div>
-					</div>
-					<input
-						type="text"
-						name="website"
-						bind:value={claimHoneypot}
-						autocomplete="off"
-						tabindex="-1"
-						aria-hidden="true"
-						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-					/>
-					<label for="claim-email" class="text-surface-700-300 mb-1 block text-xs"
-						>Log in / Register to continue</label
-					>
-					<input
-						id="claim-email"
-						type="email"
-						bind:value={claimEmail}
-						placeholder="you@example.com"
-						class="input w-full"
-						required
-					/>
-					{#if claimError}
-						<div class="text-error-600-400 mt-2 text-xs">{claimError}</div>
-					{/if}
-					{#if claimSuccess}
-						<div class="text-success-600-400 mt-2 text-xs">{claimSuccess}</div>
-					{/if}
-					<button
-						type="submit"
-						class="btn preset-filled-primary-500 mt-3 w-full {claimLoading
-							? 'animate-pulse'
-							: ''} {!claimEmailValid || claimLoading ? 'cursor-not-allowed opacity-50' : ''}"
-						disabled={!claimEmailValid || claimLoading}>Send Magic Link</button
-					>
-				</form>
+						<div
+							aria-hidden="true"
+							style="position: absolute; width: 0; height: 0; overflow: hidden;"
+						>
+							<div bind:this={turnstileEl}></div>
+						</div>
+						<input
+							type="text"
+							name="website"
+							bind:value={claimHoneypot}
+							autocomplete="off"
+							tabindex="-1"
+							aria-hidden="true"
+							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+						/>
+						<label
+							for="claim-email"
+							class="text-surface-700-300 mb-1.5 block text-xs font-medium tracking-wide uppercase"
+						>
+							Log in / Register to continue
+						</label>
+						<input
+							id="claim-email"
+							type="email"
+							bind:value={claimEmail}
+							placeholder="you@example.com"
+							class="input w-full"
+							required
+						/>
+						{#if claimError}
+							<div class="text-error-600-400 mt-2 text-xs">{claimError}</div>
+						{/if}
+						{#if claimSuccess}
+							<div class="text-success-600-400 mt-2 text-xs">{claimSuccess}</div>
+						{/if}
+						<button
+							type="submit"
+							class="btn preset-filled-primary-500 mt-3 w-full {claimLoading
+								? 'animate-pulse'
+								: ''} {!claimEmailValid || claimLoading ? 'cursor-not-allowed opacity-50' : ''}"
+							disabled={!claimEmailValid || claimLoading}>Send Magic Link</button
+						>
+					</form>
+				</div>
 			{/if}
 		</section>
 	{/if}
@@ -350,25 +425,30 @@
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
-			class="border-surface-300-700 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur"
+			class="border-surface-300-700/30 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur-xl"
+			in:slide={{ duration: 180, axis: 'y' }}
 		>
 			<div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-3 py-2">
 				<div class="flex min-w-0 items-center gap-3">
 					{#if data.group?.logo_url}
-						<img src={data.group.logo_url} alt="{data.group.name} logo" class="h-8 w-8 rounded" />
+						<img
+							src={data.group.logo_url}
+							alt="{data.group.name} logo"
+							class="h-8 w-8 rounded-lg object-cover shadow-sm"
+						/>
 					{/if}
 					<div class="min-w-0">
 						<div class="truncate text-sm font-semibold">{data.group?.name}</div>
 						<div class="text-surface-700-300 truncate text-xs">
-							{#if data.group?.city}{data.group.city},
-							{/if}{data.group?.state_region} · {data.group?.country}
+							{#if data.group?.city}{data.group.city},{/if}{data.group?.state_region} · {data.group
+								?.country}
 						</div>
 					</div>
 				</div>
 				{#if data.is_owner}
-					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500"
-						>Edit Group</a
-					>
+					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">
+						Edit Group
+					</a>
 				{:else if primaryCta}
 					<a
 						href={primaryCta.href}
@@ -392,245 +472,436 @@
 	<!-- Sentinel for sticky observer -->
 	<div bind:this={heroSentinel}></div>
 
-	<!-- Identity card -->
-	<section class="">
-		<div class="border-surface-700-300 bg-surface-50-950/90 mx-auto rounded-xl border p-4">
-			<!-- Top row: type chip rail + compact contact icons -->
-			<div class="flex items-start justify-between gap-3">
-				{#if types.length}
-					<div class="flex w-full gap-2 overflow-x-auto pr-1 whitespace-nowrap">
-						{#each types as t}
-							<button type="button" class="chip preset-tonal-primary shrink-0">{t}</button>
-						{/each}
-					</div>
-				{/if}
-				<div class="ml-auto flex shrink-0 items-center gap-2">
-					{#if contactLinks.length}
-						<div class="ml-auto flex shrink-0 items-center gap-2">
-							{#each contactLinks.slice(0, 6) as c}
-								{@const ContactIcon = contactIconByKey[c.key] || IconLink}
-								<a
-									href={c.href}
-									title={c.key}
-									target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
-									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
-									class="text-surface-900-100/90 hover:bg-surface-950-50/10 hover:text-surface-950-50 rounded-md p-2"
-								>
-									<ContactIcon class="h-5 w-5" className="h-5 w-5" />
-								</a>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
+	<!-- ── Identity card ── -->
+	<section
+		class="identity-card relative overflow-hidden rounded-2xl p-5"
+		in:fade={{ duration: 240, delay: 60 }}
+	>
+		<!-- Gradient accent top bar -->
+		<div class="identity-accent-bar" aria-hidden="true"></div>
 
-			<!-- About preview -->
-			{#if data.group?.description}
-				<div class="mt-3">
-					<div
-						class={'text-surface-800-200 whitespace-pre-wrap ' +
-							(aboutExpanded ? '' : 'max-h-24 overflow-hidden')}
-					>
-						{data.group.description}
-					</div>
-					{#if data.group.description?.length > 220}
-						<button
-							type="button"
-							class="text-primary-700-300 hover:text-primary-800-200 mt-2 text-sm"
-							onclick={() => (aboutExpanded = !aboutExpanded)}
-						>
-							{aboutExpanded ? 'Show less' : 'Read more'}
-						</button>
-					{/if}
+		<!-- Top row: type chips + social links -->
+		<div class="flex items-start justify-between gap-3">
+			{#if types.length}
+				<div class="flex flex-wrap gap-2">
+					{#each types as t}
+						<span class={chipFilled(t)}>{t}</span>
+					{/each}
 				</div>
 			{/if}
-			<!-- Info belt: audience and discipline chip rails -->
-			<div class="mt-3 space-y-1">
-				{#if audiences.length || disciplines.length}
-					{#if audiences.length}
-						<div class="flex items-center gap-2">
-							<div class="text-surface-700-300 mr-2 text-sm">Audience</div>
-							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
-								{#each audiences as a}
-									<button type="button" class="chip preset-tonal-secondary shrink-0">{a}</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-					{#if disciplines.length}
-						<div class="flex items-center gap-2 py-2">
-							<div class="text-surface-700-300 min-w-24 text-sm">Discipline</div>
-							<div class="flex w-full gap-2 overflow-x-auto whitespace-nowrap">
-								{#each disciplines as d}
-									<button type="button" class="chip preset-tonal-surface shrink-0">{d}</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
+
+			<!-- Social contact icons -->
+			{#if contactLinks.length}
+				<div class="ml-auto flex shrink-0 items-center gap-1">
+					{#each contactLinks.slice(0, 6) as c}
+						{@const ContactIcon = contactIconByKey[c.key] || IconLink}
+						<a
+							href={c.href}
+							title={c.key}
+							target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
+							rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
+							class="contact-icon-btn rounded-lg p-2 transition-all"
+						>
+							<ContactIcon class="h-4 w-4" />
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<!-- About / description -->
+		{#if data.group?.description}
+			<div class="mt-4">
+				<div
+					class={'text-surface-800-200 text-sm leading-relaxed ' +
+						(aboutExpanded ? '' : 'line-clamp-5')}
+				>
+					{data.group.description}
+				</div>
+				{#if data.group.description?.length > 220}
+					<button
+						type="button"
+						class="text-primary-700-300 hover:text-primary-600-400 mt-2 text-sm font-medium transition-colors"
+						onclick={() => (aboutExpanded = !aboutExpanded)}
+					>
+						{aboutExpanded ? 'Show less' : 'Read more'}
+					</button>
 				{/if}
 			</div>
-		</div>
+		{/if}
+
+		<!-- Audience + Discipline chip rows -->
+		{#if audiences.length || disciplines.length || skills.length}
+			<div class="mt-4 space-y-2.5">
+				{#if audiences.length}
+					<div class="flex items-center gap-3">
+						<div class="flex items-center gap-1.5">
+							<IconUsers class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
+							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Audience</span>
+						</div>
+						<div class="flex flex-wrap gap-1.5">
+							{#each audiences as a}
+								<span class="chip preset-tonal-secondary text-xs">{a}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if disciplines.length}
+					<div class="flex items-center gap-3">
+						<div class="flex items-center gap-1.5">
+							<IconRepeat class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
+							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Discipline</span>
+						</div>
+						<div class="flex flex-wrap gap-1.5">
+							{#each disciplines as d}
+								<span class={chipFilled(d)}>{d}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if skills.length}
+					<div class="flex items-center gap-3">
+						<div class="flex items-center gap-1.5">
+							<IconDumbbell class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
+							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Skill</span>
+						</div>
+						<div class="flex flex-wrap gap-1.5">
+							{#each skills as s}
+								<span class="chip preset-tonal-tertiary text-xs">{s}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</section>
 
+	<!-- ── Volunteer events ── -->
 	{#if upcomingVolunteerEvents.length}
-		<section class="card border-surface-700-300 bg-surface-50-950 card-hover space-y-4 border p-4">
-			<div class="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<h2 class="text-surface-900-100 !text-left text-lg font-semibold">
-						Upcoming Volunteer Opportunities
-					</h2>
-					<p class="text-surface-600-400 text-sm">
-						Support {data.group?.name} by lending a hand at an upcoming event.
-					</p>
+		<section
+			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 240, delay: 100 }}
+		>
+			<div class="volunteer-glow" aria-hidden="true"></div>
+			<div class="relative z-10">
+				<!-- Header -->
+				<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+					<div>
+						<div class="mb-1 flex items-center gap-2">
+							<IconHandHeart class="text-tertiary-400 h-5 w-5" />
+							<p class="label opacity-60">Community</p>
+						</div>
+						<h2 class="text-xl font-bold">Upcoming Volunteer Opportunities</h2>
+						<p class="text-surface-600-400 mt-0.5 text-sm">
+							Support {data.group?.name} by lending a hand at an upcoming event.
+						</p>
+					</div>
+					<a
+						href={`/volunteer/groups/${data.group.slug}`}
+						class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
+					>
+						All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+					</a>
 				</div>
-			</div>
-			<ul class="space-y-4">
-				{#each upcomingVolunteerEvents as event}
-					<li class="bg-surface-100-900/60 border-surface-500/20 rounded-xl border p-4">
-						<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-							<div class="space-y-3">
-								<div class="space-y-1">
+
+				<!-- Event list -->
+				<ul class="space-y-3">
+					{#each upcomingVolunteerEvents as event, i}
+						<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
+							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+								<div class="space-y-2">
 									<a
 										href={`/volunteer/${event.slug}`}
-										class="text-secondary-800-200 hover:text-secondary-900-100 text-lg font-semibold"
+										class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
 									>
 										{event.title}
 									</a>
-									<div
-										class="text-surface-700-300 max-w-2xl truncate overflow-hidden text-sm leading-relaxed text-ellipsis whitespace-nowrap"
-									>
-										{#if event.summary}
-											{event.summary}
-										{:else}
-											Details coming soon.
+									{#if event.summary}
+										<p class="text-surface-600-400 line-clamp-2 text-sm">{event.summary}</p>
+									{/if}
+									<div class="flex flex-wrap items-center gap-3 text-xs">
+										<span class="text-surface-700-300 flex items-center gap-1">
+											<IconCalendar class="h-3.5 w-3.5" />
+											{volunteerEventDateRange(event)}
+										</span>
+										{#if volunteerEventTimeRange(event)}
+											<span class="text-surface-700-300 flex items-center gap-1">
+												<IconClock class="h-3.5 w-3.5" />
+												{volunteerEventTimeRange(event)}
+											</span>
 										{/if}
+										<span class="text-surface-700-300 flex items-center gap-1">
+											<IconMapPin class="h-3.5 w-3.5" />
+											{volunteerEventLocation(event)}
+										</span>
 									</div>
 								</div>
-								<div class="space-y-1 text-sm">
-									<div class="text-surface-900-100 font-medium">
-										<strong class="mr-4">{volunteerEventDateRange(event)}</strong>
-										{volunteerEventTimeRange(event)}
-									</div>
+								<div class="flex shrink-0 flex-wrap items-center gap-2">
+									{#if event.can_manage}
+										<a
+											href={`/volunteer/${event.slug}/edit`}
+											class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
+										>
+											Edit
+										</a>
+										<a
+											href={`/volunteer/${event.slug}/manage`}
+											class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
+										>
+											Manage
+										</a>
+									{:else}
+										<a
+											href={`/volunteer/${event.slug}`}
+											class="btn btn-sm preset-outlined-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
+										>
+											Volunteer
+											<IconArrowRight class="h-3.5 w-3.5" />
+										</a>
+									{/if}
 								</div>
 							</div>
-							<div class="flex flex-wrap items-center gap-2 md:justify-end">
-								{#if event.can_manage}
-									<a
-										href={`/volunteer/${event.slug}/edit`}
-										class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-									>
-										Edit
-									</a>
-									<a
-										href={`/volunteer/${event.slug}/manage`}
-										class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-									>
-										Manage
-									</a>
-								{:else}
-									<a
-										href={`/volunteer/${event.slug}`}
-										class="btn preset-outlined-primary-500 whitespace-nowrap"
-									>
-										Volunteer
-									</a>
-								{/if}
-							</div>
-						</div>
-					</li>
-				{/each}
-			</ul>
-			<div class="flex w-full justify-end">
-				<a
-					href={`/volunteer/groups/${data.group.slug}`}
-					class="btn preset-filled-tertiary-500 font-bold whitespace-nowrap"
-				>
-					All Volunteer Events →
-				</a>
+						</li>
+					{/each}
+				</ul>
 			</div>
 		</section>
 	{/if}
 
-	<!-- Contact next + categories -->
-	<!-- Removed bulky contact/categories card to declutter header. -->
+	<!-- ── Additional details ── -->
+	{#if hasDetails}
+		<section class="details-card rounded-2xl p-5" in:fade={{ duration: 240, delay: 140 }}>
+			<!-- Accent bar -->
+			<div class="details-accent-bar mb-5" aria-hidden="true"></div>
 
-	<!-- Additional details -->
-	{#if data.group?.membership_info || data.group?.service_area_description || data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.preferred_contact_method_instructions || data.group?.specific_meeting_point_address || (Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude)) || data.group?.zip_code || skills.length || data.group?.how_to_join_instructions}
-		<section class="card border-surface-700-300 bg-surface-50-950 card-hover space-y-4 border p-4">
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{#if data.group?.membership_info}
-					<div>
-						<div class="label">Membership Info</div>
-						<p class="text-surface-800-200 whitespace-pre-wrap">{data.group.membership_info}</p>
-					</div>
-				{/if}
 				{#if data.group?.how_to_join_instructions}
-					<div>
-						<div class="label">How to Join</div>
-						<p class="text-surface-800-200 whitespace-pre-wrap">
+					<div class="detail-item">
+						<div class="detail-label">How to Join</div>
+						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
 							{data.group.how_to_join_instructions}
 						</p>
 					</div>
 				{/if}
-				{#if data.group?.zip_code}
-					<div>
-						<div class="label">ZIP / Postal Code</div>
-						<p class="text-surface-800-200">{data.group.zip_code}</p>
-					</div>
-				{/if}
 				{#if data.group?.preferred_contact_method_instructions}
-					<div>
-						<div class="label">Preferred Contact Method</div>
-						<p class="text-surface-800-200">{data.group.preferred_contact_method_instructions}</p>
+					<div class="detail-item">
+						<div class="detail-label">Preferred Contact Method</div>
+						<p class="text-surface-800-200 text-sm">
+							{data.group.preferred_contact_method_instructions}
+						</p>
 					</div>
 				{/if}
-				{#if skills.length}
-					<div>
-						<div class="label">Skill Levels</div>
-						<p class="text-surface-800-200">{skills.join(', ')}</p>
+				{#if data.group?.membership_info}
+					<div class="detail-item">
+						<div class="detail-label">Membership Info</div>
+						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
+							{data.group.membership_info}
+						</p>
+					</div>
+				{/if}
+				{#if data.group?.zip_code}
+					<div class="detail-item">
+						<div class="detail-label">ZIP / Postal Code</div>
+						<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
 					</div>
 				{/if}
 			</div>
+
 			{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+				<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
 					{#if data.group?.activity_frequency}
-						<div>
-							<div class="label">Activity Frequency</div>
-							<p class="text-surface-800-200">{data.group.activity_frequency}</p>
+						<div class="detail-item">
+							<div class="detail-label flex items-center gap-1.5">
+								<IconRepeat class="h-3.5 w-3.5" />
+								Activity Frequency
+							</div>
+							<p class="text-surface-800-200 text-sm">{data.group.activity_frequency}</p>
 						</div>
 					{/if}
 					{#if data.group?.typical_activity_day_time}
-						<div>
-							<div class="label">Typical Day/Time</div>
-							<p class="text-surface-800-200">{data.group.typical_activity_day_time}</p>
+						<div class="detail-item">
+							<div class="detail-label flex items-center gap-1.5">
+								<IconClock class="h-3.5 w-3.5" />
+								Typical Day / Time
+							</div>
+							<p class="text-surface-800-200 text-sm">{data.group.typical_activity_day_time}</p>
 						</div>
 					{/if}
 					{#if data.group?.specific_meeting_point_address}
-						<div>
-							<div class="label">Meeting Point</div>
-							<p class="text-surface-800-200">{data.group.specific_meeting_point_address}</p>
+						<div class="detail-item">
+							<div class="detail-label flex items-center gap-1.5">
+								<IconMapPin class="h-3.5 w-3.5" />
+								Meeting Point
+							</div>
+							<p class="text-surface-800-200 text-sm">
+								{data.group.specific_meeting_point_address}
+							</p>
 						</div>
 					{/if}
 				</div>
 			{/if}
+
 			{#if data.group?.service_area_description || hasCoords}
-				<div>
-					<div class="label">Service Area</div>
+				<div class="detail-item mt-4">
+					<div class="detail-label flex items-center gap-1.5">
+						<IconMapPin class="h-3.5 w-3.5" />
+						Service Area
+					</div>
 					{#if data.group?.service_area_description}
-						<p class="text-surface-800-200 whitespace-pre-wrap">
+						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
 							{data.group.service_area_description}
 						</p>
 					{/if}
 					{#if hasCoords}
-						<div class="border-surface-300-700/50 mt-3 overflow-hidden rounded-md border">
-							<!-- Leaflet map container -->
-							<div bind:this={mapEl} class="h-64 w-full"></div>
+						<div class="map-container mt-3">
+							<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
 						</div>
 					{/if}
 				</div>
 			{/if}
 		</section>
 	{/if}
-
-	<!-- Instagram gallery/embeds removed per request -->
 </div>
+
+<style>
+	/* ── Identity card ── */
+	.identity-card {
+		background: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		animation: card-in 380ms ease both;
+	}
+
+	.identity-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.contact-icon-btn {
+		color: color-mix(in oklab, var(--color-surface-900) 30%, var(--color-surface-100) 70%);
+	}
+	.contact-icon-btn:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		color: var(--color-primary-400);
+	}
+	:global(.dark) .contact-icon-btn {
+		color: color-mix(in oklab, var(--color-surface-200) 80%, transparent);
+	}
+
+	/* ── Claim panel ── */
+	.claim-panel {
+		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-900) 90%);
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 30%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 40ms;
+	}
+
+	.claim-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 80% 60% at 100% 0%,
+			color-mix(in oklab, var(--color-warning-500) 20%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.claim-icon-ring {
+		background: color-mix(in oklab, var(--color-warning-500) 18%, var(--color-surface-800) 82%);
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 35%, transparent);
+	}
+
+	/* ── Volunteer panel ── */
+	.volunteer-panel {
+		background: color-mix(in oklab, var(--color-tertiary-500) 8%, var(--color-surface-900) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 22%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 80ms;
+	}
+
+	.volunteer-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 0% 100%,
+			color-mix(in oklab, var(--color-tertiary-500) 14%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.volunteer-event-card {
+		background: color-mix(in oklab, var(--color-surface-800) 80%, var(--color-tertiary-500) 5%);
+		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 60ms);
+	}
+
+	.volunteer-event-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
+	}
+
+	/* ── Details card ── */
+	.details-card {
+		background: color-mix(in oklab, var(--color-surface-900) 96%, var(--color-secondary-500) 4%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 120ms;
+	}
+
+	.details-accent-bar {
+		height: 2px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.5;
+		border-radius: 2px;
+	}
+
+	.detail-item {
+		padding: 0.875rem;
+		border-radius: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	.detail-label {
+		font-size: 0.65rem;
+		font-weight: 600;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		opacity: 0.55;
+		margin-bottom: 0.375rem;
+	}
+
+	.map-container {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-radius: 0.875rem;
+		overflow: hidden;
+	}
+
+	/* ── Auth notice ── */
+	.auth-notice {
+		animation: card-in 320ms ease both;
+	}
+
+	/* ── Card entrance ── */
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(14px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
