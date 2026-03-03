@@ -21,7 +21,9 @@
 		articles.filter((article) => {
 			const query = search.trim().toLowerCase();
 			const matchesCategory = category === 'all' || article.category_name === category;
-			const haystack = [article.title, article.summary, article.category_name].filter(Boolean).join(' ');
+			const haystack = [article.title, article.summary, article.category_name]
+				.filter(Boolean)
+				.join(' ');
 			const matchesSearch = !query || haystack.toLowerCase().includes(query);
 			return matchesCategory && matchesSearch;
 		})
@@ -46,7 +48,9 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
-	<section class="learn-hero relative overflow-hidden rounded-[2rem] border border-primary-500/20 bg-surface-950/60 p-6 shadow-2xl lg:p-10">
+	<section
+		class="learn-hero border-primary-500/20 bg-surface-950/60 relative overflow-hidden rounded-[2rem] border p-6 shadow-2xl lg:p-10"
+	>
 		<div class="learn-hero-orb learn-hero-orb-a"></div>
 		<div class="learn-hero-orb learn-hero-orb-b"></div>
 		<div class="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_22rem]">
@@ -56,7 +60,7 @@
 						<IconBookOpen class="h-4 w-4" />
 						Learn
 					</span>
-					<span class="chip preset-tonal-secondary">Supabase-backed wiki</span>
+					<span class="chip preset-tonal-secondary">Wiki</span>
 					<span class="chip preset-tonal-tertiary">
 						<IconSparkles class="h-3.5 w-3.5" />
 						Community edited
@@ -87,15 +91,15 @@
 			</div>
 
 			<div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-				<div class="rounded-[1.5rem] border border-surface-500/20 bg-surface-900/55 p-5">
+				<div class="border-surface-500/20 bg-surface-900/55 rounded-[1.5rem] border p-5">
 					<p class="label">Articles</p>
 					<p class="mt-2 text-3xl font-black">{articles.length}</p>
 				</div>
-				<div class="rounded-[1.5rem] border border-surface-500/20 bg-surface-900/55 p-5">
+				<div class="border-surface-500/20 bg-surface-900/55 rounded-[1.5rem] border p-5">
 					<p class="label">Categories</p>
 					<p class="mt-2 text-3xl font-black">{categories.length}</p>
 				</div>
-				<div class="rounded-[1.5rem] border border-surface-500/20 bg-surface-900/55 p-5">
+				<div class="border-surface-500/20 bg-surface-900/55 rounded-[1.5rem] border p-5">
 					<p class="label">Collaboration</p>
 					<div class="mt-3 flex items-center gap-2 text-sm opacity-80">
 						<IconHistory class="h-4 w-4" />
@@ -112,7 +116,7 @@
 
 	<section
 		id="library"
-		class="rounded-[2rem] border border-surface-500/20 bg-surface-950/45 p-5 shadow-xl lg:p-6"
+		class="border-surface-500/20 bg-surface-950/45 rounded-[2rem] border p-5 shadow-xl lg:p-6"
 	>
 		<div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 			<div class="space-y-1">
@@ -144,7 +148,7 @@
 		<div class="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
 			{#each filteredArticles as article}
 				<a
-					class="group flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-surface-500/20 bg-surface-900/60 transition hover:-translate-y-1 hover:border-primary-500/30 hover:shadow-2xl"
+					class="group border-surface-500/20 bg-surface-900/60 hover:border-primary-500/30 flex h-full flex-col overflow-hidden rounded-[1.75rem] border transition hover:-translate-y-1 hover:shadow-2xl"
 					href={`/learn/${article.slug}`}
 				>
 					{#if article.cover_image_url}
@@ -189,7 +193,7 @@
 		</div>
 
 		{#if !filteredArticles.length}
-			<div class="mt-8 rounded-[1.5rem] border border-dashed border-surface-500/30 p-8 text-center">
+			<div class="border-surface-500/30 mt-8 rounded-[1.5rem] border border-dashed p-8 text-center">
 				<p class="text-lg font-semibold">No articles match that filter.</p>
 				<p class="mt-2 opacity-70">Try a different category or create a new guide.</p>
 			</div>
