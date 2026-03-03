@@ -30,6 +30,8 @@ const BIKE_CATEGORY_MAP = new Map([
 
 const LEGACY_TITLE_PREFIX_RE =
 	/^[A-Z]{2,6}\s*(?:-\s*)?\((?=[^)]*(?:weekly|monthly|daily|bi[- ]?monthly|bimonthly|every other))[^)]*\)\s*:?\s*/i;
+const TITLE_FORMATTING_PREFIX_RE =
+	/^(?:[A-Z]{2,6}\s*:\s*\((?:[^)]*)\)\s*|[A-Z]{2,6}\s*-\s*)/i;
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -222,10 +224,14 @@ function hasLegacyTitlePrefix(title) {
 	return LEGACY_TITLE_PREFIX_RE.test(safeTrim(title));
 }
 
+function normalizeImportedTitle(title) {
+	return safeTrim(title).replace(TITLE_FORMATTING_PREFIX_RE, '').trim();
+}
+
 function extractLocationName(event) {
 	const primaryLink = pickPrimaryLink(event);
 	if (primaryLink?.text) return safeTrim(primaryLink.text);
-	const cleanedTitle = safeTrim(event.title).replace(LEGACY_TITLE_PREFIX_RE, '');
+	const cleanedTitle = normalizeImportedTitle(safeTrim(event.title).replace(LEGACY_TITLE_PREFIX_RE, ''));
 	return cleanedTitle || safeTrim(event.location) || 'Ride start';
 }
 
@@ -427,8 +433,9 @@ async function uploadEventImage(supabase, event) {
 async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
 	const timezone = safeTrim(event.timezone) || DEFAULT_TIMEZONE;
 	const traits = deriveRideTraits(event);
-	const title = safeTrim(event.title);
-	if (hasLegacyTitlePrefix(title)) return null;
+	const rawTitle = safeTrim(event.title);
+	if (hasLegacyTitlePrefix(rawTitle)) return null;
+	const title = normalizeImportedTitle(rawTitle);
 	let startsAt;
 	let endsAt;
 	try {
