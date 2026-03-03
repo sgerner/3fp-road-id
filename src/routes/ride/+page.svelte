@@ -244,8 +244,8 @@
 					<h1
 						class="ride-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
 					>
-						Find your next ride.<br />
-						<span class="ride-headline-accent">Post the ones you're talking about.</span>
+						Find your ride.<br />
+						<span class="ride-headline-accent">Share rides you love.</span>
 					</h1>
 					<p class="max-w-xl text-base leading-relaxed opacity-75">
 						Browse community rides, recurring series, and group-hosted events in one place. If a
