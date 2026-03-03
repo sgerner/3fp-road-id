@@ -327,48 +327,58 @@
 	});
 </script>
 
-<div class="mx-auto w-full max-w-3xl space-y-6">
-	<header class="space-y-2">
-		<h1 class="text-3xl font-bold">Add a Cycling Group</h1>
-		<p class="text-surface-600-400 text-center">
-			Share local bike clubs, teams, and advocacy orgs.
-		</p>
+<div class="new-group-page mx-auto w-full max-w-3xl space-y-5 pb-10">
+	<!-- ── Cinematic header ── -->
+	<header class="new-header relative overflow-hidden rounded-2xl px-6 py-8">
+		<div class="new-orb new-orb-1" aria-hidden="true"></div>
+		<div class="new-orb new-orb-2" aria-hidden="true"></div>
+		<div class="relative z-10 text-center">
+			<h1 class="text-3xl font-extrabold tracking-tight md:text-4xl">Add a Cycling Group</h1>
+			<p class="text-secondary-200-800 mt-2 text-sm opacity-80">
+				Share local bike clubs, teams, and advocacy orgs with the community.
+			</p>
+		</div>
 	</header>
 
-	<!-- Optional AI assist section -->
+	<!-- ── Optional AI assist ── -->
 	<section
-		class="card border-primary-700-300 bg-surface-50-950 card-hover ai-panel border p-4 {aiLoading
+		class="new-card new-ai-card relative overflow-hidden rounded-2xl p-5 {aiLoading
 			? 'is-loading'
 			: ''}"
 	>
-		<h2 class="h5 mb-2 text-center">Optional: Let AI Help Fill Details</h2>
-		<p class="text-surface-600-400 mb-3 text-center text-sm">
-			Provide any of the following and we’ll suggest fields. Nothing is saved until you submit.
+		<div class="new-card-accent-bar ai" aria-hidden="true"></div>
+		<div class="mb-3 flex items-center gap-2">
+			<span class="text-lg">✨</span>
+			<h2 class="text-sm font-bold tracking-widest uppercase opacity-70">Optional: AI Autofill</h2>
+		</div>
+		<p class="text-surface-400-600 mb-4 text-sm">
+			Give us your Instagram, Facebook group name, or website and we'll pre-fill the form. Nothing
+			is saved until you submit.
 		</p>
-		<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-			<div class="flex flex-col">
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+			<div class="flex flex-col gap-1">
 				<label class="label" for="aiInstagram">Instagram Username</label>
 				<input
 					id="aiInstagram"
-					class="input bg-primary-50-950/30"
+					class="input preset-tonal-surface"
 					bind:value={aiInstagram}
 					placeholder="e.g. bikeclub"
 				/>
 			</div>
-			<div class="flex flex-col">
+			<div class="flex flex-col gap-1">
 				<label class="label" for="aiFacebook">Facebook Group Name</label>
 				<input
 					id="aiFacebook"
-					class="input bg-primary-50-950/30"
+					class="input preset-tonal-surface"
 					bind:value={aiFacebook}
 					placeholder="e.g. mybikegroup"
 				/>
 			</div>
-			<div class="flex flex-col">
+			<div class="flex flex-col gap-1">
 				<label class="label" for="aiWebsite">Website</label>
 				<input
 					id="aiWebsite"
-					class="input bg-primary-50-950/30"
+					class="input preset-tonal-surface"
 					bind:value={aiWebsite}
 					placeholder="https://example.org"
 				/>
@@ -377,132 +387,159 @@
 		{#if aiError}
 			<p class="text-error-600-400 mt-2 text-sm">{aiError}</p>
 		{/if}
-		<div class="mt-3 flex items-center justify-end gap-3">
+		<div class="mt-4 flex items-center justify-end gap-3">
 			{#if aiLoading}
 				<Progress value={null} class="w-32" />
 			{/if}
 			<button
-				class="btn {aiLoading ? 'animate-pulse' : ''} preset-outlined-primary-500"
+				class="btn preset-outlined-primary-500 {aiLoading ? 'animate-pulse' : ''}"
 				type="button"
 				onclick={suggestFromAI}
 				disabled={aiLoading}
 			>
-				{aiLoading ? 'Working…' : 'Autofill'}
+				{aiLoading ? 'Working…' : '✨ Autofill'}
 			</button>
 		</div>
 	</section>
 
-	<section class="card border-primary-700-300 bg-surface-50-950 card-hover border p-4">
-		<form method="POST" class="grid grid-cols-1 gap-4">
-			<!-- Hidden AI-suggested fields to submit silently -->
-			<input type="hidden" name="suggested_website_url" value={hiddenSuggestedWebsite} />
-			<input
-				type="hidden"
-				id="membership_info"
-				name="membership_info"
-				value={hiddenMembershipInfo}
-			/>
-			<input
-				type="hidden"
-				id="specific_meeting_point_address"
-				name="specific_meeting_point_address"
-				value={hiddenMeetingAddress}
-			/>
-			<input type="hidden" id="latitude" name="latitude" value={hiddenLat} />
-			<input type="hidden" id="longitude" name="longitude" value={hiddenLng} />
-			<input
-				type="hidden"
-				id="service_area_description"
-				name="service_area_description"
-				value={hiddenServiceArea}
-			/>
+	<form method="POST" class="space-y-5">
+		<!-- Hidden AI-suggested fields -->
+		<input type="hidden" name="suggested_website_url" value={hiddenSuggestedWebsite} />
+		<input type="hidden" id="membership_info" name="membership_info" value={hiddenMembershipInfo} />
+		<input
+			type="hidden"
+			id="specific_meeting_point_address"
+			name="specific_meeting_point_address"
+			value={hiddenMeetingAddress}
+		/>
+		<input type="hidden" id="latitude" name="latitude" value={hiddenLat} />
+		<input type="hidden" id="longitude" name="longitude" value={hiddenLng} />
+		<input
+			type="hidden"
+			id="service_area_description"
+			name="service_area_description"
+			value={hiddenServiceArea}
+		/>
+		<input
+			type="hidden"
+			id="activity_frequency"
+			name="activity_frequency"
+			value={hiddenActivityFrequency}
+		/>
+		<input
+			type="hidden"
+			id="typical_activity_day_time"
+			name="typical_activity_day_time"
+			value={hiddenTypicalTime}
+		/>
+		<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
+		<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
+		<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
 
-			<input
-				type="hidden"
-				id="activity_frequency"
-				name="activity_frequency"
-				value={hiddenActivityFrequency}
-			/>
-			<input
-				type="hidden"
-				id="typical_activity_day_time"
-				name="typical_activity_day_time"
-				value={hiddenTypicalTime}
-			/>
-			<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
-			<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
-			<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
-					<label class="label" for="name">Group Name * Required</label>
-					<input
-						id="name"
-						name="name"
-						class="input bg-primary-50-950/30"
-						required
-						bind:value={name}
-						oninput={(e) => {
-							if (!handleTouched) handle = slugify(e.target.value);
-						}}
-					/>
-				</div>
-				<div class="flex flex-col">
-					<label class="label" for="handle">Group URL</label>
-					<input
-						id="handle"
-						name="slug"
-						class="input bg-primary-50-950/30"
-						bind:value={handle}
-						oninput={(e) => {
-							handleTouched = true;
-							handle = slugify(e.target.value);
-						}}
-						autocomplete="off"
-					/>
-					<div class="mt-1 flex items-center justify-between">
-						<p class="text-surface-600-400 text-xs">
-							Your page will be at <code>/groups/{handle || 'your-group'}</code>
-						</p>
-						{#if handleStatus === 'checking'}
-							<span class="text-surface-600-400 text-xs">Checking…</span>
-						{:else if handleStatus === 'available'}
-							<span class="text-success-600-400 text-xs">Available</span>
-						{:else if handleStatus === 'taken'}
-							<span class="text-error-600-400 text-xs">Already taken</span>
-						{:else if handleStatus === 'invalid'}
-							<span class="text-warning-600-400 text-xs">Use 3+ letters/numbers</span>
-						{/if}
+		<!-- ── Identity ── -->
+		<section class="new-card relative overflow-hidden rounded-2xl p-5">
+			<div class="new-card-accent-bar primary" aria-hidden="true"></div>
+			<h2 class="new-section-title">Identity</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div class="flex flex-col gap-1">
+						<label class="label" for="name">
+							Group Name <span class="text-error-400">*</span>
+						</label>
+						<input
+							id="name"
+							name="name"
+							class="input preset-tonal-surface"
+							required
+							bind:value={name}
+							oninput={(e) => {
+								if (!handleTouched) handle = slugify(e.target.value);
+							}}
+						/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="label" for="handle">Group URL</label>
+						<input
+							id="handle"
+							name="slug"
+							class="input preset-tonal-surface"
+							bind:value={handle}
+							oninput={(e) => {
+								handleTouched = true;
+								handle = slugify(e.target.value);
+							}}
+							autocomplete="off"
+						/>
+						<div class="flex items-center justify-between">
+							<p class="text-surface-600-400 text-xs">
+								/groups/<code>{handle || 'your-group'}</code>
+							</p>
+							{#if handleStatus === 'checking'}
+								<span class="text-surface-500 text-xs">Checking…</span>
+							{:else if handleStatus === 'available'}
+								<span class="text-success-500 text-xs font-semibold">✓ Available</span>
+							{:else if handleStatus === 'taken'}
+								<span class="text-error-500 text-xs font-semibold">✗ Already taken</span>
+							{:else if handleStatus === 'invalid'}
+								<span class="text-warning-500 text-xs">Use 3+ letters/numbers</span>
+							{/if}
+						</div>
 					</div>
 				</div>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="tagline">Tagline</label>
+					<input
+						id="tagline"
+						name="tagline"
+						class="input preset-tonal-surface"
+						placeholder="A short, punchy description of your group"
+					/>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="description">Description</label>
+					<textarea
+						id="description"
+						name="description"
+						class="textarea preset-tonal-surface"
+						rows="4"
+					></textarea>
+				</div>
 			</div>
+		</section>
 
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-				<div class="flex flex-col">
+		<!-- ── Location ── -->
+		<section class="new-card relative overflow-hidden rounded-2xl p-5">
+			<div class="new-card-accent-bar secondary" aria-hidden="true"></div>
+			<h2 class="new-section-title">Location</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="city">City</label>
 					<input
 						id="city"
 						name="city"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						placeholder="Leave blank if statewide"
 						bind:value={city}
 					/>
 				</div>
-				<div class="flex flex-col">
-					<label class="label" for="state_region">State/Region * Required</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="state_region"
+						>State / Region <span class="text-error-400">*</span></label
+					>
 					<input
 						id="state_region"
 						name="state_region"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						required
 						bind:value={stateRegion}
 					/>
 				</div>
-				<div class="flex flex-col">
-					<label class="label" for="country">Country * Required</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="country">Country <span class="text-error-400">*</span></label>
 					<select
 						id="country"
 						name="country"
-						class="select bg-primary-50-950/30"
+						class="select preset-tonal-surface"
 						required
 						bind:value={country}
 					>
@@ -516,96 +553,96 @@
 					</select>
 				</div>
 			</div>
+		</section>
 
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-				<div class="flex flex-col">
-					<label class="label" for="tagline">Tagline</label>
-					<input id="tagline" name="tagline" class="input bg-primary-50-950/30" />
-				</div>
-				<div class="flex flex-col">
+		<!-- ── Contact ── -->
+		<section class="new-card relative overflow-hidden rounded-2xl p-5">
+			<div class="new-card-accent-bar tertiary" aria-hidden="true"></div>
+			<h2 class="new-section-title">Contact</h2>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="website_url">Website</label>
 					<input
 						id="website_url"
 						name="website_url"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						placeholder="https://example.org"
 					/>
 				</div>
-			</div>
-
-			<div class="flex flex-col">
-				<label class="label" for="description">Description</label>
-				<textarea id="description" name="description" class="textarea bg-primary-50-950/30" rows="4"
-				></textarea>
-			</div>
-
-			<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-				<div class="flex flex-col">
-					<label class="label" for="public_contact_email">Public Contact Email</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="public_contact_email">Public Email</label>
 					<input
 						id="public_contact_email"
 						name="public_contact_email"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 					/>
 				</div>
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-1">
 					<label class="label" for="public_phone_number">Public Phone</label>
 					<input
 						id="public_phone_number"
 						name="public_phone_number"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 					/>
 				</div>
-				<div class="flex flex-col">
-					<label class="label" for="preferred_contact_method_instructions">Preferred Contact</label>
+				<div class="flex flex-col gap-1">
+					<label class="label" for="preferred_contact_method_instructions"
+						>Preferred Contact Method</label
+					>
 					<input
 						id="preferred_contact_method_instructions"
 						name="preferred_contact_method_instructions"
-						class="input bg-primary-50-950/30"
+						class="input preset-tonal-surface"
 						placeholder="Best way to reach you"
 					/>
 				</div>
+				<div class="flex flex-col gap-1 md:col-span-2">
+					<label class="label" for="how_to_join_instructions">How to Join</label>
+					<textarea
+						id="how_to_join_instructions"
+						name="how_to_join_instructions"
+						class="textarea preset-tonal-surface"
+						rows="3"
+					></textarea>
+				</div>
 			</div>
+		</section>
 
-			<div class="flex flex-col">
-				<label class="label" for="how_to_join_instructions">How to Join</label>
-				<textarea
-					id="how_to_join_instructions"
-					name="how_to_join_instructions"
-					class="textarea bg-primary-50-950/30"
-					rows="3"
-				></textarea>
-			</div>
-
-			<!-- Many-to-many selections -->
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Group Types</div>
-					<div class="mt-2 flex flex-col gap-2">
+		<!-- ── Categories ── -->
+		<section class="new-card relative overflow-hidden rounded-2xl p-5">
+			<div class="new-card-accent-bar primary" aria-hidden="true"></div>
+			<h2 class="new-section-title">Categories & Tags</h2>
+			<p class="text-surface-500 mt-1 mb-4 text-xs">
+				Select all that apply — you can update these later.
+			</p>
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+				<div class="new-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Group Types</div>
+					<div class="flex flex-col gap-2">
 						{#each data.group_types as gt}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input type="checkbox" name="group_type_ids" value={gt.id} class="checkbox" />
 								<span>{gt.name}</span>
 							</label>
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Audience Focus</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="new-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Audience Focus</div>
+					<div class="flex flex-col gap-2">
 						{#each data.audience_focuses as af}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input type="checkbox" name="audience_focus_ids" value={af.id} class="checkbox" />
 								<span>{af.name}</span>
 							</label>
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Riding Disciplines</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="new-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Riding Disciplines</div>
+					<div class="flex flex-col gap-2">
 						{#each data.riding_disciplines as rd}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input
 									type="checkbox"
 									name="riding_discipline_ids"
@@ -617,11 +654,11 @@
 						{/each}
 					</div>
 				</div>
-				<div class="card bg-surface-100-900 p-3">
-					<div class="font-semibold">Skill Levels</div>
-					<div class="mt-2 flex flex-col gap-2">
+				<div class="new-check-card rounded-xl p-3">
+					<div class="mb-2 text-sm font-semibold">Skill Levels</div>
+					<div class="flex flex-col gap-2">
 						{#each data.skill_levels as sl}
-							<label class="flex items-center gap-2">
+							<label class="flex items-center gap-2 text-sm">
 								<input type="checkbox" name="skill_level_ids" value={sl.id} class="checkbox" />
 								<span>{sl.name}</span>
 							</label>
@@ -629,10 +666,117 @@
 					</div>
 				</div>
 			</div>
+		</section>
 
-			<div class="mt-2 flex justify-end">
-				<button class="btn preset-filled-primary-500">Create Group</button>
-			</div>
-		</form>
-	</section>
+		<!-- ── Submit ── -->
+		<div class="flex justify-end">
+			<button
+				class="btn preset-filled-primary-500 px-8 py-3 text-base font-bold shadow-lg transition-transform hover:scale-105"
+			>
+				Create Group →
+			</button>
+		</div>
+	</form>
 </div>
+
+<style>
+	/* ── Page header ── */
+	.new-header {
+		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+	}
+	.new-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(60px);
+		pointer-events: none;
+	}
+	.new-orb-1 {
+		width: 55%;
+		height: 220%;
+		top: -70%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+	.new-orb-2 {
+		width: 40%;
+		height: 180%;
+		top: -50%;
+		right: -5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: orb-drift 22s ease-in-out infinite alternate-reverse;
+	}
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 8%) scale(1.09);
+		}
+	}
+
+	/* ── Section cards ── */
+	.new-card {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+		animation: card-in 360ms ease both;
+	}
+	.new-ai-card {
+		background: color-mix(
+			in oklab,
+			var(--color-primary-950, var(--color-surface-950)) 92%,
+			var(--color-primary-500) 8%
+		);
+	}
+	.new-card-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		border-radius: 2rem 2rem 0 0;
+	}
+	.new-card-accent-bar.primary {
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
+		opacity: 0.75;
+	}
+	.new-card-accent-bar.secondary {
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.75;
+	}
+	.new-card-accent-bar.tertiary {
+		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
+		opacity: 0.65;
+	}
+	.new-card-accent-bar.ai {
+		background: linear-gradient(90deg, #a855f7, #3b82f6, #06b6d4);
+		opacity: 0.8;
+	}
+
+	.new-section-title {
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		opacity: 0.55;
+	}
+
+	/* ── Check sub-cards ── */
+	.new-check-card {
+		background: color-mix(in oklab, var(--color-surface-950) 55%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+	}
+
+	/* ── Card entrance ── */
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
