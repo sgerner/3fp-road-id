@@ -131,6 +131,10 @@
 		return bits;
 	}
 
+	function leadImage(ride) {
+		return ride?.imageUrls?.[0] ?? null;
+	}
+
 	// Discipline → accent color map
 	const disciplineColor = {
 		Road: 'preset-tonal-primary',
@@ -394,6 +398,16 @@
 							href={`/ride/${ride.slug}`}
 							style="--stagger: {i}"
 						>
+							{#if leadImage(ride)}
+								<div class="-m-5 mb-0 overflow-hidden rounded-t-[inherit]">
+									<img
+										src={leadImage(ride)}
+										alt={ride.title}
+										class="featured-card-image h-40 w-full object-cover"
+										loading="lazy"
+									/>
+								</div>
+							{/if}
 							<div class="flex flex-wrap gap-2">
 								<span class="featured-time-chip chip preset-tonal-surface text-xs">
 									{formatFeaturedNext(ride)}
@@ -747,6 +761,11 @@
 		white-space: normal;
 		line-height: 1.2;
 		font-size: 0.7rem;
+	}
+
+	.featured-card-image {
+		display: block;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
 	}
 
 	/* ── Claim panel ── */

@@ -14,6 +14,8 @@
 	const ride = $derived.by(() => data?.ride ?? null);
 	const activity = $derived.by(() => ride?.activity ?? null);
 	const rideDetails = $derived.by(() => ride?.rideDetails ?? {});
+	const rideImages = $derived.by(() => rideDetails?.image_urls ?? []);
+	const leadRideImage = $derived.by(() => rideImages[0] ?? null);
 	const occurrences = $derived.by(() => ride?.occurrences ?? []);
 	let rsvpLoadingId = $state('');
 	let rsvpError = $state('');
@@ -163,6 +165,15 @@
 				{#if activity?.summary}
 					<p class="max-w-3xl text-base leading-relaxed opacity-80">{activity.summary}</p>
 				{/if}
+				{#if leadRideImage}
+					<div class="ride-hero-image-frame mt-2 max-w-3xl overflow-hidden rounded-2xl border border-white/15">
+						<img
+							src={leadRideImage}
+							alt={activity?.title || 'Ride image'}
+							class="ride-hero-image h-64 w-full object-cover"
+						/>
+					</div>
+				{/if}
 			</div>
 			<div class="flex shrink-0 flex-wrap gap-3">
 				{#if canManage}
@@ -213,6 +224,30 @@
 			</div>
 		{/if}
 	</section>
+
+	{#if rideImages.length > 1}
+		<section class="card preset-tonal-surface p-5">
+			<div class="mb-4 flex items-center justify-between gap-3">
+				<div>
+					<div class="text-sm tracking-[0.18em] uppercase opacity-60">Photos</div>
+					<div class="mt-1 text-lg font-semibold">Route and ride vibe</div>
+				</div>
+				<div class="text-sm opacity-65">{rideImages.length} images</div>
+			</div>
+			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+				{#each rideImages.slice(1) as imageUrl, index (imageUrl)}
+					<div class="overflow-hidden rounded-2xl border border-surface-500/15">
+						<img
+							src={imageUrl}
+							alt={`${activity?.title || 'Ride'} photo ${index + 2}`}
+							class="h-56 w-full object-cover"
+							loading="lazy"
+						/>
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	{#if !activity?.host_user_id && !activity?.host_group_id}
 		<section class="card preset-tonal-warning p-5">
@@ -478,5 +513,13 @@
 	.ride-headline {
 		color: var(--color-primary-50);
 		text-align: left;
+	}
+
+	.ride-hero-image-frame {
+		box-shadow: 0 20px 48px -28px rgba(0, 0, 0, 0.55);
+	}
+
+	.ride-hero-image {
+		display: block;
 	}
 </style>

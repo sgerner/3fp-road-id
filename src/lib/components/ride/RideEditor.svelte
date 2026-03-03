@@ -110,6 +110,7 @@
 			contactEmail: activity.contact_email || '',
 			contactPhone: activity.contact_phone || '',
 			hostGroupId: activity.host_group_id || '',
+			imageUrls: rideDetails.image_urls ?? [],
 			participantVisibility: rideDetails.participant_visibility || 'public',
 			estimatedDistanceMiles: rideDetails.estimated_distance_miles ?? '',
 			estimatedDurationMinutes: rideDetails.estimated_duration_minutes ?? '',
@@ -169,6 +170,7 @@
 			contactEmail: form.contactEmail,
 			contactPhone: form.contactPhone,
 			hostGroupId: form.hostGroupId || null,
+			imageUrls: form.imageUrls,
 			participantVisibility: form.participantVisibility,
 			estimatedDistanceMiles: form.estimatedDistanceMiles,
 			estimatedDurationMinutes: form.estimatedDurationMinutes,
@@ -487,6 +489,56 @@
 		}
 	}
 
+	async function uploadImages(files) {
+		if (!files?.length) return;
+		imageUploadError = '';
+		imageUploading = true;
+		try {
+			const remainingSlots = Math.max(0, 6 - form.imageUrls.length);
+			if (!remainingSlots) {
+				throw new Error('You can attach up to 6 images per ride.');
+			}
+
+			const selectedFiles = Array.from(files).slice(0, remainingSlots);
+			const formData = new FormData();
+			for (const file of selectedFiles) {
+				formData.append('files', file);
+			}
+
+			const response = await fetch('/api/rides/images', {
+				method: 'POST',
+				body: formData
+			});
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(result?.error || 'Unable to upload images.');
+
+			const urls = (result?.files ?? []).map((file) => file?.url).filter(Boolean);
+			form = {
+				...form,
+				imageUrls: [...form.imageUrls, ...urls].slice(0, 6)
+			};
+		} catch (error) {
+			imageUploadError = error.message || 'Unable to upload images.';
+		} finally {
+			imageUploading = false;
+		}
+	}
+
+	function removeImage(index) {
+		form = {
+			...form,
+			imageUrls: form.imageUrls.filter((_, imageIndex) => imageIndex !== index)
+		};
+	}
+
+	function promoteImage(index) {
+		if (index <= 0 || index >= form.imageUrls.length) return;
+		const nextImages = [...form.imageUrls];
+		const [selected] = nextImages.splice(index, 1);
+		nextImages.unshift(selected);
+		form = { ...form, imageUrls: nextImages };
+	}
+
 	async function sendAiPrompt() {
 		if (!aiPrompt.trim()) return;
 		aiError = '';
@@ -666,6 +718,8 @@
 	let saving = $state(false);
 	let saveError = $state('');
 	let saveSuccess = $state('');
+	let imageUploading = $state(false);
+	let imageUploadError = $state('');
 	let geocodeLoading = $state('');
 	let geocodeError = $state('');
 	let aiMessages = $state([
@@ -1012,6 +1066,81 @@
 							</select>
 						</label>
 					</div>
+				</div>
+			</section>
+
+			<section class="editor-section card preset-tonal-surface">
+				<div class="editor-section-header">
+					<div class="editor-section-icon"><IconPlus class="h-4 w-4" /></div>
+					<h2 class="editor-section-title">Images</h2>
+				</div>
+				<div class="p-5 pt-4 space-y-4">
+					<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+						<div class="space-y-1">
+							<p class="font-medium">Attach up to 6 ride photos</p>
+							<p class="text-sm opacity-70">
+								The first image becomes the lead photo on the ride page. Featured cards on
+								`/ride` only show that lead image so the directory stays readable.
+							</p>
+						</div>
+						<label class="btn preset-outlined-primary-500 cursor-pointer gap-2">
+							<input
+								type="file"
+								class="hidden"
+								accept="image/jpeg,image/png,image/webp,image/gif"
+								multiple
+								disabled={!currentUser || imageUploading || form.imageUrls.length >= 6}
+								onchange={(event) => {
+									void uploadImages(event.currentTarget.files);
+									event.currentTarget.value = '';
+								}}
+							/>
+							{imageUploading ? 'Uploading…' : 'Add images'}
+						</label>
+					</div>
+					{#if imageUploadError}
+						<div class="card preset-tonal-warning p-3 text-sm">{imageUploadError}</div>
+					{/if}
+					{#if form.imageUrls.length}
+						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+							{#each form.imageUrls as imageUrl, index (imageUrl)}
+								<div class="ride-image-card overflow-hidden rounded-2xl border border-surface-500/20">
+									<img
+										src={imageUrl}
+										alt={`Ride image ${index + 1}`}
+										class="h-44 w-full object-cover"
+									/>
+									<div class="flex items-center justify-between gap-2 p-3">
+										<div class="text-sm font-medium">
+											{index === 0 ? 'Lead image' : `Image ${index + 1}`}
+										</div>
+										<div class="flex gap-2">
+											{#if index > 0}
+												<button
+													type="button"
+													class="btn btn-sm preset-outlined-secondary-500"
+													onclick={() => promoteImage(index)}
+												>
+													Use as lead
+												</button>
+											{/if}
+											<button
+												type="button"
+												class="btn btn-sm preset-outlined-error-500"
+												onclick={() => removeImage(index)}
+											>
+												<IconTrash2 class="h-3.5 w-3.5" />
+											</button>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-2xl border border-dashed border-surface-500/25 p-6 text-sm opacity-70">
+							No ride images yet.
+						</div>
+					{/if}
 				</div>
 			</section>
 

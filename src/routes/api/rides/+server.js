@@ -95,6 +95,9 @@ export async function GET({ url, cookies }) {
 			rideDetails: Array.isArray(activity.ride_details)
 				? activity.ride_details[0] ?? null
 				: activity.ride_details ?? null,
+			imageUrls: Array.isArray(activity.ride_details)
+				? (activity.ride_details[0]?.image_urls ?? [])
+				: (activity.ride_details?.image_urls ?? []),
 			difficultyLevels: (activity.difficulty_links ?? [])
 				.map((entry) => entry?.level)
 				.filter(Boolean),

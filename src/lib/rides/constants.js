@@ -91,6 +91,7 @@ export const DEFAULT_RIDE_FORM = {
 	contactEmail: '',
 	contactPhone: '',
 	hostGroupId: '',
+	imageUrls: [],
 	participantVisibility: 'public',
 	estimatedDistanceMiles: '',
 	estimatedDurationMinutes: '',

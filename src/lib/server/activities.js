@@ -48,6 +48,14 @@ function asArray(value) {
 	return Array.isArray(value) ? value : [];
 }
 
+function normalizeUrlList(value) {
+	return uniq(
+		asArray(value)
+			.map((entry) => safeTrim(entry))
+			.filter((entry) => /^https?:\/\//i.test(entry))
+	);
+}
+
 function toIso(value) {
 	if (!value) return null;
 	const date = value instanceof Date ? value : new Date(value);
@@ -230,6 +238,7 @@ export function normalizeRidePayload(payload = {}) {
 			host_group_id: safeTrim(payload.hostGroupId ?? payload.host_group_id) || null
 		},
 		ride: {
+			image_urls: normalizeUrlList(payload.imageUrls ?? payload.image_urls),
 			participant_visibility:
 				safeTrim(payload.participantVisibility ?? payload.participant_visibility) || 'public',
 			end_location_name: safeTrim(payload.endLocationName ?? payload.end_location_name) || null,
