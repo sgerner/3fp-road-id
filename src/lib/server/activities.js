@@ -53,6 +53,10 @@ function toIso(value) {
 	return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function normalizeOccurrenceStartKey(value) {
+	return toIso(value) || safeTrim(value);
+}
+
 function toNumber(value) {
 	if (typeof value === 'number' && Number.isFinite(value)) return value;
 	if (typeof value === 'string' && value.trim()) {
@@ -153,6 +157,15 @@ export function getActivityClient(cookies) {
 
 export function getActivityServiceClient() {
 	return createServiceSupabaseClient();
+}
+
+export async function canManageActivity(supabase, activityEventId) {
+	if (!activityEventId) return false;
+	const { data, error } = await supabase.rpc('can_manage_activity', {
+		target_activity_event_id: activityEventId
+	});
+	if (error) throw error;
+	return Boolean(data);
 }
 
 export async function ensureUniqueActivitySlug(supabase, source, excludeId = null) {
@@ -435,17 +448,17 @@ export async function syncActivityOccurrences(supabase, activityEventId, schedul
 	const manualByStart = new Map(
 		existing
 			.filter((row) => row.status !== 'cancelled' && row.is_generated === false)
-			.map((row) => [safeTrim(row.starts_at), row])
+			.map((row) => [normalizeOccurrenceStartKey(row.starts_at), row])
 	);
 	const generatedByStart = new Map(
 		existing
 			.filter((row) => row.is_generated !== false)
-			.map((row) => [safeTrim(row.starts_at), row])
+			.map((row) => [normalizeOccurrenceStartKey(row.starts_at), row])
 	);
-	const wantedStarts = new Set(schedule.map((entry) => safeTrim(entry.starts_at)));
+	const wantedStarts = new Set(schedule.map((entry) => normalizeOccurrenceStartKey(entry.starts_at)));
 
 	for (const entry of schedule) {
-		const startKey = safeTrim(entry.starts_at);
+		const startKey = normalizeOccurrenceStartKey(entry.starts_at);
 		if (!startKey) continue;
 		if (manualByStart.has(startKey)) continue;
 		const existingGenerated = generatedByStart.get(startKey);
@@ -470,7 +483,7 @@ export async function syncActivityOccurrences(supabase, activityEventId, schedul
 	}
 
 	for (const row of existing) {
-		const startKey = safeTrim(row.starts_at);
+		const startKey = normalizeOccurrenceStartKey(row.starts_at);
 		if (!row.is_generated) continue;
 		if (wantedStarts.has(startKey)) continue;
 		const { error } = await supabase

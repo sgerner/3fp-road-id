@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { getActivityClient, loadRideBySlug } from '$lib/server/activities';
+import { canManageActivity, getActivityClient, loadRideBySlug } from '$lib/server/activities';
 
 export const load = async ({ params, cookies }) => {
 	const { supabase, user } = getActivityClient(cookies);
@@ -11,10 +11,10 @@ export const load = async ({ params, cookies }) => {
 
 	let canManage = false;
 	if (user?.id) {
-		const { data } = await supabase.rpc('can_manage_activity', {
-			target_activity_event_id: ride.activity.id
+		canManage = await canManageActivity(supabase, ride.activity.id).catch((err) => {
+			console.error('Unable to verify ride page permissions', err);
+			return false;
 		});
-		canManage = Boolean(data);
 	}
 
 	return {

@@ -1,5 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient, refreshActivityNextOccurrence } from '$lib/server/activities';
+import {
+	canManageActivity,
+	getActivityClient,
+	refreshActivityNextOccurrence
+} from '$lib/server/activities';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
@@ -8,6 +12,12 @@ function invalid(message, status = 400) {
 export async function PUT({ params, request, cookies }) {
 	const { supabase, user } = getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
+	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
+		console.error('Unable to verify ride occurrence permissions', error);
+		return null;
+	});
+	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
+	if (!canManage) return invalid('You do not have permission to edit this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
 	if (!payload) return invalid('Invalid request body.');

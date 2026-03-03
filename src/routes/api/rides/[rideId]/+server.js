@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
 	buildOccurrenceSchedule,
+	canManageActivity,
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
@@ -36,10 +37,29 @@ export async function PUT({ params, request, cookies }) {
 		return null;
 	});
 	if (!existing) return invalid('Ride not found or unavailable.', 404);
+	const canManage = await canManageActivity(supabase, rideId).catch((error) => {
+		console.error('Unable to verify ride update permissions', error);
+		return null;
+	});
+	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
+	if (!canManage) return invalid('You do not have permission to edit this ride.', 403);
 
 	const rawPayload = await request.json().catch(() => null);
 	if (!rawPayload) return invalid('Invalid request body.');
 	const payload = normalizeRidePayload(rawPayload);
+
+	if (payload.activity.host_group_id) {
+		const { data: canManageGroup, error: manageGroupError } = await supabase.rpc('can_manage_group', {
+			target_group_id: payload.activity.host_group_id
+		});
+		if (manageGroupError) {
+			console.error('Unable to verify ride host organization permissions', manageGroupError);
+			return invalid(manageGroupError.message, 400);
+		}
+		if (!canManageGroup) {
+			return invalid('You do not have permission to host this ride under that organization.', 403);
+		}
+	}
 
 	const nowIso = new Date().toISOString();
 	const slug = await ensureUniqueActivitySlug(
@@ -165,13 +185,11 @@ export async function DELETE({ params, cookies }) {
 	});
 	if (!existing) return invalid('Ride not found or unavailable.', 404);
 
-	const { data: canManage, error: canManageError } = await supabase.rpc('can_manage_activity', {
-		target_activity_event_id: rideId
+	const canManage = await canManageActivity(supabase, rideId).catch((error) => {
+		console.error('Unable to verify ride delete permissions', error);
+		return null;
 	});
-	if (canManageError) {
-		console.error('Unable to verify ride delete permissions', canManageError);
-		return invalid(canManageError.message, 400);
-	}
+	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
 	if (!canManage) return invalid('You do not have permission to delete this ride.', 403);
 
 	const writeSupabase = getActivityServiceClient();

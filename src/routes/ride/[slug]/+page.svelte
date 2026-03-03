@@ -39,7 +39,7 @@
 	);
 	const visibleOccurrences = $derived(scheduledOccurrences.slice(0, 5));
 	const canClaim = $derived(
-		Boolean(currentUser?.id) && !canManage && !activity?.host_user_id && !activity?.host_group_id
+		Boolean(currentUser?.id) && !activity?.host_user_id && !activity?.host_group_id
 	);
 	const claimLabel = $derived(ride?.recurrenceRule ? 'Claim Ride Series' : 'Claim Ride');
 
@@ -170,6 +170,14 @@
 						class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
 						href={`/ride/${activity.slug}/manage`}>Manage ride</a
 					>
+				{:else if canClaim}
+					<button
+						class="btn preset-filled-warning-500 shadow-md transition-transform hover:scale-105"
+						onclick={claimRide}
+						disabled={claimLoading}
+					>
+						{claimLoading ? 'Claiming...' : claimLabel}
+					</button>
 				{/if}
 				{#if currentUser}
 					<button

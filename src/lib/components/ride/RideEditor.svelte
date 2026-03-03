@@ -441,7 +441,7 @@
 			const slug = result?.data?.activity?.slug;
 			saveSuccess = manageMode ? 'Ride updated.' : 'Ride created.';
 			if (slug) {
-				await goto(manageMode ? `/ride/${slug}/manage` : `/ride/${slug}`, {
+				await goto(`/ride/${slug}`, {
 					invalidateAll: true,
 					replaceState: manageMode
 				});

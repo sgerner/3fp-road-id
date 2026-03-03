@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient, loadRideById } from '$lib/server/activities';
+import { canManageActivity, getActivityClient, loadRideById } from '$lib/server/activities';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
@@ -20,6 +20,12 @@ export async function GET({ params, cookies }) {
 export async function POST({ params, request, cookies }) {
 	const { supabase, user } = getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
+	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
+		console.error('Unable to verify ride host permissions', error);
+		return null;
+	});
+	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
+	if (!canManage) return invalid('You do not have permission to manage co-hosts for this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
 	const email = String(payload?.email || '').trim().toLowerCase();
@@ -66,6 +72,12 @@ export async function POST({ params, request, cookies }) {
 export async function DELETE({ params, request, cookies }) {
 	const { supabase, user } = getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
+	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
+		console.error('Unable to verify ride host permissions', error);
+		return null;
+	});
+	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
+	if (!canManage) return invalid('You do not have permission to manage co-hosts for this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
 	if (!payload?.userId) return invalid('userId is required.');
