@@ -1,5 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
+import {
+	getAiConfigurationError,
+	isAiModelConfigured,
+	requireAiModel
+} from '$lib/server/ai/models';
 
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
@@ -171,11 +175,11 @@ function isSchemaUnsupportedError(error) {
 }
 
 async function generateRideDraft({ prompt, useSchema = true }) {
-	const { ai, model } = requireAiModel('structured_text');
+	const { client, model } = requireAiModel('structured_text');
 	const config = {};
 	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
 	config.responseMimeType = 'application/json';
-	return ai.models.generateContent({
+	return client.generateContent({
 		model: model.model,
 		contents: prompt,
 		config
@@ -204,7 +208,7 @@ function normalizeAiPayload(parsed, rawText = '') {
 
 export async function POST({ request }) {
 	if (!isAiModelConfigured('structured_text')) {
-		return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
+		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
 	}
 
 	const payload = await request.json().catch(() => null);

@@ -13,10 +13,22 @@ export const AI_CAPABILITIES = {
 };
 
 const MODEL_ID = {
+	MERCURY_2: 'inception/mercury-2',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash'
 };
 
 const AI_MODELS = {
+	[MODEL_ID.MERCURY_2]: {
+		id: MODEL_ID.MERCURY_2,
+		provider: 'inception',
+		model: 'mercury-2',
+		label: 'Mercury 2',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE
+		]
+	},
 	[MODEL_ID.GEMINI_25_FLASH]: {
 		id: MODEL_ID.GEMINI_25_FLASH,
 		provider: 'google',
@@ -36,12 +48,12 @@ const AI_MODELS = {
 const AI_MODEL_PROFILES = {
 	structured_text: {
 		envVar: 'AI_MODEL_STRUCTURED_TEXT',
-		fallbackModelId: MODEL_ID.GEMINI_25_FLASH,
+		fallbackModelId: MODEL_ID.MERCURY_2,
 		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
 	},
 	tool_augmented_text: {
 		envVar: 'AI_MODEL_TOOL_AUGMENTED_TEXT',
-		fallbackModelId: MODEL_ID.GEMINI_25_FLASH,
+		fallbackModelId: MODEL_ID.MERCURY_2,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -64,6 +76,109 @@ const AI_MODEL_PROFILES = {
 let cachedGoogleClient = null;
 let cachedGoogleApiKey = null;
 
+function convertSchemaNode(node) {
+	if (!node || typeof node !== 'object' || Array.isArray(node)) {
+		return node;
+	}
+
+	const converted = {};
+	for (const [key, value] of Object.entries(node)) {
+		if (key === 'nullable') continue;
+		if (Array.isArray(value)) {
+			converted[key] = value.map((item) => convertSchemaNode(item));
+		} else if (value && typeof value === 'object') {
+			converted[key] = convertSchemaNode(value);
+		} else {
+			converted[key] = value;
+		}
+	}
+
+	if (node.nullable) {
+		if (typeof converted.type === 'string') {
+			converted.type = [converted.type, 'null'];
+		} else if (Array.isArray(converted.type) && !converted.type.includes('null')) {
+			converted.type = [...converted.type, 'null'];
+		} else if (!converted.type) {
+			converted.anyOf = [...(converted.anyOf || []), { type: 'null' }];
+		}
+	}
+
+	return converted;
+}
+
+function buildInceptionMessages(contents) {
+	if (typeof contents === 'string') {
+		return [{ role: 'user', content: contents }];
+	}
+
+	if (Array.isArray(contents)) {
+		const parts = contents
+			.map((item) => {
+				if (typeof item === 'string') return item.trim();
+				if (item == null) return '';
+				if (typeof item === 'object' && typeof item.text === 'string') return item.text.trim();
+				return String(item).trim();
+			})
+			.filter(Boolean);
+		return [{ role: 'user', content: parts.join('\n\n') }];
+	}
+
+	return [{ role: 'user', content: String(contents ?? '') }];
+}
+
+function createGoogleProviderClient(ai) {
+	return {
+		async generateContent({ model, contents, config }) {
+			return ai.models.generateContent({ model, contents, config });
+		}
+	};
+}
+
+function createInceptionProviderClient(apiKey) {
+	return {
+		async generateContent({ model, contents, config = {} }) {
+			const payload = {
+				model,
+				messages: buildInceptionMessages(contents)
+			};
+
+			if (config.tools) payload.tools = config.tools;
+			if (config.temperature != null) payload.temperature = config.temperature;
+			if (config.maxTokens != null) payload.max_tokens = config.maxTokens;
+			if (config.responseSchema) {
+				payload.response_format = {
+					type: 'json_schema',
+					json_schema: {
+						name: config.schemaName || 'structured_response',
+						strict: true,
+						schema: convertSchemaNode(config.responseSchema)
+					}
+				};
+			}
+
+			const response = await fetch('https://api.inceptionlabs.ai/v1/chat/completions', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${apiKey}`
+				},
+				body: JSON.stringify(payload)
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text().catch(() => '');
+				throw new Error(
+					errorText || `Inception API request failed with status ${response.status}.`
+				);
+			}
+
+			const data = await response.json();
+			const text = data?.choices?.[0]?.message?.content ?? '';
+			return { text, raw: data };
+		}
+	};
+}
+
 function getGoogleClient() {
 	const apiKey = env.GENAI_API_KEY || null;
 	if (!apiKey) return null;
@@ -71,9 +186,15 @@ function getGoogleClient() {
 		return cachedGoogleClient;
 	}
 
-	cachedGoogleClient = new GoogleGenAI({ apiKey });
+	cachedGoogleClient = createGoogleProviderClient(new GoogleGenAI({ apiKey }));
 	cachedGoogleApiKey = apiKey;
 	return cachedGoogleClient;
+}
+
+function getInceptionClient() {
+	const apiKey = env.INCEPTION_API_KEY || null;
+	if (!apiKey) return null;
+	return createInceptionProviderClient(apiKey);
 }
 
 function hasCapabilities(model, requiredCapabilities = []) {
@@ -88,9 +209,17 @@ function resolveProfile(profileName) {
 	return profile;
 }
 
+function resolveDefaultModelId(profile) {
+	const defaultModelId = env.AI_MODEL_DEFAULT || null;
+	if (!defaultModelId) return null;
+	const defaultModel = AI_MODELS[defaultModelId];
+	if (!defaultModel) return null;
+	return hasCapabilities(defaultModel, profile.requiredCapabilities) ? defaultModelId : null;
+}
+
 function resolveModelId(profileName) {
 	const profile = resolveProfile(profileName);
-	return env[profile.envVar] || profile.fallbackModelId;
+	return env[profile.envVar] || resolveDefaultModelId(profile) || profile.fallbackModelId;
 }
 
 function resolveModel(profileName) {
@@ -113,28 +242,41 @@ function resolveModel(profileName) {
 
 function resolveProviderClient(provider) {
 	if (provider === 'google') return getGoogleClient();
+	if (provider === 'inception') return getInceptionClient();
 	throw new Error(`Unsupported AI provider "${provider}".`);
+}
+
+function missingApiKeyMessage(provider) {
+	if (provider === 'google') return 'GENAI_API_KEY not configured.';
+	if (provider === 'inception') return 'INCEPTION_API_KEY not configured.';
+	return 'AI provider not configured.';
 }
 
 export function getAiModel(profileName) {
 	const model = resolveModel(profileName);
-	const ai = resolveProviderClient(model.provider);
+	const client = resolveProviderClient(model.provider);
 
-	if (!ai) return null;
+	if (!client) return null;
 
-	return { ai, model, profile: profileName };
+	return { client, model, profile: profileName };
 }
 
 export function requireAiModel(profileName) {
-	const resolved = getAiModel(profileName);
-	if (!resolved) {
-		throw new Error('GENAI_API_KEY not configured.');
+	const model = resolveModel(profileName);
+	const client = resolveProviderClient(model.provider);
+	if (!client) {
+		throw new Error(missingApiKeyMessage(model.provider));
 	}
-	return resolved;
+	return { client, model, profile: profileName };
+}
+
+export function getAiConfigurationError(profileName) {
+	const model = resolveModel(profileName);
+	return resolveProviderClient(model.provider) ? null : missingApiKeyMessage(model.provider);
 }
 
 export function isAiModelConfigured(profileName) {
-	return Boolean(getAiModel(profileName));
+	return !getAiConfigurationError(profileName);
 }
 
 export function listAiModelProfiles() {

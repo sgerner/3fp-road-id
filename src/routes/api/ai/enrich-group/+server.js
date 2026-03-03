@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
-import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
+import {
+	getAiConfigurationError,
+	isAiModelConfigured,
+	requireAiModel
+} from '$lib/server/ai/models';
 
 // Ensure Vercel runs this on the Node runtime and gives us enough time for the AI call.
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
@@ -161,7 +165,7 @@ function buildFacebookUrl(name) {
 
 export const POST = async ({ request }) => {
 	if (!isAiModelConfigured('group_enrichment')) {
-		return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
+		return json({ error: getAiConfigurationError('group_enrichment') }, { status: 503 });
 	}
 
 	const body = await request.json().catch(() => ({}));
@@ -263,8 +267,8 @@ Context name (if provided by user): ${name || ''}`;
 	}
 
 	try {
-		const { ai, model } = requireAiModel('group_enrichment');
-		const response = await ai.models.generateContent({
+		const { client, model } = requireAiModel('group_enrichment');
+		const response = await client.generateContent({
 			model: model.model,
 			contents,
 			config: {
