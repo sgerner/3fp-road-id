@@ -81,6 +81,37 @@
 		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 	}
 
+	function formatCompactTime(date) {
+		const formatted = date.toLocaleTimeString(undefined, {
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+		return formatted.replace(/\s?(AM|PM)$/i, (_, meridiem) => meridiem[0].toLowerCase());
+	}
+
+	function formatFeaturedNext(ride) {
+		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
+		const start = new Date(ride.nextOccurrenceStart);
+		const end = new Date(ride.nextOccurrenceEnd || ride.nextOccurrenceStart);
+		const dateLabel = start.toLocaleDateString(undefined, {
+			weekday: 'short',
+			month: 'short',
+			day: 'numeric'
+		});
+		const startMeridiem = start
+			.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
+			.match(/AM|PM/i)?.[0];
+		const endMeridiem = end
+			.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
+			.match(/AM|PM/i)?.[0];
+		const startLabel =
+			startMeridiem && endMeridiem && startMeridiem === endMeridiem
+				? start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, '')
+				: formatCompactTime(start);
+		const endLabel = formatCompactTime(end);
+		return `${dateLabel} · ${startLabel} - ${endLabel}`;
+	}
+
 	function formatStatNumber(value) {
 		return new Intl.NumberFormat().format(value);
 	}
@@ -364,7 +395,9 @@
 							style="--stagger: {i}"
 						>
 							<div class="flex flex-wrap gap-2">
-								<span class="chip preset-tonal-surface text-xs">{formatNext(ride)}</span>
+								<span class="featured-time-chip chip preset-tonal-surface text-xs">
+									{formatFeaturedNext(ride)}
+								</span>
 								{#if !ride.hostUserId && !ride.hostGroupId}
 									<span class="chip preset-tonal-warning text-xs">Needs host</span>
 								{/if}
@@ -707,6 +740,13 @@
 	.featured-card:hover {
 		transform: translateY(-4px);
 		box-shadow: 0 12px 32px -6px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.featured-time-chip {
+		max-width: 100%;
+		white-space: normal;
+		line-height: 1.2;
+		font-size: 0.7rem;
 	}
 
 	/* ── Claim panel ── */
