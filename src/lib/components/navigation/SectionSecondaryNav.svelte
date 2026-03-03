@@ -14,17 +14,18 @@
 		if (item?.kind === 'separator') {
 			return 'text-surface-700-300 flex shrink-0 items-center px-1 text-sm font-semibold';
 		}
+		const baseClass = 'btn btn-sm min-w-0 max-w-full gap-2 whitespace-nowrap';
 		if (isActive(item))
-			return 'btn btn-sm preset-filled-primary-500 shrink-0 gap-2 whitespace-nowrap';
+			return `${baseClass} preset-filled-primary-500`;
 		switch (item?.tone) {
 			case 'secondary':
-				return 'btn btn-sm preset-outlined-secondary-500 shrink-0 gap-2 whitespace-nowrap';
+				return `${baseClass} preset-outlined-secondary-500`;
 			case 'tertiary':
-				return 'btn btn-sm preset-tonal-tertiary shrink-0 gap-2 whitespace-nowrap';
+				return `${baseClass} preset-tonal-tertiary`;
 			case 'primary':
-				return 'btn btn-sm preset-tonal-primary shrink-0 gap-2 whitespace-nowrap';
+				return `${baseClass} preset-tonal-primary`;
 			default:
-				return 'btn btn-sm preset-tonal-surface shrink-0 gap-2 whitespace-nowrap';
+				return `${baseClass} preset-tonal-surface`;
 		}
 	}
 </script>
@@ -60,7 +61,7 @@
 										{#if item.icon}
 											<item.icon class="h-4 w-4 shrink-0" />
 										{/if}
-										<span class="max-w-[14rem] truncate">{item.label}</span>
+										<span class="block max-w-[8rem] truncate sm:max-w-[10rem]">{item.label}</span>
 									</a>
 								{/if}
 							{/each}
@@ -93,7 +94,7 @@
 										{#if item.icon}
 											<item.icon class="h-4 w-4 shrink-0" />
 										{/if}
-										<span class="max-w-[14rem] truncate">{item.label}</span>
+										<span class="block max-w-[8rem] truncate sm:max-w-[10rem]">{item.label}</span>
 									</a>
 								{/if}
 							{/each}

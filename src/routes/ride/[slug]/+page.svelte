@@ -142,15 +142,22 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+	<section
+		class="hero-section relative overflow-hidden rounded-3xl"
+		class:hero-section--cover={leadRideImage}
+		style={leadRideImage ? `--hero-bg: url('${leadRideImage}')` : ''}
+	>
+		{#if leadRideImage}
+			<div class="hero-cover-bg" aria-hidden="true"></div>
+			<div class="hero-cover-overlay" aria-hidden="true"></div>
+		{:else}
+			<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+			<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+			<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		{/if}
 
-		<div
-			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
-		>
-			<div class="space-y-4">
+		<div class="relative z-10 flex flex-col justify-end p-6 lg:min-h-[32rem] lg:p-12">
+			<div class="max-w-3xl space-y-5">
 				<div class="flex flex-wrap gap-2">
 					{#each ride?.difficultyLevels ?? [] as level}
 						<span class="chip preset-tonal-warning">{level.name}</span>
@@ -159,74 +166,72 @@
 						<span class="chip preset-tonal-success">{discipline.name}</span>
 					{/each}
 				</div>
-				<h1 class="ride-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
+				<h1 class="ride-headline text-4xl font-extrabold tracking-tight text-balance lg:text-6xl">
 					{activity?.title}
 				</h1>
 				{#if activity?.summary}
-					<p class="max-w-3xl text-base leading-relaxed opacity-80">{activity.summary}</p>
+					<p class="max-w-2xl text-base leading-relaxed opacity-85">{activity.summary}</p>
 				{/if}
-				{#if leadRideImage}
-					<div class="ride-hero-image-frame mt-2 max-w-3xl overflow-hidden rounded-2xl border border-white/15">
-						<img
-							src={leadRideImage}
-							alt={activity?.title || 'Ride image'}
-							class="ride-hero-image h-64 w-full object-cover"
-						/>
-					</div>
+				{#if selectedOccurrence}
+					<p class="text-sm font-medium opacity-70">
+						{activity?.start_location_name
+							? `${activity.start_location_name} · `
+							: ''}{occurrenceLabel(selectedOccurrence)}
+					</p>
 				{/if}
-			</div>
-			<div class="flex shrink-0 flex-wrap gap-3">
-				{#if canManage}
-					<a
-						class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
-						href={`/ride/${activity.slug}/manage`}>Manage ride</a
-					>
-				{:else if canClaim}
-					<button
-						class="btn preset-filled-warning-500 shadow-md transition-transform hover:scale-105"
-						onclick={claimRide}
-						disabled={claimLoading}
-					>
-						{claimLoading ? 'Claiming...' : claimLabel}
-					</button>
-				{/if}
-				{#if currentUser}
-					<button
-						class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
-						onclick={() =>
-							submitRsvp(
-								currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
-							)}
-						disabled={rsvpLoadingId === selectedOccurrence?.id}
-					>
-						{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
-							Leave ride
-						{:else}
-							RSVP
-						{/if}
-					</button>
-				{:else}
-					<a
-						class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
-						href="/ride/new">Log in to RSVP</a
-					>
-				{/if}
+				<div class="flex flex-wrap gap-3 pt-1">
+					{#if canManage}
+						<a
+							class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
+							href={`/ride/${activity.slug}/manage`}>Manage ride</a
+						>
+					{:else if canClaim}
+						<button
+							class="btn preset-filled-warning-500 shadow-md transition-transform hover:scale-105"
+							onclick={claimRide}
+							disabled={claimLoading}
+						>
+							{claimLoading ? 'Claiming...' : claimLabel}
+						</button>
+					{/if}
+					{#if currentUser}
+						<button
+							class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
+							onclick={() =>
+								submitRsvp(
+									currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
+								)}
+							disabled={rsvpLoadingId === selectedOccurrence?.id}
+						>
+							{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+								Leave ride
+							{:else}
+								RSVP
+							{/if}
+						</button>
+					{:else}
+						<a
+							class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
+							href="/ride/new">Log in to RSVP</a
+						>
+					{/if}
+				</div>
 			</div>
 		</div>
 		{#if rsvpError}
-			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-10">
+			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-12">
 				{rsvpError}
 			</div>
 		{/if}
 		{#if claimError}
-			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-10">
+			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-12">
 				{claimError}
 			</div>
 		{/if}
 	</section>
 
 	{#if rideImages.length > 1}
-		<section class="card preset-tonal-surface p-5">
+		<section class="card preset-tonal-surface overflow-hidden p-5">
 			<div class="mb-4 flex items-center justify-between gap-3">
 				<div>
 					<div class="text-sm tracking-[0.18em] uppercase opacity-60">Photos</div>
@@ -234,18 +239,33 @@
 				</div>
 				<div class="text-sm opacity-65">{rideImages.length} images</div>
 			</div>
-			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each rideImages.slice(1) as imageUrl, index (imageUrl)}
-					<div class="overflow-hidden rounded-2xl border border-surface-500/15">
-						<img
-							src={imageUrl}
-							alt={`${activity?.title || 'Ride'} photo ${index + 2}`}
-							class="h-56 w-full object-cover"
-							loading="lazy"
-						/>
-					</div>
-				{/each}
+			<div class="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+				<div class="gallery-feature-frame">
+					<img
+						src={rideImages[1]}
+						alt={`${activity?.title || 'Ride'} photo 2`}
+						class="h-full w-full object-cover"
+						loading="lazy"
+					/>
+				</div>
+				<div class="grid gap-4 sm:grid-cols-2">
+					{#each rideImages.slice(2) as imageUrl, index (imageUrl)}
+						<div class="gallery-tile">
+							<img
+								src={imageUrl}
+								alt={`${activity?.title || 'Ride'} photo ${index + 3}`}
+								class="h-56 w-full object-cover"
+								loading="lazy"
+							/>
+						</div>
+					{/each}
+				</div>
 			</div>
+			{#if rideImages.length === 2}
+				<div class="mt-4 text-sm opacity-65">
+					More ride photos will appear here as organizers add them.
+				</div>
+			{/if}
 		</section>
 	{/if}
 
@@ -462,11 +482,47 @@
 </div>
 
 <style>
+	/* ── Hero base (no image) ─────────────────────── */
 	.hero-section {
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
+	/* ── Hero with cover image ────────────────────── */
+	.hero-section--cover {
+		border: none;
+		background: var(--color-surface-950);
+	}
+
+	.hero-cover-bg {
+		position: absolute;
+		inset: 0;
+		background-image: var(--hero-bg);
+		background-size: cover;
+		background-position: center;
+		transform: scale(1.04);
+		filter: brightness(0.72) saturate(1.1);
+		transition: transform 0.6s ease;
+		pointer-events: none;
+	}
+
+	.hero-section--cover:hover .hero-cover-bg {
+		transform: scale(1.06);
+	}
+
+	.hero-cover-overlay {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			to top,
+			rgba(6, 6, 14, 0.88) 0%,
+			rgba(6, 6, 14, 0.45) 50%,
+			rgba(6, 6, 14, 0.18) 100%
+		);
+		pointer-events: none;
+	}
+
+	/* ── Orb animations (no-image fallback only) ──── */
 	.hero-orb {
 		position: absolute;
 		border-radius: 50%;
@@ -510,16 +566,23 @@
 		}
 	}
 
+	/* ── Typography ───────────────────────────────── */
 	.ride-headline {
-		color: var(--color-primary-50);
+		color: white;
 		text-align: left;
+		text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
 	}
 
-	.ride-hero-image-frame {
-		box-shadow: 0 20px 48px -28px rgba(0, 0, 0, 0.55);
+	/* ── Photo gallery below hero ─────────────────── */
+	.gallery-feature-frame,
+	.gallery-tile {
+		overflow: hidden;
+		border-radius: 1.25rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-900) 90%);
 	}
 
-	.ride-hero-image {
-		display: block;
+	.gallery-feature-frame {
+		min-height: 18rem;
 	}
 </style>

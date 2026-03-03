@@ -1,4 +1,5 @@
 <script>
+	import { browser } from '$app/environment';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
@@ -20,9 +21,10 @@
 
 	let search = $state('');
 	let selectedDifficulty = $state('all');
-	let showMap = $state(true);
+	let view = $state('list');
+	let calendarReference = $state(startOfMonth(new Date()));
 
-	let mapEl;
+	let mapEl = $state(null);
 	let map;
 	let clusterLayer;
 	let L;
@@ -73,6 +75,52 @@
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
 	);
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
+	const totalUpcoming = $derived(filteredRides.length);
+
+	const datedRides = $derived(
+		filteredRides
+			.map((ride) => {
+				const start = parseRideDate(ride?.nextOccurrenceStart);
+				return start ? { ...ride, _calendarStart: start } : null;
+			})
+			.filter(Boolean)
+	);
+
+	const ridesByDate = $derived(
+		datedRides.reduce((acc, ride) => {
+			const key = toDateKey(ride._calendarStart);
+			if (!key) return acc;
+			(acc[key] ??= []).push(ride);
+			return acc;
+		}, /** @type {Record<string, any[]>} */ ({}))
+	);
+
+	const earliestRideMonth = $derived.by(() => {
+		const first = datedRides[0]?._calendarStart;
+		return first ? startOfMonth(first) : startOfMonth(new Date());
+	});
+
+	const calendarMatrix = $derived(buildCalendarMatrix(calendarReference, ridesByDate));
+	const calendarHeaderText = $derived.by(() =>
+		new Intl.DateTimeFormat(undefined, {
+			month: 'long',
+			year: 'numeric'
+		}).format(calendarReference)
+	);
+
+	const mobileWeekDays = $derived.by(() => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const weekWithToday = calendarMatrix.find((week) =>
+			week.some((day) => day.date.toDateString() === today.toDateString())
+		);
+		if (weekWithToday) return weekWithToday;
+
+		const weekWithRides = calendarMatrix.find((week) => week.some((day) => day.rides?.length));
+		return weekWithRides ?? calendarMatrix[0] ?? [];
+	});
+
+	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
@@ -106,7 +154,9 @@
 			.match(/AM|PM/i)?.[0];
 		const startLabel =
 			startMeridiem && endMeridiem && startMeridiem === endMeridiem
-				? start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, '')
+				? start
+						.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+						.replace(/\s?(AM|PM)$/i, '')
 				: formatCompactTime(start);
 		const endLabel = formatCompactTime(end);
 		return `${dateLabel} · ${startLabel} - ${endLabel}`;
@@ -114,6 +164,54 @@
 
 	function formatStatNumber(value) {
 		return new Intl.NumberFormat().format(value);
+	}
+
+	function parseRideDate(value) {
+		if (!value) return null;
+		const date = new Date(value);
+		return Number.isNaN(date.getTime()) ? null : date;
+	}
+
+	function toDateKey(date) {
+		if (!date) return '';
+		return date.toISOString().slice(0, 10);
+	}
+
+	function startOfMonth(date) {
+		return new Date(date.getFullYear(), date.getMonth(), 1);
+	}
+
+	function changeMonth(offset) {
+		const next = new Date(calendarReference);
+		next.setMonth(next.getMonth() + offset);
+		calendarReference = startOfMonth(next);
+	}
+
+	function buildCalendarMatrix(reference, lookup) {
+		const monthStart = startOfMonth(reference);
+		const month = monthStart.getMonth();
+		const year = monthStart.getFullYear();
+		const firstWeekday = monthStart.getDay();
+		const firstDate = new Date(monthStart);
+		firstDate.setDate(firstDate.getDate() - firstWeekday);
+
+		const weeks = [];
+		for (let w = 0; w < 6; w += 1) {
+			const days = [];
+			for (let d = 0; d < 7; d += 1) {
+				const current = new Date(firstDate);
+				current.setDate(firstDate.getDate() + w * 7 + d);
+				const key = toDateKey(current);
+				days.push({
+					date: current,
+					inMonth: current.getMonth() === month && current.getFullYear() === year,
+					key,
+					rides: key && lookup[key] ? lookup[key] : []
+				});
+			}
+			weeks.push(days);
+		}
+		return weeks;
 	}
 
 	function rideMeta(ride) {
@@ -132,6 +230,10 @@
 	}
 
 	function leadImage(ride) {
+		return ride?.imageUrls?.[0] ?? null;
+	}
+
+	function heroImage(ride) {
 		return ride?.imageUrls?.[0] ?? null;
 	}
 
@@ -179,9 +281,9 @@
 	}
 
 	$effect(() => {
-		if (showMap && mapEl && !map) {
+		if (view === 'map' && mapEl && !map) {
 			initMap();
-		} else if (!showMap && map) {
+		} else if (view !== 'map' && map) {
 			map.remove();
 			map = null;
 			clusterLayer = null;
@@ -234,7 +336,24 @@
 	});
 
 	$effect(() => {
-		if (showMap && map) {
+		if (browser && !['list', 'calendar', 'map'].includes(view)) {
+			view = 'list';
+		}
+	});
+
+	$effect(() => {
+		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
+			const currentMonthHasRide = calendarMatrix.some((week) =>
+				week.some((day) => day.rides.length)
+			);
+			if (!currentMonthHasRide) {
+				calendarReference = earliestRideMonth;
+			}
+		}
+	});
+
+	$effect(() => {
+		if (view === 'map' && map) {
 			setTimeout(() => map?.invalidateSize(), 180);
 		}
 	});
@@ -300,7 +419,7 @@
 							<div
 								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
 							>
-								<svelte:component this={stat.icon} class="h-4 w-4" />
+								<stat.icon class="h-4 w-4" />
 								{stat.label}
 							</div>
 							<div class="text-3xl font-black tabular-nums">{stat.value}</div>
@@ -399,22 +518,27 @@
 							style="--stagger: {i}"
 						>
 							{#if leadImage(ride)}
-								<div class="-m-5 mb-0 overflow-hidden rounded-t-[inherit]">
+								<div class="relative -m-5 mb-0 overflow-hidden rounded-t-[inherit]">
 									<img
 										src={leadImage(ride)}
 										alt={ride.title}
-										class="featured-card-image h-40 w-full object-cover"
+										class="featured-card-image h-52 w-full object-cover"
 										loading="lazy"
 									/>
+									<div class="featured-card-image-overlay" aria-hidden="true"></div>
+									<div class="featured-card-image-badges">
+										{#if !ride.hostUserId && !ride.hostGroupId}
+											<span class="chip preset-tonal-warning text-xs backdrop-blur-sm"
+												>Needs host</span
+											>
+										{/if}
+									</div>
 								</div>
 							{/if}
 							<div class="flex flex-wrap gap-2">
 								<span class="featured-time-chip chip preset-tonal-surface text-xs">
 									{formatFeaturedNext(ride)}
 								</span>
-								{#if !ride.hostUserId && !ride.hostGroupId}
-									<span class="chip preset-tonal-warning text-xs">Needs host</span>
-								{/if}
 							</div>
 							<div class="space-y-1.5">
 								<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
@@ -430,7 +554,7 @@
 								<div class="flex flex-wrap gap-1.5">
 									{#each rideMeta(ride) as meta}
 										<span class="chip preset-tonal-tertiary gap-1 text-xs">
-											<svelte:component this={meta.icon} class="h-3 w-3" />
+											<meta.icon class="h-3 w-3" />
 											{meta.label}
 										</span>
 									{/each}
@@ -501,119 +625,295 @@
 
 			<div class="flex flex-col items-end gap-2">
 				<p class="text-sm tabular-nums opacity-60">
-					{filteredRides.length}
-					{filteredRides.length === 1 ? 'ride' : 'rides'} match
+					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
-				<button
-					type="button"
-					class="btn btn-sm {showMap
-						? 'preset-filled-primary-500'
-						: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
-					onclick={() => (showMap = !showMap)}
+				<div
+					class="bg-surface-200-800/70 border-surface-500/40 flex shrink-0 items-center overflow-hidden rounded-lg border"
 				>
-					<IconMapPin class="h-3.5 w-3.5" />
-					{showMap ? 'Hide Map' : 'Show Map'}
-				</button>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'list')}
+					>
+						List
+					</button>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'calendar')}
+					>
+						Calendar
+					</button>
+					<button
+						class={`px-3 py-1.5 text-sm transition-colors ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						onclick={() => (view = 'map')}
+					>
+						Map
+					</button>
+				</div>
 			</div>
 		</div>
 
-		{#if showMap}
-			<div transition:slide={{ duration: 220 }}>
-				<div class="border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
-					<div bind:this={mapEl} class="h-[380px] w-full"></div>
+		{#if view === 'list'}
+			{#if filteredRides.length}
+				<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" transition:slide={{ duration: 220 }}>
+					{#each filteredRides as ride, i}
+						<a
+							class="ride-card card preset-tonal-surface group flex h-full flex-col overflow-hidden no-underline"
+							style="--stagger: {i % 9}"
+							href={`/ride/${ride.slug}`}
+						>
+							<div class="ride-card-accent" aria-hidden="true"></div>
+
+							{#if heroImage(ride)}
+								<div class="ride-card-media">
+									<img
+										src={heroImage(ride)}
+										alt={ride.title}
+										class="ride-card-image h-48 w-full object-cover"
+										loading="lazy"
+									/>
+									<div class="ride-card-image-overlay" aria-hidden="true"></div>
+									<div class="ride-card-image-badges">
+										<span class="chip preset-tonal-primary text-xs font-medium backdrop-blur-sm">
+											{formatNext(ride)}
+										</span>
+										{#if !ride.hostUserId && !ride.hostGroupId}
+											<span class="chip preset-tonal-warning text-xs backdrop-blur-sm"
+												>Unclaimed</span
+											>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							<div class="flex flex-1 flex-col gap-4 p-5">
+								<div class="flex flex-wrap items-center gap-2">
+									{#if !heroImage(ride)}
+										<span class="chip preset-tonal-primary text-xs font-medium">
+											{formatNext(ride)}
+										</span>
+									{/if}
+									{#if ride.group?.name}
+										<span class="chip preset-tonal-secondary text-xs">{ride.group.name}</span>
+									{/if}
+									{#if ride.recurrenceEnabled}
+										<span class="chip preset-tonal-tertiary gap-1 text-xs">
+											<IconRepeat class="h-3 w-3" />
+											Series
+										</span>
+									{/if}
+								</div>
+
+								<div>
+									<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
+									{#if ride.summary}
+										<p class="mt-1.5 line-clamp-2 text-sm leading-relaxed opacity-75">
+											{ride.summary}
+										</p>
+									{/if}
+								</div>
+
+								<div class="space-y-1 text-sm opacity-65">
+									<div class="flex items-center gap-2">
+										<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+										<span class="truncate">{ride.startLocationName ?? 'Location coming soon'}</span>
+									</div>
+									{#if ride.startLocationAddress}
+										<div class="truncate pl-5 text-xs opacity-75">{ride.startLocationAddress}</div>
+									{/if}
+								</div>
+
+								<div class="flex flex-wrap gap-1.5">
+									{#each ride.difficultyLevels ?? [] as level}
+										<span class="chip preset-tonal-warning text-xs">{level.name}</span>
+									{/each}
+									{#each ride.ridingDisciplines ?? [] as discipline}
+										<span class="chip {disciplineChipClass(discipline.name)} text-xs">
+											{discipline.name}
+										</span>
+									{/each}
+									{#each rideMeta(ride) as meta}
+										<span class="chip preset-tonal-tertiary gap-1 text-xs">
+											<meta.icon class="h-3 w-3" />
+											{meta.label}
+										</span>
+									{/each}
+								</div>
+
+								<div class="mt-auto flex items-center justify-between gap-3 pt-1">
+									<div class="flex items-center gap-1.5 text-xs opacity-55">
+										<IconUsers class="h-3.5 w-3.5" />
+										<span>
+											{ride.rideDetails?.participant_visibility === 'private'
+												? 'Private RSVP list'
+												: 'Public RSVP list'}
+										</span>
+									</div>
+									<span
+										class="ride-card-link inline-flex items-center gap-1.5 text-sm font-semibold"
+									>
+										View ride
+										<IconArrowRight class="h-3.5 w-3.5" />
+									</span>
+								</div>
+							</div>
+						</a>
+					{/each}
 				</div>
-			</div>
-		{/if}
+			{:else}
+				<!-- Empty state -->
+				<div
+					class="empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+				>
+					<div class="empty-orb" aria-hidden="true"></div>
+					<div class="relative z-10 mx-auto max-w-lg space-y-4">
+						<div
+							class="empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
+						>
+							<IconBike class="h-10 w-10 opacity-60" />
+						</div>
+						<h3 class="text-2xl font-bold">No rides match that filter yet</h3>
+						<p class="text-sm leading-relaxed opacity-70">
+							Try a broader search, clear the difficulty filter, or be the first to post a ride for
+							that route.
+						</p>
+						<div class="flex flex-wrap justify-center gap-3 pt-2">
+							<button
+								class="btn preset-outlined-surface-950-50"
+								onclick={() => ((search = ''), (selectedDifficulty = 'all'))}
+							>
+								Clear filters
+							</button>
+							<a class="btn preset-filled-primary-500 gap-2" href="/ride/new">
+								<IconPlus class="h-4 w-4" />
+								Create ride
+							</a>
+						</div>
+					</div>
+				</div>
+			{/if}
+		{:else if view === 'calendar'}
+			<div transition:slide class="space-y-4">
+				<div class="flex items-center justify-between">
+					<h3 class="text-xl font-semibold">{calendarHeaderText}</h3>
+					<div class="flex gap-2">
+						<button
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => changeMonth(-1)}
+						>
+							Prev
+						</button>
+						<button
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => (calendarReference = earliestRideMonth)}
+						>
+							Today
+						</button>
+						<button
+							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							onclick={() => changeMonth(1)}
+						>
+							Next
+						</button>
+					</div>
+				</div>
 
-		{#if filteredRides.length}
-			<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-				{#each filteredRides as ride, i}
-					<article
-						class="ride-card card preset-tonal-surface flex flex-col gap-0 overflow-hidden"
-						style="--stagger: {i % 9}"
-					>
-						<!-- Accent bar: color derived from first discipline -->
-						<div class="ride-card-accent" aria-hidden="true"></div>
-
-						<div class="flex flex-col gap-4 p-5">
-							<!-- Header chips -->
-							<div class="flex flex-wrap items-center gap-2">
-								<span class="chip preset-tonal-primary text-xs font-medium">{formatNext(ride)}</span
-								>
-								{#if ride.group?.name}
-									<span class="chip preset-tonal-secondary text-xs">{ride.group.name}</span>
-								{/if}
-								{#if !ride.hostUserId && !ride.hostGroupId}
-									<span class="chip preset-tonal-warning text-xs">Unclaimed</span>
-								{/if}
-								{#if ride.recurrenceEnabled}
-									<span class="chip preset-tonal-tertiary gap-1 text-xs">
-										<IconRepeat class="h-3 w-3" />
-										Series
-									</span>
-								{/if}
-							</div>
-
-							<!-- Title + summary -->
-							<div>
-								<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
-								{#if ride.summary}
-									<p class="mt-1.5 line-clamp-2 text-sm leading-relaxed opacity-75">
-										{ride.summary}
-									</p>
-								{/if}
-							</div>
-
-							<!-- Location -->
-							<div class="space-y-1 text-sm opacity-65">
-								<div class="flex items-center gap-2">
-									<IconMapPin class="h-3.5 w-3.5 shrink-0" />
-									<span class="truncate">{ride.startLocationName ?? '—'}</span>
+				<div class="grid gap-2 sm:hidden">
+					{#each mobileWeekDays as day, i}
+						<div
+							class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+							style="--stagger: {i % 10}"
+						>
+							<div class="flex items-center justify-between">
+								<div class="text-xs font-semibold">
+									{new Intl.DateTimeFormat(undefined, {
+										weekday: 'short',
+										month: 'short',
+										day: 'numeric'
+									}).format(day.date)}
 								</div>
-								{#if ride.startLocationAddress}
-									<div class="truncate pl-5 text-xs opacity-75">{ride.startLocationAddress}</div>
-								{/if}
-							</div>
-
-							<!-- Tags -->
-							<div class="flex flex-wrap gap-1.5">
-								{#each ride.difficultyLevels ?? [] as level}
-									<span class="chip preset-tonal-warning text-xs">{level.name}</span>
-								{/each}
-								{#each ride.ridingDisciplines ?? [] as discipline}
-									<span class="chip {disciplineChipClass(discipline.name)} text-xs">
-										{discipline.name}
-									</span>
-								{/each}
-								{#each rideMeta(ride) as meta}
-									<span class="chip preset-tonal-tertiary gap-1 text-xs">
-										<svelte:component this={meta.icon} class="h-3 w-3" />
-										{meta.label}
-									</span>
-								{/each}
-							</div>
-
-							<!-- Footer -->
-							<div class="mt-auto flex items-center justify-between gap-3 pt-1">
-								<div class="flex items-center gap-1.5 text-xs opacity-55">
-									<IconUsers class="h-3.5 w-3.5" />
-									<span>
-										{ride.rideDetails?.participant_visibility === 'private'
-											? 'Private RSVP list'
-											: 'Public RSVP list'}
-									</span>
+								<div class="text-[11px]">
+									{day.rides.length} ride{day.rides.length === 1 ? '' : 's'}
 								</div>
-								<a
-									class="btn btn-sm preset-outlined-primary-500 gap-1.5"
-									href={`/ride/${ride.slug}`}
-								>
-									Open
-									<IconArrowRight class="h-3.5 w-3.5" />
-								</a>
+							</div>
+							<div class="mt-2 space-y-1.5">
+								{#if day.rides.length === 0}
+									<p class="text-surface-500 text-xs">No rides</p>
+								{:else}
+									{#each day.rides as ride}
+										<a
+											class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
+											href={`/ride/${ride.slug}`}
+										>
+											<span class="text-secondary-600-400 font-mono text-xs">
+												{tf.format(parseRideDate(ride.nextOccurrenceStart))} -
+											</span>
+											{ride.title}
+										</a>
+									{/each}
+								{/if}
 							</div>
 						</div>
-					</article>
-				{/each}
+					{/each}
+				</div>
+
+				<div class="hidden sm:block">
+					<div
+						class="text-surface-700-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
+					>
+						<div>Sun</div>
+						<div>Mon</div>
+						<div>Tue</div>
+						<div>Wed</div>
+						<div>Thu</div>
+						<div>Fri</div>
+						<div>Sat</div>
+					</div>
+					<div class="grid grid-cols-7 gap-0">
+						{#each calendarMatrix as week, i}
+							{#each week as day, j}
+								<div
+									class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+									style="--stagger: {(i * 7 + j) % 21}"
+								>
+									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
+									<div class="mt-1 space-y-1 overflow-y-auto">
+										{#if day.rides.length === 0}
+											<p class="text-surface-500 text-[11px]">No rides</p>
+										{:else}
+											{#each day.rides.slice(0, 3) as ride}
+												<a
+													class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
+													href={`/ride/${ride.slug}`}
+												>
+													<span class="text-secondary-600-400 font-mono text-xs">
+														{tf.format(parseRideDate(ride.nextOccurrenceStart))} -
+													</span>
+													{ride.title}
+												</a>
+											{/each}
+											{#if day.rides.length > 3}
+												<div class="text-secondary-700-300 text-[10px] font-medium">
+													+{day.rides.length - 3} more
+												</div>
+											{/if}
+										{/if}
+									</div>
+								</div>
+							{/each}
+						{/each}
+					</div>
+				</div>
+			</div>
+		{:else if view === 'map'}
+			<div
+				transition:slide
+				class="bg-surface-100-900/60 border-surface-600-400/20 rounded-2xl border shadow-xl"
+			>
+				<div bind:this={mapEl} class="h-[480px] w-full rounded-2xl"></div>
+				<div class="text-surface-700-300 border-surface-500/30 border-t px-6 py-3 text-sm">
+					Zoom and click markers to preview ride details. Listings without mapped coordinates are
+					hidden from the map view.
+				</div>
 			</div>
 		{:else}
 			<!-- Empty state -->
@@ -768,6 +1068,22 @@
 		border-bottom: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
 	}
 
+	.featured-card-image-overlay {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(to top, rgba(6, 6, 14, 0.72) 0%, transparent 55%);
+		pointer-events: none;
+	}
+
+	.featured-card-image-badges {
+		position: absolute;
+		bottom: 0.625rem;
+		left: 0.625rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
 	/* ── Claim panel ── */
 	.claim-panel {
 		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-900) 90%);
@@ -802,6 +1118,8 @@
 			box-shadow 220ms ease;
 		animation: card-in 380ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 50ms);
+		text-decoration: none;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
 	}
 
 	.ride-card:hover {
@@ -818,6 +1136,59 @@
 
 	.ride-card:hover .ride-card-accent {
 		opacity: 1;
+	}
+
+	.ride-card-media {
+		position: relative;
+		overflow: hidden;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
+		background:
+			linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.48) 100%),
+			color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-900) 90%);
+	}
+
+	.ride-card-image {
+		display: block;
+		transform: scale(1.01);
+		transition:
+			transform 260ms ease,
+			filter 260ms ease;
+	}
+
+	.ride-card:hover .ride-card-image {
+		transform: scale(1.05);
+		filter: saturate(1.08);
+	}
+
+	.ride-card-image-overlay {
+		position: absolute;
+		inset: 0;
+		background:
+			linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.58) 100%),
+			radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 45%);
+		pointer-events: none;
+	}
+
+	.ride-card-image-badges {
+		position: absolute;
+		right: 1rem;
+		bottom: 1rem;
+		left: 1rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.ride-card-link {
+		color: var(--color-primary-300);
+		transition:
+			transform 180ms ease,
+			color 180ms ease;
+	}
+
+	.ride-card:hover .ride-card-link {
+		transform: translateX(2px);
+		color: var(--color-primary-200);
 	}
 
 	/* ── Empty state ── */
@@ -841,11 +1212,27 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
 
+	.event-card {
+		animation: calendar-card-in 380ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 30ms);
+	}
+
 	/* ── Card entrance animation ── */
 	@keyframes card-in {
 		from {
 			opacity: 0;
 			transform: translateY(16px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes calendar-card-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
 		}
 		to {
 			opacity: 1;
