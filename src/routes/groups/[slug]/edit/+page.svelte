@@ -1015,30 +1015,36 @@
 
 <div class="edit-page mx-auto w-full max-w-4xl space-y-5 pb-10">
 	<!-- ── Cinematic header ── -->
-	<header class="edit-header relative overflow-hidden rounded-2xl px-6 py-8">
+	<header class="edit-header relative overflow-hidden rounded-3xl">
 		<div class="edit-orb edit-orb-1" aria-hidden="true"></div>
 		<div class="edit-orb edit-orb-2" aria-hidden="true"></div>
-		<div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
-			<div>
+		<div class="edit-orb edit-orb-3" aria-hidden="true"></div>
+
+		<div
+			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
+		>
+			<div class="space-y-4">
 				<a
 					href={`/groups/${data.group?.slug}`}
-					class="text-primary-200 mb-2 flex items-center gap-1 text-xs font-semibold transition-colors hover:text-white"
+					class="text-primary-200 flex items-center gap-1 text-xs font-semibold transition-colors hover:text-white"
 				>
 					← Back to group
 				</a>
-				<h1 class="text-2xl font-extrabold tracking-tight md:text-3xl">
+				<h1 class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
 					Edit <span class="text-secondary-700-300">{data.group?.name}</span>
 				</h1>
-				<p class="text-secondary-800-200 mt-1 text-sm opacity-80">
+				<p class="max-w-3xl text-base leading-relaxed opacity-80">
 					Changes are saved automatically as you type.
 				</p>
 			</div>
-			<!-- Autosave status -->
-			{#if saving}
-				<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
-			{:else}
-				<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
-			{/if}
+			<div class="flex shrink-0 flex-wrap gap-3">
+				<!-- Autosave status -->
+				{#if saving}
+					<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+				{:else}
+					<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
+				{/if}
+			</div>
 		</div>
 	</header>
 
@@ -1769,30 +1775,41 @@
 	/* ── Edit page header ── */
 	.edit-header {
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
 	.edit-orb {
 		position: absolute;
 		border-radius: 50%;
-		filter: blur(60px);
+		filter: blur(72px);
 		pointer-events: none;
 	}
+
 	.edit-orb-1 {
-		width: 45%;
+		width: 55%;
 		height: 200%;
-		top: -60%;
-		left: -5%;
+		top: -50%;
+		left: -10%;
 		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 		animation: orb-drift 18s ease-in-out infinite alternate;
 	}
+
 	.edit-orb-2 {
-		width: 35%;
+		width: 40%;
 		height: 160%;
-		top: -40%;
-		right: 0;
+		top: -30%;
+		right: 5%;
 		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
 		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	.edit-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
 	}
 
 	@keyframes orb-drift {
@@ -1800,8 +1817,13 @@
 			transform: translate(0, 0) scale(1);
 		}
 		100% {
-			transform: translate(4%, 8%) scale(1.09);
+			transform: translate(4%, 6%) scale(1.08);
 		}
+	}
+
+	.group-headline {
+		color: var(--color-primary-50);
+		text-align: left;
 	}
 
 	/* ── Form section cards ── */

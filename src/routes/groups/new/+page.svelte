@@ -329,14 +329,22 @@
 
 <div class="new-group-page mx-auto w-full max-w-3xl space-y-5 pb-10">
 	<!-- ── Cinematic header ── -->
-	<header class="new-header relative overflow-hidden rounded-2xl px-6 py-8">
+	<header class="new-header relative overflow-hidden rounded-3xl">
 		<div class="new-orb new-orb-1" aria-hidden="true"></div>
 		<div class="new-orb new-orb-2" aria-hidden="true"></div>
-		<div class="relative z-10 text-center">
-			<h1 class="text-3xl font-extrabold tracking-tight md:text-4xl">Add a Cycling Group</h1>
-			<p class="text-secondary-200-800 mt-2 text-sm opacity-80">
-				Share local bike clubs, teams, and advocacy orgs with the community.
-			</p>
+		<div class="new-orb new-orb-3" aria-hidden="true"></div>
+
+		<div
+			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
+		>
+			<div class="space-y-4">
+				<h1 class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
+					Add a Cycling Group
+				</h1>
+				<p class="max-w-3xl text-base leading-relaxed opacity-80">
+					Share local bike clubs, teams, and advocacy orgs with the community.
+				</p>
+			</div>
 		</div>
 	</header>
 
@@ -682,38 +690,50 @@
 <style>
 	/* ── Page header ── */
 	.new-header {
-		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 	.new-orb {
 		position: absolute;
 		border-radius: 50%;
-		filter: blur(60px);
+		filter: blur(72px);
 		pointer-events: none;
 	}
 	.new-orb-1 {
 		width: 55%;
-		height: 220%;
-		top: -70%;
+		height: 200%;
+		top: -50%;
 		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 		animation: orb-drift 18s ease-in-out infinite alternate;
 	}
 	.new-orb-2 {
 		width: 40%;
-		height: 180%;
-		top: -50%;
-		right: -5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: orb-drift 22s ease-in-out infinite alternate-reverse;
+		height: 160%;
+		top: -30%;
+		right: 5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+	.new-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
 	}
 	@keyframes orb-drift {
 		0% {
 			transform: translate(0, 0) scale(1);
 		}
 		100% {
-			transform: translate(4%, 8%) scale(1.09);
+			transform: translate(4%, 6%) scale(1.08);
 		}
+	}
+	.group-headline {
+		color: var(--color-primary-50);
+		text-align: left;
 	}
 
 	/* ── Section cards ── */
