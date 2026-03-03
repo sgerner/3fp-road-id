@@ -1,11 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { GoogleGenAI } from '@google/genai';
-import { env } from '$env/dynamic/private';
+import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
 
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
-
-const apiKey = env.GENAI_API_KEY;
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 const STYLE_GUIDE = `You are writing event descriptions for a grassroots cycling community. Your audience is a diverse mix of riders: road racers, cargo-bike parents, trail explorers, commuters, and late-night coffee-shop fixie kids. They share a streak of independence and a deep respect for others. Your job is to make them feel the event is alive, worth showing up for, and welcoming to every type of rider.
 
@@ -160,10 +156,11 @@ function isSchemaUnsupportedError(error) {
 }
 
 async function generateWithSchema({ contents, useSchema = true }) {
+	const { ai, model } = requireAiModel('structured_text');
 	const config = {};
 	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
 	return ai.models.generateContent({
-		model: 'gemini-2.5-flash',
+		model: model.model,
 		contents,
 		config: Object.keys(config).length ? config : undefined
 	});
@@ -216,7 +213,7 @@ function safeParseJson(text) {
 }
 
 export const POST = async ({ request }) => {
-	if (!ai) {
+	if (!isAiModelConfigured('structured_text')) {
 		return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
 	}
 

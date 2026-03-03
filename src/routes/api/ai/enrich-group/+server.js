@@ -1,12 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
-import { GoogleGenAI } from '@google/genai';
-import { env } from '$env/dynamic/private';
+import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
 
 // Ensure Vercel runs this on the Node runtime and gives us enough time for the AI call.
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
-
-const ai = new GoogleGenAI({ apiKey: env.GENAI_API_KEY });
 
 const DEFAULT_FETCH_TIMEOUT = 6000; // ms
 const INTERNAL_LINK_LIMIT = 3;
@@ -163,6 +160,10 @@ function buildFacebookUrl(name) {
 }
 
 export const POST = async ({ request }) => {
+	if (!isAiModelConfigured('group_enrichment')) {
+		return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
+	}
+
 	const body = await request.json().catch(() => ({}));
 	const { instagram, facebook, website, name } = body || {};
 
@@ -262,8 +263,9 @@ Context name (if provided by user): ${name || ''}`;
 	}
 
 	try {
+		const { ai, model } = requireAiModel('group_enrichment');
 		const response = await ai.models.generateContent({
-			model: 'gemini-2.5-flash',
+			model: model.model,
 			contents,
 			config: {
 				responseSchema: RESPONSE_SCHEMA,

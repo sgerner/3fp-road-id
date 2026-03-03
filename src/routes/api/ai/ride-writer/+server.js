@@ -1,11 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { GoogleGenAI } from '@google/genai';
-import { env } from '$env/dynamic/private';
+import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
 
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
-const apiKey = env.GENAI_API_KEY;
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 let schemaUnsupported = false;
 
 const RESPONSE_SCHEMA = {
@@ -174,11 +171,12 @@ function isSchemaUnsupportedError(error) {
 }
 
 async function generateRideDraft({ prompt, useSchema = true }) {
+	const { ai, model } = requireAiModel('structured_text');
 	const config = {};
 	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
 	config.responseMimeType = 'application/json';
 	return ai.models.generateContent({
-		model: 'gemini-2.5-flash',
+		model: model.model,
 		contents: prompt,
 		config
 	});
@@ -193,9 +191,9 @@ function normalizeAiPayload(parsed, rawText = '') {
 		typeof parsed?.reply === 'string' && parsed.reply.trim()
 			? parsed.reply.trim()
 			: rawText.trim() ||
-			(draft
-				? 'Draft is ready. Review it, tweak anything you want, then apply it to the form.'
-				: 'I need a little more detail to turn this into a ride draft.');
+				(draft
+					? 'Draft is ready. Review it, tweak anything you want, then apply it to the form.'
+					: 'I need a little more detail to turn this into a ride draft.');
 
 	return {
 		reply,
@@ -205,7 +203,9 @@ function normalizeAiPayload(parsed, rawText = '') {
 }
 
 export async function POST({ request }) {
-	if (!ai) return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
+	if (!isAiModelConfigured('structured_text')) {
+		return json({ error: 'GENAI_API_KEY not configured.' }, { status: 503 });
+	}
 
 	const payload = await request.json().catch(() => null);
 	if (!payload || !Array.isArray(payload.messages)) {
