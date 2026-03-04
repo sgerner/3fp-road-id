@@ -9,6 +9,7 @@
 	const values = $derived(form?.values ?? data?.initialValues ?? {});
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let editorApi = $state(null);
 
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
@@ -122,6 +123,9 @@
 				value={values.bodyMarkdown || ''}
 				mode={values.editorMode || 'wysiwyg'}
 				placeholder="Start with the field guide, story, or template you want the community to use."
+				onReady={(api) => {
+					editorApi = api;
+				}}
 			/>
 
 			{#if form?.error}
@@ -141,6 +145,7 @@
 			uploaded={data.recentAssets}
 			heading="Asset Library"
 			description="Recent uploads stay here so you can browse files, copy embed snippets, and reuse media while drafting."
+			onInsertSnippet={(snippet) => editorApi?.insertSnippet?.(snippet) ?? false}
 		/>
 
 		<section class="border-surface-500/20 bg-surface-900/55 rounded-[1.75rem] border p-5 shadow-lg">

@@ -8,7 +8,8 @@
 		mode = 'wysiwyg',
 		height = '560px',
 		placeholder = 'Write something useful.',
-		label = 'Article'
+		label = 'Article',
+		onReady = null
 	} = $props();
 
 	let editorEl = $state(null);
@@ -37,6 +38,18 @@
 		syncHiddenFields();
 	}
 
+	function insertSnippet(text) {
+		if (!editor || !ready || !text) return false;
+		try {
+			editor.insertText(text);
+			editor.focus();
+			syncHiddenFields();
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	onMount(async () => {
 		const mod = await import('@toast-ui/editor');
 		const Editor = mod.Editor;
@@ -56,8 +69,14 @@
 
 		ready = true;
 		syncHiddenFields();
+		onReady?.({
+			insertSnippet,
+			focus: () => editor?.focus?.(),
+			getMarkdown: () => editor?.getMarkdown?.() ?? ''
+		});
 
 		return () => {
+			onReady?.(null);
 			editor?.destroy?.();
 			editor = null;
 		};

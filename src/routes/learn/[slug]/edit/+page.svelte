@@ -19,6 +19,7 @@
 	);
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let editorApi = $state(null);
 
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
@@ -103,7 +104,13 @@
 				onApply={applyGeneratedImage}
 			/>
 
-			<LearnEditor value={values.bodyMarkdown || ''} mode={values.editorMode || 'wysiwyg'} />
+			<LearnEditor
+				value={values.bodyMarkdown || ''}
+				mode={values.editorMode || 'wysiwyg'}
+				onReady={(api) => {
+					editorApi = api;
+				}}
+			/>
 
 			{#if form?.error}
 				<p class="text-error-500 text-sm">{form.error}</p>
@@ -123,6 +130,7 @@
 			uploaded={assetLibrary}
 			heading="Asset Library"
 			description="Browse files already attached to this article, reuse recent uploads, or add new media and documents."
+			onInsertSnippet={(snippet) => editorApi?.insertSnippet?.(snippet) ?? false}
 		/>
 
 		<section class="border-surface-500/20 bg-surface-900/55 rounded-[1.75rem] border p-5 shadow-lg">
