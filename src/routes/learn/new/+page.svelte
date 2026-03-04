@@ -1,11 +1,35 @@
 <script>
 	import LearnEditor from '$lib/components/learn/LearnEditor.svelte';
 	import LearnMediaUploader from '$lib/components/learn/LearnMediaUploader.svelte';
+	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 	import IconBookPlus from '@lucide/svelte/icons/book-plus';
 
 	const { data, form } = $props();
 
 	const values = $derived(form?.values ?? data?.initialValues ?? {});
+	let formEl = $state();
+	let coverImageUrl = $state('');
+
+	$effect(() => {
+		coverImageUrl = values.coverImageUrl || '';
+	});
+
+	function buildImageContext() {
+		const formData = new FormData(formEl);
+		return {
+			title: formData.get('title')?.toString().trim() || '',
+			summary: formData.get('summary')?.toString().trim() || '',
+			category: formData.get('categoryName')?.toString().trim() || '',
+			subcategory:
+				data.subcategories.find((sub) => sub.slug === formData.get('subcategorySlug')?.toString())
+					?.name || '',
+			bodyMarkdown: formData.get('bodyMarkdown')?.toString() || ''
+		};
+	}
+
+	function applyGeneratedImage(result) {
+		coverImageUrl = result?.url || coverImageUrl;
+	}
 </script>
 
 <svelte:head>
@@ -15,7 +39,7 @@
 <div class="mx-auto flex w-full max-w-5xl flex-col gap-6">
 	<h1 class="text-left text-3xl font-black">Create a new wiki article</h1>
 
-	<form class="space-y-6" method="POST">
+	<form class="space-y-6" method="POST" bind:this={formEl}>
 		<section
 			class="border-surface-500/20 bg-surface-950/50 space-y-6 rounded-[2rem] border p-6 shadow-xl"
 		>
@@ -78,10 +102,20 @@
 						class="input"
 						name="coverImageUrl"
 						placeholder="https://..."
-						value={values.coverImageUrl || ''}
+						bind:value={coverImageUrl}
 					/>
 				</label>
 			</div>
+
+			<ImageGeneratorPanel
+				target="learn"
+				heading="Generate article cover art"
+				description="Use the article title, summary, category, and current draft to create a comic-style cover image."
+				helperText="Best for bold symbolic cover art rather than literal screenshots or diagrams."
+				currentImageUrl={coverImageUrl}
+				buildContext={buildImageContext}
+				onApply={applyGeneratedImage}
+			/>
 
 			<LearnEditor
 				value={values.bodyMarkdown || ''}

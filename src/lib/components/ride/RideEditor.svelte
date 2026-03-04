@@ -19,6 +19,7 @@
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 
 	let {
 		pageTitle = 'New Ride',
@@ -418,7 +419,8 @@
 			);
 			if (match) {
 				const timezone =
-					(await resolveTimezoneForCoordinates(match.latitude, match.longitude)) || nextForm.timezone;
+					(await resolveTimezoneForCoordinates(match.latitude, match.longitude)) ||
+					nextForm.timezone;
 				nextForm = {
 					...nextForm,
 					startLocationAddress: nextForm.startLocationAddress || match.label,
@@ -522,6 +524,49 @@
 		} finally {
 			imageUploading = false;
 		}
+	}
+
+	function buildRideImageContext() {
+		const selectedHostGroup = hostGroups.find(
+			(group) => String(group.id) === String(form.hostGroupId)
+		);
+		const startLocation = [safeTrim(form.startLocationName), safeTrim(form.startLocationAddress)]
+			.filter(Boolean)
+			.join(' · ');
+		const endLocation = [safeTrim(form.endLocationName), safeTrim(form.endLocationAddress)]
+			.filter(Boolean)
+			.join(' · ');
+		const difficulty = difficultyLevels
+			.filter((level) => form.difficultyLevelIds.includes(level.id))
+			.map((level) => level.name);
+		const selectedDisciplines = disciplines
+			.filter((discipline) => form.ridingDisciplineIds.includes(discipline.id))
+			.map((discipline) => discipline.name);
+
+		return {
+			title: form.title,
+			summary: form.summary,
+			description: form.description,
+			startLocation,
+			endLocation,
+			time: [form.startsAt, form.endsAt].filter(Boolean).join(' to '),
+			distance: form.estimatedDistanceMiles ? `${form.estimatedDistanceMiles} miles` : '',
+			difficulty,
+			disciplines: selectedDisciplines,
+			hostGroup: selectedHostGroup?.name || '',
+			paceNotes: form.paceNotes,
+			accessibilityNotes: form.accessibilityNotes
+		};
+	}
+
+	function applyGeneratedRideImage(result) {
+		const url = safeTrim(result?.url);
+		if (!url) return;
+
+		form = {
+			...form,
+			imageUrls: [url, ...form.imageUrls.filter((imageUrl) => imageUrl !== url)].slice(0, 6)
+		};
 	}
 
 	function removeImage(index) {
@@ -1074,13 +1119,22 @@
 					<div class="editor-section-icon"><IconPlus class="h-4 w-4" /></div>
 					<h2 class="editor-section-title">Images</h2>
 				</div>
-				<div class="p-5 pt-4 space-y-4">
+				<div class="space-y-4 p-5 pt-4">
+					<ImageGeneratorPanel
+						target="ride"
+						heading="Generate comic ride art"
+						description="Create a lead ride image from the ride details already on this page."
+						helperText=""
+						currentImageUrl={form.imageUrls[0] || ''}
+						buildContext={buildRideImageContext}
+						onApply={applyGeneratedRideImage}
+					/>
 					<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 						<div class="space-y-1">
 							<p class="font-medium">Attach up to 6 ride photos</p>
 							<p class="text-sm opacity-70">
-								The first image becomes the lead photo on the ride page. Featured cards on
-								`/ride` only show that lead image so the directory stays readable.
+								The first image becomes the lead photo on the ride page. Featured cards on `/ride`
+								only show that lead image so the directory stays readable.
 							</p>
 						</div>
 						<label class="btn preset-outlined-primary-500 cursor-pointer gap-2">
@@ -1104,7 +1158,9 @@
 					{#if form.imageUrls.length}
 						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 							{#each form.imageUrls as imageUrl, index (imageUrl)}
-								<div class="ride-image-card overflow-hidden rounded-2xl border border-surface-500/20">
+								<div
+									class="ride-image-card border-surface-500/20 overflow-hidden rounded-2xl border"
+								>
 									<img
 										src={imageUrl}
 										alt={`Ride image ${index + 1}`}
@@ -1137,7 +1193,9 @@
 							{/each}
 						</div>
 					{:else}
-						<div class="rounded-2xl border border-dashed border-surface-500/25 p-6 text-sm opacity-70">
+						<div
+							class="border-surface-500/25 rounded-2xl border border-dashed p-6 text-sm opacity-70"
+						>
 							No ride images yet.
 						</div>
 					{/if}

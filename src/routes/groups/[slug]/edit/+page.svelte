@@ -7,6 +7,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 	import { toaster } from '../../../toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -53,6 +54,7 @@
 	let cropStart = { x: 0, y: 0 };
 	let cropImgNatural = { w: 0, h: 0 };
 	let cropReady = $state(false);
+	let formEl = $state();
 
 	// Crop viewport container ref (no measurements used)
 	let cropContainerEl = $state(null);
@@ -694,6 +696,54 @@
 		queueSave({ fields: { social_links: Object.keys(cleaned).length ? cleaned : null } });
 	}
 
+	function buildGroupImageContext() {
+		const formData = new FormData(formEl);
+		const selectedAudience = Array.from(
+			formEl?.querySelectorAll?.('input[name="audience_focus_ids"]:checked') ?? []
+		)
+			.map((input) => {
+				const id = Number(input.value);
+				return data.audience_focuses.find((item) => item.id === id)?.name || '';
+			})
+			.filter(Boolean);
+		const selectedDisciplines = Array.from(
+			formEl?.querySelectorAll?.('input[name="riding_discipline_ids"]:checked') ?? []
+		)
+			.map((input) => {
+				const id = Number(input.value);
+				return data.riding_disciplines.find((item) => item.id === id)?.name || '';
+			})
+			.filter(Boolean);
+
+		return {
+			name: formData.get('name')?.toString().trim() || data.group?.name || '',
+			tagline: formData.get('tagline')?.toString().trim() || '',
+			description: formData.get('description')?.toString().trim() || '',
+			location: [
+				formData.get('specific_meeting_point_address'),
+				formData.get('city'),
+				formData.get('state_region'),
+				formData.get('country')
+			]
+				.map((value) => (value == null ? '' : String(value).trim()))
+				.filter(Boolean)
+				.join(', '),
+			serviceArea: formData.get('service_area_description')?.toString().trim() || '',
+			activityFrequency: formData.get('activity_frequency')?.toString().trim() || '',
+			typicalTime: formData.get('typical_activity_day_time')?.toString().trim() || '',
+			ridingDisciplines: selectedDisciplines,
+			audienceFocuses: selectedAudience,
+			howToJoin: formData.get('how_to_join_instructions')?.toString().trim() || ''
+		};
+	}
+
+	function applyGeneratedGroupCover(result) {
+		const url = result?.url || '';
+		if (!url) return;
+		coverPreview = url;
+		queueSave({ fields: { cover_photo_url: url } });
+	}
+
 	// Preferred CTA
 	function onCtaKindChange(e) {
 		const kind = e?.target?.value || 'auto';
@@ -1052,6 +1102,7 @@
 		method="POST"
 		enctype="multipart/form-data"
 		class="space-y-5"
+		bind:this={formEl}
 		onsubmit={(event) => event.preventDefault()}
 	>
 		<!-- ── Identity ── -->
@@ -1523,6 +1574,17 @@
 		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Photos</h2>
+			<div class="mt-4">
+				<ImageGeneratorPanel
+					target="group"
+					heading="Generate group cover art"
+					description="Create a fresh comic-style banner from the current group details and save it directly to the cover photo."
+					helperText="This updates the live cover image immediately through autosave."
+					currentImageUrl={coverPreview}
+					buildContext={buildGroupImageContext}
+					onApply={applyGeneratedGroupCover}
+				/>
+			</div>
 			<div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
 				<!-- Logo -->
 				<div class="flex flex-col gap-2">

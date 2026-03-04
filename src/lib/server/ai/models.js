@@ -14,7 +14,8 @@ export const AI_CAPABILITIES = {
 
 const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
-	GEMINI_25_FLASH: 'google/gemini-2.5-flash'
+	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview'
 };
 
 const AI_MODELS = {
@@ -41,6 +42,18 @@ const AI_MODELS = {
 			AI_CAPABILITIES.WEB_SEARCH,
 			AI_CAPABILITIES.URL_CONTEXT,
 			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW]: {
+		id: MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW,
+		provider: 'google',
+		model: 'gemini-3.1-flash-image-preview',
+		label: 'Gemini 3.1 Flash Image Preview',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.IMAGE_GENERATION,
+			AI_CAPABILITIES.MULTIMODAL_INPUT,
+			AI_CAPABILITIES.MULTIMODAL_OUTPUT
 		]
 	}
 };
@@ -70,6 +83,11 @@ const AI_MODEL_PROFILES = {
 			AI_CAPABILITIES.WEB_SEARCH,
 			AI_CAPABILITIES.URL_CONTEXT
 		]
+	},
+	image_generation: {
+		envVar: 'AI_MODEL_IMAGE_GENERATION',
+		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW,
+		requiredCapabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	}
 };
 
@@ -130,6 +148,48 @@ function createGoogleProviderClient(ai) {
 	return {
 		async generateContent({ model, contents, config }) {
 			return ai.models.generateContent({ model, contents, config });
+		},
+		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '2K' }) {
+			const response = await ai.models.generateContent({
+				model,
+				contents: prompt,
+				config: {
+					responseModalities: ['IMAGE'],
+					imageConfig: {
+						aspectRatio,
+						imageSize
+					}
+				}
+			});
+
+			const inlinePart = response?.candidates
+				?.flatMap((candidate) => candidate?.content?.parts ?? [])
+				.find((part) => part?.inlineData?.data);
+			if (inlinePart?.inlineData?.data) {
+				return {
+					imageBytes: inlinePart.inlineData.data,
+					mimeType: inlinePart.inlineData.mimeType || 'image/png',
+					raw: response
+				};
+			}
+
+			if (response?.generatedImages?.[0]?.image?.imageBytes) {
+				return {
+					imageBytes: response.generatedImages[0].image.imageBytes,
+					mimeType: response.generatedImages[0].image.mimeType || 'image/png',
+					raw: response
+				};
+			}
+
+			if (typeof response?.data === 'string' && response.data) {
+				return {
+					imageBytes: response.data,
+					mimeType: 'image/png',
+					raw: response
+				};
+			}
+
+			throw new Error('Model did not return an image.');
 		}
 	};
 }

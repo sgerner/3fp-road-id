@@ -1,6 +1,7 @@
 <script>
 	let { data } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
+	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
@@ -29,6 +30,7 @@
 	let hiddenTypicalTime = $state('');
 	let hiddenLogoUrl = $state('');
 	let hiddenCoverUrl = $state('');
+	let formEl = $state();
 	function applyLocationValue(id, value) {
 		const v = value == null ? '' : `${value}`.trim();
 		if (id === 'city') city = v;
@@ -325,6 +327,46 @@
 			delete window.initGroupsNewPlaces;
 		}
 	});
+
+	function buildImageContext() {
+		const formData = new FormData(formEl);
+		const selectedAudience = Array.from(
+			formEl?.querySelectorAll?.('input[name="audience_focus_ids"]:checked') ?? []
+		)
+			.map((input) => {
+				const id = Number(input.value);
+				return data.audience_focuses.find((item) => item.id === id)?.name || '';
+			})
+			.filter(Boolean);
+		const selectedDisciplines = Array.from(
+			formEl?.querySelectorAll?.('input[name="riding_discipline_ids"]:checked') ?? []
+		)
+			.map((input) => {
+				const id = Number(input.value);
+				return data.riding_disciplines.find((item) => item.id === id)?.name || '';
+			})
+			.filter(Boolean);
+
+		return {
+			name: formData.get('name')?.toString().trim() || name,
+			tagline: formData.get('tagline')?.toString().trim() || '',
+			description: formData.get('description')?.toString().trim() || '',
+			location: [formData.get('city'), formData.get('state_region'), formData.get('country')]
+				.map((value) => (value == null ? '' : String(value).trim()))
+				.filter(Boolean)
+				.join(', '),
+			serviceArea: hiddenServiceArea,
+			activityFrequency: hiddenActivityFrequency,
+			typicalTime: hiddenTypicalTime,
+			ridingDisciplines: selectedDisciplines,
+			audienceFocuses: selectedAudience,
+			howToJoin: formData.get('how_to_join_instructions')?.toString().trim() || ''
+		};
+	}
+
+	function applyGeneratedGroupImage(result) {
+		hiddenCoverUrl = result?.url || hiddenCoverUrl;
+	}
 </script>
 
 <div class="new-group-page mx-auto w-full max-w-3xl space-y-5 pb-10">
@@ -410,7 +452,7 @@
 		</div>
 	</section>
 
-	<form method="POST" class="space-y-5">
+	<form method="POST" class="space-y-5" bind:this={formEl}>
 		<!-- Hidden AI-suggested fields -->
 		<input type="hidden" name="suggested_website_url" value={hiddenSuggestedWebsite} />
 		<input type="hidden" id="membership_info" name="membership_info" value={hiddenMembershipInfo} />
@@ -443,6 +485,22 @@
 		<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
 		<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
 		<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
+
+		<section class="new-card relative overflow-hidden rounded-2xl p-5">
+			<div class="new-card-accent-bar tertiary" aria-hidden="true"></div>
+			<h2 class="new-section-title">AI Cover Art</h2>
+			<div class="mt-4">
+				<ImageGeneratorPanel
+					target="group"
+					heading="Generate group cover art"
+					description="Build a comic-book group banner from the name, description, location, and community focus on this page."
+					helperText="Generated cover art is added to the hidden cover field now and will be stored with the group when you submit."
+					currentImageUrl={hiddenCoverUrl}
+					buildContext={buildImageContext}
+					onApply={applyGeneratedGroupImage}
+				/>
+			</div>
+		</section>
 
 		<!-- ── Identity ── -->
 		<section class="new-card relative overflow-hidden rounded-2xl p-5">
