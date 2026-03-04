@@ -15,6 +15,7 @@ export const AI_CAPABILITIES = {
 const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_31_FLASH_LITE_PREVIEW: 'google/gemini-3.1-flash-lite-preview',
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview'
 };
 
@@ -35,6 +36,21 @@ const AI_MODELS = {
 		provider: 'google',
 		model: 'gemini-2.5-flash',
 		label: 'Gemini 2.5 Flash',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW]: {
+		id: MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW,
+		provider: 'google',
+		model: 'gemini-3.1-flash-lite-preview',
+		label: 'Gemini 3.1 Flash Lite Preview',
+		fallbackModel: 'gemini-2.5-flash',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -75,7 +91,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
-		fallbackModelId: MODEL_ID.GEMINI_25_FLASH,
+		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -147,7 +163,15 @@ function buildInceptionMessages(contents) {
 function createGoogleProviderClient(ai) {
 	return {
 		async generateContent({ model, contents, config }) {
-			return ai.models.generateContent({ model, contents, config });
+			try {
+				return await ai.models.generateContent({ model, contents, config });
+			} catch (error) {
+				const fallbackModel = Object.values(AI_MODELS).find(
+					(candidate) => candidate.provider === 'google' && candidate.model === model
+				)?.fallbackModel;
+				if (!fallbackModel) throw error;
+				return ai.models.generateContent({ model: fallbackModel, contents, config });
+			}
 		},
 		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '2K' }) {
 			const response = await ai.models.generateContent({
