@@ -18,32 +18,42 @@ Recurring Easter egg: include a subtle glowing "3 FT" safety bubble around rider
 Avoid photorealism, muddy colors, soft cinematic blur, modern 3D rendering, realistic camera artifacts, and text-heavy layouts.`
 	},
 	{
-		id: 'comic_pedal_power',
-		label: 'Pedal Power',
-		description: 'More motion, humor, sound effects, and kinetic absurdity.',
-		prompt: `classic golden-age comic book illustration, 1960s cycling superhero poster style, bold black ink outlines, halftone dot shading, flat primary colors, vintage comic printing texture, exaggerated heroic poses, wholesome and slightly ridiculous tone, dramatic lighting, highly stylized illustration, not photorealistic
+		id: 'risograph_patchwork',
+		label: 'Risograph Patchwork',
+		description:
+			'Graphic editorial collage with layered shapes, paper grain, and bold limited inks.',
+		prompt: `bold risograph poster illustration, layered cut-paper collage, geometric patchwork shapes, offset ink registration, visible paper grain, limited spot-color palette, playful abstract composition, editorial illustration energy, handmade print imperfections, not photorealistic
 
-Lean into playful motion: lightning bolts behind wheels, dramatic speed streaks, exaggerated speed trails, comic sound effects like "WHOOSH!" and "PEDAL POWER!", starburst captions, dynamic diagonals, action-packed composition.
+Visual characteristics: torn paper edges, simplified blocky forms, overlapping translucent ink layers, stencil-like shadows, graphic negative space, screenprinted poster texture.
 
-Keep riders heroic, joyful, and energetic. Use thick black outlines, halftone dots, screenprint texture, and a bright red, yellow, blue comic palette with deep navy outlines. Avoid gradients.
+Color direction: choose 3 to 5 inks only, such as fluorescent orange, teal, ultramarine, black, and warm cream paper. Avoid gradients, chrome, and airbrush rendering.
 
-Include a subtle recurring 3FP Easter egg such as a glowing "3 FT" bubble, a startled motorist in the background, or a tiny helmet mascot.
+Character direction: simplify people and bikes into elegant graphic silhouettes and expressive shapes rather than detailed comic characters.
 
-Avoid photorealism, muted palettes, realistic signage, and bland stock-poster composition.`
+Composition rules: poster-like balance, symbolic scenery, strong foreground/background separation, large fields of color, clean editorial storytelling, room for calm focal hierarchy.
+
+Include a subtle recurring 3FP Easter egg as a small circular "3 FT" icon, badge, or pattern element integrated into the design.
+
+Avoid photorealism, glossy 3D rendering, dense linework, faux camera effects, and literal stock-photo staging.`
 	},
 	{
-		id: 'comic_civic_sunrise',
-		label: 'Civic Sunrise',
-		description: 'A calmer but still bold poster look for community identity and educational art.',
-		prompt: `classic golden-age comic book illustration, 1960s cycling superhero poster style, bold black ink outlines, halftone dot shading, flat primary colors, vintage comic printing texture, wholesome and slightly ridiculous tone, dramatic lighting, highly stylized illustration, not photorealistic
+		id: 'quiet_gouache',
+		label: 'Quiet Gouache',
+		description:
+			'Calm editorial gouache scenes with soft edges, muted warmth, and a reflective tone.',
+		prompt: `stylized gouache editorial illustration, matte painted texture, soft brushed edges, visible pigment grain, muted earthy palette, gentle shapes, calm contemplative composition, storybook poster feel, hand-painted paper surface, not photorealistic
 
-Favor a noble community-poster composition: dramatic sunrise or desert light, heroic group silhouettes, clean comic panel framing, city skyline or neighborhood backdrop, rally-poster energy, approachable community warmth.
+Visual characteristics: flat gouache blocks, subtle dry-brush texture, soft edge transitions without glossy gradients, simplified forms, warm atmospheric layering, quiet handcrafted detail.
 
-Use thick outlines, halftone texture, flat primary colors, and a vintage print look. Keep cyclists and neighbors stylized like comic heroes rather than ordinary posed people.
+Color direction: muted sage, dusty blue, terracotta, warm sand, cream, charcoal accents. Keep the palette restrained and soothing.
 
-Include a subtle recurring 3FP Easter egg such as a glowing "3 FT" bubble or a tiny shocked driver far in the background.
+Character direction: people and cyclists should feel approachable, thoughtful, and human-scaled rather than bombastic superheroes.
 
-Avoid gradients, photorealism, gritty realism, muddy colors, and cluttered signage.`
+Composition rules: spacious layouts, slower rhythms, clear focal subject, gentle neighborhood or landscape backdrops, poetic symbolic storytelling, minimal clutter.
+
+Include a subtle recurring 3FP Easter egg as a small "3 FT" sign, painted curb marking, or tiny emblem tucked into the environment.
+
+Avoid photorealism, glossy rendering, loud neon color, comic sound effects, extreme action poses, and noisy over-detailed backgrounds.`
 	}
 ];
 

@@ -11,17 +11,22 @@
 		aspectRatio = '16:9',
 		articleId = null,
 		currentImageUrl = '',
+		defaultStyleId = IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house',
 		buildContext = () => ({}),
 		onApply = () => {}
 	} = $props();
 
-	let styleId = $state(IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house');
+	let styleId = $state('');
 	let userPrompt = $state('');
 	let generating = $state(false);
 	let error = $state('');
 	let lastGeneratedUrl = $state('');
 
 	const previewUrl = $derived(currentImageUrl || lastGeneratedUrl || '');
+
+	$effect(() => {
+		styleId = defaultStyleId;
+	});
 
 	async function generateImage() {
 		error = '';

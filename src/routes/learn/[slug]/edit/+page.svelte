@@ -97,6 +97,7 @@
 				description="Use the article draft on this page to create a comic-style cover image and add it to the asset library."
 				helperText="Generated learn images are stored like uploaded assets, so they can be reused later."
 				articleId={data.article.id}
+				defaultStyleId="quiet_gouache"
 				currentImageUrl={coverImageUrl}
 				buildContext={buildImageContext}
 				onApply={applyGeneratedImage}

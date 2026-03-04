@@ -112,6 +112,7 @@
 				heading="Generate article cover art"
 				description="Use the article title, summary, category, and current draft to create a comic-style cover image."
 				helperText="Best for bold symbolic cover art rather than literal screenshots or diagrams."
+				defaultStyleId="quiet_gouache"
 				currentImageUrl={coverImageUrl}
 				buildContext={buildImageContext}
 				onApply={applyGeneratedImage}
