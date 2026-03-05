@@ -16,6 +16,11 @@
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
+	// Branding / social icons
+	import IconHeart from '@lucide/svelte/icons/heart';
+	import IconFacebook from '@lucide/svelte/icons/facebook';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconMail from '@lucide/svelte/icons/mail';
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
@@ -256,6 +261,10 @@
 	function isActiveNav(item) {
 		return item.match($page.url.pathname);
 	}
+
+	function isGetInvolvedActive() {
+		return $page.url.pathname.startsWith('/get-involved');
+	}
 </script>
 
 <svelte:head>
@@ -451,14 +460,80 @@
 							<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
 						</a>
 					{/each}
-					{#if data.isAdmin}
+					<!-- ── Bottom branding section ── -->
+					<div class="mt-auto flex w-full flex-col items-center gap-3 pt-4 pb-2">
+						<!-- Divider -->
+						<div class="border-surface-500/15 w-full border-t"></div>
+
+						<!-- Get Involved link -->
 						<a
-							href="/admin/rides/import"
-							class="text-surface-700-300 hover:text-surface-600-400 mt-4 w-full px-2 py-2 text-center text-[0.72rem] font-medium transition"
+							href="/get-involved"
+							title="Get Involved"
+							aria-label="Get Involved"
+							class={`rail-brand-link flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-center transition ${
+								isGetInvolvedActive()
+									? 'text-primary-500 bg-primary-500/10'
+									: 'text-surface-600-400 hover:text-primary-500 hover:bg-primary-500/8'
+							}`}
 						>
-							Import Rides
+							<span class="text-[0.68rem] leading-none font-semibold tracking-wide"
+								>Get Involved</span
+							>
 						</a>
-					{/if}
+
+						<!-- Social icon row -->
+						<div class="flex items-center gap-1">
+							<a
+								href="https://www.facebook.com/3FeetPlease/"
+								target="_blank"
+								rel="noopener noreferrer"
+								title="3FP on Facebook"
+								aria-label="3 Feet Please on Facebook"
+								class="rail-social-btn"
+							>
+								<IconFacebook class="h-3.5 w-3.5" />
+							</a>
+							<a
+								href="https://www.instagram.com/3feetplease"
+								target="_blank"
+								rel="noopener noreferrer"
+								title="3FP on Instagram"
+								aria-label="3 Feet Please on Instagram"
+								class="rail-social-btn"
+							>
+								<IconInstagram class="h-3.5 w-3.5" />
+							</a>
+							<a
+								href="mailto:hi@3fp.org"
+								title="Email 3FP"
+								aria-label="Email 3 Feet Please"
+								class="rail-social-btn"
+							>
+								<IconMail class="h-3.5 w-3.5" />
+							</a>
+						</div>
+
+						<!-- Placeholder Donate button -->
+						<button
+							type="button"
+							disabled
+							title="Donate — coming soon"
+							aria-label="Donate — coming soon"
+							class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
+						>
+							<IconHeart class="h-3.5 w-3.5 fill-current" />
+							Donate
+						</button>
+
+						{#if data.isAdmin}
+							<a
+								href="/admin/rides/import"
+								class="text-surface-700-300 hover:text-surface-600-400 w-full px-2 py-1 text-center text-[0.65rem] transition"
+							>
+								Import Rides
+							</a>
+						{/if}
+					</div>
 				</nav>
 			</div>
 		</aside>
@@ -509,7 +584,133 @@
 						</a>
 					{/each}
 				</nav>
+				<div class="border-surface-500/10 mt-2 space-y-1 border-t pt-2">
+					<a
+						href="/get-involved"
+						class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+							isGetInvolvedActive()
+								? 'text-primary-500 bg-primary-500/10'
+								: 'text-surface-700-300 hover:bg-surface-950-50/10 hover:text-primary-400'
+						}`}
+						onclick={() => (showMobileMenu = false)}
+					>
+						<IconHeart class="h-5 w-5 shrink-0" />
+						Get Involved
+					</a>
+					<!-- Social + Donate row -->
+					<div class="flex items-center gap-2 px-3 py-1.5">
+						<a
+							href="https://www.facebook.com/3FeetPlease/"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="Facebook"
+							class="mob-social-btn"
+						>
+							<IconFacebook class="h-4 w-4" />
+						</a>
+						<a
+							href="https://www.instagram.com/3feetplease"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="Instagram"
+							class="mob-social-btn"
+						>
+							<IconInstagram class="h-4 w-4" />
+						</a>
+						<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
+							<IconMail class="h-4 w-4" />
+						</a>
+						<button
+							type="button"
+							disabled
+							class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+						>
+							<IconHeart class="h-3.5 w-3.5 fill-current" />
+							Donate
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	{/if}
 </div>
+
+<style>
+	/* ── Rail: Get Involved link ── */
+	:global(.rail-brand-link) {
+		text-decoration: none;
+	}
+	:global(.rail-brand-link:hover) {
+		text-decoration: none;
+	}
+
+	/* ── Rail: social icon buttons ── */
+	:global(.rail-social-btn) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.6rem;
+		color: var(--color-surface-500);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		background: color-mix(in oklab, var(--color-surface-500) 6%, transparent);
+		text-decoration: none;
+		transition:
+			color 150ms,
+			background 150ms,
+			border-color 150ms,
+			transform 150ms;
+	}
+	:global(.rail-social-btn:hover) {
+		color: var(--color-primary-500);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		transform: translateY(-1px);
+	}
+
+	/* ── Rail: Donate placeholder button ── */
+	:global(.rail-donate-btn) {
+		color: color-mix(in oklab, var(--color-error-500) 80%, var(--color-surface-50) 20%);
+		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 28%, transparent);
+		cursor: not-allowed;
+		opacity: 0.75;
+		transition: opacity 150ms;
+	}
+	:global(.rail-donate-btn:hover) {
+		opacity: 0.9;
+	}
+
+	/* ── Mobile menu: social icon buttons ── */
+	:global(.mob-social-btn) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.1rem;
+		height: 2.1rem;
+		border-radius: 0.6rem;
+		color: var(--color-surface-500);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		background: color-mix(in oklab, var(--color-surface-500) 6%, transparent);
+		text-decoration: none;
+		transition:
+			color 150ms,
+			background 150ms,
+			border-color 150ms;
+	}
+	:global(.mob-social-btn:hover) {
+		color: var(--color-primary-400);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	/* ── Mobile menu: Donate placeholder button ── */
+	:global(.mob-donate-btn) {
+		color: color-mix(in oklab, var(--color-error-500) 80%, var(--color-surface-50) 20%);
+		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 28%, transparent);
+		cursor: not-allowed;
+		opacity: 0.75;
+	}
+</style>

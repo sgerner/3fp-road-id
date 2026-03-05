@@ -17,6 +17,13 @@
 	<title>Volunteer Hub</title>
 </svelte:head>
 
+<section class="mb-4 rounded-xl border border-surface-300-700 bg-surface-100-900/70 p-4">
+	<p class="text-surface-700-300 !mb-0 text-sm">
+		Looking for ongoing ways to help outside specific event shifts?
+		<a href="/get-involved" class="anchor">Visit Get Involved.</a>
+	</p>
+</section>
+
 <VolunteerEventsExplorer
 	eventsData={events}
 	hostGroupsData={hostGroups}

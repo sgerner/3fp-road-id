@@ -167,6 +167,10 @@
 			<IconArrowRight class="h-4 w-4" />
 		</a>
 	</div>
+	<p class="text-surface-700-300 mt-4 text-sm">
+		Want to help outside scheduled shifts?
+		<a href="/get-involved" class="anchor">See ongoing opportunities.</a>
+	</p>
 </section>
 
 <!-- ============================================================
