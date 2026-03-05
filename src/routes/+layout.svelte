@@ -265,6 +265,8 @@
 	function isGetInvolvedActive() {
 		return $page.url.pathname.startsWith('/get-involved');
 	}
+
+	let isEmbedRoute = $derived($page.url.pathname.startsWith('/ride/widget/frame'));
 </script>
 
 <svelte:head>
@@ -276,288 +278,37 @@
 	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
 		<div bind:this={turnstileEl}></div>
 	</div>
-	<header
-		class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
-	>
-		<div class="flex items-center justify-between gap-4 p-4">
-			<div class="flex items-center gap-2">
-				<button
-					class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
-					bind:this={mobileMenuBtnEl}
-					onclick={() => (showMobileMenu = !showMobileMenu)}
-					aria-label="Menu"
-					aria-expanded={showMobileMenu}
-				>
-					<IconMenu class="h-5 w-5" />
-				</button>
-				<a href="/" class="text-surface-950-50 flex items-center gap-3">
-					<img src="/3fp.png" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
-					<div>
-						<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
-					</div>
-				</a>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<label class="hidden items-center gap-2 md:flex">
-					<select
-						class="select bg-surface-100-900/70 text-sm"
-						value={theme}
-						onchange={(e) => applyTheme(e.currentTarget.value)}
-						aria-label="Select theme"
-					>
-						{#each themeOptions as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-				</label>
-
-				<div class="relative">
-					{#if user}
-						<div class="flex items-center gap-2">
-							<button class="chip preset-tonal-surface" onclick={doLogout}>Logout</button>
-						</div>
-					{:else}
-						<button
-							class="chip preset-filled-primary-500"
-							bind:this={loginBtnEl}
-							onclick={() => (showLogin = !showLogin)}
-						>
-							Log in / Register
-						</button>
-						{#if showLogin}
-							<div
-								class="bg-surface-50-950/50 fixed inset-0 z-40 md:hidden"
-								onclick={() => (showLogin = false)}
-								onkeydown={(e) => {
-									if (e.key === 'Enter' || e.key === ' ') showLogin = false;
-								}}
-								role="button"
-								tabindex="0"
-								aria-label="Close login"
-							></div>
-
-							<div bind:this={loginContainerEl}>
-								<form
-									class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
-									onsubmit={doLogin}
-								>
-									<input
-										type="text"
-										name="website"
-										bind:value={honeypot}
-										autocomplete="off"
-										tabindex="-1"
-										aria-hidden="true"
-										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-									/>
-									<div class="mb-2 flex items-center justify-between">
-										<h3 class="text-base font-semibold">Log in / Register</h3>
-										<button
-											type="button"
-											class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
-											onclick={() => (showLogin = false)}>Close</button
-										>
-									</div>
-									<label for="login-email-m" class="text-surface-700-300 mb-1 block text-xs"
-										>Email</label
-									>
-									<input
-										id="login-email-m"
-										type="email"
-										bind:value={email}
-										placeholder="you@example.com"
-										class="input bg-primary-50-950/30 text-surface-950-50 w-full"
-										required
-									/>
-									{#if error}
-										<div class="text-error-600-400 mt-2 text-xs">{error}</div>
-									{/if}
-									{#if success}
-										<div class="text-success-600-400 mt-2 text-xs">{success}</div>
-									{/if}
-									<button
-										type="submit"
-										class="btn preset-filled-primary-500 mt-3 w-full {loading
-											? 'animate-pulse'
-											: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
-										disabled={loading || !emailValid}
-									>
-										Send Magic Link
-									</button>
-									<div class="text-surface-600-400 mt-2 text-center text-[11px]">
-										Use the same form to log in or create an account.
-									</div>
-								</form>
-
-								<form
-									class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
-									onsubmit={doLogin}
-								>
-									<input
-										type="text"
-										name="website"
-										bind:value={honeypot}
-										autocomplete="off"
-										tabindex="-1"
-										aria-hidden="true"
-										style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-									/>
-									<label for="login-email" class="text-surface-700-300 mb-1 block text-xs"
-										>Email</label
-									>
-									<input
-										id="login-email"
-										type="email"
-										bind:value={email}
-										placeholder="you@example.com"
-										class="input bg-primary-50-950/30 text-surface-950-50 w-full"
-										required
-									/>
-									{#if error}
-										<div class="text-error-600-400 mt-2 text-xs">{error}</div>
-									{/if}
-									{#if success}
-										<div class="text-success-600-400 mt-2 text-xs">{success}</div>
-									{/if}
-									<button
-										type="submit"
-										class="btn preset-filled-primary-500 mt-3 w-full {loading
-											? 'animate-pulse'
-											: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
-										disabled={loading || !emailValid}
-									>
-										Send Magic Link
-									</button>
-									<div class="text-surface-600-400 mt-2 text-center text-[11px]">
-										Use the same form to log in or create an account.
-									</div>
-								</form>
-							</div>
-						{/if}
-					{/if}
-				</div>
-			</div>
-		</div>
-	</header>
-
-	<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
-		<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
-			<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
-				<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
-					{#each navigationItems as item}
-						<a
-							href={item.href}
-							title={item.label}
-							aria-label={item.label}
-							class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
-								isActiveNav(item)
-									? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
-									: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
-							}`}
-						>
-							<item.icon class="h-6 w-6 shrink-0" />
-							<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
-						</a>
-					{/each}
-					<!-- ── Bottom branding section ── -->
-					<div class="mt-auto flex w-full flex-col items-center gap-3 pt-4 pb-2">
-						<!-- Divider -->
-						<div class="border-surface-500/15 w-full border-t"></div>
-
-						<!-- Get Involved link -->
-						<a
-							href="/get-involved"
-							title="Get Involved"
-							aria-label="Get Involved"
-							class={`rail-brand-link flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-center transition ${
-								isGetInvolvedActive()
-									? 'text-primary-500 bg-primary-500/10'
-									: 'text-surface-600-400 hover:text-primary-500 hover:bg-primary-500/8'
-							}`}
-						>
-							<span class="text-[0.68rem] leading-none font-semibold tracking-wide"
-								>Get Involved</span
-							>
-						</a>
-
-						<!-- Social icon row -->
-						<div class="flex items-center gap-1">
-							<a
-								href="https://www.facebook.com/3FeetPlease/"
-								target="_blank"
-								rel="noopener noreferrer"
-								title="3FP on Facebook"
-								aria-label="3 Feet Please on Facebook"
-								class="rail-social-btn"
-							>
-								<IconFacebook class="h-3.5 w-3.5" />
-							</a>
-							<a
-								href="https://www.instagram.com/3feetplease"
-								target="_blank"
-								rel="noopener noreferrer"
-								title="3FP on Instagram"
-								aria-label="3 Feet Please on Instagram"
-								class="rail-social-btn"
-							>
-								<IconInstagram class="h-3.5 w-3.5" />
-							</a>
-							<a
-								href="mailto:hi@3fp.org"
-								title="Email 3FP"
-								aria-label="Email 3 Feet Please"
-								class="rail-social-btn"
-							>
-								<IconMail class="h-3.5 w-3.5" />
-							</a>
-						</div>
-
-						<!-- Placeholder Donate button -->
-						<button
-							type="button"
-							disabled
-							title="Donate — coming soon"
-							aria-label="Donate — coming soon"
-							class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
-						>
-							<IconHeart class="h-3.5 w-3.5 fill-current" />
-							Donate
-						</button>
-
-						{#if data.isAdmin}
-							<a
-								href="/admin/rides/import"
-								class="text-surface-700-300 hover:text-surface-600-400 w-full px-2 py-1 text-center text-[0.65rem] transition"
-							>
-								Import Rides
-							</a>
-						{/if}
-					</div>
-				</nav>
-			</div>
-		</aside>
-
-		<main class="min-w-0 overflow-x-hidden p-4">
+	{#if isEmbedRoute}
+		<main class="min-h-dvh min-w-0 overflow-x-hidden p-0">
 			{@render children()}
 		</main>
-	</div>
+	{:else}
+		<header
+			class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
+		>
+			<div class="flex items-center justify-between gap-4 p-4">
+				<div class="flex items-center gap-2">
+					<button
+						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
+						bind:this={mobileMenuBtnEl}
+						onclick={() => (showMobileMenu = !showMobileMenu)}
+						aria-label="Menu"
+						aria-expanded={showMobileMenu}
+					>
+						<IconMenu class="h-5 w-5" />
+					</button>
+					<a href="/" class="text-surface-950-50 flex items-center gap-3">
+						<img src="/3fp.png" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
+						<div>
+							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+						</div>
+					</a>
+				</div>
 
-	<!-- Mobile dropdown menu (AppBar hamburger) -->
-	{#if showMobileMenu}
-		<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
-			<div
-				class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
-			>
-				<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
-					<label class="flex flex-col gap-2">
-						<span
-							class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
-						>
-							Theme
-						</span>
+				<div class="flex items-center gap-3">
+					<label class="hidden items-center gap-2 md:flex">
 						<select
-							class="select bg-surface-50-950/80 w-full"
+							class="select bg-surface-100-900/70 text-sm"
 							value={theme}
 							onchange={(e) => applyTheme(e.currentTarget.value)}
 							aria-label="Select theme"
@@ -567,71 +318,328 @@
 							{/each}
 						</select>
 					</label>
-				</div>
-				<nav aria-label="Mobile" class="space-y-1">
-					{#each navigationItems as item}
-						<a
-							href={item.href}
-							class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
-								isActiveNav(item)
-									? 'bg-primary-500 text-surface-50-950'
-									: 'hover:bg-surface-950-50/10'
-							}`}
-							onclick={() => (showMobileMenu = false)}
-						>
-							<item.icon class="h-5 w-5 shrink-0" />
-							<span>{item.label}</span>
-						</a>
-					{/each}
-				</nav>
-				<div class="border-surface-500/10 mt-2 space-y-1 border-t pt-2">
-					<a
-						href="/get-involved"
-						class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-							isGetInvolvedActive()
-								? 'text-primary-500 bg-primary-500/10'
-								: 'text-surface-700-300 hover:bg-surface-950-50/10 hover:text-primary-400'
-						}`}
-						onclick={() => (showMobileMenu = false)}
-					>
-						<IconHeart class="h-5 w-5 shrink-0" />
-						Get Involved
-					</a>
-					<!-- Social + Donate row -->
-					<div class="flex items-center gap-2 px-3 py-1.5">
-						<a
-							href="https://www.facebook.com/3FeetPlease/"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="Facebook"
-							class="mob-social-btn"
-						>
-							<IconFacebook class="h-4 w-4" />
-						</a>
-						<a
-							href="https://www.instagram.com/3feetplease"
-							target="_blank"
-							rel="noopener noreferrer"
-							aria-label="Instagram"
-							class="mob-social-btn"
-						>
-							<IconInstagram class="h-4 w-4" />
-						</a>
-						<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
-							<IconMail class="h-4 w-4" />
-						</a>
-						<button
-							type="button"
-							disabled
-							class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
-						>
-							<IconHeart class="h-3.5 w-3.5 fill-current" />
-							Donate
-						</button>
+
+					<div class="relative">
+						{#if user}
+							<div class="flex items-center gap-2">
+								<button class="chip preset-tonal-surface" onclick={doLogout}>Logout</button>
+							</div>
+						{:else}
+							<button
+								class="chip preset-filled-primary-500"
+								bind:this={loginBtnEl}
+								onclick={() => (showLogin = !showLogin)}
+							>
+								Log in / Register
+							</button>
+							{#if showLogin}
+								<div
+									class="bg-surface-50-950/50 fixed inset-0 z-40 md:hidden"
+									onclick={() => (showLogin = false)}
+									onkeydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') showLogin = false;
+									}}
+									role="button"
+									tabindex="0"
+									aria-label="Close login"
+								></div>
+
+								<div bind:this={loginContainerEl}>
+									<form
+										class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
+										onsubmit={doLogin}
+									>
+										<input
+											type="text"
+											name="website"
+											bind:value={honeypot}
+											autocomplete="off"
+											tabindex="-1"
+											aria-hidden="true"
+											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+										/>
+										<div class="mb-2 flex items-center justify-between">
+											<h3 class="text-base font-semibold">Log in / Register</h3>
+											<button
+												type="button"
+												class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
+												onclick={() => (showLogin = false)}>Close</button
+											>
+										</div>
+										<label for="login-email-m" class="text-surface-700-300 mb-1 block text-xs"
+											>Email</label
+										>
+										<input
+											id="login-email-m"
+											type="email"
+											bind:value={email}
+											placeholder="you@example.com"
+											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
+											required
+										/>
+										{#if error}
+											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
+										{/if}
+										{#if success}
+											<div class="text-success-600-400 mt-2 text-xs">{success}</div>
+										{/if}
+										<button
+											type="submit"
+											class="btn preset-filled-primary-500 mt-3 w-full {loading
+												? 'animate-pulse'
+												: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
+											disabled={loading || !emailValid}
+										>
+											Send Magic Link
+										</button>
+										<div class="text-surface-600-400 mt-2 text-center text-[11px]">
+											Use the same form to log in or create an account.
+										</div>
+									</form>
+
+									<form
+										class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
+										onsubmit={doLogin}
+									>
+										<input
+											type="text"
+											name="website"
+											bind:value={honeypot}
+											autocomplete="off"
+											tabindex="-1"
+											aria-hidden="true"
+											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+										/>
+										<label for="login-email" class="text-surface-700-300 mb-1 block text-xs"
+											>Email</label
+										>
+										<input
+											id="login-email"
+											type="email"
+											bind:value={email}
+											placeholder="you@example.com"
+											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
+											required
+										/>
+										{#if error}
+											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
+										{/if}
+										{#if success}
+											<div class="text-success-600-400 mt-2 text-xs">{success}</div>
+										{/if}
+										<button
+											type="submit"
+											class="btn preset-filled-primary-500 mt-3 w-full {loading
+												? 'animate-pulse'
+												: ''} {!emailValid || loading ? 'cursor-not-allowed opacity-50' : ''}"
+											disabled={loading || !emailValid}
+										>
+											Send Magic Link
+										</button>
+										<div class="text-surface-600-400 mt-2 text-center text-[11px]">
+											Use the same form to log in or create an account.
+										</div>
+									</form>
+								</div>
+							{/if}
+						{/if}
 					</div>
 				</div>
 			</div>
+		</header>
+
+		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
+			<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
+				<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
+					<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
+						{#each navigationItems as item}
+							<a
+								href={item.href}
+								title={item.label}
+								aria-label={item.label}
+								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
+									isActiveNav(item)
+										? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
+										: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
+								}`}
+							>
+								<item.icon class="h-6 w-6 shrink-0" />
+								<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
+							</a>
+						{/each}
+						<!-- ── Bottom branding section ── -->
+						<div class="mt-auto flex w-full flex-col items-center gap-3 pt-4 pb-2">
+							<!-- Divider -->
+							<div class="border-surface-500/15 w-full border-t"></div>
+
+							<!-- Get Involved link -->
+							<a
+								href="/get-involved"
+								title="Get Involved"
+								aria-label="Get Involved"
+								class={`rail-brand-link flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-center transition ${
+									isGetInvolvedActive()
+										? 'text-primary-500 bg-primary-500/10'
+										: 'text-surface-600-400 hover:text-primary-500 hover:bg-primary-500/8'
+								}`}
+							>
+								<span class="text-[0.68rem] leading-none font-semibold tracking-wide"
+									>Get Involved</span
+								>
+							</a>
+
+							<!-- Social icon row -->
+							<div class="flex items-center gap-1">
+								<a
+									href="https://www.facebook.com/3FeetPlease/"
+									target="_blank"
+									rel="noopener noreferrer"
+									title="3FP on Facebook"
+									aria-label="3 Feet Please on Facebook"
+									class="rail-social-btn"
+								>
+									<IconFacebook class="h-3.5 w-3.5" />
+								</a>
+								<a
+									href="https://www.instagram.com/3feetplease"
+									target="_blank"
+									rel="noopener noreferrer"
+									title="3FP on Instagram"
+									aria-label="3 Feet Please on Instagram"
+									class="rail-social-btn"
+								>
+									<IconInstagram class="h-3.5 w-3.5" />
+								</a>
+								<a
+									href="mailto:hi@3fp.org"
+									title="Email 3FP"
+									aria-label="Email 3 Feet Please"
+									class="rail-social-btn"
+								>
+									<IconMail class="h-3.5 w-3.5" />
+								</a>
+							</div>
+
+							<!-- Placeholder Donate button -->
+							<button
+								type="button"
+								disabled
+								title="Donate — coming soon"
+								aria-label="Donate — coming soon"
+								class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
+							>
+								<IconHeart class="h-3.5 w-3.5 fill-current" />
+								Donate
+							</button>
+
+							{#if data.isAdmin}
+								<a
+									href="/admin/rides/import"
+									class="text-surface-700-300 hover:text-surface-600-400 w-full px-2 py-1 text-center text-[0.65rem] transition"
+								>
+									Import Rides
+								</a>
+							{/if}
+						</div>
+					</nav>
+				</div>
+			</aside>
+
+			<main class="min-w-0 overflow-x-hidden p-4">
+				{@render children()}
+			</main>
 		</div>
+
+		<!-- Mobile dropdown menu (AppBar hamburger) -->
+		{#if showMobileMenu}
+			<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
+				<div
+					class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
+				>
+					<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
+						<label class="flex flex-col gap-2">
+							<span
+								class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
+							>
+								Theme
+							</span>
+							<select
+								class="select bg-surface-50-950/80 w-full"
+								value={theme}
+								onchange={(e) => applyTheme(e.currentTarget.value)}
+								aria-label="Select theme"
+							>
+								{#each themeOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</label>
+					</div>
+					<nav aria-label="Mobile" class="space-y-1">
+						{#each navigationItems as item}
+							<a
+								href={item.href}
+								class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
+									isActiveNav(item)
+										? 'bg-primary-500 text-surface-50-950'
+										: 'hover:bg-surface-950-50/10'
+								}`}
+								onclick={() => (showMobileMenu = false)}
+							>
+								<item.icon class="h-5 w-5 shrink-0" />
+								<span>{item.label}</span>
+							</a>
+						{/each}
+					</nav>
+					<div class="border-surface-500/10 mt-2 space-y-1 border-t pt-2">
+						<a
+							href="/get-involved"
+							class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+								isGetInvolvedActive()
+									? 'text-primary-500 bg-primary-500/10'
+									: 'text-surface-700-300 hover:bg-surface-950-50/10 hover:text-primary-400'
+							}`}
+							onclick={() => (showMobileMenu = false)}
+						>
+							<IconHeart class="h-5 w-5 shrink-0" />
+							Get Involved
+						</a>
+						<!-- Social + Donate row -->
+						<div class="flex items-center gap-2 px-3 py-1.5">
+							<a
+								href="https://www.facebook.com/3FeetPlease/"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="Facebook"
+								class="mob-social-btn"
+							>
+								<IconFacebook class="h-4 w-4" />
+							</a>
+							<a
+								href="https://www.instagram.com/3feetplease"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="Instagram"
+								class="mob-social-btn"
+							>
+								<IconInstagram class="h-4 w-4" />
+							</a>
+							<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
+								<IconMail class="h-4 w-4" />
+							</a>
+							<button
+								type="button"
+								disabled
+								class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+							>
+								<IconHeart class="h-3.5 w-3.5 fill-current" />
+								Donate
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{/if}
 </div>
 

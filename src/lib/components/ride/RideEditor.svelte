@@ -1122,7 +1122,7 @@
 				<div class="space-y-4 p-5 pt-4">
 					<ImageGeneratorPanel
 						target="ride"
-						heading="Generate comic ride art"
+						heading="Generate ride art"
 						description="Create a lead ride image from the ride details already on this page."
 						helperText=""
 						currentImageUrl={form.imageUrls[0] || ''}

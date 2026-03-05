@@ -14,14 +14,21 @@ function toFiniteNumber(value) {
 	return null;
 }
 
-export async function searchGeocode(query, { limit = 5, fetchImpl = fetch } = {}) {
+export async function searchGeocode(
+	query,
+	{ limit = 5, fetchImpl = fetch, countryCodes = '' } = {}
+) {
 	const trimmed = safeTrim(query);
 	if (!trimmed) return [];
+	const normalizedCountryCodes = safeTrim(countryCodes).toLowerCase();
 
 	const nominatimUrl = new URL('https://nominatim.openstreetmap.org/search');
 	nominatimUrl.searchParams.set('format', 'jsonv2');
 	nominatimUrl.searchParams.set('limit', String(limit));
 	nominatimUrl.searchParams.set('q', trimmed);
+	if (normalizedCountryCodes) {
+		nominatimUrl.searchParams.set('countrycodes', normalizedCountryCodes);
+	}
 
 	const nominatimResponse = await fetchImpl(nominatimUrl.toString(), {
 		headers: {
@@ -49,6 +56,9 @@ export async function searchGeocode(query, { limit = 5, fetchImpl = fetch } = {}
 	const googleUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
 	googleUrl.searchParams.set('address', trimmed);
 	googleUrl.searchParams.set('key', googleKey);
+	if (normalizedCountryCodes === 'us') {
+		googleUrl.searchParams.set('components', 'country:US');
+	}
 
 	const googleResponse = await fetchImpl(googleUrl.toString(), {
 		headers: { accept: 'application/json' }
