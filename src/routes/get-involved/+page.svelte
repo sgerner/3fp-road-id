@@ -138,7 +138,7 @@
 	/>
 </svelte:head>
 
-<div class="get-involved-page mx-auto flex w-full max-w-5xl flex-col gap-12">
+<div class="get-involved-page mx-auto flex w-full max-w-7xl flex-col gap-12">
 	<!-- ═══════════════════════════════════════════════
 	     CINEMATIC HERO
 	═══════════════════════════════════════════════ -->
