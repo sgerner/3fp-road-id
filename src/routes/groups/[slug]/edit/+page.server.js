@@ -91,7 +91,7 @@ async function uploadDataUrlToStorage(dataUrl, destBasePath) {
 	return data?.publicUrl || null;
 }
 
-export const load = async ({ params, cookies }) => {
+export const load = async ({ params, cookies, url }) => {
 	const slug = params.slug;
 
 	// Require authenticated user
@@ -177,6 +177,20 @@ export const load = async ({ params, cookies }) => {
 		supabase.from('group_x_skill_levels').select('skill_level_id').eq('group_id', group.id)
 	]);
 
+	let donationAccount = null;
+	try {
+		const { data } = await supabase
+			.from('donation_accounts')
+			.select(
+				'id,stripe_account_id,stripe_account_email,charges_enabled,payouts_enabled,connected_at'
+			)
+			.eq('group_id', group.id)
+			.maybeSingle();
+		donationAccount = data ?? null;
+	} catch {
+		donationAccount = null;
+	}
+
 	return {
 		group,
 		group_types: gt.data ?? [],
@@ -193,6 +207,9 @@ export const load = async ({ params, cookies }) => {
 			user_id: r.user_id,
 			email: ownerEmails.find((e) => e.user_id === r.user_id)?.email || ''
 		})),
+		donation_account: donationAccount,
+		stripe_status: url.searchParams.get('stripe') || '',
+		stripe_reason: url.searchParams.get('reason') || '',
 		current_user_id: user_id,
 		current_profile: profileRow
 	};

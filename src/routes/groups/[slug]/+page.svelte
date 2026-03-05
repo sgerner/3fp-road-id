@@ -206,6 +206,12 @@
 	const upcomingVolunteerEvents = $derived(
 		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
 	);
+	const canAcceptDonations = $derived(
+		Boolean(data?.is_claimed && data?.donation_enabled === true)
+	);
+	const shouldShowDonationSetup = $derived(
+		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
+	);
 
 	function parseVolunteerDate(value) {
 		if (!value) return null;
@@ -419,6 +425,46 @@
 					</form>
 				</div>
 			{/if}
+		</section>
+	{/if}
+
+	{#if canAcceptDonations || shouldShowDonationSetup}
+		<section
+			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 220 }}
+		>
+			<div class="volunteer-glow" aria-hidden="true"></div>
+			<div class="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+				<div>
+					<div class="mb-1 flex items-center gap-2">
+						<IconHandHeart class="text-primary-400 h-5 w-5" />
+						<p class="label opacity-60">Support</p>
+					</div>
+					<h2 class="text-xl font-bold">Support {data.group?.name}</h2>
+					<p class="text-surface-600-400 mt-0.5 text-sm">
+						{#if canAcceptDonations}
+							Donate directly to this group through their connected Stripe account.
+						{:else}
+							Connect Stripe in the edit page to enable donations for this claimed group.
+						{/if}
+					</p>
+				</div>
+				{#if canAcceptDonations}
+					<a
+						href={`/donate?group=${encodeURIComponent(data.group?.slug || '')}`}
+						class="btn preset-filled-primary-500 shrink-0 font-bold"
+					>
+						Donate to {data.group?.name}
+					</a>
+				{:else if shouldShowDonationSetup}
+					<a
+						href={`/groups/${data.group?.slug}/edit`}
+						class="btn preset-outlined-primary-500 shrink-0"
+					>
+						Connect Stripe
+					</a>
+				{/if}
+			</div>
 		</section>
 	{/if}
 

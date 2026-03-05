@@ -520,17 +520,15 @@
 								</a>
 							</div>
 
-							<!-- Placeholder Donate button -->
-							<button
-								type="button"
-								disabled
-								title="Donate — coming soon"
-								aria-label="Donate — coming soon"
+							<a
+								href="/donate"
+								title="Donate"
+								aria-label="Donate"
 								class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
 							>
 								<IconHeart class="h-3.5 w-3.5 fill-current" />
 								Donate
-							</button>
+							</a>
 
 							{#if data.isAdmin}
 								<a
@@ -627,14 +625,14 @@
 							<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
 								<IconMail class="h-4 w-4" />
 							</a>
-							<button
-								type="button"
-								disabled
+							<a
+								href="/donate"
 								class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+								onclick={() => (showMobileMenu = false)}
 							>
 								<IconHeart class="h-3.5 w-3.5 fill-current" />
 								Donate
-							</button>
+							</a>
 						</div>
 					</div>
 				</div>
@@ -677,17 +675,21 @@
 		transform: translateY(-1px);
 	}
 
-	/* ── Rail: Donate placeholder button ── */
+	/* ── Rail: Donate button ── */
 	:global(.rail-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 80%, var(--color-surface-50) 20%);
-		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 28%, transparent);
-		cursor: not-allowed;
-		opacity: 0.75;
-		transition: opacity 150ms;
+		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
+		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
+		text-decoration: none;
+		transition:
+			transform 150ms ease,
+			background 150ms ease,
+			border-color 150ms ease;
 	}
 	:global(.rail-donate-btn:hover) {
-		opacity: 0.9;
+		transform: translateY(-1px);
+		background: color-mix(in oklab, var(--color-error-500) 18%, transparent);
+		border-color: color-mix(in oklab, var(--color-error-500) 44%, transparent);
 	}
 
 	/* ── Mobile menu: social icon buttons ── */
@@ -713,12 +715,11 @@
 		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
-	/* ── Mobile menu: Donate placeholder button ── */
+	/* ── Mobile menu: Donate button ── */
 	:global(.mob-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 80%, var(--color-surface-50) 20%);
-		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 28%, transparent);
-		cursor: not-allowed;
-		opacity: 0.75;
+		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
+		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
+		text-decoration: none;
 	}
 </style>

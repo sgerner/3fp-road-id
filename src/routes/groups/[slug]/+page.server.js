@@ -1,4 +1,5 @@
 import { resolveSession } from '$lib/server/session';
+import { supabase } from '$lib/supabaseClient';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();
@@ -170,6 +171,19 @@ export const load = async ({ params, cookies, fetch }) => {
 	const ownerIds = ownerRows.map((row) => row?.user_id).filter(Boolean);
 	const is_owner = sessionUserId ? ownerIds.includes(sessionUserId) : false;
 	const can_edit = sessionIsAdmin || is_owner;
+	const is_claimed = ownerIds.length > 0;
+
+	let donationEnabled = false;
+	try {
+		const { data } = await supabase
+			.from('donation_accounts')
+			.select('stripe_account_id,charges_enabled')
+			.eq('group_id', group.id)
+			.maybeSingle();
+		donationEnabled = Boolean(data?.stripe_account_id && data?.charges_enabled);
+	} catch (err) {
+		console.warn('Failed to load donation account for group page', err);
+	}
 
 	const nowIso = new Date().toISOString();
 	let volunteerEvents = [];
@@ -259,8 +273,10 @@ export const load = async ({ params, cookies, fetch }) => {
 				.filter((value) => value !== null && value !== undefined)
 		},
 		owners_count: ownerIds.length,
+		is_claimed,
 		is_owner,
 		can_edit,
+		donation_enabled: donationEnabled,
 		volunteer_events: volunteerEvents
 	};
 };
