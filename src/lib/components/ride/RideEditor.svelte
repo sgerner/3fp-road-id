@@ -1059,31 +1059,27 @@
 						</div>
 						<div class="flex flex-col gap-2">
 							<Combobox
-								class="preset-tonal-surface w-full"
+								class="w-full"
 								placeholder="Search any organization..."
 								collection={hostGroupCollection}
 								value={hostGroupSelection}
 								onValueChange={(event) => handleHostGroupValueChange(event.value)}
 								onInputValueChange={(event) => handleHostGroupSearch(event.inputValue)}
 								onOpenChange={handleHostGroupOpenChange}
+								inputBehavior="autohighlight"
 							>
 								<Combobox.Label>Organization</Combobox.Label>
-								<Combobox.Control class="bg-surface-100-900/60">
-									<Combobox.Input />
+								<Combobox.Control class="grid grid-cols-[1fr_auto]">
+									<Combobox.Input class="input col-span-1" />
 									<Combobox.Trigger />
 								</Combobox.Control>
 								<Combobox.ClearTrigger>Clear organization</Combobox.ClearTrigger>
 								<Portal>
 									<Combobox.Positioner>
-										<Combobox.Content class="bg-surface-100-900 max-h-72 overflow-y-auto">
+										<Combobox.Content class="card preset-tonal-surface p-2">
 											{#each hostGroupItems as item (item.value)}
-												<Combobox.Item {item}>
-													<div class="flex min-w-0 flex-col">
-														<Combobox.ItemText>{item.label}</Combobox.ItemText>
-														{#if item.slug}
-															<span class="text-xs opacity-60">{item.slug}</span>
-														{/if}
-													</div>
+												<Combobox.Item {item} class="border-surface-500 border-b p-2">
+													<Combobox.ItemText>{item.label}</Combobox.ItemText>
 													<Combobox.ItemIndicator />
 												</Combobox.Item>
 											{/each}
