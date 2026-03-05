@@ -411,26 +411,6 @@
 			</div>
 
 			{#if data.opportunities?.length}
-				{#if form?.interestError}
-					<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
-						{form.interestError}
-					</div>
-				{/if}
-				{#if captchaError}
-					<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
-						{captchaError}
-					</div>
-				{/if}
-				{#if form?.interestSuccess}
-					<div
-						class="bg-success-500/10 text-success-300 mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
-						in:slide
-					>
-						<IconCheckCircle class="h-4 w-4 shrink-0" />
-						{form.interestSuccess}
-					</div>
-				{/if}
-
 				<form
 					method="POST"
 					action="?/submitInterest"
@@ -488,7 +468,7 @@
 								name="fullName"
 								type="text"
 								required
-								class="input w-full"
+								class="input preset-tonal-surface w-full"
 								value={form?.interestValues?.fullName ?? data.prefill?.fullName ?? ''}
 							/>
 						</div>
@@ -502,7 +482,7 @@
 								name="email"
 								type="email"
 								required
-								class="input w-full"
+								class="input preset-tonal-surface w-full"
 								value={form?.interestValues?.email ?? data.prefill?.email ?? ''}
 							/>
 						</div>
@@ -517,7 +497,7 @@
 							id="phone"
 							name="phone"
 							type="tel"
-							class="input w-full"
+							class="input preset-tonal-surface w-full"
 							value={form?.interestValues?.phone ?? data.prefill?.phone ?? ''}
 						/>
 					</div>
@@ -530,7 +510,7 @@
 						<textarea
 							id="message"
 							name="message"
-							class="textarea w-full"
+							class="textarea preset-tonal-surface w-full"
 							rows="3"
 							placeholder="Tell us a bit about yourself, your availability, or anything else..."
 							>{form?.interestValues?.message ?? ''}</textarea
@@ -544,6 +524,26 @@
 							style="position: absolute; width: 0; height: 0; overflow: hidden;"
 						>
 							<div bind:this={turnstileEl}></div>
+						</div>
+					{/if}
+
+					{#if form?.interestError}
+						<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
+							{form.interestError}
+						</div>
+					{/if}
+					{#if captchaError}
+						<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
+							{captchaError}
+						</div>
+					{/if}
+					{#if form?.interestSuccess}
+						<div
+							class="bg-success-500/10 text-success-300 mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+							in:slide
+						>
+							<IconCheckCircle class="h-4 w-4 shrink-0" />
+							{form.interestSuccess}
 						</div>
 					{/if}
 
@@ -604,13 +604,17 @@
 						name="title"
 						type="text"
 						required
-						class="input w-full"
+						class="input preset-tonal-surface w-full"
 						value={form?.createValues?.title ?? ''}
 					/>
 				</div>
 				<div>
 					<label class="label mb-1.5" for="description">Description (optional)</label>
-					<textarea id="description" name="description" rows="3" class="textarea w-full"
+					<textarea
+						id="description"
+						name="description"
+						rows="3"
+						class="textarea preset-tonal-surface w-full"
 						>{form?.createValues?.description ?? ''}</textarea
 					>
 				</div>

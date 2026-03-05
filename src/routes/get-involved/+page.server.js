@@ -344,14 +344,7 @@ export const actions = {
 		});
 
 		return {
-			interestSuccess: 'Thanks! We received your interest and will follow up soon.',
-			interestValues: {
-				opportunityIds,
-				fullName,
-				email,
-				phone,
-				message: ''
-			}
+			interestSuccess: 'Thanks! We received your interest and will follow up soon.'
 		};
 	}
 };
