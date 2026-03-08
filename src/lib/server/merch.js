@@ -653,6 +653,12 @@ async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToke
 		storeId: printfulStoreId
 	});
 
+	if (!products.length) {
+		throw new Error(
+			'Printful returned no importable products for the selected store. If you created product templates, reconnect Printful so this app requests `sync_products/read` and `product_templates/read`, then sync again.'
+		);
+	}
+
 	const seenProductIds = new Set();
 	const seenVariantIdsByProductId = new Map();
 	let syncedProducts = 0;

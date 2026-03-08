@@ -5,6 +5,12 @@ const PRINTFUL_API_BASE_URL = 'https://api.printful.com';
 const PRINTFUL_V2_BASE_URL = `${PRINTFUL_API_BASE_URL}/v2`;
 const PRINTFUL_OAUTH_BASE_URL = 'https://www.printful.com';
 const PRINTFUL_STATE_TTL_MS = 10 * 60 * 1000;
+const PRINTFUL_REQUEST_TIMEOUT_MS = 20_000;
+const DEFAULT_PRINTFUL_OAUTH_SCOPES = [
+	'orders',
+	'sync_products/read',
+	'product_templates/read'
+];
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
@@ -44,6 +50,12 @@ function getPrintfulClientSecret() {
 	const clientSecret = cleanText(env.PRINTFUL_CLIENT_SECRET, 400);
 	if (!clientSecret) throw new Error('PRINTFUL_CLIENT_SECRET is not configured.');
 	return clientSecret;
+}
+
+function getRequestedPrintfulScopes() {
+	const configuredScopes = cleanText(env.PRINTFUL_OAUTH_SCOPE, 2000);
+	if (configuredScopes) return configuredScopes;
+	return DEFAULT_PRINTFUL_OAUTH_SCOPES.join(' ');
 }
 
 function getStateSecret() {
@@ -152,7 +164,8 @@ async function sendPrintfulTokenRequest(params) {
 			Accept: 'application/json',
 			'Content-Type': 'application/x-www-form-urlencoded'
 		},
-		body: body.toString()
+		body: body.toString(),
+		signal: AbortSignal.timeout(PRINTFUL_REQUEST_TIMEOUT_MS)
 	});
 
 	let payload = {};
@@ -220,7 +233,7 @@ export function buildPrintfulAuthorizeUrl({ redirectUrl, state } = {}) {
 		response_type: 'code',
 		state: cleanState
 	});
-	const scopes = cleanText(env.PRINTFUL_OAUTH_SCOPE, 2000);
+	const scopes = getRequestedPrintfulScopes();
 	if (scopes) params.set('scope', scopes);
 	return `${PRINTFUL_OAUTH_BASE_URL}/oauth/authorize?${params.toString()}`;
 }
@@ -278,7 +291,8 @@ export async function sendPrintfulRequest({
 	const response = await fetch(url, {
 		method,
 		headers: mergedHeaders,
-		body: body === undefined ? undefined : JSON.stringify(body)
+		body: body === undefined ? undefined : JSON.stringify(body),
+		signal: AbortSignal.timeout(PRINTFUL_REQUEST_TIMEOUT_MS)
 	});
 
 	let payload = {};

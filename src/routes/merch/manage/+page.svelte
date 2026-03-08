@@ -1,14 +1,17 @@
 <script>
+	import { enhance } from '$app/forms';
 	import IconSettings from '@lucide/svelte/icons/settings';
 	import IconPackage from '@lucide/svelte/icons/package';
 	import IconTruck from '@lucide/svelte/icons/truck';
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
 	import IconCircleCheck from '@lucide/svelte/icons/circle-check';
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
+	import IconLoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import IconStore from '@lucide/svelte/icons/store';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 
 	let { data, form } = $props();
+	let printfulActionState = $state('');
 
 	const updateMessages = {
 		tax: 'Tax settings saved.',
@@ -49,6 +52,19 @@
 
 	function getOrderItems(orderId) {
 		return data?.orderItemsByOrderId?.get?.(orderId) || [];
+	}
+
+	function enhancePrintfulSettings({ submitter }) {
+		const formAction = submitter?.getAttribute('formaction') || '';
+		printfulActionState = formAction.includes('syncPrintfulCatalog') ? 'sync' : 'save';
+
+		return async ({ update }) => {
+			try {
+				await update();
+			} finally {
+				printfulActionState = '';
+			}
+		};
 	}
 </script>
 
@@ -184,7 +200,12 @@
 				</div>
 			</div>
 			{#if data.printfulAccount?.connected_at}
-				<form method="POST" action="?/savePrintfulSettings" class="mt-4 grid gap-3 md:grid-cols-2">
+				<form
+					method="POST"
+					action="?/savePrintfulSettings"
+					use:enhance={enhancePrintfulSettings}
+					class="mt-4 grid gap-3 md:grid-cols-2"
+				>
 					<div class="md:col-span-2">
 						<label class="label" for="printful_store_id">Connected Printful Store</label>
 						<select id="printful_store_id" name="printful_store_id" class="select w-full" required>
@@ -214,15 +235,40 @@
 						</label>
 					</div>
 					<div class="flex flex-wrap gap-2 md:col-span-2">
-						<button class="btn preset-filled-primary-500" type="submit">Save Printful Store</button>
+						<button
+							class="btn preset-filled-primary-500"
+							type="submit"
+							disabled={printfulActionState !== ''}
+						>
+							{#if printfulActionState === 'save'}
+								<IconLoaderCircle class="mr-2 inline h-4 w-4 animate-spin" />
+								Saving...
+							{:else}
+								Save Printful Store
+							{/if}
+						</button>
 						<button
 							class="btn preset-outlined-primary-500"
 							type="submit"
 							formaction="?/syncPrintfulCatalog"
+							disabled={printfulActionState !== ''}
 						>
-							Import / Sync Catalog
+							{#if printfulActionState === 'sync'}
+								<IconLoaderCircle class="mr-2 inline h-4 w-4 animate-spin" />
+								Importing / Syncing...
+							{:else}
+								Import / Sync Catalog
+							{/if}
 						</button>
 					</div>
+					{#if printfulActionState === 'sync'}
+						<div class="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm opacity-80 md:col-span-2">
+							<div class="flex items-center gap-2">
+								<IconLoaderCircle class="h-4 w-4 animate-spin" />
+								Syncing products from Printful. This can take a moment.
+							</div>
+						</div>
+					{/if}
 				</form>
 			{/if}
 		</section>
