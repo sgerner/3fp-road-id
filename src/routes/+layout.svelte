@@ -12,7 +12,6 @@
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconHome from '@lucide/svelte/icons/home';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
@@ -88,12 +87,6 @@
 			label: 'Merch',
 			icon: IconShoppingBag,
 			match: (pathname) => pathname.startsWith('/merch')
-		},
-		{
-			href: '/roadid',
-			label: 'In Case',
-			icon: IconIdCard,
-			match: (pathname) => pathname.startsWith('/roadid')
 		}
 	];
 

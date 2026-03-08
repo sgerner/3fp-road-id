@@ -4,7 +4,7 @@
 	import CrashResponse from '$lib/components/CrashResponse.svelte';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconBike from '@lucide/svelte/icons/bike';
-	import IconIdCard from '@lucide/svelte/icons/id-card';
+	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconShield from '@lucide/svelte/icons/shield';
 	import IconMegaphone from '@lucide/svelte/icons/megaphone';
@@ -103,8 +103,8 @@
 
 		<!-- Sub-headline -->
 		<p class="text-surface-700-300 mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl">
-			Find public rides, discover riding groups, manage volunteer events, and keep emergency
-			contact details ready when they matter most.
+			Find public rides, discover riding groups, manage volunteer events, and keep emergency contact
+			details ready when they matter most.
 		</p>
 
 		<!-- CTA buttons -->
@@ -118,11 +118,11 @@
 				<IconArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
 			</a>
 			<a
-				href="/roadid"
+				href="/ride"
 				class="btn preset-outlined-primary-500 group gap-2 px-7 py-3 text-base font-semibold transition-all hover:scale-105"
 			>
-				<IconIdCard class="h-5 w-5" />
-				In Case Profile
+				<IconBike class="h-5 w-5" />
+				Find Rides
 			</a>
 		</div>
 	</div>
@@ -231,17 +231,17 @@
 			/>
 		</a>
 		<a
-			href="/roadid"
+			href="/merch"
 			class="card border-surface-300-700/50 bg-surface-100-900/60 card-hover group flex items-center gap-4 border p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5"
 		>
 			<div
 				class="bg-surface-200-800 group-hover:bg-primary-600-400/20 rounded-xl p-3 transition-colors"
 			>
-				<IconIdCard class="text-primary-600-400 h-6 w-6" />
+				<IconShoppingBag class="text-primary-600-400 h-6 w-6" />
 			</div>
 			<div>
-				<div class="text-primary-950-50 font-semibold">In Case</div>
-				<p class="text-surface-600-400 !mb-0 text-sm">Emergency profile & contacts</p>
+				<div class="text-primary-950-50 font-semibold">Store</div>
+				<p class="text-surface-600-400 !mb-0 text-sm">Official apparel & gear</p>
 			</div>
 			<IconArrowRight
 				class="text-surface-400-600 group-hover:text-primary-600-400 ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
