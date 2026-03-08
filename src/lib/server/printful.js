@@ -5,7 +5,9 @@ const PRINTFUL_API_BASE_URL = 'https://api.printful.com';
 const PRINTFUL_V2_BASE_URL = `${PRINTFUL_API_BASE_URL}/v2`;
 const PRINTFUL_OAUTH_BASE_URL = 'https://www.printful.com';
 const PRINTFUL_STATE_TTL_MS = 10 * 60 * 1000;
-const PRINTFUL_REQUEST_TIMEOUT_MS = 20_000;
+const PRINTFUL_REQUEST_TIMEOUT_MS = 30_000;
+const PRINTFUL_SYNC_REQUEST_TIMEOUT_MS = 90_000;
+const PRINTFUL_SYNC_REQUEST_ATTEMPTS = 2;
 const DEFAULT_PRINTFUL_OAUTH_SCOPES = [
 	'orders',
 	'sync_products/read',
@@ -136,6 +138,25 @@ function resolveErrorMessage(payload, status) {
 	return `Printful API request failed (${status})`;
 }
 
+function isRetriableStatus(status) {
+	return status === 408 || status === 429 || status >= 500;
+}
+
+function isTimeoutLikeError(error) {
+	const name = cleanText(error?.name, 80);
+	const message = cleanText(error?.message, 400).toLowerCase();
+	return (
+		name === 'TimeoutError' ||
+		name === 'AbortError' ||
+		message.includes('timed out') ||
+		message.includes('aborted')
+	);
+}
+
+function delay(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizeTokenSet(payload) {
 	return {
 		accessToken: cleanText(payload?.access_token, 4000),
@@ -262,7 +283,9 @@ export async function sendPrintfulRequest({
 	accessToken,
 	body,
 	storeId,
-	headers = {}
+	headers = {},
+	timeoutMs = PRINTFUL_REQUEST_TIMEOUT_MS,
+	maxAttempts = 1
 } = {}) {
 	const token = cleanText(accessToken, 4000);
 	if (!token) throw new Error('Printful access token is required.');
@@ -288,40 +311,74 @@ export async function sendPrintfulRequest({
 	const cleanStoreId = cleanText(storeId, 80);
 	if (cleanStoreId) mergedHeaders['X-PF-Store-Id'] = cleanStoreId;
 
-	const response = await fetch(url, {
-		method,
-		headers: mergedHeaders,
-		body: body === undefined ? undefined : JSON.stringify(body),
-		signal: AbortSignal.timeout(PRINTFUL_REQUEST_TIMEOUT_MS)
-	});
+	const attempts = Number.isFinite(Number(maxAttempts))
+		? Math.max(1, Math.floor(Number(maxAttempts)))
+		: 1;
+	const timeout = Number.isFinite(Number(timeoutMs))
+		? Math.max(5_000, Math.floor(Number(timeoutMs)))
+		: PRINTFUL_REQUEST_TIMEOUT_MS;
 
-	let payload = {};
-	if (response.status !== 204) {
-		const raw = await response.text();
-		if (raw) {
-			try {
-				payload = JSON.parse(raw);
-			} catch {
-				payload = { raw };
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		try {
+			const response = await fetch(url, {
+				method,
+				headers: mergedHeaders,
+				body: body === undefined ? undefined : JSON.stringify(body),
+				signal: AbortSignal.timeout(timeout)
+			});
+
+			let payload = {};
+			if (response.status !== 204) {
+				const raw = await response.text();
+				if (raw) {
+					try {
+						payload = JSON.parse(raw);
+					} catch {
+						payload = { raw };
+					}
+				}
+			}
+
+			if (response.ok || attempt >= attempts || !isRetriableStatus(response.status)) {
+				return {
+					ok: response.ok,
+					status: response.status,
+					payload,
+					headers: response.headers
+				};
+			}
+		} catch (error) {
+			if (attempt >= attempts) {
+				if (isTimeoutLikeError(error)) {
+					throw new Error('Printful request timed out. Please retry sync.');
+				}
+				throw error;
 			}
 		}
+
+		await delay(600 * attempt);
 	}
 
 	return {
-		ok: response.ok,
-		status: response.status,
-		payload,
-		headers: response.headers
+		ok: false,
+		status: 503,
+		payload: { message: 'Printful request failed after retries.' },
+		headers: new Headers()
 	};
 }
 
-export async function printfulFetchV2(path, { accessToken, method = 'GET', body, storeId } = {}) {
+export async function printfulFetchV2(
+	path,
+	{ accessToken, method = 'GET', body, storeId, timeoutMs, maxAttempts } = {}
+) {
 	const result = await sendPrintfulRequest({
 		path: path.startsWith('/v2/') ? path : `/v2${path.startsWith('/') ? path : `/${path}`}`,
 		method,
 		accessToken,
 		body,
-		storeId
+		storeId,
+		timeoutMs,
+		maxAttempts
 	});
 	if (!result.ok) {
 		throw new Error(resolveErrorMessage(result.payload, result.status));
@@ -342,9 +399,14 @@ export async function listPrintfulStoresV2({ accessToken }) {
 
 export async function listPrintfulProductsV2({ accessToken, storeId }) {
 	const products = [];
-	let nextPath = '/products?limit=100';
+	let nextPath = '/sync-products?limit=25';
 	while (nextPath) {
-		const payload = await printfulFetchV2(nextPath, { accessToken, storeId });
+		const payload = await printfulFetchV2(nextPath, {
+			accessToken,
+			storeId,
+			timeoutMs: PRINTFUL_SYNC_REQUEST_TIMEOUT_MS,
+			maxAttempts: PRINTFUL_SYNC_REQUEST_ATTEMPTS
+		});
 		products.push(...normalizeResultList(payload));
 		nextPath = resolveNextHref(payload);
 	}
@@ -355,9 +417,14 @@ export async function listPrintfulProductVariantsV2({ accessToken, storeId, prod
 	const cleanProductId = normalizePositiveInt(productId) || cleanText(productId, 120);
 	if (!cleanProductId) return [];
 	const variants = [];
-	let nextPath = `/products/${encodeURIComponent(cleanProductId)}/variants?limit=100`;
+	let nextPath = `/sync-products/${encodeURIComponent(cleanProductId)}/sync-variants?limit=50`;
 	while (nextPath) {
-		const payload = await printfulFetchV2(nextPath, { accessToken, storeId });
+		const payload = await printfulFetchV2(nextPath, {
+			accessToken,
+			storeId,
+			timeoutMs: PRINTFUL_SYNC_REQUEST_TIMEOUT_MS,
+			maxAttempts: PRINTFUL_SYNC_REQUEST_ATTEMPTS
+		});
 		variants.push(...normalizeResultList(payload));
 		nextPath = resolveNextHref(payload);
 	}
@@ -374,6 +441,35 @@ export async function listPrintfulProductsWithVariantsV2({ accessToken, storeId 
 		results.push({ ...product, variants });
 	}
 	return results;
+}
+
+export async function listPrintfulCatalogVariantImagesV2({
+	accessToken,
+	storeId,
+	catalogVariantId
+}) {
+	const cleanCatalogVariantId = normalizePositiveInt(catalogVariantId) || cleanText(catalogVariantId, 120);
+	if (!cleanCatalogVariantId) return [];
+
+	const payload = await printfulFetchV2(
+		`/catalog-variants/${encodeURIComponent(cleanCatalogVariantId)}/images?limit=100`,
+		{
+			accessToken,
+			storeId,
+			timeoutMs: PRINTFUL_SYNC_REQUEST_TIMEOUT_MS,
+			maxAttempts: PRINTFUL_SYNC_REQUEST_ATTEMPTS
+		}
+	);
+
+	const images = Array.isArray(payload?.data?.images) ? payload.data.images : [];
+	return images
+		.map((image) => ({
+			image_url: cleanText(image?.image_url, 2000) || null,
+			placement: cleanText(image?.placement, 120) || null,
+			background_color: cleanText(image?.background_color, 40) || null,
+			background_image: cleanText(image?.background_image, 2000) || null
+		}))
+		.filter((image) => image.image_url);
 }
 
 export async function calculatePrintfulShippingRatesV2({ accessToken, storeId, recipient, orderItems }) {

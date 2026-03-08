@@ -1,4 +1,4 @@
-import { finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
 
 function formatCurrency(cents, currency = 'usd') {
 	return new Intl.NumberFormat('en-US', { style: 'currency', currency: String(currency).toUpperCase() }).format(
@@ -8,11 +8,14 @@ function formatCurrency(cents, currency = 'usd') {
 
 export const load = async ({ url, fetch }) => {
 	const sessionId = (url.searchParams.get('session_id') || '').trim();
-	if (!sessionId) {
-		return { ok: false, error: 'Missing checkout session id.' };
+	const paymentIntentId = (url.searchParams.get('payment_intent') || '').trim();
+	if (!sessionId && !paymentIntentId) {
+		return { ok: false, error: 'Missing payment confirmation id.' };
 	}
 
-	const result = await finalizeMerchOrderBySessionId(sessionId, fetch);
+	const result = paymentIntentId
+		? await finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetch)
+		: await finalizeMerchOrderBySessionId(sessionId, fetch);
 	if (!result?.ok) {
 		return { ok: false, error: result?.error || 'Unable to confirm your order.' };
 	}

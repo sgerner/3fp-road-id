@@ -6,12 +6,20 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconX from '@lucide/svelte/icons/x';
+	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
+	import IconExpand from '@lucide/svelte/icons/expand';
 	import { merchCart } from '$lib/merch/cart';
 
 	let { data } = $props();
 	let selectedVariantIdByProduct = $state({});
 	let quantityByProduct = $state({});
 	let addMessage = $state('');
+	let lightboxOpen = $state(false);
+	let lightboxProductName = $state('');
+	let lightboxImages = $state([]);
+	let lightboxIndex = $state(0);
 
 	onMount(() => {
 		merchCart.load();
@@ -39,6 +47,49 @@
 		return Number(quantityByProduct[productId] || 1);
 	}
 
+	function productImages(product) {
+		const list = Array.isArray(product?.images) ? product.images : [];
+		if (list.length) return list;
+		return product?.image_url ? [product.image_url] : [];
+	}
+
+	function productFeaturedImage(product) {
+		return productImages(product)[0] || '';
+	}
+
+	function openLightbox(product, startIndex = 0) {
+		const images = productImages(product);
+		if (!images.length) return;
+		lightboxImages = images;
+		lightboxProductName = product?.name || 'Product';
+		lightboxIndex = Math.max(0, Math.min(startIndex, images.length - 1));
+		lightboxOpen = true;
+	}
+
+	function closeLightbox() {
+		lightboxOpen = false;
+		lightboxImages = [];
+		lightboxIndex = 0;
+		lightboxProductName = '';
+	}
+
+	function prevLightbox() {
+		if (!lightboxImages.length) return;
+		lightboxIndex = lightboxIndex <= 0 ? lightboxImages.length - 1 : lightboxIndex - 1;
+	}
+
+	function nextLightbox() {
+		if (!lightboxImages.length) return;
+		lightboxIndex = lightboxIndex >= lightboxImages.length - 1 ? 0 : lightboxIndex + 1;
+	}
+
+	function onWindowKeydown(event) {
+		if (!lightboxOpen) return;
+		if (event.key === 'Escape') closeLightbox();
+		if (event.key === 'ArrowLeft') prevLightbox();
+		if (event.key === 'ArrowRight') nextLightbox();
+	}
+
 	function addToCart(product) {
 		const variant = selectedVariant(product);
 		if (!variant) return;
@@ -46,7 +97,7 @@
 		merchCart.add({
 			variantId: variant.id,
 			productName: product.name,
-			productImageUrl: product.image_url || '',
+			productImageUrl: productFeaturedImage(product),
 			variantName: variant.name,
 			optionValues: variant.option_values || {},
 			partnerProvider: variant.partner_provider || 'manual',
@@ -73,6 +124,7 @@
 		)
 	);
 </script>
+<svelte:window onkeydown={onWindowKeydown} />
 
 <svelte:head>
 	<title>Merch Store • 3 Feet Please</title>
@@ -126,10 +178,10 @@
 							Featured Drop
 						</div>
 						
-						{#if featured.image_url}
+						{#if productFeaturedImage(featured)}
 							<div class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-950/50">
 								<img 
-									src={featured.image_url} 
+									src={productFeaturedImage(featured)} 
 									alt={featured.name}
 									class="h-full w-full object-cover" 
 								/>
@@ -175,34 +227,53 @@
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each data.products as product (product.id)}
 						<article class="merch-card group relative overflow-hidden rounded-2xl p-4">
-							<div class="flex items-start gap-3">
-								<div class="cover-wrap">
-									{#if product.image_url}
-										<img
-											src={product.image_url}
-											alt={product.name}
-											class="h-full w-full object-cover transition duration-400 group-hover:scale-[1.03]"
-										/>
-									{:else}
-										<div class="cover-fallback">
-											<IconSparkles class="h-5 w-5" />
-										</div>
-									{/if}
-								</div>
-								<div class="min-w-0 flex-1">
-									<h2 class="truncate text-lg leading-tight font-bold">{product.name}</h2>
-									{#if product.description}
-										<p class="mt-1 line-clamp-3 text-sm opacity-75">{product.description}</p>
-									{/if}
-									<div class="mt-2 flex flex-wrap gap-1.5">
-										<span class="chip preset-tonal-surface text-[11px]">
-											{#if (product.variants?.length ?? 0) > 1}
-												Choose your fit
-											{:else}
-												Signature edition
-											{/if}
-										</span>
+							<div class="cinema-wrap">
+								{#if productImages(product).length > 0}
+									<div class="cinema-rail">
+										{#each productImages(product) as image, index (`${product.id}-${image}`)}
+											<button
+												type="button"
+												class="cinema-slide"
+												onclick={() => openLightbox(product, index)}
+												aria-label={`View ${product.name} image ${index + 1}`}
+											>
+												<img
+													src={image}
+													alt={`${product.name} image ${index + 1}`}
+													class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+												/>
+												<div class="cinema-overlay">
+													<IconExpand class="h-3.5 w-3.5" />
+													Tap to expand
+												</div>
+											</button>
+										{/each}
 									</div>
+								{:else}
+									<div class="cinema-fallback">
+										<IconSparkles class="h-5 w-5" />
+									</div>
+								{/if}
+							</div>
+
+							<div class="mt-3 min-w-0">
+								<h2 class="truncate text-lg leading-tight font-bold">{product.name}</h2>
+								{#if product.description}
+									<p class="mt-1 line-clamp-3 text-sm opacity-75">{product.description}</p>
+								{/if}
+								<div class="mt-2 flex flex-wrap gap-1.5">
+									<span class="chip preset-tonal-surface text-[11px]">
+										{#if (product.variants?.length ?? 0) > 1}
+											Choose your fit
+										{:else}
+											Signature edition
+										{/if}
+									</span>
+									{#if productImages(product).length > 1}
+										<span class="chip preset-tonal-surface text-[11px]">
+											{productImages(product).length} photos
+										</span>
+									{/if}
 								</div>
 							</div>
 
@@ -364,6 +435,64 @@
 	</div>
 </div>
 
+{#if lightboxOpen}
+	<div
+		class="lightbox-backdrop"
+		role="button"
+		aria-label="Close gallery overlay"
+		tabindex="0"
+		onclick={closeLightbox}
+		onkeydown={(event) => event.key === 'Escape' && closeLightbox()}
+	>
+		<div
+			class="lightbox-panel"
+			role="dialog"
+			aria-modal="true"
+			aria-label={lightboxProductName}
+			tabindex="-1"
+			onclick={(event) => event.stopPropagation()}
+			onkeydown={(event) => event.stopPropagation()}
+		>
+			<div class="lightbox-header">
+				<div>
+					<p class="text-xs uppercase tracking-[0.2em] opacity-65">Merch Gallery</p>
+					<h3 class="text-base font-semibold">{lightboxProductName}</h3>
+				</div>
+				<button type="button" class="btn btn-sm preset-tonal-surface" onclick={closeLightbox} aria-label="Close gallery">
+					<IconX class="h-4 w-4" />
+				</button>
+			</div>
+			<div class="lightbox-stage">
+				{#if lightboxImages.length > 0}
+					<img src={lightboxImages[lightboxIndex]} alt={`${lightboxProductName} image ${lightboxIndex + 1}`} />
+				{/if}
+				{#if lightboxImages.length > 1}
+					<button type="button" class="lightbox-nav lightbox-nav-left" onclick={prevLightbox} aria-label="Previous image">
+						<IconChevronLeft class="h-5 w-5" />
+					</button>
+					<button type="button" class="lightbox-nav lightbox-nav-right" onclick={nextLightbox} aria-label="Next image">
+						<IconChevronRight class="h-5 w-5" />
+					</button>
+				{/if}
+			</div>
+			{#if lightboxImages.length > 1}
+				<div class="lightbox-thumbs">
+					{#each lightboxImages as image, index (`${image}-${index}`)}
+						<button
+							type="button"
+							class={`lightbox-thumb ${index === lightboxIndex ? 'active' : ''}`}
+							onclick={() => (lightboxIndex = index)}
+							aria-label={`View image ${index + 1}`}
+						>
+							<img src={image} alt={`${lightboxProductName} thumbnail ${index + 1}`} />
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 <style>
 	/* ── Hero ── */
 	.hero-section {
@@ -440,21 +569,135 @@
 		);
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
 	}
-	.cover-wrap {
-		width: 4.5rem;
-		height: 4.5rem;
-		border-radius: 0.9rem;
+
+	.cinema-wrap {
+		position: relative;
+		border-radius: 1rem;
 		overflow: hidden;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 65%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 24%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 72%, transparent);
 	}
-	.cover-fallback {
+	.cinema-rail {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 100%;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: thin;
+	}
+	.cinema-slide {
+		position: relative;
+		aspect-ratio: 1 / 1;
+		scroll-snap-align: start;
+		overflow: hidden;
+	}
+	.cinema-overlay {
+		position: absolute;
+		right: 0.6rem;
+		bottom: 0.6rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.5rem;
+		border-radius: 999px;
+		font-size: 0.7rem;
+		background: color-mix(in oklab, var(--color-surface-950) 75%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-300) 24%, transparent);
+		opacity: 0.9;
+	}
+	.cinema-fallback {
 		display: grid;
 		place-items: center;
 		width: 100%;
-		height: 100%;
+		aspect-ratio: 1 / 1;
 		opacity: 0.65;
 	}
+
+	.lightbox-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 80;
+		display: grid;
+		place-items: center;
+		padding: 1rem;
+		background: rgba(8, 9, 12, 0.84);
+		backdrop-filter: blur(8px);
+	}
+	.lightbox-panel {
+		width: min(100%, 64rem);
+		max-height: 96vh;
+		display: grid;
+		gap: 0.8rem;
+		padding: 0.8rem;
+		border-radius: 1rem;
+		background: linear-gradient(
+			160deg,
+			color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%),
+			color-mix(in oklab, var(--color-surface-900) 92%, var(--color-secondary-500) 8%)
+		);
+		border: 1px solid color-mix(in oklab, var(--color-surface-300) 18%, transparent);
+	}
+	.lightbox-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.lightbox-stage {
+		position: relative;
+		border-radius: 0.9rem;
+		overflow: hidden;
+		aspect-ratio: 1 / 1;
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+	}
+	.lightbox-stage img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.lightbox-nav {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 2.2rem;
+		height: 2.2rem;
+		border-radius: 999px;
+		display: grid;
+		place-items: center;
+		background: color-mix(in oklab, var(--color-surface-950) 72%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-300) 26%, transparent);
+	}
+	.lightbox-nav-left {
+		left: 0.7rem;
+	}
+	.lightbox-nav-right {
+		right: 0.7rem;
+	}
+	.lightbox-thumbs {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: minmax(5rem, 6.5rem);
+		gap: 0.45rem;
+		overflow-x: auto;
+		padding-bottom: 0.2rem;
+	}
+	.lightbox-thumb {
+		aspect-ratio: 1 / 1;
+		border-radius: 0.6rem;
+		overflow: hidden;
+		border: 1px solid color-mix(in oklab, var(--color-surface-300) 18%, transparent);
+		opacity: 0.7;
+	}
+	.lightbox-thumb.active {
+		opacity: 1;
+		border-color: color-mix(in oklab, var(--color-primary-500) 70%, transparent);
+	}
+	.lightbox-thumb img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
 	.cart-panel {
 		background: linear-gradient(
 			160deg,

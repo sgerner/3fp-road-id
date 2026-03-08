@@ -8,6 +8,7 @@
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
+	import { escapeHtml } from '$lib/markdown';
 	import 'leaflet/dist/leaflet.css';
 
 	const { data } = $props();
@@ -44,6 +45,73 @@
 		Boolean(currentUser?.id) && !activity?.host_user_id && !activity?.host_group_id
 	);
 	const claimLabel = $derived(ride?.recurrenceRule ? 'Claim Ride Series' : 'Claim Ride');
+	const urlPattern = /(?:https?:\/\/|www\.)[^\s<]+/gi;
+	const maxLinkLabelLength = 88;
+
+	function splitTrailingPunctuation(url) {
+		let value = url;
+		let trailing = '';
+		while (/[.,!?;:]$/.test(value)) {
+			trailing = value.slice(-1) + trailing;
+			value = value.slice(0, -1);
+		}
+		if (value.endsWith(')') && !value.includes('(')) {
+			trailing = ')' + trailing;
+			value = value.slice(0, -1);
+		}
+		return { value, trailing };
+	}
+
+	function truncateMiddle(text, max = maxLinkLabelLength) {
+		if (text.length <= max) return text;
+		const head = Math.max(12, Math.floor((max - 1) * 0.68));
+		const tail = Math.max(8, max - head - 1);
+		return `${text.slice(0, head)}…${text.slice(-tail)}`;
+	}
+
+	function formatLinkLabel(href, rawValue) {
+		try {
+			const url = new URL(href);
+			const host = url.hostname.replace(/^www\./i, '');
+			const path = url.pathname === '/' ? '' : url.pathname;
+			const query = url.search ? url.search : '';
+			const hash = url.hash ? url.hash : '';
+			const full = `${host}${path}${query}${hash}`;
+			if (full.length <= maxLinkLabelLength) return full;
+			if (query) {
+				const base = `${host}${path}`;
+				if (base.length <= maxLinkLabelLength - 6) {
+					return `${base}${base.includes('?') ? '&' : '?'}…`;
+				}
+			}
+			return truncateMiddle(full);
+		} catch {
+			return truncateMiddle(rawValue.replace(/^https?:\/\//i, '').replace(/^www\./i, ''));
+		}
+	}
+
+	function renderLinkifiedText(text) {
+		const input = String(text ?? '').replace(/\r\n?/g, '\n');
+		if (!input) return '';
+		let output = '';
+		let lastIndex = 0;
+		for (const match of input.matchAll(urlPattern)) {
+			const start = match.index ?? 0;
+			const rawUrl = match[0] ?? '';
+			const end = start + rawUrl.length;
+			output += escapeHtml(input.slice(lastIndex, start));
+			const { value, trailing } = splitTrailingPunctuation(rawUrl);
+			if (value) {
+				const href = value.startsWith('www.') ? `https://${value}` : value;
+				const label = formatLinkLabel(href, value);
+				output += `<a class="linkified-url" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+			}
+			output += escapeHtml(trailing);
+			lastIndex = end;
+		}
+		output += escapeHtml(input.slice(lastIndex));
+		return output.replace(/\n/g, '<br />');
+	}
 
 	$effect(() => {
 		if (selectedOccurrenceId || !occurrences.length) return;
@@ -170,7 +238,9 @@
 					{activity?.title}
 				</h1>
 				{#if activity?.summary}
-					<p class="max-w-2xl text-base leading-relaxed opacity-85">{activity.summary}</p>
+					<p class="max-w-2xl text-base leading-relaxed opacity-85">
+						{@html renderLinkifiedText(activity.summary)}
+					</p>
 				{/if}
 				{#if selectedOccurrence}
 					<p class="text-sm font-medium opacity-70">
@@ -330,18 +400,28 @@
 				<div class="grid gap-4 md:grid-cols-2">
 					<div>
 						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Meet</div>
-						<div class="mt-1 font-semibold">{activity?.start_location_name}</div>
+						<div class="mt-1 font-semibold">
+							{@html renderLinkifiedText(activity?.start_location_name)}
+						</div>
 						{#if activity?.start_location_address}
-							<div class="text-sm opacity-75">{activity.start_location_address}</div>
+							<div class="text-sm opacity-75">
+								{@html renderLinkifiedText(activity.start_location_address)}
+							</div>
 						{/if}
 					</div>
 					<div>
 						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Finish</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.end_location_name || 'Same as start or route-dependent'}
-						</div>
+						{#if rideDetails?.end_location_name}
+							<div class="mt-1 font-semibold">
+								{@html renderLinkifiedText(rideDetails.end_location_name)}
+							</div>
+						{:else}
+							<div class="mt-1 font-semibold">Same as start or route-dependent</div>
+						{/if}
 						{#if rideDetails?.end_location_address}
-							<div class="text-sm opacity-75">{rideDetails.end_location_address}</div>
+							<div class="text-sm opacity-75">
+								{@html renderLinkifiedText(rideDetails.end_location_address)}
+							</div>
 						{/if}
 					</div>
 					<div>
@@ -374,7 +454,11 @@
 					</div>
 					<div class="md:col-span-2">
 						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Pace</div>
-						<div class="mt-1">{rideDetails?.pace_notes || 'Not specified'}</div>
+						{#if rideDetails?.pace_notes}
+							<div class="mt-1">{@html renderLinkifiedText(rideDetails.pace_notes)}</div>
+						{:else}
+							<div class="mt-1">Not specified</div>
+						{/if}
 					</div>
 					<div class="md:col-span-2">
 						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Surface</div>
@@ -395,13 +479,13 @@
 					{#if rideDetails?.accessibility_notes}
 						<div class="md:col-span-2">
 							<div class="text-sm tracking-[0.18em] uppercase opacity-60">Accessibility</div>
-							<div class="mt-1">{rideDetails.accessibility_notes}</div>
+							<div class="mt-1">{@html renderLinkifiedText(rideDetails.accessibility_notes)}</div>
 						</div>
 					{/if}
 					{#if activity?.description}
 						<div class="md:col-span-2">
 							<div class="text-sm tracking-[0.18em] uppercase opacity-60">About this ride</div>
-							<div class="mt-1 leading-7 whitespace-pre-wrap">{activity.description}</div>
+							<div class="mt-1 leading-7">{@html renderLinkifiedText(activity.description)}</div>
 						</div>
 					{/if}
 				</div>
@@ -422,7 +506,10 @@
 							<div>
 								<div class="font-semibold">{occurrenceLabel(occurrence)}</div>
 								<div class="text-sm opacity-75">
-									{occurrence.start_location_name || activity?.start_location_name}
+									{@html
+										renderLinkifiedText(
+											occurrence.start_location_name || activity?.start_location_name
+										)}
 								</div>
 							</div>
 							{#if currentUserRsvp(occurrence)?.status === 'going'}
@@ -584,5 +671,10 @@
 
 	.gallery-feature-frame {
 		min-height: 18rem;
+	}
+
+	:global(.linkified-url) {
+		word-break: break-word;
+		overflow-wrap: anywhere;
 	}
 </style>

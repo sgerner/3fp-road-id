@@ -210,7 +210,7 @@ function parsePrintfulPartnerRef(value) {
 				productId,
 				variantId,
 				catalogVariantId,
-				placements: Array.isArray(parsed?.placements) ? parsed.placements : undefined
+				placements: normalizePrintfulPlacements(parsed?.placements)
 			};
 		} catch {
 			return null;
@@ -222,6 +222,43 @@ function parsePrintfulPartnerRef(value) {
 	return { productId, variantId };
 }
 
+function normalizePrintfulPlacements(placements) {
+	if (!Array.isArray(placements)) return [];
+	const normalized = [];
+	for (const placement of placements) {
+		const layers = [];
+		for (const layer of Array.isArray(placement?.layers) ? placement.layers : []) {
+			const layerId = cleanText(layer?.id, 120);
+			const layerUrl = cleanText(layer?.url, 2000);
+			if (!layerId && !layerUrl) continue;
+
+			const normalizedLayer = {};
+			if (layerId) normalizedLayer.id = layerId;
+			if (layerUrl) normalizedLayer.url = layerUrl;
+
+			const layerType = cleanText(layer?.type, 40);
+			if (layerType) normalizedLayer.type = layerType;
+			if (layer?.position && typeof layer.position === 'object') normalizedLayer.position = layer.position;
+			if (Array.isArray(layer?.layer_options) && layer.layer_options.length) {
+				normalizedLayer.layer_options = layer.layer_options;
+			}
+			layers.push(normalizedLayer);
+		}
+		if (!layers.length) continue;
+
+		const normalizedPlacement = { layers };
+		const placementName = cleanText(placement?.placement, 120);
+		if (placementName) normalizedPlacement.placement = placementName;
+		const technique = cleanText(placement?.technique, 120);
+		if (technique) normalizedPlacement.technique = technique;
+		if (Array.isArray(placement?.placement_options) && placement.placement_options.length) {
+			normalizedPlacement.placement_options = placement.placement_options;
+		}
+		normalized.push(normalizedPlacement);
+	}
+	return normalized;
+}
+
 function buildPrintfulItemPayload(item) {
 	const printfulRef = parsePrintfulPartnerRef(item.partner_variant_ref || '');
 	if (!printfulRef?.catalogVariantId && (!printfulRef?.productId || !printfulRef?.variantId)) {
@@ -230,24 +267,37 @@ function buildPrintfulItemPayload(item) {
 		);
 	}
 
-	const payload = printfulRef.catalogVariantId
-		? {
-				source: 'catalog',
-				catalog_variant_id: printfulRef.catalogVariantId,
-				quantity: item.quantity,
-				retail_price: (item.unit_price_cents / 100).toFixed(2),
-				name: `${item.product_name} - ${item.variant_name}`
-			}
-		: {
-				source: 'product',
-				product_id: printfulRef.productId,
-				variant_id: printfulRef.variantId,
-				quantity: item.quantity,
-				retail_price: (item.unit_price_cents / 100).toFixed(2),
-				name: `${item.product_name} - ${item.variant_name}`
-			};
-	if (printfulRef.placements?.length) {
-		payload.placements = printfulRef.placements;
+	const catalogVariantId = normalizePositiveInt(printfulRef.catalogVariantId, null);
+	const productTemplateId = normalizePositiveInt(printfulRef.productId, null);
+	const templateVariantId = normalizePositiveInt(printfulRef.variantId, null);
+	let payload = null;
+
+	if (catalogVariantId) {
+		payload = {
+			source: 'catalog',
+			catalog_variant_id: catalogVariantId,
+			quantity: item.quantity,
+			retail_price: (item.unit_price_cents / 100).toFixed(2),
+			name: `${item.product_name} - ${item.variant_name}`
+		};
+	} else if (productTemplateId && templateVariantId) {
+		payload = {
+			source: 'product_template',
+			product_template_id: productTemplateId,
+			variant_id: templateVariantId,
+			quantity: item.quantity,
+			retail_price: (item.unit_price_cents / 100).toFixed(2),
+			name: `${item.product_name} - ${item.variant_name}`
+		};
+	} else {
+		throw new Error(
+			'Printful order item is missing a numeric catalog variant id. Re-sync the catalog and try again.'
+		);
+	}
+
+	const placements = normalizePrintfulPlacements(printfulRef.placements);
+	if (placements.length) {
+		payload.placements = placements;
 	}
 	return payload;
 }
@@ -395,6 +445,75 @@ function extractPrintfulProductImageUrl(product) {
 	);
 }
 
+function resolveMerchProductImages(product) {
+	const seen = new Set();
+	const ordered = [];
+	const push = (value) => {
+		const url = cleanText(value, 2000);
+		if (!url || seen.has(url)) return;
+		seen.add(url);
+		ordered.push(url);
+	};
+
+	const metadataImages = Array.isArray(product?.metadata?.printful_images)
+		? product.metadata.printful_images
+		: [];
+	for (const image of metadataImages) push(image);
+	push(product?.image_url);
+
+	return ordered;
+}
+
+async function collectPrintfulProductImageGallery({ accessToken, storeId, product }) {
+	const seen = new Set();
+	const images = [];
+	const details = [];
+	const addImage = (url, source, extra = {}) => {
+		const cleanUrl = cleanText(url, 2000);
+		if (!cleanUrl || seen.has(cleanUrl)) return;
+		seen.add(cleanUrl);
+		images.push(cleanUrl);
+		details.push({
+			url: cleanUrl,
+			source,
+			placement: cleanText(extra?.placement, 120) || null,
+			catalog_variant_id: cleanText(extra?.catalogVariantId, 120) || null
+		});
+	};
+
+	// Only ingest store-synced visuals. Catalog-variant image endpoints return generic/full mockup sets
+	// that do not respect a merchant's selected mockups and can omit artwork overlays.
+	const featuredImageUrl = extractPrintfulProductImageUrl(product);
+	if (featuredImageUrl) addImage(featuredImageUrl, 'sync_product_thumbnail');
+	addImage(product?.thumbnail_url, 'sync_product_thumbnail');
+	addImage(product?.preview_url, 'sync_product_preview');
+	addImage(product?.image_url, 'sync_product_image');
+
+	for (const variant of Array.isArray(product?.variants) ? product.variants : []) {
+		addImage(variant?.thumbnail_url, 'sync_variant_thumbnail');
+		addImage(variant?.preview_url, 'sync_variant_preview');
+		addImage(variant?.image_url, 'sync_variant_image');
+
+		for (const file of Array.isArray(variant?.files) ? variant.files : []) {
+			addImage(file?.preview_url, 'sync_variant_file_preview');
+			addImage(file?.thumbnail_url, 'sync_variant_file_thumbnail');
+			addImage(file?.url, 'sync_variant_file');
+		}
+
+		for (const placement of Array.isArray(variant?.placements) ? variant.placements : []) {
+			for (const layer of Array.isArray(placement?.layers) ? placement.layers : []) {
+				addImage(layer?.url, 'sync_variant_layer', { placement: placement?.placement || null });
+			}
+		}
+	}
+
+	return {
+		featuredImageUrl: images[0] || featuredImageUrl || null,
+		images,
+		details
+	};
+}
+
 function collectPrintfulOptionValues(variant) {
 	const optionValues = {};
 	const explicitColor = cleanText(
@@ -438,7 +557,8 @@ function buildPrintfulPartnerVariantRef({ productId, variantId, catalogVariantId
 	};
 	const cleanCatalogVariantId = cleanText(catalogVariantId, 120);
 	if (cleanCatalogVariantId) payload.catalog_variant_id = cleanCatalogVariantId;
-	if (Array.isArray(placements) && placements.length) payload.placements = placements;
+	const normalizedPlacements = normalizePrintfulPlacements(placements);
+	if (normalizedPlacements.length) payload.placements = normalizedPlacements;
 	return JSON.stringify(payload);
 }
 
@@ -486,20 +606,37 @@ function buildPrintfulShippingItemPayload(item) {
 		throw new Error('Printful item reference is missing or invalid.');
 	}
 
-	if (cleanText(printfulRef.catalogVariantId, 120)) {
+	const catalogVariantId = normalizePositiveInt(printfulRef.catalogVariantId, null);
+	if (catalogVariantId) {
 		return {
 			source: 'catalog',
-			catalog_variant_id: cleanText(printfulRef.catalogVariantId, 120),
+			catalog_variant_id: catalogVariantId,
 			quantity: item.quantity
 		};
 	}
 
-	return {
-		source: 'product',
-		product_id: cleanText(printfulRef.productId, 120),
-		variant_id: cleanText(printfulRef.variantId, 120),
-		quantity: item.quantity
-	};
+	const productTemplateId = normalizePositiveInt(printfulRef.productId, null);
+	const templateVariantId = normalizePositiveInt(printfulRef.variantId, null);
+	if (productTemplateId && templateVariantId) {
+		return {
+			source: 'product_template',
+			product_template_id: productTemplateId,
+			variant_id: templateVariantId,
+			quantity: item.quantity
+		};
+	}
+
+	const fallbackCatalogVariantId = normalizePositiveInt(printfulRef.variantId, null);
+	if (fallbackCatalogVariantId) {
+		return {
+			source: 'catalog',
+			catalog_variant_id: fallbackCatalogVariantId,
+			quantity: item.quantity
+		};
+	}
+	throw new Error(
+		'Printful shipping item is missing a numeric catalog variant id. Re-sync the catalog and try again.'
+	);
 }
 
 export async function getOrCreateGroupMerchStore(group) {
@@ -655,7 +792,7 @@ async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToke
 
 	if (!products.length) {
 		throw new Error(
-			'Printful returned no importable products for the selected store. If you created product templates, reconnect Printful so this app requests `sync_products/read` and `product_templates/read`, then sync again.'
+			'Printful returned no synced products for the selected store. Confirm the selected Printful store has synced products, then retry Import / Sync.'
 		);
 	}
 
@@ -668,13 +805,18 @@ async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToke
 		const externalProductId = cleanText(product?.id, 120);
 		if (!externalProductId) continue;
 		seenProductIds.add(externalProductId);
+		const imageGallery = await collectPrintfulProductImageGallery({
+			accessToken,
+			storeId: printfulStoreId,
+			product
+		});
 
 		const productPayload = {
 			store_id: store.id,
 			name: extractPrintfulProductName(product),
 			slug: buildImportedProductSlug(extractPrintfulProductName(product), externalProductId),
 			description: extractPrintfulProductDescription(product),
-			image_url: extractPrintfulProductImageUrl(product),
+			image_url: imageGallery.featuredImageUrl || extractPrintfulProductImageUrl(product),
 			status: 'active',
 			default_partner: PRINTFUL_PROVIDER,
 			source_of_truth: 'printful',
@@ -683,7 +825,10 @@ async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToke
 			external_store_id: normalizePositiveInt(printfulStoreId, 0) || null,
 			external_synced_at: syncedAt,
 			metadata: {
-				printful_product: product
+				printful_product: product,
+				printful_featured_image: imageGallery.featuredImageUrl || null,
+				printful_images: imageGallery.images,
+				printful_image_details: imageGallery.details
 			},
 			updated_at: syncedAt
 		};
@@ -902,7 +1047,18 @@ async function getMerchProductsWithVariants(supabase, storeId, includeInactive =
 	if (variantError) throw new Error(variantError.message);
 
 	const productMap = new Map(
-		(products ?? []).map((product) => [product.id, { ...product, variants: [] }])
+		(products ?? []).map((product) => {
+			const images = resolveMerchProductImages(product);
+			return [
+				product.id,
+				{
+					...product,
+					images,
+					featured_image_url: images[0] || null,
+					variants: []
+				}
+			];
+		})
 	);
 	for (const variant of variants ?? []) {
 		const target = productMap.get(variant.product_id);
@@ -1515,6 +1671,341 @@ export async function createMerchCheckoutSession({
 	return { ok: true, checkoutUrl: session.url, orderNumber: order.order_number };
 }
 
+export async function createMerchPaymentIntent({
+	requestUrl,
+	storeSlug = MAIN_STORE_SLUG,
+	items,
+	manualFulfillmentMethodId,
+	printfulShippingOptionId,
+	donationAmount,
+	customer,
+	shippingAddress,
+	notes,
+	customerUserId
+}) {
+	const supabase = await getServiceSupabase();
+	const store = await getMerchStoreBySlug(storeSlug);
+	const donationCents = Math.max(0, Math.round(Number(donationAmount || 0) * 100));
+
+	const quoteResult = await calculateMerchQuote({
+		storeId: store.id,
+		items,
+		manualFulfillmentMethodId,
+		printfulShippingOptionId,
+		shippingAddress,
+		donationCents
+	});
+	if (!quoteResult.ok) return quoteResult;
+	const quote = quoteResult.quote;
+
+	const customerEmail = normalizeEmail(customer?.email);
+	const customerName = cleanText(customer?.name, 140);
+	const customerPhone = cleanText(customer?.phone, 40);
+	if (!customerEmail) {
+		return { ok: false, status: 400, error: 'A valid customer email is required.' };
+	}
+	if (quote.manual.present && !quote.manual.selectedMethod) {
+		return { ok: false, status: 400, error: 'Select a fulfillment method for manual items.' };
+	}
+	if (quote.printful.present && !quote.printful.addressReady) {
+		return { ok: false, status: 400, error: 'Enter a valid United States shipping address.' };
+	}
+	if (quote.printful.present && !quote.printful.selectedOption) {
+		return { ok: false, status: 400, error: 'Select a Printful shipping option.' };
+	}
+
+	const address = extractAddressFromPayload(shippingAddress || {});
+	if (quote.requiresShippingAddress && !validateUsShippingAddress(address)) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'A complete United States shipping address is required for this order.'
+		};
+	}
+
+	const stripeAccount = await getStoreStripeAccount(supabase, store);
+	if (!stripeAccount?.stripe_account_id) {
+		return { ok: false, status: 409, error: 'This merch store has not connected Stripe yet.' };
+	}
+	if (stripeAccount?.charges_enabled !== true) {
+		return {
+			ok: false,
+			status: 409,
+			error: 'Stripe account is connected but not ready for charges yet.'
+		};
+	}
+
+	const orderNumber = createOrderNumber();
+	const orderInsertPayload = {
+		order_number: orderNumber,
+		store_id: store.id,
+		customer_user_id: customerUserId || null,
+		customer_email: customerEmail,
+		customer_name: customerName || null,
+		customer_phone: customerPhone || null,
+		fulfillment_method_id: quote.manual.selectedMethod?.id || null,
+		fulfillment_snapshot: quote.shippingBreakdown,
+		shipping_address: quote.requiresShippingAddress ? address : {},
+		notes: cleanText(notes, 1000) || null,
+		donation_cents: quote.donationCents,
+		subtotal_cents: quote.subtotalCents,
+		tax_cents: quote.taxCents,
+		fulfillment_fee_cents: quote.fulfillmentFeeCents,
+		total_cents: quote.totalCents,
+		currency: 'usd',
+		status: 'pending',
+		payment_status: 'unpaid',
+		fulfillment_status: 'not_started',
+		stripe_connected_account_id: stripeAccount.stripe_account_id,
+		manual_shipping_method_id: quote.manual.selectedMethod?.id || null,
+		manual_shipping_snapshot: quote.manual.selectedMethod
+			? {
+					...quote.manual.selectedMethod,
+					shipping_speed_label: quote.manual.shippingSpeedLabel,
+					matched_rule: quote.manual.matchedRule
+				}
+			: {},
+		manual_shipping_fee_cents: quote.manualShippingFeeCents,
+		printful_shipping_option_id: quote.printful.selectedOption?.id || null,
+		printful_shipping_snapshot: quote.printful.selectedOption || {},
+		printful_shipping_fee_cents: quote.printfulShippingFeeCents,
+		shipping_breakdown: quote.shippingBreakdown
+	};
+
+	const { data: insertedOrders, error: orderInsertError } = await supabase
+		.from('merch_orders')
+		.insert(orderInsertPayload)
+		.select('*')
+		.single();
+	if (orderInsertError) return { ok: false, status: 500, error: orderInsertError.message };
+	const order = insertedOrders;
+	if (!order?.id) return { ok: false, status: 500, error: 'Failed to create order.' };
+
+	const orderItemsPayload = quote.items.map((item) => ({
+		order_id: order.id,
+		product_id: item.productId,
+		variant_id: item.variantId,
+		product_name: item.productName,
+		variant_name: item.variantName,
+		sku: item.sku || null,
+		quantity: item.quantity,
+		unit_price_cents: item.unitPriceCents,
+		line_total_cents: item.lineTotalCents,
+		partner_provider: item.partnerProvider,
+		partner_variant_ref: item.partnerVariantRef || null,
+		option_values: item.optionValues || {}
+	}));
+	const { error: orderItemsError } = await supabase
+		.from('merch_order_items')
+		.insert(orderItemsPayload);
+	if (orderItemsError) {
+		await supabase.from('merch_orders').delete().eq('id', order.id);
+		return { ok: false, status: 500, error: orderItemsError.message };
+	}
+
+	const baseUrl = resolvePublicBaseUrl(requestUrl);
+	if (!baseUrl) return { ok: false, status: 500, error: 'PUBLIC_URL_BASE is not configured.' };
+
+	const stripe = getStripeClient();
+	let paymentIntent = null;
+	try {
+		paymentIntent = await stripe.paymentIntents.create(
+			{
+				amount: quote.totalCents,
+				currency: 'usd',
+				automatic_payment_methods: { enabled: true },
+				description: `Merch order ${order.order_number}`,
+				receipt_email: customerEmail,
+				metadata: {
+					order_id: order.id,
+					order_number: order.order_number,
+					store_slug: store.slug,
+					customer_email: customerEmail
+				}
+			},
+			{ stripeAccount: stripeAccount.stripe_account_id }
+		);
+	} catch (error) {
+		await supabase
+			.from('merch_orders')
+			.update({ status: 'failed', payment_status: 'failed', updated_at: new Date().toISOString() })
+			.eq('id', order.id);
+		return { ok: false, status: 502, error: error?.message || 'Unable to create Stripe payment intent.' };
+	}
+
+	if (!paymentIntent?.id || !paymentIntent?.client_secret) {
+		return { ok: false, status: 502, error: 'Stripe did not return a payment intent.' };
+	}
+
+	const { error: orderUpdateError } = await supabase
+		.from('merch_orders')
+		.update({
+			stripe_payment_intent_id: paymentIntent.id,
+			updated_at: new Date().toISOString()
+		})
+		.eq('id', order.id);
+	if (orderUpdateError) {
+		return { ok: false, status: 500, error: orderUpdateError.message };
+	}
+
+	return {
+		ok: true,
+		clientSecret: paymentIntent.client_secret,
+		paymentIntentId: paymentIntent.id,
+		connectedAccountId: stripeAccount.stripe_account_id,
+		returnUrl: `${baseUrl}/merch/confirmation`,
+		orderNumber: order.order_number
+	};
+}
+
+export async function updateMerchPaymentIntent({
+	paymentIntentId,
+	items,
+	manualFulfillmentMethodId,
+	printfulShippingOptionId,
+	donationAmount,
+	customer,
+	shippingAddress,
+	notes
+}) {
+	const cleanedPaymentIntentId = cleanText(paymentIntentId, 255);
+	if (!cleanedPaymentIntentId) {
+		return { ok: false, status: 400, error: 'Missing payment intent id.' };
+	}
+
+	const supabase = await getServiceSupabase();
+	const { data: order, error: orderError } = await supabase
+		.from('merch_orders')
+		.select('*')
+		.eq('stripe_payment_intent_id', cleanedPaymentIntentId)
+		.maybeSingle();
+	if (orderError) return { ok: false, status: 500, error: orderError.message };
+	if (!order) return { ok: false, status: 404, error: 'Order record not found.' };
+	if (order.payment_status === 'paid' || order.status === 'paid') {
+		return { ok: false, status: 409, error: 'This order has already been completed.' };
+	}
+
+	const donationCents = Math.max(0, Math.round(Number(donationAmount || 0) * 100));
+	const quoteResult = await calculateMerchQuote({
+		storeId: order.store_id,
+		items,
+		manualFulfillmentMethodId,
+		printfulShippingOptionId,
+		shippingAddress,
+		donationCents
+	});
+	if (!quoteResult.ok) return quoteResult;
+	const quote = quoteResult.quote;
+
+	const customerEmail = normalizeEmail(customer?.email);
+	const customerName = cleanText(customer?.name, 140);
+	const customerPhone = cleanText(customer?.phone, 40);
+	if (!customerEmail) {
+		return { ok: false, status: 400, error: 'A valid customer email is required.' };
+	}
+	if (quote.manual.present && !quote.manual.selectedMethod) {
+		return { ok: false, status: 400, error: 'Select a fulfillment method for manual items.' };
+	}
+	if (quote.printful.present && !quote.printful.addressReady) {
+		return { ok: false, status: 400, error: 'Enter a valid United States shipping address.' };
+	}
+	if (quote.printful.present && !quote.printful.selectedOption) {
+		return { ok: false, status: 400, error: 'Select a Printful shipping option.' };
+	}
+
+	const address = extractAddressFromPayload(shippingAddress || {});
+	if (quote.requiresShippingAddress && !validateUsShippingAddress(address)) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'A complete United States shipping address is required for this order.'
+		};
+	}
+
+	const stripe = getStripeClient();
+	try {
+		await stripe.paymentIntents.update(
+			cleanedPaymentIntentId,
+			{
+				amount: quote.totalCents,
+				receipt_email: customerEmail,
+				description: `Merch order ${order.order_number}`,
+				metadata: {
+					order_id: order.id,
+					order_number: order.order_number,
+					customer_email: customerEmail
+				}
+			},
+			{ stripeAccount: order.stripe_connected_account_id }
+		);
+	} catch (error) {
+		return { ok: false, status: 502, error: error?.message || 'Unable to update Stripe payment.' };
+	}
+
+	const orderUpdatePayload = {
+		customer_email: customerEmail,
+		customer_name: customerName || null,
+		customer_phone: customerPhone || null,
+		fulfillment_method_id: quote.manual.selectedMethod?.id || null,
+		fulfillment_snapshot: quote.shippingBreakdown,
+		shipping_address: quote.requiresShippingAddress ? address : {},
+		notes: cleanText(notes, 1000) || null,
+		donation_cents: quote.donationCents,
+		subtotal_cents: quote.subtotalCents,
+		tax_cents: quote.taxCents,
+		fulfillment_fee_cents: quote.fulfillmentFeeCents,
+		total_cents: quote.totalCents,
+		manual_shipping_method_id: quote.manual.selectedMethod?.id || null,
+		manual_shipping_snapshot: quote.manual.selectedMethod
+			? {
+					...quote.manual.selectedMethod,
+					shipping_speed_label: quote.manual.shippingSpeedLabel,
+					matched_rule: quote.manual.matchedRule
+				}
+			: {},
+		manual_shipping_fee_cents: quote.manualShippingFeeCents,
+		printful_shipping_option_id: quote.printful.selectedOption?.id || null,
+		printful_shipping_snapshot: quote.printful.selectedOption || {},
+		printful_shipping_fee_cents: quote.printfulShippingFeeCents,
+		shipping_breakdown: quote.shippingBreakdown,
+		updated_at: new Date().toISOString()
+	};
+	const { error: updateOrderError } = await supabase
+		.from('merch_orders')
+		.update(orderUpdatePayload)
+		.eq('id', order.id);
+	if (updateOrderError) return { ok: false, status: 500, error: updateOrderError.message };
+
+	const { error: deleteItemsError } = await supabase
+		.from('merch_order_items')
+		.delete()
+		.eq('order_id', order.id);
+	if (deleteItemsError) return { ok: false, status: 500, error: deleteItemsError.message };
+
+	const orderItemsPayload = quote.items.map((item) => ({
+		order_id: order.id,
+		product_id: item.productId,
+		variant_id: item.variantId,
+		product_name: item.productName,
+		variant_name: item.variantName,
+		sku: item.sku || null,
+		quantity: item.quantity,
+		unit_price_cents: item.unitPriceCents,
+		line_total_cents: item.lineTotalCents,
+		partner_provider: item.partnerProvider,
+		partner_variant_ref: item.partnerVariantRef || null,
+		option_values: item.optionValues || {}
+	}));
+	if (orderItemsPayload.length) {
+		const { error: insertItemsError } = await supabase
+			.from('merch_order_items')
+			.insert(orderItemsPayload);
+		if (insertItemsError) return { ok: false, status: 500, error: insertItemsError.message };
+	}
+
+	return { ok: true, amountCents: quote.totalCents };
+}
+
 async function getAdminEmails(supabase) {
 	const { data, error } = await supabase.from('profiles').select('email').eq('admin', true);
 	if (error || !data?.length) return [];
@@ -1723,6 +2214,9 @@ async function dispatchPrintfulItems(supabase, order, items) {
 		return { ok: false, status: 'failed' };
 	}
 
+	const printfulItems = items.map((item) => buildPrintfulItemPayload(item));
+	const usesProductSource = printfulItems.some((entry) => cleanText(entry?.source, 24) === 'product');
+
 	const requestPayload = {
 		external_id: order.order_number,
 		status: 'draft',
@@ -1730,9 +2224,10 @@ async function dispatchPrintfulItems(supabase, order, items) {
 			cleanText(order.printful_shipping_option_id, 120) ||
 			cleanText(order?.shipping_breakdown?.printful?.optionId, 120) ||
 			undefined,
-		recipient: buildPrintfulRecipient(address, order),
-		order_items: items.map((item) => buildPrintfulItemPayload(item))
+		recipient: buildPrintfulRecipient(address, order)
 	};
+	if (usesProductSource) requestPayload.items = printfulItems;
+	else requestPayload.order_items = printfulItems;
 
 	let responsePayload = {};
 	let status = 'failed';
@@ -1936,6 +2431,94 @@ export async function finalizeMerchOrderBySessionId(sessionId, fetchImpl) {
 		.select('*')
 		.eq('order_id', order.id)
 		.order('created_at', { ascending: true });
+	return {
+		ok: true,
+		paid,
+		order: reloadedOrder ?? currentOrder,
+		orderItems: orderItems ?? [],
+		dispatchJobs: dispatchJobs ?? []
+	};
+}
+
+export async function finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetchImpl) {
+	const cleanedPaymentIntentId = cleanText(paymentIntentId, 255);
+	if (!cleanedPaymentIntentId) {
+		return { ok: false, status: 400, error: 'Missing payment intent id.' };
+	}
+
+	const supabase = await getServiceSupabase();
+	const { data: order, error: orderError } = await supabase
+		.from('merch_orders')
+		.select('*')
+		.eq('stripe_payment_intent_id', cleanedPaymentIntentId)
+		.maybeSingle();
+	if (orderError) return { ok: false, status: 500, error: orderError.message };
+	if (!order) return { ok: false, status: 404, error: 'Order record not found.' };
+
+	const stripe = getStripeClient();
+	let paymentIntent = null;
+	try {
+		paymentIntent = await stripe.paymentIntents.retrieve(
+			cleanedPaymentIntentId,
+			{ expand: ['latest_charge'] },
+			{ stripeAccount: order.stripe_connected_account_id }
+		);
+	} catch {
+		return { ok: false, status: 502, error: 'Unable to verify Stripe payment intent.' };
+	}
+
+	const paid = paymentIntent.status === 'succeeded';
+	const failed =
+		paymentIntent.status === 'canceled' || paymentIntent.status === 'requires_payment_method';
+	const amountTotal = Number(
+		paymentIntent.amount_received || paymentIntent.amount || order.total_cents
+	);
+
+	const { data: updatedRows, error: updateError } = await supabase
+		.from('merch_orders')
+		.update({
+			customer_email:
+				normalizeEmail(paymentIntent.receipt_email) || normalizeEmail(order.customer_email) || null,
+			status: paid ? 'paid' : failed ? 'failed' : order.status,
+			payment_status: paid ? 'paid' : failed ? 'failed' : order.payment_status,
+			total_cents: Number.isFinite(amountTotal) && amountTotal > 0 ? amountTotal : order.total_cents,
+			paid_at: paid ? new Date().toISOString() : order.paid_at,
+			updated_at: new Date().toISOString()
+		})
+		.eq('id', order.id)
+		.select('*')
+		.single();
+	if (updateError) return { ok: false, status: 500, error: updateError.message };
+	const currentOrder = updatedRows ?? order;
+
+	const { data: orderItems, error: orderItemsError } = await supabase
+		.from('merch_order_items')
+		.select('*')
+		.eq('order_id', order.id)
+		.order('created_at', { ascending: true });
+	if (orderItemsError) return { ok: false, status: 500, error: orderItemsError.message };
+
+	if (paid) {
+		await sendOrderEmails({
+			supabase,
+			order: currentOrder,
+			orderItems: orderItems ?? [],
+			fetchImpl
+		});
+		await dispatchOrderItems(supabase, currentOrder, orderItems ?? []);
+	}
+
+	const { data: reloadedOrder } = await supabase
+		.from('merch_orders')
+		.select('*')
+		.eq('id', order.id)
+		.maybeSingle();
+	const { data: dispatchJobs } = await supabase
+		.from('merch_dispatch_jobs')
+		.select('*')
+		.eq('order_id', order.id)
+		.order('created_at', { ascending: true });
+
 	return {
 		ok: true,
 		paid,

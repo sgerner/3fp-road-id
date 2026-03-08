@@ -4,7 +4,7 @@ import {
 	finalizeDonationByPaymentIntentId,
 	finalizeDonationBySessionId
 } from '$lib/server/donations';
-import { finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
 import { getStripeClient } from '$lib/server/stripe';
 
 async function safelyFinalizeSession(sessionId, fetchImpl) {
@@ -27,13 +27,21 @@ async function safelyFinalizeSession(sessionId, fetchImpl) {
 }
 
 async function safelyFinalizePaymentIntent(paymentIntentId, fetchImpl) {
+	let donationMatched = false;
+	let merchMatched = false;
 	try {
 		const donationResult = await finalizeDonationByPaymentIntentId(paymentIntentId, fetchImpl);
-		return donationResult?.ok === true;
+		donationMatched = donationResult?.ok === true;
 	} catch (error) {
 		console.error('Donation finalize payment intent webhook error', error);
-		return false;
 	}
+	try {
+		const merchResult = await finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetchImpl);
+		merchMatched = merchResult?.ok === true;
+	} catch (error) {
+		console.error('Merch finalize payment intent webhook error', error);
+	}
+	return { donationMatched, merchMatched };
 }
 
 export const POST = async ({ request, fetch }) => {
@@ -84,9 +92,9 @@ export const POST = async ({ request, fetch }) => {
 	) {
 		const paymentIntentId = event?.data?.object?.id;
 		if (paymentIntentId) {
-			const matched = await safelyFinalizePaymentIntent(paymentIntentId, fetch);
-			if (!matched) {
-				console.warn('Stripe webhook payment intent did not match donation records', {
+			const matchResult = await safelyFinalizePaymentIntent(paymentIntentId, fetch);
+			if (!matchResult.donationMatched && !matchResult.merchMatched) {
+				console.warn('Stripe webhook payment intent did not match donation or merch records', {
 					paymentIntentId,
 					eventType: event.type
 				});
