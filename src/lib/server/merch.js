@@ -563,17 +563,6 @@ export async function connectPrintfulForStore({ store, tokenSet }) {
 				printfulSyncEnabled: true,
 				printfulLastSyncError: null
 			});
-
-			try {
-				await syncPrintfulCatalogForStoreInternal(supabase, store, {
-					accessToken: tokenSet?.accessToken,
-					printfulStoreId: selectedStore.id
-				});
-			} catch (syncError) {
-				await updateMerchStorePrintfulSettings(supabase, store.id, {
-					printfulLastSyncError: syncError?.message || 'Initial Printful sync failed.'
-				});
-			}
 		}
 	} catch (storeError) {
 		await updateMerchStorePrintfulSettings(supabase, store.id, {

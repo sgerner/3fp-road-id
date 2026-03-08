@@ -138,92 +138,93 @@
 				<h2 class="text-lg font-semibold">Printful</h2>
 			</div>
 			<p class="text-sm opacity-75">
-				Authorize Printful with OAuth, choose the connected Printful store to mirror into 3FP,
-				and keep imported products synced from Printful as the source of truth.
+				Authorize Printful with OAuth, choose the connected Printful store to mirror into 3FP, and
+				keep imported products synced from Printful as the source of truth.
 			</p>
-			<div class="mt-4 rounded-xl border border-white/10 bg-black/10 p-4">
-				<div class="flex flex-wrap items-start justify-between gap-4">
-					<div class="min-w-[16rem] flex-1 text-sm">
-						<div class="font-semibold">
-							{data.printfulAccount?.connected_at ? 'Printful connected' : 'Printful not connected'}
+			<hr class="my-4" />
+			<div class="flex flex-wrap items-start justify-between gap-4">
+				<div class="min-w-[16rem] flex-1 text-sm">
+					<div class="font-semibold">
+						{data.printfulAccount?.connected_at ? 'Printful connected' : 'Printful not connected'}
+					</div>
+					{#if data.printfulAccount?.connected_at}
+						<div class="mt-0.5 opacity-70">
+							Connected {formatDate(data.printfulAccount.connected_at)}
 						</div>
-						{#if data.printfulAccount?.connected_at}
-							<div class="mt-0.5 opacity-70">
-								Connected {formatDate(data.printfulAccount.connected_at)}
-							</div>
-						{/if}
-						{#if data.printfulAccount?.last_refreshed_at}
-							<div class="mt-0.5 opacity-70">
-								Last token refresh {formatDate(data.printfulAccount.last_refreshed_at)}
-							</div>
-						{/if}
-						{#if data.printfulAccount?.last_error}
-							<div class="mt-2 text-red-300">{data.printfulAccount.last_error}</div>
-						{/if}
-						{#if data.store?.printful_last_synced_at}
-							<div class="mt-0.5 opacity-70">
-								Last catalog sync {formatDate(data.store.printful_last_synced_at)}
-							</div>
-						{/if}
-						{#if data.store?.printful_last_sync_error}
-							<div class="mt-2 text-red-300">{data.store.printful_last_sync_error}</div>
-						{/if}
-					</div>
-					<div class="flex flex-wrap gap-2">
-						<a
-							class="btn preset-filled-primary-500"
-							href="/api/merch/partners/printful/start?recipient=main"
-						>
-							{data.printfulAccount?.connected_at ? 'Reconnect Printful' : 'Connect Printful'}
-						</a>
-						{#if data.printfulAccount?.connected_at}
-							<form method="POST" action="?/disconnectPrintful">
-								<button class="btn preset-outlined-error-500" type="submit">Disconnect</button>
-							</form>
-						{/if}
-					</div>
+					{/if}
+					{#if data.printfulAccount?.last_refreshed_at}
+						<div class="mt-0.5 opacity-70">
+							Last token refresh {formatDate(data.printfulAccount.last_refreshed_at)}
+						</div>
+					{/if}
+					{#if data.printfulAccount?.last_error}
+						<div class="mt-2 text-red-300">{data.printfulAccount.last_error}</div>
+					{/if}
+					{#if data.store?.printful_last_synced_at}
+						<div class="mt-0.5 opacity-70">
+							Last catalog sync {formatDate(data.store.printful_last_synced_at)}
+						</div>
+					{/if}
+					{#if data.store?.printful_last_sync_error}
+						<div class="mt-2 text-red-300">{data.store.printful_last_sync_error}</div>
+					{/if}
 				</div>
-				{#if data.printfulAccount?.connected_at}
-					<form method="POST" action="?/savePrintfulSettings" class="mt-4 grid gap-3 md:grid-cols-2">
-						<div class="md:col-span-2">
-							<label class="label" for="printful_store_id">Connected Printful Store</label>
-							<select id="printful_store_id" name="printful_store_id" class="select w-full" required>
-								<option value="" disabled selected={!data.store?.printful_store_id}>Choose a Printful store</option>
-								{#each data.printfulStores ?? [] as storeChoice (storeChoice.id)}
-									<option
-										value={storeChoice.id}
-										selected={Number(data.store?.printful_store_id || 0) === Number(storeChoice.id)}
-									>
-										{storeChoice.name}
-									</option>
-								{/each}
-							</select>
-						</div>
-						<div class="md:col-span-2 flex items-center gap-2 text-sm">
-							<input
-								id="printful_sync_enabled"
-								type="checkbox"
-								name="printful_sync_enabled"
-								value="1"
-								checked={data.store?.printful_sync_enabled === true}
-							/>
-							<label for="printful_sync_enabled">
-								Keep imported products synced automatically from Printful
-							</label>
-						</div>
-						<div class="md:col-span-2 flex flex-wrap gap-2">
-							<button class="btn preset-filled-primary-500" type="submit">Save Printful Store</button>
-							<button
-								class="btn preset-outlined-primary-500"
-								type="submit"
-								formaction="?/syncPrintfulCatalog"
-							>
-								Import / Sync Catalog
-							</button>
-						</div>
-					</form>
-				{/if}
+				<div class="flex flex-wrap gap-2">
+					<a
+						class="btn btn-sm preset-filled-primary-500"
+						href="/api/merch/partners/printful/start?recipient=main"
+					>
+						{data.printfulAccount?.connected_at ? 'Reconnect Printful' : 'Connect Printful'}
+					</a>
+					{#if data.printfulAccount?.connected_at}
+						<form method="POST" action="?/disconnectPrintful">
+							<button class="btn preset-outlined-error-500 btn-sm" type="submit">Disconnect</button>
+						</form>
+					{/if}
+				</div>
 			</div>
+			{#if data.printfulAccount?.connected_at}
+				<form method="POST" action="?/savePrintfulSettings" class="mt-4 grid gap-3 md:grid-cols-2">
+					<div class="md:col-span-2">
+						<label class="label" for="printful_store_id">Connected Printful Store</label>
+						<select id="printful_store_id" name="printful_store_id" class="select w-full" required>
+							<option value="" disabled selected={!data.store?.printful_store_id}
+								>Choose a Printful store</option
+							>
+							{#each data.printfulStores ?? [] as storeChoice (storeChoice.id)}
+								<option
+									value={storeChoice.id}
+									selected={Number(data.store?.printful_store_id || 0) === Number(storeChoice.id)}
+								>
+									{storeChoice.name}
+								</option>
+							{/each}
+						</select>
+					</div>
+					<div class="flex items-center gap-2 text-sm md:col-span-2">
+						<input
+							id="printful_sync_enabled"
+							type="checkbox"
+							name="printful_sync_enabled"
+							value="1"
+							checked={data.store?.printful_sync_enabled === true}
+						/>
+						<label for="printful_sync_enabled">
+							Keep imported products synced automatically from Printful
+						</label>
+					</div>
+					<div class="flex flex-wrap gap-2 md:col-span-2">
+						<button class="btn preset-filled-primary-500" type="submit">Save Printful Store</button>
+						<button
+							class="btn preset-outlined-primary-500"
+							type="submit"
+							formaction="?/syncPrintfulCatalog"
+						>
+							Import / Sync Catalog
+						</button>
+					</div>
+				</form>
+			{/if}
 		</section>
 
 		<section class="panel rounded-2xl p-5">
@@ -298,9 +299,14 @@
 								<div>
 									<label class="label" for={`method-type-${method.id}`}>Type</label>
 									<select id={`method-type-${method.id}`} name="method_type" class="select w-full">
-										<option value="pickup" selected={method.method_type === 'pickup'}>Pickup</option>
-										<option value="delivery" selected={method.method_type === 'delivery'}>Delivery</option>
-										<option value="shipping" selected={method.method_type === 'shipping'}>Shipping</option>
+										<option value="pickup" selected={method.method_type === 'pickup'}>Pickup</option
+										>
+										<option value="delivery" selected={method.method_type === 'delivery'}
+											>Delivery</option
+										>
+										<option value="shipping" selected={method.method_type === 'shipping'}
+											>Shipping</option
+										>
 									</select>
 								</div>
 								<div>
@@ -316,7 +322,8 @@
 									/>
 								</div>
 								<div>
-									<label class="label" for={`method-speed-${method.id}`}>Shipping Speed Label</label>
+									<label class="label" for={`method-speed-${method.id}`}>Shipping Speed Label</label
+									>
 									<input
 										id={`method-speed-${method.id}`}
 										name="shipping_speed_label"
@@ -326,24 +333,42 @@
 									/>
 								</div>
 								<div>
-									<label class="label" for={`method-rule-mode-${method.id}`}>Shipping Rule Mode</label>
+									<label class="label" for={`method-rule-mode-${method.id}`}
+										>Shipping Rule Mode</label
+									>
 									<select
 										id={`method-rule-mode-${method.id}`}
 										name="rate_rule_mode"
 										class="select w-full"
 									>
-										<option value="flat" selected={method.rate_rule_mode === 'flat'}>Flat Rate</option>
-										<option value="quantity" selected={method.rate_rule_mode === 'quantity'}>By Item Count</option>
-										<option value="subtotal" selected={method.rate_rule_mode === 'subtotal'}>By Cart Value</option>
+										<option value="flat" selected={method.rate_rule_mode === 'flat'}
+											>Flat Rate</option
+										>
+										<option value="quantity" selected={method.rate_rule_mode === 'quantity'}
+											>By Item Count</option
+										>
+										<option value="subtotal" selected={method.rate_rule_mode === 'subtotal'}
+											>By Cart Value</option
+										>
 									</select>
 								</div>
 								<div class="grid grid-cols-2 gap-2">
 									<label class="flex items-center gap-2 text-sm">
-										<input type="checkbox" name="requires_address" value="1" checked={method.requires_address === true} />
+										<input
+											type="checkbox"
+											name="requires_address"
+											value="1"
+											checked={method.requires_address === true}
+										/>
 										Requires address
 									</label>
 									<label class="flex items-center gap-2 text-sm">
-										<input type="checkbox" name="is_active" value="1" checked={method.is_active === true} />
+										<input
+											type="checkbox"
+											name="is_active"
+											value="1"
+											checked={method.is_active === true}
+										/>
 										Active
 									</label>
 								</div>
@@ -356,8 +381,10 @@
 										rows="2">{method.description || ''}</textarea
 									>
 								</div>
-								<div class="md:col-span-2 flex flex-wrap gap-2">
-									<button class="btn btn-sm preset-outlined-primary-500" type="submit">Save Method</button>
+								<div class="flex flex-wrap gap-2 md:col-span-2">
+									<button class="btn btn-sm preset-outlined-primary-500" type="submit"
+										>Save Method</button
+									>
 									<button
 										class="btn btn-sm preset-outlined-primary-500"
 										type="submit"
@@ -383,48 +410,102 @@
 									{#if (method.shipping_rules?.length ?? 0) > 0}
 										<div class="mt-2 space-y-2">
 											{#each method.shipping_rules as rule (rule.id)}
-												<div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-sm">
+												<div
+													class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-sm"
+												>
 													<div>
 														<div class="font-semibold">{metricValueLabel(rule)}</div>
 														<div class="text-xs opacity-65">
-															{rule.metric_type === 'subtotal' ? 'Cart value' : 'Quantity'} · {formatCurrency(rule.rate_cents)}
+															{rule.metric_type === 'subtotal' ? 'Cart value' : 'Quantity'} · {formatCurrency(
+																rule.rate_cents
+															)}
 														</div>
 													</div>
 													<form method="POST" action="?/deleteShippingRule">
 														<input type="hidden" name="rule_id" value={rule.id} />
-														<button class="btn btn-xs preset-filled-error-500" type="submit">Delete</button>
+														<button class="btn btn-xs preset-filled-error-500" type="submit"
+															>Delete</button
+														>
 													</form>
 												</div>
 											{/each}
 										</div>
 									{:else}
-										<p class="mt-2 text-xs opacity-70">No shipping rules yet. Base fee will be used.</p>
+										<p class="mt-2 text-xs opacity-70">
+											No shipping rules yet. Base fee will be used.
+										</p>
 									{/if}
-									<form method="POST" action="?/saveShippingRule" class="mt-3 grid gap-2 md:grid-cols-4">
+									<form
+										method="POST"
+										action="?/saveShippingRule"
+										class="mt-3 grid gap-2 md:grid-cols-4"
+									>
 										<input type="hidden" name="fulfillment_method_id" value={method.id} />
-										<input type="hidden" name="metric_type" value={method.rate_rule_mode || 'quantity'} />
+										<input
+											type="hidden"
+											name="metric_type"
+											value={method.rate_rule_mode || 'quantity'}
+										/>
 										<div>
 											<label class="label" for={`rule-min-${method.id}`}>
-												{method.rate_rule_mode === 'subtotal' ? 'Min Order Value (USD)' : 'Min Items'}
+												{method.rate_rule_mode === 'subtotal'
+													? 'Min Order Value (USD)'
+													: 'Min Items'}
 											</label>
-											<input id={`rule-min-${method.id}`} name="min_value" class="input w-full" type="number" min="0" step={method.rate_rule_mode === 'subtotal' ? '0.01' : '1'} required />
+											<input
+												id={`rule-min-${method.id}`}
+												name="min_value"
+												class="input w-full"
+												type="number"
+												min="0"
+												step={method.rate_rule_mode === 'subtotal' ? '0.01' : '1'}
+												required
+											/>
 										</div>
 										<div>
 											<label class="label" for={`rule-max-${method.id}`}>
-												{method.rate_rule_mode === 'subtotal' ? 'Max Order Value (USD)' : 'Max Items'}
+												{method.rate_rule_mode === 'subtotal'
+													? 'Max Order Value (USD)'
+													: 'Max Items'}
 											</label>
-											<input id={`rule-max-${method.id}`} name="max_value" class="input w-full" type="number" min="0" step={method.rate_rule_mode === 'subtotal' ? '0.01' : '1'} placeholder="Leave blank for no max" />
+											<input
+												id={`rule-max-${method.id}`}
+												name="max_value"
+												class="input w-full"
+												type="number"
+												min="0"
+												step={method.rate_rule_mode === 'subtotal' ? '0.01' : '1'}
+												placeholder="Leave blank for no max"
+											/>
 										</div>
 										<div>
 											<label class="label" for={`rule-rate-${method.id}`}>Rate (USD)</label>
-											<input id={`rule-rate-${method.id}`} name="rate_dollars" class="input w-full" type="number" min="0" step="0.01" required />
+											<input
+												id={`rule-rate-${method.id}`}
+												name="rate_dollars"
+												class="input w-full"
+												type="number"
+												min="0"
+												step="0.01"
+												required
+											/>
 										</div>
 										<div>
 											<label class="label" for={`rule-order-${method.id}`}>Sort Order</label>
-											<input id={`rule-order-${method.id}`} name="sort_order" class="input w-full" type="number" min="0" step="1" value="0" />
+											<input
+												id={`rule-order-${method.id}`}
+												name="sort_order"
+												class="input w-full"
+												type="number"
+												min="0"
+												step="1"
+												value="0"
+											/>
 										</div>
 										<div class="md:col-span-4">
-											<button class="btn btn-sm preset-filled-primary-500" type="submit">Add Shipping Rule</button>
+											<button class="btn btn-sm preset-filled-primary-500" type="submit"
+												>Add Shipping Rule</button
+											>
 										</div>
 									</form>
 								</div>
