@@ -887,43 +887,6 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
 	}
 
-	/* ── Amount chips ── */
-	.amount-chip {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.5rem 1.25rem;
-		border-radius: 9999px;
-		font-size: 0.95rem;
-		font-weight: 700;
-		cursor: pointer;
-		transition:
-			background 160ms,
-			color 160ms,
-			transform 120ms,
-			box-shadow 160ms;
-		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 22%, transparent);
-		color: inherit;
-	}
-
-	.amount-chip:hover {
-		transform: translateY(-1px);
-		background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-500) 10%);
-		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-	}
-
-	.amount-chip--active {
-		background: var(--color-primary-500);
-		border-color: var(--color-primary-500);
-		color: white;
-		box-shadow: 0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 50%, transparent);
-	}
-
-	.amount-chip--active:hover {
-		background: var(--color-primary-400);
-	}
-
 	/* ── Anonymity checkbox area ── */
 	.anonymity-check {
 		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);

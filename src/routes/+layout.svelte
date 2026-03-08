@@ -16,6 +16,9 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import IconLogOut from '@lucide/svelte/icons/log-out';
+	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	// Branding / social icons
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconFacebook from '@lucide/svelte/icons/facebook';
@@ -24,6 +27,12 @@
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
+	function getInitialLayoutData() {
+		return data ?? {};
+	}
+	const initialLayoutData = getInitialLayoutData();
+	const initialUser = initialLayoutData.user ?? null;
+	const initialUserProfile = initialLayoutData.userProfile ?? null;
 	const themeOptions = [
 		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
@@ -37,14 +46,18 @@
 		{ value: 'wintry', label: 'Wintry' }
 	];
 
-	let user = $state(null);
+	let user = $state(initialUser);
+	let userProfile = $state(initialUserProfile);
 	let showLogin = $state(false);
+	let showUserMenu = $state(false);
 	let email = $state('');
 	let loading = $state(false);
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
 	let loginBtnEl = $state(null);
+	let userMenuBtnEl = $state(null);
+	let userMenuEl = $state(null);
 	let mobileMenuBtnEl = $state(null);
 	let mobileMenuEl = $state(null);
 	let showMobileMenu = $state(false);
@@ -56,6 +69,26 @@
 	);
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
+	const profileImageUrl = $derived(
+		userProfile?.avatar_url ??
+			user?.user_metadata?.avatar_url ??
+			user?.user_metadata?.picture ??
+			user?.user_metadata?.image ??
+			null
+	);
+	const profileDisplayName = $derived(
+		userProfile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? 'Profile'
+	);
+	const profileInitials = $derived.by(() => {
+		const value = String(profileDisplayName || '').trim();
+		if (!value) return 'U';
+		const parts = value.split(/\s+/).filter(Boolean);
+		if (!parts.length) return 'U';
+		return parts
+			.slice(0, 2)
+			.map((part) => part.charAt(0).toUpperCase())
+			.join('');
+	});
 	const navigationItems = [
 		{ href: '/', label: 'Home', icon: IconHome, match: (pathname) => pathname === '/' },
 		{
@@ -109,9 +142,28 @@
 		}
 	}
 
+	async function loadCurrentProfile(nextUser = user) {
+		if (!nextUser?.id) {
+			userProfile = null;
+			return;
+		}
+		try {
+			const response = await fetch('/api/profile');
+			if (!response.ok) {
+				userProfile = null;
+				return;
+			}
+			const payload = await response.json().catch(() => ({}));
+			userProfile = payload?.profile ?? null;
+		} catch {
+			userProfile = null;
+		}
+	}
+
 	async function initSession() {
 		const { data } = await supabase.auth.getSession();
 		user = data.session?.user || null;
+		await loadCurrentProfile(user);
 	}
 
 	async function initTurnstile() {
@@ -146,6 +198,7 @@
 
 		const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
 			user = session?.user || null;
+			showUserMenu = false;
 			try {
 				if (session) {
 					const payload = JSON.stringify(session);
@@ -156,6 +209,7 @@
 			} catch {
 				// ignore
 			}
+			void loadCurrentProfile(session?.user || null);
 		});
 		function onDocClick(e) {
 			if (!showLogin) return;
@@ -165,6 +219,24 @@
 		}
 		function onKey(e) {
 			if (e.key === 'Escape') showLogin = false;
+		}
+		function onDocClickUserMenu(e) {
+			if (!showUserMenu) return;
+			const t = e.target;
+			if (userMenuEl?.contains?.(t) || userMenuBtnEl?.contains?.(t)) return;
+			showUserMenu = false;
+		}
+		function onKeyUserMenu(e) {
+			if (e.key === 'Escape') showUserMenu = false;
+		}
+		function onProfileUpdated(event) {
+			const profile = event?.detail?.profile;
+			if (!profile) {
+				void loadCurrentProfile(user);
+				return;
+			}
+			if (profile?.user_id && user?.id && String(profile.user_id) !== String(user.id)) return;
+			userProfile = profile;
 		}
 		// Also close mobile menu on outside click / escape
 		const onDocClickMenu = (e) => {
@@ -178,14 +250,20 @@
 		};
 		document.addEventListener('click', onDocClick);
 		document.addEventListener('keydown', onKey);
+		document.addEventListener('click', onDocClickUserMenu);
+		document.addEventListener('keydown', onKeyUserMenu);
 		document.addEventListener('click', onDocClickMenu);
 		document.addEventListener('keydown', onKeyMenu);
+		window.addEventListener('profile-updated', onProfileUpdated);
 		return () => {
 			sub.subscription?.unsubscribe?.();
 			document.removeEventListener('click', onDocClick);
 			document.removeEventListener('keydown', onKey);
+			document.removeEventListener('click', onDocClickUserMenu);
+			document.removeEventListener('keydown', onKeyUserMenu);
 			document.removeEventListener('click', onDocClickMenu);
 			document.removeEventListener('keydown', onKeyMenu);
+			window.removeEventListener('profile-updated', onProfileUpdated);
 		};
 	});
 
@@ -250,7 +328,9 @@
 	async function doLogout() {
 		await supabase.auth.signOut();
 		showLogin = false;
+		showUserMenu = false;
 		email = '';
+		userProfile = null;
 		try {
 			document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
 		} catch {
@@ -321,8 +401,61 @@
 
 					<div class="relative">
 						{#if user}
-							<div class="flex items-center gap-2">
-								<button class="chip preset-tonal-surface" onclick={doLogout}>Logout</button>
+							<div class="relative flex items-center gap-2">
+								<button
+									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center gap-2 rounded-full border px-2 py-1 transition"
+									bind:this={userMenuBtnEl}
+									onclick={() => (showUserMenu = !showUserMenu)}
+									aria-label="Open profile menu"
+									aria-expanded={showUserMenu}
+									aria-haspopup="menu"
+								>
+									<span class="profile-avatar">
+										{#if profileImageUrl}
+											<img
+												src={profileImageUrl}
+												alt={`${profileDisplayName || 'User'} profile photo`}
+												class="h-full w-full object-cover"
+											/>
+										{:else}
+											<span>{profileInitials}</span>
+										{/if}
+									</span>
+									<span class="text-sm font-semibold max-md:hidden">
+										{profileDisplayName}
+									</span>
+									<IconChevronDown class="h-4 w-4 opacity-70 max-md:hidden" />
+								</button>
+								{#if showUserMenu}
+									<div
+										class="profile-menu border-surface-300-700 bg-surface-100-900 absolute top-[calc(100%+0.55rem)] right-0 z-50 w-56 rounded-xl border p-1.5 shadow-xl"
+										bind:this={userMenuEl}
+										role="menu"
+									>
+										<a
+											href="/profile"
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => (showUserMenu = false)}
+										>
+											<IconUserCircle2 class="h-4 w-4" />
+											Profile
+										</a>
+										<a
+											href="/volunteer/shifts"
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => (showUserMenu = false)}
+										>
+											<IconHandHeart class="h-4 w-4" />
+											Volunteer shifts
+										</a>
+										<button class="profile-menu-item w-full" onclick={doLogout} role="menuitem">
+											<IconLogOut class="h-4 w-4" />
+											Log out
+										</button>
+									</div>
+								{/if}
 							</div>
 						{:else}
 							<button
@@ -642,6 +775,45 @@
 </div>
 
 <style>
+	.profile-avatar {
+		display: inline-flex;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 9999px;
+		overflow: hidden;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.78rem;
+		font-weight: 700;
+		background: color-mix(in oklab, var(--color-primary-500) 16%, var(--color-surface-900) 84%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+	}
+
+	.profile-menu {
+		backdrop-filter: blur(10px);
+	}
+
+	.profile-menu-item {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		border: 0;
+		border-radius: 0.65rem;
+		padding: 0.55rem 0.6rem;
+		font-size: 0.9rem;
+		color: inherit;
+		text-decoration: none;
+		background: transparent;
+		transition:
+			background-color 150ms ease,
+			color 150ms ease;
+	}
+
+	.profile-menu-item:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 14%, transparent);
+		color: var(--color-primary-300);
+	}
+
 	/* ── Rail: Get Involved link ── */
 	:global(.rail-brand-link) {
 		text-decoration: none;

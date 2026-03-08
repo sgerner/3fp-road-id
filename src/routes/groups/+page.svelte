@@ -218,7 +218,7 @@
 	const hasStateList = $derived(!!statesByCountry[country]?.length);
 
 	// Leaflet map + clustering
-	let mapEl;
+	let mapEl = $state();
 	let map;
 	let clusterLayer;
 	let L;

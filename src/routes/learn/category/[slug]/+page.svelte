@@ -354,7 +354,7 @@
 							<div
 								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase opacity-55"
 							>
-								<svelte:component this={stat.icon} class="h-4 w-4" />
+									<stat.icon class="h-4 w-4" />
 								{stat.label}
 							</div>
 							<div class="text-3xl font-black tabular-nums">{stat.value}</div>
