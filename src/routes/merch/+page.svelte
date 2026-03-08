@@ -1,0 +1,470 @@
+<script>
+	import { onMount } from 'svelte';
+	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconPlus from '@lucide/svelte/icons/plus';
+	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import { merchCart } from '$lib/merch/cart';
+
+	let { data } = $props();
+	let selectedVariantIdByProduct = $state({});
+	let quantityByProduct = $state({});
+	let addMessage = $state('');
+
+	onMount(() => {
+		merchCart.load();
+	});
+
+	function formatCurrency(cents) {
+		const amount = Number(cents || 0) / 100;
+		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+	}
+
+	function summarizeOptions(optionValues = {}) {
+		return Object.entries(optionValues)
+			.map(([k, v]) => `${k}: ${v}`)
+			.join(' · ');
+	}
+
+	function selectedVariant(product) {
+		const selectedId = selectedVariantIdByProduct[product.id];
+		const variants = product?.variants ?? [];
+		if (!variants.length) return null;
+		return variants.find((variant) => variant.id === selectedId) || variants[0];
+	}
+
+	function selectedQuantity(productId) {
+		return Number(quantityByProduct[productId] || 1);
+	}
+
+	function addToCart(product) {
+		const variant = selectedVariant(product);
+		if (!variant) return;
+		const qty = Math.max(1, Math.min(20, selectedQuantity(product.id)));
+		merchCart.add({
+			variantId: variant.id,
+			productName: product.name,
+			productImageUrl: product.image_url || '',
+			variantName: variant.name,
+			optionValues: variant.option_values || {},
+			partnerProvider: variant.partner_provider || 'manual',
+			priceCents: variant.price_cents,
+			quantity: qty
+		});
+		addMessage = `${qty} × ${product.name} added to cart`;
+		setTimeout(() => {
+			if (addMessage.startsWith(`${qty} × ${product.name}`)) addMessage = '';
+		}, 2200);
+	}
+
+	function removeCartLine(variantId) {
+		merchCart.remove(variantId);
+	}
+
+	const cartLineCount = $derived(
+		($merchCart ?? []).reduce((sum, line) => sum + Number(line.quantity || 0), 0)
+	);
+	const cartTotalCents = $derived(
+		($merchCart ?? []).reduce(
+			(sum, line) => sum + Number(line.priceCents || 0) * Number(line.quantity || 0),
+			0
+		)
+	);
+</script>
+
+<svelte:head>
+	<title>Merch Store • 3 Feet Please</title>
+</svelte:head>
+
+<div class="mx-auto w-full max-w-7xl space-y-6 pb-12">
+	<section class="hero-section relative overflow-hidden rounded-3xl">
+		<!-- Animated orb background -->
+		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+
+		<div
+			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
+		>
+			<!-- Left: headline + chips + stats -->
+			<div class="flex flex-col gap-6">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
+						<IconShoppingBag class="h-3.5 w-3.5" />
+						Merch Store
+					</span>
+					<span class="chip preset-tonal-secondary">Apparel</span>
+					<span class="chip preset-tonal-tertiary">Accessories</span>
+				</div>
+
+				<div class="space-y-4">
+					<h1
+						class="merch-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
+					>
+						Look good.<br />
+						<span class="merch-headline-accent">Do good.</span>
+					</h1>
+					<p class="max-w-xl text-base leading-relaxed opacity-75">
+						Rep the movement in gear you will actually want to wear. Every purchase helps 3 Feet
+						Please build safer streets for everyone.
+					</p>
+				</div>
+			</div>
+
+			<!-- Right: featured product -->
+			<div class="flex items-center justify-center lg:justify-end">
+				{#if data.products?.length > 0}
+					<!-- Grab the first product as featured -->
+					{@const featured = data.products[0]}
+					<div
+						class="card preset-filled-surface-50-950 flex w-full max-w-sm flex-col gap-4 p-5 shadow-2xl"
+					>
+						<div class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60">
+							<IconSparkles class="h-4 w-4 text-warning-500" />
+							Featured Drop
+						</div>
+						
+						{#if featured.image_url}
+							<div class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-950/50">
+								<img 
+									src={featured.image_url} 
+									alt={featured.name}
+									class="h-full w-full object-cover" 
+								/>
+							</div>
+						{/if}
+						
+						<div>
+							<h3 class="text-xl font-bold">{featured.name}</h3>
+							<div class="mt-2 flex items-center justify-between">
+								<span class="font-medium text-lg">
+									{featured.variants?.[0] ? formatCurrency(featured.variants[0].price_cents) : ''}
+								</span>
+								<a href="#merch-catalog" class="btn btn-sm preset-filled-primary-500 gap-2">
+									Shop Now
+									<IconArrowRight class="h-4 w-4" />
+								</a>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</section>
+
+	<div id="merch-catalog" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+		<div class="space-y-4">
+			{#if data.loadError}
+				<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-4 text-sm">
+					{data.loadError}
+				</section>
+			{:else if !(data.products?.length > 0)}
+				<section class="rounded-2xl border border-white/10 bg-black/20 p-6 text-center">
+					<p class="text-lg font-semibold">Fresh drops are on the way.</p>
+					<p class="mt-2 text-sm opacity-75">
+						Check back soon to grab new gear and support safer streets in style.
+					</p>
+					{#if data.isAdmin}
+						<a href="/merch/manage" class="btn preset-filled-primary-500 mt-4">Open Merch Manager</a
+						>
+					{/if}
+				</section>
+			{:else}
+				<div class="grid gap-4 md:grid-cols-2">
+					{#each data.products as product (product.id)}
+						<article class="merch-card group relative overflow-hidden rounded-2xl p-4">
+							<div class="flex items-start gap-3">
+								<div class="cover-wrap">
+									{#if product.image_url}
+										<img
+											src={product.image_url}
+											alt={product.name}
+											class="h-full w-full object-cover transition duration-400 group-hover:scale-[1.03]"
+										/>
+									{:else}
+										<div class="cover-fallback">
+											<IconSparkles class="h-5 w-5" />
+										</div>
+									{/if}
+								</div>
+								<div class="min-w-0 flex-1">
+									<h2 class="truncate text-lg leading-tight font-bold">{product.name}</h2>
+									{#if product.description}
+										<p class="mt-1 line-clamp-3 text-sm opacity-75">{product.description}</p>
+									{/if}
+									<div class="mt-2 flex flex-wrap gap-1.5">
+										<span class="chip preset-tonal-surface text-[11px]">
+											{#if (product.variants?.length ?? 0) > 1}
+												Choose your fit
+											{:else}
+												Signature edition
+											{/if}
+										</span>
+									</div>
+								</div>
+							</div>
+
+							{#if (product.variants?.length ?? 0) > 0}
+								<div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_6.5rem]">
+									<div>
+										<label class="label text-xs" for={`variant-${product.id}`}>Variation</label>
+										<select
+											id={`variant-${product.id}`}
+											class="select mt-1 w-full"
+											value={selectedVariant(product)?.id || ''}
+											onchange={(event) => {
+												selectedVariantIdByProduct = {
+													...selectedVariantIdByProduct,
+													[product.id]: event.currentTarget.value
+												};
+											}}
+										>
+											{#each product.variants as variant (variant.id)}
+												<option value={variant.id}>
+													{variant.name} · {formatCurrency(variant.price_cents)}
+												</option>
+											{/each}
+										</select>
+										{#if selectedVariant(product)?.option_values && Object.keys(selectedVariant(product)?.option_values || {}).length}
+											<p class="mt-1 text-[11px] opacity-65">
+												{summarizeOptions(selectedVariant(product)?.option_values || {})}
+											</p>
+										{/if}
+									</div>
+									<div>
+										<label class="label text-xs" for={`qty-${product.id}`}>Qty</label>
+										<input
+											id={`qty-${product.id}`}
+											type="number"
+											min="1"
+											max="20"
+											step="1"
+											value={selectedQuantity(product.id)}
+											class="input mt-1 w-full"
+											oninput={(event) => {
+												quantityByProduct = {
+													...quantityByProduct,
+													[product.id]: event.currentTarget.value
+												};
+											}}
+										/>
+									</div>
+								</div>
+
+								<div class="mt-3 flex items-center justify-between gap-2">
+									<div class="text-sm font-semibold">
+										{formatCurrency(selectedVariant(product)?.price_cents || 0)}
+									</div>
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-primary-500 flex items-center gap-1.5"
+										onclick={() => addToCart(product)}
+									>
+										<IconPlus class="h-3.5 w-3.5" />
+										Add to Cart
+									</button>
+								</div>
+							{/if}
+						</article>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<aside class="space-y-3">
+			<section class="cart-panel sticky top-20 rounded-2xl p-4">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<IconShoppingBag class="h-4 w-4" />
+						<h2 class="text-sm font-semibold uppercase">Cart</h2>
+					</div>
+					<span class="chip preset-tonal-surface text-xs">{cartLineCount} items</span>
+				</div>
+
+				{#if addMessage}
+					<div
+						class="mt-3 rounded-lg border border-green-500/30 bg-green-500/10 px-2.5 py-2 text-xs"
+					>
+						{addMessage}
+					</div>
+				{/if}
+
+				{#if ($merchCart ?? []).length === 0}
+					<p class="mt-4 text-sm opacity-70">Your cart is empty.</p>
+				{:else}
+					<ul class="mt-4 space-y-2">
+						{#each $merchCart as line (line.variantId)}
+							<li class="cart-line rounded-xl p-2.5">
+								<div class="flex items-start justify-between gap-2">
+									<div class="min-w-0">
+										<p class="truncate text-sm leading-tight font-semibold">{line.productName}</p>
+										<p class="truncate text-xs opacity-70">{line.variantName}</p>
+										<p class="text-xs opacity-75">
+											{line.quantity} × {formatCurrency(line.priceCents)}
+										</p>
+									</div>
+									<button
+										type="button"
+										class="btn btn-xs preset-outlined-error-500"
+										onclick={() => removeCartLine(line.variantId)}
+										aria-label="Remove item"
+									>
+										<IconTrash2 class="h-3.5 w-3.5" />
+									</button>
+								</div>
+							</li>
+						{/each}
+					</ul>
+					<div class="mt-4 border-t border-white/10 pt-3">
+						<div class="flex items-center justify-between text-sm">
+							<span class="opacity-70">Subtotal</span>
+							<strong>{formatCurrency(cartTotalCents)}</strong>
+						</div>
+						{#if data.canCheckout}
+							<a href="/merch/checkout" class="btn preset-filled-primary-500 mt-3 w-full">
+								Checkout
+							</a>
+						{:else}
+							<div
+								class="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs"
+							>
+								Checkout is temporarily unavailable until Stripe is connected.
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</section>
+
+			<section class="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm">
+				<div class="flex items-start gap-2">
+					<IconSparkles class="mt-0.5 h-4 w-4 shrink-0" />
+					<div>
+						<p class="font-semibold">Wear the Mission</p>
+						<p class="mt-1 opacity-75">
+							This gear helps show up loud for safer streets and stronger bike culture.
+						</p>
+					</div>
+				</div>
+				<div class="mt-3 flex items-start gap-2">
+					<IconShieldCheck class="mt-0.5 h-4 w-4 shrink-0" />
+					<div>
+						<p class="font-semibold">Feel Good Checkout</p>
+						<p class="mt-1 opacity-75">Know your purchase backs real local impact.</p>
+					</div>
+				</div>
+				{#if data.isAdmin}
+					<a href="/merch/manage" class="btn preset-outlined-primary-500 mt-4 w-full">
+						Manage Merch Store
+					</a>
+				{/if}
+			</section>
+		</aside>
+	</div>
+</div>
+
+<style>
+	/* ── Hero ── */
+	.hero-section {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.hero-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(72px);
+		pointer-events: none;
+	}
+
+	.hero-orb-1 {
+		width: 55%;
+		height: 200%;
+		top: -50%;
+		left: -10%;
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: orb-drift 18s ease-in-out infinite alternate;
+	}
+
+	.hero-orb-2 {
+		width: 40%;
+		height: 160%;
+		top: -30%;
+		right: 5%;
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
+	}
+
+	.hero-orb-3 {
+		width: 35%;
+		height: 120%;
+		bottom: -40%;
+		left: 40%;
+		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+		animation: orb-drift 20s ease-in-out infinite alternate;
+	}
+
+	@keyframes orb-drift {
+		0% {
+			transform: translate(0, 0) scale(1);
+		}
+		100% {
+			transform: translate(4%, 6%) scale(1.08);
+		}
+	}
+
+	/* ── Headline accent ── */
+	.merch-headline {
+		color: var(--color-primary-50);
+		text-align: left;
+	}
+
+	.merch-headline-accent {
+		background: linear-gradient(
+			120deg,
+			var(--color-primary-300),
+			var(--color-secondary-300),
+			var(--color-tertiary-300)
+		);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	.merch-card {
+		background: linear-gradient(
+			130deg,
+			color-mix(in oklab, var(--color-surface-900) 92%, var(--color-primary-500) 8%),
+			color-mix(in oklab, var(--color-surface-900) 90%, var(--color-secondary-500) 10%)
+		);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+	}
+	.cover-wrap {
+		width: 4.5rem;
+		height: 4.5rem;
+		border-radius: 0.9rem;
+		overflow: hidden;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 65%, transparent);
+	}
+	.cover-fallback {
+		display: grid;
+		place-items: center;
+		width: 100%;
+		height: 100%;
+		opacity: 0.65;
+	}
+	.cart-panel {
+		background: linear-gradient(
+			160deg,
+			color-mix(in oklab, var(--color-surface-900) 93%, var(--color-tertiary-500) 7%),
+			color-mix(in oklab, var(--color-surface-900) 90%, var(--color-primary-500) 10%)
+		);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 22%, transparent);
+	}
+	.cart-line {
+		background: color-mix(in oklab, var(--color-surface-950) 62%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
+	}
+</style>

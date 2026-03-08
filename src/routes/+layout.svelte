@@ -16,6 +16,7 @@
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
+	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
 	// Branding / social icons
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconFacebook from '@lucide/svelte/icons/facebook';
@@ -81,6 +82,12 @@
 			label: 'Learn',
 			icon: IconBookOpen,
 			match: (pathname) => pathname.startsWith('/learn')
+		},
+		{
+			href: '/merch',
+			label: 'Merch',
+			icon: IconShoppingBag,
+			match: (pathname) => pathname.startsWith('/merch')
 		},
 		{
 			href: '/roadid',

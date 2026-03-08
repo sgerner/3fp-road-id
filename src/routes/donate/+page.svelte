@@ -9,6 +9,8 @@
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconEyeOff from '@lucide/svelte/icons/eye-off';
+	import { loadStripe } from '@stripe/stripe-js';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 
 	let { data } = $props();
@@ -20,8 +22,14 @@
 	let requestAnonymity = $state(false);
 	let submitting = $state(false);
 	let disconnecting = $state(false);
+	let preparingPayment = $state(false);
 	let error = $state('');
 	let success = $state('');
+	let paymentFormReady = $state(false);
+	let paymentElementHost = $state(null);
+	let preparedAmount = $state('');
+	let paymentIntentId = $state('');
+	let paymentReturnUrl = $state('');
 
 	const presetAmounts = [10, 25, 50, 100, 250];
 	const recipient = $derived(data?.recipient ?? null);
@@ -29,32 +37,83 @@
 	const recipientType = $derived(recipient?.type ?? 'main');
 	const groupSlug = $derived(recipient?.group?.slug ?? '');
 	const donationEnabled = $derived(recipient?.donationEnabled === true);
+	const accountConnected = $derived(recipient?.accountConnected === true);
+	const accountReady = $derived(recipient?.accountReady === true);
+
+	let stripe = null;
+	let elements = null;
+	let paymentElement = null;
+	let preparedSignature = '';
 
 	function formatAmount(value) {
 		const n = Number(value || 0);
 		return Number.isFinite(n) ? n.toFixed(2) : '0.00';
 	}
 
-	async function startCheckout(event) {
-		event?.preventDefault?.();
-		error = '';
-		success = '';
-
+	function validateAmountOnly() {
 		const numericAmount = Number(amount);
 		if (!Number.isFinite(numericAmount) || numericAmount < 1 || numericAmount > 25000) {
-			error = 'Donation amount must be between $1 and $25,000.';
-			return;
+			return 'Donation amount must be between $1 and $25,000.';
+		}
+		return '';
+	}
+
+	function validateDonationForm() {
+		const amountError = validateAmountOnly();
+		if (amountError) return amountError;
+		if (!String(donorEmail || '').trim()) {
+			return 'A valid donor email is required so we can send your confirmation.';
+		}
+		return '';
+	}
+
+	function buildPaymentSignature() {
+		return JSON.stringify({
+			recipientType,
+			groupSlug,
+			amount: formatAmount(amount),
+			donorName: String(donorName || '').trim(),
+			donorEmail: String(donorEmail || '')
+				.trim()
+				.toLowerCase(),
+			donorMessage: String(donorMessage || '').trim(),
+			requestAnonymity
+		});
+	}
+
+	function teardownPaymentElement() {
+		if (paymentElement) {
+			paymentElement.destroy();
+			paymentElement = null;
+		}
+		elements = null;
+		stripe = null;
+		paymentFormReady = false;
+		paymentIntentId = '';
+		paymentReturnUrl = '';
+	}
+
+	async function preparePaymentElement(options = {}) {
+		const { quiet = false } = options;
+		error = '';
+		if (!quiet) success = '';
+
+		const validationError = validateAmountOnly();
+		if (validationError) {
+			error = validationError;
+			return false;
 		}
 
-		submitting = true;
+		preparingPayment = true;
 		try {
-			const response = await fetch('/api/donations/create-checkout-session', {
+			teardownPaymentElement();
+			const response = await fetch('/api/donations/create-payment-intent', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					recipient: recipientType === 'group' ? 'group' : 'main',
 					group: recipientType === 'group' ? groupSlug : undefined,
-					amount: numericAmount,
+					amount: Number(amount),
 					donorName,
 					donorEmail,
 					donorMessage,
@@ -63,14 +122,140 @@
 			});
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to start checkout.');
+				throw new Error(payload?.error || 'Unable to prepare payment form.');
 			}
-			if (!payload?.url) {
-				throw new Error('Stripe checkout URL was not returned.');
+			if (
+				!payload?.clientSecret ||
+				!payload?.publishableKey ||
+				!payload?.connectedAccountId ||
+				!payload?.returnUrl
+			) {
+				throw new Error('Stripe payment form could not be initialized.');
 			}
-			window.location.href = payload.url;
+
+			stripe = await loadStripe(payload.publishableKey, {
+				stripeAccount: payload.connectedAccountId
+			});
+			if (!stripe) {
+				throw new Error('Stripe.js failed to load.');
+			}
+
+			preparedSignature = buildPaymentSignature();
+			preparedAmount = formatAmount(amount);
+			paymentIntentId = payload.paymentIntentId || '';
+			paymentReturnUrl = payload.returnUrl;
+
+			await tick();
+			elements = stripe.elements({
+				clientSecret: payload.clientSecret,
+				appearance: {
+					theme: 'night',
+					variables: {
+						colorPrimary: '#f4ff00',
+						colorBackground: 'rgba(10, 15, 20, 0.55)',
+						colorText: '#f8f5dd',
+						colorDanger: '#ff6b6b',
+						fontFamily: 'inherit',
+						borderRadius: '16px'
+					}
+				}
+			});
+			paymentElement = elements.create('payment', {
+				layout: {
+					type: 'tabs',
+					defaultCollapsed: false
+				}
+			});
+			paymentElement.mount(paymentElementHost);
+			paymentFormReady = true;
+			if (!quiet) {
+				success = 'Secure payment form loaded below.';
+			}
+			return true;
 		} catch (err) {
-			error = err?.message || 'Unable to start checkout.';
+			teardownPaymentElement();
+			error = err?.message || 'Unable to prepare payment form.';
+			return false;
+		} finally {
+			preparingPayment = false;
+		}
+	}
+
+	async function syncPaymentIntentDetails() {
+		if (!paymentIntentId) {
+			return preparePaymentElement({ quiet: true });
+		}
+
+		const response = await fetch('/api/donations/update-payment-intent', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				paymentIntentId,
+				amount: Number(amount),
+				donorName,
+				donorEmail,
+				donorMessage,
+				requestAnonymity
+			})
+		});
+		const payload = await response.json().catch(() => ({}));
+		if (!response.ok) {
+			throw new Error(payload?.error || 'Unable to update payment details.');
+		}
+
+		preparedSignature = buildPaymentSignature();
+		preparedAmount = formatAmount(amount);
+		if (elements?.fetchUpdates) {
+			await elements.fetchUpdates();
+		}
+	}
+
+	async function startCheckout(event) {
+		event?.preventDefault?.();
+		error = '';
+		success = '';
+
+		const validationError = validateDonationForm();
+		if (validationError) {
+			error = validationError;
+			return;
+		}
+
+		if (!paymentFormReady) {
+			await preparePaymentElement({ quiet: true });
+		}
+		if (!paymentFormReady) {
+			return;
+		}
+
+		if (preparedSignature !== buildPaymentSignature()) {
+			try {
+				await syncPaymentIntentDetails();
+			} catch (err) {
+				error = err?.message || 'Unable to update payment details.';
+				return;
+			}
+		}
+
+		if (!stripe || !elements || !paymentReturnUrl) {
+			error = 'Stripe payment form is not ready yet.';
+			return;
+		}
+
+		submitting = true;
+		try {
+			const { error: stripeError } = await stripe.confirmPayment({
+				elements,
+				confirmParams: {
+					return_url: paymentReturnUrl
+				}
+			});
+
+			if (stripeError) {
+				throw new Error(stripeError.message || 'Unable to confirm payment.');
+			}
+		} catch (err) {
+			error = err?.message || 'Unable to confirm payment.';
 		} finally {
 			submitting = false;
 		}
@@ -98,6 +283,16 @@
 			disconnecting = false;
 		}
 	}
+
+	onDestroy(() => {
+		teardownPaymentElement();
+	});
+
+	onMount(() => {
+		if (donationEnabled) {
+			void preparePaymentElement({ quiet: true });
+		}
+	});
 </script>
 
 <svelte:head>
@@ -258,6 +453,15 @@
 							Connect or replace the main 3 Feet Please Stripe account used by the global Donate
 							button.
 						</p>
+						{#if accountConnected}
+							<p class="mt-2 text-sm opacity-70">
+								{#if accountReady}
+									Account connected and ready to accept charges.
+								{:else}
+									Account connected, but Stripe has not enabled charges yet.
+								{/if}
+							</p>
+						{/if}
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
@@ -309,7 +513,9 @@
 				</div>
 				<h2 class="text-xl font-bold">Donations coming soon</h2>
 				<p class="text-sm leading-relaxed opacity-70">
-					{#if recipientType === 'group'}
+					{#if accountConnected}
+						Stripe is connected, but this account is not yet ready to accept charges.
+					{:else if recipientType === 'group'}
 						This group hasn't connected Stripe donations yet.
 					{:else}
 						The main organization hasn't connected Stripe donations yet.
@@ -339,7 +545,7 @@
 						</div>
 						<h2 class="!mt-0 !mb-0.5 !text-left text-2xl font-bold">Support {recipientLabel}</h2>
 						<p class="text-sm opacity-65">
-							Choose an amount and complete checkout securely via Stripe.
+							Choose an amount and complete your gift directly on this page with Stripe.
 						</p>
 					</div>
 				</div>
@@ -358,7 +564,9 @@
 							{#each presetAmounts as preset}
 								<button
 									type="button"
-									class="amount-chip {Number(amount) === preset ? 'amount-chip--active' : ''}"
+									class="btn px-4 py-2 {Number(amount) === preset
+										? 'preset-filled-primary-500'
+										: 'preset-outlined-primary-500'}"
 									onclick={() => (amount = preset)}
 								>
 									${preset}
@@ -374,7 +582,7 @@
 							<input
 								id="donation_amount"
 								type="number"
-								class="input w-full pl-8 text-lg font-bold md:w-48"
+								class="input preset-tonal-surface w-full pl-8 text-lg font-bold md:w-48"
 								min="1"
 								max="25000"
 								step="0.01"
@@ -395,7 +603,7 @@
 							</label>
 							<input
 								id="donor_name"
-								class="input w-full"
+								class="input preset-tonal-surface w-full"
 								type="text"
 								maxlength="120"
 								placeholder="Your name"
@@ -411,7 +619,7 @@
 							</label>
 							<input
 								id="donor_email"
-								class="input w-full"
+								class="input preset-tonal-surface w-full"
 								type="email"
 								maxlength="160"
 								placeholder="you@example.com"
@@ -430,7 +638,7 @@
 						</label>
 						<textarea
 							id="donor_message"
-							class="textarea w-full"
+							class="textarea preset-tonal-surface w-full"
 							rows="3"
 							maxlength="1000"
 							placeholder="Share what inspires you to give…"
@@ -450,12 +658,21 @@
 								<IconEyeOff class="h-3.5 w-3.5 opacity-70" />
 								Request anonymity from the recipient
 							</div>
-							<p class="mt-0.5 text-xs leading-relaxed opacity-55">
+							<p class="mt-0.5 text-xs leading-relaxed opacity-70">
 								Card and payment records may still contain identifying information; this asks the
 								recipient to keep your donation private.
 							</p>
 						</div>
 					</label>
+
+					<div class="min-h-24 rounded-2xl border border-dashed border-white/10 bg-black/10 p-3">
+						<div bind:this={paymentElementHost}></div>
+						{#if !paymentFormReady}
+							<p class="text-sm opacity-60">
+								The card form loads automatically as the page initializes.
+							</p>
+						{/if}
+					</div>
 
 					<!-- Errors / success -->
 					{#if error}
@@ -481,21 +698,28 @@
 						<button
 							type="submit"
 							class="donate-btn btn preset-filled-primary-500 gap-2"
-							disabled={submitting}
+							disabled={submitting || preparingPayment}
 						>
-							{#if submitting}
-								<span class="animate-pulse">Starting secure checkout…</span>
+							{#if preparingPayment}
+								<span class="animate-pulse">Loading secure payment form…</span>
+							{:else if submitting}
+								<span class="animate-pulse">Confirming donation…</span>
 							{:else}
 								<IconHeart class="h-4 w-4" />
-								Donate {formatAmount(amount) !== '0.00' ? `$${formatAmount(amount)}` : ''}
+								Donate
+								{formatAmount(amount) !== '0.00' ? ` $${formatAmount(amount)}` : ''}
 								<IconArrowRight class="h-4 w-4" />
 							{/if}
 						</button>
-						<p class="text-xs opacity-50">Redirects to Stripe's secure checkout page.</p>
+						<p class="text-xs opacity-50">
+							{#if !paymentFormReady}
+								Loading Stripe's secure card form directly into this page.
+							{/if}
+						</p>
 					</div>
 
 					<!-- Tax notice -->
-					<p class="text-surface-700-300 text-xs leading-relaxed opacity-60">
+					<p class="text-xs leading-relaxed opacity-70">
 						{data.taxNotice}
 					</p>
 				</div>

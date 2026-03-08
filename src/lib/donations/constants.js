@@ -3,7 +3,7 @@ export const MAIN_ORG_NAME = '3 Feet Please';
 export const MAIN_ORG_LEGAL_NAME = 'CycleSafe Coalition';
 export const MAIN_ORG_EIN = '99-3658890';
 
-export const MAIN_ORG_TAX_NOTICE = `${MAIN_ORG_NAME} is a 501(c)(3) nonprofit operating under ${MAIN_ORG_LEGAL_NAME} (EIN ${MAIN_ORG_EIN}). Donations are tax-deductible to the extent allowed by law.`;
+export const MAIN_ORG_TAX_NOTICE = `${MAIN_ORG_LEGAL_NAME} is a 501(c)(3) nonprofit registered in Arizona operating as ${MAIN_ORG_NAME} (EIN ${MAIN_ORG_EIN}). Donations are tax-deductible.`;
 
 export const GROUP_TAX_NOTICE =
 	'This donation goes directly to the selected group. The group may or may not be a registered nonprofit, so tax deductibility is not guaranteed. Contact the group directly to confirm.';

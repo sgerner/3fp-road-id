@@ -18,7 +18,7 @@
 		<section class="rounded-2xl border border-amber-500/35 bg-amber-500/10 p-6">
 			<h1 class="text-2xl font-bold">Payment is not complete yet</h1>
 			<p class="mt-2 text-sm opacity-80">
-				If you just completed checkout, refresh this page in a few seconds.
+				If you just submitted payment, refresh this page in a few seconds.
 			</p>
 			<a class="btn preset-filled-primary-500 mt-4" href="/donate">Back to Donate</a>
 		</section>

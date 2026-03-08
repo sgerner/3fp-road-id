@@ -44,6 +44,7 @@
 		"@aws-sdk/client-ses": "^3.1000.0",
 		"@google/genai": "^1.43.0",
 		"@lucide/svelte": "^0.575.0",
+		"@stripe/stripe-js": "^8.9.0",
 		"@supabase/ssr": "^0.8.0",
 		"@supabase/supabase-js": "^2.98.0",
 		"@toast-ui/editor": "^3.2.2",

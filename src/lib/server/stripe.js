@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import Stripe from 'stripe';
 import { env } from '$env/dynamic/private';
-import { PUBLIC_URL_BASE } from '$env/static/public';
+import { PUBLIC_STRIPE_PUBLISHABLE_KEY, PUBLIC_URL_BASE } from '$env/static/public';
 
 const CONNECT_STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -32,6 +32,14 @@ export function getStripeConnectClientId() {
 		throw new Error('STRIPE_CONNECT_CLIENT_ID is not configured.');
 	}
 	return clientId;
+}
+
+export function getStripePublishableKey() {
+	const publishableKey = (PUBLIC_STRIPE_PUBLISHABLE_KEY || '').trim();
+	if (!publishableKey) {
+		throw new Error('PUBLIC_STRIPE_PUBLISHABLE_KEY is not configured.');
+	}
+	return publishableKey;
 }
 
 export function resolvePublicBaseUrl(url) {

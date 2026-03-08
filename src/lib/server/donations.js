@@ -383,6 +383,182 @@ export async function createDonationCheckout({
 	return { ok: true, checkoutUrl: session.url };
 }
 
+export async function createDonationPaymentIntent({
+	requestUrl,
+	recipientType,
+	groupSlug,
+	amount,
+	donorName,
+	donorEmail,
+	donorMessage,
+	requestAnonymity
+}) {
+	const amountCents = normalizeAmountToCents(amount);
+	if (!amountCents) {
+		return { ok: false, status: 400, error: 'Donation amount must be between $1 and $25,000.' };
+	}
+
+	const normalizedDonorName = cleanText(donorName, 120);
+	const normalizedDonorEmail = normalizeEmail(donorEmail);
+	const normalizedMessage = cleanText(donorMessage, 1000);
+	const wantsAnonymity = requestAnonymity === true;
+
+	const recipient = await getDonationRecipient({ recipientType, groupSlug });
+	if (recipient.type === 'group' && !recipient.claimed) {
+		return { ok: false, status: 400, error: 'This group has not been claimed yet.' };
+	}
+
+	const donationAccount = recipient.donationAccount;
+	if (!donationAccount?.stripe_account_id) {
+		return { ok: false, status: 409, error: 'This recipient has not connected Stripe yet.' };
+	}
+	if (!donationAccount?.charges_enabled) {
+		return {
+			ok: false,
+			status: 409,
+			error: 'Stripe account is connected but not ready to accept charges yet.'
+		};
+	}
+
+	const baseUrl = resolvePublicBaseUrl(requestUrl);
+	if (!baseUrl) {
+		return { ok: false, status: 500, error: 'PUBLIC_URL_BASE is not configured.' };
+	}
+
+	const stripe = getStripeClient();
+	const paymentIntent = await stripe.paymentIntents.create(
+		{
+			amount: amountCents,
+			currency: 'usd',
+			automatic_payment_methods: { enabled: true },
+			description: `Donation to ${recipient.label}`,
+			receipt_email: normalizedDonorEmail || undefined,
+			metadata: {
+				recipient_type: recipient.type,
+				recipient_slug: recipient.group?.slug || '',
+				recipient_name: recipient.label,
+				donor_name: normalizedDonorName,
+				donor_email: normalizedDonorEmail,
+				donor_message: normalizedMessage,
+				request_anonymity: wantsAnonymity ? '1' : '0'
+			}
+		},
+		{ stripeAccount: donationAccount.stripe_account_id }
+	);
+
+	if (!paymentIntent?.id || !paymentIntent?.client_secret) {
+		return { ok: false, status: 502, error: 'Stripe did not return a payment intent.' };
+	}
+
+	const supabase = await getServiceSupabase();
+	const { error: insertError } = await supabase.from('donations').insert({
+		stripe_checkout_session_id: null,
+		stripe_payment_intent_id: paymentIntent.id,
+		donation_account_id: donationAccount.id,
+		recipient_type: recipient.type === 'group' ? 'group' : 'organization',
+		recipient_group_id: recipient.group?.id || null,
+		recipient_display_name: recipient.label,
+		recipient_contact_email:
+			recipient.type === 'group'
+				? normalizeEmail(recipient.group?.public_contact_email) || null
+				: null,
+		connected_account_id: donationAccount.stripe_account_id,
+		amount_total_cents: amountCents,
+		currency: 'usd',
+		donor_name: normalizedDonorName || null,
+		donor_email: normalizedDonorEmail || null,
+		donor_message: normalizedMessage || null,
+		donor_requested_anonymity: wantsAnonymity,
+		status: 'pending',
+		updated_at: new Date().toISOString()
+	});
+	if (insertError) {
+		return { ok: false, status: 500, error: insertError.message };
+	}
+
+	return {
+		ok: true,
+		clientSecret: paymentIntent.client_secret,
+		paymentIntentId: paymentIntent.id,
+		connectedAccountId: donationAccount.stripe_account_id,
+		returnUrl: `${baseUrl}/donate/success`
+	};
+}
+
+export async function updateDonationPaymentIntent({
+	paymentIntentId,
+	amount,
+	donorName,
+	donorEmail,
+	donorMessage,
+	requestAnonymity
+}) {
+	const cleanedPaymentIntentId = cleanText(paymentIntentId, 255);
+	if (!cleanedPaymentIntentId) {
+		return { ok: false, status: 400, error: 'Missing payment intent id.' };
+	}
+
+	const amountCents = normalizeAmountToCents(amount);
+	if (!amountCents) {
+		return { ok: false, status: 400, error: 'Donation amount must be between $1 and $25,000.' };
+	}
+
+	const normalizedDonorName = cleanText(donorName, 120);
+	const normalizedDonorEmail = normalizeEmail(donorEmail);
+	const normalizedMessage = cleanText(donorMessage, 1000);
+	const wantsAnonymity = requestAnonymity === true;
+
+	const supabase = await getServiceSupabase();
+	const { data: donationRow, error: donationError } = await supabase
+		.from('donations')
+		.select('*')
+		.eq('stripe_payment_intent_id', cleanedPaymentIntentId)
+		.maybeSingle();
+	if (donationError) return { ok: false, status: 500, error: donationError.message };
+	if (!donationRow) return { ok: false, status: 404, error: 'Donation record not found.' };
+	if (donationRow.status === 'paid') {
+		return { ok: false, status: 409, error: 'This donation has already been completed.' };
+	}
+
+	const stripe = getStripeClient();
+	try {
+		await stripe.paymentIntents.update(
+			cleanedPaymentIntentId,
+			{
+				amount: amountCents,
+				receipt_email: normalizedDonorEmail || undefined,
+				description: `Donation to ${donationRow.recipient_display_name}`,
+				metadata: {
+					recipient_type: donationRow.recipient_type === 'group' ? 'group' : 'organization',
+					recipient_name: donationRow.recipient_display_name,
+					donor_name: normalizedDonorName,
+					donor_email: normalizedDonorEmail,
+					donor_message: normalizedMessage,
+					request_anonymity: wantsAnonymity ? '1' : '0'
+				}
+			},
+			{ stripeAccount: donationRow.connected_account_id }
+		);
+	} catch (error) {
+		return { ok: false, status: 502, error: error?.message || 'Unable to update Stripe payment.' };
+	}
+
+	const { error: updateError } = await supabase
+		.from('donations')
+		.update({
+			amount_total_cents: amountCents,
+			donor_name: normalizedDonorName || null,
+			donor_email: normalizedDonorEmail || null,
+			donor_message: normalizedMessage || null,
+			donor_requested_anonymity: wantsAnonymity,
+			updated_at: new Date().toISOString()
+		})
+		.eq('id', donationRow.id);
+	if (updateError) return { ok: false, status: 500, error: updateError.message };
+
+	return { ok: true, amountCents };
+}
+
 async function resolveGroupOwnerEmails(supabase, groupId) {
 	const { data: ownerRows, error: ownerError } = await supabase
 		.from('group_members')
@@ -485,6 +661,63 @@ function buildRecipientEmailContent(donationRow) {
 	};
 }
 
+async function sendDonationNotifications(supabase, donationRow, fetchImpl) {
+	if (!donationRow.donor_receipt_sent_at && donationRow.donor_email) {
+		const donorEmailContent = buildDonorEmailContent(donationRow);
+		try {
+			await sendEmail(
+				{
+					to: donationRow.donor_email,
+					subject: donorEmailContent.subject,
+					html: donorEmailContent.html,
+					text: donorEmailContent.text,
+					tags: [{ Name: 'context', Value: 'donation-confirmation' }]
+				},
+				{ fetch: fetchImpl }
+			);
+			await supabase
+				.from('donations')
+				.update({
+					donor_receipt_sent_at: new Date().toISOString(),
+					updated_at: new Date().toISOString()
+				})
+				.eq('id', donationRow.id)
+				.is('donor_receipt_sent_at', null);
+		} catch (error) {
+			console.error('Failed to send donor donation email', error);
+		}
+	}
+
+	if (!donationRow.recipient_notice_sent_at) {
+		const recipientEmails = await resolveRecipientEmails(supabase, donationRow);
+		if (recipientEmails.length) {
+			const recipientContent = buildRecipientEmailContent(donationRow);
+			try {
+				await sendEmail(
+					{
+						to: recipientEmails,
+						subject: recipientContent.subject,
+						html: recipientContent.html,
+						text: recipientContent.text,
+						tags: [{ Name: 'context', Value: 'donation-notification' }]
+					},
+					{ fetch: fetchImpl }
+				);
+				await supabase
+					.from('donations')
+					.update({
+						recipient_notice_sent_at: new Date().toISOString(),
+						updated_at: new Date().toISOString()
+					})
+					.eq('id', donationRow.id)
+					.is('recipient_notice_sent_at', null);
+			} catch (error) {
+				console.error('Failed to send recipient donation email', error);
+			}
+		}
+	}
+}
+
 export async function finalizeDonationBySessionId(sessionId, fetchImpl) {
 	const cleanedSessionId = cleanText(sessionId, 255);
 	if (!cleanedSessionId) {
@@ -543,68 +776,106 @@ export async function finalizeDonationBySessionId(sessionId, fetchImpl) {
 		.update(updatePayload)
 		.eq('id', donationRow.id)
 		.select('*')
-		.limit(1);
+		.maybeSingle();
 	if (updateError) return { ok: false, status: 500, error: updateError.message };
-	const current = updatedRows?.[0] ?? { ...donationRow, ...updatePayload };
+	const current = updatedRows ?? { ...donationRow, ...updatePayload };
 
 	if (!paid) {
 		return { ok: true, paid: false, donation: current };
 	}
 
-	if (!current.donor_receipt_sent_at && donorEmail) {
-		const donorEmailContent = buildDonorEmailContent(current);
-		try {
-			await sendEmail(
-				{
-					to: donorEmail,
-					subject: donorEmailContent.subject,
-					html: donorEmailContent.html,
-					text: donorEmailContent.text,
-					tags: [{ Name: 'context', Value: 'donation-confirmation' }]
-				},
-				{ fetch: fetchImpl }
-			);
-			await supabase
-				.from('donations')
-				.update({
-					donor_receipt_sent_at: new Date().toISOString(),
-					updated_at: new Date().toISOString()
-				})
-				.eq('id', current.id)
-				.is('donor_receipt_sent_at', null);
-		} catch (error) {
-			console.error('Failed to send donor donation email', error);
-		}
+	await sendDonationNotifications(supabase, current, fetchImpl);
+
+	const { data: reloadedDonation } = await supabase
+		.from('donations')
+		.select('*')
+		.eq('id', current.id)
+		.maybeSingle();
+
+	return { ok: true, paid: true, donation: reloadedDonation ?? current };
+}
+
+export async function finalizeDonationByPaymentIntentId(paymentIntentId, fetchImpl) {
+	const cleanedPaymentIntentId = cleanText(paymentIntentId, 255);
+	if (!cleanedPaymentIntentId) {
+		return { ok: false, status: 400, error: 'Missing payment intent id.' };
 	}
 
-	if (!current.recipient_notice_sent_at) {
-		const recipientEmails = await resolveRecipientEmails(supabase, current);
-		if (recipientEmails.length) {
-			const recipientContent = buildRecipientEmailContent(current);
-			try {
-				await sendEmail(
-					{
-						to: recipientEmails,
-						subject: recipientContent.subject,
-						html: recipientContent.html,
-						text: recipientContent.text,
-						tags: [{ Name: 'context', Value: 'donation-notification' }]
-					},
-					{ fetch: fetchImpl }
-				);
-				await supabase
-					.from('donations')
-					.update({
-						recipient_notice_sent_at: new Date().toISOString(),
-						updated_at: new Date().toISOString()
-					})
-					.eq('id', current.id)
-					.is('recipient_notice_sent_at', null);
-			} catch (error) {
-				console.error('Failed to send recipient donation email', error);
-			}
-		}
+	const supabase = await getServiceSupabase();
+	const { data: donationRow, error: donationError } = await supabase
+		.from('donations')
+		.select('*')
+		.eq('stripe_payment_intent_id', cleanedPaymentIntentId)
+		.maybeSingle();
+	if (donationError) return { ok: false, status: 500, error: donationError.message };
+	if (!donationRow) return { ok: false, status: 404, error: 'Donation record not found.' };
+
+	const stripe = getStripeClient();
+	let paymentIntent = null;
+	try {
+		paymentIntent = await stripe.paymentIntents.retrieve(
+			cleanedPaymentIntentId,
+			{ expand: ['latest_charge'] },
+			{ stripeAccount: donationRow.connected_account_id }
+		);
+	} catch {
+		return { ok: false, status: 502, error: 'Unable to verify Stripe payment intent.' };
 	}
+
+	const latestCharge =
+		paymentIntent.latest_charge && typeof paymentIntent.latest_charge !== 'string'
+			? paymentIntent.latest_charge
+			: null;
+	const paid = paymentIntent.status === 'succeeded';
+	const failed =
+		paymentIntent.status === 'canceled' || paymentIntent.status === 'requires_payment_method';
+	const amountTotal = Number(
+		paymentIntent.amount_received || paymentIntent.amount || donationRow.amount_total_cents
+	);
+	const currency = cleanText(
+		paymentIntent.currency || donationRow.currency || 'usd',
+		10
+	).toLowerCase();
+	const donorEmail = normalizeEmail(
+		paymentIntent.receipt_email ||
+			latestCharge?.billing_details?.email ||
+			paymentIntent.metadata?.donor_email ||
+			donationRow.donor_email
+	);
+	const donorName = cleanText(
+		latestCharge?.billing_details?.name ||
+			paymentIntent.metadata?.donor_name ||
+			donationRow.donor_name,
+		120
+	);
+
+	const updatePayload = {
+		status: paid ? 'paid' : failed ? 'failed' : donationRow.status,
+		amount_total_cents:
+			Number.isFinite(amountTotal) && amountTotal > 0
+				? amountTotal
+				: donationRow.amount_total_cents,
+		currency: currency || 'usd',
+		donor_email: donorEmail || donationRow.donor_email || null,
+		donor_name: donorName || donationRow.donor_name || null,
+		paid_at: paid ? new Date().toISOString() : donationRow.paid_at,
+		updated_at: new Date().toISOString()
+	};
+
+	const { data: updatedRows, error: updateError } = await supabase
+		.from('donations')
+		.update(updatePayload)
+		.eq('id', donationRow.id)
+		.select('*')
+		.maybeSingle();
+	if (updateError) return { ok: false, status: 500, error: updateError.message };
+	const current = updatedRows ?? { ...donationRow, ...updatePayload };
+
+	if (!paid) {
+		return { ok: true, paid: false, donation: current };
+	}
+
+	await sendDonationNotifications(supabase, current, fetchImpl);
 
 	const { data: reloadedDonation } = await supabase
 		.from('donations')

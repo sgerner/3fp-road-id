@@ -206,9 +206,7 @@
 	const upcomingVolunteerEvents = $derived(
 		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
 	);
-	const canAcceptDonations = $derived(
-		Boolean(data?.is_claimed && data?.donation_enabled === true)
-	);
+	const canAcceptDonations = $derived(Boolean(data?.is_claimed && data?.donation_enabled === true));
 	const shouldShowDonationSetup = $derived(
 		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
 	);

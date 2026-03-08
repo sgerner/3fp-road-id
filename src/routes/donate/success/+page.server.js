@@ -1,4 +1,7 @@
-import { finalizeDonationBySessionId } from '$lib/server/donations';
+import {
+	finalizeDonationByPaymentIntentId,
+	finalizeDonationBySessionId
+} from '$lib/server/donations';
 
 function formatAmount(cents, currency = 'usd') {
 	const amount = Number(cents || 0) / 100;
@@ -14,14 +17,17 @@ function formatAmount(cents, currency = 'usd') {
 
 export const load = async ({ url, fetch }) => {
 	const sessionId = (url.searchParams.get('session_id') || '').trim();
-	if (!sessionId) {
+	const paymentIntentId = (url.searchParams.get('payment_intent') || '').trim();
+	if (!sessionId && !paymentIntentId) {
 		return {
 			ok: false,
-			error: 'Missing checkout session id.'
+			error: 'Missing Stripe payment reference.'
 		};
 	}
 
-	const result = await finalizeDonationBySessionId(sessionId, fetch);
+	const result = sessionId
+		? await finalizeDonationBySessionId(sessionId, fetch)
+		: await finalizeDonationByPaymentIntentId(paymentIntentId, fetch);
 	if (!result?.ok) {
 		return {
 			ok: false,
