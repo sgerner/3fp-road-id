@@ -286,9 +286,9 @@ async function upsertPrintfulPartnerAccountRecord(
 		.from('merch_partner_accounts')
 		.upsert(payload, { onConflict: 'store_id,partner_provider' })
 		.select('*')
-		.limit(1);
+		.single();
 	if (error) throw new Error(error.message);
-	return data?.[0] ?? null;
+	return data ?? null;
 }
 
 async function setPrintfulPartnerError(supabase, storeId, message) {
@@ -519,9 +519,9 @@ export async function getOrCreateGroupMerchStore(group) {
 		updated_at: new Date().toISOString()
 	};
 
-	const { data, error } = await supabase.from('merch_stores').insert(payload).select('*').limit(1);
+	const { data, error } = await supabase.from('merch_stores').insert(payload).select('*').single();
 	if (error) throw new Error(error.message);
-	return data?.[0] ?? null;
+	return data ?? null;
 }
 
 export async function getExistingGroupMerchStore(groupId) {
@@ -547,7 +547,41 @@ export async function getPrintfulConnectionSummaryForGroup(groupId) {
 export async function connectPrintfulForStore({ store, tokenSet }) {
 	const supabase = await getServiceSupabase();
 	const account = await upsertPrintfulPartnerAccountRecord(supabase, store, tokenSet);
-	return summarizePartnerAccount(account);
+	const summary = summarizePartnerAccount(account);
+
+	try {
+		const availableStores = (await listPrintfulStoresV2({ accessToken: tokenSet?.accessToken }))
+			.map(normalizePrintfulStoreSummary)
+			.filter(Boolean);
+		const selectedStore =
+			availableStores.find((entry) => entry.isDefault) ||
+			(availableStores.length === 1 ? availableStores[0] : null);
+
+		if (selectedStore?.id) {
+			await updateMerchStorePrintfulSettings(supabase, store.id, {
+				printfulStoreId: selectedStore.id,
+				printfulSyncEnabled: true,
+				printfulLastSyncError: null
+			});
+
+			try {
+				await syncPrintfulCatalogForStoreInternal(supabase, store, {
+					accessToken: tokenSet?.accessToken,
+					printfulStoreId: selectedStore.id
+				});
+			} catch (syncError) {
+				await updateMerchStorePrintfulSettings(supabase, store.id, {
+					printfulLastSyncError: syncError?.message || 'Initial Printful sync failed.'
+				});
+			}
+		}
+	} catch (storeError) {
+		await updateMerchStorePrintfulSettings(supabase, store.id, {
+			printfulLastSyncError: storeError?.message || 'Unable to determine authorized Printful store.'
+		}).catch(() => {});
+	}
+
+	return summary;
 }
 
 export async function disconnectPrintfulForStore(storeId) {
@@ -602,9 +636,9 @@ async function updateMerchStorePrintfulSettings(supabase, storeId, changes) {
 		.update(payload)
 		.eq('id', storeId)
 		.select('*')
-		.limit(1);
+		.single();
 	if (error) throw new Error(error.message);
-	return data?.[0] ?? null;
+	return data ?? null;
 }
 
 async function listPrintfulStoresForStore(supabase, store) {
@@ -663,9 +697,9 @@ async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToke
 			.from('merch_products')
 			.upsert(productPayload, { onConflict: 'store_id,external_provider,external_product_id' })
 			.select('*')
-			.limit(1);
+			.single();
 		if (productError) throw new Error(productError.message);
-		const localProduct = productRows?.[0];
+		const localProduct = productRows;
 		if (!localProduct?.id) continue;
 		syncedProducts += 1;
 
@@ -834,7 +868,7 @@ async function getStoreTaxSettings(supabase, storeId) {
 
 async function getStoreStripeAccount(supabase, store) {
 	if (!store) return null;
-	let query = supabase.from('donation_accounts').select('*').limit(1);
+	let query = supabase.from('donation_accounts').select('*');
 	if (store.recipient_type === 'group' && store.group_id) {
 		query = query.eq('group_id', store.group_id);
 	} else {
@@ -1344,9 +1378,9 @@ export async function createMerchCheckoutSession({
 		.from('merch_orders')
 		.insert(orderInsertPayload)
 		.select('*')
-		.limit(1);
+		.single();
 	if (orderInsertError) return { ok: false, status: 500, error: orderInsertError.message };
-	const order = insertedOrders?.[0];
+	const order = insertedOrders;
 	if (!order?.id) return { ok: false, status: 500, error: 'Failed to create order.' };
 
 	const orderItemsPayload = quote.items.map((item) => ({
@@ -1876,9 +1910,9 @@ export async function finalizeMerchOrderBySessionId(sessionId, fetchImpl) {
 		})
 		.eq('id', order.id)
 		.select('*')
-		.limit(1);
+		.single();
 	if (updateError) return { ok: false, status: 500, error: updateError.message };
-	const currentOrder = updatedRows?.[0] ?? order;
+	const currentOrder = updatedRows ?? order;
 
 	const { data: orderItems, error: orderItemsError } = await supabase
 		.from('merch_order_items')
@@ -2044,17 +2078,17 @@ export async function upsertMerchProduct({
 			.update(payload)
 			.eq('id', productId)
 			.select('*')
-			.limit(1);
+			.single();
 		if (error) throw new Error(error.message);
-		product = data?.[0] ?? null;
+		product = data ?? null;
 	} else {
 		const { data, error } = await supabase
 			.from('merch_products')
 			.insert(payload)
 			.select('*')
-			.limit(1);
+			.single();
 		if (error) throw new Error(error.message);
-		product = data?.[0] ?? null;
+		product = data ?? null;
 	}
 	if (!product?.id) throw new Error('Failed to save product.');
 	return product;
