@@ -24,6 +24,7 @@
 	import IconFacebook from '@lucide/svelte/icons/facebook';
 	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import IconMail from '@lucide/svelte/icons/mail';
+	import GlobalAssistant from '$lib/components/ai/GlobalAssistant.svelte';
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
@@ -771,6 +772,8 @@
 				</div>
 			</div>
 		{/if}
+
+		<GlobalAssistant userId={user?.id ?? null} pathname={$page.url.pathname} />
 	{/if}
 </div>
 

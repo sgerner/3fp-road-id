@@ -9,6 +9,11 @@ import {
 	requireLearnUser,
 	withLearnReadingAid
 } from '$lib/server/learn';
+import {
+	buildLearnArticleChunks,
+	inferLearnArticleSearchSignals,
+	syncLearnArticleChunks
+} from '$lib/server/learnDiscovery';
 
 export const load = async ({ params, url, cookies }) => {
 	const { user, supabase } = getLearnClient(cookies);
@@ -78,17 +83,42 @@ export const actions = {
 
 			const formData = await request.formData();
 			const payload = withLearnReadingAid(normalizeLearnPayload(formData));
+			const signals = inferLearnArticleSearchSignals({
+				title: payload.title,
+				summary: payload.summary || '',
+				bodyMarkdown: payload.body_markdown,
+				categoryName: payload.category_name,
+				subcategoryName: payload.subcategory_name || ''
+			});
 			const slug = await ensureUniqueLearnSlug(supabase, payload.slug || payload.title, article.id);
+			const chunks = buildLearnArticleChunks({
+				title: payload.title,
+				summary: payload.summary || '',
+				bodyMarkdown: payload.body_markdown,
+				categoryName: payload.category_name,
+				signals
+			});
 
 			const { data, error: updateError } = await supabase
 				.from('learn_articles')
 				.update({
 					...payload,
+					tags: signals.tags,
+					audience: signals.audience,
+					difficulty_level: signals.difficulty_level,
+					ride_type: signals.ride_type,
+					geo_scope: signals.geo_scope,
+					geo_city: signals.geo_city,
+					geo_state: signals.geo_state,
+					content_type: signals.content_type,
+					is_evergreen: signals.is_evergreen,
+					metadata_confidence: signals.metadata_confidence,
+					article_embedding: signals.embedding_literal,
 					slug,
 					updated_by_user_id: user.id
 				})
 				.eq('id', article.id)
-				.select('slug')
+				.select('id,slug')
 				.single();
 
 			if (updateError) {
@@ -105,6 +135,12 @@ export const actions = {
 					}
 				});
 			}
+
+			await syncLearnArticleChunks(supabase, {
+				articleId: data.id,
+				chunks,
+				userId: user.id
+			});
 
 			throw redirect(303, `/learn/${data.slug}`);
 		} catch (actionError) {
