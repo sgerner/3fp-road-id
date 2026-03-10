@@ -7,6 +7,12 @@
 	import IconTruck from '@lucide/svelte/icons/truck';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconCheck from '@lucide/svelte/icons/check';
+	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconPackage from '@lucide/svelte/icons/package';
+	import IconUser from '@lucide/svelte/icons/user';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import IconLock from '@lucide/svelte/icons/lock';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { merchCart } from '$lib/merch/cart';
 
@@ -481,146 +487,207 @@
 
 <svelte:head>
 	<title>Checkout • 3 Feet Please Merch</title>
+	<meta
+		name="description"
+		content="Complete your order and support safer streets. Every purchase directly funds 3FP street safety advocacy."
+	/>
 </svelte:head>
 
-<div class="mx-auto w-full max-w-5xl space-y-5 pb-10">
-	<section class="hero-section relative overflow-hidden rounded-3xl p-5 lg:p-6">
+<div class="checkout-page mx-auto w-full max-w-5xl space-y-6 pb-12">
+	<!-- ═══ HERO ═══════════════════════════════════════════════════ -->
+	<section class="hero-section relative overflow-hidden rounded-3xl px-6 py-8 sm:px-8 sm:py-10">
 		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
 		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
 		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
 
-		<div class="relative z-10">
-			<h1 class="mt-2 text-3xl font-bold">Checkout</h1>
+		<div class="relative z-10 flex flex-col gap-3">
+			<div class="flex items-center gap-2">
+				<span class="checkout-badge">
+					<IconLock class="h-3 w-3" />
+					Secure Checkout
+				</span>
+				<span class="checkout-badge checkout-badge-impact">
+					<IconHeart class="h-3 w-3" />
+					Funds Street Safety
+				</span>
+			</div>
+			<div>
+				<h1 class="checkout-headline text-3xl font-extrabold tracking-tight sm:text-4xl">
+					Almost there — <span class="checkout-headline-accent">finish strong.</span>
+				</h1>
+				<p class="mt-2 text-left text-sm leading-relaxed opacity-70 sm:text-base">
+					You're one step away from rocking the mission. Every order funds real advocacy for safer
+					streets.
+				</p>
+			</div>
+
 			{#if data.canceled}
-				<div class="mt-3 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm">
-					Checkout was canceled. Your cart is still here.
+				<div class="alert-banner alert-amber">
+					<IconSparkles class="h-4 w-4 shrink-0" />
+					<span>Checkout was canceled — but your cart is still here, ready when you are.</span>
 				</div>
 			{/if}
 			{#if data.loadError}
-				<div class="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm">
-					{data.loadError}
+				<div class="alert-banner alert-red">
+					<span>{data.loadError}</span>
 				</div>
 			{/if}
 		</div>
 	</section>
 
-	<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+	<!-- ═══ MAIN GRID ══════════════════════════════════════════════ -->
+	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+		<!-- ── LEFT: Form ────────────────────────────────────────── -->
 		<form id="merch-checkout-form" class="space-y-4" onsubmit={startCheckout}>
-			<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-				<h2 class="text-lg font-semibold">Contact</h2>
-				<div class="mt-3 grid gap-3 md:grid-cols-2">
+			<!-- Contact -->
+			<section class="checkout-card">
+				<div class="checkout-card-header">
+					<div class="checkout-card-icon">
+						<IconUser class="h-4 w-4" />
+					</div>
 					<div>
-						<label class="label" for="customer_name">Full Name</label>
+						<h2 class="checkout-card-title">Contact Info</h2>
+						<p class="checkout-card-sub">Where we'll send your order confirmation</p>
+					</div>
+				</div>
+				<div class="mt-4 grid gap-3 sm:grid-cols-2">
+					<div>
+						<label class="field-label" for="customer_name">Full Name</label>
 						<input
 							id="customer_name"
-							class="input preset-tonal-surface w-full"
+							class="preset-tonal-surface w-full rounded-lg"
 							bind:value={customerName}
 							maxlength="140"
+							placeholder="Jane Smith"
 						/>
 					</div>
 					<div>
-						<label class="label" for="customer_email">Email</label>
+						<label class="field-label" for="customer_email">
+							Email <span class="required-star">*</span>
+						</label>
 						<input
 							id="customer_email"
 							type="email"
-							class="input preset-tonal-surface w-full"
+							class="preset-tonal-surface w-full rounded-lg"
 							bind:value={customerEmail}
 							required
+							placeholder="jane@example.com"
 						/>
 					</div>
 					<div>
-						<label class="label" for="customer_phone">Phone (optional)</label>
+						<label class="field-label" for="customer_phone"
+							>Phone <span class="optional-tag">optional</span></label
+						>
 						<input
 							id="customer_phone"
-							class="input preset-tonal-surface w-full"
+							class="preset-tonal-surface w-full rounded-lg"
 							bind:value={customerPhone}
 							maxlength="40"
+							placeholder="+1 555 000 0000"
 						/>
 					</div>
 				</div>
 			</section>
 
+			<!-- Manual fulfillment -->
 			{#if hasManualItems}
-				<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-					<div class="flex items-center gap-2">
-						<IconTruck class="h-4 w-4" />
-						<h2 class="text-lg font-semibold">Manual Item Fulfillment</h2>
-					</div>
-					<p class="mt-2 text-sm opacity-75">
-						Choose how 3 Feet Please should handle the items fulfilled directly by the organization.
-					</p>
-					<div class="mt-3 grid gap-3 md:grid-cols-2">
-						<div class="md:col-span-2">
-							<label class="label" for="manual_method">Method</label>
-							<select
-								id="manual_method"
-								class="select preset-tonal-surface w-full"
-								bind:value={manualFulfillmentMethodId}
-								onchange={scheduleQuote}
-								required
-							>
-								<option value="" disabled>Select a method</option>
-								{#each manualMethods as method (method.id)}
-									<option value={method.id}>
-										{method.name}
-										{method.shipping_speed_label ? ` · ${method.shipping_speed_label}` : ''}
-									</option>
-								{/each}
-							</select>
-							{#if selectedManualMethod?.description}
-								<p class="mt-1 text-xs opacity-70">{selectedManualMethod.description}</p>
-							{/if}
-							{#if quote?.manual?.matchedRule}
-								<p class="mt-1 text-xs opacity-60">
-									Flat rate based on {formatRule(
-										quote.manual.matchedRule,
-										quote.manual.matchedRule.metric_type
-									)}.
-								</p>
-							{/if}
+				<section class="checkout-card">
+					<div class="checkout-card-header">
+						<div class="checkout-card-icon checkout-card-icon-secondary">
+							<IconTruck class="h-4 w-4" />
 						</div>
+						<div>
+							<h2 class="checkout-card-title">Fulfillment Method</h2>
+							<p class="checkout-card-sub">How 3FP will get your items to you</p>
+						</div>
+					</div>
+					<div class="mt-4">
+						<label class="field-label" for="manual_method">Select method</label>
+						<select
+							id="manual_method"
+							class="preset-tonal-surface w-full rounded-lg"
+							bind:value={manualFulfillmentMethodId}
+							onchange={scheduleQuote}
+							required
+						>
+							<option value="" disabled>Pick one…</option>
+							{#each manualMethods as method (method.id)}
+								<option value={method.id}>
+									{method.name}{method.shipping_speed_label
+										? ` · ${method.shipping_speed_label}`
+										: ''}
+								</option>
+							{/each}
+						</select>
+						{#if selectedManualMethod?.description}
+							<p class="mt-1.5 text-xs opacity-65">{selectedManualMethod.description}</p>
+						{/if}
+						{#if quote?.manual?.matchedRule}
+							<p class="mt-1 text-xs opacity-55">
+								Flat rate based on {formatRule(
+									quote.manual.matchedRule,
+									quote.manual.matchedRule.metric_type
+								)}.
+							</p>
+						{/if}
 					</div>
 				</section>
 			{/if}
 
+			<!-- Shipping Address -->
 			{#if needsAddress}
-				<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-					<h2 class="text-lg font-semibold">Shipping Address</h2>
-					<p class="mt-2 text-sm opacity-75">
-						Merch shipping is currently limited to the United States.
-					</p>
-					<div class="mt-3 grid gap-3 md:grid-cols-2">
-						<div class="md:col-span-2">
-							<label class="label" for="line1">Address Line 1</label>
+				<section class="checkout-card">
+					<div class="checkout-card-header">
+						<div class="checkout-card-icon checkout-card-icon-tertiary">
+							<IconMapPin class="h-4 w-4" />
+						</div>
+						<div>
+							<h2 class="checkout-card-title">Shipping Address</h2>
+							<p class="checkout-card-sub">US addresses only — we'll get it to your door</p>
+						</div>
+					</div>
+					<div class="mt-4 grid gap-3 sm:grid-cols-2">
+						<div class="sm:col-span-2">
+							<label class="field-label" for="line1"
+								>Address Line 1 <span class="required-star">*</span></label
+							>
 							<input
 								id="line1"
-								class="input preset-tonal-surface w-full"
+								class="preset-tonal-surface w-full rounded-lg"
 								bind:value={line1}
 								required={needsAddress}
 								oninput={scheduleQuote}
+								placeholder="123 Main St"
 							/>
 						</div>
-						<div class="md:col-span-2">
-							<label class="label" for="line2">Address Line 2</label>
+						<div class="sm:col-span-2">
+							<label class="field-label" for="line2"
+								>Address Line 2 <span class="optional-tag">optional</span></label
+							>
 							<input
 								id="line2"
-								class="input preset-tonal-surface w-full"
+								class="preset-tonal-surface w-full rounded-lg"
 								bind:value={line2}
 								oninput={scheduleQuote}
+								placeholder="Apt, suite, unit, etc."
 							/>
 						</div>
 						<div>
-							<label class="label" for="city">City</label>
+							<label class="field-label" for="city">City <span class="required-star">*</span></label
+							>
 							<input
 								id="city"
-								class="input preset-tonal-surface w-full"
+								class="preset-tonal-surface w-full rounded-lg"
 								bind:value={city}
 								required={needsAddress}
 								oninput={scheduleQuote}
+								placeholder="Portland"
 							/>
 						</div>
 						<div>
-							<label class="label" for="state">State</label>
+							<label class="field-label" for="state"
+								>State <span class="required-star">*</span></label
+							>
 							<Combobox
 								collection={stateCollection}
 								value={stateRegion ? [stateRegion] : []}
@@ -628,12 +695,12 @@
 								onInputValueChange={onStateInputValueChange}
 								onValueChange={onStateValueChange}
 								inputBehavior="autohighlight"
-								placeholder="Type to search (e.g. AZ)"
+								placeholder="Search state…"
 								openOnClick
 								class="w-full"
 							>
 								<Combobox.Control class="w-full">
-									<Combobox.Input id="state" class="input preset-tonal-surface w-full" />
+									<Combobox.Input id="state" class="preset-tonal-surface w-full rounded-lg" />
 								</Combobox.Control>
 								<Portal>
 									<Combobox.Positioner>
@@ -658,20 +725,23 @@
 							/>
 						</div>
 						<div>
-							<label class="label" for="postal">ZIP Code</label>
+							<label class="field-label" for="postal"
+								>ZIP Code <span class="required-star">*</span></label
+							>
 							<input
 								id="postal"
-								class="input preset-tonal-surface w-full"
+								class="preset-tonal-surface w-full rounded-lg"
 								bind:value={postalCode}
 								required={needsAddress}
 								oninput={scheduleQuote}
+								placeholder="97201"
 							/>
 						</div>
 						<div>
-							<label class="label" for="country">Country</label>
+							<label class="field-label" for="country">Country</label>
 							<input
 								id="country"
-								class="input preset-tonal-surface w-full"
+								class="preset-tonal-surface w-full rounded-lg"
 								value="United States"
 								disabled
 							/>
@@ -680,17 +750,23 @@
 				</section>
 			{/if}
 
+			<!-- Printful Shipping -->
 			{#if hasPrintfulItems}
-				<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-					<h2 class="text-lg font-semibold">Printful Shipping</h2>
-					<p class="mt-2 text-sm opacity-75">
-						These rates come directly from Printful for the items they will fulfill.
-					</p>
+				<section class="checkout-card">
+					<div class="checkout-card-header">
+						<div class="checkout-card-icon">
+							<IconTruck class="h-4 w-4" />
+						</div>
+						<div>
+							<h2 class="checkout-card-title">Shipping Speed</h2>
+							<p class="checkout-card-sub">Live rates from Printful, our fulfillment partner</p>
+						</div>
+					</div>
 					{#if quote?.printful?.addressReady && (quote?.printful?.options?.length ?? 0) > 0}
-						<div class="mt-3 space-y-2">
+						<div class="mt-4 space-y-2">
 							{#each quote.printful.options as option (option.id)}
 								<label
-									class="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm"
+									class="shipping-option {printfulShippingOptionId === option.id ? 'selected' : ''}"
 								>
 									<input
 										type="radio"
@@ -701,20 +777,25 @@
 											printfulShippingOptionId = option.id;
 											scheduleQuote();
 										}}
+										class="sr-only"
 									/>
+									<div class="shipping-option-radio" aria-hidden="true">
+										{#if printfulShippingOptionId === option.id}
+											<div class="shipping-option-radio-dot"></div>
+										{/if}
+									</div>
 									<div class="flex-1">
 										<div class="flex items-center justify-between gap-3">
-											<span class="font-semibold">{option.name}</span>
-											<span>{formatCurrency(option.amountCents)}</span>
+											<span class="text-sm font-semibold">{option.name}</span>
+											<span class="text-primary-300 text-sm font-bold"
+												>{formatCurrency(option.amountCents)}</span
+											>
 										</div>
 										{#if option.minDeliveryDays || option.maxDeliveryDays}
-											<div class="mt-1 text-xs opacity-65">
-												Estimated delivery
-												{option.minDeliveryDays || option.maxDeliveryDays}
-												{#if option.maxDeliveryDays && option.minDeliveryDays !== option.maxDeliveryDays}
-													-{option.maxDeliveryDays}
-												{/if}
-												days
+											<div class="mt-0.5 text-xs opacity-60">
+												Estimated {option.minDeliveryDays ||
+													option.maxDeliveryDays}{#if option.maxDeliveryDays && option.minDeliveryDays !== option.maxDeliveryDays}–{option.maxDeliveryDays}{/if}
+												business days
 											</div>
 										{/if}
 									</div>
@@ -723,24 +804,31 @@
 						</div>
 					{:else}
 						<div
-							class="mt-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm opacity-75"
+							class="mt-4 rounded-xl border border-white/8 bg-black/10 px-4 py-3 text-sm opacity-65"
 						>
-							Enter a full United States shipping address to load live Printful shipping options.
+							<IconMapPin class="mb-1 inline-block h-4 w-4 opacity-60" />
+							Enter your full shipping address above to see live delivery options.
 						</div>
 					{/if}
 				</section>
 			{/if}
 
-			<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-				<h2 class="text-lg font-semibold">Support 3FP</h2>
-				<div class="mt-3 space-y-3">
-					<label class="label" for="donation">Add an extra donation</label>
+			<!-- Support 3FP -->
+			<section class="checkout-card checkout-card-support">
+				<div class="checkout-card-header">
+					<div class="checkout-card-icon checkout-card-icon-heart">
+						<IconHeart class="h-4 w-4" />
+					</div>
+					<div>
+						<h2 class="checkout-card-title">Double Your Impact</h2>
+						<p class="checkout-card-sub">Add a donation — 100% goes to street safety advocacy</p>
+					</div>
+				</div>
+				<div class="mt-4 space-y-3">
 					<div class="flex flex-wrap gap-2">
 						<button
 							type="button"
-							class="btn px-4 py-2 {Number(donationAmount) === 0
-								? 'preset-filled-primary-500'
-								: 'preset-outlined-primary-500'}"
+							class="donation-pill {Number(donationAmount) === 0 ? 'selected' : ''}"
 							onclick={() => {
 								donationAmount = 0;
 								scheduleQuote();
@@ -751,9 +839,7 @@
 						{#each donationPresets as preset (preset)}
 							<button
 								type="button"
-								class="btn px-4 py-2 {Number(donationAmount) === preset
-									? 'preset-filled-primary-500'
-									: 'preset-outlined-primary-500'}"
+								class="donation-pill {Number(donationAmount) === preset ? 'selected' : ''}"
 								onclick={() => {
 									donationAmount = preset;
 									scheduleQuote();
@@ -763,187 +849,233 @@
 							</button>
 						{/each}
 					</div>
-					<input
-						id="donation"
-						type="number"
-						min="0"
-						step="1"
-						class="input preset-tonal-surface w-full md:w-56"
-						bind:value={donationAmount}
-						oninput={scheduleQuote}
-					/>
+					<div class="flex items-center gap-2">
+						<span class="text-sm opacity-60">Custom:</span>
+						<div class="relative">
+							<span
+								class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm opacity-50"
+								>$</span
+							>
+							<input
+								id="donation"
+								type="number"
+								min="0"
+								step="1"
+								class="preset-tonal-surface w-32 rounded-lg pl-7"
+								bind:value={donationAmount}
+								oninput={scheduleQuote}
+							/>
+						</div>
+					</div>
 					<div>
-						<label class="label" for="notes">Order Notes (optional)</label>
+						<label class="field-label" for="notes"
+							>Order Notes <span class="optional-tag">optional</span></label
+						>
 						<textarea
 							id="notes"
-							class="textarea preset-tonal-surface w-full"
+							class="preset-tonal-surface w-full resize-none rounded-lg"
 							rows="3"
 							bind:value={notes}
+							placeholder="Any special instructions or requests…"
 						></textarea>
 					</div>
 				</div>
 			</section>
 		</form>
 
-		<aside class="space-y-3">
-			<section class="rounded-2xl border border-white/10 bg-black/20 p-4">
-				<h2 class="text-sm font-semibold uppercase">Order Summary</h2>
+		<!-- ── RIGHT: Order Summary + Payment ───────────────────── -->
+		<aside class="space-y-4">
+			<section class="checkout-card order-summary-card sticky top-20">
+				<!-- Header -->
+				<div class="mb-5 flex items-center gap-2">
+					<div class="checkout-card-icon checkout-card-icon-primary">
+						<IconPackage class="h-4 w-4" />
+					</div>
+					<h2 class="text-sm font-bold tracking-widest uppercase opacity-80">Your Order</h2>
+				</div>
+
+				<!-- Cart items -->
 				{#if cartItems.length === 0}
-					<p class="mt-3 text-sm opacity-70">Your cart is empty.</p>
+					<p class="py-4 text-center text-sm opacity-60">Your cart is empty.</p>
 				{:else}
-					<ul class="mt-3 space-y-2">
+					<ul class="mb-4 space-y-2">
 						{#each cartItems as line (line.variantId)}
-							<li class="rounded-lg border border-white/10 bg-black/15 px-2.5 py-2">
-								<p class="truncate text-sm font-semibold">{line.productName}</p>
-								<p class="truncate text-xs opacity-70">{line.variantName}</p>
-								<p class="text-xs opacity-75">
-									{line.quantity} × {formatCurrency(line.priceCents)}
-								</p>
+							<li class="cart-summary-item">
+								{#if line.productImageUrl}
+									<img
+										src={line.productImageUrl}
+										alt={line.productName}
+										class="bg-surface-950/60 h-12 w-12 shrink-0 rounded-lg object-contain ring-1 ring-white/10"
+									/>
+								{/if}
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm leading-tight font-semibold">{line.productName}</p>
+									<p class="mt-0.5 truncate text-xs opacity-60">{line.variantName}</p>
+									<p class="text-primary-300 mt-0.5 text-xs font-semibold">
+										{line.quantity} × {formatCurrency(line.priceCents)}
+									</p>
+								</div>
 							</li>
 						{/each}
 					</ul>
 				{/if}
 
+				<!-- Totals -->
 				{#if quoteLoading}
-					<div class="mt-4 flex items-center gap-2 text-sm opacity-75">
-						<IconLoaderCircle class="h-4 w-4 animate-spin" />
+					<div class="flex items-center gap-2 py-2 text-xs opacity-60">
+						<IconLoaderCircle class="h-3.5 w-3.5 animate-spin" />
 						Updating totals…
 					</div>
 				{/if}
 				{#if quoteError}
-					<div class="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm">
+					<div class="alert-banner alert-red mb-3">
 						{quoteError}
 					</div>
 				{/if}
 				{#if submitError}
-					<div class="mt-3 rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm">
+					<div class="alert-banner alert-red mb-3">
 						{submitError}
 					</div>
 				{/if}
 				{#if submitSuccess}
-					<div
-						class="mt-3 flex items-center gap-2 rounded-lg border border-green-500/35 bg-green-500/10 px-3 py-2 text-sm"
-					>
-						<IconCheck class="h-4 w-4 shrink-0 text-green-400" />
+					<div class="alert-banner alert-green mb-3">
+						<IconCheck class="h-3.5 w-3.5 shrink-0" />
 						{submitSuccess}
 					</div>
 				{/if}
 
 				{#if quote}
-					<div class="mt-4 space-y-1.5 text-sm">
-						<div class="flex items-center justify-between opacity-80">
-							<span>Subtotal</span>
+					<div class="space-y-1.5 border-t border-white/10 pt-4 text-sm">
+						<div class="totals-row">
+							<span class="opacity-70">Subtotal</span>
 							<span>{formatCurrency(quote.subtotalCents)}</span>
 						</div>
 						{#if quote.manual?.present}
-							<div class="flex items-center justify-between opacity-80">
-								<span>{quote.manual?.selectedMethod?.name || 'Manual fulfillment'}</span>
+							<div class="totals-row">
+								<span class="opacity-70">{quote.manual?.selectedMethod?.name || 'Fulfillment'}</span
+								>
 								<span>{formatCurrency(quote.manualShippingFeeCents)}</span>
 							</div>
 						{/if}
 						{#if quote.printful?.present}
-							<div class="flex items-center justify-between opacity-80">
-								<span>{quote.printful?.selectedOption?.name || 'Printful shipping'}</span>
+							<div class="totals-row">
+								<span class="opacity-70">{quote.printful?.selectedOption?.name || 'Shipping'}</span>
 								<span>{formatCurrency(quote.printfulShippingFeeCents)}</span>
 							</div>
 						{/if}
-						<div class="flex items-center justify-between opacity-80">
+						<div class="totals-row opacity-70">
 							<span>Tax</span>
 							<span>{formatCurrency(quote.taxCents)}</span>
 						</div>
 						{#if quote.donationCents > 0}
-							<div class="flex items-center justify-between opacity-80">
-								<span>Donation</span>
+							<div class="totals-row text-tertiary-300">
+								<span class="flex items-center gap-1">
+									<IconHeart class="h-3 w-3" />
+									Donation
+								</span>
 								<span>{formatCurrency(quote.donationCents)}</span>
 							</div>
 						{/if}
-						<div
-							class="mt-1 flex items-center justify-between border-t border-white/12 pt-2 text-base font-bold"
-						>
+						<div class="totals-total">
 							<span>Total</span>
-							<span>{formatCurrency(quote.totalCents)}</span>
+							<span class="text-primary-200">{formatCurrency(quote.totalCents)}</span>
 						</div>
 					</div>
 				{/if}
 
-				<div class="mt-4 rounded-2xl border border-white/10 bg-black/10 p-3">
-					<div class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase opacity-75">
+				<!-- Payment form container -->
+				<div class="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4">
+					<div
+						class="mb-3 flex items-center gap-2 text-xs font-bold tracking-widest uppercase opacity-60"
+					>
 						<IconCreditCard class="h-4 w-4" />
 						Card Details
 					</div>
 					<div bind:this={paymentElementHost}></div>
 					{#if !paymentFormReady}
-						<p class="text-xs opacity-60">
-							Card form appears automatically after required checkout details are complete.
+						<p class="text-xs leading-relaxed opacity-50">
+							The secure payment form will appear here once all required checkout info is complete.
 						</p>
 					{/if}
 				</div>
 
 				{#if !data.canCheckout}
-					<div class="mt-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs">
-						Checkout is disabled until Stripe is connected for this store.
+					<div class="alert-banner alert-amber mt-4">
+						<IconShieldCheck class="h-4 w-4 shrink-0" />
+						<span>Checkout is disabled until Stripe is connected for this store.</span>
 					</div>
 				{/if}
+
+				<!-- Pay Button -->
 				<button
 					type="submit"
 					form="merch-checkout-form"
-					class="btn preset-filled-primary-500 mt-4 flex w-full items-center justify-center gap-2"
+					class="pay-btn mt-5 w-full"
 					disabled={payButtonDisabled}
 				>
-					<IconHeart class="h-4 w-4" />
 					{#if preparingPayment}
-						Loading secure payment form…
+						<IconLoaderCircle class="h-4 w-4 animate-spin" />
+						Setting up secure payment…
 					{:else if submitting}
-						Confirming payment…
+						<IconLoaderCircle class="h-4 w-4 animate-spin" />
+						Confirming your order…
 					{:else}
-						Pay
+						<IconLock class="h-4 w-4" />
+						{quote ? `Pay ${formatCurrency(quote.totalCents)} — Ride Loud` : 'Complete Purchase'}
 					{/if}
 				</button>
+
+				<!-- Trust row -->
+				<div class="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs opacity-45">
+					<span class="flex items-center gap-1"
+						><IconShieldCheck class="h-3.5 w-3.5" /> Stripe secured</span
+					>
+					<span>·</span>
+					<span class="flex items-center gap-1"
+						><IconHeart class="h-3.5 w-3.5" /> Funds street safety</span
+					>
+				</div>
 			</section>
 		</aside>
 	</div>
 </div>
 
 <style>
+	/* ── Hero ─────────────────────────────────────────────────── */
 	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
-
 	.hero-orb {
 		position: absolute;
 		border-radius: 50%;
 		filter: blur(72px);
 		pointer-events: none;
 	}
-
 	.hero-orb-1 {
 		width: 60%;
 		height: 220%;
 		top: -60%;
 		left: -12%;
-		background: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 		animation: orb-drift 20s ease-in-out infinite alternate;
 	}
-
 	.hero-orb-2 {
 		width: 40%;
 		height: 180%;
 		top: -40%;
 		right: 2%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		background: color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
 		animation: orb-drift 26s ease-in-out infinite alternate-reverse;
 	}
-
 	.hero-orb-3 {
 		width: 30%;
 		height: 160%;
 		bottom: -50%;
 		left: 28%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 14%, transparent);
+		background: color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
 		animation: orb-drift 30s ease-in-out infinite alternate;
 	}
-
 	@keyframes orb-drift {
 		0% {
 			transform: translate3d(0, 0, 0) scale(1);
@@ -951,5 +1083,293 @@
 		100% {
 			transform: translate3d(3%, -2%, 0) scale(1.05);
 		}
+	}
+
+	/* Headline */
+	.checkout-headline {
+		color: var(--color-primary-50);
+		line-height: 1.1;
+	}
+	.checkout-headline-accent {
+		background: linear-gradient(
+			120deg,
+			var(--color-primary-300),
+			var(--color-secondary-300),
+			var(--color-tertiary-300)
+		);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* Badges */
+	.checkout-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.25rem 0.65rem;
+		border-radius: 999px;
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		background: color-mix(in oklab, var(--color-surface-600) 20%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 25%, transparent);
+		color: color-mix(in oklab, var(--color-surface-50) 80%, transparent);
+	}
+	.checkout-badge-impact {
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-400) 40%, transparent);
+		color: var(--color-primary-200);
+	}
+
+	/* ── Cards ────────────────────────────────────────────────── */
+	.checkout-card {
+		background: color-mix(in oklab, var(--color-surface-900) 55%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 12%, transparent);
+		border-radius: 1.25rem;
+		padding: 1.25rem;
+		backdrop-filter: blur(12px);
+	}
+	.checkout-card-support {
+		border-color: color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
+		background: color-mix(in oklab, var(--color-tertiary-500) 5%, var(--color-surface-900) 55%);
+	}
+	.order-summary-card {
+		background: color-mix(in oklab, var(--color-surface-900) 65%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-400) 12%);
+	}
+	.checkout-card-header {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+	}
+	.checkout-card-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-primary-500) 18%, var(--color-surface-800) 82%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+		color: var(--color-primary-300);
+		flex-shrink: 0;
+	}
+	.checkout-card-icon-secondary {
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, var(--color-surface-800) 82%);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+		color: var(--color-secondary-300);
+	}
+	.checkout-card-icon-tertiary {
+		background: color-mix(in oklab, var(--color-tertiary-500) 18%, var(--color-surface-800) 82%);
+		border-color: color-mix(in oklab, var(--color-tertiary-500) 30%, transparent);
+		color: var(--color-tertiary-300);
+	}
+	.checkout-card-icon-heart {
+		background: color-mix(in oklab, var(--color-tertiary-500) 22%, var(--color-surface-800) 78%);
+		border-color: color-mix(in oklab, var(--color-tertiary-400) 40%, transparent);
+		color: var(--color-tertiary-200);
+	}
+	.checkout-card-icon-primary {
+		background: color-mix(in oklab, var(--color-primary-500) 20%, var(--color-surface-800) 80%);
+		border-color: color-mix(in oklab, var(--color-primary-400) 35%, transparent);
+		color: var(--color-primary-300);
+	}
+	.checkout-card-title {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		line-height: 1.25;
+		text-align: left;
+	}
+	.checkout-card-sub {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+		line-height: 1.4;
+	}
+
+	/* ── Form fields ──────────────────────────────────────────── */
+	.field-label {
+		display: block;
+		font-size: 0.72rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		opacity: 0.65;
+		margin-bottom: 0.35rem;
+	}
+	.required-star {
+		color: var(--color-error-400);
+		font-weight: 700;
+	}
+	.optional-tag {
+		font-size: 0.65rem;
+		font-weight: 500;
+		text-transform: none;
+		letter-spacing: 0;
+		opacity: 0.55;
+		font-style: italic;
+		margin-left: 0.2rem;
+	}
+
+	/* ── Shipping options ─────────────────────────────────────── */
+	.shipping-option {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 15%, transparent);
+		background: color-mix(in oklab, var(--color-surface-900) 40%, transparent);
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			background 0.15s;
+	}
+	.shipping-option:hover {
+		border-color: color-mix(in oklab, var(--color-primary-400) 40%, transparent);
+	}
+	.shipping-option.selected {
+		border-color: color-mix(in oklab, var(--color-primary-400) 60%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-900) 45%);
+	}
+	.shipping-option-radio {
+		width: 1.1rem;
+		height: 1.1rem;
+		border-radius: 50%;
+		border: 2px solid color-mix(in oklab, var(--color-surface-300) 40%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: border-color 0.15s;
+	}
+	.shipping-option.selected .shipping-option-radio {
+		border-color: var(--color-primary-400);
+	}
+	.shipping-option-radio-dot {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: var(--color-primary-400);
+	}
+
+	/* ── Donation pills ───────────────────────────────────────── */
+	.donation-pill {
+		padding: 0.4rem 1rem;
+		border-radius: 999px;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		border: 1px solid color-mix(in oklab, var(--color-primary-400) 30%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
+		color: color-mix(in oklab, var(--color-primary-200) 80%, transparent);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+	.donation-pill:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-400) 55%, transparent);
+	}
+	.donation-pill.selected {
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-400);
+		color: var(--color-primary-950);
+		box-shadow: 0 4px 16px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	/* ── Cart summary ─────────────────────────────────────────── */
+	.cart-summary-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		padding: 0.625rem;
+		border-radius: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-900) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 10%, transparent);
+	}
+
+	/* ── Totals ───────────────────────────────────────────────── */
+	.totals-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 0.8125rem;
+	}
+	.totals-total {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 1rem;
+		font-weight: 800;
+		padding-top: 0.625rem;
+		margin-top: 0.25rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-400) 15%, transparent);
+	}
+
+	/* ── Pay button ───────────────────────────────────────────── */
+	.pay-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		padding: 0.875rem 1.25rem;
+		border-radius: 0.875rem;
+		font-size: 0.9375rem;
+		font-weight: 800;
+		letter-spacing: 0.01em;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-400) 80%, var(--color-secondary-400) 20%)
+		);
+		color: var(--color-primary-950);
+		border: none;
+		box-shadow:
+			0 6px 24px color-mix(in oklab, var(--color-primary-500) 35%, transparent),
+			inset 0 1px 0 color-mix(in oklab, white 20%, transparent);
+	}
+	.pay-btn:hover:not(:disabled) {
+		transform: translateY(-1px);
+		box-shadow:
+			0 10px 32px color-mix(in oklab, var(--color-primary-500) 45%, transparent),
+			inset 0 1px 0 color-mix(in oklab, white 20%, transparent);
+	}
+	.pay-btn:active:not(:disabled) {
+		transform: translateY(0);
+	}
+	.pay-btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+		transform: none;
+		box-shadow: none;
+	}
+
+	/* ── Alerts ───────────────────────────────────────────────── */
+	.alert-banner {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		padding: 0.625rem 0.875rem;
+		border-radius: 0.75rem;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+	}
+	.alert-amber {
+		background: color-mix(in oklab, var(--color-warning-500) 10%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-warning-400) 30%, transparent);
+		color: var(--color-warning-200);
+	}
+	.alert-red {
+		background: color-mix(in oklab, var(--color-error-500) 10%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-error-400) 30%, transparent);
+		color: var(--color-error-200);
+	}
+	.alert-green {
+		background: color-mix(in oklab, var(--color-success-500) 10%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-success-400) 30%, transparent);
+		color: var(--color-success-200);
 	}
 </style>
