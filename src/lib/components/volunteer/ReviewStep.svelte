@@ -89,14 +89,14 @@
 	{/if}
 
 	<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-		<p class="text-surface-500 text-sm">
+		<p class="text-sm">
 			Publish now or save a draft to finish later. Either way, you can revisit this builder to tweak
 			opportunities, shifts, and messaging when needed.
 		</p>
 		<div class="flex flex-col gap-2 md:flex-row">
 			<button
 				type="button"
-				class="btn preset-tonal-surface-500 flex items-center gap-2"
+				class="btn preset-tonal-surface flex items-center gap-2"
 				onclick={() => onSaveDraft?.()}
 				disabled={saving}
 			>

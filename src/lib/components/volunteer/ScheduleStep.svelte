@@ -252,31 +252,31 @@
 </script>
 
 <section class="grid gap-4 md:grid-cols-2">
-	<div class="flex flex-col gap-2">
-		<label class="label" for="event-start">Start *</label>
+	<div class="flex flex-col gap-1.5">
+		<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
 		<input
 			id="event-start"
 			type="datetime-local"
-			class="input bg-surface-100-900/60"
+			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
 			value={eventDetails.eventStart}
 			oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
 		/>
 	</div>
-	<div class="flex flex-col gap-2">
-		<label class="label" for="event-end">End</label>
+	<div class="flex flex-col gap-1.5">
+		<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
 		<input
 			id="event-end"
 			type="datetime-local"
-			class="input bg-surface-100-900/60"
+			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
 			value={eventDetails.eventEnd}
 			oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
 		/>
 	</div>
-	<div class="flex flex-col gap-2">
-		<label class="label" for="event-timezone">Timezone</label>
+	<div class="flex flex-col gap-1.5">
+		<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
 		<select
 			id="event-timezone"
-			class="select bg-surface-100-900/60"
+			class="select preset-tonal-surface w-full rounded-lg px-4 py-2"
 			value={eventDetails.timezone}
 			onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
 		>
@@ -285,76 +285,76 @@
 			{/each}
 		</select>
 	</div>
-	<div class="flex flex-col gap-2 md:col-span-2">
-		<label class="label" for="event-location-name">Address</label>
+	<div class="flex flex-col gap-1.5 md:col-span-2">
+		<label class="text-surface-200 text-sm font-medium" for="event-location-name">Address</label>
 		<input
 			id="event-location-name"
-			class="input bg-surface-100-900/60"
+			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
 			value={eventDetails.locationName}
 			oninput={(e) => onEventDetailsChange({ locationName: e.currentTarget.value })}
 			onblur={(e) => scheduleAddressGeocode(e.currentTarget.value.trim())}
 			placeholder="123 River Rd, Tempe, AZ 85281"
 		/>
 	</div>
-	<div class="flex flex-col gap-2 md:col-span-2">
-		<label class="label" for="event-location-address">Location notes</label>
+	<div class="flex flex-col gap-1.5 md:col-span-2">
+		<label class="text-surface-200 text-sm font-medium" for="event-location-address">Location notes</label>
 		<textarea
 			id="event-location-address"
-			class="textarea bg-surface-100-900/60 min-h-24"
+			class="textarea preset-tonal-surface min-h-24 w-full rounded-lg px-4 py-2"
 			value={eventDetails.locationAddress}
 			oninput={(e) => onEventDetailsChange({ locationAddress: e.currentTarget.value })}
 			placeholder="Look for the bike repair tent near the main entrance. Parking is limited — roll or carpool if you can."
 		></textarea>
 	</div>
 	<div class="space-y-3 md:col-span-2">
-		<label class="label" for="event-map-search">Pin on map</label>
+		<label class="text-surface-200 text-sm font-medium" for="event-map-search">Pin on map</label>
 		<div
 			id="event-map-search"
-			class="input bg-surface-100-900/60 flex items-center gap-2 text-sm"
+			class="input preset-tonal-surface flex items-center gap-2 rounded-lg px-4 py-2 text-sm"
 			bind:this={placesContainer}
 		>
 			{#if placesLoading}
-				<span class="text-surface-600-400 text-xs">Loading search…</span>
+				<span class="text-surface-400 text-xs">Loading search…</span>
 			{/if}
 		</div>
 		{#if placesError}
-			<p class="text-error-600-400 text-xs">{placesError}</p>
+			<p class="text-error-400 text-xs">{placesError}</p>
 		{/if}
 		<div
-			class="border-surface-300-700 bg-surface-50-950 h-64 w-full overflow-hidden rounded-lg border"
+			class="border-surface-500/20 bg-surface-900/60 h-64 w-full overflow-hidden rounded-xl border"
 			bind:this={mapContainer}
 		></div>
 		{#if eventDetails.latitude && eventDetails.longitude}
 			{#if Number.isFinite(Number(eventDetails.latitude)) && Number.isFinite(Number(eventDetails.longitude))}
-				<p class="text-surface-500 text-xs">
+				<p class="text-surface-400 text-xs">
 					Pinned at {Number(eventDetails.latitude).toFixed(6)},
 					{Number(eventDetails.longitude).toFixed(6)}
 				</p>
 			{:else}
-				<p class="text-surface-500 text-xs">Coordinates pending refinement.</p>
+				<p class="text-surface-400 text-xs">Coordinates pending refinement.</p>
 			{/if}
 		{:else}
-			<p class="text-surface-500 text-xs">
-				Drop a pin or click the map to set coordinates. We'll save it automatically.
+			<p class="text-surface-400 text-xs">
+				Drop a pin or click the map to set coordinates.
 			</p>
 		{/if}
 	</div>
-	<div class="flex flex-col gap-2">
-		<label class="label" for="event-contact-email">Contact email</label>
+	<div class="flex flex-col gap-1.5">
+		<label class="text-surface-200 text-sm font-medium" for="event-contact-email">Contact email</label>
 		<input
 			id="event-contact-email"
-			class="input bg-surface-100-900/60"
+			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
 			type="email"
 			value={eventDetails.contactEmail}
 			oninput={(e) => onEventDetailsChange({ contactEmail: e.currentTarget.value })}
 			placeholder="volunteers@yourgroup.org"
 		/>
 	</div>
-	<div class="flex flex-col gap-2">
-		<label class="label" for="event-contact-phone">Contact phone</label>
+	<div class="flex flex-col gap-1.5">
+		<label class="text-surface-200 text-sm font-medium" for="event-contact-phone">Contact phone</label>
 		<input
 			id="event-contact-phone"
-			class="input bg-surface-100-900/60"
+			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
 			type="tel"
 			value={eventDetails.contactPhone}
 			oninput={(e) => onEventDetailsChange({ contactPhone: e.currentTarget.value })}

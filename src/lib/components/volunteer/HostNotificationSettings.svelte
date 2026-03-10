@@ -1,11 +1,10 @@
 <script>
+	import Toggle from '$lib/components/ui/Toggle.svelte';
+
 	export let value = { register: true, cancel: true };
 	export let onChange = () => {};
 	export let disabled = false;
 	export let saving = false;
-	export let title = 'Host email notifications';
-	export let description =
-		'Let event hosts know when volunteers join or cancel so they can keep the plan on track.';
 
 	const coerceBoolean = (input, fallback = false) => {
 		if (input === true) return true;
@@ -35,53 +34,36 @@
 	}
 </script>
 
-<section
-	class="border-surface-300-700 bg-surface-100-900/70 flex flex-col gap-4 rounded-2xl border p-5 shadow-lg"
->
-	<div class="space-y-1">
-		<h3 class="text-surface-950-50 !text-left text-lg font-semibold">{title}</h3>
-		{#if description}
-			<p class="text-surface-700-300 text-sm leading-relaxed">{description}</p>
-		{/if}
-	</div>
-
-	<div class="space-y-4">
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-1"
+<div class="space-y-4">
+	<div
+		class="divide-surface-500/15 border-surface-500/15 divide-y overflow-hidden rounded-xl border"
+	>
+		<div class="bg-surface-800/30 flex items-center gap-4 px-4 py-3">
+			<Toggle
+				name="host-register"
 				checked={registerEnabled}
 				{disabled}
-				on:change={(event) => handleToggle('register', event.currentTarget.checked)}
+				onChange={(v) => handleToggle('register', v)}
 			/>
-			<div class="space-y-1">
-				<p class="text-surface-950-50 font-medium">When someone registers</p>
-				<p class="text-surface-600-400 text-xs leading-relaxed">
-					Send a note to hosts any time a volunteer signs up for a shift—whether they’re approved
-					immediately or waiting for review.
-				</p>
-			</div>
-		</label>
+			<p>
+				New sign-up<span class="ml-2 text-xs opacity-60">When a volunteer registers</span>
+			</p>
+		</div>
 
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-1"
+		<div class="bg-surface-800/30 flex items-center gap-4 px-4 py-3">
+			<Toggle
+				name="host-cancel"
 				checked={cancelEnabled}
 				{disabled}
-				on:change={(event) => handleToggle('cancel', event.currentTarget.checked)}
+				onChange={(v) => handleToggle('cancel', v)}
 			/>
-			<div class="space-y-1">
-				<p class="text-surface-950-50 font-medium">When a volunteer cancels</p>
-				<p class="text-surface-600-400 text-xs leading-relaxed">
-					Hosts get an alert when someone backs out so they can invite replacements or adjust the
-					plan.
-				</p>
-			</div>
-		</label>
+			<p>
+				Cancellation <span class="ml-2 text-xs opacity-60">When a volunteer backs out</span>
+			</p>
+		</div>
 	</div>
 
 	{#if saving}
-		<p class="text-surface-600-400 text-xs italic">Saving your notification preferences…</p>
+		<p class="text-surface-500 text-xs italic">Saving…</p>
 	{/if}
-</section>
+</div>
