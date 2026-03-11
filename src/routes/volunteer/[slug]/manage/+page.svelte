@@ -1569,10 +1569,10 @@
 		mergeTags: VOLUNTEER_MERGE_TAGS
 	});
 
-	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId }) {
-		const approvedVolunteers = volunteers.filter((volunteer) => volunteer.status === 'approved');
-		if (!approvedVolunteers.length) {
-			throw new Error('No approved volunteers are available to email.');
+	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId, targetStatuses = ['approved'] }) {
+		const targetVolunteers = volunteers.filter((volunteer) => targetStatuses.includes(volunteer.status));
+		if (!targetVolunteers.length) {
+			throw new Error('No volunteers matching the selected statuses are available to email.');
 		}
 		if (!subject?.trim()) {
 			throw new Error('Subject is required to send a volunteer email.');
@@ -1593,7 +1593,7 @@
 		};
 
 		let sentCount = 0;
-		for (const volunteer of approvedVolunteers) {
+		for (const volunteer of targetVolunteers) {
 			const recipientEmail =
 				volunteer?.email?.trim?.() ||
 				volunteer?.signup?.volunteer_email?.trim?.() ||
@@ -1644,7 +1644,7 @@
 		}
 
 		if (!sentCount) {
-			throw new Error('No approved volunteers had a valid email address.');
+			throw new Error('No matching volunteers had a valid email address.');
 		}
 
 		const timestamp = new Date().toISOString();
@@ -1842,7 +1842,7 @@
 				eventDetails={communicationsEventDetails}
 				opportunities={opportunityGroups}
 				showImmediateEmailOption={true}
-				approvedVolunteerCount={volunteerCounts.approved}
+				{volunteerCounts}
 				{hostNotificationSettings}
 				onHostNotificationChange={handleHostNotificationSettingsChange}
 				{hostNotificationSaving}

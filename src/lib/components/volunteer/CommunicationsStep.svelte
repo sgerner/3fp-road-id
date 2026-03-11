@@ -35,12 +35,22 @@
 	export let onUpdateEmail = () => {};
 	export let onComposeEmail = () => {};
 	export let showImmediateEmailOption = false;
-	export let approvedVolunteerCount = 0;
+	export let volunteerCounts = { total: 0, approved: 0, pending: 0, waitlisted: 0, checkedIn: 0, declined: 0 };
 	export let onSendImmediateEmail = async () => {};
 	export let hostNotificationSettings = { register: true, cancel: true };
 	export let onHostNotificationChange = () => {};
 	export let hostNotificationSaving = false;
 	export let hostNotificationDisabled = false;
+
+	let targetStatuses = ['approved'];
+	$: targetVolunteerCount = targetStatuses.reduce((total, status) => {
+		if (status === 'approved') return total + (volunteerCounts.approved || 0);
+		if (status === 'pending') return total + (volunteerCounts.pending || 0);
+		if (status === 'waitlisted') return total + (volunteerCounts.waitlisted || 0);
+		if (status === 'declined') return total + (volunteerCounts.declined || 0);
+		if (status === 'checked_in') return total + (volunteerCounts.checkedIn || 0);
+		return total;
+	}, 0);
 
 	const OPTION_FIELD_TYPES = new Set(['select', 'multiselect', 'checkbox']);
 
@@ -289,7 +299,7 @@
 		setSendNowFeedback(key, { sending: true, error: '', success: '' });
 
 		try {
-			if (!approvedVolunteerCount) {
+			if (!volunteerCounts.approved && !volunteerCounts.checkedIn) {
 				throw new Error('No approved volunteers are ready to email yet.');
 			}
 			if (!email.subject?.trim()) {
@@ -312,7 +322,7 @@
 				requireConfirmation: email.requireConfirmation,
 				emailId: email.id
 			});
-			const sentCount = result?.sentCount ?? approvedVolunteerCount;
+			const sentCount = result?.sentCount ?? (volunteerCounts.approved + volunteerCounts.checkedIn);
 			if (result?.lastSentAt) {
 				onUpdateEmail(email.id, { lastSentAt: result.lastSentAt });
 			}
@@ -387,15 +397,15 @@
 			immediateEmailError = 'Body is required before sending.';
 			return;
 		}
-		if (!approvedVolunteerCount) {
-			immediateEmailError = 'No approved volunteers are ready to email yet.';
+		if (!targetVolunteerCount) {
+			immediateEmailError = 'No volunteers match your selected statuses.';
 			return;
 		}
 		immediateEmailSending = true;
 		try {
-			const result = await onSendImmediateEmail({ ...immediateEmail });
-			const sentCount = result?.sentCount ?? approvedVolunteerCount;
-			immediateEmailSuccess = `Email sent to ${sentCount} approved volunteer${sentCount === 1 ? '' : 's'}.`;
+			const result = await onSendImmediateEmail({ ...immediateEmail, targetStatuses });
+			const sentCount = result?.sentCount ?? targetVolunteerCount;
+			immediateEmailSuccess = `Email sent to ${sentCount} volunteer${sentCount === 1 ? '' : 's'}.`;
 			const clearedEmail = { subject: '', body: '', requireConfirmation: false };
 			immediateValuesInitialised = false;
 			lastImmediateSubject = clearedEmail.subject;
@@ -739,14 +749,14 @@
 							<h3 class="text-surface-900-100 text-base font-semibold">Send immediate update</h3>
 						</div>
 						<p class="text-surface-600-400 text-sm">
-							This message sends immediately to everyone already approved.
+							This message sends immediately to volunteers matching your selected statuses.
 						</p>
 					</div>
 					<div class="flex flex-col items-end gap-2 text-xs md:items-start md:text-left">
 						<span
 							class="bg-surface-50-950/60 text-surface-700-300 border-surface-300-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold tracking-wide uppercase"
 						>
-							Approved: {approvedVolunteerCount}
+							Target: {targetVolunteerCount} recipient{targetVolunteerCount === 1 ? '' : 's'}
 						</span>
 						<span class="text-surface-600-400 flex items-center gap-2">
 							<span
@@ -758,12 +768,49 @@
 					</div>
 				</div>
 
-				{#if !approvedVolunteerCount}
+				<div class="space-y-2">
+					<span class="text-surface-600-400 block text-[11px] font-semibold tracking-wide uppercase">
+						Target Statuses
+					</span>
+					<div class="flex flex-wrap gap-2">
+						{#each [
+							{ value: 'approved', label: 'Approved', count: volunteerCounts.approved || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' },
+							{ value: 'checked_in', label: 'Checked In', count: volunteerCounts.checkedIn || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' },
+							{ value: 'pending', label: 'Pending', count: volunteerCounts.pending || 0, activeColor: 'bg-warning-500/15 text-warning-600 border-warning-500/30' },
+							{ value: 'waitlisted', label: 'Waitlisted', count: volunteerCounts.waitlisted || 0, activeColor: 'bg-surface-500/15 text-surface-600 border-surface-500/30' },
+							{ value: 'declined', label: 'Declined', count: volunteerCounts.declined || 0, activeColor: 'bg-error-500/15 text-error-600 border-error-500/30' }
+						] as status (status.value)}
+							<label
+								class="flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
+								{targetStatuses.includes(status.value)
+									? status.activeColor
+									: 'border-surface-300-700 bg-surface-50-950/60 text-surface-400 hover:text-surface-200 hover:border-surface-500'}"
+							>
+								<input
+									type="checkbox"
+									value={status.value}
+									class="hidden"
+									checked={targetStatuses.includes(status.value)}
+									on:change={(e) => {
+										if (e.currentTarget.checked) {
+											targetStatuses = [...targetStatuses, status.value];
+										} else {
+											targetStatuses = targetStatuses.filter((s) => s !== status.value);
+										}
+									}}
+								/>
+								{status.label} ({status.count})
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				{#if !targetVolunteerCount}
 					<div
 						class="border-warning-500/40 bg-warning-500/10 text-warning-800-200 flex items-start gap-3 rounded-md border p-3 text-xs"
 					>
 						<IconAlertCircle class="mt-0.5 h-4 w-4 flex-shrink-0" />
-						<p>No volunteers are approved yet. Approve at least one volunteer to enable sending.</p>
+						<p>No volunteers match the selected statuses. Adjust filters to enable sending.</p>
 					</div>
 				{/if}
 
@@ -923,7 +970,7 @@
 						type="button"
 						class="btn preset-filled-primary-500 flex items-center gap-2"
 						on:click={handleSendImmediateEmail}
-						disabled={immediateEmailSending || !approvedVolunteerCount}
+						disabled={immediateEmailSending || !targetVolunteerCount}
 					>
 						{#if immediateEmailSending}
 							<IconLoader class="h-4 w-4 animate-spin" />
@@ -1277,7 +1324,7 @@
 						type="button"
 						class="btn preset-filled-primary-500 flex items-center gap-2"
 						on:click={() => handleSendScheduledNow(email)}
-						disabled={feedback.sending || !approvedVolunteerCount}
+						disabled={feedback.sending || !volunteerCounts.approved}
 					>
 						{#if feedback.sending}
 							<IconLoader class="h-4 w-4 animate-spin" />
@@ -1287,7 +1334,7 @@
 							<span>{timingMode === 'now' ? 'Send email now' : 'Send immediately'}</span>
 						{/if}
 					</button>
-					{#if !approvedVolunteerCount}
+					{#if !volunteerCounts.approved}
 						<p class="text-warning-700-300 text-xs">No approved volunteers are ready yet.</p>
 					{/if}
 					{#if timingMode !== 'now'}
