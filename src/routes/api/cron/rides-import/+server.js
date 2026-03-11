@@ -3,6 +3,7 @@ import { getCronSecretVerifier } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { importWeeklyRidesFeed } from '$lib/server/weeklyrides-imports';
 import { importBtwPhxCalendar } from '$lib/server/btwphx-imports';
+import { importMeetupRoadCyclingTopic } from '$lib/server/meetup-topic-imports';
 
 async function enforceCronSecret(request) {
 	const providedSecret =
@@ -28,16 +29,29 @@ function parseBoolean(value, fallback = false) {
 	return fallback;
 }
 
+function parseInteger(value, fallback = null) {
+	const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+	if (!Number.isFinite(parsed)) return fallback;
+	return parsed;
+}
+
 function parseSources(query) {
 	const raw = query.get('source') ?? query.get('sources') ?? 'all';
+	const aliases = new Map([
+		['weeklyrides', 'weeklyrides'],
+		['btwphx', 'btwphx'],
+		['meetup', 'meetup-road-cycling'],
+		['meetup-road-cycling', 'meetup-road-cycling'],
+		['meetup_road_cycling', 'meetup-road-cycling']
+	]);
 	const requested = raw
 		.split(',')
-		.map((value) => value.trim().toLowerCase())
+		.map((value) => aliases.get(value.trim().toLowerCase()) || null)
 		.filter(Boolean);
-	if (!requested.length || requested.includes('all')) return ['weeklyrides', 'btwphx'];
-	return Array.from(new Set(requested)).filter((source) =>
-		['weeklyrides', 'btwphx'].includes(source)
-	);
+	if (!requested.length || raw.trim().toLowerCase().includes('all')) {
+		return ['weeklyrides', 'btwphx', 'meetup-road-cycling'];
+	}
+	return Array.from(new Set(requested));
 }
 
 async function handleCron(event) {
@@ -51,6 +65,9 @@ async function handleCron(event) {
 	const dryRun = parseBoolean(query.get('dry_run') ?? query.get('dryRun'), false);
 	const onlyNew = parseBoolean(query.get('only_new') ?? query.get('onlyNew'), true);
 	const publish = parseBoolean(query.get('publish'), true);
+	const meetupGroupLimit = parseInteger(
+		query.get('meetup_group_limit') ?? query.get('meetupGroupLimit')
+	);
 	const sources = parseSources(query);
 	if (!sources.length) {
 		return json(
@@ -92,6 +109,22 @@ async function handleCron(event) {
 				errors.push({
 					source: 'btwphx',
 					error: error?.message || 'Unable to import BTWPHX events.'
+				});
+			}
+		}
+
+		if (sources.includes('meetup-road-cycling')) {
+			try {
+				result.meetupRoadCycling = await importMeetupRoadCyclingTopic(supabase, {
+					dryRun,
+					onlyNew,
+					publish,
+					groupLimit: meetupGroupLimit
+				});
+			} catch (error) {
+				errors.push({
+					source: 'meetup-road-cycling',
+					error: error?.message || 'Unable to import Meetup Road Cycling events.'
 				});
 			}
 		}

@@ -11,6 +11,7 @@
 		"seed:rides": "node scripts/seed-rides.mjs",
 		"import:weeklyrides": "node scripts/import-weeklyrides.mjs",
 		"import:btwphx": "node scripts/import-btwphx.mjs",
+		"import:meetup-road-cycling": "node scripts/import-meetup-road-cycling.mjs",
 		"geocode:weeklyrides": "node scripts/geocode-weeklyrides-imported.mjs",
 		"backfill:learn-search": "node scripts/backfill-learn-search-index.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

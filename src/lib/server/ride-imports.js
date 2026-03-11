@@ -700,8 +700,15 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeoco
 			detail: error.message
 		};
 	}
-	const geocoded = skipGeocoding ? null : await geocodeEvent(event);
-	if (requireGeocoding && !geocoded) {
+	const seededLatitude = toFiniteNumber(event.startLatitude);
+	const seededLongitude = toFiniteNumber(event.startLongitude);
+	const geocoded =
+		skipGeocoding || (seededLatitude !== null && seededLongitude !== null)
+			? null
+			: await geocodeEvent(event);
+	const resolvedLatitude = seededLatitude ?? geocoded?.latitude ?? null;
+	const resolvedLongitude = seededLongitude ?? geocoded?.longitude ?? null;
+	if (requireGeocoding && (resolvedLatitude === null || resolvedLongitude === null)) {
 		return {
 			skippedReason: 'geocode_failed',
 			sourceEventId: event.id,
@@ -723,8 +730,8 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeoco
 			status,
 			start_location_name: extractLocationName(event),
 			start_location_address: normalizeLocationText(event.location) || null,
-			start_latitude: geocoded?.latitude ?? null,
-			start_longitude: geocoded?.longitude ?? null,
+			start_latitude: resolvedLatitude,
+			start_longitude: resolvedLongitude,
 			host_group_id: null,
 			host_user_id: null,
 			contact_email: null,
