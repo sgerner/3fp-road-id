@@ -29,9 +29,9 @@ const BIKE_CATEGORY_MAP = new Map([
 
 const LEGACY_TITLE_PREFIX_RE =
 	/^[A-Z]{2,6}\s*(?:-\s*)?\((?=[^)]*(?:weekly|monthly|daily|bi[- ]?monthly|bimonthly|every other))[^)]*\)\s*:?\s*/i;
-const TITLE_FORMATTING_PREFIX_RE =
-	/^(?:[A-Z]{2,6}\s*:\s*\((?:[^)]*)\)\s*|[A-Z]{2,6}\s*-\s*)/i;
+const TITLE_FORMATTING_PREFIX_RE = /^(?:[A-Z]{2,6}\s*:\s*\((?:[^)]*)\)\s*|[A-Z]{2,6}\s*-\s*)/i;
 const GEOCODER_USER_AGENT = '3 Feet Please Ride Geocoder';
+const DATE_TIME_FORMATTER_CACHE = new Map();
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -47,12 +47,20 @@ function compactWhitespace(value) {
 }
 
 function normalizeLocationText(value) {
-	return compactWhitespace(value).replace(/\s+,/g, ',').replace(/[,; -]+$/g, '').trim();
+	return compactWhitespace(value)
+		.replace(/\s+,/g, ',')
+		.replace(/[,; -]+$/g, '')
+		.trim();
 }
 
 function normalizeDescriptionText(value) {
-	const lines = String(value ?? '').replace(/\r\n/g, '\n').split('\n');
-	const cleaned = lines.map((line) => line.replace(/[ \t]+/g, ' ').trimEnd()).join('\n').trim();
+	const lines = String(value ?? '')
+		.replace(/\r\n/g, '\n')
+		.split('\n');
+	const cleaned = lines
+		.map((line) => line.replace(/[ \t]+/g, ' ').trimEnd())
+		.join('\n')
+		.trim();
 	return cleaned
 		.split(/\n\s*\n/)
 		.map((paragraph) => paragraph.trim())
@@ -61,9 +69,9 @@ function normalizeDescriptionText(value) {
 }
 
 function normalizeNumberArray(values) {
-	return uniq((values || []).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)).sort(
-		(left, right) => left - right
-	);
+	return uniq(
+		(values || []).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)
+	).sort((left, right) => left - right);
 }
 
 function toFiniteNumber(value) {
@@ -138,6 +146,31 @@ async function searchGeocode(query, { limit = 5, fetchImpl = fetch, countryCodes
 		.filter((entry) => entry.label && entry.latitude !== null && entry.longitude !== null);
 }
 
+export async function geocodeLocation(
+	query,
+	{ countryCodes = '', limit = 1, fetchImpl = fetch } = {}
+) {
+	const normalizedCountryCodes = safeTrim(countryCodes).toLowerCase();
+	const primaryMatch =
+		(
+			await searchGeocode(query, {
+				limit,
+				fetchImpl,
+				countryCodes: normalizedCountryCodes
+			})
+		)[0] ?? null;
+	if (primaryMatch) return primaryMatch;
+	if (!normalizedCountryCodes) return null;
+	return (
+		(
+			await searchGeocode(query, {
+				limit,
+				fetchImpl
+			})
+		)[0] ?? null
+	);
+}
+
 function slugify(value) {
 	return safeTrim(value)
 		.toLowerCase()
@@ -196,7 +229,9 @@ function startOfUtcDay(date) {
 }
 
 function endOfUtcDay(date) {
-	return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+	return new Date(
+		Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)
+	);
 }
 
 function addUtcDays(date, days) {
@@ -214,7 +249,11 @@ function addUtcMonths(date, months) {
 function nthWeekdayOfMonth(year, month, weekday, position) {
 	const dates = [];
 	const first = new Date(Date.UTC(year, month, 1));
-	for (let cursor = new Date(first); cursor.getUTCMonth() === month; cursor = addUtcDays(cursor, 1)) {
+	for (
+		let cursor = new Date(first);
+		cursor.getUTCMonth() === month;
+		cursor = addUtcDays(cursor, 1)
+	) {
 		if (isoWeekday(cursor) === weekday) dates.push(new Date(cursor));
 	}
 	if (!dates.length) return null;
@@ -253,7 +292,11 @@ function generateMonthlyOccurrences({ templateStart, durationMs, rule, horizonEn
 	const origin = new Date(Date.UTC(startDate.year, startDate.month, 1));
 	const weekdays = rule.by_weekdays.length ? rule.by_weekdays : [isoWeekday(templateStart)];
 	const positions = rule.by_set_positions.length ? rule.by_set_positions : [1];
-	for (let monthCursor = new Date(origin); monthCursor <= horizonEnd; monthCursor = addUtcMonths(monthCursor, 1)) {
+	for (
+		let monthCursor = new Date(origin);
+		monthCursor <= horizonEnd;
+		monthCursor = addUtcMonths(monthCursor, 1)
+	) {
 		const monthDelta =
 			(monthCursor.getUTCFullYear() - origin.getUTCFullYear()) * 12 +
 			(monthCursor.getUTCMonth() - origin.getUTCMonth());
@@ -303,7 +346,9 @@ function buildOccurrenceSchedule(activity, recurrenceRule) {
 		recurrenceRule.frequency === 'monthly'
 			? generateMonthlyOccurrences({ templateStart, durationMs, rule: recurrenceRule, horizonEnd })
 			: generateWeeklyOccurrences({ templateStart, durationMs, rule: recurrenceRule, horizonEnd });
-	return occurrences.sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime());
+	return occurrences.sort(
+		(left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime()
+	);
 }
 
 function pickPrimaryLink(event) {
@@ -362,8 +407,17 @@ function normalizeGeocodeText(value) {
 		.trim();
 }
 
+function isAmbiguousLocation(value) {
+	const normalized = safeTrim(value).toLowerCase();
+	if (!normalized) return true;
+	return /\b(tbd|tba|unknown|varies|check link|details to follow|virtual|online|n\/a)\b/.test(
+		normalized
+	);
+}
+
 function buildGeocodeQueries(event) {
 	const location = normalizeLocationText(event.location);
+	if (!location || isAmbiguousLocation(location)) return [];
 	const normalizedLocation = normalizeGeocodeText(location);
 	const titleLocation = extractLocationName(event);
 	return uniq([
@@ -376,27 +430,104 @@ function buildGeocodeQueries(event) {
 }
 
 async function geocodeEvent(event) {
+	const countryCodes = safeTrim(event?.geocodeCountryCodes).toLowerCase();
 	for (const query of buildGeocodeQueries(event)) {
-		const match = (await searchGeocode(query, { limit: 1 }))[0] ?? null;
+		const match = await geocodeLocation(query, { limit: 1, countryCodes });
 		if (match) return match;
 	}
 	return null;
+}
+
+function getDateTimeFormatter(timezone) {
+	if (!DATE_TIME_FORMATTER_CACHE.has(timezone)) {
+		DATE_TIME_FORMATTER_CACHE.set(
+			timezone,
+			new Intl.DateTimeFormat('en-US', {
+				timeZone: timezone,
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false
+			})
+		);
+	}
+	return DATE_TIME_FORMATTER_CACHE.get(timezone);
+}
+
+function getDateTimePartsInTimeZone(date, timezone) {
+	try {
+		const formatter = getDateTimeFormatter(timezone);
+		const partMap = {};
+		for (const part of formatter.formatToParts(date)) {
+			if (part.type === 'literal') continue;
+			partMap[part.type] = part.value;
+		}
+		const year = Number(partMap.year);
+		const month = Number(partMap.month);
+		const day = Number(partMap.day);
+		const hourRaw = Number(partMap.hour);
+		const minute = Number(partMap.minute);
+		const second = Number(partMap.second);
+		if (![year, month, day, hourRaw, minute, second].every(Number.isFinite)) return null;
+		return {
+			year,
+			month,
+			day,
+			hour: hourRaw === 24 ? 0 : hourRaw,
+			minute,
+			second
+		};
+	} catch {
+		return null;
+	}
 }
 
 function toUtcIso(dateOnly, hour, minute, timezone) {
 	if (!safeTrim(dateOnly)) {
 		throw new Error('Missing date');
 	}
+	const dateParts = parseDateOnly(dateOnly);
+	if (!dateParts) throw new Error('Invalid date');
 	const hh = String(Number(hour) || 0).padStart(2, '0');
 	const mm = String(Number(minute) || 0).padStart(2, '0');
-	if (safeTrim(timezone || DEFAULT_TIMEZONE) === DEFAULT_TIMEZONE) {
-		const iso = new Date(`${dateOnly}T${hh}:${mm}:00${DEFAULT_UTC_OFFSET}`);
-		if (Number.isNaN(iso.getTime())) {
+	const timezoneName = safeTrim(timezone || DEFAULT_TIMEZONE) || DEFAULT_TIMEZONE;
+	if (timezoneName === DEFAULT_TIMEZONE) {
+		const phoenixIso = new Date(`${dateOnly}T${hh}:${mm}:00${DEFAULT_UTC_OFFSET}`);
+		if (Number.isNaN(phoenixIso.getTime())) {
 			throw new Error('Invalid date/time');
 		}
-		return iso.toISOString();
+		return phoenixIso.toISOString();
 	}
-	throw new Error(`Unsupported timezone in seed file: ${timezone}`);
+	const targetHour = Number(hh);
+	const targetMinute = Number(mm);
+	const targetLocalMs = Date.UTC(
+		dateParts.year,
+		dateParts.month,
+		dateParts.day,
+		targetHour,
+		targetMinute,
+		0
+	);
+	let utcMs = targetLocalMs;
+	for (let attempt = 0; attempt < 6; attempt += 1) {
+		const zonedParts = getDateTimePartsInTimeZone(new Date(utcMs), timezoneName);
+		if (!zonedParts) break;
+		const zonedLocalMs = Date.UTC(
+			zonedParts.year,
+			zonedParts.month - 1,
+			zonedParts.day,
+			zonedParts.hour,
+			zonedParts.minute,
+			zonedParts.second
+		);
+		const delta = targetLocalMs - zonedLocalMs;
+		if (delta === 0) return new Date(utcMs).toISOString();
+		utcMs += delta;
+	}
+	throw new Error(`Invalid date/time or timezone in seed file: ${timezoneName}`);
 }
 
 function inferMonthlySetPosition(dateOnly) {
@@ -405,7 +536,11 @@ function inferMonthlySetPosition(dateOnly) {
 	const current = new Date(Date.UTC(parts.year, parts.month, parts.day));
 	const weekday = isoWeekday(current);
 	const dates = [];
-	for (let cursor = new Date(Date.UTC(parts.year, parts.month, 1)); cursor.getUTCMonth() === parts.month; cursor = addUtcDays(cursor, 1)) {
+	for (
+		let cursor = new Date(Date.UTC(parts.year, parts.month, 1));
+		cursor.getUTCMonth() === parts.month;
+		cursor = addUtcDays(cursor, 1)
+	) {
 		if (isoWeekday(cursor) === weekday) dates.push(toDateOnlyUtc(cursor));
 	}
 	const currentDateOnly = toDateOnlyUtc(current);
@@ -438,8 +573,7 @@ function mapRecurrence(event, startsAt, startsOnDate) {
 	const recurrenceStart = safeTrim(startsOnDate) || toDateOnlyUtc(startsAt);
 	if (repeatPeriod === 'month') {
 		const positionType = repeat.month?.type;
-		const positions =
-			positionType === 'lastWeek' ? [-1] : inferMonthlySetPosition(recurrenceStart);
+		const positions = positionType === 'lastWeek' ? [-1] : inferMonthlySetPosition(recurrenceStart);
 		return {
 			frequency: 'monthly',
 			interval_count: intervalCount,
@@ -529,7 +663,9 @@ async function uploadEventImage(supabase, event) {
 	if (!imageUrl) return [];
 	const response = await fetch(imageUrl);
 	if (!response.ok) {
-		throw new Error(`Unable to download source image for ${event.id}: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`Unable to download source image for ${event.id}: ${response.status} ${response.statusText}`
+		);
 	}
 	const contentType = normalizeImageContentType(imageUrl, response.headers.get('content-type'));
 	const arrayBuffer = await response.arrayBuffer();
@@ -543,13 +679,14 @@ async function uploadEventImage(supabase, event) {
 	return data?.publicUrl ? [data.publicUrl] : [];
 }
 
-async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
+async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeocoding }) {
 	const timezone = safeTrim(event.timezone) || DEFAULT_TIMEZONE;
 	const traits = deriveRideTraits(event);
 	const rawTitle = compactWhitespace(event.title);
 	const title = normalizeImportedTitle(rawTitle);
 	const startDateOnly = resolveEventDateOnly(event, { field: 'startDate', fallbackField: 'start' });
-	const endDateOnly = resolveEventDateOnly(event, { field: 'endDate', fallbackField: 'end' }) || startDateOnly;
+	const endDateOnly =
+		resolveEventDateOnly(event, { field: 'endDate', fallbackField: 'end' }) || startDateOnly;
 	let startsAt;
 	let endsAt;
 	try {
@@ -563,7 +700,7 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
 			detail: error.message
 		};
 	}
-	const geocoded = await geocodeEvent(event);
+	const geocoded = skipGeocoding ? null : await geocodeEvent(event);
 	if (requireGeocoding && !geocoded) {
 		return {
 			skippedReason: 'geocode_failed',
@@ -700,7 +837,8 @@ async function insertRide(supabase, mapped, createdByUserId) {
 			}))
 		);
 		if (error) throw error;
-		const nextOccurrence = occurrences.find((occurrence) => occurrence.starts_at >= nowIso) || occurrences[0];
+		const nextOccurrence =
+			occurrences.find((occurrence) => occurrence.starts_at >= nowIso) || occurrences[0];
 		const { error: updateError } = await supabase
 			.from('activity_events')
 			.update({
@@ -890,7 +1028,9 @@ export async function importRideSeedData(
 		publish = true,
 		slugPrefix = '',
 		dryRun = false,
-		requireGeocoding = true
+		requireGeocoding = true,
+		skipGeocoding = false,
+		skipImageUpload = false
 	} = {}
 ) {
 	let events = Array.isArray(source.events) ? source.events : [];
@@ -903,7 +1043,8 @@ export async function importRideSeedData(
 			mapped: await mapEvent(event, {
 				slugPrefix,
 				status: publish ? 'published' : 'draft',
-				requireGeocoding
+				requireGeocoding,
+				skipGeocoding
 			})
 		}))
 	);
@@ -982,7 +1123,7 @@ export async function importRideSeedData(
 			if (signature) dbSignatureMap.set(signature, equivalentExisting);
 			continue;
 		}
-		record.ride.image_urls = await uploadEventImage(supabase, event);
+		record.ride.image_urls = skipImageUpload ? [] : await uploadEventImage(supabase, event);
 		const inserted = await insertRide(supabase, record, createdByUserId);
 		results.push({
 			sourceEventId: record.sourceEventId,
