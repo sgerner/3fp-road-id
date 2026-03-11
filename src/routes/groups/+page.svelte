@@ -13,8 +13,10 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
+	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
+	import { navigating } from '$app/stores';
 
 	function getInitialFilters() {
 		return data.filters ?? {};
@@ -27,6 +29,8 @@
 	let skill_level_ids = $state((initialFilters.skill_level_ids || []).slice());
 	let audience_focus_ids = $state((initialFilters.audience_focus_ids || []).slice());
 	let riding_discipline_ids = $state((initialFilters.riding_discipline_ids || []).slice());
+	let page = $state(initialFilters.page || 1);
+	const limit = initialFilters.limit || 24;
 
 	// Advanced filters collapse state
 	let showAdvanced = $state(false);
@@ -36,12 +40,22 @@
 	let applyTimer;
 	function scheduleApply() {
 		clearTimeout(applyTimer);
-		applyTimer = setTimeout(applyFilters, 300);
+		applyTimer = setTimeout(() => applyFilters(true), 300);
 	}
-	function applyFilters() {
+	function setPage(p) {
+		page = p;
+		applyFilters(false);
+	}
+	function applyFilters(resetPage = true) {
 		try {
+			if (resetPage) page = 1;
+
 			const url = new URL(window.location.href);
 			const p = url.searchParams;
+
+			if (page > 1) p.set('page', String(page));
+			else p.delete('page');
+
 			if ((q || '').trim()) p.set('q', q.trim());
 			else p.delete('q');
 			if ((country || '').trim()) p.set('country', country.trim());
@@ -244,7 +258,13 @@
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap contributors'
 		}).addTo(map);
-		clusterLayer = L.markerClusterGroup();
+		clusterLayer = L.markerClusterGroup({
+			chunkedLoading: true,
+			chunkInterval: 50,
+			chunkDelay: 16,
+			removeOutsideVisibleBounds: true,
+			showCoverageOnHover: false
+		});
 		map.addLayer(clusterLayer);
 		updateMarkers();
 		return () => {
@@ -258,7 +278,7 @@
 		if (!map || !clusterLayer) return;
 		clusterLayer.clearLayers();
 		const pts = [];
-		for (const g of data.groups || []) {
+		for (const g of data.mapPoints || []) {
 			if (!validCoords(g)) continue;
 			const lat = Number(g.latitude);
 			const lng = Number(g.longitude);
@@ -278,7 +298,7 @@
 	}
 
 	$effect(() => {
-		void data.groups;
+		void data.mapPoints;
 		updateMarkers();
 	});
 
@@ -341,7 +361,7 @@
 							<IconUsers class="h-4 w-4" />
 							Total Groups
 						</div>
-						<div class="text-3xl font-black tabular-nums">{data.groups?.length || 0}</div>
+						<div class="text-3xl font-black tabular-nums">{data.totalGroups || 0}</div>
 					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
@@ -356,7 +376,7 @@
 							Active Regions
 						</div>
 						<div class="text-3xl font-black tabular-nums">
-							{new Set((data.groups || []).map((g) => g.state_region).filter(Boolean)).size || 0}
+							{new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0}
 						</div>
 					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
@@ -628,8 +648,8 @@
 
 			<div class="flex flex-col items-end gap-2">
 				<p class="text-sm tabular-nums opacity-60">
-					{data.groups?.length ?? 0}
-					{data.groups?.length === 1 ? 'group' : 'groups'} match
+					{data.totalGroups ?? 0}
+					{data.totalGroups === 1 ? 'group' : 'groups'} match
 				</p>
 				<button
 					type="button"
@@ -774,6 +794,35 @@
 					</a>
 				{/each}
 			</div>
+
+			<!-- Pagination Controls -->
+			{#if data.totalGroups > limit}
+				{@const totalPages = Math.ceil(data.totalGroups / limit)}
+				<div class="mt-10 flex items-center justify-center gap-3">
+					<button
+						class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+						disabled={page <= 1 || $navigating}
+						onclick={() => setPage(page - 1)}
+					>
+						Previous
+					</button>
+					<span
+						class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
+					>
+						{#if $navigating}
+							<IconLoader2 class="h-4 w-4 animate-spin text-primary-500" />
+						{/if}
+						Page {page} of {totalPages}
+					</span>
+					<button
+						class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+						disabled={page >= totalPages || $navigating}
+						onclick={() => setPage(page + 1)}
+					>
+						Next
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</section>
 </div>
