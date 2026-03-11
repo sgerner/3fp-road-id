@@ -17,7 +17,8 @@ function parseArgs(argv) {
 		slugPrefix: '',
 		createdByUserId: DEFAULT_CREATED_BY_USER_ID,
 		publish: true,
-		dryRun: false
+		dryRun: false,
+		requireGeocoding: true
 	};
 
 	for (let index = 0; index < argv.length; index += 1) {
@@ -56,6 +57,10 @@ function parseArgs(argv) {
 			options.dryRun = true;
 			continue;
 		}
+		if (arg === '--allow-missing-geocode') {
+			options.requireGeocoding = false;
+			continue;
+		}
 		if (arg === '--help') {
 			console.log(`Usage: node scripts/seed-rides.mjs [options]
 
@@ -66,6 +71,7 @@ Options:
   --slug-prefix <prefix>        Prefix all generated slugs
   --created-by-user-id <uuid>   Organizer user id for inserted rides
   --draft                       Insert rides as draft instead of published
+  --allow-missing-geocode       Insert rides even if geocoding fails
   --dry-run                     Print mapped records without writing
   --help                        Show this message`);
 			process.exit(0);

@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { searchGeocode } from '$lib/server/geocoding';
 
 export const DEFAULT_CREATED_BY_USER_ID = '9f78db1a-27b6-488a-8288-fbd38e85c815';
 const DEFAULT_TIMEZONE = 'America/Phoenix';
@@ -32,6 +31,7 @@ const LEGACY_TITLE_PREFIX_RE =
 	/^[A-Z]{2,6}\s*(?:-\s*)?\((?=[^)]*(?:weekly|monthly|daily|bi[- ]?monthly|bimonthly|every other))[^)]*\)\s*:?\s*/i;
 const TITLE_FORMATTING_PREFIX_RE =
 	/^(?:[A-Z]{2,6}\s*:\s*\((?:[^)]*)\)\s*|[A-Z]{2,6}\s*-\s*)/i;
+const GEOCODER_USER_AGENT = '3 Feet Please Ride Geocoder';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -40,6 +40,102 @@ function safeTrim(value) {
 
 function uniq(values) {
 	return Array.from(new Set(values.filter((value) => value !== null && value !== undefined)));
+}
+
+function compactWhitespace(value) {
+	return safeTrim(value).replace(/\s+/g, ' ').trim();
+}
+
+function normalizeLocationText(value) {
+	return compactWhitespace(value).replace(/\s+,/g, ',').replace(/[,; -]+$/g, '').trim();
+}
+
+function normalizeDescriptionText(value) {
+	const lines = String(value ?? '').replace(/\r\n/g, '\n').split('\n');
+	const cleaned = lines.map((line) => line.replace(/[ \t]+/g, ' ').trimEnd()).join('\n').trim();
+	return cleaned
+		.split(/\n\s*\n/)
+		.map((paragraph) => paragraph.trim())
+		.filter(Boolean)
+		.join('\n\n');
+}
+
+function normalizeNumberArray(values) {
+	return uniq((values || []).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)).sort(
+		(left, right) => left - right
+	);
+}
+
+function toFiniteNumber(value) {
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'string' && value.trim()) {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+	return null;
+}
+
+async function searchGeocode(query, { limit = 5, fetchImpl = fetch, countryCodes = '' } = {}) {
+	const trimmed = safeTrim(query);
+	if (!trimmed) return [];
+	const normalizedCountryCodes = safeTrim(countryCodes).toLowerCase();
+
+	const nominatimUrl = new URL('https://nominatim.openstreetmap.org/search');
+	nominatimUrl.searchParams.set('format', 'jsonv2');
+	nominatimUrl.searchParams.set('limit', String(limit));
+	nominatimUrl.searchParams.set('q', trimmed);
+	if (normalizedCountryCodes) {
+		nominatimUrl.searchParams.set('countrycodes', normalizedCountryCodes);
+	}
+
+	const nominatimResponse = await fetchImpl(nominatimUrl.toString(), {
+		headers: {
+			accept: 'application/json',
+			'user-agent': GEOCODER_USER_AGENT
+		}
+	});
+
+	if (nominatimResponse.ok) {
+		const payload = await nominatimResponse.json().catch(() => []);
+		const matches = (Array.isArray(payload) ? payload : [])
+			.map((entry) => ({
+				label: safeTrim(entry.display_name),
+				latitude: toFiniteNumber(entry.lat),
+				longitude: toFiniteNumber(entry.lon),
+				source: 'nominatim'
+			}))
+			.filter((entry) => entry.label && entry.latitude !== null && entry.longitude !== null);
+		if (matches.length) return matches;
+	}
+
+	const googleKey = safeTrim(process.env.PUBLIC_GOOGLE_MAPS_API_KEY);
+	if (!googleKey) return [];
+
+	const googleUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+	googleUrl.searchParams.set('address', trimmed);
+	googleUrl.searchParams.set('key', googleKey);
+	if (normalizedCountryCodes === 'us') {
+		googleUrl.searchParams.set('components', 'country:US');
+	}
+
+	const googleResponse = await fetchImpl(googleUrl.toString(), {
+		headers: { accept: 'application/json' }
+	});
+	if (!googleResponse.ok) return [];
+
+	const googlePayload = await googleResponse.json().catch(() => null);
+	if (!googlePayload || !Array.isArray(googlePayload.results)) return [];
+	if (!['OK', 'ZERO_RESULTS'].includes(googlePayload.status)) return [];
+
+	return googlePayload.results
+		.slice(0, limit)
+		.map((entry) => ({
+			label: safeTrim(entry.formatted_address),
+			latitude: toFiniteNumber(entry.geometry?.location?.lat),
+			longitude: toFiniteNumber(entry.geometry?.location?.lng),
+			source: 'google'
+		}))
+		.filter((entry) => entry.label && entry.latitude !== null && entry.longitude !== null);
 }
 
 function slugify(value) {
@@ -215,33 +311,36 @@ function pickPrimaryLink(event) {
 }
 
 function buildSummary(description) {
-	const firstParagraph = safeTrim(String(description || '').split(/\n\s*\n/)[0]);
+	const firstParagraph = safeTrim(normalizeDescriptionText(description).split(/\n\s*\n/)[0]);
 	if (!firstParagraph) return null;
 	return firstParagraph.length > 180 ? `${firstParagraph.slice(0, 177).trim()}...` : firstParagraph;
 }
 
-function hasLegacyTitlePrefix(title) {
-	return LEGACY_TITLE_PREFIX_RE.test(safeTrim(title));
-}
-
 function normalizeImportedTitle(title) {
-	return safeTrim(title).replace(TITLE_FORMATTING_PREFIX_RE, '').trim();
+	const cleaned = compactWhitespace(title)
+		.replace(LEGACY_TITLE_PREFIX_RE, '')
+		.replace(TITLE_FORMATTING_PREFIX_RE, '')
+		.replace(/\s{2,}/g, ' ')
+		.trim();
+	return cleaned.replace(/[:-]+$/g, '').trim();
 }
 
 function extractLocationName(event) {
 	const primaryLink = pickPrimaryLink(event);
-	if (primaryLink?.text) return safeTrim(primaryLink.text);
-	const cleanedTitle = normalizeImportedTitle(safeTrim(event.title).replace(LEGACY_TITLE_PREFIX_RE, ''));
-	return cleanedTitle || safeTrim(event.location) || 'Ride start';
+	if (primaryLink?.text) return compactWhitespace(primaryLink.text);
+	const cleanedTitle = normalizeImportedTitle(event.title);
+	return cleanedTitle || normalizeLocationText(event.location) || 'Ride start';
 }
 
 function buildDescription(event) {
-	const base = safeTrim(event.description);
+	const base = normalizeDescriptionText(event.description);
+	const baseLower = base.toLowerCase();
 	const linkLines = (event.links || [])
 		.map((link) => {
-			const text = safeTrim(link?.text);
+			const text = compactWhitespace(link?.text);
 			const url = safeTrim(link?.url);
 			if (!url) return null;
+			if (baseLower && baseLower.includes(url.toLowerCase())) return null;
 			return text ? `${text}: ${url}` : url;
 		})
 		.filter(Boolean);
@@ -264,7 +363,7 @@ function normalizeGeocodeText(value) {
 }
 
 function buildGeocodeQueries(event) {
-	const location = safeTrim(event.location);
+	const location = normalizeLocationText(event.location);
 	const normalizedLocation = normalizeGeocodeText(location);
 	const titleLocation = extractLocationName(event);
 	return uniq([
@@ -316,23 +415,37 @@ function inferMonthlySetPosition(dateOnly) {
 	return [index + 1];
 }
 
-function mapRecurrence(event, startsAt) {
+function resolveEventDateOnly(event, { field = 'startDate', fallbackField = 'start' } = {}) {
+	const direct = safeTrim(event?.[field]);
+	if (direct) return direct;
+	const fallback = event?.[fallbackField];
+	if (fallback === null || fallback === undefined || fallback === '') return '';
+	const fallbackDate =
+		typeof fallback === 'number' || /^\d+$/.test(String(fallback))
+			? new Date(Number(fallback))
+			: new Date(fallback);
+	if (Number.isNaN(fallbackDate.getTime())) return '';
+	return toDateOnlyUtc(fallbackDate);
+}
+
+function mapRecurrence(event, startsAt, startsOnDate) {
 	const repeat = event.repeat || null;
 	if (!repeat || !Object.keys(repeat).length) return null;
 	const repeatPeriod = safeTrim(repeat.period) || (repeat.month ? 'month' : 'week');
 	const intervalCount = Math.max(1, Number.parseInt(repeat.value ?? 1, 10) || 1);
 	const repeatEnd = repeat.end ? toDateOnlyUtc(new Date(repeat.end)) : null;
 	const weekDays = uniq((repeat.week?.days || []).map(toIsoWeekday).filter(Boolean));
+	const recurrenceStart = safeTrim(startsOnDate) || toDateOnlyUtc(startsAt);
 	if (repeatPeriod === 'month') {
 		const positionType = repeat.month?.type;
 		const positions =
-			positionType === 'lastWeek' ? [-1] : inferMonthlySetPosition(event.startDate);
+			positionType === 'lastWeek' ? [-1] : inferMonthlySetPosition(recurrenceStart);
 		return {
 			frequency: 'monthly',
 			interval_count: intervalCount,
 			by_weekdays: weekDays.length ? weekDays : [isoWeekday(new Date(startsAt))],
 			by_set_positions: positions,
-			starts_on: event.startDate,
+			starts_on: recurrenceStart,
 			until_on: repeatEnd
 		};
 	}
@@ -341,7 +454,7 @@ function mapRecurrence(event, startsAt) {
 		interval_count: intervalCount,
 		by_weekdays: weekDays,
 		by_set_positions: [],
-		starts_on: event.startDate,
+		starts_on: recurrenceStart,
 		until_on: repeatEnd
 	};
 }
@@ -433,14 +546,15 @@ async function uploadEventImage(supabase, event) {
 async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
 	const timezone = safeTrim(event.timezone) || DEFAULT_TIMEZONE;
 	const traits = deriveRideTraits(event);
-	const rawTitle = safeTrim(event.title);
-	if (hasLegacyTitlePrefix(rawTitle)) return null;
+	const rawTitle = compactWhitespace(event.title);
 	const title = normalizeImportedTitle(rawTitle);
+	const startDateOnly = resolveEventDateOnly(event, { field: 'startDate', fallbackField: 'start' });
+	const endDateOnly = resolveEventDateOnly(event, { field: 'endDate', fallbackField: 'end' }) || startDateOnly;
 	let startsAt;
 	let endsAt;
 	try {
-		startsAt = toUtcIso(event.startDate, event.startHour, event.startMinutes, timezone);
-		endsAt = toUtcIso(event.endDate || event.startDate, event.endHour, event.endMinutes, timezone);
+		startsAt = toUtcIso(startDateOnly, event.startHour, event.startMinutes, timezone);
+		endsAt = toUtcIso(endDateOnly, event.endHour, event.endMinutes, timezone);
 	} catch (error) {
 		return {
 			skippedReason: 'invalid_datetime',
@@ -471,7 +585,7 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
 			ends_at: endsAt,
 			status,
 			start_location_name: extractLocationName(event),
-			start_location_address: safeTrim(event.location) || null,
+			start_location_address: normalizeLocationText(event.location) || null,
 			start_latitude: geocoded?.latitude ?? null,
 			start_longitude: geocoded?.longitude ?? null,
 			host_group_id: null,
@@ -479,7 +593,7 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding }) {
 			contact_email: null,
 			contact_phone: null
 		},
-		recurrenceRule: mapRecurrence(event, startsAt),
+		recurrenceRule: mapRecurrence(event, startsAt, startDateOnly),
 		ride: {
 			participant_visibility: 'public',
 			end_location_name: null,
@@ -611,6 +725,85 @@ async function findExistingBySourceEventId(supabase, sourceEventId) {
 	return data ?? null;
 }
 
+function toTimeOfDayKey(iso) {
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return '';
+	return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function recurrenceKey(rule) {
+	if (!rule) return 'single';
+	const weekdays = normalizeNumberArray(rule.by_weekdays).join(',');
+	const positions = normalizeNumberArray(rule.by_set_positions).join(',');
+	const interval = Math.max(1, Number.parseInt(rule.interval_count ?? 1, 10) || 1);
+	return `recurring:${safeTrim(rule.frequency)}:${interval}:${weekdays}:${positions}`;
+}
+
+function buildRideSignature(activity, recurrenceRule) {
+	const title = normalizeImportedTitle(activity?.title).toLowerCase();
+	const timezone = safeTrim(activity?.timezone || DEFAULT_TIMEZONE).toLowerCase();
+	const location = normalizeLocationText(activity?.start_location_address).toLowerCase();
+	const startsAt = safeTrim(activity?.starts_at);
+	const endsAt = safeTrim(activity?.ends_at);
+	const startTime = toTimeOfDayKey(startsAt);
+	const endTime = toTimeOfDayKey(endsAt);
+	const recurrence = recurrenceKey(recurrenceRule);
+	if (!title || !timezone) return null;
+	if (recurrence === 'single') {
+		return [title, timezone, location, 'single', startsAt, endsAt].join('|');
+	}
+	return [title, timezone, location, recurrence, startTime, endTime].join('|');
+}
+
+function extractRecurrenceRule(row) {
+	const value = row?.activity_recurrence_rules;
+	if (!value) return null;
+	if (Array.isArray(value)) return value[0] || null;
+	return value;
+}
+
+function summarizeExistingRow(row) {
+	return {
+		activityId: row.id,
+		slug: row.slug,
+		title: row.title,
+		sourceEventId: row.source_event_id ?? null
+	};
+}
+
+async function findExistingByEquivalentSignature(supabase, mapped) {
+	const targetSignature = buildRideSignature(mapped.activity, mapped.recurrenceRule);
+	if (!targetSignature) return null;
+	let query = supabase
+		.from('activity_events')
+		.select(
+			'id,slug,title,source_event_id,timezone,starts_at,ends_at,start_location_address,activity_recurrence_rules!left(frequency,interval_count,by_weekdays,by_set_positions)'
+		)
+		.eq('activity_type', 'ride')
+		.eq('title', mapped.activity.title)
+		.eq('timezone', mapped.activity.timezone)
+		.limit(50);
+	if (mapped.activity.start_location_address) {
+		query = query.eq('start_location_address', mapped.activity.start_location_address);
+	}
+	const { data, error } = await query;
+	if (error) throw error;
+	for (const row of data || []) {
+		const existingSignature = buildRideSignature(
+			{
+				title: row.title,
+				timezone: row.timezone,
+				start_location_address: row.start_location_address,
+				starts_at: row.starts_at,
+				ends_at: row.ends_at
+			},
+			extractRecurrenceRule(row)
+		);
+		if (existingSignature === targetSignature) return summarizeExistingRow(row);
+	}
+	return null;
+}
+
 export function parseRideSeedJson(rawText) {
 	const text = String(rawText ?? '').replace(/^\uFEFF/, '');
 	try {
@@ -704,30 +897,30 @@ export async function importRideSeedData(
 	if (eventId) events = events.filter((event) => event.id === eventId);
 	if (Number.isInteger(limit) && limit > 0) events = events.slice(0, limit);
 	if (!events.length) throw new Error('No events matched the provided filters.');
-	const filteredEvents = events.filter((event) => !hasLegacyTitlePrefix(event.title));
 	const mappedResults = await Promise.all(
-		filteredEvents.map((event) =>
-			mapEvent(event, {
+		events.map(async (event) => ({
+			event,
+			mapped: await mapEvent(event, {
 				slugPrefix,
 				status: publish ? 'published' : 'draft',
 				requireGeocoding
 			})
-		)
+		}))
 	);
 	const skippedGeocoding = mappedResults
-		.filter((item) => item?.skippedReason === 'geocode_failed')
+		.filter((item) => item?.mapped?.skippedReason === 'geocode_failed')
 		.map((item) => ({
-			sourceEventId: item.sourceEventId,
-			title: item.title
+			sourceEventId: item.mapped.sourceEventId,
+			title: item.mapped.title
 		}));
 	const skippedInvalid = mappedResults
-		.filter((item) => item?.skippedReason === 'invalid_datetime')
+		.filter((item) => item?.mapped?.skippedReason === 'invalid_datetime')
 		.map((item) => ({
-			sourceEventId: item.sourceEventId,
-			title: item.title,
-			detail: item.detail
+			sourceEventId: item.mapped.sourceEventId,
+			title: item.mapped.title,
+			detail: item.mapped.detail
 		}));
-	const mapped = mappedResults.filter((item) => item && !item.skippedReason);
+	const mapped = mappedResults.filter((item) => item.mapped && !item.mapped.skippedReason);
 	if (!mapped.length) {
 		return {
 			inserted: [],
@@ -735,20 +928,36 @@ export async function importRideSeedData(
 			skippedExisting: [],
 			skippedGeocoding,
 			skippedInvalid,
-			reason: 'All matching events were excluded by legacy title-prefix rules.'
+			skippedEquivalent: [],
+			reason: 'No valid events remained after mapping.'
 		};
 	}
 	if (dryRun) {
 		return {
-			mapped,
-			skipped: events.length - filteredEvents.length,
+			mapped: mapped.map((item) => item.mapped),
+			skipped: events.length - mapped.length,
 			skippedGeocoding,
-			skippedInvalid
+			skippedInvalid,
+			skippedEquivalent: []
 		};
 	}
 	const results = [];
 	const skippedExisting = [];
-	for (const [index, record] of mapped.entries()) {
+	const skippedEquivalent = [];
+	const sourceSignatureMap = new Map();
+	const dbSignatureMap = new Map();
+	for (const { event, mapped: record } of mapped) {
+		const signature = buildRideSignature(record.activity, record.recurrenceRule);
+		if (signature && sourceSignatureMap.has(signature)) {
+			skippedEquivalent.push({
+				sourceEventId: record.sourceEventId,
+				title: record.activity.title,
+				reason: 'duplicate_in_source_feed',
+				matchedSourceEventId: sourceSignatureMap.get(signature)
+			});
+			continue;
+		}
+		if (signature) sourceSignatureMap.set(signature, record.sourceEventId);
 		const existing = await findExistingBySourceEventId(supabase, record.sourceEventId);
 		if (existing) {
 			skippedExisting.push({
@@ -757,9 +966,23 @@ export async function importRideSeedData(
 				slug: existing.slug,
 				title: existing.title
 			});
+			if (signature) dbSignatureMap.set(signature, summarizeExistingRow(existing));
 			continue;
 		}
-		record.ride.image_urls = await uploadEventImage(supabase, filteredEvents[index]);
+		const equivalentExisting =
+			(signature && dbSignatureMap.get(signature)) ||
+			(await findExistingByEquivalentSignature(supabase, record));
+		if (equivalentExisting) {
+			skippedEquivalent.push({
+				sourceEventId: record.sourceEventId,
+				title: record.activity.title,
+				reason: 'equivalent_ride_exists',
+				...equivalentExisting
+			});
+			if (signature) dbSignatureMap.set(signature, equivalentExisting);
+			continue;
+		}
+		record.ride.image_urls = await uploadEventImage(supabase, event);
 		const inserted = await insertRide(supabase, record, createdByUserId);
 		results.push({
 			sourceEventId: record.sourceEventId,
@@ -769,12 +992,21 @@ export async function importRideSeedData(
 			imageCount: record.ride.image_urls.length,
 			occurrenceCount: inserted.occurrenceCount
 		});
+		if (signature) {
+			dbSignatureMap.set(signature, {
+				sourceEventId: record.sourceEventId,
+				title: record.activity.title,
+				activityId: inserted.activityId,
+				slug: inserted.slug
+			});
+		}
 	}
 	return {
 		inserted: results,
-		skipped: events.length - filteredEvents.length,
+		skipped: events.length - mapped.length,
 		skippedExisting,
 		skippedGeocoding,
-		skippedInvalid
+		skippedInvalid,
+		skippedEquivalent
 	};
 }
