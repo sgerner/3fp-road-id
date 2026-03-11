@@ -15,6 +15,7 @@ export const AI_CAPABILITIES = {
 const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
 	GEMINI_31_FLASH_LITE_PREVIEW: 'google/gemini-3.1-flash-lite-preview',
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview'
 };
@@ -36,6 +37,21 @@ const AI_MODELS = {
 		provider: 'google',
 		model: 'gemini-2.5-flash',
 		label: 'Gemini 2.5 Flash',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_3_FLASH_PREVIEW]: {
+		id: MODEL_ID.GEMINI_3_FLASH_PREVIEW,
+		provider: 'google',
+		model: 'gemini-3-flash-preview',
+		label: 'Gemini 3 Flash Preview',
+		fallbackModel: 'gemini-2.5-flash',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -80,6 +96,12 @@ const AI_MODEL_PROFILES = {
 		fallbackModelId: MODEL_ID.MERCURY_2,
 		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
 	},
+	narrative_text_fast: {
+		envVar: 'AI_MODEL_NARRATIVE_FAST',
+		fallbackModelId: MODEL_ID.MERCURY_2,
+		ignoreDefaultModel: true,
+		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
+	},
 	tool_augmented_text: {
 		envVar: 'AI_MODEL_TOOL_AUGMENTED_TEXT',
 		fallbackModelId: MODEL_ID.MERCURY_2,
@@ -92,6 +114,18 @@ const AI_MODEL_PROFILES = {
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
 		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW,
+		requiredCapabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT
+		]
+	},
+	group_enrichment_retry: {
+		envVar: 'AI_MODEL_GROUP_ENRICHMENT_RETRY',
+		fallbackModelId: MODEL_ID.GEMINI_3_FLASH_PREVIEW,
+		ignoreDefaultModel: true,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -294,6 +328,7 @@ function resolveProfile(profileName) {
 }
 
 function resolveDefaultModelId(profile) {
+	if (profile?.ignoreDefaultModel) return null;
 	const defaultModelId = env.AI_MODEL_DEFAULT || null;
 	if (!defaultModelId) return null;
 	const defaultModel = AI_MODELS[defaultModelId];
