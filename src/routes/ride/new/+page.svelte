@@ -24,9 +24,9 @@
 		<section
 			class="hero-section preset-outlined-surface-500 relative overflow-hidden rounded-3xl p-8 py-16 text-center shadow-2xl lg:p-16"
 		>
-			<div class="hero-orb hero-orb-1 opacity-60" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-2 opacity-60" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-3 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-1 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-2 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-3 opacity-60" aria-hidden="true"></div>
 
 			<div class="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-6">
 				<h1 class="text-4xl font-extrabold tracking-tight text-balance md:text-5xl lg:text-6xl">

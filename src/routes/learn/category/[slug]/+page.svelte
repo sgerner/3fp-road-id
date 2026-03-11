@@ -284,9 +284,9 @@
 	     HERO
 	═══════════════════════════════════════════════ -->
 	<section class="cat-hero relative overflow-hidden rounded-3xl">
-		<div class="cat-orb cat-orb-1" aria-hidden="true"></div>
-		<div class="cat-orb cat-orb-2" aria-hidden="true"></div>
-		<div class="cat-orb cat-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
 		<div
 			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:p-10"
@@ -645,9 +645,9 @@
 
 		{#if visibleGroups.length === 0}
 			<div
-				class="cat-empty-state card preset-tonal-surface relative overflow-hidden rounded-[2rem] p-12 text-center"
+				class="cat-app-empty-state card preset-tonal-surface relative overflow-hidden rounded-[2rem] p-12 text-center"
 			>
-				<div class="empty-orb" aria-hidden="true"></div>
+				<div class="app-empty-orb" aria-hidden="true"></div>
 				<div class="relative z-10 mx-auto max-w-md space-y-4">
 					<div
 						class="border-primary-500/25 bg-surface-800 mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border"
@@ -713,50 +713,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 	}
 
-	.cat-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.cat-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
-		animation: cat-orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	.cat-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -30%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
-		animation: cat-orb-drift 26s ease-in-out infinite alternate-reverse;
-	}
-
-	.cat-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 13%, transparent);
-		animation: cat-orb-drift 22s ease-in-out infinite alternate;
-	}
-
-	@keyframes cat-orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 6%) scale(1.08);
-		}
-	}
-
-	/* ── Headline ── */
+						/* ── Headline ── */
 	.cat-headline {
 		font-family: 'Georgia', 'Times New Roman', serif;
 		text-wrap: balance;
@@ -1044,22 +1001,11 @@
 		animation: group-in 350ms ease both;
 	}
 
-	.cat-empty-state {
+	.cat-app-empty-state {
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
 	}
 
-	.empty-orb {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 60% 50% at 50% 60%,
-			color-mix(in oklab, var(--color-primary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	/* ── Card entrance ── */
+		/* ── Card entrance ── */
 	@keyframes card-in {
 		from {
 			opacity: 0;

@@ -219,9 +219,9 @@
 			<div class="hero-cover-bg" aria-hidden="true"></div>
 			<div class="hero-cover-overlay" aria-hidden="true"></div>
 		{:else}
-			<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+			<div class="app-orb app-orb-1" aria-hidden="true"></div>
+			<div class="app-orb app-orb-2" aria-hidden="true"></div>
+			<div class="app-orb app-orb-3" aria-hidden="true"></div>
 		{/if}
 
 		<div class="relative z-10 flex flex-col justify-end p-6 lg:min-h-[32rem] lg:p-12">
@@ -610,50 +610,7 @@
 	}
 
 	/* ── Orb animations (no-image fallback only) ──── */
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.hero-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-
-	.hero-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -30%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-
-	.hero-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	@keyframes orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 6%) scale(1.08);
-		}
-	}
-
-	/* ── Typography ───────────────────────────────── */
+						/* ── Typography ───────────────────────────────── */
 	.ride-headline {
 		color: white;
 		text-align: left;

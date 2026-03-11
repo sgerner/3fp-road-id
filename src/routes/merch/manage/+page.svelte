@@ -159,9 +159,9 @@
 
 <div class="mx-auto w-full max-w-7xl space-y-6 pb-12" in:fade={{ duration: 180 }}>
 	<section class="manage-hero relative overflow-hidden rounded-3xl p-6 md:p-8">
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 		<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
 			<div>
 				<h1 class="mt-2 text-3xl leading-tight font-black md:text-4xl">Manage Merch Store</h1>
@@ -1567,45 +1567,7 @@
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-	.hero-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-	.hero-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -38%;
-		right: -8%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-	.hero-orb-3 {
-		width: 45%;
-		height: 150%;
-		bottom: -72%;
-		left: 24%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-	@keyframes orb-drift {
-		0% {
-			transform: translate3d(0, 0, 0) scale(1);
-		}
-		100% {
-			transform: translate3d(2.5%, -2.5%, 0) scale(1.08);
-		}
-	}
-	.hero-pill {
+						.hero-pill {
 		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 	}

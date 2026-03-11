@@ -402,3 +402,67 @@ p {
 		display: none;
 	}
 }
+
+/* ── Centralized animated background orbs ── */
+.app-orb {
+	position: absolute;
+	border-radius: 50%;
+	filter: blur(72px);
+	pointer-events: none;
+}
+
+.app-orb-1 {
+	width: 55%;
+	height: 200%;
+	top: -50%;
+	left: -10%;
+	background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+	animation: app-orb-drift 10s ease-in-out infinite alternate;
+}
+
+.app-orb-2 {
+	width: 40%;
+	height: 160%;
+	top: -30%;
+	right: 5%;
+	background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+	animation: app-orb-drift 13s ease-in-out infinite alternate-reverse;
+}
+
+.app-orb-3 {
+	width: 35%;
+	height: 120%;
+	bottom: -40%;
+	left: 40%;
+	background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
+	animation: app-orb-drift 11s ease-in-out infinite alternate;
+}
+
+@keyframes app-orb-drift {
+	0% {
+		transform: translate(0, 0) scale(1);
+	}
+
+	100% {
+		transform: translate(15%, 20%) scale(1.15);
+	}
+}
+
+/* ── Centralized empty states ── */
+.app-empty-state {
+	border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+}
+
+.app-empty-orb {
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(ellipse 60% 50% at 50% 60%,
+			color-mix(in oklab, var(--color-primary-500) 12%, transparent),
+			transparent 70%);
+	pointer-events: none;
+}
+
+.app-empty-icon-ring {
+	background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-800) 85%);
+	border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
+}

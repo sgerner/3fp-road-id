@@ -599,7 +599,7 @@
 					</div>
 				{/if}
 			{:else}
-				<div class="empty-state">
+				<div class="app-empty-state">
 					<div class="empty-icon">
 						<IconBike class="h-8 w-8" />
 					</div>
@@ -1217,21 +1217,7 @@
 	}
 
 	/* ── Empty state ── */
-	.empty-state {
-		min-height: 240px;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		background: var(--widget-surface);
-		border: 1.5px dashed color-mix(in oklab, var(--widget-line) 80%, transparent);
-		border-radius: var(--widget-radius);
-		color: var(--widget-text-muted);
-		text-align: center;
-		padding: 2rem;
-	}
-	.empty-icon {
+		.empty-icon {
 		width: 3.5rem;
 		height: 3.5rem;
 		border-radius: 50%;
@@ -1252,7 +1238,7 @@
 			opacity: 1;
 		}
 	}
-	.empty-state p {
+	.app-empty-state p {
 		margin: 0;
 		font-size: 0.88rem;
 		font-weight: 500;

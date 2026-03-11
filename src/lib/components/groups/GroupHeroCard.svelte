@@ -11,8 +11,8 @@
 
 <section class="group-hero-card relative overflow-hidden rounded-2xl">
 	<!-- Animated background orbs -->
-	<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-	<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+	<div class="app-orb app-orb-1" aria-hidden="true"></div>
+	<div class="app-orb app-orb-2" aria-hidden="true"></div>
 
 	<!-- Cover photo -->
 	<div class="relative aspect-[16/9] w-full overflow-hidden md:aspect-[21/9]">
@@ -101,42 +101,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 	}
 
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(64px);
-		pointer-events: none;
-		z-index: 0;
-	}
-
-	.hero-orb-1 {
-		width: 50%;
-		height: 200%;
-		top: -60%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-
-	.hero-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -40%;
-		right: 0%;
-		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-
-	@keyframes orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 8%) scale(1.1);
-		}
-	}
-
-	.logo-ring {
+					.logo-ring {
 		border-radius: 0.875rem;
 		box-shadow:
 			0 0 0 3px color-mix(in oklab, var(--color-primary-400) 60%, transparent),

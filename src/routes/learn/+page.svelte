@@ -51,8 +51,8 @@
 	<section
 		class="learn-hero border-primary-500/20 bg-surface-950/60 relative overflow-hidden rounded-[2rem] border p-6 shadow-2xl lg:p-10"
 	>
-		<div class="learn-hero-orb learn-hero-orb-a"></div>
-		<div class="learn-hero-orb learn-hero-orb-b"></div>
+		<div class="learn-app-orb learn-app-orb-a"></div>
+		<div class="learn-app-orb learn-app-orb-b"></div>
 		<div class="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_22rem]">
 			<div class="space-y-6">
 				<div class="flex flex-wrap items-center gap-2">
@@ -202,14 +202,14 @@
 </div>
 
 <style>
-	.learn-hero-orb {
+	.learn-app-orb {
 		position: absolute;
 		border-radius: 9999px;
 		filter: blur(20px);
 		opacity: 0.5;
 	}
 
-	.learn-hero-orb-a {
+	.learn-app-orb-a {
 		top: -4rem;
 		right: -3rem;
 		height: 14rem;
@@ -217,7 +217,7 @@
 		background: color-mix(in oklab, var(--color-primary-500) 55%, transparent);
 	}
 
-	.learn-hero-orb-b {
+	.learn-app-orb-b {
 		bottom: -4rem;
 		left: 18%;
 		height: 12rem;

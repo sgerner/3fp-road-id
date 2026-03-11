@@ -309,9 +309,9 @@
 	═══════════════════════════════════════════════ -->
 	<section class="hero-section relative overflow-hidden rounded-3xl">
 		<!-- Animated orb background -->
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
 		<div class="relative z-10 p-6 lg:p-12">
 			<!-- Badge chips -->
@@ -735,50 +735,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
 
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.hero-orb-1 {
-		width: 60%;
-		height: 220%;
-		top: -60%;
-		left: -12%;
-		background: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	.hero-orb-2 {
-		width: 40%;
-		height: 180%;
-		top: -40%;
-		right: 2%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: orb-drift 26s ease-in-out infinite alternate-reverse;
-	}
-
-	.hero-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 45%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		animation: orb-drift 22s ease-in-out infinite alternate;
-	}
-
-	@keyframes orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 7%) scale(1.09);
-		}
-	}
-
-	/* ── Headline ── */
+						/* ── Headline ── */
 	.donate-headline {
 		color: var(--color-primary-50);
 		text-align: left;

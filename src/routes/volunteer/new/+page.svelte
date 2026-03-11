@@ -2290,9 +2290,9 @@
 		<section
 			class="hero-section relative overflow-hidden rounded-3xl p-8 py-14 shadow-2xl lg:p-16 lg:py-20"
 		>
-			<div class="hero-orb hero-orb-1 opacity-60" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-2 opacity-60" aria-hidden="true"></div>
-			<div class="hero-orb hero-orb-3 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-1 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-2 opacity-60" aria-hidden="true"></div>
+			<div class="app-orb app-orb-3 opacity-60" aria-hidden="true"></div>
 
 			<div class="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-8 text-center">
 				<!-- Icon badge -->
@@ -2432,50 +2432,7 @@
 	}
 
 	/* ── Hero orbs ── */
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.hero-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-
-	.hero-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -30%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-
-	.hero-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 14%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	@keyframes orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 6%) scale(1.08);
-		}
-	}
-
-	/* ── Step button ── */
+						/* ── Step button ── */
 	.step-btn {
 		transition:
 			border-color 180ms ease,

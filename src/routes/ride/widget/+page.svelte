@@ -157,9 +157,9 @@
 	<!-- ══════════════════════ HERO ══════════════════════ -->
 	<section class="builder-hero relative overflow-hidden rounded-3xl">
 		<!-- Animated orbs -->
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
 		<div class="relative z-10 flex flex-wrap items-center justify-between gap-6 p-7 lg:p-10">
 			<!-- Left: identity -->
@@ -516,49 +516,7 @@
 		background-clip: text;
 	}
 
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(70px);
-		pointer-events: none;
-		animation: orb-drift 14s ease-in-out infinite alternate;
-	}
-	.hero-orb-1 {
-		width: 50%;
-		height: 200%;
-		top: -60%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation-duration: 18s;
-	}
-	.hero-orb-2 {
-		width: 35%;
-		height: 180%;
-		top: -40%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation-duration: 22s;
-		animation-direction: alternate-reverse;
-	}
-	.hero-orb-3 {
-		width: 25%;
-		height: 100%;
-		bottom: -20%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 14%, transparent);
-		animation-duration: 26s;
-	}
-
-	@keyframes orb-drift {
-		from {
-			transform: translate(0, 0) scale(1);
-		}
-		to {
-			transform: translate(3%, 6%) scale(1.05);
-		}
-	}
-
-	/* ── Config Sections ── */
+						/* ── Config Sections ── */
 	.config-section {
 		display: flex;
 		flex-direction: column;

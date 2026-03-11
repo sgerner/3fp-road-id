@@ -212,9 +212,9 @@
 
 <div class="profile-page mx-auto flex w-full max-w-7xl flex-col gap-8">
 	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
 		<div
 			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(290px,0.8fr)] lg:p-10"
@@ -483,50 +483,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.hero-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-
-	.hero-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -30%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-
-	.hero-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	@keyframes orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(4%, 6%) scale(1.08);
-		}
-	}
-
-	.profile-headline {
+						.profile-headline {
 		color: var(--color-primary-50);
 	}
 

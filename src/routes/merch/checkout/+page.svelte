@@ -496,9 +496,9 @@
 <div class="checkout-page mx-auto w-full max-w-5xl space-y-6 pb-12">
 	<!-- ═══ HERO ═══════════════════════════════════════════════════ -->
 	<section class="hero-section relative overflow-hidden rounded-3xl px-6 py-8 sm:px-8 sm:py-10">
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
+		<div class="app-orb app-orb-1" aria-hidden="true"></div>
+		<div class="app-orb app-orb-2" aria-hidden="true"></div>
+		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
 		<div class="relative z-10 flex flex-col gap-3">
 			<div class="flex items-center gap-2">
@@ -1046,46 +1046,7 @@
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-	.hero-orb-1 {
-		width: 60%;
-		height: 220%;
-		top: -60%;
-		left: -12%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
-	}
-	.hero-orb-2 {
-		width: 40%;
-		height: 180%;
-		top: -40%;
-		right: 2%;
-		background: color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
-		animation: orb-drift 26s ease-in-out infinite alternate-reverse;
-	}
-	.hero-orb-3 {
-		width: 30%;
-		height: 160%;
-		bottom: -50%;
-		left: 28%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
-		animation: orb-drift 30s ease-in-out infinite alternate;
-	}
-	@keyframes orb-drift {
-		0% {
-			transform: translate3d(0, 0, 0) scale(1);
-		}
-		100% {
-			transform: translate3d(3%, -2%, 0) scale(1.05);
-		}
-	}
-
-	/* Headline */
+						/* Headline */
 	.checkout-headline {
 		color: var(--color-primary-50);
 		line-height: 1.1;
