@@ -28,9 +28,13 @@
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer
 	} from '$lib/volunteer/communications-ai';
-	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
 	import { slide } from 'svelte/transition';
 	import { toaster } from '../../../toaster-svelte';
+	import IconUsers from '@lucide/svelte/icons/users';
+	import IconBarChart2 from '@lucide/svelte/icons/bar-chart-2';
+	import IconList from '@lucide/svelte/icons/list';
+	import IconMail from '@lucide/svelte/icons/mail';
+	import IconShield from '@lucide/svelte/icons/shield';
 
 	const { data } = $props();
 	function getPageData() {
@@ -1707,11 +1711,11 @@
 	}
 
 	const sections = [
-		{ id: 'signups', label: 'Signups' },
-		{ id: 'overview', label: 'Summary' },
-		{ id: 'roster', label: 'Roster' },
-		{ id: 'communications', label: 'Communications' },
-		{ id: 'hosts', label: 'Hosts' }
+		{ id: 'signups', label: 'Signups', icon: IconUsers },
+		{ id: 'overview', label: 'Overview', icon: IconBarChart2 },
+		{ id: 'roster', label: 'Roster', icon: IconList },
+		{ id: 'communications', label: 'Communications', icon: IconMail },
+		{ id: 'hosts', label: 'Hosts', icon: IconShield }
 	];
 
 	let activeSection = $state(sections[0].id);
@@ -1734,11 +1738,15 @@
 </script>
 
 <svelte:head>
-	<title>Volunteer Event Management</title>
+	<title>{event?.title || 'Event'} — Manage Volunteers</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-6xl flex-col gap-6 overflow-hidden px-2 py-10">
-	<div id="section-overview" class="flex flex-col gap-8">
+<!-- ── Sticky management header ─────────────────────────────────────────── -->
+<div
+	class="sticky top-0 z-30 border-b border-white/10 bg-surface-950/80 px-4 pb-0 pt-4 shadow-xl backdrop-blur-xl"
+>
+	<!-- Event summary row -->
+	<div class="mx-auto max-w-6xl">
 		<EventSummary
 			title={event?.title || 'Volunteer Event Management'}
 			status={eventStatusLabel}
@@ -1747,23 +1755,31 @@
 			description={eventDescription}
 			counts={volunteerCounts}
 		/>
-	</div>
 
-	<div class="mx-auto flex max-w-fit flex-col gap-3">
-		<SegmentedControl
-			class="bg-tertiary-200-800/30 !flex-col !p-1 transition sm:!flex-row"
-			name="align"
-			value={activeSection}
-			onValueChange={(e) => setActiveSection(e.value)}
-		>
+		<!-- Tab navigation -->
+		<nav class="-mb-px mt-3 flex gap-0.5" aria-label="Management sections">
 			{#each sections as section}
-				<SegmentedControl.Item class="hover:preset-filled-primary-500" value={section.id}>
-					<SegmentedControl.ItemText>{section.label}</SegmentedControl.ItemText>
-				</SegmentedControl.Item>
+				{@const active = isSectionActive(section.id)}
+				{@const Icon = section.icon}
+				<button
+					type="button"
+					class="flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2.5 text-sm font-medium transition-all
+						{active
+						? 'border-primary-400 text-primary-300'
+						: 'border-transparent text-surface-400 hover:text-surface-200 hover:border-surface-500'}"
+					aria-current={active ? 'page' : undefined}
+					onclick={() => setActiveSection(section.id)}
+				>
+					<Icon class="h-4 w-4 flex-shrink-0" />
+					<span class="hidden sm:inline">{section.label}</span>
+				</button>
 			{/each}
-		</SegmentedControl>
+		</nav>
 	</div>
+</div>
 
+<!-- ── Section content ──────────────────────────────────────────────────── -->
+<div class="mx-auto max-w-6xl px-3 py-6">
 	{#if activeSection === 'overview'}
 		<section transition:slide>
 			<AnalyticsOverview counts={volunteerCounts} shiftGroups={shiftSummaries} />
@@ -1771,7 +1787,7 @@
 	{/if}
 
 	{#if activeSection === 'signups'}
-		<section id="section-signups" class="flex flex-col gap-6" transition:slide>
+		<section id="section-signups" transition:slide>
 			<SignupManagement
 				volunteers={filteredVolunteers}
 				{statusFilters}
@@ -1805,7 +1821,7 @@
 	{/if}
 
 	{#if activeSection === 'roster'}
-		<section id="section-roster" class="flex flex-col gap-6" transition:slide>
+		<section id="section-roster" transition:slide>
 			<ApprovedRoster
 				{volunteers}
 				{event}
@@ -1817,7 +1833,7 @@
 	{/if}
 
 	{#if activeSection === 'communications'}
-		<section id="section-communications" class="" transition:slide>
+		<section id="section-communications" transition:slide>
 			<CommunicationsStep
 				showAdvancedCommunications={true}
 				showCustomQuestionsSection={false}
@@ -1844,7 +1860,7 @@
 	{/if}
 
 	{#if activeSection === 'hosts'}
-		<section id="section-hosts" class="flex flex-col gap-6" transition:slide>
+		<section id="section-hosts" transition:slide>
 			<EventHostManagement
 				{event}
 				{groupOwners}

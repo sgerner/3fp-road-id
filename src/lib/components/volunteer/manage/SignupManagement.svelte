@@ -2,8 +2,14 @@
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
+	import IconSearch from '@lucide/svelte/icons/search';
+	import IconFilter from '@lucide/svelte/icons/filter';
+	import IconX from '@lucide/svelte/icons/x';
+	import IconUserPlus from '@lucide/svelte/icons/user-plus';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconSend from '@lucide/svelte/icons/send';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { slide } from 'svelte/transition';
+	import { slide, fly } from 'svelte/transition';
 
 	const {
 		volunteers = [],
@@ -43,6 +49,44 @@
 		{ value: 'waitlisted', label: 'Waitlisted' }
 	];
 
+	// ── Status pill definitions ──────────────────────────────────────────────
+	const statusPills = [
+		{ value: 'all', label: 'All' },
+		{ value: 'approved', label: 'Approved' },
+		{ value: 'pending', label: 'Pending' },
+		{ value: 'waitlisted', label: 'Waitlisted' },
+		{ value: 'declined', label: 'Declined' },
+		{ value: 'cancelled', label: 'Cancelled' }
+	];
+
+	function pillClass(value) {
+		const active = selectedStatus === value;
+		switch (value) {
+			case 'approved':
+				return active
+					? 'bg-success-500 text-white'
+					: 'bg-success-500/10 text-success-400 hover:bg-success-500/20';
+			case 'pending':
+				return active
+					? 'bg-warning-500 text-white'
+					: 'bg-warning-500/10 text-warning-400 hover:bg-warning-500/20';
+			case 'waitlisted':
+				return active
+					? 'bg-surface-500 text-white'
+					: 'bg-surface-500/10 text-surface-400 hover:bg-surface-500/20';
+			case 'declined':
+			case 'cancelled':
+				return active
+					? 'bg-error-600 text-white'
+					: 'bg-error-500/10 text-error-400 hover:bg-error-500/20';
+			default:
+				return active
+					? 'bg-primary-500 text-white'
+					: 'bg-surface-500/10 text-surface-300 hover:bg-surface-500/20';
+		}
+	}
+
+	// ── Add volunteer form ────────────────────────────────────────────────────
 	let selectedProfile = $state(null);
 	let addForm = $state({
 		email: '',
@@ -64,6 +108,22 @@
 	let profileLookupRequestId = 0;
 	let emailSuggestions = $state([]);
 	let suggestionTimeout = null;
+
+	// ── Email queue panel ─────────────────────────────────────────────────────
+	let emailQueueOpen = $state(false);
+
+	let expandedRows = $state(new Set());
+
+	function toggleRow(key) {
+		const next = new Set(expandedRows);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		expandedRows = next;
+	}
+
+	function closeMenus() {
+		expandedRows = new Set();
+	}
 
 	const activityLabelMap = $derived.by(() => {
 		const map = new SvelteMap();
@@ -96,10 +156,7 @@
 			list.sort((a, b) => {
 				const timeA = a?.startsAt ? new Date(a.startsAt).getTime() : 0;
 				const timeB = b?.startsAt ? new Date(b.startsAt).getTime() : 0;
-				if (timeA !== timeB) {
-					return timeA - timeB;
-				}
-				return (a?.optionLabel || '').localeCompare(b?.optionLabel || '');
+				return timeA - timeB;
 			});
 		}
 
@@ -142,115 +199,6 @@
 
 	const shiftTimeOptions = $derived.by(() => selectedAddActivity?.shifts ?? []);
 
-	const isShiftActivitySelectDisabled = $derived(() => addActivityOptions.length === 1);
-	const isShiftTimeSelectDisabled = $derived(
-		() => !addForm.shiftActivityId || shiftTimeOptions.length <= 1
-	);
-
-	async function fetchEmailSuggestions(term) {
-		if (term.length < 2) {
-			emailSuggestions = [];
-			return;
-		}
-		try {
-			let encodedTerm;
-			try {
-				encodedTerm = encodeURIComponent(term);
-			} catch (e) {
-				console.error('Failed to encode search term:', term, e);
-				return; // Don't fetch if term is not encodable
-			}
-			const select =
-				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
-			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=ilike.%${encodedTerm}%&limit=5`;
-			const response = await fetch(url);
-			if (!response.ok) {
-				emailSuggestions = [];
-				return;
-			}
-			const result = await response.json();
-			emailSuggestions = (result.data || []).map(normalizeProfileRow).filter(Boolean);
-		} catch (error) {
-			console.error('Failed to fetch email suggestions', error);
-			emailSuggestions = [];
-		}
-	}
-
-	function normalizeProfileRow(row) {
-		if (!row) return null;
-		const email = (row.email ?? '').trim();
-		if (!email) return null;
-		return {
-			id: row.id ? String(row.id) : null,
-			userId: row.user_id ? String(row.user_id) : null,
-			email,
-			name: row.full_name ?? '',
-			phone: row.phone ?? '',
-			emergencyContactName: row.emergency_contact_name ?? '',
-			emergencyContactPhone: row.emergency_contact_phone ?? ''
-		};
-	}
-	function clearProfileLookup() {
-		if (profileLookupTimeout) {
-			clearTimeout(profileLookupTimeout);
-			profileLookupTimeout = null;
-		}
-		profileLookupLoading = false;
-		profileLookupRequestId += 1;
-	}
-	function scheduleProfileLookup(email) {
-		clearProfileLookup();
-		const normalized = email.trim();
-		if (!normalized) {
-			profileLookupError = '';
-			return;
-		}
-		profileLookupTimeout = setTimeout(() => lookupProfileByEmail(normalized), 250);
-	}
-	async function lookupProfileByEmail(email) {
-		const normalizedEmail = email.trim().toLowerCase();
-		if (!normalizedEmail) return;
-		const currentEmail = addForm.email.trim().toLowerCase();
-		if (currentEmail !== normalizedEmail) return;
-		profileLookupLoading = true;
-		profileLookupError = '';
-		const requestId = ++profileLookupRequestId;
-		try {
-			const select =
-				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
-			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=${encodeURIComponent(normalizedEmail)}&single=maybe`;
-
-			const response = await fetch(url);
-
-			if (requestId !== profileLookupRequestId) {
-				return;
-			}
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => null);
-				throw new Error(errorData?.error || response.statusText || 'Failed to fetch profile');
-			}
-
-			const result = await response.json();
-			const profileData = result.data;
-
-			const profile = normalizeProfileRow(profileData);
-			if (profile) {
-				applyProfileToForm(profile);
-			} else {
-				selectedProfile = null;
-			}
-		} catch (error) {
-			if (requestId === profileLookupRequestId) {
-				profileLookupError = error?.message || 'Unable to look up volunteer profile.';
-			}
-		} finally {
-			if (requestId === profileLookupRequestId) {
-				profileLookupLoading = false;
-			}
-		}
-	}
-
 	$effect(() => {
 		const options = addActivityOptions;
 		const currentActivityId = addForm.shiftActivityId;
@@ -285,11 +233,96 @@
 		}
 	});
 
+	async function fetchEmailSuggestions(term) {
+		if (term.length < 2) {
+			emailSuggestions = [];
+			return;
+		}
+		try {
+			let encodedTerm;
+			try {
+				encodedTerm = encodeURIComponent(term);
+			} catch (e) {
+				return;
+			}
+			const select =
+				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
+			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=ilike.%${encodedTerm}%&limit=5`;
+			const response = await fetch(url);
+			if (!response.ok) {
+				emailSuggestions = [];
+				return;
+			}
+			const result = await response.json();
+			emailSuggestions = (result.data || []).map(normalizeProfileRow).filter(Boolean);
+		} catch (error) {
+			emailSuggestions = [];
+		}
+	}
+
+	function normalizeProfileRow(row) {
+		if (!row) return null;
+		const email = (row.email ?? '').trim();
+		if (!email) return null;
+		return {
+			id: row.id ? String(row.id) : null,
+			userId: row.user_id ? String(row.user_id) : null,
+			email,
+			name: row.full_name ?? '',
+			phone: row.phone ?? '',
+			emergencyContactName: row.emergency_contact_name ?? '',
+			emergencyContactPhone: row.emergency_contact_phone ?? ''
+		};
+	}
+
+	function clearProfileLookup() {
+		if (profileLookupTimeout) {
+			clearTimeout(profileLookupTimeout);
+			profileLookupTimeout = null;
+		}
+		profileLookupLoading = false;
+		profileLookupRequestId += 1;
+	}
+
+	async function lookupProfileByEmail(email) {
+		const normalizedEmail = email.trim().toLowerCase();
+		if (!normalizedEmail) return;
+		const currentEmail = addForm.email.trim().toLowerCase();
+		if (currentEmail !== normalizedEmail) return;
+		profileLookupLoading = true;
+		profileLookupError = '';
+		const requestId = ++profileLookupRequestId;
+		try {
+			const select =
+				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
+			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=${encodeURIComponent(normalizedEmail)}&single=maybe`;
+			const response = await fetch(url);
+			if (requestId !== profileLookupRequestId) return;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => null);
+				throw new Error(errorData?.error || response.statusText || 'Failed to fetch profile');
+			}
+			const result = await response.json();
+			const profile = normalizeProfileRow(result.data);
+			if (profile) {
+				applyProfileToForm(profile);
+			} else {
+				selectedProfile = null;
+			}
+		} catch (error) {
+			if (requestId === profileLookupRequestId) {
+				profileLookupError = error?.message || 'Unable to look up volunteer profile.';
+			}
+		} finally {
+			if (requestId === profileLookupRequestId) {
+				profileLookupLoading = false;
+			}
+		}
+	}
+
 	function applyProfileToForm(profile) {
 		if (!profile) return;
-
-		clearProfileLookup(); // Cancel pending lookups
-
+		clearProfileLookup();
 		selectedProfile = profile;
 		addForm = {
 			...addForm,
@@ -300,26 +333,14 @@
 			emergencyContactPhone: profile.emergencyContactPhone || ''
 		};
 		emailSuggestions = [];
-		if (suggestionTimeout) {
-			clearTimeout(suggestionTimeout);
-		}
+		if (suggestionTimeout) clearTimeout(suggestionTimeout);
 	}
 
 	function handleEmailInput(value) {
 		const email = value.trim();
 		addForm = { ...addForm, email };
-
-		if (selectedProfile && selectedProfile.email === email) {
-			// When a suggestion is clicked, applyProfileToForm sets the email,
-			// which can re-trigger this handler. If the email is unchanged
-			// from the selected profile, do nothing.
-			return;
-		}
-
-		if (suggestionTimeout) {
-			clearTimeout(suggestionTimeout);
-		}
-
+		if (selectedProfile && selectedProfile.email === email) return;
+		if (suggestionTimeout) clearTimeout(suggestionTimeout);
 		if (!email) {
 			selectedProfile = null;
 			profileLookupError = '';
@@ -337,9 +358,7 @@
 			};
 			return;
 		}
-
 		selectedProfile = null;
-		// Reset form fields when typing a new email
 		addForm = {
 			email,
 			name: '',
@@ -350,7 +369,6 @@
 			shiftId: addForm.shiftId,
 			status: addForm.status
 		};
-
 		suggestionTimeout = setTimeout(() => {
 			fetchEmailSuggestions(email);
 		}, 250);
@@ -360,7 +378,6 @@
 		event?.preventDefault?.();
 		addError = '';
 		addSuccess = '';
-
 		if (!addForm.email) {
 			addError = 'Enter an email address to look up or create a volunteer.';
 			return;
@@ -369,13 +386,10 @@
 			addError = 'Choose a shift to assign the volunteer to.';
 			return;
 		}
-
 		const currentStatus = addForm.status;
 		const currentShiftActivityId = addForm.shiftActivityId;
 		const currentShiftId = addForm.shiftId;
-
 		addLoading = true;
-
 		try {
 			const payload = {
 				email: addForm.email,
@@ -388,12 +402,10 @@
 				profileId: selectedProfile?.id ?? null,
 				userId: selectedProfile?.userId ?? null
 			};
-
 			const result = await onAddVolunteer(payload);
 			if (!result?.ok) {
 				throw new Error(result?.error || 'Unable to add volunteer.');
 			}
-
 			addSuccess = result?.message || 'Volunteer added to the shift.';
 			selectedProfile = null;
 			addForm = {
@@ -414,21 +426,11 @@
 	}
 
 	function formatRelativeTime(date) {
-		if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-			return '—';
-		}
-
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
 		const now = new Date();
 		let diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-		if (diffInSeconds < 0) {
-			diffInSeconds = 0;
-		}
-
-		if (diffInSeconds < 10) {
-			return 'just now';
-		}
-
+		if (diffInSeconds < 0) diffInSeconds = 0;
+		if (diffInSeconds < 10) return 'just now';
 		const units = [
 			{ limit: 60, divisor: 1, singular: 'sec', plural: 'sec' },
 			{ limit: 3600, divisor: 60, singular: 'min', plural: 'min' },
@@ -438,7 +440,6 @@
 			{ limit: 31557600, divisor: 2629800, singular: 'mo', plural: 'mos' },
 			{ limit: Infinity, divisor: 31557600, singular: 'yr', plural: 'yrs' }
 		];
-
 		for (const unit of units) {
 			if (diffInSeconds < unit.limit) {
 				const value = Math.max(1, Math.floor(diffInSeconds / unit.divisor));
@@ -446,23 +447,18 @@
 				return `${value} ${label} ago`;
 			}
 		}
-
 		return '—';
 	}
 
 	function parseDateValue(value) {
 		if (!value) return null;
 		const date = value instanceof Date ? value : new Date(value);
-		if (Number.isNaN(date.getTime())) {
-			return null;
-		}
+		if (Number.isNaN(date.getTime())) return null;
 		return date;
 	}
 
 	function formatExactDate(date, timezone) {
-		if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-			return '';
-		}
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
 		try {
 			const formatter = new Intl.DateTimeFormat(undefined, {
 				dateStyle: 'medium',
@@ -470,16 +466,14 @@
 				...(timezone ? { timeZone: timezone } : {})
 			});
 			return formatter.format(date);
-		} catch (error) {
+		} catch {
 			return date.toLocaleString();
 		}
 	}
 
 	function buildConfirmationDisplay(confirmedAt, timezone) {
 		const date = parseDateValue(confirmedAt);
-		if (!date) {
-			return null;
-		}
+		if (!date) return null;
 		const relative = formatRelativeTime(date);
 		return {
 			date,
@@ -490,20 +484,10 @@
 	}
 
 	function buildSignupInfo(createdAt) {
-		if (!createdAt) {
-			return { createdAt: null, timestamp: 0, relative: '—' };
-		}
-
+		if (!createdAt) return { createdAt: null, timestamp: 0, relative: '—' };
 		const parsed = new Date(createdAt);
-		if (Number.isNaN(parsed.getTime())) {
-			return { createdAt, timestamp: 0, relative: '—' };
-		}
-
-		return {
-			createdAt,
-			timestamp: parsed.getTime(),
-			relative: formatRelativeTime(parsed)
-		};
+		if (Number.isNaN(parsed.getTime())) return { createdAt, timestamp: 0, relative: '—' };
+		return { createdAt, timestamp: parsed.getTime(), relative: formatRelativeTime(parsed) };
 	}
 
 	const individualShifts = $derived.by(() => {
@@ -512,15 +496,11 @@
 			const signupInfo = buildSignupInfo(volunteer.signup?.created_at ?? null);
 			const assignments = volunteer.assignments ?? [];
 			if (assignments.length === 0) {
-				// Handle volunteers with no specific shift assignment
 				flattened.push({
 					key: `${volunteer.id}-unassigned`,
 					volunteer,
 					assignment: { id: null, status: volunteer.status, attended: volunteer.attended },
-					shiftDetails: {
-						optionLabel: 'Unassigned',
-						windowLabel: 'No shift selected'
-					},
+					shiftDetails: { optionLabel: 'Unassigned', windowLabel: 'No shift selected' },
 					hasMultipleShifts: false,
 					signup: signupInfo,
 					confirmation: null
@@ -547,9 +527,7 @@
 		flattened.sort((a, b) => {
 			const startTimeA = a.shiftDetails.startsAt ? new Date(a.shiftDetails.startsAt).getTime() : 0;
 			const startTimeB = b.shiftDetails.startsAt ? new Date(b.shiftDetails.startsAt).getTime() : 0;
-			if (startTimeA !== startTimeB) {
-				return startTimeA - startTimeB;
-			}
+			if (startTimeA !== startTimeB) return startTimeA - startTimeB;
 			const createdAtA = a.signup?.timestamp ?? 0;
 			const createdAtB = b.signup?.timestamp ?? 0;
 			return createdAtA - createdAtB;
@@ -563,9 +541,7 @@
 		let currentGroup = null;
 
 		const ensureLabel = (value, fallback) => {
-			if (typeof value === 'string' && value.trim().length > 0) {
-				return value.trim();
-			}
+			if (typeof value === 'string' && value.trim().length > 0) return value.trim();
 			return fallback;
 		};
 
@@ -602,511 +578,318 @@
 		return groups;
 	});
 
-	function statusClass(status) {
+	function statusBadgeClass(status) {
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
-				return 'bg-success-500/20 text-success-800-200';
+				return 'bg-success-500/20 text-success-300 border border-success-500/30';
 			case 'pending':
-				return 'bg-warning-500/20 text-warning-800-200';
+				return 'bg-warning-500/20 text-warning-300 border border-warning-500/30';
 			case 'waitlisted':
-				return 'bg-surface-500/20 text-surface-900-100';
+				return 'bg-surface-500/20 text-surface-300 border border-surface-500/30';
 			case 'declined':
 			case 'cancelled':
-				return 'bg-warning-500/20 text-warning-800-200';
+				return 'bg-error-500/20 text-error-300 border border-error-500/30';
 			case 'no_show':
-				return 'bg-error-500/20 text-error-800-200';
+				return 'bg-error-700/30 text-error-200 border border-error-600/30';
 			default:
-				return 'bg-surface-500/20 text-surface-900-100';
+				return 'bg-surface-500/20 text-surface-300 border border-surface-500/30';
 		}
 	}
 
-	function cardStatusClass(status) {
+	function orbClass(status) {
 		switch (status) {
 			case 'approved':
-				return 'preset-tonal-success';
+			case 'checked_in':
+				return 'bg-success-500/20 text-success-300';
+			case 'pending':
+				return 'bg-warning-500/20 text-warning-300';
 			case 'waitlisted':
-				return 'bg-secondary-200-800/10';
+				return 'bg-surface-500/20 text-surface-300';
 			case 'declined':
-				return 'bg-error-200-800/10';
 			case 'cancelled':
-				return 'preset-tonal-error';
+			case 'no_show':
+				return 'bg-error-500/20 text-error-300';
 			default:
-				return '';
+				return 'bg-primary-500/20 text-primary-300';
 		}
 	}
 
-	function formatStatusLabel(status) {
-		return (status || '').replace(/_/g, ' ');
+	function statusLabel(status) {
+		switch (status) {
+			case 'checked_in':
+				return 'Checked In';
+			case 'no_show':
+				return 'No Show';
+			default:
+				return (status || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+		}
+	}
+
+	function formatQueueStatus(s) {
+		return (s || '').replace(/_/g, ' ');
 	}
 </script>
 
-<section
-	class="border-surface-300-700 bg-surface-100-900/70 overflow-clip rounded-2xl border p-6 shadow-xl"
->
-	<div class="flex flex-wrap items-start justify-between gap-4">
-		<div class="space-y-1">
-			<h2 class="text-surface-950-50 !text-left text-xl font-semibold">Signup Management</h2>
-			<p class="text-surface-700-300 text-sm">
-				Filter volunteers by status and shift, manage approvals, and confirm arrivals.
-			</p>
-		</div>
-	</div>
-
-	<div class="mt-4 space-y-4">
-		{#if emailQueue.length || emailQueueError}
+<!-- ── Email queue floating button ──────────────────────────────────────────── -->
+{#if emailQueue.length > 0 || emailQueueError}
+	<div class="fixed bottom-4 left-1/2 z-50" transition:fly={{ y: 16, duration: 200 }}>
+		<!-- Queue panel (open) -->
+		{#if emailQueueOpen}
 			<div
-				class="border-surface-300-700/70 bg-surface-50-950/60 text-surface-800-200 rounded-xl border px-4 py-4 text-sm"
-				transition:slide
+				class="bg-surface-900/95 border-surface-600/40 mb-3 w-80 rounded-2xl border shadow-2xl backdrop-blur-xl"
+				transition:slide={{ duration: 200 }}
 			>
-				<div class="flex flex-wrap items-center justify-between gap-3">
+				<div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
 					<div>
-						<h3 class="text-surface-950-50 text-base font-semibold">Queued emails</h3>
-						<p class="text-surface-700-300 text-xs">
-							Review and send shift updates when you're ready.
-						</p>
+						<span class="text-surface-50 text-sm font-semibold">Queued Emails</span>
+						<p class="text-surface-400 text-xs">Review before sending</p>
 					</div>
-					<div class="flex flex-wrap items-center gap-2">
+					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							class="preset-filled-primary-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+							class="preset-filled-primary-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-50"
 							disabled={!emailQueue.length || emailQueueSending}
 							onclick={() => onSendAllQueuedEmails()}
 						>
-							{#if emailQueueSending}
-								Sending…
-							{:else}
-								Send all ({emailQueue.length})
-							{/if}
+							{emailQueueSending ? 'Sending…' : `Send all (${emailQueue.length})`}
 						</button>
 						<button
 							type="button"
-							class="preset-outlined-error-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
-							disabled={!emailQueue.length || emailQueueSending}
-							onclick={() => onClearEmailQueue()}
+							class="text-surface-400 hover:text-surface-100 rounded p-1 transition-colors"
+							onclick={() => (emailQueueOpen = false)}
 						>
-							Remove all
+							<IconX class="h-4 w-4" />
 						</button>
 					</div>
 				</div>
 				{#if emailQueueError}
-					<div
-						class="bg-error-500/10 border-error-500/40 text-error-800-200 mt-3 rounded-lg border px-3 py-2 text-sm"
-					>
+					<div class="bg-error-500/10 text-error-300 border-b border-white/10 px-4 py-2 text-xs">
 						{emailQueueError}
 					</div>
 				{/if}
-				{#if emailQueue.length}
-					<ul class="mt-3 space-y-2">
-						{#each emailQueue as queueItem (queueItem.id)}
-							<li
-								class="border-surface-200-800/70 bg-surface-100-900/50 rounded-lg border px-3 py-2"
-							>
-								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-									<div>
-										<div class="text-surface-950-50 font-semibold">
-											{queueItem.volunteerName}
-										</div>
-										<div class="text-surface-700-300 text-xs">
-											{queueItem.volunteerEmail}
-										</div>
+				<ul class="max-h-64 divide-y divide-white/5 overflow-y-auto">
+					{#each emailQueue as queueItem (queueItem.id)}
+						<li class="px-4 py-3">
+							<div class="flex items-start justify-between gap-2">
+								<div class="min-w-0 flex-1">
+									<div class="text-surface-100 truncate text-xs font-semibold">
+										{queueItem.volunteerName}
 									</div>
-									<div class="text-surface-700-300 text-xs md:max-w-xs md:text-right">
-										<div class="text-surface-900-100 font-medium">
-											{queueItem.opportunityTitle || 'Volunteer shift'}
-										</div>
+									<div class="text-surface-400 truncate text-xs">{queueItem.volunteerEmail}</div>
+									<div class="text-surface-500 mt-0.5 text-xs capitalize">
+										{formatQueueStatus(queueItem.status)}
 										{#if queueItem.shiftLabel}
-											<div class="text-surface-800-200">
-												{queueItem.shiftLabel}
-											</div>
+											· {queueItem.shiftLabel}
 										{/if}
-									</div>
-									<div class="text-surface-700-300 text-xs md:text-right">
-										<span class="text-surface-950-50 font-semibold capitalize">
-											{formatStatusLabel(queueItem.status)}
-										</span>
-										{#if queueItem.previousStatus}
-											<span class="text-surface-600-400 ml-1">
-												from {formatStatusLabel(queueItem.previousStatus)}
-											</span>
-										{/if}
-									</div>
-									<div class="flex flex-wrap justify-end gap-2">
-										<button
-											type="button"
-											class="preset-filled-primary-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-60"
-											disabled={emailQueueSending}
-											onclick={() => onSendQueuedEmail(queueItem.id)}
-										>
-											Send
-										</button>
-										<button
-											type="button"
-											class="preset-outlined-error-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-60"
-											disabled={emailQueueSending}
-											onclick={() => onRemoveQueuedEmail(queueItem.id)}
-										>
-											Remove
-										</button>
 									</div>
 								</div>
-							</li>
-						{/each}
-					</ul>
-				{:else if !emailQueueError}
-					<div class="text-surface-700-300 mt-3 text-sm">No emails are waiting to be sent.</div>
-				{/if}
+								<div class="flex flex-shrink-0 gap-1">
+									<button
+										type="button"
+										class="preset-filled-primary-500 rounded px-2 py-0.5 text-xs disabled:opacity-50"
+										disabled={emailQueueSending}
+										onclick={() => onSendQueuedEmail(queueItem.id)}
+									>
+										Send
+									</button>
+									<button
+										type="button"
+										class="text-surface-500 hover:text-error-400 rounded p-0.5 transition-colors"
+										onclick={() => onRemoveQueuedEmail(queueItem.id)}
+									>
+										<IconX class="h-3.5 w-3.5" />
+									</button>
+								</div>
+							</div>
+						</li>
+					{/each}
+				</ul>
 			</div>
 		{/if}
-		<div class="flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
-			<label class="text-surface-800-200 flex flex-col text-sm md:w-34">
-				<span class="mb-1 font-medium">Status</span>
-				<select
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
-					value={selectedStatus}
-					onchange={(event) => onStatusChange(event.currentTarget.value)}
+
+		<!-- Floating badge button -->
+		<button
+			type="button"
+			class="preset-filled-secondary-500 shadow-secondary-500/30 relative flex h-12 w-12 items-center justify-center rounded-full shadow-xl transition-transform hover:scale-105 active:scale-95"
+			onclick={() => (emailQueueOpen = !emailQueueOpen)}
+			title="Email queue"
+		>
+			<IconSend class="h-5 w-5" />
+			{#if emailQueue.length}
+				<span
+					class="text-primary-600 absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold"
 				>
-					{#each statusFilters as option (option.value)}
-						<option value={option.value}>{option.label}</option>
+					{emailQueue.length}
+				</span>
+			{/if}
+		</button>
+	</div>
+{/if}
+
+<!-- ── Main panel ─────────────────────────────────────────────────────────── -->
+<section
+	class="border-surface-300-700 bg-surface-100-900/70 overflow-clip rounded-2xl border shadow-xl"
+>
+	<!-- ── Filter bar ──────────────────────────────────────────────────────── -->
+	<div class="border-surface-300-700/50 border-b px-4 py-3">
+		<!-- Status pills row (desktop) -->
+		<div class="flex flex-wrap items-center gap-2">
+			<!-- Status pills: hidden on smallest screens, shown sm+ -->
+			<div class="hidden flex-wrap gap-1.5 sm:flex">
+				{#each statusPills as pill (pill.value)}
+					<button
+						type="button"
+						class={`rounded-full px-3 py-1 text-xs font-medium transition-all ${pillClass(pill.value)}`}
+						onclick={() => onStatusChange(pill.value)}
+					>
+						{pill.label}
+					</button>
+				{/each}
+			</div>
+
+			<!-- Status dropdown: mobile only -->
+			<div class="flex sm:hidden">
+				<select
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-sm"
+					value={selectedStatus}
+					onchange={(e) => onStatusChange(e.currentTarget.value)}
+				>
+					{#each statusPills as pill (pill.value)}
+						<option value={pill.value}>{pill.label}</option>
 					{/each}
 				</select>
-			</label>
-			<label class="text-surface-800-200 flex flex-col text-sm">
-				<span class="mb-1 font-medium">Shift Activity</span>
+			</div>
+
+			<!-- Shift filter (only if multiple activities) -->
+			{#if activityFilters.length > 1}
 				<select
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2 pr-6"
+					class="border-surface-400-600 bg-surface-50-950/60 ml-1 rounded-lg border px-3 py-1.5 text-xs"
 					value={selectedActivity}
-					onchange={(event) => onActivityChange(event.currentTarget.value)}
+					onchange={(e) => onActivityChange(e.currentTarget.value)}
 				>
 					<option value="all">All activities</option>
 					{#each activityFilters as option (option.value)}
 						<option value={option.value}>{option.label}</option>
 					{/each}
 				</select>
-			</label>
-			<label class="text-surface-800-200 flex flex-col text-sm">
-				<span class="mb-1 font-medium">Shift Time</span>
+			{/if}
+
+			{#if selectedActivity !== 'all' && shiftFilters.length > 0}
 				<select
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
+					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-xs"
 					value={selectedShift}
-					onchange={(event) => onShiftChange(event.currentTarget.value)}
-					disabled={selectedActivity === 'all'}
+					onchange={(e) => onShiftChange(e.currentTarget.value)}
 				>
 					<option value="all">All times</option>
 					{#each shiftFilters as option (option.value)}
 						<option value={option.value}>{option.label}</option>
 					{/each}
 				</select>
-			</label>
-			<label class="text-surface-800-200 flex flex-1 flex-col text-sm">
-				<span class="mb-1 font-medium">Search</span>
+			{/if}
+
+			<!-- Search – pushes to right -->
+			<div class="relative ml-auto flex items-center">
+				<IconSearch class="text-surface-500 pointer-events-none absolute left-2.5 h-3.5 w-3.5" />
 				<input
 					type="search"
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-2"
+					class="border-surface-400-600 bg-surface-50-950/60 w-40 rounded-lg border py-1.5 pr-3 pl-8 text-sm transition-all focus:w-56"
 					value={searchTerm}
-					oninput={(event) => onSearch(event.currentTarget.value)}
-					placeholder="Name, email, phone"
+					oninput={(e) => onSearch(e.currentTarget.value)}
+					placeholder="Search…"
 				/>
-			</label>
+			</div>
+
+			<!-- Add volunteer button -->
+			<button
+				type="button"
+				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all
+					{addVolunteer
+					? 'preset-tonal-tertiary'
+					: 'bg-primary-500/10 text-primary-400 hover:bg-primary-500/20'}"
+				onclick={() => (addVolunteer = !addVolunteer)}
+			>
+				<IconUserPlus class="h-3.5 w-3.5" />
+				<span class="hidden sm:inline">Add</span>
+			</button>
 		</div>
 	</div>
 
-	<div class="mt-6">
-		<!-- Desktop header -->
-		<div
-			class="text-surface-600-400 hidden grid-cols-5 gap-x-4 px-3 py-2 text-xs tracking-wide uppercase md:grid"
-		>
-			<div class="col-span-1">Volunteer</div>
-			<div class="col-span-1">Signed up</div>
-			<div class="col-span-1">Shift</div>
-			<div class="col-span-1">Status</div>
-			<div class="col-span-1">Actions</div>
-		</div>
-		<!-- Volunteer list -->
-		<div class="space-y-6 md:space-y-0">
-			{#if !groupedShiftBlocks.length}
-				<div class="text-surface-600-400 px-3 py-6 text-center" transition:slide>
-					No volunteers match the selected filters.
-				</div>
-			{:else}
-				{#each groupedShiftBlocks as group, groupIndex (group.key)}
-					{@const isFirstGroup = groupIndex === 0}
-					<div
-						class={`space-y-3 md:space-y-0${
-							isFirstGroup ? '' : ' md:border-surface-300-700/60 md:border-t md:pt-4'
-						}`}
-					>
-						<div
-							class="preset-tonal-tertiary flex flex-wrap items-center justify-between gap-3 p-2 text-sm"
-						>
-							<div class="text-surface-900-100">{group.activityLabel}</div>
-							<div class="font-bold tracking-wide uppercase md:text-sm md:normal-case">
-								{group.timeLabel}
-							</div>
-							<div
-								class="text-surface-700-300 flex flex-wrap gap-4 text-xs tracking-wide uppercase"
-							>
-								<span>
-									Approved
-									<span class="text-surface-950-50 font-semibold">
-										{group.approvedCount}
-									</span>
-								</span>
-								<span>
-									Waitlisted
-									<span class="text-surface-950-50 font-semibold">
-										{group.waitlistedCount}
-									</span>
-								</span>
-							</div>
-						</div>
-						{#each group.items as item (item.key)}
-							<div
-								transition:slide
-								class={`card divide-surface-300-700/60 border-surface-800-200 rounded-lg border p-4 text-sm md:grid md:grid-cols-5 md:gap-x-4 md:divide-y-0 md:rounded-none md:border-0 md:border-b md:p-0
-                                                                ${cardStatusClass(item.assignment.status)}`}
-							>
-								<!-- Volunteer -->
-								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
-										Volunteer
-									</div>
-									<div class="flex flex-wrap items-center gap-2">
-										<span class="text-surface-950-50 font-semibold">{item.volunteer.name}</span>
-										{#if item.hasMultipleShifts}
-											<span
-												class="chip preset-outlined-secondary-500 px-2 py-0.5 text-[10px] tracking-wide"
-											>
-												Multiple Shifts
-											</span>
-										{/if}
-									</div>
-								</div>
-
-								<!-- Signup time -->
-								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
-										Signed up
-									</div>
-									{#if item.signup?.relative && item.signup.relative !== '—'}
-										<div class="text-surface-800-200 text-sm" title={item.signup.createdAt ?? ''}>
-											{item.signup.relative}
-										</div>
-									{:else}
-										<div class="text-surface-500 text-sm">—</div>
-									{/if}
-									{#if item.confirmation}
-										<div
-											class="text-success-700-300 mt-2 flex items-center gap-1 text-xs font-semibold"
-											title={item.confirmation.exact
-												? `Confirmed ${item.confirmation.exact}`
-												: 'Confirmed by volunteer'}
-										>
-											<IconCheckCircle class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-											<span>
-												Confirmed
-												{#if item.confirmation.relative}
-													<span class="text-success-800-200/80 ml-1 font-normal">
-														({item.confirmation.relative})
-													</span>
-												{/if}
-											</span>
-										</div>
-									{/if}
-								</div>
-
-								<!-- Shift -->
-								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
-										Shift
-									</div>
-									<div class="text-surface-950-50 font-medium">
-										{item.shiftDetails.opportunityTitle}
-									</div>
-									<div class="text-surface-700-300 text-xs">{item.shiftDetails.optionLabel}</div>
-								</div>
-
-								<!-- Status -->
-								<div class="mb-4 md:col-span-1 md:mb-0 md:px-3 md:py-3">
-									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
-										Status
-									</div>
-									<span
-										class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(
-											item.assignment.status
-										)}`}
-									>
-										{item.assignment.status.replace('_', ' ')}
-									</span>
-								</div>
-
-								<!-- Actions -->
-								<div class="md:col-span-1 md:px-3 md:py-3">
-									<div class="text-surface-600-400 mb-1 text-xs font-bold uppercase md:hidden">
-										Actions
-									</div>
-									{#if item.assignment.id}
-										<div class="flex gap-2">
-											{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
-												<button
-													class="chip preset-filled-primary-500 px-2 py-1 text-xs"
-													onclick={() => onApprove(item.assignment.id)}
-												>
-													Approve
-												</button>
-											{/if}
-											{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
-												<button
-													class="chip preset-outlined-error-500 px-2 py-1 text-xs"
-													onclick={() => onDecline(item.assignment.id)}
-												>
-													Decline
-												</button>
-											{/if}
-											{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled'}
-												<button
-													class="chip preset-outlined-secondary-500 px-2 py-1 text-xs"
-													onclick={() => onWaitlist(item.assignment.id)}
-												>
-													Waitlist
-												</button>
-											{/if}
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/each}
-			{/if}
-		</div>
-	</div>
-
-	<button
-		class="btn btn-sm preset-tonal-tertiary mt-4"
-		onclick={() => (addVolunteer = !addVolunteer)}
-	>
-		Add a volunteer
-	</button>
-
+	<!-- ── Add volunteer drawer ─────────────────────────────────────────────── -->
 	{#if addVolunteer}
-		<div transition:slide>
-			<p class="text-surface-700-300 mt-1 text-sm">
-				Look up a volunteer by email or create a new account instantly, then choose the shift and
-				status.
-			</p>
-
-			<form class="mt-4 grid gap-4 md:grid-cols-2" onsubmit={submitAddVolunteer}>
+		<div class="border-surface-300-700/50 bg-surface-50-950/30 border-b px-4 py-4" transition:slide>
+			<h3 class="text-surface-950-50 mb-3 !text-left text-sm font-semibold">Add a volunteer</h3>
+			<form class="grid gap-3 md:grid-cols-2" onsubmit={submitAddVolunteer}>
 				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-email">
-						Email
+					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-email">
+						Email *
 					</label>
 					<input
 						id="add-email"
 						type="email"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
 						placeholder="volunteer@example.com"
 						value={addForm.email}
-						oninput={(event) => handleEmailInput(event.currentTarget.value)}
+						oninput={(e) => handleEmailInput(e.currentTarget.value)}
 						onblur={() => lookupProfileByEmail(addForm.email)}
 						required
 					/>
 					{#if emailSuggestions.length > 0 && addForm.email.trim() && (!selectedProfile || selectedProfile.email.toLowerCase() !== addForm.email
 									.trim()
 									.toLowerCase())}
-						<div
-							class="bg-surface-100-900/70 border-surface-300-700 mt-2 space-y-1 rounded-lg border p-2"
-						>
-							<p class="text-surface-700-300 text-xs tracking-wide uppercase">
-								Matching volunteers
-							</p>
+						<div class="bg-surface-100-900/70 border-surface-300-700 mt-1 rounded-lg border p-1.5">
 							{#each emailSuggestions as profile (profile.email)}
 								<button
 									type="button"
-									class="hover:bg-primary-500/10 text-surface-900-100 flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm"
+									class="hover:bg-primary-500/10 text-surface-900-100 flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs"
 									onclick={() => applyProfileToForm(profile)}
 								>
-									<span class="font-medium">{profile.name || 'Unnamed volunteer'}</span>
-									<span class="text-surface-700-300 text-xs">{profile.email}</span>
+									<span class="font-medium">{profile.name || 'Unnamed'}</span>
+									<span class="text-surface-500">{profile.email}</span>
 								</button>
 							{/each}
 						</div>
 					{/if}
-
 					{#if profileLookupLoading}
-						<p class="text-surface-700-300 mt-2 text-xs">Looking up volunteer profile…</p>
+						<p class="text-surface-500 mt-1 text-xs">Looking up profile…</p>
 					{:else if profileLookupError}
-						<p class="text-error-700-300 mt-2 text-xs">{profileLookupError}</p>
+						<p class="text-error-400 mt-1 text-xs">{profileLookupError}</p>
 					{/if}
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-status"
-						>Status</label
-					>
-					<select
-						id="add-status"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
-						value={addForm.status}
-						onchange={(event) => (addForm = { ...addForm, status: event.currentTarget.value })}
-					>
-						{#each statusOptions as option (option.value)}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-				</div>
-
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-name"
-						>Full name</label
-					>
+					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-name">
+						Full name
+					</label>
 					<input
 						id="add-name"
 						type="text"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
-						placeholder="Alex Volunteer"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						placeholder="Alex Smith"
 						value={addForm.name}
-						oninput={(event) => (addForm = { ...addForm, name: event.currentTarget.value })}
-					/>
-				</div>
-
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-phone"
-						>Phone (optional)</label
-					>
-					<input
-						id="add-phone"
-						type="tel"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
-						placeholder="(555) 555-1234"
-						value={addForm.phone}
-						oninput={(event) => (addForm = { ...addForm, phone: event.currentTarget.value })}
+						oninput={(e) => (addForm = { ...addForm, name: e.currentTarget.value })}
 					/>
 				</div>
 
 				<div class="md:col-span-1">
 					<label
-						class="text-surface-800-200 mb-1 block text-sm font-medium"
+						class="text-surface-800-200 mb-1 block text-xs font-medium"
 						for="add-shift-activity"
 					>
-						Shift Activity
+						Activity
 					</label>
 					<select
 						id="add-shift-activity"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
 						value={addForm.shiftActivityId}
-						onchange={(event) =>
-							(addForm = {
-								...addForm,
-								shiftActivityId: event.currentTarget.value,
-								shiftId: ''
-							})}
+						onchange={(e) =>
+							(addForm = { ...addForm, shiftActivityId: e.currentTarget.value, shiftId: '' })}
 					>
 						{#if addActivityOptions.length === 0}
-							<option value="">No shift activities available</option>
+							<option value="">No activities available</option>
 						{:else}
 							{#if addActivityOptions.length > 1}
-								<option value="" disabled>Select a shift activity</option>
+								<option value="" disabled>Select activity</option>
 							{/if}
 							{#each addActivityOptions as option (option.value)}
 								<option value={option.value}>{option.label}</option>
@@ -1116,22 +899,22 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-sm font-medium" for="add-shift-time">
-						Shift Time
+					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-shift-time">
+						Shift *
 					</label>
 					<select
 						id="add-shift-time"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
 						value={addForm.shiftId}
-						onchange={(event) => (addForm = { ...addForm, shiftId: event.currentTarget.value })}
+						onchange={(e) => (addForm = { ...addForm, shiftId: e.currentTarget.value })}
 						required
 					>
 						{#if !addForm.shiftActivityId}
-							<option value="">Select a shift activity first</option>
+							<option value="">Pick activity first</option>
 						{:else if !shiftTimeOptions.length}
-							<option value="">No shift times available</option>
+							<option value="">No shifts available</option>
 						{:else if shiftTimeOptions.length > 1}
-							<option value="" disabled>Select a shift time</option>
+							<option value="" disabled>Select shift time</option>
 						{/if}
 						{#each shiftTimeOptions as shift (shift.id)}
 							<option value={shift.id}>{shift.optionLabel}</option>
@@ -1140,80 +923,60 @@
 				</div>
 
 				<div class="md:col-span-1">
-					<label
-						class="text-surface-800-200 mb-1 block text-sm font-medium"
-						for="add-emergency-name">Emergency contact name</label
+					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-status">
+						Initial status
+					</label>
+					<select
+						id="add-status"
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						value={addForm.status}
+						onchange={(e) => (addForm = { ...addForm, status: e.currentTarget.value })}
 					>
-					<input
-						id="add-emergency-name"
-						type="text"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
-						placeholder="Emergency contact"
-						value={addForm.emergencyContactName}
-						oninput={(event) =>
-							(addForm = {
-								...addForm,
-								emergencyContactName: event.currentTarget.value
-							})}
-					/>
+						{#each statusOptions as option (option.value)}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
 				</div>
 
 				<div class="md:col-span-1">
-					<label
-						class="text-surface-800-200 mb-1 block text-sm font-medium"
-						for="add-emergency-phone">Emergency contact phone</label
-					>
+					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-phone">
+						Phone (optional)
+					</label>
 					<input
-						id="add-emergency-phone"
+						id="add-phone"
 						type="tel"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2"
-						placeholder="(555) 555-7890"
-						value={addForm.emergencyContactPhone}
-						oninput={(event) =>
-							(addForm = {
-								...addForm,
-								emergencyContactPhone: event.currentTarget.value
-							})}
+						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						placeholder="(555) 555-1234"
+						value={addForm.phone}
+						oninput={(e) => (addForm = { ...addForm, phone: e.currentTarget.value })}
 					/>
 				</div>
 
 				{#if selectedProfile}
 					<div
-						class="bg-primary-500/5 border-primary-500/40 text-surface-950-50 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-primary-500/5 border-primary-500/30 rounded-lg border px-3 py-2 text-xs md:col-span-2"
 					>
-						<div class="flex flex-wrap items-center gap-3">
-							<span class="font-semibold">Existing profile selected</span>
-							<span class="text-surface-800-200 flex items-center gap-1 text-xs">
-								<IconMail class="size-3" />
-								{selectedProfile.email}
-							</span>
-							{#if selectedProfile.phone}
-								<span class="text-surface-800-200 flex items-center gap-1 text-xs">
-									<IconPhone class="size-3" />
-									{selectedProfile.phone}
-								</span>
-							{/if}
-						</div>
+						<span class="text-surface-100 font-semibold">Existing profile:</span>
+						<span class="text-surface-400 ml-2">{selectedProfile.email}</span>
 					</div>
 				{:else if addForm.email.trim() && !profileLookupLoading && !profileLookupError}
 					<div
-						class="bg-secondary-500/5 border-secondary-500/30 text-surface-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-surface-500/5 border-surface-500/20 text-surface-400 rounded-lg border px-3 py-2 text-xs md:col-span-2"
 					>
-						No existing profile found for this email. A new volunteer account will be created when
-						you submit.
+						No existing profile found — a new account will be created.
 					</div>
 				{/if}
 
 				{#if addError}
 					<div
-						class="bg-error-500/10 border-error-500/40 text-error-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-error-500/10 border-error-500/30 text-error-300 rounded-lg border px-3 py-2 text-xs md:col-span-2"
 					>
 						{addError}
 					</div>
 				{/if}
 				{#if addSuccess}
 					<div
-						class="bg-success-500/10 border-success-500/40 text-success-800-200 rounded-lg border px-3 py-2 text-sm md:col-span-2"
+						class="bg-success-500/10 border-success-500/30 text-success-300 rounded-lg border px-3 py-2 text-xs md:col-span-2"
 					>
 						{addSuccess}
 					</div>
@@ -1222,17 +985,217 @@
 				<div class="flex justify-end md:col-span-2">
 					<button
 						type="submit"
-						class="preset-filled-primary-500 rounded-lg px-4 py-2 text-sm font-semibold"
+						class="preset-filled-primary-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
 						disabled={addLoading}
 					>
-						{#if addLoading}
-							Adding…
-						{:else}
-							Add volunteer to shift
-						{/if}
+						{addLoading ? 'Adding…' : 'Add to shift'}
 					</button>
 				</div>
 			</form>
 		</div>
 	{/if}
+
+	<!-- ── Volunteer list ──────────────────────────────────────────────────── -->
+	<div class="divide-surface-300-700/30 divide-y">
+		{#if !groupedShiftBlocks.length}
+			<div class="text-surface-500 px-4 py-10 text-center text-sm" transition:slide>
+				No volunteers match the selected filters.
+			</div>
+		{:else}
+			{#each groupedShiftBlocks as group (group.key)}
+				<!-- Shift group header -->
+				<div
+					class="from-primary-500/5 to-secondary-500/5 border-surface-300-700/30 flex flex-wrap items-center justify-between gap-2 border-b bg-gradient-to-r px-4 py-2.5"
+				>
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="text-surface-800-200 text-xs font-medium">{group.activityLabel}</span>
+						<span class="text-surface-950-50 text-sm font-bold">{group.timeLabel}</span>
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						{#if group.approvedCount > 0}
+							<span class="bg-success-500/15 text-success-400 rounded-full px-2 py-0.5 font-medium">
+								{group.approvedCount} approved
+							</span>
+						{/if}
+						{#if group.waitlistedCount > 0}
+							<span class="text-surface-400 bg-surface-500/15 rounded-full px-2 py-0.5 font-medium">
+								{group.waitlistedCount} waitlisted
+							</span>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Volunteer rows -->
+				{#each group.items as item (item.key)}
+					<div
+						class="border-surface-300-700/10 hover:bg-surface-50-950/5 border-b transition-colors last:border-0"
+						transition:slide
+					>
+						<div
+							class="grid cursor-pointer grid-cols-1 gap-x-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto_auto]"
+							role="button"
+							tabindex="0"
+							onclick={() => toggleRow(item.key)}
+							onkeydown={(e) => e.key === 'Enter' && toggleRow(item.key)}
+						>
+							<!-- Name + meta -->
+							<div class="flex min-w-0 items-start gap-2">
+								<!-- Avatar circle -->
+								<div
+									class={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${orbClass(item.assignment.status)}`}
+								>
+									{(item.volunteer.name || '?')[0].toUpperCase()}
+								</div>
+								<div class="min-w-0 flex-1">
+									<div class="flex flex-wrap items-center gap-1.5">
+										<span class="text-surface-950-50 font-semibold">{item.volunteer.name}</span>
+										{#if item.hasMultipleShifts}
+											<span class="chip preset-outlined-secondary-500 px-1.5 py-0.5 text-[10px]">
+												Multi-shift
+											</span>
+										{/if}
+										{#if item.confirmation}
+											<span
+												class="text-success-400 flex items-center gap-1 text-[10px]"
+												title={item.confirmation.exact
+													? `Confirmed ${item.confirmation.exact}`
+													: 'Confirmed'}
+											>
+												<IconCheckCircle class="h-3 w-3" />
+												Confirmed
+											</span>
+										{/if}
+									</div>
+									<!-- Shift info on mobile -->
+									<div
+										class="text-surface-600-400 flex flex-wrap items-center gap-2 text-xs md:hidden"
+									>
+										<span class="text-surface-500">{item.shiftDetails.optionLabel || ''}</span>
+									</div>
+								</div>
+							</div>
+
+							<!-- Status badge (desktop, pushed to right) -->
+							<div class="hidden items-center md:flex">
+								<span
+									class={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${statusBadgeClass(item.assignment.status)}`}
+								>
+									{statusLabel(item.assignment.status)}
+								</span>
+							</div>
+
+							<!-- Signup time (desktop) -->
+							<div class="text-surface-500 hidden items-center text-xs md:flex">
+								{#if item.signup?.relative && item.signup.relative !== '—'}
+									{item.signup.relative}
+								{:else}
+									—
+								{/if}
+							</div>
+
+							<!-- Actions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div
+								class="mt-2 flex items-center gap-1.5 md:mt-0"
+								onclick={(e) => e.stopPropagation()}
+							>
+								<!-- Mobile: status badge inline -->
+								<span
+									class={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize md:hidden ${statusBadgeClass(item.assignment.status)}`}
+								>
+									{statusLabel(item.assignment.status)}
+								</span>
+
+								{#if item.assignment.id}
+									<div class="flex items-center gap-1">
+										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
+											<button
+												type="button"
+												class="chip preset-tonal-success px-2 py-1 text-xs"
+												onclick={() => onApprove(item.assignment.id)}
+											>
+												Approve
+											</button>
+										{/if}
+										{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled' && item.assignment.status !== 'checked_in' && item.assignment.status !== 'no_show'}
+											<button
+												type="button"
+												class="chip preset-tonal-surface px-2 py-1 text-xs"
+												onclick={() => onWaitlist(item.assignment.id)}
+											>
+												Waitlist
+											</button>
+										{/if}
+										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
+											<button
+												type="button"
+												class="chip preset-tonal-error px-2 py-1 text-xs"
+												onclick={() => onDecline(item.assignment.id)}
+											>
+												Decline
+											</button>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+						<!-- Expanded Details -->
+						{#if expandedRows.has(item.key)}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div
+								class="bg-surface-50-950/10 cursor-auto px-4 pt-1 pb-3 text-xs"
+								transition:slide
+								onclick={(e) => e.stopPropagation()}
+							>
+								<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+									<div class="flex flex-col gap-0.5">
+										<span class="text-surface-500 font-medium tracking-wide uppercase">Email</span>
+										<a
+											href="mailto:{item.volunteer.email}"
+											class="text-surface-100 hover:text-primary-400 truncate transition-colors"
+											>{item.volunteer.email || '—'}</a
+										>
+									</div>
+									<div class="flex flex-col gap-0.5">
+										<span class="text-surface-500 font-medium tracking-wide uppercase">Phone</span>
+										{#if item.volunteer.phone}
+											<a
+												href="tel:{item.volunteer.phone}"
+												class="text-surface-100 hover:text-primary-400 transition-colors"
+												>{item.volunteer.phone}</a
+											>
+										{:else}
+											<span class="text-surface-400">—</span>
+										{/if}
+									</div>
+									{#if item.volunteer.emergencyContactName || item.volunteer.emergencyContactPhone}
+										<div class="flex flex-col gap-0.5 sm:col-span-2 lg:col-span-2">
+											<span class="text-surface-500 font-medium tracking-wide uppercase"
+												>Emergency Contact</span
+											>
+											<span class="text-surface-100"
+												>{item.volunteer.emergencyContactName || '—'}</span
+											>
+											{#if item.volunteer.emergencyContactPhone}
+												<a
+													href="tel:{item.volunteer.emergencyContactPhone}"
+													class="text-surface-400 hover:text-primary-400 transition-colors"
+													>{item.volunteer.emergencyContactPhone}</a
+												>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			{/each}
+		{/if}
+	</div>
 </section>
+
+<!-- Close dropdowns on outside click -->
+<svelte:window onclick={closeMenus} />
