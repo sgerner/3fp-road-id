@@ -130,8 +130,12 @@
 		});
 		addedProductId = product.id;
 		cartBounce = true;
-		setTimeout(() => { addedProductId = null; }, 1800);
-		setTimeout(() => { cartBounce = false; }, 500);
+		setTimeout(() => {
+			addedProductId = null;
+		}, 1800);
+		setTimeout(() => {
+			cartBounce = false;
+		}, 500);
 	}
 
 	function removeCartLine(variantId) {
@@ -167,21 +171,24 @@
 
 <svelte:head>
 	<title>Merch Store • 3 Feet Please</title>
-	<meta name="description" content="Rep the movement. Every piece of 3FP gear is a rolling billboard for safer streets. Shop apparel and accessories that fund real advocacy." />
+	<meta
+		name="description"
+		content="Rep the movement. Every piece of 3FP gear is a rolling billboard for safer streets. Shop apparel and accessories that fund real advocacy."
+	/>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-7xl space-y-6 pb-24 lg:pb-12">
-
 	<!-- ═══ HERO ══════════════════════════════════════════════════ -->
 	<section class="hero-section relative overflow-hidden rounded-3xl">
 		<div class="app-orb app-orb-1" aria-hidden="true"></div>
 		<div class="app-orb app-orb-2" aria-hidden="true"></div>
 		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 
-		<div class="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:p-12 lg:gap-12">
-
+		<div
+			class="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:gap-12 lg:p-12"
+		>
 			<!-- Left: copy -->
-			<div class="flex flex-col gap-6 justify-center">
+			<div class="flex flex-col justify-center gap-6">
 				<!-- Impact badge -->
 				<div class="flex flex-wrap items-center gap-2">
 					<span class="impact-badge">
@@ -191,18 +198,25 @@
 				</div>
 
 				<div class="space-y-4">
-					<h1 class="merch-headline text-4xl font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-						Wear the<br />
+					<h1
+						class="merch-headline text-4xl font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl"
+					>
+						Wear the
 						<span class="merch-headline-accent">mission.</span>
 					</h1>
-					<p class="hero-subhead max-w-lg text-base sm:text-lg leading-relaxed">
+					<p class="hero-subhead max-w-lg text-base leading-relaxed sm:text-lg">
 						Every piece of 3FP gear is a rolling billboard for safer streets.
-						<strong class="text-primary-300 font-semibold">Look sharp. Ride loud. Fund the fight.</strong>
+						<strong class="text-primary-300 font-semibold"
+							>Look sharp. Ride loud. Fund the fight.</strong
+						>
 					</p>
 				</div>
 
 				<div class="flex flex-wrap gap-3">
-					<a href="#merch-catalog" class="btn preset-filled-primary-500 gap-2 font-semibold shadow-lg shadow-primary-500/20">
+					<a
+						href="#merch-catalog"
+						class="btn preset-filled-primary-500 shadow-primary-500/20 gap-2 font-semibold shadow-lg"
+					>
 						Shop the Drop
 						<IconArrowRight class="h-4 w-4" />
 					</a>
@@ -216,15 +230,15 @@
 				<!-- Trust stat row -->
 				<div class="flex flex-wrap gap-4 pt-2">
 					<div class="stat-pill">
-						<IconHeart class="h-3.5 w-3.5 text-tertiary-400" />
+						<IconHeart class="text-tertiary-400 h-3.5 w-3.5" />
 						Community-backed
 					</div>
 					<div class="stat-pill">
-						<IconShieldCheck class="h-3.5 w-3.5 text-success-500" />
+						<IconShieldCheck class="text-success-500 h-3.5 w-3.5" />
 						Secure checkout
 					</div>
 					<div class="stat-pill">
-						<IconSparkles class="h-3.5 w-3.5 text-warning-400" />
+						<IconSparkles class="text-warning-400 h-3.5 w-3.5" />
 						Real local impact
 					</div>
 				</div>
@@ -236,7 +250,7 @@
 					{@const featured = data.products[0]}
 					<div class="featured-card w-full max-w-sm">
 						<div class="featured-card-label">
-							<IconSparkles class="h-3.5 w-3.5 text-warning-400" />
+							<IconSparkles class="text-warning-400 h-3.5 w-3.5" />
 							Featured Drop
 						</div>
 
@@ -261,12 +275,15 @@
 
 						<div class="mt-4 flex items-end justify-between gap-3">
 							<div>
-								<h3 class="text-lg font-bold leading-tight">{featured.name}</h3>
-								<p class="mt-0.5 text-2xl font-extrabold text-primary-400">
+								<h3 class="text-lg leading-tight font-bold">{featured.name}</h3>
+								<p class="text-primary-400 mt-0.5 text-2xl font-extrabold">
 									{featured.variants?.[0] ? formatCurrency(featured.variants[0].price_cents) : ''}
 								</p>
 							</div>
-							<a href="#merch-catalog" class="btn btn-sm preset-filled-primary-500 gap-1.5 shrink-0">
+							<a
+								href="#merch-catalog"
+								class="btn btn-sm preset-filled-primary-500 shrink-0 gap-1.5"
+							>
 								Shop This Drop
 								<IconArrowRight class="h-3.5 w-3.5" />
 							</a>
@@ -279,11 +296,10 @@
 
 	<!-- ═══ CATALOG + SIDEBAR ════════════════════════════════════ -->
 	<div id="merch-catalog" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-
 		<!-- Product grid -->
 		<div class="space-y-4">
 			{#if data.loadError}
-				<section class="rounded-2xl border border-error-500/30 bg-error-500/10 p-4 text-sm">
+				<section class="border-error-500/30 bg-error-500/10 rounded-2xl border p-4 text-sm">
 					{data.loadError}
 				</section>
 			{:else if !(data.products?.length > 0)}
@@ -296,14 +312,16 @@
 						Check back soon to grab new gear and support safer streets in style.
 					</p>
 					{#if data.isAdmin}
-						<a href="/merch/manage" class="btn preset-filled-primary-500 mt-5">Open Merch Manager</a>
+						<a href="/merch/manage" class="btn preset-filled-primary-500 mt-5">Open Merch Manager</a
+						>
 					{/if}
 				</section>
 			{:else}
 				<div class="grid gap-5 sm:grid-cols-2">
 					{#each data.products as product (product.id)}
-						<article class="merch-card group relative overflow-hidden rounded-2xl p-4 flex flex-col gap-4">
-
+						<article
+							class="merch-card group relative flex flex-col gap-4 overflow-hidden rounded-2xl p-4"
+						>
 							<!-- Image carousel -->
 							<div class="cinema-wrap">
 								{#if productImages(product).length > 0}
@@ -343,27 +361,33 @@
 							</div>
 
 							<!-- Info -->
-							<div class="flex-1 min-w-0">
+							<div class="min-w-0 flex-1">
 								<div class="flex items-start justify-between gap-2">
-									<h2 class="text-lg font-bold leading-snug">{product.name}</h2>
+									<h2 class="text-lg leading-snug font-bold">{product.name}</h2>
 									<span class="product-price shrink-0">
 										{formatCurrency(selectedVariant(product)?.price_cents || 0)}
 									</span>
 								</div>
 								{#if product.description}
-									<p class="mt-1 text-sm leading-relaxed opacity-65 line-clamp-2">{product.description}</p>
+									<p class="mt-1 line-clamp-2 text-sm leading-relaxed opacity-65">
+										{product.description}
+									</p>
 								{/if}
 							</div>
 
 							<!-- Variant selector: pill buttons -->
 							{#if (product.variants?.length ?? 0) > 1}
 								<div>
-									<p class="mb-1.5 text-xs font-semibold uppercase tracking-wider opacity-60">Size / Variation</p>
+									<p class="mb-1.5 text-xs font-semibold tracking-wider uppercase opacity-60">
+										Size / Variation
+									</p>
 									<div class="variant-pill-row">
 										{#each product.variants as variant (variant.id)}
 											<button
 												type="button"
-												class="variant-pill {(selectedVariant(product)?.id === variant.id) ? 'selected' : ''}"
+												class="variant-pill {selectedVariant(product)?.id === variant.id
+													? 'selected'
+													: ''}"
 												onclick={() => {
 													selectedVariantIdByProduct = {
 														...selectedVariantIdByProduct,
@@ -379,7 +403,7 @@
 							{/if}
 
 							<!-- Qty + CTA -->
-							<div class="flex items-center gap-3 mt-auto">
+							<div class="mt-auto flex items-center gap-3">
 								<!-- Stepper -->
 								<div class="qty-stepper">
 									<button
@@ -423,21 +447,21 @@
 		</div>
 
 		<!-- ═══ SIDEBAR (desktop) ════════════════════════════════ -->
-		<aside class="hidden lg:block space-y-4">
+		<aside class="hidden space-y-4 lg:block">
 			<section class="cart-panel sticky top-20 rounded-2xl p-5">
-				<div class="flex items-center justify-between mb-4">
+				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<div class="cart-icon-wrap {cartBounce ? 'bounce' : ''}">
 							<IconShoppingBag class="h-4 w-4" />
 						</div>
-						<h2 class="text-sm font-bold uppercase tracking-wider">Cart</h2>
+						<h2 class="text-sm font-bold tracking-wider uppercase">Cart</h2>
 					</div>
 					<span class="cart-count-badge">{cartLineCount}</span>
 				</div>
 
 				{#if ($merchCart ?? []).length === 0}
 					<div class="py-6 text-center">
-						<IconShoppingBag class="h-8 w-8 mx-auto mb-2 opacity-20" />
+						<IconShoppingBag class="mx-auto mb-2 h-8 w-8 opacity-20" />
 						<p class="text-sm opacity-60">Your cart is empty.</p>
 						<p class="mt-1 text-xs opacity-40">Browse the drops above ↑</p>
 					</div>
@@ -450,13 +474,13 @@
 										<img
 											src={line.productImageUrl}
 											alt={line.productName}
-											class="h-11 w-11 rounded-lg object-contain bg-surface-950/60 shrink-0"
+											class="bg-surface-950/60 h-11 w-11 shrink-0 rounded-lg object-contain"
 										/>
 									{/if}
 									<div class="min-w-0 flex-1">
-										<p class="truncate text-sm font-semibold leading-tight">{line.productName}</p>
+										<p class="truncate text-sm leading-tight font-semibold">{line.productName}</p>
 										<p class="truncate text-xs opacity-60">{line.variantName}</p>
-										<p class="mt-0.5 text-xs font-medium text-primary-400">
+										<p class="text-primary-400 mt-0.5 text-xs font-medium">
 											{line.quantity} × {formatCurrency(line.priceCents)}
 										</p>
 									</div>
@@ -473,18 +497,25 @@
 						{/each}
 					</ul>
 
-					<div class="mt-4 border-t border-white/10 pt-4 space-y-3">
+					<div class="mt-4 space-y-3 border-t border-white/10 pt-4">
 						<div class="flex items-center justify-between text-sm">
 							<span class="opacity-65">Subtotal</span>
-							<strong class="text-base font-bold text-primary-300">{formatCurrency(cartTotalCents)}</strong>
+							<strong class="text-primary-300 text-base font-bold"
+								>{formatCurrency(cartTotalCents)}</strong
+							>
 						</div>
 						{#if data.canCheckout}
-							<a href="/merch/checkout" class="btn preset-filled-primary-500 w-full gap-2 font-semibold">
+							<a
+								href="/merch/checkout"
+								class="btn preset-filled-primary-500 w-full gap-2 font-semibold"
+							>
 								Proceed to Checkout
 								<IconArrowRight class="h-4 w-4" />
 							</a>
 						{:else}
-							<div class="rounded-xl border border-warning-500/30 bg-warning-500/10 px-3 py-2.5 text-xs leading-relaxed opacity-80">
+							<div
+								class="border-warning-500/30 bg-warning-500/10 rounded-xl border px-3 py-2.5 text-xs leading-relaxed opacity-80"
+							>
 								Checkout will be available once Stripe is connected.
 							</div>
 						{/if}
@@ -493,15 +524,16 @@
 			</section>
 
 			<!-- Mission impact card -->
-			<section class="impact-card rounded-2xl p-5 space-y-4">
+			<section class="impact-card space-y-4 rounded-2xl p-5">
 				<div class="flex items-start gap-3">
 					<div class="impact-icon-wrap">
 						<IconBike class="h-4 w-4" />
 					</div>
 					<div>
-						<p class="font-semibold text-sm">Wear the Mission</p>
+						<p class="text-sm font-semibold">Wear the Mission</p>
 						<p class="mt-1 text-xs leading-relaxed opacity-70">
-							This gear shows up loud for safer streets and a stronger bike culture — everywhere you ride.
+							This gear shows up loud for safer streets and a stronger bike culture — everywhere you
+							ride.
 						</p>
 					</div>
 				</div>
@@ -510,14 +542,14 @@
 						<IconShieldCheck class="h-4 w-4" />
 					</div>
 					<div>
-						<p class="font-semibold text-sm">Feel Good Checkout</p>
+						<p class="text-sm font-semibold">Feel Good Checkout</p>
 						<p class="mt-1 text-xs leading-relaxed opacity-70">
 							Every purchase directly backs real, local advocacy. No middlemen. No fluff.
 						</p>
 					</div>
 				</div>
 				{#if data.isAdmin}
-					<a href="/merch/manage" class="btn preset-outlined-primary-500 w-full mt-1 text-sm">
+					<a href="/merch/manage" class="btn preset-outlined-primary-500 mt-1 w-full text-sm">
 						Manage Merch Store
 					</a>
 				{/if}
@@ -529,11 +561,7 @@
 <!-- ═══ MOBILE STICKY CART BAR ══════════════════════════════════ -->
 <div class="mobile-cart-bar lg:hidden" class:open={mobileCartOpen}>
 	{#if !mobileCartOpen}
-		<button
-			type="button"
-			class="mobile-cart-trigger"
-			onclick={() => mobileCartOpen = true}
-		>
+		<button type="button" class="mobile-cart-trigger" onclick={() => (mobileCartOpen = true)}>
 			<div class="flex items-center gap-3">
 				<div class="relative">
 					<IconShoppingBag class="h-5 w-5" />
@@ -541,8 +569,10 @@
 						<span class="mobile-cart-badge">{cartLineCount}</span>
 					{/if}
 				</div>
-				<span class="font-semibold text-sm">
-					{cartLineCount === 0 ? 'Your cart is empty' : `${cartLineCount} item${cartLineCount > 1 ? 's' : ''} · ${formatCurrency(cartTotalCents)}`}
+				<span class="text-sm font-semibold">
+					{cartLineCount === 0
+						? 'Your cart is empty'
+						: `${cartLineCount} item${cartLineCount > 1 ? 's' : ''} · ${formatCurrency(cartTotalCents)}`}
 				</span>
 			</div>
 			{#if cartLineCount > 0}
@@ -562,24 +592,24 @@
 		</button>
 	{:else}
 		<div class="mobile-cart-sheet">
-			<div class="flex items-center justify-between p-4 border-b border-white/10">
+			<div class="flex items-center justify-between border-b border-white/10 p-4">
 				<div class="flex items-center gap-2">
 					<IconShoppingBag class="h-4 w-4" />
-					<h3 class="font-bold text-sm uppercase tracking-wide">Cart — {cartLineCount} items</h3>
+					<h3 class="text-sm font-bold tracking-wide uppercase">Cart — {cartLineCount} items</h3>
 				</div>
 				<button
 					type="button"
 					class="btn btn-sm preset-tonal-surface"
-					onclick={() => mobileCartOpen = false}
+					onclick={() => (mobileCartOpen = false)}
 					aria-label="Close cart"
 				>
 					<IconX class="h-4 w-4" />
 				</button>
 			</div>
 
-			<div class="overflow-y-auto max-h-72 p-4 space-y-2">
+			<div class="max-h-72 space-y-2 overflow-y-auto p-4">
 				{#if ($merchCart ?? []).length === 0}
-					<p class="text-sm opacity-60 text-center py-4">Your cart is empty.</p>
+					<p class="py-4 text-center text-sm opacity-60">Your cart is empty.</p>
 				{:else}
 					{#each $merchCart as line (line.variantId)}
 						<div class="cart-line rounded-xl p-3">
@@ -588,13 +618,15 @@
 									<img
 										src={line.productImageUrl}
 										alt={line.productName}
-										class="h-10 w-10 rounded-lg object-contain bg-surface-950/60 shrink-0"
+										class="bg-surface-950/60 h-10 w-10 shrink-0 rounded-lg object-contain"
 									/>
 								{/if}
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-sm font-semibold">{line.productName}</p>
 									<p class="text-xs opacity-60">{line.variantName}</p>
-									<p class="text-xs font-medium text-primary-400">{line.quantity} × {formatCurrency(line.priceCents)}</p>
+									<p class="text-primary-400 text-xs font-medium">
+										{line.quantity} × {formatCurrency(line.priceCents)}
+									</p>
 								</div>
 								<button
 									type="button"
@@ -611,18 +643,23 @@
 			</div>
 
 			{#if ($merchCart ?? []).length > 0}
-				<div class="p-4 border-t border-white/10 space-y-3">
+				<div class="space-y-3 border-t border-white/10 p-4">
 					<div class="flex justify-between text-sm">
 						<span class="opacity-65">Subtotal</span>
 						<strong class="text-primary-300">{formatCurrency(cartTotalCents)}</strong>
 					</div>
 					{#if data.canCheckout}
-						<a href="/merch/checkout" class="btn preset-filled-primary-500 w-full gap-2 font-semibold">
+						<a
+							href="/merch/checkout"
+							class="btn preset-filled-primary-500 w-full gap-2 font-semibold"
+						>
 							Proceed to Checkout
 							<IconArrowRight class="h-4 w-4" />
 						</a>
 					{:else}
-						<div class="rounded-xl border border-warning-500/30 bg-warning-500/10 px-3 py-2.5 text-xs">
+						<div
+							class="border-warning-500/30 bg-warning-500/10 rounded-xl border px-3 py-2.5 text-xs"
+						>
 							Checkout will be available once Stripe is connected.
 						</div>
 					{/if}
@@ -653,22 +690,40 @@
 		>
 			<div class="lightbox-header">
 				<div>
-					<p class="text-xs uppercase tracking-[0.2em] opacity-50">Merch Gallery</p>
+					<p class="text-xs tracking-[0.2em] uppercase opacity-50">Merch Gallery</p>
 					<h3 class="text-base font-bold">{lightboxProductName}</h3>
 				</div>
-				<button type="button" class="btn btn-sm preset-tonal-surface" onclick={closeLightbox} aria-label="Close gallery">
+				<button
+					type="button"
+					class="btn btn-sm preset-tonal-surface"
+					onclick={closeLightbox}
+					aria-label="Close gallery"
+				>
 					<IconX class="h-4 w-4" />
 				</button>
 			</div>
 			<div class="lightbox-stage">
 				{#if lightboxImages.length > 0}
-					<img src={lightboxImages[lightboxIndex]} alt={`${lightboxProductName} image ${lightboxIndex + 1}`} />
+					<img
+						src={lightboxImages[lightboxIndex]}
+						alt={`${lightboxProductName} image ${lightboxIndex + 1}`}
+					/>
 				{/if}
 				{#if lightboxImages.length > 1}
-					<button type="button" class="lightbox-nav lightbox-nav-left" onclick={prevLightbox} aria-label="Previous image">
+					<button
+						type="button"
+						class="lightbox-nav lightbox-nav-left"
+						onclick={prevLightbox}
+						aria-label="Previous image"
+					>
 						<IconChevronLeft class="h-5 w-5" />
 					</button>
-					<button type="button" class="lightbox-nav lightbox-nav-right" onclick={nextLightbox} aria-label="Next image">
+					<button
+						type="button"
+						class="lightbox-nav lightbox-nav-right"
+						onclick={nextLightbox}
+						aria-label="Next image"
+					>
 						<IconChevronRight class="h-5 w-5" />
 					</button>
 				{/if}
@@ -698,7 +753,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 		min-height: 340px;
 	}
-						/* Impact badge */
+	/* Impact badge */
 	.impact-badge {
 		display: inline-flex;
 		align-items: center;
@@ -735,7 +790,12 @@
 		line-height: 1.05;
 	}
 	.merch-headline-accent {
-		background: linear-gradient(120deg, var(--color-primary-300), var(--color-secondary-300), var(--color-tertiary-300));
+		background: linear-gradient(
+			120deg,
+			var(--color-primary-300),
+			var(--color-secondary-300),
+			var(--color-tertiary-300)
+		);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -754,7 +814,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-300) 20%, transparent);
 		border-radius: 1.25rem;
 		padding: 1.25rem;
-		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 	}
 	.featured-card-label {
 		display: inline-flex;
@@ -787,7 +847,9 @@
 			color-mix(in oklab, var(--color-surface-900) 90%, var(--color-secondary-500) 10%)
 		);
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
-		transition: transform 200ms ease, box-shadow 200ms ease;
+		transition:
+			transform 200ms ease,
+			box-shadow 200ms ease;
 	}
 	.merch-card:hover {
 		transform: translateY(-2px);
@@ -811,7 +873,9 @@
 		/* Support multi-line wrap only when pills fit — prefer single row */
 		flex-wrap: wrap;
 	}
-	.variant-pill-row::-webkit-scrollbar { display: none; }
+	.variant-pill-row::-webkit-scrollbar {
+		display: none;
+	}
 	.variant-pill {
 		padding: 0.28rem 0.7rem;
 		border-radius: 999px;
@@ -874,7 +938,10 @@
 		font-size: 0.85rem;
 		font-weight: 700;
 		cursor: pointer;
-		transition: background 200ms ease, color 200ms ease, transform 100ms ease;
+		transition:
+			background 200ms ease,
+			color 200ms ease,
+			transform 100ms ease;
 		background: color-mix(in oklab, var(--color-primary-500) 90%, transparent);
 		color: var(--color-primary-contrast-500);
 		border: none;
@@ -905,7 +972,9 @@
 		scroll-snap-type: x mandatory;
 		scrollbar-width: none;
 	}
-	.cinema-rail::-webkit-scrollbar { display: none; }
+	.cinema-rail::-webkit-scrollbar {
+		display: none;
+	}
 	.cinema-slide {
 		position: relative;
 		aspect-ratio: 1 / 1;
@@ -977,10 +1046,18 @@
 		animation: cart-pop 0.35s ease;
 	}
 	@keyframes cart-pop {
-		0%   { transform: scale(1); }
-		40%  { transform: scale(1.3); }
-		70%  { transform: scale(0.9); }
-		100% { transform: scale(1); }
+		0% {
+			transform: scale(1);
+		}
+		40% {
+			transform: scale(1.3);
+		}
+		70% {
+			transform: scale(0.9);
+		}
+		100% {
+			transform: scale(1);
+		}
 	}
 	.cart-count-badge {
 		display: inline-flex;
@@ -1006,7 +1083,9 @@
 		height: 1.4rem;
 		border-radius: 0.3rem;
 		opacity: 0.45;
-		transition: opacity 120ms ease, background 120ms ease;
+		transition:
+			opacity 120ms ease,
+			background 120ms ease;
 		cursor: pointer;
 	}
 	.remove-btn:hover {
@@ -1102,7 +1181,7 @@
 			color-mix(in oklab, var(--color-surface-900) 92%, var(--color-secondary-500) 8%)
 		);
 		border: 1px solid color-mix(in oklab, var(--color-surface-300) 20%, transparent);
-		box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+		box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 	}
 	.lightbox-header {
 		display: flex;
@@ -1139,8 +1218,12 @@
 	.lightbox-nav:hover {
 		background: color-mix(in oklab, var(--color-primary-500) 20%, var(--color-surface-950) 80%);
 	}
-	.lightbox-nav-left { left: 0.75rem; }
-	.lightbox-nav-right { right: 0.75rem; }
+	.lightbox-nav-left {
+		left: 0.75rem;
+	}
+	.lightbox-nav-right {
+		right: 0.75rem;
+	}
 	.lightbox-thumbs {
 		display: grid;
 		grid-auto-flow: column;
@@ -1157,9 +1240,13 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-300) 18%, transparent);
 		opacity: 0.6;
 		cursor: pointer;
-		transition: opacity 120ms ease, border-color 120ms ease;
+		transition:
+			opacity 120ms ease,
+			border-color 120ms ease;
 	}
-	.lightbox-thumb:hover { opacity: 0.9; }
+	.lightbox-thumb:hover {
+		opacity: 0.9;
+	}
 	.lightbox-thumb.active {
 		opacity: 1;
 		border-color: color-mix(in oklab, var(--color-primary-500) 70%, transparent);

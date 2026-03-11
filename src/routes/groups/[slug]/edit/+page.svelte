@@ -565,6 +565,10 @@
 	let saveTimer;
 	let pending = {};
 	let saving = $state(false);
+	const isAdminUser = $derived(Boolean(pageData.current_profile?.admin));
+	let deepEnrichLoading = $state(false);
+	let deepEnrichError = $state('');
+	let deepEnrichSuccess = $state('');
 
 	function notifySaved(title = 'Changes saved') {
 		toaster.success({
@@ -648,7 +652,7 @@
 		});
 	}
 
-	function onSocialsChange() {
+	function collectSocialLinksFromInputs() {
 		const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
 		const buildUrl = (v, p) =>
 			!v ? null : /^https?:\/\//i.test(v) ? v : `${p}${v.replace(/^@/, '')}`;
@@ -703,7 +707,11 @@
 				return `https://www.linkedin.com/company/${v}`;
 			})()
 		};
-		const cleaned = Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
+		return Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
+	}
+
+	function onSocialsChange() {
+		const cleaned = collectSocialLinksFromInputs();
 		socialsLocal = { ...cleaned };
 		queueSave({ fields: { social_links: Object.keys(cleaned).length ? cleaned : null } });
 	}
@@ -747,6 +755,244 @@
 			audienceFocuses: selectedAudience,
 			howToJoin: formData.get('how_to_join_instructions')?.toString().trim() || ''
 		};
+	}
+
+	function selectedCategoryNames(inputName, catalog = []) {
+		const checked = Array.from(
+			formEl?.querySelectorAll?.(`input[name="${inputName}"]:checked`) ?? []
+		)
+			.map((input) => Number(input.value))
+			.filter((value) => Number.isFinite(value));
+		const out = [];
+		for (const id of checked) {
+			const name = catalog.find((row) => Number(row.id) === Number(id))?.name;
+			if (name && !out.includes(name)) out.push(name);
+		}
+		return out;
+	}
+
+	function buildExistingProfileForDeepEnrich() {
+		const formData = new FormData(formEl);
+		const getText = (key, fallback = '') => formData.get(key)?.toString().trim() || fallback;
+		const getNumber = (key) => {
+			const raw = formData.get(key)?.toString().trim();
+			if (!raw) return null;
+			const n = Number(raw);
+			return Number.isFinite(n) ? n : null;
+		};
+		const socialLinks = collectSocialLinksFromInputs();
+		const fields = {
+			name: getText('name', pageData.group?.name || ''),
+			tagline: getText('tagline', pageData.group?.tagline || ''),
+			description: getText('description', pageData.group?.description || ''),
+			city: getText('city', pageData.group?.city || ''),
+			state_region: getText('state_region', pageData.group?.state_region || ''),
+			country: getText('country', pageData.group?.country || 'US').toUpperCase(),
+			website_url: getText('website_url', pageData.group?.website_url || ''),
+			public_contact_email: getText(
+				'public_contact_email',
+				pageData.group?.public_contact_email || ''
+			),
+			public_phone_number: getText('public_phone_number', pageData.group?.public_phone_number || ''),
+			preferred_contact_method_instructions: getText(
+				'preferred_contact_method_instructions',
+				pageData.group?.preferred_contact_method_instructions || ''
+			),
+			how_to_join_instructions: getText(
+				'how_to_join_instructions',
+				pageData.group?.how_to_join_instructions || ''
+			),
+			membership_info: getText('membership_info', pageData.group?.membership_info || ''),
+			specific_meeting_point_address: getText(
+				'specific_meeting_point_address',
+				pageData.group?.specific_meeting_point_address || ''
+			),
+			latitude: getNumber('latitude'),
+			longitude: getNumber('longitude'),
+			service_area_description: getText(
+				'service_area_description',
+				pageData.group?.service_area_description || ''
+			),
+			skill_levels_description: getText(
+				'skill_levels_description',
+				pageData.group?.skill_levels_description || ''
+			),
+			activity_frequency: getText('activity_frequency', pageData.group?.activity_frequency || ''),
+			typical_activity_day_time: getText(
+				'typical_activity_day_time',
+				pageData.group?.typical_activity_day_time || ''
+			),
+			logo_url: pageData.group?.logo_url || '',
+			cover_photo_url: pageData.group?.cover_photo_url || '',
+			social_links: socialLinks
+		};
+		const categories = {
+			group_types: selectedCategoryNames('group_type_ids', pageData.group_types || []),
+			audience_focuses: selectedCategoryNames('audience_focus_ids', pageData.audience_focuses || []),
+			riding_disciplines: selectedCategoryNames(
+				'riding_discipline_ids',
+				pageData.riding_disciplines || []
+			),
+			skill_levels: selectedCategoryNames('skill_level_ids', pageData.skill_levels || [])
+		};
+		const extras = {
+			zip_code: getText('zip_code', pageData.group?.zip_code || ''),
+			preferred_cta_kind: ctaKind || pageData.group?.preferred_cta_kind || 'auto',
+			preferred_cta_label: ctaLabel || pageData.group?.preferred_cta_label || '',
+			preferred_cta_url: ctaUrl || pageData.group?.preferred_cta_url || ''
+		};
+		return { fields, categories, extras };
+	}
+
+	function applySocialLinksToInputs(links) {
+		const map = {
+			instagram: 'social_instagram',
+			facebook: 'social_facebook',
+			x: 'social_x',
+			threads: 'social_threads',
+			mastodon: 'social_mastodon',
+			youtube: 'social_youtube',
+			tiktok: 'social_tiktok',
+			strava: 'social_strava',
+			bluesky: 'social_bluesky',
+			discord: 'social_discord',
+			linkedin: 'social_linkedin'
+		};
+		for (const [key, inputId] of Object.entries(map)) {
+			const el = document.getElementById(inputId);
+			if (el) el.value = links?.[key] || '';
+		}
+		socialsLocal = { ...(links || {}) };
+	}
+
+	function applyEnrichedProfile(payload) {
+		const fields = payload?.fields || {};
+		const setField = (key, value) => {
+			const el = formEl?.querySelector?.(`[name="${key}"]`);
+			if (!el) return;
+			const normalized = value == null ? '' : String(value);
+			el.value = normalized;
+			if (key === 'city') cityValue = normalized.trim();
+			if (key === 'state_region') stateValue = normalized.trim();
+			if (key === 'country') countryValue = normalized.trim().toUpperCase();
+			if (key === 'specific_meeting_point_address') meetingAddress = normalized.trim();
+			if (key === 'website_url') websiteLocal = normalized;
+			if (key === 'public_contact_email') emailLocal = normalized;
+			if (key === 'public_phone_number') phoneLocal = normalized;
+		};
+
+		const fieldsPatch = {};
+		const scalarKeys = [
+			'name',
+			'tagline',
+			'description',
+			'city',
+			'state_region',
+			'country',
+			'website_url',
+			'public_contact_email',
+			'public_phone_number',
+			'preferred_contact_method_instructions',
+			'how_to_join_instructions',
+			'membership_info',
+			'specific_meeting_point_address',
+			'service_area_description',
+			'skill_levels_description',
+			'activity_frequency',
+			'typical_activity_day_time',
+			'logo_url',
+			'cover_photo_url'
+		];
+		for (const key of scalarKeys) {
+			const value = fields[key];
+			if (typeof value !== 'string' || !value.trim()) continue;
+			setField(key, value.trim());
+			fieldsPatch[key] = value.trim();
+		}
+		if (Number.isFinite(fields.latitude) && Number.isFinite(fields.longitude)) {
+			setField('latitude', Number(fields.latitude).toFixed(6));
+			setField('longitude', Number(fields.longitude).toFixed(6));
+			fieldsPatch.latitude = Number(fields.latitude);
+			fieldsPatch.longitude = Number(fields.longitude);
+		}
+
+		const currentSocial = collectSocialLinksFromInputs();
+		const mergedSocial = { ...currentSocial };
+		if (fields.social_links && typeof fields.social_links === 'object') {
+			for (const [key, value] of Object.entries(fields.social_links)) {
+				if (typeof value === 'string' && value.trim()) mergedSocial[key] = value.trim();
+			}
+		}
+		applySocialLinksToInputs(mergedSocial);
+		fieldsPatch.social_links = Object.keys(mergedSocial).length ? mergedSocial : null;
+		queueSave({ fields: fieldsPatch });
+
+		const categoryPayload = payload?.categories || {};
+		let categoryChanged = false;
+		const applyCategoryNames = (names, inputName, catalog) => {
+			const normalized = new Set(
+				(Array.isArray(names) ? names : [])
+					.map((name) => String(name || '').trim().toLowerCase())
+					.filter(Boolean)
+			);
+			if (!normalized.size) return;
+			for (const row of catalog || []) {
+				const rowName = String(row?.name || '').trim().toLowerCase();
+				if (!rowName || !normalized.has(rowName)) continue;
+				const box = formEl?.querySelector?.(`input[name="${inputName}"][value="${row.id}"]`);
+				if (box && !box.checked) {
+					box.checked = true;
+					categoryChanged = true;
+				}
+			}
+		};
+		applyCategoryNames(categoryPayload.group_types, 'group_type_ids', pageData.group_types || []);
+		applyCategoryNames(
+			categoryPayload.audience_focuses,
+			'audience_focus_ids',
+			pageData.audience_focuses || []
+		);
+		applyCategoryNames(
+			categoryPayload.riding_disciplines,
+			'riding_discipline_ids',
+			pageData.riding_disciplines || []
+		);
+		if (categoryChanged) onMMChange();
+	}
+
+	async function runDeepEnrichFromExistingProfile() {
+		if (!isAdminUser || deepEnrichLoading) return;
+		deepEnrichError = '';
+		deepEnrichSuccess = '';
+		deepEnrichLoading = true;
+		try {
+			if (Object.keys(pending || {}).length) await runSave();
+			const profileContext = buildExistingProfileForDeepEnrich();
+			const res = await fetch('/api/ai/enrich-group', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					instagram: profileContext?.fields?.social_links?.instagram || '',
+					facebook: profileContext?.fields?.social_links?.facebook || '',
+					website: profileContext?.fields?.website_url || '',
+					name: profileContext?.fields?.name || '',
+					existing_profile: profileContext
+				})
+			});
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || 'Deep enrichment request failed.');
+			}
+			const payload = await res.json();
+			applyEnrichedProfile(payload);
+			deepEnrichSuccess = 'AI profile expansion applied. New details are being autosaved.';
+			notifySaved('AI enrichment applied');
+		} catch (error) {
+			deepEnrichError = error?.message || 'Failed to run deep AI enrichment.';
+			notifyError('AI enrichment failed');
+		} finally {
+			deepEnrichLoading = false;
+		}
 	}
 
 	function applyGeneratedGroupCover(result) {
@@ -1146,9 +1392,25 @@
 				{:else}
 					<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
 				{/if}
+				{#if isAdminUser}
+					<button
+						type="button"
+						class="btn btn-sm preset-filled-secondary-500"
+						disabled={deepEnrichLoading}
+						onclick={runDeepEnrichFromExistingProfile}
+					>
+						{deepEnrichLoading ? 'AI Enriching…' : 'Deep Enrich Profile (Admin)'}
+					</button>
+				{/if}
 			</div>
 		</div>
 	</header>
+	{#if isAdminUser && deepEnrichError}
+		<div class="text-error-600-400 mb-3 text-sm">{deepEnrichError}</div>
+	{/if}
+	{#if isAdminUser && deepEnrichSuccess}
+		<div class="text-success-600-400 mb-3 text-sm">{deepEnrichSuccess}</div>
+	{/if}
 
 	<form
 		method="POST"
