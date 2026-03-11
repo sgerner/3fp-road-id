@@ -2,15 +2,12 @@
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import VolunteerEventsExplorer from '$lib/components/volunteer/VolunteerEventsExplorer.svelte';
 	import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
-	import { CTA_ICON_MAP, CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
-	import IconLink from '@lucide/svelte/icons/link';
 
 	const { data } = $props();
 
 	const group = $derived(data?.group ?? null);
 	const contactLinks = $derived(buildContactLinks(group));
 	const primaryCta = $derived(selectPrimaryCta(group, contactLinks));
-	const contactIconByKey = CONTACT_ICON_MAP;
 
 	const events = $derived((data?.events ?? []).filter(Boolean));
 	const hostGroups = $derived((data?.hostGroups ?? []).filter(Boolean));
@@ -46,25 +43,8 @@
 </svelte:head>
 
 {#if group}
-	<div class="mx-auto w-full max-w-4xl space-y-6">
+	<div class="mx-auto mb-6 w-full max-w-7xl space-y-6">
 		<GroupHeroCard {group} canEdit={false} {contactLinks} {primaryCta} />
-	</div>
-{/if}
-
-{#if contactLinks?.length}
-	<div class=" hidden gap-2 md:flex">
-		{#each contactLinks.slice(0, 6) as contact}
-			{@const ContactIcon = contactIconByKey[contact.key] || IconLink}
-			<a
-				href={contact.href}
-				title={contact.key}
-				target={contact.key === 'email' || contact.key === 'phone' ? '_self' : '_blank'}
-				rel={contact.key === 'email' || contact.key === 'phone' ? undefined : 'noopener noreferrer'}
-				class="text-surface-900-100/90 hover:bg-surface-950-50/10 hover:text-surface-950-50 rounded-md p-2"
-			>
-				<ContactIcon class="h-5 w-5" className="h-5 w-5" />
-			</a>
-		{/each}
 	</div>
 {/if}
 
