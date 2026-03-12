@@ -633,7 +633,7 @@
 
 <!-- ── Email queue floating button ──────────────────────────────────────────── -->
 {#if emailQueue.length > 0 || emailQueueError}
-	<div class="fixed bottom-4 left-1/2 z-50" transition:fly={{ y: 16, duration: 200 }}>
+	<div class="fixed right-6 bottom-16 z-50" transition:fly={{ y: 16, duration: 200 }}>
 		<!-- Queue panel (open) -->
 		{#if emailQueueOpen}
 			<div
@@ -1035,7 +1035,10 @@
 							class="grid cursor-pointer grid-cols-1 gap-x-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto_auto]"
 							role="button"
 							tabindex="0"
-							onclick={() => toggleRow(item.key)}
+							onclick={(e) => {
+								e.stopPropagation();
+								toggleRow(item.key);
+							}}
 							onkeydown={(e) => e.key === 'Enter' && toggleRow(item.key)}
 						>
 							<!-- Name + meta -->
