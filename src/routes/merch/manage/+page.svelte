@@ -29,6 +29,7 @@
 	let settingsPrintfulOpen = $state(false);
 	let settingsTaxOpen = $state(false);
 	let settingsFulfillmentOpen = $state(false);
+	let orderStatusFilter = $state('paid');
 
 	const updateMessages = {
 		tax: 'Tax settings saved.',
@@ -92,6 +93,12 @@
 		return cleanText(value).toLowerCase();
 	}
 
+	function toTitleCase(value) {
+		return cleanText(value)
+			.replace(/[_-]+/g, ' ')
+			.replace(/\b\w/g, (char) => char.toUpperCase());
+	}
+
 	function getProductItemType(product) {
 		return (
 			cleanText(product?.metadata?.printful_product?.type) ||
@@ -148,6 +155,30 @@
 
 	const selectedProduct = $derived(
 		(data.products ?? []).find((product) => product.id === productModalId) || null
+	);
+
+	const orderStatusOptions = $derived.by(() => {
+		const knownStatuses = [
+			'pending',
+			'paid',
+			'processing',
+			'fulfilled',
+			'canceled',
+			'refunded',
+			'failed'
+		];
+		const seenStatuses = new Set(
+			(data.orders ?? []).map((order) => normalizeKey(order?.status)).filter(Boolean)
+		);
+		for (const status of knownStatuses) seenStatuses.add(status);
+		return ['all', ...Array.from(seenStatuses)];
+	});
+
+	const filteredOrders = $derived(
+		(data.orders ?? []).filter((order) => {
+			if (orderStatusFilter === 'all') return true;
+			return normalizeKey(order?.status) === orderStatusFilter;
+		})
 	);
 </script>
 
@@ -1490,7 +1521,32 @@
 							</p>
 						{:else}
 							<div class="space-y-3">
-								{#each data.orders as order (order.id)}
+								<div class="flex flex-wrap items-center gap-2">
+									{#each orderStatusOptions as status (status)}
+										<button
+											type="button"
+											class={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+												orderStatusFilter === status
+													? 'border-primary-400/60 bg-primary-500/20 text-white'
+													: 'text-surface-100 border-white/15 bg-black/15 hover:border-white/30 hover:bg-black/25'
+											}`}
+											aria-pressed={orderStatusFilter === status}
+											onclick={() => (orderStatusFilter = status)}
+										>
+											{status === 'all' ? 'All' : toTitleCase(status)}
+										</button>
+									{/each}
+								</div>
+								{#if filteredOrders.length === 0}
+									<p
+										class="rounded-xl border border-white/10 bg-black/12 px-3 py-2 text-sm opacity-80"
+										in:fade={{ duration: 140 }}
+										out:fade={{ duration: 90 }}
+									>
+										No orders with status "{toTitleCase(orderStatusFilter)}".
+									</p>
+								{/if}
+								{#each filteredOrders as order (order.id)}
 									<article
 										class="rounded-xl border border-white/10 bg-black/12 p-3"
 										in:fade={{ duration: 150 }}
@@ -1567,7 +1623,7 @@
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
-						.hero-pill {
+	.hero-pill {
 		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 	}
