@@ -248,12 +248,7 @@
 			<div class="flex items-center justify-center lg:justify-end">
 				{#if data.products?.length > 0}
 					{@const featured = data.products[0]}
-					<div class="featured-card w-full max-w-sm">
-						<div class="featured-card-label">
-							<IconSparkles class="text-warning-400 h-3.5 w-3.5" />
-							Featured Drop
-						</div>
-
+					<div class="featured-card relative w-full max-w-sm">
 						{#if productFeaturedImage(featured)}
 							<button
 								type="button"
@@ -261,6 +256,10 @@
 								onclick={() => openLightbox(featured, 0)}
 								aria-label={`View ${featured.name}`}
 							>
+								<div class="featured-card-label">
+									<IconSparkles class="text-warning-400 h-3.5 w-3.5" />
+									Featured Drop
+								</div>
 								<img
 									src={productFeaturedImage(featured)}
 									alt={featured.name}
@@ -273,7 +272,7 @@
 							</button>
 						{/if}
 
-						<div class="mt-4 flex items-end justify-between gap-3">
+						<div class="flex items-end justify-between gap-3 p-4">
 							<div>
 								<h3 class="text-lg leading-tight font-bold">{featured.name}</h3>
 								<p class="text-primary-400 mt-0.5 text-2xl font-extrabold">
@@ -319,9 +318,7 @@
 			{:else}
 				<div class="grid gap-5 sm:grid-cols-2">
 					{#each data.products as product (product.id)}
-						<article
-							class="merch-card group relative flex flex-col gap-4 overflow-hidden rounded-2xl p-4"
-						>
+						<article class="merch-card group relative flex flex-col overflow-hidden rounded-2xl">
 							<!-- Image carousel -->
 							<div class="cinema-wrap">
 								{#if productImages(product).length > 0}
@@ -360,85 +357,87 @@
 								{/if}
 							</div>
 
-							<!-- Info -->
-							<div class="min-w-0 flex-1">
-								<div class="flex items-start justify-between gap-2">
-									<h2 class="text-lg leading-snug font-bold">{product.name}</h2>
-									<span class="product-price shrink-0">
-										{formatCurrency(selectedVariant(product)?.price_cents || 0)}
-									</span>
-								</div>
-								{#if product.description}
-									<p class="mt-1 line-clamp-2 text-sm leading-relaxed opacity-65">
-										{product.description}
-									</p>
-								{/if}
-							</div>
-
-							<!-- Variant selector: pill buttons -->
-							{#if (product.variants?.length ?? 0) > 1}
-								<div>
-									<p class="mb-1.5 text-xs font-semibold tracking-wider uppercase opacity-60">
-										Size / Variation
-									</p>
-									<div class="variant-pill-row">
-										{#each product.variants as variant (variant.id)}
-											<button
-												type="button"
-												class="variant-pill {selectedVariant(product)?.id === variant.id
-													? 'selected'
-													: ''}"
-												onclick={() => {
-													selectedVariantIdByProduct = {
-														...selectedVariantIdByProduct,
-														[product.id]: variant.id
-													};
-												}}
-											>
-												{trimVariantLabel(variant.name, product.name)}
-											</button>
-										{/each}
+							<div class="flex flex-col gap-4 p-4">
+								<!-- Info -->
+								<div class="min-w-0 flex-1">
+									<div class="flex items-start justify-between gap-2">
+										<h2 class="text-lg leading-snug font-bold">{product.name}</h2>
+										<span class="product-price shrink-0">
+											{formatCurrency(selectedVariant(product)?.price_cents || 0)}
+										</span>
 									</div>
-								</div>
-							{/if}
-
-							<!-- Qty + CTA -->
-							<div class="mt-auto flex items-center gap-3">
-								<!-- Stepper -->
-								<div class="qty-stepper">
-									<button
-										type="button"
-										class="qty-btn"
-										onclick={() => decrementQty(product.id)}
-										aria-label="Decrease quantity"
-									>
-										<IconMinus class="h-3 w-3" />
-									</button>
-									<span class="qty-display">{selectedQuantity(product.id)}</span>
-									<button
-										type="button"
-										class="qty-btn"
-										onclick={() => incrementQty(product.id)}
-										aria-label="Increase quantity"
-									>
-										<IconPlus class="h-3 w-3" />
-									</button>
-								</div>
-
-								<!-- Add to cart -->
-								<button
-									type="button"
-									class="add-btn flex-1 {addedProductId === product.id ? 'added' : ''}"
-									onclick={() => addToCart(product)}
-								>
-									{#if addedProductId === product.id}
-										<IconShieldCheck class="h-4 w-4" />
-										Added!
-									{:else}
-										<IconPlus class="h-4 w-4" />
-										Add to Cart
+									{#if product.description}
+										<p class="mt-1 line-clamp-2 text-sm leading-relaxed opacity-65">
+											{product.description}
+										</p>
 									{/if}
-								</button>
+								</div>
+
+								<!-- Variant selector: pill buttons -->
+								{#if (product.variants?.length ?? 0) > 1}
+									<div>
+										<p class="mb-1.5 text-xs font-semibold tracking-wider uppercase opacity-60">
+											Size / Variation
+										</p>
+										<div class="variant-pill-row">
+											{#each product.variants as variant (variant.id)}
+												<button
+													type="button"
+													class="variant-pill {selectedVariant(product)?.id === variant.id
+														? 'selected'
+														: ''}"
+													onclick={() => {
+														selectedVariantIdByProduct = {
+															...selectedVariantIdByProduct,
+															[product.id]: variant.id
+														};
+													}}
+												>
+													{trimVariantLabel(variant.name, product.name)}
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/if}
+
+								<!-- Qty + CTA -->
+								<div class="mt-auto flex items-center gap-3">
+									<!-- Stepper -->
+									<div class="qty-stepper">
+										<button
+											type="button"
+											class="qty-btn"
+											onclick={() => decrementQty(product.id)}
+											aria-label="Decrease quantity"
+										>
+											<IconMinus class="h-3 w-3" />
+										</button>
+										<span class="qty-display">{selectedQuantity(product.id)}</span>
+										<button
+											type="button"
+											class="qty-btn"
+											onclick={() => incrementQty(product.id)}
+											aria-label="Increase quantity"
+										>
+											<IconPlus class="h-3 w-3" />
+										</button>
+									</div>
+
+									<!-- Add to cart -->
+									<button
+										type="button"
+										class="add-btn flex-1 {addedProductId === product.id ? 'added' : ''}"
+										onclick={() => addToCart(product)}
+									>
+										{#if addedProductId === product.id}
+											<IconShieldCheck class="h-4 w-4" />
+											Added!
+										{:else}
+											<IconPlus class="h-4 w-4" />
+											Add to Cart
+										{/if}
+									</button>
+								</div>
 							</div>
 						</article>
 					{/each}
@@ -813,19 +812,26 @@
 		);
 		border: 1px solid color-mix(in oklab, var(--color-surface-300) 20%, transparent);
 		border-radius: 1.25rem;
-		padding: 1.25rem;
 		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 	}
 	.featured-card-label {
+		position: absolute;
+		top: 0.8rem;
+		left: 0.8rem;
+		z-index: 2;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
+		padding: 0.35rem 0.7rem;
+		border-radius: 999px;
 		font-size: 0.7rem;
 		font-weight: 700;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		opacity: 0.65;
-		margin-bottom: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-950) 78%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-100) 18%, transparent);
+		color: color-mix(in oklab, var(--color-surface-50) 90%, transparent);
+		pointer-events: none;
 	}
 	.featured-card-img-wrap {
 		position: relative;
