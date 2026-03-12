@@ -35,9 +35,7 @@
 </script>
 
 <div class="space-y-4">
-	<div
-		class="divide-surface-500/15 border-surface-500/15 divide-y overflow-hidden rounded-xl border"
-	>
+	<div class="preset-tonal-surface divide-y overflow-hidden rounded-xl">
 		<div class="bg-surface-800/30 flex items-center gap-4 px-4 py-3">
 			<Toggle
 				name="host-register"

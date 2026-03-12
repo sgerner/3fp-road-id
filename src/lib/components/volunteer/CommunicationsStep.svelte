@@ -35,7 +35,14 @@
 	export let onUpdateEmail = () => {};
 	export let onComposeEmail = () => {};
 	export let showImmediateEmailOption = false;
-	export let volunteerCounts = { total: 0, approved: 0, pending: 0, waitlisted: 0, checkedIn: 0, declined: 0 };
+	export let volunteerCounts = {
+		total: 0,
+		approved: 0,
+		pending: 0,
+		waitlisted: 0,
+		checkedIn: 0,
+		declined: 0
+	};
 	export let onSendImmediateEmail = async () => {};
 	export let hostNotificationSettings = { register: true, cancel: true };
 	export let onHostNotificationChange = () => {};
@@ -322,7 +329,7 @@
 				requireConfirmation: email.requireConfirmation,
 				emailId: email.id
 			});
-			const sentCount = result?.sentCount ?? (volunteerCounts.approved + volunteerCounts.checkedIn);
+			const sentCount = result?.sentCount ?? volunteerCounts.approved + volunteerCounts.checkedIn;
 			if (result?.lastSentAt) {
 				onUpdateEmail(email.id, { lastSentAt: result.lastSentAt });
 			}
@@ -510,7 +517,7 @@
 		<h2 class="card preset-tonal-tertiary px-4 py-2 !text-left text-lg font-bold">
 			Host Notifications
 		</h2>
-		<div class="border-surface-500/15 overflow-hidden rounded-xl border">
+		<div class="overflow-hidden">
 			<HostNotificationSettings
 				value={hostNotificationSettings}
 				onChange={onHostNotificationChange}
@@ -741,7 +748,7 @@
 	<!-- ── Immediate Emails ── -->
 	<section class="space-y-4">
 		{#if showImmediateEmailOption}
-			<div class="card border-surface-500/15 bg-surface-800/20 space-y-4 border p-5">
+			<div class="card preset-tonal-surface space-y-4 rounded-xl p-4">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="space-y-1">
 						<div class="flex items-center gap-2">
@@ -769,19 +776,15 @@
 				</div>
 
 				<div class="space-y-2">
-					<span class="text-surface-600-400 block text-[11px] font-semibold tracking-wide uppercase">
+					<span
+						class="text-surface-600-400 block text-[11px] font-semibold tracking-wide uppercase"
+					>
 						Target Statuses
 					</span>
 					<div class="flex flex-wrap gap-2">
-						{#each [
-							{ value: 'approved', label: 'Approved', count: volunteerCounts.approved || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' },
-							{ value: 'checked_in', label: 'Checked In', count: volunteerCounts.checkedIn || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' },
-							{ value: 'pending', label: 'Pending', count: volunteerCounts.pending || 0, activeColor: 'bg-warning-500/15 text-warning-600 border-warning-500/30' },
-							{ value: 'waitlisted', label: 'Waitlisted', count: volunteerCounts.waitlisted || 0, activeColor: 'bg-surface-500/15 text-surface-600 border-surface-500/30' },
-							{ value: 'declined', label: 'Declined', count: volunteerCounts.declined || 0, activeColor: 'bg-error-500/15 text-error-600 border-error-500/30' }
-						] as status (status.value)}
+						{#each [{ value: 'approved', label: 'Approved', count: volunteerCounts.approved || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' }, { value: 'checked_in', label: 'Checked In', count: volunteerCounts.checkedIn || 0, activeColor: 'bg-success-500/15 text-success-600 border-success-500/30' }, { value: 'pending', label: 'Pending', count: volunteerCounts.pending || 0, activeColor: 'bg-warning-500/15 text-warning-600 border-warning-500/30' }, { value: 'waitlisted', label: 'Waitlisted', count: volunteerCounts.waitlisted || 0, activeColor: 'bg-surface-500/15 text-surface-600 border-surface-500/30' }, { value: 'declined', label: 'Declined', count: volunteerCounts.declined || 0, activeColor: 'bg-error-500/15 text-error-600 border-error-500/30' }] as status (status.value)}
 							<label
-								class="flex cursor-pointer select-none items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors
+								class="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors select-none
 								{targetStatuses.includes(status.value)
 									? status.activeColor
 									: 'border-surface-300-700 bg-surface-50-950/60 text-surface-400 hover:text-surface-200 hover:border-surface-500'}"
@@ -1022,10 +1025,7 @@
 				success: ''
 			}}
 			{@const emailSent = !!email.lastSentAt}
-			<div
-				id={`email-card-${email.id}`}
-				class="card border-surface-500/15 bg-surface-800/20 border p-5"
-			>
+			<div id={`email-card-${email.id}`} class="card preset-tonal-surface space-y-4 rounded-xl p-4">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="space-y-1">
 						<h3 class="text-lg font-bold">
