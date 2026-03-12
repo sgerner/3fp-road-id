@@ -12,6 +12,7 @@
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
+	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import {
 		buildContactLinks,
 		selectPrimaryCta,
@@ -556,12 +557,11 @@
 		<!-- About / description -->
 		{#if data.group?.description}
 			<div class="mt-4">
-				<div
-					class={'text-surface-800-200 text-sm leading-relaxed ' +
+				<AutoLinkText
+					text={data.group.description}
+					className={'text-surface-800-200 text-sm leading-relaxed ' +
 						(aboutExpanded ? '' : 'line-clamp-5')}
-				>
-					{data.group.description}
-				</div>
+				/>
 				{#if data.group.description?.length > 220}
 					<button
 						type="button"
@@ -661,7 +661,10 @@
 										{event.title}
 									</a>
 									{#if event.summary}
-										<p class="text-surface-600-400 line-clamp-2 text-sm">{event.summary}</p>
+										<AutoLinkText
+											text={event.summary}
+											className="text-surface-600-400 line-clamp-2 text-sm"
+										/>
 									{/if}
 									<div class="flex flex-wrap items-center gap-3 text-xs">
 										<span class="text-surface-700-300 flex items-center gap-1">
@@ -676,7 +679,7 @@
 										{/if}
 										<span class="text-surface-700-300 flex items-center gap-1">
 											<IconMapPin class="h-3.5 w-3.5" />
-											{volunteerEventLocation(event)}
+											<AutoLinkText text={volunteerEventLocation(event)} />
 										</span>
 									</div>
 								</div>
@@ -722,25 +725,28 @@
 				{#if data.group?.how_to_join_instructions}
 					<div class="detail-item">
 						<div class="detail-label">How to Join</div>
-						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
-							{data.group.how_to_join_instructions}
-						</p>
+						<AutoLinkText
+							text={data.group.how_to_join_instructions}
+							className="text-surface-800-200 text-sm whitespace-pre-wrap"
+						/>
 					</div>
 				{/if}
 				{#if data.group?.preferred_contact_method_instructions}
 					<div class="detail-item">
 						<div class="detail-label">Preferred Contact Method</div>
-						<p class="text-surface-800-200 text-sm">
-							{data.group.preferred_contact_method_instructions}
-						</p>
+						<AutoLinkText
+							text={data.group.preferred_contact_method_instructions}
+							className="text-surface-800-200 text-sm"
+						/>
 					</div>
 				{/if}
 				{#if data.group?.membership_info}
 					<div class="detail-item">
 						<div class="detail-label">Membership Info</div>
-						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
-							{data.group.membership_info}
-						</p>
+						<AutoLinkText
+							text={data.group.membership_info}
+							className="text-surface-800-200 text-sm whitespace-pre-wrap"
+						/>
 					</div>
 				{/if}
 				{#if data.group?.zip_code}
@@ -759,7 +765,10 @@
 								<IconRepeat class="h-3.5 w-3.5" />
 								Activity Frequency
 							</div>
-							<p class="text-surface-800-200 text-sm">{data.group.activity_frequency}</p>
+							<AutoLinkText
+								text={data.group.activity_frequency}
+								className="text-surface-800-200 text-sm"
+							/>
 						</div>
 					{/if}
 					{#if data.group?.typical_activity_day_time}
@@ -768,7 +777,10 @@
 								<IconClock class="h-3.5 w-3.5" />
 								Typical Day / Time
 							</div>
-							<p class="text-surface-800-200 text-sm">{data.group.typical_activity_day_time}</p>
+							<AutoLinkText
+								text={data.group.typical_activity_day_time}
+								className="text-surface-800-200 text-sm"
+							/>
 						</div>
 					{/if}
 					{#if data.group?.specific_meeting_point_address}
@@ -777,9 +789,10 @@
 								<IconMapPin class="h-3.5 w-3.5" />
 								Meeting Point
 							</div>
-							<p class="text-surface-800-200 text-sm">
-								{data.group.specific_meeting_point_address}
-							</p>
+							<AutoLinkText
+								text={data.group.specific_meeting_point_address}
+								className="text-surface-800-200 text-sm"
+							/>
 						</div>
 					{/if}
 				</div>
@@ -792,9 +805,10 @@
 						Service Area
 					</div>
 					{#if data.group?.service_area_description}
-						<p class="text-surface-800-200 text-sm whitespace-pre-wrap">
-							{data.group.service_area_description}
-						</p>
+						<AutoLinkText
+							text={data.group.service_area_description}
+							className="text-surface-800-200 text-sm whitespace-pre-wrap"
+						/>
 					{/if}
 					{#if hasCoords}
 						<div class="map-container mt-3">

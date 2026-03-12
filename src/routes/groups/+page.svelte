@@ -10,6 +10,8 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
+	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -36,6 +38,7 @@
 	let showAdvanced = $state(false);
 	// Map visibility
 	let showMap = $state(true);
+	let showMapLightbox = $state(false);
 
 	let applyTimer;
 	function scheduleApply() {
@@ -233,9 +236,12 @@
 
 	// Leaflet map + clustering
 	let mapEl = $state();
-	let map;
-	let clusterLayer;
-	let L;
+	let mapLightboxEl = $state();
+	let map = $state(null);
+	let mapLightbox = $state(null);
+	let clusterLayer = $state(null);
+	let clusterLayerLightbox = $state(null);
+	let L = $state(null);
 
 	function validCoords(g) {
 		return Number.isFinite(g?.latitude) && Number.isFinite(g?.longitude);
@@ -252,31 +258,35 @@
 			console.error('Failed to load Leaflet or clustering', e);
 			return;
 		}
-		if (!mapEl) return;
-		map = L.map(mapEl);
+		return () => {
+			try {
+				map?.remove();
+				mapLightbox?.remove();
+			} catch {}
+		};
+	});
+
+	function createMap(targetEl) {
+		if (!L || !targetEl) return null;
+		const createdMap = L.map(targetEl);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		clusterLayer = L.markerClusterGroup({
+		}).addTo(createdMap);
+		const createdClusterLayer = L.markerClusterGroup({
 			chunkedLoading: true,
 			chunkInterval: 50,
 			chunkDelay: 16,
 			removeOutsideVisibleBounds: true,
 			showCoverageOnHover: false
 		});
-		map.addLayer(clusterLayer);
-		updateMarkers();
-		return () => {
-			try {
-				map?.remove();
-			} catch {}
-		};
-	});
+		createdMap.addLayer(createdClusterLayer);
+		return { map: createdMap, clusterLayer: createdClusterLayer };
+	}
 
-	function updateMarkers() {
-		if (!map || !clusterLayer) return;
-		clusterLayer.clearLayers();
+	function updateMarkers(targetMap, targetClusterLayer) {
+		if (!targetMap || !targetClusterLayer || !L) return;
+		targetClusterLayer.clearLayers();
 		const pts = [];
 		for (const g of data.mapPoints || []) {
 			if (!validCoords(g)) continue;
@@ -286,20 +296,59 @@
 			m.bindPopup(
 				`<div style="min-width:180px"><strong>${g.name}</strong><br/><small>${g.city ? g.city + ', ' : ''}${g.state_region} · ${g.country}</small><br/><a href="/groups/${g.slug}">View group</a></div>`
 			);
-			clusterLayer.addLayer(m);
+			targetClusterLayer.addLayer(m);
 			pts.push([lat, lng]);
 		}
 		if (pts.length) {
 			const b = L.latLngBounds(pts);
-			map.fitBounds(b.pad(0.1));
+			targetMap.fitBounds(b.pad(0.1));
 		} else {
-			map.setView([37.8, -96], 4);
+			targetMap.setView([37.8, -96], 4);
 		}
 	}
 
 	$effect(() => {
+		if (!L || !showMap || !mapEl || map) return;
+		const created = createMap(mapEl);
+		if (!created) return;
+		map = created.map;
+		clusterLayer = created.clusterLayer;
+		updateMarkers(map, clusterLayer);
+		setTimeout(() => map?.invalidateSize(), 120);
+	});
+
+	$effect(() => {
+		if (showMap) return;
+		try {
+			map?.remove();
+		} catch {}
+		map = undefined;
+		clusterLayer = undefined;
+	});
+
+	$effect(() => {
+		if (!L || !showMapLightbox || !mapLightboxEl || mapLightbox) return;
+		const created = createMap(mapLightboxEl);
+		if (!created) return;
+		mapLightbox = created.map;
+		clusterLayerLightbox = created.clusterLayer;
+		updateMarkers(mapLightbox, clusterLayerLightbox);
+		setTimeout(() => mapLightbox?.invalidateSize(), 80);
+	});
+
+	$effect(() => {
+		if (showMapLightbox) return;
+		try {
+			mapLightbox?.remove();
+		} catch {}
+		mapLightbox = undefined;
+		clusterLayerLightbox = undefined;
+	});
+
+	$effect(() => {
 		void data.mapPoints;
-		updateMarkers();
+		updateMarkers(map, clusterLayer);
+		updateMarkers(mapLightbox, clusterLayerLightbox);
 	});
 
 	// Invalidate map size when map becomes visible
@@ -307,6 +356,38 @@
 		if (showMap && map) {
 			setTimeout(() => map?.invalidateSize(), 180);
 		}
+	});
+
+	$effect(() => {
+		if (showMapLightbox && mapLightbox) {
+			setTimeout(() => mapLightbox?.invalidateSize(), 80);
+		}
+	});
+
+	$effect(() => {
+		if (!showMap && showMapLightbox) {
+			showMapLightbox = false;
+		}
+	});
+
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		if (!showMapLightbox) return;
+		const previousOverflow = document.documentElement.style.overflow;
+		document.documentElement.style.overflow = 'hidden';
+		return () => {
+			document.documentElement.style.overflow = previousOverflow;
+		};
+	});
+
+	onMount(() => {
+		const onKeyDown = (event) => {
+			if (event.key === 'Escape' && showMapLightbox) {
+				showMapLightbox = false;
+			}
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
 	});
 </script>
 
@@ -651,25 +732,60 @@
 					{data.totalGroups ?? 0}
 					{data.totalGroups === 1 ? 'group' : 'groups'} match
 				</p>
-				<button
-					type="button"
-					class="btn btn-sm {showMap
-						? 'preset-filled-primary-500'
-						: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
-					onclick={() => (showMap = !showMap)}
-				>
-					<IconMapPin class="h-3.5 w-3.5" />
-					{showMap ? 'Hide Map' : 'Show Map'}
-				</button>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						class="btn btn-sm {showMap
+							? 'preset-filled-primary-500'
+							: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
+						onclick={() => (showMap = !showMap)}
+					>
+						<IconMapPin class="h-3.5 w-3.5" />
+						{showMap ? 'Hide Map' : 'Show Map'}
+					</button>
+					{#if showMap}
+						<button
+							type="button"
+							class="btn btn-sm preset-outlined-primary-500 flex items-center gap-1.5"
+							onclick={() => (showMapLightbox = true)}
+						>
+							<IconMaximize2 class="h-3.5 w-3.5" />
+							Expand Map
+						</button>
+					{/if}
+				</div>
 			</div>
 		</div>
 
 		<!-- Map -->
 		{#if showMap}
 			<div transition:slide={{ duration: 220 }}>
-				<div class="border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
-					<div bind:this={mapEl} class="h-[380px] w-full"></div>
+				<div class="map-shell border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
+					<div bind:this={mapEl} class="map-canvas"></div>
 				</div>
+			</div>
+		{/if}
+		{#if showMap && showMapLightbox}
+			<button
+				type="button"
+				class="map-lightbox-backdrop"
+				aria-label="Close expanded map"
+				onclick={() => (showMapLightbox = false)}
+			></button>
+			<div
+				class="map-shell map-shell-lightbox border-surface-500/15 overflow-hidden border shadow-lg"
+			>
+				<div class="map-lightbox-toolbar">
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-surface"
+						onclick={() => (showMapLightbox = false)}
+					>
+						<IconMinimize2 class="h-3.5 w-3.5" />
+						Close Expanded Map
+					</button>
+				</div>
+				<div bind:this={mapLightboxEl} class="map-canvas map-canvas-lightbox"></div>
 			</div>
 		{/if}
 
@@ -810,7 +926,7 @@
 						class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
 					>
 						{#if $navigating}
-							<IconLoader2 class="h-4 w-4 animate-spin text-primary-500" />
+							<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
 						{/if}
 						Page {page} of {totalPages}
 					</span>
@@ -834,7 +950,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
-						/* ── Headline accent ── */
+	/* ── Headline accent ── */
 	.groups-headline {
 		color: var(--color-primary-50);
 		text-align: left;
@@ -877,8 +993,47 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 	}
 
+	.map-canvas {
+		height: 380px;
+		width: 100%;
+	}
+
+	.map-lightbox-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 1200;
+		border: none;
+		padding: 0;
+		margin: 0;
+		background: color-mix(in oklab, var(--color-surface-950) 78%, black 22%);
+		backdrop-filter: blur(2px);
+	}
+
+	.map-shell-lightbox {
+		position: fixed;
+		inset: 3vh 2vw;
+		z-index: 1250;
+		border-width: 1px;
+		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		border-radius: 1rem;
+		box-shadow: 0 20px 80px -24px color-mix(in oklab, black 50%, transparent);
+		background: var(--color-surface-900);
+	}
+
+	.map-lightbox-toolbar {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		z-index: 10;
+	}
+
+	.map-canvas-lightbox {
+		height: 100%;
+		min-height: 78vh;
+	}
+
 	/* ── Empty state ── */
-				/* ── Card entrance animation ── */
+	/* ── Card entrance animation ── */
 	.group-card {
 		animation: card-in 380ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 50ms);
