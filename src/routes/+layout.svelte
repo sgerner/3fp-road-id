@@ -34,6 +34,17 @@
 	const initialLayoutData = getInitialLayoutData();
 	const initialUser = initialLayoutData.user ?? null;
 	const initialUserProfile = initialLayoutData.userProfile ?? null;
+	function normalizeOwnedGroups(value) {
+		if (!Array.isArray(value)) return [];
+		return value
+			.map((group) => ({
+				id: group?.id ?? null,
+				slug: group?.slug ?? null,
+				name: group?.name ?? 'Untitled group'
+			}))
+			.filter((group) => group.slug);
+	}
+	const initialOwnedGroups = normalizeOwnedGroups(initialLayoutData.ownedGroups);
 	const themeOptions = [
 		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
@@ -49,6 +60,7 @@
 
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
+	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
 	let showUserMenu = $state(false);
 	let email = $state('');
@@ -90,6 +102,12 @@
 			.map((part) => part.charAt(0).toUpperCase())
 			.join('');
 	});
+	const myGroupsMenuHref = $derived(
+		ownedGroups.length === 1 && ownedGroups[0]?.slug
+			? `/groups/${ownedGroups[0].slug}`
+			: '/groups/my'
+	);
+	const myGroupsMenuLabel = $derived(ownedGroups.length === 1 ? 'My Group' : 'My Groups');
 	const navigationItems = [
 		{ href: '/', label: 'Home', icon: IconHome, match: (pathname) => pathname === '/' },
 		{
@@ -161,10 +179,55 @@
 		}
 	}
 
+	async function loadOwnedGroups(nextUser = user) {
+		if (!nextUser?.id) {
+			ownedGroups = [];
+			return;
+		}
+		try {
+			const membershipQuery = new URLSearchParams({
+				select: 'group_id',
+				user_id: `eq.${nextUser.id}`,
+				role: 'eq.owner'
+			});
+			const membershipRes = await fetch(`/api/v1/group-members?${membershipQuery.toString()}`);
+			if (!membershipRes.ok) {
+				ownedGroups = [];
+				return;
+			}
+			const membershipPayload = await membershipRes.json().catch(() => ({}));
+			const groupIds = Array.from(
+				new Set(
+					(membershipPayload?.data ?? [])
+						.map((row) => row?.group_id)
+						.filter((value) => value !== null && value !== undefined)
+				)
+			);
+			if (!groupIds.length) {
+				ownedGroups = [];
+				return;
+			}
+			const groupsQuery = new URLSearchParams({
+				select: 'id,slug,name',
+				id: `in.(${groupIds.join(',')})`,
+				order: 'name.asc'
+			});
+			const groupsRes = await fetch(`/api/v1/groups?${groupsQuery.toString()}`);
+			if (!groupsRes.ok) {
+				ownedGroups = [];
+				return;
+			}
+			const groupsPayload = await groupsRes.json().catch(() => ({}));
+			ownedGroups = normalizeOwnedGroups(groupsPayload?.data ?? []);
+		} catch {
+			ownedGroups = [];
+		}
+	}
+
 	async function initSession() {
 		const { data } = await supabase.auth.getSession();
 		user = data.session?.user || null;
-		await loadCurrentProfile(user);
+		await Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
 	}
 
 	async function initTurnstile() {
@@ -210,7 +273,10 @@
 			} catch {
 				// ignore
 			}
-			void loadCurrentProfile(session?.user || null);
+			void Promise.all([
+				loadCurrentProfile(session?.user || null),
+				loadOwnedGroups(session?.user || null)
+			]);
 		});
 		function onDocClick(e) {
 			if (!showLogin) return;
@@ -332,6 +398,7 @@
 		showUserMenu = false;
 		email = '';
 		userProfile = null;
+		ownedGroups = [];
 		try {
 			document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
 		} catch {
@@ -441,6 +508,15 @@
 										>
 											<IconUserCircle2 class="h-4 w-4" />
 											Profile
+										</a>
+										<a
+											href={myGroupsMenuHref}
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => (showUserMenu = false)}
+										>
+											<IconUsers class="h-4 w-4" />
+											{myGroupsMenuLabel}
 										</a>
 										<a
 											href="/volunteer/shifts"

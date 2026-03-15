@@ -1,12 +1,14 @@
 import { supabase } from '$lib/supabaseClient';
 import { isTurnstileEnabled } from '$lib/server/turnstile';
+import { loadOwnedGroups } from '$lib/server/sectionNavigation';
 
-export const load = async ({ cookies }) => {
+export const load = async ({ cookies, fetch }) => {
 	const session = cookies.get('sb_session');
 	if (!session) {
 		return {
 			user: null,
 			userProfile: null,
+			ownedGroups: [],
 			isAdmin: false,
 			turnstileEnabled: isTurnstileEnabled()
 		};
@@ -23,6 +25,7 @@ export const load = async ({ cookies }) => {
 		return {
 			user: null,
 			userProfile: null,
+			ownedGroups: [],
 			isAdmin: false,
 			turnstileEnabled: isTurnstileEnabled()
 		};
@@ -33,8 +36,13 @@ export const load = async ({ cookies }) => {
 	const currentUser = user.user || null;
 	let isAdmin = false;
 	let userProfile = null;
+	let ownedGroups = [];
 
 	if (currentUser?.id) {
+		ownedGroups = await loadOwnedGroups(fetch, currentUser.id).catch((err) => {
+			console.warn('Failed to load owned groups for app layout', err);
+			return [];
+		});
 		const { data: profile } = await supabase
 			.from('profiles')
 			.select('id,user_id,full_name,avatar_url,bio,email,metadata,admin')
@@ -59,5 +67,11 @@ export const load = async ({ cookies }) => {
 			: null;
 	}
 
-	return { user: currentUser, userProfile, isAdmin, turnstileEnabled: isTurnstileEnabled() };
+	return {
+		user: currentUser,
+		userProfile,
+		ownedGroups,
+		isAdmin,
+		turnstileEnabled: isTurnstileEnabled()
+	};
 };
