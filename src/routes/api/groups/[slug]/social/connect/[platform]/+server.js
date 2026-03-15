@@ -32,7 +32,7 @@ export async function GET({ cookies, params, url }) {
 			provider: platform,
 			redirectTo
 		});
-		const redirectUri = resolveMetaOAuthRedirectUri(url);
+		const redirectUri = resolveMetaOAuthRedirectUri(url, platform);
 		const authorizeUrl = buildMetaOAuthAuthorizeUrl({
 			provider: platform,
 			state: stateRecord.state_token,

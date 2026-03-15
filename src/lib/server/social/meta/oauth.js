@@ -27,8 +27,10 @@ const FACEBOOK_SCOPES = [
 
 const INSTAGRAM_SCOPES = [
 	'instagram_business_basic',
+	'instagram_business_manage_messages',
+	'instagram_business_manage_comments',
 	'instagram_business_content_publish',
-	'instagram_manage_comments'
+	'instagram_business_manage_insights'
 ];
 
 function cleanText(value, maxLength = 0) {
@@ -69,7 +71,16 @@ function resolveBaseUrlFromRequest(url) {
 	return '';
 }
 
-export function resolveMetaOAuthRedirectUri(url) {
+export function resolveMetaOAuthRedirectUri(url, provider = 'facebook') {
+	const normalizedProvider = cleanText(provider, 40).toLowerCase();
+	if (normalizedProvider === 'instagram') {
+		const instagramConfigured = cleanText(
+			env.META_INSTAGRAM_OAUTH_REDIRECT_URI || env.META_OAUTH_REDIRECT_URI,
+			2000
+		);
+		if (instagramConfigured) return instagramConfigured;
+		return 'https://3fp.org/api/groups/social/callback';
+	}
 	const configured = cleanText(env.META_OAUTH_REDIRECT_URI, 2000);
 	if (configured) return configured;
 	const baseUrl = resolveBaseUrlFromRequest(url);
@@ -97,7 +108,7 @@ export function buildMetaOAuthAuthorizeUrl({ provider, state, redirectUri }) {
 		scope: scopes.join(',')
 	});
 	if (normalizedProvider === 'instagram') {
-		params.set('force_authentication', '1');
+		params.set('force_reauth', 'true');
 		return `${INSTAGRAM_OAUTH_BASE}/oauth/authorize?${params.toString()}`;
 	}
 	return `${FACEBOOK_OAUTH_BASE}/${resolveMetaOAuthVersion()}/dialog/oauth?${params.toString()}`;

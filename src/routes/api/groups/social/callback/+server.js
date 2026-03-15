@@ -97,7 +97,7 @@ export async function GET({ cookies, url }) {
 			throw redirect(303, buildReturnPath(group.slug, 'error', 'missing_code'));
 		}
 
-		const redirectUri = resolveMetaOAuthRedirectUri(url);
+		const redirectUri = resolveMetaOAuthRedirectUri(url, stateRecord.provider);
 		const provider = stateRecord.provider === 'instagram' ? 'instagram' : 'facebook';
 		const token = await exchangeMetaCodeForToken({ provider, code, redirectUri });
 		const longLivedToken = await exchangeForLongLivedMetaToken(token.accessToken, {
