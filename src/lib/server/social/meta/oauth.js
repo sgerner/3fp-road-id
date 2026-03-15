@@ -40,10 +40,6 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
-export function isSocialOauthDebugEnabled() {
-	return cleanText(env.SOCIAL_OAUTH_DEBUG, 5) === '1';
-}
-
 function resolveMetaOAuthVersion() {
 	return (
 		cleanText(env.META_OAUTH_VERSION || env.META_GRAPH_API_VERSION, 32) || OAUTH_DEFAULT_VERSION
@@ -143,13 +139,6 @@ async function callMetaOauthEndpoint(provider, params) {
 		}
 	}
 	if (!response.ok) {
-		if (isSocialOauthDebugEnabled()) {
-			console.error('social_oauth_token_endpoint_error', {
-				provider: normalizedProvider,
-				status: response.status,
-				payload
-			});
-		}
 		throw new Error(
 			normalizeMetaError(payload, `Meta OAuth exchange failed (${response.status}).`)
 		);

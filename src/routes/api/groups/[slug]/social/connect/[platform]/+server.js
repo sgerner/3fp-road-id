@@ -8,7 +8,6 @@ import { requireGroupSocialManager } from '$lib/server/social/permissions';
 import { normalizePlatform } from '$lib/server/social/types';
 import {
 	buildMetaOAuthAuthorizeUrl,
-	isSocialOauthDebugEnabled,
 	resolveMetaOAuthRedirectUri
 } from '$lib/server/social/meta/oauth';
 
@@ -40,18 +39,6 @@ export async function GET({ cookies, params, url }) {
 			state: stateRecord.state_token,
 			redirectUri
 		});
-		if (isSocialOauthDebugEnabled()) {
-			const authorize = new URL(authorizeUrl);
-			console.info('social_oauth_authorize_built', {
-				provider: platform,
-				group_slug: auth.group.slug,
-				state_id: stateRecord.id,
-				state_token_prefix: String(stateRecord.state_token || '').slice(0, 10),
-				redirect_uri: redirectUri,
-				redirect_uri_in_authorize: authorize.searchParams.get('redirect_uri'),
-				authorize_origin: `${authorize.origin}${authorize.pathname}`
-			});
-		}
 		throw redirect(303, authorizeUrl);
 	} catch (error) {
 		if (error?.status === 303) throw error;

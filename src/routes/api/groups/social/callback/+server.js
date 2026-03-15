@@ -11,7 +11,6 @@ import {
 	computeTokenExpiryFromSeconds,
 	exchangeForLongLivedMetaToken,
 	exchangeMetaCodeForToken,
-	isSocialOauthDebugEnabled,
 	listFacebookConnectionOptions,
 	listInstagramConnectionOptions,
 	normalizeGrantedScopes,
@@ -114,19 +113,6 @@ export async function GET({ cookies, url }) {
 			resolveStoredOauthRedirectUri(stateRecord) ||
 			resolveMetaOAuthRedirectUri(url, stateRecord.provider);
 		const provider = stateRecord.provider === 'instagram' ? 'instagram' : 'facebook';
-		if (isSocialOauthDebugEnabled()) {
-			console.info('social_oauth_callback_exchange', {
-				provider,
-				state_id: stateRecord.id,
-				state_token_prefix: String(stateRecord.state_token || '').slice(0, 10),
-				stored_oauth_redirect_uri: resolveStoredOauthRedirectUri(stateRecord),
-				redirect_uri_used_for_exchange: redirectUri,
-				callback_origin: url.origin,
-				callback_path: url.pathname,
-				has_code: Boolean(code),
-				has_error_param: Boolean(oauthError)
-			});
-		}
 		const token = await exchangeMetaCodeForToken({ provider, code, redirectUri });
 		const longLivedToken = await exchangeForLongLivedMetaToken(token.accessToken, {
 			provider
