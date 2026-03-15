@@ -117,7 +117,7 @@
 			</div>
 
 			<div
-				class="hero-tabs-wrapper bg-surface-100-900/50 relative z-10 mt-2 border-t border-white/10 px-6 lg:px-10"
+				class="hero-tabs-wrapper bg-surface-100-900/50 relative z-10 border-t border-white/10 px-6 lg:px-10"
 			>
 				<nav
 					class="manage-tabs flex items-stretch gap-6 overflow-x-auto"
