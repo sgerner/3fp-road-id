@@ -16,6 +16,8 @@ let missingSecretWarned = false;
 export async function POST({ request }) {
 	try {
 		const { code, email, createProfile, returnTo, honeypot, turnstileToken } = await request.json();
+		const requestUrl = request.url;
+		const requestOrigin = new URL(requestUrl).origin;
 
 		if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
 			return json({ error: 'Invalid submission.' }, { status: 400 });
@@ -55,15 +57,21 @@ export async function POST({ request }) {
 			missingSecretWarned = true;
 		}
 
-		// Construct the redirect URL so the magic link returns the user to your app
-		// and appends the code as a query parameter.
-		// Ensure you have set PUBLIC_BASE_URL in your environment.
-		// Build confirm URL with return_to to get users back where they started
+		// Build confirm URL with return_to so users land back where they started.
 		const safeReturn = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/';
 		const params = new URLSearchParams({ return_to: safeReturn });
 		if (code) params.set('rid', code);
-		// Ensure at least one param so your email template `&token_hash=` works
-		const redirectUrl = `${PUBLIC_URL_BASE}/auth/confirm?${params.toString()}`;
+		const configuredBase = (PUBLIC_URL_BASE || '').trim();
+		const baseUrl = configuredBase || requestOrigin;
+		let redirectUrl;
+		try {
+			const confirmUrl = new URL('/auth/confirm', baseUrl);
+			confirmUrl.search = params.toString();
+			redirectUrl = confirmUrl.toString();
+		} catch (buildErr) {
+			console.error('Failed to construct auth redirect URL:', buildErr);
+			return json({ error: 'Auth redirect URL is misconfigured.' }, { status: 500 });
+		}
 
 		// Call signInWithOtp (Magic Link) with shouldCreateUser toggled.
 		const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
