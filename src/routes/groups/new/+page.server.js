@@ -241,7 +241,7 @@ export const actions = {
 			}
 		}
 
-		// Redirect to the edit page to complete optional details
-		throw redirect(303, `/groups/${groupRes.slug}/edit`);
+		// Redirect to the manage edit page to complete optional details
+		throw redirect(303, `/groups/${groupRes.slug}/manage/edit`);
 	}
 };

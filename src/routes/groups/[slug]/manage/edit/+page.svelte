@@ -1,5 +1,5 @@
 <script>
-	import EditPage from '../../edit/+page.svelte';
+	import EditPage from '$lib/components/groups/GroupEditPage.svelte';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/stores';

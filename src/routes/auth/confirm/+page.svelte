@@ -66,33 +66,118 @@
 		try {
 			const url = new URL(window.location.href);
 			let params = normalizeParamsFromWeirdPath();
+			const hashParams = new URLSearchParams(
+				window.location.hash.startsWith('#')
+					? window.location.hash.slice(1)
+					: window.location.hash
+			);
 			const supaCode = params.get('code');
 			const rid = params.get('rid');
 			const returnTo = params.get('return_to');
 			ridParam = rid || '';
 			returnToParam = returnTo || '';
-			const tokenHash = params.get('token_hash');
+			const tokenHash = params.get('token_hash') || params.get('token');
+			const tokenTypeRaw = (params.get('type') || 'email').toLowerCase();
+			const tokenType = tokenTypeRaw === 'magiclink' ? 'email' : tokenTypeRaw;
+			const hashAccessToken = hashParams.get('access_token');
+			const hashRefreshToken = hashParams.get('refresh_token');
+			const hashTypeRaw = (hashParams.get('type') || '').toLowerCase();
 			let session = null;
+			console.info('[auth/confirm] start', {
+				href: window.location.href,
+				pathname: url.pathname,
+				search: url.search,
+				hash: url.hash,
+				hasToken: Boolean(tokenHash),
+				hasCode: Boolean(supaCode),
+				hasHashAccessToken: Boolean(hashAccessToken),
+				tokenTypeRaw,
+				tokenType,
+				returnTo
+			});
 
 			if (tokenHash) {
-				const { data, error: vErr } = await supabase.auth.verifyOtp({
-					token_hash: tokenHash,
-					type: 'email'
-				});
-				if (vErr) {
-					error = vErr.message || 'Failed to verify email link.';
+				let verified = null;
+				let verifyError = null;
+				for (const type of [tokenType, 'email']) {
+					console.info('[auth/confirm] verifyOtp attempt', {
+						type,
+						tokenPrefix: tokenHash.slice(0, 8)
+					});
+					const { data, error: vErr } = await supabase.auth.verifyOtp({
+						token_hash: tokenHash,
+						type
+					});
+					if (!vErr) {
+						verified = data;
+						verifyError = null;
+						console.info('[auth/confirm] verifyOtp success', {
+							type,
+							hasSession: Boolean(data?.session),
+							userId: data?.user?.id || null
+						});
+						break;
+					}
+					verifyError = vErr;
+					console.warn('[auth/confirm] verifyOtp failed', {
+						type,
+						message: vErr.message
+					});
+				}
+				if (!verified) {
+					error = verifyError?.message || 'Failed to verify email link.';
+					console.error('[auth/confirm] verification failed', {
+						message: error
+					});
 					return;
 				}
-				session = data?.session || null;
+				session = verified?.session || null;
 			} else if (supaCode) {
+				console.info('[auth/confirm] exchangeCodeForSession attempt');
 				const { data, error: exErr } = await supabase.auth.exchangeCodeForSession(supaCode);
 				if (exErr) {
 					error = exErr.message || 'Failed to complete sign-in.';
+					console.error('[auth/confirm] exchangeCodeForSession failed', {
+						message: error
+					});
 					return;
 				}
 				session = data?.session || null;
+				console.info('[auth/confirm] exchangeCodeForSession success', {
+					hasSession: Boolean(data?.session),
+					userId: data?.session?.user?.id || null
+				});
+			} else if (hashAccessToken && hashRefreshToken) {
+				console.info('[auth/confirm] setSession from hash attempt', {
+					hashTypeRaw
+				});
+				const { data, error: setErr } = await supabase.auth.setSession({
+					access_token: hashAccessToken,
+					refresh_token: hashRefreshToken
+				});
+				if (setErr) {
+					error = setErr.message || 'Failed to complete sign-in.';
+					console.error('[auth/confirm] setSession from hash failed', {
+						message: error
+					});
+					return;
+				}
+				session = data?.session || null;
+				console.info('[auth/confirm] setSession from hash success', {
+					hasSession: Boolean(data?.session),
+					userId: data?.session?.user?.id || null
+				});
+				try {
+					const cleaned = new URL(window.location.href);
+					cleaned.hash = '';
+					history.replaceState(null, '', cleaned.toString());
+				} catch {}
 			} else {
 				error = 'Invalid confirmation link.';
+				console.error('[auth/confirm] missing token/code', {
+					href: window.location.href,
+					search: window.location.search
+				});
 				return;
 			}
 
@@ -114,12 +199,19 @@
 			} else if (rid) {
 				dest = `/roadid/${encodeURIComponent(rid)}`;
 			}
+			console.info('[auth/confirm] redirect intent', {
+				dest,
+				autoClaimSlug,
+				autoAddOwnerSlug
+			});
 
 			// Upsert email into profiles for display in owner lists
 			try {
 				const u = session?.user;
 				if (u?.id && u?.email) {
-					await supabase.from('profiles').upsert({ user_id: u.id, email: u.email });
+					await supabase
+						.from('profiles')
+						.upsert({ user_id: u.id, email: u.email }, { onConflict: 'user_id' });
 				}
 			} catch {}
 
@@ -129,7 +221,7 @@
 						method: 'POST'
 					});
 					if (claimRes.ok) {
-						dest = `/groups/${encodeURIComponent(autoClaimSlug)}/edit`;
+						dest = `/groups/${encodeURIComponent(autoClaimSlug)}/manage/edit`;
 					}
 				} catch {}
 			}
@@ -140,12 +232,21 @@
 						`/api/groups/${encodeURIComponent(autoAddOwnerSlug)}/owners`,
 						{ method: 'POST' }
 					);
+					const ownerBody = await ownerRes.clone().json().catch(() => null);
+					console.info('[auth/confirm] auto-add-owner response', {
+						ok: ownerRes.ok,
+						status: ownerRes.status,
+						body: ownerBody
+					});
 					if (ownerRes.ok) {
-						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/edit`;
+						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/manage/edit`;
 					}
-				} catch {}
+				} catch (ownerErr) {
+					console.error('[auth/confirm] auto-add-owner request failed', ownerErr);
+				}
 			}
 
+			console.info('[auth/confirm] final redirect', { dest });
 			setTimeout(() => goto(dest, { replaceState: true }), 250);
 		} catch (e) {
 			error = 'Unexpected error during confirmation.';

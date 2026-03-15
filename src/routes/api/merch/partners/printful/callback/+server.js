@@ -10,7 +10,7 @@ import { exchangePrintfulAuthorizationCode, parsePrintfulStateToken } from '$lib
 function buildReturnPath(target) {
 	if (!target || target.type === 'main') return '/merch/manage';
 	if (target.type === 'group') {
-		return `/groups/${encodeURIComponent(target.slug || '')}/edit`;
+		return `/groups/${encodeURIComponent(target.slug || '')}/manage/edit`;
 	}
 	return '/merch';
 }

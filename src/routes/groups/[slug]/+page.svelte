@@ -131,7 +131,7 @@
 				const j = await res.json().catch(() => ({}));
 				throw new Error(j.error || 'Unable to claim group');
 			}
-			window.location.href = `/groups/${data.group.slug}/edit`;
+			window.location.href = `/groups/${data.group.slug}/manage/edit`;
 		} catch (e) {
 			claimError = e.message;
 		}
@@ -457,7 +457,7 @@
 					</a>
 				{:else if shouldShowDonationSetup}
 					<a
-						href={`/groups/${data.group?.slug}/edit`}
+						href={`/groups/${data.group?.slug}/manage/edit`}
 						class="btn preset-outlined-primary-500 shrink-0"
 					>
 						Connect Stripe

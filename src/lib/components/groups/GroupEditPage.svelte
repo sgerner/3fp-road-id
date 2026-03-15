@@ -8,7 +8,7 @@
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
 	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
-	import { toaster } from '../../../toaster-svelte';
+	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
@@ -42,8 +42,8 @@
 	let coverPreview = $state('');
 	let logoFiles = $state([]);
 	let coverFiles = $state([]);
-	let logoApi = $state();
-	let coverApi = $state();
+	let logoUploadKey = $state(0);
+	let coverUploadKey = $state(0);
 	let cropping = $state(false);
 	let cropTarget = $state(''); // 'logo' | 'cover'
 	let cropSrc = $state('');
@@ -1338,20 +1338,20 @@
 	}
 	function removeImage(which) {
 		if (which === 'logo') {
-			logoApi?.clearFiles();
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = '';
 			logoFiles = [];
+			logoUploadKey += 1;
 			const input = document.getElementById('logo_file_cropped');
 			if (input) input.value = '';
 			const clear = document.getElementById('clear_logo');
 			if (clear) clear.value = '1';
 			// Do not mutate data.group; leave server to persist on submit
 		} else if (which === 'cover') {
-			coverApi?.clearFiles();
 			if (coverPreview) URL.revokeObjectURL(coverPreview);
 			coverPreview = '';
 			coverFiles = [];
+			coverUploadKey += 1;
 			const input = document.getElementById('cover_file_cropped');
 			if (input) input.value = '';
 			const clear = document.getElementById('clear_cover');
@@ -1983,29 +1983,27 @@
 					<label class="label" for="logo_url"
 						>Logo <span class="text-surface-500 text-xs font-normal">(1:1)</span></label
 					>
-					<FileUpload
-						name="logo_file"
-						accept="image/*"
-						maxFiles={1}
-						maxFileSize={MAX_BYTES}
-						classes="w-full"
-						onFileChange={onLogoChange}
-						onFileReject={onReject}
-						onApiReady={(api) => (logoApi = api)}
-					>
-						{#snippet children()}
-							<button
-								type="button"
+					{#key logoUploadKey}
+						<FileUpload
+							name="logo_file"
+							accept="image/*"
+							maxFiles={1}
+							maxFileSize={MAX_BYTES}
+							classes="w-full"
+							onFileChange={onLogoChange}
+							onFileReject={onReject}
+						>
+							<FileUpload.HiddenInput />
+							<FileUpload.Dropzone
 								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
-								onclick={() => logoApi?.openFilePicker?.()}
 								aria-label="Select logo file or drag here"
 							>
 								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
 								<p class="text-sm">Select or drag a file</p>
 								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
-							</button>
-						{/snippet}
-					</FileUpload>
+							</FileUpload.Dropzone>
+						</FileUpload>
+					{/key}
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
 						<div
@@ -2027,29 +2025,27 @@
 					<label class="label" for="cover_photo_url"
 						>Cover Photo <span class="text-surface-500 text-xs font-normal">(16:9)</span></label
 					>
-					<FileUpload
-						name="cover_file"
-						accept="image/*"
-						maxFiles={1}
-						maxFileSize={MAX_BYTES}
-						classes="w-full"
-						onFileChange={onCoverChange}
-						onFileReject={onReject}
-						onApiReady={(api) => (coverApi = api)}
-					>
-						{#snippet children()}
-							<button
-								type="button"
+					{#key coverUploadKey}
+						<FileUpload
+							name="cover_file"
+							accept="image/*"
+							maxFiles={1}
+							maxFileSize={MAX_BYTES}
+							classes="w-full"
+							onFileChange={onCoverChange}
+							onFileReject={onReject}
+						>
+							<FileUpload.HiddenInput />
+							<FileUpload.Dropzone
 								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
-								onclick={() => coverApi?.openFilePicker?.()}
 								aria-label="Select cover image or drag here"
 							>
 								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
 								<p class="text-sm">Select or drag a file</p>
 								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
-							</button>
-						{/snippet}
-					</FileUpload>
+							</FileUpload.Dropzone>
+						</FileUpload>
+					{/key}
 					{#if coverTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if coverPreview}
 						<div
