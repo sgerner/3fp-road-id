@@ -79,7 +79,13 @@ export function resolveMetaOAuthRedirectUri(url, provider = 'facebook') {
 			2000
 		);
 		if (instagramConfigured) return instagramConfigured;
-		return 'https://3fp.org/api/groups/social/callback';
+		const instagramBaseUrl = resolveBaseUrlFromRequest(url);
+		if (!instagramBaseUrl) {
+			throw new Error(
+				'META_INSTAGRAM_OAUTH_REDIRECT_URI, META_OAUTH_REDIRECT_URI, or PUBLIC_URL_BASE must be configured.'
+			);
+		}
+		return `${instagramBaseUrl}/api/groups/social/callback`;
 	}
 	const configured = cleanText(env.META_OAUTH_REDIRECT_URI, 2000);
 	if (configured) return configured;

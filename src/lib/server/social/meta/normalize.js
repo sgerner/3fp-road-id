@@ -29,6 +29,15 @@ export function normalizeMetaError(error, fallback = 'Meta request failed.') {
 	if (!error) return fallback;
 	if (typeof error === 'string') return cleanText(error, 1000) || fallback;
 	if (typeof error?.message === 'string' && error.message) return cleanText(error.message, 1000);
+	if (typeof error?.error_message === 'string' && error.error_message) {
+		return cleanText(error.error_message, 1000);
+	}
+	if (typeof error?.error_description === 'string' && error.error_description) {
+		return cleanText(error.error_description, 1000);
+	}
+	if (typeof error?.error_reason === 'string' && error.error_reason) {
+		return cleanText(error.error_reason, 1000);
+	}
 	if (typeof error?.error?.message === 'string' && error.error.message) {
 		return cleanText(error.error.message, 1000);
 	}
