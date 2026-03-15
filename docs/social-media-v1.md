@@ -35,9 +35,14 @@ Add these server-side variables:
 ## Meta Developer Console Setup
 
 1. Create or use a Meta app with Facebook Login.
-2. Add redirect URI:
+2. Add legal URLs in Meta App Details:
+   - Privacy Policy URL: `https://<your-domain>/privacy`
+   - Terms of Service URL: `https://<your-domain>/terms`
+   - Data Deletion Instructions URL: `https://<your-domain>/data-deletion`
+   - These are required for App Details and recommended for Login review readiness.
+3. In Facebook Login settings, ensure your valid OAuth redirect URIs include:
    - `https://<your-domain>/api/groups/social/callback`
-3. Request/enable scopes used in v1:
+4. Request/enable scopes used in v1:
    - `pages_show_list`
    - `pages_read_engagement`
    - `pages_manage_posts`
@@ -46,7 +51,7 @@ Add these server-side variables:
    - `instagram_basic`
    - `instagram_content_publish`
    - `instagram_manage_comments`
-4. Verify connected Instagram accounts are professional accounts linked to a Facebook Page.
+5. Verify connected Instagram accounts are professional accounts linked to a Facebook Page.
 
 ## Webhooks
 
