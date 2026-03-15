@@ -12,7 +12,7 @@ import {
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
 const ALLOWED_TARGETS = new Set(['ride', 'learn', 'group']);
-const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9']);
+const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '4:5', '9:16', '16:9']);
 
 function safeTrim(value) {
 	if (value == null) return '';

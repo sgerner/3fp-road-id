@@ -17,6 +17,7 @@
 			currentGroupSlug &&
 			(data?.can_edit ||
 				pathname === `/groups/${currentGroupSlug}/edit` ||
+				pathname.startsWith(`/groups/${currentGroupSlug}/manage`) ||
 				ownedGroups.some((group) => group.slug === currentGroupSlug))
 		)
 	);
@@ -53,10 +54,11 @@
 
 			if (currentGroupCanEdit) {
 				primaryItems.push({
-					label: 'Edit Group',
-					href: `/groups/${currentGroupSlug}/edit`,
+					label: 'Manage Group',
+					href: `/groups/${currentGroupSlug}/manage`,
 					icon: IconSquarePen,
-					tone: 'secondary'
+					tone: 'secondary',
+					match: 'prefix'
 				});
 			}
 		}

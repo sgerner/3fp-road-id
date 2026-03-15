@@ -1,5 +1,5 @@
 <script>
-	let { data } = $props();
+	let { data, embedded = false } = $props();
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
@@ -1361,50 +1361,74 @@
 	}
 </script>
 
-<div class="edit-page mx-auto w-full max-w-4xl space-y-5 pb-10">
-	<!-- ── Cinematic header ── -->
-	<header class="edit-header relative overflow-hidden rounded-3xl">
-		<div class="edit-orb edit-orb-1" aria-hidden="true"></div>
-		<div class="edit-orb edit-orb-2" aria-hidden="true"></div>
-		<div class="edit-orb edit-orb-3" aria-hidden="true"></div>
+<div class="edit-page mx-auto w-full max-w-6xl space-y-5 pb-10">
+	{#if !embedded}
+		<!-- ── Cinematic header ── -->
+		<header class="edit-header relative overflow-hidden rounded-3xl">
+			<div class="edit-orb edit-orb-1" aria-hidden="true"></div>
+			<div class="edit-orb edit-orb-2" aria-hidden="true"></div>
+			<div class="edit-orb edit-orb-3" aria-hidden="true"></div>
 
-		<div
-			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
-		>
-			<div class="space-y-4">
-				<a
-					href={`/groups/${data.group?.slug}`}
-					class="text-primary-200 flex items-center gap-1 text-xs font-semibold transition-colors hover:text-white"
-				>
-					← Back to group
-				</a>
-				<h1 class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
-					Edit <span class="text-secondary-700-300">{data.group?.name}</span>
-				</h1>
-				<p class="max-w-3xl text-base leading-relaxed opacity-80">
-					Changes are saved automatically as you type.
-				</p>
-			</div>
-			<div class="flex shrink-0 flex-wrap gap-3">
-				<!-- Autosave status -->
-				{#if saving}
-					<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
-				{:else}
-					<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
-				{/if}
-				{#if isAdminUser}
-					<button
-						type="button"
-						class="btn btn-sm preset-filled-secondary-500"
-						disabled={deepEnrichLoading}
-						onclick={runDeepEnrichFromExistingProfile}
+			<div
+				class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
+			>
+				<div class="space-y-4">
+					<a
+						href={`/groups/${data.group?.slug}`}
+						class="text-primary-200 flex items-center gap-1 text-xs font-semibold transition-colors hover:text-white"
 					>
-						{deepEnrichLoading ? 'AI Enriching…' : 'Deep Enrich Profile (Admin)'}
-					</button>
-				{/if}
+						← Back to group
+					</a>
+					<h1 class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
+						Edit <span class="text-secondary-700-300">{data.group?.name}</span>
+					</h1>
+					<p class="max-w-3xl text-base leading-relaxed opacity-80">
+						Changes are saved automatically as you type.
+					</p>
+				</div>
+				<div class="flex shrink-0 flex-wrap gap-3">
+					{#if saving}
+						<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+					{:else}
+						<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
+					{/if}
+					{#if isAdminUser}
+						<button
+							type="button"
+							class="btn btn-sm preset-filled-secondary-500"
+							disabled={deepEnrichLoading}
+							onclick={runDeepEnrichFromExistingProfile}
+						>
+							{deepEnrichLoading ? 'AI Enriching…' : 'Deep Enrich Profile (Admin)'}
+						</button>
+					{/if}
+				</div>
 			</div>
-		</div>
-	</header>
+		</header>
+	{:else}
+		<section class="edit-embedded-meta card preset-tonal-surface rounded-2xl p-4">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<p class="text-surface-600-400 text-sm">Changes are saved automatically as you type.</p>
+				<div class="flex shrink-0 flex-wrap gap-2">
+					{#if saving}
+						<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+					{:else}
+						<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
+					{/if}
+					{#if isAdminUser}
+						<button
+							type="button"
+							class="btn btn-sm preset-filled-secondary-500"
+							disabled={deepEnrichLoading}
+							onclick={runDeepEnrichFromExistingProfile}
+						>
+							{deepEnrichLoading ? 'AI Enriching…' : 'Deep Enrich Profile (Admin)'}
+						</button>
+					{/if}
+				</div>
+			</div>
+		</section>
+	{/if}
 	{#if isAdminUser && deepEnrichError}
 		<div class="text-error-600-400 mb-3 text-sm">{deepEnrichError}</div>
 	{/if}
@@ -2206,6 +2230,10 @@
 	.edit-header {
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+
+	.edit-embedded-meta {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
 	}
 
 	.edit-orb {

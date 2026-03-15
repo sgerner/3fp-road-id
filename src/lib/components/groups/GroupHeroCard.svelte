@@ -69,10 +69,10 @@
 				<div class="shrink-0">
 					{#if canEdit}
 						<a
-							href={`/groups/${group?.slug ?? ''}/edit`}
+							href={`/groups/${group?.slug ?? ''}/manage`}
 							class="btn preset-filled-primary-500 font-bold shadow-lg"
 						>
-							Edit Group
+							Manage Group
 						</a>
 					{:else if primaryCta}
 						<a

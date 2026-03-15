@@ -110,7 +110,8 @@ export const load = async ({ params, cookies, fetch }) => {
 		audienceSelections,
 		disciplineSelections,
 		skillSelections,
-		ownerRows
+		ownerRows,
+		managerRows
 	] = await Promise.all([
 		fetchList(fetch, 'group-types', { select: 'id,name', order: 'name.asc' }).catch((err) => {
 			console.warn('Failed to load group types', err);
@@ -165,13 +166,24 @@ export const load = async ({ params, cookies, fetch }) => {
 		}).catch((err) => {
 			console.warn('Failed to load group owners', err);
 			return [];
+		}),
+		fetchList(fetch, 'group-members', {
+			select: 'user_id,role',
+			group_id: `eq.${group.id}`,
+			role: 'in.(owner,admin)'
+		}).catch((err) => {
+			console.warn('Failed to load group social managers', err);
+			return [];
 		})
 	]);
 
 	const ownerIds = ownerRows.map((row) => row?.user_id).filter(Boolean);
+	const managerIds = managerRows.map((row) => row?.user_id).filter(Boolean);
 	const is_owner = sessionUserId ? ownerIds.includes(sessionUserId) : false;
+	const is_social_manager = sessionUserId ? managerIds.includes(sessionUserId) : false;
 	const can_edit = sessionIsAdmin || is_owner;
 	const is_claimed = ownerIds.length > 0;
+	const can_manage_social = is_claimed && is_social_manager;
 
 	let donationEnabled = false;
 	try {
@@ -275,6 +287,9 @@ export const load = async ({ params, cookies, fetch }) => {
 		owners_count: ownerIds.length,
 		is_claimed,
 		is_owner,
+		is_social_manager,
+		can_manage_social,
+		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
 		volunteer_events: volunteerEvents

@@ -467,6 +467,35 @@
 		</section>
 	{/if}
 
+	{#if data.can_manage_social === true || (Boolean(data.session_user_id) && data.is_claimed === false)}
+		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5">
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<h2 class="text-xl font-semibold">Social Media</h2>
+					<p class="text-surface-700-300 mt-1 text-sm">
+						Connect a Facebook Page or Instagram professional account to publish from 3FP.
+					</p>
+					<p class="text-surface-700-300 text-sm">
+						Scheduled posts publish in 15-minute windows.
+					</p>
+				</div>
+				{#if data.can_manage_social === true}
+					<a
+						href={`/groups/${data.group?.slug}/manage/social`}
+						class="btn btn-sm preset-filled-primary-500"
+					>
+						Manage Social Media
+					</a>
+				{/if}
+			</div>
+			{#if data.is_claimed === false}
+				<div class="card border-warning-400-600/30 bg-warning-500/10 rounded-xl border p-3 text-sm">
+					This group must be claimed first before social media management is available.
+				</div>
+			{/if}
+		</section>
+	{/if}
+
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
@@ -491,8 +520,8 @@
 					</div>
 				</div>
 				{#if data.is_owner}
-					<a href={`/groups/${data.group.slug}/edit`} class="chip preset-filled-primary-500">
-						Edit Group
+					<a href={`/groups/${data.group.slug}/manage`} class="chip preset-filled-primary-500">
+						Manage Group
 					</a>
 				{:else if primaryCta}
 					<a
