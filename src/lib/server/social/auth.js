@@ -14,7 +14,7 @@ export function buildSocialReturnPath(groupSlug, status = 'ok', reason = null) {
 	const query = new URLSearchParams();
 	query.set('social', status || 'ok');
 	if (reason) query.set('social_reason', cleanText(reason, 200));
-	return `/groups/${encodeURIComponent(slug)}?${query.toString()}`;
+	return `/groups/${encodeURIComponent(slug)}/manage/social?${query.toString()}`;
 }
 
 export async function createGroupSocialOauthState(

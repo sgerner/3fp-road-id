@@ -1,4 +1,4 @@
-import { callMetaApi } from '$lib/server/social/meta/client';
+import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { normalizeMetaError } from '$lib/server/social/meta/normalize';
 
 function cleanText(value, maxLength = 0) {
@@ -102,23 +102,36 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 		);
 	}
 
-	const container = await callMetaApi({
-		path: `/${igAccountId}/media`,
-		method: 'POST',
-		accessToken,
-		query: {
-			image_url: mediaUrl,
-			caption: cleanText(caption, 2200)
+	const callInstagramWriteEdge = async (path, query) => {
+		try {
+			return await callInstagramApi({
+				path,
+				method: 'POST',
+				accessToken,
+				query
+			});
+		} catch (primaryError) {
+			// Backward compatibility for existing FB-linked IG tokens.
+			return callMetaApi({
+				path,
+				method: 'POST',
+				accessToken,
+				query
+			}).catch(() => {
+				throw primaryError;
+			});
 		}
+	};
+
+	const container = await callInstagramWriteEdge(`/${igAccountId}/media`, {
+		image_url: mediaUrl,
+		caption: cleanText(caption, 2200)
 	});
 	const creationId = cleanText(container?.id, 200);
 	if (!creationId) throw new Error('Instagram media container was not created.');
 
-	const publishResponse = await callMetaApi({
-		path: `/${igAccountId}/media_publish`,
-		method: 'POST',
-		accessToken,
-		query: { creation_id: creationId }
+	const publishResponse = await callInstagramWriteEdge(`/${igAccountId}/media_publish`, {
+		creation_id: creationId
 	});
 
 	return {

@@ -2,6 +2,8 @@ import { env } from '$env/dynamic/private';
 import { normalizeMetaError } from '$lib/server/social/meta/normalize';
 
 const DEFAULT_META_GRAPH_VERSION = 'v21.0';
+const FACEBOOK_GRAPH_HOST = 'https://graph.facebook.com';
+const INSTAGRAM_GRAPH_HOST = 'https://graph.instagram.com';
 const META_API_TIMEOUT_MS = 30_000;
 
 function cleanText(value, maxLength = 0) {
@@ -13,7 +15,12 @@ function cleanText(value, maxLength = 0) {
 
 function buildGraphBaseUrl() {
 	const version = cleanText(env.META_GRAPH_API_VERSION, 32) || DEFAULT_META_GRAPH_VERSION;
-	return `https://graph.facebook.com/${version}`;
+	return `${FACEBOOK_GRAPH_HOST}/${version}`;
+}
+
+function buildInstagramGraphBaseUrl() {
+	const version = cleanText(env.META_GRAPH_API_VERSION, 32) || DEFAULT_META_GRAPH_VERSION;
+	return `${INSTAGRAM_GRAPH_HOST}/${version}`;
 }
 
 function normalizePath(path) {
@@ -39,6 +46,45 @@ export async function callMetaApi({
 	body = null,
 	timeoutMs = META_API_TIMEOUT_MS
 } = {}) {
+	return callGraphApi({
+		baseUrl: buildGraphBaseUrl(),
+		path,
+		method,
+		accessToken,
+		query,
+		body,
+		timeoutMs
+	});
+}
+
+export async function callInstagramApi({
+	path,
+	method = 'GET',
+	accessToken,
+	query = {},
+	body = null,
+	timeoutMs = META_API_TIMEOUT_MS
+} = {}) {
+	return callGraphApi({
+		baseUrl: buildInstagramGraphBaseUrl(),
+		path,
+		method,
+		accessToken,
+		query,
+		body,
+		timeoutMs
+	});
+}
+
+async function callGraphApi({
+	baseUrl,
+	path,
+	method = 'GET',
+	accessToken,
+	query = {},
+	body = null,
+	timeoutMs = META_API_TIMEOUT_MS
+} = {}) {
 	const token = cleanText(accessToken, 5000);
 	if (!token) throw new Error('Meta access token is required.');
 	const normalizedPath = normalizePath(path);
@@ -51,7 +97,7 @@ export async function callMetaApi({
 	}
 	params.set('access_token', token);
 
-	const url = `${buildGraphBaseUrl()}${normalizedPath}?${params.toString()}`;
+	const url = `${baseUrl}${normalizedPath}?${params.toString()}`;
 	const response = await fetch(url, {
 		method,
 		headers: {

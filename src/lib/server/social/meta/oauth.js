@@ -1,6 +1,10 @@
 import { env } from '$env/dynamic/private';
 import { PUBLIC_URL_BASE } from '$env/static/public';
-import { callMetaApi, requireMetaAppCredentials } from '$lib/server/social/meta/client';
+import {
+	callInstagramApi,
+	callMetaApi,
+	requireMetaAppCredentials
+} from '$lib/server/social/meta/client';
 import {
 	normalizeConnectedAccountSummary,
 	normalizeMetaError,
@@ -8,6 +12,9 @@ import {
 } from '$lib/server/social/meta/normalize';
 
 const FACEBOOK_OAUTH_BASE = 'https://www.facebook.com';
+const INSTAGRAM_OAUTH_BASE = 'https://www.instagram.com';
+const INSTAGRAM_OAUTH_TOKEN_ENDPOINT = 'https://api.instagram.com/oauth/access_token';
+const INSTAGRAM_GRAPH_HOST = 'https://graph.instagram.com';
 const OAUTH_DEFAULT_VERSION = 'v21.0';
 
 const FACEBOOK_SCOPES = [
@@ -19,9 +26,8 @@ const FACEBOOK_SCOPES = [
 ];
 
 const INSTAGRAM_SCOPES = [
-	...FACEBOOK_SCOPES,
-	'instagram_basic',
-	'instagram_content_publish',
+	'instagram_business_basic',
+	'instagram_business_content_publish',
 	'instagram_manage_comments'
 ];
 
@@ -36,6 +42,23 @@ function resolveMetaOAuthVersion() {
 	return (
 		cleanText(env.META_OAUTH_VERSION || env.META_GRAPH_API_VERSION, 32) || OAUTH_DEFAULT_VERSION
 	);
+}
+
+function resolveProviderAppCredentials(provider) {
+	const normalized = cleanText(provider, 40).toLowerCase();
+	if (normalized === 'instagram') {
+		const appId =
+			cleanText(env.META_INSTAGRAM_APP_ID, 200) || cleanText(env.META_APP_ID, 200);
+		const appSecret =
+			cleanText(env.META_INSTAGRAM_APP_SECRET, 400) || cleanText(env.META_APP_SECRET, 400);
+		if (!appId || !appSecret) {
+			throw new Error(
+				'META_INSTAGRAM_APP_ID/META_INSTAGRAM_APP_SECRET (or META_APP_ID/META_APP_SECRET fallback) must be configured.'
+			);
+		}
+		return { appId, appSecret };
+	}
+	return requireMetaAppCredentials();
 }
 
 function resolveBaseUrlFromRequest(url) {
@@ -63,7 +86,8 @@ export function getMetaOAuthScopes(provider) {
 }
 
 export function buildMetaOAuthAuthorizeUrl({ provider, state, redirectUri }) {
-	const { appId } = requireMetaAppCredentials();
+	const normalizedProvider = cleanText(provider, 40).toLowerCase();
+	const { appId } = resolveProviderAppCredentials(normalizedProvider);
 	const scopes = getMetaOAuthScopes(provider);
 	const params = new URLSearchParams({
 		client_id: appId,
@@ -72,24 +96,49 @@ export function buildMetaOAuthAuthorizeUrl({ provider, state, redirectUri }) {
 		response_type: 'code',
 		scope: scopes.join(',')
 	});
+	if (normalizedProvider === 'instagram') {
+		params.set('force_authentication', '1');
+		return `${INSTAGRAM_OAUTH_BASE}/oauth/authorize?${params.toString()}`;
+	}
 	return `${FACEBOOK_OAUTH_BASE}/${resolveMetaOAuthVersion()}/dialog/oauth?${params.toString()}`;
 }
 
-async function callMetaOauthEndpoint(params) {
-	const { appId, appSecret } = requireMetaAppCredentials();
-	const query = new URLSearchParams({
-		client_id: appId,
-		client_secret: appSecret,
-		...params
-	});
-	const response = await fetch(
-		`https://graph.facebook.com/${resolveMetaOAuthVersion()}/oauth/access_token?${query.toString()}`,
-		{
-			method: 'GET',
-			headers: { Accept: 'application/json' },
+async function callMetaOauthEndpoint(provider, params) {
+	const normalizedProvider = cleanText(provider, 40).toLowerCase();
+	const { appId, appSecret } = resolveProviderAppCredentials(normalizedProvider);
+	let response = null;
+
+	if (normalizedProvider === 'instagram') {
+		const form = new URLSearchParams({
+			client_id: appId,
+			client_secret: appSecret,
+			...params
+		});
+		response = await fetch(INSTAGRAM_OAUTH_TOKEN_ENDPOINT, {
+			method: 'POST',
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			body: form.toString(),
 			signal: AbortSignal.timeout(30_000)
-		}
-	);
+		});
+	} else {
+		const query = new URLSearchParams({
+			client_id: appId,
+			client_secret: appSecret,
+			...params
+		});
+		response = await fetch(
+			`https://graph.facebook.com/${resolveMetaOAuthVersion()}/oauth/access_token?${query.toString()}`,
+			{
+				method: 'GET',
+				headers: { Accept: 'application/json' },
+				signal: AbortSignal.timeout(30_000)
+			}
+		);
+	}
+
 	const raw = await response.text();
 	let payload = null;
 	if (raw) {
@@ -107,28 +156,97 @@ async function callMetaOauthEndpoint(params) {
 	return payload ?? {};
 }
 
-export async function exchangeMetaCodeForToken({ code, redirectUri }) {
-	const payload = await callMetaOauthEndpoint({
-		redirect_uri: redirectUri,
-		code: cleanText(code, 2000)
-	});
+export async function exchangeMetaCodeForToken({ provider = 'facebook', code, redirectUri }) {
+	const normalizedProvider = cleanText(provider, 40).toLowerCase();
+	const params =
+		normalizedProvider === 'instagram'
+			? {
+					grant_type: 'authorization_code',
+					redirect_uri: redirectUri,
+					code: cleanText(code, 2000)
+				}
+			: {
+					redirect_uri: redirectUri,
+					code: cleanText(code, 2000)
+				};
+	const payload = await callMetaOauthEndpoint(normalizedProvider, params);
 	return {
 		accessToken: cleanText(payload?.access_token, 5000),
+		tokenType: cleanText(payload?.token_type, 80) || 'bearer',
+		expiresIn: Number(payload?.expires_in || 0) || null,
+		userId: cleanText(payload?.user_id || payload?.id, 120) || null
+	};
+}
+
+export async function exchangeForLongLivedMetaToken(accessToken, { provider = 'facebook' } = {}) {
+	const normalizedProvider = cleanText(provider, 40).toLowerCase();
+	const shortToken = cleanText(accessToken, 5000);
+	if (!shortToken) throw new Error('Meta access token is required.');
+	let payload = null;
+	if (normalizedProvider === 'instagram') {
+		const { appSecret } = resolveProviderAppCredentials('instagram');
+		const query = new URLSearchParams({
+			grant_type: 'ig_exchange_token',
+			client_secret: appSecret,
+			access_token: shortToken
+		});
+		const response = await fetch(`${INSTAGRAM_GRAPH_HOST}/access_token?${query.toString()}`, {
+			method: 'GET',
+			headers: { Accept: 'application/json' },
+			signal: AbortSignal.timeout(30_000)
+		});
+		const raw = await response.text();
+		if (raw) {
+			try {
+				payload = JSON.parse(raw);
+			} catch {
+				payload = { raw };
+			}
+		}
+		if (!response.ok) {
+			throw new Error(
+				normalizeMetaError(payload, `Meta OAuth exchange failed (${response.status}).`)
+			);
+		}
+	} else {
+		payload = await callMetaOauthEndpoint('facebook', {
+			grant_type: 'fb_exchange_token',
+			fb_exchange_token: shortToken
+		});
+	}
+	return {
+		accessToken: cleanText(payload?.access_token, 5000) || shortToken,
 		tokenType: cleanText(payload?.token_type, 80) || 'bearer',
 		expiresIn: Number(payload?.expires_in || 0) || null
 	};
 }
 
-export async function exchangeForLongLivedMetaToken(accessToken) {
-	const shortToken = cleanText(accessToken, 5000);
-	if (!shortToken) throw new Error('Meta access token is required.');
-	const payload = await callMetaOauthEndpoint({
-		grant_type: 'fb_exchange_token',
-		fb_exchange_token: shortToken
+export async function refreshLongLivedInstagramToken(accessToken) {
+	const token = cleanText(accessToken, 5000);
+	if (!token) throw new Error('Instagram access token is required.');
+	const query = new URLSearchParams({
+		grant_type: 'ig_refresh_token',
+		access_token: token
 	});
+	const response = await fetch(`${INSTAGRAM_GRAPH_HOST}/refresh_access_token?${query.toString()}`, {
+		method: 'GET',
+		headers: { Accept: 'application/json' },
+		signal: AbortSignal.timeout(30_000)
+	});
+	const raw = await response.text();
+	let payload = null;
+	if (raw) {
+		try {
+			payload = JSON.parse(raw);
+		} catch {
+			payload = { raw };
+		}
+	}
+	if (!response.ok) {
+		throw new Error(normalizeMetaError(payload, `Instagram token refresh failed (${response.status}).`));
+	}
 	return {
-		accessToken: cleanText(payload?.access_token, 5000) || shortToken,
-		tokenType: cleanText(payload?.token_type, 80) || 'bearer',
+		accessToken: cleanText(payload?.access_token, 5000) || token,
 		expiresIn: Number(payload?.expires_in || 0) || null
 	};
 }
@@ -142,6 +260,20 @@ export async function fetchMetaUserProfile(userAccessToken) {
 	return {
 		id: cleanText(profile?.id, 120) || null,
 		name: cleanText(profile?.name, 240) || null
+	};
+}
+
+export async function fetchInstagramLoginProfile(userAccessToken) {
+	const profile = await callInstagramApi({
+		path: '/me',
+		accessToken: userAccessToken,
+		query: { fields: 'user_id,username,name' }
+	});
+	return {
+		id: cleanText(profile?.id || profile?.user_id, 120) || null,
+		userId: cleanText(profile?.user_id || profile?.id, 120) || null,
+		name: cleanText(profile?.name, 240) || null,
+		username: cleanText(profile?.username, 120) || null
 	};
 }
 
@@ -189,38 +321,30 @@ export async function resolveFacebookAccountConnection({ userAccessToken, scopes
 }
 
 export async function resolveInstagramAccountConnection({ userAccessToken, scopes = [] } = {}) {
-	const userProfile = await fetchMetaUserProfile(userAccessToken);
-	const pages = await fetchManagedFacebookPages(userAccessToken);
-	const pageWithInstagram = pages.find((entry) => entry?.instagram_business_account?.id);
-	if (!pageWithInstagram) {
-		throw new Error(
-			'No Instagram professional account was found. Connect a Facebook Page linked to an Instagram professional account.'
-		);
+	const profile = await fetchInstagramLoginProfile(userAccessToken);
+	const igAccountId = cleanText(profile?.id || profile?.userId, 120);
+	if (!igAccountId) {
+		throw new Error('No Instagram professional account was found for this login.');
 	}
-
-	const igAccount = pageWithInstagram.instagram_business_account;
-	const pageToken = cleanText(pageWithInstagram?.access_token, 5000) || userAccessToken;
 	const connected = normalizeConnectedAccountSummary(
 		{
-			meta_user_id: userProfile.id,
-			meta_page_id: cleanText(pageWithInstagram?.id, 120) || null,
-			meta_instagram_account_id: cleanText(igAccount?.id, 120) || null,
-			account_name: cleanText(pageWithInstagram?.name, 240) || 'Instagram account',
-			username: cleanText(igAccount?.username, 120) || null,
+			meta_user_id: igAccountId,
+			meta_page_id: null,
+			meta_instagram_account_id: igAccountId,
+			account_name: cleanText(profile?.name, 240) || cleanText(profile?.username, 120) || 'Instagram account',
+			username: cleanText(profile?.username, 120) || null,
 			token_expires_at: null,
 			scopes,
 			metadata: {
-				meta_user_name: userProfile.name,
-				connected_via: 'instagram_business_account',
-				meta_page_name: cleanText(pageWithInstagram?.name, 240) || null
+				meta_user_name: cleanText(profile?.name, 240) || null,
+				connected_via: 'instagram_login'
 			}
 		},
 		'instagram'
 	);
-
 	return {
 		...connected,
-		accessToken: pageToken
+		accessToken: userAccessToken
 	};
 }
 
@@ -251,39 +375,35 @@ export async function listFacebookConnectionOptions({ userAccessToken, scopes = 
 }
 
 export async function listInstagramConnectionOptions({ userAccessToken, scopes = [] } = {}) {
-	const userProfile = await fetchMetaUserProfile(userAccessToken);
-	const pages = await fetchManagedFacebookPages(userAccessToken);
-	return pages
-		.map((page) => {
-			const igAccount = page?.instagram_business_account;
-			const igAccountId = cleanText(igAccount?.id, 120);
-			if (!igAccountId) return null;
-			const pageName = cleanText(page?.name, 240) || 'Facebook Page';
-			const igUsername = cleanText(igAccount?.username, 120) || null;
-			return {
-				option_id: igAccountId,
-				label: igUsername ? `@${igUsername}` : `${pageName} Instagram`,
-				description: `${pageName} linked professional account`,
-				account: normalizeConnectedAccountSummary(
-					{
-						meta_user_id: userProfile.id,
-						meta_page_id: cleanText(page?.id, 120) || null,
-						meta_instagram_account_id: igAccountId,
-						account_name: pageName,
-						username: igUsername,
-						token_expires_at: null,
-						scopes,
-						metadata: {
-							meta_user_name: userProfile.name,
-							connected_via: 'instagram_business_account',
-							meta_page_name: pageName
-						}
-					},
-					'instagram'
-				)
-			};
-		})
-		.filter(Boolean);
+	const profile = await fetchInstagramLoginProfile(userAccessToken);
+	const igAccountId = cleanText(profile?.id || profile?.userId, 120);
+	if (!igAccountId) return [];
+
+	const username = cleanText(profile?.username, 120) || null;
+	const accountName = cleanText(profile?.name, 240) || username || 'Instagram account';
+	return [
+		{
+			option_id: igAccountId,
+			label: username ? `@${username}` : accountName,
+			description: 'Instagram professional account',
+			account: normalizeConnectedAccountSummary(
+				{
+					meta_user_id: igAccountId,
+					meta_page_id: null,
+					meta_instagram_account_id: igAccountId,
+					account_name: accountName,
+					username,
+					token_expires_at: null,
+					scopes,
+					metadata: {
+						meta_user_name: cleanText(profile?.name, 240) || null,
+						connected_via: 'instagram_login'
+					}
+				},
+				'instagram'
+			)
+		}
+	];
 }
 
 export function resolveMetaConnectionFromOption({ provider, option, accessToken }) {

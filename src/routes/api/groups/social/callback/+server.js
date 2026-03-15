@@ -98,12 +98,15 @@ export async function GET({ cookies, url }) {
 		}
 
 		const redirectUri = resolveMetaOAuthRedirectUri(url);
-		const token = await exchangeMetaCodeForToken({ code, redirectUri });
-		const longLivedToken = await exchangeForLongLivedMetaToken(token.accessToken).catch(
-			() => token
-		);
+		const provider = stateRecord.provider === 'instagram' ? 'instagram' : 'facebook';
+		const token = await exchangeMetaCodeForToken({ provider, code, redirectUri });
+		const longLivedToken = await exchangeForLongLivedMetaToken(token.accessToken, {
+			provider
+		}).catch(() => token);
 		const tokenExpiry = computeTokenExpiryFromSeconds(longLivedToken.expiresIn);
-		const scopes = normalizeGrantedScopes(url.searchParams.get('granted_scopes'));
+		const scopes = normalizeGrantedScopes(
+			url.searchParams.get('granted_scopes') || url.searchParams.get('scope')
+		);
 
 		let options = [];
 		if (stateRecord.provider === 'instagram') {

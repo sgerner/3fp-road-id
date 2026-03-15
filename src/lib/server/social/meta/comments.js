@@ -1,4 +1,4 @@
-import { callMetaApi } from '$lib/server/social/meta/client';
+import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { normalizeMetaError } from '$lib/server/social/meta/normalize';
 
 function cleanText(value, maxLength = 0) {
@@ -84,13 +84,28 @@ export async function fetchInstagramComments({
 	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
 	if (!igAccountId || !accessToken) return [];
 
-	const mediaResponse = await callMetaApi({
-		path: `/${igAccountId}/media`,
-		accessToken,
-		query: {
-			fields: 'id,caption,timestamp,comments_count',
-			limit: Math.max(1, limitMedia)
+	const callInstagramReadEdge = async (path, query) => {
+		try {
+			return await callInstagramApi({
+				path,
+				accessToken,
+				query
+			});
+		} catch (primaryError) {
+			// Backward compatibility for existing FB-linked IG tokens.
+			return callMetaApi({
+				path,
+				accessToken,
+				query
+			}).catch(() => {
+				throw primaryError;
+			});
 		}
+	};
+
+	const mediaResponse = await callInstagramReadEdge(`/${igAccountId}/media`, {
+		fields: 'id,caption,timestamp,comments_count',
+		limit: Math.max(1, limitMedia)
 	});
 
 	const rows = [];
@@ -99,13 +114,9 @@ export async function fetchInstagramComments({
 		if (!mediaId) continue;
 		if (Number(media?.comments_count || 0) <= 0) continue;
 
-		const commentsResponse = await callMetaApi({
-			path: `/${mediaId}/comments`,
-			accessToken,
-			query: {
-				fields: 'id,text,timestamp,username,parent_id,hidden',
-				limit: Math.max(1, limitComments)
-			}
+		const commentsResponse = await callInstagramReadEdge(`/${mediaId}/comments`, {
+			fields: 'id,text,timestamp,username,parent_id,hidden',
+			limit: Math.max(1, limitComments)
 		});
 
 		for (const comment of Array.isArray(commentsResponse?.data) ? commentsResponse.data : []) {
@@ -162,12 +173,25 @@ export async function replyToConnectedComment({ platform, account, metaCommentId
 		}
 
 		if (platform === 'instagram') {
-			const response = await callMetaApi({
-				path: `/${commentId}/replies`,
-				method: 'POST',
-				accessToken,
-				query: { message }
-			});
+			const response = await (async () => {
+				try {
+					return await callInstagramApi({
+						path: `/${commentId}/replies`,
+						method: 'POST',
+						accessToken,
+						query: { message }
+					});
+				} catch (primaryError) {
+					return callMetaApi({
+						path: `/${commentId}/replies`,
+						method: 'POST',
+						accessToken,
+						query: { message }
+					}).catch(() => {
+						throw primaryError;
+					});
+				}
+			})();
 			return {
 				ok: true,
 				platform,

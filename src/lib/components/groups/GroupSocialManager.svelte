@@ -499,7 +499,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	function connectHref(platform) {
-		const redirectTo = `/groups/${slug}`;
+		const redirectTo = `/groups/${slug}/manage/social`;
 		return `/api/groups/${slug}/social/connect/${platform}?redirect_to=${encodeURIComponent(redirectTo)}`;
 	}
 

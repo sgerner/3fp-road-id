@@ -1,7 +1,8 @@
 import { decryptSocialToken, encryptSocialToken } from '$lib/server/social/crypto';
 import {
 	computeTokenExpiryFromSeconds,
-	exchangeForLongLivedMetaToken
+	exchangeForLongLivedMetaToken,
+	refreshLongLivedInstagramToken
 } from '$lib/server/social/meta/oauth';
 
 const REFRESH_BUFFER_MS = 24 * 60 * 60 * 1000;
@@ -29,6 +30,7 @@ export async function resolveMetaAccountAccessToken(supabase, account) {
 	if (!encrypted) throw new Error('Connected account token is missing.');
 	const currentToken = decryptSocialToken(encrypted);
 	const expiresAt = parseDate(account?.token_expires_at);
+	const platform = cleanText(account?.platform, 40).toLowerCase();
 
 	if (!shouldAttemptRefresh(expiresAt)) {
 		return {
@@ -39,7 +41,10 @@ export async function resolveMetaAccountAccessToken(supabase, account) {
 	}
 
 	try {
-		const refreshed = await exchangeForLongLivedMetaToken(currentToken);
+		const refreshed =
+			platform === 'instagram'
+				? await refreshLongLivedInstagramToken(currentToken)
+				: await exchangeForLongLivedMetaToken(currentToken, { provider: 'facebook' });
 		const nextToken = cleanText(refreshed?.accessToken, 5000) || currentToken;
 		const nextTokenExpiresAt = computeTokenExpiryFromSeconds(refreshed?.expiresIn);
 		if (nextToken !== currentToken || nextTokenExpiresAt) {

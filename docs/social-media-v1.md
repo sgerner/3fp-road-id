@@ -8,6 +8,8 @@ Add these server-side variables:
 
 - `META_APP_ID`
 - `META_APP_SECRET`
+- `META_INSTAGRAM_APP_ID` (optional; falls back to `META_APP_ID` if omitted)
+- `META_INSTAGRAM_APP_SECRET` (optional; falls back to `META_APP_SECRET` if omitted)
 - `META_OAUTH_REDIRECT_URI` (optional if `PUBLIC_URL_BASE` is set; defaults to `<PUBLIC_URL_BASE>/api/groups/social/callback`)
 - `META_GRAPH_API_VERSION` (optional, default `v21.0`)
 - `META_OAUTH_VERSION` (optional, default mirrors `META_GRAPH_API_VERSION`)
@@ -48,8 +50,8 @@ Add these server-side variables:
    - `pages_manage_posts`
    - `pages_manage_metadata`
    - `pages_read_user_content`
-   - `instagram_basic`
-   - `instagram_content_publish`
+   - `instagram_business_basic`
+   - `instagram_business_content_publish`
    - `instagram_manage_comments`
 5. Verify connected Instagram accounts are professional accounts linked to a Facebook Page.
 
