@@ -19,7 +19,7 @@ export function buildSocialReturnPath(groupSlug, status = 'ok', reason = null) {
 
 export async function createGroupSocialOauthState(
 	supabase,
-	{ groupId, userId, provider, redirectTo = null }
+	{ groupId, userId, provider, redirectTo = null, oauthRedirectUri = null }
 ) {
 	const stateToken = randomBytes(32).toString('hex');
 	const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString();
@@ -28,6 +28,7 @@ export async function createGroupSocialOauthState(
 		user_id: userId,
 		provider,
 		state_token: stateToken,
+		code_verifier: cleanText(oauthRedirectUri, 2000) || null,
 		redirect_to: cleanText(redirectTo, 300) || null,
 		expires_at: expiresAt
 	};

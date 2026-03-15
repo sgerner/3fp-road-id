@@ -25,6 +25,18 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
+function resolveStoredOauthRedirectUri(stateRecord) {
+	const stored = cleanText(stateRecord?.code_verifier, 2000);
+	if (!stored) return null;
+	try {
+		const parsed = new URL(stored);
+		if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+		return parsed.toString().replace(/\/+$/, '');
+	} catch {
+		return null;
+	}
+}
+
 async function loadGroupById(supabase, groupId) {
 	const { data, error } = await supabase
 		.from('groups')
@@ -97,7 +109,9 @@ export async function GET({ cookies, url }) {
 			throw redirect(303, buildReturnPath(group.slug, 'error', 'missing_code'));
 		}
 
-		const redirectUri = resolveMetaOAuthRedirectUri(url, stateRecord.provider);
+		const redirectUri =
+			resolveStoredOauthRedirectUri(stateRecord) ||
+			resolveMetaOAuthRedirectUri(url, stateRecord.provider);
 		const provider = stateRecord.provider === 'instagram' ? 'instagram' : 'facebook';
 		const token = await exchangeMetaCodeForToken({ provider, code, redirectUri });
 		const longLivedToken = await exchangeForLongLivedMetaToken(token.accessToken, {

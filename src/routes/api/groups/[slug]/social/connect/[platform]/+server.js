@@ -25,14 +25,15 @@ export async function GET({ cookies, params, url }) {
 
 		const redirectTo =
 			url.searchParams.get('redirect_to') || buildSocialReturnPath(auth.group.slug, 'connected');
+		const redirectUri = resolveMetaOAuthRedirectUri(url, platform);
 		await purgeExpiredGroupSocialOauthStates(auth.serviceSupabase);
 		const stateRecord = await createGroupSocialOauthState(auth.serviceSupabase, {
 			groupId: auth.group.id,
 			userId: auth.userId,
 			provider: platform,
-			redirectTo
+			redirectTo,
+			oauthRedirectUri: redirectUri
 		});
-		const redirectUri = resolveMetaOAuthRedirectUri(url, platform);
 		const authorizeUrl = buildMetaOAuthAuthorizeUrl({
 			provider: platform,
 			state: stateRecord.state_token,
