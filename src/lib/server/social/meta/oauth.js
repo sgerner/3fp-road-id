@@ -1,5 +1,4 @@
 import { env } from '$env/dynamic/private';
-import { PUBLIC_URL_BASE } from '$env/static/public';
 import {
 	callInstagramApi,
 	callMetaApi,
@@ -16,6 +15,7 @@ const INSTAGRAM_OAUTH_BASE = 'https://www.instagram.com';
 const INSTAGRAM_OAUTH_TOKEN_ENDPOINT = 'https://api.instagram.com/oauth/access_token';
 const INSTAGRAM_GRAPH_HOST = 'https://graph.instagram.com';
 const OAUTH_DEFAULT_VERSION = 'v21.0';
+const OAUTH_CALLBACK_URI = 'https://3fp.org/api/groups/social/callback';
 
 const FACEBOOK_SCOPES = [
 	'pages_show_list',
@@ -38,6 +38,10 @@ function cleanText(value, maxLength = 0) {
 	const cleaned = String(value).trim();
 	if (!maxLength) return cleaned;
 	return cleaned.slice(0, maxLength);
+}
+
+export function isSocialOauthDebugEnabled() {
+	return cleanText(env.SOCIAL_OAUTH_DEBUG, 5) === '1';
 }
 
 function resolveMetaOAuthVersion() {
@@ -63,37 +67,10 @@ function resolveProviderAppCredentials(provider) {
 	return requireMetaAppCredentials();
 }
 
-function resolveBaseUrlFromRequest(url) {
-	if (PUBLIC_URL_BASE && PUBLIC_URL_BASE.trim()) {
-		return PUBLIC_URL_BASE.trim().replace(/\/+$/, '');
-	}
-	if (url?.origin) return String(url.origin).replace(/\/+$/, '');
-	return '';
-}
-
 export function resolveMetaOAuthRedirectUri(url, provider = 'facebook') {
-	const normalizedProvider = cleanText(provider, 40).toLowerCase();
-	if (normalizedProvider === 'instagram') {
-		const instagramConfigured = cleanText(
-			env.META_INSTAGRAM_OAUTH_REDIRECT_URI || env.META_OAUTH_REDIRECT_URI,
-			2000
-		);
-		if (instagramConfigured) return instagramConfigured;
-		const instagramBaseUrl = resolveBaseUrlFromRequest(url);
-		if (!instagramBaseUrl) {
-			throw new Error(
-				'META_INSTAGRAM_OAUTH_REDIRECT_URI, META_OAUTH_REDIRECT_URI, or PUBLIC_URL_BASE must be configured.'
-			);
-		}
-		return `${instagramBaseUrl}/api/groups/social/callback`;
-	}
-	const configured = cleanText(env.META_OAUTH_REDIRECT_URI, 2000);
-	if (configured) return configured;
-	const baseUrl = resolveBaseUrlFromRequest(url);
-	if (!baseUrl) {
-		throw new Error('META_OAUTH_REDIRECT_URI or PUBLIC_URL_BASE must be configured.');
-	}
-	return `${baseUrl}/api/groups/social/callback`;
+	void url;
+	void provider;
+	return OAUTH_CALLBACK_URI;
 }
 
 export function getMetaOAuthScopes(provider) {
@@ -166,6 +143,13 @@ async function callMetaOauthEndpoint(provider, params) {
 		}
 	}
 	if (!response.ok) {
+		if (isSocialOauthDebugEnabled()) {
+			console.error('social_oauth_token_endpoint_error', {
+				provider: normalizedProvider,
+				status: response.status,
+				payload
+			});
+		}
 		throw new Error(
 			normalizeMetaError(payload, `Meta OAuth exchange failed (${response.status}).`)
 		);
