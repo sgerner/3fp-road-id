@@ -396,7 +396,7 @@ export async function listInstagramConnectionOptions({ userAccessToken, scopes =
 	];
 }
 
-export function resolveMetaConnectionFromOption({ provider, option, accessToken }) {
+export async function resolveMetaConnectionFromOption({ provider, option, accessToken }) {
 	if (!option || typeof option !== 'object') {
 		throw new Error('Invalid connection option selected.');
 	}
@@ -408,9 +408,20 @@ export function resolveMetaConnectionFromOption({ provider, option, accessToken 
 	if (normalizedProvider === 'facebook' && !account.meta_page_id) {
 		throw new Error('Selected option does not include a Facebook Page.');
 	}
+	let resolvedToken = accessToken;
+	if (normalizedProvider === 'facebook') {
+		const selectedPageId =
+			cleanText(account?.meta_page_id, 120) || cleanText(option?.option_id, 120);
+		if (selectedPageId) {
+			const pages = await fetchManagedFacebookPages(accessToken).catch(() => []);
+			const selectedPage = pages.find((entry) => cleanText(entry?.id, 120) === selectedPageId);
+			const pageAccessToken = cleanText(selectedPage?.access_token, 5000);
+			if (pageAccessToken) resolvedToken = pageAccessToken;
+		}
+	}
 	return {
 		...account,
-		accessToken
+		accessToken: resolvedToken
 	};
 }
 

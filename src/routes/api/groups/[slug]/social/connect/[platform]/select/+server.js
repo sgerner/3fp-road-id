@@ -52,7 +52,7 @@ export async function POST({ cookies, params, request }) {
 		}
 
 		const accessToken = decryptSocialToken(pending.access_token_encrypted);
-		const connectedAccount = resolveMetaConnectionFromOption({
+		const connectedAccount = await resolveMetaConnectionFromOption({
 			provider: platform,
 			option: selectedOption,
 			accessToken

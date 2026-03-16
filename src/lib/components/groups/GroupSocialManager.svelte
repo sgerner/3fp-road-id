@@ -382,6 +382,17 @@
 		return `${text.slice(0, maxLength - 1)}…`;
 	}
 
+	function linkedPostImageUrl(comment) {
+		const linked = comment?.linked_post;
+		const url = linked?.image_url;
+		if (typeof url === 'string' && url.trim()) return url.trim();
+		return '';
+	}
+
+	function linkedPostCaption(comment) {
+		return captionPreview(comment?.linked_post?.caption || '', 140);
+	}
+
 	function postPlatformsLabel(post) {
 		const values = Array.isArray(post?.platforms) ? post.platforms : [];
 		if (!values.length) return 'No platforms selected';
@@ -833,14 +844,29 @@
 		clearFeedback();
 		syncingComments = true;
 		try {
-			await requestJson(`/api/groups/${slug}/social/comments/sync`, {
+			const syncResult = await requestJson(`/api/groups/${slug}/social/comments/sync`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ limit: 80 })
 			});
+			const summary = Array.isArray(syncResult?.data?.summary) ? syncResult.data.summary : [];
+			const failures = summary.filter((entry) => entry?.ok === false);
 			const payload = await requestJson(`/api/groups/${slug}/social`);
 			hydrateSocialData(payload?.data || {});
-			actionNotice = 'Comments synced.';
+			if (failures.length) {
+				const detail = failures
+					.map((entry) => {
+						const platform = platformLabel(entry?.platform || '');
+						const reason = String(entry?.error || 'Sync failed.');
+						return `${platform}: ${reason}`;
+					})
+					.join(' | ');
+				actionError = `Some comments could not be synced. ${detail}`;
+				actionNotice = '';
+				showConnectionsPanel = true;
+			} else {
+				actionNotice = 'Comments synced.';
+			}
 		} catch (error) {
 			actionError = error?.message || 'Unable to sync comments.';
 		} finally {
@@ -1777,6 +1803,44 @@
 
 								<div class="text-sm">{comment.body}</div>
 
+								{#if comment.linked_post}
+									<div class="comment-context card border-surface-300-700 rounded-lg border p-2">
+										<div class="text-surface-700-300 mb-2 text-[11px] font-semibold uppercase">
+											Commented On Post
+										</div>
+										<div class="comment-context__row">
+											{#if linkedPostImageUrl(comment)}
+												<img
+													src={linkedPostImageUrl(comment)}
+													alt="Associated post"
+													class="comment-context__image"
+												/>
+											{/if}
+											<div class="min-w-0 flex-1 space-y-1">
+												<div class="text-xs">{linkedPostCaption(comment)}</div>
+												<div class="text-surface-700-300 text-[11px]">
+													{comment.linked_post.origin === 'group_social_post'
+														? 'Published from 3FP'
+														: 'Synced from platform'}
+													{#if comment.linked_post.created_at}
+														• {formatDateTime(comment.linked_post.created_at)}
+													{/if}
+												</div>
+												{#if comment.linked_post.permalink_url}
+													<a
+														href={comment.linked_post.permalink_url}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="text-secondary-400 text-[11px] underline"
+													>
+														Open original post
+													</a>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/if}
+
 								{#if Array.isArray(comment.replies) && comment.replies.length}
 									<div class="space-y-2">
 										<div class="text-surface-700-300 text-xs font-medium">Replies</div>
@@ -2384,6 +2448,25 @@
 
 	.media-thumb__remove:hover {
 		background: color-mix(in oklab, var(--color-error-500) 70%, black 30%);
+	}
+
+	.comment-context {
+		background: color-mix(in oklab, var(--color-surface-800) 35%, transparent);
+	}
+
+	.comment-context__row {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.625rem;
+	}
+
+	.comment-context__image {
+		width: 3.25rem;
+		height: 3.25rem;
+		flex-shrink: 0;
+		border-radius: 0.375rem;
+		object-fit: cover;
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
 	}
 
 	/* ─── Tips ─── */

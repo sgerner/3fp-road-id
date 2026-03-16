@@ -22,6 +22,19 @@ function buildReplyMap(replies = []) {
 	return map;
 }
 
+function deriveSourcePostFromComment(comment) {
+	const source = comment?.raw_payload?.source_post;
+	if (!source || typeof source !== 'object') return null;
+	return {
+		id: source.id || null,
+		caption: source.message || null,
+		image_url: source.full_picture || null,
+		permalink_url: source.permalink_url || null,
+		created_at: source.created_time || null,
+		origin: 'source_payload'
+	};
+}
+
 export async function GET({ cookies, params }) {
 	try {
 		const auth = await requireGroupSocialManager(cookies, params.slug || '');
@@ -45,9 +58,26 @@ export async function GET({ cookies, params }) {
 		]);
 
 		const repliesByComment = buildReplyMap(replies);
+		const postsById = new Map(posts.map((post) => [String(post.id), post]));
 		const hydratedComments = comments.map((comment) => ({
 			...comment,
-			replies: repliesByComment.get(String(comment.id)) || []
+			replies: repliesByComment.get(String(comment.id)) || [],
+			linked_post: (() => {
+				const socialPostId = String(comment?.social_post_id || '');
+				if (socialPostId && postsById.has(socialPostId)) {
+					const post = postsById.get(socialPostId);
+					const firstMedia = Array.isArray(post?.media) ? post.media[0] : null;
+					return {
+						id: post.id,
+						caption: post.caption || null,
+						image_url: firstMedia?.url || firstMedia?.public_url || firstMedia || null,
+						permalink_url: null,
+						created_at: post.created_at || null,
+						origin: 'group_social_post'
+					};
+				}
+				return deriveSourcePostFromComment(comment);
+			})()
 		}));
 
 		return json({

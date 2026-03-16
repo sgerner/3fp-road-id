@@ -141,7 +141,7 @@ export async function GET({ cookies, url }) {
 		const selectedOption = options.length === 1 ? options[0] : null;
 		let connectedAccount = null;
 		if (selectedOption) {
-			connectedAccount = resolveMetaConnectionFromOption({
+			connectedAccount = await resolveMetaConnectionFromOption({
 				provider: stateRecord.provider,
 				option: selectedOption,
 				accessToken: longLivedToken.accessToken
