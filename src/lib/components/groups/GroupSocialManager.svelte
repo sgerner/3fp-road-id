@@ -3239,4 +3239,662 @@
 		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
 		color: var(--color-secondary-300);
 	}
+
+	/* ─── Enhanced Comments Section ─── */
+	.comments-section {
+		--comment-card-bg: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%);
+		--comment-card-border: color-mix(in oklab, var(--color-surface-700) 50%, var(--color-surface-600) 50%);
+		--reply-line-color: color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.comments-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+	}
+
+	.comments-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5rem;
+		height: 1.5rem;
+		padding: 0 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-surface-100);
+		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		border-radius: 9999px;
+	}
+
+	.pagination-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		color: var(--color-surface-300);
+		background: color-mix(in oklab, var(--color-surface-700) 30%, transparent);
+		transition: all 0.15s ease;
+	}
+
+	.pagination-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+		color: var(--color-surface-100);
+	}
+
+	.pagination-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.pagination-btn--wide {
+		width: auto;
+		padding: 0 0.875rem;
+		gap: 0.375rem;
+		font-size: 0.875rem;
+	}
+
+	.pagination-info {
+		min-width: 2rem;
+		text-align: center;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--color-surface-300);
+	}
+
+	.pagination-text {
+		font-size: 0.875rem;
+		color: var(--color-surface-400);
+	}
+
+	.sync-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--color-primary-300);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		transition: all 0.15s ease;
+	}
+
+	.sync-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		box-shadow: 0 0 16px -4px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.sync-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	/* Loading State */
+	.comments-loading {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 16rem;
+		border-radius: 1rem;
+		background: var(--comment-card-bg);
+		border: 1px solid var(--comment-card-border);
+		overflow: hidden;
+	}
+
+	.loading-orb {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 60% 50% at 50% 50%,
+			color-mix(in oklab, var(--color-secondary-500) 8%, transparent),
+			transparent 70%
+		);
+		animation: pulse-orb 3s ease-in-out infinite;
+	}
+
+	.loading-spinner {
+		width: 2.5rem;
+		height: 2.5rem;
+		border: 2px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		border-top-color: var(--color-secondary-500);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	@keyframes pulse-orb {
+		0%, 100% { opacity: 0.5; }
+		50% { opacity: 1; }
+	}
+
+	/* Empty State */
+	.comments-empty {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 18rem;
+		padding: 2rem;
+		border-radius: 1rem;
+		background: var(--comment-card-bg);
+		border: 1px solid var(--comment-card-border);
+		overflow: hidden;
+	}
+
+	.empty-orb {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 60% 50% at 50% 60%,
+			color-mix(in oklab, var(--color-primary-500) 8%, transparent),
+			transparent 70%
+		);
+	}
+
+	.empty-icon {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 4rem;
+		height: 4rem;
+		border-radius: 1rem;
+		background: color-mix(in oklab, var(--color-surface-800) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 30%, transparent);
+	}
+
+	/* Comments List */
+	.comments-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.comment-card {
+		position: relative;
+		padding: 1.25rem;
+		border-radius: 1rem;
+		background: var(--comment-card-bg);
+		border: 1px solid var(--comment-card-border);
+		animation: comment-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 60ms);
+		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.comment-card:hover {
+		border-color: color-mix(in oklab, var(--color-surface-600) 70%, var(--color-secondary-500) 30%);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-surface-950) 80%, transparent);
+	}
+
+	@keyframes comment-in {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* Comment Header */
+	.comment-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.comment-author {
+		display: flex;
+		align-items: center;
+		gap: 0.875rem;
+	}
+
+	.author-avatar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 0.75rem;
+		background: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-600));
+		color: white;
+		flex-shrink: 0;
+		box-shadow: 0 2px 8px -2px color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+	}
+
+	.author-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.author-name {
+		font-weight: 600;
+		color: var(--color-surface-100);
+		font-size: 0.9375rem;
+	}
+
+	.platform-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: white;
+	}
+
+	.comment-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--color-surface-500);
+	}
+
+	.meta-item {
+		font-size: 0.8125rem;
+	}
+
+	.meta-dot {
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: var(--color-surface-600);
+	}
+
+	.reply-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		border-radius: 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+	}
+
+	.reply-status--enabled {
+		color: var(--color-success-400);
+		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-success-500) 25%, transparent);
+	}
+
+	.reply-status--disabled {
+		color: var(--color-surface-500);
+		background: color-mix(in oklab, var(--color-surface-700) 30%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 30%, transparent);
+	}
+
+	/* Comment Body */
+	.comment-body {
+		margin-bottom: 1rem;
+		padding: 0.75rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
+		border-radius: 0.75rem;
+		border-left: 3px solid color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	.comment-body p {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.6;
+		color: var(--color-surface-200);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	/* Linked Post Context */
+	.linked-post {
+		margin-bottom: 1rem;
+	}
+
+	.linked-post-label {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-surface-500);
+		margin-bottom: 0.5rem;
+	}
+
+	.linked-post-content {
+		display: flex;
+		gap: 0.875rem;
+		padding: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+		transition: background 0.15s ease;
+	}
+
+	.linked-post-content:hover {
+		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
+	}
+
+	.linked-post-thumb {
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 0.5rem;
+		object-fit: cover;
+		flex-shrink: 0;
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 30%, transparent);
+	}
+
+	.linked-post-details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.linked-post-caption {
+		margin: 0;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		color: var(--color-surface-300);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.linked-post-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.meta-badge {
+		font-size: 0.6875rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.25rem;
+		background: color-mix(in oklab, var(--color-surface-700) 50%, transparent);
+		color: var(--color-surface-400);
+	}
+
+	.permalink-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.6875rem;
+		color: var(--color-secondary-400);
+		transition: color 0.15s ease;
+	}
+
+	.permalink-link:hover {
+		color: var(--color-secondary-300);
+	}
+
+	/* Replies Section */
+	.replies-section {
+		margin-bottom: 1rem;
+	}
+
+	.replies-header {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-secondary-400);
+		margin-bottom: 0.625rem;
+	}
+
+	.replies-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.reply-item {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.reply-line {
+		width: 2px;
+		flex-shrink: 0;
+		background: var(--reply-line-color);
+		border-radius: 1px;
+		margin-left: 1rem;
+	}
+
+	.reply-content {
+		flex: 1;
+		min-width: 0;
+		padding: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-800) 35%, transparent);
+		border-radius: 0.625rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-700) 35%, transparent);
+	}
+
+	.reply-text {
+		margin: 0 0 0.5rem 0;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: var(--color-surface-200);
+	}
+
+	.reply-footer {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.reply-status-badge {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid;
+		text-transform: capitalize;
+	}
+
+	.reply-time {
+		font-size: 0.75rem;
+		color: var(--color-surface-500);
+	}
+
+	/* Reply Composer */
+	.reply-composer {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.reply-composer-line {
+		width: 2px;
+		flex-shrink: 0;
+		background: linear-gradient(
+			to bottom,
+			var(--reply-line-color),
+			transparent
+		);
+		border-radius: 1px;
+		margin-left: 1rem;
+	}
+
+	.reply-composer-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.reply-input-wrapper {
+		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+		overflow: hidden;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.reply-input-wrapper:focus-within {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 50%, transparent);
+		box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-secondary-500) 10%, transparent);
+	}
+
+	.reply-textarea {
+		width: 100%;
+		padding: 0.875rem 1rem;
+		background: transparent;
+		border: none;
+		color: var(--color-surface-100);
+		font-size: 0.9375rem;
+		line-height: 1.5;
+		resize: vertical;
+		min-height: 4rem;
+		outline: none;
+	}
+
+	.reply-textarea::placeholder {
+		color: var(--color-surface-500);
+	}
+
+	.reply-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.625rem 0.875rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-700) 30%, transparent);
+		background: color-mix(in oklab, var(--color-surface-800) 60%, transparent);
+	}
+
+	.ai-reply-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.5rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-secondary-300);
+		background: color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
+		transition: all 0.15s ease;
+	}
+
+	.ai-reply-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
+		box-shadow: 0 0 12px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.ai-reply-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.send-reply-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 1rem;
+		border-radius: 0.625rem;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-surface-950);
+		background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600));
+		transition: all 0.15s ease;
+	}
+
+	.send-reply-btn:hover:not(:disabled) {
+		transform: translateY(-1px);
+		box-shadow: 0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 50%, transparent);
+	}
+
+	.send-reply-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+		transform: none;
+	}
+
+	.reply-disabled-notice {
+		padding: 0.75rem 1rem;
+		border-radius: 0.625rem;
+		font-size: 0.8125rem;
+		color: var(--color-surface-500);
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+		text-align: center;
+	}
+
+	/* Pagination Footer */
+	.comments-pagination-footer {
+		display: flex;
+		justify-content: center;
+		padding-top: 1rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+	}
+
+	/* Mobile Optimizations */
+	@media (max-width: 640px) {
+		.comment-card {
+			padding: 1rem;
+		}
+
+		.comment-header {
+			flex-direction: column;
+			gap: 0.625rem;
+		}
+
+		.reply-status {
+			align-self: flex-start;
+		}
+
+		.reply-actions {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.ai-reply-btn,
+		.send-reply-btn {
+			justify-content: center;
+		}
+
+		.linked-post-content {
+			flex-direction: column;
+		}
+
+		.linked-post-thumb {
+			width: 100%;
+			height: 8rem;
+		}
+
+		.reply-composer-line,
+		.reply-line {
+			margin-left: 0.5rem;
+		}
+	}
+
+	/* Reduce motion preference */
+	@media (prefers-reduced-motion: reduce) {
+		.comment-card,
+		.loading-orb,
+		.loading-spinner {
+			animation: none;
+		}
+	}
 </style>
