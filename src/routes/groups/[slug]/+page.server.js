@@ -560,70 +560,84 @@ export const load = async ({ params, cookies, fetch }) => {
 	}
 
 	const nowIso = new Date().toISOString();
-	let volunteerEvents = [];
-	let hostEventIds = new Set();
-	try {
-		const eventRows = await fetchList(fetch, 'volunteer-events', {
-			select: [
-				'id',
-				'slug',
-				'title',
-				'summary',
-				'event_start',
-				'event_end',
-				'timezone',
-				'location_name',
-				'location_address',
-				'host_group_id',
-				'host_user_id'
-			].join(','),
-			host_group_id: `eq.${group.id}`,
-			status: 'eq.published',
-			event_start: `gte.${nowIso}`,
-			order: 'event_start.asc',
-			limit: '3'
-		});
-		volunteerEvents = eventRows;
+	
+	async function loadVolunteerEvents() {
+		try {
+			const eventRows = await fetchList(fetch, 'volunteer-events', {
+				select: [
+					'id',
+					'slug',
+					'title',
+					'summary',
+					'event_start',
+					'event_end',
+					'timezone',
+					'location_name',
+					'location_address',
+					'host_group_id',
+					'host_user_id'
+				].join(','),
+				host_group_id: `eq.${group.id}`,
+				status: 'eq.published',
+				event_start: `gte.${nowIso}`,
+				order: 'event_start.asc',
+				limit: '3'
+			});
 
-		if (sessionUserId && Array.isArray(eventRows) && eventRows.length) {
-			const eventIds = eventRows
-				.map((row) => row?.id)
-				.filter((value) => value !== null && value !== undefined);
-			if (eventIds.length) {
-				try {
-					const hostRows = await fetchList(fetch, 'v-volunteer-event-hosts-with-profiles', {
-						event_id: `in.(${eventIds.join(',')})`,
-						user_id: `eq.${sessionUserId}`
-					});
-					hostEventIds = new Set(hostRows.map((row) => row?.event_id).filter(Boolean));
-				} catch (err) {
-					console.warn('Failed to load volunteer event host assignments for group page', err);
+			let eventHostIds = new Set();
+			if (sessionUserId && Array.isArray(eventRows) && eventRows.length) {
+				const eventIds = eventRows
+					.map((row) => row?.id)
+					.filter((value) => value !== null && value !== undefined);
+				if (eventIds.length) {
+					try {
+						const hostRows = await fetchList(fetch, 'v-volunteer-event-hosts-with-profiles', {
+							event_id: `in.(${eventIds.join(',')})`,
+							user_id: `eq.${sessionUserId}`
+						});
+						eventHostIds = new Set(hostRows.map((row) => row?.event_id).filter(Boolean));
+					} catch (err) {
+						console.warn('Failed to load volunteer event host assignments for group page', err);
+					}
 				}
 			}
-		}
 
-		volunteerEvents = Array.isArray(volunteerEvents)
-			? volunteerEvents.map((row) => ({
-					id: row.id,
-					slug: row.slug,
-					title: row.title,
-					summary: row.summary,
-					event_start: row.event_start,
-					event_end: row.event_end,
-					timezone: row.timezone,
-					location_name: row.location_name,
-					location_address: row.location_address,
-					host_group_id: row.host_group_id,
-					can_manage:
-						sessionIsAdmin ||
-						is_owner ||
-						(sessionUserId && row.host_user_id && row.host_user_id === sessionUserId) ||
-						(sessionUserId && hostEventIds.has(row.id))
-				}))
-			: [];
-	} catch (err) {
-		console.warn('Unexpected error loading volunteer events for group page', err);
-		volunteerEvents = [];
+			return Array.isArray(eventRows)
+				? eventRows.map((row) => ({
+						id: row.id,
+						slug: row.slug,
+						title: row.title,
+						summary: row.summary,
+						event_start: row.event_start,
+						event_end: row.event_end,
+						timezone: row.timezone,
+						location_name: row.location_name,
+						location_address: row.location_address,
+						host_group_id: row.host_group_id,
+						can_manage:
+							sessionIsAdmin ||
+							is_owner ||
+							(sessionUserId && row.host_user_id && row.host_user_id === sessionUserId) ||
+							(sessionUserId && eventHostIds.has(row.id))
+					}))
+				: [];
+		} catch (err) {
+			console.warn('Unexpected error loading volunteer events for group page', err);
+			return [];
+		}
+	}
+
+	async function loadRides() {
+		try {
+			const qs = new URLSearchParams({ host_group_id: group.id }).toString();
+			const response = await fetch(`/api/rides?${qs}`);
+			if (!response.ok) throw new Error('Failed to load rides');
+			const payload = await response.json();
+			return Array.isArray(payload?.data) ? payload.data : [];
+		} catch (err) {
+			console.warn('Unexpected error loading rides for group page', err);
+			return [];
+		}
 	}
 
 	return {
@@ -657,6 +671,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
-		volunteer_events: volunteerEvents
+		volunteer_events: loadVolunteerEvents(),
+		rides: loadRides()
 	};
 };

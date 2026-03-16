@@ -23,8 +23,9 @@ export async function GET({ url, cookies }) {
 	const { supabase } = getActivityClient(cookies);
 	const nowIso = new Date().toISOString();
 	const search = (url.searchParams.get('search') || '').trim().toLowerCase();
+	const hostGroupId = url.searchParams.get('host_group_id') || null;
 
-	const { data: activities, error } = await supabase
+	let query = supabase
 		.from('activity_events')
 		.select(
 			`
@@ -55,6 +56,12 @@ export async function GET({ url, cookies }) {
 		.gte('next_occurrence_start', nowIso)
 		.order('next_occurrence_start', { ascending: true })
 		.limit(200);
+
+	if (hostGroupId) {
+		query = query.eq('host_group_id', hostGroupId);
+	}
+
+	const { data: activities, error } = await query;
 
 	if (error) {
 		console.error('Unable to load rides', error);

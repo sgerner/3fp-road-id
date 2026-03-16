@@ -218,9 +218,6 @@
 	const ctaIcons = CTA_ICON_MAP;
 	const contactIconByKey = CONTACT_ICON_MAP;
 
-	const upcomingVolunteerEvents = $derived(
-		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
-	);
 	const canAcceptDonations = $derived(Boolean(data?.is_claimed && data?.donation_enabled === true));
 	const shouldShowDonationSetup = $derived(
 		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
@@ -610,143 +607,6 @@
 			</div>
 		{/if}
 
-		{#if instagramPosts.length}
-			<section class="instagram-section relative overflow-hidden rounded-2xl p-5" in:fade={{ duration: 240, delay: 80 }}>
-				<!-- Gradient accent bar -->
-				<div class="instagram-accent-bar" aria-hidden="true"></div>
-				<!-- Subtle glow effect -->
-				<div class="instagram-glow" aria-hidden="true"></div>
-
-				<!-- Header -->
-				<div class="relative z-10 mb-5 flex flex-wrap items-start justify-between gap-3">
-					<div class="flex min-w-0 items-center gap-3">
-						<div class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-							<IconInstagram class="h-5 w-5 text-white" />
-						</div>
-						<div class="min-w-0">
-							<h2 class="text-lg font-bold">Latest Posts</h2>
-							{#if connectedInstagramLabel}
-								<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
-							{:else}
-								<p class="text-surface-600-400 text-sm">Instagram</p>
-							{/if}
-						</div>
-					</div>
-					<div class="flex items-center gap-2">
-						{#if instagramPostsSource === 'public_profile'}
-							<span class="chip preset-tonal-secondary text-xs">Public profile</span>
-						{:else if instagramPostsSource === 'manual'}
-							<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
-						{/if}
-						{#if instagramProfileUrl}
-							<a
-								href={instagramProfileUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="btn btn-sm preset-filled-secondary-500 gap-1.5"
-							>
-								<IconInstagram class="h-3.5 w-3.5" />
-								View Profile
-							</a>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Posts Grid -->
-				<div class="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{#each instagramPosts as post, i (post.id)}
-						<article 
-							class="instagram-post-card group overflow-hidden rounded-xl"
-							style="--stagger: {i}"
-						>
-							<!-- Media Container -->
-							<a 
-								href={post.permalink}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="instagram-media-container relative block aspect-square w-full overflow-hidden"
-							>
-								{#if instagramHasInlineMedia(post)}
-									<img
-										src={post.media_url}
-										alt="Instagram post"
-										loading="lazy"
-										class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-									/>
-								{:else}
-									<iframe
-										src={post.embed_url}
-										title="Instagram post"
-										loading="lazy"
-										referrerpolicy="strict-origin-when-cross-origin"
-										allowtransparency="true"
-										class="h-full w-full border-0"
-									></iframe>
-								{/if}
-								<!-- Hover overlay -->
-								<div class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-									<span class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white">
-										<IconInstagram class="h-4 w-4" />
-										View on Instagram
-									</span>
-								</div>
-							</a>
-							
-							<!-- Caption & Meta -->
-							<div class="instagram-post-content p-3.5">
-								<p class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed">
-									{instagramPostCaption(post)}
-								</p>
-								<div class="mt-2.5 flex items-center justify-between">
-									<time class="text-surface-600-400 text-xs font-medium">
-										{instagramPostDate(post)}
-									</time>
-									<a
-										href={post.permalink}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
-									>
-										Open
-										<IconArrowRight class="h-3 w-3" />
-									</a>
-								</div>
-							</div>
-						</article>
-					{/each}
-				</div>
-			</section>
-		{:else if connectedInstagramLabel}
-			<section class="instagram-section relative overflow-hidden rounded-2xl p-5" in:fade={{ duration: 240, delay: 80 }}>
-				<div class="instagram-accent-bar" aria-hidden="true"></div>
-				<div class="instagram-glow" aria-hidden="true"></div>
-				
-				<div class="relative z-10 flex flex-col items-center justify-center gap-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left">
-					<div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
-						<div class="instagram-icon-ring flex h-12 w-12 items-center justify-center rounded-xl">
-							<IconInstagram class="h-6 w-6 text-white" />
-						</div>
-						<div>
-							<h2 class="text-base font-semibold">Instagram</h2>
-							<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
-							<p class="text-surface-500 mt-1 text-xs">No recent posts available yet</p>
-						</div>
-					</div>
-					{#if instagramProfileUrl}
-						<a
-							href={instagramProfileUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="btn preset-filled-secondary-500 gap-1.5"
-						>
-							<IconInstagram class="h-4 w-4" />
-							View Profile
-						</a>
-					{/if}
-				</div>
-			</section>
-		{/if}
-
 		<!-- Audience + Discipline chip rows -->
 		{#if audiences.length || disciplines.length || skills.length}
 			<div class="mt-4 space-y-2.5">
@@ -793,97 +653,156 @@
 		{/if}
 	</section>
 
-	<!-- ── Volunteer events ── -->
-	{#if upcomingVolunteerEvents.length}
+	<!-- ── Instagram posts ── -->
+	{#if instagramPosts.length}
 		<section
-			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
-			in:fade={{ duration: 240, delay: 100 }}
+			class="instagram-section relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 240, delay: 80 }}
 		>
-			<div class="volunteer-glow" aria-hidden="true"></div>
-			<div class="relative z-10">
-				<!-- Header -->
-				<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<div class="mb-1 flex items-center gap-2">
-							<IconHandHeart class="text-tertiary-400 h-5 w-5" />
-							<p class="label opacity-60">Community</p>
-						</div>
-						<h2 class="text-xl font-bold">Upcoming Volunteer Opportunities</h2>
-						<p class="text-surface-600-400 mt-0.5 text-sm">
-							Support {data.group?.name} by lending a hand at an upcoming event.
-						</p>
-					</div>
-					<a
-						href={`/volunteer/groups/${data.group.slug}`}
-						class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
-					>
-						All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
-					</a>
-				</div>
+			<!-- Gradient accent bar -->
+			<div class="instagram-accent-bar" aria-hidden="true"></div>
+			<!-- Subtle glow effect -->
+			<div class="instagram-glow" aria-hidden="true"></div>
 
-				<!-- Event list -->
-				<ul class="space-y-3">
-					{#each upcomingVolunteerEvents as event, i}
-						<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
-							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-								<div class="space-y-2">
-									<a
-										href={`/volunteer/${event.slug}`}
-										class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
-									>
-										{event.title}
-									</a>
-									{#if event.summary}
-										<AutoLinkText
-											text={event.summary}
-											className="text-surface-600-400 line-clamp-2 text-sm"
-										/>
-									{/if}
-									<div class="flex flex-wrap items-center gap-3 text-xs">
-										<span class="text-surface-700-300 flex items-center gap-1">
-											<IconCalendar class="h-3.5 w-3.5" />
-											{volunteerEventDateRange(event)}
-										</span>
-										{#if volunteerEventTimeRange(event)}
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconClock class="h-3.5 w-3.5" />
-												{volunteerEventTimeRange(event)}
-											</span>
-										{/if}
-										<span class="text-surface-700-300 flex items-center gap-1">
-											<IconMapPin class="h-3.5 w-3.5" />
-											<AutoLinkText text={volunteerEventLocation(event)} />
-										</span>
-									</div>
-								</div>
-								<div class="flex shrink-0 flex-wrap items-center gap-2">
-									{#if event.can_manage}
-										<a
-											href={`/volunteer/${event.slug}/edit`}
-											class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-										>
-											Edit
-										</a>
-										<a
-											href={`/volunteer/${event.slug}/manage`}
-											class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-										>
-											Manage
-										</a>
-									{:else}
-										<a
-											href={`/volunteer/${event.slug}`}
-											class="btn btn-sm preset-outlined-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
-										>
-											Volunteer
-											<IconArrowRight class="h-3.5 w-3.5" />
-										</a>
-									{/if}
-								</div>
+			<!-- Header -->
+			<div class="relative z-10 mb-5 flex flex-wrap items-start justify-between gap-3">
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconInstagram class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Latest Posts</h2>
+						{#if connectedInstagramLabel}
+							<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
+						{:else}
+							<p class="text-surface-600-400 text-sm">Instagram</p>
+						{/if}
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					{#if instagramPostsSource === 'public_profile'}
+						<span class="chip preset-tonal-secondary text-xs">Public profile</span>
+					{:else if instagramPostsSource === 'manual'}
+						<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
+					{/if}
+					{#if instagramProfileUrl}
+						<a
+							href={instagramProfileUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="btn btn-sm preset-filled-secondary-500 gap-1.5"
+						>
+							<IconInstagram class="h-3.5 w-3.5" />
+							View Profile
+						</a>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Posts Grid -->
+			<div class="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				{#each instagramPosts as post, i (post.id)}
+					<article
+						class="instagram-post-card group overflow-hidden rounded-xl"
+						style="--stagger: {i}"
+					>
+						<!-- Media Container -->
+						<a
+							href={post.permalink}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="instagram-media-container relative block aspect-square w-full overflow-hidden"
+						>
+							{#if instagramHasInlineMedia(post)}
+								<img
+									src={post.media_url}
+									alt="Instagram post"
+									loading="lazy"
+									class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+								/>
+							{:else}
+								<iframe
+									src={post.embed_url}
+									title="Instagram post"
+									loading="lazy"
+									referrerpolicy="strict-origin-when-cross-origin"
+									allowtransparency="true"
+									class="h-full w-full border-0"
+								></iframe>
+							{/if}
+							<!-- Hover overlay -->
+							<div
+								class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+							>
+								<span
+									class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
+								>
+									<IconInstagram class="h-4 w-4" />
+									View on Instagram
+								</span>
 							</div>
-						</li>
-					{/each}
-				</ul>
+						</a>
+
+						<!-- Caption & Meta -->
+						<div class="instagram-post-content p-3.5">
+							<p
+								class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
+							>
+								{instagramPostCaption(post)}
+							</p>
+							<div class="mt-2.5 flex items-center justify-between">
+								<time class="text-surface-600-400 text-xs font-medium">
+									{instagramPostDate(post)}
+								</time>
+								<a
+									href={post.permalink}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
+								>
+									Open
+									<IconArrowRight class="h-3 w-3" />
+								</a>
+							</div>
+						</div>
+					</article>
+				{/each}
+			</div>
+		</section>
+	{:else if connectedInstagramLabel}
+		<section
+			class="instagram-section relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 240, delay: 80 }}
+		>
+			<div class="instagram-accent-bar" aria-hidden="true"></div>
+			<div class="instagram-glow" aria-hidden="true"></div>
+
+			<div
+				class="relative z-10 flex flex-col items-center justify-center gap-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left"
+			>
+				<div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+					<div class="instagram-icon-ring flex h-12 w-12 items-center justify-center rounded-xl">
+						<IconInstagram class="h-6 w-6 text-white" />
+					</div>
+					<div>
+						<h2 class="text-base font-semibold">Instagram</h2>
+						<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
+						<p class="text-surface-500 mt-1 text-xs">No recent posts available yet</p>
+					</div>
+				</div>
+				{#if instagramProfileUrl}
+					<a
+						href={instagramProfileUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn preset-filled-secondary-500 gap-1.5"
+					>
+						<IconInstagram class="h-4 w-4" />
+						View Profile
+					</a>
+				{/if}
 			</div>
 		</section>
 	{/if}
@@ -992,6 +911,178 @@
 			{/if}
 		</section>
 	{/if}
+
+	<!-- ── Upcoming rides ── -->
+	{#await data.rides then rides}
+		{#if Array.isArray(rides) && rides.length > 0}
+			<section
+				class="details-card relative overflow-hidden rounded-2xl p-5"
+				in:fade={{ duration: 240, delay: 100 }}
+			>
+				<div class="details-accent-bar mb-5" aria-hidden="true"></div>
+				<div class="relative z-10">
+					<!-- Header -->
+					<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<div class="mb-1 flex items-center gap-2">
+								<IconCalendar class="text-secondary-400 h-5 w-5" />
+								<p class="label opacity-60">Events</p>
+							</div>
+							<h2 class="text-xl font-bold">Upcoming Rides</h2>
+							<p class="text-surface-600-400 mt-0.5 text-sm">
+								Join {data.group?.name} for their upcoming group rides.
+							</p>
+						</div>
+					</div>
+
+					<!-- Event list -->
+					<ul class="space-y-3">
+						{#each rides as event, i}
+							<li class="detail-item rounded-xl p-4" style="--stagger: {i}">
+								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+									<div class="space-y-2">
+										<a
+											href={`/ride/${event.slug}`}
+											class="text-secondary-300 hover:text-secondary-200 text-base leading-snug font-semibold transition-colors"
+										>
+											{event.title}
+										</a>
+										{#if event.summary}
+											<AutoLinkText
+												text={event.summary}
+												className="text-surface-600-400 line-clamp-2 text-sm"
+											/>
+										{/if}
+										<div class="flex flex-wrap items-center gap-3 text-xs">
+											<span class="text-surface-700-300 flex items-center gap-1">
+												<IconCalendar class="h-3.5 w-3.5" />
+												{new Intl.DateTimeFormat(undefined, {
+													dateStyle: 'medium',
+													timeStyle: 'short'
+												}).format(new Date(event.nextOccurrenceStart))}
+											</span>
+											<span class="text-surface-700-300 flex items-center gap-1">
+												<IconMapPin class="h-3.5 w-3.5" />
+												<AutoLinkText
+													text={event.startLocationName || event.startLocationAddress}
+												/>
+											</span>
+										</div>
+									</div>
+									<div class="flex shrink-0 flex-wrap items-center gap-2">
+										<a
+											href={`/ride/${event.slug}`}
+											class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 whitespace-nowrap"
+										>
+											View Details
+											<IconArrowRight class="h-3.5 w-3.5" />
+										</a>
+									</div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</section>
+		{/if}
+	{/await}
+
+	<!-- ── Volunteer events ── -->
+	{#await data.volunteer_events then volunteer_events}
+		{#if Array.isArray(volunteer_events) && volunteer_events.length > 0}
+			<section
+				class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+				in:fade={{ duration: 240, delay: 100 }}
+			>
+				<div class="volunteer-glow" aria-hidden="true"></div>
+				<div class="relative z-10">
+					<!-- Header -->
+					<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<div class="mb-1 flex items-center gap-2">
+								<IconHandHeart class="text-tertiary-400 h-5 w-5" />
+								<p class="label opacity-60">Community</p>
+							</div>
+							<h2 class="text-xl font-bold">Upcoming Volunteer Opportunities</h2>
+							<p class="text-surface-600-400 mt-0.5 text-sm">
+								Support {data.group?.name} by lending a hand at an upcoming event.
+							</p>
+						</div>
+						<a
+							href={`/volunteer/groups/${data.group.slug}`}
+							class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
+						>
+							All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+						</a>
+					</div>
+
+					<!-- Event list -->
+					<ul class="space-y-3">
+						{#each volunteer_events as event, i}
+							<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
+								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+									<div class="space-y-2">
+										<a
+											href={`/volunteer/${event.slug}`}
+											class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
+										>
+											{event.title}
+										</a>
+										{#if event.summary}
+											<AutoLinkText
+												text={event.summary}
+												className="text-surface-600-400 line-clamp-2 text-sm"
+											/>
+										{/if}
+										<div class="flex flex-wrap items-center gap-3 text-xs">
+											<span class="text-surface-700-300 flex items-center gap-1">
+												<IconCalendar class="h-3.5 w-3.5" />
+												{volunteerEventDateRange(event)}
+											</span>
+											{#if volunteerEventTimeRange(event)}
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconClock class="h-3.5 w-3.5" />
+													{volunteerEventTimeRange(event)}
+												</span>
+											{/if}
+											<span class="text-surface-700-300 flex items-center gap-1">
+												<IconMapPin class="h-3.5 w-3.5" />
+												<AutoLinkText text={volunteerEventLocation(event)} />
+											</span>
+										</div>
+									</div>
+									<div class="flex shrink-0 flex-wrap items-center gap-2">
+										{#if event.can_manage}
+											<a
+												href={`/volunteer/${event.slug}/edit`}
+												class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
+											>
+												Edit
+											</a>
+											<a
+												href={`/volunteer/${event.slug}/manage`}
+												class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
+											>
+												Manage
+											</a>
+										{:else}
+											<a
+												href={`/volunteer/${event.slug}`}
+												class="btn btn-sm preset-outlined-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
+											>
+												Volunteer
+												<IconArrowRight class="h-3.5 w-3.5" />
+											</a>
+										{/if}
+									</div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			</section>
+		{/if}
+	{/await}
 </div>
 
 <style>
@@ -1133,8 +1224,9 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: linear-gradient(90deg, 
-			var(--color-secondary-500), 
+		background: linear-gradient(
+			90deg,
+			var(--color-secondary-500),
 			var(--color-primary-500),
 			var(--color-secondary-500)
 		);
@@ -1156,11 +1248,12 @@
 	}
 
 	.instagram-icon-ring {
-		background: linear-gradient(135deg, 
+		background: linear-gradient(
+			135deg,
 			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-primary-500) 20%),
 			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
 		);
-		box-shadow: 
+		box-shadow:
 			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
 			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
 	}
@@ -1194,7 +1287,8 @@
 	}
 
 	.instagram-view-btn {
-		background: linear-gradient(135deg, 
+		background: linear-gradient(
+			135deg,
 			color-mix(in oklab, var(--color-secondary-500) 90%, white 10%),
 			color-mix(in oklab, var(--color-primary-500) 80%, white 20%)
 		);
@@ -1227,7 +1321,8 @@
 	}
 
 	@keyframes gradient-shift {
-		0%, 100% {
+		0%,
+		100% {
 			background-position: 0% 50%;
 		}
 		50% {
