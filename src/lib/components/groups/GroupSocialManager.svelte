@@ -17,8 +17,9 @@
 
 	const PLATFORMS = ['facebook', 'instagram'];
 	const CALENDAR_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
-	const SCHEDULED_STATUSES = new Set(['scheduled', 'queued', 'publishing']);
+	const CALENDAR_STATUSES = new Set(['scheduled', 'queued', 'publishing', 'published']);
 	const UPCOMING_CARD_STATUSES = new Set(['draft', 'scheduled', 'queued', 'publishing', 'failed']);
+	const COMMENTS_PAGE_SIZE = 20;
 
 	const PUBLISHABLE_STATUSES = new Set(['draft', 'scheduled', 'queued', 'failed', 'cancelled']);
 	const CANCELLABLE_STATUSES = new Set(['scheduled', 'queued']);
@@ -32,6 +33,9 @@
 	let accounts = $state([]);
 	let posts = $state([]);
 	let comments = $state([]);
+	let commentsTotal = $state(0);
+	let commentsOffset = $state(0);
+	let loadingComments = $state(false);
 	let pendingConnections = $state([]);
 
 	let submittingIntent = $state('');
@@ -40,6 +44,7 @@
 	let queuedMediaFiles = $state([]);
 	let composerModalOpen = $state(false);
 	let composerPreviewExpanded = $state(false);
+	let composerReadOnly = $state(false);
 	let calendarView = $state('month');
 	let calendarReference = $state(startOfMonth(new Date()));
 	let showConnectionsPanel = $state(false);
@@ -47,6 +52,7 @@
 	let accountActionPending = $state({});
 	let postActionPending = $state({});
 	let replyPending = $state({});
+	let aiReplyPending = $state({});
 	let replyDrafts = $state({});
 
 	let composerTitle = $state('');
@@ -87,7 +93,7 @@
 	const scheduledPosts = $derived.by(() =>
 		posts
 			.map((post) => {
-				if (!SCHEDULED_STATUSES.has(normalizeStatus(post?.status))) return null;
+				if (!CALENDAR_STATUSES.has(normalizeStatus(post?.status))) return null;
 				const scheduledAt = parsePostDate(post?.scheduled_for);
 				if (!scheduledAt) return null;
 				return { ...post, _scheduledAt: scheduledAt };
@@ -164,6 +170,15 @@
 
 	const hasConnectedAccounts = $derived.by(() =>
 		accounts.some((account) => account?.status === 'active')
+	);
+
+	const commentsPageStart = $derived.by(() => (commentsTotal > 0 ? commentsOffset + 1 : 0));
+	const commentsPageEnd = $derived.by(() =>
+		commentsTotal > 0 ? Math.min(commentsOffset + comments.length, commentsTotal) : 0
+	);
+	const hasPreviousCommentsPage = $derived.by(() => commentsOffset > 0);
+	const hasNextCommentsPage = $derived.by(
+		() => commentsOffset + comments.length < commentsTotal
 	);
 
 	const shouldShowConnectionsPanel = $derived.by(
@@ -264,6 +279,7 @@
 	}
 
 	function openComposerModal(prefillDate = null) {
+		composerReadOnly = false;
 		composerPreviewExpanded = false;
 		if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
 			const snapped = roundToQuarterHour(prefillDate);
@@ -276,8 +292,21 @@
 	}
 
 	function closeComposerModal() {
+		composerReadOnly = false;
 		composerPreviewExpanded = false;
 		composerModalOpen = false;
+	}
+
+	function openPublishedPostModal(post) {
+		composerReadOnly = true;
+		composerPreviewExpanded = false;
+		composerTitle = post?.title || '';
+		composerCaption = post?.caption || '';
+		composerPlatforms = Array.isArray(post?.platforms) ? [...post.platforms] : [];
+		composerMedia = Array.isArray(post?.media) ? [...post.media] : [];
+		composerScheduledFor = '';
+		composerAiPrompt = post?.ai_prompt || '';
+		composerModalOpen = true;
 	}
 
 	function toggleComposerPreviewExpanded() {
@@ -393,6 +422,18 @@
 		return captionPreview(comment?.linked_post?.caption || '', 140);
 	}
 
+	function commentAuthorLabel(comment) {
+		const primary = String(comment?.author_name || comment?.author_username || '').trim();
+		if (primary) return primary;
+		const rawName = String(comment?.raw_payload?.comment?.from?.name || '').trim();
+		if (rawName) return rawName;
+		const rawId = String(comment?.raw_payload?.comment?.from?.id || '').trim();
+		if (rawId) {
+			return comment?.platform === 'facebook' ? `Facebook user (${rawId})` : rawId;
+		}
+		return comment?.platform === 'facebook' ? 'Facebook user' : 'Commenter';
+	}
+
 	function postPlatformsLabel(post) {
 		const values = Array.isArray(post?.platforms) ? post.platforms : [];
 		if (!values.length) return 'No platforms selected';
@@ -427,6 +468,18 @@
 			default:
 				return 'chip preset-tonal-surface text-xs';
 		}
+	}
+
+	function isPublishedPost(post) {
+		return normalizeStatus(post?.status) === 'published';
+	}
+
+	function handleCalendarPostClick(post) {
+		if (isPublishedPost(post)) {
+			openPublishedPostModal(post);
+			return;
+		}
+		openComposerModal(post?._scheduledAt || resolvePostDate(post) || new Date());
 	}
 
 	function accountByPlatform(platform) {
@@ -484,10 +537,12 @@
 	}
 
 	function removeMediaItem(index) {
+		if (composerReadOnly) return;
 		composerMedia = composerMedia.filter((_, i) => i !== index);
 	}
 
 	function queueMediaFiles(event) {
+		if (composerReadOnly) return;
 		const files = Array.from(event.currentTarget?.files || []);
 		queuedMediaFiles = files;
 	}
@@ -499,6 +554,10 @@
 		}
 		if (mapName === 'post') {
 			postActionPending = { ...postActionPending, [key]: value };
+			return;
+		}
+		if (mapName === 'ai-reply') {
+			aiReplyPending = { ...aiReplyPending, [key]: value };
 			return;
 		}
 		replyPending = { ...replyPending, [key]: value };
@@ -536,10 +595,39 @@
 
 	function hydrateSocialData(socialData = {}) {
 		accounts = Array.isArray(socialData.accounts) ? socialData.accounts : [];
-		comments = Array.isArray(socialData.comments) ? socialData.comments : [];
 		pendingConnections = Array.isArray(socialData.pending_connections)
 			? socialData.pending_connections
 			: [];
+	}
+
+	function hydrateCommentsData(payload = {}, fallbackOffset = 0) {
+		const rows = Array.isArray(payload?.comments)
+			? payload.comments
+			: Array.isArray(payload)
+				? payload
+				: [];
+		comments = rows;
+		const pagination = payload?.pagination || {};
+		const parsedOffset = Number.parseInt(String(pagination.offset ?? fallbackOffset), 10);
+		commentsOffset = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : 0;
+		const parsedTotal = Number.parseInt(String(pagination.total ?? rows.length), 10);
+		commentsTotal = Number.isFinite(parsedTotal) ? Math.max(0, parsedTotal) : rows.length;
+	}
+
+	async function loadCommentsPage(offset = 0) {
+		if (!slug) return;
+		loadingComments = true;
+		try {
+			const safeOffset = Math.max(0, Number.parseInt(String(offset), 10) || 0);
+			const payload = await requestJson(
+				`/api/groups/${slug}/social/comments?limit=${COMMENTS_PAGE_SIZE}&offset=${safeOffset}`
+			);
+			hydrateCommentsData(payload?.data || {}, safeOffset);
+		} catch (error) {
+			actionError = error?.message || 'Unable to load comments.';
+		} finally {
+			loadingComments = false;
+		}
 	}
 
 	async function refreshPosts() {
@@ -574,6 +662,7 @@
 			} else {
 				posts = [];
 			}
+			await loadCommentsPage(0);
 		} catch (error) {
 			loadError = error?.message || 'Unable to load social manager data.';
 		} finally {
@@ -618,6 +707,7 @@
 
 	async function uploadQueuedMedia() {
 		if (!slug) return;
+		if (composerReadOnly) return;
 		if (!queuedMediaFiles.length) {
 			actionError = 'Select one or more images first.';
 			return;
@@ -646,6 +736,7 @@
 
 	async function submitComposer(intent) {
 		if (!slug) return;
+		if (composerReadOnly) return;
 		if (intent === 'schedule' && !composerScheduledFor) {
 			actionError = 'Choose a date and time before scheduling.';
 			return;
@@ -853,6 +944,7 @@
 			const failures = summary.filter((entry) => entry?.ok === false);
 			const payload = await requestJson(`/api/groups/${slug}/social`);
 			hydrateSocialData(payload?.data || {});
+			await loadCommentsPage(0);
 			if (failures.length) {
 				const detail = failures
 					.map((entry) => {
@@ -874,8 +966,52 @@
 		}
 	}
 
+	async function goToPreviousCommentsPage() {
+		if (!hasPreviousCommentsPage || loadingComments) return;
+		await loadCommentsPage(Math.max(0, commentsOffset - COMMENTS_PAGE_SIZE));
+	}
+
+	async function goToNextCommentsPage() {
+		if (!hasNextCommentsPage || loadingComments) return;
+		await loadCommentsPage(commentsOffset + COMMENTS_PAGE_SIZE);
+	}
+
 	function updateReplyDraft(commentId, value) {
 		replyDrafts = { ...replyDrafts, [commentId]: value };
+	}
+
+	async function generateReplyDraft(comment) {
+		const commentId = comment?.id;
+		if (!slug || !commentId) return;
+		clearFeedback();
+		setPending('ai-reply', commentId, true);
+		try {
+			const payload = await requestJson(
+				`/api/groups/${slug}/social/comments/${commentId}/ai-reply`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						target_tone: 'Friendly, helpful, concise'
+					})
+				}
+			);
+			const suggested = String(payload?.data?.reply || '').trim();
+			if (!suggested) throw new Error('AI did not return a reply draft.');
+			const existing = String(replyDrafts[commentId] || '').trim();
+			if (existing && existing !== suggested) {
+				const overwrite = window.confirm(
+					'Replace your current reply draft with the AI suggestion?'
+				);
+				if (!overwrite) return;
+			}
+			updateReplyDraft(commentId, suggested);
+			actionNotice = 'Reply draft generated.';
+		} catch (error) {
+			actionError = error?.message || 'Unable to generate reply draft.';
+		} finally {
+			setPending('ai-reply', commentId, false);
+		}
 	}
 
 	async function sendReply(commentId) {
@@ -1167,10 +1303,13 @@
 						{#if calendarView === 'month'}
 							<div class="grid gap-2 sm:hidden">
 								{#each mobileMonthDays as day}
-									<button
-										type="button"
+									<div
+										role="button"
+										tabindex="0"
 										class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 										onclick={() => handleCalendarSlotClick(day.date, 9)}
+										onkeydown={(event) =>
+											(event.key === 'Enter' || event.key === ' ') && handleCalendarSlotClick(day.date, 9)}
 									>
 										<div class="flex items-center justify-between">
 											<div class="text-xs font-semibold">
@@ -1182,7 +1321,27 @@
 											</div>
 											<div class="text-[11px]">{day.posts.length} posts</div>
 										</div>
-									</button>
+										{#if day.posts.length > 0}
+											<div class="mt-2 space-y-1">
+												{#each day.posts.slice(0, 2) as post}
+													<button
+														type="button"
+														class={`w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10 text-secondary-800-200'}`}
+														onclick={(event) => {
+															event.stopPropagation();
+															handleCalendarPostClick(post);
+														}}
+													>
+														{new Intl.DateTimeFormat(undefined, {
+															hour: 'numeric',
+															minute: '2-digit'
+														}).format(post._scheduledAt)}
+														- {captionPreview(post.caption, 30)}
+													</button>
+												{/each}
+											</div>
+										{/if}
+									</div>
 								{/each}
 							</div>
 							<div class="hidden sm:block">
@@ -1200,11 +1359,14 @@
 								<div class="grid grid-cols-7 gap-0">
 									{#each monthMatrix as week, i}
 										{#each week as day, j}
-											<button
-												type="button"
+											<div
+												role="button"
+												tabindex="0"
 												class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 												style="--stagger: {(i * 7 + j) % 21}"
 												onclick={() => handleCalendarSlotClick(day.date, 9)}
+												onkeydown={(event) =>
+													(event.key === 'Enter' || event.key === ' ') && handleCalendarSlotClick(day.date, 9)}
 											>
 												<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
 												<div class="mt-1 space-y-1 overflow-y-auto">
@@ -1212,15 +1374,20 @@
 														<p class="text-surface-500 text-[11px]">Open slot</p>
 													{:else}
 														{#each day.posts.slice(0, 3) as post}
-															<div
-																class="bg-secondary-500/10 text-secondary-800-200 block rounded px-1 py-0.5 text-[11px] font-medium"
+															<button
+																type="button"
+																class={`block w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10 text-secondary-800-200'}`}
+																onclick={(event) => {
+																	event.stopPropagation();
+																	handleCalendarPostClick(post);
+																}}
 															>
 																{new Intl.DateTimeFormat(undefined, {
 																	hour: 'numeric',
 																	minute: '2-digit'
 																}).format(post._scheduledAt)}
 																- {captionPreview(post.caption, 36)}
-															</div>
+															</button>
 														{/each}
 														{#if day.posts.length > 3}
 															<div class="text-secondary-700-300 text-[10px] font-medium">
@@ -1229,7 +1396,7 @@
 														{/if}
 													{/if}
 												</div>
-											</button>
+											</div>
 										{/each}
 									{/each}
 								</div>
@@ -1259,23 +1426,32 @@
 												</td>
 												{#each row.slots as slot}
 													<td class="p-1 align-top">
-														<button
-															type="button"
+														<div
+															role="button"
+															tabindex="0"
 															class="hover:bg-surface-200-800/40 border-surface-400-600/40 min-h-16 w-full rounded-lg border p-2 text-left transition-colors"
 															onclick={() => handleCalendarSlotClick(slot.day.date, row.hour)}
+															onkeydown={(event) =>
+																(event.key === 'Enter' || event.key === ' ') &&
+																handleCalendarSlotClick(slot.day.date, row.hour)}
 														>
 															{#if slot.posts.length === 0}
 																<div class="text-surface-600-400 text-[10px]">Open slot</div>
 															{:else}
 																{#each slot.posts as post}
-																	<div
-																		class="bg-secondary-500/10 mb-1 rounded px-2 py-1 text-[10px]"
+																	<button
+																		type="button"
+																		class={`mb-1 block w-full rounded px-2 py-1 text-left text-[10px] ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10'}`}
+																		onclick={(event) => {
+																			event.stopPropagation();
+																			handleCalendarPostClick(post);
+																		}}
 																	>
 																		{captionPreview(post.caption, 38)}
-																	</div>
+																	</button>
 																{/each}
 															{/if}
-														</button>
+														</div>
 													</td>
 												{/each}
 											</tr>
@@ -1287,10 +1463,14 @@
 							<div class="card border-surface-300-700 rounded-xl border p-3">
 								<div class="space-y-2">
 									{#each daySlots as slot}
-										<button
-											type="button"
+										<div
+											role="button"
+											tabindex="0"
 											class="hover:bg-surface-200-800/40 border-surface-400-600/40 flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
 											onclick={() => handleCalendarSlotClick(calendarReference, slot.hour)}
+											onkeydown={(event) =>
+												(event.key === 'Enter' || event.key === ' ') &&
+												handleCalendarSlotClick(calendarReference, slot.hour)}
 										>
 											<div class="w-20 text-sm font-semibold">
 												{new Intl.DateTimeFormat(undefined, {
@@ -1303,13 +1483,20 @@
 													<div class="text-surface-600-400 text-xs">Open slot</div>
 												{:else}
 													{#each slot.posts as post}
-														<div class="bg-secondary-500/10 mb-1 rounded px-2 py-1 text-xs">
+														<button
+															type="button"
+															class={`mb-1 block w-full rounded px-2 py-1 text-left text-xs ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10'}`}
+															onclick={(event) => {
+																event.stopPropagation();
+																handleCalendarPostClick(post);
+															}}
+														>
 															{captionPreview(post.caption, 72)}
-														</div>
+														</button>
 													{/each}
 												{/if}
 											</div>
-										</button>
+										</div>
 									{/each}
 								</div>
 							</div>
@@ -1390,7 +1577,7 @@
 					class="composer-backdrop"
 					role="dialog"
 					aria-modal="true"
-					aria-label="Schedule Content"
+					aria-label={composerReadOnly ? 'Post Details' : 'Schedule Content'}
 					tabindex="-1"
 					onclick={(event) => event.target === event.currentTarget && closeComposerModal()}
 					onkeydown={(event) => event.key === 'Escape' && closeComposerModal()}
@@ -1404,8 +1591,14 @@
 									<IconSparkles class="h-4 w-4" />
 								</div>
 								<div>
-									<h3 class="composer-title">Schedule Content</h3>
-									<p class="composer-subtitle">Draft, schedule, or publish to social media</p>
+									<h3 class="composer-title">
+										{composerReadOnly ? 'Scheduled Post Details' : 'Schedule Content'}
+									</h3>
+									<p class="composer-subtitle">
+										{composerReadOnly
+											? 'Published content is shown in read-only mode.'
+											: 'Draft, schedule, or publish to social media'}
+									</p>
 								</div>
 							</div>
 							<div class="flex items-center gap-2">
@@ -1455,6 +1648,7 @@
 											bind:value={aiPromptInput}
 											placeholder="What are you posting about? Include event details, tone, and call-to-action in one prompt."
 											rows="3"
+											disabled={composerReadOnly}
 										></textarea>
 										<div class="ai-draft-panel__row">
 											<label class="ai-style-label">
@@ -1472,7 +1666,7 @@
 												type="button"
 												class="ai-generate-btn"
 												onclick={generateAiAssistedContent}
-												disabled={generatingAi}
+												disabled={generatingAi || composerReadOnly}
 											>
 												{#if generatingAi}
 													<IconLoader class="h-4 w-4 animate-spin" />
@@ -1502,7 +1696,7 @@
 												class:platform-chip--active={active}
 												class:platform-chip--disabled={!connected}
 												onclick={() => toggleComposerPlatform(platform)}
-												disabled={!connected}
+												disabled={!connected || composerReadOnly}
 												title={connected
 													? platformLabel(platform)
 													: `${platformLabel(platform)} — not connected`}
@@ -1533,6 +1727,7 @@
 										maxlength="120"
 										bind:value={composerTitle}
 										placeholder="Weekend community ride"
+										disabled={composerReadOnly}
 									/>
 								</div>
 
@@ -1545,6 +1740,7 @@
 										bind:value={composerCaption}
 										placeholder="Share ride details, schedule, and call to action..."
 										rows="5"
+										disabled={composerReadOnly}
 									></textarea>
 								</div>
 
@@ -1562,6 +1758,7 @@
 											accept="image/*"
 											class="sr-only"
 											onchange={queueMediaFiles}
+											disabled={composerReadOnly}
 										/>
 									</label>
 									{#if queuedMediaFiles.length > 0}
@@ -1573,7 +1770,7 @@
 												type="button"
 												class="media-upload-btn"
 												onclick={uploadQueuedMedia}
-												disabled={uploadingMedia}
+												disabled={uploadingMedia || composerReadOnly}
 											>
 												{#if uploadingMedia}
 													<IconLoader class="h-3.5 w-3.5 animate-spin" />
@@ -1603,6 +1800,7 @@
 														class="media-thumb__remove"
 														onclick={() => removeMediaItem(index)}
 														aria-label="Remove"
+														disabled={composerReadOnly}
 													>
 														<IconX class="h-3 w-3" />
 													</button>
@@ -1632,6 +1830,7 @@
 												step="900"
 												bind:value={composerScheduledFor}
 												onchange={snapScheduledInput}
+												disabled={composerReadOnly}
 											/>
 										</div>
 										<div class="schedule-row__meta">
@@ -1721,43 +1920,51 @@
 
 						<!-- Sticky Footer -->
 						<div class="composer-footer">
-							<button
-								type="button"
-								class="composer-btn composer-btn--ghost"
-								onclick={() => submitComposer('save_draft')}
-								disabled={Boolean(submittingIntent)}
-							>
-								{submittingIntent === 'save_draft' ? 'Saving…' : 'Save Draft'}
-							</button>
-							<div class="composer-footer__actions">
+							{#if composerReadOnly}
+								<div class="w-full text-right">
+									<button type="button" class="composer-btn composer-btn--ghost" onclick={closeComposerModal}>
+										Close
+									</button>
+								</div>
+							{:else}
 								<button
 									type="button"
-									class="composer-btn composer-btn--schedule"
-									onclick={() => submitComposer('schedule')}
+									class="composer-btn composer-btn--ghost"
+									onclick={() => submitComposer('save_draft')}
 									disabled={Boolean(submittingIntent)}
 								>
-									{#if submittingIntent === 'schedule'}
-										<IconLoader class="h-4 w-4 animate-spin" />
-										Scheduling…
-									{:else}
-										<IconCalendar class="h-4 w-4" />
-										Schedule
-									{/if}
+									{submittingIntent === 'save_draft' ? 'Saving…' : 'Save Draft'}
 								</button>
-								<button
-									type="button"
-									class="composer-btn composer-btn--publish"
-									onclick={() => submitComposer('publish_now')}
-									disabled={Boolean(submittingIntent)}
-								>
-									{#if submittingIntent === 'publish_now'}
-										<IconLoader class="h-4 w-4 animate-spin" />
-										Publishing…
-									{:else}
-										Publish Now
-									{/if}
-								</button>
-							</div>
+								<div class="composer-footer__actions">
+									<button
+										type="button"
+										class="composer-btn composer-btn--schedule"
+										onclick={() => submitComposer('schedule')}
+										disabled={Boolean(submittingIntent)}
+									>
+										{#if submittingIntent === 'schedule'}
+											<IconLoader class="h-4 w-4 animate-spin" />
+											Scheduling…
+										{:else}
+											<IconCalendar class="h-4 w-4" />
+											Schedule
+										{/if}
+									</button>
+									<button
+										type="button"
+										class="composer-btn composer-btn--publish"
+										onclick={() => submitComposer('publish_now')}
+										disabled={Boolean(submittingIntent)}
+									>
+										{#if submittingIntent === 'publish_now'}
+											<IconLoader class="h-4 w-4 animate-spin" />
+											Publishing…
+										{:else}
+											Publish Now
+										{/if}
+									</button>
+								</div>
+							{/if}
 						</div>
 					</div>
 					<!-- /composer-panel -->
@@ -1767,17 +1974,50 @@
 
 			<section class="space-y-3">
 				<div class="flex flex-wrap items-center justify-between gap-3">
-					<h3 class="text-base font-semibold">Comments</h3>
-					<button
-						type="button"
-						class="btn btn-sm preset-outlined-primary-500"
-						onclick={syncComments}
-						disabled={syncingComments}
-					>
-						{syncingComments ? 'Syncing...' : 'Sync Comments'}
-					</button>
+					<div>
+						<h3 class="text-base font-semibold">Comments</h3>
+						<div class="text-surface-700-300 mt-1 text-xs">
+							{#if loadingComments}
+								Loading comments...
+							{:else if commentsTotal > 0}
+								Showing {commentsPageStart}-{commentsPageEnd} of {commentsTotal}
+							{:else}
+								No synced comments yet.
+							{/if}
+						</div>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							class="btn btn-sm preset-outlined-secondary-500"
+							onclick={goToPreviousCommentsPage}
+							disabled={!hasPreviousCommentsPage || loadingComments || syncingComments}
+						>
+							Prev
+						</button>
+						<button
+							type="button"
+							class="btn btn-sm preset-outlined-secondary-500"
+							onclick={goToNextCommentsPage}
+							disabled={!hasNextCommentsPage || loadingComments || syncingComments}
+						>
+							Next
+						</button>
+						<button
+							type="button"
+							class="btn btn-sm preset-outlined-primary-500"
+							onclick={syncComments}
+							disabled={syncingComments || loadingComments}
+						>
+							{syncingComments ? 'Syncing...' : 'Sync Comments'}
+						</button>
+					</div>
 				</div>
-				{#if !comments.length}
+				{#if loadingComments}
+					<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
+						Loading comments...
+					</div>
+				{:else if !comments.length}
 					<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
 						No comments yet.
 					</div>
@@ -1788,7 +2028,7 @@
 								<div class="flex flex-wrap items-start justify-between gap-2">
 									<div>
 										<div class="text-sm font-semibold">
-											{comment.author_name || comment.author_username || 'Commenter'}
+											{commentAuthorLabel(comment)}
 										</div>
 										<div class="text-surface-700-300 text-xs">
 											{platformLabel(comment.platform)} • {formatDateTime(comment.commented_at)}
@@ -1863,14 +2103,34 @@
 										oninput={(event) => updateReplyDraft(comment.id, event.currentTarget.value)}
 										disabled={!comment.can_reply}
 									></textarea>
-									<button
-										type="button"
-										class="btn btn-sm preset-filled-primary-500"
-										onclick={() => sendReply(comment.id)}
-										disabled={!comment.can_reply || Boolean(replyPending[comment.id])}
-									>
-										{replyPending[comment.id] ? 'Sending...' : 'Send'}
-									</button>
+									<div class="flex flex-wrap gap-2">
+										<button
+											type="button"
+											class="btn btn-sm preset-outlined-secondary-500"
+											onclick={() => generateReplyDraft(comment)}
+											disabled={!comment.can_reply || Boolean(aiReplyPending[comment.id])}
+										>
+											{#if aiReplyPending[comment.id]}
+												<IconLoader class="h-3.5 w-3.5 animate-spin" />
+												Generating...
+											{:else}
+												<IconSparkles class="h-3.5 w-3.5" />
+												Generate Reply
+											{/if}
+										</button>
+										<button
+											type="button"
+											class="btn btn-sm preset-filled-primary-500"
+											onclick={() => sendReply(comment.id)}
+											disabled={
+												!comment.can_reply ||
+												Boolean(replyPending[comment.id]) ||
+												Boolean(aiReplyPending[comment.id])
+											}
+										>
+											{replyPending[comment.id] ? 'Sending...' : 'Send'}
+										</button>
+									</div>
 								</div>
 							</div>
 						{/each}

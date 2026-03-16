@@ -14,9 +14,36 @@ function toIso(value) {
 	return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+function firstString(values = [], maxLength = 0) {
+	for (const value of values) {
+		const next = cleanText(value, maxLength);
+		if (next) return next;
+	}
+	return '';
+}
+
+function extractFacebookPostImage(sourcePost = null) {
+	const direct = firstString(
+		[
+			sourcePost?.full_picture,
+			sourcePost?.picture,
+			sourcePost?.attachments?.data?.[0]?.media?.image?.src,
+			sourcePost?.attachments?.data?.[0]?.media?.source,
+			sourcePost?.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.image?.src,
+			sourcePost?.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.source,
+			sourcePost?.attachments?.data?.[0]?.thumbnail_url
+		],
+		2000
+	);
+	return direct || null;
+}
+
 function normalizeFacebookComment(comment, sourcePost = null) {
-	const fromName = cleanText(comment?.from?.name, 200) || null;
+	const fromName =
+		firstString([comment?.from?.name, comment?.from?.username, comment?.from?.id], 200) || null;
 	const postId = cleanText(sourcePost?.id, 200) || null;
+	const sourceImage = extractFacebookPostImage(sourcePost);
+	const sourceMessage = firstString([sourcePost?.message, sourcePost?.story], 8000) || null;
 	return {
 		platform: 'facebook',
 		meta_comment_id: cleanText(comment?.id, 200) || null,
@@ -32,15 +59,35 @@ function normalizeFacebookComment(comment, sourcePost = null) {
 			source_post: sourcePost
 				? {
 						id: postId,
-						message: cleanText(sourcePost?.message, 8000) || null,
+						message: sourceMessage,
 						permalink_url: cleanText(sourcePost?.permalink_url, 2000) || null,
-						full_picture: cleanText(sourcePost?.full_picture, 2000) || null,
+						full_picture: sourceImage,
+						attachments: sourcePost?.attachments || null,
 						created_time: sourcePost?.created_time || null
 					}
 				: null
 		},
 		commented_at: toIso(comment?.created_time)
 	};
+}
+
+async function fetchFacebookPostAttachments(postId, accessToken) {
+	const id = cleanText(postId, 200);
+	if (!id) return null;
+	try {
+		const payload = await callMetaApi({
+			path: `/${id}/attachments`,
+			accessToken,
+			query: {
+				fields: 'media,subattachments,target,url',
+				limit: 1
+			}
+		});
+		const data = Array.isArray(payload?.data) ? payload.data : [];
+		return data.length ? { data } : null;
+	} catch {
+		return null;
+	}
 }
 
 function normalizeInstagramComment(comment, media = null) {
@@ -79,7 +126,7 @@ export async function fetchFacebookComments({ account, limitPosts = 10, limitCom
 	const pageId = cleanText(account?.meta_page_id, 120);
 	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
 	if (!pageId || !accessToken) return [];
-	const fields = `id,message,created_time,full_picture,permalink_url,comments.limit(${Math.max(1, limitComments)}){id,message,created_time,from{id,name},parent{id},is_hidden}`;
+	const fields = `id,message,created_time,full_picture,picture,permalink_url,comments.limit(${Math.max(1, limitComments)}){id,message,created_time,from{id,name},parent{id},is_hidden}`;
 	let response = null;
 	try {
 		response = await callMetaApi({
@@ -103,8 +150,15 @@ export async function fetchFacebookComments({ account, limitPosts = 10, limitCom
 
 	const rows = [];
 	for (const post of Array.isArray(response?.data) ? response.data : []) {
+		let sourcePost = post;
+		if (!extractFacebookPostImage(sourcePost)) {
+			const attachments = await fetchFacebookPostAttachments(post?.id, accessToken);
+			if (attachments) {
+				sourcePost = { ...post, attachments };
+			}
+		}
 		for (const comment of Array.isArray(post?.comments?.data) ? post.comments.data : []) {
-			const normalized = normalizeFacebookComment(comment, post);
+			const normalized = normalizeFacebookComment(comment, sourcePost);
 			if (!normalized.meta_comment_id) continue;
 			rows.push(normalized);
 		}

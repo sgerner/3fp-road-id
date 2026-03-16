@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
-	listGroupSocialCommentReplies,
-	listGroupSocialComments,
+	listGroupSocialCommentRepliesByCommentIds,
+	listGroupSocialCommentsPage,
 	listGroupSocialPosts,
 	serializeSocialPost
 } from '$lib/server/social/db';
@@ -10,10 +10,18 @@ import { requireGroupSocialManager } from '$lib/server/social/permissions';
 function deriveSourcePostFromComment(comment) {
 	const source = comment?.raw_payload?.source_post;
 	if (!source || typeof source !== 'object') return null;
+	const sourceImage =
+		source.full_picture ||
+		source.picture ||
+		source.attachments?.data?.[0]?.media?.image?.src ||
+		source.attachments?.data?.[0]?.media?.source ||
+		source.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.image?.src ||
+		source.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.source ||
+		null;
 	return {
 		id: source.id || null,
 		caption: source.message || null,
-		image_url: source.full_picture || null,
+		image_url: sourceImage,
 		permalink_url: source.permalink_url || null,
 		created_at: source.created_time || null,
 		origin: 'source_payload'
@@ -58,16 +66,35 @@ export async function GET({ cookies, params, url }) {
 			return json({ error: auth?.error || 'Forbidden' }, { status: auth?.status || 403 });
 		}
 
-		const limit = Number.parseInt(url.searchParams.get('limit') || '120', 10);
-		const [comments, replies, posts] = await Promise.all([
-			listGroupSocialComments(auth.serviceSupabase, auth.group.id, { limit }),
-			listGroupSocialCommentReplies(auth.serviceSupabase, auth.group.id, { limit: 400 }),
+		const limit = Number.parseInt(url.searchParams.get('limit') || '20', 10);
+		const offset = Number.parseInt(url.searchParams.get('offset') || '0', 10);
+		const commentsPage = await listGroupSocialCommentsPage(auth.serviceSupabase, auth.group.id, {
+			limit,
+			offset
+		});
+		const [replies, posts] = await Promise.all([
+			listGroupSocialCommentRepliesByCommentIds(
+				auth.serviceSupabase,
+				auth.group.id,
+				commentsPage.rows.map((comment) => comment.id),
+				{ limit: 500 }
+			),
 			listGroupSocialPosts(auth.serviceSupabase, auth.group.id, { limit: 250 }).then((rows) =>
 				rows.map(serializeSocialPost)
 			)
 		]);
 
-		return json({ data: attachReplies(comments, replies, posts) });
+		return json({
+			data: {
+				comments: attachReplies(commentsPage.rows, replies, posts),
+				pagination: {
+					total: commentsPage.total,
+					limit: commentsPage.limit,
+					offset: commentsPage.offset,
+					has_more: commentsPage.has_more
+				}
+			}
+		});
 	} catch (error) {
 		console.error('Unable to load social comments', error);
 		return json({ error: error?.message || 'Unable to load comments.' }, { status: 500 });

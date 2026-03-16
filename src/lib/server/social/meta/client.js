@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { normalizeMetaError } from '$lib/server/social/meta/normalize';
 
-const DEFAULT_META_GRAPH_VERSION = 'v21.0';
+const DEFAULT_META_GRAPH_VERSION = 'v25.0';
 const FACEBOOK_GRAPH_HOST = 'https://graph.facebook.com';
 const INSTAGRAM_GRAPH_HOST = 'https://graph.instagram.com';
 const META_API_TIMEOUT_MS = 30_000;

@@ -59,7 +59,7 @@ export async function listGroupSocialAccounts(supabase, groupId, { includeTokens
 	if (includeTokens) {
 		select += ',access_token_encrypted,refresh_token_encrypted';
 	}
-	const { data, error } = await supabase
+	const { data, error, count } = await supabase
 		.from('group_social_accounts')
 		.select(select)
 		.eq('group_id', groupId)
@@ -243,15 +243,33 @@ export async function updateGroupSocialPost(supabase, groupId, postId, patch = {
 }
 
 export async function listGroupSocialComments(supabase, groupId, { limit = 80 } = {}) {
+	const page = await listGroupSocialCommentsPage(supabase, groupId, { limit, offset: 0 });
+	return page.rows;
+}
+
+export async function listGroupSocialCommentsPage(
+	supabase,
+	groupId,
+	{ limit = 80, offset = 0 } = {}
+) {
 	const safeLimit = Math.max(1, Math.min(200, Number.parseInt(String(limit), 10) || 80));
-	const { data, error } = await supabase
+	const safeOffset = Math.max(0, Number.parseInt(String(offset), 10) || 0);
+	const { data, error, count } = await supabase
 		.from('group_social_comments')
-		.select('*')
+		.select('*', { count: 'exact' })
 		.eq('group_id', groupId)
 		.order('commented_at', { ascending: false })
-		.limit(safeLimit);
+		.range(safeOffset, safeOffset + safeLimit - 1);
 	if (error) throw new Error(error.message);
-	return Array.isArray(data) ? data : [];
+	const rows = Array.isArray(data) ? data : [];
+	const total = Number.isFinite(Number(count)) ? Number(count) : rows.length;
+	return {
+		rows,
+		total,
+		limit: safeLimit,
+		offset: safeOffset,
+		has_more: safeOffset + rows.length < total
+	};
 }
 
 export async function upsertGroupSocialComment(supabase, payload) {
@@ -325,6 +343,32 @@ export async function listGroupSocialCommentReplies(supabase, groupId, { limit =
 		.from('group_social_comment_replies')
 		.select('*')
 		.eq('group_id', groupId)
+		.order('created_at', { ascending: false })
+		.limit(safeLimit);
+	if (error) throw new Error(error.message);
+	return Array.isArray(data) ? data : [];
+}
+
+export async function listGroupSocialCommentRepliesByCommentIds(
+	supabase,
+	groupId,
+	commentIds = [],
+	{ limit = 400 } = {}
+) {
+	const ids = Array.from(
+		new Set(
+			(commentIds || [])
+				.map((value) => cleanText(value, 120))
+				.filter(Boolean)
+		)
+	);
+	if (!ids.length) return [];
+	const safeLimit = Math.max(1, Math.min(1000, Number.parseInt(String(limit), 10) || 400));
+	const { data, error } = await supabase
+		.from('group_social_comment_replies')
+		.select('*')
+		.eq('group_id', groupId)
+		.in('group_comment_id', ids)
 		.order('created_at', { ascending: false })
 		.limit(safeLimit);
 	if (error) throw new Error(error.message);

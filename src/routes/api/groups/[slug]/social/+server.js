@@ -25,10 +25,18 @@ function buildReplyMap(replies = []) {
 function deriveSourcePostFromComment(comment) {
 	const source = comment?.raw_payload?.source_post;
 	if (!source || typeof source !== 'object') return null;
+	const sourceImage =
+		source.full_picture ||
+		source.picture ||
+		source.attachments?.data?.[0]?.media?.image?.src ||
+		source.attachments?.data?.[0]?.media?.source ||
+		source.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.image?.src ||
+		source.attachments?.data?.[0]?.subattachments?.data?.[0]?.media?.source ||
+		null;
 	return {
 		id: source.id || null,
 		caption: source.message || null,
-		image_url: source.full_picture || null,
+		image_url: sourceImage,
 		permalink_url: source.permalink_url || null,
 		created_at: source.created_time || null,
 		origin: 'source_payload'
