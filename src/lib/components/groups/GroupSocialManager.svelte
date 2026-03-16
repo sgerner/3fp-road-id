@@ -47,6 +47,7 @@
 	let commentsOffset = $state(0);
 	let loadingComments = $state(false);
 	let pendingConnections = $state([]);
+	let autoCommentSyncStarted = $state(false);
 
 	let submittingIntent = $state('');
 	let syncingComments = $state(false);
@@ -567,6 +568,13 @@
 		return accounts.find((account) => account?.platform === platform) || null;
 	}
 
+	function activeConnectedPlatforms() {
+		return accounts
+			.filter((account) => account?.status === 'active')
+			.map((account) => String(account.platform || '').trim().toLowerCase())
+			.filter(Boolean);
+	}
+
 	function pendingByPlatform(platform) {
 		return pendingConnections.find((entry) => entry?.provider === platform) || null;
 	}
@@ -744,6 +752,10 @@
 				posts = [];
 			}
 			await loadCommentsPage(0);
+			if (!autoCommentSyncStarted) {
+				autoCommentSyncStarted = true;
+				void syncComments({ silent: true, auto: true });
+			}
 		} catch (error) {
 			loadError = error?.message || 'Unable to load social manager data.';
 		} finally {
@@ -1011,21 +1023,48 @@
 		}
 	}
 
-	async function syncComments() {
+	async function syncComments({ silent = false, auto = false } = {}) {
 		if (!slug) return;
-		clearFeedback();
+		if (syncingComments) return;
+		if (!silent) clearFeedback();
+		const platforms = Array.from(new Set(activeConnectedPlatforms()));
+		if (!platforms.length) {
+			if (!silent) actionError = 'Connect a Facebook Page or Instagram professional account first.';
+			showConnectionsPanel = true;
+			return;
+		}
+
 		syncingComments = true;
 		try {
-			const syncResult = await requestJson(`/api/groups/${slug}/social/comments/sync`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ limit: 80 })
-			});
-			const summary = Array.isArray(syncResult?.data?.summary) ? syncResult.data.summary : [];
-			const failures = summary.filter((entry) => entry?.ok === false);
+			const failures = [];
+			let refreshedAny = false;
+
+			for (const platform of platforms) {
+				try {
+					const syncResult = await requestJson(`/api/groups/${slug}/social/comments/sync`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ limit: 80, platform })
+					});
+					const summary = Array.isArray(syncResult?.data?.summary) ? syncResult.data.summary : [];
+					const platformFailures = summary.filter((entry) => entry?.ok === false);
+					failures.push(...platformFailures);
+				} catch (error) {
+					failures.push({
+						platform,
+						ok: false,
+						error: error?.message || 'Sync failed.'
+					});
+				}
+
+				await loadCommentsPage(commentsOffset);
+				refreshedAny = true;
+			}
+
 			const payload = await requestJson(`/api/groups/${slug}/social`);
 			hydrateSocialData(payload?.data || {});
-			await loadCommentsPage(0);
+			if (!refreshedAny) await loadCommentsPage(commentsOffset);
+
 			if (failures.length) {
 				const detail = failures
 					.map((entry) => {
@@ -1037,7 +1076,9 @@
 				actionError = `Some comments could not be synced. ${detail}`;
 				actionNotice = '';
 				showConnectionsPanel = true;
-			} else {
+			} else if (!silent) {
+				actionNotice = 'Comments synced.';
+			} else if (!auto) {
 				actionNotice = 'Comments synced.';
 			}
 		} catch (error) {

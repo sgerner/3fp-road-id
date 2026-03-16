@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { syncGroupSocialComments } from '$lib/server/social/comments';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
+import { normalizePlatform } from '$lib/server/social/types';
 
 export async function POST({ cookies, params, request }) {
 	try {
@@ -11,7 +12,11 @@ export async function POST({ cookies, params, request }) {
 
 		const payload = await request.json().catch(() => ({}));
 		const limit = Number.parseInt(String(payload.limit ?? '60'), 10) || 60;
-		const result = await syncGroupSocialComments(auth.serviceSupabase, auth.group.id, { limit });
+		const platform = normalizePlatform(payload?.platform);
+		const result = await syncGroupSocialComments(auth.serviceSupabase, auth.group.id, {
+			limit,
+			platforms: platform ? [platform] : []
+		});
 		return json({ data: result });
 	} catch (error) {
 		console.error('Unable to sync social comments', error);

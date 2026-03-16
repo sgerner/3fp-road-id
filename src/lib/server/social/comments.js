@@ -79,11 +79,23 @@ function resolveLinkedSocialPostId(comment, lookup) {
 	return null;
 }
 
-export async function syncGroupSocialComments(supabase, groupId, { limit = 60 } = {}) {
+export async function syncGroupSocialComments(
+	supabase,
+	groupId,
+	{ limit = 60, platforms = [] } = {}
+) {
 	const accounts = await listGroupSocialAccounts(supabase, groupId, { includeTokens: true });
 	const posts = await listGroupSocialPosts(supabase, groupId, { limit: 250 });
 	const postLookup = buildMetaPostLookup(posts);
-	const activeAccounts = accounts.filter((account) => account?.status === 'active');
+	const requestedPlatforms = Array.isArray(platforms)
+		? platforms.map((entry) => cleanText(entry, 40).toLowerCase()).filter(Boolean)
+		: [];
+	const requestedSet = new Set(requestedPlatforms);
+	const activeAccounts = accounts.filter((account) => {
+		if (account?.status !== 'active') return false;
+		if (!requestedSet.size) return true;
+		return requestedSet.has(cleanText(account?.platform, 40).toLowerCase());
+	});
 	const syncSummary = [];
 	let inserted = 0;
 
