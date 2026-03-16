@@ -740,7 +740,7 @@
 								Donate
 							</a>
 
-							<div class="flex w-full items-center justify-center gap-2 px-2 text-[0.65rem]">
+							<div class="flex w-full items-center justify-center gap-1 px-2 text-[0.65rem]">
 								<a
 									href="/privacy"
 									class="text-surface-700-300 hover:text-surface-600-400 transition"
@@ -750,13 +750,6 @@
 								<span class="text-surface-700-300">|</span>
 								<a href="/terms" class="text-surface-700-300 hover:text-surface-600-400 transition">
 									Terms
-								</a>
-								<span class="text-surface-700-300">|</span>
-								<a
-									href="/data-deletion"
-									class="text-surface-700-300 hover:text-surface-600-400 transition"
-								>
-									Data
 								</a>
 							</div>
 
@@ -870,21 +863,14 @@
 								class="text-surface-700-300 hover:text-surface-600-400 transition"
 								onclick={() => (showMobileMenu = false)}
 							>
-								Privacy Policy
+								Privacy
 							</a>
 							<a
 								href="/terms"
 								class="text-surface-700-300 hover:text-surface-600-400 transition"
 								onclick={() => (showMobileMenu = false)}
 							>
-								Terms of Service
-							</a>
-							<a
-								href="/data-deletion"
-								class="text-surface-700-300 hover:text-surface-600-400 transition"
-								onclick={() => (showMobileMenu = false)}
-							>
-								Data Deletion
+								Terms
 							</a>
 						</div>
 					</div>
