@@ -17,7 +17,7 @@
 
 	const PLATFORMS = ['facebook', 'instagram'];
 	const CALENDAR_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
-	const CALENDAR_STATUSES = new Set(['scheduled', 'queued', 'publishing', 'published']);
+	const CALENDAR_STATUSES = new Set(['scheduled', 'queued', 'publishing', 'published', 'failed']);
 	const UPCOMING_CARD_STATUSES = new Set(['draft', 'scheduled', 'queued', 'publishing', 'failed']);
 	const COMMENTS_PAGE_SIZE = 20;
 
@@ -278,10 +278,24 @@
 		return slot;
 	}
 
-	function openComposerModal(prefillDate = null) {
+	function openComposerModal(prefillDate = null, options = {}) {
+		const sourcePost = options?.post && typeof options.post === 'object' ? options.post : null;
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
-		if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
+		if (sourcePost) {
+			composerTitle = sourcePost?.title || '';
+			composerCaption = sourcePost?.caption || '';
+			composerPlatforms = Array.isArray(sourcePost?.platforms) ? [...sourcePost.platforms] : [];
+			composerMedia = Array.isArray(sourcePost?.media) ? [...sourcePost.media] : [];
+			composerAiPrompt = sourcePost?.ai_prompt || '';
+			const scheduledDate = parsePostDate(sourcePost?.scheduled_for);
+			if (scheduledDate) {
+				composerScheduledFor = formatLocalDateTimeInput(scheduledDate);
+			} else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
+				const snapped = roundToQuarterHour(prefillDate);
+				composerScheduledFor = formatLocalDateTimeInput(snapped);
+			}
+		} else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
 			const snapped = roundToQuarterHour(prefillDate);
 			composerScheduledFor = formatLocalDateTimeInput(snapped);
 		} else if (!composerScheduledFor) {
@@ -474,12 +488,26 @@
 		return normalizeStatus(post?.status) === 'published';
 	}
 
+	function calendarPostClass(post) {
+		const status = normalizeStatus(post?.status);
+		if (status === 'published') {
+			return 'bg-surface-500/10 text-surface-700-300 opacity-70';
+		}
+		if (status === 'failed') {
+			return 'bg-error-500/10 text-error-700-300';
+		}
+		if (status === 'publishing') {
+			return 'bg-warning-500/10 text-warning-700-300';
+		}
+		return 'bg-secondary-500/10 text-secondary-800-200';
+	}
+
 	function handleCalendarPostClick(post) {
 		if (isPublishedPost(post)) {
 			openPublishedPostModal(post);
 			return;
 		}
-		openComposerModal(post?._scheduledAt || resolvePostDate(post) || new Date());
+		openComposerModal(post?._scheduledAt || resolvePostDate(post) || new Date(), { post });
 	}
 
 	function accountByPlatform(platform) {
@@ -1326,7 +1354,7 @@
 												{#each day.posts.slice(0, 2) as post}
 													<button
 														type="button"
-														class={`w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10 text-secondary-800-200'}`}
+														class={`w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
 														onclick={(event) => {
 															event.stopPropagation();
 															handleCalendarPostClick(post);
@@ -1376,7 +1404,7 @@
 														{#each day.posts.slice(0, 3) as post}
 															<button
 																type="button"
-																class={`block w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10 text-secondary-800-200'}`}
+																class={`block w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
 																onclick={(event) => {
 																	event.stopPropagation();
 																	handleCalendarPostClick(post);
@@ -1441,7 +1469,7 @@
 																{#each slot.posts as post}
 																	<button
 																		type="button"
-																		class={`mb-1 block w-full rounded px-2 py-1 text-left text-[10px] ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10'}`}
+																		class={`mb-1 block w-full rounded px-2 py-1 text-left text-[10px] ${calendarPostClass(post)}`}
 																		onclick={(event) => {
 																			event.stopPropagation();
 																			handleCalendarPostClick(post);
@@ -1485,7 +1513,7 @@
 													{#each slot.posts as post}
 														<button
 															type="button"
-															class={`mb-1 block w-full rounded px-2 py-1 text-left text-xs ${isPublishedPost(post) ? 'bg-surface-500/10 text-surface-700-300 opacity-70' : 'bg-secondary-500/10'}`}
+															class={`mb-1 block w-full rounded px-2 py-1 text-left text-xs ${calendarPostClass(post)}`}
 															onclick={(event) => {
 																event.stopPropagation();
 																handleCalendarPostClick(post);
@@ -1558,7 +1586,7 @@
 												<button
 													type="button"
 													class="btn btn-sm preset-outlined-secondary-500"
-													onclick={() => openComposerModal(resolvePostDate(post))}
+													onclick={() => openComposerModal(resolvePostDate(post), { post })}
 												>
 													Reschedule
 												</button>

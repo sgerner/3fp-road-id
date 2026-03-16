@@ -1,4 +1,5 @@
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import sharp from 'sharp';
 import {
 	getGroupSocialPostById,
 	listGroupSocialAccounts,
@@ -45,6 +46,108 @@ function validateManagedMedia(post) {
 		}
 	}
 	return { ok: true };
+}
+
+function parseManagedStoragePath(value) {
+	const mediaUrl = cleanText(value, 2000);
+	if (!mediaUrl) return null;
+	try {
+		const parsed = new URL(mediaUrl);
+		const expected = new URL(PUBLIC_SUPABASE_URL);
+		if (parsed.host !== expected.host) return null;
+		const segments = parsed.pathname.split('/').filter(Boolean);
+		if (segments.length < 6) return null;
+		if (
+			segments[0] !== 'storage' ||
+			segments[1] !== 'v1' ||
+			segments[2] !== 'object' ||
+			segments[3] !== 'public'
+		) {
+			return null;
+		}
+		const bucket = segments[4];
+		const objectPath = decodeURIComponent(segments.slice(5).join('/'));
+		if (!bucket || !objectPath) return null;
+		return { bucket, objectPath };
+	} catch {
+		return null;
+	}
+}
+
+function isJpegUrl(value) {
+	const mediaUrl = cleanText(value, 2000);
+	if (!mediaUrl) return false;
+	try {
+		const parsed = new URL(mediaUrl);
+		const pathname = parsed.pathname.toLowerCase();
+		return pathname.endsWith('.jpg') || pathname.endsWith('.jpeg');
+	} catch {
+		return false;
+	}
+}
+
+async function createInstagramJpegDerivative(supabase, mediaUrl) {
+	const reference = parseManagedStoragePath(mediaUrl);
+	if (!reference) {
+		throw new Error('Instagram requires JPEG media. Re-upload the image as JPEG.');
+	}
+
+	const response = await fetch(mediaUrl);
+	if (!response.ok) {
+		throw new Error('Unable to fetch media for Instagram JPEG conversion.');
+	}
+	const sourceBuffer = Buffer.from(await response.arrayBuffer());
+	let convertedBuffer = null;
+	try {
+		convertedBuffer = await sharp(sourceBuffer).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+	} catch {
+		throw new Error('Unable to convert media to JPEG for Instagram publishing.');
+	}
+
+	const basePath = reference.objectPath.replace(/\.[a-z0-9]+$/i, '');
+	const objectPath = `${basePath}-ig.jpg`;
+	const upload = await supabase.storage.from(reference.bucket).upload(objectPath, convertedBuffer, {
+		contentType: 'image/jpeg',
+		upsert: true
+	});
+	if (upload.error) {
+		throw new Error(upload.error.message || 'Unable to upload Instagram JPEG derivative.');
+	}
+	const { data } = supabase.storage.from(reference.bucket).getPublicUrl(objectPath);
+	const publicUrl = cleanText(data?.publicUrl, 2000);
+	if (!publicUrl) {
+		throw new Error('Unable to resolve public URL for Instagram JPEG derivative.');
+	}
+	return publicUrl;
+}
+
+async function ensureInstagramCompatibleMedia({ supabase, media }) {
+	const list = Array.isArray(media) ? [...media] : [];
+	if (!list.length) return { changed: false, media: list };
+	const first = list[0];
+	const firstUrl = cleanText(
+		typeof first === 'string' ? first : first?.url || first?.public_url || first?.src,
+		2000
+	);
+	if (!firstUrl) {
+		throw new Error('Instagram publishing requires at least one media URL.');
+	}
+	if (isJpegUrl(firstUrl)) {
+		return { changed: false, media: list };
+	}
+	const jpegUrl = await createInstagramJpegDerivative(supabase, firstUrl);
+	if (typeof first === 'string') {
+		list[0] = jpegUrl;
+	} else {
+		list[0] = {
+			...(first || {}),
+			url: jpegUrl,
+			mime_type: 'image/jpeg',
+			type: 'image',
+			derived_for: 'instagram'
+		};
+	}
+	return { changed: true, media: list };
 }
 
 function findConnectedAccount(accounts, platform) {
@@ -100,12 +203,60 @@ export async function publishSingleGroupSocialPost(
 		};
 	}
 
+	let preparedMedia = extractPostMedia(targetPost);
+	if (platforms.includes('instagram')) {
+		try {
+			const prepared = await ensureInstagramCompatibleMedia({
+				supabase,
+				media: preparedMedia
+			});
+			if (prepared.changed) {
+				preparedMedia = prepared.media;
+				await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+					media: preparedMedia,
+					updated_by: requestedBy || targetPost.updated_by || targetPost.created_by || null
+				});
+			}
+		} catch (conversionError) {
+			const message = cleanText(conversionError?.message, 1000) || 'Unable to prepare Instagram media.';
+			await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+				status: 'failed',
+				updated_by: requestedBy,
+				last_publish_error: message,
+				meta_publish_results: {
+					...(targetPost.meta_publish_results || {}),
+					last_error: message
+				}
+			});
+			return { ok: false, error: message };
+		}
+	}
+
 	const accounts = await listGroupSocialAccounts(supabase, groupId, { includeTokens: true });
 	const platformResults = {};
 	let successCount = 0;
 	let failureCount = 0;
+	const priorPlatformResults =
+		targetPost?.meta_publish_results &&
+		typeof targetPost.meta_publish_results === 'object' &&
+		targetPost.meta_publish_results.platforms &&
+		typeof targetPost.meta_publish_results.platforms === 'object'
+			? targetPost.meta_publish_results.platforms
+			: {};
 
 	for (const platform of platforms) {
+		const prior = priorPlatformResults[platform];
+		if (prior?.ok === true) {
+			platformResults[platform] = {
+				...prior,
+				ok: true,
+				skipped: true,
+				note: 'Already published in a previous attempt.'
+			};
+			successCount += 1;
+			continue;
+		}
+
 		const account = findConnectedAccount(accounts, platform);
 		if (!account) {
 			platformResults[platform] = {
@@ -127,7 +278,7 @@ export async function publishSingleGroupSocialPost(
 				},
 				post: {
 					caption: targetPost.caption,
-					media: extractPostMedia(targetPost)
+					media: preparedMedia
 				}
 			});
 			platformResults[platform] = publishResult;

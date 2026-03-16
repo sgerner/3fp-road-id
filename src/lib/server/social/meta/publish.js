@@ -24,6 +24,32 @@ function extractMediaUrls(media) {
 	return urls;
 }
 
+function isFacebookPageIdentityError(error) {
+	const text = cleanText(error?.message || error, 1200).toLowerCase();
+	return text.includes('must be posted to a page as the page itself');
+}
+
+async function resolveFacebookPageAccessToken({ pageId, accessToken }) {
+	const normalizedPageId = cleanText(pageId, 120);
+	const token = cleanText(accessToken, 5000);
+	if (!normalizedPageId || !token) return '';
+	try {
+		const payload = await callMetaApi({
+			path: '/me/accounts',
+			accessToken: token,
+			query: {
+				fields: 'id,access_token',
+				limit: 50
+			}
+		});
+		const pages = Array.isArray(payload?.data) ? payload.data : [];
+		const selected = pages.find((entry) => cleanText(entry?.id, 120) === normalizedPageId);
+		return cleanText(selected?.access_token, 5000);
+	} catch {
+		return '';
+	}
+}
+
 async function publishToFacebookPage({ account, caption, media = [] }) {
 	const pageId = cleanText(account?.meta_page_id, 120);
 	if (!pageId) throw new Error('Connected Facebook Page id is missing.');
@@ -31,50 +57,45 @@ async function publishToFacebookPage({ account, caption, media = [] }) {
 	if (!accessToken) throw new Error('Connected Facebook access token is missing.');
 
 	const mediaUrls = extractMediaUrls(media);
-	let response = null;
-	let uploadedPhotoIds = [];
-
-	if (mediaUrls.length) {
-		for (const mediaUrl of mediaUrls) {
-			const photoResponse = await callMetaApi({
+	const postMessage = cleanText(caption, 4000) || undefined;
+	const publishWithToken = async (token) => {
+		if (mediaUrls.length) {
+			const firstMediaUrl = mediaUrls[0];
+			return callMetaApi({
 				path: `/${pageId}/photos`,
 				method: 'POST',
-				accessToken,
+				accessToken: token,
 				query: {
-					url: mediaUrl,
-					published: 'false'
+					url: firstMediaUrl,
+					message: postMessage,
+					published: 'true'
 				}
 			});
-			const photoId = cleanText(photoResponse?.id, 200);
-			if (photoId) uploadedPhotoIds.push(photoId);
 		}
-
-		const attachedMedia = Object.fromEntries(
-			uploadedPhotoIds.map((photoId, index) => [
-				`attached_media[${index}]`,
-				JSON.stringify({ media_fbid: photoId })
-			])
-		);
-		response = await callMetaApi({
+		return callMetaApi({
 			path: `/${pageId}/feed`,
 			method: 'POST',
-			accessToken,
+			accessToken: token,
 			query: {
-				message: cleanText(caption, 4000) || undefined,
-				published: 'true',
-				...attachedMedia
-			}
-		});
-	} else {
-		response = await callMetaApi({
-			path: `/${pageId}/feed`,
-			method: 'POST',
-			accessToken,
-			query: {
-				message: cleanText(caption, 4000) || undefined,
+				message: postMessage,
 				published: 'true'
 			}
 		});
+	};
+
+	let response = null;
+	let usedPageTokenFallback = false;
+	try {
+		response = await publishWithToken(accessToken);
+	} catch (error) {
+		if (!isFacebookPageIdentityError(error)) throw error;
+		const pageToken = await resolveFacebookPageAccessToken({
+			pageId,
+			accessToken
+		});
+		if (!pageToken || pageToken === accessToken) throw error;
+		response = await publishWithToken(pageToken);
+		usedPageTokenFallback = true;
 	}
 
 	return {
@@ -83,7 +104,8 @@ async function publishToFacebookPage({ account, caption, media = [] }) {
 		meta_id: cleanText(response?.id, 200) || null,
 		meta_post_id: cleanText(response?.id, 200) || null,
 		media_count_requested: mediaUrls.length,
-		uploaded_photo_ids: uploadedPhotoIds,
+		media_count_published: mediaUrls.length ? 1 : 0,
+		used_page_token_fallback: usedPageTokenFallback,
 		published_at: new Date().toISOString()
 	};
 }
