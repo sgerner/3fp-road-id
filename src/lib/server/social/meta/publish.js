@@ -8,6 +8,38 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
+function isSocialPublishDebugEnabled() {
+	const value = cleanText(process.env.SOCIAL_PUBLISH_DEBUG, 20).toLowerCase();
+	return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+function logSocialPublishDebug(event, payload = {}) {
+	if (!isSocialPublishDebugEnabled()) return;
+	console.info(event, payload);
+}
+
+function buildMetaErrorDebugPayload(error) {
+	if (!error || typeof error !== 'object') return null;
+	const payload =
+		error?.payload && typeof error.payload === 'object'
+			? error.payload
+			: error?.error && typeof error.error === 'object'
+				? error
+				: null;
+	const inner = payload?.error && typeof payload.error === 'object' ? payload.error : payload;
+	if (!inner || typeof inner !== 'object') return null;
+	return {
+		status: Number.isFinite(Number(error?.status)) ? Number(error.status) : null,
+		type: cleanText(inner?.type, 120) || null,
+		code: Number.isFinite(Number(inner?.code)) ? Number(inner.code) : null,
+		error_subcode: Number.isFinite(Number(inner?.error_subcode)) ? Number(inner.error_subcode) : null,
+		message: cleanText(inner?.message || inner?.error_message, 1000) || null,
+		error_user_title: cleanText(inner?.error_user_title, 240) || null,
+		error_user_msg: cleanText(inner?.error_user_msg, 1000) || null,
+		fbtrace_id: cleanText(inner?.fbtrace_id, 120) || null
+	};
+}
+
 function extractMediaUrls(media) {
 	if (!Array.isArray(media)) return [];
 	const urls = [];
@@ -123,6 +155,11 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 			'Instagram publishing requires at least one publicly accessible image URL in v1.'
 		);
 	}
+	logSocialPublishDebug('social_publish_instagram_container_request', {
+		ig_account_id: igAccountId,
+		media_url: mediaUrl,
+		media_count_requested: mediaUrls.length
+	});
 
 	const callInstagramWriteEdge = async (path, query) => {
 		try {
@@ -145,12 +182,62 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 		}
 	};
 
+	const callInstagramReadEdge = async (path, query) => {
+		try {
+			return await callInstagramApi({
+				path,
+				method: 'GET',
+				accessToken,
+				query
+			});
+		} catch (primaryError) {
+			return callMetaApi({
+				path,
+				method: 'GET',
+				accessToken,
+				query
+			}).catch(() => {
+				throw primaryError;
+			});
+		}
+	};
+
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	const waitForInstagramContainerReady = async (creationId) => {
+		const maxAttempts = 8;
+		for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+			const statusPayload = await callInstagramReadEdge(`/${creationId}`, {
+				fields: 'status_code,status'
+			});
+			const statusCode = cleanText(statusPayload?.status_code, 80).toUpperCase();
+			const status = cleanText(statusPayload?.status, 80).toUpperCase();
+			logSocialPublishDebug('social_publish_instagram_container_status', {
+				creation_id: creationId,
+				attempt,
+				status_code: statusCode || null,
+				status: status || null
+			});
+			if (statusCode === 'FINISHED') return;
+			if (statusCode === 'ERROR' || status === 'ERROR') {
+				throw new Error('Instagram media container processing failed.');
+			}
+			if (attempt < maxAttempts) await wait(1500 * attempt);
+		}
+		throw new Error('Instagram media is still processing. Please retry in a minute.');
+	};
+
 	const container = await callInstagramWriteEdge(`/${igAccountId}/media`, {
+		media_type: 'IMAGE',
 		image_url: mediaUrl,
 		caption: cleanText(caption, 2200)
 	});
 	const creationId = cleanText(container?.id, 200);
 	if (!creationId) throw new Error('Instagram media container was not created.');
+	logSocialPublishDebug('social_publish_instagram_container_created', {
+		ig_account_id: igAccountId,
+		creation_id: creationId
+	});
+	await waitForInstagramContainerReady(creationId);
 
 	const publishResponse = await callInstagramWriteEdge(`/${igAccountId}/media_publish`, {
 		creation_id: creationId
@@ -179,10 +266,18 @@ export async function publishGroupSocialPostToPlatform({ platform, account, post
 		}
 		throw new Error(`Unsupported social platform: ${platform}`);
 	} catch (error) {
+		const debug = buildMetaErrorDebugPayload(error);
+		if (debug) {
+			logSocialPublishDebug('social_publish_platform_error', {
+				platform,
+				...debug
+			});
+		}
 		return {
 			ok: false,
 			platform,
-			error: normalizeMetaError(error, 'Unable to publish to Meta platform.')
+			error: normalizeMetaError(error, 'Unable to publish to Meta platform.'),
+			...(debug ? { debug } : {})
 		};
 	}
 }

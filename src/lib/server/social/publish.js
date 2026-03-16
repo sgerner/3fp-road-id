@@ -86,6 +86,16 @@ function isJpegUrl(value) {
 	}
 }
 
+function isSocialPublishDebugEnabled() {
+	const value = cleanText(process.env.SOCIAL_PUBLISH_DEBUG, 20).toLowerCase();
+	return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+function logSocialPublishDebug(event, payload = {}) {
+	if (!isSocialPublishDebugEnabled()) return;
+	console.info(event, payload);
+}
+
 async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	const reference = parseManagedStoragePath(mediaUrl);
 	if (!reference) {
@@ -96,6 +106,11 @@ async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	if (!response.ok) {
 		throw new Error('Unable to fetch media for Instagram JPEG conversion.');
 	}
+	logSocialPublishDebug('social_publish_instagram_media_fetch', {
+		media_url: mediaUrl,
+		status: response.status,
+		content_type: cleanText(response.headers.get('content-type'), 120) || null
+	});
 	const sourceBuffer = Buffer.from(await response.arrayBuffer());
 	let convertedBuffer = null;
 	try {
@@ -118,6 +133,12 @@ async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	if (!publicUrl) {
 		throw new Error('Unable to resolve public URL for Instagram JPEG derivative.');
 	}
+	logSocialPublishDebug('social_publish_instagram_media_derivative', {
+		source_media_url: mediaUrl,
+		derived_media_url: publicUrl,
+		source_bytes: sourceBuffer.length,
+		derived_bytes: convertedBuffer.length
+	});
 	return publicUrl;
 }
 
@@ -132,7 +153,15 @@ async function ensureInstagramCompatibleMedia({ supabase, media }) {
 	if (!firstUrl) {
 		throw new Error('Instagram publishing requires at least one media URL.');
 	}
-	if (isJpegUrl(firstUrl)) {
+	const isAlreadyPrepared =
+		typeof first === 'object' &&
+		first !== null &&
+		first.derived_for === 'instagram' &&
+		isJpegUrl(firstUrl);
+	if (isAlreadyPrepared) {
+		logSocialPublishDebug('social_publish_instagram_media_already_prepared', {
+			media_url: firstUrl
+		});
 		return { changed: false, media: list };
 	}
 	const jpegUrl = await createInstagramJpegDerivative(supabase, firstUrl);
@@ -147,6 +176,10 @@ async function ensureInstagramCompatibleMedia({ supabase, media }) {
 			derived_for: 'instagram'
 		};
 	}
+	logSocialPublishDebug('social_publish_instagram_media_prepared', {
+		original_media_url: firstUrl,
+		prepared_media_url: jpegUrl
+	});
 	return { changed: true, media: list };
 }
 
@@ -206,6 +239,10 @@ export async function publishSingleGroupSocialPost(
 	let preparedMedia = extractPostMedia(targetPost);
 	if (platforms.includes('instagram')) {
 		try {
+			logSocialPublishDebug('social_publish_instagram_prepare_start', {
+				post_id: targetPost.id,
+				media_count: preparedMedia.length
+			});
 			const prepared = await ensureInstagramCompatibleMedia({
 				supabase,
 				media: preparedMedia
@@ -215,6 +252,16 @@ export async function publishSingleGroupSocialPost(
 				await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 					media: preparedMedia,
 					updated_by: requestedBy || targetPost.updated_by || targetPost.created_by || null
+				});
+				logSocialPublishDebug('social_publish_instagram_prepare_saved', {
+					post_id: targetPost.id,
+					prepared_media_url:
+						cleanText(
+							typeof preparedMedia[0] === 'string'
+								? preparedMedia[0]
+								: preparedMedia[0]?.url || preparedMedia[0]?.public_url || preparedMedia[0]?.src,
+							2000
+						) || null
 				});
 			}
 		} catch (conversionError) {

@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconX from '@lucide/svelte/icons/x';
@@ -11,6 +11,16 @@
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
 	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
+	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
+	import IconReply from '@lucide/svelte/icons/reply';
+	import IconSend from '@lucide/svelte/icons/send';
+	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
+	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import IconFacebook from '@lucide/svelte/icons/facebook';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
+	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 
 	let { slug = '', canManageSocial = false, showClaimMessage = false } = $props();
@@ -446,6 +456,49 @@
 			return comment?.platform === 'facebook' ? `Facebook user (${rawId})` : rawId;
 		}
 		return comment?.platform === 'facebook' ? 'Facebook user' : 'Commenter';
+	}
+
+	function getPlatformIcon(platform) {
+		return platform === 'instagram' ? IconInstagram : IconFacebook;
+	}
+
+	function getPlatformColor(platform) {
+		return platform === 'instagram' 
+			? 'from-pink-500 via-purple-500 to-orange-500' 
+			: 'from-blue-600 to-blue-500';
+	}
+
+	function formatRelativeTime(value) {
+		if (!value) return '';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '';
+		const now = new Date();
+		const diffMs = now - date;
+		const diffSecs = Math.floor(diffMs / 1000);
+		const diffMins = Math.floor(diffSecs / 60);
+		const diffHours = Math.floor(diffMins / 60);
+		const diffDays = Math.floor(diffHours / 24);
+
+		if (diffSecs < 60) return 'Just now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		if (diffHours < 24) return `${diffHours}h ago`;
+		if (diffDays < 7) return `${diffDays}d ago`;
+		return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
+	}
+
+	function getReplyStatusClass(status) {
+		switch (normalizeStatus(status)) {
+			case 'sent':
+			case 'published':
+				return 'text-success-400 bg-success-500/10 border-success-500/20';
+			case 'failed':
+				return 'text-error-400 bg-error-500/10 border-error-500/20';
+			case 'pending':
+			case 'sending':
+				return 'text-warning-400 bg-warning-500/10 border-warning-500/20';
+			default:
+				return 'text-surface-400 bg-surface-500/10 border-surface-500/20';
+		}
 	}
 
 	function postPlatformsLabel(post) {
@@ -2000,169 +2053,310 @@
 				<!-- /composer-backdrop -->
 			{/if}
 
-			<section class="space-y-3">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<h3 class="text-base font-semibold">Comments</h3>
-						<div class="text-surface-700-300 mt-1 text-xs">
-							{#if loadingComments}
-								Loading comments...
-							{:else if commentsTotal > 0}
-								Showing {commentsPageStart}-{commentsPageEnd} of {commentsTotal}
-							{:else}
-								No synced comments yet.
+			<!-- Enhanced Comments Section -->
+			<section class="comments-section space-y-5">
+				<!-- Section Header -->
+				<div class="comments-header">
+					<div class="flex flex-col gap-1">
+						<div class="flex items-center gap-2">
+							<IconMessageCircle class="h-5 w-5 text-secondary-400" />
+							<h3 class="text-lg font-semibold">Comments</h3>
+							{#if commentsTotal > 0}
+								<span class="comments-count">{commentsTotal}</span>
 							{/if}
 						</div>
+						<p class="text-surface-400 text-sm">
+							{#if loadingComments}
+								<span class="flex items-center gap-2">
+									<IconLoader class="h-3.5 w-3.5 animate-spin" />
+									Loading comments...
+								</span>
+							{:else if commentsTotal > 0}
+								Showing <span class="font-medium text-surface-200">{commentsPageStart}-{commentsPageEnd}</span> of <span class="font-medium text-surface-200">{commentsTotal}</span> comments
+							{:else}
+								Sync to view and reply to comments from your connected accounts
+							{/if}
+						</p>
 					</div>
 					<div class="flex flex-wrap items-center gap-2">
+						{#if commentsTotal > COMMENTS_PAGE_SIZE}
+							<div class="flex items-center gap-1 rounded-lg bg-surface-800/50 p-1">
+								<button
+									type="button"
+									class="pagination-btn"
+									onclick={goToPreviousCommentsPage}
+									disabled={!hasPreviousCommentsPage || loadingComments || syncingComments}
+									aria-label="Previous page"
+								>
+									<IconChevronLeft class="h-4 w-4" />
+								</button>
+								<span class="pagination-info">
+									{Math.floor(commentsOffset / COMMENTS_PAGE_SIZE) + 1}
+								</span>
+								<button
+									type="button"
+									class="pagination-btn"
+									onclick={goToNextCommentsPage}
+									disabled={!hasNextCommentsPage || loadingComments || syncingComments}
+									aria-label="Next page"
+								>
+									<IconChevronRight class="h-4 w-4" />
+								</button>
+							</div>
+						{/if}
 						<button
 							type="button"
-							class="btn btn-sm preset-outlined-secondary-500"
-							onclick={goToPreviousCommentsPage}
-							disabled={!hasPreviousCommentsPage || loadingComments || syncingComments}
-						>
-							Prev
-						</button>
-						<button
-							type="button"
-							class="btn btn-sm preset-outlined-secondary-500"
-							onclick={goToNextCommentsPage}
-							disabled={!hasNextCommentsPage || loadingComments || syncingComments}
-						>
-							Next
-						</button>
-						<button
-							type="button"
-							class="btn btn-sm preset-outlined-primary-500"
+							class="sync-btn"
 							onclick={syncComments}
 							disabled={syncingComments || loadingComments}
 						>
-							{syncingComments ? 'Syncing...' : 'Sync Comments'}
+							<IconRefreshCw class="h-4 w-4 {syncingComments ? 'animate-spin' : ''}" />
+							<span class="hidden sm:inline">{syncingComments ? 'Syncing...' : 'Sync Comments'}</span>
+							<span class="sm:hidden">{syncingComments ? 'Syncing...' : 'Sync'}</span>
 						</button>
 					</div>
 				</div>
-				{#if loadingComments}
-					<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
-						Loading comments...
+
+				{#if loadingComments && comments.length === 0}
+					<!-- Loading State -->
+					<div class="comments-loading">
+						<div class="loading-orb" aria-hidden="true"></div>
+						<div class="flex flex-col items-center gap-3 relative z-10">
+							<div class="loading-spinner"></div>
+							<p class="text-surface-400 text-sm">Loading comments...</p>
+						</div>
 					</div>
 				{:else if !comments.length}
-					<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
-						No comments yet.
+					<!-- Empty State -->
+					<div class="comments-empty">
+						<div class="empty-orb" aria-hidden="true"></div>
+						<div class="empty-icon">
+							<IconMessageCircle class="h-8 w-8 text-surface-500" />
+						</div>
+						<h4 class="text-surface-200 mt-4 text-base font-medium">No comments yet</h4>
+						<p class="text-surface-500 mt-1 max-w-xs text-center text-sm">
+							Comments from your Facebook and Instagram posts will appear here after syncing.
+						</p>
+						<button
+							type="button"
+							class="btn preset-filled-primary-500 mt-4"
+							onclick={syncComments}
+							disabled={syncingComments}
+						>
+							<IconRefreshCw class="h-4 w-4 {syncingComments ? 'animate-spin' : ''}" />
+							{syncingComments ? 'Syncing...' : 'Sync Comments Now'}
+						</button>
 					</div>
 				{:else}
-					<div class="space-y-3">
-						{#each comments as comment}
-							<div class="card border-surface-300-700 space-y-3 rounded-xl border p-3">
-								<div class="flex flex-wrap items-start justify-between gap-2">
-									<div>
-										<div class="text-sm font-semibold">
-											{commentAuthorLabel(comment)}
+					<!-- Comments List -->
+					<div class="comments-list">
+						{#each comments as comment, index (comment.id)}
+							{@const PlatformIcon = getPlatformIcon(comment.platform)}
+							{@const platformGradient = getPlatformColor(comment.platform)}
+							{@const relativeTime = formatRelativeTime(comment.commented_at)}
+							
+							<article 
+								class="comment-card"
+								style="--stagger: {index}"
+								in:fade={{ duration: 200, delay: index * 50 }}
+							>
+								<!-- Comment Header -->
+								<header class="comment-header">
+									<div class="comment-author">
+										<div class="author-avatar">
+											<span class="text-sm font-semibold">
+												{commentAuthorLabel(comment).charAt(0).toUpperCase()}
+											</span>
 										</div>
-										<div class="text-surface-700-300 text-xs">
-											{platformLabel(comment.platform)} • {formatDateTime(comment.commented_at)}
+										<div class="author-info">
+											<div class="flex items-center gap-2 flex-wrap">
+												<span class="author-name">{commentAuthorLabel(comment)}</span>
+												<span class="platform-badge bg-gradient-to-r {platformGradient}">
+													<PlatformIcon class="h-3 w-3" />
+													<span>{platformLabel(comment.platform)}</span>
+												</span>
+											</div>
+											<div class="comment-meta">
+												{#if relativeTime}
+													<span class="meta-item" title={formatDateTime(comment.commented_at)}>
+														{relativeTime}
+													</span>
+												{/if}
+												<span class="meta-dot"></span>
+												<span class="meta-item">{formatDateTime(comment.commented_at)}</span>
+											</div>
 										</div>
 									</div>
 									{#if comment.can_reply}
-										<span class="chip preset-tonal-success text-xs">Reply enabled</span>
+										<span class="reply-status reply-status--enabled">
+											<IconCheck class="h-3 w-3" />
+											<span>Can Reply</span>
+										</span>
 									{:else}
-										<span class="chip preset-tonal-warning text-xs">Reply unavailable</span>
+										<span class="reply-status reply-status--disabled">
+											<span>Reply unavailable</span>
+										</span>
 									{/if}
+								</header>
+
+								<!-- Comment Body -->
+								<div class="comment-body">
+									<p>{comment.body}</p>
 								</div>
 
-								<div class="text-sm">{comment.body}</div>
-
+								<!-- Linked Post Context -->
 								{#if comment.linked_post}
-									<div class="comment-context card border-surface-300-700 rounded-lg border p-2">
-										<div class="text-surface-700-300 mb-2 text-[11px] font-semibold uppercase">
-											Commented On Post
+									<div class="linked-post">
+										<div class="linked-post-label">
+											<IconCornerDownRight class="h-3.5 w-3.5" />
+											<span>On Post</span>
 										</div>
-										<div class="comment-context__row">
+										<div class="linked-post-content">
 											{#if linkedPostImageUrl(comment)}
 												<img
 													src={linkedPostImageUrl(comment)}
-													alt="Associated post"
-													class="comment-context__image"
+													alt="Post thumbnail"
+													class="linked-post-thumb"
 												/>
 											{/if}
-											<div class="min-w-0 flex-1 space-y-1">
-												<div class="text-xs">{linkedPostCaption(comment)}</div>
-												<div class="text-surface-700-300 text-[11px]">
-													{comment.linked_post.origin === 'group_social_post'
-														? 'Published from 3FP'
-														: 'Synced from platform'}
-													{#if comment.linked_post.created_at}
-														• {formatDateTime(comment.linked_post.created_at)}
+											<div class="linked-post-details">
+												<p class="linked-post-caption">{linkedPostCaption(comment)}</p>
+												<div class="linked-post-meta">
+													<span class="meta-badge">
+														{comment.linked_post.origin === 'group_social_post' ? '3FP Published' : 'Platform'}
+													</span>
+													{#if comment.linked_post.permalink_url}
+														<a
+															href={comment.linked_post.permalink_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															class="permalink-link"
+														>
+															<IconExternalLink class="h-3 w-3" />
+															<span>View Post</span>
+														</a>
 													{/if}
 												</div>
-												{#if comment.linked_post.permalink_url}
-													<a
-														href={comment.linked_post.permalink_url}
-														target="_blank"
-														rel="noopener noreferrer"
-														class="text-secondary-400 text-[11px] underline"
-													>
-														Open original post
-													</a>
-												{/if}
 											</div>
 										</div>
 									</div>
 								{/if}
 
+								<!-- Existing Replies -->
 								{#if Array.isArray(comment.replies) && comment.replies.length}
-									<div class="space-y-2">
-										<div class="text-surface-700-300 text-xs font-medium">Replies</div>
-										{#each comment.replies as reply}
-											<div class="card border-surface-300-700 rounded-lg border p-2 text-xs">
-												<div>{reply.body}</div>
-												<div class="text-surface-700-300 mt-1">
-													{reply.status || 'sent'} • {formatDateTime(reply.created_at)}
+									<div class="replies-section">
+										<div class="replies-header">
+											<IconReply class="h-3.5 w-3.5" />
+											<span>{comment.replies.length} {comment.replies.length === 1 ? 'Reply' : 'Replies'}</span>
+										</div>
+										<div class="replies-list">
+											{#each comment.replies as reply, replyIndex (reply.id)}
+												<div 
+													class="reply-item"
+													in:slide={{ duration: 200, delay: replyIndex * 50 }}
+												>
+													<div class="reply-line" aria-hidden="true"></div>
+													<div class="reply-content">
+														<p class="reply-text">{reply.body}</p>
+														<div class="reply-footer">
+															<span class="reply-status-badge {getReplyStatusClass(reply.status)}">
+																{reply.status || 'sent'}
+															</span>
+															<span class="reply-time">{formatDateTime(reply.created_at)}</span>
+														</div>
+													</div>
 												</div>
-											</div>
-										{/each}
+											{/each}
+										</div>
 									</div>
 								{/if}
 
-								<div class="space-y-2">
-									<textarea
-										class="textarea min-h-20"
-										placeholder="Write a reply..."
-										value={replyDrafts[comment.id] || ''}
-										oninput={(event) => updateReplyDraft(comment.id, event.currentTarget.value)}
-										disabled={!comment.can_reply}
-									></textarea>
-									<div class="flex flex-wrap gap-2">
-										<button
-											type="button"
-											class="btn btn-sm preset-outlined-secondary-500"
-											onclick={() => generateReplyDraft(comment)}
-											disabled={!comment.can_reply || Boolean(aiReplyPending[comment.id])}
-										>
-											{#if aiReplyPending[comment.id]}
-												<IconLoader class="h-3.5 w-3.5 animate-spin" />
-												Generating...
-											{:else}
-												<IconSparkles class="h-3.5 w-3.5" />
-												Generate Reply
-											{/if}
-										</button>
-										<button
-											type="button"
-											class="btn btn-sm preset-filled-primary-500"
-											onclick={() => sendReply(comment.id)}
-											disabled={
-												!comment.can_reply ||
-												Boolean(replyPending[comment.id]) ||
-												Boolean(aiReplyPending[comment.id])
-											}
-										>
-											{replyPending[comment.id] ? 'Sending...' : 'Send'}
-										</button>
+								<!-- Reply Input -->
+								{#if comment.can_reply}
+									<div class="reply-composer">
+										<div class="reply-composer-line" aria-hidden="true"></div>
+										<div class="reply-composer-content">
+											<div class="reply-input-wrapper">
+												<textarea
+													class="reply-textarea"
+													placeholder="Write a reply..."
+													value={replyDrafts[comment.id] || ''}
+													oninput={(event) => updateReplyDraft(comment.id, event.currentTarget.value)}
+													rows="2"
+												></textarea>
+												<div class="reply-actions">
+													<button
+														type="button"
+														class="ai-reply-btn"
+														onclick={() => generateReplyDraft(comment)}
+														disabled={Boolean(aiReplyPending[comment.id])}
+													>
+														{#if aiReplyPending[comment.id]}
+															<IconLoader class="h-3.5 w-3.5 animate-spin" />
+															<span>Generating...</span>
+														{:else}
+															<IconSparkles class="h-3.5 w-3.5" />
+															<span>AI Reply</span>
+														{/if}
+													</button>
+													<button
+														type="button"
+														class="send-reply-btn"
+														onclick={() => sendReply(comment.id)}
+														disabled={
+															!String(replyDrafts[comment.id] || '').trim() ||
+															Boolean(replyPending[comment.id]) ||
+															Boolean(aiReplyPending[comment.id])
+														}
+													>
+														{#if replyPending[comment.id]}
+															<IconLoader class="h-4 w-4 animate-spin" />
+														{:else}
+															<IconSend class="h-4 w-4" />
+														{/if}
+														<span>{replyPending[comment.id] ? 'Sending...' : 'Send Reply'}</span>
+													</button>
+												</div>
+											</div>
+										</div>
 									</div>
-								</div>
-							</div>
+								{:else}
+									<div class="reply-disabled-notice">
+										<span>Reply not available for this comment</span>
+									</div>
+								{/if}
+							</article>
 						{/each}
 					</div>
+
+					<!-- Bottom Pagination -->
+					{#if commentsTotal > COMMENTS_PAGE_SIZE}
+						<div class="comments-pagination-footer">
+							<div class="flex items-center gap-2">
+								<button
+									type="button"
+									class="pagination-btn pagination-btn--wide"
+									onclick={goToPreviousCommentsPage}
+									disabled={!hasPreviousCommentsPage || loadingComments}
+								>
+									<IconChevronLeft class="h-4 w-4" />
+									<span>Previous</span>
+								</button>
+								<span class="pagination-text">
+									Page {Math.floor(commentsOffset / COMMENTS_PAGE_SIZE) + 1} of {Math.ceil(commentsTotal / COMMENTS_PAGE_SIZE)}
+								</span>
+								<button
+									type="button"
+									class="pagination-btn pagination-btn--wide"
+									onclick={goToNextCommentsPage}
+									disabled={!hasNextCommentsPage || loadingComments}
+								>
+									<span>Next</span>
+									<IconChevronRight class="h-4 w-4" />
+								</button>
+							</div>
+						</div>
+					{/if}
 				{/if}
 			</section>
 		{/if}
