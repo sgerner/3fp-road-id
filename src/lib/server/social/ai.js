@@ -59,10 +59,14 @@ Style requirements:
 - Friendly, specific, and community-focused.
 - Avoid spammy language and excessive punctuation.
 - Keep it concise and action-oriented.
-- Mention practical event details when available.
+- Mention practical event details only when explicitly provided in the context.
 - If a call to action is provided, include it naturally.
+- Never invent facts that are not present in the provided context.
+- Do not fabricate dates, times, locations, meeting points, rides, or events.
+- If details are missing, keep the caption general and truthful.
 
 Generate one caption only.
+Return strict JSON: {"caption":"..."}.
 
 Context:
 ${sections.join('\n')}`;

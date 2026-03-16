@@ -1,15 +1,17 @@
 <script>
-import { onMount } from 'svelte';
-import { fade } from 'svelte/transition';
-import IconSparkles from '@lucide/svelte/icons/sparkles';
-import IconLoader from '@lucide/svelte/icons/loader-2';
-import IconX from '@lucide/svelte/icons/x';
-import IconCalendar from '@lucide/svelte/icons/calendar';
-import IconImage from '@lucide/svelte/icons/image';
-import IconUpload from '@lucide/svelte/icons/upload';
-import IconClock from '@lucide/svelte/icons/clock';
-import IconCheck from '@lucide/svelte/icons/check';
-import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconX from '@lucide/svelte/icons/x';
+	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconImage from '@lucide/svelte/icons/image';
+	import IconUpload from '@lucide/svelte/icons/upload';
+	import IconClock from '@lucide/svelte/icons/clock';
+	import IconCheck from '@lucide/svelte/icons/check';
+	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
+	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
+	import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 
 	let { slug = '', canManageSocial = false, showClaimMessage = false } = $props();
 
@@ -37,6 +39,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	let uploadingMedia = $state(false);
 	let queuedMediaFiles = $state([]);
 	let composerModalOpen = $state(false);
+	let composerPreviewExpanded = $state(false);
 	let calendarView = $state('month');
 	let calendarReference = $state(startOfMonth(new Date()));
 	let showConnectionsPanel = $state(false);
@@ -163,7 +166,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		accounts.some((account) => account?.status === 'active')
 	);
 
-	const shouldShowConnectionsPanel = $derived.by(() => !hasConnectedAccounts || showConnectionsPanel);
+	const shouldShowConnectionsPanel = $derived.by(
+		() => !hasConnectedAccounts || showConnectionsPanel
+	);
 
 	$effect(() => {
 		const connectedSet = new Set(connectedPlatforms);
@@ -259,6 +264,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	function openComposerModal(prefillDate = null) {
+		composerPreviewExpanded = false;
 		if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
 			const snapped = roundToQuarterHour(prefillDate);
 			composerScheduledFor = formatLocalDateTimeInput(snapped);
@@ -270,7 +276,12 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	function closeComposerModal() {
+		composerPreviewExpanded = false;
 		composerModalOpen = false;
+	}
+
+	function toggleComposerPreviewExpanded() {
+		composerPreviewExpanded = !composerPreviewExpanded;
 	}
 
 	function handleCalendarSlotClick(date, hour = 9) {
@@ -718,7 +729,6 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					event_title: aiPromptInput.slice(0, 200),
 					ride_details: aiPromptInput,
 					target_tone: 'Friendly, specific, and action-oriented',
 					platforms: selectedPlatforms
@@ -924,7 +934,10 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 			{/if}
 
 			{#if shouldShowConnectionsPanel}
-				<section class="tip-card relative overflow-hidden rounded-xl p-4" in:fade={{ duration: 250, delay: 100 }}>
+				<section
+					class="tip-card relative overflow-hidden rounded-xl p-4"
+					in:fade={{ duration: 250, delay: 100 }}
+				>
 					<div class="tip-glow" aria-hidden="true"></div>
 					<div class="relative z-10 mb-4 flex items-start gap-3">
 						<div
@@ -935,8 +948,8 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 						<div>
 							<h3 class="font-semibold">Connect your social accounts</h3>
 							<p class="text-sm">
-								Link Facebook Pages and Instagram professional accounts to publish posts directly from
-								3FP. Scheduled posts are published in 15-minute windows.
+								Link Facebook Pages and Instagram professional accounts to publish posts directly
+								from 3FP. Scheduled posts are published in 15-minute windows.
 							</p>
 						</div>
 					</div>
@@ -965,7 +978,10 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 								</div>
 								<div class="mt-3 flex flex-wrap gap-2">
 									{#if isConnected(platform)}
-										<a href={connectHref(platform)} class="btn btn-sm preset-outlined-secondary-500">
+										<a
+											href={connectHref(platform)}
+											class="btn btn-sm preset-outlined-secondary-500"
+										>
 											Reconnect
 										</a>
 										<button
@@ -1226,7 +1242,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 																<div class="text-surface-600-400 text-[10px]">Open slot</div>
 															{:else}
 																{#each slot.posts as post}
-																	<div class="bg-secondary-500/10 mb-1 rounded px-2 py-1 text-[10px]">
+																	<div
+																		class="bg-secondary-500/10 mb-1 rounded px-2 py-1 text-[10px]"
+																	>
 																		{captionPreview(post.caption, 38)}
 																	</div>
 																{/each}
@@ -1390,16 +1408,20 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 						{/if}
 
 						<!-- Body: two-panel on large screens -->
-						<div class="composer-body">
+						<div
+							class="composer-body"
+							class:composer-body--preview-expanded={composerPreviewExpanded}
+						>
 							<!-- LEFT: Form -->
-							<div class="composer-form">
-
+							<div class="composer-form" class:composer-form--hidden={composerPreviewExpanded}>
 								<!-- AI Quick Draft Panel -->
 								<section class="ai-draft-panel" class:ai-draft-panel--active={generatingAi}>
 									<div class="ai-draft-panel__header">
 										<IconSparkles class="h-4 w-4 flex-shrink-0" />
 										<span class="ai-draft-panel__label">AI Quick Draft</span>
-										<span class="ai-draft-panel__hint">Caption + 4:5 image for Instagram &amp; Facebook</span>
+										<span class="ai-draft-panel__hint"
+											>Caption + 4:5 image for Instagram &amp; Facebook</span
+										>
 									</div>
 									<div class="ai-draft-panel__body">
 										<textarea
@@ -1455,7 +1477,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 												class:platform-chip--disabled={!connected}
 												onclick={() => toggleComposerPlatform(platform)}
 												disabled={!connected}
-												title={connected ? platformLabel(platform) : `${platformLabel(platform)} — not connected`}
+												title={connected
+													? platformLabel(platform)
+													: `${platformLabel(platform)} — not connected`}
 											>
 												{#if platform === 'facebook'}
 													<span class="platform-chip__icon platform-chip__icon--fb">f</span>
@@ -1517,7 +1541,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 									{#if queuedMediaFiles.length > 0}
 										<div class="media-queued-row">
 											<span class="text-xs opacity-70">
-												Queued: {queuedMediaFiles.map(f => f.name).join(', ')}
+												Queued: {queuedMediaFiles.map((f) => f.name).join(', ')}
 											</span>
 											<button
 												type="button"
@@ -1540,7 +1564,11 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 											{#each composerMedia as item, index}
 												<div class="media-thumb">
 													{#if item.url}
-														<img src={item.url} alt={item.file_name || 'media'} class="media-thumb__img" />
+														<img
+															src={item.url}
+															alt={item.file_name || 'media'}
+															class="media-thumb__img"
+														/>
 													{:else}
 														<IconImage class="h-6 w-6 opacity-40" />
 													{/if}
@@ -1566,7 +1594,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 								<!-- Schedule Time -->
 								<div class="field-group">
 									<div class="field-label">
-										<IconClock class="h-3.5 w-3.5 inline-block align-text-bottom mr-0.5" />
+										<IconClock class="mr-0.5 inline-block h-3.5 w-3.5 align-text-bottom" />
 										Schedule Time
 									</div>
 									<div class="schedule-row">
@@ -1584,7 +1612,12 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 											{#if effectiveScheduleBucket}
 												<span class="schedule-slot-badge">
 													<IconCheck class="h-3 w-3" />
-													Publishes {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(effectiveScheduleBucket)}
+													Publishes {new Intl.DateTimeFormat(undefined, {
+														month: 'short',
+														day: 'numeric',
+														hour: 'numeric',
+														minute: '2-digit'
+													}).format(effectiveScheduleBucket)}
 												</span>
 											{:else}
 												<span class="schedule-slot-hint">Posts in 15-min windows</span>
@@ -1592,17 +1625,32 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 										</div>
 									</div>
 								</div>
-
-							</div><!-- /composer-form -->
+							</div>
+							<!-- /composer-form -->
 
 							<!-- RIGHT: Live preview pane -->
-							<aside class="composer-preview">
+							<aside
+								class="composer-preview"
+								class:composer-preview--expanded={composerPreviewExpanded}
+							>
 								<div class="composer-preview__header">
-									<span class="preview-label">Preview</span>
-									{#if composerPlatforms.length}
-										<span class="preview-platform-badge">
-											{composerPlatforms.map(platformLabel).join(' · ')}
-										</span>
+									<div class="flex items-center gap-2">
+										<span class="preview-label">Preview</span>
+									</div>
+									{#if getDraftPreviewImage()?.url}
+										<button
+											type="button"
+											class="composer-preview-toggle"
+											onclick={toggleComposerPreviewExpanded}
+										>
+											{#if composerPreviewExpanded}
+												<IconMinimize2 class="h-3.5 w-3.5" />
+												Back to editor
+											{:else}
+												<IconMaximize2 class="h-3.5 w-3.5" />
+												View large
+											{/if}
+										</button>
 									{/if}
 								</div>
 								<div class="composer-preview__image-wrap">
@@ -1611,11 +1659,14 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 											src={getDraftPreviewImage().url}
 											alt="Draft preview"
 											class="composer-preview__image"
+											class:composer-preview__image--expanded={composerPreviewExpanded}
 										/>
 									{:else}
 										<div class="composer-preview__placeholder">
-											<IconImage class="h-10 w-10 opacity-20" />
-											<span class="text-xs opacity-30 mt-2">Image appears here after generation</span>
+											<IconImage class="h-10 w-10" />
+											<span class="mt-2 text-center text-xs"
+												>Image appears here after generation</span
+											>
 										</div>
 									{/if}
 								</div>
@@ -1623,18 +1674,24 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 									{#if composerCaption.trim()}
 										<p class="text-sm leading-relaxed">{captionPreview(composerCaption, 300)}</p>
 									{:else}
-										<p class="text-sm opacity-30 italic">Your caption will appear here…</p>
+										<p class="text-sm italic opacity-30">Your caption will appear here…</p>
 									{/if}
 								</div>
 								{#if effectiveScheduleBucket}
 									<div class="composer-preview__time">
 										<IconClock class="h-3 w-3 flex-shrink-0" />
-										{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(effectiveScheduleBucket)}
+										{new Intl.DateTimeFormat(undefined, {
+											weekday: 'short',
+											month: 'short',
+											day: 'numeric',
+											hour: 'numeric',
+											minute: '2-digit'
+										}).format(effectiveScheduleBucket)}
 									</div>
 								{/if}
 							</aside>
-
-						</div><!-- /composer-body -->
+						</div>
+						<!-- /composer-body -->
 
 						<!-- Sticky Footer -->
 						<div class="composer-footer">
@@ -1676,9 +1733,10 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 								</button>
 							</div>
 						</div>
-
-					</div><!-- /composer-panel -->
-				</div><!-- /composer-backdrop -->
+					</div>
+					<!-- /composer-panel -->
+				</div>
+				<!-- /composer-backdrop -->
 			{/if}
 
 			<section class="space-y-3">
@@ -1782,6 +1840,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	.composer-backdrop {
 		position: fixed;
 		inset: 0;
+		margin: 0;
 		z-index: 50;
 		display: flex;
 		align-items: flex-end;
@@ -1794,7 +1853,6 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	@media (min-width: 640px) {
 		.composer-backdrop {
 			align-items: center;
-			padding: 1rem;
 		}
 	}
 
@@ -1806,7 +1864,8 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		flex-direction: column;
 		border-radius: 1.5rem 1.5rem 0 0;
 		background: color-mix(in oklab, var(--color-surface-900) 97%, var(--color-secondary-500) 3%);
-		border: 1px solid color-mix(in oklab, var(--color-surface-700) 60%, var(--color-secondary-500) 40%);
+		border: 1px solid
+			color-mix(in oklab, var(--color-surface-700) 60%, var(--color-secondary-500) 40%);
 		box-shadow:
 			0 -4px 40px -8px color-mix(in oklab, var(--color-secondary-500) 20%, transparent),
 			0 25px 60px -12px rgba(0, 0, 0, 0.6);
@@ -1885,7 +1944,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		height: 2rem;
 		border-radius: 0.5rem;
 		color: var(--color-surface-400);
-		transition: background 0.15s, color 0.15s;
+		transition:
+			background 0.15s,
+			color 0.15s;
 	}
 
 	.composer-close-btn:hover {
@@ -1938,12 +1999,15 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		overflow-y: auto;
 	}
 
+	.composer-form--hidden {
+		display: none;
+	}
+
 	/* ─── AI Draft Panel ─── */
 	.ai-draft-panel {
 		border-radius: 1rem;
 		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
 		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-950) 92%);
-		overflow: hidden;
 		transition: box-shadow 0.3s;
 	}
 
@@ -1953,8 +2017,13 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	@keyframes ai-shimmer {
-		0%, 100% { border-color: color-mix(in oklab, var(--color-secondary-500) 30%, transparent); }
-		50% { border-color: color-mix(in oklab, var(--color-secondary-400) 55%, transparent); }
+		0%,
+		100% {
+			border-color: color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+		}
+		50% {
+			border-color: color-mix(in oklab, var(--color-secondary-400) 55%, transparent);
+		}
 	}
 
 	.ai-draft-panel__header {
@@ -1982,7 +2051,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	@media (min-width: 480px) {
-		.ai-draft-panel__hint { display: block; }
+		.ai-draft-panel__hint {
+			display: block;
+		}
 	}
 
 	.ai-draft-panel__body {
@@ -1995,7 +2066,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	.ai-draft-panel__row {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-end;
+		align-items: center;
 		gap: 0.625rem;
 	}
 
@@ -2003,6 +2074,7 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+		flex-grow: 1;
 	}
 
 	.ai-style-select {
@@ -2019,7 +2091,6 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		font-size: 0.75rem;
 		line-height: 1.3;
 		color: color-mix(in oklab, var(--color-surface-100) 78%, transparent);
-		max-width: 20rem;
 	}
 
 	.ai-generate-btn {
@@ -2034,7 +2105,10 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		color: white;
 		flex: 1;
 		justify-content: center;
-		transition: background 0.2s, box-shadow 0.2s;
+		max-width: max-content;
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
 	}
 
 	.ai-generate-btn:hover:not(:disabled) {
@@ -2154,7 +2228,14 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 	}
 
 	.platform-chip__icon--ig {
-		background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+		background: linear-gradient(
+			135deg,
+			#f09433 0%,
+			#e6683c 25%,
+			#dc2743 50%,
+			#cc2366 75%,
+			#bc1888 100%
+		);
 		color: white;
 	}
 
@@ -2172,7 +2253,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		background: color-mix(in oklab, var(--color-surface-800) 70%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
 		color: var(--color-surface-100);
-		transition: border-color 0.15s, box-shadow 0.15s;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
 		outline: none;
 	}
 
@@ -2191,7 +2274,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		background: color-mix(in oklab, var(--color-surface-800) 70%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
 		color: var(--color-surface-100);
-		transition: border-color 0.15s, box-shadow 0.15s;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
 		outline: none;
 	}
 
@@ -2217,7 +2302,9 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
 		color: var(--color-surface-300);
 		cursor: pointer;
-		transition: border-color 0.2s, background 0.2s;
+		transition:
+			border-color 0.2s,
+			background 0.2s;
 	}
 
 	.media-drop-zone:hover {
@@ -2397,6 +2484,24 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		gap: 0.5rem;
 	}
 
+	.composer-preview-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-primary-300);
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		transition: background 0.15s;
+	}
+
+	.composer-preview-toggle:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+	}
+
 	.preview-label {
 		font-size: 0.6875rem;
 		font-weight: 600;
@@ -2428,6 +2533,11 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		object-fit: cover;
 	}
 
+	.composer-preview__image--expanded {
+		object-fit: contain;
+		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
+	}
+
 	.composer-preview__placeholder {
 		width: 100%;
 		height: 100%;
@@ -2456,6 +2566,22 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 		background: color-mix(in oklab, var(--color-surface-700) 35%, transparent);
 		border-radius: 0.375rem;
 		align-self: flex-start;
+	}
+
+	.composer-body--preview-expanded {
+		display: block;
+	}
+
+	.composer-preview--expanded {
+		width: 100%;
+		border-top: none;
+		border-left: none;
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+	}
+
+	.composer-preview--expanded .composer-preview__image-wrap {
+		aspect-ratio: auto;
+		height: min(65dvh, 42rem);
 	}
 
 	/* ─── Footer ─── */
@@ -2528,8 +2654,13 @@ import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
 
 	/* Pulse animation */
 	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.65; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.65;
+		}
 	}
 
 	/* ─── Legacy unused classes kept for safety ─── */

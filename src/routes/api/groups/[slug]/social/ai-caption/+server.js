@@ -18,12 +18,20 @@ export async function POST({ cookies, params, request }) {
 		}
 
 		const payload = await request.json().catch(() => ({}));
+		const rideDetails = cleanText(payload.ride_details, 800);
+		const eventTitle = cleanText(payload.event_title, 200);
+		const normalizedEventTitle =
+			eventTitle &&
+			rideDetails &&
+			eventTitle.toLowerCase() === rideDetails.toLowerCase()
+				? ''
+				: eventTitle;
 		const input = {
 			group_name: auth.group.name,
-			event_title: cleanText(payload.event_title, 200),
+			event_title: normalizedEventTitle,
 			event_datetime: cleanText(payload.event_datetime, 200),
 			event_location: cleanText(payload.event_location, 240),
-			ride_details: cleanText(payload.ride_details, 800),
+			ride_details: rideDetails,
 			advocacy_details: cleanText(payload.advocacy_details, 800),
 			target_tone: cleanText(payload.target_tone, 120),
 			platforms: normalizePlatforms(payload.platforms),
