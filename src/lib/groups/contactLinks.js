@@ -18,8 +18,21 @@ export function extractSocialLinks(group) {
 	if (group?.social_links && typeof group.social_links === 'object') {
 		try {
 			const obj = group.social_links;
+			const allowedKeys = new Set([
+				'instagram',
+				'facebook',
+				'x',
+				'youtube',
+				'linkedin',
+				'threads',
+				'mastodon',
+				'tiktok',
+				'strava',
+				'bluesky',
+				'discord'
+			]);
 			return Object.entries(obj)
-				.filter(([_, value]) => Boolean(value))
+				.filter(([key, value]) => allowedKeys.has(key) && typeof value === 'string' && Boolean(value))
 				.map(([key, value]) => ({ key, href: value }));
 		} catch (err) {
 			console.warn('Failed to parse group social links', err);

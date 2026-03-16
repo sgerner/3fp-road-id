@@ -319,11 +319,39 @@ export const actions = {
 			// logo/cover handled below (mirror to storage first)
 			social_links: (() => {
 				const get = (k) => form.get(k)?.toString().trim() || '';
+				const parseInstagramPostUrls = (raw) => {
+					const lines = String(raw || '')
+						.split(/\r?\n/)
+						.map((line) => line.trim())
+						.filter(Boolean);
+					const out = [];
+					const seen = new Set();
+					for (const line of lines) {
+						let parsed = null;
+						try {
+							parsed = new URL(line);
+						} catch {
+							continue;
+						}
+						if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) continue;
+						const parts = parsed.pathname.split('/').filter(Boolean);
+						if (parts.length < 2) continue;
+						const kind = parts[0];
+						const shortcode = parts[1];
+						if (!['p', 'reel', 'tv'].includes(kind) || !shortcode) continue;
+						const canonical = `https://www.instagram.com/${kind}/${shortcode}/`;
+						if (seen.has(canonical)) continue;
+						seen.add(canonical);
+						out.push(canonical);
+					}
+					return out.slice(0, 3);
+				};
 				const buildUrl = (val, prefix) => {
 					if (!val) return null;
 					if (/^https?:\/\//i.test(val)) return val;
 					return `${prefix}${val.replace(/^@/, '')}`;
 				};
+				const instagramPosts = parseInstagramPostUrls(get('social_instagram_posts'));
 				const obj = {
 					instagram: buildUrl(get('social_instagram'), 'https://www.instagram.com/'),
 					facebook: buildUrl(get('social_facebook'), 'https://www.facebook.com/'),
@@ -355,7 +383,8 @@ export const actions = {
 						if (/^https?:\/\//i.test(v)) return v;
 						// best-effort: company page
 						return `https://www.linkedin.com/company/${v}`;
-					})()
+					})(),
+					instagram_posts: instagramPosts.length ? instagramPosts : null
 				};
 				// Drop nulls
 				const cleaned = Object.fromEntries(Object.entries(obj).filter(([_, v]) => !!v));

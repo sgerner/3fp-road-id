@@ -654,8 +654,36 @@
 
 	function collectSocialLinksFromInputs() {
 		const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
+		const parseInstagramPostUrls = (raw) => {
+			const lines = String(raw || '')
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter(Boolean);
+			const out = [];
+			const seen = new Set();
+			for (const line of lines) {
+				let parsed = null;
+				try {
+					parsed = new URL(line);
+				} catch {
+					continue;
+				}
+				if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) continue;
+				const parts = parsed.pathname.split('/').filter(Boolean);
+				if (parts.length < 2) continue;
+				const kind = parts[0];
+				const shortcode = parts[1];
+				if (!['p', 'reel', 'tv'].includes(kind) || !shortcode) continue;
+				const canonical = `https://www.instagram.com/${kind}/${shortcode}/`;
+				if (seen.has(canonical)) continue;
+				seen.add(canonical);
+				out.push(canonical);
+			}
+			return out.slice(0, 3);
+		};
 		const buildUrl = (v, p) =>
 			!v ? null : /^https?:\/\//i.test(v) ? v : `${p}${v.replace(/^@/, '')}`;
+		const instagramPosts = parseInstagramPostUrls(getVal('social_instagram_posts'));
 		const socials = {
 			instagram: buildUrl(getVal('social_instagram'), 'https://www.instagram.com/'),
 			facebook: buildUrl(getVal('social_facebook'), 'https://www.facebook.com/'),
@@ -705,7 +733,8 @@
 				if (!v) return null;
 				if (/^https?:\/\//i.test(v)) return v;
 				return `https://www.linkedin.com/company/${v}`;
-			})()
+			})(),
+			instagram_posts: instagramPosts.length ? instagramPosts : null
 		};
 		return Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
 	}
@@ -861,6 +890,13 @@
 		for (const [key, inputId] of Object.entries(map)) {
 			const el = document.getElementById(inputId);
 			if (el) el.value = links?.[key] || '';
+		}
+		const postsArea = document.getElementById('social_instagram_posts');
+		if (postsArea) {
+			const urls = Array.isArray(links?.instagram_posts)
+				? links.instagram_posts.map((value) => String(value || '').trim()).filter(Boolean)
+				: [];
+			postsArea.value = urls.join('\n');
 		}
 		socialsLocal = { ...(links || {}) };
 	}
@@ -1829,6 +1865,22 @@
 						/>
 					</div>
 				{/each}
+			</div>
+			<div class="mt-4 flex flex-col gap-1">
+				<label class="label" for="social_instagram_posts">Instagram Post Embeds (optional)</label>
+				<textarea
+					id="social_instagram_posts"
+					name="social_instagram_posts"
+					class="textarea preset-tonal-surface"
+					rows="4"
+					placeholder="Up to 3 Instagram post URLs, one per line (https://www.instagram.com/p/...)"
+					oninput={onSocialsChange}
+				>{Array.isArray(data.group?.social_links?.instagram_posts)
+					? data.group.social_links.instagram_posts.join('\n')
+					: ''}</textarea>
+				<p class="text-surface-600-400 text-xs">
+					Used on the public group page when an Instagram account is not connected.
+				</p>
 			</div>
 		</section>
 

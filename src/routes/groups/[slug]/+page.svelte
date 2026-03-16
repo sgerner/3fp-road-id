@@ -11,6 +11,7 @@
 	import IconInfo from '@lucide/svelte/icons/info';
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import {
@@ -197,6 +198,19 @@
 	}
 
 	const contactLinks = $derived(buildContactLinks(data.group));
+	const connectedInstagram = $derived(data.connected_instagram ?? null);
+	const instagramPosts = $derived(
+		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
+	);
+	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
+	const connectedInstagramLabel = $derived(
+		connectedInstagram?.username
+			? `@${connectedInstagram.username}`
+			: connectedInstagram?.account_name || ''
+	);
+	const instagramProfileUrl = $derived(
+		connectedInstagram?.profile_url || data.group?.social_links?.instagram || null
+	);
 
 	let aboutExpanded = $state(false);
 
@@ -252,6 +266,28 @@
 			.map((part) => (part || '').trim())
 			.filter(Boolean);
 		return parts.length ? parts.join(', ') : 'Location details coming soon';
+	}
+
+	function instagramPostCaption(post) {
+		const text = String(post?.caption || '').trim();
+		if (!text) return 'Instagram post';
+		return text.length > 140 ? `${text.slice(0, 139)}…` : text;
+	}
+
+	function instagramPostDate(post) {
+		const raw = post?.timestamp;
+		if (!raw) return '';
+		const date = new Date(raw);
+		if (Number.isNaN(date.getTime())) return '';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
+
+	function instagramHasInlineMedia(post) {
+		return Boolean(post?.media_url);
 	}
 
 	// Notices via query params
@@ -467,35 +503,6 @@
 		</section>
 	{/if}
 
-	{#if data.can_manage_social === true || (Boolean(data.session_user_id) && data.is_claimed === false)}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5">
-			<div class="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<h2 class="text-xl font-semibold">Social Media</h2>
-					<p class="text-surface-700-300 mt-1 text-sm">
-						Connect a Facebook Page or Instagram professional account to publish from 3FP.
-					</p>
-					<p class="text-surface-700-300 text-sm">
-						Scheduled posts publish in 15-minute windows.
-					</p>
-				</div>
-				{#if data.can_manage_social === true}
-					<a
-						href={`/groups/${data.group?.slug}/manage/social`}
-						class="btn btn-sm preset-filled-primary-500"
-					>
-						Manage Social Media
-					</a>
-				{/if}
-			</div>
-			{#if data.is_claimed === false}
-				<div class="card border-warning-400-600/30 bg-warning-500/10 rounded-xl border p-3 text-sm">
-					This group must be claimed first before social media management is available.
-				</div>
-			{/if}
-		</section>
-	{/if}
-
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
@@ -601,6 +608,143 @@
 					</button>
 				{/if}
 			</div>
+		{/if}
+
+		{#if instagramPosts.length}
+			<section class="instagram-section relative overflow-hidden rounded-2xl p-5" in:fade={{ duration: 240, delay: 80 }}>
+				<!-- Gradient accent bar -->
+				<div class="instagram-accent-bar" aria-hidden="true"></div>
+				<!-- Subtle glow effect -->
+				<div class="instagram-glow" aria-hidden="true"></div>
+
+				<!-- Header -->
+				<div class="relative z-10 mb-5 flex flex-wrap items-start justify-between gap-3">
+					<div class="flex min-w-0 items-center gap-3">
+						<div class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+							<IconInstagram class="h-5 w-5 text-white" />
+						</div>
+						<div class="min-w-0">
+							<h2 class="text-lg font-bold">Latest Posts</h2>
+							{#if connectedInstagramLabel}
+								<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
+							{:else}
+								<p class="text-surface-600-400 text-sm">Instagram</p>
+							{/if}
+						</div>
+					</div>
+					<div class="flex items-center gap-2">
+						{#if instagramPostsSource === 'public_profile'}
+							<span class="chip preset-tonal-secondary text-xs">Public profile</span>
+						{:else if instagramPostsSource === 'manual'}
+							<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
+						{/if}
+						{#if instagramProfileUrl}
+							<a
+								href={instagramProfileUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="btn btn-sm preset-filled-secondary-500 gap-1.5"
+							>
+								<IconInstagram class="h-3.5 w-3.5" />
+								View Profile
+							</a>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Posts Grid -->
+				<div class="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					{#each instagramPosts as post, i (post.id)}
+						<article 
+							class="instagram-post-card group overflow-hidden rounded-xl"
+							style="--stagger: {i}"
+						>
+							<!-- Media Container -->
+							<a 
+								href={post.permalink}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="instagram-media-container relative block aspect-square w-full overflow-hidden"
+							>
+								{#if instagramHasInlineMedia(post)}
+									<img
+										src={post.media_url}
+										alt="Instagram post"
+										loading="lazy"
+										class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+									/>
+								{:else}
+									<iframe
+										src={post.embed_url}
+										title="Instagram post"
+										loading="lazy"
+										referrerpolicy="strict-origin-when-cross-origin"
+										allowtransparency="true"
+										class="h-full w-full border-0"
+									></iframe>
+								{/if}
+								<!-- Hover overlay -->
+								<div class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+									<span class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white">
+										<IconInstagram class="h-4 w-4" />
+										View on Instagram
+									</span>
+								</div>
+							</a>
+							
+							<!-- Caption & Meta -->
+							<div class="instagram-post-content p-3.5">
+								<p class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed">
+									{instagramPostCaption(post)}
+								</p>
+								<div class="mt-2.5 flex items-center justify-between">
+									<time class="text-surface-600-400 text-xs font-medium">
+										{instagramPostDate(post)}
+									</time>
+									<a
+										href={post.permalink}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
+									>
+										Open
+										<IconArrowRight class="h-3 w-3" />
+									</a>
+								</div>
+							</div>
+						</article>
+					{/each}
+				</div>
+			</section>
+		{:else if connectedInstagramLabel}
+			<section class="instagram-section relative overflow-hidden rounded-2xl p-5" in:fade={{ duration: 240, delay: 80 }}>
+				<div class="instagram-accent-bar" aria-hidden="true"></div>
+				<div class="instagram-glow" aria-hidden="true"></div>
+				
+				<div class="relative z-10 flex flex-col items-center justify-center gap-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left">
+					<div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+						<div class="instagram-icon-ring flex h-12 w-12 items-center justify-center rounded-xl">
+							<IconInstagram class="h-6 w-6 text-white" />
+						</div>
+						<div>
+							<h2 class="text-base font-semibold">Instagram</h2>
+							<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
+							<p class="text-surface-500 mt-1 text-xs">No recent posts available yet</p>
+						</div>
+					</div>
+					{#if instagramProfileUrl}
+						<a
+							href={instagramProfileUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="btn preset-filled-secondary-500 gap-1.5"
+						>
+							<IconInstagram class="h-4 w-4" />
+							View Profile
+						</a>
+					{/if}
+				</div>
+			</section>
 		{/if}
 
 		<!-- Audience + Discipline chip rows -->
@@ -973,6 +1117,122 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 		border-radius: 0.875rem;
 		overflow: hidden;
+	}
+
+	/* ── Instagram section ── */
+	.instagram-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 80ms;
+	}
+
+	.instagram-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, 
+			var(--color-secondary-500), 
+			var(--color-primary-500),
+			var(--color-secondary-500)
+		);
+		background-size: 200% 100%;
+		animation: gradient-shift 8s ease infinite;
+		opacity: 0.8;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.instagram-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 20% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.instagram-icon-ring {
+		background: linear-gradient(135deg, 
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-primary-500) 20%),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow: 
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.instagram-post-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 200ms ease,
+			box-shadow 200ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 80ms);
+	}
+
+	.instagram-post-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 12px 28px -8px color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
+	}
+
+	.instagram-media-container {
+		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
+	}
+
+	.instagram-media-overlay {
+		background: linear-gradient(
+			to top,
+			color-mix(in oklab, var(--color-surface-950) 80%, transparent) 0%,
+			color-mix(in oklab, var(--color-surface-950) 40%, transparent) 40%,
+			transparent 100%
+		);
+	}
+
+	.instagram-view-btn {
+		background: linear-gradient(135deg, 
+			color-mix(in oklab, var(--color-secondary-500) 90%, white 10%),
+			color-mix(in oklab, var(--color-primary-500) 80%, white 20%)
+		);
+		box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		transform: translateY(8px);
+		transition: transform 200ms ease;
+	}
+
+	.group:hover .instagram-view-btn {
+		transform: translateY(0);
+	}
+
+	.instagram-post-content {
+		background: color-mix(in oklab, var(--color-surface-800) 95%, var(--color-secondary-500) 2%);
+	}
+
+	.instagram-caption {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.instagram-open-link {
+		opacity: 0.8;
+	}
+
+	.instagram-open-link:hover {
+		opacity: 1;
+	}
+
+	@keyframes gradient-shift {
+		0%, 100% {
+			background-position: 0% 50%;
+		}
+		50% {
+			background-position: 100% 50%;
+		}
 	}
 
 	/* ── Auth notice ── */
