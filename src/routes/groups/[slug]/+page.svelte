@@ -12,6 +12,8 @@
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import {
@@ -30,11 +32,17 @@
 	let showSticky = $state(false);
 	let heroSentinel = $state(null);
 
+	// Section collapse states (default: all expanded)
+	let postsExpanded = $state(true);
+	let eventsExpanded = $state(true);
+	let detailsExpanded = $state(true);
+
 	// Leaflet map (loaded client-side)
 	let L;
 	let mapEl = $state(null);
 	let map;
 	let marker;
+	let mapInitialized = $state(false);
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
@@ -42,8 +50,10 @@
 	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
-	function ensureMap() {
-		if (!L || !mapEl || map) return;
+	async function initMap() {
+		if (!L || !mapEl || map || mapInitialized) return;
+		// Small delay to ensure container is properly rendered
+		await new Promise((resolve) => setTimeout(resolve, 100));
 		const z = 12;
 		map = L.map(mapEl).setView([lat, lng], z);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -51,6 +61,7 @@
 			attribution: '&copy; OpenStreetMap contributors'
 		}).addTo(map);
 		marker = L.marker([lat, lng]).addTo(map);
+		mapInitialized = true;
 	}
 
 	onMount(async () => {
@@ -64,7 +75,16 @@
 			console.error('Failed to load Leaflet', e);
 			return;
 		}
-		requestAnimationFrame(() => ensureMap());
+		// Try to init map immediately and also after a delay (for when details section is collapsed initially)
+		requestAnimationFrame(() => initMap());
+		setTimeout(() => initMap(), 500);
+	});
+
+	// Re-init map when details section is expanded
+	$effect(() => {
+		if (detailsExpanded && mapEl && !map && L) {
+			requestAnimationFrame(() => initMap());
+		}
 	});
 
 	// Sticky subheader observer
@@ -325,6 +345,8 @@
 			data.group?.how_to_join_instructions
 		)
 	);
+
+	const hasPosts = $derived(instagramPosts.length > 0 || !!connectedInstagramLabel);
 </script>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
@@ -410,7 +432,7 @@
 				<div class="relative z-10 mt-4" in:slide={{ duration: 180 }}>
 					<form
 						class="border-surface-300-700/50 bg-surface-100-900/50 rounded-xl border p-4 backdrop-blur-sm"
-						onsubmit={sendClaimLogin}
+						 onsubmit={sendClaimLogin}
 					>
 						<div
 							aria-hidden="true"
@@ -462,10 +484,10 @@
 
 	{#if canAcceptDonations || shouldShowDonationSetup}
 		<section
-			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+			class="donation-panel relative overflow-hidden rounded-2xl p-5"
 			in:fade={{ duration: 220 }}
 		>
-			<div class="volunteer-glow" aria-hidden="true"></div>
+			<div class="donation-glow" aria-hidden="true"></div>
 			<div class="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div>
 					<div class="mb-1 flex items-center gap-2">
@@ -550,7 +572,7 @@
 	<!-- Sentinel for sticky observer -->
 	<div bind:this={heroSentinel}></div>
 
-	<!-- ── Identity card ── -->
+	<!-- ── Identity / Overview Card ── -->
 	<section
 		class="identity-card relative overflow-hidden rounded-2xl p-5"
 		in:fade={{ duration: 240, delay: 60 }}
@@ -653,10 +675,10 @@
 		{/if}
 	</section>
 
-	<!-- ── Instagram posts ── -->
-	{#if instagramPosts.length}
+	<!-- ── Instagram Posts Section ── -->
+	{#if hasPosts}
 		<section
-			class="instagram-section relative overflow-hidden rounded-2xl p-5"
+			class="instagram-section relative overflow-hidden rounded-2xl"
 			in:fade={{ duration: 240, delay: 80 }}
 		>
 			<!-- Gradient accent bar -->
@@ -664,8 +686,11 @@
 			<!-- Subtle glow effect -->
 			<div class="instagram-glow" aria-hidden="true"></div>
 
-			<!-- Header -->
-			<div class="relative z-10 mb-5 flex flex-wrap items-start justify-between gap-3">
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (postsExpanded = !postsExpanded)}
+			>
 				<div class="flex min-w-0 items-center gap-3">
 					<div
 						class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -681,408 +706,452 @@
 						{/if}
 					</div>
 				</div>
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-3">
 					{#if instagramPostsSource === 'public_profile'}
 						<span class="chip preset-tonal-secondary text-xs">Public profile</span>
 					{:else if instagramPostsSource === 'manual'}
 						<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
 					{/if}
-					{#if instagramProfileUrl}
-						<a
-							href={instagramProfileUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="btn btn-sm preset-filled-secondary-500 gap-1.5"
-						>
-							<IconInstagram class="h-3.5 w-3.5" />
-							View Profile
-						</a>
-					{/if}
+					<div class="section-chevron {postsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
 				</div>
-			</div>
+			</button>
 
-			<!-- Posts Grid -->
-			<div class="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{#each instagramPosts as post, i (post.id)}
-					<article
-						class="instagram-post-card group overflow-hidden rounded-xl"
-						style="--stagger: {i}"
-					>
-						<!-- Media Container -->
-						<a
-							href={post.permalink}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="instagram-media-container relative block aspect-square w-full overflow-hidden"
-						>
-							{#if instagramHasInlineMedia(post)}
-								<img
-									src={post.media_url}
-									alt="Instagram post"
-									loading="lazy"
-									class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-								/>
-							{:else}
-								<iframe
-									src={post.embed_url}
-									title="Instagram post"
-									loading="lazy"
-									referrerpolicy="strict-origin-when-cross-origin"
-									allowtransparency="true"
-									class="h-full w-full border-0"
-								></iframe>
-							{/if}
-							<!-- Hover overlay -->
-							<div
-								class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-							>
-								<span
-									class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
+			{#if postsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					{#if instagramPosts.length > 0}
+						<!-- Posts Grid -->
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{#each instagramPosts as post, i (post.id)}
+								<article
+									class="instagram-post-card group overflow-hidden rounded-xl"
+									style="--stagger: {i}"
 								>
-									<IconInstagram class="h-4 w-4" />
-									View on Instagram
-								</span>
-							</div>
-						</a>
-
-						<!-- Caption & Meta -->
-						<div class="instagram-post-content p-3.5">
-							<p
-								class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
-							>
-								{instagramPostCaption(post)}
-							</p>
-							<div class="mt-2.5 flex items-center justify-between">
-								<time class="text-surface-600-400 text-xs font-medium">
-									{instagramPostDate(post)}
-								</time>
-								<a
-									href={post.permalink}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
-								>
-									Open
-									<IconArrowRight class="h-3 w-3" />
-								</a>
-							</div>
-						</div>
-					</article>
-				{/each}
-			</div>
-		</section>
-	{:else if connectedInstagramLabel}
-		<section
-			class="instagram-section relative overflow-hidden rounded-2xl p-5"
-			in:fade={{ duration: 240, delay: 80 }}
-		>
-			<div class="instagram-accent-bar" aria-hidden="true"></div>
-			<div class="instagram-glow" aria-hidden="true"></div>
-
-			<div
-				class="relative z-10 flex flex-col items-center justify-center gap-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left"
-			>
-				<div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
-					<div class="instagram-icon-ring flex h-12 w-12 items-center justify-center rounded-xl">
-						<IconInstagram class="h-6 w-6 text-white" />
-					</div>
-					<div>
-						<h2 class="text-base font-semibold">Instagram</h2>
-						<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
-						<p class="text-surface-500 mt-1 text-xs">No recent posts available yet</p>
-					</div>
-				</div>
-				{#if instagramProfileUrl}
-					<a
-						href={instagramProfileUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="btn preset-filled-secondary-500 gap-1.5"
-					>
-						<IconInstagram class="h-4 w-4" />
-						View Profile
-					</a>
-				{/if}
-			</div>
-		</section>
-	{/if}
-
-	<!-- ── Additional details ── -->
-	{#if hasDetails}
-		<section class="details-card rounded-2xl p-5" in:fade={{ duration: 240, delay: 140 }}>
-			<!-- Accent bar -->
-			<div class="details-accent-bar mb-5" aria-hidden="true"></div>
-
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{#if data.group?.how_to_join_instructions}
-					<div class="detail-item">
-						<div class="detail-label">How to Join</div>
-						<AutoLinkText
-							text={data.group.how_to_join_instructions}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
-					</div>
-				{/if}
-				{#if data.group?.preferred_contact_method_instructions}
-					<div class="detail-item">
-						<div class="detail-label">Preferred Contact Method</div>
-						<AutoLinkText
-							text={data.group.preferred_contact_method_instructions}
-							className="text-surface-800-200 text-sm"
-						/>
-					</div>
-				{/if}
-				{#if data.group?.membership_info}
-					<div class="detail-item">
-						<div class="detail-label">Membership Info</div>
-						<AutoLinkText
-							text={data.group.membership_info}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
-					</div>
-				{/if}
-				{#if data.group?.zip_code}
-					<div class="detail-item">
-						<div class="detail-label">ZIP / Postal Code</div>
-						<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
-					</div>
-				{/if}
-			</div>
-
-			{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
-				<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-					{#if data.group?.activity_frequency}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconRepeat class="h-3.5 w-3.5" />
-								Activity Frequency
-							</div>
-							<AutoLinkText
-								text={data.group.activity_frequency}
-								className="text-surface-800-200 text-sm"
-							/>
-						</div>
-					{/if}
-					{#if data.group?.typical_activity_day_time}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconClock class="h-3.5 w-3.5" />
-								Typical Day / Time
-							</div>
-							<AutoLinkText
-								text={data.group.typical_activity_day_time}
-								className="text-surface-800-200 text-sm"
-							/>
-						</div>
-					{/if}
-					{#if data.group?.specific_meeting_point_address}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconMapPin class="h-3.5 w-3.5" />
-								Meeting Point
-							</div>
-							<AutoLinkText
-								text={data.group.specific_meeting_point_address}
-								className="text-surface-800-200 text-sm"
-							/>
-						</div>
-					{/if}
-				</div>
-			{/if}
-
-			{#if data.group?.service_area_description || hasCoords}
-				<div class="detail-item mt-4">
-					<div class="detail-label flex items-center gap-1.5">
-						<IconMapPin class="h-3.5 w-3.5" />
-						Service Area
-					</div>
-					{#if data.group?.service_area_description}
-						<AutoLinkText
-							text={data.group.service_area_description}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
-					{/if}
-					{#if hasCoords}
-						<div class="map-container mt-3">
-							<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</section>
-	{/if}
-
-	<!-- ── Upcoming rides ── -->
-	{#await data.rides then rides}
-		{#if Array.isArray(rides) && rides.length > 0}
-			<section
-				class="details-card relative overflow-hidden rounded-2xl p-5"
-				in:fade={{ duration: 240, delay: 100 }}
-			>
-				<div class="details-accent-bar mb-5" aria-hidden="true"></div>
-				<div class="relative z-10">
-					<!-- Header -->
-					<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-						<div>
-							<div class="mb-1 flex items-center gap-2">
-								<IconCalendar class="text-secondary-400 h-5 w-5" />
-								<p class="label opacity-60">Events</p>
-							</div>
-							<h2 class="text-xl font-bold">Upcoming Rides</h2>
-							<p class="text-surface-600-400 mt-0.5 text-sm">
-								Join {data.group?.name} for their upcoming group rides.
-							</p>
-						</div>
-					</div>
-
-					<!-- Event list -->
-					<ul class="space-y-3">
-						{#each rides as event, i}
-							<li class="detail-item rounded-xl p-4" style="--stagger: {i}">
-								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-									<div class="space-y-2">
-										<a
-											href={`/ride/${event.slug}`}
-											class="text-secondary-300 hover:text-secondary-200 text-base leading-snug font-semibold transition-colors"
-										>
-											{event.title}
-										</a>
-										{#if event.summary}
-											<AutoLinkText
-												text={event.summary}
-												className="text-surface-600-400 line-clamp-2 text-sm"
+									<!-- Media Container -->
+									<a
+										href={post.permalink}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="instagram-media-container relative block aspect-square w-full overflow-hidden"
+									>
+										{#if instagramHasInlineMedia(post)}
+											<img
+												src={post.media_url}
+												alt="Instagram post"
+												loading="lazy"
+												class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
 											/>
+										{:else}
+											<iframe
+												src={post.embed_url}
+												title="Instagram post"
+												loading="lazy"
+												referrerpolicy="strict-origin-when-cross-origin"
+												allowtransparency="true"
+												class="h-full w-full border-0"
+											></iframe>
 										{/if}
-										<div class="flex flex-wrap items-center gap-3 text-xs">
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconCalendar class="h-3.5 w-3.5" />
-												{new Intl.DateTimeFormat(undefined, {
-													dateStyle: 'medium',
-													timeStyle: 'short'
-												}).format(new Date(event.nextOccurrenceStart))}
-											</span>
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconMapPin class="h-3.5 w-3.5" />
-												<AutoLinkText
-													text={event.startLocationName || event.startLocationAddress}
-												/>
+										<!-- Hover overlay -->
+										<div
+											class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+										>
+											<span
+												class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
+											>
+												<IconInstagram class="h-4 w-4" />
+												View on Instagram
 											</span>
 										</div>
-									</div>
-									<div class="flex shrink-0 flex-wrap items-center gap-2">
-										<a
-											href={`/ride/${event.slug}`}
-											class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 whitespace-nowrap"
+									</a>
+
+									<!-- Caption & Meta -->
+									<div class="instagram-post-content p-3.5">
+										<p
+											class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
 										>
-											View Details
-											<IconArrowRight class="h-3.5 w-3.5" />
-										</a>
+											{instagramPostCaption(post)}
+										</p>
+										<div class="mt-2.5 flex items-center justify-between">
+											<time class="text-surface-600-400 text-xs font-medium">
+												{instagramPostDate(post)}
+											</time>
+											<a
+												href={post.permalink}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
+											>
+												Open
+												<IconArrowRight class="h-3 w-3" />
+											</a>
+										</div>
 									</div>
-								</div>
-							</li>
-						{/each}
-					</ul>
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<!-- Empty state -->
+						<div class="flex flex-col items-center justify-center py-8 text-center">
+							<p class="text-surface-500 text-sm">No recent posts available yet</p>
+						</div>
+					{/if}
+
+					<!-- View Profile Link -->
+					{#if instagramProfileUrl}
+						<div class="mt-4 flex justify-center">
+							<a
+								href={instagramProfileUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="btn preset-filled-secondary-500 gap-1.5"
+							>
+								<IconInstagram class="h-4 w-4" />
+								View Profile
+							</a>
+						</div>
+					{/if}
 				</div>
+			{/if}
+		</section>
+	{/if}
+
+	<!-- ── Events Section ── -->
+	{#await data.rides then rides}
+		{#if Array.isArray(rides) && rides.length > 0}
+			{@const hasEvents = true}
+			<section
+				class="events-section relative overflow-hidden rounded-2xl"
+				in:fade={{ duration: 240, delay: 100 }}
+			>
+				<div class="events-accent-bar" aria-hidden="true"></div>
+				<div class="events-glow" aria-hidden="true"></div>
+
+				<!-- Collapsible Header -->
+				<button
+					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+					onclick={() => (eventsExpanded = !eventsExpanded)}
+				>
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="events-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconCalendar class="h-5 w-5 text-white" />
+						</div>
+						<div class="min-w-0">
+							<h2 class="text-lg font-bold">Upcoming Rides</h2>
+							<p class="text-surface-600-400 text-sm">
+								Join {data.group?.name} for their upcoming group rides
+							</p>
+						</div>
+					</div>
+					<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
+				</button>
+
+				{#if eventsExpanded}
+					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+						<!-- Event list -->
+						<ul class="space-y-3">
+							{#each rides as event, i}
+								<li class="event-card rounded-xl p-4" style="--stagger: {i}">
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
+											<a
+												href={`/ride/${event.slug}`}
+												class="text-secondary-300 hover:text-secondary-200 text-base leading-snug font-semibold transition-colors"
+											>
+												{event.title}
+											</a>
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-600-400 line-clamp-2 text-sm"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-3 text-xs">
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconCalendar class="h-3.5 w-3.5" />
+													{new Intl.DateTimeFormat(undefined, {
+														dateStyle: 'medium',
+														timeStyle: 'short'
+													}).format(new Date(event.nextOccurrenceStart))}
+												</span>
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconMapPin class="h-3.5 w-3.5" />
+													<AutoLinkText
+														text={event.startLocationName || event.startLocationAddress}
+													/>
+												</span>
+											</div>
+										</div>
+										<div class="flex shrink-0 flex-wrap items-center gap-2">
+											<a
+												href={`/ride/${event.slug}`}
+												class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 whitespace-nowrap"
+											>
+												View Details
+												<IconArrowRight class="h-3.5 w-3.5" />
+											</a>
+										</div>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</section>
 		{/if}
 	{/await}
 
-	<!-- ── Volunteer events ── -->
+	<!-- ── Volunteer Events Section ── -->
 	{#await data.volunteer_events then volunteer_events}
 		{#if Array.isArray(volunteer_events) && volunteer_events.length > 0}
 			<section
-				class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
-				in:fade={{ duration: 240, delay: 100 }}
+				class="volunteer-section relative overflow-hidden rounded-2xl"
+				in:fade={{ duration: 240, delay: 120 }}
 			>
+				<div class="volunteer-accent-bar" aria-hidden="true"></div>
 				<div class="volunteer-glow" aria-hidden="true"></div>
-				<div class="relative z-10">
-					<!-- Header -->
-					<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-						<div>
-							<div class="mb-1 flex items-center gap-2">
-								<IconHandHeart class="text-tertiary-400 h-5 w-5" />
-								<p class="label opacity-60">Community</p>
-							</div>
-							<h2 class="text-xl font-bold">Upcoming Volunteer Opportunities</h2>
-							<p class="text-surface-600-400 mt-0.5 text-sm">
-								Support {data.group?.name} by lending a hand at an upcoming event.
+
+				<!-- Collapsible Header -->
+				<button
+					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+					onclick={() => (eventsExpanded = !eventsExpanded)}
+				>
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="volunteer-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconHandHeart class="h-5 w-5 text-white" />
+						</div>
+						<div class="min-w-0">
+							<h2 class="text-lg font-bold">Volunteer Opportunities</h2>
+							<p class="text-surface-600-400 text-sm">
+								Support {data.group?.name} by lending a hand
 							</p>
 						</div>
+					</div>
+					<div class="flex items-center gap-3">
 						<a
 							href={`/volunteer/groups/${data.group.slug}`}
 							class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
+							onclick={(e) => e.stopPropagation()}
 						>
 							All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
 						</a>
+						<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
+							<IconChevronDown class="h-5 w-5" />
+						</div>
 					</div>
+				</button>
 
-					<!-- Event list -->
-					<ul class="space-y-3">
-						{#each volunteer_events as event, i}
-							<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
-								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-									<div class="space-y-2">
-										<a
-											href={`/volunteer/${event.slug}`}
-											class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
-										>
-											{event.title}
-										</a>
-										{#if event.summary}
-											<AutoLinkText
-												text={event.summary}
-												className="text-surface-600-400 line-clamp-2 text-sm"
-											/>
-										{/if}
-										<div class="flex flex-wrap items-center gap-3 text-xs">
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconCalendar class="h-3.5 w-3.5" />
-												{volunteerEventDateRange(event)}
-											</span>
-											{#if volunteerEventTimeRange(event)}
-												<span class="text-surface-700-300 flex items-center gap-1">
-													<IconClock class="h-3.5 w-3.5" />
-													{volunteerEventTimeRange(event)}
-												</span>
-											{/if}
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconMapPin class="h-3.5 w-3.5" />
-												<AutoLinkText text={volunteerEventLocation(event)} />
-											</span>
-										</div>
-									</div>
-									<div class="flex shrink-0 flex-wrap items-center gap-2">
-										{#if event.can_manage}
-											<a
-												href={`/volunteer/${event.slug}/edit`}
-												class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-											>
-												Edit
-											</a>
-											<a
-												href={`/volunteer/${event.slug}/manage`}
-												class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-											>
-												Manage
-											</a>
-										{:else}
+				{#if eventsExpanded}
+					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+						<!-- Event list -->
+						<ul class="space-y-3">
+							{#each volunteer_events as event, i}
+								<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
 											<a
 												href={`/volunteer/${event.slug}`}
-												class="btn btn-sm preset-outlined-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
+												class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
 											>
-												Volunteer
-												<IconArrowRight class="h-3.5 w-3.5" />
+												{event.title}
 											</a>
-										{/if}
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-600-400 line-clamp-2 text-sm"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-3 text-xs">
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconCalendar class="h-3.5 w-3.5" />
+													{volunteerEventDateRange(event)}
+												</span>
+												{#if volunteerEventTimeRange(event)}
+													<span class="text-surface-700-300 flex items-center gap-1">
+														<IconClock class="h-3.5 w-3.5" />
+														{volunteerEventTimeRange(event)}
+													</span>
+												{/if}
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconMapPin class="h-3.5 w-3.5" />
+													<AutoLinkText text={volunteerEventLocation(event)} />
+												</span>
+											</div>
+										</div>
+										<div class="flex shrink-0 flex-wrap items-center gap-2">
+											{#if event.can_manage}
+												<a
+													href={`/volunteer/${event.slug}/edit`}
+													class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
+												>
+													Edit
+												</a>
+												<a
+													href={`/volunteer/${event.slug}/manage`}
+													class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
+												>
+													Manage
+												</a>
+											{:else}
+												<a
+													href={`/volunteer/${event.slug}`}
+													class="btn btn-sm preset-filled-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
+												>
+													Volunteer
+													<IconArrowRight class="h-3.5 w-3.5" />
+												</a>
+											{/if}
+										</div>
 									</div>
-								</div>
-							</li>
-						{/each}
-					</ul>
-				</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			</section>
 		{/if}
 	{/await}
+
+	<!-- ── Details Section ── -->
+	{#if hasDetails}
+		<section
+			class="details-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 140 }}
+		>
+			<div class="details-accent-bar" aria-hidden="true"></div>
+			<div class="details-glow" aria-hidden="true"></div>
+
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (detailsExpanded = !detailsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="details-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconInfo class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Details & Location</h2>
+						<p class="text-surface-600-400 text-sm">
+							Membership info, meeting points, and service area
+						</p>
+					</div>
+				</div>
+				<div class="section-chevron {detailsExpanded ? 'expanded' : ''}">
+					<IconChevronDown class="h-5 w-5" />
+				</div>
+			</button>
+
+			{#if detailsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						{#if data.group?.how_to_join_instructions}
+							<div class="detail-item">
+								<div class="detail-label">How to Join</div>
+								<AutoLinkText
+									text={data.group.how_to_join_instructions}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.preferred_contact_method_instructions}
+							<div class="detail-item">
+								<div class="detail-label">Preferred Contact Method</div>
+								<AutoLinkText
+									text={data.group.preferred_contact_method_instructions}
+									className="text-surface-800-200 text-sm"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.membership_info}
+							<div class="detail-item">
+								<div class="detail-label">Membership Info</div>
+								<AutoLinkText
+									text={data.group.membership_info}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.zip_code}
+							<div class="detail-item">
+								<div class="detail-label">ZIP / Postal Code</div>
+								<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
+							</div>
+						{/if}
+					</div>
+
+					{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
+						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+							{#if data.group?.activity_frequency}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconRepeat class="h-3.5 w-3.5" />
+										Activity Frequency
+									</div>
+									<AutoLinkText
+										text={data.group.activity_frequency}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
+							{#if data.group?.typical_activity_day_time}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconClock class="h-3.5 w-3.5" />
+										Typical Day / Time
+									</div>
+									<AutoLinkText
+										text={data.group.typical_activity_day_time}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
+							{#if data.group?.specific_meeting_point_address}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconMapPin class="h-3.5 w-3.5" />
+										Meeting Point
+									</div>
+									<AutoLinkText
+										text={data.group.specific_meeting_point_address}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					{#if data.group?.service_area_description || hasCoords}
+						<div class="detail-item mt-4">
+							<div class="detail-label flex items-center gap-1.5">
+								<IconMapPin class="h-3.5 w-3.5" />
+								Service Area
+							</div>
+							{#if data.group?.service_area_description}
+								<AutoLinkText
+									text={data.group.service_area_description}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							{/if}
+							{#if hasCoords}
+								<div class="map-container mt-3">
+									<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
 </div>
 
 <style>
@@ -1139,75 +1208,23 @@
 		border: 1px solid color-mix(in oklab, var(--color-warning-500) 35%, transparent);
 	}
 
-	/* ── Volunteer panel ── */
-	.volunteer-panel {
-		background: color-mix(in oklab, var(--color-tertiary-500) 8%, var(--color-surface-900) 92%);
-		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 22%, transparent);
+	/* ── Donation panel ── */
+	.donation-panel {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-900) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 		animation: card-in 380ms ease both;
-		animation-delay: 80ms;
+		animation-delay: 60ms;
 	}
 
-	.volunteer-glow {
+	.donation-glow {
 		position: absolute;
 		inset: 0;
 		background: radial-gradient(
 			ellipse 70% 50% at 0% 100%,
-			color-mix(in oklab, var(--color-tertiary-500) 14%, transparent),
+			color-mix(in oklab, var(--color-primary-500) 14%, transparent),
 			transparent 70%
 		);
 		pointer-events: none;
-	}
-
-	.volunteer-event-card {
-		background: color-mix(in oklab, var(--color-surface-800) 80%, var(--color-tertiary-500) 5%);
-		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
-		transition:
-			transform 180ms ease,
-			box-shadow 180ms ease;
-		animation: card-in 400ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 60ms);
-	}
-
-	.volunteer-event-card:hover {
-		transform: translateX(3px);
-		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
-	}
-
-	/* ── Details card ── */
-	.details-card {
-		background: color-mix(in oklab, var(--color-surface-900) 96%, var(--color-secondary-500) 4%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 120ms;
-	}
-
-	.details-accent-bar {
-		height: 2px;
-		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
-		opacity: 0.5;
-		border-radius: 2px;
-	}
-
-	.detail-item {
-		padding: 0.875rem;
-		border-radius: 0.875rem;
-		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	.detail-label {
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		opacity: 0.55;
-		margin-bottom: 0.375rem;
-	}
-
-	.map-container {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 0.875rem;
-		overflow: hidden;
 	}
 
 	/* ── Instagram section ── */
@@ -1320,14 +1337,197 @@
 		opacity: 1;
 	}
 
-	@keyframes gradient-shift {
-		0%,
-		100% {
-			background-position: 0% 50%;
-		}
-		50% {
-			background-position: 100% 50%;
-		}
+	/* ── Events section ── */
+	.events-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 100ms;
+	}
+
+	.events-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.events-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 80% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.events-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.event-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 60ms);
+	}
+
+	.event-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+	}
+
+	/* ── Volunteer section ── */
+	.volunteer-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-tertiary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 120ms;
+	}
+
+	.volunteer-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.volunteer-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 20% 100%,
+			color-mix(in oklab, var(--color-tertiary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.volunteer-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-tertiary-500) 80%, var(--color-primary-500) 20%),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-tertiary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-tertiary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-tertiary-500) 30%, transparent);
+	}
+
+	.volunteer-event-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-tertiary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 60ms);
+	}
+
+	.volunteer-event-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
+	}
+
+	/* ── Details section ── */
+	.details-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 140ms;
+	}
+
+	.details-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-success-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.details-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 50% 100%,
+			color-mix(in oklab, var(--color-primary-500) 8%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.details-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-success-500) 20%),
+			color-mix(in oklab, var(--color-success-500) 70%, var(--color-primary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.detail-item {
+		padding: 0.875rem;
+		border-radius: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	.detail-label {
+		font-size: 0.65rem;
+		font-weight: 600;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		opacity: 0.55;
+		margin-bottom: 0.375rem;
+	}
+
+	.map-container {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-radius: 0.875rem;
+		overflow: hidden;
+	}
+
+	/* ── Section header (collapsible) ── */
+	.section-header {
+		transition: background-color 150ms ease;
+	}
+
+	.section-header:hover {
+		background: color-mix(in oklab, var(--color-surface-50) 3%, transparent);
+	}
+
+	.section-chevron {
+		transition: transform 200ms ease;
+		color: color-mix(in oklab, var(--color-surface-50) 50%, transparent);
+	}
+
+	.section-chevron.expanded {
+		transform: rotate(180deg);
 	}
 
 	/* ── Auth notice ── */
@@ -1344,6 +1544,16 @@
 		to {
 			opacity: 1;
 			transform: translateY(0);
+		}
+	}
+
+	@keyframes gradient-shift {
+		0%,
+		100% {
+			background-position: 0% 50%;
+		}
+		50% {
+			background-position: 100% 50%;
 		}
 	}
 </style>
