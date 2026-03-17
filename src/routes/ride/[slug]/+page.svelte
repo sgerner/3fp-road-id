@@ -506,10 +506,9 @@
 							<div>
 								<div class="font-semibold">{occurrenceLabel(occurrence)}</div>
 								<div class="text-sm opacity-75">
-									{@html
-										renderLinkifiedText(
-											occurrence.start_location_name || activity?.start_location_name
-										)}
+									{@html renderLinkifiedText(
+										occurrence.start_location_name || activity?.start_location_name
+									)}
 								</div>
 							</div>
 							{#if currentUserRsvp(occurrence)?.status === 'going'}
@@ -610,7 +609,7 @@
 	}
 
 	/* ── Orb animations (no-image fallback only) ──── */
-						/* ── Typography ───────────────────────────────── */
+	/* ── Typography ───────────────────────────────── */
 	.ride-headline {
 		color: white;
 		text-align: left;

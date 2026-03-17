@@ -7,7 +7,9 @@ function invalid(message, status = 400) {
 
 export async function GET({ params, cookies }) {
 	const { supabase } = getActivityClient(cookies);
-	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: false }).catch(() => null);
+	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: false }).catch(
+		() => null
+	);
 	if (!ride) return invalid('Ride not found.', 404);
 	return json({
 		data: {
@@ -25,13 +27,18 @@ export async function POST({ params, request, cookies }) {
 		return null;
 	});
 	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
-	if (!canManage) return invalid('You do not have permission to manage co-hosts for this ride.', 403);
+	if (!canManage)
+		return invalid('You do not have permission to manage co-hosts for this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
-	const email = String(payload?.email || '').trim().toLowerCase();
+	const email = String(payload?.email || '')
+		.trim()
+		.toLowerCase();
 	if (!email) return invalid('Email is required.');
 
-	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: false }).catch(() => null);
+	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: false }).catch(
+		() => null
+	);
 	if (!ride) return invalid('Ride not found or unavailable.', 404);
 
 	const { data: profile, error: profileError } = await supabase
@@ -77,7 +84,8 @@ export async function DELETE({ params, request, cookies }) {
 		return null;
 	});
 	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
-	if (!canManage) return invalid('You do not have permission to manage co-hosts for this ride.', 403);
+	if (!canManage)
+		return invalid('You do not have permission to manage co-hosts for this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
 	if (!payload?.userId) return invalid('userId is required.');

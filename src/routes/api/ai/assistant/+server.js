@@ -646,8 +646,7 @@ function formatRecommendation(scored, locationHint) {
 	};
 	if (scored.item.type === 'article') {
 		recommendation.articleId = scored.item.id ? String(scored.item.id) : null;
-		recommendation.chunkId =
-			scored.item.chunkId || scored.articleCandidate?.best_chunk_id || null;
+		recommendation.chunkId = scored.item.chunkId || scored.articleCandidate?.best_chunk_id || null;
 		recommendation.contentType =
 			scored.item.contentType || scored.articleCandidate?.article?.content_type || null;
 	}
@@ -696,7 +695,8 @@ function scoreArticleCandidate(candidate, { requestedTypes, locationHint }) {
 			chunkId: candidate?.best_chunk_id || null,
 			contentType: article.content_type || null
 		},
-		score: 8 + baseScore * 14 + (wantsArticle ? 6 : 0) + (locationMatched && locationHint ? 1.4 : 0),
+		score:
+			8 + baseScore * 14 + (wantsArticle ? 6 : 0) + (locationMatched && locationHint ? 1.4 : 0),
 		keywordHits: [],
 		interestHits: [],
 		locationMatched,
@@ -1318,8 +1318,8 @@ export async function POST({ request, cookies }) {
 		[
 			...userData.rideHistory.flatMap((entry) => tokenize(entry?.activity?.title || '')),
 			...userData.volunteerHistory.flatMap((entry) => tokenize(entry?.event?.title || '')),
-			...userData.groupMemberships.flatMap(
-				(entry) => tokenize(recommendationData.groupMap.get(String(entry.group_id))?.name || '')
+			...userData.groupMemberships.flatMap((entry) =>
+				tokenize(recommendationData.groupMap.get(String(entry.group_id))?.name || '')
 			)
 		],
 		36
@@ -1373,19 +1373,19 @@ export async function POST({ request, cookies }) {
 				requestedTypes,
 				recommendationFocus: new Set(userData.recommendationContext.recommendation_focus),
 				affinityGroupIds: new Set(userData.historyGroupIds.map((value) => String(value))),
-					now: new Date()
-				})
-			)
-			.map((entry) => {
-				if (!forceArticlePrimary || entry.item.type === 'article') return entry;
-				let scorePenalty = 4.5;
-				if (entry.item.type === 'ride' || entry.item.type === 'volunteer') {
-					scorePenalty += 2.5;
-				}
-				return { ...entry, score: entry.score - scorePenalty };
+				now: new Date()
 			})
-			.concat(articleScored)
-			.sort((a, b) => b.score - a.score);
+		)
+		.map((entry) => {
+			if (!forceArticlePrimary || entry.item.type === 'article') return entry;
+			let scorePenalty = 4.5;
+			if (entry.item.type === 'ride' || entry.item.type === 'volunteer') {
+				scorePenalty += 2.5;
+			}
+			return { ...entry, score: entry.score - scorePenalty };
+		})
+		.concat(articleScored)
+		.sort((a, b) => b.score - a.score);
 
 	const picked = selectRecommendations(scored, requestedTypes);
 	const recommendations = picked
@@ -1419,17 +1419,17 @@ export async function POST({ request, cookies }) {
 		followUpQuestion: aiReply.follow_up_question || null,
 		recommendations,
 		navigationTarget,
-			context: {
-				locationHint: locationHint || null,
-				articleSignals: {
-					intent: inferredArticleIntent,
-					retrievalIntent: articleRetrieval.intent,
-					forceArticlePrimary,
-					userWeights: articleRetrieval.weights || null
-				},
-				profileSignals: {
-					interests: userData.recommendationContext.interests,
-					recommendationFocus: userData.recommendationContext.recommendation_focus
+		context: {
+			locationHint: locationHint || null,
+			articleSignals: {
+				intent: inferredArticleIntent,
+				retrievalIntent: articleRetrieval.intent,
+				forceArticlePrimary,
+				userWeights: articleRetrieval.weights || null
+			},
+			profileSignals: {
+				interests: userData.recommendationContext.interests,
+				recommendationFocus: userData.recommendationContext.recommendation_focus
 			},
 			historySignals: historyContext.counts
 		}

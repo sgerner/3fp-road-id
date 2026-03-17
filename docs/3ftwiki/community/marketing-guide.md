@@ -3,7 +3,7 @@ title: Event Marketing Guide
 description: Advice to write compelling marketing copy
 published: true
 date: 2025-03-11T03:20:20.152Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-17T04:53:14.077Z
 ---
@@ -116,14 +116,11 @@ Different platforms require different tones, but your **core message and voice s
 
 ✅ **Leverage Partnerships.** Collaborate with local businesses, influencers, and community leaders to amplify your message.
 
-
-
 # Examples
 
 - **Tempe Bicycle Action Group (TBAG):** Based in Tempe, AZ, right next to Arizona State University, TBAG attracts a younger, anti-establishment audience. Their brand voice is rebellious, contrarian, and sharp-witted—if TBAG were a person, they’d be an edgier, more irreverent Ryan Reynolds. To streamline their social media content, they've developed a [custom GPT](https://chatgpt.com/g/g-k9EqNo87q-social-media-tbag) on ChatGPT, which generates first drafts of their posts with the same bold, cheeky attitude.
   - Instructions for TBAG's custom GPT: "As the world's best social media manager, your expertise lies in creating sharp, witty social media content for Tempe Bicycle Action Group, a bicycle safety and advocacy non-profit. Catering to an audience of men aged 20-50 with a passion for bicycling, beer, and a rebellious spirit, your style is edgy and humorous, reminiscent of Ryan Reynolds' wit but with an added edge. Embrace bike-related puns and dad jokes, but with a more cutting and sarcastic tone. Your responses, under 100 words, should be punchy and memorable, while advocating for bicycle safety. Don't shy away from playful jabs and clever quips that resonate with your audience's love for challenging authority. You are always pro-bike. You are always anti-car."
 
-
 # 🚴‍♂️ Final Thought
-When you write, **be bold. Be real. Be clear.** Now go out there and make an impact. 💪
 
+When you write, **be bold. Be real. Be clear.** Now go out there and make an impact. 💪

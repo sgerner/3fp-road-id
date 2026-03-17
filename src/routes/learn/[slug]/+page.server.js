@@ -17,34 +17,40 @@ export const load = async ({ params, url, cookies }) => {
 
 	const revisionId = url.searchParams.get('revision');
 
-	const [{ data: revisions, error: revisionsError }, { data: comments, error: commentsError }, assets, { data: related, error: relatedError }] =
-		await Promise.all([
-			supabase
-				.from('learn_article_revisions')
-				.select('*')
-				.eq('article_id', article.id)
-				.order('revision_number', { ascending: false }),
-			supabase
-				.from('learn_comments')
-				.select('*')
-				.eq('article_id', article.id)
-				.order('created_at', { ascending: true }),
-			listLearnAssetsForArticle(supabase, article.id),
-			supabase
-				.from('learn_articles')
-				.select('id, title, slug, summary, category_name, updated_at')
-				.eq('category_slug', article.category_slug)
-				.neq('id', article.id)
-				.eq('is_published', true)
-				.order('updated_at', { ascending: false })
-				.limit(4)
-		]);
+	const [
+		{ data: revisions, error: revisionsError },
+		{ data: comments, error: commentsError },
+		assets,
+		{ data: related, error: relatedError }
+	] = await Promise.all([
+		supabase
+			.from('learn_article_revisions')
+			.select('*')
+			.eq('article_id', article.id)
+			.order('revision_number', { ascending: false }),
+		supabase
+			.from('learn_comments')
+			.select('*')
+			.eq('article_id', article.id)
+			.order('created_at', { ascending: true }),
+		listLearnAssetsForArticle(supabase, article.id),
+		supabase
+			.from('learn_articles')
+			.select('id, title, slug, summary, category_name, updated_at')
+			.eq('category_slug', article.category_slug)
+			.neq('id', article.id)
+			.eq('is_published', true)
+			.order('updated_at', { ascending: false })
+			.limit(4)
+	]);
 
 	if (revisionsError) throw revisionsError;
 	if (commentsError) throw commentsError;
 	if (relatedError) throw relatedError;
 
-	const requestedRevision = revisionId ? (revisions ?? []).find((item) => item.id === revisionId) : null;
+	const requestedRevision = revisionId
+		? (revisions ?? []).find((item) => item.id === revisionId)
+		: null;
 	const articleForDisplay = requestedRevision
 		? {
 				...article,
@@ -60,16 +66,13 @@ export const load = async ({ params, url, cookies }) => {
 			}
 		: article;
 
-	const profiles = await getLearnProfilesMap(
-		supabase,
-		[
-			article.created_by_user_id,
-			article.updated_by_user_id,
-			...(revisions ?? []).map((item) => item.created_by_user_id),
-			...(comments ?? []).map((item) => item.author_user_id),
-			...(assets ?? []).map((item) => item.uploaded_by_user_id)
-		]
-	);
+	const profiles = await getLearnProfilesMap(supabase, [
+		article.created_by_user_id,
+		article.updated_by_user_id,
+		...(revisions ?? []).map((item) => item.created_by_user_id),
+		...(comments ?? []).map((item) => item.author_user_id),
+		...(assets ?? []).map((item) => item.uploaded_by_user_id)
+	]);
 
 	return {
 		currentUser: user ?? null,

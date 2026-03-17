@@ -707,8 +707,8 @@
 	}
 
 	async function sendOrganizerEmail() {
-		if (!selectedOccurrenceId || !organizerEmailSubject.trim() || !organizerEmailBody.trim())
-			return;
+		const occurrenceId = selectedOccurrence?.id ?? null;
+		if (!occurrenceId || !organizerEmailSubject.trim() || !organizerEmailBody.trim()) return;
 		organizerEmailError = '';
 		organizerEmailSending = true;
 		try {
@@ -716,7 +716,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					occurrenceId: selectedOccurrenceId,
+					occurrenceId,
 					subject: organizerEmailSubject,
 					body: organizerEmailBody
 				})

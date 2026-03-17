@@ -3,7 +3,7 @@ title: Critical Mass
 description: Organize an effective, safe, and impactful Critical Mass event, raising awareness about cycling rights and sustainable transportation.
 published: true
 date: 2025-02-28T14:44:12.619Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-28T14:44:12.619Z
 ---
@@ -63,6 +63,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - **Sweepers**: Riders who stay at the back to ensure no one is left behind
 
 ### Communication Approaches
+
 - Create communication channels that respect the decentralized nature of Critical Mass:
   - Social media groups
   - Signal/WhatsApp groups for real-time updates
@@ -71,6 +72,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - Consider using bike bells or whistles to communicate through the mass
 
 ### Visibility and Identity
+
 - Encourage riders to use lights, reflective gear, and decorative bike elements
 - Consider a theme or visual element that unites the ride (e.g., specific colors, flags, or bike decorations)
 - Balance visibility for safety with maintaining a positive, non-threatening appearance
@@ -92,12 +94,14 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - For newcomers, provide a brief explanation of Critical Mass culture and riding approach
 
 ### Share Key Critical Mass Principles:
+
 - "We are traffic" - cyclists have a legal right to the road
 - Mass riding is about visibility and solidarity, not about antagonizing drivers
 - The ride has no formal leader; everyone contributes to its success
 - Explain any local Critical Mass traditions or practices
 
 ### Safety and Group Riding Basics
+
 - Maintain close formation but keep safe distances
 - Watch for signals passed back through the group
 - Stay aware of your surroundings despite the festive atmosphere
@@ -141,6 +145,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 # Step-by-Step Action List for a Successful Critical Mass
 
 ## Pre-Ride Planning
+
 - [ ] Determine the date (traditionally the last Friday of the month)
 - [ ] Select a central, accessible meeting point
 - [ ] Consider potential route options or areas to highlight
@@ -150,6 +155,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - [ ] Establish communication channels for participants
 
 ## Week-of Preparation
+
 - [ ] Monitor weather forecasts and prepare appropriate messaging
 - [ ] Send reminders through established channels
 - [ ] Check the meeting point location for any changes or issues
@@ -158,6 +164,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - [ ] Consider having some basic repair tools available to help with pre-ride adjustments
 
 ## Day-of Ride Preparation
+
 - [ ] Arrive at least 30 minutes early to establish a presence
 - [ ] Create a welcoming atmosphere for arriving cyclists
 - [ ] Distribute any informational materials about ride etiquette
@@ -167,6 +174,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - [ ] Take photos of the gathering to document and share later
 
 ## During the Ride
+
 - [ ] Help maintain an appropriate pace that keeps the group together
 - [ ] Rotate "corking" responsibilities if this approach is used
 - [ ] Use agreed-upon hand signals and calls to communicate through the mass
@@ -176,6 +184,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 - [ ] Be prepared to suggest route options at decision points
 
 ## Post-Ride
+
 - [ ] Gather at a predetermined or spontaneously chosen end point
 - [ ] Thank participants for joining and creating the mass
 - [ ] Facilitate informal discussions about the experience
@@ -189,6 +198,7 @@ Remember: Critical Mass traditionally operates without formal leadership—it's 
 While Critical Mass is decentralized, informal facilitators might consider having these items:
 
 ## Ride Essentials
+
 - [ ] Lights and reflectors for visibility
 - [ ] Decorated bike or signs that celebrate cycling culture
 - [ ] Portable speaker or music device (if your ride includes music)
@@ -198,6 +208,7 @@ While Critical Mass is decentralized, informal facilitators might consider havin
 - [ ] Knowledge of nearby bike shops for emergency repairs
 
 ## Bike Repair & Support
+
 - [ ] Multi-tool with Allen keys and basic tools
 - [ ] Portable pump or CO2 inflator
 - [ ] Patch kit and spare tubes (various sizes)
@@ -205,12 +216,14 @@ While Critical Mass is decentralized, informal facilitators might consider havin
 - [ ] Zip ties and duct tape for temporary repairs
 
 ## Participant Support
+
 - [ ] Extra water to share
 - [ ] Weather protection (rain poncho, sunscreen) depending on forecast
 - [ ] First aid basics: bandages, antiseptic wipes
 - [ ] Know Your Rights information if questions arise about legality
 
 ## Community Building
+
 - [ ] Flyers about local cycling advocacy groups
 - [ ] Information about other cycling events in your area
 - [ ] Social media information to connect after the ride
@@ -218,8 +231,7 @@ While Critical Mass is decentralized, informal facilitators might consider havin
 # Resources
 
 > To Do: Know your rights card template. Social media graphics templates.
-{.is-danger}
-
+> {.is-danger}
 
 # Final Thoughts
 

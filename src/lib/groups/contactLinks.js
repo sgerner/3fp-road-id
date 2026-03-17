@@ -32,7 +32,9 @@ export function extractSocialLinks(group) {
 				'discord'
 			]);
 			return Object.entries(obj)
-				.filter(([key, value]) => allowedKeys.has(key) && typeof value === 'string' && Boolean(value))
+				.filter(
+					([key, value]) => allowedKeys.has(key) && typeof value === 'string' && Boolean(value)
+				)
 				.map(([key, value]) => ({ key, href: value }));
 		} catch (err) {
 			console.warn('Failed to parse group social links', err);

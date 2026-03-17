@@ -18,7 +18,10 @@ import {
 export const load = async ({ params, url, cookies }) => {
 	const { user, supabase } = getLearnClient(cookies);
 	if (!user) {
-		throw redirect(303, `/learn/${params.slug}?auth=required&returnTo=${encodeURIComponent(url.pathname)}`);
+		throw redirect(
+			303,
+			`/learn/${params.slug}?auth=required&returnTo=${encodeURIComponent(url.pathname)}`
+		);
 	}
 
 	const article = await getLearnArticleBySlug(supabase, params.slug);
@@ -41,12 +44,13 @@ export const load = async ({ params, url, cookies }) => {
 
 	const source = revision || article;
 
-	const [{ data: categories }, { data: subcategories }, articleAssets, recentAssets] = await Promise.all([
-		supabase.from('learn_categories').select('slug, name').order('name'),
-		supabase.from('learn_subcategories').select('slug, name, category_slug').order('sort_order'),
-		listLearnAssetsForArticle(supabase, article.id),
-		listLearnRecentAssets(supabase, { uploadedByUserId: user.id })
-	]);
+	const [{ data: categories }, { data: subcategories }, articleAssets, recentAssets] =
+		await Promise.all([
+			supabase.from('learn_categories').select('slug, name').order('name'),
+			supabase.from('learn_subcategories').select('slug, name, category_slug').order('sort_order'),
+			listLearnAssetsForArticle(supabase, article.id),
+			listLearnRecentAssets(supabase, { uploadedByUserId: user.id })
+		]);
 
 	return {
 		currentUser: user,

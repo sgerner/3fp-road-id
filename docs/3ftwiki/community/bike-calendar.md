@@ -1,9 +1,9 @@
 ---
 title: Major Bike Events
-description: Discover and learn to organize top national and international cycling events like Ride of Silence and World Bicycle Day. 
+description: Discover and learn to organize top national and international cycling events like Ride of Silence and World Bicycle Day.
 published: true
 date: 2025-02-28T04:41:29.506Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-28T03:38:13.645Z
 ---
@@ -14,18 +14,18 @@ Participating in established national and international cycling events is a powe
 
 # Event Calendar
 
-| Event Title                                     | Date               | Description                               |
-|-------------------------------------------------|----------------------------------------|-------------------------------------------|
-| **National Bike Month**                         | May (annually)                         | Celebrates and promotes cycling.          |
-| **National Ride A Bike Day**                    | First Sunday in May                    | Encourages everyone to cycle.             |
-| **Bike to School Day**                          | First Wednesday in May                 | Promotes cycling to school for students.  |
-| **CycloFemme**                                  | Second Sunday in May (Mother's Day)    | Empowers women through cycling.           |
-| **Bike to Work Day**                            | Third Friday in May                    | Encourages commuting by bicycle.          |
-| **Ride of Silence**                             | Third Wednesday in May at 7:00 PM      | Honors injured or killed cyclists.        |
-| **World Bicycle Day**                           | June 3 (annually)                      | Celebrates the bicycle's global impact.   |
-| **Park(ing) Day**																|	Third Friday in September							 |	Transforms parking spaces into public parks. |
-| **International Car Free Day**                  | September 22 (annually)                | Promotes car-free transportation methods. |
-| **World Day of Remembrance for Road Traffic Victims** | Third Sunday in November               | Remembers road traffic victims.           |
+| Event Title                                           | Date                                | Description                                  |
+| ----------------------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| **National Bike Month**                               | May (annually)                      | Celebrates and promotes cycling.             |
+| **National Ride A Bike Day**                          | First Sunday in May                 | Encourages everyone to cycle.                |
+| **Bike to School Day**                                | First Wednesday in May              | Promotes cycling to school for students.     |
+| **CycloFemme**                                        | Second Sunday in May (Mother's Day) | Empowers women through cycling.              |
+| **Bike to Work Day**                                  | Third Friday in May                 | Encourages commuting by bicycle.             |
+| **Ride of Silence**                                   | Third Wednesday in May at 7:00 PM   | Honors injured or killed cyclists.           |
+| **World Bicycle Day**                                 | June 3 (annually)                   | Celebrates the bicycle's global impact.      |
+| **Park(ing) Day**                                     | Third Friday in September           | Transforms parking spaces into public parks. |
+| **International Car Free Day**                        | September 22 (annually)             | Promotes car-free transportation methods.    |
+| **World Day of Remembrance for Road Traffic Victims** | Third Sunday in November            | Remembers road traffic victims.              |
 
 # Ride of Silence
 
@@ -36,6 +36,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Cyclists of all levels are welcome. Participants should gather at a predetermined location, wear helmets, and maintain silence during the ride. White clothing is often encouraged as a symbol of remembrance.
 
 **Best Practices:**
+
 - **Route Planning:** Choose a safe, accessible route with minimal traffic and clear signage. Plan for a ride of approximately 8-12 miles. The route should pass by locations where a cyclists was killed on public roadways.
 - **Moments of Silence:** Stop at each location of a fatality. Mention the cyclists name and any details relavent to your community. Offer a moment of silence in honor of the cyclist.
 - **Promotion:** Utilize social media, local news outlets, and community boards to raise awareness. Create and distribute event flyers to local bike shops.
@@ -53,6 +54,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Host memorial rides, candlelight vigils, or educational programs focusing on road safety. Installing ghost bikes (white-painted bicycles as memorials) can be part of this observance.
 
 **Best Practices:**
+
 - **Collaboration:** Partner with local road safety organizations and authorities. Include emergency services and healthcare providers who deal with traffic injuries.
 - **Awareness Campaigns:** Use the event to promote road safety measures and advocate for safer infrastructure. Share statistics and personal stories.
 - **Support Services:** Provide resources for victims' families and survivors. Connect with grief counselors or support groups.
@@ -69,6 +71,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize community rides, educational workshops, and bike donation drives to promote cycling. Family-friendly festivals centered around cycling culture work well.
 
 **Best Practices:**
+
 - **Community Engagement:** Collaborate with local schools, businesses, and advocacy groups to maximize participation. Involve municipal leaders.
 - **Publicity:** Utilize social media and local media outlets to spread the word. Create unique hashtags for your event.
 - **Safety Measures:** Ensure all events adhere to local safety regulations and promote the use of helmets and reflective gear. Offer free safety inspections.
@@ -86,6 +89,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize events such as group rides, bike-to-work days, workshops, and safety seminars throughout the month. Create a calendar of activities that builds momentum throughout May.
 
 **Best Practices:**
+
 - **Diverse Events:** Plan activities catering to various skill levels and interests. Include options for families, commuters, and recreational riders.
 - **Partnerships:** Work with local businesses, schools, and advocacy groups to expand reach. Seek sponsorships and in-kind donations.
 - **Education:** Offer sessions on bike maintenance, safety, and commuting tips. Partner with local bike shops for technical expertise.
@@ -103,6 +107,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize group commutes, set up pit stops with refreshments, and offer incentives for participants. Creating commuting "trains" led by experienced cyclists is particularly effective.
 
 **Best Practices:**
+
 - **Route Assistance:** Provide maps and guidance for safe commuting routes. Create online resources showing preferred bike routes.
 - **Employer Engagement:** Encourage local businesses to support the event by offering facilities like bike parking and showers. Recognize bike-friendly employers.
 - **Follow-Up:** Offer resources to help participants continue cycling beyond the event. Create mentorship opportunities for new bike commuters.
@@ -120,6 +125,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Host community rides, bike safety clinics, and family-friendly cycling events. Consider organizing rides specifically for those who are new to cycling.
 
 **Best Practices:**
+
 - **Inclusivity:** Design events suitable for all ages and skill levels. Ensure accessibility for riders with different abilities.
 - **Education:** Provide information on bike maintenance and road safety. Offer basic skills clinics.
 - **Partnerships:** Work with local bike shops for support and sponsorship. Coordinate with parks and recreation departments.
@@ -137,6 +143,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Coordinate with local schools to organize group rides with adult supervision, safety instruction sessions, and special activities upon arrival at school.
 
 **Best Practices:**
+
 - **Safety First:** Work with schools and local law enforcement to plan safe routes and ensure adequate supervision.
 - **Parent Involvement:** Recruit parent volunteers to help lead "bike trains" and supervise routes.
 - **Education:** Hold bicycle safety workshops before the event, covering rules of the road and proper helmet use.
@@ -154,6 +161,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize women-led community rides, skills clinics specifically for women and girls, or social gatherings centered around cycling.
 
 **Best Practices:**
+
 - **Inclusive Environment:** Create a welcoming atmosphere for cyclists of all levels, particularly beginners.
 - **Mentorship:** Pair experienced women cyclists with newcomers for skill-building and encouragement.
 - **Celebration:** Include elements that celebrate women's contributions to cycling history and culture.
@@ -165,7 +173,7 @@ Participating in established national and international cycling events is a powe
 # Critical Mass
 
 > Check out our [Critical Mass guide](/community/critical-mass) for more detailed advice on hosting a Critical Mass event.
-{.is-info}
+> {.is-info}
 
 **Date:** Typically the last Friday of each month
 
@@ -174,6 +182,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Join or initiate a local Critical Mass ride by spreading the word about meeting times and locations through social media and community networks.
 
 **Best Practices:**
+
 - **Legal Awareness:** Understand local regulations regarding group rides and ensure participants are informed.
 - **Route Planning:** Consider routes that maximize visibility while minimizing disruption to traffic flow.
 - **Positive Messaging:** Focus on the celebratory aspects of cycling rather than confrontational tactics.
@@ -191,6 +200,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize community bike rides, temporary conversion of parking spaces to mini-parks (parklets), or advocate for car-free zones in your community for the day.
 
 **Best Practices:**
+
 - **Government Engagement:** Work with local officials to designate car-free areas or streets for the day.
 - **Alternative Transport:** Provide information on bicycle routes, public transit options, and walking paths.
 - **Data Collection:** Measure air quality or noise levels to demonstrate the impact of reduced car usage.
@@ -208,6 +218,7 @@ Participating in established national and international cycling events is a powe
 **How to Participate:** Organize the transformation of metered parking spaces into temporary parklets that can serve as mini-parks, art installations, or social spaces. Engage community members, local businesses, and artists to design and implement these spaces, fostering community interaction and highlighting the potential of urban areas when reclaimed for public use.
 
 **Best Practices:**
+
 - **Planning and Permits:** Research local regulations regarding the temporary use of parking spaces. Obtain necessary permits from municipal authorities well in advance.
 - **Design and Materials:** Design inviting and safe spaces using materials like potted plants, seating, and shade structures. Ensure that installations are sturdy and do not obstruct pedestrian pathways.
 - **Collaboration:** Partner with local artists, businesses, and community organizations to create diverse and engaging parklets. Collaborative efforts can enhance the quality and appeal of the installations.
@@ -216,11 +227,10 @@ Participating in established national and international cycling events is a powe
 
 **Resources:** [Park(ing) Day Official Website](https://www.myparkingday.org/)
 
-
 # Planning and Implementation Guide
 
 > Review our [Ride Guide](/community/rides), [Ride Leaders Guide](/community/ride-leadership), [Community Event Guide](/community/neighborhood-events), and [Marketing Guide](/community/marketing-guide) for more detailed advice.
-{.is-info}
+> {.is-info}
 
 ## Timeline for Event Organization
 

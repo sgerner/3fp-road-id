@@ -13,12 +13,12 @@
 	const ownedGroups = $derived((data?.groupsNavOwnedGroups ?? []).filter((group) => group?.slug));
 	const currentGroupSlug = $derived(currentGroup?.slug ?? null);
 	const currentGroupCanEdit = $derived(
-			Boolean(
-				currentGroupSlug &&
-				(data?.can_edit ||
-					pathname.startsWith(`/groups/${currentGroupSlug}/manage`) ||
-					ownedGroups.some((group) => group.slug === currentGroupSlug))
-			)
+		Boolean(
+			currentGroupSlug &&
+			(data?.can_edit ||
+				pathname.startsWith(`/groups/${currentGroupSlug}/manage`) ||
+				ownedGroups.some((group) => group.slug === currentGroupSlug))
+		)
 	);
 
 	const navSections = $derived.by(() => {

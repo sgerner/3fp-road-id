@@ -153,18 +153,7 @@ function extractInstagramHandle(value) {
 		const segments = parsed.pathname.split('/').filter(Boolean);
 		if (!segments.length) return '';
 		const first = cleanText(segments[0], 80).toLowerCase();
-		if (
-			[
-				'p',
-				'reel',
-				'tv',
-				'reels',
-				'explore',
-				'accounts',
-				'stories',
-				'direct'
-			].includes(first)
-		) {
+		if (['p', 'reel', 'tv', 'reels', 'explore', 'accounts', 'stories', 'direct'].includes(first)) {
 			return '';
 		}
 		return cleanText(segments[0], 120);
@@ -264,7 +253,10 @@ async function fetchInstagramPublicTimelinePostsByHandle(username) {
 		return [];
 	}
 	const items = Array.isArray(payload?.items) ? payload.items : [];
-	const posts = items.map((item) => normalizeTimelineItem(item)).filter(Boolean).slice(0, INSTAGRAM_POST_LIMIT);
+	const posts = items
+		.map((item) => normalizeTimelineItem(item))
+		.filter(Boolean)
+		.slice(0, INSTAGRAM_POST_LIMIT);
 	return posts;
 }
 
@@ -301,7 +293,8 @@ async function fetchInstagramPublicPostsByHandle(handle) {
 }
 
 function extractManualInstagramPosts(group) {
-	const links = group?.social_links && typeof group.social_links === 'object' ? group.social_links : {};
+	const links =
+		group?.social_links && typeof group.social_links === 'object' ? group.social_links : {};
 	const list = Array.isArray(links.instagram_posts) ? links.instagram_posts : [];
 	const seen = new Set();
 	const posts = [];
@@ -560,7 +553,7 @@ export const load = async ({ params, cookies, fetch }) => {
 	}
 
 	const nowIso = new Date().toISOString();
-	
+
 	async function loadVolunteerEvents() {
 		try {
 			const eventRows = await fetchList(fetch, 'volunteer-events', {
@@ -640,6 +633,8 @@ export const load = async ({ params, cookies, fetch }) => {
 		}
 	}
 
+	const [volunteerEvents, rides] = await Promise.all([loadVolunteerEvents(), loadRides()]);
+
 	return {
 		group,
 		group_types: groupTypes,
@@ -671,7 +666,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
-		volunteer_events: loadVolunteerEvents(),
-		rides: loadRides()
+		volunteer_events: volunteerEvents,
+		rides
 	};
 };

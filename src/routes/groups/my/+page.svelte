@@ -75,9 +75,7 @@
 							</div>
 							<div class="text-3xl font-black tabular-nums">{groupCount}</div>
 						</div>
-						<div
-							class="bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl"
-						>
+						<div class="bg-primary-500/10 flex h-12 w-12 items-center justify-center rounded-xl">
 							<IconCrown class="text-primary-500 h-6 w-6" />
 						</div>
 					</div>
@@ -140,7 +138,7 @@
 					</div>
 					<h3 class="text-2xl font-bold">No owned groups yet</h3>
 					<p class="text-sm leading-relaxed opacity-70">
-							Create a new group to connect with riders in your area, or ask a group owner to add you
+						Create a new group to connect with riders in your area, or ask a group owner to add you
 						as a manager.
 					</p>
 					<div class="flex flex-wrap justify-center gap-3 pt-2">
@@ -231,7 +229,7 @@
 										{group.tagline}
 									</p>
 								{:else}
-									<p class="text-sm leading-relaxed opacity-50 italic">
+									<p class="text-sm leading-relaxed italic opacity-50">
 										No tagline set — add one in the group settings
 									</p>
 								{/if}

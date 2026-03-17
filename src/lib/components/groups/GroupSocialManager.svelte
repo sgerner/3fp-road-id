@@ -188,9 +188,7 @@
 		commentsTotal > 0 ? Math.min(commentsOffset + comments.length, commentsTotal) : 0
 	);
 	const hasPreviousCommentsPage = $derived.by(() => commentsOffset > 0);
-	const hasNextCommentsPage = $derived.by(
-		() => commentsOffset + comments.length < commentsTotal
-	);
+	const hasNextCommentsPage = $derived.by(() => commentsOffset + comments.length < commentsTotal);
 
 	const shouldShowConnectionsPanel = $derived.by(
 		() => !hasConnectedAccounts || showConnectionsPanel
@@ -464,8 +462,8 @@
 	}
 
 	function getPlatformColor(platform) {
-		return platform === 'instagram' 
-			? 'from-pink-500 via-purple-500 to-orange-500' 
+		return platform === 'instagram'
+			? 'from-pink-500 via-purple-500 to-orange-500'
 			: 'from-blue-600 to-blue-500';
 	}
 
@@ -571,7 +569,11 @@
 	function activeConnectedPlatforms() {
 		return accounts
 			.filter((account) => account?.status === 'active')
-			.map((account) => String(account.platform || '').trim().toLowerCase())
+			.map((account) =>
+				String(account.platform || '')
+					.trim()
+					.toLowerCase()
+			)
 			.filter(Boolean);
 	}
 
@@ -1431,7 +1433,8 @@
 										class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 										onclick={() => handleCalendarSlotClick(day.date, 9)}
 										onkeydown={(event) =>
-											(event.key === 'Enter' || event.key === ' ') && handleCalendarSlotClick(day.date, 9)}
+											(event.key === 'Enter' || event.key === ' ') &&
+											handleCalendarSlotClick(day.date, 9)}
 									>
 										<div class="flex items-center justify-between">
 											<div class="text-xs font-semibold">
@@ -1488,7 +1491,8 @@
 												style="--stagger: {(i * 7 + j) % 21}"
 												onclick={() => handleCalendarSlotClick(day.date, 9)}
 												onkeydown={(event) =>
-													(event.key === 'Enter' || event.key === ' ') && handleCalendarSlotClick(day.date, 9)}
+													(event.key === 'Enter' || event.key === ' ') &&
+													handleCalendarSlotClick(day.date, 9)}
 											>
 												<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
 												<div class="mt-1 space-y-1 overflow-y-auto">
@@ -2044,7 +2048,11 @@
 						<div class="composer-footer">
 							{#if composerReadOnly}
 								<div class="w-full text-right">
-									<button type="button" class="composer-btn composer-btn--ghost" onclick={closeComposerModal}>
+									<button
+										type="button"
+										class="composer-btn composer-btn--ghost"
+										onclick={closeComposerModal}
+									>
 										Close
 									</button>
 								</div>
@@ -2100,7 +2108,7 @@
 				<div class="comments-header">
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center gap-2">
-							<IconMessageCircle class="h-5 w-5 text-secondary-400" />
+							<IconMessageCircle class="text-secondary-400 h-5 w-5" />
 							<h3 class="text-lg font-semibold">Comments</h3>
 							{#if commentsTotal > 0}
 								<span class="comments-count">{commentsTotal}</span>
@@ -2113,7 +2121,10 @@
 									Loading comments...
 								</span>
 							{:else if commentsTotal > 0}
-								Showing <span class="font-medium text-surface-200">{commentsPageStart}-{commentsPageEnd}</span> of <span class="font-medium text-surface-200">{commentsTotal}</span> comments
+								Showing <span class="text-surface-200 font-medium"
+									>{commentsPageStart}-{commentsPageEnd}</span
+								>
+								of <span class="text-surface-200 font-medium">{commentsTotal}</span> comments
 							{:else}
 								Sync to view and reply to comments from your connected accounts
 							{/if}
@@ -2121,7 +2132,7 @@
 					</div>
 					<div class="flex flex-wrap items-center gap-2">
 						{#if commentsTotal > COMMENTS_PAGE_SIZE}
-							<div class="flex items-center gap-1 rounded-lg bg-surface-800/50 p-1">
+							<div class="bg-surface-800/50 flex items-center gap-1 rounded-lg p-1">
 								<button
 									type="button"
 									class="pagination-btn"
@@ -2152,7 +2163,9 @@
 							disabled={syncingComments || loadingComments}
 						>
 							<IconRefreshCw class="h-4 w-4 {syncingComments ? 'animate-spin' : ''}" />
-							<span class="hidden sm:inline">{syncingComments ? 'Syncing...' : 'Sync Comments'}</span>
+							<span class="hidden sm:inline"
+								>{syncingComments ? 'Syncing...' : 'Sync Comments'}</span
+							>
 							<span class="sm:hidden">{syncingComments ? 'Syncing...' : 'Sync'}</span>
 						</button>
 					</div>
@@ -2162,7 +2175,7 @@
 					<!-- Loading State -->
 					<div class="comments-loading">
 						<div class="loading-orb" aria-hidden="true"></div>
-						<div class="flex flex-col items-center gap-3 relative z-10">
+						<div class="relative z-10 flex flex-col items-center gap-3">
 							<div class="loading-spinner"></div>
 							<p class="text-surface-400 text-sm">Loading comments...</p>
 						</div>
@@ -2172,7 +2185,7 @@
 					<div class="comments-empty">
 						<div class="empty-orb" aria-hidden="true"></div>
 						<div class="empty-icon">
-							<IconMessageCircle class="h-8 w-8 text-surface-500" />
+							<IconMessageCircle class="text-surface-500 h-8 w-8" />
 						</div>
 						<h4 class="text-surface-200 mt-4 text-base font-medium">No comments yet</h4>
 						<p class="text-surface-500 mt-1 max-w-xs text-center text-sm">
@@ -2195,8 +2208,8 @@
 							{@const PlatformIcon = getPlatformIcon(comment.platform)}
 							{@const platformGradient = getPlatformColor(comment.platform)}
 							{@const relativeTime = formatRelativeTime(comment.commented_at)}
-							
-							<article 
+
+							<article
 								class="comment-card"
 								style="--stagger: {index}"
 								in:fade={{ duration: 200, delay: index * 50 }}
@@ -2210,7 +2223,7 @@
 											</span>
 										</div>
 										<div class="author-info">
-											<div class="flex items-center gap-2 flex-wrap">
+											<div class="flex flex-wrap items-center gap-2">
 												<span class="author-name">{commentAuthorLabel(comment)}</span>
 												<span class="platform-badge bg-gradient-to-r {platformGradient}">
 													<PlatformIcon class="h-3 w-3" />
@@ -2264,7 +2277,9 @@
 												<p class="linked-post-caption">{linkedPostCaption(comment)}</p>
 												<div class="linked-post-meta">
 													<span class="meta-badge">
-														{comment.linked_post.origin === 'group_social_post' ? '3FP Published' : 'Platform'}
+														{comment.linked_post.origin === 'group_social_post'
+															? '3FP Published'
+															: 'Platform'}
 													</span>
 													{#if comment.linked_post.permalink_url}
 														<a
@@ -2288,11 +2303,14 @@
 									<div class="replies-section">
 										<div class="replies-header">
 											<IconReply class="h-3.5 w-3.5" />
-											<span>{comment.replies.length} {comment.replies.length === 1 ? 'Reply' : 'Replies'}</span>
+											<span
+												>{comment.replies.length}
+												{comment.replies.length === 1 ? 'Reply' : 'Replies'}</span
+											>
 										</div>
 										<div class="replies-list">
 											{#each comment.replies as reply, replyIndex (reply.id)}
-												<div 
+												<div
 													class="reply-item"
 													in:slide={{ duration: 200, delay: replyIndex * 50 }}
 												>
@@ -2322,7 +2340,8 @@
 													class="reply-textarea"
 													placeholder="Write a reply..."
 													value={replyDrafts[comment.id] || ''}
-													oninput={(event) => updateReplyDraft(comment.id, event.currentTarget.value)}
+													oninput={(event) =>
+														updateReplyDraft(comment.id, event.currentTarget.value)}
 													rows="2"
 												></textarea>
 												<div class="reply-actions">
@@ -2344,11 +2363,9 @@
 														type="button"
 														class="send-reply-btn"
 														onclick={() => sendReply(comment.id)}
-														disabled={
-															!String(replyDrafts[comment.id] || '').trim() ||
+														disabled={!String(replyDrafts[comment.id] || '').trim() ||
 															Boolean(replyPending[comment.id]) ||
-															Boolean(aiReplyPending[comment.id])
-														}
+															Boolean(aiReplyPending[comment.id])}
 													>
 														{#if replyPending[comment.id]}
 															<IconLoader class="h-4 w-4 animate-spin" />
@@ -2384,7 +2401,9 @@
 									<span>Previous</span>
 								</button>
 								<span class="pagination-text">
-									Page {Math.floor(commentsOffset / COMMENTS_PAGE_SIZE) + 1} of {Math.ceil(commentsTotal / COMMENTS_PAGE_SIZE)}
+									Page {Math.floor(commentsOffset / COMMENTS_PAGE_SIZE) + 1} of {Math.ceil(
+										commentsTotal / COMMENTS_PAGE_SIZE
+									)}
 								</span>
 								<button
 									type="button"
@@ -3283,8 +3302,16 @@
 
 	/* ─── Enhanced Comments Section ─── */
 	.comments-section {
-		--comment-card-bg: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%);
-		--comment-card-border: color-mix(in oklab, var(--color-surface-700) 50%, var(--color-surface-600) 50%);
+		--comment-card-bg: color-mix(
+			in oklab,
+			var(--color-surface-900) 95%,
+			var(--color-primary-500) 5%
+		);
+		--comment-card-border: color-mix(
+			in oklab,
+			var(--color-surface-700) 50%,
+			var(--color-surface-600) 50%
+		);
 		--reply-line-color: color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
 	}
 
@@ -3412,12 +3439,19 @@
 	}
 
 	@keyframes spin {
-		to { transform: rotate(360deg); }
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	@keyframes pulse-orb {
-		0%, 100% { opacity: 0.5; }
-		50% { opacity: 1; }
+		0%,
+		100% {
+			opacity: 0.5;
+		}
+		50% {
+			opacity: 1;
+		}
 	}
 
 	/* Empty State */
@@ -3472,7 +3506,9 @@
 		border: 1px solid var(--comment-card-border);
 		animation: comment-in 400ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 60ms);
-		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+		transition:
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
 	}
 
 	.comment-card:hover {
@@ -3771,11 +3807,7 @@
 	.reply-composer-line {
 		width: 2px;
 		flex-shrink: 0;
-		background: linear-gradient(
-			to bottom,
-			var(--reply-line-color),
-			transparent
-		);
+		background: linear-gradient(to bottom, var(--reply-line-color), transparent);
 		border-radius: 1px;
 		margin-left: 1rem;
 	}
@@ -3790,7 +3822,9 @@
 		border-radius: 0.75rem;
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
 		overflow: hidden;
-		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			box-shadow 0.15s ease;
 	}
 
 	.reply-input-wrapper:focus-within {

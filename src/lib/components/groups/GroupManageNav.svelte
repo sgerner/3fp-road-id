@@ -54,9 +54,7 @@
 		<a
 			href={tab.href}
 			class="manage-tab flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all
-				{active
-					? 'bg-white/15 text-white shadow-sm'
-					: 'text-white/60 hover:bg-white/10 hover:text-white'}"
+				{active ? 'bg-white/15 text-white shadow-sm' : 'text-white/60 hover:bg-white/10 hover:text-white'}"
 			aria-current={active ? 'page' : undefined}
 		>
 			<Icon class="h-4 w-4 flex-shrink-0" />

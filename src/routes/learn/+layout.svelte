@@ -84,7 +84,6 @@
 					tone: 'tertiary'
 				});
 			}
-
 		}
 
 		if (actionSection.items.length) {

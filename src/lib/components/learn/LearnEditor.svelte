@@ -86,17 +86,21 @@
 <div class="learn-editor-shell space-y-3">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<p class="label">{label}</p>
-		<div class="inline-flex rounded-full border border-surface-500/20 bg-surface-900/60 p-1">
+		<div class="border-surface-500/20 bg-surface-900/60 inline-flex rounded-full border p-1">
 			<button
 				type="button"
-				class="btn btn-sm {currentMode !== 'markdown' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+				class="btn btn-sm {currentMode !== 'markdown'
+					? 'preset-filled-primary-500'
+					: 'preset-tonal-surface'}"
 				onclick={() => changeMode('wysiwyg')}
 			>
 				Rich text
 			</button>
 			<button
 				type="button"
-				class="btn btn-sm {currentMode === 'markdown' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+				class="btn btn-sm {currentMode === 'markdown'
+					? 'preset-filled-primary-500'
+					: 'preset-tonal-surface'}"
 				onclick={() => changeMode('markdown')}
 			>
 				Markdown
@@ -104,10 +108,12 @@
 		</div>
 	</div>
 
-	<div class="learn-editor rounded-[1.75rem] border border-surface-500/20 bg-surface-950/55 p-2 shadow-xl">
+	<div
+		class="learn-editor border-surface-500/20 bg-surface-950/55 rounded-[1.75rem] border p-2 shadow-xl"
+	>
 		<div bind:this={editorEl}></div>
 	</div>
 
-	<textarea bind:this={textareaEl} name={name} hidden readonly></textarea>
+	<textarea bind:this={textareaEl} {name} hidden readonly></textarea>
 	<input bind:this={modeEl} name={modeName} type="hidden" value={mode} />
 </div>

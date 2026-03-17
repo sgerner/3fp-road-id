@@ -265,7 +265,8 @@ export async function publishSingleGroupSocialPost(
 				});
 			}
 		} catch (conversionError) {
-			const message = cleanText(conversionError?.message, 1000) || 'Unable to prepare Instagram media.';
+			const message =
+				cleanText(conversionError?.message, 1000) || 'Unable to prepare Instagram media.';
 			await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 				status: 'failed',
 				updated_by: requestedBy,

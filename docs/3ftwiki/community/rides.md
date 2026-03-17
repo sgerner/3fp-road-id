@@ -1,9 +1,9 @@
 ---
 title: Rides
-description: 
+description:
 published: true
 date: 2025-07-04T01:37:49.970Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-01T02:27:54.596Z
 ---
@@ -51,10 +51,11 @@ To help make your event as effective as possible, explore these additional wiki 
 - [Safety Protocols](/community/safety) - Essential guidance for keeping all participants safe
 
 # Success Stories
+
 Learn from other organizers who have created meaningful and effective cycling events:
 
 > To Do: Write up case studies
-{.is-danger}
+> {.is-danger}
 
 - [Case Study: 1](/stories/downtown-family-rides)
 - [Case Study: 2](/stories/rural-safety-rides)

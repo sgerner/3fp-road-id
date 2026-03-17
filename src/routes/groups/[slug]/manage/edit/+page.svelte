@@ -11,11 +11,16 @@
 
 <div class="edit-manage space-y-6 pb-10">
 	{#if showSaved}
-		<section class="success-banner relative overflow-hidden rounded-xl p-4" in:slide={{ duration: 250 }}>
+		<section
+			class="success-banner relative overflow-hidden rounded-xl p-4"
+			in:slide={{ duration: 250 }}
+		>
 			<div class="success-glow" aria-hidden="true"></div>
 			<div class="relative z-10 flex items-start gap-3">
-				<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-success-500/15">
-					<IconCheckCircle class="h-5 w-5 text-success-400" />
+				<div
+					class="bg-success-500/15 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+				>
+					<IconCheckCircle class="text-success-400 h-5 w-5" />
 				</div>
 				<div>
 					<h3 class="font-semibold">Changes saved successfully!</h3>

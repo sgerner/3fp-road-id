@@ -1134,17 +1134,17 @@
 		line-height: 1.25;
 		color: var(--widget-text);
 	}
-		.ride-summary {
-			margin: 0;
-			font-size: 0.82rem;
-			color: var(--widget-text-muted);
-			line-height: 1.4;
-			display: -webkit-box;
-			line-clamp: 2;
-			-webkit-line-clamp: 2;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
-		}
+	.ride-summary {
+		margin: 0;
+		font-size: 0.82rem;
+		color: var(--widget-text-muted);
+		line-height: 1.4;
+		display: -webkit-box;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
 	.ride-card-meta {
 		display: flex;
 		flex-wrap: wrap;
@@ -1217,7 +1217,7 @@
 	}
 
 	/* ── Empty state ── */
-		.empty-icon {
+	.empty-icon {
 		width: 3.5rem;
 		height: 3.5rem;
 		border-radius: 50%;

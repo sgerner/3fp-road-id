@@ -3,7 +3,7 @@ title: Community Rides
 description: Plan and lead successful community bike rides with this step-by-step guide. Learn how to choose routes, ensure safety, engage riders, and build a cycling community.
 published: true
 date: 2025-03-11T02:23:05.153Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-18T05:21:20.854Z
 ---
@@ -17,8 +17,7 @@ Cycling isn't just about pedaling from point A to B—it's about freedom, connec
 The good news? You don't have to be a professional organizer to do this. If you can ride a bike, you can lead a ride. Start small, learn as you go, and build a community around something that makes people feel alive.
 
 > We offer specialized guides for [Vigil / Memorial Rides](/community/memorial-ride) and [Critical Mass Rides](/community/critical-mass)
-{.is-info}
-
+> {.is-info}
 
 # Steps to Planning an Inclusive and Engaging Ride
 
@@ -57,6 +56,7 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - **Mechanic Support:** Optional but helpful for quick roadside fixes.
 
 ### Leadership Team Communication
+
 - Establish a reliable communication system between ride leaders, sweepers, and marshals:
   - **Walkie-talkies**: Affordable and effective for immediate communication without phone distractions or in areas with poor reception.
   - **Group chat**: Create a dedicated ride leaders' discord channel.
@@ -66,6 +66,7 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - Ensure all leaders have each other's phone numbers as backup.
 
 ### Leadership Visibility
+
 - Ride leaders should wear high-visibility vests, bright shirts, or other distinctive items that make them easily identifiable to participants.
 - Consider an inexpensive pack of printed vests or shirts for regular events (e.g., "Ride Leader," "Sweeper," "Ask Me for Help").
 - Explain to participants how to identify ride leaders at the pre-ride orientation.
@@ -76,7 +77,7 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - Create an event page (Facebook, Mixily, Meetup, etc.) with clear information about the ride's purpose, difficulty level, and what to bring.
 - Use flyers, local bike shops, community boards, and spoke cards.
 - Engage social media: stories, reels, countdowns, and personal invitations work wonders.
-- **Word-of-mouth is crucial**: 
+- **Word-of-mouth is crucial**:
   - Encourage participants to bring friends through "Bring-a-Friend" incentives.
   - Ask previous riders to personally invite others in their network.
   - People are much more likely to try something new when invited by someone they know.
@@ -90,12 +91,14 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - Provide a safety brief such as the League of American Bicyclists' 5 Need-to-Know Items [found in the Smart Cycling Manuals](https://shop.bikeleague.org/collections/bike-education-materials-1) or 3 Feet Please's simplified [**ALERT System**](/education/ALERT).
 
 ### Community Building at the Start
+
 - **Use name tags**: For rides under 30 people, provide simple stick-on name tags to help people connect.
 - **Introduction circle**: For smaller rides (under 15 people), take 5 minutes for quick introductions.
 - Start with an icebreaker question like "What's your favorite thing about cycling?" or "How did you hear about today's ride?"
 - Introduce all ride leaders and their roles.
 
 ### Key points to cover in your safety briefing:
+
 - Introduce Ride Leaders and how to identify them
 - Route Overview with highlights and potential challenges
 - Rules of the Road and group riding etiquette
@@ -118,8 +121,7 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - Have a plan for addressing problematic behavior within your group.
 
 > Check out our [Road Share Guide](/community/road-share) for tips and scripts.
-{.is-info}
-
+> {.is-info}
 
 ## 8. Lead with Confidence and Adaptability
 
@@ -210,45 +212,49 @@ The good news? You don't have to be a professional organizer to do this. If you 
 - [ ] **Rain Date / Cancellation Notice:** Clearly communicate how participants will be notified in case of cancellation or postponement.
 - [ ] **Pace Groups:** For larger rides, consider splitting into slow, moderate, and fast groups, each with its own leader.
 
-Here’s an improved version of your article with an **Equipment & Supplies Checklist** added for organizers.  
+Here’s an improved version of your article with an **Equipment & Supplies Checklist** added for organizers.
 
 # Equipment & Supplies Checklist
 
 Having the right equipment ensures that your community ride runs smoothly and safely. Below is a sample checklist to get started.
 
 ## Ride Leader Essential
-- [ ] High-visibility vests or shirts for ride leaders, sweepers, and marshals  
-- [ ] Printed cue sheets, route maps, or digital GPS route files  
-- [ ] Walkie-talkies or Bluetooth communication devices for leadership team  
-- [ ] Emergency contact list for ride leaders (including local emergency services)  
-- [ ] First-aid kit (bandages, antiseptic wipes, gloves, gauze, and an emergency blanket)  
-- [ ] Basic bike repair toolkit (see below for details)  
-- [ ] Whistles or bells for communication and crowd control  
-- [ ] Name tags or stickers for participants (optional but great for community-building)  
-- [ ] Contact sheet for all ride leaders and volunteers  
-- [ ] Reflective tape or lights for evening rides  
+
+- [ ] High-visibility vests or shirts for ride leaders, sweepers, and marshals
+- [ ] Printed cue sheets, route maps, or digital GPS route files
+- [ ] Walkie-talkies or Bluetooth communication devices for leadership team
+- [ ] Emergency contact list for ride leaders (including local emergency services)
+- [ ] First-aid kit (bandages, antiseptic wipes, gloves, gauze, and an emergency blanket)
+- [ ] Basic bike repair toolkit (see below for details)
+- [ ] Whistles or bells for communication and crowd control
+- [ ] Name tags or stickers for participants (optional but great for community-building)
+- [ ] Contact sheet for all ride leaders and volunteers
+- [ ] Reflective tape or lights for evening rides
 - [ ] [Printed Emergency Protocols](/community/safety)
 
 ## Bike Repair & Maintenance Kit
-- [ ] Spare tubes (various sizes)  
-- [ ] Patch kits and tire levers  
-- [ ] Portable pump or CO2 inflator with cartridges  
-- [ ] Multi-tool with Allen keys, screwdrivers, and a chain tool  
-- [ ] Adjustable wrench for bolt-on wheels  
-- [ ] Chain lube and rags for quick fixes  
-- [ ] Duct tape and zip ties for temporary repairs  
+
+- [ ] Spare tubes (various sizes)
+- [ ] Patch kits and tire levers
+- [ ] Portable pump or CO2 inflator with cartridges
+- [ ] Multi-tool with Allen keys, screwdrivers, and a chain tool
+- [ ] Adjustable wrench for bolt-on wheels
+- [ ] Chain lube and rags for quick fixes
+- [ ] Duct tape and zip ties for temporary repairs
 
 ## Rider Comfort & Support
-- [ ] Extra water bottles or hydration station (especially for longer rides)  
-- [ ] Snack packs (granola bars, bananas, electrolyte tabs for hot weather)  
-- [ ] Sunscreen and bug spray  
-- [ ] Hand sanitizer and wet wipes  
+
+- [ ] Extra water bottles or hydration station (especially for longer rides)
+- [ ] Snack packs (granola bars, bananas, electrolyte tabs for hot weather)
+- [ ] Sunscreen and bug spray
+- [ ] Hand sanitizer and wet wipes
 
 ## Community Engagement & Promotion
-- [ ] Flyers or QR codes for upcoming rides or related advocacy efforts  
-- [ ] A sign-in sheet or digital check-in system for tracking participants  
-- [ ] Social media or email signup sheet for post-event follow-ups  
-- [ ] Donation jar or digital tip jar QR code (if applicable)  
+
+- [ ] Flyers or QR codes for upcoming rides or related advocacy efforts
+- [ ] A sign-in sheet or digital check-in system for tracking participants
+- [ ] Social media or email signup sheet for post-event follow-ups
+- [ ] Donation jar or digital tip jar QR code (if applicable)
 
 # Final Thoughts
 

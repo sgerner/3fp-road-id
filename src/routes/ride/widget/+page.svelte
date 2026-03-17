@@ -516,7 +516,7 @@
 		background-clip: text;
 	}
 
-						/* ── Config Sections ── */
+	/* ── Config Sections ── */
 	.config-section {
 		display: flex;
 		flex-direction: column;

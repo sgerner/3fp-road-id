@@ -113,7 +113,8 @@ function normalizeInstagramComment(comment, media = null) {
 						message: cleanText(media?.caption, 8000) || null,
 						permalink_url: cleanText(media?.permalink, 2000) || null,
 						full_picture:
-							cleanText(media?.media_url || media?.thumbnail_url || media?.display_url, 2000) || null,
+							cleanText(media?.media_url || media?.thumbnail_url || media?.display_url, 2000) ||
+							null,
 						created_time: media?.timestamp || null
 					}
 				: null

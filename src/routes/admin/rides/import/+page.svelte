@@ -98,8 +98,12 @@
 			{#if isSubmitting}
 				<div class="text-surface-700-300 flex items-center gap-2 text-sm">
 					<span class="inline-flex gap-1">
-						<span class="bg-primary-500/70 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.2s]"></span>
-						<span class="bg-primary-500/70 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.1s]"></span>
+						<span
+							class="bg-primary-500/70 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.2s]"
+						></span>
+						<span
+							class="bg-primary-500/70 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.1s]"
+						></span>
 						<span class="bg-primary-500/70 h-2 w-2 animate-bounce rounded-full"></span>
 					</span>
 					<span>Parsing JSON, geocoding locations, and uploading ride media.</span>
@@ -120,20 +124,22 @@
 				<IconLoader class="text-primary-500 h-6 w-6 animate-spin" />
 			</div>
 			<div class="bg-surface-100-900 h-2 overflow-hidden rounded-full">
-				<div class="from-primary-500 via-primary-400 to-primary-500 h-full w-1/3 animate-[import-progress_1.4s_ease-in-out_infinite] bg-gradient-to-r"></div>
+				<div
+					class="from-primary-500 via-primary-400 to-primary-500 h-full w-1/3 animate-[import-progress_1.4s_ease-in-out_infinite] bg-gradient-to-r"
+				></div>
 			</div>
 			<div class="grid gap-3 md:grid-cols-3">
 				<div class="bg-surface-100-900 animate-pulse rounded-xl px-4 py-3">
-					<div class="mb-2 h-3 w-20 rounded bg-surface-500/20"></div>
-					<div class="h-7 w-12 rounded bg-surface-500/20"></div>
+					<div class="bg-surface-500/20 mb-2 h-3 w-20 rounded"></div>
+					<div class="bg-surface-500/20 h-7 w-12 rounded"></div>
 				</div>
 				<div class="bg-surface-100-900 animate-pulse rounded-xl px-4 py-3">
-					<div class="mb-2 h-3 w-24 rounded bg-surface-500/20"></div>
-					<div class="h-7 w-12 rounded bg-surface-500/20"></div>
+					<div class="bg-surface-500/20 mb-2 h-3 w-24 rounded"></div>
+					<div class="bg-surface-500/20 h-7 w-12 rounded"></div>
 				</div>
 				<div class="bg-surface-100-900 animate-pulse rounded-xl px-4 py-3">
-					<div class="mb-2 h-3 w-28 rounded bg-surface-500/20"></div>
-					<div class="h-7 w-12 rounded bg-surface-500/20"></div>
+					<div class="bg-surface-500/20 mb-2 h-3 w-28 rounded"></div>
+					<div class="bg-surface-500/20 h-7 w-12 rounded"></div>
 				</div>
 			</div>
 		</section>

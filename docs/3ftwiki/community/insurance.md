@@ -3,7 +3,7 @@ title: Navigating Insurance
 description: Learn how to navigate insurance for community bike events, minimize liability, and secure affordable coverage
 published: true
 date: 2025-02-18T08:08:51.197Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-18T07:48:27.972Z
 ---
@@ -85,6 +85,7 @@ Liability waivers are typically a requirement of most insurance providers in man
 - **Record Keeping**: It's essential to retain signed waivers for a specified period, as determined by your State's laws, to ensure protection in case of future claims. This can range anywhere from 3 years to until a youth turns 18.
 
 **Printable Waiver Forms:**
+
 - [Multi-Line Waiver (18+ Only)](/multi-line-waiver.pdf)
 - [Single-Line Wiaver (Required for youth)](/single-line-waiver.pdf)
 
@@ -125,12 +126,14 @@ Look at every aspect of your event and assess potential risks, including:
 - Areas prone to flooding or other weather-related hazards
 
 ## Participant Safety Risks
+
 - Riders not wearing helmets or riding unsafe bikes
 - Participants unfamiliar with riding in a group
 - Presence of children or individuals with varying skill levels
 - Medical emergencies (heat exhaustion, dehydration, falls)
 
 ## Operational Risks
+
 - Inadequate signage and wayfinding for riders
 - Poor communication between organizers, volunteers, and participants
 - Insufficient emergency preparedness (first aid, lost rider protocols, severe weather plans)
@@ -146,7 +149,6 @@ For more detailed information on insurance options and risk management, consider
 
 - **[USA Cycling](https://usacycling.org/resources/insurance)** offers general liability and rider accident insurance for permitted events, covering road, track, mountain biking, cyclo-cross, collegiate, and pro events. They also provide online tools for race directors, clubs, and coaches to receive quotes and bind insurance coverage for ancillary event liability.
 
-- **[Sadler Insurance](https://www.sadlersports.com/bicycle-touring-cycling-insurance/)** offers customizable cycling insurance packages for cycling teams, clubs, races, and instructors. 
+- **[Sadler Insurance](https://www.sadlersports.com/bicycle-touring-cycling-insurance/)** offers customizable cycling insurance packages for cycling teams, clubs, races, and instructors.
 
 By proactively addressing insurance requirements and implementing robust safety measures, you're paving the way for successful, enjoyable, and secure cycling experiences for all.
-

@@ -16,17 +16,13 @@
 		onApply = () => {}
 	} = $props();
 
-	let styleId = $state('');
+	let styleId = $derived(defaultStyleId);
 	let userPrompt = $state('');
 	let generating = $state(false);
 	let error = $state('');
 	let lastGeneratedUrl = $state('');
 
 	const previewUrl = $derived(currentImageUrl || lastGeneratedUrl || '');
-
-	$effect(() => {
-		styleId = defaultStyleId;
-	});
 
 	async function generateImage() {
 		error = '';

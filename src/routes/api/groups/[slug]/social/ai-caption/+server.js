@@ -21,9 +21,7 @@ export async function POST({ cookies, params, request }) {
 		const rideDetails = cleanText(payload.ride_details, 800);
 		const eventTitle = cleanText(payload.event_title, 200);
 		const normalizedEventTitle =
-			eventTitle &&
-			rideDetails &&
-			eventTitle.toLowerCase() === rideDetails.toLowerCase()
+			eventTitle && rideDetails && eventTitle.toLowerCase() === rideDetails.toLowerCase()
 				? ''
 				: eventTitle;
 		const input = {

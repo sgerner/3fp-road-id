@@ -92,7 +92,10 @@ function loadEnvFile(envPath) {
 		if (eqIndex === -1) continue;
 		const key = trimmed.slice(0, eqIndex).trim();
 		let value = trimmed.slice(eqIndex + 1).trim();
-		if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
 			value = value.slice(1, -1);
 		}
 		if (!(key in process.env)) process.env[key] = value;
@@ -105,7 +108,8 @@ async function main() {
 	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 	if (!supabaseUrl) throw new Error('Missing required environment variable: PUBLIC_SUPABASE_URL');
 	const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-	if (!serviceKey) throw new Error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
+	if (!serviceKey)
+		throw new Error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
 	const supabase = createClient(supabaseUrl, serviceKey, {
 		auth: { persistSession: false, autoRefreshToken: false }
 	});

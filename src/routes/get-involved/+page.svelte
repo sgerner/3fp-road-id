@@ -46,11 +46,7 @@
 	);
 
 	// Local checkbox state for interactive selection
-	let checkedIds = $state([]);
-
-	$effect(() => {
-		checkedIds = [...selectedOpportunityIds];
-	});
+	let checkedIds = $derived([...selectedOpportunityIds]);
 
 	function toggleOpportunity(id) {
 		const s = new Set(checkedIds);
@@ -356,7 +352,9 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center">
+			<div
+				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+			>
 				<div class="app-empty-orb" aria-hidden="true"></div>
 				<div class="relative z-10 mx-auto max-w-sm space-y-4">
 					<div
@@ -631,7 +629,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
-						/* ── Headline ── */
+	/* ── Headline ── */
 	.gi-headline {
 		color: var(--color-primary-50);
 		text-align: left;
@@ -827,4 +825,4 @@
 	}
 
 	/* ── Empty state ── */
-		</style>
+</style>

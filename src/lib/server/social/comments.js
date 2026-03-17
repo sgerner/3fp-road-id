@@ -45,12 +45,7 @@ function buildMetaPostLookup(posts = []) {
 		for (const [platform, result] of Object.entries(platforms)) {
 			const normalizedPlatform = cleanText(platform, 40).toLowerCase();
 			if (!normalizedPlatform) continue;
-			const ids = [
-				result?.meta_post_id,
-				result?.meta_media_id,
-				result?.meta_id,
-				result?.id
-			]
+			const ids = [result?.meta_post_id, result?.meta_media_id, result?.meta_id, result?.id]
 				.map((value) => cleanText(value, 200))
 				.filter(Boolean);
 			for (const metaId of ids) {

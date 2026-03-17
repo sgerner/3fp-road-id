@@ -3,7 +3,7 @@ title: Ghost Bikes
 description: Honor the victims of traffic violence with a memorial ghost bike marker
 published: true
 date: 2025-03-04T00:29:29.921Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-28T05:30:27.975Z
 ---
@@ -14,8 +14,8 @@ Ghost bikes are powerful public memorials that honor cyclists who have lost thei
 
 This guide will walk you through the process of creating a meaningful ghost bike memorial that honors the deceased while raising awareness about traffic safety.
 
-![university_&_perry.jpg](/stories/university_&_perry.jpg =300x)
-![10_&_maple1.jpg](/stories/10_&_maple1.jpg =300x)
+![university_&_perry.jpg](/stories/university*&\_perry.jpg =300x)
+![10*&_maple1.jpg](/stories/10_&\_maple1.jpg =300x)
 
 # Before You Begin
 

@@ -49,8 +49,7 @@ function resolveMetaOAuthVersion() {
 function resolveProviderAppCredentials(provider) {
 	const normalized = cleanText(provider, 40).toLowerCase();
 	if (normalized === 'instagram') {
-		const appId =
-			cleanText(env.META_INSTAGRAM_APP_ID, 200) || cleanText(env.META_APP_ID, 200);
+		const appId = cleanText(env.META_INSTAGRAM_APP_ID, 200) || cleanText(env.META_APP_ID, 200);
 		const appSecret =
 			cleanText(env.META_INSTAGRAM_APP_SECRET, 400) || cleanText(env.META_APP_SECRET, 400);
 		if (!appId || !appSecret) {
@@ -233,7 +232,9 @@ export async function refreshLongLivedInstagramToken(accessToken) {
 		}
 	}
 	if (!response.ok) {
-		throw new Error(normalizeMetaError(payload, `Instagram token refresh failed (${response.status}).`));
+		throw new Error(
+			normalizeMetaError(payload, `Instagram token refresh failed (${response.status}).`)
+		);
 	}
 	return {
 		accessToken: cleanText(payload?.access_token, 5000) || token,
@@ -321,7 +322,8 @@ export async function resolveInstagramAccountConnection({ userAccessToken, scope
 			meta_user_id: igAccountId,
 			meta_page_id: null,
 			meta_instagram_account_id: igAccountId,
-			account_name: cleanText(profile?.name, 240) || cleanText(profile?.username, 120) || 'Instagram account',
+			account_name:
+				cleanText(profile?.name, 240) || cleanText(profile?.username, 120) || 'Instagram account',
 			username: cleanText(profile?.username, 120) || null,
 			token_expires_at: null,
 			scopes,

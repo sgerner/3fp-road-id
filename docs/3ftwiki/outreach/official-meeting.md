@@ -1,9 +1,9 @@
 ---
 title: Meeting with Elected Officials
-description: 
+description:
 published: true
 date: 2025-03-13T03:50:40.858Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-13T03:50:40.857Z
 ---
@@ -19,6 +19,7 @@ Meetings with elected officials, especially members of Congress or U.S. Senators
 **Setting:** Official's office, district office, or brief site visit to relevant location
 
 **Participants:**
+
 - 3-5 bicycle advocates/stakeholders (carefully selected for relevance)
 - 1-2 elected officials and/or senior staff members
 
@@ -50,24 +51,28 @@ Meetings with elected officials, especially members of Congress or U.S. Senators
 
 # Meeting Structure (20 Minutes)
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-2:00 | **Brief Introductions** | Name, role, connection to district |
-| 2:00-4:00 | **Problem Statement** | Concise definition of specific issue with 1-2 data points |
-| 4:00-7:00 | **Personal Impact** | Brief, compelling story from a constituent |
-| 7:00-10:00 | **Proposed Solution** | Clear, specific request with implementation path |
-| 10:00-15:00 | **Official's Questions** | Listen carefully and respond directly |
-| 15:00-18:00 | **Ask for Commitment** | Specific, actionable request with timeline |
-| 18:00-20:00 | **Thanks and Follow-up Plan** | Express appreciation and next steps |
+| Time        | Activity                      | Description                                               |
+| ----------- | ----------------------------- | --------------------------------------------------------- |
+| 0:00-2:00   | **Brief Introductions**       | Name, role, connection to district                        |
+| 2:00-4:00   | **Problem Statement**         | Concise definition of specific issue with 1-2 data points |
+| 4:00-7:00   | **Personal Impact**           | Brief, compelling story from a constituent                |
+| 7:00-10:00  | **Proposed Solution**         | Clear, specific request with implementation path          |
+| 10:00-15:00 | **Official's Questions**      | Listen carefully and respond directly                     |
+| 15:00-18:00 | **Ask for Commitment**        | Specific, actionable request with timeline                |
+| 18:00-20:00 | **Thanks and Follow-up Plan** | Express appreciation and next steps                       |
 
 # Effective Techniques for Brief Meetings
 
 ## Opening Strong
+
 Begin with a clear connection to the official's interests:
+
 - "Thank you for meeting with us, Senator Smith. As small business owners and cyclists in your district, we're here with a specific request regarding the Main Street corridor that aligns with your work on the Transportation Committee."
 
 ## Making Your Ask Crystal Clear
+
 State your request in one sentence that includes:
+
 - What action you want
 - By when
 - Why it matters
@@ -75,13 +80,17 @@ State your request in one sentence that includes:
 Example: "We're asking you to support including $2 million for the River Trail connection in next year's transportation appropriations bill because it would address a dangerous gap that affected 27 of your constituents in accidents last year."
 
 ## Handling Limited Time
+
 If the meeting is cut short:
+
 - Have your one-sentence ask ready to deliver immediately
 - Leave behind your one-page summary
 - Request a specific follow-up with staff
 
 ## Securing Commitments
+
 Be direct but respectful:
+
 - "Can we count on your support for this funding in the upcoming bill?"
 - "Would you be willing to write a letter to the DOT by next month?"
 - "Could your staff meet with us in two weeks to discuss implementation steps?"
@@ -89,7 +98,7 @@ Be direct but respectful:
 # Post-Meeting Actions
 
 1. **Send a Thank-You Note**
-	 - Written notes stand out in today's digital age
+   - Written notes stand out in today's digital age
    - If possible include a small token of gratitude like choclate, baked goods or merch
    - Express appreciation for the official's time
    - Restate your specific request

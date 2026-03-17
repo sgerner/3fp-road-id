@@ -3,7 +3,7 @@ title: Tips for Cyclists Safety
 description: Stay A.L.E.R.T.
 published: true
 date: 2025-03-11T02:22:34.692Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-11T02:20:11.039Z
 ---
@@ -16,6 +16,7 @@ dateCreated: 2025-03-11T02:20:11.039Z
 Click for a Canva Template to Edit](https://www.canva.com/design/DAGgvp150IU/hw47tRQZ_PuLgxHKqUDaHg/view?utm_content=DAGgvp150IU&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 # A - AWARE
+
 - Watch for turning vehicles
 - Ride outside of the door zone
 - Stay alert for debris, potholes, and road hazards

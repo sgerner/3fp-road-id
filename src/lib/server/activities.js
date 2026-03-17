@@ -1,4 +1,7 @@
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import { normalizeTimezone, resolveTimezoneFromCoordinates } from '$lib/server/timezones';
 
@@ -137,7 +140,9 @@ function startOfUtcDay(date) {
 }
 
 function endOfUtcDay(date) {
-	return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+	return new Date(
+		Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)
+	);
 }
 
 function addUtcDays(date, days) {
@@ -183,7 +188,10 @@ export async function ensureUniqueActivitySlug(supabase, source, excludeId = nul
 	let candidate = base;
 
 	while (attempt < 50) {
-		let query = supabase.from('activity_events').select('id', { count: 'exact', head: true }).eq('slug', candidate);
+		let query = supabase
+			.from('activity_events')
+			.select('id', { count: 'exact', head: true })
+			.eq('slug', candidate);
 		if (excludeId) query = query.neq('id', excludeId);
 		const { count, error } = await query;
 		if (error) throw error;
@@ -255,9 +263,9 @@ export function normalizeRidePayload(payload = {}) {
 			elevation_gain_feet: toInteger(payload.elevationGainFeet ?? payload.elevation_gain_feet),
 			pace_notes: safeTrim(payload.paceNotes ?? payload.pace_notes) || null,
 			is_no_drop: coerceBoolean(payload.isNoDrop ?? payload.is_no_drop, true),
-			surface_types: uniq(asArray(payload.surfaceTypes ?? payload.surface_types).map(safeTrim)).filter(
-				Boolean
-			),
+			surface_types: uniq(
+				asArray(payload.surfaceTypes ?? payload.surface_types).map(safeTrim)
+			).filter(Boolean),
 			bike_suitability: uniq(
 				asArray(payload.bikeSuitability ?? payload.bike_suitability).map(safeTrim)
 			).filter(Boolean),
@@ -329,7 +337,10 @@ function generateWeeklyOccurrences({ templateStart, durationMs, rule, horizonEnd
 		);
 		if (startsAt < templateStart) continue;
 		if (exclusions.has(toDateOnlyUtc(startsAt))) continue;
-		results.push({ starts_at: startsAt.toISOString(), ends_at: new Date(startsAt.getTime() + durationMs).toISOString() });
+		results.push({
+			starts_at: startsAt.toISOString(),
+			ends_at: new Date(startsAt.getTime() + durationMs).toISOString()
+		});
 	}
 	return results;
 }
@@ -337,7 +348,11 @@ function generateWeeklyOccurrences({ templateStart, durationMs, rule, horizonEnd
 function nthWeekdayOfMonth(year, month, weekday, position) {
 	const dates = [];
 	const first = new Date(Date.UTC(year, month, 1));
-	for (let cursor = new Date(first); cursor.getUTCMonth() === month; cursor = addUtcDays(cursor, 1)) {
+	for (
+		let cursor = new Date(first);
+		cursor.getUTCMonth() === month;
+		cursor = addUtcDays(cursor, 1)
+	) {
 		if (isoWeekday(cursor) === weekday) dates.push(new Date(cursor));
 	}
 	if (!dates.length) return null;
@@ -352,7 +367,11 @@ function generateMonthlyOccurrences({ templateStart, durationMs, rule, horizonEn
 	const origin = new Date(Date.UTC(startDate.year, startDate.month, 1));
 	const weekdays = rule.by_weekdays.length ? rule.by_weekdays : [isoWeekday(templateStart)];
 	const positions = rule.by_set_positions.length ? rule.by_set_positions : [1];
-	for (let monthCursor = new Date(origin); monthCursor <= horizonEnd; monthCursor = addUtcMonths(monthCursor, 1)) {
+	for (
+		let monthCursor = new Date(origin);
+		monthCursor <= horizonEnd;
+		monthCursor = addUtcMonths(monthCursor, 1)
+	) {
 		const monthDelta =
 			(monthCursor.getUTCFullYear() - origin.getUTCFullYear()) * 12 +
 			(monthCursor.getUTCMonth() - origin.getUTCMonth());
@@ -405,9 +424,15 @@ export function buildOccurrenceSchedule(activity, recurrenceRule, exclusions = [
 	const rule = {
 		frequency: safeTrim(recurrenceRule.frequency),
 		interval_count: Math.max(1, toInteger(recurrenceRule.interval_count) ?? 1),
-		by_weekdays: uniq(asArray(recurrenceRule.by_weekdays).map((value) => toInteger(value)).filter(Boolean)),
+		by_weekdays: uniq(
+			asArray(recurrenceRule.by_weekdays)
+				.map((value) => toInteger(value))
+				.filter(Boolean)
+		),
 		by_set_positions: uniq(
-			asArray(recurrenceRule.by_set_positions).map((value) => toInteger(value)).filter(Boolean)
+			asArray(recurrenceRule.by_set_positions)
+				.map((value) => toInteger(value))
+				.filter(Boolean)
 		),
 		starts_on: safeTrim(recurrenceRule.starts_on) || toDateOnlyUtc(templateStart),
 		until_on: safeTrim(recurrenceRule.until_on) || null
@@ -447,10 +472,17 @@ export function buildOccurrenceSchedule(activity, recurrenceRule, exclusions = [
 					exclusions: exclusionDates
 				});
 
-	return occurrences.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+	return occurrences.sort(
+		(a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+	);
 }
 
-export async function syncActivityOccurrences(supabase, activityEventId, schedule, { cutoffStart = null } = {}) {
+export async function syncActivityOccurrences(
+	supabase,
+	activityEventId,
+	schedule,
+	{ cutoffStart = null } = {}
+) {
 	const cutoffIso = cutoffStart ? toIso(cutoffStart) : null;
 	let occurrenceQuery = supabase
 		.from('activity_occurrences')
@@ -472,7 +504,9 @@ export async function syncActivityOccurrences(supabase, activityEventId, schedul
 			.filter((row) => row.is_generated !== false)
 			.map((row) => [normalizeOccurrenceStartKey(row.starts_at), row])
 	);
-	const wantedStarts = new Set(schedule.map((entry) => normalizeOccurrenceStartKey(entry.starts_at)));
+	const wantedStarts = new Set(
+		schedule.map((entry) => normalizeOccurrenceStartKey(entry.starts_at))
+	);
 
 	for (const entry of schedule) {
 		const startKey = normalizeOccurrenceStartKey(entry.starts_at);
@@ -555,13 +589,15 @@ export async function refreshActivityNextOccurrence(supabase, activityEventId) {
 }
 
 export async function loadRideLookups(supabase) {
-	const [{ data: difficultyLevels, error: difficultyError }, { data: disciplines, error: disciplinesError }] =
-		await Promise.all([
-			supabase.from('ride_difficulty_levels').select('*').order('sort_order', { ascending: true }),
-			supabase.from('riding_disciplines').select('id,name,slug,description').order('name', {
-				ascending: true
-			})
-		]);
+	const [
+		{ data: difficultyLevels, error: difficultyError },
+		{ data: disciplines, error: disciplinesError }
+	] = await Promise.all([
+		supabase.from('ride_difficulty_levels').select('*').order('sort_order', { ascending: true }),
+		supabase.from('riding_disciplines').select('id,name,slug,description').order('name', {
+			ascending: true
+		})
+	]);
 	if (difficultyError) throw difficultyError;
 	if (disciplinesError) throw disciplinesError;
 	return {
@@ -789,10 +825,7 @@ export async function upsertActivityRelations(
 		if (error) throw error;
 	}
 
-	await supabase
-		.from('activity_email_templates')
-		.delete()
-		.eq('activity_event_id', activityEventId);
+	await supabase.from('activity_email_templates').delete().eq('activity_event_id', activityEventId);
 	if (emailTemplates.length) {
 		const { error } = await supabase.from('activity_email_templates').insert(
 			emailTemplates.map((template) => ({
@@ -819,10 +852,8 @@ export function buildOccurrenceView(activity, rideDetails, occurrence) {
 		startLocationName: safeTrim(occurrence.start_location_name) || activity.start_location_name,
 		startLocationAddress:
 			safeTrim(occurrence.start_location_address) || activity.start_location_address || '',
-		startLatitude:
-			occurrence.start_latitude ?? activity.start_latitude ?? null,
-		startLongitude:
-			occurrence.start_longitude ?? activity.start_longitude ?? null,
+		startLatitude: occurrence.start_latitude ?? activity.start_latitude ?? null,
+		startLongitude: occurrence.start_longitude ?? activity.start_longitude ?? null,
 		endLocationName: safeTrim(occurrence.end_location_name) || rideDetails?.end_location_name || '',
 		endLocationAddress:
 			safeTrim(occurrence.end_location_address) || rideDetails?.end_location_address || '',

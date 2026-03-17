@@ -309,10 +309,10 @@ export function buildLearnArticleChunks({
 				heading: section.heading,
 				chunk_text: chunkText,
 				chunk_chars: chunkText.length,
-				tags: safeUnique([
-					...resolvedSignals.tags,
-					...extractTopTerms(`${section.heading} ${chunkText}`, 8)
-				], 16),
+				tags: safeUnique(
+					[...resolvedSignals.tags, ...extractTopTerms(`${section.heading} ${chunkText}`, 8)],
+					16
+				),
 				embedding: chunkEmbedding,
 				embedding_literal: embeddingToVectorLiteral(chunkEmbedding)
 			});

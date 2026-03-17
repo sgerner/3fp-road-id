@@ -79,7 +79,9 @@ export async function GET({ url, cookies }) {
 		console.error('Unable to load ride recurrence rules', recurrenceError);
 		return invalid(recurrenceError.message, 500);
 	}
-	const recurringActivityIds = new Set((recurrenceRules ?? []).map((rule) => rule.activity_event_id));
+	const recurringActivityIds = new Set(
+		(recurrenceRules ?? []).map((rule) => rule.activity_event_id)
+	);
 
 	const rows = (activities ?? [])
 		.map((activity) => ({
@@ -100,8 +102,8 @@ export async function GET({ url, cookies }) {
 			recurrenceEnabled: recurringActivityIds.has(activity.id),
 			group: activity.group ?? null,
 			rideDetails: Array.isArray(activity.ride_details)
-				? activity.ride_details[0] ?? null
-				: activity.ride_details ?? null,
+				? (activity.ride_details[0] ?? null)
+				: (activity.ride_details ?? null),
 			imageUrls: Array.isArray(activity.ride_details)
 				? (activity.ride_details[0]?.image_urls ?? [])
 				: (activity.ride_details?.image_urls ?? []),
@@ -155,9 +157,12 @@ export async function POST({ request, cookies }) {
 		return invalid('Start location is required.');
 	}
 	if (payload.activity.host_group_id) {
-		const { data: canManageGroup, error: manageGroupError } = await supabase.rpc('can_manage_group', {
-			target_group_id: payload.activity.host_group_id
-		});
+		const { data: canManageGroup, error: manageGroupError } = await supabase.rpc(
+			'can_manage_group',
+			{
+				target_group_id: payload.activity.host_group_id
+			}
+		);
 		if (manageGroupError) {
 			console.error('Unable to verify ride host organization permissions', manageGroupError);
 			return invalid(manageGroupError.message, 400);
@@ -168,7 +173,10 @@ export async function POST({ request, cookies }) {
 	}
 
 	const nowIso = new Date().toISOString();
-	const slug = await ensureUniqueActivitySlug(writeSupabase, payload.activity.slug || payload.activity.title);
+	const slug = await ensureUniqueActivitySlug(
+		writeSupabase,
+		payload.activity.slug || payload.activity.title
+	);
 
 	const activityInsert = {
 		activity_type: 'ride',
@@ -221,9 +229,7 @@ export async function POST({ request, cookies }) {
 				interval_count: payload.recurrence.interval_count,
 				by_weekdays: payload.recurrence.by_weekdays,
 				by_set_positions:
-					payload.recurrence.frequency === 'monthly'
-						? payload.recurrence.by_set_positions
-						: null,
+					payload.recurrence.frequency === 'monthly' ? payload.recurrence.by_set_positions : null,
 				starts_on: payload.activity.starts_at.slice(0, 10),
 				until_on: payload.recurrence.until_on
 			}

@@ -1222,11 +1222,46 @@
 		if (!value) return null;
 		try {
 			const date = new Date(value);
-			if (Number.isNaN(date.getTime())) return value;
+			if (Number.isNaN(date.getTime())) return null;
 			return date.toISOString();
 		} catch {
-			return value;
+			return null;
 		}
+	}
+
+	function isDuplicateEventSlugError(error) {
+		const message = String(error?.message || '').toLowerCase();
+		return (
+			message.includes('volunteer_events_slug_key') ||
+			(message.includes('duplicate key value') && message.includes('(slug)='))
+		);
+	}
+
+	function normalizeShiftWindow(startValue, endValue) {
+		const startsAt = toIso(startValue);
+		if (!startsAt) return null;
+		let endsAt = toIso(endValue);
+		const startsAtMs = Date.parse(startsAt);
+		const endsAtMs = endsAt ? Date.parse(endsAt) : NaN;
+		if (!Number.isFinite(endsAtMs) || endsAtMs <= startsAtMs) {
+			endsAt = new Date(startsAtMs + 60 * 60 * 1000).toISOString();
+		}
+		return { startsAt, endsAt };
+	}
+
+	async function createVolunteerEventWithUniqueSlug(payload) {
+		const baseSlug =
+			slugify(payload?.slug || payload?.title || 'volunteer-event') || 'volunteer-event';
+		let nextSlug = baseSlug;
+		for (let attempt = 0; attempt < 6; attempt += 1) {
+			try {
+				return await createVolunteerEvent({ ...payload, slug: nextSlug });
+			} catch (error) {
+				if (!isDuplicateEventSlugError(error)) throw error;
+				nextSlug = await ensureUniqueEventSlug(`${baseSlug}-${attempt + 2}`);
+			}
+		}
+		throw new Error('Could not find an available event slug. Please try saving again.');
 	}
 
 	const buildContextSnapshot = () =>
@@ -1635,6 +1670,17 @@
 
 			updateEventDetails({ status: normalizedStatus });
 
+			const eventStartIso = toIso(eventDetails.eventStart);
+			if (!eventStartIso) throw new Error('Event start is invalid.');
+			let eventEndIso = toIso(eventDetails.eventEnd);
+			if (
+				eventEndIso &&
+				Number.isFinite(Date.parse(eventEndIso)) &&
+				Date.parse(eventEndIso) <= Date.parse(eventStartIso)
+			) {
+				eventEndIso = null;
+			}
+
 			const eventPayload = {
 				title: eventDetails.title,
 				slug: eventDetails.slug || slugify(eventDetails.title),
@@ -1642,8 +1688,8 @@
 				description: eventDetails.description || null,
 				event_type_slug: eventDetails.eventTypeSlug || 'ride',
 				host_group_id: eventDetails.hostGroupId || null,
-				event_start: toIso(eventDetails.eventStart),
-				event_end: toIso(eventDetails.eventEnd) || null,
+				event_start: eventStartIso,
+				event_end: eventEndIso,
 				timezone: eventDetails.timezone,
 				location_name: eventDetails.locationName || null,
 				location_address: eventDetails.locationAddress || null,
@@ -1661,7 +1707,7 @@
 				created_by_user_id: currentUser.id
 			};
 
-			const eventResponse = await createVolunteerEvent(eventPayload);
+			const eventResponse = await createVolunteerEventWithUniqueSlug(eventPayload);
 			const createdEvent = eventResponse?.data ?? eventResponse;
 			if (!createdEvent?.id) throw new Error('Failed to create event.');
 
@@ -1690,10 +1736,12 @@
 					opportunityResults.push({ local: opportunity, remote: createdOpp });
 					for (const shift of opportunity.shifts ?? []) {
 						if (!shift.startsAt && !shift.endsAt) continue;
+						const normalizedShiftWindow = normalizeShiftWindow(shift.startsAt, shift.endsAt);
+						if (!normalizedShiftWindow) continue;
 						const shiftPayload = {
 							opportunity_id: createdOpp.id,
-							starts_at: toIso(shift.startsAt),
-							ends_at: toIso(shift.endsAt),
+							starts_at: normalizedShiftWindow.startsAt,
+							ends_at: normalizedShiftWindow.endsAt,
 							timezone: shift.timezone || eventDetails.timezone,
 							capacity: numberOrNull(shift.capacity),
 							location_name:
@@ -2432,7 +2480,7 @@
 	}
 
 	/* ── Hero orbs ── */
-						/* ── Step button ── */
+	/* ── Step button ── */
 	.step-btn {
 		transition:
 			border-color 180ms ease,

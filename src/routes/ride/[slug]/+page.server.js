@@ -3,10 +3,12 @@ import { canManageActivity, getActivityClient, loadRideBySlug } from '$lib/serve
 
 export const load = async ({ params, cookies }) => {
 	const { supabase, user } = getActivityClient(cookies);
-	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch((err) => {
-		console.error('Unable to load ride page', err);
-		return null;
-	});
+	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch(
+		(err) => {
+			console.error('Unable to load ride page', err);
+			return null;
+		}
+	);
 	if (!ride) throw error(404, 'Ride not found');
 
 	let canManage = false;

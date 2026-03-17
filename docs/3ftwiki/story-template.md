@@ -3,7 +3,7 @@ title: Case Study Template
 description: Please share your story and lessons learned
 published: true
 date: 2025-03-02T00:25:42.817Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-01T23:21:16.209Z
 ---
@@ -44,11 +44,11 @@ To help share your story, we've created the following template. You do not need 
 
 ## 2. Project Summary
 
-*Provide a brief description of the project, its goals, and what it aimed to accomplish.*
+_Provide a brief description of the project, its goals, and what it aimed to accomplish._
 
 ## 3. Background & Context
 
-*Explain why this project was necessary. What problem or opportunity did it address?*
+_Explain why this project was necessary. What problem or opportunity did it address?_
 
 ## 4. Key Actions Taken
 
@@ -73,7 +73,7 @@ To help share your story, we've created the following template. You do not need 
 
 ## 7. Advice for Others
 
-*What recommendations do you have for other organizations looking to undertake a similar project?*
+_What recommendations do you have for other organizations looking to undertake a similar project?_
 
 ## 8. Supporting Materials
 
@@ -86,4 +86,4 @@ To help share your story, we've created the following template. You do not need 
 - **Organization Website/Social Media:**
 - **Project Contact Email:** (Optional - Will be posted publically so others can follow-up with questions)
 
-By sharing your experiences, you contribute to a collective knowledge base that strengthens and unites our community. We look forward to learning from your stories and celebrating the diverse efforts in bicycle advocacy. 
+By sharing your experiences, you contribute to a collective knowledge base that strengthens and unites our community. We look forward to learning from your stories and celebrating the diverse efforts in bicycle advocacy.

@@ -3,7 +3,7 @@ title: Meetups
 description: Keep the wheels turning and your community growing with engaging structured regular meetings
 published: true
 date: 2025-02-27T05:13:16.416Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-27T04:57:55.324Z
 ---
@@ -13,7 +13,7 @@ dateCreated: 2025-02-27T04:57:55.324Z
 This guide is designed to help you host effective, engaging regular community meetups that strengthen your cycling community, share important information, showcase interesting speakers, and incorporate fun interactive elements. These meetings serve as regular touchpoints to maintain momentum, build relationships, and advance your cycling advocacy goals in an approachable format.
 
 > Remember: Consistent community gatherings create the foundation for successful advocacy.
-{.is-success}
+> {.is-success}
 
 # MEETING OVERVIEW
 
@@ -21,17 +21,19 @@ This guide is designed to help you host effective, engaging regular community me
 
 **Setting:** Local brewery/café, bike shop after hours, community center, library meeting room, or outdoor space (weather permitting)
 
-**Participants:** 
+**Participants:**
+
 - 10-50 community members (cyclists of all experience levels)
 - 2-3 organizers/facilitators
 - 1-2 featured speakers/presenters (when applicable)
 
 > Consistency in timing, location, and format helps build attendance over time.
-{.is-warning}
+> {.is-warning}
 
 **Purpose:** To maintain community connections, share timely updates on cycling initiatives, provide educational content, gather feedback, and create space for cyclists to connect in a structured but relaxed environment.
 
 These meetings are designed to be:
+
 - **Informative:** Sharing relevant cycling news and updates
 - **Educational:** Featuring speakers on cycling-related topics
 - **Interactive:** Including activities that encourage participation
@@ -52,6 +54,7 @@ By the end of each meetup, you should achieve the following:
 # PRE-MEETING PLANNING
 
 ## 2-3 Weeks Before
+
 - [ ] Confirm date, time, and venue
 - [ ] Secure featured speaker or educational content
 - [ ] Develop meeting agenda
@@ -59,6 +62,7 @@ By the end of each meetup, you should achieve the following:
 - [ ] Create event listing and begin promotion
 
 ## 1-2 Weeks Before
+
 - [ ] Send announcements through email list, social media, and community calendars
 - [ ] Confirm any equipment needs (projector, microphone, etc.)
 - [ ] Finalize any handouts or materials
@@ -66,6 +70,7 @@ By the end of each meetup, you should achieve the following:
 - [ ] Create any slides or visual aids
 
 ## Week of Meeting
+
 - [ ] Send reminder to email list and social channels
 - [ ] Confirm attendance of key participants and speakers
 - [ ] Prepare sign-in sheet, name tags, and feedback forms
@@ -73,7 +78,7 @@ By the end of each meetup, you should achieve the following:
 - [ ] Create visual agenda to display
 
 > Developing a consistent preparation checklist saves time and ensures nothing is forgotten.
-{.is-info}
+> {.is-info}
 
 # PROMOTING YOUR MEETUP
 
@@ -104,6 +109,7 @@ Join us to connect with fellow cyclists, get updates on local projects, and lear
 This month, we're excited to feature [Speaker Name], who will share insights on [Topic] (15 minutes).
 
 We'll also cover:
+
 - Updates on the [Specific Project] campaign
 - Progress on the new [Infrastructure Project]
 - Upcoming group rides
@@ -142,7 +148,9 @@ Plus, we'll have [refreshments/special activity].
 For successful meetups, assign these key roles:
 
 ## Meeting Host/Facilitator
+
 **Responsibilities:**
+
 - Opens and closes the meeting
 - Keeps the agenda moving and on schedule
 - Facilitates transitions between segments
@@ -152,7 +160,9 @@ For successful meetups, assign these key roles:
 **Skills needed:** Public speaking comfort, time management, ability to redirect conversations when needed
 
 ## Greeter/Community Connector
+
 **Responsibilities:**
+
 - Welcomes people as they arrive
 - Helps newcomers feel oriented
 - Makes introductions between participants
@@ -162,10 +172,12 @@ For successful meetups, assign these key roles:
 **Skills needed:** Outgoing personality, good memory for names and faces, natural connector
 
 > We cannot overemphasize the importance of a community connector. Make sure someone is assigned to welcome and engage new faces. Cliques will always form. Make sure you have a person who can help network newcomers to like minded members so they keep coming back.
-{.is-success}
+> {.is-success}
 
 ## Content Coordinator
+
 **Responsibilities:**
+
 - Arranges speakers and educational content
 - Prepares updates on cycling initiatives
 - Creates any slides or visual aids
@@ -174,7 +186,9 @@ For successful meetups, assign these key roles:
 **Skills needed:** Organization, communication with speakers, basic tech skills
 
 ## Note-Taker
+
 **Responsibilities:**
+
 - Records key points and decisions
 - Captures action items and volunteers
 - Documents attendance numbers
@@ -184,11 +198,12 @@ For successful meetups, assign these key roles:
 **Skills needed:** Good listening and summarizing abilities, detail-oriented
 
 > For smaller organizations, one person may fill multiple roles, but try to have at least two people managing the meeting.
-{.is-warning}
+> {.is-warning}
 
 # REQUIRED RESOURCES
 
 ## Essential Materials
+
 - [ ] Sign-in sheet with email option
 - [ ] Name tags (especially important for building community)
 - [ ] Printed agenda (or displayed on screen)
@@ -200,6 +215,7 @@ For successful meetups, assign these key roles:
 - [ ] Cups, plates, napkins, and utensils if providing refreshments or food
 
 ## Optional But Recommended
+
 - [ ] Projector and screen/blank wall
 - [ ] Microphone (for larger groups or echoey spaces)
 - [ ] Light refreshments
@@ -212,37 +228,39 @@ For successful meetups, assign these key roles:
 
 ## Standard 60-Minute Format
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-0:10 | **Arrival & Welcome** | Informal greeting, sign-in, refreshments, introductions |
-| 0:10-0:15 | **Opening & Announcements** | Welcome, agenda overview, quick announcements |
-| 0:15-0:30 | **Featured Content/Speaker** | Educational presentation, speaker, or workshop |
-| 0:30-0:45 | **Community Updates & Progress** | Updates on projects, campaigns, and successes |
-| 0:45-0:55 | **Interactive Element** | Discussion, activity, or breakout groups |
-| 0:55-1:00 | **Wrap-up & Next Steps** | Questions, summary, upcoming events, call to action |
+| Time      | Activity                         | Description                                             |
+| --------- | -------------------------------- | ------------------------------------------------------- |
+| 0:00-0:10 | **Arrival & Welcome**            | Informal greeting, sign-in, refreshments, introductions |
+| 0:10-0:15 | **Opening & Announcements**      | Welcome, agenda overview, quick announcements           |
+| 0:15-0:30 | **Featured Content/Speaker**     | Educational presentation, speaker, or workshop          |
+| 0:30-0:45 | **Community Updates & Progress** | Updates on projects, campaigns, and successes           |
+| 0:45-0:55 | **Interactive Element**          | Discussion, activity, or breakout groups                |
+| 0:55-1:00 | **Wrap-up & Next Steps**         | Questions, summary, upcoming events, call to action     |
 
 Got it! Let’s refine the format so the activities feel **more organic and naturally aligned with cycling safety, advocacy, and community building**. These activities should help people connect **through shared purpose** rather than icebreakers that might feel contrived.
 
 ## Alternative Social 60-Minute Format
+
 A big motivation for many members to attend is making connections. Let's be real, a lot of us cyclists are a little awkward and being forced into small talk can feel uncomfortable. This alternative format offers ways to encourage the community aspect of cycling through natural social activities.
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| **0:00-0:10** | **Arrival & Interactive Sign-In** | Instead of passive mingling, create a sign-in board with a prompt like **“What’s your dream cycling improvement in our city?”** or **“What’s one cycling safety tip you wish more people knew?”** Members can add their responses with sticky notes or markers. This immediately sparks organic conversation. |
-| **0:10-0:15** | **Welcome & Ride Stories** | Instead of a formal welcome, start with a quick, engaging question: **“What’s a moment on your bike that made you feel most connected to your community?”** A few volunteers share, setting a positive, personal tone. |
-| **0:15-0:30** | **Deep Dive: Real-World Cycling Challenge** | Introduce a specific cycling-related issue the community is facing (e.g., a dangerous intersection, a need for better bike racks, an upcoming policy change). Then, let small groups **brainstorm solutions or share experiences related to the issue.** |
-| **0:30-0:45** | **Hands-On Problem Solving** | Instead of just talking, engage members with an **active, practical activity.** Examples: Maps marking dangerous routes, fit-it knowledge share.
-| **0:45-0:55** | **Collaborative Action Plan** | Bring ideas together. Ask: **“What’s one action we can take this month to make biking better?”** The group commits to **a simple, tangible next step** (e.g., organizing a group ride to highlight safety needs, attending a city meeting, creating a cycling tip sheet). |
-| **0:55-1:00** | **Closing & Next Ride Connections** | End with a simple challenge: **“Find someone you’d like to ride with and plan a time to meet up.”** Encourage ongoing engagement through casual rides, advocacy efforts, or skill-sharing meetups. |
+| Time          | Activity                                    | Description                                                                                                                                                                                                                                                                                                   |
+| ------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0:00-0:10** | **Arrival & Interactive Sign-In**           | Instead of passive mingling, create a sign-in board with a prompt like **“What’s your dream cycling improvement in our city?”** or **“What’s one cycling safety tip you wish more people knew?”** Members can add their responses with sticky notes or markers. This immediately sparks organic conversation. |
+| **0:10-0:15** | **Welcome & Ride Stories**                  | Instead of a formal welcome, start with a quick, engaging question: **“What’s a moment on your bike that made you feel most connected to your community?”** A few volunteers share, setting a positive, personal tone.                                                                                        |
+| **0:15-0:30** | **Deep Dive: Real-World Cycling Challenge** | Introduce a specific cycling-related issue the community is facing (e.g., a dangerous intersection, a need for better bike racks, an upcoming policy change). Then, let small groups **brainstorm solutions or share experiences related to the issue.**                                                      |
+| **0:30-0:45** | **Hands-On Problem Solving**                | Instead of just talking, engage members with an **active, practical activity.** Examples: Maps marking dangerous routes, fit-it knowledge share.                                                                                                                                                              |
+| **0:45-0:55** | **Collaborative Action Plan**               | Bring ideas together. Ask: **“What’s one action we can take this month to make biking better?”** The group commits to **a simple, tangible next step** (e.g., organizing a group ride to highlight safety needs, attending a city meeting, creating a cycling tip sheet).                                     |
+| **0:55-1:00** | **Closing & Next Ride Connections**         | End with a simple challenge: **“Find someone you’d like to ride with and plan a time to meet up.”** Encourage ongoing engagement through casual rides, advocacy efforts, or skill-sharing meetups.                                                                                                            |
 
 ### Why This Works
-- **Everything connects naturally to cycling safety, advocacy, and enjoyment.**  
-- **No forced small talk**—conversations happen through real issues and activities.  
-- **Shy members can engage at their comfort level** (writing on a board, contributing ideas, or hands-on activities).  
-- **Attendees leave feeling like they made a real impact** (instead of just attending another meeting).  
+
+- **Everything connects naturally to cycling safety, advocacy, and enjoyment.**
+- **No forced small talk**—conversations happen through real issues and activities.
+- **Shy members can engage at their comfort level** (writing on a board, contributing ideas, or hands-on activities).
+- **Attendees leave feeling like they made a real impact** (instead of just attending another meeting).
 
 > Adjust timing based on your community's preferences. Some groups prefer more social time, while others want more structured content.
-{.is-info}
+> {.is-info}
 
 # INTERACTIVE ACTIVITIES
 
@@ -253,16 +271,19 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 **Purpose:** Share cycling news and build collective knowledge
 
 **Materials:**
+
 - List of 3-5 current cycling news items (local and broader)
 - Optional: printed article snippets
 
 **Instructions:**
+
 1. Briefly introduce each news item (1 minute each)
 2. Ask for insights, reactions, or local implications
 3. Discuss how the news might affect your community
 4. Identify any action items emerging from the discussion
 
 **Facilitator Tips:**
+
 - Prepare conversation prompts for each news item
 - Keep the discussion balanced and moving
 - Connect news to local advocacy opportunities
@@ -272,11 +293,13 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 **Purpose:** Gather community input on cycling infrastructure needs and opportunities
 
 **Materials:**
+
 - Large local map (paper or digital projection)
 - Colored dot stickers or digital marking tools
 - Legend for different categories
 
 **Instructions:**
+
 1. Focus on a specific neighborhood or route each month
 2. Provide different colored markers for:
    - Dangerous intersections/areas (red)
@@ -288,6 +311,7 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 5. Identify 1-2 priority areas for follow-up
 
 **Facilitator Tips:**
+
 - Rotate focus areas monthly to cover your entire community over time
 - Use insights to inform advocacy priorities
 - Share results with transportation officials
@@ -297,12 +321,14 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 **Purpose:** Generate community solutions to cycling challenges
 
 **Materials:**
+
 - Timer
 - Sticky notes
 - Pens
 - Wall space or boards
 
 **Instructions:**
+
 1. Present a specific cycling challenge your community faces
 2. Give everyone 2 minutes to write potential solutions on sticky notes
 3. In groups of 3-4, have participants share their ideas (30 seconds each)
@@ -311,6 +337,7 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 6. Identify volunteers to explore top ideas before next meeting
 
 **Facilitator Tips:**
+
 - Choose timely, specific challenges
 - Encourage creative thinking
 - Follow up on promising ideas at future meetings
@@ -321,10 +348,12 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 **Purpose:** Leverage community expertise to build collective knowledge
 
 **Materials:**
+
 - Sign-up sheet for future skill-sharers
 - Any demonstration materials needed
 
 **Instructions:**
+
 1. Pre-arrange for 2-3 community members to share a quick cycling tip or skill (3 minutes each)
 2. Topics might include:
    - Basic bike maintenance trick
@@ -335,6 +364,7 @@ Keep your monthly meetings engaging with these interactive elements. Choose one 
 4. Invite sign-ups for future skill-sharing
 
 **Facilitator Tips:**
+
 - Record skills-shares for social media (with permission)
 - Create a skills inventory of your community's expertise
 - Balance technical, practical, and advocacy skills
@@ -472,6 +502,7 @@ Let's get started!"
 3. [KEY TAKEAWAY 3]
 
 Before our next meeting on [DATE], here are ways you can stay involved:
+
 - [SPECIFIC ACTION ITEM 1] - we need [#] volunteers for this
 - [SPECIFIC ACTION ITEM 2] - contact [NAME] if interested
 - [UPCOMING EVENT] on [DATE]
@@ -518,12 +549,14 @@ Hi [Name],
 Thank you for being part of our monthly cycling community meeting yesterday! For those who couldn't attend, here's a quick summary:
 
 **Meeting Highlights:**
+
 - [Speaker Name] shared insights on [Topic], including [1-2 key points]. [Link to resources if available]
 - We discussed progress on [Project Name], which is now [status update]
 - The community identified [location] as a priority area for our advocacy efforts
 - [Other significant discussion point or decision]
 
 **Action Items Before Our Next Meeting:**
+
 - Contact city council about the [Street Name] project (Lead: [Name])
 - Volunteers needed for [Upcoming Event] on [Date] (Contact: [Email])
 - Share your feedback on the draft bike plan by [Date] (Link: [URL])
@@ -582,42 +615,49 @@ Track these metrics to evaluate your meetings:
 7. **Impact on broader goals** (how meetings support advocacy)
 
 # SAMPLE FEEDBACK FORM
-> To Do: Link word doc or Google Docs form for easy print / edit
-{.is-danger}
 
+> To Do: Link word doc or Google Docs form for easy print / edit
+> {.is-danger}
 
 **Monthly Meeting Feedback**
 
-Date: _______________
+Date: **\*\***\_\_\_**\*\***
 
 1. How would you rate today's meeting? (1 = needs improvement, 5 = excellent)
-   
-   1    2    3    4    5
+
+   1 2 3 4 5
 
 2. What did you find most valuable about today's meeting?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 3. What could we improve for future meetings?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 4. What topics would you like to see covered in upcoming meetings?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 5. Would you be interested in:
    □ Presenting on a topic (please specify below)
    □ Helping organize future meetings
    □ Leading an activity
-   □ Other: ____________________
+   □ Other: **\*\*\*\***\_\_\_\_**\*\*\*\***
 
 6. How did you hear about this meeting?
-   ____________________________________________
+
+   ***
 
 7. Any other comments or suggestions?
-   ____________________________________________
-   ____________________________________________
+   ***
+   ***
 
 # FINAL THOUGHTS
 

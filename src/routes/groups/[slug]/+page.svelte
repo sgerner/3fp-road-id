@@ -432,7 +432,7 @@
 				<div class="relative z-10 mt-4" in:slide={{ duration: 180 }}>
 					<form
 						class="border-surface-300-700/50 bg-surface-100-900/50 rounded-xl border p-4 backdrop-blur-sm"
-						 onsubmit={sendClaimLogin}
+						onsubmit={sendClaimLogin}
 					>
 						<div
 							aria-hidden="true"
@@ -1324,6 +1324,7 @@
 
 	.instagram-caption {
 		display: -webkit-box;
+		line-clamp: 2;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;

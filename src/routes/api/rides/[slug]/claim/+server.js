@@ -10,10 +10,12 @@ export async function POST({ params, cookies }) {
 	const { supabase, user } = getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 
-	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch((error) => {
-		console.error('Unable to load ride for claim', error);
-		return null;
-	});
+	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch(
+		(error) => {
+			console.error('Unable to load ride for claim', error);
+			return null;
+		}
+	);
 	if (!ride?.activity?.id) return invalid('Ride not found.', 404);
 
 	if (ride.activity.host_user_id || ride.activity.host_group_id) {

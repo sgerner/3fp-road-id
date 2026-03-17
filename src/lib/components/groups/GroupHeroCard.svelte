@@ -101,7 +101,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 	}
 
-					.logo-ring {
+	.logo-ring {
 		border-radius: 0.875rem;
 		box-shadow:
 			0 0 0 3px color-mix(in oklab, var(--color-primary-400) 60%, transparent),

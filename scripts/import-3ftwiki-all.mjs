@@ -24,7 +24,10 @@ const manualLinkAliases = new Map([
 	['/policies/complete-streets/assets', '/policies/complete-streets/marketing-plan'],
 	['/policies/complete-streets/marketing-assets', '/policies/complete-streets/marketing-plan'],
 	['/policies/complete-streets/case-study', '/policies/complete-streets/briefing'],
-	['/support_materials/volunteer-roles-signup-sheet.csv', '/elections/volunteer-roles-signup-sheet.csv'],
+	[
+		'/support_materials/volunteer-roles-signup-sheet.csv',
+		'/elections/volunteer-roles-signup-sheet.csv'
+	],
 	['/community/social-media', '/community/social-media'],
 	['/education/rodeo', '/community/neighborhood-events'],
 	['/outreach/media', '/outreach/storytelling'],
@@ -204,7 +207,10 @@ function unwrapParens(target) {
 function buildSlugEntries(entries) {
 	const used = new Set();
 	for (const entry of entries) {
-		const base = slugify(entry.title) || slugify(path.basename(entry.relativePath, path.extname(entry.relativePath))) || 'article';
+		const base =
+			slugify(entry.title) ||
+			slugify(path.basename(entry.relativePath, path.extname(entry.relativePath))) ||
+			'article';
 		const candidates = [
 			base,
 			`${base}-${slugify(entry.subcategorySlug || '')}`.replace(/-$/, ''),
@@ -252,10 +258,12 @@ async function uploadAssets(supabase, assetPaths, authorId) {
 		const mimeType = assetMimeTypes[ext] || 'application/octet-stream';
 		const objectPath = `imports/${relativePath}`;
 		const content = await fs.readFile(assetPath);
-		const { error: uploadError } = await supabase.storage.from('learn-media').upload(objectPath, content, {
-			upsert: true,
-			contentType: mimeType
-		});
+		const { error: uploadError } = await supabase.storage
+			.from('learn-media')
+			.upload(objectPath, content, {
+				upsert: true,
+				contentType: mimeType
+			});
 		if (uploadError) throw uploadError;
 		const { data: urlData } = supabase.storage.from('learn-media').getPublicUrl(objectPath);
 		const publicUrl = urlData?.publicUrl;
@@ -279,7 +287,9 @@ async function uploadAssets(supabase, assetPaths, authorId) {
 				},
 				{ onConflict: 'object_path' }
 			)
-			.select('id, public_url, object_path, mime_type, file_name, size_bytes, source_type, source_path')
+			.select(
+				'id, public_url, object_path, mime_type, file_name, size_bytes, source_type, source_path'
+			)
 			.single();
 		if (assetError) throw assetError;
 		const route = normalizeWikiPath(`/${relativePath}`);
@@ -305,7 +315,7 @@ function resolveRelativeTarget(currentRoute, target) {
 }
 
 function normalizeLegacySizedLinks(markdown) {
-	return safeTrim(markdown).replace(/\]\((.+?)\s+=\d+[^\)]*\)/g, ']($1)');
+	return safeTrim(markdown).replace(/\]\((.+?)\s+=\d+[^)]*\)/g, ']($1)');
 }
 
 function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
@@ -316,7 +326,8 @@ function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
 		let target = cleanMarkdownTarget(unwrapParens(rawTarget));
 		if (!target || /^(https?:|mailto:|#)/i.test(target)) return target;
 		const resolved = resolveRelativeTarget(entry.sourceRoute, target);
-		const aliasResolved = manualLinkAliases.get(resolved) || manualLinkAliases.get(resolved.toLowerCase()) || resolved;
+		const aliasResolved =
+			manualLinkAliases.get(resolved) || manualLinkAliases.get(resolved.toLowerCase()) || resolved;
 
 		if (maps.contentRoutes.has(aliasResolved)) {
 			return `/learn/${maps.contentRoutes.get(aliasResolved)}`;
@@ -364,7 +375,9 @@ function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
 	return {
 		markdown: rewritten,
 		referencedImages: Array.from(new Set(referencedImages)),
-		referencedAssets: Array.from(new Map(referencedAssets.map((asset) => [asset.id, asset])).values())
+		referencedAssets: Array.from(
+			new Map(referencedAssets.map((asset) => [asset.id, asset])).values()
+		)
 	};
 }
 
@@ -400,7 +413,9 @@ async function syncCategories(supabase, entries) {
 	);
 
 	if (categories.length) {
-		const { error } = await supabase.from('learn_categories').upsert(categories, { onConflict: 'slug' });
+		const { error } = await supabase
+			.from('learn_categories')
+			.upsert(categories, { onConflict: 'slug' });
 		if (error) throw error;
 	}
 
@@ -429,7 +444,9 @@ async function syncCategories(supabase, entries) {
 }
 
 function extractTitle(parsedData, relativePath) {
-	return safeTrim(parsedData.title) || titleCase(path.basename(relativePath, path.extname(relativePath)));
+	return (
+		safeTrim(parsedData.title) || titleCase(path.basename(relativePath, path.extname(relativePath)))
+	);
 }
 
 async function main() {
@@ -438,8 +455,12 @@ async function main() {
 		auth: { persistSession: false, autoRefreshToken: false }
 	});
 	const allFiles = await walk(docsRoot);
-	const contentFiles = allFiles.filter((file) => contentExtensions.has(path.extname(file).toLowerCase()));
-	const assetFiles = allFiles.filter((file) => !contentExtensions.has(path.extname(file).toLowerCase()));
+	const contentFiles = allFiles.filter((file) =>
+		contentExtensions.has(path.extname(file).toLowerCase())
+	);
+	const assetFiles = allFiles.filter(
+		(file) => !contentExtensions.has(path.extname(file).toLowerCase())
+	);
 
 	const { data: profiles, error: profilesError } = await supabase
 		.from('profiles')
@@ -460,7 +481,8 @@ async function main() {
 		const parsed = ext === '.html' ? parseHtmlDocument(raw) : parseLegacyDocument(raw);
 		const bodyMarkdown =
 			ext === '.html' ? turndown.turndown(parsed.content || '').trim() : safeTrim(parsed.content);
-		const { categoryName, categorySlug, subcategoryName, subcategorySlug } = getCategoryMeta(relativePath);
+		const { categoryName, categorySlug, subcategoryName, subcategorySlug } =
+			getCategoryMeta(relativePath);
 
 		entries.push({
 			filePath,
@@ -479,7 +501,11 @@ async function main() {
 	buildSlugEntries(entries);
 	const { routeMap, basenameMap } = buildContentKeyMap(entries);
 	await syncCategories(supabase, entries);
-	const { assetMap, basenameMap: assetBasenames } = await uploadAssets(supabase, assetFiles, authorId);
+	const { assetMap, basenameMap: assetBasenames } = await uploadAssets(
+		supabase,
+		assetFiles,
+		authorId
+	);
 	const unresolved = [];
 
 	for (const entry of entries) {
@@ -501,27 +527,31 @@ async function main() {
 		});
 		const coverImageUrl = rewritten.referencedImages[0] || null;
 
-		const { data: articleRow, error: upsertError } = await supabase.from('learn_articles').upsert(
-			{
-				title: entry.title,
-				slug: entry.slug,
-				summary: entry.summary,
-				body_markdown: rewritten.markdown,
-				editor_mode: 'markdown',
-				category_slug: entry.categorySlug,
-				category_name: entry.categoryName,
-				subcategory_slug: entry.subcategorySlug,
-				subcategory_name: entry.subcategoryName,
-				import_source_path: entry.relativePath,
-				cover_image_url: coverImageUrl,
-				reader_summary: readingAid.readerSummary,
-				key_takeaways: readingAid.keyTakeaways,
-				created_by_user_id: authorId,
-				updated_by_user_id: authorId,
-				is_published: true
-			},
-			{ onConflict: 'slug' }
-		).select('id').single();
+		const { data: articleRow, error: upsertError } = await supabase
+			.from('learn_articles')
+			.upsert(
+				{
+					title: entry.title,
+					slug: entry.slug,
+					summary: entry.summary,
+					body_markdown: rewritten.markdown,
+					editor_mode: 'markdown',
+					category_slug: entry.categorySlug,
+					category_name: entry.categoryName,
+					subcategory_slug: entry.subcategorySlug,
+					subcategory_name: entry.subcategoryName,
+					import_source_path: entry.relativePath,
+					cover_image_url: coverImageUrl,
+					reader_summary: readingAid.readerSummary,
+					key_takeaways: readingAid.keyTakeaways,
+					created_by_user_id: authorId,
+					updated_by_user_id: authorId,
+					is_published: true
+				},
+				{ onConflict: 'slug' }
+			)
+			.select('id')
+			.single();
 
 		if (upsertError) throw upsertError;
 		await syncArticleAssetLinks(supabase, articleRow.id, authorId, rewritten.referencedAssets);

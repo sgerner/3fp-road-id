@@ -28,19 +28,19 @@
 	<div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
 		<div class="bg-surface-50-950/40 border-surface-300-700/50 rounded-xl border p-4 text-center">
 			<div class="text-surface-950-50 text-3xl font-bold">{counts.total ?? 0}</div>
-			<div class="text-surface-600-400 mt-0.5 text-xs uppercase tracking-wide">Total</div>
+			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Total</div>
 		</div>
 		<div class="bg-success-500/10 border-success-500/30 rounded-xl border p-4 text-center">
 			<div class="text-success-400 text-3xl font-bold">{counts.approved ?? 0}</div>
-			<div class="text-surface-600-400 mt-0.5 text-xs uppercase tracking-wide">Approved</div>
+			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Approved</div>
 		</div>
 		<div class="bg-warning-500/10 border-warning-500/30 rounded-xl border p-4 text-center">
 			<div class="text-warning-400 text-3xl font-bold">{counts.pending ?? 0}</div>
-			<div class="text-surface-600-400 mt-0.5 text-xs uppercase tracking-wide">Pending</div>
+			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Pending</div>
 		</div>
 		<div class="bg-surface-500/10 border-surface-500/30 rounded-xl border p-4 text-center">
 			<div class="text-surface-300 text-3xl font-bold">{counts.attending ?? 0}</div>
-			<div class="text-surface-600-400 mt-0.5 text-xs uppercase tracking-wide">Checked In</div>
+			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Checked In</div>
 		</div>
 	</div>
 
@@ -53,7 +53,9 @@
 			<div class="space-y-4">
 				{#each shiftGroups as group (group.id)}
 					<div class="space-y-2">
-						<h4 class="text-surface-700-300 !text-left text-xs font-semibold uppercase tracking-wider">
+						<h4
+							class="text-surface-700-300 !text-left text-xs font-semibold tracking-wider uppercase"
+						>
 							{group.title}
 						</h4>
 						{#each group.shifts as shift (shift.id)}

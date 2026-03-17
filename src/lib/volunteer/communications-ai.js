@@ -166,7 +166,7 @@ export function createVolunteerEmailComposer({
 					constraints: [
 						'Keep the output focused on an email subject and body.',
 						'Use the merge tags and blocks (e.g. {{event_details_block}}, {{shift_details_block}}, {{volunteer_portal_block}}, {{shift_confirmation_block}} when confirmations are required) to personalise details.',
-						'Write shorter, more succinct copy that is pithy and brief, but maintains a fun personality.',
+						'Write shorter, more succinct copy that is pithy and brief, but maintains a fun personality.'
 					],
 					preferDraft: true
 				})

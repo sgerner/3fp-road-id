@@ -735,7 +735,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
 
-						/* ── Headline ── */
+	/* ── Headline ── */
 	.donate-headline {
 		color: var(--color-primary-50);
 		text-align: left;

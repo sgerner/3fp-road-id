@@ -17,11 +17,11 @@ export const load = async ({ fetch, cookies, parent, url }) => {
 		? parentData.groupsNavOwnedGroups
 		: null;
 	const basicGroups = ownedGroupsFromParent ?? (await loadOwnedGroups(fetch, userId));
-	
+
 	// Fetch full group details including cover photos and logos
 	let ownedGroups = basicGroups;
 	if (basicGroups.length > 0) {
-		const groupIds = basicGroups.map(g => g.id).filter(Boolean);
+		const groupIds = basicGroups.map((g) => g.id).filter(Boolean);
 		if (groupIds.length > 0) {
 			const fullGroups = await fetchList(fetch, 'groups', {
 				select: 'id,slug,name,tagline,city,state_region,country,logo_url,cover_photo_url',

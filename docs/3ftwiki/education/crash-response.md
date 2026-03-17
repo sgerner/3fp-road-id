@@ -1,9 +1,9 @@
 ---
 title: Crash Response
-description: 
+description:
 published: true
 date: 2025-03-11T02:33:11.037Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-11T02:33:11.037Z
 ---
@@ -14,6 +14,7 @@ dateCreated: 2025-03-11T02:33:11.037Z
 Click here for an easy to edit Canva Template](https://www.canva.com/design/DAGgvp150IU/hw47tRQZ_PuLgxHKqUDaHg/view?utm_content=DAGgvp150IU&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 # 1. Stay Safe Assess Injury
+
 - Move out of traffic if possible
 - Check yourself and others for injuries
 - Call for medical help if needed

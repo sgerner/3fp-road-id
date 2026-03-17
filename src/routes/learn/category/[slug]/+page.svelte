@@ -20,8 +20,8 @@
 	let isReordering = $state(false);
 
 	// Mutable local copies used by DnD
-	let subcategories = $state([...data.subcategories]);
-	let articles = $state([...data.articles]);
+	let subcategories = $state([]);
+	let articles = $state([]);
 
 	$effect(() => {
 		subcategories = [...data.subcategories];
@@ -354,7 +354,7 @@
 							<div
 								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase opacity-55"
 							>
-									<stat.icon class="h-4 w-4" />
+								<stat.icon class="h-4 w-4" />
 								{stat.label}
 							</div>
 							<div class="text-3xl font-black tabular-nums">{stat.value}</div>
@@ -713,7 +713,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 	}
 
-						/* ── Headline ── */
+	/* ── Headline ── */
 	.cat-headline {
 		font-family: 'Georgia', 'Times New Roman', serif;
 		text-wrap: balance;
@@ -1005,7 +1005,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
 	}
 
-		/* ── Card entrance ── */
+	/* ── Card entrance ── */
 	@keyframes card-in {
 		from {
 			opacity: 0;

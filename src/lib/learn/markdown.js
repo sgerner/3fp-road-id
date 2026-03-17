@@ -104,7 +104,9 @@ export function splitMarkdownIntoSections(markdown) {
 	const headingMatches = lines
 		.map((line, index) => {
 			const match = line.match(/^(#{1,6})\s+(.*)$/);
-			return match ? { index, depth: match[1].length, raw: line, text: stripMarkdown(match[2]) } : null;
+			return match
+				? { index, depth: match[1].length, raw: line, text: stripMarkdown(match[2]) }
+				: null;
 		})
 		.filter(Boolean);
 
