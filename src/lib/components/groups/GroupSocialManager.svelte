@@ -2602,7 +2602,7 @@
 		flex-direction: column;
 		gap: 1.125rem;
 		padding: 1.25rem;
-		overflow-y: auto;
+		overflow-y: visible;
 	}
 
 	.composer-form--hidden {
