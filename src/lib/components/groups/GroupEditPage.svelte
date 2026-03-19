@@ -768,6 +768,7 @@
 			name: formData.get('name')?.toString().trim() || data.group?.name || '',
 			tagline: formData.get('tagline')?.toString().trim() || '',
 			description: formData.get('description')?.toString().trim() || '',
+			state_region: formData.get('state_region')?.toString().trim() || '',
 			location: [
 				formData.get('specific_meeting_point_address'),
 				formData.get('city'),

@@ -9,7 +9,7 @@ import {
 async function loadHostGroups(supabase) {
 	const { data: groups } = await supabase
 		.from('groups')
-		.select('id,name,slug')
+		.select('id,name,slug,city,state_region,country')
 		.order('name', { ascending: true });
 	return groups ?? [];
 }

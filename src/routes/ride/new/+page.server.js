@@ -3,7 +3,7 @@ import { getActivityClient, loadRideLookups } from '$lib/server/activities';
 async function loadHostGroups(supabase) {
 	const { data: groups, error: groupsError } = await supabase
 		.from('groups')
-		.select('id,name,slug')
+		.select('id,name,slug,city,state_region,country')
 		.order('name', { ascending: true });
 	if (groupsError) throw groupsError;
 	return groups ?? [];
