@@ -16,6 +16,7 @@
 	let textareaEl = $state(null);
 	let modeEl = $state(null);
 	let currentMode = $state('wysiwyg');
+	let lastExternalValue = $state('');
 	let editor = null;
 	let ready = $state(false);
 
@@ -50,6 +51,34 @@
 		}
 	}
 
+	function setMarkdown(nextValue) {
+		if (!editor || !ready) return false;
+		const normalized = String(nextValue ?? '');
+		try {
+			editor.setMarkdown(normalized, false);
+			lastExternalValue = normalized;
+			syncHiddenFields();
+			editor.focus();
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	$effect(() => {
+		const normalized = String(value ?? '');
+		if (!ready || !editor) {
+			lastExternalValue = normalized;
+			return;
+		}
+		if (normalized === lastExternalValue) return;
+		if (editor.getMarkdown() !== normalized) {
+			editor.setMarkdown(normalized, false);
+			syncHiddenFields();
+		}
+		lastExternalValue = normalized;
+	});
+
 	onMount(async () => {
 		const mod = await import('@toast-ui/editor');
 		const Editor = mod.Editor;
@@ -71,6 +100,7 @@
 		syncHiddenFields();
 		onReady?.({
 			insertSnippet,
+			setMarkdown,
 			focus: () => editor?.focus?.(),
 			getMarkdown: () => editor?.getMarkdown?.() ?? ''
 		});

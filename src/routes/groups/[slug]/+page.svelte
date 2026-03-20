@@ -12,6 +12,7 @@
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
@@ -222,6 +223,9 @@
 	const instagramPosts = $derived(
 		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
 	);
+	const groupNewsPosts = $derived(
+		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
+	);
 	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
 	const connectedInstagramLabel = $derived(
 		connectedInstagram?.username
@@ -347,6 +351,18 @@
 	);
 
 	const hasPosts = $derived(instagramPosts.length > 0 || !!connectedInstagramLabel);
+
+	function newsPostDate(post) {
+		const raw = post?.published_at || post?.created_at;
+		if (!raw) return 'Recently';
+		const date = new Date(raw);
+		if (Number.isNaN(date.getTime())) return 'Recently';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
 </script>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
@@ -674,6 +690,55 @@
 			</div>
 		{/if}
 	</section>
+
+	{#if groupNewsPosts.length}
+		<section
+			class="news-section relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 240, delay: 70 }}
+		>
+			<div class="news-accent-bar" aria-hidden="true"></div>
+			<div class="news-glow" aria-hidden="true"></div>
+
+			<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
+				<div class="max-w-2xl">
+					<div class="mb-2 flex items-center gap-2">
+						<div class="news-icon-ring flex h-10 w-10 items-center justify-center rounded-xl">
+							<IconNewspaper class="h-5 w-5 text-white" />
+						</div>
+						<div>
+							<p class="label opacity-60">Latest updates</p>
+							<h2 class="text-2xl font-black">Fresh updates from {data.group?.name}</h2>
+						</div>
+					</div>
+					<p class="text-sm leading-6 opacity-75">
+						Route changes, event recaps, community notes, and quick updates from the group.
+					</p>
+				</div>
+				<a class="btn preset-tonal-surface" href={`/groups/${data.group.slug}/news`}
+					>View all updates</a
+				>
+			</div>
+
+			<div class="relative z-10 mt-5 grid gap-4 md:grid-cols-3">
+				{#each groupNewsPosts as post}
+					<a
+						class="news-card border-surface-500/20 bg-surface-950/60 hover:bg-surface-900/80 rounded-[1.5rem] border p-4 transition-colors"
+						href={`/groups/${data.group.slug}/news/${post.slug}`}
+					>
+						<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
+						<h3 class="mt-2 text-lg leading-snug font-bold">{post.title}</h3>
+						{#if post.preview_text}
+							<p class="mt-3 text-sm leading-6 opacity-75">{post.preview_text}</p>
+						{/if}
+						<div class="mt-4 flex items-center gap-2 text-sm font-medium">
+							Read update
+							<IconArrowRight class="h-4 w-4" />
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	<!-- ── Instagram Posts Section ── -->
 	{#if hasPosts}
@@ -1171,6 +1236,49 @@
 		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
 		opacity: 0.7;
 		border-radius: 2rem 2rem 0 0;
+	}
+
+	.news-section {
+		background:
+			radial-gradient(circle at top right, rgb(234 179 8 / 0.18), transparent 36%),
+			linear-gradient(135deg, rgb(249 115 22 / 0.08), rgb(8 47 73 / 0.28));
+		border: 1px solid rgb(251 191 36 / 0.18);
+	}
+
+	.news-accent-bar {
+		position: absolute;
+		inset: 0 auto auto 0;
+		width: 100%;
+		height: 4px;
+		background: linear-gradient(90deg, rgb(249 115 22), rgb(251 191 36), rgb(14 165 233));
+	}
+
+	.news-glow {
+		position: absolute;
+		right: -4rem;
+		top: -4rem;
+		width: 16rem;
+		height: 16rem;
+		border-radius: 9999px;
+		background: rgb(251 191 36 / 0.12);
+		filter: blur(52px);
+		pointer-events: none;
+	}
+
+	.news-icon-ring {
+		background: linear-gradient(135deg, rgb(249 115 22), rgb(251 191 36));
+		box-shadow: 0 12px 30px rgb(251 191 36 / 0.22);
+	}
+
+	.news-card {
+		box-shadow: 0 20px 50px rgb(15 23 42 / 0.2);
+	}
+
+	.updates-cta-panel {
+		background:
+			linear-gradient(135deg, rgb(14 165 233 / 0.1), rgb(15 23 42 / 0.72)), rgb(2 6 23 / 0.92);
+		border: 1px solid rgb(56 189 248 / 0.18);
+		box-shadow: 0 20px 48px rgb(15 23 42 / 0.18);
 	}
 
 	.contact-icon-btn {

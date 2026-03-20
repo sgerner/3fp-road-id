@@ -1,7 +1,11 @@
 import { resolveSession } from '$lib/server/session';
 import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { listPublishedGroupNewsPosts } from '$lib/server/groupNews';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { supabase } from '$lib/supabaseClient';
 
 const INSTAGRAM_POST_LIMIT = 3;
@@ -398,8 +402,10 @@ export const load = async ({ params, cookies, fetch }) => {
 		return { error: 'Group not found' };
 	}
 
-	const { user: sessionUser } = resolveSession(cookies);
+	const { user: sessionUser, accessToken } = resolveSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
+	const requestSupabase = createRequestSupabaseClient(accessToken);
+	const serviceSupabase = createServiceSupabaseClient();
 	let sessionIsAdmin = false;
 	if (sessionUserId) {
 		try {
@@ -515,7 +521,6 @@ export const load = async ({ params, cookies, fetch }) => {
 	let instagramPosts = [];
 	let instagramPostsSource = 'none';
 	try {
-		const serviceSupabase = createServiceSupabaseClient();
 		if (serviceSupabase) {
 			const connected = await fetchConnectedInstagramPosts(serviceSupabase, group.id);
 			connectedInstagram = connected.profile;
@@ -553,6 +558,14 @@ export const load = async ({ params, cookies, fetch }) => {
 	}
 
 	const nowIso = new Date().toISOString();
+
+	let groupNewsPosts = [];
+	try {
+		groupNewsPosts = await listPublishedGroupNewsPosts(supabase, group.id, { limit: 3 });
+	} catch (err) {
+		console.warn('Failed to load group news for group page', err);
+		groupNewsPosts = [];
+	}
 
 	async function loadVolunteerEvents() {
 		try {
@@ -666,6 +679,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
+		group_news_posts: groupNewsPosts,
 		volunteer_events: volunteerEvents,
 		rides
 	};
