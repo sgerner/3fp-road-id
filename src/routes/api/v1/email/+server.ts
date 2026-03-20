@@ -289,7 +289,8 @@ function deriveRequestOrigin(request: Request): string {
 	return normalizeOrigin(PUBLIC_BRAND_BASE);
 }
 
-function deriveBrandingCategory(tags: SesTag[] | undefined): string {
+function deriveBrandingCategory(tags: SesTag[] | undefined, override?: string): string {
+	if (override && override.trim()) return override.trim();
 	if (!tags || tags.length === 0) return 'Message';
 
 	for (const tag of tags) {
@@ -302,6 +303,12 @@ function deriveBrandingCategory(tags: SesTag[] | undefined): string {
 	}
 
 	return 'Message';
+}
+
+function sanitizeBrandingValue(value: unknown, maxLength = 240): string {
+	if (typeof value !== 'string') return '';
+	const cleaned = value.replace(/\s+/g, ' ').trim();
+	return cleaned ? cleaned.slice(0, maxLength) : '';
 }
 
 function normalizeRecipients(recipientInput: unknown): string[] {
@@ -688,7 +695,14 @@ export const POST: RequestHandler = async ({ request }) => {
 				.slice(0, 10)
 		: [];
 
-	const brandingCategory = deriveBrandingCategory(normalizedTags);
+	const brandingPayload =
+		payload.branding && typeof payload.branding === 'object'
+			? (payload.branding as Record<string, unknown>)
+			: null;
+	const brandingCategory = deriveBrandingCategory(
+		normalizedTags,
+		sanitizeBrandingValue(brandingPayload?.category, 80)
+	);
 	const requestOrigin = deriveRequestOrigin(request);
 	const brandingOrigin = requestOrigin || (PUBLIC_BRAND_BASE ? PUBLIC_BRAND_BASE : undefined);
 
@@ -702,7 +716,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	const brandingOptions = {
 		origin: brandingOrigin,
 		category: brandingCategory,
-		subjectLine: validation.subject
+		subjectLine: validation.subject,
+		recipientReason: sanitizeBrandingValue(brandingPayload?.recipientReason, 280),
+		portalUrl: sanitizeBrandingValue(brandingPayload?.actionUrl, 2000),
+		actionLabel: sanitizeBrandingValue(brandingPayload?.actionLabel, 80)
 	};
 
 	const brandedHtml = sanitizedHtmlBody

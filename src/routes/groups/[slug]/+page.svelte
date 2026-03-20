@@ -12,6 +12,7 @@
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
@@ -36,6 +37,7 @@
 	let postsExpanded = $state(true);
 	let eventsExpanded = $state(true);
 	let detailsExpanded = $state(true);
+	let newsExpanded = $state(true);
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -222,6 +224,9 @@
 	const instagramPosts = $derived(
 		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
 	);
+	const groupNewsPosts = $derived(
+		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
+	);
 	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
 	const connectedInstagramLabel = $derived(
 		connectedInstagram?.username
@@ -347,6 +352,18 @@
 	);
 
 	const hasPosts = $derived(instagramPosts.length > 0 || !!connectedInstagramLabel);
+
+	function newsPostDate(post) {
+		const raw = post?.published_at || post?.created_at;
+		if (!raw) return 'Recently';
+		const date = new Date(raw);
+		if (Number.isNaN(date.getTime())) return 'Recently';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
 </script>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
@@ -674,6 +691,71 @@
 			</div>
 		{/if}
 	</section>
+
+	{#if groupNewsPosts.length}
+		<section
+			class="news-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 70 }}
+		>
+			<div class="news-accent-bar" aria-hidden="true"></div>
+			<div class="news-glow" aria-hidden="true"></div>
+
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (newsExpanded = !newsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="news-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconNewspaper class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Latest Updates</h2>
+						<p class="text-surface-600-400 text-sm">News from {data.group?.name}</p>
+					</div>
+				</div>
+				<div class="flex items-center gap-3">
+					<a
+						href={`/groups/${data.group.slug}/news`}
+						class="btn btn-sm preset-tonal-surface whitespace-nowrap"
+						onclick={(e) => e.stopPropagation()}
+					>
+						View All <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+					</a>
+					<div class="section-chevron {newsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
+				</div>
+			</button>
+
+			{#if newsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid gap-4 md:grid-cols-3">
+						{#each groupNewsPosts as post}
+							<a
+								class="news-card rounded-xl p-4"
+								href={`/groups/${data.group.slug}/news?open=${post.slug}`}
+							>
+								<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
+								<h3 class="mt-2 text-base leading-snug font-semibold">{post.title}</h3>
+								{#if post.preview_text}
+									<p class="text-surface-600-400 mt-2 line-clamp-2 text-sm">{post.preview_text}</p>
+								{/if}
+								<div
+									class="text-secondary-500 hover:text-secondary-400 mt-3 flex items-center gap-1 text-sm font-medium transition-colors"
+								>
+									Read update
+									<IconArrowRight class="h-4 w-4" />
+								</div>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	<!-- ── Instagram Posts Section ── -->
 	{#if hasPosts}
@@ -1171,6 +1253,66 @@
 		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
 		opacity: 0.7;
 		border-radius: 2rem 2rem 0 0;
+	}
+
+	.news-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 70ms;
+	}
+
+	.news-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.news-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 90% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.news-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.news-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+	}
+
+	.news-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+	}
+
+	.updates-cta-panel {
+		background:
+			linear-gradient(135deg, rgb(14 165 233 / 0.1), rgb(15 23 42 / 0.72)), rgb(2 6 23 / 0.92);
+		border: 1px solid rgb(56 189 248 / 0.18);
+		box-shadow: 0 20px 48px rgb(15 23 42 / 0.18);
 	}
 
 	.contact-icon-btn {
