@@ -292,7 +292,6 @@
 
 		max-width: 72rem;
 		margin: 0 auto;
-		padding: 0 1rem;
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
@@ -300,7 +299,6 @@
 
 	@media (min-width: 640px) {
 		.news-manage {
-			padding: 0 1.5rem;
 			gap: 1.5rem;
 		}
 	}
