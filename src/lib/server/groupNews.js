@@ -384,7 +384,7 @@ export async function countGroupUpdateEmailRecipients(supabase, groupId) {
 
 export async function buildGroupUpdateEmailSnapshot({ group, post, origin }) {
 	const baseOrigin = trimTrailingSlash(origin) || 'https://3fp.org';
-	const actionUrl = `${baseOrigin}/groups/${group.slug}/news/${post.slug}`;
+	const actionUrl = `${baseOrigin}/groups/${group.slug}/news?open=${post.slug}`;
 	const subjectLine = `${group.name}: ${post.title}`;
 	const textSummary = safeTrim(post.summary);
 	const bodyMarkdown = [

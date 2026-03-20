@@ -37,6 +37,7 @@
 	let postsExpanded = $state(true);
 	let eventsExpanded = $state(true);
 	let detailsExpanded = $state(true);
+	let newsExpanded = $state(true);
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -693,50 +694,66 @@
 
 	{#if groupNewsPosts.length}
 		<section
-			class="news-section relative overflow-hidden rounded-2xl p-5"
+			class="news-section relative overflow-hidden rounded-2xl"
 			in:fade={{ duration: 240, delay: 70 }}
 		>
 			<div class="news-accent-bar" aria-hidden="true"></div>
 			<div class="news-glow" aria-hidden="true"></div>
 
-			<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
-				<div class="max-w-2xl">
-					<div class="mb-2 flex items-center gap-2">
-						<div class="news-icon-ring flex h-10 w-10 items-center justify-center rounded-xl">
-							<IconNewspaper class="h-5 w-5 text-white" />
-						</div>
-						<div>
-							<p class="label opacity-60">Latest updates</p>
-							<h2 class="text-2xl font-black">Fresh updates from {data.group?.name}</h2>
-						</div>
-					</div>
-					<p class="text-sm leading-6 opacity-75">
-						Route changes, event recaps, community notes, and quick updates from the group.
-					</p>
-				</div>
-				<a class="btn preset-tonal-surface" href={`/groups/${data.group.slug}/news`}
-					>View all updates</a
-				>
-			</div>
-
-			<div class="relative z-10 mt-5 grid gap-4 md:grid-cols-3">
-				{#each groupNewsPosts as post}
-					<a
-						class="news-card border-surface-500/20 bg-surface-950/60 hover:bg-surface-900/80 rounded-[1.5rem] border p-4 transition-colors"
-						href={`/groups/${data.group.slug}/news/${post.slug}`}
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (newsExpanded = !newsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="news-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
 					>
-						<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
-						<h3 class="mt-2 text-lg leading-snug font-bold">{post.title}</h3>
-						{#if post.preview_text}
-							<p class="mt-3 text-sm leading-6 opacity-75">{post.preview_text}</p>
-						{/if}
-						<div class="mt-4 flex items-center gap-2 text-sm font-medium">
-							Read update
-							<IconArrowRight class="h-4 w-4" />
-						</div>
+						<IconNewspaper class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Latest Updates</h2>
+						<p class="text-surface-600-400 text-sm">News from {data.group?.name}</p>
+					</div>
+				</div>
+				<div class="flex items-center gap-3">
+					<a
+						href={`/groups/${data.group.slug}/news`}
+						class="btn btn-sm preset-tonal-surface whitespace-nowrap"
+						onclick={(e) => e.stopPropagation()}
+					>
+						View All <IconArrowRight class="ml-1 h-3.5 w-3.5" />
 					</a>
-				{/each}
-			</div>
+					<div class="section-chevron {newsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
+				</div>
+			</button>
+
+			{#if newsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid gap-4 md:grid-cols-3">
+						{#each groupNewsPosts as post}
+							<a
+								class="news-card rounded-xl p-4"
+								href={`/groups/${data.group.slug}/news?open=${post.slug}`}
+							>
+								<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
+								<h3 class="mt-2 text-base leading-snug font-semibold">{post.title}</h3>
+								{#if post.preview_text}
+									<p class="text-surface-600-400 mt-2 line-clamp-2 text-sm">{post.preview_text}</p>
+								{/if}
+								<div
+									class="text-secondary-500 hover:text-secondary-400 mt-3 flex items-center gap-1 text-sm font-medium transition-colors"
+								>
+									Read update
+									<IconArrowRight class="h-4 w-4" />
+								</div>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</section>
 	{/if}
 
@@ -1239,39 +1256,56 @@
 	}
 
 	.news-section {
-		background:
-			radial-gradient(circle at top right, rgb(234 179 8 / 0.18), transparent 36%),
-			linear-gradient(135deg, rgb(249 115 22 / 0.08), rgb(8 47 73 / 0.28));
-		border: 1px solid rgb(251 191 36 / 0.18);
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 70ms;
 	}
 
 	.news-accent-bar {
 		position: absolute;
-		inset: 0 auto auto 0;
-		width: 100%;
-		height: 4px;
-		background: linear-gradient(90deg, rgb(249 115 22), rgb(251 191 36), rgb(14 165 233));
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
 	}
 
 	.news-glow {
 		position: absolute;
-		right: -4rem;
-		top: -4rem;
-		width: 16rem;
-		height: 16rem;
-		border-radius: 9999px;
-		background: rgb(251 191 36 / 0.12);
-		filter: blur(52px);
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 90% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
 		pointer-events: none;
 	}
 
 	.news-icon-ring {
-		background: linear-gradient(135deg, rgb(249 115 22), rgb(251 191 36));
-		box-shadow: 0 12px 30px rgb(251 191 36 / 0.22);
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
 	}
 
 	.news-card {
-		box-shadow: 0 20px 50px rgb(15 23 42 / 0.2);
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+	}
+
+	.news-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
 	}
 
 	.updates-cta-panel {

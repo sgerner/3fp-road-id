@@ -61,7 +61,7 @@
 </script>
 
 <div class="manage-shell min-h-screen w-full">
-	<main class="mx-auto max-w-6xl space-y-6 px-3 pt-4 pb-12 md:px-4 lg:px-6">
+	<main class="mx-auto max-w-6xl space-y-6 pt-4 pb-12 md:px-4 lg:px-6">
 		<section class="manage-hero relative overflow-hidden rounded-3xl" in:fade={{ duration: 300 }}>
 			<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
 			<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
