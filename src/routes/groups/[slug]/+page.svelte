@@ -6,6 +6,7 @@
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconDumbbell from '@lucide/svelte/icons/dumbbell';
 	import IconRepeat from '@lucide/svelte/icons/repeat-2';
 	import IconInfo from '@lucide/svelte/icons/info';
@@ -15,6 +16,7 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
+	import GroupAssetShowcase from '$lib/components/groups/GroupAssetShowcase.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import {
 		buildContactLinks,
@@ -36,6 +38,7 @@
 	let postsExpanded = $state(true);
 	let eventsExpanded = $state(true);
 	let detailsExpanded = $state(true);
+	let resourcesExpanded = $state(true);
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -1152,6 +1155,44 @@
 			{/if}
 		</section>
 	{/if}
+
+	<!-- ── Resources Section ── -->
+	{#if (data.asset_buckets ?? []).length > 0}
+		<section
+			class="resources-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 160 }}
+		>
+			<div class="resources-accent-bar" aria-hidden="true"></div>
+			<div class="resources-glow" aria-hidden="true"></div>
+
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (resourcesExpanded = !resourcesExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="resources-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconFolderOpen class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Resources</h2>
+						<p class="text-surface-600-400 text-sm">Photos, files, and links</p>
+					</div>
+				</div>
+				<div class="section-chevron {resourcesExpanded ? 'expanded' : ''}">
+					<IconChevronDown class="h-5 w-5" />
+				</div>
+			</button>
+
+			{#if resourcesExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<GroupAssetShowcase slug={data.group?.slug} buckets={data.asset_buckets ?? []} />
+				</div>
+			{/if}
+		</section>
+	{/if}
 </div>
 
 <style>
@@ -1511,6 +1552,47 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 		border-radius: 0.875rem;
 		overflow: hidden;
+	}
+
+	/* ── Resources section ── */
+	.resources-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 160ms;
+	}
+
+	.resources-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.resources-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 80% 0%,
+			color-mix(in oklab, var(--color-primary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.resources-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-primary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
 	/* ── Section header (collapsible) ── */

@@ -8,6 +8,7 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import { fade, slide } from 'svelte/transition';
 
 	let { data } = $props();
@@ -60,6 +61,15 @@
 				color: g.city ? 'primary' : 'surface'
 			},
 			{
+				id: 'assets',
+				label: 'Shared Assets',
+				value: `${data.asset_summary?.assets ?? 0}`,
+				sublabel: `${data.asset_summary?.buckets ?? 3} buckets`,
+				icon: IconFolderOpen,
+				color: (data.asset_summary?.assets ?? 0) > 0 ? 'secondary' : 'surface',
+				action: { href: `/groups/${slug}/manage/assets`, label: 'Manage Assets' }
+			},
+			{
 				id: 'events',
 				label: 'Volunteer Events',
 				value: 'View',
@@ -95,6 +105,15 @@
 				]
 			: []),
 		{
+			id: 'assets',
+			label: 'Shared Assets',
+			description: 'Add photos, downloadable files, and useful links to your public group page.',
+			icon: IconFolderOpen,
+			href: `/groups/${slug}/manage/assets`,
+			tone: 'secondary',
+			badge: (data.asset_summary?.assets ?? 0) === 0 ? 'Add first asset' : null
+		},
+		{
 			id: 'events',
 			label: 'Volunteer Events',
 			description: 'View and manage upcoming volunteer opportunities hosted by your group.',
@@ -128,6 +147,10 @@
 		warning: { icon: 'bg-warning-500/15 text-warning-400', glow: 'var(--color-warning-500)' },
 		error: { icon: 'bg-error-500/15 text-error-400', glow: 'var(--color-error-500)' },
 		primary: { icon: 'bg-primary-500/15 text-primary-400', glow: 'var(--color-primary-500)' },
+		secondary: {
+			icon: 'bg-secondary-500/15 text-secondary-400',
+			glow: 'var(--color-secondary-500)'
+		},
 		tertiary: { icon: 'bg-tertiary-500/15 text-tertiary-400', glow: 'var(--color-tertiary-500)' },
 		surface: { icon: 'bg-surface-500/15 text-surface-400', glow: 'var(--color-surface-500)' }
 	};
