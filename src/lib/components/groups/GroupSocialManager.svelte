@@ -21,9 +21,15 @@
 	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
-	import { IMAGE_STYLE_PRESETS } from '$lib/ai/imageStyles';
+	import {
+		BIKE_VIBE_STYLE_ID,
+		IMAGE_STYLE_PRESETS,
+		STATE_MASCOT_STYLE_ID
+	} from '$lib/ai/imageStyles';
+	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '$lib/ai/bikeVibes';
+	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '$lib/geo/usStates';
 
-	let { slug = '', canManageSocial = false, showClaimMessage = false } = $props();
+	let { slug = '', canManageSocial = false, showClaimMessage = false, group = null } = $props();
 
 	const PLATFORMS = ['facebook', 'instagram'];
 	const CALENDAR_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
@@ -77,9 +83,15 @@
 	let aiStyleId = $state(IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house');
 	let aiGeneratedImages = $state([]);
 	let generatingAi = $state(false);
+	let groupProfile = $state(null);
+	let aiSelectedStateCode = $state('');
+	let aiSelectedBikeVibeId = $state('');
+	let aiResolvingState = $state(false);
 	const selectedAiStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === aiStyleId) ?? null
 	);
+	const requiresAiStateSelection = $derived(aiStyleId === STATE_MASCOT_STYLE_ID);
+	const requiresAiBikeVibeSelection = $derived(aiStyleId === BIKE_VIBE_STYLE_ID);
 
 	const connectedPlatforms = $derived.by(() =>
 		accounts
@@ -213,6 +225,68 @@
 	onMount(() => {
 		if (canManageSocial) {
 			void loadDashboard();
+		}
+	});
+
+	$effect(() => {
+		if (!groupProfile && group) {
+			groupProfile = group;
+		}
+	});
+
+	function inferGroupStateCode() {
+		const directCandidates = [
+			groupProfile?.state_region,
+			group?.state_region,
+			groupProfile?.state,
+			group?.state
+		];
+		for (const value of directCandidates) {
+			const normalized = normalizeUsStateCode(value);
+			if (normalized) return normalized;
+		}
+		const locationCandidates = [
+			[groupProfile?.city, groupProfile?.state_region, groupProfile?.country]
+				.filter(Boolean)
+				.join(', '),
+			[group?.city, group?.state_region, group?.country].filter(Boolean).join(', ')
+		];
+		for (const value of locationCandidates) {
+			const parts = String(value ?? '')
+				.split(/[,\u00b7|/]+/g)
+				.map((part) => part.trim())
+				.filter(Boolean);
+			for (const part of parts.reverse()) {
+				const normalized = normalizeUsStateCode(part);
+				if (normalized) return normalized;
+			}
+		}
+		return '';
+	}
+
+	async function resolveAiDefaultStateSelection() {
+		if (aiSelectedStateCode || !requiresAiStateSelection || aiResolvingState) return;
+		aiResolvingState = true;
+		try {
+			const fromGroup = inferGroupStateCode();
+			if (fromGroup) {
+				aiSelectedStateCode = fromGroup;
+				return;
+			}
+			const response = await fetch('/api/location/region');
+			const payload = await response.json().catch(() => ({}));
+			const fromIp = normalizeUsStateCode(payload?.stateCode);
+			if (response.ok && fromIp) aiSelectedStateCode = fromIp;
+		} catch {
+			// Best effort only.
+		} finally {
+			aiResolvingState = false;
+		}
+	}
+
+	$effect(() => {
+		if (requiresAiStateSelection) {
+			void resolveAiDefaultStateSelection();
 		}
 	});
 
@@ -689,6 +763,8 @@
 		pendingConnections = Array.isArray(socialData.pending_connections)
 			? socialData.pending_connections
 			: [];
+		groupProfile =
+			socialData.group && typeof socialData.group === 'object' ? socialData.group : groupProfile;
 	}
 
 	function hydrateCommentsData(payload = {}, fallbackOffset = 0) {
@@ -909,6 +985,14 @@
 			actionError = 'Enter a prompt before generating content.';
 			return;
 		}
+		if (requiresAiStateSelection && !aiSelectedStateCode) {
+			actionError = 'Select a state or territory for this style.';
+			return;
+		}
+		if (requiresAiBikeVibeSelection && !aiSelectedBikeVibeId) {
+			actionError = 'Select a bike type or vibe for this style.';
+			return;
+		}
 
 		clearFeedback();
 		generatingAi = true;
@@ -951,10 +1035,29 @@
 					target: 'group',
 					aspectRatio: '4:5',
 					styleId: aiStyleId,
+					styleOptions: {
+						...(requiresAiStateSelection
+							? {
+									stateCode: aiSelectedStateCode,
+									stateName: getUsStateName(aiSelectedStateCode)
+								}
+							: {}),
+						...(requiresAiBikeVibeSelection
+							? {
+									bikeVibeId: aiSelectedBikeVibeId,
+									bikeVibeLabel: getBikeVibeById(aiSelectedBikeVibeId)?.label || '',
+									bikeVibePrompt: getBikeVibeById(aiSelectedBikeVibeId)?.promptCue || ''
+								}
+							: {})
+					},
 					prompt: aiPromptInput,
 					context: {
 						description: composerCaption || aiPromptInput,
-						ridingDisciplines: selectedPlatforms.join(', ')
+						ridingDisciplines: selectedPlatforms.join(', '),
+						groupState: groupProfile?.state_region || '',
+						groupLocation: [groupProfile?.city, groupProfile?.state_region, groupProfile?.country]
+							.filter(Boolean)
+							.join(', ')
 					}
 				})
 			});
@@ -1786,6 +1889,31 @@
 												</select>
 												{#if selectedAiStyle?.description}
 													<p class="ai-style-description">{selectedAiStyle.description}</p>
+												{/if}
+												{#if requiresAiStateSelection}
+													<span class="field-label-sm mt-2 block">State or territory</span>
+													<select class="ai-style-select" bind:value={aiSelectedStateCode}>
+														<option value="">Select a state</option>
+														{#each US_STATE_OPTIONS as option}
+															<option value={option.code}>
+																{option.name} ({option.code})
+															</option>
+														{/each}
+													</select>
+													{#if aiResolvingState}
+														<p class="ai-style-description">
+															Detecting a default from available location data…
+														</p>
+													{/if}
+												{/if}
+												{#if requiresAiBikeVibeSelection}
+													<span class="field-label-sm mt-2 block">Bike type or vibe</span>
+													<select class="ai-style-select" bind:value={aiSelectedBikeVibeId}>
+														<option value="">Select a bike vibe</option>
+														{#each BIKE_VIBE_OPTIONS as option}
+															<option value={option.id}>{option.label}</option>
+														{/each}
+													</select>
 												{/if}
 											</label>
 											<button

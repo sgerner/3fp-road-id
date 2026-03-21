@@ -4,6 +4,7 @@
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 
 	let { group = null, canManageSocial = false } = $props();
 
@@ -28,6 +29,12 @@
 			label: 'Assets',
 			icon: IconFolderOpen,
 			href: `/groups/${slug}/manage/assets`
+		},
+		{
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
 		},
 		...(canManageSocial
 			? [

@@ -549,6 +549,14 @@
 			description: form.description,
 			startLocation,
 			endLocation,
+			hostGroupLocation: [
+				selectedHostGroup?.city,
+				selectedHostGroup?.state_region,
+				selectedHostGroup?.country
+			]
+				.filter((value) => safeTrim(value))
+				.join(', '),
+			hostGroupState: safeTrim(selectedHostGroup?.state_region),
 			time: [form.startsAt, form.endsAt].filter(Boolean).join(' to '),
 			distance: form.estimatedDistanceMiles ? `${form.estimatedDistanceMiles} miles` : '',
 			difficulty,

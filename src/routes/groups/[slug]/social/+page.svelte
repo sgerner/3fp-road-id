@@ -21,5 +21,6 @@
 		slug={data.group?.slug}
 		canManageSocial={data.can_manage_social === true}
 		showClaimMessage={Boolean(data.session_user_id) && data.is_claimed === false}
+		group={data.group}
 	/>
 </div>

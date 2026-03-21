@@ -5,6 +5,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
@@ -112,6 +113,16 @@
 			href: `/groups/${slug}/manage/assets`,
 			tone: 'secondary',
 			badge: (data.asset_summary?.assets ?? 0) === 0 ? 'Add first asset' : null
+		},
+		{
+			id: 'news',
+			label: 'Updates',
+			description:
+				'Publish short updates that appear on your group page and public updates archive.',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`,
+			tone: 'secondary',
+			badge: null
 		},
 		{
 			id: 'events',
