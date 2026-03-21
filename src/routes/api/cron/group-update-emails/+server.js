@@ -40,8 +40,7 @@ async function refreshCampaignStatus(supabase, emailId) {
 		{ pending: 0, sent: 0, failed: 0, skipped: 0 }
 	);
 
-	const nextStatus =
-		summary.pending > 0 ? 'sending' : summary.failed > 0 ? 'failed' : 'sent';
+	const nextStatus = summary.pending > 0 ? 'sending' : summary.failed > 0 ? 'failed' : 'sent';
 	const finishedAt = summary.pending === 0 ? new Date().toISOString() : null;
 
 	const { error: updateError } = await supabase
@@ -59,7 +58,11 @@ async function refreshCampaignStatus(supabase, emailId) {
 }
 
 function isValidEmailAddress(value) {
-	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim().toLowerCase());
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+		String(value || '')
+			.trim()
+			.toLowerCase()
+	);
 }
 
 export async function POST(event) {
@@ -133,7 +136,9 @@ export async function POST(event) {
 
 		touchedEmailIds.add(emailCampaign.id);
 		const nowIso = new Date().toISOString();
-		const recipientEmail = String(send.recipient_email || '').trim().toLowerCase();
+		const recipientEmail = String(send.recipient_email || '')
+			.trim()
+			.toLowerCase();
 
 		if (!isValidEmailAddress(recipientEmail)) {
 			const { error: skipError } = await supabase

@@ -1,6 +1,7 @@
 import { resolveSession } from '$lib/server/session';
 import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
+import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
 import { listPublishedGroupNewsPosts } from '$lib/server/groupNews';
 import {
 	createRequestSupabaseClient,
@@ -557,6 +558,14 @@ export const load = async ({ params, cookies, fetch }) => {
 		}
 	}
 
+	let assetBuckets = [];
+	try {
+		assetBuckets = await listGroupAssetBuckets(getGroupAssetsReadClient(), group.id);
+	} catch (err) {
+		console.warn('Failed to load group asset buckets for group page', err);
+		assetBuckets = [];
+	}
+
 	const nowIso = new Date().toISOString();
 
 	let groupNewsPosts = [];
@@ -676,6 +685,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		connected_instagram: connectedInstagram,
 		instagram_posts: instagramPosts,
 		instagram_posts_source: instagramPostsSource,
+		asset_buckets: assetBuckets,
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,

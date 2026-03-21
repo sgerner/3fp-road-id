@@ -17,8 +17,7 @@ const STYLE_PRESETS = {
 	},
 	warm_community: {
 		label: 'Warm community',
-		guidance:
-			'Friendly, welcoming, and human. Keep it polished but still concise and clear.'
+		guidance: 'Friendly, welcoming, and human. Keep it polished but still concise and clear.'
 	},
 	energy_boost: {
 		label: 'Energy boost',
@@ -27,8 +26,7 @@ const STYLE_PRESETS = {
 	},
 	action_focused: {
 		label: 'Action focused',
-		guidance:
-			'Organized around next steps, deadlines, links, and what members need to do now.'
+		guidance: 'Organized around next steps, deadlines, links, and what members need to do now.'
 	}
 };
 
@@ -85,7 +83,10 @@ function normalizeContext(context) {
 
 	return {
 		group_name: safeTrim(group.name).slice(0, 120),
-		group_location: [safeTrim(group.city), safeTrim(group.state)].filter(Boolean).join(', ').slice(0, 120),
+		group_location: [safeTrim(group.city), safeTrim(group.state)]
+			.filter(Boolean)
+			.join(', ')
+			.slice(0, 120),
 		group_summary: safeTrim(group.description || group.short_description || '').slice(0, 500),
 		current_title: safeTrim(draft.title).slice(0, 180),
 		current_summary: safeTrim(draft.summary).slice(0, 500),
@@ -160,13 +161,14 @@ function normalizeAiPayload(parsed, rawText = '') {
 				summary:
 					typeof draftSource.summary === 'string' ? draftSource.summary.trim().slice(0, 400) : null,
 				body_markdown:
-					typeof draftSource.body_markdown === 'string'
-						? draftSource.body_markdown.trim()
-						: null
+					typeof draftSource.body_markdown === 'string' ? draftSource.body_markdown.trim() : null
 			}
 		: null;
 	const followUpQuestions = Array.isArray(parsed?.follow_up_questions)
-		? parsed.follow_up_questions.map((item) => safeTrim(item)).filter(Boolean).slice(0, 4)
+		? parsed.follow_up_questions
+				.map((item) => safeTrim(item))
+				.filter(Boolean)
+				.slice(0, 4)
 		: null;
 	const reply =
 		safeTrim(parsed?.reply) ||

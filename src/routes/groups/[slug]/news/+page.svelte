@@ -60,10 +60,7 @@
 
 <div class="mx-auto w-full max-w-4xl pb-10">
 	<!-- Hero Section -->
-	<section
-		class="news-hero relative overflow-hidden rounded-2xl"
-		in:fade={{ duration: 240 }}
-	>
+	<section class="news-hero relative overflow-hidden rounded-2xl" in:fade={{ duration: 240 }}>
 		<div class="news-accent-bar" aria-hidden="true"></div>
 		<div class="news-glow" aria-hidden="true"></div>
 		<div class="news-hero-cover">
@@ -80,7 +77,9 @@
 			<div class="news-hero-scrim"></div>
 		</div>
 
-		<div class="relative z-10 flex min-h-[190px] flex-col justify-between p-4 md:min-h-[220px] md:p-6">
+		<div
+			class="relative z-10 flex min-h-[190px] flex-col justify-between p-4 md:min-h-[220px] md:p-6"
+		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="news-hero-pill">
 					<IconNewspaper class="h-4 w-4 text-white" />
@@ -300,6 +299,7 @@
 
 	.line-clamp-2 {
 		display: -webkit-box;
+		line-clamp: 2;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;

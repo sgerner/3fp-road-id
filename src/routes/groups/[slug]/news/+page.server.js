@@ -26,7 +26,9 @@ export const load = async ({ params, cookies, url }) => {
 	const profiles = await getGroupNewsProfilesMap(supabase, profileIds);
 	const postViews = await Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
 	const requestedSlug = (url.searchParams.get('open') || '').trim();
-	const initialOpenSlug = postViews.some((post) => post.slug === requestedSlug) ? requestedSlug : '';
+	const initialOpenSlug = postViews.some((post) => post.slug === requestedSlug)
+		? requestedSlug
+		: '';
 
 	return {
 		group,

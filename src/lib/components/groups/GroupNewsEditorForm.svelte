@@ -1282,21 +1282,6 @@
 			min-width: 0;
 		}
 
-		.style-select .form-label {
-			display: none;
-		}
-
-		.style-select .select {
-			width: 100%;
-			min-height: 2.2rem;
-			font-size: 0.875rem;
-		}
-
-		.ai-toolbar .btn {
-			padding-inline: 0.55rem;
-			min-height: 2.2rem;
-		}
-
 		.style-description {
 			font-size: 0.7rem;
 			line-height: 1.3;

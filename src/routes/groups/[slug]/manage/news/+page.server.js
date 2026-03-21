@@ -200,8 +200,7 @@ export const actions = {
 					}
 				} catch (queueError) {
 					return fail(500, {
-						error:
-							queueError?.message || 'Update saved, but member emails could not be queued.',
+						error: queueError?.message || 'Update saved, but member emails could not be queued.',
 						values: {
 							postId: publishedPost.id,
 							title: payload.title,

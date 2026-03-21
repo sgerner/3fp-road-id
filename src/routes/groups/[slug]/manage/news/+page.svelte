@@ -29,9 +29,16 @@
 	const canShowMore = $derived(sortedPosts.length > 3 && !showAllPosts);
 	const canShowLess = $derived(sortedPosts.length > 3 && showAllPosts);
 
-	let postsOpen = $state(data.posts.length > 0);
+	let postsOpen = $state(false);
+	let postsOpenInitialized = $state(false);
 	let showAllPosts = $state(false);
 	let showDeleteConfirm = $state(false);
+
+	$effect(() => {
+		if (postsOpenInitialized) return;
+		postsOpenInitialized = true;
+		postsOpen = data.posts.length > 0;
+	});
 
 	function formatDateParts(value) {
 		if (!value) return null;
@@ -247,8 +254,22 @@
 
 	<!-- Delete Confirmation Modal -->
 	{#if showDeleteConfirm && selectedPost}
-		<div class="delete-modal-overlay" onclick={() => (showDeleteConfirm = false)}>
-			<div class="delete-modal" onclick={(e) => e.stopPropagation()}>
+		<div
+			class="delete-modal-overlay"
+			role="button"
+			tabindex="0"
+			onclick={(event) => {
+				if (event.target === event.currentTarget) showDeleteConfirm = false;
+			}}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') showDeleteConfirm = false;
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					if (event.target === event.currentTarget) showDeleteConfirm = false;
+				}
+			}}
+		>
+			<div class="delete-modal">
 				<div class="delete-modal-header">
 					<div class="delete-icon-large">
 						<IconTrash2 class="h-6 w-6" />
@@ -590,6 +611,7 @@
 		line-height: 1.3;
 		letter-spacing: -0.01em;
 		display: -webkit-box;
+		line-clamp: 2;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
@@ -627,6 +649,7 @@
 		opacity: 0.6;
 		line-height: 1.4;
 		display: -webkit-box;
+		line-clamp: 2;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
@@ -635,6 +658,7 @@
 	@media (max-width: 480px) {
 		.post-preview {
 			font-size: 0.75rem;
+			line-clamp: 1;
 			-webkit-line-clamp: 1;
 		}
 	}

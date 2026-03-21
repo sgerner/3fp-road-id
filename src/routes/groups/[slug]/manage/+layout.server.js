@@ -59,6 +59,21 @@ export const load = async ({ params, cookies, fetch }) => {
 
 	const canEdit = isAdmin || isOwner;
 	const canManageSocial = (isAdmin || isSocialManager) && group !== null;
+	let assetSummary = { buckets: 3, assets: 0 };
+
+	try {
+		const assetResult = await supabase
+			.from('group_assets')
+			.select('id', { count: 'exact', head: true })
+			.eq('group_id', group.id);
+
+		assetSummary = {
+			buckets: 3,
+			assets: assetResult.count ?? 0
+		};
+	} catch (err) {
+		console.warn('Failed to load asset counts for group manage layout', err);
+	}
 
 	if (!canEdit) {
 		throw redirect(303, `/groups/${slug}?auth=forbidden`);
@@ -69,6 +84,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		is_owner: isOwner,
 		is_admin: isAdmin,
 		can_manage_social: canManageSocial,
-		session_user_id: sessionUserId
+		session_user_id: sessionUserId,
+		asset_summary: assetSummary
 	};
 };
