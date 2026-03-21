@@ -3,6 +3,7 @@
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
+	import IconIdCard from '@lucide/svelte/icons/id-card';
 
 	let { group = null, canManageSocial = false } = $props();
 
@@ -21,6 +22,12 @@
 			label: 'Edit Profile',
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
+		},
+		{
+			id: 'membership',
+			label: 'Membership',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`
 		},
 		...(canManageSocial
 			? [

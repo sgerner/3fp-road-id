@@ -8,6 +8,7 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconShield from '@lucide/svelte/icons/shield';
+	import IconIdCard from '@lucide/svelte/icons/id-card';
 
 	let { children, data } = $props();
 
@@ -30,6 +31,12 @@
 			label: 'Edit Profile',
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
+		},
+		{
+			id: 'membership',
+			label: 'Membership',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`
 		},
 		...(data.can_manage_social
 			? [

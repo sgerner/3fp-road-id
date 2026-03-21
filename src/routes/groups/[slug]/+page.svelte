@@ -211,6 +211,17 @@
 	const shouldShowDonationSetup = $derived(
 		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
 	);
+	const membershipProgram = $derived(data?.membership_program ?? null);
+	const membershipTiers = $derived(
+		Array.isArray(data?.membership_tiers) ? data.membership_tiers : []
+	);
+	const membershipEnabled = $derived(Boolean(membershipProgram?.enabled === true));
+	const membershipCtaLabel = $derived(
+		membershipProgram?.cta_label ||
+			(membershipProgram?.access_mode === 'private_request'
+				? 'Request Membership'
+				: 'Join Membership')
+	);
 
 	function parseVolunteerDate(value) {
 		if (!value) return null;
@@ -463,6 +474,42 @@
 						Connect Stripe
 					</a>
 				{/if}
+			</div>
+		</section>
+	{/if}
+
+	{#if membershipEnabled}
+		<section
+			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+			in:fade={{ duration: 220 }}
+		>
+			<div class="volunteer-glow" aria-hidden="true"></div>
+			<div class="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+				<div>
+					<div class="mb-1 flex items-center gap-2">
+						<IconUsers class="text-secondary-400 h-5 w-5" />
+						<p class="label opacity-60">Membership</p>
+					</div>
+					<h2 class="text-xl font-bold">{membershipProgram?.access_mode === 'private_request' ? 'Membership Applications' : 'Join Membership'}</h2>
+					<p class="text-surface-600-400 mt-0.5 text-sm">
+						{#if membershipProgram?.access_mode === 'private_request'}
+							This group reviews requests before activating memberships.
+						{:else}
+							Join this group's membership program in a few steps.
+						{/if}
+					</p>
+					{#if membershipTiers.length}
+						<p class="text-surface-600-400 mt-1 text-xs">
+							{membershipTiers.length} tier{membershipTiers.length === 1 ? '' : 's'} available.
+						</p>
+					{/if}
+				</div>
+				<a
+					href={`/groups/${data.group?.slug}/membership`}
+					class="btn preset-filled-secondary-500 shrink-0 font-bold"
+				>
+					{membershipCtaLabel}
+				</a>
 			</div>
 		</section>
 	{/if}

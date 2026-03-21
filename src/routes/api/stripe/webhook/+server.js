@@ -5,6 +5,7 @@ import {
 	finalizeDonationBySessionId
 } from '$lib/server/donations';
 import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import { handleMembershipStripeEvent } from '$lib/server/memberships';
 import { getStripeClient } from '$lib/server/stripe';
 
 async function safelyFinalizeSession(sessionId, fetchImpl) {
@@ -76,7 +77,15 @@ export const POST = async ({ request, fetch }) => {
 		const sessionId = event?.data?.object?.id;
 		if (sessionId) {
 			const matchResult = await safelyFinalizeSession(sessionId, fetch);
-			if (!matchResult.donationMatched && !matchResult.merchMatched) {
+			let membershipMatched = false;
+			try {
+				const membershipResult = await handleMembershipStripeEvent(event, fetch);
+				membershipMatched = membershipResult?.ok === true && membershipResult?.matched === true;
+			} catch (error) {
+				console.error('Membership checkout webhook error', error);
+			}
+
+			if (!matchResult.donationMatched && !matchResult.merchMatched && !membershipMatched) {
 				console.warn('Stripe webhook session did not match donation or merch records', {
 					sessionId,
 					eventType: event.type
@@ -93,12 +102,33 @@ export const POST = async ({ request, fetch }) => {
 		const paymentIntentId = event?.data?.object?.id;
 		if (paymentIntentId) {
 			const matchResult = await safelyFinalizePaymentIntent(paymentIntentId, fetch);
-			if (!matchResult.donationMatched && !matchResult.merchMatched) {
+			let membershipMatched = false;
+			try {
+				const membershipResult = await handleMembershipStripeEvent(event, fetch);
+				membershipMatched = membershipResult?.ok === true && membershipResult?.matched === true;
+			} catch (error) {
+				console.error('Membership payment intent webhook error', error);
+			}
+
+			if (!matchResult.donationMatched && !matchResult.merchMatched && !membershipMatched) {
 				console.warn('Stripe webhook payment intent did not match donation or merch records', {
 					paymentIntentId,
 					eventType: event.type
 				});
 			}
+		}
+	}
+
+	if (
+		event.type === 'invoice.paid' ||
+		event.type === 'invoice.payment_failed' ||
+		event.type === 'customer.subscription.updated' ||
+		event.type === 'customer.subscription.deleted'
+	) {
+		try {
+			await handleMembershipStripeEvent(event, fetch);
+		} catch (error) {
+			console.error('Membership invoice/subscription webhook error', error);
 		}
 	}
 

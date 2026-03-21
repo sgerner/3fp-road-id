@@ -5,6 +5,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
@@ -80,6 +81,16 @@
 			href: `/groups/${slug}/manage/edit`,
 			tone: 'primary',
 			badge: completionStats().percentage < 80 ? 'Complete profile' : null
+		},
+		{
+			id: 'membership',
+			label: 'Membership',
+			description:
+				'Configure tiers, private applications, member roster, billing status, and member email campaigns.',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`,
+			tone: 'primary',
+			badge: null
 		},
 		...(data.can_manage_social
 			? [

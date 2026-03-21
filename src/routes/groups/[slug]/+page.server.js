@@ -197,6 +197,23 @@ export const load = async ({ params, cookies, fetch }) => {
 		console.warn('Failed to load donation account for group page', err);
 	}
 
+	let membershipProgram = null;
+	let membershipTiers = [];
+	let membershipFormFields = [];
+	try {
+		const response = await fetch(
+			`/api/groups/${encodeURIComponent(slug)}/membership/program?include_inactive=false`
+		);
+		const payload = await response.json().catch(() => ({}));
+		if (response.ok && payload?.data) {
+			membershipProgram = payload.data.program ?? null;
+			membershipTiers = Array.isArray(payload.data.tiers) ? payload.data.tiers : [];
+			membershipFormFields = Array.isArray(payload.data.form_fields) ? payload.data.form_fields : [];
+		}
+	} catch (err) {
+		console.warn('Failed to load membership program for group page', err);
+	}
+
 	const nowIso = new Date().toISOString();
 	let volunteerEvents = [];
 	let hostEventIds = new Set();
@@ -292,6 +309,9 @@ export const load = async ({ params, cookies, fetch }) => {
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
+		membership_program: membershipProgram,
+		membership_tiers: membershipTiers,
+		membership_form_fields: membershipFormFields,
 		volunteer_events: volunteerEvents
 	};
 };
