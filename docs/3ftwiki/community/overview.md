@@ -3,7 +3,7 @@ title: Community Hub
 description: Welcome to the Community Hub of the Bicycle Advocacy Toolkit
 published: true
 date: 2025-03-02T07:24:40.638Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-15T00:54:30.915Z
 ---
@@ -13,6 +13,7 @@ Most people don’t get into bicycle advocacy because everything is fine, they g
 The first and most important step for change starts with connecting cyclists that believe in better biking and are willing to show up and make it happen. We need numbers, we need voices, and we need people who care enough to turn frustration into action. You might be motivated and outraged, but growing your group begins with fun, approachable activities.
 
 # Why Community Matters
+
 Imagine streets where cyclists, pedestrians, and drivers coexist safely and joyfully. This vision isn't a distant dream; it's achievable through collective action. By rallying our neighbors, local businesses, and organizations, we can reshape our public spaces into vibrant, inclusive areas that serve everyone.
 
 No one transforms streets alone. You need people. The more voices, the more power, and the more creative, diverse, and resilient the movement becomes. Here’s why community is your greatest asset:
@@ -24,6 +25,7 @@ No one transforms streets alone. You need people. The more voices, the more powe
 # Inside This Section
 
 ## [Rides](/community/rides)
+
 - [Community Rides Guide](/community/community-rides)
 - [Memorial & Vigil Ride Guide](/community/memorial-ride)
 - [Critical Mass Tips](/community/critical-mass)
@@ -33,6 +35,7 @@ No one transforms streets alone. You need people. The more voices, the more powe
 - [Ride Emergency Protocols](/community/safety)
 
 ## [Events](/community/events)
+
 - [Bike Calendar](/community/bike-calendar) of major national and international cycling events
 - [Local Neighborhood Bike Celebration Guide](/community/neighborhood-events)
 - [Guide for Hosting Regular Cycling Meetups](/community/meetups)
@@ -40,6 +43,7 @@ No one transforms streets alone. You need people. The more voices, the more powe
 - [Community Response Meeting Guide](/community/community-meeting) for organizing neighborhood meetings after fatalities and serious injuries
 
 ## Resources
+
 - [Community Development Best Practices](/community/community-tips)
 - [Ghost Bike Advice](/community/ghost-bikes)
 - [Discussion Facilitation Guide](/community/facilitation) - How to lead productive community conversations
@@ -49,11 +53,10 @@ No one transforms streets alone. You need people. The more voices, the more powe
 
 - **Set Up a Platform for Organizing** – The first step is getting people in one place (and ideally a secondary platform to reach a broader group). Set this up immediately. Pick a social platform common in your community (e.g. Facebook, Next Door, Instagram, Discord) and an email list (MailChimp is free for up to 500 users). You want to be able to communicate quickly and efficiently. Check out our [Tools Page](/community/tools) for resources to help with operations.
 - **Define a Clear and Motivating Goal** – People rally around clear, specific objectives. Have an immediate short-term goal (like installing traffic calming on a dangerous street) and a bigger long-term goal (like getting your city to adopt a Vision Zero policy). These goals should be easy to communicate and generate excitement.
-- **Make It Fun** – Don’t just focus on fighting battles. Regularly plan fun, silly, and accessible activities. The fight for safer streets can be exhausting, but events that bring people together for fun keep the energy up and the community engaged. Someone in your group needs to be planning something lighthearted and welcoming *every month*.
-- **Create a Welcoming Culture** – We've all been to those awkward events where we don't know anyone, and everyone is grouped into cliques. That *will* happen at your activities unless you actively prevent it. Make sure you have a welcoming committee at every event—people whose *entire job* is to introduce new attendees, start conversations, and make sure no one is left standing alone. Nobody wants to be the awkward kid in the corner at the school dance.
+- **Make It Fun** – Don’t just focus on fighting battles. Regularly plan fun, silly, and accessible activities. The fight for safer streets can be exhausting, but events that bring people together for fun keep the energy up and the community engaged. Someone in your group needs to be planning something lighthearted and welcoming _every month_.
+- **Create a Welcoming Culture** – We've all been to those awkward events where we don't know anyone, and everyone is grouped into cliques. That _will_ happen at your activities unless you actively prevent it. Make sure you have a welcoming committee at every event—people whose _entire job_ is to introduce new attendees, start conversations, and make sure no one is left standing alone. Nobody wants to be the awkward kid in the corner at the school dance.
 
 # Quick-Start Guide to Building a Bicycle Community
-
 
 ## 1. Find Your People
 
@@ -89,7 +92,7 @@ Biking isn’t just about safety—it’s about joy. Keep your community engaged
 # Where to Find Cyclists
 
 - **Popular Routes & Bike Trails** – Start where they already are.
-- **Bike Shops & Cafes** – Post flyers, talk to staff, leave  cards.
+- **Bike Shops & Cafes** – Post flyers, talk to staff, leave cards.
 - **Online Groups & Social Media** – Facebook groups, Strava clubs, local Discord servers: wherever people talk about biking, you should be there too.
 
 # Build It, Grow It, and Make It Last
@@ -97,4 +100,3 @@ Biking isn’t just about safety—it’s about joy. Keep your community engaged
 This isn’t a one-person job, and it shouldn’t be. Surround yourself with people who believe in better biking, who are willing to roll up their sleeves, and who know that change doesn’t happen overnight. Build a movement that people want to be part of; a movement that makes cycling not just safer, but more fun, more accessible, and an undeniable part of your community’s culture.
 
 Let’s ride.
-

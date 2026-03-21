@@ -4,7 +4,9 @@
 	function formatDate(value) {
 		const date = new Date(value);
 		if (Number.isNaN(date.getTime())) return '';
-		return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+		return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+			date
+		);
 	}
 </script>
 
@@ -25,7 +27,9 @@
 			Please log in to view your order history.
 		</section>
 	{:else if data.error}
-		<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-5 text-sm">{data.error}</section>
+		<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-5 text-sm">
+			{data.error}
+		</section>
 	{:else if (data.orders?.length ?? 0) === 0}
 		<section class="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm">
 			No merch orders found yet.
@@ -43,8 +47,11 @@
 							<div class="text-base font-bold">{order.total}</div>
 							<div class="mt-1 text-xs opacity-75">
 								<span class="chip preset-tonal-surface text-[11px]">{order.status}</span>
-								<span class="chip preset-tonal-primary ml-1 text-[11px]">{order.paymentStatus}</span>
-								<span class="chip preset-tonal-tertiary ml-1 text-[11px]">{order.fulfillmentStatus}</span>
+								<span class="chip preset-tonal-primary ml-1 text-[11px]">{order.paymentStatus}</span
+								>
+								<span class="chip preset-tonal-tertiary ml-1 text-[11px]"
+									>{order.fulfillmentStatus}</span
+								>
 							</div>
 						</div>
 					</div>

@@ -238,7 +238,8 @@ function normalizePrintfulPlacements(placements) {
 
 			const layerType = cleanText(layer?.type, 40);
 			if (layerType) normalizedLayer.type = layerType;
-			if (layer?.position && typeof layer.position === 'object') normalizedLayer.position = layer.position;
+			if (layer?.position && typeof layer.position === 'object')
+				normalizedLayer.position = layer.position;
 			if (Array.isArray(layer?.layer_options) && layer.layer_options.length) {
 				normalizedLayer.layer_options = layer.layer_options;
 			}
@@ -262,9 +263,7 @@ function normalizePrintfulPlacements(placements) {
 function buildPrintfulItemPayload(item) {
 	const printfulRef = parsePrintfulPartnerRef(item.partner_variant_ref || '');
 	if (!printfulRef?.catalogVariantId && (!printfulRef?.productId || !printfulRef?.variantId)) {
-		throw new Error(
-			'Printful v2 items require product/variant ids or a catalog variant id.'
-		);
+		throw new Error('Printful v2 items require product/variant ids or a catalog variant id.');
 	}
 
 	const catalogVariantId = normalizePositiveInt(printfulRef.catalogVariantId, null);
@@ -389,8 +388,7 @@ function normalizePrintfulStoreSummary(rawStore) {
 	return {
 		id,
 		name:
-			cleanText(rawStore?.name || rawStore?.store_name || rawStore?.label, 200) ||
-			`Store ${id}`,
+			cleanText(rawStore?.name || rawStore?.store_name || rawStore?.label, 200) || `Store ${id}`,
 		type: cleanText(rawStore?.type || rawStore?.kind, 120) || null,
 		status: cleanText(rawStore?.status, 120) || null,
 		isDefault: rawStore?.is_default === true
@@ -517,7 +515,10 @@ async function collectPrintfulProductImageGallery({ accessToken, storeId, produc
 function collectPrintfulOptionValues(variant) {
 	const optionValues = {};
 	const explicitColor = cleanText(
-		variant?.color || variant?.color_name || variant?.catalog_color || variant?.external_data?.color,
+		variant?.color ||
+			variant?.color_name ||
+			variant?.catalog_color ||
+			variant?.external_data?.color,
 		80
 	);
 	const explicitSize = cleanText(
@@ -576,8 +577,7 @@ function normalizePrintfulShippingOption(option) {
 	const maxDays = normalizePositiveInt(option?.max_delivery_days, null);
 	return {
 		id,
-		name:
-			cleanText(option?.name || option?.shipping_name || option?.shipping, 160) || 'Shipping',
+		name: cleanText(option?.name || option?.shipping_name || option?.shipping, 160) || 'Shipping',
 		amountCents,
 		currency: cleanText(option?.currency, 12) || 'USD',
 		minDeliveryDays: minDays,
@@ -783,7 +783,11 @@ function buildImportedProductSlug(name, externalProductId) {
 	return `${base}-${suffix || 'pf'}`.slice(0, 80);
 }
 
-async function syncPrintfulCatalogForStoreInternal(supabase, store, { accessToken, printfulStoreId }) {
+async function syncPrintfulCatalogForStoreInternal(
+	supabase,
+	store,
+	{ accessToken, printfulStoreId }
+) {
 	const syncedAt = new Date().toISOString();
 	const products = await listPrintfulProductsWithVariantsV2({
 		accessToken,
@@ -977,7 +981,9 @@ export async function syncPrintfulCatalogForStore({
 	storeId = null
 } = {}) {
 	const supabase = await getServiceSupabase();
-	const store = storeId ? await getMerchStoreById(supabase, storeId) : await getMerchStoreBySlug(storeSlug);
+	const store = storeId
+		? await getMerchStoreById(supabase, storeId)
+		: await getMerchStoreBySlug(storeSlug);
 	if (!store?.id) throw new Error('Merch store not found.');
 	const printfulStoreId = normalizePositiveInt(store.printful_store_id, 0);
 	if (printfulStoreId <= 0) throw new Error('Choose a Printful store before importing products.');
@@ -1089,7 +1095,12 @@ async function getStoreFulfillmentMethods(supabase, storeId, includeInactive = f
 		.in('fulfillment_method_id', methodIds)
 		.order('sort_order', { ascending: true })
 		.order('created_at', { ascending: true });
-	if (rulesError && !String(rulesError.message || '').includes('relation "public.merch_shipping_rules" does not exist')) {
+	if (
+		rulesError &&
+		!String(rulesError.message || '').includes(
+			'relation "public.merch_shipping_rules" does not exist'
+		)
+	) {
 		throw new Error(rulesError.message);
 	}
 
@@ -1165,12 +1176,14 @@ function calculateManualFulfillmentFee(method, lines) {
 	const quantity = lines.reduce((sum, line) => sum + toCents(line.quantity, 0), 0);
 	const subtotalCents = lines.reduce((sum, line) => sum + toCents(line.lineTotalCents, 0), 0);
 	const metricValue = mode === 'subtotal' ? subtotalCents : quantity;
-	const matchedRule = (Array.isArray(method.shipping_rules) ? method.shipping_rules : []).find((rule) => {
-		if (cleanText(rule.metric_type, 20) !== mode) return false;
-		const min = toCents(rule.min_value, 0);
-		const max = rule.max_value === null ? null : toCents(rule.max_value, 0);
-		return metricValue >= min && (max === null || metricValue <= max);
-	});
+	const matchedRule = (Array.isArray(method.shipping_rules) ? method.shipping_rules : []).find(
+		(rule) => {
+			if (cleanText(rule.metric_type, 20) !== mode) return false;
+			const min = toCents(rule.min_value, 0);
+			const max = rule.max_value === null ? null : toCents(rule.max_value, 0);
+			return metricValue >= min && (max === null || metricValue <= max);
+		}
+	);
 
 	return {
 		feeCents: matchedRule ? toCents(matchedRule.rate_cents, 0) : toCents(method.base_fee_cents, 0),
@@ -1194,16 +1207,21 @@ export async function calculateMerchQuote({
 
 	const address = extractAddressFromPayload(shippingAddress || {});
 	if (cleanText(address.country, 8) && !isUnitedStatesCountry(address.country)) {
-		return { ok: false, status: 400, error: 'Merch shipping is currently limited to the United States.' };
+		return {
+			ok: false,
+			status: 400,
+			error: 'Merch shipping is currently limited to the United States.'
+		};
 	}
 
 	const variantIds = Array.from(new Set(cartItems.map((item) => item.variantId)));
-	const [{ data: variants, error: variantError }, store, taxSettings, fulfillmentMethods] = await Promise.all([
-		supabase.from('merch_product_variants').select('*').in('id', variantIds),
-		getMerchStoreById(supabase, storeId),
-		getStoreTaxSettings(supabase, storeId),
-		getStoreFulfillmentMethods(supabase, storeId, false)
-	]);
+	const [{ data: variants, error: variantError }, store, taxSettings, fulfillmentMethods] =
+		await Promise.all([
+			supabase.from('merch_product_variants').select('*').in('id', variantIds),
+			getMerchStoreById(supabase, storeId),
+			getStoreTaxSettings(supabase, storeId),
+			getStoreFulfillmentMethods(supabase, storeId, false)
+		]);
 	if (variantError) return { ok: false, status: 500, error: variantError.message };
 	if (!store?.id) return { ok: false, status: 404, error: 'Merch store not found.' };
 
@@ -1245,7 +1263,8 @@ export async function calculateMerchQuote({
 			variantName: variant.name,
 			sku: variant.sku,
 			optionValues: variant.option_values ?? {},
-			partnerProvider: variant.partner_provider === PRINTFUL_PROVIDER ? PRINTFUL_PROVIDER : 'manual',
+			partnerProvider:
+				variant.partner_provider === PRINTFUL_PROVIDER ? PRINTFUL_PROVIDER : 'manual',
 			partnerVariantRef: variant.partner_variant_ref || '',
 			quantity: cartLine.quantity,
 			unitPriceCents,
@@ -1262,7 +1281,11 @@ export async function calculateMerchQuote({
 	let manualMatchedRule = null;
 	if (manualLines.length) {
 		if (!activeFulfillmentMethods.length) {
-			return { ok: false, status: 400, error: 'No fulfillment methods are available for manual items.' };
+			return {
+				ok: false,
+				status: 400,
+				error: 'No fulfillment methods are available for manual items.'
+			};
 		}
 		manualMethod = manualFulfillmentMethodId
 			? activeFulfillmentMethods.find((method) => method.id === manualFulfillmentMethodId) || null
@@ -1276,8 +1299,16 @@ export async function calculateMerchQuote({
 	}
 
 	const needsShippingAddress = Boolean(printfulLines.length || manualMethod?.requires_address);
-	if (needsShippingAddress && cleanText(address.country, 8) && !isUnitedStatesCountry(address.country)) {
-		return { ok: false, status: 400, error: 'Merch shipping is currently limited to the United States.' };
+	if (
+		needsShippingAddress &&
+		cleanText(address.country, 8) &&
+		!isUnitedStatesCountry(address.country)
+	) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'Merch shipping is currently limited to the United States.'
+		};
 	}
 
 	let printfulShippingOptions = [];
@@ -1830,7 +1861,11 @@ export async function createMerchPaymentIntent({
 			.from('merch_orders')
 			.update({ status: 'failed', payment_status: 'failed', updated_at: new Date().toISOString() })
 			.eq('id', order.id);
-		return { ok: false, status: 502, error: error?.message || 'Unable to create Stripe payment intent.' };
+		return {
+			ok: false,
+			status: 502,
+			error: error?.message || 'Unable to create Stripe payment intent.'
+		};
 	}
 
 	if (!paymentIntent?.id || !paymentIntent?.client_secret) {
@@ -2157,7 +2192,13 @@ async function upsertPrintfulDispatchJobs(
 	supabase,
 	order,
 	items,
-	{ status, externalReference = null, requestPayload = {}, responsePayload = {}, errorMessage = null }
+	{
+		status,
+		externalReference = null,
+		requestPayload = {},
+		responsePayload = {},
+		errorMessage = null
+	}
 ) {
 	const nowIso = new Date().toISOString();
 	for (const item of items) {
@@ -2215,7 +2256,9 @@ async function dispatchPrintfulItems(supabase, order, items) {
 	}
 
 	const printfulItems = items.map((item) => buildPrintfulItemPayload(item));
-	const usesProductSource = printfulItems.some((entry) => cleanText(entry?.source, 24) === 'product');
+	const usesProductSource = printfulItems.some(
+		(entry) => cleanText(entry?.source, 24) === 'product'
+	);
 
 	const requestPayload = {
 		external_id: order.order_number,
@@ -2235,23 +2278,23 @@ async function dispatchPrintfulItems(supabase, order, items) {
 	let errorMessage = '';
 	try {
 		let accessToken = await getValidPrintfulAccessToken(supabase, store);
-			let createOrderResult = await sendPrintfulRequest({
+		let createOrderResult = await sendPrintfulRequest({
+			path: '/v2/orders',
+			method: 'POST',
+			accessToken,
+			storeId: store.printful_store_id,
+			body: requestPayload
+		});
+		if (createOrderResult.status === 401) {
+			accessToken = await getValidPrintfulAccessToken(supabase, store, { forceRefresh: true });
+			createOrderResult = await sendPrintfulRequest({
 				path: '/v2/orders',
 				method: 'POST',
 				accessToken,
 				storeId: store.printful_store_id,
 				body: requestPayload
 			});
-			if (createOrderResult.status === 401) {
-				accessToken = await getValidPrintfulAccessToken(supabase, store, { forceRefresh: true });
-				createOrderResult = await sendPrintfulRequest({
-					path: '/v2/orders',
-					method: 'POST',
-					accessToken,
-					storeId: store.printful_store_id,
-					body: requestPayload
-				});
-			}
+		}
 
 		responsePayload = {
 			create_order: createOrderResult.payload
@@ -2269,24 +2312,24 @@ async function dispatchPrintfulItems(supabase, order, items) {
 			if (!orderId) {
 				errorMessage = 'Printful v2 create order response did not include an order id.';
 			} else {
-					let confirmOrderResult = await sendPrintfulRequest({
+				let confirmOrderResult = await sendPrintfulRequest({
+					path: `/v2/orders/${encodeURIComponent(orderId)}/confirm`,
+					method: 'POST',
+					accessToken,
+					storeId: store.printful_store_id
+				});
+				if (confirmOrderResult.status === 401) {
+					accessToken = await getValidPrintfulAccessToken(supabase, store, {
+						forceRefresh: true
+					});
+					confirmOrderResult = await sendPrintfulRequest({
 						path: `/v2/orders/${encodeURIComponent(orderId)}/confirm`,
 						method: 'POST',
 						accessToken,
 						storeId: store.printful_store_id
 					});
-					if (confirmOrderResult.status === 401) {
-						accessToken = await getValidPrintfulAccessToken(supabase, store, {
-							forceRefresh: true
-						});
-						confirmOrderResult = await sendPrintfulRequest({
-							path: `/v2/orders/${encodeURIComponent(orderId)}/confirm`,
-							method: 'POST',
-							accessToken,
-							storeId: store.printful_store_id
-						});
-					}
-					responsePayload.confirm_order = confirmOrderResult.payload;
+				}
+				responsePayload.confirm_order = confirmOrderResult.payload;
 				if (!confirmOrderResult.ok) {
 					errorMessage = `Printful v2 order confirmation failed (${confirmOrderResult.status})`;
 				} else {
@@ -2481,7 +2524,8 @@ export async function finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetch
 				normalizeEmail(paymentIntent.receipt_email) || normalizeEmail(order.customer_email) || null,
 			status: paid ? 'paid' : failed ? 'failed' : order.status,
 			payment_status: paid ? 'paid' : failed ? 'failed' : order.payment_status,
-			total_cents: Number.isFinite(amountTotal) && amountTotal > 0 ? amountTotal : order.total_cents,
+			total_cents:
+				Number.isFinite(amountTotal) && amountTotal > 0 ? amountTotal : order.total_cents,
 			paid_at: paid ? new Date().toISOString() : order.paid_at,
 			updated_at: new Date().toISOString()
 		})
@@ -2578,13 +2622,14 @@ export async function listMerchOrdersForUser({
 export async function getMerchAdminDashboard(storeSlug = MAIN_STORE_SLUG) {
 	const supabase = await getServiceSupabase();
 	const store = await getMerchStoreBySlug(storeSlug);
-	const [taxSettings, fulfillmentMethods, products, ordersResult, printfulAccount] = await Promise.all([
-		getStoreTaxSettings(supabase, store.id),
-		getStoreFulfillmentMethods(supabase, store.id, true),
-		getMerchProductsWithVariants(supabase, store.id, true),
-		listMerchOrdersForUser({ isAdmin: true, storeSlug }),
-		getMerchPartnerAccountRecord(supabase, store.id, PRINTFUL_PROVIDER)
-	]);
+	const [taxSettings, fulfillmentMethods, products, ordersResult, printfulAccount] =
+		await Promise.all([
+			getStoreTaxSettings(supabase, store.id),
+			getStoreFulfillmentMethods(supabase, store.id, true),
+			getMerchProductsWithVariants(supabase, store.id, true),
+			listMerchOrdersForUser({ isAdmin: true, storeSlug }),
+			getMerchPartnerAccountRecord(supabase, store.id, PRINTFUL_PROVIDER)
+		]);
 
 	let printfulStores = [];
 	if (printfulAccount?.refresh_token) {
@@ -2815,9 +2860,7 @@ export async function createMerchFulfillmentMethod({
 		requires_address: resolvedMethodType === 'shipping' ? true : requiresAddress === true,
 		shipping_speed_label: cleanText(shippingSpeedLabel, 120) || null,
 		shipping_zone: 'US',
-		rate_rule_mode: ['flat', 'quantity', 'subtotal'].includes(rateRuleMode)
-			? rateRuleMode
-			: 'flat'
+		rate_rule_mode: ['flat', 'quantity', 'subtotal'].includes(rateRuleMode) ? rateRuleMode : 'flat'
 	});
 	if (error) throw new Error(error.message);
 }
@@ -2869,10 +2912,7 @@ export async function upsertMerchShippingRule({
 	const methodId = cleanText(fulfillmentMethodId, 64);
 	if (!methodId) throw new Error('Fulfillment method id is required.');
 	const metric = metricType === 'subtotal' ? 'subtotal' : 'quantity';
-	const min = Math.max(
-		0,
-		Math.round(Number(minValue || 0) * (metric === 'subtotal' ? 100 : 1))
-	);
+	const min = Math.max(0, Math.round(Number(minValue || 0) * (metric === 'subtotal' ? 100 : 1)));
 	const max = cleanText(maxValue, 40)
 		? Math.max(min, Math.round(Number(maxValue) * (metric === 'subtotal' ? 100 : 1)))
 		: null;

@@ -27,17 +27,22 @@ export async function POST(event) {
 		return null;
 	});
 	if (canManage === null) return invalid('Unable to verify ride permissions.', 400);
-	if (!canManage) return invalid('You do not have permission to message riders for this ride.', 403);
+	if (!canManage)
+		return invalid('You do not have permission to message riders for this ride.', 403);
 
 	const payload = await request.json().catch(() => null);
 	if (!payload?.occurrenceId || !payload?.subject || !payload?.body) {
 		return invalid('occurrenceId, subject, and body are required.');
 	}
 
-	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: true }).catch(() => null);
+	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: true }).catch(
+		() => null
+	);
 	if (!ride) return invalid('Ride not found or unavailable.', 404);
 
-	const occurrence = ride.occurrences.find((entry) => String(entry.id) === String(payload.occurrenceId));
+	const occurrence = ride.occurrences.find(
+		(entry) => String(entry.id) === String(payload.occurrenceId)
+	);
 	if (!occurrence) return invalid('Ride occurrence not found.', 404);
 
 	const recipients = occurrence.rsvps

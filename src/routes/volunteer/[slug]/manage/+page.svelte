@@ -1569,8 +1569,16 @@
 		mergeTags: VOLUNTEER_MERGE_TAGS
 	});
 
-	async function sendImmediateVolunteerEmail({ subject, body, requireConfirmation, emailId, targetStatuses = ['approved'] }) {
-		const targetVolunteers = volunteers.filter((volunteer) => targetStatuses.includes(volunteer.status));
+	async function sendImmediateVolunteerEmail({
+		subject,
+		body,
+		requireConfirmation,
+		emailId,
+		targetStatuses = ['approved']
+	}) {
+		const targetVolunteers = volunteers.filter((volunteer) =>
+			targetStatuses.includes(volunteer.status)
+		);
 		if (!targetVolunteers.length) {
 			throw new Error('No volunteers matching the selected statuses are available to email.');
 		}
@@ -1743,7 +1751,7 @@
 
 <!-- ── Sticky management header ─────────────────────────────────────────── -->
 <div
-	class="sticky top-0 z-30 border-b border-white/10 bg-surface-950/80 px-4 pb-0 pt-4 shadow-xl backdrop-blur-xl"
+	class="bg-surface-950/80 sticky top-0 z-30 border-b border-white/10 px-4 pt-4 pb-0 shadow-xl backdrop-blur-xl"
 >
 	<!-- Event summary row -->
 	<div class="mx-auto max-w-6xl">
@@ -1757,7 +1765,7 @@
 		/>
 
 		<!-- Tab navigation -->
-		<nav class="-mb-px mt-3 flex gap-0.5" aria-label="Management sections">
+		<nav class="mt-3 -mb-px flex gap-0.5" aria-label="Management sections">
 			{#each sections as section}
 				{@const active = isSectionActive(section.id)}
 				{@const Icon = section.icon}
@@ -1766,7 +1774,7 @@
 					class="flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2.5 text-sm font-medium transition-all
 						{active
 						? 'border-primary-400 text-primary-300'
-						: 'border-transparent text-surface-400 hover:text-surface-200 hover:border-surface-500'}"
+						: 'text-surface-400 hover:text-surface-200 hover:border-surface-500 border-transparent'}"
 					aria-current={active ? 'page' : undefined}
 					onclick={() => setActiveSection(section.id)}
 				>

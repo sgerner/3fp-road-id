@@ -33,7 +33,10 @@ function createCartStore() {
 				const next = [...items];
 				next[existingIdx] = {
 					...next[existingIdx],
-					quantity: Math.min(20, Number(next[existingIdx].quantity || 0) + Number(item.quantity || 1))
+					quantity: Math.min(
+						20,
+						Number(next[existingIdx].quantity || 0) + Number(item.quantity || 1)
+					)
 				};
 				persist(next);
 				return next;

@@ -15,8 +15,7 @@
 			return 'text-surface-700-300 flex shrink-0 items-center px-1 text-sm font-semibold';
 		}
 		const baseClass = 'btn btn-sm min-w-0 max-w-full gap-2 whitespace-nowrap';
-		if (isActive(item))
-			return `${baseClass} preset-filled-primary-500`;
+		if (isActive(item)) return `${baseClass} preset-filled-primary-500`;
 		switch (item?.tone) {
 			case 'secondary':
 				return `${baseClass} preset-outlined-secondary-500`;

@@ -48,7 +48,10 @@ function slugify(value) {
 }
 
 function titleFromFile(filePath, frontmatter) {
-	return safeTrim(frontmatter.title) || path.basename(filePath, path.extname(filePath)).replace(/[-_]+/g, ' ');
+	return (
+		safeTrim(frontmatter.title) ||
+		path.basename(filePath, path.extname(filePath)).replace(/[-_]+/g, ' ')
+	);
 }
 
 function categoryFromFile(filePath) {

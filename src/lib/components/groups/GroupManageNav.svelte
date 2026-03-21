@@ -4,6 +4,8 @@
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
+	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 
 	let { group = null, canManageSocial = false } = $props();
 
@@ -23,12 +25,24 @@
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
 		},
-		{
-			id: 'membership',
-			label: 'Membership',
-			icon: IconIdCard,
-			href: `/groups/${slug}/manage/membership`
-		},
+			{
+				id: 'membership',
+				label: 'Membership',
+				icon: IconIdCard,
+				href: `/groups/${slug}/manage/membership`
+			},
+			{
+				id: 'assets',
+				label: 'Assets',
+				icon: IconFolderOpen,
+				href: `/groups/${slug}/manage/assets`
+			},
+			{
+				id: 'news',
+				label: 'Updates',
+				icon: IconNewspaper,
+				href: `/groups/${slug}/manage/news`
+			},
 		...(canManageSocial
 			? [
 					{
@@ -61,9 +75,7 @@
 		<a
 			href={tab.href}
 			class="manage-tab flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all
-				{active
-					? 'bg-white/15 text-white shadow-sm'
-					: 'text-white/60 hover:bg-white/10 hover:text-white'}"
+				{active ? 'bg-white/15 text-white shadow-sm' : 'text-white/60 hover:bg-white/10 hover:text-white'}"
 			aria-current={active ? 'page' : undefined}
 		>
 			<Icon class="h-4 w-4 flex-shrink-0" />

@@ -3,7 +3,7 @@ title: Advocacy Meetings
 description: Plan and host effective community advocacy meetings with government officials
 published: true
 date: 2025-03-01T03:33:30.590Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-27T04:19:25.178Z
 ---
@@ -13,10 +13,10 @@ dateCreated: 2025-02-27T04:19:25.178Z
 This guide is designed to help community organizations host effective advocacy meetings with city officials (Mayor, City Council members, transportation staff) focused on specific bicycle-related policy changes, infrastructure improvements, or safety issues. Rather than addressing cycling concerns generally, this approach emphasizes focusing each meeting on a single, well-defined policy request or geographic area to maximize impact and clarity.
 
 > Success in bicycle advocacy comes from being focused, prepared, and solution-oriented. Officials respond to specific, actionable requests backed by community support.
-{.is-success}
+> {.is-success}
 
 > The [Discussion Facilitation Guide](/community/facilitation) and [Conflict Resolution Strategies](/community/resolution) are additional helpful resources.
-{.is-info}
+> {.is-info}
 
 # MEETING OVERVIEW
 
@@ -24,18 +24,20 @@ This guide is designed to help community organizations host effective advocacy m
 
 **Setting:** City hall, community center, or relevant neighborhood location connected to your issue
 
-**Participants:** 
+**Participants:**
+
 - 10-30 concerned community members with diverse perspectives
 - 3-5 core organizers/facilitators from your organization
 - 2-7 city officials (council members, mayor, department heads, planners)
 - 1-3 subject matter experts (optional)
 
 > Don't be discouraged by small numbers. A focused group of 15 well-prepared advocates can be more effective than 100 unfocused participants.
-{.is-info}
+> {.is-info}
 
 **Purpose:** To present a specific, actionable bicycle-related policy request to decision-makers, demonstrate community support, address concerns, and secure commitments to concrete next steps.
 
 This meeting is designed to be:
+
 - **Focused:** Addressing one specific policy, project, or geographic area
 - **Solutions-oriented:** Offering clear, implementable proposals
 - **Evidence-based:** Using data and community input to support requests
@@ -47,6 +49,7 @@ This meeting is designed to be:
 Successful advocacy meetings target a specific issue rather than cycling concerns generally. Consider focusing on:
 
 ## Policy Focus Examples
+
 - Adopting a Complete Streets policy
 - Implementing Vision Zero framework
 - Updating street design standards
@@ -54,6 +57,7 @@ Successful advocacy meetings target a specific issue rather than cycling concern
 - Revising development requirements for bicycle facilities
 
 ## Geographic Focus Examples
+
 - Safety improvements for a specific dangerous intersection
 - Creating a protected bike lane on a specific corridor
 - Implementing a neighborhood greenway or slow streets network
@@ -61,13 +65,14 @@ Successful advocacy meetings target a specific issue rather than cycling concern
 - Connecting specific gaps in the existing bicycle network
 
 ## Programmatic Focus Examples
+
 - Funding a bicycle education program in schools
 - Establishing a bike share program
 - Creating a bicycle-friendly business district program
 - Implementing an Open Streets initiative
 
 > Choose issues that affect multiple stakeholders beyond just cyclists to build broader coalitions and demonstrate wider community benefit.
-{.is-warning}
+> {.is-warning}
 
 # DESIRED OUTCOMES
 
@@ -83,6 +88,7 @@ By the end of this meeting, you should achieve the following:
 # PRE-MEETING PLANNING
 
 ## 3-6 Weeks Before
+
 - [ ] Form a core planning team (3-5 people)
 - [ ] Define your specific policy focus and desired outcome
 - [ ] Research the issue thoroughly (current policies, best practices, etc.)
@@ -92,6 +98,7 @@ By the end of this meeting, you should achieve the following:
 - [ ] Develop a one-page issue brief to share with officials in advance
 
 ## 1-2 Weeks Before
+
 - [ ] Confirm meeting details with officials (date, time, location, format)
 - [ ] Create a detailed agenda with time allocations
 - [ ] Prepare your core presentation materials
@@ -102,6 +109,7 @@ By the end of this meeting, you should achieve the following:
 - [ ] Prepare a simple one-page handout summarizing your request
 
 ## 1-6 Days Before
+
 - [ ] Send a reminder to officials with agenda and one-page brief
 - [ ] Confirm final attendance from community members
 - [ ] Rehearse presentations and personal testimonials
@@ -118,22 +126,25 @@ By the end of this meeting, you should achieve the following:
 Be strategic about which officials you invite based on your specific goal:
 
 **For Policy Changes:**
+
 - Council members who sit on relevant committees (transportation, public safety)
 - Department heads with implementation authority (transportation, planning)
 - The mayor (if the issue is a priority for their administration)
 
 **For Infrastructure Projects:**
+
 - City planners or engineers responsible for the area
 - Council members representing the area (if not at large) or relavent committee
 - Department heads who control relevant budgets
 
 **For Enforcement or Behavioral Issues:**
+
 - Police department representatives
 - Transportation or public safety officials
 - Council members focused on public safety
 
 > Always invite officials who both support and may oppose your position. Converting skeptics is as important as mobilizing allies.
-{.is-info}
+> {.is-info}
 
 ## Making the Request
 
@@ -148,6 +159,7 @@ Dear [Official's Name],
 [Organization Name] requests a meeting with you and your staff regarding [specific issue, e.g., "implementing protected bike lanes on Main Street" or "adopting a Complete Streets policy"]. As residents and community stakeholders, we've developed a proposal that addresses [brief description of need and solution].
 
 We'd like to schedule a [60-90] minute meeting on [suggest 2-3 dates/times] to:
+
 - Present our specific proposal
 - Share community perspectives from diverse stakeholders
 - Address questions and concerns
@@ -170,32 +182,38 @@ Thank you for your consideration,
 Your presentation to officials should include these key elements:
 
 **1. The Specific Request (5 minutes)**
+
 - Clearly state what policy, project, or change you're requesting
 - Make it actionable and within the officials' authority
 - Connect it to existing city goals, plans, or values
 
 **2. The Problem Statement (5-7 minutes)**
+
 - Define the specific problem being addressed
 - Use local data, photos, and specific examples
 - Demonstrate who is affected and how (beyond just cyclists)
 
 **3. Community Perspectives (10-15 minutes)**
+
 - Brief personal testimonials from diverse stakeholders
 - Representation from different user groups, neighborhoods, backgrounds
 - Business, school, health, equity, and environmental perspectives
 
 **4. The Proposed Solution (10 minutes)**
+
 - Details of your specific proposal
 - Examples from other cities if applicable
 - Alignment with existing city plans/policies
 - Implementation options and timeline
 
 **5. Addressing Concerns (10 minutes)**
+
 - Proactively address likely objections
 - Present data on common concerns (traffic flow, parking, cost)
 - Show community support and benefits to multiple stakeholders
 
 **6. Clear Next Steps (5 minutes)**
+
 - Specific actions requested from officials
 - Timeline for implementation or next phase
 - How progress will be measured and reported
@@ -205,31 +223,35 @@ Your presentation to officials should include these key elements:
 Effective bicycle advocacy requires strong supporting evidence:
 
 **Safety Data:**
+
 - Crash and injury statistics for the area in question
 - Speed data and vehicle counts
 - Near-miss reports or community safety surveys
 
 **Economic Data:**
 Gathering local economic impact data can be tricky. Any information you can collect on the below (or even generalized national data) can significiantly help your case, especially with decision makers who want to agree, but need something to share with skeptics.
+
 - Cost-benefit analysis compared to other transportation investments
 - Impact of bicycle infrastructure on local businesses
 - Property value changes near bicycle improvements
 - Tourism or economic development potential
 
 **Transportation Data:**
+
 - Current and potential bicycle usage counts
 - Mode share statistics for the area
 - Traffic congestion impacts
 - Parking utilization studies
 
 **Community Support:**
+
 - Petition signatures
 - Survey results from diverse stakeholders
 - Endorsements from businesses, institutions, or community groups
 - Letters of support from unexpected allies
 
 > Present data visually whenever possible—maps showing crash locations, simple before/after photo visualizations, and infographics comparing options are particularly effective.
-{.is-success}
+> {.is-success}
 
 # MEETING LOGISTICS
 
@@ -238,6 +260,7 @@ Gathering local economic impact data can be tricky. Any information you can coll
 The physical setup of your meeting can significantly impact its effectiveness:
 
 **Ideal Room Arrangement:**
+
 - U-shaped or circular seating if possible
 - Community members and officials integrated, not opposing sides
 - Presentation area visible to all
@@ -245,6 +268,7 @@ The physical setup of your meeting can significantly impact its effectiveness:
 - Materials prepared and pre-distributed
 
 **Essential Materials:**
+
 - Sign-in sheet for all attendees
 - Agenda for each participant
 - One-page summary of proposal
@@ -253,12 +277,14 @@ The physical setup of your meeting can significantly impact its effectiveness:
 - Recording method (notes, audio/visual if permitted)
 
 **Technology Needs:**
+
 - Projector and screen if using visual presentation
 - Microphones for larger rooms
 - Computer/tablets for displaying maps or data
 - Recording equipment if appropriate and permitted
 
 **Accessibility Considerations:**
+
 - Childcare options when possible
 - Meeting time that allows working people to attend
 - Translation services if needed for your community
@@ -269,16 +295,16 @@ The physical setup of your meeting can significantly impact its effectiveness:
 
 ### 90-Minute Meeting Format
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-0:10 | **Welcome & Introductions** | Meeting purpose, agenda overview, brief introductions |
-| 0:10-0:15 | **Problem Statement** | Define the specific issue with supporting evidence |
-| 0:15-0:30 | **Community Perspectives** | Brief testimonials from diverse stakeholders |
-| 0:30-0:40 | **Proposed Solution** | Presentation of specific policy/project request |
-| 0:40-0:55 | **Official Response & Questions** | Officials respond and ask clarifying questions |
-| 0:55-1:10 | **Discussion & Addressing Concerns** | Collaborative discussion of potential challenges |
-| 1:10-1:25 | **Next Steps & Commitments** | Specific actions, timeline, and accountability measures |
-| 1:25-1:30 | **Closing & Thanks** | Appreciation, summary, follow-up plan |
+| Time      | Activity                             | Description                                             |
+| --------- | ------------------------------------ | ------------------------------------------------------- |
+| 0:00-0:10 | **Welcome & Introductions**          | Meeting purpose, agenda overview, brief introductions   |
+| 0:10-0:15 | **Problem Statement**                | Define the specific issue with supporting evidence      |
+| 0:15-0:30 | **Community Perspectives**           | Brief testimonials from diverse stakeholders            |
+| 0:30-0:40 | **Proposed Solution**                | Presentation of specific policy/project request         |
+| 0:40-0:55 | **Official Response & Questions**    | Officials respond and ask clarifying questions          |
+| 0:55-1:10 | **Discussion & Addressing Concerns** | Collaborative discussion of potential challenges        |
+| 1:10-1:25 | **Next Steps & Commitments**         | Specific actions, timeline, and accountability measures |
+| 1:25-1:30 | **Closing & Thanks**                 | Appreciation, summary, follow-up plan                   |
 
 **Note:** For smaller meetings or when time is limited, a 60-minute version can be created by reducing each segment by 25-30%.
 
@@ -300,16 +326,19 @@ Let's start with brief introductions around the room."
 Officials may try to broaden the discussion or deflect from your specific request. Use these techniques to maintain focus:
 
 **When an official broadens the topic:**
+
 - Acknowledge the related concern: "That's an important issue..."
 - Redirect to your focus: "...and it connects to our specific request today, which is..."
 - Suggest a separate discussion: "We'd be happy to schedule another conversation about that broader topic, but today we'd like to focus on..."
 
 **When an official seems dismissive:**
+
 - Validate with data: "We understand that concern, and here's what the data shows..."
 - Share personal impact: "I'd like to ask [community member] to share how this issue affects them directly."
 - Connect to city goals: "This proposal would help achieve the city's stated goal of..."
 
 **When an official cites obstacles:**
+
 - Acknowledge constraints: "We understand there are budget/staff/timeline considerations..."
 - Offer phased approach: "We've outlined several implementation options, including a phased approach that could begin with..."
 - Suggest collaborative problem-solving: "Could we work together to identify potential funding sources/implementation strategies?"
@@ -319,6 +348,7 @@ Officials may try to broaden the discussion or deflect from your specific reques
 **Purpose:** End with clear next steps rather than vague support
 
 **Techniques:**
+
 1. Be specific in your asks: "Would you commit to bringing this proposal to the Transportation Committee by the March meeting?"
 2. Get timeframes: "What is a realistic timeline for staff to complete this assessment?"
 3. Establish check-ins: "Could we schedule a follow-up meeting in six weeks to review progress?"
@@ -326,6 +356,7 @@ Officials may try to broaden the discussion or deflect from your specific reques
 5. Offer partnership: "Our organization can provide [specific resource or support] to help move this forward."
 
 **Sample Commitment Requests:**
+
 - "Will you introduce this policy at the next council meeting?"
 - "Can your department complete a safety study of this intersection by next quarter?"
 - "Would you commit to including this project in next year's capital budget?"
@@ -336,30 +367,35 @@ Officials may try to broaden the discussion or deflect from your specific reques
 ## Common Challenges and Responses
 
 **Challenge: Officials Don't Show Up**
+
 - Document the absence and proceed with those who did attend
 - Send a follow-up with meeting notes and a renewed request
 - Use social media strategically (without alienating officials)
 - Consider a public records request for relevant documents
 
 **Challenge: Officials Arrive Unprepared**
+
 - Provide a brief, clear summary of your pre-meeting materials
 - Focus on your most essential points
 - Offer to reschedule a follow-up with more preparation time
 - Proceed with information-sharing rather than decision-making
 
 **Challenge: Topic Constantly Shifts**
+
 - Politely but firmly redirect: "To address your point about [tangential issue], we'd like to focus today on [specific request]"
 - Use visual aids to keep the focus on your specific topic
 - Have your facilitator actively manage the discussion
 - Acknowledge broader issues for future meetings
 
 **Challenge: Technical Objections Dominate**
+
 - Bring subject matter experts to address technical concerns
 - Ask for written technical concerns to address after the meeting
 - Focus on the policy principle rather than technical details
 - Suggest a technical working group as a next step
 
 **Challenge: No Clear Commitments Made**
+
 - Ask direct yes/no questions that require clear answers
 - Restate vague commitments as specific actions
 - Propose a written follow-up documenting what was agreed to
@@ -368,6 +404,7 @@ Officials may try to broaden the discussion or deflect from your specific reques
 # POST-MEETING ACTIONS
 
 ## Immediate Follow-up (Within 48 Hours)
+
 - [ ] Send thank-you emails to officials who attended
 - [ ] Distribute meeting notes to all participants
 - [ ] Document any commitments made by officials
@@ -376,6 +413,7 @@ Officials may try to broaden the discussion or deflect from your specific reques
 - [ ] Follow up on any information promised during the meeting
 
 ## Within Two Weeks
+
 - [ ] Send a formal letter restating your request and any commitments
 - [ ] Begin working on any community-side next steps promised
 - [ ] Schedule check-in calls with official staff
@@ -384,6 +422,7 @@ Officials may try to broaden the discussion or deflect from your specific reques
 - [ ] Thank community members who participated
 
 ## Ongoing Accountability
+
 - [ ] Track progress against committed timelines
 - [ ] Schedule regular check-ins with official staff
 - [ ] Prepare for relevant public meetings (council, committees)
@@ -408,6 +447,7 @@ During our discussion, we covered:
 
 **Commitments Made**
 We want to confirm the next steps agreed upon:
+
 1. Your office will [specific commitment] by [date]
 2. [Organization] will provide [any follow-up promised] by [date]
 3. A follow-up meeting will be scheduled for [timeframe]
@@ -430,6 +470,7 @@ Sincerely,
 Effective advocacy continues between official meetings:
 
 **Communication Strategies:**
+
 - Regular (but not excessive) check-in emails with staff
 - Brief updates at public comment periods of relevant meetings
 - Newsletter updates to your membership
@@ -437,6 +478,7 @@ Effective advocacy continues between official meetings:
 - Letters to the editor or op-eds at key decision points
 
 **Coalition Building:**
+
 - Expand support to non-traditional allies
 - Gather additional endorsements from businesses/organizations
 - Hold informational events for potential supporters
@@ -444,6 +486,7 @@ Effective advocacy continues between official meetings:
 - Develop relationships with neighborhood associations
 
 **Documentation:**
+
 - Track all commitments and timelines
 - Gather additional supporting data
 - Document conditions with photos, videos, or community mapping
@@ -451,6 +494,7 @@ Effective advocacy continues between official meetings:
 - Monitor implementation of similar projects elsewhere
 
 **Presence at Related Meetings:**
+
 - Attend budget hearings
 - Participate in transportation plan updates
 - Monitor capital improvement planning meetings
@@ -463,20 +507,21 @@ If progress stalls or commitments aren't kept, a follow-up meeting may be necess
 
 ## 60-Minute Follow-Up Format
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-0:05 | **Welcome & Purpose** | Brief reminder of previous meeting and purpose today |
-| 0:05-0:15 | **Progress Review** | Review of commitments made and status update |
-| 0:15-0:25 | **Addressing Obstacles** | Discussion of challenges encountered |
-| 0:25-0:40 | **Modified Approach** | Presentation of adjusted proposal if needed |
-| 0:40-0:55 | **Renewed Commitments** | Clear articulation of next steps and timeline |
-| 0:55-1:00 | **Closing & Thanks** | Appreciation and documentation plan |
+| Time      | Activity                 | Description                                          |
+| --------- | ------------------------ | ---------------------------------------------------- |
+| 0:00-0:05 | **Welcome & Purpose**    | Brief reminder of previous meeting and purpose today |
+| 0:05-0:15 | **Progress Review**      | Review of commitments made and status update         |
+| 0:15-0:25 | **Addressing Obstacles** | Discussion of challenges encountered                 |
+| 0:25-0:40 | **Modified Approach**    | Presentation of adjusted proposal if needed          |
+| 0:40-0:55 | **Renewed Commitments**  | Clear articulation of next steps and timeline        |
+| 0:55-1:00 | **Closing & Thanks**     | Appreciation and documentation plan                  |
 
 # TEMPLATES & RESOURCES
 
 ## One-Page Issue Brief Template
+
 > To Do: Draft completed example letter(s) and link to word doc or Google Docs
-{.is-danger}
+> {.is-danger}
 
 **[CLEAR TITLE OF REQUEST]**
 _E.g., "Main Street Protected Bike Lane Proposal" or "Complete Streets Policy Adoption"_
@@ -486,49 +531,54 @@ _1-2 sentence specific request to officials_
 
 **THE PROBLEM:**
 _3-4 bullet points with key statistics or examples_
-* [Specific safety data point]
-* [Specific usage/demand data point]
-* [Specific impact on community]
-* [Connection to broader city goals]
+
+- [Specific safety data point]
+- [Specific usage/demand data point]
+- [Specific impact on community]
+- [Connection to broader city goals]
 
 **THE SOLUTION:**
 _3-4 bullet points describing your proposal_
-* [Key element of solution]
-* [Implementation approach]
-* [Timeline consideration]
-* [Cost consideration or funding source]
+
+- [Key element of solution]
+- [Implementation approach]
+- [Timeline consideration]
+- [Cost consideration or funding source]
 
 **COMMUNITY SUPPORT:**
 _Brief list of supporting organizations, petitions, surveys_
-* [Number of petition signatures]
-* [Key organizations/businesses]
-* [Survey results if available]
+
+- [Number of petition signatures]
+- [Key organizations/businesses]
+- [Survey results if available]
 
 **BENEFITS:**
 _4-5 bullet points highlighting benefits beyond cycling_
-* [Safety benefit]
-* [Economic benefit]
-* [Health/environmental benefit]
-* [Equity/accessibility benefit]
-* [Alignment with city plans/goals]
+
+- [Safety benefit]
+- [Economic benefit]
+- [Health/environmental benefit]
+- [Equity/accessibility benefit]
+- [Alignment with city plans/goals]
 
 **CONTACT:**
 [Name, Organization, Phone, Email]
 
 ## Sign-in Sheet Template
+
 > To Do: Create word doc or Google Doc with link for easy printing / editing
-{.is-danger}
+> {.is-danger}
 
 **[Meeting Title] - [Date]**
 
 _Your information helps us follow up with updates on this issue. We will not share your information outside our organization without permission._
 
 | Name | Email | Phone | Address/Neighborhood | I can help with: (circle) Testimony / Data Collection / Outreach / Other |
-|------|-------|-------|----------------------|-----------------------------------------------------------------------|
-|      |       |       |                      |                                                                       |
-|      |       |       |                      |                                                                       |
-|      |       |       |                      |                                                                       |
-|      |       |       |                      |                                                                       |
+| ---- | ----- | ----- | -------------------- | ------------------------------------------------------------------------ |
+|      |       |       |                      |                                                                          |
+|      |       |       |                      |                                                                          |
+|      |       |       |                      |                                                                          |
+|      |       |       |                      |                                                                          |
 
 # FINAL THOUGHTS
 

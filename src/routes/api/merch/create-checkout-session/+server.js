@@ -31,7 +31,10 @@ export const POST = async ({ request, url, cookies }) => {
 			customerUserId
 		});
 		if (!result?.ok) {
-			return json({ error: result?.error || 'Unable to create checkout session.' }, { status: result?.status || 400 });
+			return json(
+				{ error: result?.error || 'Unable to create checkout session.' },
+				{ status: result?.status || 400 }
+			);
 		}
 		return json({ ok: true, url: result.checkoutUrl, orderNumber: result.orderNumber });
 	} catch (error) {

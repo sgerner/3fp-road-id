@@ -309,7 +309,10 @@
 											<!-- Status chip -->
 											<div class="flex items-center gap-2">
 												<span class="{chip.cls} flex items-center gap-1.5 text-xs font-medium">
-													<svelte:component this={chip.icon} class="size-3.5" />
+													{#if chip.icon}
+														{@const ChipIcon = chip.icon}
+														<ChipIcon class="size-3.5" />
+													{/if}
 													{chip.label}
 												</span>
 											</div>
@@ -484,7 +487,10 @@
 										</p>
 									</div>
 									<span class="{chip.cls} flex shrink-0 items-center gap-1.5 text-xs">
-										<svelte:component this={chip.icon} class="size-3" />
+										{#if chip.icon}
+											{@const ChipIcon = chip.icon}
+											<ChipIcon class="size-3" />
+										{/if}
 										{chip.label}
 									</span>
 								</li>

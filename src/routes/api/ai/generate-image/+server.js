@@ -1,6 +1,12 @@
 import path from 'node:path';
 import { json } from '@sveltejs/kit';
-import { getImageStylePreset } from '$lib/ai/imageStyles';
+import {
+	BIKE_VIBE_STYLE_ID,
+	getImageStylePreset,
+	STATE_MASCOT_STYLE_ID
+} from '$lib/ai/imageStyles';
+import { getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
+import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
@@ -119,8 +125,30 @@ function buildTargetPrompt(target, context = {}) {
 	].join('\n');
 }
 
-function buildFinalPrompt({ target, context, prompt, stylePrompt }) {
+function buildFinalPrompt({ target, context, prompt, stylePrompt, styleId, styleOptions }) {
 	const targetPrompt = buildTargetPrompt(target, context);
+	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
+	const selectedStateName = selectedStateCode ? getUsStateName(selectedStateCode) : '';
+	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
+	const selectedBikeVibe = selectedBikeVibeId ? getBikeVibeById(selectedBikeVibeId) : null;
+	const stateDirective =
+		styleId === STATE_MASCOT_STYLE_ID && selectedStateCode
+			? `
+State-specific direction:
+- The selected state/territory is ${selectedStateName} (${selectedStateCode}).
+- Make the mascot and surrounding icons clearly specific to this place.
+- Include recognizable nature, landmarks, and local culture cues for this location.
+- Keep the mascot original and fictional (no existing mascots or logos).`
+			: '';
+	const bikeDirective =
+		styleId === BIKE_VIBE_STYLE_ID && selectedBikeVibe
+			? `
+Bike vibe direction:
+- The selected bike vibe is ${selectedBikeVibe.label}.
+- Render the bike with design cues matching: ${selectedBikeVibe.promptCue}.
+- Make the bike itself the clear hero, and align the environment with the same vibe.`
+			: '';
+
 	return `${stylePrompt}
 
 Target brief:
@@ -128,11 +156,13 @@ ${targetPrompt}
 
 Optional user direction:
 ${prompt || 'No additional steering provided.'}
+${stateDirective}
+${bikeDirective}
 
 Output requirements:
 - Single polished illustration suitable for a wide 16:9 cover image unless another aspect ratio is requested.
 - Keep the scene readable at thumbnail size.
-- If using lettering, keep it minimal, bold, and stylized rather than dense or detailed.
+- Keep text minimal. Avoid paragraphs, avoid dense copy, and use at most 1 short phrase if lettering appears.
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 
@@ -239,13 +269,31 @@ export async function POST({ request, cookies }) {
 		? payload.aspectRatio
 		: '16:9';
 	const stylePreset = getImageStylePreset(payload?.styleId);
+	const styleOptions =
+		payload?.styleOptions && typeof payload.styleOptions === 'object' ? payload.styleOptions : {};
 	const prompt = sanitizePrompt(payload?.prompt, 800);
 	const context = payload?.context && typeof payload.context === 'object' ? payload.context : {};
+	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
+	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
+	if (stylePreset.id === STATE_MASCOT_STYLE_ID && !selectedStateCode) {
+		return json(
+			{ error: 'State selection is required for the selected image style.' },
+			{ status: 400 }
+		);
+	}
+	if (stylePreset.id === BIKE_VIBE_STYLE_ID && !selectedBikeVibeId) {
+		return json(
+			{ error: 'Bike type/vibe selection is required for the selected image style.' },
+			{ status: 400 }
+		);
+	}
 	const finalPrompt = buildFinalPrompt({
 		target,
 		context,
 		prompt,
-		stylePrompt: stylePreset.prompt
+		stylePrompt: stylePreset.prompt,
+		styleId: stylePreset.id,
+		styleOptions
 	});
 
 	try {

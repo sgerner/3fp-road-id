@@ -10,6 +10,12 @@ export interface SendEmailRequestBody {
 	html?: string;
 	replyTo?: string;
 	tags?: SesEmailTag[];
+	branding?: {
+		category?: string;
+		recipientReason?: string;
+		actionUrl?: string;
+		actionLabel?: string;
+	};
 }
 
 export interface SendEmailResponse {

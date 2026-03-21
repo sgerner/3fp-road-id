@@ -49,9 +49,12 @@ export async function PUT({ params, request, cookies }) {
 	const payload = normalizeRidePayload(rawPayload);
 
 	if (payload.activity.host_group_id) {
-		const { data: canManageGroup, error: manageGroupError } = await supabase.rpc('can_manage_group', {
-			target_group_id: payload.activity.host_group_id
-		});
+		const { data: canManageGroup, error: manageGroupError } = await supabase.rpc(
+			'can_manage_group',
+			{
+				target_group_id: payload.activity.host_group_id
+			}
+		);
 		if (manageGroupError) {
 			console.error('Unable to verify ride host organization permissions', manageGroupError);
 			return invalid(manageGroupError.message, 400);
@@ -142,9 +145,7 @@ export async function PUT({ params, request, cookies }) {
 			interval_count: payload.recurrence.interval_count,
 			by_weekdays: payload.recurrence.by_weekdays,
 			by_set_positions:
-				payload.recurrence.frequency === 'monthly'
-					? payload.recurrence.by_set_positions
-					: null,
+				payload.recurrence.frequency === 'monthly' ? payload.recurrence.by_set_positions : null,
 			starts_on: (cutoffStart || updatedActivity.starts_at).slice(0, 10),
 			until_on: payload.recurrence.until_on
 		};

@@ -58,6 +58,16 @@ function resolveSubjectLine(subjectLine) {
 	return subjectLine ? String(subjectLine).trim() : '';
 }
 
+function resolveRecipientReason(recipientReason) {
+	const label = recipientReason ? String(recipientReason).trim() : '';
+	return label || `You're receiving this email from ${BRAND.name}.`;
+}
+
+function resolveActionLabel(actionLabel) {
+	const label = actionLabel ? String(actionLabel).trim() : '';
+	return label || 'Open 3 Feet Please';
+}
+
 export function wrapHtmlWithBranding(bodyHtml, options = {}) {
 	const bodyContent = typeof bodyHtml === 'string' ? bodyHtml.trim() : '';
 	if (!bodyContent) return '';
@@ -66,6 +76,8 @@ export function wrapHtmlWithBranding(bodyHtml, options = {}) {
 	const portalUrl = resolvePortalUrl({ origin, portalUrl: options.portalUrl });
 	const category = resolveCategory(options.category);
 	const subjectLine = resolveSubjectLine(options.subjectLine);
+	const recipientReason = resolveRecipientReason(options.recipientReason);
+	const actionLabel = resolveActionLabel(options.actionLabel);
 	const headerSubtitle = subjectLine ? `${category} · ${subjectLine}` : category;
 	const documentTitle = options.documentTitle
 		? String(options.documentTitle).trim()
@@ -74,7 +86,7 @@ export function wrapHtmlWithBranding(bodyHtml, options = {}) {
 			: `${BRAND.name} — ${category}`;
 
 	const portalLink = portalUrl
-		? `<div style="margin-top:8px;"><a href="${escapeAttribute(portalUrl)}" style="color:${BRAND.accent};text-decoration:none;font-weight:600;">Visit the volunteer portal</a></div>`
+		? `<div style="margin-top:8px;"><a href="${escapeAttribute(portalUrl)}" style="color:${BRAND.accent};text-decoration:none;font-weight:600;">${escapeHtml(actionLabel)}</a></div>`
 		: '';
 
 	return (
@@ -105,7 +117,7 @@ export function wrapHtmlWithBranding(bodyHtml, options = {}) {
 		`</tr>` +
 		`<tr>` +
 		`<td style="padding:20px 24px;text-align:center;background:${BRAND.background};color:${BRAND.muted};font-size:12px;line-height:1.5;">` +
-		`You're receiving this email because you volunteered at ${escapeHtml(DEFAULT_BRAND_ORIGIN)}.` +
+		escapeHtml(recipientReason) +
 		portalLink +
 		`</td>` +
 		`</tr>` +
@@ -125,14 +137,16 @@ export function wrapTextWithBranding(textBody, options = {}) {
 	const portalUrl = resolvePortalUrl({ origin, portalUrl: options.portalUrl });
 	const category = resolveCategory(options.category);
 	const subjectLine = resolveSubjectLine(options.subjectLine);
+	const recipientReason = resolveRecipientReason(options.recipientReason);
+	const actionLabel = resolveActionLabel(options.actionLabel);
 	const heading = `${BRAND.name} ${category}${subjectLine ? ` — ${subjectLine}` : ''}`;
 	const divider = '='.repeat(Math.max(heading.length, 3));
 
 	const lines = [heading, divider, '', bodyContent];
 	if (portalUrl) {
-		lines.push('', `Volunteer portal: ${portalUrl}`);
+		lines.push('', `${actionLabel}: ${portalUrl}`);
 	}
-	lines.push('', `Thanks for supporting ${BRAND.name}!`);
+	lines.push('', recipientReason);
 
 	return lines
 		.join('\n')

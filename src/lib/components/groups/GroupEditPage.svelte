@@ -654,8 +654,36 @@
 
 	function collectSocialLinksFromInputs() {
 		const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
+		const parseInstagramPostUrls = (raw) => {
+			const lines = String(raw || '')
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter(Boolean);
+			const out = [];
+			const seen = new Set();
+			for (const line of lines) {
+				let parsed = null;
+				try {
+					parsed = new URL(line);
+				} catch {
+					continue;
+				}
+				if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) continue;
+				const parts = parsed.pathname.split('/').filter(Boolean);
+				if (parts.length < 2) continue;
+				const kind = parts[0];
+				const shortcode = parts[1];
+				if (!['p', 'reel', 'tv'].includes(kind) || !shortcode) continue;
+				const canonical = `https://www.instagram.com/${kind}/${shortcode}/`;
+				if (seen.has(canonical)) continue;
+				seen.add(canonical);
+				out.push(canonical);
+			}
+			return out.slice(0, 3);
+		};
 		const buildUrl = (v, p) =>
 			!v ? null : /^https?:\/\//i.test(v) ? v : `${p}${v.replace(/^@/, '')}`;
+		const instagramPosts = parseInstagramPostUrls(getVal('social_instagram_posts'));
 		const socials = {
 			instagram: buildUrl(getVal('social_instagram'), 'https://www.instagram.com/'),
 			facebook: buildUrl(getVal('social_facebook'), 'https://www.facebook.com/'),
@@ -705,7 +733,8 @@
 				if (!v) return null;
 				if (/^https?:\/\//i.test(v)) return v;
 				return `https://www.linkedin.com/company/${v}`;
-			})()
+			})(),
+			instagram_posts: instagramPosts.length ? instagramPosts : null
 		};
 		return Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
 	}
@@ -739,6 +768,7 @@
 			name: formData.get('name')?.toString().trim() || data.group?.name || '',
 			tagline: formData.get('tagline')?.toString().trim() || '',
 			description: formData.get('description')?.toString().trim() || '',
+			state_region: formData.get('state_region')?.toString().trim() || '',
 			location: [
 				formData.get('specific_meeting_point_address'),
 				formData.get('city'),
@@ -793,7 +823,10 @@
 				'public_contact_email',
 				pageData.group?.public_contact_email || ''
 			),
-			public_phone_number: getText('public_phone_number', pageData.group?.public_phone_number || ''),
+			public_phone_number: getText(
+				'public_phone_number',
+				pageData.group?.public_phone_number || ''
+			),
 			preferred_contact_method_instructions: getText(
 				'preferred_contact_method_instructions',
 				pageData.group?.preferred_contact_method_instructions || ''
@@ -828,7 +861,10 @@
 		};
 		const categories = {
 			group_types: selectedCategoryNames('group_type_ids', pageData.group_types || []),
-			audience_focuses: selectedCategoryNames('audience_focus_ids', pageData.audience_focuses || []),
+			audience_focuses: selectedCategoryNames(
+				'audience_focus_ids',
+				pageData.audience_focuses || []
+			),
 			riding_disciplines: selectedCategoryNames(
 				'riding_discipline_ids',
 				pageData.riding_disciplines || []
@@ -861,6 +897,13 @@
 		for (const [key, inputId] of Object.entries(map)) {
 			const el = document.getElementById(inputId);
 			if (el) el.value = links?.[key] || '';
+		}
+		const postsArea = document.getElementById('social_instagram_posts');
+		if (postsArea) {
+			const urls = Array.isArray(links?.instagram_posts)
+				? links.instagram_posts.map((value) => String(value || '').trim()).filter(Boolean)
+				: [];
+			postsArea.value = urls.join('\n');
 		}
 		socialsLocal = { ...(links || {}) };
 	}
@@ -932,12 +975,18 @@
 		const applyCategoryNames = (names, inputName, catalog) => {
 			const normalized = new Set(
 				(Array.isArray(names) ? names : [])
-					.map((name) => String(name || '').trim().toLowerCase())
+					.map((name) =>
+						String(name || '')
+							.trim()
+							.toLowerCase()
+					)
 					.filter(Boolean)
 			);
 			if (!normalized.size) return;
 			for (const row of catalog || []) {
-				const rowName = String(row?.name || '').trim().toLowerCase();
+				const rowName = String(row?.name || '')
+					.trim()
+					.toLowerCase();
 				if (!rowName || !normalized.has(rowName)) continue;
 				const box = formEl?.querySelector?.(`input[name="${inputName}"][value="${row.id}"]`);
 				if (box && !box.checked) {
@@ -1379,7 +1428,9 @@
 					>
 						← Back to group
 					</a>
-					<h1 class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl">
+					<h1
+						class="group-headline text-4xl font-extrabold tracking-tight text-balance lg:text-5xl"
+					>
 						Edit <span class="text-secondary-700-300">{data.group?.name}</span>
 					</h1>
 					<p class="max-w-3xl text-base leading-relaxed opacity-80">
@@ -1830,6 +1881,23 @@
 					</div>
 				{/each}
 			</div>
+			<div class="mt-4 flex flex-col gap-1">
+				<label class="label" for="social_instagram_posts">Instagram Post Embeds (optional)</label>
+				<textarea
+					id="social_instagram_posts"
+					name="social_instagram_posts"
+					class="textarea preset-tonal-surface"
+					rows="4"
+					placeholder="Up to 3 Instagram post URLs, one per line (https://www.instagram.com/p/...)"
+					oninput={onSocialsChange}
+					>{Array.isArray(data.group?.social_links?.instagram_posts)
+						? data.group.social_links.instagram_posts.join('\n')
+						: ''}</textarea
+				>
+				<p class="text-surface-600-400 text-xs">
+					Used on the public group page when an Instagram account is not connected.
+				</p>
+			</div>
 		</section>
 
 		<!-- ── Activity details ── -->
@@ -2266,7 +2334,7 @@
 		animation: orb-drift 20s ease-in-out infinite alternate;
 	}
 
-		.group-headline {
+	.group-headline {
 		color: var(--color-primary-50);
 		text-align: left;
 	}

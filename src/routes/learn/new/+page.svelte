@@ -8,12 +8,8 @@
 
 	const values = $derived(form?.values ?? data?.initialValues ?? {});
 	let formEl = $state();
-	let coverImageUrl = $state('');
+	let coverImageUrl = $derived(values.coverImageUrl || '');
 	let editorApi = $state(null);
-
-	$effect(() => {
-		coverImageUrl = values.coverImageUrl || '';
-	});
 
 	function buildImageContext() {
 		const formData = new FormData(formEl);

@@ -356,11 +356,7 @@ export async function listGroupSocialCommentRepliesByCommentIds(
 	{ limit = 400 } = {}
 ) {
 	const ids = Array.from(
-		new Set(
-			(commentIds || [])
-				.map((value) => cleanText(value, 120))
-				.filter(Boolean)
-		)
+		new Set((commentIds || []).map((value) => cleanText(value, 120)).filter(Boolean))
 	);
 	if (!ids.length) return [];
 	const safeLimit = Math.max(1, Math.min(1000, Number.parseInt(String(limit), 10) || 400));

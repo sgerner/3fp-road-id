@@ -3,7 +3,7 @@ title: Ride Leadership
 description: Learn how to build and train a strong Ride Leadership Team for safe and enjoyable community bike rideswith detailed responsibilities and training resources.
 published: true
 date: 2025-02-18T06:47:33.953Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-18T06:30:37.856Z
 ---
@@ -128,4 +128,3 @@ Before the ride, ensure your team is ready with the following:
 - Plan for emergencies, including mechanical failures or medical incidents and ensure all leaders know the procedure
 
 By assembling and training a strong Ride Leadership Team, you create a ride environment that is safe, enjoyable, and welcoming for all participants.
-

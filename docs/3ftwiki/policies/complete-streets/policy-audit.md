@@ -3,31 +3,31 @@ title: Policy Audit Template
 description: Audit your locality's existing policies, plans, procedures, and codes for Complete Streets principals
 published: true
 date: 2025-03-02T21:00:54.057Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-02T20:54:53.426Z
 ---
 
 # Instructions
 
-This template helps you audit your locality's existing policies, plans, procedures, and codes to understand how they *currently* address (or fail to address) Complete Streets principles.  Since it's unlikely these documents will explicitly mention "Complete Streets," we will focus on identifying *related concepts* and assessing how well they align with the goals of Complete Streets.
+This template helps you audit your locality's existing policies, plans, procedures, and codes to understand how they _currently_ address (or fail to address) Complete Streets principles. Since it's unlikely these documents will explicitly mention "Complete Streets," we will focus on identifying _related concepts_ and assessing how well they align with the goals of Complete Streets.
 
-For each document type listed, identify and review the relevant documents in your locality.  For each document, answer the questions in each section. Be as specific as possible and provide evidence or examples from the document to support your answers. Use the "Relevance Assessment" guidance to determine the score for each section and document overall.
+For each document type listed, identify and review the relevant documents in your locality. For each document, answer the questions in each section. Be as specific as possible and provide evidence or examples from the document to support your answers. Use the "Relevance Assessment" guidance to determine the score for each section and document overall.
 
 > This is only a guide of common local planning documents and one approach to assessment. You will need to adapt this to your specific situation.
-{.is-warning}
+> {.is-warning}
 
 > Make sure to publish your results so others can build on your work!
-{.is-success}
+> {.is-success}
 
 # Relevance Assessment Guidance (Scoring 0-3)
 
 When assessing relevance to Complete Streets, consider the following, even if the term "Complete Streets" is absent:
 
-*   **Strong Relevance (3 points):** The document *explicitly* addresses concepts strongly aligned with Complete Streets principles (e.g., multi-modal transportation, pedestrian and bicycle safety, accessibility for all users).  The language is clear and policies are supportive of these concepts. Even if "Complete Streets" isn't used, the *intent* and *mechanisms* are clearly present.
-*   **Moderate Relevance (2 points):** The document *implicitly* touches on concepts related to Complete Streets.  It might mention pedestrians, bicycles, or accessibility, but in a limited or general way.  The connection to Complete Streets principles is present but needs to be inferred or further developed. Policies may be partially supportive or neutral.
-*   **Weak Relevance (1 point):** The document *mentions in passing* some concepts vaguely related to Complete Streets (e.g., "transportation," "safety" in a very general sense). The connection is weak, and the document largely focuses on other priorities.  Policies are likely neutral or weakly supportive.
-*   **No Relevance (0 points):** The document *does not address* concepts related to Complete Streets at all.  It focuses solely on vehicle traffic or other topics unrelated to multi-modal transportation, pedestrian/bicycle needs, or accessibility. Policies are likely indifferent or potentially contradictory to Complete Streets principles.
+- **Strong Relevance (3 points):** The document _explicitly_ addresses concepts strongly aligned with Complete Streets principles (e.g., multi-modal transportation, pedestrian and bicycle safety, accessibility for all users). The language is clear and policies are supportive of these concepts. Even if "Complete Streets" isn't used, the _intent_ and _mechanisms_ are clearly present.
+- **Moderate Relevance (2 points):** The document _implicitly_ touches on concepts related to Complete Streets. It might mention pedestrians, bicycles, or accessibility, but in a limited or general way. The connection to Complete Streets principles is present but needs to be inferred or further developed. Policies may be partially supportive or neutral.
+- **Weak Relevance (1 point):** The document _mentions in passing_ some concepts vaguely related to Complete Streets (e.g., "transportation," "safety" in a very general sense). The connection is weak, and the document largely focuses on other priorities. Policies are likely neutral or weakly supportive.
+- **No Relevance (0 points):** The document _does not address_ concepts related to Complete Streets at all. It focuses solely on vehicle traffic or other topics unrelated to multi-modal transportation, pedestrian/bicycle needs, or accessibility. Policies are likely indifferent or potentially contradictory to Complete Streets principles.
 
 # Document Types
 
@@ -41,29 +41,29 @@ For each General/Comprehensive Plan document reviewed:
 
 **Date of Adoption/Last Revision:** \[Enter Date Here]
 
-**Relevant Sections (Keywords to look for):**  "Transportation," "Circulation," "Mobility," "Land Use," "Community Character," "Goals," "Vision," "Elements," "Infrastructure," "Public Realm," "Quality of Life," "Sustainability"
+**Relevant Sections (Keywords to look for):** "Transportation," "Circulation," "Mobility," "Land Use," "Community Character," "Goals," "Vision," "Elements," "Infrastructure," "Public Realm," "Quality of Life," "Sustainability"
 
 ---
 
-1. **Vision and Goals:** Does the plan articulate a vision or goals related to transportation that go beyond just vehicle movement?  Does it mention creating a "multi-modal," "connected," or "balanced" transportation system?
-    - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
-    - **Relevance Score (0-3):** \[Enter Score Here]
+1. **Vision and Goals:** Does the plan articulate a vision or goals related to transportation that go beyond just vehicle movement? Does it mention creating a "multi-modal," "connected," or "balanced" transportation system?
+   - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
+   - **Relevance Score (0-3):** \[Enter Score Here]
 
 2. **Pedestrian and Bicycle Focus:** Does the plan specifically address the needs of pedestrians and bicyclists? Are there policies or objectives related to improving pedestrian and bicycle infrastructure, safety, or connectivity?
-    - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
-    - **Relevance Score (0-3):** \[Enter Score Here]
+   - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
+   - **Relevance Score (0-3):** \[Enter Score Here]
 
 3. **Accessibility:** Does the plan address accessibility for people with disabilities in the transportation system and public realm? Are there policies related to ADA compliance or universal design?
-    - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
-    - **Relevance Score (0-3):** \[Enter Score Here]
+   - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
+   - **Relevance Score (0-3):** \[Enter Score Here]
 
 4. **Safety:** Does the plan discuss transportation safety in a comprehensive way, including safety for pedestrians and bicyclists? Are there goals or policies to reduce crashes and improve safety for all users?
-    - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
-    - **Relevance Score (0-3):** \[Enter Score Here]
+   - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
+   - **Relevance Score (0-3):** \[Enter Score Here]
 
 5. **Equity and Underserved Communities:** Does the plan address transportation equity or the needs of underserved communities? Does it acknowledge disparities in transportation access or investment and propose solutions?
-    - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
-    - **Relevance Score (0-3):** \[Enter Score Here]
+   - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
+   - **Relevance Score (0-3):** \[Enter Score Here]
 
 ---
 
@@ -130,7 +130,7 @@ Land Use in particular may already be outlined in your General or Comprehensive 
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
 
-3. **Bicycle Parking and Amenities:** Does the zoning code require or encourage bicycle parking (short-term and long-term) in commercial, residential, and employment areas?
+3.  **Bicycle Parking and Amenities:** Does the zoning code require or encourage bicycle parking (short-term and long-term) in commercial, residential, and employment areas?
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
 
@@ -162,7 +162,7 @@ For each Street Design Standards document reviewed:
 
 ---
 
-1.  **Multi-modal Design Integration:** Do the design standards explicitly address multi-modal design principles? Do they provide guidance and specifications for designing streets for pedestrians, bicyclists, transit users, and people with disabilities, *in addition to* vehicles?
+1.  **Multi-modal Design Integration:** Do the design standards explicitly address multi-modal design principles? Do they provide guidance and specifications for designing streets for pedestrians, bicyclists, transit users, and people with disabilities, _in addition to_ vehicles?
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
 
@@ -206,7 +206,7 @@ For each CIP/Budget document reviewed:
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
 
-2.  **Balance of Investment:**  Is there a balance in transportation infrastructure investment across different modes? Or is the vast majority of funding directed towards vehicle-focused projects (road widening, vehicle capacity expansion)?
+2.  **Balance of Investment:** Is there a balance in transportation infrastructure investment across different modes? Or is the vast majority of funding directed towards vehicle-focused projects (road widening, vehicle capacity expansion)?
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
 
@@ -221,7 +221,7 @@ For each CIP/Budget document reviewed:
 5.  **Community Input in CIP Process:** Is there a process for community input or public participation in the development of the CIP and the selection of transportation projects?
     - **Evidence/Examples:** \[Provide specific quotes or references from the plan.]
     - **Relevance Score (0-3):** \[Enter Score Here]
-    
+
 ---
 
 **Overall Relevance Score for Capital Improvement Plan (CIP) / Budget Documents:** \[Average of scores for Questions 1-5]
@@ -236,17 +236,17 @@ For example: Pedestrian Master Plan, Bicycle Master Plan, Sustainability Plan, A
 
 1.  **Summary Table of Document Relevance Scores:**
 
-    | Document Type                          | Relevant Document Names (Example)                                      | Overall Relevance Score (Average) | Summary of Relevance (Brief)                                                                                                    |
-    | :------------------------------------- | :----------------------------------------------------------------------- | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-    | General/Comprehensive Plan             | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
-    | Transportation Master Plan/Element   | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
-    | Zoning Ordinance/Code                  | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
-    | Street Design Standards/Eng. Manuals | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
-    | Capital Improvement Plan (CIP)/Budget  | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
-    | Other (Specify: \[Document Type])      | \[Document Name 1], \[Document Name 2]...                                | \[Average Score]                | \[Brief Summary - Strengths/Weaknesses]                                                                                       |
+    | Document Type                         | Relevant Document Names (Example)         | Overall Relevance Score (Average) | Summary of Relevance (Brief)            |
+    | :------------------------------------ | :---------------------------------------- | :-------------------------------- | :-------------------------------------- |
+    | General/Comprehensive Plan            | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
+    | Transportation Master Plan/Element    | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
+    | Zoning Ordinance/Code                 | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
+    | Street Design Standards/Eng. Manuals  | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
+    | Capital Improvement Plan (CIP)/Budget | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
+    | Other (Specify: \[Document Type])     | \[Document Name 1], \[Document Name 2]... | \[Average Score]                  | \[Brief Summary - Strengths/Weaknesses] |
 
-2.  **Overall Strengths Across Local Policies (Related to Complete Streets):** \[Summarize the common strengths you identified across all document types that are supportive of Complete Streets principles.  What existing policies or practices can you build upon?]
+2.  **Overall Strengths Across Local Policies (Related to Complete Streets):** \[Summarize the common strengths you identified across all document types that are supportive of Complete Streets principles. What existing policies or practices can you build upon?]
 
-3.  **Overall Gaps and Weaknesses Across Local Policies (Related to Complete Streets):** \[Summarize the major gaps and weaknesses you identified across all document types in relation to Complete Streets principles.  Where are the most significant areas for improvement and policy change needed?]
+3.  **Overall Gaps and Weaknesses Across Local Policies (Related to Complete Streets):** \[Summarize the major gaps and weaknesses you identified across all document types in relation to Complete Streets principles. Where are the most significant areas for improvement and policy change needed?]
 
 4.  **Key Policy Recommendations for Complete Streets Advocacy:** \[Based on your comprehensive audit, list your top 3-5 most important policy recommendations that a new Complete Streets policy should address to fill the identified gaps and weaknesses in your locality's existing framework. Be specific and actionable.]

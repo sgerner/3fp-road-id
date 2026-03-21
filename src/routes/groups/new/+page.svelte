@@ -781,7 +781,7 @@
 		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
 		animation: orb-drift 20s ease-in-out infinite alternate;
 	}
-		.group-headline {
+	.group-headline {
 		color: var(--color-primary-50);
 		text-align: left;
 	}

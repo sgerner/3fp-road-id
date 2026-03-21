@@ -1,9 +1,9 @@
 ---
 title: Distributing and Publicizing Your Questionnaire
-description: 
+description:
 published: true
 date: 2025-07-04T01:20:44.913Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-07-04T01:20:44.913Z
 ---
@@ -12,16 +12,16 @@ An excellent questionnaire is only effective if candidates respond and voters se
 
 # Step 1: Distribution
 
-Your goal is to make it as easy as possible for campaigns to receive and complete your questionnaire. 
+Your goal is to make it as easy as possible for campaigns to receive and complete your questionnaire.
 
 1.  **Identify the Right Contact:** Don't just send your questionnaire to a generic `info@` address if you can avoid it. Use your **Candidate Tracking Sheet** to find the best contact, which could be a dedicated campaign manager or the candidate themselves. A personal email is always better.
 
 2.  **Create a Professional Outreach Email:** Your initial email should be clear, concise, and professional. It should include:
-    *   A brief introduction to your organization.
-    *   The purpose of the questionnaire.
-    *   A clear deadline for responses (give them at least 1-2 weeks).
-    *   The questionnaire itself, preferably as an attached, editable document (like a `.docx`) or a link to a Google Form for their convenience.
-    *   A clear statement that you will be publishing the responses verbatim on your website.
+    - A brief introduction to your organization.
+    - The purpose of the questionnaire.
+    - A clear deadline for responses (give them at least 1-2 weeks).
+    - The questionnaire itself, preferably as an attached, editable document (like a `.docx`) or a link to a Google Form for their convenience.
+    - A clear statement that you will be publishing the responses verbatim on your website.
 
 3.  **Send to All Candidates Simultaneously:** To ensure fairness, send the questionnaire to all candidates for a given office at the same time.
 
@@ -29,9 +29,9 @@ Your goal is to make it as easy as possible for campaigns to receive and complet
 
 Campaigns are incredibly busy. A lack of response is often due to a crowded inbox, not a lack of interest. Polite, persistent follow-up is key.
 
-*   **Mid-Point Reminder:** A few days before the deadline, send a brief, friendly reminder email to any candidates who have not yet responded.
-*   **Deadline Day Reminder:** Send a final reminder on the day of the deadline.
-*   **Consider a Short Extension:** If a major candidate hasn't responded, it may be worth offering a brief, 24- or 48-hour extension to everyone to maximize participation. Fairness is paramount, so any extension must be offered to all candidates. For many local elections, you should assume you will have to offer an extension, so build the extra time into your planning.
+- **Mid-Point Reminder:** A few days before the deadline, send a brief, friendly reminder email to any candidates who have not yet responded.
+- **Deadline Day Reminder:** Send a final reminder on the day of the deadline.
+- **Consider a Short Extension:** If a major candidate hasn't responded, it may be worth offering a brief, 24- or 48-hour extension to everyone to maximize participation. Fairness is paramount, so any extension must be offered to all candidates. For many local elections, you should assume you will have to offer an extension, so build the extra time into your planning.
 
 # Step 3: Publication
 
@@ -69,8 +69,10 @@ Once the deadline has passed, it's time to share the results with the public. Yo
 > [Your Title]
 > [Email Address]
 > [Phone Number]
+>
 > ###
-{.is-info}
+>
+> {.is-info}
 
 ## Press Release Template: Responses Published
 
@@ -94,9 +96,12 @@ Once the deadline has passed, it's time to share the results with the public. Yo
 > [Your Title]
 > [Email Address]
 > [Phone Number]
+>
 > ###
-{.is-info}
+>
+> {.is-info}
 
 ## Related Articles
-*   [How to Write an Effective Candidate Questionnaire](./candidate-questionnaire)
-*   [Tracking the Election: Identifying Candidates and Key Dates](./tracking-election)
+
+- [How to Write an Effective Candidate Questionnaire](./candidate-questionnaire)
+- [Tracking the Election: Identifying Candidates and Key Dates](./tracking-election)

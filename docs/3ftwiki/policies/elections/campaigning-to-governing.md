@@ -3,7 +3,7 @@ title: Post-Election Advocacy
 description: From Campaigning to Governing
 published: true
 date: 2025-07-07T04:03:51.193Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-07-07T04:03:51.193Z
 ---
@@ -12,16 +12,16 @@ The election is over, and the winners have been declared. Your work, however, is
 
 # The Transition
 
-*   **Say Thank You:** Send a thank-you message to all candidates who participated in your events or filled out your questionnaire. Acknowledge the effort it takes to run for office, regardless of the outcome.
-*   **Congratulate the Winners:** Publicly and privately congratulate the newly elected (or re-elected) officials. This is a simple, professional courtesy that helps keep the lines of communication open.
-*   **Internal Debrief:** Hold a meeting with your team, board, and key volunteers to discuss the outcomes of your election activities. Use the metrics you developed in [Setting Goals and Measuring Success](./setting-goals) to guide your conversation.
+- **Say Thank You:** Send a thank-you message to all candidates who participated in your events or filled out your questionnaire. Acknowledge the effort it takes to run for office, regardless of the outcome.
+- **Congratulate the Winners:** Publicly and privately congratulate the newly elected (or re-elected) officials. This is a simple, professional courtesy that helps keep the lines of communication open.
+- **Internal Debrief:** Hold a meeting with your team, board, and key volunteers to discuss the outcomes of your election activities. Use the metrics you developed in [Setting Goals and Measuring Success](./setting-goals) to guide your conversation.
 
 # Building on Your Momentum
 
-*   **Request Meetings:** Don't wait for newly elected officials to take office. Request a meeting during the transition period to introduce your organization (or re-introduce it) and briefly discuss your key priorities. See our guide on how to have an effective [/outreach/official-meeting](/outreach/official-meeting).
-*   **Present Your Agenda:** Use the responses from your candidate questionnaire and the conversations you had during the campaign to create a clear, concise policy agenda. Frame it as a "First 100 Days" or "First Year" set of goals. You can use some of the templates from our [/outreach/advocacy-letters](/outreach/advocacy-letters) guide.
-*   **Hold Them Accountable:** The questionnaire responses are a public record. When a relevant issue comes before the council, gently remind officials of their stated positions. For example, "During the campaign, you expressed support for X. Now you have a great opportunity to put that support into action."
-*   **Be a Resource:** Position your organization as the go-to expert on your issues. Offer to provide data, connect them with national experts, or organize site visits to see successful infrastructure in other cities.
+- **Request Meetings:** Don't wait for newly elected officials to take office. Request a meeting during the transition period to introduce your organization (or re-introduce it) and briefly discuss your key priorities. See our guide on how to have an effective [/outreach/official-meeting](/outreach/official-meeting).
+- **Present Your Agenda:** Use the responses from your candidate questionnaire and the conversations you had during the campaign to create a clear, concise policy agenda. Frame it as a "First 100 Days" or "First Year" set of goals. You can use some of the templates from our [/outreach/advocacy-letters](/outreach/advocacy-letters) guide.
+- **Hold Them Accountable:** The questionnaire responses are a public record. When a relevant issue comes before the council, gently remind officials of their stated positions. For example, "During the campaign, you expressed support for X. Now you have a great opportunity to put that support into action."
+- **Be a Resource:** Position your organization as the go-to expert on your issues. Offer to provide data, connect them with national experts, or organize site visits to see successful infrastructure in other cities.
 
 The election was not the end goal; it was a strategy to achieve your long-term vision. By thoughtfully transitioning from campaigning to governing, you can turn your election-season efforts into tangible policy wins.
 
@@ -44,7 +44,7 @@ The election was not the end goal; it was a strategy to achieve your long-term v
 > [Your Name]
 > [Your Title]
 > [Your Organization's Name]
-{.is-info}
+> {.is-info}
 
 ## "Congratulations & Meeting Request" Email Template (For winners)
 
@@ -67,4 +67,4 @@ The election was not the end goal; it was a strategy to achieve your long-term v
 > [Your Name]
 > [Your Title]
 > [Your Organization's Name]
-{.is-info}
+> {.is-info}

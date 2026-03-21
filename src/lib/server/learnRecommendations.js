@@ -35,7 +35,10 @@ function normalizeWeights(raw = {}) {
 		diversity_weight: Number(raw.diversity_weight ?? DEFAULT_ARTICLE_WEIGHTS.diversity_weight)
 	};
 	const clamped = Object.fromEntries(
-		Object.entries(merged).map(([key, value]) => [key, clamp(Number.isFinite(value) ? value : 0, 0.01, 1)])
+		Object.entries(merged).map(([key, value]) => [
+			key,
+			clamp(Number.isFinite(value) ? value : 0, 0.01, 1)
+		])
 	);
 	const total = Object.values(clamped).reduce((sum, value) => sum + value, 0) || 1;
 	return Object.fromEntries(
@@ -162,7 +165,11 @@ function buildFeedbackSignals(feedbackEvents = []) {
 			likedArticleIds.delete(id);
 			continue;
 		}
-		if (type === 'save' || type === 'click' || (type === 'dwell' && Number(event.dwell_seconds || 0) >= 20)) {
+		if (
+			type === 'save' ||
+			type === 'click' ||
+			(type === 'dwell' && Number(event.dwell_seconds || 0) >= 20)
+		) {
 			if (!hiddenArticleIds.has(id)) likedArticleIds.add(id);
 		}
 	}
@@ -240,7 +247,9 @@ export async function buildHybridArticleCandidates({
 		return { intent, candidates: [] };
 	}
 
-	const articles = (articleRowsResponse.data || []).map(normalizeArticle).filter((article) => article.id);
+	const articles = (articleRowsResponse.data || [])
+		.map(normalizeArticle)
+		.filter((article) => article.id);
 	const feedbackSignals = buildFeedbackSignals(feedbackEvents);
 	const interestTokens = [
 		...(profileContext?.interests || []).flatMap((value) => tokenizeLearnText(value)),
@@ -261,7 +270,11 @@ export async function buildHybridArticleCandidates({
 			0.4 * scoreLexicalMatch(interestTokens, text) +
 			(feedbackSignals.likedArticleIds.has(articleId) ? 0.6 : 0);
 		const location =
-			0.7 * scoreLexicalMatch(locationTokens, `${article.geo_city} ${article.geo_state} ${article.geo_scope}`) +
+			0.7 *
+				scoreLexicalMatch(
+					locationTokens,
+					`${article.geo_city} ${article.geo_state} ${article.geo_scope}`
+				) +
 			(article.geo_scope === 'global' ? 0.12 : 0.0);
 
 		const metadataBoost =

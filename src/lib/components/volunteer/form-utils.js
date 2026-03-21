@@ -13,10 +13,10 @@ function toIso(value) {
 	if (value === null || value === undefined || value === '') return null;
 	try {
 		const date = new Date(String(value));
-		if (Number.isNaN(date.getTime())) return String(value);
+		if (Number.isNaN(date.getTime())) return null;
 		return date.toISOString();
 	} catch {
-		return String(value);
+		return null;
 	}
 }
 function numberString(value) {
@@ -112,6 +112,13 @@ export function buildShiftPayload(patch, opportunityId) {
 	if (opportunityId !== undefined) payload.opportunity_id = opportunityId;
 	if ('startsAt' in patch) payload.starts_at = toIso(patch.startsAt);
 	if ('endsAt' in patch) payload.ends_at = toIso(patch.endsAt);
+	if (payload.starts_at && payload.ends_at) {
+		const startsAtMs = Date.parse(payload.starts_at);
+		const endsAtMs = Date.parse(payload.ends_at);
+		if (Number.isFinite(startsAtMs) && Number.isFinite(endsAtMs) && endsAtMs <= startsAtMs) {
+			payload.ends_at = new Date(startsAtMs + 60 * 60 * 1000).toISOString();
+		}
+	}
 	if ('timezone' in patch) payload.timezone = stringOrNull(patch.timezone);
 	if ('capacity' in patch) payload.capacity = numberOrNull(patch.capacity);
 	if ('locationName' in patch) payload.location_name = stringOrNull(patch.locationName);

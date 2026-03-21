@@ -16,7 +16,8 @@ function slugifySegment(value) {
 
 function buildObjectPath(userId, fileName) {
 	const extension = path.extname(fileName || '').toLowerCase();
-	const baseName = slugifySegment(path.basename(fileName || 'ride-image', extension)) || 'ride-image';
+	const baseName =
+		slugifySegment(path.basename(fileName || 'ride-image', extension)) || 'ride-image';
 	return `${userId}/${Date.now()}-${baseName}${extension}`;
 }
 

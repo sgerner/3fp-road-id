@@ -8,11 +8,7 @@ const PRINTFUL_STATE_TTL_MS = 10 * 60 * 1000;
 const PRINTFUL_REQUEST_TIMEOUT_MS = 30_000;
 const PRINTFUL_SYNC_REQUEST_TIMEOUT_MS = 90_000;
 const PRINTFUL_SYNC_REQUEST_ATTEMPTS = 2;
-const DEFAULT_PRINTFUL_OAUTH_SCOPES = [
-	'orders',
-	'sync_products/read',
-	'product_templates/read'
-];
+const DEFAULT_PRINTFUL_OAUTH_SCOPES = ['orders', 'sync_products/read', 'product_templates/read'];
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
@@ -62,8 +58,7 @@ function getRequestedPrintfulScopes() {
 
 function getStateSecret() {
 	return (
-		cleanText(env.PRINTFUL_OAUTH_STATE_SECRET, 400) ||
-		cleanText(env.PRINTFUL_CLIENT_SECRET, 400)
+		cleanText(env.PRINTFUL_OAUTH_STATE_SECRET, 400) || cleanText(env.PRINTFUL_CLIENT_SECRET, 400)
 	);
 }
 
@@ -448,7 +443,8 @@ export async function listPrintfulCatalogVariantImagesV2({
 	storeId,
 	catalogVariantId
 }) {
-	const cleanCatalogVariantId = normalizePositiveInt(catalogVariantId) || cleanText(catalogVariantId, 120);
+	const cleanCatalogVariantId =
+		normalizePositiveInt(catalogVariantId) || cleanText(catalogVariantId, 120);
 	if (!cleanCatalogVariantId) return [];
 
 	const payload = await printfulFetchV2(
@@ -472,7 +468,12 @@ export async function listPrintfulCatalogVariantImagesV2({
 		.filter((image) => image.image_url);
 }
 
-export async function calculatePrintfulShippingRatesV2({ accessToken, storeId, recipient, orderItems }) {
+export async function calculatePrintfulShippingRatesV2({
+	accessToken,
+	storeId,
+	recipient,
+	orderItems
+}) {
 	const payload = await printfulFetchV2('/shipping-rates', {
 		accessToken,
 		method: 'POST',

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('PROJECT_URL') || '';
@@ -60,7 +61,8 @@ function resolveNextHref(payload: any) {
 		cleanText(payload?.result?.paging?.next, 4000);
 	if (!href) return '';
 	if (href.startsWith(PRINTFUL_API_BASE_URL)) return href.slice(PRINTFUL_API_BASE_URL.length);
-	if (href.startsWith('https://api.printful.com')) return href.slice('https://api.printful.com'.length);
+	if (href.startsWith('https://api.printful.com'))
+		return href.slice('https://api.printful.com'.length);
 	return href;
 }
 
@@ -105,7 +107,10 @@ function extractPrintfulProductImageUrl(product: any) {
 function collectPrintfulOptionValues(variant: any) {
 	const optionValues: Record<string, string> = {};
 	const explicitColor = cleanText(
-		variant?.color || variant?.color_name || variant?.catalog_color || variant?.external_data?.color,
+		variant?.color ||
+			variant?.color_name ||
+			variant?.catalog_color ||
+			variant?.external_data?.color,
 		80
 	);
 	const explicitSize = cleanText(
@@ -130,10 +135,20 @@ function collectPrintfulOptionValues(variant: any) {
 }
 
 function extractPrintfulVariantName(variant: any) {
-	return cleanText(variant?.name || variant?.display_name || variant?.title || variant?.variant_name, 160) || 'Variant';
+	return (
+		cleanText(
+			variant?.name || variant?.display_name || variant?.title || variant?.variant_name,
+			160
+		) || 'Variant'
+	);
 }
 
-function buildPrintfulPartnerVariantRef({ productId, variantId, catalogVariantId, placements }: {
+function buildPrintfulPartnerVariantRef({
+	productId,
+	variantId,
+	catalogVariantId,
+	placements
+}: {
 	productId: string;
 	variantId: string;
 	catalogVariantId?: string;
@@ -166,7 +181,9 @@ async function refreshPrintfulAccessToken(refreshToken: string) {
 	});
 	const payload = await response.json().catch(() => ({}));
 	if (!response.ok) {
-		throw new Error(payload?.error?.message || payload?.message || 'Failed to refresh Printful token.');
+		throw new Error(
+			payload?.error?.message || payload?.message || 'Failed to refresh Printful token.'
+		);
 	}
 	const expiresAt = Number(payload?.expires_at);
 	return {
@@ -177,12 +194,22 @@ async function refreshPrintfulAccessToken(refreshToken: string) {
 			.split(/[\s,]+/)
 			.map((entry) => cleanText(entry, 120))
 			.filter(Boolean),
-		access_token_expires_at: Number.isFinite(expiresAt) ? new Date(expiresAt * 1000).toISOString() : null,
+		access_token_expires_at: Number.isFinite(expiresAt)
+			? new Date(expiresAt * 1000).toISOString()
+			: null,
 		refresh_token_expires_at: null
 	};
 }
 
-async function printfulRequest(accessToken: string, path: string, { method = 'GET', body, storeId }: { method?: string; body?: unknown; storeId?: number | null } = {}) {
+async function printfulRequest(
+	accessToken: string,
+	path: string,
+	{
+		method = 'GET',
+		body,
+		storeId
+	}: { method?: string; body?: unknown; storeId?: number | null } = {}
+) {
 	const headers: Record<string, string> = {
 		Authorization: `Bearer ${accessToken}`,
 		Accept: 'application/json'
@@ -196,7 +223,9 @@ async function printfulRequest(accessToken: string, path: string, { method = 'GE
 	});
 	const payload = await response.json().catch(() => ({}));
 	if (!response.ok) {
-		throw new Error(payload?.error?.message || payload?.message || `Printful request failed (${response.status})`);
+		throw new Error(
+			payload?.error?.message || payload?.message || `Printful request failed (${response.status})`
+		);
 	}
 	return payload;
 }
@@ -226,9 +255,15 @@ async function listPrintfulProductsWithVariants(accessToken: string, storeId: nu
 	return result;
 }
 
-async function syncStore(supabase: ReturnType<typeof createClient>, store: any, partnerAccount: any) {
+async function syncStore(
+	supabase: ReturnType<typeof createClient>,
+	store: any,
+	partnerAccount: any
+) {
 	const syncedAt = new Date().toISOString();
-	const refreshed = await refreshPrintfulAccessToken(cleanText(partnerAccount?.refresh_token, 4000));
+	const refreshed = await refreshPrintfulAccessToken(
+		cleanText(partnerAccount?.refresh_token, 4000)
+	);
 	const { error: accountError } = await supabase
 		.from('merch_partner_accounts')
 		.update({
@@ -246,7 +281,10 @@ async function syncStore(supabase: ReturnType<typeof createClient>, store: any, 
 
 	const printfulStoreId = normalizePositiveInt(store?.printful_store_id);
 	if (!printfulStoreId) throw new Error('Printful store id is missing.');
-	const printfulProducts = await listPrintfulProductsWithVariants(refreshed.access_token, printfulStoreId);
+	const printfulProducts = await listPrintfulProductsWithVariants(
+		refreshed.access_token,
+		printfulStoreId
+	);
 
 	const seenProductIds = new Set<string>();
 	const seenVariantIdsByProductId = new Map<string, Set<string>>();
@@ -294,7 +332,10 @@ async function syncStore(supabase: ReturnType<typeof createClient>, store: any, 
 			const priceCents = parseMoneyStringToCents(variant?.retail_price ?? variant?.price, 0);
 			if (priceCents <= 0) continue;
 			seenVariantIds.add(externalVariantId);
-			const catalogVariantId = cleanText(variant?.catalog_variant_id || variant?.catalogVariantId, 120);
+			const catalogVariantId = cleanText(
+				variant?.catalog_variant_id || variant?.catalogVariantId,
+				120
+			);
 
 			const { error: variantError } = await supabase.from('merch_product_variants').upsert(
 				{
@@ -389,10 +430,13 @@ Deno.serve(async (req) => {
 		});
 	}
 	if (!PRINTFUL_CLIENT_ID || !PRINTFUL_CLIENT_SECRET) {
-		return new Response(JSON.stringify({ error: 'Printful OAuth credentials are not configured.' }), {
-			status: 500,
-			headers: { 'Content-Type': 'application/json' }
-		});
+		return new Response(
+			JSON.stringify({ error: 'Printful OAuth credentials are not configured.' }),
+			{
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
 	}
 
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -444,7 +488,11 @@ Deno.serve(async (req) => {
 	for (const store of stores) {
 		const partnerAccount = accountMap.get(store.id);
 		if (!partnerAccount?.refresh_token) {
-			failed.push({ storeId: store.id, slug: store.slug, error: 'Missing Printful refresh token.' });
+			failed.push({
+				storeId: store.id,
+				slug: store.slug,
+				error: 'Missing Printful refresh token.'
+			});
 			continue;
 		}
 		try {

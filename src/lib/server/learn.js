@@ -1,5 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
 	extractMarkdownHeadings,
@@ -62,7 +65,10 @@ export async function ensureUniqueLearnSlug(supabase, source, excludeId = null) 
 	let candidate = base;
 
 	while (attempt < 50) {
-		let query = supabase.from('learn_articles').select('id', { count: 'exact', head: true }).eq('slug', candidate);
+		let query = supabase
+			.from('learn_articles')
+			.select('id', { count: 'exact', head: true })
+			.eq('slug', candidate);
 		if (excludeId) query = query.neq('id', excludeId);
 		const { count, error: queryError } = await query;
 		if (queryError) throw queryError;
@@ -186,7 +192,10 @@ export async function listLearnAssetsForArticle(supabase, articleId) {
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
 }
 
-export async function listLearnRecentAssets(supabase, { uploadedByUserId = null, limit = 18 } = {}) {
+export async function listLearnRecentAssets(
+	supabase,
+	{ uploadedByUserId = null, limit = 18 } = {}
+) {
 	let query = supabase
 		.from('learn_assets')
 		.select('*')
@@ -202,7 +211,10 @@ export async function listLearnRecentAssets(supabase, { uploadedByUserId = null,
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
 }
 
-export async function buildLearnArticleView(article, { revisions = [], comments = [], assets = [], profiles = new Map() } = {}) {
+export async function buildLearnArticleView(
+	article,
+	{ revisions = [], comments = [], assets = [], profiles = new Map() } = {}
+) {
 	const headings = extractMarkdownHeadings(article?.body_markdown || '');
 	const { introMarkdown, sections } = splitMarkdownIntoSections(article?.body_markdown || '');
 	const introHtml = introMarkdown ? await renderLearnMarkdown(introMarkdown, { headings }) : '';

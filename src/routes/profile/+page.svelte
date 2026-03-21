@@ -483,7 +483,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
-						.profile-headline {
+	.profile-headline {
 		color: var(--color-primary-50);
 	}
 

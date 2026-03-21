@@ -65,16 +65,16 @@
 			isImage: mimeType.startsWith('image/'),
 			isPdf: mimeType === 'application/pdf',
 			isCsv: mimeType === 'text/csv' || fileName.toLowerCase().endsWith('.csv'),
-			isAttachedToArticle: Boolean(articleId && normalizedArticleId && normalizedArticleId === articleId)
+			isAttachedToArticle: Boolean(
+				articleId && normalizedArticleId && normalizedArticleId === articleId
+			)
 		};
 	}
 
 	let displayItems = $derived(results.map(normalizeAsset));
 	let previewAsset = $derived(displayItems.find((item) => item.id === previewAssetId) ?? null);
 	let visibleFilters = $derived(
-		articleId
-			? [...FILTERS, { value: 'article', label: 'This article' }]
-			: FILTERS
+		articleId ? [...FILTERS, { value: 'article', label: 'This article' }] : FILTERS
 	);
 	let filteredItems = $derived.by(() => {
 		const term = search.trim().toLowerCase();
@@ -186,7 +186,9 @@
 	}
 </script>
 
-<section class="space-y-4 rounded-[1.75rem] border border-surface-500/20 bg-surface-900/55 p-5 shadow-lg">
+<section
+	class="border-surface-500/20 bg-surface-900/55 space-y-4 rounded-[1.75rem] border p-5 shadow-lg"
+>
 	<div class="space-y-1">
 		<p class="label">{heading}</p>
 		<p class="text-sm opacity-70">
@@ -205,7 +207,12 @@
 	/>
 
 	<div class="flex flex-wrap items-center gap-3">
-		<button class="btn preset-filled-secondary-500 gap-2" type="button" disabled={loading} onclick={uploadFiles}>
+		<button
+			class="btn preset-filled-secondary-500 gap-2"
+			type="button"
+			disabled={loading}
+			onclick={uploadFiles}
+		>
 			<IconUpload class="h-4 w-4" />
 			{loading ? 'Uploading…' : 'Upload files'}
 		</button>
@@ -215,8 +222,10 @@
 	</div>
 
 	{#if copiedNotice}
-		<div class="flex items-start gap-3 rounded-2xl border border-success-500/25 bg-success-500/10 p-3 text-sm">
-			<IconCheck class="mt-0.5 h-4 w-4 text-success-500" />
+		<div
+			class="border-success-500/25 bg-success-500/10 flex items-start gap-3 rounded-2xl border p-3 text-sm"
+		>
+			<IconCheck class="text-success-500 mt-0.5 h-4 w-4" />
 			<p>{copiedNotice}</p>
 		</div>
 	{/if}
@@ -228,7 +237,9 @@
 	{#if displayItems.length}
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<label class="relative block md:max-w-md md:flex-1">
-				<IconSearch class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+				<IconSearch
+					class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
+				/>
 				<input
 					class="input pl-10"
 					type="search"
@@ -244,7 +255,9 @@
 				{#each visibleFilters as filter}
 					<button
 						type="button"
-						class="btn btn-sm {activeFilter === filter.value ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+						class="btn btn-sm {activeFilter === filter.value
+							? 'preset-filled-primary-500'
+							: 'preset-tonal-surface'}"
 						onclick={() => {
 							activeFilter = filter.value;
 							currentPage = 1;
@@ -259,16 +272,23 @@
 		{#if filteredItems.length}
 			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each pagedItems as item}
-					<div class="overflow-hidden rounded-[1.5rem] border border-surface-500/20 bg-surface-950/55 shadow-md">
+					<div
+						class="border-surface-500/20 bg-surface-950/55 overflow-hidden rounded-[1.5rem] border shadow-md"
+					>
 						<button
 							type="button"
-							class="asset-preview flex h-48 w-full items-center justify-center overflow-hidden bg-surface-900/80"
+							class="asset-preview bg-surface-900/80 flex h-48 w-full items-center justify-center overflow-hidden"
 							onclick={() => {
 								previewAssetId = item.id;
 							}}
 						>
 							{#if item.isImage}
-								<img class="h-full w-full object-cover" src={item.url} alt={item.fileName} loading="lazy" />
+								<img
+									class="h-full w-full object-cover"
+									src={item.url}
+									alt={item.fileName}
+									loading="lazy"
+								/>
 							{:else}
 								{@const PreviewIcon = getPreviewIcon(item)}
 								<div class="flex flex-col items-center gap-3 px-6 text-center">
@@ -314,7 +334,11 @@
 							</div>
 
 							<div class="flex flex-wrap gap-2">
-								<button class="btn btn-sm preset-filled-primary-500 gap-2" type="button" onclick={() => insertSnippet(item)}>
+								<button
+									class="btn btn-sm preset-filled-primary-500 gap-2"
+									type="button"
+									onclick={() => insertSnippet(item)}
+								>
 									{#if insertedAssetId === item.id}
 										<IconCheck class="h-4 w-4" />
 										Inserted
@@ -323,7 +347,11 @@
 										Insert
 									{/if}
 								</button>
-								<button class="btn btn-sm preset-tonal-surface gap-2" type="button" onclick={() => copySnippet(item)}>
+								<button
+									class="btn btn-sm preset-tonal-surface gap-2"
+									type="button"
+									onclick={() => copySnippet(item)}
+								>
 									{#if copiedAssetId === item.id}
 										<IconCheck class="h-4 w-4" />
 										Copied
@@ -380,7 +408,9 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="rounded-2xl border border-dashed border-surface-500/30 bg-surface-950/35 p-6 text-sm opacity-70">
+			<div
+				class="border-surface-500/30 bg-surface-950/35 rounded-2xl border border-dashed p-6 text-sm opacity-70"
+			>
 				No assets match that search yet.
 			</div>
 		{/if}
@@ -388,14 +418,16 @@
 </section>
 
 {#if previewAsset}
-	<div class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+	<div
+		class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+	>
 		<div
-			class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border border-surface-500/20 bg-surface-950 shadow-2xl"
+			class="border-surface-500/20 bg-surface-950 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border shadow-2xl"
 			role="dialog"
 			aria-modal="true"
 			aria-label={`Preview ${previewAsset.fileName}`}
 		>
-			<div class="flex items-start justify-between gap-4 border-b border-surface-500/15 p-5">
+			<div class="border-surface-500/15 flex items-start justify-between gap-4 border-b p-5">
 				<div class="space-y-1">
 					<p class="text-lg font-semibold">{previewAsset.fileName}</p>
 					<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs opacity-65">
@@ -428,17 +460,20 @@
 					/>
 				{:else if previewAsset.isPdf}
 					<iframe
-						class="h-[60vh] w-full rounded-[1.5rem] border border-surface-500/20 bg-surface-900"
+						class="border-surface-500/20 bg-surface-900 h-[60vh] w-full rounded-[1.5rem] border"
 						src={previewAsset.url}
 						title={previewAsset.fileName}
 					></iframe>
 				{:else}
 					{@const PreviewIcon = getPreviewIcon(previewAsset)}
-					<div class="flex h-[32vh] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-surface-500/25 bg-surface-900/45 px-6 text-center">
+					<div
+						class="border-surface-500/25 bg-surface-900/45 flex h-[32vh] flex-col items-center justify-center rounded-[1.5rem] border border-dashed px-6 text-center"
+					>
 						<PreviewIcon class="h-14 w-14 opacity-65" />
 						<p class="mt-4 text-base font-semibold">Preview not embedded for this file type</p>
 						<p class="mt-2 max-w-xl text-sm opacity-70">
-							Use the actions below to open the file directly or copy a markdown link into the article.
+							Use the actions below to open the file directly or copy a markdown link into the
+							article.
 						</p>
 					</div>
 				{/if}
@@ -447,10 +482,11 @@
 					<p class="mt-4 text-xs opacity-55">{previewAsset.sourcePath}</p>
 				{/if}
 
-				<textarea class="textarea mt-4 min-h-24 text-xs" readonly value={buildSnippet(previewAsset)}></textarea>
+				<textarea class="textarea mt-4 min-h-24 text-xs" readonly value={buildSnippet(previewAsset)}
+				></textarea>
 			</div>
 
-			<div class="flex flex-wrap gap-2 border-t border-surface-500/15 p-5">
+			<div class="border-surface-500/15 flex flex-wrap gap-2 border-t p-5">
 				<button
 					class="btn preset-filled-primary-500 gap-2"
 					type="button"
@@ -459,11 +495,20 @@
 					<IconFileImage class="h-4 w-4" />
 					Insert into article
 				</button>
-				<button class="btn preset-tonal-surface gap-2" type="button" onclick={() => copySnippet(previewAsset)}>
+				<button
+					class="btn preset-tonal-surface gap-2"
+					type="button"
+					onclick={() => copySnippet(previewAsset)}
+				>
 					<IconCopy class="h-4 w-4" />
 					Copy markdown
 				</button>
-				<a class="btn preset-tonal-surface gap-2" href={previewAsset.url} target="_blank" rel="noreferrer">
+				<a
+					class="btn preset-tonal-surface gap-2"
+					href={previewAsset.url}
+					target="_blank"
+					rel="noreferrer"
+				>
 					<IconExternalLink class="h-4 w-4" />
 					Open file
 				</a>

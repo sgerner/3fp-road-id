@@ -1,9 +1,9 @@
 ---
 title: Events
-description: 
+description:
 published: true
 date: 2025-03-10T20:28:32.025Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-01T02:35:34.116Z
 ---
@@ -13,6 +13,7 @@ Welcome to the community events section of our bicycle advocacy wiki. Whether yo
 # Why Organize Community Events?
 
 Community cycling events serve multiple important purposes:
+
 - **Foster Connections**: Build relationships between cyclists, neighbors, and local officials
 - **Amplify Our Voice**: Demonstrate that cyclists are a vital part of the community dialogue
 - **Drive Positive Change**: Focus attention on safety improvements, infrastructure needs, and policy priorities
@@ -21,6 +22,7 @@ Community cycling events serve multiple important purposes:
 # Getting Started
 
 Before planning specific types of events, consider these fundamental principles:
+
 1. **Clarify Your Objectives**: Establish the specific goals for your community event
 2. **Identify Your Participants**: Design the event with your intended audience in mind
 3. **Choose Appropriate Venues**: Select locations that are accessible, meaningful, and suitable for your purpose
@@ -30,6 +32,7 @@ Before planning specific types of events, consider these fundamental principles:
 # Types of Community Events
 
 We have detailed guides for various types of cycling community events:
+
 - [Local Neighborhood Bike Celebration Guide](/community/neighborhood-events) - Creating fun, inclusive community gatherings
 - [Guide for Hosting Regular Cycling Meetups](/community/meetups) - Building consistent community through recurring events
 - [Advocacy Meeting Guide](/community/advocacy-meeting) - Effectively engaging with local officials and decision-makers
@@ -38,6 +41,7 @@ We have detailed guides for various types of cycling community events:
 # Supporting Resources
 
 To help make your community events as effective as possible, explore these additional wiki resources:
+
 - [Events Calendar](/community/bike-calendar) - Major national and international cycling events to align with or celebrate
 - [Ghost Bike Advice](/community/ghost-bikes) - Guidelines for memorial installations
 - [Discussion Facilitation Guide](/community/facilitation) - How to lead productive community conversations
@@ -46,8 +50,10 @@ To help make your community events as effective as possible, explore these addit
 # Success Stories
 
 Learn from other organizers who have created meaningful and effective community events:
+
 > To Do: Write up case studies
-{.is-danger}
+> {.is-danger}
+
 - [Winter Games](/stories/tbag-winter-games)
 - [Case Study: 2](/stories/official-engagement-success)
 - [Case Study: 3](/stories/memorial-community-action)

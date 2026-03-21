@@ -9,7 +9,7 @@ import {
 async function loadHostGroups(supabase) {
 	const { data: groups } = await supabase
 		.from('groups')
-		.select('id,name,slug')
+		.select('id,name,slug,city,state_region,country')
 		.order('name', { ascending: true });
 	return groups ?? [];
 }
@@ -18,10 +18,12 @@ export const load = async ({ params, cookies }) => {
 	const { supabase, user } = getActivityClient(cookies);
 	if (!user?.id) throw redirect(303, `/ride/${params.slug}`);
 
-	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: true }).catch((err) => {
-		console.error('Unable to load manage ride page', err);
-		return null;
-	});
+	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: true }).catch(
+		(err) => {
+			console.error('Unable to load manage ride page', err);
+			return null;
+		}
+	);
 	if (!ride) throw error(404, 'Ride not found');
 
 	const canManageResult = await canManageActivity(supabase, ride.activity.id).catch((err) => {

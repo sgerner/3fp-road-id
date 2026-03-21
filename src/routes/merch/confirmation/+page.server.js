@@ -1,9 +1,13 @@
-import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import {
+	finalizeMerchOrderByPaymentIntentId,
+	finalizeMerchOrderBySessionId
+} from '$lib/server/merch';
 
 function formatCurrency(cents, currency = 'usd') {
-	return new Intl.NumberFormat('en-US', { style: 'currency', currency: String(currency).toUpperCase() }).format(
-		Number(cents || 0) / 100
-	);
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: String(currency).toUpperCase()
+	}).format(Number(cents || 0) / 100);
 }
 
 export const load = async ({ url, fetch }) => {

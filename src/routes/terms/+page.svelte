@@ -10,12 +10,14 @@
 		<p class="text-surface-700-300 text-sm">Last updated: March 14, 2026</p>
 	</header>
 
-	<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5">
+	<section
+		class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5"
+	>
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Acceptance of Terms</h2>
 			<p class="text-sm leading-relaxed">
-				By accessing or using 3fp.org, you agree to these Terms of Service. If you do not agree, do not
-				use the service.
+				By accessing or using 3fp.org, you agree to these Terms of Service. If you do not agree, do
+				not use the service.
 			</p>
 		</div>
 
@@ -30,33 +32,35 @@
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Group and Social Management</h2>
 			<p class="text-sm leading-relaxed">
-				Only authorized managers/owners of claimed groups may use social publishing tools. You represent
-				that you have rights to post, schedule, and manage connected social accounts and submitted content.
+				Only authorized managers/owners of claimed groups may use social publishing tools. You
+				represent that you have rights to post, schedule, and manage connected social accounts and
+				submitted content.
 			</p>
 		</div>
 
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">User Content</h2>
 			<p class="text-sm leading-relaxed">
-				You retain rights to content you submit. By posting content through 3FP, you grant us a limited
-				license to host, process, and transmit that content as needed to provide the service.
+				You retain rights to content you submit. By posting content through 3FP, you grant us a
+				limited license to host, process, and transmit that content as needed to provide the
+				service.
 			</p>
 		</div>
 
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Third-Party Services</h2>
 			<p class="text-sm leading-relaxed">
-				3FP integrates with third-party services such as Meta (Facebook and Instagram). Your use of those
-				services is also subject to their own terms and policies.
+				3FP integrates with third-party services such as Meta (Facebook and Instagram). Your use of
+				those services is also subject to their own terms and policies.
 			</p>
 		</div>
 
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Disclaimers and Liability</h2>
 			<p class="text-sm leading-relaxed">
-				The service is provided "as is" without warranties to the fullest extent permitted by law. To the
-				maximum extent allowed by law, 3FP is not liable for indirect, incidental, or consequential
-				damages.
+				The service is provided "as is" without warranties to the fullest extent permitted by law.
+				To the maximum extent allowed by law, 3FP is not liable for indirect, incidental, or
+				consequential damages.
 			</p>
 		</div>
 

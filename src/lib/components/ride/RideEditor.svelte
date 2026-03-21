@@ -549,6 +549,14 @@
 			description: form.description,
 			startLocation,
 			endLocation,
+			hostGroupLocation: [
+				selectedHostGroup?.city,
+				selectedHostGroup?.state_region,
+				selectedHostGroup?.country
+			]
+				.filter((value) => safeTrim(value))
+				.join(', '),
+			hostGroupState: safeTrim(selectedHostGroup?.state_region),
 			time: [form.startsAt, form.endsAt].filter(Boolean).join(' to '),
 			distance: form.estimatedDistanceMiles ? `${form.estimatedDistanceMiles} miles` : '',
 			difficulty,
@@ -707,8 +715,8 @@
 	}
 
 	async function sendOrganizerEmail() {
-		if (!selectedOccurrenceId || !organizerEmailSubject.trim() || !organizerEmailBody.trim())
-			return;
+		const occurrenceId = selectedOccurrence?.id ?? null;
+		if (!occurrenceId || !organizerEmailSubject.trim() || !organizerEmailBody.trim()) return;
 		organizerEmailError = '';
 		organizerEmailSending = true;
 		try {
@@ -716,7 +724,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					occurrenceId: selectedOccurrenceId,
+					occurrenceId,
 					subject: organizerEmailSubject,
 					body: organizerEmailBody
 				})

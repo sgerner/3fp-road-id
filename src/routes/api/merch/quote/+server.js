@@ -22,7 +22,10 @@ export const POST = async ({ request }) => {
 			donationCents
 		});
 		if (!result?.ok) {
-			return json({ error: result?.error || 'Unable to generate quote.' }, { status: result?.status || 400 });
+			return json(
+				{ error: result?.error || 'Unable to generate quote.' },
+				{ status: result?.status || 400 }
+			);
 		}
 		return json({ ok: true, quote: result.quote });
 	} catch (error) {

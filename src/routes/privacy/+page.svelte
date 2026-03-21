@@ -13,10 +13,13 @@
 		<p class="text-surface-700-300 text-sm">Last updated: March 14, 2026</p>
 	</header>
 
-	<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5">
+	<section
+		class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5"
+	>
 		<p class="text-sm leading-relaxed">
-			3 Feet Please ("3FP", "we", "our") respects your privacy. This policy explains what information
-			we collect, how we use it, and your choices when using 3fp.org and related services.
+			3 Feet Please ("3FP", "we", "our") respects your privacy. This policy explains what
+			information we collect, how we use it, and your choices when using 3fp.org and related
+			services.
 		</p>
 
 		<div class="space-y-2">
@@ -29,8 +32,8 @@
 					service.
 				</li>
 				<li>
-					When social tools are connected, limited Facebook/Instagram account metadata, post content,
-					and comment data required to support publishing and engagement workflows.
+					When social tools are connected, limited Facebook/Instagram account metadata, post
+					content, and comment data required to support publishing and engagement workflows.
 				</li>
 			</ul>
 		</div>
@@ -49,17 +52,18 @@
 			<h2 class="text-lg font-semibold">Facebook and Instagram Data</h2>
 			<p class="text-sm leading-relaxed">
 				If you connect a Facebook Page or Instagram professional account, we use Meta APIs to read
-				permitted account metadata, publish posts, and fetch comments for connected assets. Access tokens
-				are stored server-side and are never exposed to clients.
+				permitted account metadata, publish posts, and fetch comments for connected assets. Access
+				tokens are stored server-side and are never exposed to clients.
 			</p>
 		</div>
 
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Sharing and Retention</h2>
 			<p class="text-sm leading-relaxed">
-				We do not sell personal data. We may share data with service providers that help us operate the
-				platform (for example, hosting and infrastructure providers) under appropriate safeguards. Data is
-				retained only as long as needed for product operation, compliance, and legitimate business needs.
+				We do not sell personal data. We may share data with service providers that help us operate
+				the platform (for example, hosting and infrastructure providers) under appropriate
+				safeguards. Data is retained only as long as needed for product operation, compliance, and
+				legitimate business needs.
 			</p>
 		</div>
 

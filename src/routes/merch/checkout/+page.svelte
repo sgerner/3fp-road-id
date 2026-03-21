@@ -1046,7 +1046,7 @@
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
-						/* Headline */
+	/* Headline */
 	.checkout-headline {
 		color: var(--color-primary-50);
 		line-height: 1.1;

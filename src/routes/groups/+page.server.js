@@ -9,24 +9,82 @@ export const load = async ({ url }) => {
 
 	// Flexible state/region candidates (abbrev <-> full names)
 	const US_STATES = {
-		AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
-		CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho',
-		IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana',
-		ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi',
-		MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
-		NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
-		OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota',
-		TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
-		WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia'
+		AL: 'Alabama',
+		AK: 'Alaska',
+		AZ: 'Arizona',
+		AR: 'Arkansas',
+		CA: 'California',
+		CO: 'Colorado',
+		CT: 'Connecticut',
+		DE: 'Delaware',
+		FL: 'Florida',
+		GA: 'Georgia',
+		HI: 'Hawaii',
+		ID: 'Idaho',
+		IL: 'Illinois',
+		IN: 'Indiana',
+		IA: 'Iowa',
+		KS: 'Kansas',
+		KY: 'Kentucky',
+		LA: 'Louisiana',
+		ME: 'Maine',
+		MD: 'Maryland',
+		MA: 'Massachusetts',
+		MI: 'Michigan',
+		MN: 'Minnesota',
+		MS: 'Mississippi',
+		MO: 'Missouri',
+		MT: 'Montana',
+		NE: 'Nebraska',
+		NV: 'Nevada',
+		NH: 'New Hampshire',
+		NJ: 'New Jersey',
+		NM: 'New Mexico',
+		NY: 'New York',
+		NC: 'North Carolina',
+		ND: 'North Dakota',
+		OH: 'Ohio',
+		OK: 'Oklahoma',
+		OR: 'Oregon',
+		PA: 'Pennsylvania',
+		RI: 'Rhode Island',
+		SC: 'South Carolina',
+		SD: 'South Dakota',
+		TN: 'Tennessee',
+		TX: 'Texas',
+		UT: 'Utah',
+		VT: 'Vermont',
+		VA: 'Virginia',
+		WA: 'Washington',
+		WV: 'West Virginia',
+		WI: 'Wisconsin',
+		WY: 'Wyoming',
+		DC: 'District of Columbia'
 	};
 	const CA_PROVINCES = {
-		AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick', NL: 'Newfoundland and Labrador',
-		NT: 'Northwest Territories', NS: 'Nova Scotia', NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island',
-		QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon'
+		AB: 'Alberta',
+		BC: 'British Columbia',
+		MB: 'Manitoba',
+		NB: 'New Brunswick',
+		NL: 'Newfoundland and Labrador',
+		NT: 'Northwest Territories',
+		NS: 'Nova Scotia',
+		NU: 'Nunavut',
+		ON: 'Ontario',
+		PE: 'Prince Edward Island',
+		QC: 'Quebec',
+		SK: 'Saskatchewan',
+		YT: 'Yukon'
 	};
 	const AU_STATES = {
-		ACT: 'Australian Capital Territory', NSW: 'New South Wales', NT: 'Northern Territory', QLD: 'Queensland',
-		SA: 'South Australia', TAS: 'Tasmania', VIC: 'Victoria', WA: 'Western Australia'
+		ACT: 'Australian Capital Territory',
+		NSW: 'New South Wales',
+		NT: 'Northern Territory',
+		QLD: 'Queensland',
+		SA: 'South Australia',
+		TAS: 'Tasmania',
+		VIC: 'Victoria',
+		WA: 'Western Australia'
 	};
 
 	function expandStateCandidates(cn, input) {
@@ -34,9 +92,15 @@ export const load = async ({ url }) => {
 		if (!val) return [];
 		const up = val.toUpperCase();
 		const list = [];
-		function add(x) { if (x && !list.includes(x)) list.push(x); }
-		add(val); add(up);
-		const tcase = val.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+		function add(x) {
+			if (x && !list.includes(x)) list.push(x);
+		}
+		add(val);
+		add(up);
+		const tcase = val.replace(
+			/\w\S*/g,
+			(w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+		);
 		add(tcase);
 		const maps = [];
 		if (!cn || cn === 'US') maps.push(US_STATES);
@@ -51,10 +115,22 @@ export const load = async ({ url }) => {
 		return list;
 	}
 
-	const skill_level_ids = url.searchParams.getAll('skill_level_ids').map(Number).filter(n => Number.isFinite(n) && n > 0);
-	const audience_focus_ids = url.searchParams.getAll('audience_focus_ids').map(Number).filter(n => Number.isFinite(n) && n > 0);
-	const riding_discipline_ids = url.searchParams.getAll('riding_discipline_ids').map(Number).filter(n => Number.isFinite(n) && n > 0);
-	const group_type_ids = url.searchParams.getAll('group_type_ids').map(Number).filter(n => Number.isFinite(n) && n > 0);
+	const skill_level_ids = url.searchParams
+		.getAll('skill_level_ids')
+		.map(Number)
+		.filter((n) => Number.isFinite(n) && n > 0);
+	const audience_focus_ids = url.searchParams
+		.getAll('audience_focus_ids')
+		.map(Number)
+		.filter((n) => Number.isFinite(n) && n > 0);
+	const riding_discipline_ids = url.searchParams
+		.getAll('riding_discipline_ids')
+		.map(Number)
+		.filter((n) => Number.isFinite(n) && n > 0);
+	const group_type_ids = url.searchParams
+		.getAll('group_type_ids')
+		.map(Number)
+		.filter((n) => Number.isFinite(n) && n > 0);
 	const hasActiveFilters = Boolean(
 		q ||
 		country ||
@@ -82,10 +158,22 @@ export const load = async ({ url }) => {
 	await intersectFilter('group_x_skill_levels', 'skill_level_id', skill_level_ids);
 	await intersectFilter('group_x_group_types', 'group_type_id', group_type_ids);
 	await intersectFilter('group_x_audience_focuses', 'audience_focus_id', audience_focus_ids);
-	await intersectFilter('group_x_riding_disciplines', 'riding_discipline_id', riding_discipline_ids);
+	await intersectFilter(
+		'group_x_riding_disciplines',
+		'riding_discipline_id',
+		riding_discipline_ids
+	);
 
 	const commonContext = {
-		q, country, state_region, skill_level_ids, group_type_ids, audience_focus_ids, riding_discipline_ids, page, limit
+		q,
+		country,
+		state_region,
+		skill_level_ids,
+		group_type_ids,
+		audience_focus_ids,
+		riding_discipline_ids,
+		page,
+		limit
 	};
 
 	if (filterIds !== null && filterIds.length === 0) {
@@ -97,10 +185,15 @@ export const load = async ({ url }) => {
 			supabase.from('riding_disciplines').select('id, name').order('name')
 		]);
 		return {
-			groups: [], mapPoints: [], totalGroups: 0,
-			error: null, filters: commonContext,
-			skill_levels: levels.data || [], group_types: types.data || [],
-			audience_focuses: af.data || [], riding_disciplines: rd.data || [],
+			groups: [],
+			mapPoints: [],
+			totalGroups: 0,
+			error: null,
+			filters: commonContext,
+			skill_levels: levels.data || [],
+			group_types: types.data || [],
+			audience_focuses: af.data || [],
+			riding_disciplines: rd.data || [],
 			group_types_map: {}
 		};
 	}
@@ -109,16 +202,18 @@ export const load = async ({ url }) => {
 		let query = qBuilder;
 		if (q) {
 			const like = `%${q}%`;
-			query = query.or([
-				`name.ilike.${like}`,
-				`tagline.ilike.${like}`,
-				`description.ilike.${like}`,
-				`membership_info.ilike.${like}`,
-				`service_area_description.ilike.${like}`,
-				`city.ilike.${like}`,
-				`state_region.ilike.${like}`,
-				`country.ilike.${like}`
-			].join(','));
+			query = query.or(
+				[
+					`name.ilike.${like}`,
+					`tagline.ilike.${like}`,
+					`description.ilike.${like}`,
+					`membership_info.ilike.${like}`,
+					`service_area_description.ilike.${like}`,
+					`city.ilike.${like}`,
+					`state_region.ilike.${like}`,
+					`country.ilike.${like}`
+				].join(',')
+			);
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
@@ -132,13 +227,16 @@ export const load = async ({ url }) => {
 			query = query.in('id', filterIds);
 		}
 		// Assuming we only want published ones (or you could comment out if previously not used)
-		// query = query.eq('is_published', true); 
+		// query = query.eq('is_published', true);
 		return query;
 	}
 
 	let listQuery = supabase
 		.from('groups')
-		.select('id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude', { count: 'exact' })
+		.select(
+			'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude',
+			{ count: 'exact' }
+		)
 		.order('name')
 		.range((page - 1) * limit, page * limit - 1);
 
@@ -166,7 +264,11 @@ export const load = async ({ url }) => {
 		const points = [];
 		while (true) {
 			const includeCount = total === null;
-			const { data, error, count } = await buildMapChunkQuery(from, from + pageSize - 1, includeCount);
+			const { data, error, count } = await buildMapChunkQuery(
+				from,
+				from + pageSize - 1,
+				includeCount
+			);
 			if (error) return { data: [], error, count: 0 };
 			if (includeCount && Number.isFinite(count)) total = count;
 			const chunk = data || [];
@@ -194,7 +296,10 @@ export const load = async ({ url }) => {
 	let group_types_map = {};
 	if (groups.length) {
 		const ids = groups.map((g) => g.id);
-		const { data: gxRes } = await supabase.from('group_x_group_types').select('group_id, group_type_id').in('group_id', ids);
+		const { data: gxRes } = await supabase
+			.from('group_x_group_types')
+			.select('group_id, group_type_id')
+			.in('group_id', ids);
 		const typeNameById = Object.fromEntries((typesAllRes.data || []).map((t) => [t.id, t.name]));
 		const map = {};
 		for (const row of gxRes || []) {

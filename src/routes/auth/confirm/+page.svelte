@@ -67,9 +67,7 @@
 			const url = new URL(window.location.href);
 			let params = normalizeParamsFromWeirdPath();
 			const hashParams = new URLSearchParams(
-				window.location.hash.startsWith('#')
-					? window.location.hash.slice(1)
-					: window.location.hash
+				window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
 			);
 			const supaCode = params.get('code');
 			const rid = params.get('rid');

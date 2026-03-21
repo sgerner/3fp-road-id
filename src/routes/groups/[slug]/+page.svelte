@@ -6,12 +6,18 @@
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconDumbbell from '@lucide/svelte/icons/dumbbell';
 	import IconRepeat from '@lucide/svelte/icons/repeat-2';
 	import IconInfo from '@lucide/svelte/icons/info';
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import IconNewspaper from '@lucide/svelte/icons/newspaper';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
+	import GroupAssetShowcase from '$lib/components/groups/GroupAssetShowcase.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import {
 		buildContactLinks,
@@ -29,11 +35,19 @@
 	let showSticky = $state(false);
 	let heroSentinel = $state(null);
 
+	// Section collapse states (default: all expanded)
+	let postsExpanded = $state(true);
+	let eventsExpanded = $state(true);
+	let detailsExpanded = $state(true);
+	let resourcesExpanded = $state(true);
+	let newsExpanded = $state(true);
+
 	// Leaflet map (loaded client-side)
 	let L;
 	let mapEl = $state(null);
 	let map;
 	let marker;
+	let mapInitialized = $state(false);
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
@@ -41,8 +55,10 @@
 	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
-	function ensureMap() {
-		if (!L || !mapEl || map) return;
+	async function initMap() {
+		if (!L || !mapEl || map || mapInitialized) return;
+		// Small delay to ensure container is properly rendered
+		await new Promise((resolve) => setTimeout(resolve, 100));
 		const z = 12;
 		map = L.map(mapEl).setView([lat, lng], z);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -50,6 +66,7 @@
 			attribution: '&copy; OpenStreetMap contributors'
 		}).addTo(map);
 		marker = L.marker([lat, lng]).addTo(map);
+		mapInitialized = true;
 	}
 
 	onMount(async () => {
@@ -63,7 +80,16 @@
 			console.error('Failed to load Leaflet', e);
 			return;
 		}
-		requestAnimationFrame(() => ensureMap());
+		// Try to init map immediately and also after a delay (for when details section is collapsed initially)
+		requestAnimationFrame(() => initMap());
+		setTimeout(() => initMap(), 500);
+	});
+
+	// Re-init map when details section is expanded
+	$effect(() => {
+		if (detailsExpanded && mapEl && !map && L) {
+			requestAnimationFrame(() => initMap());
+		}
 	});
 
 	// Sticky subheader observer
@@ -197,6 +223,22 @@
 	}
 
 	const contactLinks = $derived(buildContactLinks(data.group));
+	const connectedInstagram = $derived(data.connected_instagram ?? null);
+	const instagramPosts = $derived(
+		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
+	);
+	const groupNewsPosts = $derived(
+		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
+	);
+	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
+	const connectedInstagramLabel = $derived(
+		connectedInstagram?.username
+			? `@${connectedInstagram.username}`
+			: connectedInstagram?.account_name || ''
+	);
+	const instagramProfileUrl = $derived(
+		connectedInstagram?.profile_url || data.group?.social_links?.instagram || null
+	);
 
 	let aboutExpanded = $state(false);
 
@@ -204,9 +246,6 @@
 	const ctaIcons = CTA_ICON_MAP;
 	const contactIconByKey = CONTACT_ICON_MAP;
 
-	const upcomingVolunteerEvents = $derived(
-		Array.isArray(data?.volunteer_events) ? data.volunteer_events : []
-	);
 	const canAcceptDonations = $derived(Boolean(data?.is_claimed && data?.donation_enabled === true));
 	const shouldShowDonationSetup = $derived(
 		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
@@ -265,6 +304,28 @@
 		return parts.length ? parts.join(', ') : 'Location details coming soon';
 	}
 
+	function instagramPostCaption(post) {
+		const text = String(post?.caption || '').trim();
+		if (!text) return 'Instagram post';
+		return text.length > 140 ? `${text.slice(0, 139)}…` : text;
+	}
+
+	function instagramPostDate(post) {
+		const raw = post?.timestamp;
+		if (!raw) return '';
+		const date = new Date(raw);
+		if (Number.isNaN(date.getTime())) return '';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
+
+	function instagramHasInlineMedia(post) {
+		return Boolean(post?.media_url);
+	}
+
 	// Notices via query params
 	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
 
@@ -303,6 +364,20 @@
 			data.group?.how_to_join_instructions
 		)
 	);
+
+	const hasPosts = $derived(instagramPosts.length > 0 || !!connectedInstagramLabel);
+
+	function newsPostDate(post) {
+		const raw = post?.published_at || post?.created_at;
+		if (!raw) return 'Recently';
+		const date = new Date(raw);
+		if (Number.isNaN(date.getTime())) return 'Recently';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
 </script>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
@@ -440,10 +515,10 @@
 
 	{#if canAcceptDonations || shouldShowDonationSetup}
 		<section
-			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
+			class="donation-panel relative overflow-hidden rounded-2xl p-5"
 			in:fade={{ duration: 220 }}
 		>
-			<div class="volunteer-glow" aria-hidden="true"></div>
+			<div class="donation-glow" aria-hidden="true"></div>
 			<div class="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div>
 					<div class="mb-1 flex items-center gap-2">
@@ -478,7 +553,7 @@
 		</section>
 	{/if}
 
-	{#if membershipEnabled}
+		{#if membershipEnabled}
 		<section
 			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
 			in:fade={{ duration: 220 }}
@@ -541,9 +616,8 @@
 				</div>
 			{/if}
 		</section>
-	{/if}
-
-	<!-- Sticky subheader (appears after hero scrolls out) -->
+		{/if}
+		<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
 			class="border-surface-300-700/30 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur-xl"
@@ -593,7 +667,7 @@
 	<!-- Sentinel for sticky observer -->
 	<div bind:this={heroSentinel}></div>
 
-	<!-- ── Identity card ── -->
+	<!-- ── Identity / Overview Card ── -->
 	<section
 		class="identity-card relative overflow-hidden rounded-2xl p-5"
 		in:fade={{ duration: 240, delay: 60 }}
@@ -696,201 +770,582 @@
 		{/if}
 	</section>
 
-	<!-- ── Volunteer events ── -->
-	{#if upcomingVolunteerEvents.length}
+	{#if groupNewsPosts.length}
 		<section
-			class="volunteer-panel relative overflow-hidden rounded-2xl p-5"
-			in:fade={{ duration: 240, delay: 100 }}
+			class="news-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 70 }}
 		>
-			<div class="volunteer-glow" aria-hidden="true"></div>
-			<div class="relative z-10">
-				<!-- Header -->
-				<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<div class="mb-1 flex items-center gap-2">
-							<IconHandHeart class="text-tertiary-400 h-5 w-5" />
-							<p class="label opacity-60">Community</p>
-						</div>
-						<h2 class="text-xl font-bold">Upcoming Volunteer Opportunities</h2>
-						<p class="text-surface-600-400 mt-0.5 text-sm">
-							Support {data.group?.name} by lending a hand at an upcoming event.
-						</p>
-					</div>
-					<a
-						href={`/volunteer/groups/${data.group.slug}`}
-						class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
-					>
-						All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
-					</a>
-				</div>
+			<div class="news-accent-bar" aria-hidden="true"></div>
+			<div class="news-glow" aria-hidden="true"></div>
 
-				<!-- Event list -->
-				<ul class="space-y-3">
-					{#each upcomingVolunteerEvents as event, i}
-						<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
-							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-								<div class="space-y-2">
-									<a
-										href={`/volunteer/${event.slug}`}
-										class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
-									>
-										{event.title}
-									</a>
-									{#if event.summary}
-										<AutoLinkText
-											text={event.summary}
-											className="text-surface-600-400 line-clamp-2 text-sm"
-										/>
-									{/if}
-									<div class="flex flex-wrap items-center gap-3 text-xs">
-										<span class="text-surface-700-300 flex items-center gap-1">
-											<IconCalendar class="h-3.5 w-3.5" />
-											{volunteerEventDateRange(event)}
-										</span>
-										{#if volunteerEventTimeRange(event)}
-											<span class="text-surface-700-300 flex items-center gap-1">
-												<IconClock class="h-3.5 w-3.5" />
-												{volunteerEventTimeRange(event)}
-											</span>
-										{/if}
-										<span class="text-surface-700-300 flex items-center gap-1">
-											<IconMapPin class="h-3.5 w-3.5" />
-											<AutoLinkText text={volunteerEventLocation(event)} />
-										</span>
-									</div>
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (newsExpanded = !newsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="news-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconNewspaper class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Latest Updates</h2>
+						<p class="text-surface-600-400 text-sm">News from {data.group?.name}</p>
+					</div>
+				</div>
+				<div class="flex items-center gap-3">
+					<a
+						href={`/groups/${data.group.slug}/news`}
+						class="btn btn-sm preset-tonal-surface whitespace-nowrap"
+						onclick={(e) => e.stopPropagation()}
+					>
+						View All <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+					</a>
+					<div class="section-chevron {newsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
+				</div>
+			</button>
+
+			{#if newsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid gap-4 md:grid-cols-3">
+						{#each groupNewsPosts as post}
+							<a
+								class="news-card rounded-xl p-4"
+								href={`/groups/${data.group.slug}/news?open=${post.slug}`}
+							>
+								<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
+								<h3 class="mt-2 text-base leading-snug font-semibold">{post.title}</h3>
+								{#if post.preview_text}
+									<p class="text-surface-600-400 mt-2 line-clamp-2 text-sm">{post.preview_text}</p>
+								{/if}
+								<div
+									class="text-secondary-500 hover:text-secondary-400 mt-3 flex items-center gap-1 text-sm font-medium transition-colors"
+								>
+									Read update
+									<IconArrowRight class="h-4 w-4" />
 								</div>
-								<div class="flex shrink-0 flex-wrap items-center gap-2">
-									{#if event.can_manage}
-										<a
-											href={`/volunteer/${event.slug}/edit`}
-											class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-										>
-											Edit
-										</a>
-										<a
-											href={`/volunteer/${event.slug}/manage`}
-											class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-										>
-											Manage
-										</a>
-									{:else}
-										<a
-											href={`/volunteer/${event.slug}`}
-											class="btn btn-sm preset-outlined-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
-										>
-											Volunteer
-											<IconArrowRight class="h-3.5 w-3.5" />
-										</a>
-									{/if}
-								</div>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			</div>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</section>
 	{/if}
 
-	<!-- ── Additional details ── -->
-	{#if hasDetails}
-		<section class="details-card rounded-2xl p-5" in:fade={{ duration: 240, delay: 140 }}>
-			<!-- Accent bar -->
-			<div class="details-accent-bar mb-5" aria-hidden="true"></div>
+	<!-- ── Instagram Posts Section ── -->
+	{#if hasPosts}
+		<section
+			class="instagram-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 80 }}
+		>
+			<!-- Gradient accent bar -->
+			<div class="instagram-accent-bar" aria-hidden="true"></div>
+			<!-- Subtle glow effect -->
+			<div class="instagram-glow" aria-hidden="true"></div>
 
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{#if data.group?.how_to_join_instructions}
-					<div class="detail-item">
-						<div class="detail-label">How to Join</div>
-						<AutoLinkText
-							text={data.group.how_to_join_instructions}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (postsExpanded = !postsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconInstagram class="h-5 w-5 text-white" />
 					</div>
-				{/if}
-				{#if data.group?.preferred_contact_method_instructions}
-					<div class="detail-item">
-						<div class="detail-label">Preferred Contact Method</div>
-						<AutoLinkText
-							text={data.group.preferred_contact_method_instructions}
-							className="text-surface-800-200 text-sm"
-						/>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Latest Posts</h2>
+						{#if connectedInstagramLabel}
+							<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
+						{:else}
+							<p class="text-surface-600-400 text-sm">Instagram</p>
+						{/if}
 					</div>
-				{/if}
-				{#if data.group?.membership_info}
-					<div class="detail-item">
-						<div class="detail-label">Membership Info</div>
-						<AutoLinkText
-							text={data.group.membership_info}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
+				</div>
+				<div class="flex items-center gap-3">
+					{#if instagramPostsSource === 'public_profile'}
+						<span class="chip preset-tonal-secondary text-xs">Public profile</span>
+					{:else if instagramPostsSource === 'manual'}
+						<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
+					{/if}
+					<div class="section-chevron {postsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
 					</div>
-				{/if}
-				{#if data.group?.zip_code}
-					<div class="detail-item">
-						<div class="detail-label">ZIP / Postal Code</div>
-						<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
-					</div>
-				{/if}
-			</div>
+				</div>
+			</button>
 
-			{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
-				<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-					{#if data.group?.activity_frequency}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconRepeat class="h-3.5 w-3.5" />
-								Activity Frequency
-							</div>
-							<AutoLinkText
-								text={data.group.activity_frequency}
-								className="text-surface-800-200 text-sm"
-							/>
+			{#if postsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					{#if instagramPosts.length > 0}
+						<!-- Posts Grid -->
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{#each instagramPosts as post, i (post.id)}
+								<article
+									class="instagram-post-card group overflow-hidden rounded-xl"
+									style="--stagger: {i}"
+								>
+									<!-- Media Container -->
+									<a
+										href={post.permalink}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="instagram-media-container relative block aspect-square w-full overflow-hidden"
+									>
+										{#if instagramHasInlineMedia(post)}
+											<img
+												src={post.media_url}
+												alt="Instagram post"
+												loading="lazy"
+												class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+											/>
+										{:else}
+											<iframe
+												src={post.embed_url}
+												title="Instagram post"
+												loading="lazy"
+												referrerpolicy="strict-origin-when-cross-origin"
+												allowtransparency="true"
+												class="h-full w-full border-0"
+											></iframe>
+										{/if}
+										<!-- Hover overlay -->
+										<div
+											class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+										>
+											<span
+												class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
+											>
+												<IconInstagram class="h-4 w-4" />
+												View on Instagram
+											</span>
+										</div>
+									</a>
+
+									<!-- Caption & Meta -->
+									<div class="instagram-post-content p-3.5">
+										<p
+											class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
+										>
+											{instagramPostCaption(post)}
+										</p>
+										<div class="mt-2.5 flex items-center justify-between">
+											<time class="text-surface-600-400 text-xs font-medium">
+												{instagramPostDate(post)}
+											</time>
+											<a
+												href={post.permalink}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
+											>
+												Open
+												<IconArrowRight class="h-3 w-3" />
+											</a>
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<!-- Empty state -->
+						<div class="flex flex-col items-center justify-center py-8 text-center">
+							<p class="text-surface-500 text-sm">No recent posts available yet</p>
 						</div>
 					{/if}
-					{#if data.group?.typical_activity_day_time}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconClock class="h-3.5 w-3.5" />
-								Typical Day / Time
-							</div>
-							<AutoLinkText
-								text={data.group.typical_activity_day_time}
-								className="text-surface-800-200 text-sm"
-							/>
-						</div>
-					{/if}
-					{#if data.group?.specific_meeting_point_address}
-						<div class="detail-item">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconMapPin class="h-3.5 w-3.5" />
-								Meeting Point
-							</div>
-							<AutoLinkText
-								text={data.group.specific_meeting_point_address}
-								className="text-surface-800-200 text-sm"
-							/>
+
+					<!-- View Profile Link -->
+					{#if instagramProfileUrl}
+						<div class="mt-4 flex justify-center">
+							<a
+								href={instagramProfileUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="btn preset-filled-secondary-500 gap-1.5"
+							>
+								<IconInstagram class="h-4 w-4" />
+								View Profile
+							</a>
 						</div>
 					{/if}
 				</div>
 			{/if}
+		</section>
+	{/if}
 
-			{#if data.group?.service_area_description || hasCoords}
-				<div class="detail-item mt-4">
-					<div class="detail-label flex items-center gap-1.5">
-						<IconMapPin class="h-3.5 w-3.5" />
-						Service Area
+	<!-- ── Events Section ── -->
+	{#await data.rides then rides}
+		{#if Array.isArray(rides) && rides.length > 0}
+			{@const hasEvents = true}
+			<section
+				class="events-section relative overflow-hidden rounded-2xl"
+				in:fade={{ duration: 240, delay: 100 }}
+			>
+				<div class="events-accent-bar" aria-hidden="true"></div>
+				<div class="events-glow" aria-hidden="true"></div>
+
+				<!-- Collapsible Header -->
+				<button
+					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+					onclick={() => (eventsExpanded = !eventsExpanded)}
+				>
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="events-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconCalendar class="h-5 w-5 text-white" />
+						</div>
+						<div class="min-w-0">
+							<h2 class="text-lg font-bold">Upcoming Rides</h2>
+							<p class="text-surface-600-400 text-sm">
+								Join {data.group?.name} for their upcoming group rides
+							</p>
+						</div>
 					</div>
-					{#if data.group?.service_area_description}
-						<AutoLinkText
-							text={data.group.service_area_description}
-							className="text-surface-800-200 text-sm whitespace-pre-wrap"
-						/>
-					{/if}
-					{#if hasCoords}
-						<div class="map-container mt-3">
-							<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
+					<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
+						<IconChevronDown class="h-5 w-5" />
+					</div>
+				</button>
+
+				{#if eventsExpanded}
+					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+						<!-- Event list -->
+						<ul class="space-y-3">
+							{#each rides as event, i}
+								<li class="event-card rounded-xl p-4" style="--stagger: {i}">
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
+											<a
+												href={`/ride/${event.slug}`}
+												class="text-secondary-300 hover:text-secondary-200 text-base leading-snug font-semibold transition-colors"
+											>
+												{event.title}
+											</a>
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-600-400 line-clamp-2 text-sm"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-3 text-xs">
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconCalendar class="h-3.5 w-3.5" />
+													{new Intl.DateTimeFormat(undefined, {
+														dateStyle: 'medium',
+														timeStyle: 'short'
+													}).format(new Date(event.nextOccurrenceStart))}
+												</span>
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconMapPin class="h-3.5 w-3.5" />
+													<AutoLinkText
+														text={event.startLocationName || event.startLocationAddress}
+													/>
+												</span>
+											</div>
+										</div>
+										<div class="flex shrink-0 flex-wrap items-center gap-2">
+											<a
+												href={`/ride/${event.slug}`}
+												class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 whitespace-nowrap"
+											>
+												View Details
+												<IconArrowRight class="h-3.5 w-3.5" />
+											</a>
+										</div>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</section>
+		{/if}
+	{/await}
+
+	<!-- ── Volunteer Events Section ── -->
+	{#await data.volunteer_events then volunteer_events}
+		{#if Array.isArray(volunteer_events) && volunteer_events.length > 0}
+			<section
+				class="volunteer-section relative overflow-hidden rounded-2xl"
+				in:fade={{ duration: 240, delay: 120 }}
+			>
+				<div class="volunteer-accent-bar" aria-hidden="true"></div>
+				<div class="volunteer-glow" aria-hidden="true"></div>
+
+				<!-- Collapsible Header -->
+				<button
+					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+					onclick={() => (eventsExpanded = !eventsExpanded)}
+				>
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="volunteer-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconHandHeart class="h-5 w-5 text-white" />
+						</div>
+						<div class="min-w-0">
+							<h2 class="text-lg font-bold">Volunteer Opportunities</h2>
+							<p class="text-surface-600-400 text-sm">
+								Support {data.group?.name} by lending a hand
+							</p>
+						</div>
+					</div>
+					<div class="flex items-center gap-3">
+						<a
+							href={`/volunteer/groups/${data.group.slug}`}
+							class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
+							onclick={(e) => e.stopPropagation()}
+						>
+							All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+						</a>
+						<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
+							<IconChevronDown class="h-5 w-5" />
+						</div>
+					</div>
+				</button>
+
+				{#if eventsExpanded}
+					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+						<!-- Event list -->
+						<ul class="space-y-3">
+							{#each volunteer_events as event, i}
+								<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
+											<a
+												href={`/volunteer/${event.slug}`}
+												class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
+											>
+												{event.title}
+											</a>
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-600-400 line-clamp-2 text-sm"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-3 text-xs">
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconCalendar class="h-3.5 w-3.5" />
+													{volunteerEventDateRange(event)}
+												</span>
+												{#if volunteerEventTimeRange(event)}
+													<span class="text-surface-700-300 flex items-center gap-1">
+														<IconClock class="h-3.5 w-3.5" />
+														{volunteerEventTimeRange(event)}
+													</span>
+												{/if}
+												<span class="text-surface-700-300 flex items-center gap-1">
+													<IconMapPin class="h-3.5 w-3.5" />
+													<AutoLinkText text={volunteerEventLocation(event)} />
+												</span>
+											</div>
+										</div>
+										<div class="flex shrink-0 flex-wrap items-center gap-2">
+											{#if event.can_manage}
+												<a
+													href={`/volunteer/${event.slug}/edit`}
+													class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
+												>
+													Edit
+												</a>
+												<a
+													href={`/volunteer/${event.slug}/manage`}
+													class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
+												>
+													Manage
+												</a>
+											{:else}
+												<a
+													href={`/volunteer/${event.slug}`}
+													class="btn btn-sm preset-filled-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
+												>
+													Volunteer
+													<IconArrowRight class="h-3.5 w-3.5" />
+												</a>
+											{/if}
+										</div>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</section>
+		{/if}
+	{/await}
+
+	<!-- ── Details Section ── -->
+	{#if hasDetails}
+		<section
+			class="details-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 140 }}
+		>
+			<div class="details-accent-bar" aria-hidden="true"></div>
+			<div class="details-glow" aria-hidden="true"></div>
+
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (detailsExpanded = !detailsExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="details-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconInfo class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Details & Location</h2>
+						<p class="text-surface-600-400 text-sm">
+							Membership info, meeting points, and service area
+						</p>
+					</div>
+				</div>
+				<div class="section-chevron {detailsExpanded ? 'expanded' : ''}">
+					<IconChevronDown class="h-5 w-5" />
+				</div>
+			</button>
+
+			{#if detailsExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						{#if data.group?.how_to_join_instructions}
+							<div class="detail-item">
+								<div class="detail-label">How to Join</div>
+								<AutoLinkText
+									text={data.group.how_to_join_instructions}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.preferred_contact_method_instructions}
+							<div class="detail-item">
+								<div class="detail-label">Preferred Contact Method</div>
+								<AutoLinkText
+									text={data.group.preferred_contact_method_instructions}
+									className="text-surface-800-200 text-sm"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.membership_info}
+							<div class="detail-item">
+								<div class="detail-label">Membership Info</div>
+								<AutoLinkText
+									text={data.group.membership_info}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							</div>
+						{/if}
+						{#if data.group?.zip_code}
+							<div class="detail-item">
+								<div class="detail-label">ZIP / Postal Code</div>
+								<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
+							</div>
+						{/if}
+					</div>
+
+					{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
+						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+							{#if data.group?.activity_frequency}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconRepeat class="h-3.5 w-3.5" />
+										Activity Frequency
+									</div>
+									<AutoLinkText
+										text={data.group.activity_frequency}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
+							{#if data.group?.typical_activity_day_time}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconClock class="h-3.5 w-3.5" />
+										Typical Day / Time
+									</div>
+									<AutoLinkText
+										text={data.group.typical_activity_day_time}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
+							{#if data.group?.specific_meeting_point_address}
+								<div class="detail-item">
+									<div class="detail-label flex items-center gap-1.5">
+										<IconMapPin class="h-3.5 w-3.5" />
+										Meeting Point
+									</div>
+									<AutoLinkText
+										text={data.group.specific_meeting_point_address}
+										className="text-surface-800-200 text-sm"
+									/>
+								</div>
+							{/if}
 						</div>
 					{/if}
+
+					{#if data.group?.service_area_description || hasCoords}
+						<div class="detail-item mt-4">
+							<div class="detail-label flex items-center gap-1.5">
+								<IconMapPin class="h-3.5 w-3.5" />
+								Service Area
+							</div>
+							{#if data.group?.service_area_description}
+								<AutoLinkText
+									text={data.group.service_area_description}
+									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+								/>
+							{/if}
+							{#if hasCoords}
+								<div class="map-container mt-3">
+									<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
+
+	<!-- ── Resources Section ── -->
+	{#if (data.asset_buckets ?? []).length > 0}
+		<section
+			class="resources-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 240, delay: 160 }}
+		>
+			<div class="resources-accent-bar" aria-hidden="true"></div>
+			<div class="resources-glow" aria-hidden="true"></div>
+
+			<!-- Collapsible Header -->
+			<button
+				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
+				onclick={() => (resourcesExpanded = !resourcesExpanded)}
+			>
+				<div class="flex min-w-0 items-center gap-3">
+					<div
+						class="resources-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+					>
+						<IconFolderOpen class="h-5 w-5 text-white" />
+					</div>
+					<div class="min-w-0">
+						<h2 class="text-lg font-bold">Resources</h2>
+						<p class="text-surface-600-400 text-sm">Photos, files, and links</p>
+					</div>
+				</div>
+				<div class="section-chevron {resourcesExpanded ? 'expanded' : ''}">
+					<IconChevronDown class="h-5 w-5" />
+				</div>
+			</button>
+
+			{#if resourcesExpanded}
+				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<GroupAssetShowcase slug={data.group?.slug} buckets={data.asset_buckets ?? []} />
 				</div>
 			{/if}
 		</section>
@@ -914,6 +1369,66 @@
 		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
 		opacity: 0.7;
 		border-radius: 2rem 2rem 0 0;
+	}
+
+	.news-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 70ms;
+	}
+
+	.news-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.news-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 90% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.news-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.news-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+	}
+
+	.news-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+	}
+
+	.updates-cta-panel {
+		background:
+			linear-gradient(135deg, rgb(14 165 233 / 0.1), rgb(15 23 42 / 0.72)), rgb(2 6 23 / 0.92);
+		border: 1px solid rgb(56 189 248 / 0.18);
+		box-shadow: 0 20px 48px rgb(15 23 42 / 0.18);
 	}
 
 	.contact-icon-btn {
@@ -951,27 +1466,235 @@
 		border: 1px solid color-mix(in oklab, var(--color-warning-500) 35%, transparent);
 	}
 
-	/* ── Volunteer panel ── */
-	.volunteer-panel {
-		background: color-mix(in oklab, var(--color-tertiary-500) 8%, var(--color-surface-900) 92%);
-		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 22%, transparent);
+	/* ── Donation panel ── */
+	.donation-panel {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-900) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 60ms;
+	}
+
+	.donation-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 0% 100%,
+			color-mix(in oklab, var(--color-primary-500) 14%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	/* ── Instagram section ── */
+	.instagram-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
 		animation: card-in 380ms ease both;
 		animation-delay: 80ms;
+	}
+
+	.instagram-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(
+			90deg,
+			var(--color-secondary-500),
+			var(--color-primary-500),
+			var(--color-secondary-500)
+		);
+		background-size: 200% 100%;
+		animation: gradient-shift 8s ease infinite;
+		opacity: 0.8;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.instagram-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 20% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.instagram-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-primary-500) 20%),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.instagram-post-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 200ms ease,
+			box-shadow 200ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 80ms);
+	}
+
+	.instagram-post-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 12px 28px -8px color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
+	}
+
+	.instagram-media-container {
+		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
+	}
+
+	.instagram-media-overlay {
+		background: linear-gradient(
+			to top,
+			color-mix(in oklab, var(--color-surface-950) 80%, transparent) 0%,
+			color-mix(in oklab, var(--color-surface-950) 40%, transparent) 40%,
+			transparent 100%
+		);
+	}
+
+	.instagram-view-btn {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 90%, white 10%),
+			color-mix(in oklab, var(--color-primary-500) 80%, white 20%)
+		);
+		box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		transform: translateY(8px);
+		transition: transform 200ms ease;
+	}
+
+	.group:hover .instagram-view-btn {
+		transform: translateY(0);
+	}
+
+	.instagram-post-content {
+		background: color-mix(in oklab, var(--color-surface-800) 95%, var(--color-secondary-500) 2%);
+	}
+
+	.instagram-caption {
+		display: -webkit-box;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.instagram-open-link {
+		opacity: 0.8;
+	}
+
+	.instagram-open-link:hover {
+		opacity: 1;
+	}
+
+	/* ── Events section ── */
+	.events-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 100ms;
+	}
+
+	.events-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.events-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 80% 0%,
+			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.events-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+	}
+
+	.event-card {
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		transition:
+			transform 180ms ease,
+			box-shadow 180ms ease;
+		animation: card-in 400ms ease both;
+		animation-delay: calc(var(--stagger, 0) * 60ms);
+	}
+
+	.event-card:hover {
+		transform: translateX(3px);
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+	}
+
+	/* ── Volunteer section ── */
+	.volunteer-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-tertiary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 120ms;
+	}
+
+	.volunteer-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
 	}
 
 	.volunteer-glow {
 		position: absolute;
 		inset: 0;
 		background: radial-gradient(
-			ellipse 70% 50% at 0% 100%,
-			color-mix(in oklab, var(--color-tertiary-500) 14%, transparent),
+			ellipse 70% 50% at 20% 100%,
+			color-mix(in oklab, var(--color-tertiary-500) 10%, transparent),
 			transparent 70%
 		);
 		pointer-events: none;
 	}
 
+	.volunteer-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-tertiary-500) 80%, var(--color-primary-500) 20%),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-tertiary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-tertiary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-tertiary-500) 30%, transparent);
+	}
+
 	.volunteer-event-card {
-		background: color-mix(in oklab, var(--color-surface-800) 80%, var(--color-tertiary-500) 5%);
+		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-tertiary-500) 3%);
 		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
 		transition:
 			transform 180ms ease,
@@ -985,19 +1708,45 @@
 		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
 	}
 
-	/* ── Details card ── */
-	.details-card {
-		background: color-mix(in oklab, var(--color-surface-900) 96%, var(--color-secondary-500) 4%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
+	/* ── Details section ── */
+	.details-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
 		animation: card-in 380ms ease both;
-		animation-delay: 120ms;
+		animation-delay: 140ms;
 	}
 
 	.details-accent-bar {
-		height: 2px;
-		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
-		opacity: 0.5;
-		border-radius: 2px;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-success-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.details-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 50% 100%,
+			color-mix(in oklab, var(--color-primary-500) 8%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.details-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-success-500) 20%),
+			color-mix(in oklab, var(--color-success-500) 70%, var(--color-primary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
 	.detail-item {
@@ -1022,6 +1771,65 @@
 		overflow: hidden;
 	}
 
+	/* ── Resources section ── */
+	.resources-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 160ms;
+	}
+
+	.resources-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-tertiary-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.resources-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 80% 0%,
+			color-mix(in oklab, var(--color-primary-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.resources-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-tertiary-500) 20%),
+			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-primary-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	/* ── Section header (collapsible) ── */
+	.section-header {
+		transition: background-color 150ms ease;
+	}
+
+	.section-header:hover {
+		background: color-mix(in oklab, var(--color-surface-50) 3%, transparent);
+	}
+
+	.section-chevron {
+		transition: transform 200ms ease;
+		color: color-mix(in oklab, var(--color-surface-50) 50%, transparent);
+	}
+
+	.section-chevron.expanded {
+		transform: rotate(180deg);
+	}
+
 	/* ── Auth notice ── */
 	.auth-notice {
 		animation: card-in 320ms ease both;
@@ -1036,6 +1844,16 @@
 		to {
 			opacity: 1;
 			transform: translateY(0);
+		}
+	}
+
+	@keyframes gradient-shift {
+		0%,
+		100% {
+			background-position: 0% 50%;
+		}
+		50% {
+			background-position: 100% 50%;
 		}
 	}
 </style>

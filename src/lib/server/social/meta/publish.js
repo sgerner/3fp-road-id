@@ -32,7 +32,9 @@ function buildMetaErrorDebugPayload(error) {
 		status: Number.isFinite(Number(error?.status)) ? Number(error.status) : null,
 		type: cleanText(inner?.type, 120) || null,
 		code: Number.isFinite(Number(inner?.code)) ? Number(inner.code) : null,
-		error_subcode: Number.isFinite(Number(inner?.error_subcode)) ? Number(inner.error_subcode) : null,
+		error_subcode: Number.isFinite(Number(inner?.error_subcode))
+			? Number(inner.error_subcode)
+			: null,
 		message: cleanText(inner?.message || inner?.error_message, 1000) || null,
 		error_user_title: cleanText(inner?.error_user_title, 240) || null,
 		error_user_msg: cleanText(inner?.error_user_msg, 1000) || null,

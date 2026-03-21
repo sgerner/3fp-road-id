@@ -1,9 +1,9 @@
 ---
 title: Emergency Protocols
-description: 
+description:
 published: true
 date: 2025-03-01T02:48:41.850Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-01T02:48:41.850Z
 ---
@@ -15,6 +15,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 # Lost Rider Protocol
 
 ## Prevention
+
 - Provide route maps to all participants before the ride
 - Use clear route markings at turns and intersections
 - Designate experienced "sweep" riders to bring up the rear
@@ -22,6 +23,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 - Collect contact information when riders register and provide organizer's contact information
 
 ## Response Procedure
+
 1. **Immediate Actions**
    - Contact the ride leader immediately if a rider is missing
    - Dispatch rider(s) back along the route
@@ -41,12 +43,14 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 # Mechanical Issues Protocol
 
 ## Prevention
+
 - Require basic pre-ride safety checks (e.g. ABC Quick Check) for all participants
 - Encourage riders to carry basic tools and supplies
 - Schedule group mechanic sessions before community rides if resources permit
 - Maintain a list of bike shops along or near the route
 
 ## Response Procedure
+
 1. **Minor Mechanical Issues (flat tire, dropped chain, loose parts)**
    - Move affected rider and helper safely off the road
    - Assess if repair is possible with available tools
@@ -67,6 +71,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 # First Aid & Medical Emergencies Protocol
 
 ## Prevention
+
 - Require emergency contact information from all participants
 - Identify riders with medical training before the ride
 - Maintain stocked first aid kits with ride leaders
@@ -74,6 +79,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 - Encourage medical ID tags/apps for riders with conditions
 
 ## Response Procedure
+
 1. **Minor Injuries (scrapes, cuts, bruises)**
    - Move injured rider to safe location off road
    - Administer appropriate first aid
@@ -98,6 +104,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 # Rider Fatigue/Dehydration/Heat Exhaustion Protocol
 
 ## Prevention
+
 - Clearly communicate ride difficulty, distance, elevation in advance
 - Recommend appropriate hydration and nutrition guidelines
 - Schedule rides during cooler hours in hot weather
@@ -105,6 +112,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 - Monitor weather conditions and modify plans accordingly
 
 ## Response Procedure
+
 1. **Early Signs of Fatigue/Dehydration (complaints, slowing pace)**
    - Initiate immediate rest stop in shaded area
    - Provide water, electrolytes, and simple carbohydrates
@@ -129,6 +137,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 # Crash & Traffic Violence Protocol
 
 ## Prevention
+
 - Review road safety rules before each ride, e.g. [ALERT system](/education/alert)
 - Require helmets and encourage high-visibility clothing
 - Use bike lights even during daytime
@@ -136,6 +145,7 @@ Ensuring a safe and enjoyable ride for all participants is a top priority for ou
 - Plan routes on bike-friendly roads when possible
 
 ## Response Procedure
+
 1. **Minor Crash with No Serious Injuries**
    - Move everyone to safety off the road
    - Assess all involved for injuries

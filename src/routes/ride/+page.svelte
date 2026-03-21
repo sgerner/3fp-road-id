@@ -917,7 +917,9 @@
 			</div>
 		{:else}
 			<!-- Empty state -->
-			<div class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center">
+			<div
+				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+			>
 				<div class="app-empty-orb" aria-hidden="true"></div>
 				<div class="relative z-10 mx-auto max-w-lg space-y-4">
 					<div
@@ -955,7 +957,7 @@
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 	}
 
-						/* ── Headline accent ── */
+	/* ── Headline accent ── */
 	.ride-headline {
 		color: var(--color-primary-50);
 		text-align: left;
@@ -1149,7 +1151,7 @@
 	}
 
 	/* ── Empty state ── */
-				.event-card {
+	.event-card {
 		animation: calendar-card-in 380ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 30ms);
 	}

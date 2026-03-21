@@ -11,6 +11,8 @@ export const ALLOWED_API_TABLES = [
 	'group_members',
 	'group_events',
 	'group_gallery_images',
+	'group_asset_sections',
+	'group_assets',
 	'group_announcements',
 	'group_resources',
 	'group_faqs',
@@ -35,6 +37,8 @@ export const ALLOWED_API_TABLES = [
 export const TABLE_PRIMARY_KEYS = {
 	groups: 'id',
 	group_events: 'id',
+	group_asset_sections: 'id',
+	group_assets: 'id',
 	// For join tables with composite keys, DELETE/PUT might need .match() with body/query params
 	group_x_group_types: ['group_id', 'group_type_id'],
 	group_members: ['group_id', 'user_id', 'role'],

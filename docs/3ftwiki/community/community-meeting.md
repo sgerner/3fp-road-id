@@ -3,7 +3,7 @@ title: Community Response Meeting
 description: Organize, run, and market community meetings in response to serious accidents and fatalities
 published: true
 date: 2025-03-01T03:32:45.558Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-27T03:47:38.037Z
 ---
@@ -13,10 +13,10 @@ dateCreated: 2025-02-27T03:47:38.037Z
 This guide is designed to help you organize effective community response meetings following serious accidents and fatalities involving cyclists in your neighborhood. The structure and activities prioritize healing, actionable solutions, and community solidarity while creating a safe space for people to process, connect, and mobilize toward positive change.
 
 > Remember: In times of crisis, communities need both emotional support and clear pathways to action.
-{.is-success}
+> {.is-success}
 
 > The [Discussion Facilitation Guide](/community/facilitation) and [Conflict Resolution Strategies](/community/resolution) are additional helpful resources.
-{.is-info}
+> {.is-info}
 
 # MEETING OVERVIEW
 
@@ -24,17 +24,19 @@ This guide is designed to help you organize effective community response meeting
 
 **Setting:** Community center, local place of worship, school auditorium, or other neutral, accessible venue
 
-**Participants:** 
+**Participants:**
+
 - 10-100+ concerned community members
 - 3-7 local organizers/facilitators
 - 1-3 local officials or service providers (optional)
 
 > Be prepared to accommodate larger crowds than anticipated when community concern is high.
-{.is-warning}
+> {.is-warning}
 
 **Purpose:** To provide a supportive space for community members to process a tragic event, share concerns, identify needs, develop actionable responses, and build solidarity while channeling grief and anger into constructive community action.
 
 This meeting is designed to be:
+
 - **Supportive:** Creating space for emotional processing
 - **Actionable:** Focusing on concrete next steps
 - **Inclusive:** Ensuring all voices are heard
@@ -55,6 +57,7 @@ By the end of this meeting, you should achieve the following:
 # PRE-MEETING PLANNING
 
 ## 48-72 Hours Before (if possible)
+
 - [ ] Identify a core organizing team (2-3 people)
 - [ ] Secure an accessible, appropriate venue
 - [ ] Determine meeting time (ideally within 5-7 days of the event)
@@ -67,6 +70,7 @@ By the end of this meeting, you should achieve the following:
 - [ ] Prepare any factual information to be shared
 
 ## 24 Hours Before
+
 - [ ] Distribute meeting information via multiple channels
 - [ ] Prepare sign-in sheets
 - [ ] Prepare contact lists of key stakeholders for participants, e.g. Mayor or Council, Key City Staff, Event Organizers, Local Community Group Leaders
@@ -138,7 +142,9 @@ Our community is stronger together. Please share with neighbors who may not be o
 As community organizers, we often have limited resources and volunteers; however, for an effective meeting, try to staff these key roles:
 
 ## Lead Facilitator
+
 **Responsibilities:**
+
 - Guides the overall meeting flow and agenda
 - Maintains respectful discussion and time boundaries
 - Ensures diverse voices are heard
@@ -148,7 +154,9 @@ As community organizers, we often have limited resources and volunteers; however
 **Skills needed:** Strong facilitation experience, emotional intelligence, ability to redirect without dismissing, comfort with difficult emotions
 
 ## Support Facilitator(s)
+
 **Responsibilities:**
+
 - Assists lead facilitator with group activities
 - Takes detailed notes on concerns and action items
 - Helps manage speaking order
@@ -158,7 +166,9 @@ As community organizers, we often have limited resources and volunteers; however
 **Skills needed:** Active listening, empathy, organization, ability to summarize
 
 ## Greeter/Logistics Coordinator
+
 **Responsibilities:**
+
 - Welcomes people as they arrive
 - Manages sign-in process and information capture
 - Directs people to resources or support as needed
@@ -168,7 +178,9 @@ As community organizers, we often have limited resources and volunteers; however
 **Skills needed:** Warmth, organization, attention to detail
 
 ## Resource Coordinator
+
 **Responsibilities:**
+
 - Identifies and invites appropriate resource providers
 - Coordinates information sharing
 - Creates resource sheets or digital documentation
@@ -178,7 +190,9 @@ As community organizers, we often have limited resources and volunteers; however
 **Skills needed:** Knowledge of local resources, organization, follow-through
 
 ## Care Team Members (2-3 people)
+
 **Responsibilities:**
+
 - Provides one-on-one emotional support as needed
 - Staffs a "quiet space" for those needing a break
 - Identifies individuals in acute distress
@@ -188,11 +202,12 @@ As community organizers, we often have limited resources and volunteers; however
 **Skills needed:** Mental health background ideal, calm presence, crisis training
 
 > Have trauma-informed individuals serve on your care team whenever possible. This is not therapy, but basic support matters. Volunteers who have worked as substance abuse counselors can be particularly effective.
-{.is-info}
+> {.is-info}
 
 # REQUIRED RESOURCES
 
 ## Essential Materials
+
 - [ ] Sign-in sheets with optional contact information
 - [ ] Name tags (optional but helpful)
 - [ ] Meeting agenda (displayed visually and/or as handouts)
@@ -204,6 +219,7 @@ As community organizers, we often have limited resources and volunteers; however
 - [ ] Childcare supplies if offering childcare
 
 ## Optional But Recommended
+
 - [ ] Microphone system for larger groups
 - [ ] Projection capability for information sharing
 - [ ] Quiet area designation for those needing space
@@ -214,29 +230,29 @@ As community organizers, we often have limited resources and volunteers; however
 
 ## 90-Minute Basic Framework
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-0:15 | **Arrival & Gathering** | Check-in, materials, seating, quiet music |
-| 0:15-0:25 | **Welcome & Ground Rules** | Opening, acknowledgments, meeting purpose, agreements |
-| 0:25-0:35 | **Information Sharing** | Accurate facts about incident, available resources |
-| 0:35-0:55 | **Community Voice** | Structured sharing of concerns and impacts |
-| 0:55-1:15 | **Action Planning** | Identifying specific community responses and volunteers |
-| 1:15-1:25 | **Next Steps & Commitments** | Clear timeline, communication plan, immediate actions |
-| 1:25-1:30 | **Closing Circle** | Brief solidarity activity, final words |
-| 1:30+ | **Informal Connection** | Continued conversation, resource access, sign-ups |
+| Time      | Activity                     | Description                                             |
+| --------- | ---------------------------- | ------------------------------------------------------- |
+| 0:00-0:15 | **Arrival & Gathering**      | Check-in, materials, seating, quiet music               |
+| 0:15-0:25 | **Welcome & Ground Rules**   | Opening, acknowledgments, meeting purpose, agreements   |
+| 0:25-0:35 | **Information Sharing**      | Accurate facts about incident, available resources      |
+| 0:35-0:55 | **Community Voice**          | Structured sharing of concerns and impacts              |
+| 0:55-1:15 | **Action Planning**          | Identifying specific community responses and volunteers |
+| 1:15-1:25 | **Next Steps & Commitments** | Clear timeline, communication plan, immediate actions   |
+| 1:25-1:30 | **Closing Circle**           | Brief solidarity activity, final words                  |
+| 1:30+     | **Informal Connection**      | Continued conversation, resource access, sign-ups       |
 
 ## 120-Minute Extended Framework
 
-| Time | Activity | Description |
-|------|----------|-------------|
-| 0:00-0:20 | **Arrival & Gathering** | Check-in, materials, informal connection |
-| 0:20-0:35 | **Welcome & Context** | Opening, cultural grounding, purpose, agreements |
-| 0:35-0:50 | **Information & Resources** | Factual updates, available support services |
-| 0:50-1:20 | **Community Voice** | Small group and large group sharing of concerns |
+| Time      | Activity                     | Description                                                                    |
+| --------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| 0:00-0:20 | **Arrival & Gathering**      | Check-in, materials, informal connection                                       |
+| 0:20-0:35 | **Welcome & Context**        | Opening, cultural grounding, purpose, agreements                               |
+| 0:35-0:50 | **Information & Resources**  | Factual updates, available support services                                    |
+| 0:50-1:20 | **Community Voice**          | Small group and large group sharing of concerns                                |
 | 1:20-1:45 | **Action Planning Workshop** | Breakout groups by response area (immediate needs, prevention, advocacy, etc.) |
-| 1:45-2:00 | **Commitments & Timeline** | Specific next steps, volunteer sign-ups, communication plan |
-| 2:00-2:10 | **Closing Circle** | Unity activity, acknowledging emotions, looking forward |
-| 2:10+ | **Resources & Connection** | One-on-one support, resource tables |
+| 1:45-2:00 | **Commitments & Timeline**   | Specific next steps, volunteer sign-ups, communication plan                    |
+| 2:00-2:10 | **Closing Circle**           | Unity activity, acknowledging emotions, looking forward                        |
+| 2:10+     | **Resources & Connection**   | One-on-one support, resource tables                                            |
 
 # FACILITATION ACTIVITIES
 
@@ -247,6 +263,7 @@ As community organizers, we often have limited resources and volunteers; however
 **Materials:** None required or a candle/meaningful object if appropriate
 
 **Instructions:**
+
 1. If appropriate, begin with a moment of silence (30-60 seconds) to honor those affected
 2. Briefly acknowledge the incident without graphic details
 3. Name common emotions (grief, anger, fear, confusion)
@@ -267,15 +284,18 @@ Our community has faced challenges before, and we have the wisdom and strength w
 **Purpose:** Create a safe, respectful space for difficult conversations
 
 **Materials:**
+
 - Large paper or poster board
 - Markers
 
 **Instructions:**
+
 1. Present pre-written basic agreements (see below)
 2. Ask if any additions are needed for this specific situation
 3. Get verbal confirmation of willingness to uphold these agreements
 
 **Sample Community Agreements:**
+
 - One mic, one voice (one person speaks at a time)
 - Speak from your experience (use "I" statements)
 - Step up, step back (make space for all voices)
@@ -292,11 +312,13 @@ Our community has faced challenges before, and we have the wisdom and strength w
 **Purpose:** Allow community members to express concerns and be heard
 
 **Materials:**
+
 - Talking piece (optional)
 - Timer
 - Note-taking materials
 
 **Instructions:**
+
 1. Explain the process and time limits per speaker (1-2 minutes depending on group size)
 2. Pose a focused question such as:
    - "What is your greatest concern following this incident?"
@@ -307,6 +329,7 @@ Our community has faced challenges before, and we have the wisdom and strength w
 5. After the circle, summarize the main themes that emerged
 
 **Facilitator Tips:**
+
 - For very large groups, consider breaking into smaller circles with facilitators
 - Remind participants to focus on experiences and needs rather than assigning blame
 - Gently redirect if someone exceeds time limits
@@ -318,12 +341,14 @@ Our community has faced challenges before, and we have the wisdom and strength w
 **Purpose:** Move from concerns to concrete actions
 
 **Materials:**
+
 - Large paper sheets (4-5)
 - Markers
 - Sticky notes
 - Dot stickers or markers for voting
 
 **Instructions:**
+
 1. Based on concerns shared, identify 3-5 key response areas (examples: immediate safety, victim support, prevention, policy change, community healing)
 2. Create a station for each response area
 3. Divide participants into groups that rotate through stations
@@ -332,6 +357,7 @@ Our community has faced challenges before, and we have the wisdom and strength w
 6. Identify top 2-3 actions for each area
 
 **Facilitator Tips:**
+
 - Provide examples to get people started
 - Encourage specific, actionable ideas rather than vague concepts
 - Remind participants to consider both immediate and long-term responses
@@ -343,11 +369,13 @@ Our community has faced challenges before, and we have the wisdom and strength w
 **Purpose:** Move from ideas to accountable action
 
 **Materials:**
+
 - Action sign-up sheets or digital form
 - Pens
 - Contact information cards
 
 **Instructions:**
+
 1. Present the top actions identified for each area
 2. For each action, clearly state:
    - What is needed (specific tasks)
@@ -370,29 +398,28 @@ When I describe each opportunity, consider if you can help lead or support this 
 **Materials:** Depends on chosen activity
 
 **Options:**
+
 1. One Small Action (Paired Share)
-    - Ask people to turn to a neighbor and share one small action they can take in the next week related to what they discussed.
-    - Keeps it personal and gives accountability without pressure.
+   - Ask people to turn to a neighbor and share one small action they can take in the next week related to what they discussed.
+   - Keeps it personal and gives accountability without pressure.
 
 2. Collective Takeaways (Sticky Note Wall or Verbal)
-    - Have participants write one key takeaway on a sticky note and place it on a wall or board as they leave.
-    - Alternatively, invite a few volunteers to share something that resonated with them.
+   - Have participants write one key takeaway on a sticky note and place it on a wall or board as they leave.
+   - Alternatively, invite a few volunteers to share something that resonated with them.
 
 3. Gratitude Chain
-    - Each person expresses gratitude for one thing—can be related to the event or something personal.
-    - This naturally ends on a positive, connected note.
+   - Each person expresses gratitude for one thing—can be related to the event or something personal.
+   - This naturally ends on a positive, connected note.
 
 4. Call and Response Commitment
-A simple, engaging call and response where the facilitator states a commitment, and the group echoes back. Example:
-    - Facilitator: “We commit to supporting one another.”
-    - Group: “We commit to supporting one another.”
-    - Keeps energy up and reinforces shared purpose.
+   A simple, engaging call and response where the facilitator states a commitment, and the group echoes back. Example: - Facilitator: “We commit to supporting one another.” - Group: “We commit to supporting one another.” - Keeps energy up and reinforces shared purpose.
 
 5. "Next Time We Meet..."
-    - Go around quickly and have people complete the sentence, "Next time we meet, I hope to have..."
-    - Gives people a sense of momentum and a reason to stay engaged.
+   - Go around quickly and have people complete the sentence, "Next time we meet, I hope to have..."
+   - Gives people a sense of momentum and a reason to stay engaged.
 
 **Facilitator Tips:**
+
 - Choose an activity appropriate to your community's culture
 - Keep it brief but meaningful
 - Acknowledge both the difficulty and the possibility ahead
@@ -441,6 +468,7 @@ Community response meetings can become emotional or challenging. Here are strate
 # AFTER THE MEETING
 
 ## Immediate Follow-up (Within 24 Hours)
+
 - [ ] Send thank-you message to all participants who provided contact information
 - [ ] Distribute meeting notes and action commitments
 - [ ] Create or update communication channels for ongoing coordination
@@ -449,6 +477,7 @@ Community response meetings can become emotional or challenging. Here are strate
 - [ ] Share accurate information to counter any misinformation
 
 ## Within One Week
+
 - [ ] Hold first action team meetings
 - [ ] Follow up on immediate resource needs identified
 - [ ] Provide update to broader community via established channels
@@ -457,6 +486,7 @@ Community response meetings can become emotional or challenging. Here are strate
 - [ ] Begin planning for any follow-up community gatherings
 
 ## Within One Month
+
 - [ ] Hold a progress update meeting or share written updates
 - [ ] Recognize early actions and contributions
 - [ ] Reassess needs and adjust plans accordingly
@@ -464,6 +494,7 @@ Community response meetings can become emotional or challenging. Here are strate
 - [ ] Consider transition to longer-term community building
 
 # SAMPLE FOLLOW-UP EMAIL
+
 **Subject:** Next Steps Following Our Community Response Meeting
 
 Dear Neighbors,
@@ -518,7 +549,7 @@ Thank you for your commitment to our community,
 
 **Date:** [Date]  
 **Time:** [Start time] - [End time]  
-**Location:** [Venue with address]  
+**Location:** [Venue with address]
 
 **AGENDA**
 
@@ -561,44 +592,48 @@ Thank you for your commitment to our community,
 Support team members will be wearing [identifying item] and are available throughout the meeting if you need assistance or support.
 
 ## Sign-in Sheet Template
+
 > To Do: Convert to and link word doc or google doc with image for easy editing.
-{.is-warning}
+> {.is-warning}
 
 **Community Response Meeting Sign-in Sheet**
 
-**Date:** _______________
+**Date:** **\*\***\_\_\_**\*\***
 
 _Your contact information will only be used for follow-up related to community response efforts. Providing this information is optional but helpful for coordination._
 
 | Name | Email | Phone | I'm interested in helping with: | I'd like updates via: (Email/Text/Call) |
-|------|-------|-------|--------------------------------|----------------------------------------|
-|      |       |       |                                |                                        |
-|      |       |       |                                |                                        |
-|      |       |       |                                |                                        |
-|      |       |       |                                |                                        |
-|      |       |       |                                |                                        |
+| ---- | ----- | ----- | ------------------------------- | --------------------------------------- |
+|      |       |       |                                 |                                         |
+|      |       |       |                                 |                                         |
+|      |       |       |                                 |                                         |
+|      |       |       |                                 |                                         |
+|      |       |       |                                 |                                         |
 
 ## Action Commitment Form
+
 > To Do: Convert to and link word doc or google doc with image for easy editing.
-{.is-warning}
+> {.is-warning}
 
 **Community Action Commitment**
 
-**Action Area:** _______________________________________________
+**Action Area:** \***\*\*\*\*\***\*\*\***\*\*\*\*\***\_\_\_\***\*\*\*\*\***\*\*\***\*\*\*\*\***
 
-**Description:** _______________________________________________ 
-_____________________________________________________________
+**Description:** \***\*\*\*\*\***\*\*\***\*\*\*\*\***\_\_\_\***\*\*\*\*\***\*\*\***\*\*\*\*\***
 
-**Timeline:** ________________________________________________
+---
 
-**Resources Needed:** _________________________________________ 
-_____________________________________________________________
+**Timeline:** \***\*\*\*\*\***\*\*\***\*\*\*\*\***\_\_\_\_\***\*\*\*\*\***\*\*\***\*\*\*\*\***
+
+**Resources Needed:** **\*\*\*\***\*\*\*\***\*\*\*\***\_**\*\*\*\***\*\*\*\***\*\*\*\***
+
+---
 
 **I can help with:**
 □ Leading this action
 □ Participating in this action
-□ Providing resources (please specify): _______________________
-□ Other: __________________________________________________
+□ Providing resources (please specify): \***\*\*\*\*\***\_\_\_\***\*\*\*\*\***
+□ Other: \***\*\*\*\*\***\*\*\*\*\***\*\*\*\*\***\_\_\***\*\*\*\*\***\*\*\*\*\***\*\*\*\*\***
 
 **Availability:**
 □ Immediately
@@ -606,20 +641,22 @@ _____________________________________________________________
 □ Within the next month
 □ Ongoing
 
-**Name:** __________________________________________________
+**Name:** \***\*\*\*\*\***\*\*\*\*\***\*\*\*\*\***\_\_\***\*\*\*\*\***\*\*\*\*\***\*\*\*\*\***
 
-**Contact:** ________________________________________________
+**Contact:** \***\*\*\*\*\***\*\*\***\*\*\*\*\***\_\_\_\_\***\*\*\*\*\***\*\*\***\*\*\*\*\***
 
-**Skills/Experience I can offer:** _____________________________
-_____________________________________________________________
+**Skills/Experience I can offer:** **\*\***\*\***\*\***\_**\*\***\*\***\*\***
+
+---
 
 ## FEEDBACK FORM
+
 > To Do: Convert to and link word doc or google doc with image for easy editing.
-{.is-warning}
+> {.is-warning}
 
 **Community Response Meeting Feedback**
 
-Date: _______________
+Date: **\*\***\_\_\_**\*\***
 
 1. Did you feel the meeting was helpful in addressing community concerns?
    □ Very helpful
@@ -629,12 +666,16 @@ Date: _______________
    □ Not at all helpful
 
 2. What aspect of the meeting was most valuable to you?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 3. What could have been improved about the meeting?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 4. Do you feel clear about next steps and how to stay involved?
    □ Very clear
@@ -642,8 +683,10 @@ Date: _______________
    □ Not clear
 
 5. What additional resources or support would be helpful for our community right now?
-   ____________________________________________
-   ____________________________________________
+
+   ***
+
+   ***
 
 6. Would you be interested in attending follow-up meetings?
    □ Yes
@@ -651,12 +694,12 @@ Date: _______________
    □ Maybe
 
 7. Any other comments or suggestions?
-   ____________________________________________
-   ____________________________________________
+   ***
+   ***
 
 Optional:
-Name: ___________________________
-Contact: _________________________
+Name: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
+Contact: \***\*\*\*\*\*\*\***\_\***\*\*\*\*\*\*\***
 
 # FINAL THOUGHTS
 

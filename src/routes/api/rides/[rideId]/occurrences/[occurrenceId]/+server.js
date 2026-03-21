@@ -40,8 +40,7 @@ export async function PUT({ params, request, cookies }) {
 		ends_at: payload.endsAt ?? payload.ends_at ?? occurrence.ends_at,
 		status: payload.status ?? occurrence.status,
 		start_location_name: payload.startLocationName ?? payload.start_location_name ?? null,
-		start_location_address:
-			payload.startLocationAddress ?? payload.start_location_address ?? null,
+		start_location_address: payload.startLocationAddress ?? payload.start_location_address ?? null,
 		start_latitude: payload.startLatitude ?? payload.start_latitude ?? null,
 		start_longitude: payload.startLongitude ?? payload.start_longitude ?? null,
 		end_location_name: payload.endLocationName ?? payload.end_location_name ?? null,

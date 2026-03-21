@@ -44,10 +44,12 @@ export async function POST({ request, cookies }) {
 
 			const objectPath = buildObjectPath(user.id, file.name);
 			const arrayBuffer = await file.arrayBuffer();
-			const uploadResult = await supabase.storage.from('learn-media').upload(objectPath, arrayBuffer, {
-				contentType: file.type,
-				upsert: false
-			});
+			const uploadResult = await supabase.storage
+				.from('learn-media')
+				.upload(objectPath, arrayBuffer, {
+					contentType: file.type,
+					upsert: false
+				});
 
 			if (uploadResult.error) {
 				return json({ error: uploadResult.error.message }, { status: 500 });
@@ -111,6 +113,9 @@ export async function POST({ request, cookies }) {
 		return json({ files: uploadedFiles });
 	} catch (routeError) {
 		const status = routeError?.status || 500;
-		return json({ error: routeError?.body?.message || routeError?.message || 'Upload failed.' }, { status });
+		return json(
+			{ error: routeError?.body?.message || routeError?.message || 'Upload failed.' },
+			{ status }
+		);
 	}
 }

@@ -472,28 +472,36 @@
 	async function addShift(opportunityId) {
 		try {
 			const opportunity = opportunities.find((op) => op.id === opportunityId);
+			const defaultStartsAt =
+				_optionalChain([
+					opportunity,
+					'optionalAccess',
+					(_25) => _25.shifts,
+					'optionalAccess',
+					(_26) => _26[0],
+					'optionalAccess',
+					(_27) => _27.startsAt
+				]) || eventDetails.eventStart;
+			const rawDefaultEndsAt =
+				_optionalChain([
+					opportunity,
+					'optionalAccess',
+					(_28) => _28.shifts,
+					'optionalAccess',
+					(_29) => _29[0],
+					'optionalAccess',
+					(_30) => _30.endsAt
+				]) || eventDetails.eventEnd;
+			let defaultEndsAt = rawDefaultEndsAt;
+			const startMs = defaultStartsAt ? Date.parse(String(defaultStartsAt)) : NaN;
+			const endMs = defaultEndsAt ? Date.parse(String(defaultEndsAt)) : NaN;
+			if (Number.isFinite(startMs) && (!Number.isFinite(endMs) || endMs <= startMs)) {
+				defaultEndsAt = new Date(startMs + 60 * 60 * 1000).toISOString().slice(0, 16);
+			}
 			const payload = buildShiftPayload(
 				{
-					startsAt:
-						_optionalChain([
-							opportunity,
-							'optionalAccess',
-							(_25) => _25.shifts,
-							'optionalAccess',
-							(_26) => _26[0],
-							'optionalAccess',
-							(_27) => _27.startsAt
-						]) || eventDetails.eventStart,
-					endsAt:
-						_optionalChain([
-							opportunity,
-							'optionalAccess',
-							(_28) => _28.shifts,
-							'optionalAccess',
-							(_29) => _29[0],
-							'optionalAccess',
-							(_30) => _30.endsAt
-						]) || eventDetails.eventEnd,
+					startsAt: defaultStartsAt,
+					endsAt: defaultEndsAt,
 					timezone:
 						_optionalChain([
 							opportunity,
@@ -550,14 +558,31 @@
 	}
 
 	function updateShift(opportunityId, shiftId, patch) {
+		let nextShiftRecord = null;
 		opportunities = opportunities.map((op) => {
 			if (op.id !== opportunityId) return op;
 			const shifts = op.shifts.map((shift) =>
-				shift.id === shiftId ? { ...shift, ...patch } : shift
+				shift.id === shiftId ? ((nextShiftRecord = { ...shift, ...patch }), nextShiftRecord) : shift
 			);
 			return { ...op, shifts };
 		});
-		getShiftAutosave(shiftId, opportunityId).queue(patch);
+
+		const queuePatch = { ...patch };
+		if (nextShiftRecord && ('startsAt' in patch || 'endsAt' in patch)) {
+			const startMs = nextShiftRecord.startsAt ? Date.parse(String(nextShiftRecord.startsAt)) : NaN;
+			const endMs = nextShiftRecord.endsAt ? Date.parse(String(nextShiftRecord.endsAt)) : NaN;
+			if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+				queuePatch.startsAt = nextShiftRecord.startsAt;
+				queuePatch.endsAt = nextShiftRecord.endsAt;
+			} else {
+				delete queuePatch.startsAt;
+				delete queuePatch.endsAt;
+			}
+		}
+
+		if (Object.keys(queuePatch).length > 0) {
+			getShiftAutosave(shiftId, opportunityId).queue(queuePatch);
+		}
 	}
 
 	const loadedQuestions = ensureArray(_nullishCoalesce(pageData.customQuestions, () => []));

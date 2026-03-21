@@ -311,7 +311,11 @@ export const POST = async ({ request }) => {
 		ig ? scrapeInstagramProfile(ig) : Promise.resolve([]),
 		fb ? scrapeFacebookPage(fb) : Promise.resolve([])
 	]);
-	logStage('social-scrape', socialStartedAt, `docs=${(igDocs?.length || 0) + (fbDocs?.length || 0)}`);
+	logStage(
+		'social-scrape',
+		socialStartedAt,
+		`docs=${(igDocs?.length || 0) + (fbDocs?.length || 0)}`
+	);
 	const socialDocs = dedupeDocs([...igDocs, ...fbDocs]);
 	const socialFacts = deriveSocialFactsFromDocs(socialDocs, {
 		instagramUrl: ig,
@@ -332,7 +336,10 @@ export const POST = async ({ request }) => {
 	const crawlStartedAt = Date.now();
 	for (const candidate of websiteCandidates) {
 		if (!hasTime(20000)) break;
-		const bundle = await scrapeWebsiteBundle(candidate, [...urls, ...scraped.map((doc) => doc.url)]);
+		const bundle = await scrapeWebsiteBundle(candidate, [
+			...urls,
+			...scraped.map((doc) => doc.url)
+		]);
 		if (!bundle.docs.length) continue;
 		selectedSite = candidate;
 		if (!urls.includes(candidate)) urls.push(candidate);
@@ -340,7 +347,11 @@ export const POST = async ({ request }) => {
 		siteCrawlPlan = bundle.plan;
 		break;
 	}
-	logStage('site-crawl', crawlStartedAt, `docs=${scraped.length} selected=${selectedSite || 'none'}`);
+	logStage(
+		'site-crawl',
+		crawlStartedAt,
+		`docs=${scraped.length} selected=${selectedSite || 'none'}`
+	);
 
 	const hints = buildHighLevelHints(scraped, {
 		urls,
@@ -389,7 +400,11 @@ export const POST = async ({ request }) => {
 			EXTRACTION_PASS_TIMEOUT_MS,
 			'Extraction pass timeout'
 		);
-		logStage('ai-extraction-primary', extractionPrimaryStartedAt, `model=${extractionModelPrimary.model.model}`);
+		logStage(
+			'ai-extraction-primary',
+			extractionPrimaryStartedAt,
+			`model=${extractionModelPrimary.model.model}`
+		);
 		aiParsed = extraction.parsed;
 		extractionRaw = extraction.raw;
 
@@ -411,7 +426,11 @@ export const POST = async ({ request }) => {
 				'Extraction retry timeout'
 			).catch(() => null);
 			if (retryExtraction) {
-				logStage('ai-extraction-retry', extractionRetryStartedAt, `model=${extractionModelRetry.model.model}`);
+				logStage(
+					'ai-extraction-retry',
+					extractionRetryStartedAt,
+					`model=${extractionModelRetry.model.model}`
+				);
 				const primaryScore = extractionPayloadScore(aiParsed);
 				const retryScore = extractionPayloadScore(retryExtraction.parsed);
 				if (retryScore >= primaryScore) {
@@ -464,7 +483,10 @@ export const POST = async ({ request }) => {
 				NARRATIVE_PASS_TIMEOUT_MS,
 				'Narrative pass timeout'
 			);
-			const [resolvedLocation, narrative] = await Promise.all([locationResolutionPromise, narrativePromise]);
+			const [resolvedLocation, narrative] = await Promise.all([
+				locationResolutionPromise,
+				narrativePromise
+			]);
 			locationResolution = resolvedLocation || { applied: false };
 			logStage('ai-narrative', narrativeStartedAt, `model=${narrativeModel.model.model}`);
 			narrativeRaw = narrative.raw;
@@ -478,7 +500,9 @@ export const POST = async ({ request }) => {
 					categories: normalized.categories
 				});
 			} else {
-				aiErrors.push('Narrative pass returned non-parseable JSON; retained factual narrative fields.');
+				aiErrors.push(
+					'Narrative pass returned non-parseable JSON; retained factual narrative fields.'
+				);
 				narrativePassStatus = 'fallback';
 			}
 		} else {
@@ -742,7 +766,9 @@ function buildModelContext({
 		...doc,
 		recency: doc?.recency || extractRecencyInfo(doc)
 	}));
-	const dedupedUrls = uniqueNormalizedValues((urls || []).map((u) => normalizeAnyUrl(u)).filter(Boolean));
+	const dedupedUrls = uniqueNormalizedValues(
+		(urls || []).map((u) => normalizeAnyUrl(u)).filter(Boolean)
+	);
 	return {
 		urls: dedupedUrls,
 		scraped: docs,
@@ -756,7 +782,8 @@ function buildModelContext({
 }
 
 function buildExtractionContents(context, name) {
-	const { urls, scraped, siteCrawlPlan, hints, socialFacts, deterministicFacts, existingProfile } = context;
+	const { urls, scraped, siteCrawlPlan, hints, socialFacts, deterministicFacts, existingProfile } =
+		context;
 	const rankedDocs = rankDocsForContext(scraped, siteCrawlPlan);
 	const totalTextChars = rankedDocs.reduce(
 		(sum, doc) => sum + Math.min((doc?.text || '').length, MAX_CONTEXT_TEXT_PER_DOC),
@@ -835,7 +862,8 @@ function buildDeterministicSummary(deterministicFacts) {
 		if (value == null || value === '') continue;
 		out[key] = value;
 	}
-	if (deterministicFacts.fields?.social_links) out.social_links = deterministicFacts.fields.social_links;
+	if (deterministicFacts.fields?.social_links)
+		out.social_links = deterministicFacts.fields.social_links;
 	return truncate(JSON.stringify(out), 2500);
 }
 
@@ -900,7 +928,8 @@ function summarizeExistingProfile(existingProfile) {
 			cat.audience_focuses = existingProfile.categories.audience_focuses;
 		if (existingProfile.categories.riding_disciplines?.length)
 			cat.riding_disciplines = existingProfile.categories.riding_disciplines;
-		if (existingProfile.categories.skill_levels?.length) cat.skill_levels = existingProfile.categories.skill_levels;
+		if (existingProfile.categories.skill_levels?.length)
+			cat.skill_levels = existingProfile.categories.skill_levels;
 		if (Object.keys(cat).length) summary.categories = cat;
 	}
 	if (existingProfile?.extras && Object.keys(existingProfile.extras).length) {
@@ -917,8 +946,11 @@ function buildExistingProfileDoc(existingProfile) {
 		if (value == null || value === '') continue;
 		lines.push(`${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
 	}
-	const socialPairs = Object.entries(existingProfile?.fields?.social_links || {}).filter(([_, v]) => Boolean(v));
-	if (socialPairs.length) lines.push(`social_links: ${socialPairs.map(([k, v]) => `${k}=${v}`).join(', ')}`);
+	const socialPairs = Object.entries(existingProfile?.fields?.social_links || {}).filter(([_, v]) =>
+		Boolean(v)
+	);
+	if (socialPairs.length)
+		lines.push(`social_links: ${socialPairs.map(([k, v]) => `${k}=${v}`).join(', ')}`);
 	for (const [k, arr] of Object.entries(existingProfile?.categories || {})) {
 		if (Array.isArray(arr) && arr.length) lines.push(`${k}: ${arr.join(', ')}`);
 	}
@@ -931,7 +963,9 @@ function buildExistingProfileDoc(existingProfile) {
 		url: 'existing://profile',
 		html: '',
 		text: truncate(lines.join('\n'), MAX_TEXT_PER_DOC),
-		structured: [{ label: 'existing_profile', json: truncate(JSON.stringify(existingProfile), 5000) }],
+		structured: [
+			{ label: 'existing_profile', json: truncate(JSON.stringify(existingProfile), 5000) }
+		],
 		source: 'existing-profile',
 		recency: null
 	};
@@ -1159,7 +1193,11 @@ function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
 			const normalized = normalizeAnyUrl(extLinkMatch[1].trim());
 			if (normalized) addUnique(facts.websiteCandidates, normalized);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(based in|serving|chapter|community|city|county)\b/i, 2)) {
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(based in|serving|chapter|community|city|county)\b/i,
+			2
+		)) {
 			addUnique(facts.locationSnippets, sentence);
 		}
 	}
@@ -1167,7 +1205,10 @@ function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
 	return facts;
 }
 
-function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, socialFacts, existingProfile }) {
+function extractDeterministicFacts(
+	docs,
+	{ name, requestedSite, selectedSite, socialFacts, existingProfile }
+) {
 	const candidatesByField = {};
 	const addCandidate = (field, value, score, evidence, doc, source = inferDocSourceType(doc)) => {
 		const normalizedValue = normalizeCandidateValue(field, value);
@@ -1201,8 +1242,17 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 	};
 
 	if (name) addCandidate('name', name, 0.95, 'Provided by user input', null, 'user-input');
-	if (requestedSite) addCandidate('website_url', requestedSite, 0.95, 'Provided website input', null, 'user-input');
-	if (selectedSite) addCandidate('website_url', selectedSite, 0.9, 'Website discovered and crawled', null, 'crawler');
+	if (requestedSite)
+		addCandidate('website_url', requestedSite, 0.95, 'Provided website input', null, 'user-input');
+	if (selectedSite)
+		addCandidate(
+			'website_url',
+			selectedSite,
+			0.9,
+			'Website discovered and crawled',
+			null,
+			'crawler'
+		);
 	for (const key of ALL_FIELD_KEYS) {
 		const value = existingProfile?.fields?.[key];
 		if (value == null || value === '') continue;
@@ -1236,10 +1286,24 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 			addCandidate('name', heading, baseScore + 0.03, `H1: ${heading}`, doc, sourceType);
 		}
 		for (const email of extractEmailCandidates(text)) {
-			addCandidate('public_contact_email', email, baseScore + 0.08, `Email found: ${email}`, doc, sourceType);
+			addCandidate(
+				'public_contact_email',
+				email,
+				baseScore + 0.08,
+				`Email found: ${email}`,
+				doc,
+				sourceType
+			);
 		}
 		for (const phone of extractPhoneCandidates(text)) {
-			addCandidate('public_phone_number', phone, baseScore + 0.06, `Phone found: ${phone}`, doc, sourceType);
+			addCandidate(
+				'public_phone_number',
+				phone,
+				baseScore + 0.06,
+				`Phone found: ${phone}`,
+				doc,
+				sourceType
+			);
 		}
 		for (const url of extractUrls(text)) {
 			const normalized = normalizeAnyUrl(url);
@@ -1252,13 +1316,28 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 			if (isSocialHost(host)) {
 				applySocialUrlByHost(socialLinks, normalized);
 			} else {
-				addCandidate('website_url', normalized, baseScore - 0.05, `Website URL found: ${normalized}`, doc, sourceType);
+				addCandidate(
+					'website_url',
+					normalized,
+					baseScore - 0.05,
+					`Website URL found: ${normalized}`,
+					doc,
+					sourceType
+				);
 			}
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(join|register|sign up|become a member|apply)\b/i, 2)) {
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(join|register|sign up|become a member|apply)\b/i,
+			2
+		)) {
 			addCandidate('how_to_join_instructions', sentence, baseScore, sentence, doc, sourceType);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(dues|membership|member benefits|annual fee)\b/i, 2)) {
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(dues|membership|member benefits|annual fee)\b/i,
+			2
+		)) {
 			addCandidate('membership_info', sentence, baseScore, sentence, doc, sourceType);
 		}
 		for (const sentence of pickSentencesByRegex(text, /\b(weekly|monthly|every|each)\b/i, 2)) {
@@ -1266,20 +1345,75 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 				addCandidate('activity_frequency', sentence, baseScore - 0.03, sentence, doc, sourceType);
 			}
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|am|pm|morning|evening)\b/i, 2)) {
-			addCandidate('typical_activity_day_time', sentence, baseScore - 0.03, sentence, doc, sourceType);
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|am|pm|morning|evening)\b/i,
+			2
+		)) {
+			addCandidate(
+				'typical_activity_day_time',
+				sentence,
+				baseScore - 0.03,
+				sentence,
+				doc,
+				sourceType
+			);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(meet at|meeting point|start at|start point|parking|address)\b/i, 2)) {
-			addCandidate('specific_meeting_point_address', sentence, baseScore - 0.04, sentence, doc, sourceType);
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(meet at|meeting point|start at|start point|parking|address)\b/i,
+			2
+		)) {
+			addCandidate(
+				'specific_meeting_point_address',
+				sentence,
+				baseScore - 0.04,
+				sentence,
+				doc,
+				sourceType
+			);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(serving|based in|across|throughout|chapter)\b/i, 2)) {
-			addCandidate('service_area_description', sentence, baseScore - 0.04, sentence, doc, sourceType);
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(serving|based in|across|throughout|chapter)\b/i,
+			2
+		)) {
+			addCandidate(
+				'service_area_description',
+				sentence,
+				baseScore - 0.04,
+				sentence,
+				doc,
+				sourceType
+			);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(beginner|all levels|intermediate|advanced|no-drop)\b/i, 2)) {
-			addCandidate('skill_levels_description', sentence, baseScore - 0.04, sentence, doc, sourceType);
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(beginner|all levels|intermediate|advanced|no-drop)\b/i,
+			2
+		)) {
+			addCandidate(
+				'skill_levels_description',
+				sentence,
+				baseScore - 0.04,
+				sentence,
+				doc,
+				sourceType
+			);
 		}
-		for (const sentence of pickSentencesByRegex(text, /\b(email|dm|message us|contact us|text us|call us)\b/i, 2)) {
-			addCandidate('preferred_contact_method_instructions', sentence, baseScore - 0.04, sentence, doc, sourceType);
+		for (const sentence of pickSentencesByRegex(
+			text,
+			/\b(email|dm|message us|contact us|text us|call us)\b/i,
+			2
+		)) {
+			addCandidate(
+				'preferred_contact_method_instructions',
+				sentence,
+				baseScore - 0.04,
+				sentence,
+				doc,
+				sourceType
+			);
 		}
 		const taglineCandidates = pickSentencesByRegex(
 			text,
@@ -1287,24 +1421,68 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 			1
 		);
 		if (taglineCandidates[0]) {
-			addCandidate('tagline', taglineCandidates[0], baseScore - 0.12, taglineCandidates[0], doc, sourceType);
+			addCandidate(
+				'tagline',
+				taglineCandidates[0],
+				baseScore - 0.12,
+				taglineCandidates[0],
+				doc,
+				sourceType
+			);
 		}
-		const descCandidates = pickSentencesByRegex(text, /\b(we are|our mission|about us|founded|we organize)\b/i, 2);
+		const descCandidates = pickSentencesByRegex(
+			text,
+			/\b(we are|our mission|about us|founded|we organize)\b/i,
+			2
+		);
 		if (descCandidates[0]) {
-			addCandidate('description', descCandidates.join(' '), baseScore - 0.08, descCandidates[0], doc, sourceType);
+			addCandidate(
+				'description',
+				descCandidates.join(' '),
+				baseScore - 0.08,
+				descCandidates[0],
+				doc,
+				sourceType
+			);
 		}
 
 		const logoUrl = extractLikelyImageFromStructured(doc, /logo/i);
 		const coverUrl = extractLikelyImageFromStructured(doc, /(cover|hero|banner)/i);
-		if (logoUrl) addCandidate('logo_url', logoUrl, baseScore + 0.04, `Image candidate: ${logoUrl}`, doc, sourceType);
-		if (coverUrl) addCandidate('cover_photo_url', coverUrl, baseScore + 0.03, `Image candidate: ${coverUrl}`, doc, sourceType);
+		if (logoUrl)
+			addCandidate(
+				'logo_url',
+				logoUrl,
+				baseScore + 0.04,
+				`Image candidate: ${logoUrl}`,
+				doc,
+				sourceType
+			);
+		if (coverUrl)
+			addCandidate(
+				'cover_photo_url',
+				coverUrl,
+				baseScore + 0.03,
+				`Image candidate: ${coverUrl}`,
+				doc,
+				sourceType
+			);
 	}
 
-	for (const email of socialFacts?.emails || []) addCandidate('public_contact_email', email, 0.74, email, null, 'social');
-	for (const phone of socialFacts?.phones || []) addCandidate('public_phone_number', phone, 0.72, phone, null, 'social');
-	for (const candidateName of socialFacts?.nameCandidates || []) addCandidate('name', candidateName, 0.75, candidateName, null, 'social');
+	for (const email of socialFacts?.emails || [])
+		addCandidate('public_contact_email', email, 0.74, email, null, 'social');
+	for (const phone of socialFacts?.phones || [])
+		addCandidate('public_phone_number', phone, 0.72, phone, null, 'social');
+	for (const candidateName of socialFacts?.nameCandidates || [])
+		addCandidate('name', candidateName, 0.75, candidateName, null, 'social');
 	if (!candidatesByField.description?.length && socialFacts?.bioSnippets?.length) {
-		addCandidate('description', socialFacts.bioSnippets[0], 0.72, socialFacts.bioSnippets[0], null, 'social');
+		addCandidate(
+			'description',
+			socialFacts.bioSnippets[0],
+			0.72,
+			socialFacts.bioSnippets[0],
+			null,
+			'social'
+		);
 	}
 
 	const fields = {};
@@ -1313,7 +1491,10 @@ function extractDeterministicFacts(docs, { name, requestedSite, selectedSite, so
 	}
 	fields.social_links = normalizeSocialLinks(socialLinks);
 
-	const categories = mergeCategorySets(inferCategoriesFromDocs(docs), existingProfile?.categories || {});
+	const categories = mergeCategorySets(
+		inferCategoriesFromDocs(docs),
+		existingProfile?.categories || {}
+	);
 	return { fields, categories, candidatesByField };
 }
 
@@ -1372,7 +1553,8 @@ function mergeAndResolveFacts({
 	}
 
 	if (!fields.website_url) {
-		fields.website_url = selectedSite || requestedSite || socialFacts?.websiteCandidates?.[0] || null;
+		fields.website_url =
+			selectedSite || requestedSite || socialFacts?.websiteCandidates?.[0] || null;
 	}
 	if (!fields.name && socialFacts?.nameCandidates?.[0]) fields.name = socialFacts.nameCandidates[0];
 
@@ -1389,7 +1571,8 @@ function normalizeAndValidateResult({ fields = {}, categories = {} }) {
 		out.latitude = null;
 		out.longitude = null;
 	}
-	if (out.public_contact_email && !isLikelyEmail(out.public_contact_email)) out.public_contact_email = null;
+	if (out.public_contact_email && !isLikelyEmail(out.public_contact_email))
+		out.public_contact_email = null;
 	if (out.public_phone_number) out.public_phone_number = normalizePhone(out.public_phone_number);
 	if (out.country) out.country = normalizeCountryCode(out.country);
 	out.social_links = normalizeSocialLinks(fields.social_links || {});
@@ -1597,7 +1780,10 @@ function locationCountryCodes(country) {
 function parseGeocodeLabel(label = '') {
 	const text = normalizeText(label);
 	if (!text) return { city: null, state_region: null, country: null, address: null };
-	const parts = text.split(',').map((p) => normalizeText(p)).filter(Boolean);
+	const parts = text
+		.split(',')
+		.map((p) => normalizeText(p))
+		.filter(Boolean);
 	if (!parts.length) return { city: null, state_region: null, country: null, address: null };
 	const countryPart = parts[parts.length - 1] || '';
 	const country = normalizeCountryCode(countryPart);
@@ -1607,7 +1793,8 @@ function parseGeocodeLabel(label = '') {
 	let city = null;
 
 	if (/^[A-Z]{2}$/.test(secondLast)) state_region = secondLast;
-	else if (secondLast && !/\d/.test(secondLast) && secondLast.length <= 40) state_region = secondLast;
+	else if (secondLast && !/\d/.test(secondLast) && secondLast.length <= 40)
+		state_region = secondLast;
 
 	if (thirdLast && !/\d/.test(thirdLast) && thirdLast.length <= 60) city = thirdLast;
 	else if (parts[0] && !/\d/.test(parts[0]) && parts[0].length <= 60) city = parts[0];
@@ -1728,7 +1915,8 @@ function applySocialUrlByHost(socialLinks, url) {
 	else if (/(^|\.)facebook\.com$/.test(host)) socialLinks.facebook = socialLinks.facebook || url;
 	else if (/(^|\.)x\.com$|(^|\.)twitter\.com$/.test(host)) socialLinks.x = socialLinks.x || url;
 	else if (/(^|\.)threads\.net$/.test(host)) socialLinks.threads = socialLinks.threads || url;
-	else if (/(^|\.)mastodon\.social$/.test(host) || /\/@/.test(url)) socialLinks.mastodon = socialLinks.mastodon || url;
+	else if (/(^|\.)mastodon\.social$/.test(host) || /\/@/.test(url))
+		socialLinks.mastodon = socialLinks.mastodon || url;
 	else if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(host))
 		socialLinks.youtube = socialLinks.youtube || url;
 	else if (/(^|\.)tiktok\.com$/.test(host)) socialLinks.tiktok = socialLinks.tiktok || url;
@@ -1814,7 +2002,8 @@ function parseDateCandidates(text = '') {
 
 function computeRecencyScore(ageDays) {
 	if (ageDays < 0 && ageDays >= -120) return 0.18;
-	if (ageDays >= 0 && ageDays <= RECENT_DAYS_WINDOW) return 0.16 * (1 - ageDays / RECENT_DAYS_WINDOW);
+	if (ageDays >= 0 && ageDays <= RECENT_DAYS_WINDOW)
+		return 0.16 * (1 - ageDays / RECENT_DAYS_WINDOW);
 	if (ageDays > RECENT_DAYS_WINDOW && ageDays <= 3 * RECENT_DAYS_WINDOW) return -0.04;
 	return -0.1;
 }
@@ -1917,7 +2106,8 @@ function inferCategoriesFromDocs(docs = []) {
 		if (!list.includes(value)) list.push(value);
 	};
 
-	if (/\b(advocacy|nonprofit|campaign|policy)\b/.test(text)) pushUnique(categories.group_types, 'Advocacy');
+	if (/\b(advocacy|nonprofit|campaign|policy)\b/.test(text))
+		pushUnique(categories.group_types, 'Advocacy');
 	if (/\b(team|race team|racing)\b/.test(text)) pushUnique(categories.group_types, 'Team');
 	if (/\b(club|group ride|cycling club|chapter)\b/.test(text))
 		pushUnique(categories.group_types, 'Club');
@@ -1964,7 +2154,8 @@ function scoreAiCandidate(field, value, docs = []) {
 	let score = 0.66;
 	const normalizedValue = normalizeCandidateValue(field, value);
 	if (normalizedValue == null || normalizedValue === '') return 0.1;
-	const needle = typeof normalizedValue === 'string' ? normalizedValue.toLowerCase() : `${normalizedValue}`;
+	const needle =
+		typeof normalizedValue === 'string' ? normalizedValue.toLowerCase() : `${normalizedValue}`;
 	let mentions = 0;
 	for (const doc of docs) {
 		const hay = `${doc?.text || ''} ${doc?.pageSignals?.title || ''}`.toLowerCase();
@@ -1972,7 +2163,11 @@ function scoreAiCandidate(field, value, docs = []) {
 		if (hay.includes(needle)) mentions += 1;
 	}
 	score += Math.min(mentions, 4) * 0.06;
-	if (['website_url', 'logo_url', 'cover_photo_url'].includes(field) && normalizeAnyUrl(normalizedValue)) score += 0.04;
+	if (
+		['website_url', 'logo_url', 'cover_photo_url'].includes(field) &&
+		normalizeAnyUrl(normalizedValue)
+	)
+		score += 0.04;
 	if (field === 'public_contact_email' && isLikelyEmail(normalizedValue)) score += 0.05;
 	if (field === 'public_phone_number' && normalizePhone(normalizedValue)) score += 0.04;
 	score += qualityAdjustmentForField(field, normalizedValue, 'ai');
@@ -1981,14 +2176,16 @@ function scoreAiCandidate(field, value, docs = []) {
 
 function normalizeFieldValue(field, value) {
 	if (value == null || value === '') return null;
-	if (field === 'latitude' || field === 'longitude') return normalizeLatitudeLongitude(value, field);
+	if (field === 'latitude' || field === 'longitude')
+		return normalizeLatitudeLongitude(value, field);
 	if (field === 'public_contact_email') {
 		const email = normalizeText(`${value}`).toLowerCase();
 		return isLikelyEmail(email) ? email : null;
 	}
 	if (field === 'public_phone_number') return normalizePhone(value);
 	if (field === 'country') return normalizeCountryCode(value);
-	if (['website_url', 'logo_url', 'cover_photo_url'].includes(field)) return normalizeAnyUrl(`${value}`);
+	if (['website_url', 'logo_url', 'cover_photo_url'].includes(field))
+		return normalizeAnyUrl(`${value}`);
 	const text = normalizeText(`${value}`);
 	if (!text) return null;
 	if (field === 'name' && isLowValueNameCandidate(text)) return null;
@@ -2012,8 +2209,10 @@ function normalizeFieldValue(field, value) {
 function normalizeLatitudeLongitude(value, mode) {
 	const n = typeof value === 'number' ? value : Number.parseFloat(`${value}`);
 	if (!Number.isFinite(n)) return null;
-	if (mode === 'lat' || mode === 'latitude') return n >= -90 && n <= 90 ? Number(n.toFixed(6)) : null;
-	if (mode === 'lng' || mode === 'longitude') return n >= -180 && n <= 180 ? Number(n.toFixed(6)) : null;
+	if (mode === 'lat' || mode === 'latitude')
+		return n >= -90 && n <= 90 ? Number(n.toFixed(6)) : null;
+	if (mode === 'lng' || mode === 'longitude')
+		return n >= -180 && n <= 180 ? Number(n.toFixed(6)) : null;
 	return null;
 }
 
@@ -2121,7 +2320,10 @@ function extractLikelyImageFromStructured(doc, keyPattern) {
 		if (!text) continue;
 		const maybeUrls = text.match(/https?:\/\/[^\s"']+\.(?:jpe?g|png|webp|gif)/gi) || [];
 		for (const url of maybeUrls) {
-			const around = text.slice(Math.max(0, text.indexOf(url) - 40), text.indexOf(url) + url.length + 40);
+			const around = text.slice(
+				Math.max(0, text.indexOf(url) - 40),
+				text.indexOf(url) + url.length + 40
+			);
 			if (keyPattern.test(around.toLowerCase())) return normalizeAnyUrl(url);
 		}
 	}
@@ -2129,7 +2331,9 @@ function extractLikelyImageFromStructured(doc, keyPattern) {
 }
 
 function extractEmailCandidates(text = '') {
-	return uniqueNormalizedValues((text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []).map((e) => e.toLowerCase()));
+	return uniqueNormalizedValues(
+		(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []).map((e) => e.toLowerCase())
+	);
 }
 
 function extractPhoneCandidates(text = '') {
@@ -2209,7 +2413,8 @@ function isLikelyBoilerplateText(value = '') {
 		)
 	)
 		return true;
-	if (/\b(home|contact us|terms|privacy)\b/.test(text) && (text.match(/\|/g) || []).length >= 2) return true;
+	if (/\b(home|contact us|terms|privacy)\b/.test(text) && (text.match(/\|/g) || []).length >= 2)
+		return true;
 	if (text.length > 90 && /^home\s*\|/i.test(text)) return true;
 	return false;
 }
@@ -2222,7 +2427,9 @@ function isLowValueContactInstruction(value = '') {
 		/\b(copyright|all rights reserved|terms|privacy|powered by|home\s*\||\|\s*home)\b/i.test(text)
 	)
 		return true;
-	if (!/\b(email|call|text|dm|message|contact form|contact us|reach us|phone|website)\b/i.test(text))
+	if (
+		!/\b(email|call|text|dm|message|contact form|contact us|reach us|phone|website)\b/i.test(text)
+	)
 		return true;
 	return false;
 }
@@ -2240,7 +2447,8 @@ function qualityAdjustmentForField(field, value, sourceType = '') {
 		if (text.split(/[.!?]/).filter(Boolean).length > 2) adjustment -= 0.16;
 		if (/\n/.test(value)) adjustment -= 0.18;
 	}
-	if (field === 'preferred_contact_method_instructions' && isLowValueContactInstruction(text)) adjustment -= 0.8;
+	if (field === 'preferred_contact_method_instructions' && isLowValueContactInstruction(text))
+		adjustment -= 0.8;
 	if (field === 'public_phone_number' && !normalizePhone(text)) adjustment -= 0.7;
 	if (sourceType === 'ai' && isLikelyBoilerplateText(text)) adjustment -= 0.1;
 	return adjustment;
@@ -2358,21 +2566,29 @@ function extractionPayloadScore(parsed) {
 		const value = fields?.[item.key];
 		if (typeof value === 'string' && value.trim()) score += item.score;
 	}
-	score += Math.min((parsed?.categories?.group_types?.length || 0), 3) * 0.4;
-	score += Math.min((parsed?.categories?.audience_focuses?.length || 0), 3) * 0.3;
-	score += Math.min((parsed?.categories?.riding_disciplines?.length || 0), 3) * 0.3;
+	score += Math.min(parsed?.categories?.group_types?.length || 0, 3) * 0.4;
+	score += Math.min(parsed?.categories?.audience_focuses?.length || 0, 3) * 0.3;
+	score += Math.min(parsed?.categories?.riding_disciplines?.length || 0, 3) * 0.3;
 	return score;
 }
 
-function applyFieldQualityGuards({ fields = {}, existingProfile = null, selectedSite = null, requestedSite = null }) {
+function applyFieldQualityGuards({
+	fields = {},
+	existingProfile = null,
+	selectedSite = null,
+	requestedSite = null
+}) {
 	const out = { ...fields, social_links: normalizeSocialLinks(fields.social_links || {}) };
 	const baseline = existingProfile?.fields || {};
 	if (out.public_phone_number) out.public_phone_number = normalizePhone(out.public_phone_number);
 	if (out.name && isLowValueNameCandidate(out.name)) out.name = null;
-	if (!out.name && baseline.name && !isLowValueNameCandidate(baseline.name)) out.name = normalizeText(baseline.name);
+	if (!out.name && baseline.name && !isLowValueNameCandidate(baseline.name))
+		out.name = normalizeText(baseline.name);
 
 	out.tagline = sanitizeTagline(out.tagline);
-	if (!out.tagline) out.tagline = sanitizeTagline(baseline.tagline || '') || deriveTaglineFromDescription(out.description);
+	if (!out.tagline)
+		out.tagline =
+			sanitizeTagline(baseline.tagline || '') || deriveTaglineFromDescription(out.description);
 
 	out.preferred_contact_method_instructions = sanitizeContactInstruction(
 		out.preferred_contact_method_instructions
@@ -2412,7 +2628,12 @@ async function fetchWithTimeout(url, options = {}, timeout = DEFAULT_FETCH_TIMEO
 	}
 }
 
-async function crawlImportantSitePages({ baseUrl, rootDoc, existing = [], limit = SITE_CRAWL_PAGE_LIMIT }) {
+async function crawlImportantSitePages({
+	baseUrl,
+	rootDoc,
+	existing = [],
+	limit = SITE_CRAWL_PAGE_LIMIT
+}) {
 	if (!rootDoc?.html || !baseUrl || limit <= 0) return { docs: [], plan: [] };
 	let base;
 	try {
@@ -2460,7 +2681,13 @@ async function crawlImportantSitePages({ baseUrl, rootDoc, existing = [], limit 
 		const url = canonicalizeUrl(new URL(path, origin).href, baseUrl);
 		if (!url || visited.has(url) || planned.has(url)) continue;
 		const score = scoreInternalLink(url, path.replace(/\//g, ' '), 0);
-		enqueue({ url, score, anchorText: path.replace(/\//g, ' '), source: 'heuristic-path', depth: 0 });
+		enqueue({
+			url,
+			score,
+			anchorText: path.replace(/\//g, ' '),
+			source: 'heuristic-path',
+			depth: 0
+		});
 	}
 
 	while (docs.length < limit && queue.length) {
@@ -2485,7 +2712,9 @@ async function crawlImportantSitePages({ baseUrl, rootDoc, existing = [], limit 
 			if (!doc) continue;
 			docs.push(doc);
 			if (docs.length >= limit) break;
-			for (const child of getInternalLinkCandidates(doc.html, baseUrl, { depth: (doc.crawl?.depth || 0) + 1 })) {
+			for (const child of getInternalLinkCandidates(doc.html, baseUrl, {
+				depth: (doc.crawl?.depth || 0) + 1
+			})) {
 				enqueue(child);
 			}
 		}
@@ -2532,12 +2761,12 @@ function getInternalLinkCandidates(html, baseUrl, { depth = 0 } = {}) {
 
 function extractAnchorMatches(html) {
 	const anchors = [];
-	const regex =
-		/<a\b[^>]*href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>"']+))[^>]*>([\s\S]*?)<\/a>/gi;
+	const regex = /<a\b[^>]*href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>"']+))[^>]*>([\s\S]*?)<\/a>/gi;
 	let match;
 	while ((match = regex.exec(html))) {
 		const href = (match[1] || match[2] || match[3] || '').trim();
-		if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) continue;
+		if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:'))
+			continue;
 		const text = normalizeText(match[4] || '');
 		anchors.push({ href, text });
 		if (anchors.length >= 700) break;
@@ -2739,8 +2968,10 @@ function rankDocsForContext(docs, crawlPlan = []) {
 	if (!docs?.length) return [];
 	const scoreByUrl = new Map(crawlPlan.map((item) => [item.url, item.score || 0]));
 	return [...docs].sort((a, b) => {
-		const aScore = a?.crawl?.score ?? scoreByUrl.get(a?.url) ?? (a?.source === 'website-root' ? 50 : 0);
-		const bScore = b?.crawl?.score ?? scoreByUrl.get(b?.url) ?? (b?.source === 'website-root' ? 50 : 0);
+		const aScore =
+			a?.crawl?.score ?? scoreByUrl.get(a?.url) ?? (a?.source === 'website-root' ? 50 : 0);
+		const bScore =
+			b?.crawl?.score ?? scoreByUrl.get(b?.url) ?? (b?.source === 'website-root' ? 50 : 0);
 		return bScore - aScore;
 	});
 }
@@ -2769,7 +3000,12 @@ function buildPageSignalsText(signals) {
 
 function normalizeText(text = '') {
 	if (!text) return '';
-	return decodeSimpleEntities(text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+	return decodeSimpleEntities(
+		text
+			.replace(/<[^>]+>/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
 }
 
 function decodeSimpleEntities(text = '') {
@@ -2973,11 +3209,13 @@ function instagramUserToText(user) {
 	const posts = user.edge_owner_to_timeline_media?.count ?? user.media_count;
 	if (typeof posts === 'number') parts.push(`Posts: ${formatNumber(posts)}`);
 	if (user.external_url) parts.push(`External link: ${user.external_url}`);
-	if (user.business_email || user.public_email) parts.push(`Public email: ${user.business_email || user.public_email}`);
+	if (user.business_email || user.public_email)
+		parts.push(`Public email: ${user.business_email || user.public_email}`);
 	if (user.business_phone_number || user.public_phone_number)
 		parts.push(`Public phone: ${user.business_phone_number || user.public_phone_number}`);
 	if (user.address_street) parts.push(`Address: ${user.address_street}`);
-	if (user.city_name || user.address_city) parts.push(`City: ${user.city_name || user.address_city}`);
+	if (user.city_name || user.address_city)
+		parts.push(`City: ${user.city_name || user.address_city}`);
 	if (user.contact_phone_number) parts.push(`Contact phone: ${user.contact_phone_number}`);
 	return parts.join('\n');
 }
@@ -3017,7 +3255,11 @@ function buildHighLevelHints(
 
 	if (name) add(true, `Organization referenced as "${name}".`);
 	if (urls.length) add(true, `Social/context links available: ${urls.join(', ')}.`);
-	if (!crawlPlan.length) add(true, 'No complete website crawl available; infer conservatively from social/profile evidence.');
+	if (!crawlPlan.length)
+		add(
+			true,
+			'No complete website crawl available; infer conservatively from social/profile evidence.'
+		);
 	if (crawlPlan.length) {
 		const top = crawlPlan
 			.slice(0, 5)
@@ -3039,10 +3281,16 @@ function buildHighLevelHints(
 		);
 	}
 	if (socialFacts?.emails?.length) {
-		add(true, `Possible public emails from social sources: ${socialFacts.emails.slice(0, 2).join(', ')}.`);
+		add(
+			true,
+			`Possible public emails from social sources: ${socialFacts.emails.slice(0, 2).join(', ')}.`
+		);
 	}
 	if (socialFacts?.phones?.length) {
-		add(true, `Possible public phones from social sources: ${socialFacts.phones.slice(0, 2).join(', ')}.`);
+		add(
+			true,
+			`Possible public phones from social sources: ${socialFacts.phones.slice(0, 2).join(', ')}.`
+		);
 	}
 	if (existingProfile) {
 		const existingFieldCount = ALL_FIELD_KEYS.filter((key) => {
@@ -3057,7 +3305,8 @@ function buildHighLevelHints(
 			...(existingProfile?.categories?.audience_focuses || []),
 			...(existingProfile?.categories?.riding_disciplines || [])
 		];
-		if (baselineCats.length) add(true, `Existing categories include: ${baselineCats.slice(0, 8).join(', ')}.`);
+		if (baselineCats.length)
+			add(true, `Existing categories include: ${baselineCats.slice(0, 8).join(', ')}.`);
 	}
 
 	const keywordRules = [

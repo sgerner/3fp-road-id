@@ -15,13 +15,7 @@ function normalizeField(value) {
 }
 
 function uniqueNonEmpty(values) {
-	return Array.from(
-		new Set(
-			values
-				.map((value) => normalizeField(value))
-				.filter(Boolean)
-		)
-	);
+	return Array.from(new Set(values.map((value) => normalizeField(value)).filter(Boolean)));
 }
 
 function escapeHtml(value = '') {
@@ -58,7 +52,9 @@ async function notifyAdminsOfInterestSubmission({
 	if (!recipients.length) return;
 
 	const opportunityTitles = opportunities.map((opportunity) => opportunity.title).filter(Boolean);
-	const escapedOpportunities = opportunityTitles.map((title) => `<li>${escapeHtml(title)}</li>`).join('');
+	const escapedOpportunities = opportunityTitles
+		.map((title) => `<li>${escapeHtml(title)}</li>`)
+		.join('');
 	const escapedMessage = escapeHtml(message || '');
 
 	const html = `
@@ -128,10 +124,13 @@ async function verifyTurnstile(request, token) {
 		(request.headers.get('x-forwarded-for') || '').split(',')[0]?.trim();
 	if (connectingIp) payload.append('remoteip', connectingIp);
 
-	const verificationResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-		method: 'POST',
-		body: payload
-	});
+	const verificationResponse = await fetch(
+		'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+		{
+			method: 'POST',
+			body: payload
+		}
+	);
 
 	if (!verificationResponse.ok) {
 		console.error('Turnstile verification failed to respond:', verificationResponse.status);

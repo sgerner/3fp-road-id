@@ -297,7 +297,9 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-location-address">Location notes</label>
+		<label class="text-surface-200 text-sm font-medium" for="event-location-address"
+			>Location notes</label
+		>
 		<textarea
 			id="event-location-address"
 			class="textarea preset-tonal-surface min-h-24 w-full rounded-lg px-4 py-2"
@@ -334,13 +336,13 @@
 				<p class="text-surface-400 text-xs">Coordinates pending refinement.</p>
 			{/if}
 		{:else}
-			<p class="text-surface-400 text-xs">
-				Drop a pin or click the map to set coordinates.
-			</p>
+			<p class="text-surface-400 text-xs">Drop a pin or click the map to set coordinates.</p>
 		{/if}
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-email">Contact email</label>
+		<label class="text-surface-200 text-sm font-medium" for="event-contact-email"
+			>Contact email</label
+		>
 		<input
 			id="event-contact-email"
 			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
@@ -351,7 +353,9 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-phone">Contact phone</label>
+		<label class="text-surface-200 text-sm font-medium" for="event-contact-phone"
+			>Contact phone</label
+		>
 		<input
 			id="event-contact-phone"
 			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"

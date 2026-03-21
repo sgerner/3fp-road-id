@@ -1,20 +1,23 @@
 ---
 title: Sarah's Law
-description: 
+description:
 published: true
 date: 2025-03-14T03:38:21.958Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-03-13T02:59:00.615Z
 ---
 
 # Introduction
+
 Ideas and resources for attendees of the [League of American Bicyclists 2025 National Bike Summit](https://bikeleague.org/events/summit/) Lobby Day to continue the conversation with their Senator's & Congress members regarding the 2025 League asks, especially co-sponsoring the Sarah Debbink Langenkamp Active Transportation Safety Act. Please edit this page and share tips, resources, or tools which helped you OR email hi@3feetplease.org and we will update this page.
 
 # Follow-Up Thank You Note
+
 Below is a template for writting a thank you note to legsilative aids after meeting. Try to hand write the note and include a small gift of chocolates, cookies, macaroons, or other food as a gesture of appreciation.
 
 ---
+
 Dear [Legislative Aide’s Name],
 
 I truly appreciate you taking the time to meet with us. It means lot to have thoughtful conversations about transportation and safety. Looking forward to staying connected!
@@ -23,6 +26,7 @@ Best,
 [Your Name]
 
 ---
+
 Dear [Legislative Aide’s Name],
 
 Thanks for meeting with the [State] Team at the National Bike Summit. We appreciate your attention to our issues and hope the Office will continue to see us as a resource to help shape transportation reauthorization.
@@ -31,9 +35,11 @@ Sincerely,
 [Your Name]
 
 # Follow-up Email
+
 The following generic follow-up email is a good starting point, but should be heavily customized to the receipient. Are they most interested in local control, protecting families, road safety, economic impact? Send within one week of intial meeting.
 
 ---
+
 **Subject: Thank You & Next Steps on Biking & Pedestrian Safety**
 
 Dear [Legislative Aide’s Name],
@@ -41,6 +47,7 @@ Dear [Legislative Aide’s Name],
 Thank you again for taking the time to meet with us on [date] to discuss how biking and walking investments directly benefit [State/District]. We appreciate your thoughtful questions and the opportunity to highlight how safer, more connected streets support local businesses, improve transportation options, and save lives.
 
 In our discussion, we covered key priorities, including:
+
 - Protecting federal funding for bike and pedestrian infrastructure, ensuring local governments can continue to make their streets safer.
 - The Sarah Debbink Langenkamp Active Transportation Safety Act, which removes funding barriers for critical safety projects at no additional cost to taxpayers.
 - [Specific local project or grant discussed], which is making a real difference in [City/Region] and could benefit from sustained federal support.
@@ -48,6 +55,7 @@ In our discussion, we covered key priorities, including:
 During our meeting, you expressed interest in [specific question or request for additional information], and I’ve included more details below:[Insert requested data, project examples, or links]
 
 Additionally, the numbers make it clear why this matters:
+
 - In [Year], [State] recorded [total number] traffic fatalities
 - Of those, [number] were pedestrians and [number] were bicyclists
 - [Optional: Add a particularly concerning statistic, e.g., "Fatalities among people walking and biking have increased by X% over the last Y years."]
@@ -67,8 +75,9 @@ Best,
 [Your Contact Information]
 
 # Print & Distribute Custom Postcards
+
 - Design **eye-catching postcards** with a **brief, compelling message** about the 2025 asks.
-- Include **pre-addressed sections** for local Representatives/Senators to make it easy for people to send them.  
+- Include **pre-addressed sections** for local Representatives/Senators to make it easy for people to send them.
 - Distribute at **bike shops, community events, advocacy meetings, and local businesses** willing to display them.
 
 Click below for Canva Templates you can customize:
@@ -88,22 +97,25 @@ Edit in Canva](https://www.canva.com/design/DAGhq8N8NA4/S69Kcb7KIS7pwgxBWQX40w/v
 Example Back of Postcard (Included in all designs above)
 ![2025_asks_postcard_3.png](/social-media/2025_asks_postcard_3.png =400x)
 
-# Organize Local District Meetings  
-- Set up **in-district meetings** with Representatives, Senators, or their staff.  
-- Invite **bike clubs, local business owners, and community leaders** to join and show broad support. 
-- Highlight a **local project or grant** at risk and show how it impacts the community.  
-- If an in-person meeting isn’t possible, **schedule a virtual roundtable** or town hall with community members.  
+# Organize Local District Meetings
+
+- Set up **in-district meetings** with Representatives, Senators, or their staff.
+- Invite **bike clubs, local business owners, and community leaders** to join and show broad support.
+- Highlight a **local project or grant** at risk and show how it impacts the community.
+- If an in-person meeting isn’t possible, **schedule a virtual roundtable** or town hall with community members.
 
 > Review the [Advocacy Meeting Guide](/community/advocacy-meeting) and [Elected Official Meeting Guide](/outreach/official-meeting) for more tips and suggestions.
-{.is-info}
+> {.is-info}
 
 # Mobilize a Letter-Writing or Email Campaign
+
 - Create a **customized email template** that people can easily fill out and send to their legislators.
-- Use platforms like **[Action Network](https://actionnetwork.org/), [ResistBot](https://resist.bot/), or your organization's website** to streamline the process.  
-- Organize a **letter-writing event** at a community space or bike shop where people can handwrite letters (handwritten messages often get more attention).  
-- Encourage **business owners and local organizations** to send official letters of support. 
+- Use platforms like **[Action Network](https://actionnetwork.org/), [ResistBot](https://resist.bot/), or your organization's website** to streamline the process.
+- Organize a **letter-writing event** at a community space or bike shop where people can handwrite letters (handwritten messages often get more attention).
+- Encourage **business owners and local organizations** to send official letters of support.
 
 ---
+
 **Subject: Take Action: Safer Streets & Biking Infrastructure for [State/District]**
 
 Dear [Senator/Representative] [Last Name],
@@ -137,8 +149,9 @@ I’d love to hear how your office plans to support these initiatives. Please le
 Best,
 [Your Name][Your Address][Your Email][Your Organization, if applicable]
 
-# Write an op-ed  
+# Write an op-ed
+
 Follow-up with a series of op-eds. Create a content calendar for the various media outlets in your market and stagger organizations across different weeks or months and different publications to maintain momentum. Ensure each organization has a distinct voice and focuses on a unique aspect of the ask.
 
 > Review the [Op-Ed guide](/outreach/op-eds) for more tips
-{.is-info}
+> {.is-info}

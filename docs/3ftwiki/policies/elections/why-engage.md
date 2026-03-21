@@ -3,7 +3,7 @@ title: Why Engage in Elections?
 description: A Guide for Cycling Advocacy Groups
 published: true
 date: 2025-07-02T23:53:04.804Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-07-02T23:53:04.804Z
 ---
@@ -14,9 +14,9 @@ Engaging in elections is one of the most powerful things your advocacy organizat
 
 Elected officials at the local level—city council members, mayors, county supervisors—make critical decisions that directly impact the safety and comfort of people who bike. They vote on:
 
-*   **Budgets:** Funding for bike lanes, trails, and pedestrian infrastructure.
-*   **Policies:** Complete Streets policies, zoning changes, and traffic laws.
-*   **Projects:** Approving new developments and road redesigns.
+- **Budgets:** Funding for bike lanes, trails, and pedestrian infrastructure.
+- **Policies:** Complete Streets policies, zoning changes, and traffic laws.
+- **Projects:** Approving new developments and road redesigns.
 
 By engaging during an election, you have a unique opportunity to:
 
@@ -34,14 +34,15 @@ By engaging during an election, you have a unique opportunity to:
 
 501(c)(3) organizations are **absolutely allowed** to engage in nonpartisan activities that educate voters and candidates. These activities include:
 
-*   **Candidate Questionnaires:** Asking all candidates the same issue-based questions and publishing their unedited responses.
-*   **Candidate Forums:** Hosting a public forum where all candidates are invited to discuss their positions on key issues.
-*   **Voter Registration:** Encouraging people to register to vote.
-*   **Publishing Voting Records:** Sharing how incumbent officials voted on issues relevant to your mission.
+- **Candidate Questionnaires:** Asking all candidates the same issue-based questions and publishing their unedited responses.
+- **Candidate Forums:** Hosting a public forum where all candidates are invited to discuss their positions on key issues.
+- **Voter Registration:** Encouraging people to register to vote.
+- **Publishing Voting Records:** Sharing how incumbent officials voted on issues relevant to your mission.
 
 The key is to focus on the **issues**, not the people. Your goal is to provide information in a fair, unbiased, and educational manner.
 
 # Related Articles
-*   [Staying Nonpartisan: A Guide for Advocacy Groups](./staying-nonpartisan)
-*   [Tracking the Election: Identifying Candidates and Key Dates](./tracking-election)
-*   [Setting Goals and Measuring Success](./setting-goals)
+
+- [Staying Nonpartisan: A Guide for Advocacy Groups](./staying-nonpartisan)
+- [Tracking the Election: Identifying Candidates and Key Dates](./tracking-election)
+- [Setting Goals and Measuring Success](./setting-goals)

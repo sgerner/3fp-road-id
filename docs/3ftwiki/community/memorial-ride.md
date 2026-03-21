@@ -3,7 +3,7 @@ title: Memorial & Vigil Rides
 description: Honor fallen cyclists and advocate for safer streets with memorial and vigil rides
 published: true
 date: 2025-03-01T22:02:31.644Z
-tags: 
+tags:
 editor: markdown
 dateCreated: 2025-02-28T05:09:43.113Z
 ---
@@ -13,7 +13,7 @@ dateCreated: 2025-02-28T05:09:43.113Z
 Memorial and vigil rides serve a profound dual purpose: honoring those who have lost their lives in traffic incidents while raising critical awareness about cyclist safety. These rides create space for collective grief, commemorate victims, and transform personal tragedy into powerful advocacy for safer streets. Whether you're organizing in response to a recent tragedy or planning an annual remembrance, this guide will help you create a dignified, impactful event that respects the wishes of those most affected while advancing the cause of road safety.
 
 > This guide is part of our community cycling resources. For general community ride organization, see our [Community Ride Planning Guide](/community/rides). For Critical Mass events, see [Critical Mass Guide](/community/critical-mass). For tips on ride support, see [Ride Leadership Guide](/community/ride-leadership). For advice on helping cyclists respectfully ride, see [Road Share Philosophy](/community/road-share).
-{.is-info}
+> {.is-info}
 
 # The Purpose and Impact of Memorial Rides
 
@@ -40,7 +40,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Designate a single, compassionate contact person for all family communication
 
 > Our [Family Contact Script](/support/family-outreach) offers advice for reaching out to families.
-{.is-info}
+> {.is-info}
 
 ## 2. Form a Coordination Team with Clear Roles
 
@@ -54,7 +54,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - **Social media manager**: To handle announcements and documentation
 
 > One person may fill several of these roles. This is just a guide to help better understand the tasks and responsibilities of a Memorial ride.
-{.is-info}
+> {.is-info}
 
 ## 3. Design a Meaningful Route and Format
 
@@ -72,6 +72,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 ## 4. Prepare Memorial Elements with Care
 
 ### Ghost Bike Memorial
+
 - **Obtain permission** for permanent installation if possible
 - Prepare the ghost bike thoughtfully:
   - Use a donated bike of appropriate size
@@ -84,10 +85,10 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Even if you cannot secure permission from local authorities, it is generally a good idea to install a temporary memorial regardless if it will be removed.
 
 > For more information, view our [Ghost Bike Guide](/community/ghost-bikes)
-{.is-info}
-
+> {.is-info}
 
 ### Other Memorial Elements
+
 - Printed photographs (with family permission)
 - Armbands, ribbons, or flowers for participants
 - Laminated remembrance cards
@@ -165,6 +166,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 # Practical Checklist for Memorial Ride Organizers
 
 ## Initial Planning and Communication
+
 - [ ] Contact and establish communication with victim's family
 - [ ] Form core organizing team and assign roles
 - [ ] Determine date, time, and route
@@ -176,6 +178,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - [ ] Connect with local advocacy organizations for support
 
 ## Week-of Preparation
+
 - [ ] Finalize and distribute detailed route information
 - [ ] Confirm all permits and notifications
 - [ ] Complete ghost bike or memorial preparation
@@ -186,6 +189,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - [ ] Brief all ride leaders, marshals, and speakers
 
 ## Day-of Memorial Ride
+
 - [ ] Arrive early to set up gathering area
 - [ ] Install ghost bike or prepare memorial site
 - [ ] Welcome family members and provide them with support
@@ -197,6 +201,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - [ ] Clean up any temporary memorial items
 
 ## Post-Ride (Within Week After)
+
 - [ ] Share appropriate photos and media coverage
 - [ ] Send thank-you messages to participants and supporters
 - [ ] Check on memorial site to ensure it remains dignified
@@ -209,6 +214,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 # Special Considerations for Memorial Rides
 
 ## Working with the Victim's Family
+
 - Respect cultural and religious traditions around mourning
 - Offer to incorporate specific rituals or remembrances important to the family
 - Be flexible about timing—some families may want immediate action while others need time
@@ -218,6 +224,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Create opportunities for private grief alongside public remembrance
 
 ## Ghost Bike Installations
+
 - Research local regulations regarding roadside memorials
 - Prepare the bike in a group setting as part of the healing process
 - Consider durability and visibility in placement
@@ -228,6 +235,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Consider creating a QR code link to safety information or the victim's story
 
 ## Working with Media
+
 - Prepare simple talking points focusing on the victim's life and safety advocacy
 - Provide statistics on traffic safety in your area
 - Highlight specific infrastructure or policy changes that could prevent similar tragedies
@@ -238,6 +246,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Express gratitude for coverage that furthers safety awareness
 
 ## Annual Remembrance Events
+
 - "Ride of Silence" (May) connects local tragedies to national remembrance
 - Consider creating a permanent calendar date for local remembrance
 - Invite officials to report on safety improvements since previous rides
@@ -245,11 +254,12 @@ These rides often attract media attention, helping to humanize statistics and sp
 - Document changes and improvements that have resulted from advocacy
 
 > We offer a [Calendar of important International and National Cycling Events](/community/bike-calendar) for reference.
-{.is-info}
+> {.is-info}
 
 # Resources for Memorial Ride Organizers
 
 ## Organizations and Support
+
 - [Ghost Bikes](http://ghostbikes.org/) - Information on creating and installing ghost bike memorials
 - [Vision Zero Network](https://visionzeronetwork.org/) - Resources for advocating systematic changes to prevent traffic deaths
 - [Ride of Silence](http://www.rideofsilence.org/) - Annual international event honoring cyclists killed or injured
@@ -259,7 +269,7 @@ These rides often attract media attention, helping to humanize statistics and sp
 ## Sample Templates and Materials
 
 > To Do: Create sample press release, family contact script
-{.is-danger}
+> {.is-danger}
 
 - [Sample Press Release](/media/memorial-press-release)
 - [Family Contact Script](/support/family-outreach)

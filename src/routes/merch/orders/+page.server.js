@@ -3,9 +3,10 @@ import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 
 function formatCurrency(cents, currency = 'usd') {
-	return new Intl.NumberFormat('en-US', { style: 'currency', currency: String(currency).toUpperCase() }).format(
-		Number(cents || 0) / 100
-	);
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: String(currency).toUpperCase()
+	}).format(Number(cents || 0) / 100);
 }
 
 export const load = async ({ cookies }) => {
