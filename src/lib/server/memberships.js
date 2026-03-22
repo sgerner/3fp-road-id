@@ -1078,39 +1078,6 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 		.eq('membership_id', membership.id)
 		.maybeSingle();
 
-	if (
-		billing?.stripe_subscription_id &&
-		requestedTier.billing_type === 'recurring' &&
-		requestedTier.stripe_price_id
-	) {
-		try {
-			const stripe = getStripeClient();
-			const subscription = await stripe.subscriptions.retrieve(
-				billing.stripe_subscription_id,
-				{},
-				stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
-			);
-			const item = subscription?.items?.data?.[0];
-			if (item?.id) {
-				await stripe.subscriptions.update(
-					billing.stripe_subscription_id,
-					{
-						items: [
-							{
-								id: item.id,
-								price: requestedTier.stripe_price_id
-							}
-						],
-						proration_behavior: 'none'
-					},
-					stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
-				);
-			}
-		} catch (error) {
-			console.error('Failed to update stripe subscription during tier change', error);
-		}
-	}
-
 	const now = toIsoNow();
 	const nextIntervalUnit =
 		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
@@ -1118,6 +1085,9 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 		resolveTierAmountByInterval(requestedTier, nextIntervalUnit),
 		0
 	);
+
+	const nextStripePriceId = requestedTier.stripe_price_id || billing?.stripe_price_id || null;
+
 	await serviceSupabase
 		.from('group_memberships')
 		.update({
@@ -1135,12 +1105,93 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	await serviceSupabase
 		.from('group_membership_billing')
 		.update({
-			stripe_price_id: requestedTier.stripe_price_id || billing?.stripe_price_id || null,
+			stripe_price_id: nextStripePriceId,
 			updated_at: now
 		})
 		.eq('membership_id', membership.id);
 
 	return { applied: true, tier: requestedTier };
+}
+
+async function updateStripeSubscriptionPriceForTierChange({
+	serviceSupabase,
+	membership,
+	requestedTier,
+	stripeAccountId
+}) {
+	if (!membership?.id || !requestedTier || !stripeAccountId) return null;
+	if (requestedTier.billing_type !== 'recurring') return null;
+
+	const { data: billing, error: billingError } = await serviceSupabase
+		.from('group_membership_billing')
+		.select('*')
+		.eq('membership_id', membership.id)
+		.maybeSingle();
+	if (billingError) throw new Error(billingError.message);
+	if (!billing?.stripe_subscription_id) return null;
+
+	const intervalUnit =
+		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
+	const amountCents = normalizeAmountCents(resolveTierAmountByInterval(requestedTier, intervalUnit), 0);
+	const group = await loadGroupById(serviceSupabase, membership.group_id);
+	const stripe = getStripeClient();
+	const price = await stripe.prices.create(
+		{
+			currency: normalizeCurrency(requestedTier.currency),
+			unit_amount: amountCents,
+			recurring: {
+				interval: intervalUnit,
+				interval_count: 1
+			},
+			product_data: {
+				name: `${group?.name || 'Group'} Membership: ${requestedTier.name}`
+			},
+			metadata: {
+				membership_flow: 'group_membership',
+				membership_group_id: membership.group_id,
+				membership_tier_id: requestedTier.id,
+				membership_user_id: membership.user_id,
+				membership_interval_unit: intervalUnit,
+				membership_amount_cents: String(amountCents)
+			}
+		},
+		{ stripeAccount: stripeAccountId }
+	);
+
+	const nextStripePriceId = cleanNullableText(price?.id, 255);
+	if (!nextStripePriceId) throw new Error('Unable to create Stripe price for tier change.');
+
+	const subscription = await stripe.subscriptions.retrieve(
+		billing.stripe_subscription_id,
+		{},
+		{ stripeAccount: stripeAccountId }
+	);
+	const item = subscription?.items?.data?.[0];
+	if (!item?.id) throw new Error('Stripe subscription item not found.');
+
+	await stripe.subscriptions.update(
+		billing.stripe_subscription_id,
+		{
+			items: [
+				{
+					id: item.id,
+					price: nextStripePriceId
+				}
+			],
+			proration_behavior: 'none'
+		},
+		{ stripeAccount: stripeAccountId }
+	);
+
+	await serviceSupabase
+		.from('group_membership_billing')
+		.update({
+			stripe_price_id: nextStripePriceId,
+			updated_at: toIsoNow()
+		})
+		.eq('membership_id', membership.id);
+
+	return nextStripePriceId;
 }
 
 async function loadMembershipById(serviceSupabase, membershipId) {
@@ -2596,15 +2647,6 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 			clientSecret = cleanText(paymentIntent?.client_secret || '', 2000);
 			clientSecretSource = clientSecret ? 'payment_intent.create.client_secret' : '';
 		} else {
-			logMembershipPaymentIntent('subscription.create.start', {
-				groupId: auth.group.id,
-				groupSlug: auth.group.slug,
-				userId: auth.userId,
-				tierId: tier.id,
-				billingInterval,
-				amountCents: finalAmount,
-				stripeAccountId: donationAccount.stripe_account_id
-			});
 			const customer = await stripe.customers.create(
 				{
 					email: auth.userEmail || undefined,
@@ -2630,6 +2672,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				},
 				{ stripeAccount: donationAccount.stripe_account_id }
 			);
+			metadata.membership_tier_price_id = recurringPrice.id;
 				subscription = await stripe.subscriptions.create(
 					{
 						customer: customer.id,
@@ -2729,21 +2772,12 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				}
 			}
 		} catch (error) {
-			logMembershipPaymentIntent('create.failed', {
-				groupId: auth.group.id,
-				groupSlug: auth.group.slug,
-				userId: auth.userId,
-				tierId: tier.id,
-				paymentMode,
-				billingInterval,
-				message: error?.message || 'Unknown Stripe error'
-			});
 			return {
 				ok: false,
 				status: 502,
-			error: error?.message || 'Unable to prepare Stripe payment form.'
-		};
-	}
+				error: error?.message || 'Unable to prepare Stripe payment form.'
+			};
+		}
 
 	const paymentIntentId =
 		typeof paymentIntent === 'string'
@@ -2758,24 +2792,6 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				: '',
 			2000
 			) || clientSecret;
-	logMembershipPaymentIntent('create.result', {
-		groupId: auth.group.id,
-		groupSlug: auth.group.slug,
-		userId: auth.userId,
-		tierId: tier.id,
-		paymentMode,
-		billingInterval,
-		subscriptionId: subscription?.id || null,
-		paymentIntentId,
-		latestInvoiceId:
-			typeof latestInvoiceSnapshot?.id === 'string' ? latestInvoiceSnapshot.id : null,
-		latestInvoiceStatus: latestInvoiceSnapshot?.status || null,
-		latestInvoicePaid: latestInvoiceSnapshot?.paid === true,
-		clientSecretResolved: Boolean(resolvedClientSecret),
-		clientSecretSource: clientSecretSource || null,
-		hasPaymentIntentObject: Boolean(paymentIntent && typeof paymentIntent === 'object')
-	});
-
 	if (!resolvedClientSecret) {
 		const invoicePaid =
 			latestInvoiceSnapshot?.paid === true ||
@@ -3048,10 +3064,37 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 	}
 
 	const now = toIsoNow();
-	const { data, error } = await serviceSupabase
+	const { data: existingPending, error: existingPendingError } = await serviceSupabase
 		.from('group_membership_tier_change_requests')
-		.upsert(
-			{
+		.select('*')
+		.eq('membership_id', membership.id)
+		.eq('status', 'pending')
+		.order('created_at', { ascending: false })
+		.limit(1)
+		.maybeSingle();
+	if (existingPendingError) {
+		return { ok: false, status: 400, error: existingPendingError.message };
+	}
+
+	let data = null;
+	if (existingPending) {
+		const { data: updatedRequest, error: updateError } = await serviceSupabase
+			.from('group_membership_tier_change_requests')
+			.update({
+				requested_tier_id: requestedTier.id,
+				effective_at_cycle_end: true,
+				requested_by: auth.userId,
+				updated_at: now
+			})
+			.eq('id', existingPending.id)
+			.select('*')
+			.single();
+		if (updateError) return { ok: false, status: 400, error: updateError.message };
+		data = updatedRequest;
+	} else {
+		const { data: insertedRequest, error: insertError } = await serviceSupabase
+			.from('group_membership_tier_change_requests')
+			.insert({
 				membership_id: membership.id,
 				requested_tier_id: requestedTier.id,
 				effective_at_cycle_end: true,
@@ -3059,12 +3102,30 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 				requested_by: auth.userId,
 				updated_at: now,
 				created_at: now
-			},
-			{ onConflict: 'membership_id' }
-		)
-		.select('*')
-		.single();
-	if (error) return { ok: false, status: 400, error: error.message };
+			})
+			.select('*')
+			.single();
+		if (insertError) return { ok: false, status: 400, error: insertError.message };
+		data = insertedRequest;
+	}
+
+	try {
+		const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
+		if (donationAccount?.stripe_account_id && requestedTier.billing_type === 'recurring') {
+			await updateStripeSubscriptionPriceForTierChange({
+				serviceSupabase,
+				membership,
+				requestedTier,
+				stripeAccountId: donationAccount.stripe_account_id
+			});
+		}
+	} catch (error) {
+		return {
+			ok: false,
+			status: 502,
+			error: error?.message || 'Unable to update the Stripe subscription for this tier change.'
+		};
+	}
 
 	await writeAuditLog(serviceSupabase, {
 		group_id: auth.group.id,
@@ -4537,6 +4598,8 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 			.update({
 				last_payment_status: subStatus || billing.last_payment_status,
 				next_billing_at: renewsAt,
+				stripe_price_id:
+					cleanNullableText(dataObject?.items?.data?.[0]?.price?.id, 255) || billing.stripe_price_id,
 				updated_at: toIsoNow()
 			})
 			.eq('membership_id', membership.id);

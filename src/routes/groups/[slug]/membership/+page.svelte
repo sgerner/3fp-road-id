@@ -59,6 +59,7 @@
 	let customAnnualInput = $state('');
 	let preparingPayment = $state(false);
 	let paymentFormReady = $state(false);
+	let paymentFormComplete = $state(false);
 	let paymentIntentId = $state('');
 	let paymentSubscriptionId = $state('');
 	let paymentReturnUrl = $state('');
@@ -297,6 +298,7 @@
 		elements = null;
 		stripe = null;
 		paymentFormReady = false;
+		paymentFormComplete = false;
 	}
 
 	async function prepareInlinePaymentElement({ quiet = false } = {}) {
@@ -366,6 +368,14 @@
 					defaultCollapsed: false
 				}
 			});
+			paymentElement.on('change', (event) => {
+				paymentFormComplete = Boolean(event?.complete);
+				if (event?.error?.message) {
+					setFeedback('', event.error.message);
+				} else if (paymentFormComplete) {
+					setFeedback();
+				}
+			});
 			paymentElement.mount(paymentElementHost);
 			paymentFormReady = true;
 			if (!quiet) setFeedback('Secure Stripe payment form is ready.');
@@ -422,6 +432,10 @@
 			setFeedback('', 'Payments are temporarily unavailable. This group needs to connect Stripe.');
 			return;
 		}
+		if (!paymentFormComplete) {
+			setFeedback('', 'Complete the card details before continuing.');
+			return;
+		}
 
 		try {
 			busy = true;
@@ -432,6 +446,10 @@
 			}
 			if (!stripe || !elements) {
 				throw new Error('Stripe payment form is not ready yet.');
+			}
+			const { error: submitError } = await elements.submit();
+			if (submitError) {
+				throw new Error(submitError.message || 'Unable to validate payment details.');
 			}
 
 			const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
@@ -841,7 +859,7 @@
 			<!-- Tier Selection for Change -->
 			{#if tiers.length > 0}
 				<div class="change-tiers-section">
-					<h3 class="change-tiers-title">Change Tier</h3>
+					<h3 class="h3">Change Tier</h3>
 					<p class="change-tiers-subtitle">Select a different tier for your next billing cycle</p>
 					<div class="tiers-grid">
 						{#each tiers as tier, i (tier.id)}
@@ -849,6 +867,7 @@
 							{@const isSelected = selectedTierId === tier.id}
 							{@const TierIcon = getTierIcon(i)}
 							<button
+								type="button"
 								class="tier-card"
 								class:current={isCurrent}
 								class:selected={isSelected && !isCurrent}
@@ -991,6 +1010,7 @@
 						{#if tiers.some((t) => t.annual_amount_cents)}
 							<div class="billing-toggle">
 								<button
+									type="button"
 									class="billing-option"
 									class:active={selectedBillingInterval === 'month'}
 									onclick={() => (selectedBillingInterval = 'month')}
@@ -999,7 +1019,8 @@
 									<span class="billing-description">Pay each month</span>
 								</button>
 								<button
-									class="billing-option"
+									type="button"
+									class="billing-option relative"
 									class:active={selectedBillingInterval === 'year'}
 									onclick={() => (selectedBillingInterval = 'year')}
 								>
@@ -1011,7 +1032,9 @@
 											selectedTierAnnualCents
 										)}
 										{#if savings > 0}
-											<span class="savings-badge">Save {savings}%</span>
+											<span class="chip preset-filled-success-500 absolute -top-2 right-2"
+												>Save {savings}%</span
+											>
 										{/if}
 									{/if}
 								</button>
@@ -1030,12 +1053,15 @@
 									tier.annual_amount_cents
 								)}
 								<button
+									type="button"
 									class="tier-card"
 									class:selected={isSelected}
 									onclick={() => selectTier(tier)}
 								>
 									{#if i === 1 && tiers.length > 1}
-										<span class="popular-badge">Popular</span>
+										<span class="chip preset-filled-secondary-500 absolute -top-2 right-3"
+											>Popular</span
+										>
 									{/if}
 									<div class="tier-card-header">
 										<div class="tier-icon bg-gradient-to-br {getTierGradient(i)}">
@@ -1051,46 +1077,76 @@
 
 									<div class="tier-pricing">
 										<div class="tier-price-row">
-											<span class="tier-price"
-												>{selectedBillingInterval === 'year' && annualPrice !== 'Free'
-													? annualPrice
-													: monthlyPrice}</span
-											>
-											<span class="tier-period"
-												>/{selectedBillingInterval === 'year' && annualPrice !== 'Free'
-													? 'year'
-													: 'month'}</span
-											>
+											{#if isSelected && selectedTierAllowsCustom}
+												{@const customValue =
+													selectedBillingInterval === 'year'
+														? customAnnualInput
+														: customMonthlyInput}
+												{@const customCents = customValue
+													? Math.round(parseFloat(customValue) * 100)
+													: 0}
+												{#if customCents > 0}
+													<span class="tier-price">{formatMembershipPrice(customCents)}</span>
+													<span class="tier-period"
+														>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
+													>
+												{:else}
+													<span class="tier-price">Enter amount</span>
+												{/if}
+											{:else}
+												<span class="tier-price"
+													>{selectedBillingInterval === 'year' && annualPrice !== 'Free'
+														? annualPrice
+														: monthlyPrice}</span
+												>
+												<span class="tier-period"
+													>/{selectedBillingInterval === 'year' && annualPrice !== 'Free'
+														? 'year'
+														: 'month'}</span
+												>
+											{/if}
 										</div>
 										{#if selectedBillingInterval === 'month' && annualPrice !== 'Free' && annualPrice !== monthlyPrice}
 											<div class="tier-annual-option">
 												or {annualPrice}/year
 												{#if savings > 0}
-													<span class="tier-savings">Save {savings}%</span>
+													<span
+														class="chip preset-tonal-success border-success-500 border p-1 text-[0.65rem]"
+														>Save {savings}% annually</span
+													>
 												{/if}
 											</div>
 										{/if}
 									</div>
 
 									{#if isSelected && selectedTierAllowsCustom}
-										<div class="custom-amount-input" onclick={(e) => e.stopPropagation()}>
-											<span class="custom-prefix">$</span>
-											<input
-												class="custom-input"
-												type="number"
-												min={(Math.max(0, selectedTierMinAmountCents) / 100).toFixed(2)}
-												step="0.01"
-												inputmode="decimal"
-												placeholder="0.00"
-												value={selectedBillingInterval === 'year'
-													? customAnnualInput
-													: customMonthlyInput}
-												oninput={(event) =>
-													handleCustomAmountTyping(selectedBillingInterval, event)}
-											/>
-											<span class="custom-suffix"
-												>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
-											>
+										<div class="custom-amount-wrapper" onclick={(e) => e.stopPropagation()}>
+											<div class="custom-amount-input">
+												<span class="custom-prefix">$</span>
+												<input
+													class="custom-input"
+													type="number"
+													min={(Math.max(0, selectedTierMinAmountCents) / 100).toFixed(2)}
+													step="0.01"
+													inputmode="decimal"
+													placeholder="0.00"
+													value={selectedBillingInterval === 'year'
+														? customAnnualInput
+														: customMonthlyInput}
+													oninput={(event) =>
+														handleCustomAmountTyping(selectedBillingInterval, event)}
+												/>
+												<span class="custom-suffix"
+													>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
+												>
+											</div>
+											{#if selectedTierMinAmountCents > 0}
+												<p class="custom-minimum">
+													Minimum {formatMembershipPrice(
+														selectedTierMinAmountCents
+													)}/{selectedBillingInterval === 'year' ? 'year' : 'month'}
+												</p>
+											{/if}
 										</div>
 									{/if}
 								</button>
@@ -1431,12 +1487,14 @@
 										</div>
 									</div>
 									<button
+										type="button"
 										class="btn preset-filled-primary-500 w-full"
 										onclick={submitInlinePayment}
 										disabled={busy ||
 											preparingPayment ||
 											selectedTierBlockedByStripe ||
-											customAmountInvalidForPaid}
+											customAmountInvalidForPaid ||
+											!paymentFormComplete}
 									>
 										{#if busy}
 											<IconLoader class="h-5 w-5 animate-spin" />
@@ -1447,12 +1505,14 @@
 									</button>
 								{:else if requiresPayment}
 									<button
+										type="button"
 										class="btn preset-filled-primary-500 w-full"
 										onclick={submitInlinePayment}
 										disabled={busy ||
 											preparingPayment ||
 											selectedTierBlockedByStripe ||
-											customAmountInvalidForPaid}
+											customAmountInvalidForPaid ||
+											!paymentFormComplete}
 									>
 										{#if busy}
 											<IconLoader class="h-5 w-5 animate-spin" />
@@ -1463,6 +1523,7 @@
 									</button>
 								{:else}
 									<button
+										type="button"
 										class="btn preset-filled-primary-500 w-full"
 										onclick={joinNow}
 										disabled={busy}
@@ -1869,8 +1930,9 @@
 	}
 
 	.billing-option.active {
-		border-color: var(--color-primary-500);
-		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-950));
+		border-color: var(--color-primary-800);
+		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-950));
+		box-shadow: 0 0 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
 	}
 
 	.billing-label {
@@ -1933,9 +1995,9 @@
 	}
 
 	.tier-card.selected {
-		border-color: var(--color-primary-500);
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950));
-		box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		border-color: var(--color-primary-800);
+		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-950));
+		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
 	}
 
 	.tier-card.current {
@@ -1949,8 +2011,9 @@
 		right: 0.75rem;
 		padding: 0.25rem 0.625rem;
 		border-radius: 9999px;
-		background: linear-gradient(135deg, var(--color-secondary-500), var(--color-primary-500));
-		color: white;
+		background: color-mix(in oklab, var(--color-secondary-500) 20%, var(--color-surface-800));
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+		color: var(--color-secondary-400);
 		font-size: 0.625rem;
 		font-weight: 700;
 		text-transform: uppercase;
