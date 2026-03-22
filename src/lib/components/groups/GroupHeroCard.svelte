@@ -3,7 +3,7 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import { CTA_ICON_MAP } from '$lib/groups/contactLinks.js';
 
-	let { group, canEdit, primaryCta } = $props();
+	let { group, canEdit, primaryCta, membershipCta = null } = $props();
 
 	const ctaIcons = CTA_ICON_MAP;
 	const IconComp = $derived(primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink);
@@ -66,11 +66,20 @@
 				</div>
 
 				<!-- CTA -->
-				<div class="shrink-0">
-					{#if canEdit}
-						<a
-							href={`/groups/${group?.slug ?? ''}/manage`}
-							class="btn preset-filled-primary-500 font-bold shadow-lg"
+					<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+						{#if membershipCta}
+							<a
+								href={membershipCta.href}
+								class="btn preset-filled-secondary-500 font-bold shadow-lg"
+								onclick={membershipCta.onClick}
+							>
+								{membershipCta.label}
+							</a>
+						{/if}
+						{#if canEdit}
+							<a
+								href={`/groups/${group?.slug ?? ''}/manage`}
+								class="btn preset-filled-primary-500 font-bold shadow-lg"
 						>
 							Manage Group
 						</a>

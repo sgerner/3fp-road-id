@@ -10,6 +10,13 @@
 	const { data, form } = $props();
 	const values = $derived(form?.values ?? data.initialValues ?? {});
 	const emailMembers = $derived(Boolean(form?.emailMembers));
+	const emailAudienceStatuses = $derived(
+		Array.isArray(form?.emailAudienceStatuses) && form.emailAudienceStatuses.length
+			? form.emailAudienceStatuses
+			: Array.isArray(values?.emailAudienceStatuses) && values.emailAudienceStatuses.length
+				? values.emailAudienceStatuses
+				: ['active']
+	);
 	const editingSlug = $derived(form?.editingSlug ?? data.selectedSlug ?? '');
 	const sortedPosts = $derived(
 		[...(data.posts ?? [])].sort((a, b) => {
@@ -156,7 +163,7 @@
 											<h3 class="post-title">{post.title}</h3>
 											<div class="post-meta">
 												<span class="post-status {post.is_published ? 'live' : 'draft'}">
-													{post.is_published ? 'Live' : 'Draft'}
+													{post.is_published ? (post.is_private ? 'Private' : 'Live') : 'Draft'}
 												</span>
 												<form
 													class="delete-form-inline"
@@ -240,9 +247,14 @@
 		{isEditing}
 		{isPublished}
 		memberEmailCount={data.memberEmailCount ?? 0}
+		memberEmailCountsByStatus={data.memberEmailCountsByStatus ?? {}}
+		emailAudienceStatusOptions={data.emailAudienceStatusOptions ?? ['active', 'past_due', 'cancelled']}
 		{emailMembers}
+		{emailAudienceStatuses}
 		publicHref={selectedPost?.is_published
-			? `/groups/${data.group.slug}/news?open=${selectedPost.slug}`
+			? selectedPost?.is_private
+				? ''
+				: `/groups/${data.group.slug}/news?open=${selectedPost.slug}`
 			: ''}
 		resetHref={`/groups/${data.group.slug}/manage/news`}
 		onDelete={selectedPost

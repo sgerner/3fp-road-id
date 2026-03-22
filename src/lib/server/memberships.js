@@ -2,6 +2,7 @@ import { sendEmail } from '$lib/services/email';
 import { resolveSession } from '$lib/server/session';
 import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
+import { PUBLIC_URL_BASE } from '$env/static/public';
 
 const MANAGER_ROLES = ['owner', 'admin'];
 const DEFAULT_POLICY_MARKDOWN = `By joining, you agree to this membership policy.
@@ -275,6 +276,43 @@ function toIsoNow() {
 	return new Date().toISOString();
 }
 
+function resolveAbsoluteUrl(path) {
+	const base = String(PUBLIC_URL_BASE || process.env.PUBLIC_URL_BASE || '').trim().replace(/\/+$/, '');
+	const route = `/${String(path || '').replace(/^\/+/, '')}`;
+	return base ? `${base}${route}` : route;
+}
+
+function ownerPaymentEmailsEnabled(metadata, groupId) {
+	const prefs =
+		metadata &&
+		typeof metadata === 'object' &&
+		metadata.notification_preferences &&
+		typeof metadata.notification_preferences === 'object'
+			? metadata.notification_preferences
+			: null;
+	if (!prefs) return true;
+	const paymentPrefs =
+		prefs.membership_owner_payment_emails &&
+		typeof prefs.membership_owner_payment_emails === 'object'
+			? prefs.membership_owner_payment_emails
+			: null;
+	if (!paymentPrefs) return true;
+	const groupPref = paymentPrefs[groupId];
+	if (groupPref === false) return false;
+	return true;
+}
+
+function isPaymentOwnerNotice(tags) {
+	const list = Array.isArray(tags) ? tags : [];
+	return list.some(
+		(tag) =>
+			tag &&
+			typeof tag === 'object' &&
+			String(tag.Name || '').toLowerCase() === 'context' &&
+			String(tag.Value || '').toLowerCase().includes('membership-payment')
+	);
+}
+
 function isMembershipMetadata(metadata) {
 	if (!metadata || typeof metadata !== 'object') return false;
 	return Boolean(metadata.membership_group_id && metadata.membership_user_id);
@@ -374,7 +412,7 @@ async function isGroupManager(requestSupabase, groupId, userId, isAdmin) {
 	return Array.isArray(data) && data.length > 0;
 }
 
-async function resolveOwnerEmails(serviceSupabase, groupId) {
+async function resolveOwnerEmails(serviceSupabase, groupId, { paymentOnly = false } = {}) {
 	const { data: ownerRows } = await serviceSupabase
 		.from('group_members')
 		.select('user_id')
@@ -386,15 +424,25 @@ async function resolveOwnerEmails(serviceSupabase, groupId) {
 
 	const { data: profiles } = await serviceSupabase
 		.from('profiles')
-		.select('user_id,email')
+		.select('user_id,email,metadata')
 		.in('user_id', ownerIds);
 
-	return Array.from(new Set((profiles || []).map((row) => sanitizeEmail(row.email)).filter(Boolean)));
+	return Array.from(
+		new Set(
+			(profiles || [])
+				.filter((row) => (paymentOnly ? ownerPaymentEmailsEnabled(row?.metadata, groupId) : true))
+				.map((row) => sanitizeEmail(row.email))
+				.filter(Boolean)
+		)
+	);
 }
 
 async function sendOwnerNotification({ serviceSupabase, group, subject, html, text, tags, fetchImpl }) {
 	try {
-		const emails = await resolveOwnerEmails(serviceSupabase, group.id);
+		const paymentNotice = isPaymentOwnerNotice(tags);
+		const emails = await resolveOwnerEmails(serviceSupabase, group.id, {
+			paymentOnly: paymentNotice
+		});
 		if (!emails.length) return;
 		await sendEmail(
 			{
@@ -402,7 +450,17 @@ async function sendOwnerNotification({ serviceSupabase, group, subject, html, te
 				subject,
 				html,
 				text,
-				tags: tags || [{ Name: 'context', Value: 'membership-owner-notice' }]
+				tags: tags || [{ Name: 'context', Value: 'membership-owner-notice' }],
+				branding: {
+					category: 'Membership',
+					recipientReason: `You manage ${group.name} memberships.`,
+					actionUrl: paymentNotice
+						? resolveAbsoluteUrl(
+								`/groups/${group.slug}/manage/membership/unsubscribe-owner-payments`
+							)
+						: undefined,
+					actionLabel: paymentNotice ? 'Unsubscribe from payment alerts' : undefined
+				}
 			},
 			{ fetch: fetchImpl }
 		);
@@ -421,13 +479,160 @@ async function sendUserNotification({ to, subject, html, text, tags, fetchImpl }
 				subject,
 				html,
 				text,
-				tags: tags || [{ Name: 'context', Value: 'membership-user-notice' }]
+				tags: tags || [{ Name: 'context', Value: 'membership-user-notice' }],
+				branding: {
+					category: 'Membership'
+				}
 			},
 			{ fetch: fetchImpl }
 		);
 	} catch (error) {
 		console.error('Failed to send membership user notification', error);
 	}
+}
+
+function formatMoneyFromCents(cents, currency = 'usd') {
+	const amount = Number(cents || 0);
+	if (!Number.isFinite(amount) || amount <= 0) return 'Free';
+	try {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: String(currency || 'usd').toUpperCase()
+		}).format(amount / 100);
+	} catch {
+		return `$${(amount / 100).toFixed(2)}`;
+	}
+}
+
+function intervalLabel(intervalUnit) {
+	return intervalUnit === 'year' ? 'year' : intervalUnit === 'month' ? 'month' : 'period';
+}
+
+async function sendMembershipPaymentSuccessNotifications({
+	serviceSupabase,
+	group,
+	membership,
+	userId,
+	metadata,
+	fetchImpl
+}) {
+	const tierId = cleanNullableText(metadata?.membership_tier_id, 64) || membership?.tier_id || null;
+	const tier = tierId ? await loadTierById(serviceSupabase, tierId) : null;
+	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [userId]);
+	const memberProfile = profileMap.get(userId) || null;
+	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
+	const memberEmail = sanitizeEmail(memberProfile?.email || '');
+	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
+	const paidAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
+	const billingInterval = cleanNullableText(metadata?.membership_interval_unit, 16) || membership?.interval_unit || null;
+	const contribution = amountCents > 0 ? `${paidAmount}/${intervalLabel(billingInterval)}` : 'Free';
+	const tierName = cleanText(tier?.name || 'Membership', 120);
+	const renewsAt = membership?.renews_at ? formatDate(membership.renews_at) : '';
+	const memberMembershipUrl = `/groups/${group.slug}/membership`;
+	const groupPageUrl = `/groups/${group.slug}`;
+
+	await sendUserNotification({
+		to: memberEmail,
+		subject: `You're all set in ${group.name}`,
+		html: `<p>Hi ${memberName},</p>
+<p>Thanks for supporting <strong>${group.name}</strong>. Your membership payment was successful.</p>
+<p><strong>Tier:</strong> ${tierName}<br />
+<strong>Contribution:</strong> ${contribution}${renewsAt ? `<br /><strong>Next renewal:</strong> ${renewsAt}` : ''}</p>
+<p>We're glad you're here. You can view upcoming activities and manage your membership anytime.</p>
+<p><a href="${memberMembershipUrl}">View Membership</a> · <a href="${groupPageUrl}">Visit Group Page</a></p>`,
+		text: `Hi ${memberName},
+
+Thanks for supporting ${group.name}. Your membership payment was successful.
+
+Tier: ${tierName}
+Contribution: ${contribution}${renewsAt ? `\nNext renewal: ${renewsAt}` : ''}
+
+You can manage your membership anytime: ${memberMembershipUrl}
+Visit group page: ${groupPageUrl}`,
+		tags: [{ Name: 'context', Value: 'membership-payment-success-member' }],
+		fetchImpl
+	});
+
+	await sendOwnerNotification({
+		serviceSupabase,
+		group,
+		subject: `${group.name} has a successful membership payment`,
+		html: `<p><strong>${group.name}</strong> has a successful membership payment.</p>
+<p><strong>Member:</strong> ${memberName}${memberEmail ? ` (${memberEmail})` : ''}<br />
+<strong>Tier:</strong> ${tierName}<br />
+<strong>Contribution:</strong> ${contribution}${renewsAt ? `<br /><strong>Next renewal:</strong> ${renewsAt}` : ''}</p>`,
+		text: `${group.name} has a successful membership payment.
+
+Member: ${memberName}${memberEmail ? ` (${memberEmail})` : ''}
+Tier: ${tierName}
+Contribution: ${contribution}${renewsAt ? `\nNext renewal: ${renewsAt}` : ''}`,
+		tags: [{ Name: 'context', Value: 'membership-payment-success-owner' }],
+		fetchImpl
+	});
+}
+
+async function sendMembershipPaymentFailureNotifications({
+	serviceSupabase,
+	group,
+	userId,
+	metadata,
+	reason,
+	fetchImpl
+}) {
+	const tierId = cleanNullableText(metadata?.membership_tier_id, 64) || null;
+	const tier = tierId ? await loadTierById(serviceSupabase, tierId) : null;
+	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [userId]);
+	const memberProfile = profileMap.get(userId) || null;
+	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
+	const memberEmail = sanitizeEmail(memberProfile?.email || '');
+	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
+	const billedAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
+	const billingInterval = cleanNullableText(metadata?.membership_interval_unit, 16) || null;
+	const contribution = amountCents > 0 ? `${billedAmount}/${intervalLabel(billingInterval)}` : billedAmount;
+	const tierName = cleanText(tier?.name || 'Membership', 120);
+	const memberMembershipUrl = `/groups/${group.slug}/membership`;
+
+	await sendUserNotification({
+		to: memberEmail,
+		subject: `Payment update for ${group.name}`,
+		html: `<p>Hi ${memberName},</p>
+<p>We couldn't process your membership payment for <strong>${group.name}</strong>.</p>
+<p><strong>Tier:</strong> ${tierName}<br />
+<strong>Amount:</strong> ${contribution}<br />
+<strong>Status:</strong> ${cleanText(reason || 'Payment failed', 200)}</p>
+<p>Please update your payment details to keep your membership active.</p>
+<p><a href="${memberMembershipUrl}">Manage Membership</a></p>`,
+		text: `Hi ${memberName},
+
+We couldn't process your membership payment for ${group.name}.
+
+Tier: ${tierName}
+Amount: ${contribution}
+Status: ${cleanText(reason || 'Payment failed', 200)}
+
+Please update your payment details here: ${memberMembershipUrl}`,
+		tags: [{ Name: 'context', Value: 'membership-payment-failed-member' }],
+		fetchImpl
+	});
+
+	await sendOwnerNotification({
+		serviceSupabase,
+		group,
+		subject: `Membership payment issue: ${group.name}`,
+		html: `<p>A membership payment issue occurred in <strong>${group.name}</strong>.</p>
+<p><strong>Member:</strong> ${memberName}${memberEmail ? ` (${memberEmail})` : ''}<br />
+<strong>Tier:</strong> ${tierName}<br />
+<strong>Amount:</strong> ${contribution}<br />
+<strong>Status:</strong> ${cleanText(reason || 'Payment failed', 200)}</p>`,
+		text: `A membership payment issue occurred in ${group.name}.
+
+Member: ${memberName}${memberEmail ? ` (${memberEmail})` : ''}
+Tier: ${tierName}
+Amount: ${contribution}
+Status: ${cleanText(reason || 'Payment failed', 200)}`,
+		tags: [{ Name: 'context', Value: 'membership-payment-failed-owner' }],
+		fetchImpl
+	});
 }
 
 async function resolveAuthUserIdByEmail(serviceSupabase, email) {
@@ -688,6 +893,7 @@ async function findOrCreateMembership({
 	userId,
 	tierId,
 	billingInterval = null,
+	contributionAmountCents = null,
 	applicationId = null,
 	source = 'online',
 	createdByOwnerId = null,
@@ -707,6 +913,11 @@ async function findOrCreateMembership({
 
 	const tier = await loadTierById(serviceSupabase, tierId);
 	const now = new Date();
+	const normalizedInterval = billingInterval && INTERVAL_UNITS.has(billingInterval) ? billingInterval : null;
+	const resolvedAmountCents =
+		contributionAmountCents === null || contributionAmountCents === undefined
+			? normalizeAmountCents(resolveTierAmountByInterval(tier, normalizedInterval), 0)
+			: normalizeAmountCents(contributionAmountCents, 0);
 	const renewsAt = billingInterval
 		? plusInterval(now, billingInterval, 1).toISOString()
 		: calculateRenewalDate(tier, now);
@@ -718,12 +929,14 @@ async function findOrCreateMembership({
 			user_id: userId,
 			tier_id: tierId,
 			status: MEMBERSHIP_STATUSES.has(status) ? status : 'active',
-			source,
-			started_at: now.toISOString(),
-			renews_at: renewsAt,
-			created_by_owner_id: createdByOwnerId,
-			created_from_application_id: applicationId,
-			created_at: now.toISOString(),
+				source,
+				started_at: now.toISOString(),
+				renews_at: renewsAt,
+				interval_unit: normalizedInterval,
+				contribution_amount_cents: resolvedAmountCents,
+				created_by_owner_id: createdByOwnerId,
+				created_from_application_id: applicationId,
+				created_at: now.toISOString(),
 			updated_at: now.toISOString()
 		})
 		.select('*')
@@ -899,10 +1112,17 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	}
 
 	const now = toIsoNow();
+	const nextIntervalUnit =
+		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
+	const nextContributionAmount = normalizeAmountCents(
+		resolveTierAmountByInterval(requestedTier, nextIntervalUnit),
+		0
+	);
 	await serviceSupabase
 		.from('group_memberships')
 		.update({
 			tier_id: requestedTier.id,
+			contribution_amount_cents: nextContributionAmount,
 			updated_at: now
 		})
 		.eq('id', membership.id);
@@ -1236,7 +1456,14 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 
 	const serviceSupabase = await getServiceSupabase();
 	const sourceSupabase = canManage ? serviceSupabase : viewer.requestSupabase;
-	const donationAccount = canManage ? await loadDonationAccountForGroup(serviceSupabase, group.id) : null;
+	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, group.id);
+	const stripeConnection = donationAccount
+		? {
+				connected: Boolean(donationAccount.stripe_account_id),
+				charges_enabled: donationAccount.charges_enabled === true,
+				stripe_account_id: canManage ? donationAccount.stripe_account_id || null : null
+			}
+		: { connected: false, charges_enabled: false, stripe_account_id: null };
 
 	let program = null;
 	if (canManage) {
@@ -1256,16 +1483,10 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 				program: null,
 				tiers: [],
 				form_fields: [],
-				stripe_connection: donationAccount
-					? {
-						connected: Boolean(donationAccount.stripe_account_id),
-						charges_enabled: donationAccount.charges_enabled === true,
-						stripe_account_id: donationAccount.stripe_account_id || null
-					}
-					: { connected: false, charges_enabled: false, stripe_account_id: null },
-				can_manage: canManage
-			}
-		};
+					stripe_connection: stripeConnection,
+					can_manage: canManage
+				}
+			};
 	}
 
 	const { tiers, fields } = await loadProgramBundle(sourceSupabase, program.id, { includeInactive });
@@ -1276,16 +1497,10 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 			program,
 			tiers,
 			form_fields: fields,
-			stripe_connection: donationAccount
-				? {
-					connected: Boolean(donationAccount.stripe_account_id),
-					charges_enabled: donationAccount.charges_enabled === true,
-					stripe_account_id: donationAccount.stripe_account_id || null
-				}
-				: { connected: false, charges_enabled: false, stripe_account_id: null },
-			can_manage: canManage
-		}
-	};
+				stripe_connection: stripeConnection,
+				can_manage: canManage
+			}
+		};
 }
 
 export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
@@ -2082,10 +2297,21 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 
 	const billingInterval = resolveTierBillingInterval(tier, requestedInterval);
 	const amountCents = normalizeAmountCents(resolveTierAmountByInterval(tier, billingInterval), 0);
+	const customAmountCents = tier.allow_custom_amount
+		? normalizeCustomAmountCents(payload?.custom_amount_cents, tier.min_amount_cents || 0)
+		: null;
+	const finalAmountCents = customAmountCents ?? amountCents;
 	const contributionMode = normalizeContributionMode(program.contribution_mode, 'donation');
 	const requiresCheckout =
-		contributionMode === 'paid' ? true : Boolean(billingInterval) && amountCents > 0;
-	if (contributionMode === 'paid' && amountCents <= 0) {
+		contributionMode === 'paid' ? true : Boolean(billingInterval) && finalAmountCents > 0;
+	if (tier.allow_custom_amount && contributionMode === 'paid' && customAmountCents === null) {
+		return {
+			ok: false,
+			status: 400,
+			error: `Enter an amount of at least ${formatMoneyFromCents(tier.min_amount_cents || 0)}.`
+		};
+	}
+	if (contributionMode === 'paid' && finalAmountCents <= 0) {
 		return { ok: false, status: 400, error: 'Paid mode requires a tier with a non-zero amount.' };
 	}
 	if (requiresCheckout) {
@@ -2094,6 +2320,7 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 			data: {
 				requires_checkout: true,
 				billing_interval: billingInterval,
+				custom_amount_cents: customAmountCents,
 				tier,
 				message: 'Complete checkout to activate this membership.'
 			}
@@ -2105,6 +2332,8 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 		groupId: auth.group.id,
 		userId: auth.userId,
 		tierId: tier.id,
+		billingInterval,
+		contributionAmountCents: finalAmountCents,
 		source: 'online',
 		status: 'active'
 	});
@@ -2173,18 +2402,27 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	const customAmountCents = tier.allow_custom_amount
 		? normalizeCustomAmountCents(payload?.custom_amount_cents, tier.min_amount_cents || 0)
 		: null;
+	if (tier.allow_custom_amount && payload?.custom_amount_cents !== undefined && customAmountCents === null) {
+		return {
+			ok: false,
+			status: 400,
+			error: `Enter an amount of at least ${formatMoneyFromCents(tier.min_amount_cents || 0)}.`
+		};
+	}
 	const finalAmount = customAmountCents ?? tierAmount;
 
 	if (contributionMode === 'donation' && finalAmount <= 0) {
-		const membership = await findOrCreateMembership({
-			serviceSupabase,
-			groupId: auth.group.id,
-			userId: auth.userId,
-			tierId: tier.id,
-			source: 'online',
-			applicationId: application?.id || null,
-			status: 'active'
-		});
+			const membership = await findOrCreateMembership({
+				serviceSupabase,
+				groupId: auth.group.id,
+				userId: auth.userId,
+				tierId: tier.id,
+				billingInterval,
+				contributionAmountCents: 0,
+				source: 'online',
+				applicationId: application?.id || null,
+				status: 'active'
+			});
 		return { ok: true, data: { requires_checkout: false, membership } };
 	}
 
@@ -2224,6 +2462,541 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 			checkout_url: checkout.checkoutUrl,
 			session_id: checkout.sessionId,
 			connected_account_id: checkout.connectedAccountId
+		}
+	};
+}
+
+export async function createMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl }) {
+	const auth = await requireMembershipUser(cookies, groupSlug);
+	if (!auth.ok) return auth;
+
+	const serviceSupabase = auth.serviceSupabase;
+	await upsertMembershipUserProfile({
+		serviceSupabase,
+		userId: auth.userId,
+		currentEmail: auth.userEmail,
+		profilePayload: payload?.profile
+	});
+	const requestedTierId = cleanNullableText(payload?.tier_id, 64);
+	const requestedInterval = cleanNullableText(payload?.billing_interval, 16);
+	const applicationId = cleanNullableText(payload?.application_id, 64);
+	const { program, tier } = await resolveGroupProgramAndTier(serviceSupabase, auth.group.id, requestedTierId);
+
+	if (!program || program.enabled === false) {
+		return { ok: false, status: 409, error: 'Membership is not currently enabled for this group.' };
+	}
+	if (!tier) return { ok: false, status: 400, error: 'Select a membership tier.' };
+
+	let application = null;
+	if (program.access_mode === 'private_request') {
+		if (!applicationId) {
+			return {
+				ok: false,
+				status: 400,
+				error: 'Application ID is required before payment for private memberships.'
+			};
+		}
+		application = await resolveApplicationContext(serviceSupabase, applicationId);
+		if (!application || application.group_id !== auth.group.id || application.user_id !== auth.userId) {
+			return { ok: false, status: 404, error: 'Application not found.' };
+		}
+		if (!['approved', 'payment_pending'].includes(application.status)) {
+			return {
+				ok: false,
+				status: 409,
+				error: 'Application must be approved before checkout is available.'
+			};
+		}
+	}
+
+	const billingInterval = resolveTierBillingInterval(tier, requestedInterval);
+	const contributionMode = normalizeContributionMode(program.contribution_mode, 'donation');
+	if (!billingInterval) {
+		return { ok: false, status: 400, error: 'This tier does not have a monthly or annual rate configured.' };
+	}
+
+	const tierAmount = normalizeAmountCents(resolveTierAmountByInterval(tier, billingInterval), 0);
+	const customAmountCents = tier.allow_custom_amount
+		? normalizeCustomAmountCents(payload?.custom_amount_cents, tier.min_amount_cents || 0)
+		: null;
+	if (tier.allow_custom_amount && payload?.custom_amount_cents !== undefined && customAmountCents === null) {
+		return {
+			ok: false,
+			status: 400,
+			error: `Enter an amount of at least ${formatMoneyFromCents(tier.min_amount_cents || 0)}.`
+		};
+	}
+	const finalAmount = customAmountCents ?? tierAmount;
+
+	if (contributionMode === 'donation' && finalAmount <= 0) {
+		const membership = await findOrCreateMembership({
+			serviceSupabase,
+			groupId: auth.group.id,
+			userId: auth.userId,
+			tierId: tier.id,
+			billingInterval,
+			contributionAmountCents: 0,
+			source: 'online',
+			applicationId: application?.id || null,
+			status: 'active'
+		});
+		return { ok: true, data: { requires_payment: false, membership } };
+	}
+
+	if (contributionMode === 'paid' && finalAmount <= 0) {
+		return { ok: false, status: 400, error: 'Paid mode requires a tier with a non-zero amount.' };
+	}
+
+	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
+	if (!donationAccount?.stripe_account_id || donationAccount?.charges_enabled !== true) {
+		return { ok: false, status: 409, error: 'This group has not connected Stripe for memberships.' };
+	}
+
+	const baseUrl = resolvePublicBaseUrl(requestUrl);
+	if (!baseUrl) {
+		return { ok: false, status: 500, error: 'PUBLIC_URL_BASE is not configured.' };
+	}
+
+	const stripe = getStripeClient();
+	const currency = normalizeCurrency(tier.currency);
+	const billingType = tier?.billing_type === 'one_time' ? 'one_time' : 'recurring';
+	const paymentMode = billingType === 'one_time' ? 'payment' : 'subscription';
+	const metadata = {
+		membership_flow: 'group_membership',
+		membership_group_id: auth.group.id,
+		membership_group_slug: auth.group.slug,
+		membership_program_id: program.id,
+		membership_tier_id: tier.id,
+		membership_user_id: auth.userId,
+		membership_application_id: application?.id || '',
+		membership_contribution_mode: contributionMode,
+		membership_billing_type: billingType,
+		membership_interval_unit: billingInterval || '',
+		membership_amount_cents: String(finalAmount)
+	};
+
+	let paymentIntent = null;
+	let subscription = null;
+	let latestInvoiceSnapshot = null;
+	let clientSecret = '';
+	let clientSecretSource = '';
+	try {
+		if (paymentMode === 'payment') {
+			paymentIntent = await stripe.paymentIntents.create(
+				{
+					amount: finalAmount,
+					currency,
+					automatic_payment_methods: { enabled: true },
+					receipt_email: auth.userEmail || undefined,
+					description: `${auth.group.name} Membership: ${tier.name}`,
+					metadata
+				},
+					{ stripeAccount: donationAccount.stripe_account_id }
+				);
+			clientSecret = cleanText(paymentIntent?.client_secret || '', 2000);
+			clientSecretSource = clientSecret ? 'payment_intent.create.client_secret' : '';
+		} else {
+			logMembershipPaymentIntent('subscription.create.start', {
+				groupId: auth.group.id,
+				groupSlug: auth.group.slug,
+				userId: auth.userId,
+				tierId: tier.id,
+				billingInterval,
+				amountCents: finalAmount,
+				stripeAccountId: donationAccount.stripe_account_id
+			});
+			const customer = await stripe.customers.create(
+				{
+					email: auth.userEmail || undefined,
+					metadata: {
+						membership_group_id: auth.group.id,
+						membership_user_id: auth.userId
+					}
+				},
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
+			const recurringPrice = await stripe.prices.create(
+				{
+					currency,
+					unit_amount: finalAmount,
+					recurring: {
+						interval: billingInterval,
+						interval_count: 1
+					},
+					product_data: {
+						name: `${auth.group.name} Membership: ${tier.name}`
+					},
+					metadata
+				},
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
+				subscription = await stripe.subscriptions.create(
+					{
+						customer: customer.id,
+						collection_method: 'charge_automatically',
+						payment_behavior: 'default_incomplete',
+					payment_settings: {
+						save_default_payment_method: 'on_subscription'
+					},
+					items: [
+						{
+							price: recurringPrice.id
+						}
+						],
+						metadata,
+						expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent']
+					},
+					{ stripeAccount: donationAccount.stripe_account_id }
+				);
+				latestInvoiceSnapshot =
+					subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
+						? subscription.latest_invoice
+						: null;
+				paymentIntent =
+					subscription?.latest_invoice &&
+					typeof subscription.latest_invoice === 'object' &&
+				subscription.latest_invoice.payment_intent &&
+				typeof subscription.latest_invoice.payment_intent === 'object'
+						? subscription.latest_invoice.payment_intent
+						: null;
+				clientSecret = cleanText(
+					subscription?.latest_invoice &&
+						typeof subscription.latest_invoice === 'object' &&
+						subscription.latest_invoice.confirmation_secret &&
+						typeof subscription.latest_invoice.confirmation_secret === 'object'
+						? subscription.latest_invoice.confirmation_secret.client_secret || ''
+						: '',
+					2000
+				);
+				clientSecretSource = clientSecret ? 'subscription.latest_invoice.confirmation_secret' : '';
+
+				if (!paymentIntent) {
+				const latestInvoiceId =
+					typeof subscription?.latest_invoice === 'string'
+						? subscription.latest_invoice
+						: subscription?.latest_invoice?.id || null;
+					if (latestInvoiceId) {
+						const latestInvoice = await stripe.invoices.retrieve(
+							latestInvoiceId,
+							{ expand: ['confirmation_secret', 'payment_intent'] },
+							{ stripeAccount: donationAccount.stripe_account_id }
+						);
+						latestInvoiceSnapshot = latestInvoice || null;
+						if (latestInvoice?.payment_intent) {
+							paymentIntent = latestInvoice.payment_intent;
+						}
+							if (
+								!clientSecret &&
+								latestInvoice?.confirmation_secret &&
+								typeof latestInvoice.confirmation_secret === 'object'
+							) {
+								clientSecret = cleanText(
+									latestInvoice.confirmation_secret.client_secret || '',
+									2000
+								);
+								clientSecretSource = clientSecret
+									? 'invoice.retrieve.confirmation_secret'
+									: clientSecretSource;
+							}
+						}
+					}
+
+			let paymentIntentId =
+				typeof paymentIntent === 'string'
+					? paymentIntent
+					: paymentIntent && typeof paymentIntent === 'object'
+						? paymentIntent.id || null
+						: null;
+
+			const missingClientSecret =
+				!paymentIntent ||
+				typeof paymentIntent !== 'object' ||
+				!cleanText(paymentIntent.client_secret || '', 2000);
+				if (paymentIntentId && missingClientSecret) {
+					const expandedIntent = await stripe.paymentIntents.retrieve(
+					paymentIntentId,
+					{},
+					{ stripeAccount: donationAccount.stripe_account_id }
+				);
+					if (expandedIntent?.id) {
+						paymentIntent = expandedIntent;
+						paymentIntentId = expandedIntent.id;
+						clientSecret = cleanText(expandedIntent.client_secret || '', 2000) || clientSecret;
+						if (cleanText(expandedIntent.client_secret || '', 2000)) {
+							clientSecretSource = 'payment_intent.retrieve.client_secret';
+						}
+					}
+				}
+			}
+		} catch (error) {
+			logMembershipPaymentIntent('create.failed', {
+				groupId: auth.group.id,
+				groupSlug: auth.group.slug,
+				userId: auth.userId,
+				tierId: tier.id,
+				paymentMode,
+				billingInterval,
+				message: error?.message || 'Unknown Stripe error'
+			});
+			return {
+				ok: false,
+				status: 502,
+			error: error?.message || 'Unable to prepare Stripe payment form.'
+		};
+	}
+
+	const paymentIntentId =
+		typeof paymentIntent === 'string'
+			? paymentIntent
+			: paymentIntent && typeof paymentIntent === 'object'
+				? paymentIntent.id || null
+				: null;
+	const resolvedClientSecret =
+		cleanText(
+			typeof paymentIntent === 'object' && paymentIntent
+				? paymentIntent.client_secret || ''
+				: '',
+			2000
+			) || clientSecret;
+	logMembershipPaymentIntent('create.result', {
+		groupId: auth.group.id,
+		groupSlug: auth.group.slug,
+		userId: auth.userId,
+		tierId: tier.id,
+		paymentMode,
+		billingInterval,
+		subscriptionId: subscription?.id || null,
+		paymentIntentId,
+		latestInvoiceId:
+			typeof latestInvoiceSnapshot?.id === 'string' ? latestInvoiceSnapshot.id : null,
+		latestInvoiceStatus: latestInvoiceSnapshot?.status || null,
+		latestInvoicePaid: latestInvoiceSnapshot?.paid === true,
+		clientSecretResolved: Boolean(resolvedClientSecret),
+		clientSecretSource: clientSecretSource || null,
+		hasPaymentIntentObject: Boolean(paymentIntent && typeof paymentIntent === 'object')
+	});
+
+	if (!resolvedClientSecret) {
+		const invoicePaid =
+			latestInvoiceSnapshot?.paid === true ||
+			cleanText(latestInvoiceSnapshot?.status || '', 20) === 'paid' ||
+			Number(latestInvoiceSnapshot?.amount_due || 0) <= 0;
+		if (subscription?.id && invoicePaid) {
+			const activation = await activateMembershipFromMetadata({
+				serviceSupabase,
+				metadata,
+				stripeSession: {
+					payment_status: 'paid',
+					status: 'succeeded',
+					customer: subscription.customer || null,
+					subscription: subscription.id
+				},
+				stripeAccountId: donationAccount.stripe_account_id,
+				fetchImpl: null
+			});
+			if (activation?.ok) {
+				return {
+					ok: true,
+					data: {
+						requires_payment: false,
+						membership_id: activation.membership_id || null,
+						connected_account_id: donationAccount.stripe_account_id,
+						payment_mode: paymentMode,
+						return_url: `${baseUrl}/groups/${encodeURIComponent(auth.group.slug)}/membership`
+					}
+				};
+			}
+		}
+		return { ok: false, status: 502, error: 'Stripe did not return a usable payment intent.' };
+	}
+
+	if (application?.id) {
+		await serviceSupabase
+			.from('group_membership_applications')
+			.update({
+				status: 'payment_pending',
+				payment_link_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+				updated_at: toIsoNow()
+			})
+			.eq('id', application.id);
+	}
+
+	return {
+		ok: true,
+		data: {
+			requires_payment: true,
+			client_secret: resolvedClientSecret,
+			payment_intent_id: paymentIntentId,
+			subscription_id: subscription?.id || null,
+			connected_account_id: donationAccount.stripe_account_id,
+			payment_mode: paymentMode,
+			return_url: `${baseUrl}/groups/${encodeURIComponent(auth.group.slug)}/membership`
+		}
+	};
+}
+
+export async function updateMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl }) {
+	// Membership pricing can affect recurring invoice setup; safest path is to recreate the Stripe intent/subscription.
+	return createMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl });
+}
+
+export async function finalizeMembershipPaymentIntent({
+	cookies,
+	groupSlug,
+	payload,
+	fetchImpl
+}) {
+	const auth = await requireMembershipUser(cookies, groupSlug);
+	if (!auth.ok) return auth;
+
+	const paymentIntentId = cleanNullableText(payload?.payment_intent_id, 255);
+	const subscriptionIdFromPayload = cleanNullableText(payload?.subscription_id, 255);
+	if (!paymentIntentId && !subscriptionIdFromPayload) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'payment_intent_id or subscription_id is required.'
+		};
+	}
+
+	const donationAccount = await loadDonationAccountForGroup(auth.serviceSupabase, auth.group.id);
+	if (!donationAccount?.stripe_account_id || donationAccount?.charges_enabled !== true) {
+		return { ok: false, status: 409, error: 'This group has not connected Stripe for memberships.' };
+	}
+
+	const stripe = getStripeClient();
+	let paymentIntent = null;
+	let resolvedSubscriptionId = subscriptionIdFromPayload || null;
+	let subscriptionMetadata = null;
+	try {
+		if (paymentIntentId) {
+			paymentIntent = await stripe.paymentIntents.retrieve(
+				paymentIntentId,
+				{ expand: ['invoice.subscription'] },
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
+			if (
+				paymentIntent?.invoice &&
+				typeof paymentIntent.invoice === 'object' &&
+				paymentIntent.invoice.subscription &&
+				typeof paymentIntent.invoice.subscription === 'object'
+			) {
+				resolvedSubscriptionId = paymentIntent.invoice.subscription.id || resolvedSubscriptionId;
+				subscriptionMetadata =
+					paymentIntent.invoice.subscription.metadata &&
+					typeof paymentIntent.invoice.subscription.metadata === 'object'
+					? paymentIntent.invoice.subscription.metadata
+						: null;
+			}
+			if (!subscriptionMetadata && subscriptionIdFromPayload) {
+				const payloadSubscription = await stripe.subscriptions.retrieve(
+					subscriptionIdFromPayload,
+					{},
+					{ stripeAccount: donationAccount.stripe_account_id }
+				);
+				resolvedSubscriptionId = payloadSubscription.id || resolvedSubscriptionId;
+				subscriptionMetadata =
+					payloadSubscription?.metadata && typeof payloadSubscription.metadata === 'object'
+						? payloadSubscription.metadata
+						: null;
+			}
+		} else if (subscriptionIdFromPayload) {
+			const subscription = await stripe.subscriptions.retrieve(
+				subscriptionIdFromPayload,
+				{ expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'] },
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
+			resolvedSubscriptionId = subscription.id;
+			subscriptionMetadata =
+				subscription?.metadata && typeof subscription.metadata === 'object' ? subscription.metadata : null;
+			const latestInvoice =
+				subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
+					? subscription.latest_invoice
+					: null;
+			if (latestInvoice?.payment_intent) {
+				paymentIntent =
+					typeof latestInvoice.payment_intent === 'object'
+						? latestInvoice.payment_intent
+						: await stripe.paymentIntents.retrieve(
+								latestInvoice.payment_intent,
+								{ expand: ['invoice.subscription'] },
+								{ stripeAccount: donationAccount.stripe_account_id }
+							);
+			}
+		}
+	} catch {
+		return { ok: false, status: 502, error: 'Unable to verify Stripe payment intent.' };
+	}
+	if (!paymentIntent) {
+		return {
+			ok: true,
+			data: {
+				completed: false,
+				payment_status: 'processing'
+			}
+		};
+	}
+
+	const metadata = isMembershipMetadata(paymentIntent?.metadata)
+		? paymentIntent.metadata
+		: isMembershipMetadata(subscriptionMetadata)
+			? subscriptionMetadata
+			: {};
+	if (!isMembershipMetadata(metadata)) {
+		return { ok: false, status: 409, error: 'This payment intent is not a membership payment.' };
+	}
+	if (
+		cleanText(metadata.membership_group_id, 64) !== auth.group.id ||
+		cleanText(metadata.membership_user_id, 64) !== auth.userId
+	) {
+		return { ok: false, status: 403, error: 'Payment intent does not belong to this membership context.' };
+	}
+
+	if (paymentIntent.status !== 'succeeded') {
+		return {
+			ok: true,
+			data: {
+				completed: false,
+				payment_status: paymentIntent.status
+			}
+		};
+	}
+
+	const subscriptionId =
+		paymentIntent?.invoice &&
+		typeof paymentIntent.invoice === 'object' &&
+		paymentIntent.invoice.subscription &&
+		typeof paymentIntent.invoice.subscription === 'object'
+			? paymentIntent.invoice.subscription.id || null
+			: resolvedSubscriptionId;
+
+	const activation = await activateMembershipFromMetadata({
+		serviceSupabase: auth.serviceSupabase,
+		metadata,
+		stripeSession: {
+			payment_status: 'paid',
+			status: 'succeeded',
+			customer: paymentIntent.customer,
+			subscription: subscriptionId
+		},
+		stripeAccountId: donationAccount.stripe_account_id,
+		fetchImpl
+	});
+
+	if (!activation?.ok) {
+		return {
+			ok: false,
+			status: 500,
+			error: activation?.error || 'Unable to activate membership after payment confirmation.'
+		};
+	}
+
+	return {
+		ok: true,
+		data: {
+			completed: true,
+			membership_id: activation.membership_id || null,
+			payment_status: paymentIntent.status
 		}
 	};
 }
@@ -2311,6 +3084,7 @@ export async function cancelMembership({ cookies, groupSlug, payload, fetchImpl 
 
 	const serviceSupabase = auth.serviceSupabase;
 	const membershipId = cleanNullableText(payload?.membership_id, 64);
+	const resumeRequested = normalizeBoolean(payload?.resume, false);
 	if (!membershipId) return { ok: false, status: 400, error: 'membership_id is required.' };
 
 	const membership = await loadMembershipById(serviceSupabase, membershipId);
@@ -2326,6 +3100,51 @@ export async function cancelMembership({ cookies, groupSlug, payload, fetchImpl 
 		.select('*')
 		.eq('membership_id', membership.id)
 		.maybeSingle();
+
+	if (resumeRequested) {
+		if (!membership.cancel_at_period_end) {
+			return { ok: false, status: 409, error: 'This membership is not pending cancellation.' };
+		}
+		if (billing?.stripe_subscription_id) {
+			const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
+			const stripeAccount = donationAccount?.stripe_account_id || null;
+			try {
+				const stripe = getStripeClient();
+				await stripe.subscriptions.update(
+					billing.stripe_subscription_id,
+					{ cancel_at_period_end: false },
+					stripeAccount ? { stripeAccount } : undefined
+				);
+			} catch (error) {
+				return { ok: false, status: 502, error: error?.message || 'Unable to renew subscription.' };
+			}
+		}
+
+		const { data, error } = await serviceSupabase
+			.from('group_memberships')
+			.update({
+				cancel_at_period_end: false,
+				status: 'active',
+				ends_at: null,
+				updated_at: toIsoNow()
+			})
+			.eq('id', membership.id)
+			.select('*')
+			.single();
+		if (error) return { ok: false, status: 400, error: error.message };
+
+		await writeAuditLog(serviceSupabase, {
+			group_id: auth.group.id,
+			actor_user_id: auth.userId,
+			action: 'membership.renewed',
+			entity_type: 'group_membership',
+			entity_id: membership.id,
+			before_snapshot: membership,
+			after_snapshot: data
+		});
+
+		return { ok: true, data };
+	}
 
 	let updates = null;
 	if (billing?.stripe_subscription_id) {
@@ -2373,13 +3192,67 @@ export async function cancelMembership({ cookies, groupSlug, payload, fetchImpl 
 		after_snapshot: data
 	});
 
+	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [membership.user_id]);
+	const memberProfile = profileMap.get(membership.user_id) || null;
+	const tier = membership.tier_id ? await loadTierById(serviceSupabase, membership.tier_id) : null;
+	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
+	const memberEmail = sanitizeEmail(memberProfile?.email || '');
+	const tierName = cleanText(tier?.name || 'Membership', 120);
+	const amountCents = normalizeAmountCents(
+		data?.contribution_amount_cents ?? membership?.contribution_amount_cents,
+		0
+	);
+	const billingInterval = cleanNullableText(data?.interval_unit || membership?.interval_unit, 16) || null;
+	const contribution = amountCents > 0 ? `${formatMoneyFromCents(amountCents, tier?.currency || 'usd')}/${intervalLabel(billingInterval)}` : 'Free';
+	const effectiveLabel =
+		data?.cancel_at_period_end === true
+			? data?.renews_at
+				? `Cancels at the end of the current billing period on ${formatDate(data.renews_at)}.`
+				: 'Cancels at the end of the current billing period.'
+			: data?.ends_at
+				? `Ended on ${formatDate(data.ends_at)}.`
+				: 'Ended immediately.';
+	const memberMembershipUrl = resolveAbsoluteUrl(`/groups/${auth.group.slug}/membership`);
+
 	await sendOwnerNotification({
 		serviceSupabase,
 		group: auth.group,
 		subject: `Membership cancelled: ${auth.group.name}`,
-		html: `<p>A membership was cancelled in <strong>${auth.group.name}</strong>.</p><p>Membership ID: ${data.id}</p>`,
-		text: `A membership was cancelled in ${auth.group.name}. Membership ID: ${data.id}`,
+		html: `<p>A membership was cancelled in <strong>${auth.group.name}</strong>.</p>
+<p><strong>Member:</strong> ${memberName}${memberEmail ? ` (${memberEmail})` : ''}<br />
+<strong>Tier:</strong> ${tierName}<br />
+<strong>Contribution:</strong> ${contribution}<br />
+<strong>Status:</strong> ${effectiveLabel}</p>`,
+		text: `A membership was cancelled in ${auth.group.name}.
+
+Member: ${memberName}${memberEmail ? ` (${memberEmail})` : ''}
+Tier: ${tierName}
+Contribution: ${contribution}
+Status: ${effectiveLabel}`,
 		tags: [{ Name: 'context', Value: 'membership-cancelled' }],
+		fetchImpl
+	});
+
+	await sendUserNotification({
+		to: memberEmail,
+		subject: `Membership update for ${auth.group.name}`,
+		html: `<p>Hi ${memberName},</p>
+<p>Your membership in <strong>${auth.group.name}</strong> has been cancelled.</p>
+<p><strong>Tier:</strong> ${tierName}<br />
+<strong>Contribution:</strong> ${contribution}<br />
+<strong>Status:</strong> ${effectiveLabel}</p>
+<p>You can revisit your membership anytime if you decide to join again.</p>
+<p><a href="${memberMembershipUrl}">View Membership</a></p>`,
+		text: `Hi ${memberName},
+
+Your membership in ${auth.group.name} has been cancelled.
+
+Tier: ${tierName}
+Contribution: ${contribution}
+Status: ${effectiveLabel}
+
+View membership: ${memberMembershipUrl}`,
+		tags: [{ Name: 'context', Value: 'membership-cancelled-member' }],
 		fetchImpl
 	});
 
@@ -2644,15 +3517,21 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 		.limit(2000);
 
 	const status = cleanNullableText(filters?.status, 40);
-	if (status) query = query.eq('status', normalizeMembershipStatus(status, status));
+	const normalizedStatus = status ? normalizeMembershipStatus(status, status) : null;
 
 	const { data: memberships, error } = await query;
 	if (error) return { ok: false, status: 400, error: error.message };
 
 	const rows = memberships || [];
-	const userIds = rows.map((row) => row.user_id);
-	const tierIds = rows.map((row) => row.tier_id).filter(Boolean);
-	const membershipIds = rows.map((row) => row.id);
+	const latestMembershipByUser = new Map();
+	for (const row of rows) {
+		if (!row?.user_id || latestMembershipByUser.has(row.user_id)) continue;
+		latestMembershipByUser.set(row.user_id, row);
+	}
+	const latestRows = Array.from(latestMembershipByUser.values());
+	const userIds = latestRows.map((row) => row.user_id);
+	const tierIds = latestRows.map((row) => row.tier_id).filter(Boolean);
+	const membershipIds = latestRows.map((row) => row.id);
 
 	const [profileMap, tierRes, billingRes] = await Promise.all([
 		resolveProfileMapByUserIds(serviceSupabase, userIds),
@@ -2673,7 +3552,7 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 	const billingMap = new Map((billingRes.data || []).map((billing) => [billing.membership_id, billing]));
 
 	const queryText = cleanText(filters?.query || '', 120).toLowerCase();
-	const mapped = rows
+	const mapped = latestRows
 		.map((membership) => {
 			const profile = profileMap.get(membership.user_id) || null;
 			const tier = tierMap.get(membership.tier_id) || null;
@@ -2686,6 +3565,7 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 			};
 		})
 		.filter((row) => {
+			if (normalizedStatus && row.status !== normalizedStatus) return false;
 			if (!queryText) return true;
 			const haystack = [
 				row.profile?.full_name || '',
@@ -2838,6 +3718,16 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 	const renewsAt = normalizeTimestamp(payload?.renews_at, calculateRenewalDate(tier, new Date(startedAt)));
 	const endsAt = normalizeTimestamp(payload?.ends_at, null);
 	const manualPaymentNotes = cleanNullableText(payload?.manual_payment_notes, 5000);
+	const manualIntervalUnit =
+		tier?.billing_type === 'recurring' && INTERVAL_UNITS.has(tier?.interval_unit || '')
+			? tier.interval_unit
+			: tier?.billing_type === 'recurring'
+				? 'month'
+				: null;
+	const manualContributionAmount = normalizeAmountCents(
+		resolveTierAmountByInterval(tier, manualIntervalUnit),
+		0
+	);
 
 	const { data, error } = await serviceSupabase
 		.from('group_memberships')
@@ -2846,12 +3736,14 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 			user_id: userId,
 			tier_id: tier.id,
 			status,
-			source: 'manual_offline',
-			started_at: startedAt,
-			renews_at: renewsAt,
-			ends_at: endsAt,
-			cancel_at_period_end: false,
-			manual_payment_notes: manualPaymentNotes,
+				source: 'manual_offline',
+				started_at: startedAt,
+				renews_at: renewsAt,
+				ends_at: endsAt,
+				interval_unit: manualIntervalUnit,
+				contribution_amount_cents: manualContributionAmount,
+				cancel_at_period_end: false,
+				manual_payment_notes: manualPaymentNotes,
 			created_by_owner_id: auth.userId,
 			created_at: toIsoNow(),
 			updated_at: toIsoNow()
@@ -3295,6 +4187,7 @@ async function activateMembershipFromMetadata({
 	const tierId = cleanText(metadata.membership_tier_id, 64);
 	const applicationId = cleanNullableText(metadata.membership_application_id, 64);
 	const billingInterval = cleanNullableText(metadata.membership_interval_unit, 16);
+	const membershipAmountCents = normalizeNullableAmountCents(metadata.membership_amount_cents);
 
 	if (!groupId || !userId || !tierId) {
 		return { ok: false, matched: true, error: 'Missing required membership metadata fields.' };
@@ -3326,7 +4219,13 @@ async function activateMembershipFromMetadata({
 
 	await serviceSupabase
 		.from('group_memberships')
-		.update({ status: 'active', updated_at: toIsoNow() })
+		.update({
+			status: 'active',
+			interval_unit: INTERVAL_UNITS.has(billingInterval || '') ? billingInterval : null,
+			contribution_amount_cents:
+				membershipAmountCents === null ? null : normalizeAmountCents(membershipAmountCents, 0),
+			updated_at: toIsoNow()
+		})
 		.eq('id', membership.id);
 
 	await upsertBillingForMembership({
@@ -3361,15 +4260,16 @@ async function activateMembershipFromMetadata({
 		}
 	});
 
-	await sendOwnerNotification({
-		serviceSupabase,
-		group,
-		subject: `Membership payment completed: ${group.name}`,
-		html: `<p>A membership payment completed for <strong>${group.name}</strong>.</p><p>Membership ID: ${membership.id}</p>`,
-		text: `A membership payment completed for ${group.name}. Membership ID: ${membership.id}`,
-		tags: [{ Name: 'context', Value: 'membership-payment-completed' }],
-		fetchImpl
-	});
+	if (!subscriptionId && cleanText(metadata?.membership_billing_type || '', 20) !== 'recurring') {
+		await sendMembershipPaymentSuccessNotifications({
+			serviceSupabase,
+			group,
+			membership,
+			userId,
+			metadata,
+			fetchImpl
+		});
+	}
 
 	if (subscriptionId && stripeAccountId) {
 		await applyPendingTierChange({
@@ -3415,13 +4315,12 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 
 			const group = await loadGroupById(serviceSupabase, metadata.membership_group_id);
 			if (group) {
-				await sendOwnerNotification({
+				await sendMembershipPaymentFailureNotifications({
 					serviceSupabase,
 					group,
-					subject: `Membership payment failed: ${group.name}`,
-					html: `<p>A membership payment expired or failed for <strong>${group.name}</strong>.</p>`,
-					text: `A membership payment expired or failed for ${group.name}.`,
-					tags: [{ Name: 'context', Value: 'membership-payment-failed' }],
+					userId: cleanText(metadata.membership_user_id, 64),
+					metadata,
+					reason: 'Checkout expired or remained unpaid',
 					fetchImpl
 				});
 			}
@@ -3469,13 +4368,15 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 
 		const group = await loadGroupById(serviceSupabase, metadata.membership_group_id);
 		if (group) {
-			await sendOwnerNotification({
+			await sendMembershipPaymentFailureNotifications({
 				serviceSupabase,
 				group,
-				subject: `Membership payment failed: ${group.name}`,
-				html: `<p>A membership payment failed for <strong>${group.name}</strong>.</p>`,
-				text: `A membership payment failed for ${group.name}.`,
-				tags: [{ Name: 'context', Value: 'membership-payment-failed' }],
+				userId: cleanText(metadata.membership_user_id, 64),
+				metadata,
+				reason:
+					eventType === 'payment_intent.canceled'
+						? 'Payment was canceled before completion'
+						: 'Payment could not be processed',
 				fetchImpl
 			});
 		}
@@ -3487,10 +4388,46 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		const subscriptionId = extractSubscriptionIdFromInvoice(dataObject);
 		if (!subscriptionId) return { ok: true, matched: false };
 
-		const billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
-		if (!billing) return { ok: true, matched: false };
+		let billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
+		let membership = billing ? await loadMembershipById(serviceSupabase, billing.membership_id) : null;
 
-		const membership = await loadMembershipById(serviceSupabase, billing.membership_id);
+		if ((!billing || !membership) && stripeAccountId && eventType === 'invoice.paid') {
+			try {
+				const stripe = getStripeClient();
+				const subscription = await stripe.subscriptions.retrieve(
+					subscriptionId,
+					{},
+					stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
+				);
+				const metadata = subscription?.metadata || {};
+				if (isMembershipMetadata(metadata)) {
+					const activation = await activateMembershipFromMetadata({
+						serviceSupabase,
+						metadata,
+						stripeSession: {
+							payment_status: 'paid',
+							status: 'paid',
+							customer: subscription?.customer || null,
+							subscription: subscription.id
+						},
+						stripeAccountId,
+						fetchImpl
+					});
+					if (activation?.ok) {
+						billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
+						membership = billing
+							? await loadMembershipById(serviceSupabase, billing.membership_id)
+							: activation?.membership_id
+								? await loadMembershipById(serviceSupabase, activation.membership_id)
+								: null;
+					}
+				}
+			} catch (error) {
+				console.error('Unable to bootstrap membership from invoice event', error);
+			}
+		}
+
+		if (!billing) return { ok: true, matched: false };
 		if (!membership) return { ok: true, matched: false };
 
 		const nextBillingAt = extractInvoiceNextBillingAt(dataObject);
@@ -3517,6 +4454,22 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 			.eq('id', membership.id);
 
 		if (isPaid) {
+			const group = await loadGroupById(serviceSupabase, membership.group_id);
+			if (group) {
+				const metadata = {
+					membership_tier_id: membership.tier_id,
+					membership_amount_cents: membership.contribution_amount_cents,
+					membership_interval_unit: membership.interval_unit || 'month'
+				};
+				await sendMembershipPaymentSuccessNotifications({
+					serviceSupabase,
+					group,
+					membership,
+					userId: membership.user_id,
+					metadata,
+					fetchImpl
+				});
+			}
 			await applyPendingTierChange({
 				serviceSupabase,
 				membership,
@@ -3527,13 +4480,17 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		} else {
 			const group = await loadGroupById(serviceSupabase, membership.group_id);
 			if (group) {
-				await sendOwnerNotification({
+				const metadata = {
+					membership_tier_id: membership.tier_id,
+					membership_amount_cents: membership.contribution_amount_cents,
+					membership_interval_unit: membership.interval_unit || 'month'
+				};
+				await sendMembershipPaymentFailureNotifications({
 					serviceSupabase,
 					group,
-					subject: `Membership payment failed: ${group.name}`,
-					html: `<p>A recurring membership payment failed for <strong>${group.name}</strong>.</p><p>Membership ID: ${membership.id}</p>`,
-					text: `A recurring membership payment failed for ${group.name}. Membership ID: ${membership.id}`,
-					tags: [{ Name: 'context', Value: 'membership-payment-failed' }],
+					userId: membership.user_id,
+					metadata,
+					reason: 'Recurring invoice payment failed',
 					fetchImpl
 				});
 			}

@@ -3,43 +3,35 @@
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash from '@lucide/svelte/icons/trash';
-	import IconSend from '@lucide/svelte/icons/send';
-	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
-	import IconMail from '@lucide/svelte/icons/mail';
 	import IconSettings from '@lucide/svelte/icons/settings';
-	import Toggle from '$lib/components/ui/Toggle.svelte';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconLink from '@lucide/svelte/icons/link';
+	import IconCheck from '@lucide/svelte/icons/check';
+	import IconSearch from '@lucide/svelte/icons/search';
+	import IconMail from '@lucide/svelte/icons/mail';
+	import IconPhone from '@lucide/svelte/icons/phone';
+	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
 
-	const TAB_OPTIONS = [
-		{ id: 'members', label: 'People', icon: IconUsers },
-		{ id: 'messages', label: 'Messages', icon: IconMail },
-		{ id: 'setup', label: 'Setup', icon: IconSettings }
-	];
+	// Panel states
+	let settingsOpen = $state(false);
+	let tiersOpen = $state(true);
+	let policyOpen = $state(false);
+	let formFieldsOpen = $state(false);
+	let billingOpen = $state(false);
 
-	function getDefaultActiveTab() {
-		const hasProgram = Boolean(data?.program_data?.program);
-		const isEnabled = data?.program_data?.program?.enabled !== false;
-		const hasAnyTier =
-			Array.isArray(data?.program_data?.tiers) && data.program_data.tiers.length > 0;
-		return hasProgram && isEnabled && hasAnyTier ? 'members' : 'setup';
-	}
-
-	let activeTab = $state(getDefaultActiveTab());
+	// Notification states
 	let busy = $state(false);
 	let notice = $state('');
 	let error = $state('');
 
-	function normalizeContributionMode(value) {
-		if (value === 'paid' || value === 'required_fee') return 'paid';
-		return 'donation';
-	}
-
+	// Data
 	let program = $state({
 		...(data?.program_data?.program || {
 			enabled: true,
@@ -47,207 +39,222 @@
 			cta_label: 'Follow',
 			contribution_mode: 'donation',
 			default_tier_id: null,
-			policy_markdown: `By joining, you agree to this membership policy.
-
-Cancellation:
-- You can cancel anytime.
-- Cancellation takes effect at the end of your current billing cycle.
-
-Refunds:
-- Payments are non-refundable unless required by law.
-
-Questions:
-- Contact group organizers through the group page.`,
+			policy_markdown: `By joining, you agree to this membership policy.\n\nCancellation:\n- You can cancel anytime.\n- Cancellation takes effect at the end of your current billing cycle.\n\nRefunds:\n- Payments are non-refundable unless required by law.\n\nQuestions:\n- Contact group organizers through the group page.`,
 			policy_version: 1
-		}),
-		contribution_mode: normalizeContributionMode(data?.program_data?.program?.contribution_mode)
+		})
 	});
+
 	let tiers = $state(Array.isArray(data?.program_data?.tiers) ? data.program_data.tiers : []);
 	let formFields = $state(
 		Array.isArray(data?.program_data?.form_fields) ? data.program_data.form_fields : []
 	);
 	let applications = $state(Array.isArray(data?.applications) ? data.applications : []);
 	let members = $state(Array.isArray(data?.members) ? data.members : []);
-	let emailHistory = $state(Array.isArray(data?.email_history) ? data.email_history : []);
 
-	let appNotes = $state({});
-	let scheduleByEmail = $state({});
+	// Filters
+	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
+	let memberFilterStatus = $state('all');
+	let memberFilterQuery = $state('');
+	let expandedMemberId = $state(null);
 
-	let newTier = $state({
-		name: '',
-		description: '',
-		monthly_amount_cents: null,
-		annual_amount_cents: null,
-		currency: 'usd',
-		is_default: false,
-		is_active: true,
-		sort_order: 0,
-		allow_custom_amount: false,
-		min_amount_cents: 0
-	});
-
-	let newField = $state({
-		field_type: 'text',
-		label: '',
-		help_text: '',
-		required: false,
-		options_json: [],
-		sort_order: 0,
-		active: true,
-		options_text: ''
-	});
-
+	// Manual membership
 	let manualMembership = $state({
 		user_email: '',
 		full_name: '',
 		tier_id: '',
 		status: 'active'
 	});
-	let manualUserLookup = $state({
-		checking: false,
-		checked_email: '',
-		found: null,
-		full_name: ''
-	});
+	let manualLookupState = $state({ checking: false, found: null, full_name: '' });
 	let manualLookupTimer = null;
 
-	let campaignDraft = $state({
-		campaign_name: '',
-		subject_template: '',
-		body_template: '',
-		audience_statuses: ['active']
+	// New tier form
+	let newTier = $state({
+		name: '',
+		description: '',
+		monthly_amount_cents: null,
+		annual_amount_cents: null,
+		is_default: false,
+		is_active: true
 	});
 
-	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled', 'expired', 'paused'];
-	const RECOMMENDED_TIER_PRESETS = [
-		{
-			name: 'Neighbor',
-			description: 'Low friction entry point. Most members start here.',
-			monthly_amount_cents: 0,
-			annual_amount_cents: null,
-			is_default: true,
-			is_active: true,
-			allow_custom_amount: false,
-			min_amount_cents: 0,
-			enabled: true
-		},
-		{
-			name: 'Supporter',
-			description: 'A low-cost way to support the group.',
-			monthly_amount_cents: 500,
-			annual_amount_cents: 5000,
-			is_default: false,
-			is_active: true,
-			allow_custom_amount: false,
-			min_amount_cents: 0,
-			enabled: true
-		},
-		{
-			name: 'Advocate',
-			description: 'A stronger recurring contribution tier.',
-			monthly_amount_cents: 1500,
-			annual_amount_cents: 15000,
-			is_default: false,
-			is_active: true,
-			allow_custom_amount: false,
-			min_amount_cents: 0,
-			enabled: true
-		},
-		{
-			name: 'Pay What You Want',
-			description: 'Custom monthly or annual amount.',
-			monthly_amount_cents: 0,
-			annual_amount_cents: 0,
-			is_default: false,
-			is_active: true,
-			allow_custom_amount: true,
-			min_amount_cents: 0,
-			enabled: true
-		}
-	];
-	const CAMPAIGN_BODY_PLACEHOLDER =
-		'Use merge tags: {{first_name}}, {{membership_tier}}, {{renewal_date}}, {{group_name}}, {{policy_link}}.\nUse content blocks: {{upcoming_rides_block}}, {{upcoming_volunteer_events_block}}, {{group_links_block}}.';
+	// New form field
+	let newField = $state({
+		field_type: 'text',
+		label: '',
+		help_text: '',
+		required: false,
+		options_text: ''
+	});
 
-	function centsToDollarInput(cents) {
-		if (cents === null || cents === undefined) return '';
-		const parsed = Number(cents);
-		if (!Number.isFinite(parsed)) return '';
-		return (parsed / 100).toFixed(2);
-	}
-
-	function dollarInputToCents(value) {
-		const cleaned = String(value ?? '')
-			.replace(/[^0-9.]/g, '')
-			.trim();
-		if (!cleaned) return null;
-		const parsed = Number.parseFloat(cleaned);
-		if (!Number.isFinite(parsed) || parsed < 0) return null;
-		return Math.round(parsed * 100);
-	}
-
-	function formatDollarLabel(cents) {
-		const parsed = Number(cents ?? 0);
-		if (!Number.isFinite(parsed) || parsed <= 0) return 'Free';
-		return `$${(parsed / 100).toFixed(2)}`;
-	}
-
+	// Computed
 	const publicMembershipUrl = $derived(`/groups/${slug}/membership`);
+	const pendingApplications = $derived(
+		applications.filter((a) => ['submitted', 'under_review', 'payment_pending'].includes(a.status))
+	);
+	const filteredMembers = $derived(
+		members.filter((m) => {
+			if (memberFilterStatus !== 'all' && m.status !== memberFilterStatus) return false;
+			if (!memberFilterQuery) return true;
+			const query = memberFilterQuery.toLowerCase();
+			return (
+				(m.profile?.full_name || '').toLowerCase().includes(query) ||
+				(m.profile?.email || '').toLowerCase().includes(query) ||
+				(m.tier?.name || '').toLowerCase().includes(query)
+			);
+		})
+	);
+	const activeCount = $derived(members.filter((m) => m.status === 'active').length);
+	const pastDueCount = $derived(members.filter((m) => m.status === 'past_due').length);
+	const hasPaidTiers = $derived(
+		tiers.some((t) => (t.monthly_amount_cents || 0) > 0 || (t.annual_amount_cents || 0) > 0)
+	);
+	const stripeReady = $derived(stripeConnection?.connected && stripeConnection?.charges_enabled);
 
-	async function copyMembershipLink() {
-		try {
-			await navigator.clipboard.writeText(window.location.origin + publicMembershipUrl);
-			setMessage('Membership link copied.');
-		} catch {
-			setMessage('', 'Unable to copy link.');
-		}
+	// Helpers
+	function setMessage(nextNotice = '', nextError = '') {
+		notice = nextNotice;
+		error = nextError;
+		if (nextNotice) setTimeout(() => (notice = ''), 4000);
 	}
 
-	function buildPresetTierDrafts() {
-		return RECOMMENDED_TIER_PRESETS.map((tier, index) => ({
-			...tier,
-			sort_order: index
-		}));
+	function centsToDollar(cents) {
+		if (!cents) return '';
+		return (cents / 100).toFixed(2);
+	}
+
+	function dollarToCents(value) {
+		const num = parseFloat(value);
+		return isNaN(num) ? null : Math.round(num * 100);
+	}
+
+	function formatCurrency(cents) {
+		if (!cents) return 'Free';
+		return `$${(cents / 100).toFixed(2)}`;
 	}
 
 	async function api(path, options = {}) {
 		const response = await fetch(path, {
-			headers: {
-				'Content-Type': 'application/json',
-				...(options.headers || {})
-			},
+			headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
 			...options
 		});
 		const payload = await response.json().catch(() => ({}));
-		if (!response.ok) {
-			throw new Error(payload?.error || 'Request failed');
-		}
+		if (!response.ok) throw new Error(payload?.error || 'Request failed');
 		return payload?.data;
 	}
 
-	function setMessage(nextNotice = '', nextError = '') {
-		notice = nextNotice;
-		error = nextError;
-	}
-
-	async function refreshProgram() {
-		const payload = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-		program = payload?.program
-			? { ...payload.program, contribution_mode: normalizeContributionMode(payload.program.contribution_mode) }
-			: program;
-		tiers = Array.isArray(payload?.tiers) ? payload.tiers : [];
-		formFields = Array.isArray(payload?.form_fields) ? payload.form_fields : [];
-	}
-
-	async function refreshApplications() {
-		applications = await api(`/api/groups/${slug}/membership/applications`);
+	async function copyJoinLink() {
+		try {
+			await navigator.clipboard.writeText(window.location.origin + publicMembershipUrl);
+			setMessage('Join link copied to clipboard');
+		} catch {
+			setMessage('', 'Unable to copy link');
+		}
 	}
 
 	async function refreshMembers() {
-		members = await api(`/api/groups/${slug}/membership/members`);
+		const params = new URLSearchParams();
+		if (memberFilterStatus !== 'all') params.set('status', memberFilterStatus);
+		if (memberFilterQuery.trim()) params.set('query', memberFilterQuery.trim());
+		members = await api(`/api/groups/${slug}/membership/members?${params.toString()}`);
 	}
 
-	async function refreshEmailHistory() {
-		emailHistory = await api(`/api/groups/${slug}/membership/emails/history`);
+	async function updateMemberStatus(member, newStatus) {
+		try {
+			busy = true;
+			await api(`/api/groups/${slug}/membership/members/${member.id}/status`, {
+				method: 'POST',
+				body: JSON.stringify({ status: newStatus })
+			});
+			setMessage('Member status updated');
+			await refreshMembers();
+			expandedMemberId = null;
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to update member');
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function approveApplication(appId) {
+		try {
+			busy = true;
+			await api(`/api/groups/${slug}/membership/applications/${appId}/approve`, {
+				method: 'POST',
+				body: JSON.stringify({})
+			});
+			setMessage('Application approved');
+			applications = await api(`/api/groups/${slug}/membership/applications`);
+			await refreshMembers();
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to approve application');
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function rejectApplication(appId) {
+		try {
+			busy = true;
+			await api(`/api/groups/${slug}/membership/applications/${appId}/reject`, {
+				method: 'POST',
+				body: JSON.stringify({})
+			});
+			setMessage('Application rejected');
+			applications = await api(`/api/groups/${slug}/membership/applications`);
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to reject application');
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function addManualMembership() {
+		if (!manualMembership.user_email) {
+			setMessage('', 'Email is required');
+			return;
+		}
+		try {
+			busy = true;
+			await api(`/api/groups/${slug}/membership/members/manual`, {
+				method: 'POST',
+				body: JSON.stringify(manualMembership)
+			});
+			setMessage('Member added successfully');
+			manualMembership = { user_email: '', full_name: '', tier_id: '', status: 'active' };
+			manualLookupState = { checking: false, found: null, full_name: '' };
+			await refreshMembers();
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to add member');
+		} finally {
+			busy = false;
+		}
+	}
+
+	function queueEmailLookup() {
+		if (manualLookupTimer) clearTimeout(manualLookupTimer);
+		const email = manualMembership.user_email.trim().toLowerCase();
+		if (!email || !email.includes('@')) {
+			manualLookupState = { checking: false, found: null, full_name: '' };
+			return;
+		}
+		manualLookupTimer = setTimeout(async () => {
+			manualLookupState = { ...manualLookupState, checking: true };
+			try {
+				const result = await api(
+					`/api/groups/${slug}/membership/members/lookup?email=${encodeURIComponent(email)}`
+				);
+				manualLookupState = {
+					checking: false,
+					found: result?.found === true,
+					full_name: result?.full_name || ''
+				};
+				if (result?.full_name) {
+					manualMembership.full_name = result.full_name;
+				}
+			} catch {
+				manualLookupState = { checking: false, found: false, full_name: '' };
+			}
+		}, 350);
 	}
 
 	async function saveProgramSettings() {
@@ -260,12 +267,12 @@ Questions:
 					access_mode: program.access_mode,
 					cta_label: program.cta_label,
 					contribution_mode: program.contribution_mode,
-					default_tier_id: program.default_tier_id || null
+					default_tier_id: program.default_tier_id
 				})
 			});
-			setMessage('Membership settings saved.');
-		} catch (saveError) {
-			setMessage('', saveError?.message || 'Unable to save membership settings.');
+			setMessage('Settings saved');
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to save settings');
 		} finally {
 			busy = false;
 		}
@@ -276,374 +283,134 @@ Questions:
 			busy = true;
 			await api(`/api/groups/${slug}/membership/policy`, {
 				method: 'PUT',
-				body: JSON.stringify({
-					policy_markdown: program.policy_markdown,
-					bump_version: true
-				})
+				body: JSON.stringify({ policy_markdown: program.policy_markdown, bump_version: true })
 			});
-			setMessage('Policy saved and version incremented.');
-			await refreshProgram();
-		} catch (saveError) {
-			setMessage('', saveError?.message || 'Unable to save policy.');
+			setMessage('Policy saved');
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to save policy');
 		} finally {
 			busy = false;
 		}
 	}
 
 	async function createTier() {
+		if (!newTier.name) {
+			setMessage('', 'Tier name is required');
+			return;
+		}
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
 				method: 'POST',
 				body: JSON.stringify(newTier)
 			});
+			setMessage('Tier created');
 			newTier = {
-				...newTier,
 				name: '',
 				description: '',
 				monthly_amount_cents: null,
 				annual_amount_cents: null,
 				is_default: false,
-				sort_order: (tiers?.length || 0) + 1
+				is_active: true
 			};
-			setMessage('Tier created.');
-			await refreshProgram();
-		} catch (createError) {
-			setMessage('', createError?.message || 'Unable to create tier.');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			tiers = data?.tiers || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to create tier');
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function saveTier(tier) {
+	async function updateTier(tier) {
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
 				method: 'PUT',
 				body: JSON.stringify(tier)
 			});
-			setMessage('Tier updated.');
-			await refreshProgram();
-		} catch (saveError) {
-			setMessage('', saveError?.message || 'Unable to update tier.');
+			setMessage('Tier updated');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			tiers = data?.tiers || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to update tier');
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function removeTier(tierId) {
-		if (!confirm('Delete this tier? Existing memberships remain but this tier cannot be used.')) return;
+	async function deleteTier(tierId) {
+		if (
+			!confirm(
+				'Delete this tier? Existing memberships will remain but this tier cannot be used for new signups.'
+			)
+		)
+			return;
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
 				method: 'DELETE',
 				body: JSON.stringify({ id: tierId })
 			});
-			setMessage('Tier deleted.');
-			await refreshProgram();
-		} catch (deleteError) {
-			setMessage('', deleteError?.message || 'Unable to delete tier.');
+			setMessage('Tier deleted');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			tiers = data?.tiers || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to delete tier');
 		} finally {
 			busy = false;
 		}
 	}
 
 	async function createField() {
+		if (!newField.label) {
+			setMessage('', 'Field label is required');
+			return;
+		}
 		try {
 			busy = true;
 			const options = (newField.options_text || '')
-				.split(/\r?\n/)
-				.map((entry) => entry.trim())
+				.split(/\n/)
+				.map((s) => s.trim())
 				.filter(Boolean);
 			await api(`/api/groups/${slug}/membership/form-fields`, {
 				method: 'POST',
-				body: JSON.stringify({
-					...newField,
-					options_json: options
-				})
+				body: JSON.stringify({ ...newField, options_json: options })
 			});
+			setMessage('Field added');
 			newField = {
 				field_type: 'text',
 				label: '',
 				help_text: '',
 				required: false,
-				options_json: [],
-				sort_order: (formFields?.length || 0) + 1,
-				active: true,
 				options_text: ''
 			};
-			setMessage('Form field added.');
-			await refreshProgram();
-		} catch (createError) {
-			setMessage('', createError?.message || 'Unable to create form field.');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			formFields = data?.form_fields || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to add field');
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function saveField(field) {
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/form-fields`, {
-				method: 'PUT',
-				body: JSON.stringify({
-					...field,
-					options_json: Array.isArray(field.options_json) ? field.options_json : []
-				})
-			});
-			setMessage('Form field updated.');
-			await refreshProgram();
-		} catch (saveError) {
-			setMessage('', saveError?.message || 'Unable to update form field.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function removeField(fieldId) {
-		if (!confirm('Delete this application field?')) return;
+	async function deleteField(fieldId) {
+		if (!confirm('Delete this form field?')) return;
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/form-fields`, {
 				method: 'DELETE',
 				body: JSON.stringify({ id: fieldId })
 			});
-			setMessage('Form field removed.');
-			await refreshProgram();
-		} catch (deleteError) {
-			setMessage('', deleteError?.message || 'Unable to delete form field.');
+			setMessage('Field deleted');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			formFields = data?.form_fields || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to delete field');
 		} finally {
 			busy = false;
 		}
 	}
-
-	async function approveApplication(applicationId) {
-		try {
-			busy = true;
-			const result = await api(`/api/groups/${slug}/membership/applications/${applicationId}/approve`, {
-				method: 'POST',
-				body: JSON.stringify({ review_notes: appNotes[applicationId] || '' })
-			});
-			if (result?.payment_link) {
-				setMessage(`Application approved. Payment link created: ${result.payment_link}`);
-			} else {
-				setMessage('Application approved.');
-			}
-			await Promise.all([refreshApplications(), refreshMembers()]);
-		} catch (approveError) {
-			setMessage('', approveError?.message || 'Unable to approve application.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function rejectApplication(applicationId) {
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/applications/${applicationId}/reject`, {
-				method: 'POST',
-				body: JSON.stringify({ review_notes: appNotes[applicationId] || '' })
-			});
-			setMessage('Application rejected.');
-			await refreshApplications();
-		} catch (rejectError) {
-			setMessage('', rejectError?.message || 'Unable to reject application.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function addManualMembership() {
-		if (!manualMembership.user_email) {
-			setMessage('', 'Member email is required.');
-			return;
-		}
-		if (!manualMembership.tier_id) {
-			setMessage('', 'Select a tier.');
-			return;
-		}
-		if (manualUserLookup.found === false && !String(manualMembership.full_name || '').trim()) {
-			setMessage('', 'Full name is required when creating a new user.');
-			return;
-		}
-		try {
-			busy = true;
-			const result = await api(`/api/groups/${slug}/membership/members/manual`, {
-				method: 'POST',
-				body: JSON.stringify({
-					...manualMembership
-				})
-			});
-			manualMembership = {
-				user_email: '',
-				full_name: '',
-				tier_id: '',
-				status: 'active'
-			};
-			manualUserLookup = {
-				checking: false,
-				checked_email: '',
-				found: null,
-				full_name: ''
-			};
-			setMessage(
-				result?.invite_sent
-					? 'Manual membership created and invite email sent to new user.'
-					: 'Manual membership created.'
-			);
-			await refreshMembers();
-		} catch (createError) {
-			setMessage('', createError?.message || 'Unable to create manual membership.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	function queueManualEmailLookup() {
-		if (manualLookupTimer) clearTimeout(manualLookupTimer);
-		const email = String(manualMembership.user_email || '').trim().toLowerCase();
-		if (!email || !email.includes('@')) {
-			manualUserLookup = {
-				checking: false,
-				checked_email: email,
-				found: null,
-				full_name: ''
-			};
-			return;
-		}
-		manualLookupTimer = setTimeout(async () => {
-			try {
-				manualUserLookup = { ...manualUserLookup, checking: true };
-				const result = await api(
-					`/api/groups/${slug}/membership/members/lookup?email=${encodeURIComponent(email)}`
-				);
-				manualUserLookup = {
-					checking: false,
-					checked_email: email,
-					found: result?.found === true,
-					full_name: result?.full_name || ''
-				};
-				if (result?.found === true && result?.full_name) {
-					manualMembership = { ...manualMembership, full_name: result.full_name };
-				}
-			} catch {
-				manualUserLookup = {
-					checking: false,
-					checked_email: email,
-					found: null,
-					full_name: ''
-				};
-			}
-		}, 350);
-	}
-
-	$effect(() => {
-		if (tiers.length === 1 && !manualMembership.tier_id) {
-			manualMembership = { ...manualMembership, tier_id: tiers[0].id };
-		}
-	});
-
-	async function updateMember(member, patch) {
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/members/${member.id}/status`, {
-				method: 'POST',
-				body: JSON.stringify(patch)
-			});
-			setMessage('Member updated.');
-			await refreshMembers();
-		} catch (updateError) {
-			setMessage('', updateError?.message || 'Unable to update member.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function createCampaign() {
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/emails`, {
-				method: 'POST',
-				body: JSON.stringify({
-					campaign_name: campaignDraft.campaign_name,
-					subject_template: campaignDraft.subject_template,
-					body_template: campaignDraft.body_template,
-					audience_filters: {
-						statuses: campaignDraft.audience_statuses
-					}
-				})
-			});
-			campaignDraft = {
-				campaign_name: '',
-				subject_template: '',
-				body_template: '',
-				audience_statuses: ['active']
-			};
-			setMessage('Email campaign saved.');
-			await refreshEmailHistory();
-		} catch (createError) {
-			setMessage('', createError?.message || 'Unable to create campaign.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function sendCampaignNow(campaignId) {
-		if (!confirm('Send this campaign now?')) return;
-		try {
-			busy = true;
-			const result = await api(`/api/groups/${slug}/membership/emails/${campaignId}/send-now`, {
-				method: 'POST'
-			});
-			setMessage(
-				`Campaign sent: ${result?.sent_count || 0} sent, ${result?.failed_count || 0} failed.`
-			);
-			await refreshEmailHistory();
-		} catch (sendError) {
-			setMessage('', sendError?.message || 'Unable to send campaign.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function scheduleCampaign(campaignId) {
-		const scheduledAt = scheduleByEmail[campaignId];
-		if (!scheduledAt) {
-			setMessage('', 'Choose a schedule time first.');
-			return;
-		}
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/emails/${campaignId}/schedule`, {
-				method: 'POST',
-				body: JSON.stringify({ scheduled_at: new Date(scheduledAt).toISOString() })
-			});
-			setMessage('Campaign scheduled.');
-			await refreshEmailHistory();
-		} catch (scheduleError) {
-			setMessage('', scheduleError?.message || 'Unable to schedule campaign.');
-		} finally {
-			busy = false;
-		}
-	}
-
-	const pendingApplications = $derived(
-		applications.filter((entry) => ['submitted', 'under_review', 'approved', 'payment_pending'].includes(entry.status))
-	);
-	const failedBillingMembers = $derived(members.filter((member) => member.status === 'past_due'));
-	const hasPaidOrCustomTiers = $derived(
-		tiers.some(
-			(tier) =>
-				Number(tier.monthly_amount_cents ?? tier.amount_cents ?? 0) > 0 ||
-				Number(tier.annual_amount_cents || 0) > 0 ||
-				tier.allow_custom_amount === true
-		)
-	);
-	const stripeReady = $derived(
-		Boolean(stripeConnection?.connected === true && stripeConnection?.charges_enabled === true)
-	);
-	let presetTierDrafts = $state(buildPresetTierDrafts());
-	let showPresetTierEditor = $state(false);
 
 	async function installDefaultTiers() {
 		if (
@@ -661,922 +428,2202 @@ Questions:
 			setMessage(
 				`Tier catalog ready. Created ${result?.created_count || 0}, updated ${result?.updated_count || 0}.`
 			);
-			await refreshProgram();
-		} catch (seedError) {
-			setMessage('', seedError?.message || 'Unable to install default tier catalog.');
+			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+			tiers = data?.tiers || [];
+		} catch (e) {
+			setMessage('', e?.message || 'Unable to install default tier catalog.');
 		} finally {
 			busy = false;
 		}
 	}
 
-	function selectPresetDefault(index) {
-		presetTierDrafts = presetTierDrafts.map((draft, draftIndex) => ({
-			...draft,
-			is_default: draft.enabled && draftIndex === index
-		}));
+	function formatDate(value) {
+		if (!value) return '';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '';
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 
-	async function savePresetTierDrafts() {
-		const selectedDrafts = presetTierDrafts.filter(
-			(draft) => draft.enabled && String(draft.name || '').trim().length > 0
-		);
-		if (!selectedDrafts.length) {
-			setMessage('', 'Enable at least one preset tier before saving.');
-			return;
-		}
-
-		if (!selectedDrafts.some((draft) => draft.is_default)) {
-			selectedDrafts[0].is_default = true;
-		}
-
-		try {
-			busy = true;
-			for (const [index, draft] of selectedDrafts.entries()) {
-				await api(`/api/groups/${slug}/membership/tiers`, {
-					method: 'POST',
-					body: JSON.stringify({
-						name: draft.name,
-						description: draft.description,
-						monthly_amount_cents:
-							draft.monthly_amount_cents === null || draft.monthly_amount_cents === ''
-								? null
-								: Number(draft.monthly_amount_cents || 0),
-						annual_amount_cents:
-							draft.annual_amount_cents === null || draft.annual_amount_cents === ''
-								? null
-								: Number(draft.annual_amount_cents || 0),
-						currency: 'usd',
-						is_default: draft.is_default === true,
-						is_active: draft.is_active !== false,
-						sort_order: index,
-						allow_custom_amount: draft.allow_custom_amount === true,
-						min_amount_cents:
-							draft.allow_custom_amount === true ? Number(draft.min_amount_cents || 0) : null
-					})
-				});
-			}
-			setMessage(`Created ${selectedDrafts.length} preset tiers.`);
-			await refreshProgram();
-		} catch (saveError) {
-			setMessage('', saveError?.message || 'Unable to save preset tiers.');
-		} finally {
-			busy = false;
-		}
+	function getInitials(name) {
+		if (!name) return '?';
+		return name
+			.split(' ')
+			.map((n) => n[0])
+			.join('')
+			.toUpperCase()
+			.slice(0, 2);
 	}
 
-	async function createRecommendedTiersNow() {
-		showPresetTierEditor = false;
-		await savePresetTierDrafts();
-	}
-
+	// Auto-select tier if only one exists
+	$effect(() => {
+		if (tiers.length === 1 && !manualMembership.tier_id) {
+			manualMembership.tier_id = tiers[0].id;
+		}
+	});
 </script>
 
-<div class="membership-manage space-y-6 pb-10">
-	<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div>
-				<h2 class="text-xl font-bold">Membership</h2>
-				<p class="text-surface-600-400 text-sm">
-					Set up joining, tiers, members, and member messages.
-				</p>
+<div class="membership-manage">
+	<!-- Notifications -->
+	{#if notice}
+		<div class="banner success" role="status">
+			<div class="banner-content">
+				<div class="banner-icon success">
+					<IconCheck class="h-4 w-4" />
+				</div>
+				<div>
+					<p class="banner-title">{notice}</p>
+				</div>
 			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<button type="button" class="btn btn-sm preset-tonal-surface" onclick={copyMembershipLink}>
-					Copy Join Link
+		</div>
+	{/if}
+	{#if error}
+		<div class="banner error" role="alert">
+			<div class="banner-content">
+				<div class="banner-icon error">
+					<IconTrash class="h-4 w-4" />
+				</div>
+				<div>
+					<p class="banner-title">{error}</p>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if hasPaidTiers && !stripeReady}
+		<div class="banner preset-tonal-warning" role="alert">
+			<div class="banner-content">
+				<div class="banner-icon warning">
+					<IconCreditCard class="h-4 w-4" />
+				</div>
+				<div class="flex-1">
+					<p class="banner-title">Connect Stripe to accept paid memberships</p>
+					<p class="banner-subtitle">
+						You have paid tiers configured. Members cannot complete payment until Stripe is connected.
+					</p>
+				</div>
+				<a
+					class="btn preset-filled-primary-500"
+					href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(slug)}"
+				>
+					<IconCreditCard class="h-4 w-4" />
+					Connect Stripe
+				</a>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Stats Row -->
+	<div class="stats-grid">
+		<div class="stat-card">
+			<div class="stat-label">Total Members</div>
+			<div class="stat-value">{members.length}</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-label">Active</div>
+			<div class="stat-value success">{activeCount}</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-label">Past Due</div>
+			<div class="stat-value warning">{pastDueCount}</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-label">Pending Applications</div>
+			<div class="stat-value">{pendingApplications.length}</div>
+		</div>
+	</div>
+
+	<!-- Member Roster -->
+	<section class="card">
+		<div class="card-accent" aria-hidden="true"></div>
+		<div class="card-header">
+			<div class="card-header-left">
+				<div class="card-icon primary">
+					<IconUsers class="h-5 w-5" />
+				</div>
+				<div class="card-title-group">
+					<h2 class="card-title">Member Roster</h2>
+					{#if pendingApplications.length > 0}
+						<span class="badge warning">{pendingApplications.length} pending</span>
+					{/if}
+				</div>
+			</div>
+			<div class="card-header-right">
+				<button class="btn preset-tonal-surface" onclick={copyJoinLink}>
+					<IconLink class="h-4 w-4" />
+					<span>Copy Join Link</span>
 				</button>
-				{#if busy}
-					<div class="flex items-center gap-2 text-sm opacity-75">
-						<IconLoader class="h-4 w-4 animate-spin" /> Saving...
-					</div>
-				{/if}
 			</div>
 		</div>
 
-		{#if notice}
-			<div class="text-success-600-400 text-sm">{notice}</div>
-		{/if}
-		{#if error}
-			<div class="text-error-600-400 text-sm">{error}</div>
-		{/if}
-
-		<nav class="flex flex-wrap gap-2" aria-label="Membership tabs">
-			{#each TAB_OPTIONS as tab}
-				{@const Icon = tab.icon}
-				<button
-					type="button"
-					class="btn btn-sm {activeTab === tab.id ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
-					onclick={() => {
-						activeTab = tab.id;
-					}}
-				>
-					<Icon class="h-4 w-4" /> {tab.label}
-				</button>
-			{/each}
-		</nav>
-	</section>
-
-	{#if activeTab === 'setup'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Program</h3>
-			<div class="grid gap-4 md:grid-cols-2">
-				<div class="space-y-3">
-					<label class="text-sm font-medium">Membership enabled</label>
-					<Toggle
-						name="membership-enabled"
-						checked={program.enabled !== false}
-						onChange={(value) => {
-							program = { ...program, enabled: value };
-						}}
-					/>
-				</div>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Access mode</span>
-					<select
-						class="select preset-tonal-surface"
-						value={program.access_mode}
-						onchange={(event) => {
-							program = { ...program, access_mode: event.currentTarget.value };
-						}}
-					>
-						<option value="public">Public</option>
-						<option value="private_request">Private (review before join)</option>
-					</select>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Contribution mode</span>
-					<select
-						class="select preset-tonal-surface"
-						value={program.contribution_mode}
-						onchange={(event) => {
-							program = { ...program, contribution_mode: event.currentTarget.value };
-						}}
-					>
-						<option value="donation">Donation ($0 default)</option>
-						<option value="paid">Paid (requires payment)</option>
-					</select>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Default tier</span>
-					<select
-						class="select preset-tonal-surface"
-						value={program.default_tier_id || ''}
-						onchange={(event) => {
-							program = { ...program, default_tier_id: event.currentTarget.value || null };
-						}}
-					>
-						<option value="">No default selection</option>
-						{#each tiers as tier (tier.id)}
-							<option value={tier.id}>{tier.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="md:col-span-2 flex flex-col gap-1.5">
-					<span class="text-sm font-medium">CTA label</span>
+		<div class="card-body">
+			<div class="filters-row">
+				<div class="search-input">
+					<IconSearch class="search-icon h-4 w-4" />
 					<input
-						class="input preset-tonal-surface"
-						value={program.cta_label || ''}
-						oninput={(event) => {
-							program = { ...program, cta_label: event.currentTarget.value };
-						}}
-						maxlength="80"
+						type="text"
+						placeholder="Search members..."
+						bind:value={memberFilterQuery}
+						oninput={refreshMembers}
 					/>
-				</label>
-			</div>
-			<div class="flex justify-end">
-				<button type="button" class="btn preset-filled-primary-500" onclick={saveProgramSettings}>
-					<IconSave class="h-4 w-4" /> Save Program
-				</button>
-			</div>
-
-			<details class="rounded-xl border border-surface-400-600/30 p-3" open>
-				<summary class="cursor-pointer text-base font-semibold">Policy</summary>
-				<div class="space-y-3 pt-3">
-					<div class="flex items-center justify-between">
-						<div class="text-xs opacity-70">Version {program.policy_version || 1}</div>
-					</div>
-					<textarea
-						class="textarea preset-tonal-surface min-h-52"
-						bind:value={program.policy_markdown}
-						placeholder="Membership policy"
-					></textarea>
-					<button type="button" class="btn preset-filled-primary-500" onclick={savePolicy}>
-						<IconSave class="h-4 w-4" /> Save Policy Version
-					</button>
 				</div>
-			</details>
-		</section>
+				<select class="select" bind:value={memberFilterStatus} onchange={refreshMembers}>
+					<option value="all">All statuses</option>
+					{#each STATUS_OPTIONS as status}
+						<option value={status}>{status}</option>
+					{/each}
+				</select>
+			</div>
 
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<h3 class="text-lg font-semibold">Tiers</h3>
-					<p class="text-sm opacity-70">
-						Use 4 starter tiers: free, low-cost, higher support, and pay-what-you-want.
+			{#if filteredMembers.length === 0}
+				<div class="empty-state">
+					<div class="empty-icon">
+						<IconUsers class="h-8 w-8" />
+					</div>
+					<p class="empty-title">No members found</p>
+					<p class="empty-subtitle">
+						{memberFilterQuery || memberFilterStatus !== 'all'
+							? 'Try adjusting your filters'
+							: 'Add members manually or share your join link'}
 					</p>
 				</div>
-				{#if tiers.length > 0}
-					<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={installDefaultTiers}>
-						<IconPlus class="h-4 w-4" /> Reapply Recommended Tiers
-					</button>
-				{/if}
-			</div>
-			<div class="space-y-3">
-				{#if tiers.length === 0}
-					<div class="space-y-3">
-						<div class="rounded-xl border border-warning-500/35 bg-warning-500/10 p-3 text-sm">
-							<div class="font-semibold">Recommended tiers are not live yet.</div>
-							<div class="opacity-85">
-								Nothing is applied until you click <span class="font-semibold">Create 4 Recommended Tiers</span>.
-							</div>
-						</div>
-						<div class="space-y-2">
-							{#each RECOMMENDED_TIER_PRESETS as preset}
-								<div class="border-surface-400-600/30 bg-surface-900/20 rounded-xl border p-3 opacity-80">
-									<div class="flex items-center justify-between gap-3">
-										<div class="font-medium">{preset.name}</div>
-										<div class="text-sm">
-											{formatDollarLabel(preset.monthly_amount_cents)}/month · {formatDollarLabel(preset.annual_amount_cents)}/year
-										</div>
-									</div>
-									<div class="text-xs opacity-70">{preset.description}</div>
-								</div>
-							{/each}
-						</div>
-						<div class="flex flex-wrap justify-end gap-2">
+			{:else}
+				<div class="member-list">
+					{#each filteredMembers as member (member.id)}
+						<div class="member-row" class:expanded={expandedMemberId === member.id}>
 							<button
-								type="button"
-								class="btn btn-sm preset-tonal-surface"
-								onclick={() => {
-									showPresetTierEditor = !showPresetTierEditor;
-								}}
+								class="member-row-header"
+								onclick={() =>
+									(expandedMemberId = expandedMemberId === member.id ? null : member.id)}
+								aria-expanded={expandedMemberId === member.id}
 							>
-								{showPresetTierEditor ? 'Hide Customizer' : 'Customize Before Create'}
-							</button>
-							<button
-								type="button"
-								class="btn btn-sm preset-filled-primary-500"
-								onclick={createRecommendedTiersNow}
-							>
-								<IconSave class="h-4 w-4" /> Create 4 Recommended Tiers
-							</button>
-						</div>
-						{#if showPresetTierEditor}
-							{#each presetTierDrafts as draft, index (`preset-${index}`)}
-								<div class="border-surface-400-600/40 bg-surface-900/30 rounded-xl border p-3 opacity-70">
-								<div class="mb-2 flex items-center justify-between gap-3">
-									<label class="flex items-center gap-2 text-sm">
-										<input
-											type="checkbox"
-											class="preset-tonal-surface"
-											checked={draft.enabled !== false}
-											onchange={(event) => {
-												presetTierDrafts[index].enabled = event.currentTarget.checked;
-												presetTierDrafts = [...presetTierDrafts];
-											}}
-										/>
-										<span>Include preset</span>
-									</label>
-									<label class="flex items-center gap-2 text-sm">
-										<input
-											type="radio"
-											name="preset-default-tier"
-											class="preset-tonal-surface"
-											checked={draft.is_default === true}
-											disabled={draft.enabled === false}
-											onchange={() => selectPresetDefault(index)}
-										/>
-										<span>Default</span>
-									</label>
-								</div>
-								<div class="grid gap-3 md:grid-cols-6">
-									<input
-										class="input preset-tonal-surface md:col-span-2"
-										value={draft.name}
-										oninput={(event) => {
-											presetTierDrafts[index].name = event.currentTarget.value;
-											presetTierDrafts = [...presetTierDrafts];
-										}}
-										placeholder="Tier name"
+								{#if member.profile?.avatar_url}
+									<img
+										src={member.profile.avatar_url}
+										alt={`${member.profile?.full_name || 'Member'} avatar`}
+										class="member-avatar"
 									/>
-									<input
-										class="input preset-tonal-surface md:col-span-2"
-										value={draft.description}
-										oninput={(event) => {
-											presetTierDrafts[index].description = event.currentTarget.value;
-											presetTierDrafts = [...presetTierDrafts];
-										}}
-										placeholder="Description"
-									/>
-									<div class="flex items-center">
-										<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-										<input
-											type="text"
-											inputmode="decimal"
-											class="input preset-tonal-surface rounded-l-none"
-											value={centsToDollarInput(draft.monthly_amount_cents)}
-											oninput={(event) => {
-												presetTierDrafts[index].monthly_amount_cents = dollarInputToCents(
-													event.currentTarget.value
-												);
-												presetTierDrafts = [...presetTierDrafts];
-											}}
-											placeholder="Monthly (optional)"
-										/>
+								{:else}
+									<div class="member-avatar-fallback">
+										{getInitials(member.profile?.full_name)}
 									</div>
-									<div class="flex items-center">
-										<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-										<input
-											type="text"
-											inputmode="decimal"
-											class="input preset-tonal-surface rounded-l-none"
-											value={centsToDollarInput(draft.annual_amount_cents)}
-											oninput={(event) => {
-												presetTierDrafts[index].annual_amount_cents = dollarInputToCents(
-													event.currentTarget.value
-												);
-												presetTierDrafts = [...presetTierDrafts];
-											}}
-											placeholder="Annual (optional)"
-										/>
+								{/if}
+								<div class="member-info">
+									<div class="member-name">
+										{member.profile?.full_name || member.profile?.email || 'Unknown'}
 									</div>
-									<label class="flex items-center gap-2 text-sm md:col-span-2">
-										<input
-											type="checkbox"
-											class="preset-tonal-surface"
-											checked={draft.allow_custom_amount === true}
-											onchange={(event) => {
-												presetTierDrafts[index].allow_custom_amount = event.currentTarget.checked;
-												presetTierDrafts = [...presetTierDrafts];
-											}}
-										/>
-										<span>Allow custom amount</span>
-									</label>
-									{#if draft.allow_custom_amount}
-										<div class="flex items-center">
-											<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-											<input
-												type="text"
-												inputmode="decimal"
-												class="input preset-tonal-surface rounded-l-none"
-												value={centsToDollarInput(draft.min_amount_cents)}
-												oninput={(event) => {
-													presetTierDrafts[index].min_amount_cents =
-														dollarInputToCents(event.currentTarget.value) ?? 0;
-													presetTierDrafts = [...presetTierDrafts];
-												}}
-												placeholder="Minimum"
-											/>
-										</div>
-									{/if}
+									<div class="member-meta">
+										<span class="tier-badge">{member.tier?.name || 'No tier'}</span>
+										<span class="dot">·</span>
+										<span class="source">{member.source}</span>
+									</div>
 								</div>
-							</div>
-							{/each}
-							<div class="flex justify-end">
-								<button
-									type="button"
-									class="btn btn-sm preset-filled-primary-500"
-									onclick={savePresetTierDrafts}
-								>
-									<IconSave class="h-4 w-4" /> Create Customized Tiers
-								</button>
-							</div>
-						{/if}
-					</div>
-				{/if}
-				{#each tiers as tier (tier.id)}
-					<div class="border-surface-400-600/30 rounded-xl border p-3">
-						<div class="grid gap-3 md:grid-cols-6">
-							<input
-								class="input preset-tonal-surface md:col-span-2"
-								value={tier.name}
-								oninput={(event) => {
-									tier.name = event.currentTarget.value;
-									tiers = [...tiers];
-								}}
-							/>
-							<div class="flex items-center">
-								<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-								<input
-									type="text"
-									inputmode="decimal"
-									class="input preset-tonal-surface rounded-l-none"
-									value={centsToDollarInput(tier.monthly_amount_cents ?? tier.amount_cents)}
-									oninput={(event) => {
-										const next = dollarInputToCents(event.currentTarget.value);
-										tier.monthly_amount_cents = next;
-										tier.amount_cents = next ?? 0;
-										tiers = [...tiers];
-									}}
-									placeholder="Monthly"
-								/>
-							</div>
-							<div class="flex items-center">
-								<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-								<input
-									type="text"
-									inputmode="decimal"
-									class="input preset-tonal-surface rounded-l-none"
-									value={centsToDollarInput(tier.annual_amount_cents)}
-									oninput={(event) => {
-										tier.annual_amount_cents = dollarInputToCents(event.currentTarget.value);
-										tiers = [...tiers];
-									}}
-									placeholder="Annual"
-								/>
-							</div>
-							<div class="flex items-center gap-2">
-								<button type="button" class="btn btn-sm preset-tonal-primary" onclick={() => saveTier(tier)}>
-									Save
-								</button>
-								<button
-									type="button"
-									class="btn btn-sm preset-tonal-error"
-									onclick={() => removeTier(tier.id)}
-								>
-									<IconTrash class="h-4 w-4" />
-								</button>
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<div class="border-surface-400-600/30 rounded-xl border p-3">
-				<div class="mb-2 text-sm font-semibold">Create tier</div>
-				<div class="grid gap-3 md:grid-cols-6">
-					<input class="input preset-tonal-surface md:col-span-2" bind:value={newTier.name} placeholder="Tier name" />
-					<input class="input preset-tonal-surface md:col-span-2" bind:value={newTier.description} placeholder="Description" />
-					<div class="flex items-center">
-						<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-						<input
-							type="text"
-							inputmode="decimal"
-							class="input preset-tonal-surface rounded-l-none"
-							value={centsToDollarInput(newTier.monthly_amount_cents)}
-							oninput={(event) => {
-								newTier = {
-									...newTier,
-									monthly_amount_cents: dollarInputToCents(event.currentTarget.value)
-								};
-							}}
-							placeholder="Monthly (optional)"
-						/>
-					</div>
-					<div class="flex items-center">
-						<span class="border border-r-0 border-surface-400-600/40 rounded-l-md px-3 py-2 text-sm opacity-80">$</span>
-						<input
-							type="text"
-							inputmode="decimal"
-							class="input preset-tonal-surface rounded-l-none"
-							value={centsToDollarInput(newTier.annual_amount_cents)}
-							oninput={(event) => {
-								newTier = {
-									...newTier,
-									annual_amount_cents: dollarInputToCents(event.currentTarget.value)
-								};
-							}}
-							placeholder="Annual (optional)"
-						/>
-					</div>
-				</div>
-				<div class="mt-3 flex items-center gap-3">
-					<Toggle
-						name="new-tier-default"
-						checked={newTier.is_default}
-						onChange={(value) => {
-							newTier = { ...newTier, is_default: value };
-						}}
-					/>
-					<span class="text-sm">Set as default tier</span>
-					<button type="button" class="btn btn-sm preset-filled-primary-500 ml-auto" onclick={createTier}>
-						<IconPlus class="h-4 w-4" /> Add Tier
-					</button>
-				</div>
-			</div>
-		</section>
-	{/if}
-
-	{#if activeTab === 'setup'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<details class="rounded-xl border border-surface-400-600/30 p-3">
-				<summary class="cursor-pointer text-lg font-semibold">Application Form Builder (Optional)</summary>
-				<div class="mt-3 space-y-4">
-					<div class="rounded-xl border border-surface-400-600/30 bg-surface-900/20 p-3 space-y-2">
-						<div class="text-sm font-semibold">Profile Fields (Always Included)</div>
-						<p class="text-xs opacity-70">
-							These are collected from the member profile at submission time and can be updated by the member on the join/apply form.
-						</p>
-						<div class="grid gap-2 md:grid-cols-3">
-							<input class="input preset-tonal-surface opacity-70" value="Full name" disabled />
-							<input class="input preset-tonal-surface opacity-70" value="Email" disabled />
-							<input class="input preset-tonal-surface opacity-70" value="Phone" disabled />
-						</div>
-					</div>
-					{#if formFields.length === 0}
-						<p class="text-sm opacity-70">No custom fields yet.</p>
-					{/if}
-					{#each formFields as field (field.id)}
-						<div class="border-surface-400-600/30 rounded-xl border p-3">
-							<div class="grid gap-3 md:grid-cols-4">
-								<input
-									class="input preset-tonal-surface md:col-span-2"
-									value={field.label}
-									oninput={(event) => {
-										field.label = event.currentTarget.value;
-										formFields = [...formFields];
-									}}
-								/>
-								<select
-									class="select preset-tonal-surface"
-									value={field.field_type}
-									onchange={(event) => {
-										field.field_type = event.currentTarget.value;
-										formFields = [...formFields];
-									}}
-								>
-									<option value="text">Text</option>
-									<option value="textarea">Textarea</option>
-									<option value="email">Email</option>
-									<option value="phone">Phone</option>
-									<option value="number">Number</option>
-									<option value="select">Select</option>
-									<option value="multiselect">Multiselect</option>
-									<option value="checkbox">Checkbox</option>
-									<option value="date">Date</option>
-								</select>
-								<div class="flex items-center gap-2 justify-end">
-									<button type="button" class="btn btn-sm preset-tonal-primary" onclick={() => saveField(field)}>
-										Save
-									</button>
-									<button
-										type="button"
-										class="btn btn-sm preset-tonal-error"
-										onclick={() => removeField(field.id)}
+								<div class="member-status">
+									<span
+										class="status-badge"
+										class:success={member.status === 'active'}
+										class:warning={member.status === 'past_due'}
+										class:error={member.status === 'cancelled'}
 									>
-										<IconTrash class="h-4 w-4" />
-									</button>
+										{member.status}
+									</span>
 								</div>
-							</div>
-							<div class="mt-2 flex items-center gap-3 text-sm">
-								<Toggle
-									name={`required-${field.id}`}
-									checked={field.required === true}
-									onChange={(value) => {
-										field.required = value;
-										formFields = [...formFields];
-									}}
+								<IconChevronDown
+									class="chevron h-4 w-4 {expandedMemberId === member.id ? 'rotate' : ''}"
 								/>
-								<span>Required</span>
-							</div>
+							</button>
+
+							{#if expandedMemberId === member.id}
+								<div class="member-details" transition:slide={{ duration: 180 }}>
+									<div class="details-grid">
+										{#if member.profile?.email}
+											<div class="detail-item">
+												<IconMail class="h-4 w-4" />
+												<a href="mailto:{member.profile.email}">{member.profile.email}</a>
+											</div>
+										{/if}
+										{#if member.profile?.phone}
+											<div class="detail-item">
+												<IconPhone class="h-4 w-4" />
+												<a href="tel:{member.profile.phone}">{member.profile.phone}</a>
+											</div>
+										{/if}
+										<div class="detail-item">
+											<span class="detail-label">Joined:</span>
+											<span>{formatDate(member.created_at)}</span>
+										</div>
+									</div>
+
+									<div class="status-actions">
+										<span class="action-label">Change status:</span>
+										<div class="action-buttons">
+											{#each STATUS_OPTIONS as status}
+												{@const isActive = member.status === status}
+												{@const statusPreset =
+													status === 'active'
+														? 'preset-filled-success-500'
+														: status === 'past_due'
+															? 'preset-filled-warning-500'
+															: status === 'cancelled'
+																? 'preset-filled-error-500'
+																: 'preset-filled-surface'}
+												{@const inactivePreset =
+													status === 'active'
+														? 'preset-outlined-success-500'
+														: status === 'past_due'
+															? 'preset-outlined-warning-500'
+															: status === 'cancelled'
+																? 'preset-outlined-error-500'
+																: 'preset-outlined-surface'}
+												<button
+													class="btn btn-sm {isActive ? statusPreset : inactivePreset}"
+													disabled={isActive || busy}
+													onclick={() => updateMemberStatus(member, status)}
+												>
+													{status}
+												</button>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
 						</div>
 					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
 
-					<div class="border-surface-400-600/30 rounded-xl border p-3">
-						<div class="mb-2 text-sm font-semibold">Add field</div>
-						<div class="grid gap-3 md:grid-cols-4">
-							<input class="input preset-tonal-surface md:col-span-2" bind:value={newField.label} placeholder="Field label" />
-							<select class="select preset-tonal-surface" bind:value={newField.field_type}>
-								<option value="text">Text</option>
-								<option value="textarea">Textarea</option>
-								<option value="email">Email</option>
-								<option value="phone">Phone</option>
-								<option value="number">Number</option>
-								<option value="select">Select</option>
-								<option value="multiselect">Multiselect</option>
-								<option value="checkbox">Checkbox</option>
-								<option value="date">Date</option>
-							</select>
-							<input class="input preset-tonal-surface" bind:value={newField.help_text} placeholder="Help text" />
+	<!-- Applications Queue -->
+	{#if applications.length > 0}
+		<section class="card">
+			<div class="card-accent warning" aria-hidden="true"></div>
+			<div class="card-header">
+				<div class="card-header-left">
+					<div class="card-icon warning">
+						<IconUsers class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Applications</h2>
+						<span class="badge warning">{pendingApplications.length} pending</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="card-body">
+				<div class="application-list">
+					{#each applications as app (app.id)}
+						<div class="application-row">
+							<div class="application-info">
+								<div class="application-name">
+									{app.applicant_profile?.full_name || app.applicant_profile?.email || 'Unknown'}
+								</div>
+								<div class="application-meta">
+									<span class="tier-badge">{app.selected_tier?.name || 'No tier'}</span>
+									<span class="dot">·</span>
+									<span>{formatDate(app.submitted_at)}</span>
+								</div>
+							</div>
+							<div class="application-status">
+								<span
+									class="status-badge"
+									class:success={app.status === 'approved'}
+									class:warning={['submitted', 'under_review', 'payment_pending'].includes(
+										app.status
+									)}
+									class:error={app.status === 'rejected'}
+								>
+									{app.status}
+								</span>
+							</div>
+							{#if ['submitted', 'under_review', 'payment_pending'].includes(app.status)}
+								<div class="application-actions">
+									<button
+										class="btn preset-tonal-success"
+										disabled={busy}
+										onclick={() => approveApplication(app.id)}
+									>
+										<IconCheck class="h-4 w-4" />
+										Approve
+									</button>
+									<button
+										class="btn preset-tonal-error"
+										disabled={busy}
+										onclick={() => rejectApplication(app.id)}
+									>
+										<IconTrash class="h-4 w-4" />
+										Reject
+									</button>
+								</div>
+							{/if}
 						</div>
-						{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
-							<textarea
-								class="textarea preset-tonal-surface mt-3"
-								bind:value={newField.options_text}
-								placeholder="Options, one per line"
-							></textarea>
+					{/each}
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	<!-- Add Member (Manual) -->
+	<section class="card">
+		<div class="card-accent success" aria-hidden="true"></div>
+		<div class="card-header">
+			<div class="card-header-left">
+				<div class="card-icon success">
+					<IconPlus class="h-5 w-5" />
+				</div>
+				<div class="card-title-group">
+					<h2 class="card-title">Add Member</h2>
+				</div>
+			</div>
+		</div>
+
+		<div class="card-body">
+			<p class="card-description">
+				Enter an email to add a member manually. If no account exists, we'll create one and send an
+				invite.
+			</p>
+			<div class="manual-form">
+				<div class="form-row">
+					<div class="form-field">
+						<label for="manual-email">Email address</label>
+						<input
+							id="manual-email"
+							type="email"
+							bind:value={manualMembership.user_email}
+							oninput={queueEmailLookup}
+							placeholder="member@example.com"
+						/>
+						{#if manualLookupState.checking}
+							<span class="field-hint">Checking...</span>
+						{:else if manualLookupState.found === true}
+							<span class="field-hint success">Existing user found</span>
+						{:else if manualLookupState.found === false}
+							<span class="field-hint">New account will be created</span>
 						{/if}
-						<div class="mt-3 flex items-center gap-3">
-							<Toggle
-								name="new-field-required"
-								checked={newField.required === true}
-								onChange={(value) => {
-									newField = { ...newField, required: value };
-								}}
-							/>
-							<span class="text-sm">Required</span>
-							<button type="button" class="btn btn-sm preset-filled-primary-500 ml-auto" onclick={createField}>
-								<IconPlus class="h-4 w-4" /> Add Field
-							</button>
-						</div>
+					</div>
+					<div class="form-field">
+						<label for="manual-name">Full name</label>
+						<input
+							id="manual-name"
+							type="text"
+							bind:value={manualMembership.full_name}
+							placeholder={manualLookupState.full_name || 'Full name'}
+							disabled={manualLookupState.found === true}
+						/>
 					</div>
 				</div>
-			</details>
-		</section>
-	{/if}
-
-	{#if activeTab === 'members'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Application Queue</h3>
-			{#if applications.length === 0}
-				<p class="text-sm opacity-70">No applications yet.</p>
-			{/if}
-			{#each applications as app (app.id)}
-				<div class="border-surface-400-600/30 rounded-xl border p-3 space-y-2">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<div>
-							<div class="font-medium">{app.applicant_profile?.full_name || app.applicant_profile?.email || app.user_id}</div>
-							<div class="text-xs opacity-70">{app.selected_tier?.name || 'No tier selected'} · {app.status}</div>
-						</div>
-						<div class="text-xs opacity-70">Submitted {new Date(app.submitted_at).toLocaleString()}</div>
+				<div class="form-row three-col">
+					<div class="form-field">
+						<label for="manual-tier">Tier</label>
+						<select id="manual-tier" bind:value={manualMembership.tier_id}>
+							<option value="">Select tier</option>
+							{#each tiers as tier}
+								<option value={tier.id}>{tier.name}</option>
+							{/each}
+						</select>
 					</div>
-					<textarea
-						class="textarea preset-tonal-surface"
-						placeholder="Review notes"
-						value={appNotes[app.id] || app.review_notes || ''}
-						oninput={(event) => {
-							appNotes = { ...appNotes, [app.id]: event.currentTarget.value };
-						}}
-					></textarea>
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							class="btn btn-sm preset-tonal-success"
-							onclick={() => approveApplication(app.id)}
-							disabled={['rejected', 'completed', 'withdrawn'].includes(app.status)}
-						>
-							Approve
-						</button>
-						<button
-							type="button"
-							class="btn btn-sm preset-tonal-error"
-							onclick={() => rejectApplication(app.id)}
-							disabled={['completed', 'withdrawn', 'rejected'].includes(app.status)}
-						>
-							Reject
-						</button>
-					</div>
-				</div>
-			{/each}
-		</section>
-	{/if}
-
-	{#if activeTab === 'members'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Member Roster</h3>
-			{#if members.length === 0}
-				<p class="text-sm opacity-70">No members yet.</p>
-			{/if}
-			<div class="space-y-2">
-				{#each members as member (member.id)}
-					<div class="border-surface-400-600/30 rounded-xl border p-3 flex flex-wrap items-center gap-3">
-						<div class="min-w-48 flex-1">
-							<div class="font-medium">{member.profile?.full_name || member.profile?.email || member.user_id}</div>
-							<div class="text-xs opacity-70">{member.tier?.name || 'No tier'} · {member.source}</div>
-						</div>
-						<select
-							class="select preset-tonal-surface w-40"
-							value={member.status}
-							onchange={(event) => {
-								member.status = event.currentTarget.value;
-								members = [...members];
-							}}
-						>
+					<div class="form-field">
+						<label for="manual-status">Status</label>
+						<select id="manual-status" bind:value={manualMembership.status}>
 							{#each STATUS_OPTIONS as status}
 								<option value={status}>{status}</option>
 							{/each}
 						</select>
+					</div>
+					<div class="form-field submit-field">
+						<label>&nbsp;</label>
 						<button
-							type="button"
-							class="btn btn-sm preset-tonal-primary"
-							onclick={() => updateMember(member, { status: member.status })}
+							class="btn preset-filled-primary-500"
+							disabled={busy || !manualMembership.user_email}
+							onclick={addManualMembership}
 						>
-							Save
+							<IconPlus class="h-4 w-4" />
+							Add Member
 						</button>
 					</div>
-				{/each}
-			</div>
-		</section>
-
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Manual / Offline Membership</h3>
-			<p class="text-sm opacity-70">
-				Enter a member email. If no account exists yet, we will create one, send an invite email, and attach the membership.
-			</p>
-			<div class="grid gap-3 md:grid-cols-2">
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Member email</span>
-					<input
-						class="input preset-tonal-surface"
-						type="email"
-						bind:value={manualMembership.user_email}
-						placeholder="name@example.com"
-						oninput={queueManualEmailLookup}
-					/>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Tier</span>
-					<select class="select preset-tonal-surface" bind:value={manualMembership.tier_id}>
-						<option value="">Select tier</option>
-						{#each tiers as tier (tier.id)}
-							<option value={tier.id}>{tier.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Status</span>
-					<select class="select preset-tonal-surface" bind:value={manualMembership.status}>
-						{#each STATUS_OPTIONS as status}
-							<option value={status}>{status}</option>
-						{/each}
-					</select>
-				</label>
-				{#if manualUserLookup.checking}
-					<div class="text-sm opacity-70 self-end">Checking email…</div>
-				{:else if manualUserLookup.found === true}
-					<div class="text-sm opacity-70 self-end">Existing user found. An invite will not be sent.</div>
-				{:else if manualUserLookup.found === false}
-					<div class="text-sm opacity-70 self-end">No user found. A new account and invite will be created.</div>
-				{/if}
-				{#if manualUserLookup.found !== true}
-					<label class="flex flex-col gap-1.5 md:col-span-2">
-						<span class="text-sm font-medium">Full name (for new account)</span>
-						<input
-							class="input preset-tonal-surface"
-							bind:value={manualMembership.full_name}
-							placeholder="Member full name"
-						/>
-					</label>
-				{:else}
-					<label class="flex flex-col gap-1.5 md:col-span-2">
-						<span class="text-sm font-medium">Full name</span>
-						<input
-							class="input preset-tonal-surface opacity-70"
-							value={manualMembership.full_name || manualUserLookup.full_name || 'Existing user'}
-							disabled
-						/>
-					</label>
-				{/if}
-			</div>
-			<button type="button" class="btn preset-filled-primary-500" onclick={addManualMembership}>
-				<IconPlus class="h-4 w-4" /> Add Manual Membership
-			</button>
-		</section>
-	{/if}
-
-	{#if activeTab === 'setup'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Billing</h3>
-			<div class="rounded-xl border border-surface-400-600/30 p-4 space-y-2">
-				<div class="text-base font-semibold">Stripe Connection</div>
-				{#if stripeReady}
-					<p class="text-sm text-success-600-400">
-						Stripe is connected and charges are enabled. Paid membership checkout is ready.
-					</p>
-				{:else if hasPaidOrCustomTiers}
-					<p class="text-sm">
-						Paid or pay-what-you-want tiers are configured, but Stripe is not fully connected yet. Connect Stripe to start collecting payments.
-					</p>
-				{:else}
-					<p class="text-sm">
-						Connect Stripe now so your paid tiers and donation-style memberships are ready when you turn them on.
-					</p>
-				{/if}
-				<a
-					class="btn btn-sm preset-filled-primary-500"
-					href={`/api/donations/connect/start?recipient=group&group=${encodeURIComponent(slug)}`}
-				>
-					<IconCreditCard class="h-4 w-4" /> Connect Stripe
-				</a>
-			</div>
-
-			<details class="rounded-xl border border-surface-400-600/30 p-3">
-				<summary class="cursor-pointer text-sm font-semibold">Advanced Billing Details</summary>
-				<div class="mt-3 space-y-4">
-					<div class="grid gap-4 md:grid-cols-3">
-						<div class="rounded-xl border border-surface-400-600/30 p-3">
-							<div class="text-xs uppercase tracking-wide opacity-70">Members with billing profile</div>
-							<div class="mt-1 text-2xl font-bold">{members.filter((m) => m.billing).length}</div>
-						</div>
-						<div class="rounded-xl border border-surface-400-600/30 p-3">
-							<div class="text-xs uppercase tracking-wide opacity-70">Past due</div>
-							<div class="mt-1 text-2xl font-bold">{failedBillingMembers.length}</div>
-						</div>
-						<div class="rounded-xl border border-surface-400-600/30 p-3">
-							<div class="text-xs uppercase tracking-wide opacity-70">Pending applications</div>
-							<div class="mt-1 text-2xl font-bold">{pendingApplications.length}</div>
-						</div>
-					</div>
-
-					<div class="space-y-2">
-						<h4 class="text-base font-semibold">Failed payment queue</h4>
-						{#if failedBillingMembers.length === 0}
-							<p class="text-sm opacity-70">No members are currently marked `past_due`.</p>
-						{:else}
-							{#each failedBillingMembers as member (member.id)}
-								<div class="rounded-xl border border-error-500/30 bg-error-500/8 p-3">
-									<div class="font-medium">{member.profile?.full_name || member.profile?.email || member.user_id}</div>
-									<div class="text-xs opacity-80">
-										Last status: {member.billing?.last_payment_status || 'unknown'} · Next billing: {member.billing?.next_billing_at ? new Date(member.billing.next_billing_at).toLocaleString() : 'n/a'}
-									</div>
-								</div>
-							{/each}
-						{/if}
-					</div>
 				</div>
-			</details>
-		</section>
-	{/if}
-
-	{#if activeTab === 'messages'}
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Send A Member Message</h3>
-			<div class="grid gap-3 md:grid-cols-2">
-				<input class="input preset-tonal-surface" bind:value={campaignDraft.campaign_name} placeholder="Campaign name" />
-				<input class="input preset-tonal-surface" bind:value={campaignDraft.subject_template} placeholder="Subject template" />
 			</div>
-			<textarea
-				class="textarea preset-tonal-surface min-h-40"
-				bind:value={campaignDraft.body_template}
-				placeholder={CAMPAIGN_BODY_PLACEHOLDER}
-			></textarea>
-			<div class="space-y-2">
-				<div class="text-sm font-medium">Audience statuses</div>
-				<div class="flex flex-wrap gap-2">
-					{#each STATUS_OPTIONS as status}
-						<label class="chip preset-tonal-surface inline-flex items-center gap-2 px-3 py-1.5">
+		</div>
+	</section>
+
+	<!-- Settings -->
+	<section class="card settings-card">
+		<div
+			class="card-accent"
+			aria-hidden="true"
+			style="background: linear-gradient(90deg, var(--color-surface-500), var(--color-surface-400));"
+		></div>
+		<button
+			class="settings-header"
+			onclick={() => (settingsOpen = !settingsOpen)}
+			aria-expanded={settingsOpen}
+		>
+			<div class="card-header-left">
+				<div class="card-icon muted">
+					<IconSettings class="h-5 w-5" />
+				</div>
+				<div class="card-title-group">
+					<h2 class="card-title">Settings</h2>
+				</div>
+			</div>
+			<IconChevronDown class="chevron h-5 w-5 {settingsOpen ? 'rotate' : ''}" />
+		</button>
+
+		{#if settingsOpen}
+			<div class="card-body" transition:slide={{ duration: 200 }}>
+				<!-- Program Settings -->
+				<div class="settings-section">
+					<h3 class="section-title">Program Settings</h3>
+					<div class="settings-grid">
+						<div class="setting-item">
+							<label class="setting-label" for="setting-enabled">Membership enabled</label>
+							<div class="toggle-wrapper">
 								<input
+									id="setting-enabled"
 									type="checkbox"
-									class="preset-tonal-surface"
-									checked={campaignDraft.audience_statuses.includes(status)}
-								onchange={(event) => {
-									if (event.currentTarget.checked) {
-										campaignDraft = {
-											...campaignDraft,
-											audience_statuses: Array.from(
-												new Set([...campaignDraft.audience_statuses, status])
-											)
-										};
-									} else {
-										campaignDraft = {
-											...campaignDraft,
-											audience_statuses: campaignDraft.audience_statuses.filter((s) => s !== status)
-										};
-									}
-								}}
-							/>
-							<span>{status}</span>
-						</label>
-					{/each}
-				</div>
-			</div>
-			<button type="button" class="btn preset-filled-primary-500" onclick={createCampaign}>
-				<IconSave class="h-4 w-4" /> Save Campaign
-			</button>
-		</section>
-
-		<section class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-4">
-			<h3 class="text-lg font-semibold">Campaign History</h3>
-			{#if emailHistory.length === 0}
-				<p class="text-sm opacity-70">No campaigns yet.</p>
-			{/if}
-			{#each emailHistory as campaign (campaign.id)}
-				<div class="border-surface-400-600/30 rounded-xl border p-3 space-y-2">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<div>
-							<div class="font-medium">{campaign.campaign_name}</div>
-							<div class="text-xs opacity-70">
-								Status: {campaign.status} · Sent: {campaign.sent_count || 0} · Failed: {campaign.failed_count || 0}
+									checked={program.enabled !== false}
+									onchange={(e) => (program = { ...program, enabled: e.currentTarget.checked })}
+									class="toggle-input"
+								/>
+								<span class="toggle-track" class:checked={program.enabled !== false}>
+									<span class="toggle-thumb" class:checked={program.enabled !== false}></span>
+								</span>
 							</div>
 						</div>
-						<div class="text-xs opacity-70">Created {new Date(campaign.created_at).toLocaleString()}</div>
+						<div class="setting-item">
+							<label class="setting-label" for="setting-access">Access mode</label>
+							<select id="setting-access" class="setting-select" bind:value={program.access_mode}>
+								<option value="public">Public</option>
+								<option value="private_request">Private (review required)</option>
+							</select>
+						</div>
+						<div class="setting-item">
+							<label class="setting-label" for="setting-contribution">Contribution mode</label>
+							<select
+								id="setting-contribution"
+								class="setting-select"
+								bind:value={program.contribution_mode}
+							>
+								<option value="donation">Donation ($0 default)</option>
+								<option value="paid">Paid (requires payment)</option>
+							</select>
+						</div>
+						<div class="setting-item">
+							<label class="setting-label" for="setting-default-tier">Default tier</label>
+							<select
+								id="setting-default-tier"
+								class="setting-select"
+								bind:value={program.default_tier_id}
+							>
+								<option value={null}>No default</option>
+								{#each tiers as tier}
+									<option value={tier.id}>{tier.name}</option>
+								{/each}
+							</select>
+						</div>
+						<div class="setting-item full-width">
+							<label class="setting-label" for="setting-cta">CTA Label</label>
+							<input
+								id="setting-cta"
+								class="setting-input"
+								bind:value={program.cta_label}
+								maxlength="80"
+								placeholder="Join, Subscribe, etc."
+							/>
+						</div>
 					</div>
-					<div class="grid gap-2 md:grid-cols-[auto_1fr]">
-						<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={() => sendCampaignNow(campaign.id)}>
-							<IconSend class="h-4 w-4" /> Send Now
+					<div class="section-actions">
+						<button
+							class="btn preset-filled-primary-500"
+							disabled={busy}
+							onclick={saveProgramSettings}
+						>
+							<IconSave class="h-4 w-4" />
+							Save Settings
 						</button>
-						<details class="rounded-xl border border-surface-400-600/30 p-2">
-							<summary class="cursor-pointer text-sm font-medium">Schedule Later</summary>
-							<div class="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
-								<input
-									type="datetime-local"
-									class="input preset-tonal-surface"
-									value={scheduleByEmail[campaign.id] || ''}
-									oninput={(event) => {
-										scheduleByEmail = { ...scheduleByEmail, [campaign.id]: event.currentTarget.value };
-									}}
-								/>
-								<button
-									type="button"
-									class="btn btn-sm preset-tonal-primary"
-									onclick={() => scheduleCampaign(campaign.id)}
-								>
-									<IconCalendarClock class="h-4 w-4" /> Schedule
+					</div>
+				</div>
+
+				<!-- Policy -->
+				<div class="settings-section">
+					<button
+						class="section-toggle"
+						onclick={() => (policyOpen = !policyOpen)}
+						aria-expanded={policyOpen}
+					>
+						<h3 class="section-title">Membership Policy</h3>
+						<IconChevronDown class="h-4 w-4 {policyOpen ? 'rotate' : ''}" />
+					</button>
+					{#if policyOpen}
+						<div class="policy-content" transition:slide={{ duration: 180 }}>
+							<div class="version-badge">Version {program.policy_version || 1}</div>
+							<textarea
+								class="policy-textarea"
+								bind:value={program.policy_markdown}
+								rows="8"
+								placeholder="Enter your membership policy..."
+							></textarea>
+							<div class="section-actions">
+								<button class="btn preset-filled-primary-500" disabled={busy} onclick={savePolicy}>
+									<IconSave class="h-4 w-4" />
+									Save Policy
 								</button>
 							</div>
-						</details>
-					</div>
+						</div>
+					{/if}
 				</div>
-			{/each}
-		</section>
-	{/if}
+
+				<!-- Tiers -->
+				<div class="settings-section">
+					<button
+						class="section-toggle"
+						onclick={() => (tiersOpen = !tiersOpen)}
+						aria-expanded={tiersOpen}
+					>
+						<h3 class="section-title">Tiers</h3>
+						<IconChevronDown class="h-4 w-4 {tiersOpen ? 'rotate' : ''}" />
+					</button>
+					{#if tiersOpen}
+						<div class="tiers-content" transition:slide={{ duration: 180 }}>
+							{#if tiers.length === 0}
+								<p class="empty-text">No tiers yet. Create your first tier below.</p>
+							{:else}
+								<div class="tier-list">
+									{#each tiers as tier (tier.id)}
+										<div class="tier-row">
+											<div class="tier-fields">
+												<input class="tier-input" placeholder="Tier name" bind:value={tier.name} />
+												<input
+													class="tier-input"
+													placeholder="Description"
+													bind:value={tier.description}
+												/>
+												<div class="price-inputs">
+													<div class="price-field">
+														<span class="price-prefix">$</span>
+														<input
+															type="text"
+															class="tier-input price"
+															placeholder="Monthly"
+															value={centsToDollar(tier.monthly_amount_cents)}
+															oninput={(e) =>
+																(tier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
+														/>
+													</div>
+													<div class="price-field">
+														<span class="price-prefix">$</span>
+														<input
+															type="text"
+															class="tier-input price"
+															placeholder="Annual"
+															value={centsToDollar(tier.annual_amount_cents)}
+															oninput={(e) =>
+																(tier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
+														/>
+													</div>
+												</div>
+											</div>
+											<div class="tier-actions">
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={tier.is_default}
+														onchange={() => {
+															tiers = tiers.map((t) => ({ ...t, is_default: t.id === tier.id }));
+														}}
+													/>
+													<span>Default</span>
+												</label>
+													<button
+														class="btn btn-sm preset-tonal-secondary"
+														disabled={busy}
+														onclick={() => updateTier(tier)}
+													>
+													Save
+												</button>
+												<button
+													class="btn-text danger"
+													disabled={busy}
+													onclick={() => deleteTier(tier.id)}
+												>
+													<IconTrash class="h-4 w-4" />
+												</button>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
+
+							<!-- New Tier Form -->
+							<div class="new-tier-form">
+								<div class="flex items-center justify-between gap-2">
+									<h4 class="form-subtitle">Create New Tier</h4>
+									<button
+										class="btn btn-sm preset-tonal-tertiary"
+										disabled={busy}
+										onclick={installDefaultTiers}
+									>
+										Import Starter Tiers
+									</button>
+								</div>
+								<div class="tier-fields">
+									<input class="tier-input" placeholder="Tier name" bind:value={newTier.name} />
+									<input
+										class="tier-input"
+										placeholder="Description"
+										bind:value={newTier.description}
+									/>
+									<div class="price-inputs">
+										<div class="price-field">
+											<span class="price-prefix">$</span>
+											<input
+												type="text"
+												class="tier-input price"
+												placeholder="Monthly"
+												value={centsToDollar(newTier.monthly_amount_cents)}
+												oninput={(e) =>
+													(newTier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
+											/>
+										</div>
+										<div class="price-field">
+											<span class="price-prefix">$</span>
+											<input
+												type="text"
+												class="tier-input price"
+												placeholder="Annual"
+												value={centsToDollar(newTier.annual_amount_cents)}
+												oninput={(e) =>
+													(newTier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
+											/>
+										</div>
+									</div>
+								</div>
+								<div class="tier-actions">
+									<div class="tier-actions-left">
+										<label class="checkbox-label">
+											<input type="checkbox" bind:checked={newTier.is_default} />
+											<span>Set as default</span>
+										</label>
+									</div>
+									<button
+										class="btn preset-filled-primary-500"
+										disabled={busy || !newTier.name}
+										onclick={createTier}
+									>
+										<IconPlus class="h-4 w-4" />
+										Create Tier
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Form Fields -->
+				<div class="settings-section">
+					<button
+						class="section-toggle"
+						onclick={() => (formFieldsOpen = !formFieldsOpen)}
+						aria-expanded={formFieldsOpen}
+					>
+						<h3 class="section-title">Application Form Fields</h3>
+						<IconChevronDown class="h-4 w-4 {formFieldsOpen ? 'rotate' : ''}" />
+					</button>
+					{#if formFieldsOpen}
+						<div class="form-fields-content" transition:slide={{ duration: 180 }}>
+							{#if formFields.length === 0}
+								<p class="empty-text">No custom fields yet.</p>
+							{:else}
+								<div class="field-list">
+									{#each formFields as field (field.id)}
+										<div class="field-row">
+											<div class="field-info">
+												<span class="field-label">{field.label}</span>
+												<span class="field-type">{field.field_type}</span>
+												{#if field.required}
+													<span class="field-required">Required</span>
+												{/if}
+											</div>
+											<button
+												class="btn-text danger"
+												disabled={busy}
+												onclick={() => deleteField(field.id)}
+											>
+												<IconTrash class="h-4 w-4" />
+											</button>
+										</div>
+									{/each}
+								</div>
+							{/if}
+
+							<div class="new-field-form">
+								<h4 class="form-subtitle">Add Custom Field</h4>
+								<div class="field-row-inputs">
+									<input
+										class="setting-input"
+										placeholder="Field label"
+										bind:value={newField.label}
+									/>
+									<select class="setting-select" bind:value={newField.field_type}>
+										<option value="text">Text</option>
+										<option value="textarea">Textarea</option>
+										<option value="email">Email</option>
+										<option value="phone">Phone</option>
+										<option value="number">Number</option>
+										<option value="select">Select</option>
+										<option value="multiselect">Multiselect</option>
+										<option value="checkbox">Checkbox</option>
+										<option value="date">Date</option>
+									</select>
+								</div>
+								{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
+									<textarea
+										class="setting-input"
+										placeholder="Options (one per line)"
+										bind:value={newField.options_text}
+										rows="3"
+									></textarea>
+								{/if}
+								<div class="field-actions-row">
+									<label class="checkbox-label">
+										<input type="checkbox" bind:checked={newField.required} />
+										<span>Required</span>
+									</label>
+									<button
+										class="btn preset-filled-primary-500"
+										disabled={busy || !newField.label}
+										onclick={createField}
+									>
+										<IconPlus class="h-4 w-4" />
+										Add Field
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Billing -->
+				<div class="settings-section">
+					<button
+						class="section-toggle"
+						onclick={() => (billingOpen = !billingOpen)}
+						aria-expanded={billingOpen}
+					>
+						<h3 class="section-title">Billing & Stripe</h3>
+						<IconChevronDown class="h-4 w-4 {billingOpen ? 'rotate' : ''}" />
+					</button>
+					{#if billingOpen}
+						<div class="billing-content" transition:slide={{ duration: 180 }}>
+							<div class="stripe-status">
+								{#if stripeReady}
+									<div class="status-message success">
+										<IconCheck class="h-5 w-5" />
+										<div>
+											<p class="status-title">Stripe Connected</p>
+											<p class="status-desc">Your group is ready to accept payments.</p>
+										</div>
+									</div>
+								{:else if hasPaidTiers}
+									<div class="status-message warning">
+										<IconCreditCard class="h-5 w-5" />
+										<div>
+											<p class="status-title">Stripe Not Connected</p>
+											<p class="status-desc">
+												You have paid tiers but Stripe is not connected. Connect Stripe to accept
+												payments.
+											</p>
+										</div>
+									</div>
+								{:else}
+									<div class="status-message">
+										<IconCreditCard class="h-5 w-5" />
+										<div>
+											<p class="status-title">Connect Stripe</p>
+											<p class="status-desc">
+												Connect Stripe to accept payments for paid memberships.
+											</p>
+										</div>
+									</div>
+								{/if}
+								<a
+									class="btn preset-filled-primary-500"
+									href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(
+										slug
+									)}"
+								>
+									<IconCreditCard class="h-4 w-4" />
+									{stripeReady ? 'Manage Stripe' : 'Connect Stripe'}
+								</a>
+							</div>
+
+							{#if members.some((m) => m.billing)}
+								<div class="billing-stats">
+									<div class="billing-stat">
+										<span class="stat-label-sm">With billing</span>
+										<span class="stat-value-sm">
+											{members.filter((m) => m.billing).length}
+										</span>
+									</div>
+									<div class="billing-stat">
+										<span class="stat-label-sm">Past due</span>
+										<span class="stat-value-sm warning">{pastDueCount}</span>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</section>
 </div>
+
+<style>
+	.membership-manage {
+		--card-bg: color-mix(in oklab, var(--color-surface-900) 98%, var(--color-surface-500) 2%);
+		--card-border: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		--hover-bg: color-mix(in oklab, var(--color-surface-800) 80%, transparent);
+		--active-bg: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-900) 92%);
+		--active-border: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		--input-bg: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+		--input-border: color-mix(in oklab, var(--color-surface-500) 30%, transparent);
+
+		max-width: 72rem;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		padding-bottom: 2rem;
+	}
+
+	@media (min-width: 640px) {
+		.membership-manage {
+			gap: 1.5rem;
+		}
+	}
+
+	/* Banners */
+	.banner {
+		border-radius: 1rem;
+		padding: 1rem 1.25rem;
+		animation: slide-in 300ms ease both;
+	}
+
+	.banner.success {
+		background: color-mix(in oklab, var(--color-success-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-success-500) 20%, transparent);
+	}
+
+		.banner.error {
+			background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
+			border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
+		}
+
+		.banner.warning {
+			background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
+			border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
+		}
+
+	.banner-content {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.banner-icon {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 9999px;
+	}
+
+	.banner-icon.success {
+		background: color-mix(in oklab, var(--color-success-500) 15%, transparent);
+		color: var(--color-success-400);
+	}
+
+		.banner-icon.error {
+			background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
+			color: var(--color-error-400);
+		}
+
+		.banner-icon.warning {
+			background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
+			color: var(--color-warning-400);
+		}
+
+		.banner-title {
+			font-size: 0.875rem;
+			font-weight: 600;
+			line-height: 1.25;
+		}
+
+		.banner-subtitle {
+			margin-top: 0.125rem;
+			font-size: 0.75rem;
+			opacity: 0.8;
+		}
+
+	/* Stats Grid */
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.75rem;
+	}
+
+	@media (min-width: 640px) {
+		.stats-grid {
+			grid-template-columns: repeat(4, 1fr);
+			gap: 1rem;
+		}
+	}
+
+	.stat-card {
+		background: var(--card-bg);
+		border: 1px solid var(--card-border);
+		border-radius: 1rem;
+		padding: 1rem;
+		text-align: center;
+	}
+
+	.stat-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		opacity: 0.6;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-bottom: 0.25rem;
+	}
+
+	.stat-value {
+		font-size: 1.75rem;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.stat-value.success {
+		color: var(--color-success-400);
+	}
+
+	.stat-value.warning {
+		color: var(--color-warning-400);
+	}
+
+	/* Cards */
+	.card {
+		position: relative;
+		background: var(--card-bg);
+		border: 1px solid var(--card-border);
+		border-radius: 1.25rem;
+		overflow: hidden;
+		animation: card-in 360ms ease both;
+		box-shadow:
+			0 1px 3px color-mix(in oklab, black 8%, transparent),
+			0 4px 12px color-mix(in oklab, black 4%, transparent);
+	}
+
+	.card-accent {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
+		opacity: 0.8;
+		pointer-events: none;
+	}
+
+	.card-accent.warning {
+		background: linear-gradient(90deg, var(--color-warning-500), var(--color-tertiary-500));
+	}
+
+	.card-accent.success {
+		background: linear-gradient(90deg, var(--color-success-500), var(--color-secondary-500));
+	}
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--card-border);
+	}
+
+	@media (max-width: 480px) {
+		.card-header {
+			padding: 0.875rem 1rem;
+		}
+	}
+
+	.card-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.card-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		color: var(--color-primary-400);
+	}
+
+	.card-icon.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		color: var(--color-warning-400);
+	}
+
+	.card-icon.success {
+		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
+		color: var(--color-success-400);
+	}
+
+	.card-icon.muted {
+		background: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		color: var(--color-surface-400);
+	}
+
+	.card-title-group {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		flex-wrap: wrap;
+	}
+
+	.card-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+	}
+
+	.card-header-right {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.card-body {
+		padding: 1rem 1.25rem;
+	}
+
+	@media (max-width: 480px) {
+		.card-body {
+			padding: 0.875rem 1rem;
+		}
+	}
+
+	.card-description {
+		font-size: 0.8125rem;
+		opacity: 0.7;
+		margin-bottom: 1rem;
+		line-height: 1.5;
+	}
+
+	/* Badges */
+	.badge {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+
+	.badge.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		color: var(--color-warning-400);
+	}
+
+	/* Buttons */
+	.btn-primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.875rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		border-radius: 0.625rem;
+		background: var(--color-primary-500);
+		color: white;
+		border: none;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: var(--color-primary-600);
+		transform: translateY(-1px);
+	}
+
+	.btn-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.btn-secondary {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.875rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		color: inherit;
+		border: none;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.btn-secondary:hover {
+		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+	}
+
+	.btn-success {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		border-radius: 0.5rem;
+		background: color-mix(in oklab, var(--color-success-500) 15%, transparent);
+		color: var(--color-success-300);
+		border: none;
+		cursor: pointer;
+		transition: all 120ms ease;
+	}
+
+	.btn-success:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-success-500) 25%, transparent);
+	}
+
+	.btn-danger {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		border-radius: 0.5rem;
+		background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
+		color: var(--color-error-300);
+		border: none;
+		cursor: pointer;
+		transition: all 120ms ease;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-error-500) 25%, transparent);
+	}
+
+	.btn-text {
+		padding: 0.375rem 0.625rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		border-radius: 0.375rem;
+		background: transparent;
+		border: none;
+		color: var(--color-primary-400);
+		cursor: pointer;
+		transition: all 120ms ease;
+	}
+
+	.btn-text:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+	}
+
+	.btn-text.danger {
+		color: var(--color-error-400);
+	}
+
+	/* Filters */
+	.filters-row {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.search-input {
+		flex: 1;
+		min-width: 200px;
+		position: relative;
+	}
+
+	.search-input input {
+		width: 100%;
+		padding: 0.625rem 0.875rem 0.625rem 2.25rem;
+		font-size: 0.875rem;
+		border-radius: 0.625rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		color: inherit;
+	}
+
+	.search-input input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.search-icon {
+		position: absolute;
+		left: 0.75rem;
+		top: 50%;
+		transform: translateY(-50%);
+		opacity: 0.5;
+	}
+
+	.select {
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		border-radius: 0.625rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		color: inherit;
+		cursor: pointer;
+		min-width: 140px;
+	}
+
+	.select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	/* Member List */
+	.member-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.member-row {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border-radius: 0.875rem;
+		border: 1px solid transparent;
+		transition: all 180ms ease;
+		overflow: hidden;
+	}
+
+	.member-row:hover {
+		background: var(--hover-bg);
+		border-color: color-mix(in oklab, var(--color-surface-400) 18%, transparent);
+	}
+
+	.member-row.expanded {
+		background: var(--active-bg);
+		border-color: var(--active-border);
+	}
+
+	.member-row-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.875rem 1rem;
+		width: 100%;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	@media (max-width: 480px) {
+		.member-row-header {
+			padding: 0.75rem;
+			gap: 0.625rem;
+		}
+	}
+
+	.member-avatar,
+	.member-avatar-fallback {
+		flex-shrink: 0;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 9999px;
+	}
+
+	.member-avatar {
+		object-fit: cover;
+	}
+
+	.member-avatar-fallback {
+		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: white;
+	}
+
+	@media (max-width: 480px) {
+		.member-avatar,
+		.member-avatar-fallback {
+			width: 2.25rem;
+			height: 2.25rem;
+			font-size: 0.75rem;
+		}
+	}
+
+	.member-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.member-name {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	@media (max-width: 480px) {
+		.member-name {
+			font-size: 0.875rem;
+		}
+	}
+
+	.member-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	.tier-badge {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		padding: 0.125rem 0.375rem;
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.25rem;
+	}
+
+	.dot {
+		opacity: 0.5;
+	}
+
+	.member-status {
+		flex-shrink: 0;
+	}
+
+	.status-badge {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+	}
+
+	.status-badge.success {
+		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
+		color: var(--color-success-400);
+	}
+
+	.status-badge.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		color: var(--color-warning-400);
+	}
+
+	.status-badge.error {
+		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		color: var(--color-error-400);
+	}
+
+	.chevron {
+		flex-shrink: 0;
+		opacity: 0.5;
+		transition: transform 200ms ease;
+	}
+
+	.chevron.rotate {
+		transform: rotate(180deg);
+	}
+
+	/* Member Details */
+	.member-details {
+		padding: 0 1rem 1rem 1rem;
+		border-top: 1px solid var(--card-border);
+		animation: slide-down 200ms ease;
+	}
+
+	.details-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 0.75rem;
+		padding: 1rem 0;
+	}
+
+	.detail-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		opacity: 0.8;
+	}
+
+	.detail-item a {
+		color: inherit;
+		text-decoration: underline;
+	}
+
+	.detail-label {
+		opacity: 0.6;
+	}
+
+	.status-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.action-label {
+		font-size: 0.75rem;
+		opacity: 0.6;
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.status-btn {
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		border-radius: 0.5rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		transition: all 120ms ease;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+
+	.status-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+	}
+
+	.status-btn.active {
+		background: var(--color-surface-500);
+		color: var(--color-surface-100);
+	}
+
+	.status-btn.success.active {
+		background: color-mix(in oklab, var(--color-success-500) 20%, transparent);
+		color: var(--color-success-300);
+		border-color: var(--color-success-500);
+	}
+
+	.status-btn.warning.active {
+		background: color-mix(in oklab, var(--color-warning-500) 20%, transparent);
+		color: var(--color-warning-300);
+		border-color: var(--color-warning-500);
+	}
+
+	.status-btn.error.active {
+		background: color-mix(in oklab, var(--color-error-500) 20%, transparent);
+		color: var(--color-error-300);
+		border-color: var(--color-error-500);
+	}
+
+	.status-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	/* Application List */
+	.application-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.application-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border-radius: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	@media (max-width: 640px) {
+		.application-row {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.5rem;
+		}
+	}
+
+	.application-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.application-name {
+		font-size: 0.9375rem;
+		font-weight: 500;
+	}
+
+	.application-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	.application-status {
+		flex-shrink: 0;
+	}
+
+	.application-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	/* Manual Form */
+	.manual-form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.form-row {
+		display: grid;
+		grid-template-columns: 2fr 1.5fr;
+		gap: 0.75rem;
+	}
+
+	.form-row.three-col {
+		grid-template-columns: 2fr 1fr 1fr;
+	}
+
+	@media (max-width: 768px) {
+		.form-row,
+		.form-row.three-col {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.form-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.form-field.submit-field {
+		justify-content: flex-end;
+	}
+
+	.form-field label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		opacity: 0.7;
+	}
+
+	.form-field input,
+	.form-field select {
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		border-radius: 0.625rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		color: inherit;
+	}
+
+	.form-field input:focus,
+	.form-field select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.form-field input:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.field-hint {
+		font-size: 0.75rem;
+		opacity: 0.6;
+	}
+
+	.field-hint.success {
+		color: var(--color-success-400);
+	}
+
+	.form-actions {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	/* Settings */
+	.settings-card {
+		background: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-surface-500) 5%);
+	}
+
+	.settings-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 1rem 1.25rem;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.settings-header:hover {
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+	}
+
+	.settings-section {
+		padding: 1rem 0;
+		border-bottom: 1px solid var(--card-border);
+	}
+
+	.settings-section:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	.section-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 0.5rem 0;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.section-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+	}
+
+	.settings-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+		padding: 1rem 0;
+	}
+
+	.setting-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.setting-item.full-width {
+		grid-column: 1 / -1;
+	}
+
+	.setting-label {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		opacity: 0.8;
+	}
+
+	.setting-input,
+	.setting-select,
+	.tier-input {
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		border-radius: 0.625rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		color: inherit;
+	}
+
+	.setting-input:focus,
+	.setting-select:focus,
+	.tier-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.setting-select {
+		cursor: pointer;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 1rem;
+		padding-right: 2.5rem;
+	}
+
+	/* Toggle Switch */
+	.toggle-wrapper {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		cursor: pointer;
+	}
+
+	.toggle-input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
+	}
+
+	.toggle-track {
+		display: block;
+		width: 2.75rem;
+		height: 1.5rem;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-500) 40%, transparent);
+		border: 1px solid var(--input-border);
+		transition: all 200ms ease;
+		position: relative;
+	}
+
+	.toggle-track.checked {
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-500);
+	}
+
+	.toggle-thumb {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: calc(1.5rem - 6px);
+		height: calc(1.5rem - 6px);
+		border-radius: 9999px;
+		background: white;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+		transition: transform 200ms ease;
+	}
+
+	.toggle-thumb.checked {
+		transform: translateX(1.25rem);
+	}
+
+	.section-actions {
+		display: flex;
+		justify-content: flex-end;
+		padding-top: 1rem;
+		border-top: 1px solid var(--card-border);
+	}
+
+	/* Policy */
+	.policy-content {
+		padding-top: 1rem;
+	}
+
+	.version-badge {
+		display: inline-block;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		padding: 0.25rem 0.5rem;
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.25rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.policy-textarea {
+		width: 100%;
+		padding: 0.75rem;
+		font-size: 0.875rem;
+		border-radius: 0.625rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		color: inherit;
+		resize: vertical;
+		min-height: 8rem;
+		font-family: inherit;
+	}
+
+	.policy-textarea:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	/* Tiers */
+	.tiers-content {
+		padding-top: 1rem;
+	}
+
+	.tier-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.tier-row {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border-radius: 0.75rem;
+		padding: 0.75rem;
+		border: 1px solid var(--card-border);
+	}
+
+	.tier-fields {
+		display: grid;
+		grid-template-columns: 1.5fr 2fr 1fr;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	@media (max-width: 640px) {
+		.tier-fields {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.price-inputs {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.price-field {
+		display: flex;
+		align-items: center;
+		background: var(--input-bg);
+		border-radius: 0.5rem;
+		border: 1px solid var(--input-border);
+		overflow: hidden;
+	}
+
+	.price-prefix {
+		padding: 0.5rem 0.5rem;
+		font-size: 0.875rem;
+		opacity: 0.6;
+		border-right: 1px solid var(--input-border);
+	}
+
+	.tier-input.price {
+		border: none;
+		background: transparent;
+		border-radius: 0;
+		padding: 0.5rem;
+		min-width: 80px;
+	}
+
+	.tier-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.new-tier-form {
+		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		border: 1px dashed var(--card-border);
+	}
+
+	.form-subtitle {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		opacity: 0.8;
+	}
+
+	/* Checkbox */
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.checkbox-label input[type='checkbox'] {
+		width: 1rem;
+		height: 1rem;
+		accent-color: var(--color-primary-500);
+	}
+
+	/* Form Fields */
+	.form-fields-content {
+		padding-top: 1rem;
+	}
+
+	.field-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.field-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.625rem 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border-radius: 0.5rem;
+		border: 1px solid var(--card-border);
+	}
+
+	.field-info {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.field-label {
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.field-type {
+		font-size: 0.6875rem;
+		padding: 0.125rem 0.375rem;
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.25rem;
+		opacity: 0.8;
+	}
+
+	.field-required {
+		font-size: 0.6875rem;
+		padding: 0.125rem 0.375rem;
+		background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
+		color: var(--color-warning-400);
+		border-radius: 0.25rem;
+	}
+
+	.new-field-form {
+		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		border: 1px dashed var(--card-border);
+	}
+
+	.field-row-inputs {
+		display: grid;
+		grid-template-columns: 2fr 1fr;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	@media (max-width: 480px) {
+		.field-row-inputs {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.field-actions-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.empty-text {
+		font-size: 0.875rem;
+		opacity: 0.6;
+		padding: 1rem 0;
+		text-align: center;
+	}
+
+	/* Quick Start */
+	.quick-start {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950) 92%);
+		border: 1px dashed color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+		border-radius: 0.75rem;
+		padding: 1.25rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.quick-start-content {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.quick-start-icon {
+		flex-shrink: 0;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		color: var(--color-primary-400);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.quick-start-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+		color: var(--color-primary-300);
+	}
+
+	.quick-start-desc {
+		font-size: 0.8125rem;
+		opacity: 0.7;
+		line-height: 1.4;
+	}
+
+	/* Billing */
+	.billing-content {
+		padding-top: 1rem;
+	}
+
+	.stripe-status {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		padding: 1rem;
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border-radius: 0.75rem;
+		border: 1px solid var(--card-border);
+	}
+
+	.status-message {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex: 1;
+	}
+
+	.status-message.success {
+		color: var(--color-success-400);
+	}
+
+	.status-message.warning {
+		color: var(--color-warning-400);
+	}
+
+	.status-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+	}
+
+	.status-desc {
+		font-size: 0.8125rem;
+		opacity: 0.8;
+	}
+
+	.billing-stats {
+		display: flex;
+		gap: 1rem;
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--card-border);
+	}
+
+	.billing-stat {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.stat-label-sm {
+		font-size: 0.6875rem;
+		opacity: 0.6;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.stat-value-sm {
+		font-size: 1.25rem;
+		font-weight: 600;
+	}
+
+	.stat-value-sm.warning {
+		color: var(--color-warning-400);
+	}
+
+	/* Empty State */
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2.5rem 1.5rem;
+		text-align: center;
+	}
+
+	.empty-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 1rem;
+		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		color: color-mix(in oklab, var(--color-surface-300) 60%, transparent);
+		margin-bottom: 1rem;
+	}
+
+	.empty-title {
+		font-size: 1rem;
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+	}
+
+	.empty-subtitle {
+		font-size: 0.8125rem;
+		opacity: 0.6;
+	}
+
+	/* Animations */
+	@keyframes card-in {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes slide-in {
+		from {
+			opacity: 0;
+			transform: translateY(-8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes slide-down {
+		from {
+			opacity: 0;
+			transform: translateY(-6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>

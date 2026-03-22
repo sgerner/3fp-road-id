@@ -3,12 +3,15 @@
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconEye from '@lucide/svelte/icons/eye';
 	import IconGlobe from '@lucide/svelte/icons/globe';
+	import IconLock from '@lucide/svelte/icons/lock';
+	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPencilLine from '@lucide/svelte/icons/pencil-line';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconUsers from '@lucide/svelte/icons/users';
 	import { tick } from 'svelte';
 	import LearnEditor from '$lib/components/learn/LearnEditor.svelte';
 
@@ -19,7 +22,10 @@
 		isEditing = false,
 		isPublished = false,
 		memberEmailCount = 0,
+		memberEmailCountsByStatus = {},
+		emailAudienceStatusOptions = ['active', 'past_due', 'cancelled'],
 		emailMembers = false,
+		emailAudienceStatuses = ['active'],
 		publicHref = '',
 		resetHref = '',
 		onDelete = null
@@ -67,7 +73,19 @@
 	let formSummary = $state('');
 	let formSlug = $state('');
 	let formBodyMarkdown = $state('');
+	let formIsPrivate = $state(false);
+	let formEmailMembers = $state(false);
+	let formEmailAudienceStatuses = $state(['active']);
 	let aiMessagesEl = $state(null);
+
+	const audienceMemberCount = $derived(
+		formEmailAudienceStatuses.reduce(
+			(total, status) =>
+				total +
+				Number(memberEmailCountsByStatus?.[status] ?? (status === 'active' ? memberEmailCount : 0)),
+			0
+		)
+	);
 
 	const selectedStyle = $derived(
 		STYLE_OPTIONS.find((option) => option.value === aiStylePreset) ?? STYLE_OPTIONS[0]
@@ -209,11 +227,26 @@
 		formSummary = values.summary || '';
 		formSlug = values.slug || '';
 		formBodyMarkdown = values.bodyMarkdown || '';
+		formIsPrivate = Boolean(values.isPrivate);
+		formEmailMembers = Boolean(emailMembers);
+		formEmailAudienceStatuses =
+			Array.isArray(emailAudienceStatuses) && emailAudienceStatuses.length
+				? [...new Set(emailAudienceStatuses)]
+				: ['active'];
 		if (editorApi?.setMarkdown) {
 			editorApi.setMarkdown(formBodyMarkdown);
 		}
 		resetAiChat();
 	});
+
+	function toggleAudienceStatus(status, checked) {
+		if (checked) {
+			formEmailAudienceStatuses = Array.from(new Set([...formEmailAudienceStatuses, status]));
+			return;
+		}
+		const next = formEmailAudienceStatuses.filter((value) => value !== status);
+		formEmailAudienceStatuses = next.length ? next : ['active'];
+	}
 
 	function handleAiPromptKeydown(event) {
 		if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -547,6 +580,42 @@
 				/>
 			</label>
 
+			<!-- Visibility Card -->
+			<div class="visibility-card" class:active={formIsPrivate}>
+				<div class="visibility-header">
+					<div class="visibility-icon {formIsPrivate ? 'private' : 'public'}">
+						{#if formIsPrivate}
+							<IconLock class="h-4 w-4" />
+						{:else}
+							<IconGlobe class="h-4 w-4" />
+						{/if}
+					</div>
+					<div class="visibility-text">
+						<span class="visibility-title"
+							>{formIsPrivate ? 'Private Update' : 'Public Update'}</span
+						>
+						<span class="visibility-description">
+							{formIsPrivate
+								? "Sent via email only. Hidden from your group's public news page."
+								: "Published on your group's news page and visible to the public."}
+						</span>
+					</div>
+					<label class="visibility-toggle" title="Toggle public/private mode">
+						<input
+							type="checkbox"
+							name="isPrivate"
+							checked={!formIsPrivate}
+							onchange={(event) => {
+								formIsPrivate = !event.currentTarget.checked;
+							}}
+						/>
+						<span class="switch-track">
+							<span class="switch-thumb"></span>
+						</span>
+					</label>
+				</div>
+			</div>
+
 			<!-- Content Editor (No label) -->
 			<div class="content-section">
 				<LearnEditor
@@ -562,30 +631,65 @@
 
 			<!-- Actions -->
 			<footer class="editor-footer">
-				<div class="footer-info">
-					<div class="info-item">
-						<IconPencilLine class="h-3.5 w-3.5" />
-						<span>Drafts are private</span>
-					</div>
-					<div class="info-item">
-						<IconGlobe class="h-3.5 w-3.5" />
-						<span>Published on group page</span>
+				<div class="audience-section" class:active={formEmailMembers}>
+					<div class="audience-content">
+						<div class="audience-header">
+							<div class="audience-header-left">
+								<div class="audience-icon">
+									<IconMail class="h-4 w-4" />
+								</div>
+								<div class="audience-title-group">
+									<span class="audience-title">Email Members</span>
+									<span class="audience-count">{audienceMemberCount || 0} recipients</span>
+								</div>
+							</div>
+							{#if formEmailMembers && audienceMemberCount > 0}
+								<div class="audience-filters-inline">
+									<div class="audience-filters-header">
+										<IconUsers class="h-3.5 w-3.5" />
+										<span>Filter by status</span>
+									</div>
+									<div class="audience-status-chips">
+										{#each emailAudienceStatusOptions as status}
+											{@const count = Number(memberEmailCountsByStatus?.[status] || 0)}
+											{@const isSelected = formEmailAudienceStatuses.includes(status)}
+											<button
+												type="button"
+												class="status-chip"
+												class:selected={isSelected}
+												disabled={count === 0}
+												onclick={() => toggleAudienceStatus(status, !isSelected)}
+											>
+												<span class="chip-indicator" class:checked={isSelected}>
+													{#if isSelected}
+														<IconCheck class="h-2.5 w-2.5" />
+													{/if}
+												</span>
+												<span class="chip-label">{status.replace('_', ' ')}</span>
+												<span class="chip-count">{count}</span>
+											</button>
+										{/each}
+									</div>
+								</div>
+							{/if}
+							<label class="audience-toggle" class:disabled={audienceMemberCount === 0}>
+								<input
+									type="checkbox"
+									name="emailMembers"
+									checked={formEmailMembers}
+									disabled={audienceMemberCount === 0}
+									onchange={(event) => {
+										formEmailMembers = event.currentTarget.checked;
+									}}
+								/>
+								<span class="switch-track">
+									<span class="switch-thumb"></span>
+								</span>
+							</label>
+						</div>
 					</div>
 				</div>
-
 				<div class="footer-actions">
-					<label class="email-switch" class:disabled={memberEmailCount === 0}>
-						<input
-							type="checkbox"
-							name="emailMembers"
-							checked={emailMembers}
-							disabled={memberEmailCount === 0}
-						/>
-						<span class="switch-track">
-							<span class="switch-thumb"></span>
-						</span>
-						<span class="switch-label">Email {memberEmailCount || ''}</span>
-					</label>
 					{#if onDelete && isEditing}
 						<button
 							class="btn-delete-icon"
@@ -1122,27 +1226,7 @@
 		border-color: color-mix(in oklab, var(--color-surface-500) 40%, transparent);
 	}
 
-	/* Email Switch Toggle */
-	.email-switch {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
-		padding: 0.25rem;
-	}
-
-	.email-switch.disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.email-switch input {
-		position: absolute;
-		opacity: 0;
-		width: 0;
-		height: 0;
-	}
-
+	/* Switch toggle shared styles */
 	.switch-track {
 		position: relative;
 		width: 44px;
@@ -1151,10 +1235,6 @@
 		background: color-mix(in oklab, var(--color-surface-600) 50%, transparent);
 		transition: background 200ms ease;
 		flex-shrink: 0;
-	}
-
-	.email-switch input:checked + .switch-track {
-		background: var(--color-primary-500);
 	}
 
 	.switch-thumb {
@@ -1169,17 +1249,19 @@
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 	}
 
-	.email-switch input:checked + .switch-track .switch-thumb {
+	.audience-toggle input:checked + .switch-track,
+	.visibility-toggle input:checked + .switch-track {
+		background: var(--color-primary-500);
+	}
+
+	.audience-toggle input:checked + .switch-track .switch-thumb,
+	.visibility-toggle input:checked + .switch-track .switch-thumb {
 		transform: translateX(20px);
 	}
 
-	.email-switch input:focus + .switch-track {
+	.audience-toggle input:focus + .switch-track,
+	.visibility-toggle input:focus + .switch-track {
 		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary-500) 50%, transparent);
-	}
-
-	.switch-label {
-		font-size: 0.75rem;
-		white-space: nowrap;
 	}
 
 	/* Delete Icon Button */
@@ -1212,6 +1294,248 @@
 		color: var(--color-error-400);
 		font-size: 0.875rem;
 		margin-top: 0.5rem;
+	}
+
+	/* Visibility Card */
+	.visibility-card {
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		transition: all 200ms ease;
+	}
+
+	.visibility-card.active {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.visibility-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.visibility-icon {
+		flex-shrink: 0;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 200ms ease;
+	}
+
+	.visibility-icon.public {
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		color: var(--color-primary-400);
+	}
+
+	.visibility-icon.private {
+		background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
+		color: var(--color-warning-400);
+	}
+
+	.visibility-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		flex: 1;
+		min-width: 0;
+		max-width: 24rem;
+	}
+
+	.visibility-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+
+	.visibility-description {
+		font-size: 0.75rem;
+		opacity: 0.7;
+		line-height: 1.4;
+	}
+
+	.visibility-toggle {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		cursor: pointer;
+		padding: 0.25rem;
+	}
+
+	.visibility-toggle:hover .switch-track {
+		background: color-mix(in oklab, var(--color-surface-500) 70%, transparent);
+	}
+
+	.visibility-toggle input {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+
+	.toggle-label {
+		font-size: 0.8125rem;
+		font-weight: 500;
+	}
+
+	/* Audience Section */
+	.audience-section {
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.75rem;
+		padding: 0.625rem 0.875rem;
+		min-width: 280px;
+		transition: all 200ms ease;
+	}
+
+	.audience-section.active {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.audience-content {
+		flex: 1;
+	}
+
+	.audience-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.audience-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.audience-icon {
+		flex-shrink: 0;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		color: var(--color-primary-400);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.audience-title-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+
+	.audience-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+
+	.audience-count {
+		font-size: 0.6875rem;
+		opacity: 0.6;
+	}
+
+	.audience-toggle {
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.audience-toggle.disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.audience-toggle input {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+
+	.audience-filters-inline {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex: 1;
+		min-width: 200px;
+	}
+
+	.audience-filters-header {
+		display: none;
+	}
+
+	.audience-status-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.status-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 150ms ease;
+		text-transform: capitalize;
+	}
+
+	.status-chip:hover:not(:disabled) {
+		border-color: color-mix(in oklab, var(--color-surface-400) 40%, transparent);
+		background: color-mix(in oklab, var(--color-surface-900) 60%, transparent);
+	}
+
+	.status-chip.selected {
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+		color: var(--color-primary-300);
+	}
+
+	.status-chip:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.chip-indicator {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 9999px;
+		border: 1.5px solid color-mix(in oklab, var(--color-surface-400) 50%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 150ms ease;
+	}
+
+	.chip-indicator.checked {
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-500);
+	}
+
+	.chip-label {
+		white-space: nowrap;
+	}
+
+	.chip-count {
+		opacity: 0.6;
+		font-weight: 400;
 	}
 
 	@keyframes card-in {
@@ -1319,6 +1643,65 @@
 
 		.footer-actions .btn {
 			flex: 1;
+		}
+
+		.audience-section {
+			min-width: unset;
+			width: 100%;
+			padding: 0.75rem;
+		}
+
+		.audience-header {
+			gap: 0.5rem;
+		}
+
+		.audience-filters-inline {
+			width: 100%;
+			min-width: unset;
+			margin-top: 0.5rem;
+			padding-top: 0.5rem;
+			border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		}
+
+		.audience-icon {
+			width: 1.75rem;
+			height: 1.75rem;
+		}
+
+		.audience-title {
+			font-size: 0.8125rem;
+		}
+
+		.status-chip {
+			padding: 0.3125rem 0.5rem;
+			font-size: 0.6875rem;
+		}
+
+		.visibility-card {
+			padding: 0.875rem;
+		}
+
+		.visibility-icon {
+			width: 1.75rem;
+			height: 1.75rem;
+		}
+
+		.visibility-title {
+			font-size: 0.8125rem;
+		}
+
+		.visibility-description {
+			font-size: 0.6875rem;
+		}
+
+		.toggle-label {
+			font-size: 0.75rem;
+		}
+	}
+
+	@media (max-width: 400px) {
+		.audience-status-chips {
+			gap: 0.375rem;
 		}
 	}
 </style>

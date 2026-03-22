@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import {
+	GROUP_UPDATE_EMAIL_AUDIENCE_STATUSES,
 	countGroupUpdateEmailRecipients,
 	ensureUniqueGroupNewsSlug,
 	getGroupNewsPostBySlug,
@@ -9,6 +10,7 @@ import {
 	getGroupNewsClient,
 	getGroupNewsServiceClient,
 	listGroupNewsPostsForManagement,
+	normalizeGroupUpdateEmailAudienceStatuses,
 	normalizeGroupNewsPayload,
 	queueGroupUpdateEmailBatch,
 	requireGroupNewsManager,
@@ -23,12 +25,30 @@ export const load = async ({ parent, cookies, url }) => {
 	const editSlug = url.searchParams.get('edit') || '';
 	const selectedPost = editSlug ? (posts.find((post) => post.slug === editSlug) ?? null) : null;
 	let memberEmailCount = 0;
+	let memberEmailCountsByStatus = {
+		active: 0,
+		past_due: 0,
+		cancelled: 0
+	};
 	if (serviceSupabase) {
 		try {
-			memberEmailCount = await countGroupUpdateEmailRecipients(
-				serviceSupabase,
-				parentData.group.id
-			);
+			const [activeCount, pastDueCount, cancelledCount] = await Promise.all([
+				countGroupUpdateEmailRecipients(serviceSupabase, parentData.group.id, {
+					statuses: ['active']
+				}),
+				countGroupUpdateEmailRecipients(serviceSupabase, parentData.group.id, {
+					statuses: ['past_due']
+				}),
+				countGroupUpdateEmailRecipients(serviceSupabase, parentData.group.id, {
+					statuses: ['cancelled']
+				})
+			]);
+			memberEmailCountsByStatus = {
+				active: activeCount,
+				past_due: pastDueCount,
+				cancelled: cancelledCount
+			};
+			memberEmailCount = activeCount;
 		} catch (err) {
 			console.warn('Failed to load update email recipient count for manage page', err);
 			memberEmailCount = 0;
@@ -39,6 +59,8 @@ export const load = async ({ parent, cookies, url }) => {
 		group: parentData.group,
 		posts,
 		memberEmailCount,
+		memberEmailCountsByStatus,
+		emailAudienceStatusOptions: GROUP_UPDATE_EMAIL_AUDIENCE_STATUSES,
 		selectedPost,
 		selectedSlug: selectedPost?.slug || '',
 		initialValues: toGroupNewsFormValues(selectedPost)
@@ -54,6 +76,9 @@ export const actions = {
 			const intent = getGroupNewsIntent(formData);
 			const postId = getGroupNewsPostId(formData);
 			const shouldEmailMembers = formData.get('emailMembers') === 'on';
+			const emailAudienceStatuses = normalizeGroupUpdateEmailAudienceStatuses(
+				formData.getAll('emailAudienceStatuses')
+			);
 			const existing = postId
 				? await getGroupNewsPostById(supabase, group.id, postId, { includeDrafts: true })
 				: null;
@@ -73,7 +98,8 @@ export const actions = {
 						error: deleteError.message,
 						values: toGroupNewsFormValues(existing),
 						editingSlug: existing.slug,
-						emailMembers: false
+						emailMembers: false,
+						emailAudienceStatuses: ['active']
 					});
 				}
 
@@ -110,7 +136,9 @@ export const actions = {
 							title: payload.title,
 							slug: payload.slug,
 							summary: payload.summary ?? '',
-							bodyMarkdown: payload.body_markdown
+							bodyMarkdown: payload.body_markdown,
+							isPrivate: Boolean(payload.is_private),
+							emailAudienceStatuses
 						},
 						editingSlug: existing.slug,
 						emailMembers: shouldEmailMembers
@@ -135,7 +163,9 @@ export const actions = {
 							title: payload.title,
 							slug: payload.slug,
 							summary: payload.summary ?? '',
-							bodyMarkdown: payload.body_markdown
+							bodyMarkdown: payload.body_markdown,
+							isPrivate: Boolean(payload.is_private),
+							emailAudienceStatuses
 						},
 						emailMembers: shouldEmailMembers
 					});
@@ -151,7 +181,9 @@ export const actions = {
 							title: payload.title,
 							slug,
 							summary: payload.summary ?? '',
-							bodyMarkdown: payload.body_markdown
+							bodyMarkdown: payload.body_markdown,
+							isPrivate: Boolean(payload.is_private),
+							emailAudienceStatuses
 						},
 						editingSlug: slug,
 						emailMembers: true
@@ -169,7 +201,9 @@ export const actions = {
 							title: payload.title,
 							slug,
 							summary: payload.summary ?? '',
-							bodyMarkdown: payload.body_markdown
+							bodyMarkdown: payload.body_markdown,
+							isPrivate: Boolean(payload.is_private),
+							emailAudienceStatuses
 						},
 						editingSlug: slug,
 						emailMembers: true
@@ -181,18 +215,21 @@ export const actions = {
 						group,
 						post: publishedPost,
 						requestedByUserId: user.id,
-						origin: url.origin
+						origin: url.origin,
+						audienceStatuses: emailAudienceStatuses
 					});
-					if (!queued.queuedCount) {
-						return fail(400, {
-							error:
-								'This update was published, but there are no active members with email addresses to send to.',
+						if (!queued.queuedCount) {
+							return fail(400, {
+								error:
+									'This update was published, but there are no matching members with email addresses to send to.',
 							values: {
 								postId: publishedPost.id,
 								title: payload.title,
 								slug,
 								summary: payload.summary ?? '',
-								bodyMarkdown: payload.body_markdown
+								bodyMarkdown: payload.body_markdown,
+								isPrivate: Boolean(payload.is_private),
+								emailAudienceStatuses
 							},
 							editingSlug: slug,
 							emailMembers: true
@@ -206,7 +243,9 @@ export const actions = {
 							title: payload.title,
 							slug,
 							summary: payload.summary ?? '',
-							bodyMarkdown: payload.body_markdown
+							bodyMarkdown: payload.body_markdown,
+							isPrivate: Boolean(payload.is_private),
+							emailAudienceStatuses
 						},
 						editingSlug: slug,
 						emailMembers: true
@@ -219,7 +258,8 @@ export const actions = {
 			if (actionError?.status === 303) throw actionError;
 			return fail(actionError?.status || 400, {
 				error: actionError?.body?.message || actionError?.message || 'Unable to save update.',
-				emailMembers: false
+				emailMembers: false,
+				emailAudienceStatuses: ['active']
 			});
 		}
 	}

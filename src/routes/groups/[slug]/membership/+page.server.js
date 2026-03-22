@@ -32,6 +32,7 @@ export const load = async ({ params, fetch, cookies }) => {
 	const { accessToken, user } = resolveSession(cookies);
 	let myApplications = [];
 	let myMemberships = [];
+	let myTierChangeRequests = [];
 	let currentUserProfile = null;
 
 	if (accessToken && user?.id) {
@@ -65,6 +66,18 @@ export const load = async ({ params, fetch, cookies }) => {
 			email: user.email || null,
 			phone: null
 		};
+
+		const membershipIds = myMemberships.map((row) => row?.id).filter(Boolean);
+		if (membershipIds.length) {
+			const { data: tierChangeRows } = await requestSupabase
+				.from('group_membership_tier_change_requests')
+				.select('*')
+				.in('membership_id', membershipIds)
+				.eq('status', 'pending')
+				.order('updated_at', { ascending: false })
+				.limit(20);
+			myTierChangeRequests = tierChangeRows || [];
+		}
 	}
 
 	return {
@@ -72,6 +85,7 @@ export const load = async ({ params, fetch, cookies }) => {
 		program_data: programData,
 		my_applications: myApplications,
 		my_memberships: myMemberships,
+		my_tier_change_requests: myTierChangeRequests,
 		current_user_profile: currentUserProfile,
 		current_user_id: user?.id || null
 	};
