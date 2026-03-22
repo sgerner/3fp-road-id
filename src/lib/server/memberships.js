@@ -232,11 +232,69 @@ function calculateRenewalDate(tier, fromDate = new Date()) {
 	return plusInterval(fromDate, tier.interval_unit, count).toISOString();
 }
 
+function escapeHtml(value) {
+	return String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+function formatMoneyFromCents(cents, currency = 'usd') {
+	const amount = normalizeNullableAmountCents(cents);
+	if (amount === null || amount <= 0) return 'Free';
+	try {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: normalizeCurrency(currency),
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		}).format(amount / 100);
+	} catch {
+		return `$${(amount / 100).toFixed(2)}`;
+	}
+}
+
+function formatIsoDateLabel(value) {
+	if (!value) return 'Not set';
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return 'Not set';
+	return date.toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric'
+	});
+}
+
+function formatTierContributionSummary(tier) {
+	const monthly = normalizeNullableAmountCents(tier?.monthly_amount_cents ?? tier?.amount_cents);
+	const annual = normalizeNullableAmountCents(tier?.annual_amount_cents);
+	const currency = normalizeCurrency(tier?.currency);
+	const monthlyLabel = monthly !== null ? `${formatMoneyFromCents(monthly, currency)}/month` : null;
+	const annualLabel = annual !== null ? `${formatMoneyFromCents(annual, currency)}/year` : null;
+	const labels = [monthlyLabel, annualLabel].filter(Boolean);
+	if (!labels.length) {
+		return tier?.allow_custom_amount ? 'Pay what you want' : 'Free';
+	}
+	if (tier?.allow_custom_amount) {
+		return `${labels.join(' or ')} (custom amounts allowed)`;
+	}
+	return labels.join(' or ');
+}
+
 function firstNameFromProfile(profile) {
 	const full = cleanText(profile?.full_name || '', 120);
 	if (!full) return 'Member';
 	const [first] = full.split(/\s+/);
 	return first || 'Member';
+}
+
+function firstNameFromFullName(value) {
+	const full = cleanText(value || '', 120);
+	if (!full) return 'there';
+	const [first] = full.split(/\s+/);
+	return first || 'there';
 }
 
 function sanitizeEmail(value) {
@@ -755,7 +813,7 @@ async function resolveProfileMapByUserIds(serviceSupabase, userIds) {
 	if (!ids.length) return new Map();
 	const { data, error } = await serviceSupabase
 		.from('profiles')
-		.select('user_id,email,full_name')
+		.select('user_id,email,full_name,phone,avatar_url')
 		.in('user_id', ids);
 	if (error) throw new Error(error.message);
 	return new Map((data || []).map((row) => [row.user_id, row]));
@@ -1432,6 +1490,7 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 
 	const created = [];
 	const updated = [];
+	let desiredDefaultTierId = null;
 	for (const [key, template] of templateByKey.entries()) {
 		const existing = existingByKey.get(key);
 		const payload = {
@@ -1444,7 +1503,8 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 			billing_type: template.billing_type,
 			interval_unit: template.billing_type === 'recurring' ? template.interval_unit : null,
 			interval_count: template.billing_type === 'recurring' ? template.interval_count : null,
-			is_default: template.is_default === true,
+			// Apply default designation in a second pass to avoid unique-index violations.
+			is_default: false,
 			is_active: template.is_active !== false,
 			allow_custom_amount: template.allow_custom_amount === true,
 			min_amount_cents:
@@ -1453,7 +1513,7 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 					: null
 		};
 
-		if (existing) {
+			if (existing) {
 			const updatePayload = {
 				...payload,
 				sort_order: template.is_default ? 0 : DEFAULT_MEMBERSHIP_TIER_TEMPLATES.indexOf(template) + 1,
@@ -1465,10 +1525,13 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 				.eq('id', existing.id)
 				.select('*')
 				.single();
-			if (updateError) return { ok: false, status: 400, error: updateError.message };
-			updated.push(nextTier);
-			continue;
-		}
+				if (updateError) return { ok: false, status: 400, error: updateError.message };
+				updated.push(nextTier);
+				if (template.is_default === true) {
+					desiredDefaultTierId = nextTier.id;
+				}
+				continue;
+			}
 
 		const insertPayload = {
 			program_id: program.id,
@@ -1483,23 +1546,34 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 			.insert(insertPayload)
 			.select('*')
 			.single();
-		if (createError) return { ok: false, status: 400, error: createError.message };
-		created.push(createdTier);
-	}
+			if (createError) return { ok: false, status: 400, error: createError.message };
+			created.push(createdTier);
+			if (template.is_default === true) {
+				desiredDefaultTierId = createdTier.id;
+			}
+		}
 
-	const defaultTier = [...updated, ...created].find((tier) => tier.is_default === true);
-	if (defaultTier) {
-		await serviceSupabase
-			.from('group_membership_tiers')
-			.update({ is_default: false, updated_at: now })
-			.eq('program_id', program.id)
-			.neq('id', defaultTier.id)
-			.eq('is_default', true);
-		await serviceSupabase
-			.from('group_membership_programs')
-			.update({ default_tier_id: defaultTier.id, updated_at: now })
-			.eq('id', program.id);
-	}
+		if (desiredDefaultTierId) {
+			const { error: unsetDefaultError } = await serviceSupabase
+				.from('group_membership_tiers')
+				.update({ is_default: false, updated_at: now })
+				.eq('program_id', program.id)
+				.eq('is_default', true);
+			if (unsetDefaultError) return { ok: false, status: 400, error: unsetDefaultError.message };
+
+			const { error: setDefaultError } = await serviceSupabase
+				.from('group_membership_tiers')
+				.update({ is_default: true, updated_at: now })
+				.eq('id', desiredDefaultTierId)
+				.eq('program_id', program.id);
+			if (setDefaultError) return { ok: false, status: 400, error: setDefaultError.message };
+
+			const { error: updateProgramError } = await serviceSupabase
+				.from('group_membership_programs')
+				.update({ default_tier_id: desiredDefaultTierId, updated_at: now })
+				.eq('id', program.id);
+			if (updateProgramError) return { ok: false, status: 400, error: updateProgramError.message };
+		}
 
 	await writeAuditLog(serviceSupabase, {
 		group_id: auth.group.id,
@@ -2754,6 +2828,9 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 	if (tier.program_id !== program.id) {
 		return { ok: false, status: 400, error: 'Tier does not belong to this group.' };
 	}
+	const publicBaseUrl = resolvePublicBaseUrl(requestUrl) || 'https://3fp.org';
+	const groupPageUrl = `${publicBaseUrl}/groups/${encodeURIComponent(auth.group.slug)}`;
+	const membershipPageUrl = `${groupPageUrl}/membership`;
 
 	let userId = null;
 	let inviteSent = false;
@@ -2777,8 +2854,7 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 		}
 
 		const joinPath = `/groups/${encodeURIComponent(auth.group.slug)}/membership`;
-		const baseUrl = resolvePublicBaseUrl(requestUrl);
-		const redirectTo = baseUrl ? `${baseUrl}/auth?next=${encodeURIComponent(joinPath)}` : undefined;
+		const redirectTo = `${publicBaseUrl}/auth?next=${encodeURIComponent(joinPath)}`;
 		const inviteResult = await serviceSupabase.auth.admin.inviteUserByEmail(email, {
 			data: {
 				full_name: requestedFullName
@@ -2853,13 +2929,91 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 		after_snapshot: data
 	});
 
+	const displayName = cleanText(requestedFullName || existingProfile?.full_name || '', 120) || 'New member';
+	const tierName = cleanText(tier.name || '', 120) || 'Membership';
+	const contributionSummary = formatTierContributionSummary(tier);
+	const startedAtLabel = formatIsoDateLabel(data.started_at);
+	const renewsAtLabel = data.renews_at ? formatIsoDateLabel(data.renews_at) : 'No automatic renewal';
+	const statusLabel = cleanText(data.status || '', 40) || 'active';
+	const setupLabel = inviteSent ? 'Complete account setup' : 'Open membership page';
+	const setupUrl = inviteSent
+		? `${publicBaseUrl}/auth?next=${encodeURIComponent(`/groups/${auth.group.slug}/membership`)}`
+		: membershipPageUrl;
+
+	const memberFirstName = firstNameFromFullName(displayName);
+	const memberSubject = `Welcome to ${auth.group.name}`;
+	const memberHtml = `
+		<p>Hi ${escapeHtml(memberFirstName)},</p>
+		<p>Welcome to <strong>${escapeHtml(auth.group.name)}</strong>. We’re glad you’re here.</p>
+		<p>Your membership has been added by a group organizer.</p>
+		<p><strong>Your membership</strong></p>
+		<ul>
+			<li><strong>Tier:</strong> ${escapeHtml(tierName)}</li>
+			<li><strong>Contribution:</strong> ${escapeHtml(contributionSummary)}</li>
+			<li><strong>Starts:</strong> ${escapeHtml(startedAtLabel)}</li>
+			<li><strong>Renews:</strong> ${escapeHtml(renewsAtLabel)}</li>
+		</ul>
+		<p>You can view upcoming activities and manage your membership anytime.</p>
+		<p><a href="${escapeHtml(membershipPageUrl)}">View Membership</a></p>
+		<p><a href="${escapeHtml(groupPageUrl)}">Visit Group Page</a></p>
+		${inviteSent ? `<p><a href="${escapeHtml(setupUrl)}">${escapeHtml(setupLabel)}</a></p>` : ''}
+	`;
+	const memberText = [
+		`Hi ${memberFirstName},`,
+		`Welcome to ${auth.group.name}. We're glad you're here.`,
+		'Your membership has been added by a group organizer.',
+		'',
+		'Your membership',
+		`Tier: ${tierName}`,
+		`Contribution: ${contributionSummary}`,
+		`Starts: ${startedAtLabel}`,
+		`Renews: ${renewsAtLabel}`,
+		'',
+		'You can view upcoming activities and manage your membership anytime.',
+		`View Membership: ${membershipPageUrl}`,
+		`Visit Group Page: ${groupPageUrl}`,
+		inviteSent ? `${setupLabel}: ${setupUrl}` : ''
+	]
+		.filter(Boolean)
+		.join('\n');
+
+	const ownerSubject = `${auth.group.name} has a new member!`;
+	const ownerHtml = `
+		<p><strong>${escapeHtml(auth.group.name)}</strong> has a new member.</p>
+		<p><strong>Member:</strong> ${escapeHtml(displayName)} (${escapeHtml(email)})</p>
+		<p><strong>Tier:</strong> ${escapeHtml(tierName)}</p>
+		<p><strong>Contribution:</strong> ${escapeHtml(contributionSummary)}</p>
+		<p><strong>Starts:</strong> ${escapeHtml(startedAtLabel)}</p>
+		<p><strong>Renews:</strong> ${escapeHtml(renewsAtLabel)}</p>
+		<p><strong>Status:</strong> ${escapeHtml(statusLabel)}</p>
+		<p><a href="${escapeHtml(`${publicBaseUrl}/groups/${encodeURIComponent(auth.group.slug)}/manage/membership`)}">Open membership roster</a></p>
+	`;
+	const ownerText = [
+		`${auth.group.name} has a new member!`,
+		`Member: ${displayName} (${email})`,
+		`Tier: ${tierName}`,
+		`Contribution: ${contributionSummary}`,
+		`Starts: ${startedAtLabel}`,
+		`Renews: ${renewsAtLabel}`,
+		`Status: ${statusLabel}`,
+		`Open membership roster: ${publicBaseUrl}/groups/${encodeURIComponent(auth.group.slug)}/manage/membership`
+	].join('\n');
+
 	await sendOwnerNotification({
 		serviceSupabase,
 		group: auth.group,
-		subject: `Manual membership added: ${auth.group.name}`,
-		html: `<p>A manual/offline membership was added in <strong>${auth.group.name}</strong>.</p><p>Membership ID: ${data.id}</p>`,
-		text: `A manual/offline membership was added in ${auth.group.name}. Membership ID: ${data.id}`,
-		tags: [{ Name: 'context', Value: 'membership-manual-created' }],
+		subject: ownerSubject,
+		html: ownerHtml,
+		text: ownerText,
+		tags: [{ Name: 'context', Value: 'membership-manual-created-owner' }],
+		fetchImpl
+	});
+	await sendUserNotification({
+		to: email,
+		subject: memberSubject,
+		html: memberHtml,
+		text: memberText,
+		tags: [{ Name: 'context', Value: 'membership-manual-created-member' }],
 		fetchImpl
 	});
 
