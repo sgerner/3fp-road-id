@@ -250,6 +250,130 @@
 	const shouldShowDonationSetup = $derived(
 		Boolean(data?.is_owner && data?.is_claimed && !canAcceptDonations)
 	);
+	const membershipProgram = $derived(data?.membership_program ?? null);
+	const membershipTiers = $derived(
+		Array.isArray(data?.membership_tiers) ? data.membership_tiers : []
+	);
+	const myMemberships = $derived(Array.isArray(data?.my_memberships) ? data.my_memberships : []);
+	const membershipEnabled = $derived(Boolean(membershipProgram?.enabled === true));
+	const hasCurrentMembership = $derived(
+		myMemberships.some((membership) => ['active', 'past_due', 'paused'].includes(membership?.status))
+	);
+	const membershipCtaLabel = $derived(
+		hasCurrentMembership
+			? 'Membership'
+			: membershipProgram?.cta_label ||
+			(membershipProgram?.access_mode === 'private_request'
+				? 'Request Membership'
+				: 'Join Membership')
+	);
+	const headerMembershipCta = $derived(
+		membershipEnabled
+			? {
+					href: `/groups/${data.group?.slug}/membership`,
+					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
+					onClick: handleMembershipCtaClick
+				}
+			: null
+	);
+	function resolveSingleFreeFollowTier() {
+		if (!membershipEnabled) return null;
+		if (membershipProgram?.access_mode === 'private_request') return null;
+		const normalizedContributionMode =
+			membershipProgram?.contribution_mode === 'required_fee'
+				? 'paid'
+				: membershipProgram?.contribution_mode || 'donation';
+		if (normalizedContributionMode === 'paid') return null;
+		if (!Array.isArray(membershipTiers) || membershipTiers.length !== 1) return null;
+		const tier = membershipTiers[0];
+		const monthlyAmount = Number(tier?.monthly_amount_cents ?? tier?.amount_cents ?? 0);
+		const annualAmount = Number(tier?.annual_amount_cents ?? 0);
+		const isFree =
+			monthlyAmount <= 0 && annualAmount <= 0 && tier?.allow_custom_amount !== true;
+		return isFree ? tier : null;
+	}
+	const singleFreeFollowTier = $derived(resolveSingleFreeFollowTier());
+	const canInstantFollow = $derived(Boolean(singleFreeFollowTier));
+	const followFlag = $derived(($page.url.searchParams.get('follow') || '').trim());
+	const followMessage = $derived(($page.url.searchParams.get('follow_msg') || '').trim());
+
+	let followModalOpen = $state(false);
+	let followEmail = $state('');
+	let followLoading = $state(false);
+	let followError = $state('');
+	let followSuccess = $state('');
+	const followEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(followEmail));
+
+	async function joinSingleFreeTierNow() {
+		if (!singleFreeFollowTier) return;
+		followLoading = true;
+		followError = '';
+		try {
+			const response = await fetch(`/api/groups/${encodeURIComponent(data.group.slug)}/membership/join`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					tier_id: singleFreeFollowTier.id,
+					billing_interval: 'month'
+				})
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				if (response.status === 401) {
+					followModalOpen = true;
+					return;
+				}
+				throw new Error(payload?.error || 'Unable to follow right now.');
+			}
+			window.location.href = `/groups/${encodeURIComponent(data.group.slug)}?follow=success`;
+		} catch (err) {
+			followError = err?.message || 'Unable to follow right now.';
+		} finally {
+			followLoading = false;
+		}
+	}
+
+	async function handleMembershipCtaClick(event) {
+		if (hasCurrentMembership) return;
+		if (!canInstantFollow) return;
+		event.preventDefault();
+		if (data.session_user_id) {
+			await joinSingleFreeTierNow();
+			return;
+		}
+		followModalOpen = true;
+		followError = '';
+		followSuccess = '';
+	}
+
+	async function sendFollowMagicLink(event) {
+		event?.preventDefault?.();
+		if (!followEmailValid || !singleFreeFollowTier) return;
+		followLoading = true;
+		followError = '';
+		followSuccess = '';
+		try {
+			const returnTo = `/groups/${encodeURIComponent(data.group.slug)}?auto_follow=1&auto_follow_tier=${encodeURIComponent(singleFreeFollowTier.id)}`;
+			const response = await fetch('/api/v1/auth/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email: followEmail,
+					createProfile: true,
+					returnTo
+				})
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to send magic link.');
+			}
+			followSuccess = `Check ${followEmail} for your login link. We’ll complete follow automatically after login.`;
+		} catch (err) {
+			followError = err?.message || 'Unable to send magic link.';
+		} finally {
+			followLoading = false;
+		}
+	}
 
 	function parseVolunteerDate(value) {
 		if (!value) return null;
@@ -370,7 +494,13 @@
 </script>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
-	<GroupHeroCard group={data.group} canEdit={data.can_edit} {contactLinks} {primaryCta} />
+	<GroupHeroCard
+		group={data.group}
+		canEdit={data.can_edit}
+		{contactLinks}
+		{primaryCta}
+		membershipCta={headerMembershipCta}
+	/>
 
 	<!-- Auth notice -->
 	{#if authFlag === 'required' || authFlag === 'forbidden'}
@@ -404,6 +534,32 @@
 							</div>
 						{/if}
 					{/if}
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	{#if followFlag === 'success'}
+		<section
+			class="auth-notice rounded-2xl border border-success-400-600/40 bg-success-500/8 p-4"
+			in:fade={{ duration: 180 }}
+		>
+			<div class="flex items-start gap-3">
+				<IconInfo class="text-success-500 mt-0.5 h-5 w-5 shrink-0" />
+				<div class="text-sm">
+					<strong>You're now following this group.</strong>
+				</div>
+			</div>
+		</section>
+	{:else if followFlag === 'error'}
+		<section
+			class="auth-notice rounded-2xl border border-error-400-600/40 bg-error-500/8 p-4"
+			in:fade={{ duration: 180 }}
+		>
+			<div class="flex items-start gap-3">
+				<IconInfo class="text-error-500 mt-0.5 h-5 w-5 shrink-0" />
+				<div class="text-sm">
+					<strong>{followMessage || 'Unable to complete follow.'}</strong>
 				</div>
 			</div>
 		</section>
@@ -504,11 +660,10 @@
 
 	{#if canAcceptDonations || shouldShowDonationSetup}
 		<section
-			class="donation-panel relative overflow-hidden rounded-2xl p-5"
+			class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5"
 			in:fade={{ duration: 220 }}
 		>
-			<div class="donation-glow" aria-hidden="true"></div>
-			<div class="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div>
 					<div class="mb-1 flex items-center gap-2">
 						<IconHandHeart class="text-primary-400 h-5 w-5" />
@@ -542,7 +697,67 @@
 		</section>
 	{/if}
 
-	<!-- Sticky subheader (appears after hero scrolls out) -->
+	{#if followModalOpen}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+			role="button"
+			tabindex="0"
+			onclick={(event) => {
+				if (event.target === event.currentTarget) followModalOpen = false;
+			}}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') followModalOpen = false;
+			}}
+		>
+			<form
+				class="card border-surface-300-700 bg-surface-100-900/95 w-full max-w-md space-y-3 rounded-2xl border p-5"
+				onsubmit={sendFollowMagicLink}
+			>
+				<div>
+					<h3 class="text-lg font-semibold">Follow {data.group?.name}</h3>
+					<p class="text-surface-700-300 mt-1 text-sm">
+						Enter your email to log in or create an account. We'll add you as a follower right after you
+						open the magic link.
+					</p>
+				</div>
+				<label class="flex flex-col gap-1.5">
+					<span class="text-sm font-medium">Email address</span>
+					<input
+						type="email"
+						class="input"
+						bind:value={followEmail}
+						placeholder="you@example.com"
+						required
+					/>
+				</label>
+				{#if followError}
+					<p class="text-error-600-400 text-sm">{followError}</p>
+				{/if}
+				{#if followSuccess}
+					<p class="text-success-600-400 text-sm">{followSuccess}</p>
+				{/if}
+				<div class="flex items-center justify-end gap-2">
+					<button
+						type="button"
+						class="btn preset-tonal-surface"
+						onclick={() => (followModalOpen = false)}
+						disabled={followLoading}
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="btn preset-filled-primary-500"
+						disabled={followLoading || !followEmailValid}
+					>
+						{followLoading ? 'Sending…' : 'Email Me A Login Link'}
+					</button>
+				</div>
+			</form>
+		</div>
+	{/if}
+
+		<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
 			class="border-surface-300-700/30 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur-xl"
@@ -1389,25 +1604,6 @@
 	.claim-icon-ring {
 		background: color-mix(in oklab, var(--color-warning-500) 18%, var(--color-surface-800) 82%);
 		border: 1px solid color-mix(in oklab, var(--color-warning-500) 35%, transparent);
-	}
-
-	/* ── Donation panel ── */
-	.donation-panel {
-		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-900) 92%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 60ms;
-	}
-
-	.donation-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 0% 100%,
-			color-mix(in oklab, var(--color-primary-500) 14%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
 	}
 
 	/* ── Instagram section ── */

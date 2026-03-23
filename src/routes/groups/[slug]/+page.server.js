@@ -1,8 +1,10 @@
+import { redirect } from '@sveltejs/kit';
 import { resolveSession } from '$lib/server/session';
 import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
 import { listPublishedGroupNewsPosts } from '$lib/server/groupNews';
+import { joinMembership } from '$lib/server/memberships';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -386,7 +388,7 @@ async function fetchConnectedInstagramPosts(serviceSupabase, groupId) {
 	return { profile, posts };
 }
 
-export const load = async ({ params, cookies, fetch }) => {
+export const load = async ({ params, cookies, fetch, url }) => {
 	const slug = params.slug;
 
 	let group = null;
@@ -516,6 +518,98 @@ export const load = async ({ params, cookies, fetch }) => {
 		donationEnabled = Boolean(data?.stripe_account_id && data?.charges_enabled);
 	} catch (err) {
 		console.warn('Failed to load donation account for group page', err);
+	}
+
+	let membershipProgram = null;
+	let membershipTiers = [];
+	let membershipFormFields = [];
+	let myMemberships = [];
+	try {
+		const response = await fetch(
+			`/api/groups/${encodeURIComponent(slug)}/membership/program?include_inactive=false`
+		);
+		const payload = await response.json().catch(() => ({}));
+		if (response.ok && payload?.data) {
+			membershipProgram = payload.data.program ?? null;
+			membershipTiers = Array.isArray(payload.data.tiers) ? payload.data.tiers : [];
+			membershipFormFields = Array.isArray(payload.data.form_fields) ? payload.data.form_fields : [];
+		}
+	} catch (err) {
+		console.warn('Failed to load membership program for group page', err);
+	}
+
+	if (sessionUserId) {
+		try {
+			const { data: membershipRows, error: membershipError } = await requestSupabase
+				.from('group_memberships')
+				.select('id,status,tier_id,started_at,renews_at,ends_at,created_at')
+				.eq('group_id', group.id)
+				.eq('user_id', sessionUserId)
+				.order('created_at', { ascending: false })
+				.limit(20);
+			if (membershipError) {
+				console.warn('Failed to load current user memberships for group page', membershipError);
+			} else {
+				myMemberships = membershipRows || [];
+			}
+		} catch (err) {
+			console.warn('Failed to load current user memberships for group page', err);
+		}
+	}
+
+	const autoFollowRequested = (url.searchParams.get('auto_follow') || '').trim() === '1';
+	const autoFollowTierId = (url.searchParams.get('auto_follow_tier') || '').trim();
+	if (autoFollowRequested && sessionUserId) {
+		const selectedTier =
+			membershipTiers.find((tier) => tier.id === autoFollowTierId) ||
+			(membershipTiers.length === 1 ? membershipTiers[0] : null);
+		const normalizedContributionMode =
+			membershipProgram?.contribution_mode === 'required_fee'
+				? 'paid'
+				: membershipProgram?.contribution_mode || 'donation';
+		const monthlyAmount = Number(
+			selectedTier?.monthly_amount_cents ?? selectedTier?.amount_cents ?? 0
+		);
+		const annualAmount = Number(selectedTier?.annual_amount_cents ?? 0);
+		const isFreeTier =
+			Boolean(selectedTier) &&
+			monthlyAmount <= 0 &&
+			annualAmount <= 0 &&
+			selectedTier?.allow_custom_amount !== true;
+		const canAutoFollow =
+			membershipProgram?.enabled === true &&
+			Boolean(selectedTier) &&
+			membershipTiers.length === 1 &&
+			isFreeTier &&
+			normalizedContributionMode !== 'paid' &&
+			membershipProgram?.access_mode !== 'private_request';
+
+		const nextUrl = new URL(`/groups/${encodeURIComponent(slug)}`, url.origin);
+		if (canAutoFollow) {
+			const followResult = await joinMembership({
+				cookies,
+				groupSlug: slug,
+				payload: {
+					tier_id: selectedTier.id,
+					billing_interval: 'month'
+				}
+			});
+			if (followResult?.ok) {
+				nextUrl.searchParams.set('follow', 'success');
+			} else {
+				nextUrl.searchParams.set('follow', 'error');
+				if (followResult?.error) {
+					nextUrl.searchParams.set('follow_msg', String(followResult.error).slice(0, 140));
+				}
+			}
+		} else {
+			nextUrl.searchParams.set('follow', 'error');
+			nextUrl.searchParams.set(
+				'follow_msg',
+				'This group requires selecting a membership option before joining.'
+			);
+		}
+		throw redirect(303, `${nextUrl.pathname}${nextUrl.search}`);
 	}
 
 	let connectedInstagram = null;
@@ -689,6 +783,10 @@ export const load = async ({ params, cookies, fetch }) => {
 		session_user_id: sessionUserId,
 		can_edit,
 		donation_enabled: donationEnabled,
+		membership_program: membershipProgram,
+		membership_tiers: membershipTiers,
+		membership_form_fields: membershipFormFields,
+		my_memberships: myMemberships,
 		group_news_posts: groupNewsPosts,
 		volunteer_events: volunteerEvents,
 		rides

@@ -9,6 +9,7 @@
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconShield from '@lucide/svelte/icons/shield';
+	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 
 	let { children, data } = $props();
@@ -33,18 +34,24 @@
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
 		},
-		{
-			id: 'assets',
-			label: 'Assets',
-			icon: IconFolderOpen,
-			href: `/groups/${slug}/manage/assets`
-		},
-		{
-			id: 'news',
-			label: 'Updates',
-			icon: IconNewspaper,
-			href: `/groups/${slug}/manage/news`
-		},
+			{
+				id: 'membership',
+				label: 'Membership',
+				icon: IconIdCard,
+				href: `/groups/${slug}/manage/membership`
+			},
+			{
+				id: 'assets',
+				label: 'Assets',
+				icon: IconFolderOpen,
+				href: `/groups/${slug}/manage/assets`
+			},
+			{
+				id: 'news',
+				label: 'Updates',
+				icon: IconNewspaper,
+				href: `/groups/${slug}/manage/news`
+			},
 		...(data.can_manage_social
 			? [
 					{

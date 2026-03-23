@@ -29,6 +29,8 @@ function isValidEmailAddress(value) {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeTrim(value).toLowerCase());
 }
 
+export const GROUP_UPDATE_EMAIL_AUDIENCE_STATUSES = ['active', 'past_due', 'cancelled'];
+
 export function slugifyGroupNews(value) {
 	return safeTrim(value)
 		.toLowerCase()
@@ -81,8 +83,17 @@ export function normalizeGroupNewsPayload(formData) {
 		title,
 		slug: requestedSlug,
 		summary,
-		body_markdown: bodyMarkdown
+		body_markdown: bodyMarkdown,
+		is_private: formData.get('isPrivate') === 'on'
 	};
+}
+
+export function normalizeGroupUpdateEmailAudienceStatuses(values) {
+	const rawValues = Array.isArray(values) ? values : [values];
+	const selected = rawValues
+		.map((value) => safeTrim(value).toLowerCase())
+		.filter((value) => GROUP_UPDATE_EMAIL_AUDIENCE_STATUSES.includes(value));
+	return selected.length ? Array.from(new Set(selected)) : ['active'];
 }
 
 export function getGroupNewsIntent(formData) {
@@ -104,7 +115,9 @@ export function toGroupNewsFormValues(post = null) {
 			title: '',
 			slug: '',
 			summary: '',
-			bodyMarkdown: ''
+			bodyMarkdown: '',
+			isPrivate: false,
+			emailAudienceStatuses: ['active']
 		};
 	}
 
@@ -113,7 +126,9 @@ export function toGroupNewsFormValues(post = null) {
 		title: post.title || '',
 		slug: post.slug || '',
 		summary: post.summary || '',
-		bodyMarkdown: post.body_markdown || ''
+		bodyMarkdown: post.body_markdown || '',
+		isPrivate: Boolean(post.is_private),
+		emailAudienceStatuses: ['active']
 	};
 }
 
@@ -223,6 +238,7 @@ export async function listPublishedGroupNewsPosts(supabase, groupId, { limit = n
 		.select('*')
 		.eq('group_id', groupId)
 		.not('published_at', 'is', null)
+		.eq('is_private', false)
 		.order('published_at', { ascending: false, nullsFirst: false })
 		.order('created_at', { ascending: false });
 
@@ -251,7 +267,7 @@ export async function getGroupNewsPostBySlug(
 		.eq('slug', newsSlug);
 
 	if (!includeDrafts) {
-		query = query.not('published_at', 'is', null);
+		query = query.not('published_at', 'is', null).eq('is_private', false);
 	}
 
 	const { data, error: queryError } = await query.maybeSingle();
@@ -279,7 +295,7 @@ export async function getGroupNewsPostById(
 		.eq('id', postId);
 
 	if (!includeDrafts) {
-		query = query.not('published_at', 'is', null);
+		query = query.not('published_at', 'is', null).eq('is_private', false);
 	}
 
 	const { data, error: queryError } = await query.maybeSingle();
@@ -317,15 +333,20 @@ export async function buildGroupNewsView(post, { profiles = new Map() } = {}) {
 	};
 }
 
-export async function listGroupUpdateEmailRecipients(supabase, groupId) {
+export async function listGroupUpdateEmailRecipients(
+	supabase,
+	groupId,
+	{ statuses = ['active'] } = {}
+) {
 	if (!supabase || !groupId) return [];
+	const normalizedStatuses = normalizeGroupUpdateEmailAudienceStatuses(statuses);
 
 	const nowMs = Date.now();
 	const { data: memberships, error: membershipError } = await supabase
 		.from('group_memberships')
 		.select('id,user_id,status,started_at,ends_at,created_at')
 		.eq('group_id', groupId)
-		.eq('status', 'active');
+		.in('status', normalizedStatuses);
 
 	if (membershipError) throw membershipError;
 
@@ -377,12 +398,22 @@ export async function listGroupUpdateEmailRecipients(supabase, groupId) {
 		.filter(Boolean);
 }
 
-export async function countGroupUpdateEmailRecipients(supabase, groupId) {
-	const recipients = await listGroupUpdateEmailRecipients(supabase, groupId);
+export async function countGroupUpdateEmailRecipients(
+	supabase,
+	groupId,
+	{ statuses = ['active'] } = {}
+) {
+	const recipients = await listGroupUpdateEmailRecipients(supabase, groupId, { statuses });
 	return recipients.length;
 }
 
-export async function buildGroupUpdateEmailSnapshot({ group, post, origin }) {
+export async function buildGroupUpdateEmailSnapshot({
+	group,
+	post,
+	origin,
+	audienceStatuses = ['active']
+}) {
+	const normalizedStatuses = normalizeGroupUpdateEmailAudienceStatuses(audienceStatuses);
 	const baseOrigin = trimTrailingSlash(origin) || 'https://3fp.org';
 	const actionUrl = `${baseOrigin}/groups/${group.slug}/news?open=${post.slug}`;
 	const subjectLine = `${group.name}: ${post.title}`;
@@ -405,28 +436,37 @@ export async function buildGroupUpdateEmailSnapshot({ group, post, origin }) {
 			source: 'group_update',
 			group_news_post_id: post.id,
 			group_news_post_slug: post.slug,
+			statuses: normalizedStatuses,
 			content_format: 'markdown',
 			action_url: actionUrl,
 			action_label: 'Read the full update',
-			recipient_reason: `You are receiving this because you have an active membership with ${group.name}.`
+			recipient_reason: `You are receiving this because you have a membership with ${group.name}.`
 		}
 	};
 }
 
 export async function queueGroupUpdateEmailBatch(
 	serviceSupabase,
-	{ group, post, requestedByUserId, origin }
+	{ group, post, requestedByUserId, origin, audienceStatuses = ['active'] }
 ) {
 	if (!serviceSupabase) {
 		throw error(500, 'A service client is required to queue update emails.');
 	}
 
-	const recipients = await listGroupUpdateEmailRecipients(serviceSupabase, group.id);
+	const normalizedStatuses = normalizeGroupUpdateEmailAudienceStatuses(audienceStatuses);
+	const recipients = await listGroupUpdateEmailRecipients(serviceSupabase, group.id, {
+		statuses: normalizedStatuses
+	});
 	if (!recipients.length) {
 		return { emailId: null, queuedCount: 0 };
 	}
 
-	const snapshot = await buildGroupUpdateEmailSnapshot({ group, post, origin });
+	const snapshot = await buildGroupUpdateEmailSnapshot({
+		group,
+		post,
+		origin,
+		audienceStatuses: normalizedStatuses
+	});
 	const nowIso = new Date().toISOString();
 
 	const { data: email, error: batchError } = await serviceSupabase
