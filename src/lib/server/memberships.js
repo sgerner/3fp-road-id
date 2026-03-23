@@ -508,6 +508,21 @@ function intervalLabel(intervalUnit) {
 	return intervalUnit === 'year' ? 'year' : intervalUnit === 'month' ? 'month' : 'period';
 }
 
+function escapeHtml(value) {
+	return String(value ?? '')
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
+}
+
+function getMembershipAmountSummary(amountCents, intervalUnit, currency = 'usd') {
+	const amount = normalizeAmountCents(amountCents, 0);
+	if (amount <= 0) return 'Free';
+	return `${formatMoneyFromCents(amount, currency)}/${intervalLabel(intervalUnit)}`;
+}
+
 async function sendMembershipPaymentSuccessNotifications({
 	serviceSupabase,
 	group,
@@ -1113,6 +1128,142 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	return { applied: true, tier: requestedTier };
 }
 
+async function ensureStripeCatalogForMembershipTier({
+	serviceSupabase,
+	group,
+	tier,
+	stripeAccountId,
+	intervalUnit,
+	amountCents = null
+}) {
+	if (!tier?.id || !stripeAccountId) {
+		return { productId: null, priceId: null, monthlyPriceId: null, annualPriceId: null };
+	}
+
+	const accountMatches =
+		cleanNullableText(tier?.stripe_account_id, 255) === cleanNullableText(stripeAccountId, 255);
+	let productId = accountMatches ? cleanNullableText(tier?.stripe_product_id, 255) : null;
+	let monthlyPriceId = accountMatches ? cleanNullableText(tier?.stripe_monthly_price_id, 255) : null;
+	let annualPriceId = accountMatches ? cleanNullableText(tier?.stripe_annual_price_id, 255) : null;
+	const stripe = getStripeClient();
+	const stripeOptions = { stripeAccount: stripeAccountId };
+
+	if (!productId) {
+		const product = await stripe.products.create(
+			{
+				name: `${group?.name || 'Group'} Membership: ${tier.name}`,
+				description:
+					cleanNullableText(tier?.description || '', 1000) ||
+					`${group?.name || 'Group'} membership tier`
+			},
+			stripeOptions
+		);
+		productId = cleanNullableText(product?.id, 255);
+	} else {
+		await stripe.products.update(
+			productId,
+			{
+				name: `${group?.name || 'Group'} Membership: ${tier.name}`,
+				description:
+					cleanNullableText(tier?.description || '', 1000) ||
+					`${group?.name || 'Group'} membership tier`
+			},
+			stripeOptions
+		);
+	}
+
+	if (tier.allow_custom_amount !== true) {
+		if (!monthlyPriceId && tier.monthly_amount_cents !== null && tier.monthly_amount_cents !== undefined) {
+			const monthlyPrice = await stripe.prices.create(
+				{
+					product: productId,
+					currency: normalizeCurrency(tier.currency),
+					unit_amount: normalizeAmountCents(tier.monthly_amount_cents, 0),
+					recurring: {
+						interval: 'month',
+						interval_count: 1
+					},
+					metadata: {
+						membership_flow: 'group_membership',
+						membership_group_id: group?.id || '',
+						membership_tier_id: tier.id,
+						membership_interval_unit: 'month',
+						membership_amount_cents: String(normalizeAmountCents(tier.monthly_amount_cents, 0))
+					}
+				},
+				stripeOptions
+			);
+			monthlyPriceId = cleanNullableText(monthlyPrice?.id, 255);
+		}
+
+		if (!annualPriceId && tier.annual_amount_cents !== null && tier.annual_amount_cents !== undefined) {
+			const annualPrice = await stripe.prices.create(
+				{
+					product: productId,
+					currency: normalizeCurrency(tier.currency),
+					unit_amount: normalizeAmountCents(tier.annual_amount_cents, 0),
+					recurring: {
+						interval: 'year',
+						interval_count: 1
+					},
+					metadata: {
+						membership_flow: 'group_membership',
+						membership_group_id: group?.id || '',
+						membership_tier_id: tier.id,
+						membership_interval_unit: 'year',
+						membership_amount_cents: String(normalizeAmountCents(tier.annual_amount_cents, 0))
+					}
+				},
+				stripeOptions
+			);
+			annualPriceId = cleanNullableText(annualPrice?.id, 255);
+		}
+	}
+
+	let priceId =
+		intervalUnit === 'year'
+			? annualPriceId || monthlyPriceId || null
+			: monthlyPriceId || annualPriceId || null;
+
+	if (tier.allow_custom_amount === true) {
+		const dynamicAmount = normalizeAmountCents(amountCents, 0);
+		const dynamicPrice = await stripe.prices.create(
+			{
+				product: productId,
+				currency: normalizeCurrency(tier.currency),
+				unit_amount: dynamicAmount,
+				recurring: {
+					interval: intervalUnit === 'year' ? 'year' : 'month',
+					interval_count: 1
+				},
+				metadata: {
+					membership_flow: 'group_membership',
+					membership_group_id: group?.id || '',
+					membership_tier_id: tier.id,
+					membership_interval_unit: intervalUnit === 'year' ? 'year' : 'month',
+					membership_amount_cents: String(dynamicAmount)
+				}
+			},
+			stripeOptions
+		);
+		priceId = cleanNullableText(dynamicPrice?.id, 255);
+	}
+
+	await serviceSupabase
+		.from('group_membership_tiers')
+		.update({
+			stripe_product_id: productId,
+			stripe_monthly_price_id: monthlyPriceId,
+			stripe_annual_price_id: annualPriceId,
+			stripe_account_id: stripeAccountId,
+			stripe_price_id: monthlyPriceId || annualPriceId || null,
+			updated_at: toIsoNow()
+		})
+		.eq('id', tier.id);
+
+	return { productId, priceId, monthlyPriceId, annualPriceId };
+}
+
 async function updateStripeSubscriptionPriceForTierChange({
 	serviceSupabase,
 	membership,
@@ -1132,35 +1283,19 @@ async function updateStripeSubscriptionPriceForTierChange({
 
 	const intervalUnit =
 		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
-	const amountCents = normalizeAmountCents(resolveTierAmountByInterval(requestedTier, intervalUnit), 0);
 	const group = await loadGroupById(serviceSupabase, membership.group_id);
-	const stripe = getStripeClient();
-	const price = await stripe.prices.create(
-		{
-			currency: normalizeCurrency(requestedTier.currency),
-			unit_amount: amountCents,
-			recurring: {
-				interval: intervalUnit,
-				interval_count: 1
-			},
-			product_data: {
-				name: `${group?.name || 'Group'} Membership: ${requestedTier.name}`
-			},
-			metadata: {
-				membership_flow: 'group_membership',
-				membership_group_id: membership.group_id,
-				membership_tier_id: requestedTier.id,
-				membership_user_id: membership.user_id,
-				membership_interval_unit: intervalUnit,
-				membership_amount_cents: String(amountCents)
-			}
-		},
-		{ stripeAccount: stripeAccountId }
-	);
-
-	const nextStripePriceId = cleanNullableText(price?.id, 255);
+	const amountCents = normalizeAmountCents(resolveTierAmountByInterval(requestedTier, intervalUnit), 0);
+	const { priceId: nextStripePriceId } = await ensureStripeCatalogForMembershipTier({
+		serviceSupabase,
+		group,
+		tier: requestedTier,
+		stripeAccountId,
+		intervalUnit,
+		amountCents
+	});
 	if (!nextStripePriceId) throw new Error('Unable to create Stripe price for tier change.');
 
+	const stripe = getStripeClient();
 	const subscription = await stripe.subscriptions.retrieve(
 		billing.stripe_subscription_id,
 		{},
@@ -1746,6 +1881,10 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 			...payload,
 			sort_order: template.is_default ? 0 : DEFAULT_MEMBERSHIP_TIER_TEMPLATES.indexOf(template) + 1,
 			stripe_price_id: null,
+			stripe_product_id: null,
+			stripe_monthly_price_id: null,
+			stripe_annual_price_id: null,
+			stripe_account_id: null,
 			created_at: now,
 			updated_at: now
 		};
@@ -1844,6 +1983,10 @@ export async function createMembershipTier({ cookies, groupSlug, payload }) {
 		allow_custom_amount: allowCustomAmount,
 		min_amount_cents: allowCustomAmount ? minAmountCents : minAmountCents,
 		stripe_price_id: cleanNullableText(payload?.stripe_price_id, 255),
+		stripe_product_id: cleanNullableText(payload?.stripe_product_id, 255),
+		stripe_monthly_price_id: cleanNullableText(payload?.stripe_monthly_price_id, 255),
+		stripe_annual_price_id: cleanNullableText(payload?.stripe_annual_price_id, 255),
+		stripe_account_id: cleanNullableText(payload?.stripe_account_id, 255),
 		created_at: toIsoNow(),
 		updated_at: toIsoNow()
 	};
@@ -1913,6 +2056,12 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 			: before.allow_custom_amount === true;
 	const nextBillingType =
 		nextMonthlyAmount !== null || nextAnnualAmount !== null || nextAllowCustom ? 'recurring' : 'one_time';
+	const pricingChanged =
+		nextMonthlyAmount !== normalizeNullableAmountCents(before.monthly_amount_cents ?? before.amount_cents) ||
+		nextAnnualAmount !== normalizeNullableAmountCents(before.annual_amount_cents) ||
+		nextBillingType !== before.billing_type ||
+		nextAllowCustom !== (before.allow_custom_amount === true) ||
+		(payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency) !== before.currency;
 
 	const updates = {
 		name: payload?.name !== undefined ? cleanText(payload?.name, 80) : before.name,
@@ -1946,9 +2095,28 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 				? normalizeInteger(payload.min_amount_cents, before.min_amount_cents)
 				: before.min_amount_cents,
 		stripe_price_id:
-			payload?.stripe_price_id !== undefined
+			pricingChanged
+				? null
+				: payload?.stripe_price_id !== undefined
 				? cleanNullableText(payload.stripe_price_id, 255)
 				: before.stripe_price_id,
+		stripe_product_id:
+			payload?.stripe_product_id !== undefined
+				? cleanNullableText(payload.stripe_product_id, 255)
+				: before.stripe_product_id,
+		stripe_monthly_price_id:
+			pricingChanged
+				? null
+				: payload?.stripe_monthly_price_id !== undefined
+					? cleanNullableText(payload.stripe_monthly_price_id, 255)
+					: before.stripe_monthly_price_id,
+		stripe_annual_price_id:
+			pricingChanged
+				? null
+				: payload?.stripe_annual_price_id !== undefined
+					? cleanNullableText(payload.stripe_annual_price_id, 255)
+					: before.stripe_annual_price_id,
+		stripe_account_id: pricingChanged ? null : before.stripe_account_id,
 		updated_at: toIsoNow()
 	};
 
@@ -2657,22 +2825,18 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				},
 				{ stripeAccount: donationAccount.stripe_account_id }
 			);
-			const recurringPrice = await stripe.prices.create(
-				{
-					currency,
-					unit_amount: finalAmount,
-					recurring: {
-						interval: billingInterval,
-						interval_count: 1
-					},
-					product_data: {
-						name: `${auth.group.name} Membership: ${tier.name}`
-					},
-					metadata
-				},
-				{ stripeAccount: donationAccount.stripe_account_id }
-			);
-			metadata.membership_tier_price_id = recurringPrice.id;
+			const { priceId: recurringPriceId } = await ensureStripeCatalogForMembershipTier({
+				serviceSupabase,
+				group: auth.group,
+				tier,
+				stripeAccountId: donationAccount.stripe_account_id,
+				intervalUnit: billingInterval,
+				amountCents: finalAmount
+			});
+			if (!recurringPriceId) {
+				throw new Error('Unable to prepare Stripe price for this membership tier.');
+			}
+			metadata.membership_tier_price_id = recurringPriceId;
 				subscription = await stripe.subscriptions.create(
 					{
 						customer: customer.id,
@@ -2681,10 +2845,10 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 					payment_settings: {
 						save_default_payment_method: 'on_subscription'
 					},
-					items: [
-						{
-							price: recurringPrice.id
-						}
+						items: [
+							{
+								price: recurringPriceId
+							}
 						],
 						metadata,
 						expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent']
@@ -3053,6 +3217,13 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 
 	const requestedTier = await loadTierById(serviceSupabase, requestedTierId);
 	if (!requestedTier) return { ok: false, status: 404, error: 'Requested tier not found.' };
+	if (requestedTier.allow_custom_amount === true) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'Changing to a pay-what-you-want tier is not supported yet. Join that tier separately with an amount.'
+		};
+	}
 
 	const { data: program } = await serviceSupabase
 		.from('group_membership_programs')
@@ -3076,8 +3247,18 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 		return { ok: false, status: 400, error: existingPendingError.message };
 	}
 
+	let rollbackPending = null;
 	let data = null;
 	if (existingPending) {
+		rollbackPending = {
+			mode: 'update',
+			record: {
+				requested_tier_id: existingPending.requested_tier_id,
+				effective_at_cycle_end: existingPending.effective_at_cycle_end,
+				requested_by: existingPending.requested_by,
+				updated_at: existingPending.updated_at
+			}
+		};
 		const { data: updatedRequest, error: updateError } = await serviceSupabase
 			.from('group_membership_tier_change_requests')
 			.update({
@@ -3092,6 +3273,7 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 		if (updateError) return { ok: false, status: 400, error: updateError.message };
 		data = updatedRequest;
 	} else {
+		rollbackPending = { mode: 'delete' };
 		const { data: insertedRequest, error: insertError } = await serviceSupabase
 			.from('group_membership_tier_change_requests')
 			.insert({
@@ -3120,6 +3302,15 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 			});
 		}
 	} catch (error) {
+		if (data?.id && rollbackPending?.mode === 'delete') {
+			await serviceSupabase.from('group_membership_tier_change_requests').delete().eq('id', data.id);
+		}
+		if (data?.id && rollbackPending?.mode === 'update' && rollbackPending.record) {
+			await serviceSupabase
+				.from('group_membership_tier_change_requests')
+				.update(rollbackPending.record)
+				.eq('id', data.id);
+		}
 		return {
 			ok: false,
 			status: 502,
@@ -3826,8 +4017,19 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 		serviceSupabase,
 		group: auth.group,
 		subject: `Manual membership added: ${auth.group.name}`,
-		html: `<p>A manual/offline membership was added in <strong>${auth.group.name}</strong>.</p><p>Membership ID: ${data.id}</p>`,
-		text: `A manual/offline membership was added in ${auth.group.name}. Membership ID: ${data.id}`,
+		html: `
+			<p><strong>${auth.group.name}</strong> has a new manual member.</p>
+			<p>Member: ${escapeHtml(requestedFullName || existingProfile?.full_name || email)} (${escapeHtml(email)})</p>
+			<p>Tier: ${escapeHtml(tier.name || 'Member')}</p>
+			<p>Contribution: ${escapeHtml(getMembershipAmountSummary(manualContributionAmount, manualIntervalUnit))}</p>
+			<p>Status: ${escapeHtml(status)}</p>
+		`,
+		text:
+			`${auth.group.name} has a new manual member.\n\n` +
+			`Member: ${requestedFullName || existingProfile?.full_name || email} (${email})\n` +
+			`Tier: ${tier.name || 'Member'}\n` +
+			`Contribution: ${getMembershipAmountSummary(manualContributionAmount, manualIntervalUnit)}\n` +
+			`Status: ${status}`,
 		tags: [{ Name: 'context', Value: 'membership-manual-created' }],
 		fetchImpl
 	});
