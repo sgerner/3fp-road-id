@@ -634,7 +634,7 @@
 
 	<button
 		type="button"
-		class="btn btn-sm preset-filled-primary-500 rounded-full px-4 py-3 font-bold shadow-xl max-sm:flex max-sm:w-full max-sm:justify-center"
+		class="btn btn-sm preset-tonal-secondary rounded-full px-4 py-3 font-bold shadow-xl max-sm:flex max-sm:w-full max-sm:justify-center"
 		onclick={() => (isOpen = !isOpen)}
 		aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
 	>
