@@ -244,12 +244,16 @@
 	}
 
 	$effect(() => {
+		if (isMicrositeRoute) return;
 		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
 			initTurnstile();
 		}
 	});
 
 	onMount(() => {
+		if (isMicrositeRoute) {
+			return;
+		}
 		try {
 			const storedTheme = window.localStorage.getItem(themeStorageKey);
 			const initialTheme = normalizeTheme(storedTheme || document.documentElement.dataset.theme);
@@ -415,6 +419,7 @@
 	}
 
 	let isEmbedRoute = $derived($page.url.pathname.startsWith('/ride/widget/frame'));
+	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
 </script>
 
 <svelte:head>
@@ -423,10 +428,12 @@
 
 <div class="min-h-dvh">
 	<Toast.Group {toaster} />
-	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-		<div bind:this={turnstileEl}></div>
-	</div>
-	{#if isEmbedRoute}
+	{#if !isMicrositeRoute}
+		<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
+			<div bind:this={turnstileEl}></div>
+		</div>
+	{/if}
+	{#if isEmbedRoute || isMicrositeRoute}
 		<main class="min-h-dvh min-w-0 overflow-x-hidden p-0">
 			{@render children()}
 		</main>

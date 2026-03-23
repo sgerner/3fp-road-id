@@ -11,6 +11,7 @@
 	import IconShield from '@lucide/svelte/icons/shield';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
+	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 
 	let { children, data } = $props();
 
@@ -34,6 +35,12 @@
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
 		},
+			{
+				id: 'site',
+				label: 'Website',
+				icon: IconMonitorSmartphone,
+				href: `/groups/${slug}/manage/site`
+			},
 			{
 				id: 'membership',
 				label: 'Membership',

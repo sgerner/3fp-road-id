@@ -11,6 +11,7 @@
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
+	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import { fade, slide } from 'svelte/transition';
 
 	let { data } = $props();
@@ -92,6 +93,16 @@
 			href: `/groups/${slug}/manage/edit`,
 			tone: 'primary',
 			badge: completionStats().percentage < 80 ? 'Complete profile' : null
+		},
+		{
+			id: 'website',
+			label: 'Microsite',
+			description:
+				'Customize the public subdomain site for your group with themes, layouts, and AI-assisted copy.',
+			icon: IconMonitorSmartphone,
+			href: `/groups/${slug}/manage/site`,
+			tone: 'primary',
+			badge: 'New'
 		},
 		{
 			id: 'membership',
