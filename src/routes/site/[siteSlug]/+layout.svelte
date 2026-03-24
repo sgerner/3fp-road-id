@@ -16,7 +16,9 @@
 	const joinHref = $derived(basePath ? `${basePath}/join` : '/join');
 	const galleryHref = $derived(basePath ? `${basePath}#gallery` : '/#gallery');
 	const contactHref = $derived(basePath ? `${basePath}#contact` : '/#contact');
-	const membershipCtaLabel = $derived((site?.membershipProgram?.cta_label || '').trim() || 'Follow');
+	const membershipCtaLabel = $derived(
+		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
+	);
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
 
 	const navItems = $derived.by(() => {
@@ -99,7 +101,10 @@
 	<title>{site?.siteConfig?.site_title || group?.name || 'Group'}</title>
 	<meta
 		name="description"
-		content={site?.siteConfig?.seo_description || site?.siteConfig?.home_intro || group?.description || ''}
+		content={site?.siteConfig?.seo_description ||
+			site?.siteConfig?.home_intro ||
+			group?.description ||
+			''}
 	/>
 	<link rel="canonical" href={site?.siteUrl || ''} />
 </svelte:head>
@@ -110,21 +115,26 @@
 	data-color-mode={colorMode}
 	style={site?.theme?.style || ''}
 >
-	<div class="microsite-frame min-h-dvh flex flex-col">
+	<div class="microsite-frame flex min-h-dvh flex-col">
 		<header class="microsite-nav-shell">
 			<div
-				class={`microsite-nav microsite-nav--${site?.siteConfig?.nav_style || 'floating'} mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6`}
+				class="microsite-nav microsite-nav--{site?.siteConfig?.nav_style ||
+					'floating'} mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
 			>
 				<a href={homeHref} class="microsite-mark flex min-w-0 items-center gap-3">
 					{#if group?.logo_url}
 						<img
 							src={group.logo_url}
 							alt={`${group.name} logo`}
-							class="h-10 w-10 rounded-xl object-cover shadow ring-1 ring-white/10 flex-shrink-0"
+							class="ring-surface-50/10 h-10 w-10 flex-shrink-0 rounded-xl object-cover shadow ring-1"
 						/>
 					{:else}
-						<div class="microsite-mark__fallback flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl">
-							<span class="microsite-mark__initial text-sm font-black">{(group?.name || 'G').slice(0, 1)}</span>
+						<div
+							class="microsite-mark__fallback flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+						>
+							<span class="microsite-mark__initial text-sm font-black"
+								>{(group?.name || 'G').slice(0, 1)}</span
+							>
 						</div>
 					{/if}
 					<p class="microsite-mark__text truncate text-sm font-black tracking-tight">
@@ -134,10 +144,7 @@
 
 				<nav class="hidden items-center gap-1 md:flex">
 					{#each navItems as item}
-						<a
-							href={item.href}
-							class={`microsite-nav-link ${isActive(item.href) ? 'is-active' : ''}`}
-						>
+						<a href={item.href} class="microsite-nav-link {isActive(item.href) ? 'is-active' : ''}">
 							{item.label}
 						</a>
 					{/each}
@@ -150,12 +157,12 @@
 						onclick={toggleColorMode}
 						aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
 						title={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
-						>
-							{#if colorMode === 'dark'}
-								<IconSun class="h-4 w-4" />
-							{:else}
-								<IconMoonStar class="h-4 w-4" />
-							{/if}
+					>
+						{#if colorMode === 'dark'}
+							<IconSun class="h-4 w-4" />
+						{:else}
+							<IconMoonStar class="h-4 w-4" />
+						{/if}
 						<span class="hidden sm:inline">{colorMode === 'dark' ? 'Light' : 'Dark'}</span>
 					</button>
 					<button
@@ -179,7 +186,7 @@
 						{#each navItems as item}
 							<a
 								href={item.href}
-								class={`microsite-mobile-link ${isActive(item.href) ? 'is-active' : ''}`}
+								class="microsite-mobile-link {isActive(item.href) ? 'is-active' : ''}"
 								onclick={() => (mobileMenuOpen = false)}
 							>
 								{item.label}
@@ -213,31 +220,34 @@
 		position: relative;
 		isolation: isolate;
 		color: var(--ms-fg, var(--color-surface-50));
+		/* Cinematic 3-orb drama: primary, secondary, tertiary - all highly saturated */
 		background:
 			radial-gradient(
-				55rem 38rem at 10% 10%,
-				color-mix(in oklab, var(--color-primary-500) 28%, transparent),
-				transparent 60%
+				85rem 65rem at 20% 25%,
+				color-mix(in oklab, var(--color-primary-500) 55%, transparent),
+				transparent 45%
 			),
 			radial-gradient(
-				48rem 32rem at 92% 8%,
-				color-mix(in oklab, var(--color-secondary-500) 22%, transparent),
-				transparent 55%
+				75rem 55rem at 80% 15%,
+				color-mix(in oklab, var(--color-secondary-500) 52%, transparent),
+				transparent 48%
 			),
 			radial-gradient(
-				42rem 28rem at 50% 120%,
-				color-mix(in oklab, var(--color-tertiary-500) 20%, transparent),
-				transparent 58%
+				65rem 50rem at 50% 105%,
+				color-mix(in oklab, var(--color-tertiary-500) 58%, transparent),
+				transparent 52%
 			),
 			linear-gradient(
 				180deg,
-				color-mix(in oklab, var(--color-surface-950) 90%, var(--color-primary-900) 10%) 0%,
-				color-mix(in oklab, var(--color-surface-950) 86%, var(--color-secondary-900) 14%) 52%,
-				color-mix(in oklab, var(--color-surface-900) 82%, var(--color-tertiary-900) 18%) 100%
+				color-mix(in oklab, var(--color-surface-950) 98%, var(--color-primary-900) 2%) 0%,
+				color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-800) 6%) 50%,
+				color-mix(in oklab, var(--color-surface-950) 96%, var(--color-tertiary-900) 4%) 100%
 			);
+		animation: cinematic-bg-shift 30s ease-in-out infinite alternate;
 	}
 
 	.microsite-shell[data-color-mode='dark'] {
+		color-scheme: dark;
 		--ms-fg: rgb(248 250 252 / 0.98);
 		--ms-mark: rgb(255 255 255 / 0.96);
 		--ms-title: rgb(255 255 255 / 0.97);
@@ -253,11 +263,12 @@
 	}
 
 	.microsite-shell[data-color-mode='light'] {
+		color-scheme: light;
 		--ms-fg: rgb(15 23 42 / 0.96);
 		--ms-muted: rgb(51 65 85 / 0.74);
 		--ms-mark: rgb(15 23 42 / 0.98);
-		--ms-title: color-mix(in oklab, var(--color-primary-900) 58%, var(--color-secondary-900) 42%);
-		--ms-stat: color-mix(in oklab, var(--color-secondary-900) 62%, var(--color-primary-800) 38%);
+		--ms-title: color-mix(in oklab, var(--color-surface-950) 88%, var(--color-primary-800) 12%);
+		--ms-stat: color-mix(in oklab, var(--color-surface-900) 84%, var(--color-secondary-800) 16%);
 		--ms-nav-link: rgb(30 41 59 / 0.84);
 		--ms-nav-link-active-bg: color-mix(in oklab, var(--color-primary-500) 32%, white 68%);
 		--ms-nav-link-active-fg: rgb(15 23 42 / 0.96);
@@ -266,28 +277,30 @@
 		--ms-toggle-bg: color-mix(in oklab, white 78%, var(--color-primary-100) 22%);
 		--ms-toggle-border: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 		--ms-toggle-fg: rgb(15 23 42 / 0.9);
+		/* Cinematic light mode: 3 highly saturated orbs */
 		background:
 			radial-gradient(
-				76rem 44rem at -8% -6%,
-				color-mix(in oklab, var(--color-primary-400) 34%, transparent),
-				transparent 66%
+				90rem 60rem at 25% 20%,
+				color-mix(in oklab, var(--color-primary-400) 62%, transparent),
+				transparent 42%
 			),
 			radial-gradient(
-				62rem 34rem at 104% -2%,
-				color-mix(in oklab, var(--color-secondary-400) 30%, transparent),
-				transparent 64%
+				80rem 50rem at 85% 10%,
+				color-mix(in oklab, var(--color-secondary-400) 58%, transparent),
+				transparent 45%
 			),
 			radial-gradient(
-				58rem 30rem at 50% 118%,
-				color-mix(in oklab, var(--color-tertiary-400) 28%, transparent),
-				transparent 62%
+				70rem 45rem at 55% 110%,
+				color-mix(in oklab, var(--color-tertiary-400) 65%, transparent),
+				transparent 48%
 			),
 			linear-gradient(
 				180deg,
-				color-mix(in oklab, white 84%, var(--color-primary-100) 16%) 0%,
-				color-mix(in oklab, white 80%, var(--color-secondary-100) 20%) 52%,
-				color-mix(in oklab, white 76%, var(--color-tertiary-100) 24%) 100%
+				color-mix(in oklab, white 94%, var(--color-primary-100) 6%) 0%,
+				color-mix(in oklab, white 90%, var(--color-secondary-100) 10%) 50%,
+				color-mix(in oklab, white 92%, var(--color-tertiary-100) 8%) 100%
 			);
+		animation: cinematic-bg-shift 30s ease-in-out infinite alternate;
 	}
 
 	.microsite-shell::before {
@@ -387,7 +400,9 @@
 		font-weight: 600;
 		text-decoration: none;
 		color: var(--ms-nav-link);
-		transition: background-color 160ms ease, color 160ms ease;
+		transition:
+			background-color 160ms ease,
+			color 160ms ease;
 	}
 
 	.microsite-nav-link:hover,
@@ -471,6 +486,26 @@
 	@media (min-width: 768px) {
 		.microsite-menu-btn {
 			display: none !important;
+		}
+	}
+
+	/* Cinematic background animation - subtle organic movement */
+	@keyframes cinematic-bg-shift {
+		0% {
+			background-position:
+				0% 0%,
+				100% 0%,
+				50% 100%,
+				30% 80%,
+				0% 0%;
+		}
+		100% {
+			background-position:
+				5% 10%,
+				95% 5%,
+				55% 95%,
+				35% 75%,
+				0% 0%;
 		}
 	}
 </style>

@@ -641,7 +641,7 @@
 									/>
 									<div class="flex flex-col gap-2">
 										<div class="input-group grid-cols-[auto_1fr_auto]">
-											<div class="ig-cell preset-tonal">Email</div>
+											<div class="ig-cell preset-tonal-surface">Email</div>
 											<input
 												type="email"
 												id="email"

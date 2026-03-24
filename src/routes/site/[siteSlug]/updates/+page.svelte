@@ -48,11 +48,13 @@
 
 <div class="microsite-updates-page mx-auto max-w-5xl px-4 pt-6 pb-8 md:px-6 md:pt-10">
 	<section class="updates-hero rounded-[2rem] p-6 md:p-8">
-		<p class="text-xs font-semibold tracking-[0.24em] uppercase text-white/55">Updates archive</p>
-		<h1 class="mt-3 text-4xl font-black tracking-tight text-white">
+		<p class="text-surface-50/55 text-xs font-semibold tracking-[0.24em] uppercase">
+			Updates archive
+		</p>
+		<h1 class="text-surface-50 mt-3 text-4xl font-black tracking-tight">
 			News from {data.site.siteConfig.site_title}
 		</h1>
-		<p class="mt-4 max-w-3xl text-base leading-8 text-white/72">
+		<p class="text-surface-50/72 mt-4 max-w-3xl text-base leading-8">
 			Announcements, route changes, volunteer asks, recaps, and public notes, all in one place.
 		</p>
 	</section>
@@ -63,15 +65,17 @@
 				<article class="updates-card rounded-[1.7rem] p-5 md:p-6">
 					<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 						<div class="min-w-0 flex-1">
-							<div class="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-[0.18em] uppercase text-white/48">
+							<div
+								class="text-surface-50/48 flex flex-wrap items-center gap-3 text-xs font-semibold tracking-[0.18em] uppercase"
+							>
 								<span>{formatDate(post.published_at || post.created_at)}</span>
 								<span class="inline-flex items-center gap-1">
 									<IconClock3 class="h-3.5 w-3.5" />
 									{estimateReadTime(post.body_markdown)} min read
 								</span>
 							</div>
-							<h2 class="mt-3 text-2xl font-black tracking-tight text-white">{post.title}</h2>
-							<p class="mt-2 text-sm leading-7 text-white/68">{post.preview_text}</p>
+							<h2 class="text-surface-50 mt-3 text-2xl font-black tracking-tight">{post.title}</h2>
+							<p class="text-surface-50/68 mt-2 text-sm leading-7">{post.preview_text}</p>
 						</div>
 						<button type="button" class="updates-toggle" onclick={() => togglePost(post)}>
 							{#if openSlug === post.slug}
@@ -84,7 +88,9 @@
 						</button>
 					</div>
 					{#if openSlug === post.slug}
-						<div class="updates-body prose prose-invert mt-5 max-w-none border-t border-white/10 pt-5">
+						<div
+							class="updates-body prose prose-invert mt-5 max-w-none border-t border-white/10 pt-5"
+						>
 							{@html post.bodyHtml}
 						</div>
 					{/if}
@@ -92,11 +98,13 @@
 			{/each}
 		{:else}
 			<div class="updates-card rounded-[1.7rem] p-8 text-center">
-				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/6">
-					<IconNewspaper class="h-7 w-7 text-white/45" />
+				<div
+					class="bg-surface-50/6 mx-auto flex h-16 w-16 items-center justify-center rounded-full"
+				>
+					<IconNewspaper class="text-surface-50/45 h-7 w-7" />
 				</div>
-				<h2 class="mt-4 text-2xl font-black tracking-tight text-white">No updates yet</h2>
-				<p class="mt-2 text-sm leading-7 text-white/64">
+				<h2 class="text-surface-50 mt-4 text-2xl font-black tracking-tight">No updates yet</h2>
+				<p class="text-surface-50/64 mt-2 text-sm leading-7">
 					This archive will fill in automatically when the group publishes updates.
 				</p>
 			</div>
@@ -142,7 +150,9 @@
 		color: rgb(15 23 42 / 0.92) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .microsite-updates-page :global([class*='text-white/']) {
+	:global(.microsite-shell[data-color-mode='light'])
+		.microsite-updates-page
+		:global([class*='text-white/']) {
 		color: rgb(51 65 85 / 0.78) !important;
 	}
 
@@ -160,7 +170,7 @@
 				color-mix(in oklab, var(--color-primary-300) 24%, transparent),
 				transparent 60%
 			),
-				color-mix(in oklab, white 80%, var(--color-primary-100) 20%);
+			color-mix(in oklab, white 80%, var(--color-primary-100) 20%);
 	}
 
 	:global(.microsite-shell[data-color-mode='light']) .updates-toggle {

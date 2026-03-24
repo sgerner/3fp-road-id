@@ -6,10 +6,10 @@
 
 	let { data } = $props();
 
-const site = $derived(data.site);
-const group = $derived(site.group);
-const basePath = $derived(site.basePath || '');
-const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTiers : []);
+	const site = $derived(data.site);
+	const group = $derived(site.group);
+	const basePath = $derived(site.basePath || '');
+	const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTiers : []);
 	const membershipEnabled = $derived(Boolean(site.membershipProgram?.enabled === true));
 
 	function formatAmount(cents) {
@@ -25,7 +25,8 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 	function intervalLabel(tier) {
 		const monthly = Number(tier?.monthly_amount_cents ?? tier?.amount_cents ?? 0);
 		const annual = Number(tier?.annual_amount_cents ?? 0);
-		if (monthly > 0 && annual > 0) return `${formatAmount(monthly)}/mo or ${formatAmount(annual)}/yr`;
+		if (monthly > 0 && annual > 0)
+			return `${formatAmount(monthly)}/mo or ${formatAmount(annual)}/yr`;
 		if (monthly > 0) return `${formatAmount(monthly)}/month`;
 		if (annual > 0) return `${formatAmount(annual)}/year`;
 		if (tier?.allow_custom_amount === true) return 'Choose your amount';
@@ -39,11 +40,13 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 
 <div class="microsite-join-page mx-auto max-w-6xl px-4 pt-6 pb-8 md:px-6 md:pt-10">
 	<section class="join-hero rounded-[2rem] p-6 md:p-8">
-		<p class="text-xs font-semibold tracking-[0.24em] uppercase text-white/55">Join + support</p>
-		<h1 class="mt-3 text-4xl font-black tracking-tight text-white">
+		<p class="text-surface-50/55 text-xs font-semibold tracking-[0.24em] uppercase">
+			Join + support
+		</p>
+		<h1 class="text-surface-50 mt-3 text-4xl font-black tracking-tight">
 			Ways to support {site.siteConfig.site_title}
 		</h1>
-		<p class="mt-4 max-w-3xl text-base leading-8 text-white/72">
+		<p class="text-surface-50/72 mt-4 max-w-3xl text-base leading-8">
 			{group.how_to_join_instructions ||
 				group.membership_info ||
 				'Choose the support path that fits you best and continue on 3FP to complete it.'}
@@ -57,8 +60,10 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 					<IconUsers class="h-5 w-5" />
 				</div>
 				<div>
-					<p class="text-xs font-semibold tracking-[0.2em] uppercase text-white/52">Membership</p>
-					<h2 class="text-2xl font-black tracking-tight text-white">Join the group</h2>
+					<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
+						Membership
+					</p>
+					<h2 class="text-surface-50 text-2xl font-black tracking-tight">Join the group</h2>
 				</div>
 			</div>
 
@@ -68,13 +73,17 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 						<div class="tier-card rounded-[1.4rem] p-5">
 							<div class="flex items-start justify-between gap-4">
 								<div>
-									<h3 class="text-xl font-black tracking-tight text-white">{tier.name || 'Membership'}</h3>
-									<p class="mt-1 text-sm text-white/68">{intervalLabel(tier)}</p>
+									<h3 class="text-surface-50 text-xl font-black tracking-tight">
+										{tier.name || 'Membership'}
+									</h3>
+									<p class="text-surface-50/68 mt-1 text-sm">{intervalLabel(tier)}</p>
 								</div>
-								<div class="tier-price">{formatAmount(tier.monthly_amount_cents ?? tier.amount_cents ?? 0)}</div>
+								<div class="tier-price">
+									{formatAmount(tier.monthly_amount_cents ?? tier.amount_cents ?? 0)}
+								</div>
 							</div>
 							{#if tier.description}
-								<p class="mt-4 text-sm leading-7 text-white/72">{tier.description}</p>
+								<p class="text-surface-50/72 mt-4 text-sm leading-7">{tier.description}</p>
 							{/if}
 						</div>
 					{/each}
@@ -83,8 +92,9 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 					Continue to membership
 				</a>
 			{:else}
-				<p class="text-sm leading-7 text-white/68">
-					Membership is not configured yet, but the group may still be open to riders, volunteers, or supporters through the links on the home page.
+				<p class="text-surface-50/68 text-sm leading-7">
+					Membership is not configured yet, but the group may still be open to riders, volunteers,
+					or supporters through the links on the home page.
 				</p>
 			{/if}
 		</section>
@@ -96,11 +106,13 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 						<IconHeart class="h-5 w-5" />
 					</div>
 					<div>
-						<p class="text-xs font-semibold tracking-[0.2em] uppercase text-white/52">Support</p>
-						<h2 class="text-2xl font-black tracking-tight text-white">Give directly</h2>
+						<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
+							Support
+						</p>
+						<h2 class="text-surface-50 text-2xl font-black tracking-tight">Give directly</h2>
 					</div>
 				</div>
-				<p class="text-sm leading-7 text-white/72">
+				<p class="text-surface-50/72 text-sm leading-7">
 					{#if site.donationEnabled}
 						Donations are enabled for this group on 3FP.
 					{:else}
@@ -118,22 +130,30 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 						<IconBadgeDollarSign class="h-5 w-5" />
 					</div>
 					<div>
-						<p class="text-xs font-semibold tracking-[0.2em] uppercase text-white/52">What to expect</p>
-						<h2 class="text-2xl font-black tracking-tight text-white">Practical details</h2>
+						<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
+							What to expect
+						</p>
+						<h2 class="text-surface-50 text-2xl font-black tracking-tight">Practical details</h2>
 					</div>
 				</div>
-				<ul class="space-y-3 text-sm leading-7 text-white/72">
+				<ul class="text-surface-50/72 space-y-3 text-sm leading-7">
 					<li class="flex gap-3">
-						<IconCheck class="mt-1 h-4 w-4 flex-shrink-0 text-white/62" />
+						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
 						<span>The final checkout or join flow happens on the main 3FP membership page.</span>
 					</li>
 					<li class="flex gap-3">
-						<IconCheck class="mt-1 h-4 w-4 flex-shrink-0 text-white/62" />
-						<span>Groups can keep this microsite simple while still using all the 3FP membership tooling underneath.</span>
+						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
+						<span
+							>Groups can keep this microsite simple while still using all the 3FP membership
+							tooling underneath.</span
+						>
 					</li>
 					<li class="flex gap-3">
-						<IconCheck class="mt-1 h-4 w-4 flex-shrink-0 text-white/62" />
-						<span>Unclaimed groups still get a microsite automatically, and owners can customize it later.</span>
+						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
+						<span
+							>Unclaimed groups still get a microsite automatically, and owners can customize it
+							later.</span
+						>
 					</li>
 				</ul>
 			</section>
@@ -196,7 +216,9 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 		color: rgb(15 23 42 / 0.92) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .microsite-join-page :global([class*='text-white/']) {
+	:global(.microsite-shell[data-color-mode='light'])
+		.microsite-join-page
+		:global([class*='text-white/']) {
 		color: rgb(51 65 85 / 0.78) !important;
 	}
 
@@ -215,7 +237,7 @@ const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTier
 				color-mix(in oklab, var(--color-secondary-300) 26%, transparent),
 				transparent 62%
 			),
-				color-mix(in oklab, white 80%, var(--color-secondary-100) 20%);
+			color-mix(in oklab, white 80%, var(--color-secondary-100) 20%);
 	}
 
 	:global(.microsite-shell[data-color-mode='light']) .join-icon {

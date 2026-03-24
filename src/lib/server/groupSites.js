@@ -150,9 +150,9 @@ function distanceBetweenColors(left, right) {
 function quantizeColor({ r, g, b }) {
 	const step = 32;
 	return {
-		r: Math.round(r / step) * step,
-		g: Math.round(g / step) * step,
-		b: Math.round(b / step) * step
+		r: Math.max(0, Math.min(255, Math.round(r / step) * step)),
+		g: Math.max(0, Math.min(255, Math.round(g / step) * step)),
+		b: Math.max(0, Math.min(255, Math.round(b / step) * step))
 	};
 }
 
@@ -197,8 +197,8 @@ async function extractPaletteFromImageUrl(imageUrl) {
 				b: data[index + 2]
 			});
 			const hsl = rgbToHsl(rgb);
-			if (hsl.l < 0.12 || hsl.l > 0.9) continue;
-			if (hsl.s < 0.12) continue;
+			if (hsl.l < 0.2 || hsl.l > 0.9) continue;
+			if (hsl.s < 0.18) continue;
 			const key = `${rgb.r},${rgb.g},${rgb.b}`;
 			histogram.set(key, (histogram.get(key) || 0) + 1);
 		}
@@ -206,9 +206,12 @@ async function extractPaletteFromImageUrl(imageUrl) {
 		const ranked = Array.from(histogram.entries())
 			.map(([key, count]) => {
 				const [r, g, b] = key.split(',').map((part) => Number.parseInt(part, 10) || 0);
-				return { r, g, b, count };
+				const hsl = rgbToHsl({ r, g, b });
+				const lightnessCenter = 1 - Math.min(1, Math.abs(hsl.l - 0.56) / 0.56);
+				const score = count * (0.6 + hsl.s * 0.9 + lightnessCenter * 0.45);
+				return { r, g, b, count, score };
 			})
-			.sort((left, right) => right.count - left.count);
+			.sort((left, right) => right.score - left.score);
 
 		const picked = selectDistinctColors(ranked, 3);
 		if (!picked.length) return null;
@@ -232,8 +235,15 @@ async function extractPaletteFromImageUrl(imageUrl) {
 			}
 		});
 
-	PALETTE_CACHE.set(url, promise);
-	return promise;
+	const cached = promise.then((palette) => {
+		if (!palette) {
+			PALETTE_CACHE.delete(url);
+		}
+		return palette;
+	});
+
+	PALETTE_CACHE.set(url, cached);
+	return cached;
 }
 
 export async function deriveGroupSitePalette(group, siteConfig = null) {
@@ -244,7 +254,15 @@ export async function deriveGroupSitePalette(group, siteConfig = null) {
 
 	for (const imageUrl of getImageCandidateUrls(group)) {
 		const palette = await extractPaletteFromImageUrl(imageUrl);
-		if (palette) return normalizePalette(palette, group?.slug || group?.name);
+		if (palette) {
+			return normalizePalette(
+				{
+					primary: palette.primary,
+					surface: palette.surface
+				},
+				group?.slug || group?.name
+			);
+		}
 	}
 
 	return normalizePalette(config.theme_colors, group?.slug || group?.name);

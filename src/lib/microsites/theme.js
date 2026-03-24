@@ -65,6 +65,76 @@ function rgbToHex({ r, g, b }) {
 		.toUpperCase()}`;
 }
 
+function rgbToHsl({ r, g, b }) {
+	const red = r / 255;
+	const green = g / 255;
+	const blue = b / 255;
+	const max = Math.max(red, green, blue);
+	const min = Math.min(red, green, blue);
+	const lightness = (max + min) / 2;
+	const delta = max - min;
+
+	if (!delta) return { h: 0, s: 0, l: lightness };
+
+	const saturation =
+		lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+	let hue = 0;
+	if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0);
+	else if (max === green) hue = (blue - red) / delta + 2;
+	else hue = (red - green) / delta + 4;
+
+	return { h: hue / 6, s: saturation, l: lightness };
+}
+
+function hslToRgb({ h, s, l }) {
+	if (s <= 0) {
+		const value = l * 255;
+		return { r: value, g: value, b: value };
+	}
+
+	const hueToRgb = (p, q, t) => {
+		let temp = t;
+		if (temp < 0) temp += 1;
+		if (temp > 1) temp -= 1;
+		if (temp < 1 / 6) return p + (q - p) * 6 * temp;
+		if (temp < 1 / 2) return q;
+		if (temp < 2 / 3) return p + (q - p) * (2 / 3 - temp) * 6;
+		return p;
+	};
+
+	const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+	const p = 2 * l - q;
+
+	return {
+		r: 255 * hueToRgb(p, q, h + 1 / 3),
+		g: 255 * hueToRgb(p, q, h),
+		b: 255 * hueToRgb(p, q, h - 1 / 3)
+	};
+}
+
+function rotateHueColor(baseHex, rotation, options = {}) {
+	const rgb = hexToRgb(baseHex);
+	if (!rgb) return normalizeHexColor(baseHex) || '#64748B';
+	const base = rgbToHsl(rgb);
+	const saturation = clamp(
+		base.s * (options.saturationMultiplier ?? 1) + (options.saturationOffset ?? 0),
+		options.minSaturation ?? 0,
+		options.maxSaturation ?? 1
+	);
+	const lightness = clamp(
+		base.l * (options.lightnessMultiplier ?? 1) + (options.lightnessOffset ?? 0),
+		options.minLightness ?? 0,
+		options.maxLightness ?? 1
+	);
+	return rgbToHex(
+		hslToRgb({
+			h: (base.h + rotation / 360 + 1) % 1,
+			s: saturation,
+			l: lightness
+		})
+	);
+}
+
 function mixColors(startHex, endHex, ratio) {
 	const start = hexToRgb(startHex);
 	const end = hexToRgb(endHex);
@@ -124,6 +194,83 @@ function createSurfaceScale(baseHex) {
 	};
 }
 
+function deriveSurfaceFromPrimary(primaryHex) {
+	return rotateHueColor(primaryHex, 8, {
+		saturationMultiplier: 0.08,
+		saturationOffset: 0.02,
+		minSaturation: 0.03,
+		maxSaturation: 0.14,
+		lightnessMultiplier: 0.24,
+		lightnessOffset: 0.02,
+		minLightness: 0.07,
+		maxLightness: 0.18
+	});
+}
+
+function deriveCompanionColorsFromPrimary(primaryHex) {
+	const primary = normalizeHexColor(primaryHex) || '#64748B';
+
+	const secondary = rotateHueColor(primary, 268, {
+		saturationMultiplier: 1.05,
+		saturationOffset: 0.03,
+		minSaturation: 0.42,
+		maxSaturation: 0.92,
+		lightnessMultiplier: 1.01,
+		lightnessOffset: 0.02,
+		minLightness: 0.34,
+		maxLightness: 0.68
+	});
+
+	const accent = rotateHueColor(primary, 332, {
+		saturationMultiplier: 1.12,
+		saturationOffset: 0.02,
+		minSaturation: 0.46,
+		maxSaturation: 0.95,
+		lightnessMultiplier: 1.04,
+		lightnessOffset: 0.03,
+		minLightness: 0.38,
+		maxLightness: 0.74
+	});
+
+	return { secondary, accent };
+}
+
+function deriveSemanticBaseColors(palette) {
+	const primary = normalizeHexColor(palette?.primary) || '#64748B';
+	return {
+		success: rotateHueColor(primary, 162, {
+			saturationMultiplier: 0.86,
+			saturationOffset: 0.03,
+			minSaturation: 0.34,
+			maxSaturation: 0.78,
+			lightnessMultiplier: 1.06,
+			lightnessOffset: 0.03,
+			minLightness: 0.4,
+			maxLightness: 0.7
+		}),
+		warning: rotateHueColor(primary, 56, {
+			saturationMultiplier: 0.96,
+			saturationOffset: 0.05,
+			minSaturation: 0.46,
+			maxSaturation: 0.9,
+			lightnessMultiplier: 1.08,
+			lightnessOffset: 0.04,
+			minLightness: 0.46,
+			maxLightness: 0.74
+		}),
+		error: rotateHueColor(primary, 12, {
+			saturationMultiplier: 1.1,
+			saturationOffset: 0.06,
+			minSaturation: 0.56,
+			maxSaturation: 0.96,
+			lightnessMultiplier: 0.98,
+			lightnessOffset: 0.02,
+			minLightness: 0.34,
+			maxLightness: 0.64
+		})
+	};
+}
+
 function toCssVars(prefix, scale) {
 	return Object.entries(scale).flatMap(([step, color]) => {
 		const contrast = readableTextColor(color);
@@ -141,11 +288,15 @@ export function getFallbackPalette(seed) {
 export function normalizePalette(value, fallbackSeed = '') {
 	const source = value && typeof value === 'object' ? value : {};
 	const fallback = getFallbackPalette(fallbackSeed);
+	const primary = normalizeHexColor(source.primary) || fallback.primary;
+	const companions = deriveCompanionColorsFromPrimary(primary);
+	const derivedSurface = deriveSurfaceFromPrimary(primary);
+
 	return {
-		primary: normalizeHexColor(source.primary) || fallback.primary,
-		secondary: normalizeHexColor(source.secondary) || fallback.secondary,
-		accent: normalizeHexColor(source.accent) || fallback.accent,
-		surface: normalizeHexColor(source.surface) || fallback.surface
+		primary,
+		secondary: normalizeHexColor(source.secondary) || companions.secondary,
+		accent: normalizeHexColor(source.accent) || companions.accent,
+		surface: normalizeHexColor(source.surface) || derivedSurface || fallback.surface
 	};
 }
 
@@ -156,6 +307,10 @@ export function buildMicrositeThemeStyle({ palette, fontPairing = 'poster' } = {
 	const secondaryScale = createScale(resolvedPalette.secondary);
 	const tertiaryScale = createScale(resolvedPalette.accent);
 	const surfaceScale = createSurfaceScale(resolvedPalette.surface);
+	const semanticBases = deriveSemanticBaseColors(resolvedPalette);
+	const successScale = createScale(semanticBases.success);
+	const warningScale = createScale(semanticBases.warning);
+	const errorScale = createScale(semanticBases.error);
 
 	const vars = new Map([
 		['--base-font-family', fonts.base],
@@ -167,11 +322,13 @@ export function buildMicrositeThemeStyle({ palette, fontPairing = 'poster' } = {
 		...toCssVars('primary', primaryScale),
 		...toCssVars('secondary', secondaryScale),
 		...toCssVars('tertiary', tertiaryScale),
-		...toCssVars('surface', surfaceScale)
+		...toCssVars('surface', surfaceScale),
+		...toCssVars('success', successScale),
+		...toCssVars('warning', warningScale),
+		...toCssVars('error', errorScale)
 	]);
 
 	return Array.from(vars.entries())
 		.map(([key, value]) => `${key}: ${value}`)
 		.join('; ');
 }
-
