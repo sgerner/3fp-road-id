@@ -17,7 +17,6 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
 	import { navigating } from '$app/stores';
 
 	function getInitialFilters() {
@@ -42,8 +41,6 @@
 	}
 	let showMap = $state(!((q || '').trim()) && !isMobileViewport());
 	let showMapLightbox = $state(false);
-	let resultsSectionEl = $state();
-	let shouldScrollToResults = $state(false);
 
 	let applyTimer;
 	function scheduleApply() {
@@ -84,20 +81,10 @@
 		} catch {}
 	}
 
-	function scrollResultsIntoView({ smooth = true } = {}) {
-		if (!resultsSectionEl) return;
-		resultsSectionEl.scrollIntoView({
-			behavior: smooth ? 'smooth' : 'auto',
-			block: 'start'
-		});
-	}
-
 	function handleSearchInput(event) {
 		const value = event?.currentTarget?.value ?? '';
 		if (value.trim()) {
 			showMap = false;
-			shouldScrollToResults = true;
-			setTimeout(() => scrollResultsIntoView({ smooth: true }), 40);
 		}
 		scheduleApply();
 	}
@@ -392,13 +379,6 @@
 		if (!showMap && showMapLightbox) {
 			showMapLightbox = false;
 		}
-	});
-
-	$effect(() => {
-		if (!shouldScrollToResults) return;
-		if ($navigating) return;
-		shouldScrollToResults = false;
-		setTimeout(() => scrollResultsIntoView({ smooth: true }), 10);
 	});
 
 	$effect(() => {
@@ -744,7 +724,7 @@
 	</section>
 
 	<!-- ═══════════════════════════════ RESULTS + MAP ═════════════════════════════ -->
-	<section id="group-list" class="space-y-5" bind:this={resultsSectionEl}>
+	<section id="group-list" class="space-y-5">
 		{#if data.error}
 			<div class="bg-error-500/10 border-error-500/30 rounded-xl border px-4 py-3">
 				<p class="text-error-600-400 m-0 text-sm">{data.error}</p>
@@ -790,7 +770,7 @@
 
 		<!-- Map -->
 		{#if showMap}
-			<div transition:slide={{ duration: 220 }}>
+			<div>
 				<div class="map-shell border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
 					<div bind:this={mapEl} class="map-canvas"></div>
 				</div>
@@ -825,7 +805,6 @@
 			<!-- Empty state -->
 			<div
 				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-				in:fade={{ duration: 200 }}
 			>
 				<div class="app-empty-orb" aria-hidden="true"></div>
 				<div class="relative z-10 mx-auto max-w-lg space-y-4">
@@ -853,14 +832,10 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each data.groups as g, i (g.id)}
+				{#each data.groups as g (g.id)}
 					<a
 						href={`/groups/${g.slug}`}
-						class="group-card group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
-						in:fade={{ duration: 120 }}
-						style="--stagger: {i % 9}"
-						out:fade={{ duration: 120 }}
-						animate:flip
+						class="group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
 					>
 						<!-- Cover image area -->
 						<div
@@ -1064,20 +1039,4 @@
 	}
 
 	/* ── Empty state ── */
-	/* ── Card entrance animation ── */
-	.group-card {
-		animation: card-in 380ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 50ms);
-	}
-
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(16px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
 </style>

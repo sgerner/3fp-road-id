@@ -1,35 +1,59 @@
 <script>
-	let { data } = $props();
+	let { data, form } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
 	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
+	function getInitialValues() {
+		return form?.values ?? {};
+	}
+	function getDuplicateCandidates() {
+		return form?.duplicate_candidates ?? [];
+	}
+	function getNeedsDuplicateOverride(candidateCount) {
+		return Boolean(form?.needs_duplicate_override && candidateCount);
+	}
+	const initialValues = getInitialValues();
+	const duplicateCandidates = getDuplicateCandidates();
+	const needsDuplicateOverride = getNeedsDuplicateOverride(duplicateCandidates.length);
+
+	function toValueSet(input) {
+		if (Array.isArray(input)) return new Set(input.map((value) => String(value)));
+		if (input == null || input === '') return new Set();
+		return new Set([String(input)]);
+	}
+
+	const selectedGroupTypeIds = toValueSet(initialValues.group_type_ids);
+	const selectedAudienceFocusIds = toValueSet(initialValues.audience_focus_ids);
+	const selectedRidingDisciplineIds = toValueSet(initialValues.riding_discipline_ids);
+	const selectedSkillLevelIds = toValueSet(initialValues.skill_level_ids);
+
 	// Simple client-side slug preview
-	let name = $state('');
-	let handle = $state('');
-	let handleTouched = $state(false);
+	let name = $state(initialValues.name || '');
+	let handle = $state(initialValues.slug || '');
+	let handleTouched = $state(Boolean(initialValues.slug));
 	let handleStatus = $state(''); // '', 'checking', 'available', 'taken', 'invalid'
 	let handleTimer;
 	// Optional AI-assisted enrichment inputs
-	let aiInstagram = $state('');
-	let aiFacebook = $state('');
-	let aiWebsite = $state('');
+	let aiInstagram = $state(initialValues.aiInstagram || '');
+	let aiFacebook = $state(initialValues.aiFacebook || '');
+	let aiWebsite = $state(initialValues.aiWebsite || '');
 	let aiLoading = $state(false);
 	let aiError = $state('');
 	// Hidden values we will submit (extra AI fields not shown on this page)
-	let hiddenSuggestedWebsite = $state('');
-	let hiddenSocialLinks = $state(''); // JSON string
-	let hiddenMembershipInfo = $state('');
-	let hiddenMeetingAddress = $state('');
-	let hiddenLat = $state('');
-	let hiddenLng = $state('');
-	let hiddenServiceArea = $state('');
-	let hiddenSkills = $state('');
-	let hiddenActivityFrequency = $state('');
-	let hiddenTypicalTime = $state('');
-	let hiddenLogoUrl = $state('');
-	let hiddenCoverUrl = $state('');
+	let hiddenSuggestedWebsite = $state(initialValues.suggested_website_url || '');
+	let hiddenSocialLinks = $state(initialValues.social_links || ''); // JSON string
+	let hiddenMembershipInfo = $state(initialValues.membership_info || '');
+	let hiddenMeetingAddress = $state(initialValues.specific_meeting_point_address || '');
+	let hiddenLat = $state(initialValues.latitude || '');
+	let hiddenLng = $state(initialValues.longitude || '');
+	let hiddenServiceArea = $state(initialValues.service_area_description || '');
+	let hiddenSkills = $state(initialValues.skill_levels_description || '');
+	let hiddenActivityFrequency = $state(initialValues.activity_frequency || '');
+	let hiddenTypicalTime = $state(initialValues.typical_activity_day_time || '');
+	let hiddenLogoUrl = $state(initialValues.logo_url || '');
+	let hiddenCoverUrl = $state(initialValues.cover_photo_url || '');
 	let formEl = $state();
 	function applyLocationValue(id, value) {
 		const v = value == null ? '' : `${value}`.trim();
@@ -133,9 +157,9 @@
 		if (options.immediate) run();
 		else geocodeTimeout = setTimeout(run, 600);
 	}
-	let city = $state('');
-	let stateRegion = $state('');
-	let country = $state('US');
+	let city = $state(initialValues.city || '');
+	let stateRegion = $state(initialValues.state_region || '');
+	let country = $state(initialValues.country || 'US');
 	let googleReady = $state(false);
 	let pendingGeocode;
 	let lastGeocodeKey = '';
@@ -485,6 +509,40 @@
 		<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
 		<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
 		<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
+		<input type="hidden" name="allow_duplicate_override" value={needsDuplicateOverride ? '1' : '0'} />
+
+		{#if form?.error}
+			<div class="new-card border border-error-500/35 bg-error-500/10 rounded-2xl px-4 py-3">
+				<p class="text-error-600-400 text-sm">{form.error}</p>
+			</div>
+		{/if}
+
+		{#if needsDuplicateOverride}
+			<section class="new-card border border-warning-500/35 bg-warning-500/10 rounded-2xl p-4">
+				<h2 class="text-sm font-bold tracking-wide uppercase opacity-85">Possible Duplicates</h2>
+				<p class="mt-1 text-sm opacity-80">
+					These existing groups look similar. Submitting again will create a new group anyway.
+				</p>
+				<ul class="mt-3 space-y-2">
+					{#each duplicateCandidates as candidate}
+						<li class="border-surface-500/20 rounded-xl border px-3 py-2 text-sm">
+							<div class="font-semibold">
+								<a href={`/groups/${candidate.slug}`} target="_blank" rel="noreferrer">
+									{candidate.name}
+								</a>
+							</div>
+							<div class="opacity-70">
+								{#if candidate.city}{candidate.city},{/if}
+								{candidate.state_region} · {candidate.country}
+							</div>
+							{#if candidate.duplicate_reason}
+								<div class="text-xs opacity-65">Match: {candidate.duplicate_reason}</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<section class="new-card relative overflow-hidden rounded-2xl p-5">
 			<div class="new-card-accent-bar tertiary" aria-hidden="true"></div>
@@ -559,6 +617,7 @@
 						name="tagline"
 						class="input preset-tonal-surface"
 						placeholder="A short, punchy description of your group"
+						value={initialValues.tagline || ''}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -568,7 +627,7 @@
 						name="description"
 						class="textarea preset-tonal-surface"
 						rows="4"
-					></textarea>
+					>{initialValues.description || ''}</textarea>
 				</div>
 			</div>
 		</section>
@@ -633,6 +692,7 @@
 						name="website_url"
 						class="input preset-tonal-surface"
 						placeholder="https://example.org"
+						value={initialValues.website_url || ''}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -641,6 +701,7 @@
 						id="public_contact_email"
 						name="public_contact_email"
 						class="input preset-tonal-surface"
+						value={initialValues.public_contact_email || ''}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -649,6 +710,7 @@
 						id="public_phone_number"
 						name="public_phone_number"
 						class="input preset-tonal-surface"
+						value={initialValues.public_phone_number || ''}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -660,6 +722,7 @@
 						name="preferred_contact_method_instructions"
 						class="input preset-tonal-surface"
 						placeholder="Best way to reach you"
+						value={initialValues.preferred_contact_method_instructions || ''}
 					/>
 				</div>
 				<div class="flex flex-col gap-1 md:col-span-2">
@@ -669,7 +732,7 @@
 						name="how_to_join_instructions"
 						class="textarea preset-tonal-surface"
 						rows="3"
-					></textarea>
+					>{initialValues.how_to_join_instructions || ''}</textarea>
 				</div>
 			</div>
 		</section>
@@ -687,7 +750,13 @@
 					<div class="flex flex-col gap-2">
 						{#each data.group_types as gt}
 							<label class="flex items-center gap-2 text-sm">
-								<input type="checkbox" name="group_type_ids" value={gt.id} class="checkbox" />
+								<input
+									type="checkbox"
+									name="group_type_ids"
+									value={gt.id}
+									class="checkbox"
+									checked={selectedGroupTypeIds.has(String(gt.id))}
+								/>
 								<span>{gt.name}</span>
 							</label>
 						{/each}
@@ -698,7 +767,13 @@
 					<div class="flex flex-col gap-2">
 						{#each data.audience_focuses as af}
 							<label class="flex items-center gap-2 text-sm">
-								<input type="checkbox" name="audience_focus_ids" value={af.id} class="checkbox" />
+								<input
+									type="checkbox"
+									name="audience_focus_ids"
+									value={af.id}
+									class="checkbox"
+									checked={selectedAudienceFocusIds.has(String(af.id))}
+								/>
 								<span>{af.name}</span>
 							</label>
 						{/each}
@@ -714,6 +789,7 @@
 									name="riding_discipline_ids"
 									value={rd.id}
 									class="checkbox"
+									checked={selectedRidingDisciplineIds.has(String(rd.id))}
 								/>
 								<span>{rd.name}</span>
 							</label>
@@ -725,7 +801,13 @@
 					<div class="flex flex-col gap-2">
 						{#each data.skill_levels as sl}
 							<label class="flex items-center gap-2 text-sm">
-								<input type="checkbox" name="skill_level_ids" value={sl.id} class="checkbox" />
+								<input
+									type="checkbox"
+									name="skill_level_ids"
+									value={sl.id}
+									class="checkbox"
+									checked={selectedSkillLevelIds.has(String(sl.id))}
+								/>
 								<span>{sl.name}</span>
 							</label>
 						{/each}
@@ -739,7 +821,7 @@
 			<button
 				class="btn preset-filled-primary-500 px-8 py-3 text-base font-bold shadow-lg transition-transform hover:scale-105"
 			>
-				Create Group →
+				{needsDuplicateOverride ? 'Create Group Anyway →' : 'Create Group →'}
 			</button>
 		</div>
 	</form>

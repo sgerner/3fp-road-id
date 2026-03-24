@@ -12,6 +12,8 @@ import {
 export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
 const DEFAULT_FETCH_TIMEOUT = 3000; // ms
+const JINA_READER_TIMEOUT = 9000;
+const JINA_READER_PREFIX = 'https://r.jina.ai/';
 const SITE_CRAWL_PAGE_LIMIT = 5;
 const SITE_CRAWL_BATCH_SIZE = 3;
 const SITE_CANDIDATE_LIMIT = 25;
@@ -19,7 +21,6 @@ const MAX_TEXT_PER_DOC = 12000;
 const MAX_CONTEXT_TEXT_BUDGET = 14000;
 const MAX_CONTEXT_TEXT_PER_DOC = 3500;
 const MAX_CONTEXT_DOCS = 4;
-const MAX_CONTEXT_URLS = 6;
 const MAX_STRUCTURED_SNIPPETS = 3;
 const MAX_CONTEXT_STRUCTURED_SNIPPETS = 4;
 const MAX_ASSET_LINKS = 1;
@@ -27,7 +28,6 @@ const MAX_EVIDENCE_SNIPPETS_PER_FIELD = 3;
 const MAX_NARRATIVE_EVIDENCE_SNIPPETS = 16;
 const MAX_SOCIAL_FALLBACK_SITES = 0;
 const RECENT_DAYS_WINDOW = 365;
-const ENABLE_GOOGLE_SEARCH_TOOL = false;
 const ENABLE_SITEMAP_DISCOVERY = false;
 const ENABLE_ASSET_FETCH = false;
 const EXTRACTION_PASS_TIMEOUT_MS = 30000;
@@ -215,28 +215,90 @@ const NARRATIVE_RESPONSE_SCHEMA = {
 /**
  * Fetch a URL and return { url, html, text } with minimal sanitization.
  */
+function isJinaReaderUrl(url = '') {
+	return /^https?:\/\/r\.jina\.ai\//i.test(url || '');
+}
+
+function buildJinaReaderUrl(url = '') {
+	return isJinaReaderUrl(url) ? url : `${JINA_READER_PREFIX}${url}`;
+}
+
+function extractCleanTextFromHtml(html = '') {
+	if (!html) return '';
+	return html
+		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+		.replace(/<!--([\s\S]*?)-->/g, '')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function cleanReaderMarkdown(markdown = '') {
+	if (!markdown) return '';
+	let text = markdown.replace(/\r/g, '').trim();
+	const marker = /\nMarkdown Content:\n/i.exec(text);
+	if (marker && typeof marker.index === 'number') {
+		text = text.slice(marker.index + marker[0].length).trim();
+	}
+	text = text
+		.replace(/^Title:\s.*$/gim, '')
+		.replace(/^URL Source:\s.*$/gim, '')
+		.replace(/^Warning:\s.*$/gim, '')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
+	return text;
+}
+
+async function fetchReaderMarkdown(url) {
+	const readerUrl = buildJinaReaderUrl(url);
+	const res = await fetchWithTimeout(
+		readerUrl,
+		{
+			redirect: 'follow',
+			headers: {
+				...BROWSER_LIKE_HEADERS,
+				Accept: 'text/markdown,text/plain;q=0.9,*/*;q=0.8'
+			}
+		},
+		JINA_READER_TIMEOUT
+	);
+	if (!res?.ok) return '';
+	const raw = await res.text().catch(() => '');
+	return cleanReaderMarkdown(raw);
+}
+
 async function fetchAndExtract(url) {
 	try {
-		const res = await fetchWithTimeout(
-			url,
-			{ redirect: 'follow', headers: BROWSER_LIKE_HEADERS },
-			DEFAULT_FETCH_TIMEOUT
-		);
-		if (!res || !res.ok) return null;
-		const html = await res.text();
-		const structured = extractEmbeddedJson(html);
-		const pageSignals = extractPageSignals(html);
-		const clean = html
-			.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-			.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-			.replace(/<!--([\s\S]*?)-->/g, '')
-			.replace(/<[^>]+>/g, ' ')
-			.replace(/\s+/g, ' ')
-			.trim();
+		let html = '';
+		let structured = [];
+		let pageSignals = null;
+		let fallbackText = '';
+
+		if (!isJinaReaderUrl(url)) {
+			const res = await fetchWithTimeout(
+				url,
+				{ redirect: 'follow', headers: BROWSER_LIKE_HEADERS },
+				DEFAULT_FETCH_TIMEOUT
+			);
+			if (res?.ok) {
+				html = await res.text().catch(() => '');
+				if (html) {
+					structured = extractEmbeddedJson(html);
+					pageSignals = extractPageSignals(html);
+					fallbackText = extractCleanTextFromHtml(html);
+				}
+			}
+		}
+
+		const readerText = await fetchReaderMarkdown(url);
+		const text = truncate(readerText || fallbackText, MAX_TEXT_PER_DOC);
+		if (!text) return null;
+
 		return {
 			url,
 			html,
-			text: clean.slice(0, MAX_TEXT_PER_DOC),
+			text,
 			structured,
 			pageSignals
 		};
@@ -682,18 +744,12 @@ async function mirrorImageFields(fields) {
 }
 
 async function runExtractionPass({ client, model, context, name }) {
-	const { contents, contextMode } = buildExtractionContents(context, name);
-	const tools = [];
-	if (contextMode === 'url') {
-		tools.push({ urlContext: {} });
-		if (ENABLE_GOOGLE_SEARCH_TOOL) tools.unshift({ google_search: {} });
-	}
+	const contents = buildExtractionContents(context, name);
 	const response = await client.generateContent({
 		model,
 		contents,
 		config: {
-			responseSchema: RESPONSE_SCHEMA,
-			...(tools.length ? { tools } : {})
+			responseSchema: RESPONSE_SCHEMA
 		}
 	});
 	let text = response.text ?? '';
@@ -782,14 +838,9 @@ function buildModelContext({
 }
 
 function buildExtractionContents(context, name) {
-	const { urls, scraped, siteCrawlPlan, hints, socialFacts, deterministicFacts, existingProfile } =
+	const { scraped, siteCrawlPlan, hints, socialFacts, deterministicFacts, existingProfile } =
 		context;
 	const rankedDocs = rankDocsForContext(scraped, siteCrawlPlan);
-	const totalTextChars = rankedDocs.reduce(
-		(sum, doc) => sum + Math.min((doc?.text || '').length, MAX_CONTEXT_TEXT_PER_DOC),
-		0
-	);
-	const useTextContext = totalTextChars >= 2200 || rankedDocs.length >= 2;
 	const hintBlock = hints.length
 		? `High-level cues derived from retrieved content:\n${hints.map((h) => `- ${h}`).join('\n')}\n`
 		: '';
@@ -817,41 +868,33 @@ You may receive an existing profile baseline from admins. Treat those values as 
 Existing profile baseline summary: ${existingSummary}
 Deterministic pre-extracted clues (may be incomplete): ${deterministicSummary}
 Return STRICT JSON only in the schema. If unsure, leave fields null and arrays empty.
-Context is provided in "${useTextContext ? 'text' : 'url'}" mode. Use only that context and do not assume missing data.
+Context is provided in "text" mode from extracted markdown/context snapshots. Use only that context and do not assume missing data.
 Context name (if provided by user): ${name || ''}`;
 
 	const contents = [instruction];
-	if (useTextContext) {
-		let textBudget = MAX_CONTEXT_TEXT_BUDGET;
-		let structuredBudget = MAX_CONTEXT_STRUCTURED_SNIPPETS;
-		let docsAdded = 0;
-		for (const doc of rankedDocs) {
-			if (textBudget <= 0 || docsAdded >= MAX_CONTEXT_DOCS) break;
-			const text = truncate(doc.text || '', Math.min(MAX_CONTEXT_TEXT_PER_DOC, textBudget));
-			if (!text) continue;
-			docsAdded += 1;
-			textBudget -= text.length;
-			const contextLabel = buildDocContextLabel(doc, siteCrawlPlan);
-			const recency = describeDocRecency(doc);
-			contents.push(
-				`Content from ${doc.url}${contextLabel ? ` (${contextLabel})` : ''}${recency ? ` [${recency}]` : ''}:\n${text}`
-			);
-			const signalText = buildPageSignalsText(doc.pageSignals);
-			if (signalText) contents.push(`Page signals from ${doc.url}:\n${signalText}`);
-			for (const snippet of doc.structured || []) {
-				if (structuredBudget <= 0) break;
-				structuredBudget -= 1;
-				contents.push(`Structured data from ${doc.url} (${snippet.label}):\n${snippet.json}`);
-			}
+	let textBudget = MAX_CONTEXT_TEXT_BUDGET;
+	let structuredBudget = MAX_CONTEXT_STRUCTURED_SNIPPETS;
+	let docsAdded = 0;
+	for (const doc of rankedDocs) {
+		if (textBudget <= 0 || docsAdded >= MAX_CONTEXT_DOCS) break;
+		const text = truncate(doc.text || '', Math.min(MAX_CONTEXT_TEXT_PER_DOC, textBudget));
+		if (!text) continue;
+		docsAdded += 1;
+		textBudget -= text.length;
+		const contextLabel = buildDocContextLabel(doc, siteCrawlPlan);
+		const recency = describeDocRecency(doc);
+		contents.push(
+			`Content from ${doc.url}${contextLabel ? ` (${contextLabel})` : ''}${recency ? ` [${recency}]` : ''}:\n${text}`
+		);
+		const signalText = buildPageSignalsText(doc.pageSignals);
+		if (signalText) contents.push(`Page signals from ${doc.url}:\n${signalText}`);
+		for (const snippet of doc.structured || []) {
+			if (structuredBudget <= 0) break;
+			structuredBudget -= 1;
+			contents.push(`Structured data from ${doc.url} (${snippet.label}):\n${snippet.json}`);
 		}
-	} else {
-		const urlCandidates = uniqueNormalizedValues([
-			...(urls || []),
-			...(siteCrawlPlan || []).map((page) => page?.url).filter(Boolean)
-		]).slice(0, MAX_CONTEXT_URLS);
-		for (const u of urlCandidates) contents.push(u);
 	}
-	return { contents, contextMode: useTextContext ? 'text' : 'url' };
+	return contents;
 }
 
 function buildDeterministicSummary(deterministicFacts) {
