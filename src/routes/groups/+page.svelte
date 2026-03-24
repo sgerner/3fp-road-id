@@ -37,8 +37,13 @@
 	// Advanced filters collapse state
 	let showAdvanced = $state(false);
 	// Map visibility
-	let showMap = $state(true);
+	function isMobileViewport() {
+		return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+	}
+	let showMap = $state(!((q || '').trim()) && !isMobileViewport());
 	let showMapLightbox = $state(false);
+	let resultsSectionEl = $state();
+	let shouldScrollToResults = $state(false);
 
 	let applyTimer;
 	function scheduleApply() {
@@ -77,6 +82,24 @@
 			const target = url.pathname + (qs ? `?${qs}` : '');
 			goto(target, { replaceState: true, keepFocus: true, noScroll: true });
 		} catch {}
+	}
+
+	function scrollResultsIntoView({ smooth = true } = {}) {
+		if (!resultsSectionEl) return;
+		resultsSectionEl.scrollIntoView({
+			behavior: smooth ? 'smooth' : 'auto',
+			block: 'start'
+		});
+	}
+
+	function handleSearchInput(event) {
+		const value = event?.currentTarget?.value ?? '';
+		if (value.trim()) {
+			showMap = false;
+			shouldScrollToResults = true;
+			setTimeout(() => scrollResultsIntoView({ smooth: true }), 40);
+		}
+		scheduleApply();
 	}
 
 	function clearAll() {
@@ -248,6 +271,7 @@
 	}
 
 	onMount(async () => {
+		if (isMobileViewport()) showMap = false;
 		try {
 			const mod = await import('leaflet');
 			await import('leaflet.markercluster');
@@ -368,6 +392,13 @@
 		if (!showMap && showMapLightbox) {
 			showMapLightbox = false;
 		}
+	});
+
+	$effect(() => {
+		if (!shouldScrollToResults) return;
+		if ($navigating) return;
+		shouldScrollToResults = false;
+		setTimeout(() => scrollResultsIntoView({ smooth: true }), 10);
 	});
 
 	$effect(() => {
@@ -500,7 +531,7 @@
 							class="input bg-surface-950-50/5 pl-9"
 							bind:value={q}
 							placeholder="Name, city, description…"
-							oninput={scheduleApply}
+							oninput={handleSearchInput}
 						/>
 					</div>
 
@@ -713,7 +744,7 @@
 	</section>
 
 	<!-- ═══════════════════════════════ RESULTS + MAP ═════════════════════════════ -->
-	<section id="group-list" class="space-y-5">
+	<section id="group-list" class="space-y-5" bind:this={resultsSectionEl}>
 		{#if data.error}
 			<div class="bg-error-500/10 border-error-500/30 rounded-xl border px-4 py-3">
 				<p class="text-error-600-400 m-0 text-sm">{data.error}</p>

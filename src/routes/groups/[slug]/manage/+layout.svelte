@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/stores';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
+	import { clickOutside } from '$lib/actions/clickOutside.js';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
@@ -9,7 +10,7 @@
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconShield from '@lucide/svelte/icons/shield';
-	import IconIdCard from '@lucide/svelte/icons/id-card';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 
 	let { children, data } = $props();
@@ -28,43 +29,40 @@
 			icon: IconLayoutDashboard,
 			href: `/groups/${slug}/manage`
 		},
+		...(data.can_manage_social
+			? [
+					{
+						id: 'social',
+						label: 'Socials',
+						icon: IconRss,
+						href: `/groups/${slug}/manage/social`
+					}
+				]
+			: []),
+		{
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
+		},
+		{
+			id: 'assets',
+			label: 'Assets',
+			icon: IconFolderOpen,
+			href: `/groups/${slug}/manage/assets`
+		},
 		{
 			id: 'edit',
 			label: 'Edit Profile',
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
-		},
-			{
-				id: 'membership',
-				label: 'Membership',
-				icon: IconIdCard,
-				href: `/groups/${slug}/manage/membership`
-			},
-			{
-				id: 'assets',
-				label: 'Assets',
-				icon: IconFolderOpen,
-				href: `/groups/${slug}/manage/assets`
-			},
-			{
-				id: 'news',
-				label: 'Updates',
-				icon: IconNewspaper,
-				href: `/groups/${slug}/manage/news`
-			},
-		...(data.can_manage_social
-			? [
-					{
-						id: 'social',
-						label: 'Social Media',
-						icon: IconRss,
-						href: `/groups/${slug}/manage/social`
-					}
-				]
-			: [])
+		}
 	]);
 
 	const pathname = $derived($page.url.pathname);
+	const activeTab = $derived(allTabs.find((tab) => isActive(tab)) ?? allTabs[0] ?? null);
+
+	let isDropdownOpen = $state(false);
 
 	function isActive(tab) {
 		if (tab.id === 'overview') {
@@ -72,11 +70,31 @@
 		}
 		return pathname.startsWith(tab.href);
 	}
+
+	function selectTab(tab) {
+		if (tab.href === pathname) {
+			isDropdownOpen = false;
+			return;
+		}
+		isDropdownOpen = false;
+		window.location.assign(tab.href);
+	}
+
+	function toggleDropdown() {
+		isDropdownOpen = !isDropdownOpen;
+	}
+
+	function closeDropdown() {
+		isDropdownOpen = false;
+	}
 </script>
 
 <div class="manage-shell min-h-screen w-full">
 	<main class="mx-auto max-w-6xl space-y-6 pt-4 pb-12 md:px-4 lg:px-6">
-		<section class="manage-hero relative overflow-hidden rounded-3xl" in:fade={{ duration: 300 }}>
+		<section
+			class="manage-hero relative overflow-visible rounded-t-3xl md:overflow-hidden md:rounded-3xl"
+			in:fade={{ duration: 300 }}
+		>
 			<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
 			<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
 			<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
@@ -137,11 +155,65 @@
 				</div>
 			</div>
 
-			<div
-				class="hero-tabs-wrapper bg-surface-100-900/50 relative z-10 border-t border-white/10 px-6 lg:px-10"
-			>
+			<div class="hero-tabs-wrapper relative z-10 border-t border-white/10">
+				<div class="mobile-manage-menu md:hidden" use:clickOutside={closeDropdown}>
+					<button
+						type="button"
+						class="mobile-manage-trigger"
+						onclick={toggleDropdown}
+						aria-expanded={isDropdownOpen}
+						aria-haspopup="listbox"
+						aria-controls="mobile-manage-dropdown"
+					>
+						<span class="mobile-manage-trigger-label">Management Menu</span>
+						<span class="mobile-manage-trigger-value">
+							{#if activeTab}
+								{@const ActiveIcon = activeTab.icon}
+								<ActiveIcon class="h-4 w-4" aria-hidden="true" />
+								<span>{activeTab.label}</span>
+							{/if}
+						</span>
+						<span
+							class="mobile-manage-trigger-chevron"
+							class:rotate-180={isDropdownOpen}
+							aria-hidden="true"
+						>
+							<IconChevronDown class="h-5 w-5" />
+						</span>
+					</button>
+
+					{#if isDropdownOpen}
+						<div
+							id="mobile-manage-dropdown"
+							class="mobile-manage-dropdown"
+							role="listbox"
+							aria-label="Management sections"
+							transition:fly={{ y: -8, duration: 200 }}
+						>
+							{#each allTabs as tab, index}
+								{@const Icon = tab.icon}
+								{@const active = isActive(tab)}
+								<button
+									type="button"
+									class="mobile-manage-option"
+									class:active
+									role="option"
+									aria-selected={active}
+									onclick={() => selectTab(tab)}
+									style="animation-delay: {index * 30}ms"
+								>
+									<Icon aria-hidden="true" />
+									<span class="mobile-manage-option-label">{tab.label}</span>
+									{#if active}
+										<span class="mobile-manage-option-indicator" aria-hidden="true"></span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 				<nav
-					class="manage-tabs flex items-stretch gap-6 overflow-x-auto"
+					class="manage-tabs hidden items-stretch gap-6 overflow-x-auto px-6 md:flex"
 					aria-label="Group management sections"
 					style="scrollbar-width: none; -ms-overflow-style: none;"
 				>
@@ -228,6 +300,153 @@
 	.manage-tabs {
 		scrollbar-width: none;
 		-ms-overflow-style: none;
+	}
+
+	.mobile-manage-menu {
+		position: relative;
+	}
+
+	.mobile-manage-trigger {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 1rem 1.25rem;
+		background: color-mix(in oklab, var(--color-surface-950) 75%, transparent);
+		border: none;
+		border-radius: 0;
+		cursor: pointer;
+		transition: background-color 150ms ease;
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+	}
+
+	.mobile-manage-trigger:hover {
+		background-color: color-mix(in oklab, var(--color-surface-900) 85%, transparent);
+	}
+
+	.mobile-manage-trigger:focus-visible {
+		outline: none;
+		background-color: color-mix(in oklab, var(--color-surface-900) 90%, transparent);
+	}
+
+	.mobile-manage-trigger-label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
+	}
+
+	.mobile-manage-trigger-value {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--color-surface-50);
+	}
+
+	.mobile-manage-trigger-value :global(svg) {
+		color: color-mix(in oklab, var(--color-primary-300) 90%, white 10%);
+		filter: drop-shadow(0 1px 2px color-mix(in oklab, var(--color-surface-950) 50%, transparent));
+	}
+
+	.mobile-manage-trigger-chevron {
+		color: color-mix(in oklab, var(--color-primary-300) 80%, white 20%);
+		transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.mobile-manage-trigger-chevron.rotate-180 {
+		transform: rotate(180deg);
+	}
+
+	.mobile-manage-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		z-index: 50;
+		background: linear-gradient(
+			180deg,
+			color-mix(in oklab, var(--color-surface-900) 95%, transparent) 0%,
+			color-mix(in oklab, var(--color-surface-950) 98%, transparent) 100%
+		);
+		border-top: 1px solid color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		box-shadow: 0 16px 48px -8px color-mix(in oklab, var(--color-surface-950) 80%, transparent);
+	}
+
+	.mobile-manage-option {
+		display: flex;
+		align-items: center;
+		gap: 0.875rem;
+		width: 100%;
+		padding: 0.875rem 1.25rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		color: color-mix(in oklab, var(--color-surface-200) 90%, transparent);
+		font-size: 0.9375rem;
+		font-weight: 500;
+		transition: all 150ms ease;
+		opacity: 0;
+		transform: translateX(-8px);
+		animation: option-in 250ms ease forwards;
+	}
+
+	@keyframes option-in {
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	.mobile-manage-option:hover {
+		background-color: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		color: var(--color-surface-50);
+	}
+
+	.mobile-manage-option:focus-visible {
+		outline: none;
+		background-color: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		color: var(--color-surface-50);
+	}
+
+	.mobile-manage-option.active {
+		background-color: color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		color: var(--color-surface-50);
+	}
+
+	.mobile-manage-option :global(svg) {
+		width: 1.125rem;
+		height: 1.125rem;
+		flex-shrink: 0;
+		opacity: 0.8;
+		transition: opacity 150ms ease;
+	}
+
+	.mobile-manage-option:hover :global(svg),
+	.mobile-manage-option.active :global(svg) {
+		opacity: 1;
+	}
+
+	.mobile-manage-option-label {
+		flex: 1;
+	}
+
+	.mobile-manage-option-indicator {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--color-primary-400);
+		box-shadow: 0 0 8px var(--color-primary-400);
 	}
 
 	.manage-tabs::-webkit-scrollbar {

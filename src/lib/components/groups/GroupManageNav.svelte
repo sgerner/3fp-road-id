@@ -3,7 +3,6 @@
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
-	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 
@@ -19,40 +18,34 @@
 			icon: IconLayoutDashboard,
 			href: `/groups/${slug}/manage`
 		},
+		...(canManageSocial
+			? [
+					{
+						id: 'social',
+						label: 'Socials',
+						icon: IconRss,
+						href: `/groups/${slug}/manage/social`
+					}
+				]
+			: []),
+		{
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
+		},
+		{
+			id: 'assets',
+			label: 'Assets',
+			icon: IconFolderOpen,
+			href: `/groups/${slug}/manage/assets`
+		},
 		{
 			id: 'edit',
 			label: 'Edit Profile',
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
-		},
-			{
-				id: 'membership',
-				label: 'Membership',
-				icon: IconIdCard,
-				href: `/groups/${slug}/manage/membership`
-			},
-			{
-				id: 'assets',
-				label: 'Assets',
-				icon: IconFolderOpen,
-				href: `/groups/${slug}/manage/assets`
-			},
-			{
-				id: 'news',
-				label: 'Updates',
-				icon: IconNewspaper,
-				href: `/groups/${slug}/manage/news`
-			},
-		...(canManageSocial
-			? [
-					{
-						id: 'social',
-						label: 'Social Media',
-						icon: IconRss,
-						href: `/groups/${slug}/manage/social`
-					}
-				]
-			: [])
+		}
 	]);
 
 	function isActive(tab) {

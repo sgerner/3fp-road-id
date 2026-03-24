@@ -39,6 +39,154 @@ function slugify(text) {
 		.replace(/-+/g, '-');
 }
 
+function normalizeComparableText(text) {
+	return (text || '')
+		.toString()
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function toTokenSet(text) {
+	return new Set(
+		normalizeComparableText(text)
+			.split(' ')
+			.map((part) => part.trim())
+			.filter((part) => part.length >= 3)
+	);
+}
+
+function tokenSimilarity(a, b) {
+	const aSet = toTokenSet(a);
+	const bSet = toTokenSet(b);
+	if (!aSet.size || !bSet.size) return 0;
+	let overlap = 0;
+	for (const token of aSet) {
+		if (bSet.has(token)) overlap += 1;
+	}
+	const union = new Set([...aSet, ...bSet]).size || 1;
+	return overlap / union;
+}
+
+function normalizeHost(url) {
+	if (!url) return '';
+	try {
+		const parsed = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`);
+		return parsed.hostname.replace(/^www\./i, '').toLowerCase();
+	} catch {
+		return '';
+	}
+}
+
+function sameText(a, b) {
+	const av = normalizeComparableText(a);
+	const bv = normalizeComparableText(b);
+	return Boolean(av && bv && av === bv);
+}
+
+function formDataToObject(formData) {
+	const out = {};
+	for (const [key, rawValue] of formData.entries()) {
+		const value = typeof rawValue === 'string' ? rawValue : '';
+		if (Object.prototype.hasOwnProperty.call(out, key)) {
+			const existing = out[key];
+			if (Array.isArray(existing)) existing.push(value);
+			else out[key] = [existing, value];
+		} else {
+			out[key] = value;
+		}
+	}
+	return out;
+}
+
+async function findPotentialDuplicateGroups({ name, city, state_region, country, website_url, slug }) {
+	const safeName = (name || '').trim();
+	if (!safeName || !country) return [];
+
+	const tokens = Array.from(toTokenSet(safeName)).slice(0, 4);
+	let query = supabase
+		.from('groups')
+		.select('id, slug, name, city, state_region, country, website_url')
+		.eq('country', country)
+		.limit(120);
+
+	if (tokens.length) {
+		query = query.or(tokens.map((token) => `name.ilike.%${token}%`).join(','));
+	}
+
+	const { data, error } = await query;
+	if (error || !Array.isArray(data)) return [];
+
+	const targetHost = normalizeHost(website_url);
+	const targetSlug = slugify(slug || safeName);
+	const targetState = normalizeComparableText(state_region);
+	const targetCity = normalizeComparableText(city);
+	const targetName = normalizeComparableText(safeName);
+
+	const scored = data
+		.map((group) => {
+			const groupName = normalizeComparableText(group.name);
+			if (!groupName) return null;
+
+			let score = 0;
+			const reasons = [];
+
+			if (groupName === targetName) {
+				score += 1.35;
+				reasons.push('exact name match');
+			} else {
+				const similarity = tokenSimilarity(group.name, safeName);
+				if (similarity >= 0.5) {
+					score += similarity;
+					reasons.push(`name similarity ${Math.round(similarity * 100)}%`);
+				}
+			}
+
+			if (sameText(group.slug, targetSlug)) {
+				score += 0.7;
+				reasons.push('matching slug');
+			}
+
+			const groupState = normalizeComparableText(group.state_region);
+			const groupCity = normalizeComparableText(group.city);
+			if (targetState && groupState && targetState === groupState) {
+				score += 0.32;
+				reasons.push('same state/region');
+			}
+			if (targetCity && groupCity && targetCity === groupCity) {
+				score += 0.24;
+				reasons.push('same city');
+			}
+
+			const groupHost = normalizeHost(group.website_url);
+			if (targetHost && groupHost && targetHost === groupHost) {
+				score += 0.95;
+				reasons.push('same website domain');
+			}
+
+			if (score < 1.1) return null;
+
+			return {
+				id: group.id,
+				slug: group.slug,
+				name: group.name,
+				city: group.city,
+				state_region: group.state_region,
+				country: group.country,
+				website_url: group.website_url,
+				duplicate_score: Number(score.toFixed(2)),
+				duplicate_reason: reasons.join(', ')
+			};
+		})
+		.filter(Boolean)
+		.sort((a, b) => b.duplicate_score - a.duplicate_score)
+		.slice(0, 5);
+
+	return scored;
+}
+
 export const load = async () => {
 	const [gt, af, rd, sl] = await Promise.all([
 		supabase.from('group_types').select('id, name').order('name'),
@@ -58,6 +206,7 @@ export const load = async () => {
 export const actions = {
 	default: async ({ request }) => {
 		const form = await request.formData();
+		const values = formDataToObject(form);
 		const name = form.get('name')?.toString().trim();
 		const city = form.get('city')?.toString().trim() ?? '';
 		const state_region = form.get('state_region')?.toString().trim();
@@ -107,13 +256,32 @@ export const actions = {
 				return null;
 			}
 		})();
+		const allow_duplicate_override = form.get('allow_duplicate_override')?.toString() === '1';
 
 		if (!name || !state_region || !country) {
-			return fail(400, { error: 'Please fill required fields.', values: Object.fromEntries(form) });
+			return fail(400, { error: 'Please fill required fields.', values });
 		}
 
 		let slug = slugify(form.get('slug')?.toString() || name);
 		if (!slug) slug = slugify(name);
+
+		const duplicate_candidates = await findPotentialDuplicateGroups({
+			name,
+			city,
+			state_region,
+			country,
+			website_url,
+			slug
+		});
+		if (duplicate_candidates.length && !allow_duplicate_override) {
+			return fail(409, {
+				error:
+					'Possible duplicate group found. Review the matches below, then confirm override to create anyway.',
+				values,
+				needs_duplicate_override: true,
+				duplicate_candidates
+			});
+		}
 
 		// Attempt insert, handle potential slug conflict once by suffixing a short hash
 		const insertPayload = {
@@ -155,7 +323,7 @@ export const actions = {
 		}
 
 		if (groupErr) {
-			return fail(500, { error: groupErr.message, values: Object.fromEntries(form) });
+			return fail(500, { error: groupErr.message, values });
 		}
 
 		const group_id = groupRes.id;
