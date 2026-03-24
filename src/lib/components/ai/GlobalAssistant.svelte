@@ -468,7 +468,7 @@
 <div class="fixed right-0 bottom-0 z-[80]">
 	{#if isOpen}
 		<div
-			class="card preset-filled-surface-100-900 border-surface-300-700 absolute right-0 bottom-16 grid h-[min(75vh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur max-sm:left-0 max-sm:h-[min(72vh,34rem)] max-sm:w-full"
+			class="card preset-filled-surface-100-900 border-surface-300-700 absolute right-0 bottom-[calc(100%+0.5rem)] grid h-[min(75vh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur max-sm:h-[min(72vh,34rem)]"
 			role="dialog"
 			aria-label="3FP assistant"
 		>
