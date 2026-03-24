@@ -2185,18 +2185,10 @@
 									</button>
 								</div>
 							{:else}
-								<button
-									type="button"
-									class="composer-btn composer-btn--ghost"
-									onclick={() => submitComposer('save_draft')}
-									disabled={Boolean(submittingIntent)}
-								>
-									{submittingIntent === 'save_draft' ? 'Saving…' : 'Save Draft'}
-								</button>
-								<div class="composer-footer__actions">
+								<div class="flex flex-wrap gap-2">
 									<button
 										type="button"
-										class="composer-btn composer-btn--schedule"
+										class="btn preset-filled-primary-500"
 										onclick={() => submitComposer('schedule')}
 										disabled={Boolean(submittingIntent)}
 									>
@@ -2210,7 +2202,7 @@
 									</button>
 									<button
 										type="button"
-										class="composer-btn composer-btn--publish"
+										class="btn preset-filled-secondary-500"
 										onclick={() => submitComposer('publish_now')}
 										disabled={Boolean(submittingIntent)}
 									>
@@ -2218,8 +2210,16 @@
 											<IconLoader class="h-4 w-4 animate-spin" />
 											Publishing…
 										{:else}
-											Publish Now
+											Publish
 										{/if}
+									</button>
+									<button
+										type="button"
+										class="btn preset-outlined-secondary-500"
+										onclick={() => submitComposer('save_draft')}
+										disabled={Boolean(submittingIntent)}
+									>
+										{submittingIntent === 'save_draft' ? 'Saving…' : 'Draft'}
 									</button>
 								</div>
 							{/if}
@@ -2582,6 +2582,7 @@
 		padding: 0;
 		background: color-mix(in oklab, var(--color-surface-950) 85%, transparent);
 		backdrop-filter: blur(8px);
+		padding-bottom: env(safe-area-inset-bottom);
 	}
 
 	@media (min-width: 640px) {
@@ -3340,25 +3341,31 @@
 	/* ─── Footer ─── */
 	.composer-footer {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.625rem;
-		padding: 0.875rem 1.25rem;
+		flex-direction: column;
+		align-items: stretch;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		padding: 0.875rem;
+		padding-bottom: calc(0.875rem + env(safe-area-inset-bottom));
 		border-top: 1px solid color-mix(in oklab, var(--color-surface-700) 50%, transparent);
 		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
 		flex-shrink: 0;
+		position: sticky;
+		bottom: 0;
+		z-index: 2;
 	}
 
 	.composer-footer__actions {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.5rem;
-		flex-wrap: wrap;
+		width: 100%;
 	}
 
 	.composer-btn {
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		gap: 0.4375rem;
 		padding: 0.5625rem 1.125rem;
 		border-radius: 9999px;
@@ -3366,6 +3373,32 @@
 		font-weight: 600;
 		transition: all 0.18s;
 		white-space: nowrap;
+	}
+
+	.composer-footer > .composer-btn--ghost {
+		width: 100%;
+	}
+
+	@media (min-width: 640px) {
+		.composer-footer {
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.625rem;
+			padding-bottom: 0.875rem;
+			position: static;
+		}
+
+		.composer-footer__actions {
+			display: flex;
+			flex-wrap: wrap;
+			width: auto;
+		}
+
+		.composer-footer > .composer-btn--ghost {
+			width: auto;
+		}
 	}
 
 	.composer-btn:disabled {

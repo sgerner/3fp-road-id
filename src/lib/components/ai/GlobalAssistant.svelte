@@ -1,7 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import IconBot from '@lucide/svelte/icons/bot';
-	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
 	import IconSendHorizontal from '@lucide/svelte/icons/send-horizontal';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconX from '@lucide/svelte/icons/x';
@@ -466,7 +465,7 @@
 	});
 </script>
 
-<div class="fixed right-3 bottom-3 z-[80] max-sm:right-3 max-sm:left-3">
+<div class="fixed right-0 bottom-0 z-[80]">
 	{#if isOpen}
 		<div
 			class="card preset-filled-surface-100-900 border-surface-300-700 absolute right-0 bottom-16 grid h-[min(75vh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur max-sm:left-0 max-sm:h-[min(72vh,34rem)] max-sm:w-full"
@@ -634,15 +633,15 @@
 
 	<button
 		type="button"
-		class="btn btn-sm preset-tonal-secondary rounded-full px-4 py-3 font-bold shadow-xl max-sm:flex max-sm:w-full max-sm:justify-center"
+		class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"
 		onclick={() => (isOpen = !isOpen)}
 		aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
 	>
 		{#if isOpen}
-			<IconX class="h-5 w-5" />
+			<IconX class="h-4 w-4" />
 		{:else}
-			<IconMessageCircle class="h-5 w-5" />
-			<span>AI Assistant</span>
+			<IconSparkles class="h-3.5 w-3.5" />
+			<span class="text-xs font-semibold tracking-wide uppercase">AI</span>
 		{/if}
 	</button>
 </div>
