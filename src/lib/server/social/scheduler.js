@@ -48,8 +48,20 @@ export function normalizeScheduledPostTime(value, { now = new Date() } = {}) {
 	}
 
 	const current = toDate(now) || new Date();
-	if (scheduledFor.getTime() <= current.getTime()) {
-		return { ok: false, error: 'Scheduled time must be in the future.' };
+	const nextEligibleBucket = roundToNearestFutureScheduleBucket(current, {
+		now: current,
+		minutes: SOCIAL_SCHEDULING_INTERVAL_MINUTES,
+		requireFuture: true
+	});
+	if (!nextEligibleBucket) {
+		return { ok: false, error: 'Unable to compute the next publish window.' };
+	}
+
+	if (scheduledFor.getTime() < nextEligibleBucket.getTime()) {
+		return {
+			ok: false,
+			error: `Scheduled time must be at or after the next publish window (${nextEligibleBucket.toISOString()}).`
+		};
 	}
 
 	const scheduleBucket = roundToNearestFutureScheduleBucket(scheduledFor, {

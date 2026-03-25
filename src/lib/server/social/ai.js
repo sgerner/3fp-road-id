@@ -44,7 +44,18 @@ function safeParseJson(text) {
 
 function buildPrompt(input = {}) {
 	const sections = [];
+	const conversationMessages = Array.isArray(input.conversation_messages)
+		? input.conversation_messages
+				.map((entry) => {
+					const role = cleanText(entry?.role, 20).toLowerCase();
+					const content = cleanText(entry?.content, 1200);
+					if (!content || (role !== 'user' && role !== 'assistant')) return '';
+					return `${role === 'assistant' ? 'Assistant' : 'User'}: ${content}`;
+				})
+				.filter(Boolean)
+		: [];
 	const pairs = [
+		['User request', input.source_prompt],
 		['Group name', input.group_name],
 		['Event title', input.event_title],
 		['Event date/time', input.event_datetime],
@@ -52,9 +63,11 @@ function buildPrompt(input = {}) {
 		['Ride details', input.ride_details],
 		['Advocacy details', input.advocacy_details],
 		['Tone', input.target_tone],
+		['Post target', input.post_target],
 		['Platforms', Array.isArray(input.platforms) ? input.platforms.join(', ') : input.platforms],
 		['Call to action', input.call_to_action],
-		['Hashtags', input.hashtags]
+		['Hashtags', input.hashtags],
+		['Existing draft to replace only if useful', input.existing_caption]
 	];
 
 	for (const [label, value] of pairs) {
@@ -62,17 +75,34 @@ function buildPrompt(input = {}) {
 		if (!cleaned) continue;
 		sections.push(`${label}: ${cleaned}`);
 	}
+	if (conversationMessages.length > 0) {
+		sections.push(`Conversation so far:\n${conversationMessages.join('\n')}`);
+	}
 
-	return `You write social media captions for local bike groups.
+	return `You write finished social media captions for local bike groups.
+Task:
+- Convert rough notes or a direct instruction into an actual post caption.
+- If the user request is phrased like a command such as "write a post about..." or "give me an aggressive caption...", do not repeat that instruction back. Write the real caption instead.
+- Make a meaningful transformation. Do not just copy the user's wording with light grammar fixes unless the request already contains a nearly publish-ready caption.
+- Sound like a real person with a clear point of view, not a committee, chatbot, or PR template.
+- If there is already a draft or conversation history, revise it in response to the latest user ask instead of starting over, unless the user clearly asks for a fresh rewrite.
+
 Style requirements:
-- Friendly, specific, and community-focused.
-- Avoid spammy language and excessive punctuation.
+- Specific, human, and community-focused.
+- Match the requested tone strongly when one is provided. Treat it as a voice direction, not a weak preference.
+- Let the voice feel visible. The reader should be able to imagine who is speaking.
 - Keep it concise and action-oriented.
-- Mention practical event details only when explicitly provided in the context.
+- Use short paragraph breaks when they improve readability.
+- Prefer concrete language over generic uplift.
+- Avoid stiff openings, corporate filler, hollow inspiration, and canned social media phrasing.
+- Avoid phrases that sound like AI copywriting, such as "important conversation," "let's continue the dialogue," "together we can," or other vague rallying clichés unless the user explicitly wants that style.
+- Mention practical details only when explicitly provided in the context.
 - If a call to action is provided, include it naturally.
 - Never invent facts that are not present in the provided context.
 - Do not fabricate dates, times, locations, meeting points, rides, or events.
 - If details are missing, keep the caption general and truthful.
+- Do not wrap the caption in quotation marks.
+- Do not mention the tone label itself in the output.
 
 Generate one caption only.
 Return strict JSON: {"caption":"..."}.

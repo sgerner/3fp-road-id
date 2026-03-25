@@ -162,7 +162,7 @@ ${bikeDirective}
 Output requirements:
 - Single polished illustration suitable for a wide 16:9 cover image unless another aspect ratio is requested.
 - Keep the scene readable at thumbnail size.
-- Keep text minimal. Avoid paragraphs, avoid dense copy, and use at most 1 short phrase if lettering appears.
+- Do not render readable words, captions, signs, logos, watermarks, or decorative lettering in the image.
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 

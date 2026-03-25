@@ -22,6 +22,10 @@
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconPlay from '@lucide/svelte/icons/play';
+	import IconEdit3 from '@lucide/svelte/icons/edit-3';
+	import IconMoreVertical from '@lucide/svelte/icons/more-vertical';
+	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
@@ -34,6 +38,57 @@
 	let { slug = '', canManageSocial = false, showClaimMessage = false, group = null } = $props();
 
 	const PLATFORMS = ['facebook', 'instagram'];
+	const POST_TARGETS = ['page', 'story'];
+	const AI_TONE_OPTIONS = [
+		{
+			id: 'passionate_advocate',
+			label: 'Passionate Advocate',
+			guidance:
+				'Passionate, persuasive, and energizing. Sound like a committed bike advocate rallying people to care and act.',
+			example:
+				'Example energy: "This law exists for a reason. Riders deserve real space, not excuses."'
+		},
+		{
+			id: 'rebellious',
+			label: 'Rebellious',
+			guidance:
+				'Rebellious, sharp, and defiant without sounding reckless. Challenge the status quo and make the post feel bold.',
+			example:
+				'Example energy: "No, cyclists are not asking for special treatment. We are asking drivers to follow the law."'
+		},
+		{
+			id: 'playful',
+			label: 'Playful',
+			guidance:
+				'Playful, witty, and socially warm. Keep it clever and light without becoming vague or unserious.',
+			example:
+				'Example energy: "Three feet is not a huge ask. It is basically one good golden retriever."'
+		},
+		{
+			id: 'serious_organizer',
+			label: 'Serious Organizer',
+			guidance:
+				'Serious, credible, and organized. Sound like a movement leader giving people a clear reason and next step.',
+			example:
+				'Example energy: "If we want safer streets, we need people who know the law and are willing to insist on it."'
+		},
+		{
+			id: 'wonky_teacher',
+			label: 'Wonky Teacher',
+			guidance:
+				'Wonky, educational, and precise. Explain the issue clearly like a smart bike-law explainer who enjoys the details.',
+			example:
+				'Example energy: "The 3-foot law is not a courtesy guideline. It is a legal minimum clearance requirement."'
+		},
+		{
+			id: 'neighborly',
+			label: 'Neighborly',
+			guidance:
+				'Neighborly, welcoming, and community-first. Sound like a trusted local group inviting people in.',
+			example:
+				'Example energy: "We all want to get home safe. Giving people space on bikes is part of being a good neighbor."'
+		}
+	];
 	const CALENDAR_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
 	const CALENDAR_STATUSES = new Set(['scheduled', 'queued', 'publishing', 'published', 'failed']);
 	const UPCOMING_CARD_STATUSES = new Set(['draft', 'scheduled', 'queued', 'publishing', 'failed']);
@@ -75,14 +130,18 @@
 	let replyDrafts = $state({});
 
 	let composerCaption = $state('');
+	let composerPostTarget = $state('page');
 	let composerPlatforms = $state([]);
 	let composerMedia = $state([]);
 	let composerScheduledFor = $state('');
 	let composerAiPrompt = $state('');
 
 	let aiPromptInput = $state('');
+	let aiToneId = $state(AI_TONE_OPTIONS[0].id);
 	let aiStyleId = $state(IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house');
+	let aiConversation = $state([]);
 	let aiGeneratedImages = $state([]);
+	let aiSelectedImageUrl = $state('');
 	let generatingAi = $state(false);
 	let groupProfile = $state(null);
 	let aiSelectedStateCode = $state('');
@@ -90,6 +149,13 @@
 	let aiResolvingState = $state(false);
 	const selectedAiStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === aiStyleId) ?? null
+	);
+	const selectedAiTone = $derived.by(
+		() => AI_TONE_OPTIONS.find((option) => option.id === aiToneId) ?? AI_TONE_OPTIONS[0]
+	);
+	const minimumSchedulableDate = $derived.by(() => nextSchedulableDate(new Date()));
+	const minimumSchedulableInputValue = $derived.by(() =>
+		formatLocalDateTimeInput(minimumSchedulableDate)
 	);
 	const requiresAiStateSelection = $derived(aiStyleId === STATE_MASCOT_STYLE_ID);
 	const requiresAiBikeVibeSelection = $derived(aiStyleId === BIKE_VIBE_STYLE_ID);
@@ -352,6 +418,10 @@
 		return snapped;
 	}
 
+	function nextSchedulableDate(reference = new Date()) {
+		return roundToQuarterHour(new Date(reference.getTime() + 1000));
+	}
+
 	function defaultSlotForDay(date, hour = 9) {
 		const slot = new Date(date);
 		slot.setHours(hour, 0, 0, 0);
@@ -362,8 +432,11 @@
 		const sourcePost = options?.post && typeof options.post === 'object' ? options.post : null;
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
+		aiPromptInput = '';
+		aiConversation = [];
 		if (sourcePost) {
 			composerCaption = sourcePost?.caption || '';
+			composerPostTarget = normalizePostTarget(sourcePost?.post_target);
 			composerPlatforms = Array.isArray(sourcePost?.platforms) ? [...sourcePost.platforms] : [];
 			composerMedia = Array.isArray(sourcePost?.media) ? [...sourcePost.media] : [];
 			composerAiPrompt = sourcePost?.ai_prompt || '';
@@ -378,8 +451,11 @@
 			const snapped = roundToQuarterHour(prefillDate);
 			composerScheduledFor = formatLocalDateTimeInput(snapped);
 		} else if (!composerScheduledFor) {
-			const next = roundToQuarterHour(new Date(Date.now() + 15 * 60 * 1000));
+			const next = nextSchedulableDate();
 			composerScheduledFor = formatLocalDateTimeInput(next);
+		}
+		if (!sourcePost) {
+			composerPostTarget = 'page';
 		}
 		if (!sourcePost && composerPlatforms.length === 0) {
 			composerPlatforms = [...new Set([...connectedPlatforms])];
@@ -390,6 +466,8 @@
 	function closeComposerModal() {
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
+		aiPromptInput = '';
+		aiConversation = [];
 		composerModalOpen = false;
 	}
 
@@ -397,6 +475,7 @@
 		composerReadOnly = true;
 		composerPreviewExpanded = false;
 		composerCaption = post?.caption || '';
+		composerPostTarget = normalizePostTarget(post?.post_target);
 		composerPlatforms = Array.isArray(post?.platforms) ? [...post.platforms] : [];
 		composerMedia = Array.isArray(post?.media) ? [...post.media] : [];
 		composerScheduledFor = '';
@@ -481,12 +560,36 @@
 	}
 
 	function getDraftPreviewImage() {
-		return aiGeneratedImages[0] || composerMedia[0] || null;
+		const selectedAiImage =
+			aiGeneratedImages.find((entry) => entry?.url && entry.url === aiSelectedImageUrl) || null;
+		return selectedAiImage || composerMedia[0] || null;
 	}
 
 	function platformLabel(platform) {
 		if (platform === 'instagram') return 'Instagram';
 		return 'Facebook';
+	}
+
+	function normalizePostTarget(value) {
+		return String(value || '')
+			.trim()
+			.toLowerCase() === 'story'
+			? 'story'
+			: 'page';
+	}
+
+	function postTargetLabel(value) {
+		return normalizePostTarget(value) === 'story' ? 'Story' : 'Page';
+	}
+
+	function postTargetClass(value) {
+		return normalizePostTarget(value) === 'story'
+			? 'inline-flex items-center rounded-full border border-warning-400/60 bg-warning-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-300'
+			: 'inline-flex items-center rounded-full border border-surface-500/50 bg-surface-700/35 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-surface-200';
+	}
+
+	function composerAspectRatio() {
+		return normalizePostTarget(composerPostTarget) === 'story' ? '9:16' : '4:5';
 	}
 
 	function formatDateTime(value) {
@@ -595,17 +698,64 @@
 	function postStatusClass(status) {
 		switch (normalizeStatus(status)) {
 			case 'published':
-				return 'chip preset-filled-success-500 text-xs';
+				return 'inline-flex items-center rounded-full border border-success-400/60 bg-success-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-success-300';
 			case 'scheduled':
 			case 'queued':
-				return 'chip preset-filled-secondary-500 text-xs';
+				return 'inline-flex items-center rounded-full border border-primary-400/60 bg-primary-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-200';
 			case 'publishing':
-				return 'chip preset-filled-warning-500 text-xs';
+				return 'inline-flex items-center rounded-full border border-warning-400/60 bg-warning-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-300';
 			case 'failed':
-				return 'chip preset-filled-error-500 text-xs';
+				return 'inline-flex items-center rounded-full border border-error-400/60 bg-error-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-error-300';
 			default:
-				return 'chip preset-tonal-surface text-xs';
+				return 'inline-flex items-center rounded-full border border-surface-500/50 bg-surface-700/35 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-surface-200';
 		}
+	}
+
+	function postPrimaryImageUrl(post) {
+		const media = Array.isArray(post?.media) ? post.media : [];
+		const first = media[0];
+		if (typeof first === 'string') return first.trim();
+		if (first && typeof first === 'object') {
+			const url = String(first.url || first.public_url || first.src || '').trim();
+			if (url) return url;
+		}
+		return '';
+	}
+
+	function getStatusColor(status) {
+		switch (normalizeStatus(status)) {
+			case 'published':
+				return 'bg-success-500';
+			case 'scheduled':
+			case 'queued':
+				return 'bg-primary-500';
+			case 'publishing':
+				return 'bg-warning-500';
+			case 'failed':
+				return 'bg-error-500';
+			default:
+				return 'bg-surface-500';
+		}
+	}
+
+	function formatTimeAgo(post) {
+		const status = normalizeStatus(post?.status);
+		if (status === 'scheduled' || status === 'queued') {
+			const date = parsePostDate(post?.scheduled_for);
+			if (!date) return 'Not scheduled';
+			const now = new Date();
+			const diffMs = date - now;
+			const diffMins = Math.floor(diffMs / 60000);
+			const diffHours = Math.floor(diffMins / 60);
+			const diffDays = Math.floor(diffHours / 24);
+
+			if (diffMins < 0) return 'Overdue';
+			if (diffMins < 60) return `in ${diffMins}m`;
+			if (diffHours < 24) return `in ${diffHours}h`;
+			if (diffDays < 7) return `in ${diffDays}d`;
+			return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
+		}
+		return formatRelativeTime(post?.updated_at || post?.created_at);
 	}
 
 	function isPublishedPost(post) {
@@ -693,27 +843,91 @@
 		if (!composerScheduledFor) return;
 		const parsed = new Date(composerScheduledFor);
 		if (Number.isNaN(parsed.getTime())) return;
-		const snapped = new Date(parsed);
-		snapped.setSeconds(0, 0);
-		const remainder = snapped.getMinutes() % 15;
-		if (remainder !== 0) {
-			snapped.setMinutes(snapped.getMinutes() + (15 - remainder));
-		}
-		const localValue = new Date(snapped.getTime() - snapped.getTimezoneOffset() * 60000)
-			.toISOString()
-			.slice(0, 16);
-		composerScheduledFor = localValue;
+		const minimumDate = nextSchedulableDate();
+		const snapped = roundToQuarterHour(parsed);
+		const effectiveDate = snapped.getTime() < minimumDate.getTime() ? minimumDate : snapped;
+		composerScheduledFor = formatLocalDateTimeInput(effectiveDate);
 	}
 
 	function removeMediaItem(index) {
 		if (composerReadOnly) return;
-		composerMedia = composerMedia.filter((_, i) => i !== index);
+		const removed = composerMedia[index];
+		const removedUrl = String(removed?.url || '').trim();
+		const nextComposerMedia = composerMedia.filter((_, i) => i !== index);
+		composerMedia = nextComposerMedia;
+		if (removedUrl) {
+			const nextAiGeneratedImages = aiGeneratedImages.filter((entry) => entry?.url !== removedUrl);
+			aiGeneratedImages = nextAiGeneratedImages;
+			if (aiSelectedImageUrl === removedUrl) {
+				aiSelectedImageUrl = nextAiGeneratedImages[0]?.url || nextComposerMedia[0]?.url || '';
+			}
+		}
+	}
+
+	function setComposerPrimaryMedia(item) {
+		const url = String(item?.url || '').trim();
+		if (!url) return;
+		const remaining = composerMedia.filter((entry) => String(entry?.url || '').trim() !== url);
+		composerMedia = [item, ...remaining];
+	}
+
+	function rememberGeneratedImage(item) {
+		const url = String(item?.url || '').trim();
+		if (!url) return;
+		aiGeneratedImages = [
+			item,
+			...aiGeneratedImages.filter((entry) => String(entry?.url || '').trim() !== url)
+		];
+		aiSelectedImageUrl = url;
+		setComposerPrimaryMedia(item);
+	}
+
+	function selectGeneratedImage(item) {
+		const url = String(item?.url || '').trim();
+		if (!url) return;
+		aiSelectedImageUrl = url;
+		setComposerPrimaryMedia(item);
+	}
+
+	function removeGeneratedImage(url) {
+		const targetUrl = String(url || '').trim();
+		if (!targetUrl || composerReadOnly) return;
+		const nextAiGeneratedImages = aiGeneratedImages.filter(
+			(entry) => String(entry?.url || '').trim() !== targetUrl
+		);
+		const nextComposerMedia = composerMedia.filter(
+			(entry) => String(entry?.url || '').trim() !== targetUrl
+		);
+		aiGeneratedImages = nextAiGeneratedImages;
+		composerMedia = nextComposerMedia;
+		if (aiSelectedImageUrl === targetUrl) {
+			aiSelectedImageUrl = nextAiGeneratedImages[0]?.url || nextComposerMedia[0]?.url || '';
+		}
 	}
 
 	function queueMediaFiles(event) {
 		if (composerReadOnly) return;
 		const files = Array.from(event.currentTarget?.files || []);
 		queuedMediaFiles = files;
+	}
+
+	function resetAiConversation() {
+		aiPromptInput = '';
+		aiConversation = [];
+	}
+
+	function buildAssistantReplyMessage(caption) {
+		const trimmedCaption = String(caption || '').trim();
+		if (!trimmedCaption) {
+			return 'I updated the draft. Want any changes to the tone, wording, or image direction?';
+		}
+		return `Here’s a draft caption:\n\n${trimmedCaption}\n\nWant any changes to the tone, wording, or image direction?`;
+	}
+
+	function handleAiPromptKeydown(event) {
+		if (event.key !== 'Enter' || event.shiftKey) return;
+		event.preventDefault();
+		void generateAiAssistedContent();
 	}
 
 	function setPending(mapName, key, value) {
@@ -752,6 +966,25 @@
 
 	function validateComposerPublishRequirements(intent) {
 		if (!requireComposerPlatformsForPublish(intent)) return false;
+		if (intent === 'schedule') {
+			const minimumDate = nextSchedulableDate();
+			const selectedDate = composerScheduledFor ? new Date(composerScheduledFor) : null;
+			if (!selectedDate || Number.isNaN(selectedDate.getTime())) {
+				showActionError('Choose a valid schedule date and time.');
+				return false;
+			}
+			if (selectedDate.getTime() < minimumDate.getTime()) {
+				showActionError(
+					`Choose a time at or after the next publish window: ${formatDateTime(minimumDate)}.`
+				);
+				composerScheduledFor = formatLocalDateTimeInput(minimumDate);
+				return false;
+			}
+		}
+		if (normalizePostTarget(composerPostTarget) === 'story' && composerMedia.length === 0) {
+			showActionError('Stories require at least one uploaded image.');
+			return false;
+		}
 		if (composerPlatforms.includes('instagram') && composerMedia.length === 0) {
 			showActionError('Instagram posts require at least one uploaded image.');
 			return false;
@@ -946,6 +1179,7 @@
 			const payload = {
 				intent,
 				caption: composerCaption,
+				post_target: normalizePostTarget(composerPostTarget),
 				platforms: composerPlatforms,
 				media: composerMedia,
 				ai_prompt: composerAiPrompt
@@ -1009,7 +1243,8 @@
 
 	async function generateAiAssistedContent() {
 		if (!slug) return;
-		if (!aiPromptInput.trim()) {
+		const userMessage = aiPromptInput.trim();
+		if (!userMessage) {
 			showActionError('Enter a prompt before generating content.');
 			return;
 		}
@@ -1024,8 +1259,9 @@
 
 		clearFeedback();
 		generatingAi = true;
-		aiGeneratedImages = [];
-
+		aiConversation = [...aiConversation, { role: 'user', content: userMessage }];
+		aiPromptInput = '';
+		const hadPreviousGeneratedImages = aiGeneratedImages.length > 0;
 		try {
 			const selectedPlatforms = composerPlatforms.length
 				? composerPlatforms
@@ -1035,9 +1271,13 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					ride_details: aiPromptInput,
-					target_tone: 'Friendly, specific, and action-oriented',
-					platforms: selectedPlatforms
+					source_prompt: userMessage,
+					ride_details: userMessage,
+					existing_caption: composerCaption,
+					target_tone: `${selectedAiTone.label}: ${selectedAiTone.guidance} ${selectedAiTone.example}`,
+					post_target: normalizePostTarget(composerPostTarget),
+					platforms: selectedPlatforms,
+					conversation_messages: aiConversation
 				})
 			});
 
@@ -1058,7 +1298,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					target: 'group',
-					aspectRatio: '4:5',
+					aspectRatio: composerAspectRatio(),
 					styleId: aiStyleId,
 					styleOptions: {
 						...(requiresAiStateSelection
@@ -1075,9 +1315,9 @@
 								}
 							: {})
 					},
-					prompt: aiPromptInput,
+					prompt: userMessage,
 					context: {
-						description: composerCaption || aiPromptInput,
+						description: composerCaption || userMessage,
 						ridingDisciplines: selectedPlatforms.join(', '),
 						groupState: groupProfile?.state_region || '',
 						groupLocation: [groupProfile?.city, groupProfile?.state_region, groupProfile?.country]
@@ -1096,21 +1336,31 @@
 				if (uploaded?.url) {
 					const imageEntry = {
 						...uploaded,
-						aspect_ratio: '4:5',
+						aspect_ratio: composerAspectRatio(),
 						platform: 'instagram,facebook'
 					};
-					composerMedia = [...composerMedia, imageEntry];
-					aiGeneratedImages = [imageEntry];
+					rememberGeneratedImage(imageEntry);
 				}
 			}
 
 			if (!composerScheduledFor) {
-				const next = roundToQuarterHour(new Date(Date.now() + 15 * 60 * 1000));
+				const next = nextSchedulableDate();
 				composerScheduledFor = formatLocalDateTimeInput(next);
 			}
 
-			actionNotice = 'Draft generated. Review and schedule, publish now, or save as draft.';
+			aiConversation = [
+				...aiConversation,
+				{
+					role: 'assistant',
+					content: buildAssistantReplyMessage(caption)
+				}
+			];
+
+			actionNotice = hadPreviousGeneratedImages
+				? 'Draft updated. Previous AI images stay available below while you iterate.'
+				: 'Draft generated. Review and schedule, publish now, or save as draft.';
 		} catch (error) {
+			aiConversation = aiConversation.slice(0, -1);
 			showActionError(error?.message || 'Unable to generate AI content.');
 		} finally {
 			generatingAi = false;
@@ -1131,7 +1381,13 @@
 		const post = posts.find((entry) => entry?.id === postId);
 		const status = normalizeStatus(post?.status);
 		const postPlatforms = Array.isArray(post?.platforms)
-			? post.platforms.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
+			? post.platforms
+					.map((value) =>
+						String(value || '')
+							.trim()
+							.toLowerCase()
+					)
+					.filter(Boolean)
 			: [];
 
 		if ((action === 'publish' || action === 'retry') && postPlatforms.length === 0) {
@@ -1144,6 +1400,16 @@
 				showActionError(
 					'This post includes Instagram but has no media. Add an image before posting.'
 				);
+				return;
+			}
+		}
+		if (
+			(action === 'publish' || action === 'retry') &&
+			normalizePostTarget(post?.post_target) === 'story'
+		) {
+			const media = Array.isArray(post?.media) ? post.media : [];
+			if (media.length === 0) {
+				showActionError('Stories require at least one image before posting.');
 				return;
 			}
 		}
@@ -1625,7 +1891,10 @@
 															hour: 'numeric',
 															minute: '2-digit'
 														}).format(post._scheduledAt)}
-														- {captionPreview(post.caption, 30)}
+														- [{postTargetLabel(post?.post_target)}] {captionPreview(
+															post.caption,
+															30
+														)}
 													</button>
 												{/each}
 											</div>
@@ -1676,7 +1945,10 @@
 																	hour: 'numeric',
 																	minute: '2-digit'
 																}).format(post._scheduledAt)}
-																- {captionPreview(post.caption, 36)}
+																- [{postTargetLabel(post?.post_target)}] {captionPreview(
+																	post.caption,
+																	36
+																)}
 															</button>
 														{/each}
 														{#if day.posts.length > 3}
@@ -1737,7 +2009,10 @@
 																			handleCalendarPostClick(post);
 																		}}
 																	>
-																		{captionPreview(post.caption, 38)}
+																		[{postTargetLabel(post?.post_target)}] {captionPreview(
+																			post.caption,
+																			38
+																		)}
 																	</button>
 																{/each}
 															{/if}
@@ -1781,7 +2056,10 @@
 																handleCalendarPostClick(post);
 															}}
 														>
-															{captionPreview(post.caption, 72)}
+															[{postTargetLabel(post?.post_target)}] {captionPreview(
+																post.caption,
+																72
+															)}
 														</button>
 													{/each}
 												{/if}
@@ -1791,90 +2069,179 @@
 								</div>
 							</div>
 						{:else}
-							<div class="grid gap-3 md:grid-cols-2">
+							<div class="space-y-3">
 								{#if upcomingCards.length === 0}
-									<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
-										No upcoming content yet.
+									<div
+										class="card preset-filled-surface-100-900 border-surface-200-800 flex flex-col items-center justify-center rounded-xl border p-8 text-center"
+									>
+										<div
+											class="bg-surface-200-800 mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+										>
+											<IconCalendar class="text-surface-600-400 h-6 w-6" />
+										</div>
+										<p class="text-surface-700-300 text-sm font-medium">No upcoming content</p>
+										<p class="text-surface-600-400 mt-1 text-xs">Schedule posts to see them here</p>
 									</div>
-									{:else}
-										{#each upcomingCards as post}
+								{:else}
+									{#each upcomingCards as post}
+										<div
+											class="card preset-filled-surface-100-900 border-surface-200-800 group hover:border-primary-500/30 relative overflow-hidden rounded-xl border transition-all duration-200"
+										>
+											<!-- Status indicator line -->
 											<div
-												role="button"
-												tabindex="0"
-												class="card border-surface-300-700 space-y-2 rounded-xl border p-3"
-												onclick={() => openUpcomingCard(post)}
-												onkeydown={(event) =>
-													(event.key === 'Enter' || event.key === ' ') &&
-													openUpcomingCard(post)}
-											>
-												<div class="flex flex-wrap items-start justify-between gap-2">
-												<div class="space-y-1">
-													<div class="text-sm font-semibold">{captionPreview(post.caption)}</div>
-													<div class="text-surface-700-300 text-xs">{postPlatformsLabel(post)}</div>
-													<div class="text-surface-700-300 text-xs">{postTimeLabel(post)}</div>
+												class="absolute top-0 bottom-0 left-0 w-1 {getStatusColor(post.status)}"
+											></div>
+
+											<div class="flex gap-4 p-4">
+												<!-- Media thumbnail -->
+												<div
+													role="button"
+													tabindex="0"
+													class="bg-surface-200-800 border-surface-300-700 relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border transition-transform duration-200 hover:scale-105"
+													onclick={() => openUpcomingCard(post)}
+													onkeydown={(event) =>
+														(event.key === 'Enter' || event.key === ' ') && openUpcomingCard(post)}
+												>
+													{#if postPrimaryImageUrl(post)}
+														<img
+															src={postPrimaryImageUrl(post)}
+															alt="Post preview"
+															class="h-full w-full object-cover"
+															loading="lazy"
+														/>
+													{:else}
+														<div class="flex h-full w-full items-center justify-center">
+															<IconImage class="text-surface-500 h-8 w-8" />
+														</div>
+													{/if}
+
+													<!-- Target badge overlay -->\t
+													<div class="absolute right-1 bottom-1">
+														<span
+															class="bg-surface-900/80 text-surface-100 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"
+														>
+															{postTargetLabel(post?.post_target)}
+														</span>
+													</div>
 												</div>
-												<span class={postStatusClass(post.status)}>{post.status || 'draft'}</span>
+
+												<!-- Content -->
+												<div class="flex min-w-0 flex-1 flex-col justify-between">
+													<div class="min-w-0">
+														<div
+															role="button"
+															tabindex="0"
+															class="hover:text-primary-400 line-clamp-2 cursor-pointer text-sm leading-snug font-medium transition-colors"
+															onclick={() => openUpcomingCard(post)}
+															onkeydown={(event) =>
+																(event.key === 'Enter' || event.key === ' ') &&
+																openUpcomingCard(post)}
+														>
+															{captionPreview(post.caption, 100)}
+														</div>
+
+														<!-- Meta row: platforms + time -->
+														<div class="mt-2 flex flex-wrap items-center gap-2">
+															<!-- Platform icons -->
+															<div class="flex items-center gap-1">
+																{#if Array.isArray(post?.platforms) && post.platforms.length > 0}
+																	{#each post.platforms as platform}
+																		<div
+																			class="bg-surface-200-800 flex h-5 w-5 items-center justify-center rounded"
+																		>
+																			{#if platform === 'instagram'}
+																				<IconInstagram class="h-3 w-3 text-pink-500" />
+																			{:else}
+																				<IconFacebook class="h-3 w-3 text-blue-500" />
+																			{/if}
+																		</div>
+																	{/each}
+																{:else}
+																	<span class="text-surface-600-400 text-xs">No platforms</span>
+																{/if}
+															</div>
+
+															<!-- Time -->
+															<div class="text-surface-600-400 flex items-center gap-1 text-xs">
+																<IconClock class="h-3 w-3" />
+																<span>{formatTimeAgo(post)}</span>
+															</div>
+														</div>
+													</div>
+
+													<!-- Action buttons -->
+													<div class="mt-3 flex items-center gap-1">
+														{#if post.status === 'failed'}
+															<button
+																type="button"
+																class="btn-icon btn-icon-sm preset-outlined-warning-500"
+																onclick={(event) => {
+																	event.stopPropagation();
+																	runPostAction(post.id, 'retry');
+																}}
+																disabled={Boolean(postActionPending[post.id])}
+																aria-label="Retry"
+																title="Retry"
+															>
+																<IconRefreshCw class="h-4 w-4" />
+															</button>
+														{/if}
+
+														{#if PUBLISHABLE_STATUSES.has(normalizeStatus(post.status))}
+															<button
+																type="button"
+																class="btn btn-sm preset-filled-primary-500"
+																onclick={(event) => {
+																	event.stopPropagation();
+																	runPostAction(post.id, 'publish');
+																}}
+																disabled={Boolean(postActionPending[post.id])}
+															>
+																Post Now
+															</button>
+														{/if}
+
+														<button
+															type="button"
+															class="btn-icon btn-icon-sm preset-outlined-secondary-500"
+															onclick={(event) => {
+																event.stopPropagation();
+																openComposerModal(resolvePostDate(post), { post });
+															}}
+															aria-label="Edit/Reschedule"
+															title="Edit/Reschedule"
+														>
+															<IconEdit3 class="h-4 w-4" />
+														</button>
+
+														{#if normalizeStatus(post.status) === 'draft' || normalizeStatus(post.status) === 'scheduled'}
+															<button
+																type="button"
+																class="btn-icon btn-icon-sm preset-outlined-error-500"
+																onclick={(event) => {
+																	event.stopPropagation();
+																	runPostAction(post.id, 'delete');
+																}}
+																disabled={Boolean(postActionPending[post.id])}
+																aria-label="Delete"
+																title="Delete"
+															>
+																<IconTrash2 class="h-4 w-4" />
+															</button>
+														{/if}
+													</div>
+												</div>
 											</div>
+
+											<!-- Error banner -->
 											{#if post.last_publish_error}
 												<div
-													class="card border-error-400-600/35 bg-error-500/10 rounded-lg border p-2 text-xs"
+													class="border-error-500/20 bg-error-500/10 flex items-start gap-2 border-t px-4 py-2"
 												>
-													{post.last_publish_error}
+													<IconAlertCircle class="text-error-500 mt-0.5 h-4 w-4 flex-shrink-0" />
+													<p class="text-error-700-300 text-xs">{post.last_publish_error}</p>
 												</div>
 											{/if}
-											<div class="flex flex-wrap items-center gap-2">
-												{#if post.status === 'failed'}
-													<button
-														type="button"
-															class="btn btn-sm preset-outlined-warning-500"
-															onclick={(event) => {
-																event.stopPropagation();
-																runPostAction(post.id, 'retry');
-															}}
-															disabled={Boolean(postActionPending[post.id])}
-														>
-															Retry
-														</button>
-													{/if}
-												{#if PUBLISHABLE_STATUSES.has(normalizeStatus(post.status))}
-													<button
-														type="button"
-															class="btn btn-sm preset-filled-primary-500"
-															onclick={(event) => {
-																event.stopPropagation();
-																runPostAction(post.id, 'publish');
-															}}
-															disabled={Boolean(postActionPending[post.id])}
-														>
-															Publish Now
-													</button>
-												{/if}
-													<button
-														type="button"
-														class="btn btn-sm preset-outlined-secondary-500"
-														onclick={(event) => {
-															event.stopPropagation();
-															openComposerModal(resolvePostDate(post), { post });
-														}}
-													>
-														Reschedule
-													</button>
-												{#if normalizeStatus(post.status) === 'draft' || normalizeStatus(post.status) === 'scheduled'}
-													<button
-														type="button"
-														class="btn btn-sm preset-outlined-error-500 ml-auto px-2"
-														onclick={(event) => {
-															event.stopPropagation();
-															runPostAction(post.id, 'delete');
-														}}
-														disabled={Boolean(postActionPending[post.id])}
-														aria-label="Delete post"
-														title="Delete post"
-													>
-														<IconTrash2 class="h-4 w-4" />
-													</button>
-												{/if}
-											</div>
 										</div>
 									{/each}
 								{/if}
@@ -1945,26 +2312,149 @@
 						>
 							<!-- LEFT: Form -->
 							<div class="composer-form" class:composer-form--hidden={composerPreviewExpanded}>
+								<div class="field-group">
+									<div class="field-label">Post Type</div>
+									<div
+										class="bg-surface-200-800/70 border-surface-500/40 grid w-full grid-cols-2 items-center overflow-hidden rounded-lg border"
+									>
+										{#each POST_TARGETS as target}
+											<button
+												type="button"
+												class={`w-full px-3 py-1.5 text-sm transition-colors ${normalizePostTarget(composerPostTarget) === target ? 'bg-primary-500/20 text-primary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+												onclick={() => (composerPostTarget = target)}
+												disabled={composerReadOnly}
+											>
+												{postTargetLabel(target)}
+											</button>
+										{/each}
+									</div>
+								</div>
+
 								<!-- AI Quick Draft Panel -->
 								<section class="ai-draft-panel" class:ai-draft-panel--active={generatingAi}>
 									<div class="ai-draft-panel__header">
-										<IconSparkles class="h-4 w-4 flex-shrink-0" />
-										<span class="ai-draft-panel__label">AI Quick Draft</span>
-										<span class="ai-draft-panel__hint"
-											>Caption + 4:5 image for Instagram &amp; Facebook</span
-										>
+										<div class="ai-draft-panel__header-main">
+											<div class="ai-draft-panel__avatar">
+												<IconSparkles class="h-4 w-4" />
+											</div>
+											<div class="ai-draft-panel__header-copy">
+												<span class="ai-draft-panel__label">AI Assistant</span>
+												<p class="ai-draft-panel__subtitle">
+													Tell me what you want to post and I&apos;ll draft the caption and image.
+												</p>
+											</div>
+										</div>
+										<div class="ai-draft-panel__header-actions">
+											<span class="ai-draft-panel__hint"
+												>{composerAspectRatio()} image for Instagram &amp; Facebook</span
+											>
+											{#if aiConversation.length > 0 && !composerReadOnly}
+												<button
+													type="button"
+													class="ai-draft-panel__clear-btn"
+													onclick={resetAiConversation}
+													title="Clear conversation"
+												>
+													<IconRefreshCw class="h-4 w-4" />
+												</button>
+											{/if}
+										</div>
 									</div>
 									<div class="ai-draft-panel__body">
-										<textarea
-											class="composer-textarea"
-											bind:value={aiPromptInput}
-											placeholder="What are you posting about? Include event details, tone, and call-to-action in one prompt."
-											rows="3"
-											disabled={composerReadOnly}
-										></textarea>
-										<div class="ai-draft-panel__row">
+										<div class="ai-draft-panel__thread">
+											{#if aiConversation.length === 0}
+												<div class="ai-draft-panel__welcome">
+													<div class="ai-draft-panel__bubble">
+														<p class="ai-draft-panel__bubble-text">
+															Describe the post in plain language. Include the angle, emotional
+															energy, and what you want people to do next.
+														</p>
+													</div>
+												</div>
+											{:else}
+												<div class="ai-draft-panel__messages">
+													{#each aiConversation as message}
+														<div
+															class="ai-draft-panel__message"
+															class:ai-draft-panel__message--user={message.role === 'user'}
+															class:ai-draft-panel__message--assistant={message.role ===
+																'assistant'}
+														>
+															<div class="ai-draft-panel__message-avatar">
+																{#if message.role === 'assistant'}
+																	<IconSparkles class="h-4 w-4" />
+																{:else}
+																	<span class="ai-draft-panel__message-avatar-text">You</span>
+																{/if}
+															</div>
+															<div class="ai-draft-panel__message-content">
+																<p class="ai-draft-panel__message-text">{message.content}</p>
+															</div>
+														</div>
+													{/each}
+													{#if generatingAi}
+														<div class="ai-draft-panel__message ai-draft-panel__message--assistant">
+															<div class="ai-draft-panel__message-avatar">
+																<IconSparkles class="h-4 w-4" />
+															</div>
+															<div class="ai-draft-panel__message-content">
+																<div class="ai-draft-panel__typing">
+																	<span></span>
+																	<span></span>
+																	<span></span>
+																</div>
+															</div>
+														</div>
+													{/if}
+												</div>
+											{/if}
+										</div>
+										<div class="ai-draft-panel__composer">
+											<textarea
+												class="composer-textarea ai-draft-panel__textarea"
+												bind:value={aiPromptInput}
+												onkeydown={handleAiPromptKeydown}
+												placeholder={aiConversation.length
+													? 'Reply with changes to the caption or image...'
+													: 'Example: Write a rebellious caption about why the 3-foot passing law is legal and enforceable, and end with a rider-rights call to action.'}
+												rows="3"
+												disabled={composerReadOnly}
+											></textarea>
+											<button
+												type="button"
+												class="ai-draft-panel__send-btn"
+												onclick={generateAiAssistedContent}
+												disabled={generatingAi || composerReadOnly || !aiPromptInput.trim()}
+												aria-label="Send message"
+											>
+												{#if generatingAi}
+													<IconLoader class="h-4 w-4 animate-spin" />
+												{:else}
+													<IconSend class="h-4 w-4" />
+												{/if}
+											</button>
+										</div>
+										{#if aiConversation.length > 0}
+											<p class="ai-draft-panel__composer-hint">
+												Press Enter to send, Shift+Enter for new line
+											</p>
+										{/if}
+										<div class="ai-draft-panel__controls">
 											<label class="ai-style-label">
-												<span class="field-label-sm">Style</span>
+												<span class="field-label-sm">Tone</span>
+												<select class="ai-style-select" bind:value={aiToneId}>
+													{#each AI_TONE_OPTIONS as option}
+														<option value={option.id}>{option.label}</option>
+													{/each}
+												</select>
+												<p class="ai-style-description">
+													{selectedAiTone.guidance}
+													<br />
+													{selectedAiTone.example}
+												</p>
+											</label>
+											<label class="ai-style-label">
+												<span class="field-label-sm">Art Style</span>
 												<select class="ai-style-select" bind:value={aiStyleId}>
 													{#each IMAGE_STYLE_PRESETS as preset}
 														<option value={preset.id}>{preset.label}</option>
@@ -1999,21 +2489,59 @@
 													</select>
 												{/if}
 											</label>
-											<button
-												type="button"
-												class="ai-generate-btn"
-												onclick={generateAiAssistedContent}
-												disabled={generatingAi || composerReadOnly}
-											>
-												{#if generatingAi}
-													<IconLoader class="h-4 w-4 animate-spin" />
-													Generating…
-												{:else}
-													<IconSparkles class="h-4 w-4" />
-													Generate Draft
-												{/if}
-											</button>
 										</div>
+										{#if aiGeneratedImages.length > 0}
+											<div class="ai-generated-history">
+												<div class="ai-generated-history__header">
+													<span class="field-label-sm">Recent AI Images</span>
+													<span class="ai-generated-history__hint">
+														Selecting one makes it the active post image.
+													</span>
+												</div>
+												<div class="ai-generated-history__grid">
+													{#each aiGeneratedImages as item}
+														{@const selected = item?.url === aiSelectedImageUrl}
+														<div
+															class="ai-generated-history__card"
+															class:ai-generated-history__card--selected={selected}
+														>
+															<button
+																type="button"
+																class="ai-generated-history__preview"
+																onclick={() => selectGeneratedImage(item)}
+																disabled={composerReadOnly}
+															>
+																<img
+																	src={item.url}
+																	alt={item.file_name || 'Generated image'}
+																	class="ai-generated-history__image"
+																/>
+															</button>
+															<div class="ai-generated-history__actions">
+																<button
+																	type="button"
+																	class="ai-generated-history__btn"
+																	onclick={() => selectGeneratedImage(item)}
+																	disabled={composerReadOnly || selected}
+																>
+																	{selected ? 'Active' : 'Use'}
+																</button>
+																<button
+																	type="button"
+																	class="ai-generated-history__icon-btn"
+																	onclick={() => removeGeneratedImage(item.url)}
+																	disabled={composerReadOnly}
+																	aria-label="Remove image"
+																	title="Remove image"
+																>
+																	<IconTrash2 class="h-4 w-4" />
+																</button>
+															</div>
+														</div>
+													{/each}
+												</div>
+											</div>
+										{/if}
 									</div>
 								</section>
 
@@ -2149,6 +2677,7 @@
 												class="composer-input schedule-row__input"
 												type="datetime-local"
 												step="900"
+												min={minimumSchedulableInputValue}
 												bind:value={composerScheduledFor}
 												onchange={snapScheduledInput}
 												disabled={composerReadOnly}
@@ -2182,6 +2711,9 @@
 								<div class="composer-preview__header">
 									<div class="flex items-center gap-2">
 										<span class="preview-label">Preview</span>
+										<span class={postTargetClass(composerPostTarget)}>
+											{postTargetLabel(composerPostTarget)}
+										</span>
 									</div>
 									{#if getDraftPreviewImage()?.url}
 										<button
@@ -2218,7 +2750,7 @@
 								</div>
 								<div class="composer-preview__caption">
 									{#if composerCaption.trim()}
-										<p class="text-sm leading-relaxed">{captionPreview(composerCaption, 300)}</p>
+										<p class="composer-preview__caption-text">{composerCaption.trim()}</p>
 									{:else}
 										<p class="text-sm italic opacity-30">Your caption will appear here…</p>
 									{/if}
@@ -2798,7 +3330,9 @@
 		flex-direction: column;
 		gap: 1.125rem;
 		padding: 1.25rem;
-		overflow-y: visible;
+		overflow-y: auto;
+		min-height: 0;
+		scrollbar-gutter: stable;
 	}
 
 	.composer-form--hidden {
@@ -2808,13 +3342,22 @@
 	/* ─── AI Draft Panel ─── */
 	.ai-draft-panel {
 		border-radius: 1rem;
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 12%, transparent);
+		background: linear-gradient(
+			145deg,
+			color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%),
+			color-mix(in oklab, var(--color-surface-950) 90%, transparent)
+		);
+		box-shadow:
+			0 1px 2px color-mix(in oklab, black 5%, transparent),
+			inset 0 1px 0 color-mix(in oklab, white 3%, transparent);
 		transition: box-shadow 0.3s;
 	}
 
 	.ai-draft-panel--active {
-		box-shadow: 0 0 28px -6px color-mix(in oklab, var(--color-secondary-500) 35%, transparent);
+		box-shadow:
+			0 0 28px -6px color-mix(in oklab, var(--color-secondary-500) 35%, transparent),
+			inset 0 1px 0 color-mix(in oklab, white 3%, transparent);
 		animation: ai-shimmer 2.5s linear infinite;
 	}
 
@@ -2828,21 +3371,79 @@
 		}
 	}
 
+	@keyframes typing-bounce {
+		0%,
+		60%,
+		100% {
+			transform: translateY(0);
+			opacity: 0.5;
+		}
+		30% {
+			transform: translateY(-0.1875rem);
+			opacity: 1;
+		}
+	}
+
 	.ai-draft-panel__header {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 0.5rem;
 		padding: 0.75rem 1rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		color: var(--color-secondary-300);
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+		color: var(--color-surface-100);
+	}
+
+	.ai-draft-panel__header-main {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		min-width: 0;
+	}
+
+	.ai-draft-panel__header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-shrink: 0;
+	}
+
+	.ai-draft-panel__avatar {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		color: white;
+		box-shadow: 0 2px 8px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.ai-draft-panel__header-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		min-width: 0;
 	}
 
 	.ai-draft-panel__label {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		line-height: 1.2;
+		letter-spacing: -0.01em;
+	}
+
+	.ai-draft-panel__subtitle {
 		font-size: 0.6875rem;
-		font-weight: 700;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
+		line-height: 1.2;
+		color: var(--color-surface-400);
 	}
 
 	.ai-draft-panel__hint {
@@ -2850,6 +3451,24 @@
 		opacity: 0.55;
 		margin-left: auto;
 		display: none;
+		flex-shrink: 0;
+	}
+
+	.ai-draft-panel__clear-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.375rem;
+		background: transparent;
+		color: color-mix(in oklab, var(--color-surface-300) 70%, transparent);
+		transition: all 150ms ease;
+	}
+
+	.ai-draft-panel__clear-btn:hover {
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		color: var(--color-surface-200);
 	}
 
 	@media (min-width: 480px) {
@@ -2865,6 +3484,170 @@
 		gap: 0.75rem;
 	}
 
+	.ai-draft-panel__thread {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		max-height: 20rem;
+		overflow-y: auto;
+		padding-right: 0.125rem;
+	}
+
+	.ai-draft-panel__welcome {
+		display: flex;
+		justify-content: flex-start;
+	}
+
+	.ai-draft-panel__bubble {
+		max-width: 34rem;
+		padding: 0.875rem 1rem;
+		border-radius: 1rem;
+		border-top-left-radius: 0.25rem;
+		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+	}
+
+	.ai-draft-panel__bubble-text {
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		color: var(--color-surface-100);
+	}
+
+	.ai-draft-panel__composer {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.625rem;
+		align-items: end;
+	}
+
+	.ai-draft-panel__textarea {
+		min-height: 5.5rem;
+	}
+
+	.ai-draft-panel__composer-hint {
+		font-size: 0.6875rem;
+		color: var(--color-surface-500);
+	}
+
+	.ai-draft-panel__messages {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.ai-draft-panel__message {
+		display: flex;
+		gap: 0.625rem;
+		align-items: flex-start;
+	}
+
+	.ai-draft-panel__message--user {
+		flex-direction: row-reverse;
+	}
+
+	.ai-draft-panel__message-avatar {
+		flex-shrink: 0;
+		width: 1.75rem;
+		height: 1.75rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+		color: color-mix(in oklab, var(--color-surface-300) 80%, transparent);
+	}
+
+	.ai-draft-panel__message--assistant .ai-draft-panel__message-avatar {
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		color: white;
+	}
+
+	.ai-draft-panel__message-avatar-text {
+		font-size: 0.5625rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+	}
+
+	.ai-draft-panel__message-content {
+		flex: 1;
+		max-width: calc(100% - 3rem);
+		padding: 0.75rem 0.875rem;
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+	}
+
+	.ai-draft-panel__message--assistant .ai-draft-panel__message-content {
+		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
+		border-top-left-radius: 0.25rem;
+	}
+
+	.ai-draft-panel__message--user .ai-draft-panel__message-content {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		border-top-right-radius: 0.25rem;
+	}
+
+	.ai-draft-panel__message-text {
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.ai-draft-panel__typing {
+		display: flex;
+		gap: 0.25rem;
+		padding: 0.25rem 0;
+	}
+
+	.ai-draft-panel__typing span {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-400) 60%, transparent);
+		animation: typing-bounce 1.4s ease-in-out infinite;
+	}
+
+	.ai-draft-panel__typing span:nth-child(1) {
+		animation-delay: 0ms;
+	}
+
+	.ai-draft-panel__typing span:nth-child(2) {
+		animation-delay: 160ms;
+	}
+
+	.ai-draft-panel__typing span:nth-child(3) {
+		animation-delay: 320ms;
+	}
+
+	.ai-draft-panel__send-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 9999px;
+		background: var(--color-secondary-600);
+		color: white;
+		transition:
+			background 0.2s,
+			box-shadow 0.2s;
+	}
+
+	.ai-draft-panel__send-btn:hover:not(:disabled) {
+		background: var(--color-secondary-500);
+		box-shadow: 0 0 22px -4px color-mix(in oklab, var(--color-secondary-500) 55%, transparent);
+	}
+
+	.ai-draft-panel__send-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
 	.ai-draft-panel__row {
 		display: flex;
 		flex-wrap: wrap;
@@ -2872,11 +3655,25 @@
 		gap: 0.625rem;
 	}
 
+	.ai-draft-panel__controls {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+		align-items: start;
+	}
+
+	@media (max-width: 767px) {
+		.ai-draft-panel__controls {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+
 	.ai-style-label {
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
 		flex-grow: 1;
+		min-width: 0;
 	}
 
 	.ai-style-select {
@@ -2893,34 +3690,7 @@
 		font-size: 0.75rem;
 		line-height: 1.3;
 		color: color-mix(in oklab, var(--color-surface-100) 78%, transparent);
-	}
-
-	.ai-generate-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 1.125rem;
-		border-radius: 9999px;
-		font-size: 0.875rem;
-		font-weight: 600;
-		background: var(--color-secondary-600);
-		color: white;
-		flex: 1;
-		justify-content: center;
-		max-width: max-content;
-		transition:
-			background 0.2s,
-			box-shadow 0.2s;
-	}
-
-	.ai-generate-btn:hover:not(:disabled) {
-		background: var(--color-secondary-500);
-		box-shadow: 0 0 22px -4px color-mix(in oklab, var(--color-secondary-500) 55%, transparent);
-	}
-
-	.ai-generate-btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
+		min-height: 2rem;
 	}
 
 	/* ─── Field helpers ─── */
@@ -3188,6 +3958,104 @@
 		background: color-mix(in oklab, var(--color-error-500) 70%, black 30%);
 	}
 
+	.ai-generated-history {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+		padding-top: 0.25rem;
+	}
+
+	.ai-generated-history__header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.375rem 0.75rem;
+	}
+
+	.ai-generated-history__hint {
+		font-size: 0.75rem;
+		color: var(--color-surface-400);
+	}
+
+	.ai-generated-history__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	.ai-generated-history__card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 45%, transparent);
+		background: color-mix(in oklab, var(--color-surface-900) 72%, transparent);
+	}
+
+	.ai-generated-history__card--selected {
+		border-color: color-mix(in oklab, var(--color-primary-500) 70%, transparent);
+		box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+	}
+
+	.ai-generated-history__preview {
+		display: block;
+		width: 100%;
+		overflow: hidden;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-surface-800) 70%, transparent);
+	}
+
+	.ai-generated-history__image {
+		width: 100%;
+		aspect-ratio: 4 / 5;
+		object-fit: cover;
+	}
+
+	.ai-generated-history__actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.ai-generated-history__btn {
+		flex: 1;
+		padding: 0.375rem 0.5rem;
+		border-radius: 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		background: color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		color: var(--color-primary-300);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+	}
+
+	.ai-generated-history__btn:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
+	}
+
+	.ai-generated-history__icon-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		color: var(--color-error-300);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 30%, transparent);
+		flex-shrink: 0;
+	}
+
+	.ai-generated-history__icon-btn:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
+	}
+
+	.ai-generated-history__icon-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-error-500) 20%, transparent);
+	}
+
 	.comment-context {
 		background: color-mix(in oklab, var(--color-surface-800) 35%, transparent);
 	}
@@ -3291,6 +4159,7 @@
 		.composer-preview {
 			width: 16rem;
 			flex-shrink: 0;
+			min-height: 0;
 			border-top: none;
 			border-left: 1px solid color-mix(in oklab, var(--color-surface-700) 50%, transparent);
 			overflow-y: auto;
@@ -3374,6 +4243,13 @@
 		color: var(--color-surface-200);
 		line-height: 1.5;
 		min-height: 2.5rem;
+	}
+
+	.composer-preview__caption-text {
+		font-size: 0.875rem;
+		line-height: 1.55;
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 
 	.composer-preview__time {
