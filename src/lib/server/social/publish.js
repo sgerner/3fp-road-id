@@ -8,7 +8,11 @@ import {
 } from '$lib/server/social/db';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import { publishGroupSocialPostToPlatform } from '$lib/server/social/meta/publish';
-import { normalizePlatforms, SOCIAL_MAX_PUBLISH_ATTEMPTS } from '$lib/server/social/types';
+import {
+	normalizePlatforms,
+	normalizePostTarget,
+	SOCIAL_MAX_PUBLISH_ATTEMPTS
+} from '$lib/server/social/types';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
@@ -203,6 +207,7 @@ export async function publishSingleGroupSocialPost(
 	}
 
 	const platforms = normalizePlatforms(targetPost.platforms);
+	const postTarget = normalizePostTarget(targetPost.post_target);
 	if (!platforms.length) {
 		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 			status: 'failed',
@@ -227,6 +232,18 @@ export async function publishSingleGroupSocialPost(
 			}
 		});
 		return { ok: false, error: mediaValidation.error };
+	}
+	if (postTarget === 'story' && extractPostMedia(targetPost).length === 0) {
+		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+			status: 'failed',
+			updated_by: requestedBy,
+			last_publish_error: 'Stories require at least one media item.',
+			meta_publish_results: {
+				...(targetPost.meta_publish_results || {}),
+				last_error: 'Stories require at least one media item.'
+			}
+		});
+		return { ok: false, error: 'Stories require at least one media item.' };
 	}
 
 	if ((targetPost.publish_attempts || 0) > SOCIAL_MAX_PUBLISH_ATTEMPTS) {
@@ -326,7 +343,8 @@ export async function publishSingleGroupSocialPost(
 				},
 				post: {
 					caption: targetPost.caption,
-					media: preparedMedia
+					media: preparedMedia,
+					post_target: postTarget
 				}
 			});
 			platformResults[platform] = publishResult;
@@ -362,6 +380,7 @@ export async function publishSingleGroupSocialPost(
 
 	const mergedResults = {
 		...(targetPost.meta_publish_results || {}),
+		post_target: postTarget,
 		last_attempt_at: nowIso,
 		platforms: {
 			...(targetPost.meta_publish_results?.platforms || {}),

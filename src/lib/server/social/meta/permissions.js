@@ -8,6 +8,7 @@ export function getPlatformComposeConstraints(platform) {
 	if (key === 'instagram') {
 		return {
 			requiresMedia: true,
+			requiresMediaForStory: true,
 			maxCaptionLength: 2200,
 			notes: ['Instagram personal accounts are not supported in this v1 implementation.']
 		};
@@ -15,21 +16,28 @@ export function getPlatformComposeConstraints(platform) {
 	if (key === 'facebook') {
 		return {
 			requiresMedia: false,
+			requiresMediaForStory: true,
 			maxCaptionLength: 4000,
 			notes: []
 		};
 	}
 	return {
 		requiresMedia: false,
+		requiresMediaForStory: false,
 		maxCaptionLength: 4000,
 		notes: []
 	};
 }
 
-export function validatePlatformPostPayload(platform, { caption = '', media = [] } = {}) {
+export function validatePlatformPostPayload(
+	platform,
+	{ caption = '', media = [], postTarget = 'page' } = {}
+) {
 	const constraints = getPlatformComposeConstraints(platform);
 	const errors = [];
-	if (constraints.requiresMedia && (!Array.isArray(media) || media.length === 0)) {
+	const requiresMedia =
+		postTarget === 'story' ? constraints.requiresMediaForStory : constraints.requiresMedia;
+	if (requiresMedia && (!Array.isArray(media) || media.length === 0)) {
 		errors.push('This platform requires at least one media item for publishing.');
 	}
 	if (typeof caption === 'string' && caption.length > constraints.maxCaptionLength) {

@@ -1,6 +1,7 @@
 import {
 	normalizePlatforms,
 	normalizePostStatus,
+	normalizePostTarget,
 	safeCaption,
 	safeErrorMessage,
 	safePrompt,
@@ -148,6 +149,7 @@ export async function createGroupSocialPost(supabase, payload) {
 		created_by: payload.created_by,
 		updated_by: payload.updated_by || payload.created_by || null,
 		status: normalizePostStatus(payload.status) || 'draft',
+		post_target: normalizePostTarget(payload.post_target),
 		platforms: normalizePlatforms(payload.platforms),
 		title: safeTitle(payload.title),
 		caption: safeCaption(payload.caption),
@@ -210,6 +212,7 @@ export async function updateGroupSocialPost(supabase, groupId, postId, patch = {
 	const payload = { updated_at: new Date().toISOString() };
 	if (patch.updated_by) payload.updated_by = patch.updated_by;
 	if (patch.status) payload.status = normalizePostStatus(patch.status) || undefined;
+	if (patch.post_target !== undefined) payload.post_target = normalizePostTarget(patch.post_target);
 	if (patch.platforms) payload.platforms = normalizePlatforms(patch.platforms);
 	if (patch.title !== undefined) payload.title = safeTitle(patch.title);
 	if (patch.caption !== undefined) payload.caption = safeCaption(patch.caption);
@@ -386,6 +389,7 @@ export function serializeSocialPost(post) {
 	if (!post) return null;
 	return {
 		...post,
+		post_target: normalizePostTarget(post.post_target),
 		platforms: normalizePlatforms(post.platforms),
 		media: normalizeJsonArray(post.media),
 		meta_publish_results: normalizeJsonObject(post.meta_publish_results)

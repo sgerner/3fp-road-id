@@ -58,6 +58,11 @@ function extractMediaUrls(media) {
 	return urls;
 }
 
+function normalizePostTarget(value) {
+	const cleaned = cleanText(value, 40).toLowerCase();
+	return cleaned === 'story' ? 'story' : 'page';
+}
+
 function isFacebookPageIdentityError(error) {
 	const text = cleanText(error?.message || error, 1200).toLowerCase();
 	return text.includes('must be posted to a page as the page itself');
@@ -135,6 +140,7 @@ async function publishToFacebookPage({ account, caption, media = [] }) {
 	return {
 		ok: true,
 		platform: 'facebook',
+		post_target: 'page',
 		meta_id: cleanText(response?.id, 200) || null,
 		meta_post_id: cleanText(response?.id, 200) || null,
 		media_count_requested: mediaUrls.length,
@@ -144,7 +150,41 @@ async function publishToFacebookPage({ account, caption, media = [] }) {
 	};
 }
 
-async function publishToInstagramAccount({ account, caption, media = [] }) {
+async function publishToFacebookStory({ account, media = [] }) {
+	const pageId = cleanText(account?.meta_page_id, 120);
+	if (!pageId) throw new Error('Connected Facebook Page id is missing.');
+	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
+	if (!accessToken) throw new Error('Connected Facebook access token is missing.');
+
+	const mediaUrls = extractMediaUrls(media);
+	const firstMediaUrl = mediaUrls[0] || '';
+	if (!firstMediaUrl) {
+		throw new Error('Facebook stories require at least one media item.');
+	}
+
+	const response = await callMetaApi({
+		path: `/${pageId}/photo_stories`,
+		method: 'POST',
+		accessToken,
+		query: {
+			url: firstMediaUrl,
+			published: 'true'
+		}
+	});
+
+	return {
+		ok: true,
+		platform: 'facebook',
+		post_target: 'story',
+		meta_id: cleanText(response?.id, 200) || null,
+		meta_story_id: cleanText(response?.id, 200) || null,
+		media_count_requested: mediaUrls.length,
+		media_count_published: 1,
+		published_at: new Date().toISOString()
+	};
+}
+
+async function publishToInstagramAccount({ account, caption, media = [], postTarget = 'page' }) {
 	const igAccountId = cleanText(account?.meta_instagram_account_id, 120);
 	if (!igAccountId) throw new Error('Connected Instagram professional account id is missing.');
 	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
@@ -228,11 +268,19 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 		throw new Error('Instagram media is still processing. Please retry in a minute.');
 	};
 
-	const container = await callInstagramWriteEdge(`/${igAccountId}/media`, {
-		media_type: 'IMAGE',
-		image_url: mediaUrl,
-		caption: cleanText(caption, 2200)
-	});
+	const target = normalizePostTarget(postTarget);
+	const containerPayload =
+		target === 'story'
+			? {
+					media_type: 'STORIES',
+					image_url: mediaUrl
+				}
+			: {
+					media_type: 'IMAGE',
+					image_url: mediaUrl,
+					caption: cleanText(caption, 2200)
+				};
+	const container = await callInstagramWriteEdge(`/${igAccountId}/media`, containerPayload);
 	const creationId = cleanText(container?.id, 200);
 	if (!creationId) throw new Error('Instagram media container was not created.');
 	logSocialPublishDebug('social_publish_instagram_container_created', {
@@ -248,6 +296,7 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 	return {
 		ok: true,
 		platform: 'instagram',
+		post_target: target,
 		meta_id: cleanText(publishResponse?.id, 200) || creationId,
 		meta_media_id: cleanText(publishResponse?.id, 200) || null,
 		creation_id: creationId,
@@ -258,13 +307,15 @@ async function publishToInstagramAccount({ account, caption, media = [] }) {
 export async function publishGroupSocialPostToPlatform({ platform, account, post }) {
 	const caption = cleanText(post?.caption, 4000);
 	const media = Array.isArray(post?.media) ? post.media : [];
+	const postTarget = normalizePostTarget(post?.post_target);
 
 	try {
 		if (platform === 'facebook') {
+			if (postTarget === 'story') return await publishToFacebookStory({ account, media });
 			return await publishToFacebookPage({ account, caption, media });
 		}
 		if (platform === 'instagram') {
-			return await publishToInstagramAccount({ account, caption, media });
+			return await publishToInstagramAccount({ account, caption, media, postTarget });
 		}
 		throw new Error(`Unsupported social platform: ${platform}`);
 	} catch (error) {

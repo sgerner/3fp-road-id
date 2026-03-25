@@ -9,6 +9,7 @@ export const SOCIAL_POST_STATUSES = [
 	'failed',
 	'cancelled'
 ];
+export const SOCIAL_POST_TARGETS = ['page', 'story'];
 
 export const SOCIAL_REPLY_STATUSES = ['draft', 'sending', 'sent', 'failed'];
 export const SOCIAL_SCHEDULING_INTERVAL_MINUTES = 15;
@@ -16,6 +17,7 @@ export const SOCIAL_MAX_PUBLISH_ATTEMPTS = 3;
 
 const PLATFORM_SET = new Set(SOCIAL_PLATFORMS);
 const POST_STATUS_SET = new Set(SOCIAL_POST_STATUSES);
+const POST_TARGET_SET = new Set(SOCIAL_POST_TARGETS);
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -43,6 +45,11 @@ export function normalizePlatforms(value) {
 export function normalizePostStatus(value) {
 	const cleaned = cleanText(value).toLowerCase();
 	return POST_STATUS_SET.has(cleaned) ? cleaned : null;
+}
+
+export function normalizePostTarget(value) {
+	const cleaned = cleanText(value).toLowerCase();
+	return POST_TARGET_SET.has(cleaned) ? cleaned : 'page';
 }
 
 export function safeCaption(value, maxLength = 4000) {

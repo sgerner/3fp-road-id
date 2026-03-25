@@ -9,7 +9,7 @@ import {
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
 import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
 import { normalizeScheduledPostTime } from '$lib/server/social/scheduler';
-import { normalizePlatforms } from '$lib/server/social/types';
+import { normalizePlatforms, normalizePostTarget } from '$lib/server/social/types';
 import { validatePlatformPostPayload } from '$lib/server/social/meta/permissions';
 
 function cleanText(value, maxLength = 0) {
@@ -50,7 +50,13 @@ function isManagedSocialMediaUrl(url) {
 	}
 }
 
-function validateRequestedPlatforms({ requestedPlatforms, connectedPlatforms, media, caption }) {
+function validateRequestedPlatforms({
+	requestedPlatforms,
+	connectedPlatforms,
+	media,
+	caption,
+	postTarget
+}) {
 	if (!requestedPlatforms.length) {
 		return 'Select at least one connected platform.';
 	}
@@ -59,7 +65,7 @@ function validateRequestedPlatforms({ requestedPlatforms, connectedPlatforms, me
 		if (!connectedPlatforms.has(platform)) {
 			return `${platform} is not connected.`;
 		}
-		const validation = validatePlatformPostPayload(platform, { media, caption });
+		const validation = validatePlatformPostPayload(platform, { media, caption, postTarget });
 		if (!validation.ok) {
 			return validation.errors[0] || `Post payload is invalid for ${platform}.`;
 		}
@@ -106,6 +112,7 @@ export async function POST({ cookies, params, request }) {
 		const title = cleanText(body.title, 200) || null;
 		const aiPrompt = cleanText(body.ai_prompt, 3000) || null;
 		const media = normalizeMediaList(body.media);
+		const postTarget = normalizePostTarget(body.post_target);
 		const requestedPlatforms = normalizePlatforms(body.platforms);
 
 		const accounts = await listGroupSocialAccounts(auth.serviceSupabase, auth.group.id);
@@ -118,7 +125,8 @@ export async function POST({ cookies, params, request }) {
 				requestedPlatforms,
 				connectedPlatforms,
 				media,
-				caption
+				caption,
+				postTarget
 			});
 			if (platformError) {
 				return json({ error: platformError }, { status: 400 });
@@ -152,6 +160,7 @@ export async function POST({ cookies, params, request }) {
 			created_by: auth.userId,
 			updated_by: auth.userId,
 			status,
+			post_target: postTarget,
 			platforms: requestedPlatforms,
 			title,
 			caption,
