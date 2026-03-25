@@ -39,8 +39,10 @@
 	function isMobileViewport() {
 		return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 	}
-	let showMap = $state(!((q || '').trim()) && !isMobileViewport());
+	let showMap = $state(!isMobileViewport());
 	let showMapLightbox = $state(false);
+	let groupCardsEl = $state();
+	let scrollToCardsAfterSearch = $state(false);
 
 	let applyTimer;
 	function scheduleApply() {
@@ -82,11 +84,18 @@
 	}
 
 	function handleSearchInput(event) {
-		const value = event?.currentTarget?.value ?? '';
-		if (value.trim()) {
-			showMap = false;
-		}
+		void event;
 		scheduleApply();
+	}
+
+	function scrollToGroupCards() {
+		if (!groupCardsEl) return;
+		groupCardsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	function handleSearchButtonClick() {
+		scrollToCardsAfterSearch = true;
+		applyFilters(true);
 	}
 
 	function clearAll() {
@@ -382,6 +391,13 @@
 	});
 
 	$effect(() => {
+		if (!scrollToCardsAfterSearch) return;
+		if ($navigating) return;
+		scrollToCardsAfterSearch = false;
+		setTimeout(() => scrollToGroupCards(), 10);
+	});
+
+	$effect(() => {
 		if (typeof document === 'undefined') return;
 		if (!showMapLightbox) return;
 		const previousOverflow = document.documentElement.style.overflow;
@@ -514,6 +530,14 @@
 							oninput={handleSearchInput}
 						/>
 					</div>
+					<button
+						type="button"
+						class="btn preset-filled-primary-500 gap-2 self-start"
+						onclick={handleSearchButtonClick}
+					>
+						<IconSearch class="h-4 w-4" />
+						Search
+					</button>
 
 					<div class="grid grid-cols-2 gap-2">
 						<select
@@ -700,7 +724,7 @@
 					{/if}
 
 					<a
-						class="btn preset-filled-primary-500 gap-2 {activeFilterCount > 0
+						class="btn preset-outlined-primary-500 gap-2 {activeFilterCount > 0
 							? 'col-span-1 sm:col-span-1'
 							: 'col-span-1 sm:col-span-1'}"
 						href="/groups/new"
@@ -801,37 +825,38 @@
 		{/if}
 
 		<!-- Groups grid -->
-		{#if !data.groups?.length}
-			<!-- Empty state -->
-			<div
-				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-			>
-				<div class="app-empty-orb" aria-hidden="true"></div>
-				<div class="relative z-10 mx-auto max-w-lg space-y-4">
-					<div
-						class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-					>
-						<IconUsers class="h-10 w-10 opacity-60" />
-					</div>
-					<h3 class="text-2xl font-bold">No groups match that filter yet</h3>
-					<p class="text-sm leading-relaxed opacity-70">
-						Try a broader search, clear some filters, or be the first to start a group in this area!
-					</p>
-					<div class="flex flex-wrap justify-center gap-3 pt-2">
-						{#if activeFilterCount > 0}
-							<button class="btn preset-outlined-surface-950-50" onclick={clearAll}>
-								Clear filters
-							</button>
-						{/if}
-						<a class="btn preset-filled-primary-500 gap-2" href="/groups/new">
-							<IconPlus class="h-4 w-4" />
-							Create group
-						</a>
+		<div bind:this={groupCardsEl}>
+			{#if !data.groups?.length}
+				<!-- Empty state -->
+				<div
+					class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+				>
+					<div class="app-empty-orb" aria-hidden="true"></div>
+					<div class="relative z-10 mx-auto max-w-lg space-y-4">
+						<div
+							class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
+						>
+							<IconUsers class="h-10 w-10 opacity-60" />
+						</div>
+						<h3 class="text-2xl font-bold">No groups match that filter yet</h3>
+						<p class="text-sm leading-relaxed opacity-70">
+							Try a broader search, clear some filters, or be the first to start a group in this area!
+						</p>
+						<div class="flex flex-wrap justify-center gap-3 pt-2">
+							{#if activeFilterCount > 0}
+								<button class="btn preset-outlined-surface-950-50" onclick={clearAll}>
+									Clear filters
+								</button>
+							{/if}
+							<a class="btn preset-filled-primary-500 gap-2" href="/groups/new">
+								<IconPlus class="h-4 w-4" />
+								Create group
+							</a>
+						</div>
 					</div>
 				</div>
-			</div>
-		{:else}
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+			{:else}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each data.groups as g (g.id)}
 					<a
 						href={`/groups/${g.slug}`}
@@ -915,12 +940,14 @@
 						</div>
 					</a>
 				{/each}
-			</div>
+				</div>
+			{/if}
+		</div>
 
-			<!-- Pagination Controls -->
-			{#if data.totalGroups > limit}
-				{@const totalPages = Math.ceil(data.totalGroups / limit)}
-				<div class="mt-10 flex items-center justify-center gap-3">
+		<!-- Pagination Controls -->
+		{#if data.totalGroups > limit}
+			{@const totalPages = Math.ceil(data.totalGroups / limit)}
+			<div class="mt-10 flex items-center justify-center gap-3">
 					<button
 						class="btn preset-filled-surface-50-950 px-5 shadow-sm"
 						disabled={page <= 1 || $navigating}
@@ -943,8 +970,7 @@
 					>
 						Next
 					</button>
-				</div>
-			{/if}
+			</div>
 		{/if}
 	</section>
 </div>
