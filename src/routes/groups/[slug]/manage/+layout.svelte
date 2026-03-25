@@ -249,6 +249,8 @@
 
 <style>
 	.manage-hero {
+		position: relative;
+		z-index: 30;
 		background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-950) 85%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
 		animation: hero-in 600ms ease both;
@@ -304,6 +306,7 @@
 
 	.mobile-manage-menu {
 		position: relative;
+		z-index: 40;
 	}
 
 	.mobile-manage-trigger {
@@ -370,7 +373,7 @@
 		top: 100%;
 		left: 0;
 		right: 0;
-		z-index: 50;
+		z-index: 60;
 		background: linear-gradient(
 			180deg,
 			color-mix(in oklab, var(--color-surface-900) 95%, transparent) 0%,
@@ -464,6 +467,11 @@
 
 	.manage-tab.tab-active {
 		border-bottom-color: white;
+	}
+
+	.manage-page-content {
+		position: relative;
+		z-index: 1;
 	}
 
 	@keyframes hero-in {
