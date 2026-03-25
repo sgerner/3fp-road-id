@@ -519,25 +519,23 @@
 				</div>
 
 				<div class="flex flex-col gap-3">
-					<div class="relative">
-						<IconSearch
-							class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-						/>
+					<div class="input-group grid-cols-[1fr_auto]">
 						<input
-							class="input bg-surface-950-50/5 pl-9"
+							class="ig-input bg-surface-950-50/5"
 							bind:value={q}
 							placeholder="Name, city, description…"
 							oninput={handleSearchInput}
 						/>
+						<button
+							type="button"
+							class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
+							onclick={handleSearchButtonClick}
+							aria-label="Search groups"
+							title="Search"
+						>
+							<IconSearch class="h-4 w-4" />
+						</button>
 					</div>
-					<button
-						type="button"
-						class="btn preset-filled-primary-500 gap-2 self-start"
-						onclick={handleSearchButtonClick}
-					>
-						<IconSearch class="h-4 w-4" />
-						Search
-					</button>
 
 					<div class="grid grid-cols-2 gap-2">
 						<select
