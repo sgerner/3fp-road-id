@@ -21,6 +21,7 @@
 	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
+	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
@@ -28,6 +29,7 @@
 	} from '$lib/ai/imageStyles';
 	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '$lib/ai/bikeVibes';
 	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '$lib/geo/usStates';
+	import { toaster } from '../../../routes/toaster-svelte';
 
 	let { slug = '', canManageSocial = false, showClaimMessage = false, group = null } = $props();
 
@@ -38,7 +40,6 @@
 	const COMMENTS_PAGE_SIZE = 20;
 
 	const PUBLISHABLE_STATUSES = new Set(['draft', 'scheduled', 'queued', 'failed', 'cancelled']);
-	const CANCELLABLE_STATUSES = new Set(['scheduled', 'queued']);
 
 	let loading = $state(false);
 	let loadingPosts = $state(false);
@@ -63,8 +64,9 @@
 	let composerPreviewExpanded = $state(false);
 	let composerReadOnly = $state(false);
 	let calendarView = $state('month');
-	let calendarReference = $state(startOfMonth(new Date()));
+	let calendarReference = $state(new Date());
 	let showConnectionsPanel = $state(false);
+	let socialConnectionsResolved = $state(false);
 
 	let accountActionPending = $state({});
 	let postActionPending = $state({});
@@ -72,7 +74,6 @@
 	let aiReplyPending = $state({});
 	let replyDrafts = $state({});
 
-	let composerTitle = $state('');
 	let composerCaption = $state('');
 	let composerPlatforms = $state([]);
 	let composerMedia = $state([]);
@@ -203,7 +204,7 @@
 	const hasNextCommentsPage = $derived.by(() => commentsOffset + comments.length < commentsTotal);
 
 	const shouldShowConnectionsPanel = $derived.by(
-		() => !hasConnectedAccounts || showConnectionsPanel
+		() => socialConnectionsResolved && (!hasConnectedAccounts || showConnectionsPanel)
 	);
 
 	$effect(() => {
@@ -215,10 +216,6 @@
 		const filtered = composerPlatforms.filter((platform) => connectedSet.has(platform));
 		if (filtered.length !== composerPlatforms.length) {
 			composerPlatforms = filtered;
-			return;
-		}
-		if (composerPlatforms.length === 0) {
-			composerPlatforms = [...connectedSet];
 		}
 	});
 
@@ -366,7 +363,6 @@
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
 		if (sourcePost) {
-			composerTitle = sourcePost?.title || '';
 			composerCaption = sourcePost?.caption || '';
 			composerPlatforms = Array.isArray(sourcePost?.platforms) ? [...sourcePost.platforms] : [];
 			composerMedia = Array.isArray(sourcePost?.media) ? [...sourcePost.media] : [];
@@ -385,6 +381,9 @@
 			const next = roundToQuarterHour(new Date(Date.now() + 15 * 60 * 1000));
 			composerScheduledFor = formatLocalDateTimeInput(next);
 		}
+		if (!sourcePost && composerPlatforms.length === 0) {
+			composerPlatforms = [...new Set([...connectedPlatforms])];
+		}
 		composerModalOpen = true;
 	}
 
@@ -397,7 +396,6 @@
 	function openPublishedPostModal(post) {
 		composerReadOnly = true;
 		composerPreviewExpanded = false;
-		composerTitle = post?.title || '';
 		composerCaption = post?.caption || '';
 		composerPlatforms = Array.isArray(post?.platforms) ? [...post.platforms] : [];
 		composerMedia = Array.isArray(post?.media) ? [...post.media] : [];
@@ -636,6 +634,12 @@
 		openComposerModal(post?._scheduledAt || resolvePostDate(post) || new Date(), { post });
 	}
 
+	function openUpcomingCard(post) {
+		if (!post?.id) return;
+		if (postActionPending[post.id]) return;
+		openComposerModal(resolvePostDate(post) || new Date(), { post });
+	}
+
 	function accountByPlatform(platform) {
 		return accounts.find((account) => account?.platform === platform) || null;
 	}
@@ -733,6 +737,28 @@
 		actionNotice = '';
 	}
 
+	function showActionError(message) {
+		const text = String(message || 'Unable to complete this action.');
+		actionError = text;
+		toaster.error({ title: text });
+	}
+
+	function requireComposerPlatformsForPublish(intent) {
+		if (intent !== 'schedule' && intent !== 'publish_now') return true;
+		if (composerPlatforms.length > 0) return true;
+		showActionError('Select at least one network before scheduling or posting.');
+		return false;
+	}
+
+	function validateComposerPublishRequirements(intent) {
+		if (!requireComposerPlatformsForPublish(intent)) return false;
+		if (composerPlatforms.includes('instagram') && composerMedia.length === 0) {
+			showActionError('Instagram posts require at least one uploaded image.');
+			return false;
+		}
+		return true;
+	}
+
 	function isBusy() {
 		return (
 			loading ||
@@ -791,7 +817,7 @@
 			);
 			hydrateCommentsData(payload?.data || {}, safeOffset);
 		} catch (error) {
-			actionError = error?.message || 'Unable to load comments.';
+			showActionError(error?.message || 'Unable to load comments.');
 		} finally {
 			loadingComments = false;
 		}
@@ -804,7 +830,7 @@
 			const payload = await requestJson(`/api/groups/${slug}/social/posts?limit=120`);
 			posts = Array.isArray(payload?.data) ? payload.data : [];
 		} catch (error) {
-			actionError = error?.message || 'Unable to load posts.';
+			showActionError(error?.message || 'Unable to load posts.');
 		} finally {
 			loadingPosts = false;
 		}
@@ -837,6 +863,7 @@
 		} catch (error) {
 			loadError = error?.message || 'Unable to load social manager data.';
 		} finally {
+			socialConnectionsResolved = true;
 			loading = false;
 		}
 	}
@@ -850,7 +877,7 @@
 			actionNotice = `${platformLabel(platform)} disconnected.`;
 			await loadDashboard();
 		} catch (error) {
-			actionError = error?.message || 'Unable to disconnect account.';
+			showActionError(error?.message || 'Unable to disconnect account.');
 		} finally {
 			setPending('account', platform, false);
 		}
@@ -870,7 +897,7 @@
 			actionNotice = `${platformLabel(platform)} account connected.`;
 			await loadDashboard();
 		} catch (error) {
-			actionError = error?.message || 'Unable to complete account connection.';
+			showActionError(error?.message || 'Unable to complete account connection.');
 		} finally {
 			setPending('account', key, false);
 		}
@@ -880,7 +907,7 @@
 		if (!slug) return;
 		if (composerReadOnly) return;
 		if (!queuedMediaFiles.length) {
-			actionError = 'Select one or more images first.';
+			showActionError('Select one or more images first.');
 			return;
 		}
 		clearFeedback();
@@ -899,7 +926,7 @@
 			queuedMediaFiles = [];
 			actionNotice = `${uploaded.length} media file${uploaded.length === 1 ? '' : 's'} uploaded.`;
 		} catch (error) {
-			actionError = error?.message || 'Unable to upload media files.';
+			showActionError(error?.message || 'Unable to upload media files.');
 		} finally {
 			uploadingMedia = false;
 		}
@@ -908,8 +935,9 @@
 	async function submitComposer(intent) {
 		if (!slug) return;
 		if (composerReadOnly) return;
+		if (!validateComposerPublishRequirements(intent)) return;
 		if (intent === 'schedule' && !composerScheduledFor) {
-			actionError = 'Choose a date and time before scheduling.';
+			showActionError('Choose a date and time before scheduling.');
 			return;
 		}
 		clearFeedback();
@@ -917,7 +945,6 @@
 		try {
 			const payload = {
 				intent,
-				title: composerTitle,
 				caption: composerCaption,
 				platforms: composerPlatforms,
 				media: composerMedia,
@@ -926,7 +953,8 @@
 			if (intent === 'schedule') {
 				const scheduleDate = new Date(composerScheduledFor);
 				if (Number.isNaN(scheduleDate.getTime())) {
-					throw new Error('Choose a valid schedule date and time.');
+					showActionError('Choose a valid schedule date and time.');
+					return;
 				}
 				payload.scheduled_for = scheduleDate.toISOString();
 			}
@@ -949,7 +977,7 @@
 				composerModalOpen = false;
 			}
 		} catch (error) {
-			actionError = error?.message || 'Unable to save post.';
+			showActionError(error?.message || 'Unable to save post.');
 		} finally {
 			submittingIntent = '';
 		}
@@ -982,15 +1010,15 @@
 	async function generateAiAssistedContent() {
 		if (!slug) return;
 		if (!aiPromptInput.trim()) {
-			actionError = 'Enter a prompt before generating content.';
+			showActionError('Enter a prompt before generating content.');
 			return;
 		}
 		if (requiresAiStateSelection && !aiSelectedStateCode) {
-			actionError = 'Select a state or territory for this style.';
+			showActionError('Select a state or territory for this style.');
 			return;
 		}
 		if (requiresAiBikeVibeSelection && !aiSelectedBikeVibeId) {
-			actionError = 'Select a bike type or vibe for this style.';
+			showActionError('Select a bike type or vibe for this style.');
 			return;
 		}
 
@@ -1002,9 +1030,6 @@
 			const selectedPlatforms = composerPlatforms.length
 				? composerPlatforms
 				: Array.from(new Set([...connectedPlatforms]));
-			if (!composerPlatforms.length && selectedPlatforms.length) {
-				composerPlatforms = [...selectedPlatforms];
-			}
 
 			const captionPayload = await requestJson(`/api/groups/${slug}/social/ai-caption`, {
 				method: 'POST',
@@ -1086,7 +1111,7 @@
 
 			actionNotice = 'Draft generated. Review and schedule, publish now, or save as draft.';
 		} catch (error) {
-			actionError = error?.message || 'Unable to generate AI content.';
+			showActionError(error?.message || 'Unable to generate AI content.');
 		} finally {
 			generatingAi = false;
 		}
@@ -1097,22 +1122,52 @@
 		const pathByAction = {
 			publish: 'publish',
 			retry: 'retry',
-			cancel: 'cancel'
+			cancel: 'cancel',
+			delete: ''
 		};
 		const actionPath = pathByAction[action];
-		if (!actionPath) return;
+		if (actionPath === undefined) return;
+
+		const post = posts.find((entry) => entry?.id === postId);
+		const status = normalizeStatus(post?.status);
+		const postPlatforms = Array.isArray(post?.platforms)
+			? post.platforms.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
+			: [];
+
+		if ((action === 'publish' || action === 'retry') && postPlatforms.length === 0) {
+			showActionError('This post has no selected networks. Edit the post and choose at least one.');
+			return;
+		}
+		if ((action === 'publish' || action === 'retry') && postPlatforms.includes('instagram')) {
+			const media = Array.isArray(post?.media) ? post.media : [];
+			if (media.length === 0) {
+				showActionError(
+					'This post includes Instagram but has no media. Add an image before posting.'
+				);
+				return;
+			}
+		}
+		if (action === 'delete' && status !== 'draft' && status !== 'scheduled') {
+			showActionError('Only draft and scheduled posts can be deleted.');
+			return;
+		}
 
 		clearFeedback();
 		setPending('post', postId, true);
 		try {
+			const isDelete = action === 'delete';
 			const payload = await requestJson(
-				`/api/groups/${slug}/social/posts/${postId}/${actionPath}`,
+				isDelete
+					? `/api/groups/${slug}/social/posts/${postId}`
+					: `/api/groups/${slug}/social/posts/${postId}/${actionPath}`,
 				{
-					method: 'POST'
+					method: isDelete ? 'DELETE' : 'POST'
 				}
 			);
 			const updatedPost = payload?.data;
-			if (updatedPost?.id) {
+			if (action === 'delete') {
+				posts = posts.filter((entry) => entry.id !== postId);
+			} else if (updatedPost?.id) {
 				posts = posts.map((post) => (post.id === updatedPost.id ? updatedPost : post));
 			} else {
 				await refreshPosts();
@@ -1121,8 +1176,9 @@
 			if (action === 'retry') actionNotice = 'Retry started.';
 			if (action === 'cancel') actionNotice = 'Scheduled post cancelled.';
 			if (action === 'publish') actionNotice = 'Publish started.';
+			if (action === 'delete') actionNotice = 'Post deleted.';
 		} catch (error) {
-			actionError = error?.message || 'Unable to run post action.';
+			showActionError(error?.message || 'Unable to run post action.');
 		} finally {
 			setPending('post', postId, false);
 		}
@@ -1134,7 +1190,9 @@
 		if (!silent) clearFeedback();
 		const platforms = Array.from(new Set(activeConnectedPlatforms()));
 		if (!platforms.length) {
-			if (!silent) actionError = 'Connect a Facebook Page or Instagram professional account first.';
+			if (!silent) {
+				showActionError('Connect a Facebook Page or Instagram professional account first.');
+			}
 			showConnectionsPanel = true;
 			return;
 		}
@@ -1179,6 +1237,7 @@
 					})
 					.join(' | ');
 				actionError = `Some comments could not be synced. ${detail}`;
+				toaster.error({ title: actionError });
 				actionNotice = '';
 				showConnectionsPanel = true;
 			} else if (!silent) {
@@ -1187,7 +1246,7 @@
 				actionNotice = 'Comments synced.';
 			}
 		} catch (error) {
-			actionError = error?.message || 'Unable to sync comments.';
+			showActionError(error?.message || 'Unable to sync comments.');
 		} finally {
 			syncingComments = false;
 		}
@@ -1235,7 +1294,7 @@
 			updateReplyDraft(commentId, suggested);
 			actionNotice = 'Reply draft generated.';
 		} catch (error) {
-			actionError = error?.message || 'Unable to generate reply draft.';
+			showActionError(error?.message || 'Unable to generate reply draft.');
 		} finally {
 			setPending('ai-reply', commentId, false);
 		}
@@ -1245,7 +1304,7 @@
 		if (!slug || !commentId) return;
 		const body = String(replyDrafts[commentId] || '').trim();
 		if (!body) {
-			actionError = 'Reply cannot be empty.';
+			showActionError('Reply cannot be empty.');
 			return;
 		}
 		clearFeedback();
@@ -1267,7 +1326,7 @@
 			updateReplyDraft(commentId, '');
 			actionNotice = 'Reply sent.';
 		} catch (error) {
-			actionError = error?.message || 'Unable to send reply.';
+			showActionError(error?.message || 'Unable to send reply.');
 		} finally {
 			setPending('reply', commentId, false);
 		}
@@ -1284,12 +1343,14 @@
 			</div>
 			{#if canManageSocial}
 				<div class="flex items-center gap-2">
-					<button
-						class="btn btn-sm preset-outlined-secondary-500"
-						onclick={() => (showConnectionsPanel = !showConnectionsPanel)}
-					>
-						{shouldShowConnectionsPanel ? 'Hide Connections' : 'Manage Connections'}
-					</button>
+					{#if socialConnectionsResolved}
+						<button
+							class="btn btn-sm preset-outlined-secondary-500"
+							onclick={() => (showConnectionsPanel = !showConnectionsPanel)}
+						>
+							{shouldShowConnectionsPanel ? 'Hide Connections' : 'Manage Connections'}
+						</button>
+					{/if}
 					<button
 						class="btn btn-sm preset-outlined-primary-500"
 						onclick={loadDashboard}
@@ -1735,10 +1796,18 @@
 									<div class="card border-surface-300-700 rounded-xl border p-3 text-sm">
 										No upcoming content yet.
 									</div>
-								{:else}
-									{#each upcomingCards as post}
-										<div class="card border-surface-300-700 space-y-2 rounded-xl border p-3">
-											<div class="flex flex-wrap items-start justify-between gap-2">
+									{:else}
+										{#each upcomingCards as post}
+											<div
+												role="button"
+												tabindex="0"
+												class="card border-surface-300-700 space-y-2 rounded-xl border p-3"
+												onclick={() => openUpcomingCard(post)}
+												onkeydown={(event) =>
+													(event.key === 'Enter' || event.key === ' ') &&
+													openUpcomingCard(post)}
+											>
+												<div class="flex flex-wrap items-start justify-between gap-2">
 												<div class="space-y-1">
 													<div class="text-sm font-semibold">{captionPreview(post.caption)}</div>
 													<div class="text-surface-700-300 text-xs">{postPlatformsLabel(post)}</div>
@@ -1753,44 +1822,58 @@
 													{post.last_publish_error}
 												</div>
 											{/if}
-											<div class="flex flex-wrap gap-2">
+											<div class="flex flex-wrap items-center gap-2">
 												{#if post.status === 'failed'}
 													<button
 														type="button"
-														class="btn btn-sm preset-outlined-warning-500"
-														onclick={() => runPostAction(post.id, 'retry')}
-														disabled={Boolean(postActionPending[post.id])}
-													>
-														Retry
-													</button>
-												{/if}
-												{#if CANCELLABLE_STATUSES.has(normalizeStatus(post.status))}
-													<button
-														type="button"
-														class="btn btn-sm preset-outlined-error-500"
-														onclick={() => runPostAction(post.id, 'cancel')}
-														disabled={Boolean(postActionPending[post.id])}
-													>
-														Cancel
-													</button>
-												{/if}
+															class="btn btn-sm preset-outlined-warning-500"
+															onclick={(event) => {
+																event.stopPropagation();
+																runPostAction(post.id, 'retry');
+															}}
+															disabled={Boolean(postActionPending[post.id])}
+														>
+															Retry
+														</button>
+													{/if}
 												{#if PUBLISHABLE_STATUSES.has(normalizeStatus(post.status))}
 													<button
 														type="button"
-														class="btn btn-sm preset-filled-primary-500"
-														onclick={() => runPostAction(post.id, 'publish')}
-														disabled={Boolean(postActionPending[post.id])}
-													>
-														Publish Now
+															class="btn btn-sm preset-filled-primary-500"
+															onclick={(event) => {
+																event.stopPropagation();
+																runPostAction(post.id, 'publish');
+															}}
+															disabled={Boolean(postActionPending[post.id])}
+														>
+															Publish Now
 													</button>
 												{/if}
-												<button
-													type="button"
-													class="btn btn-sm preset-outlined-secondary-500"
-													onclick={() => openComposerModal(resolvePostDate(post), { post })}
-												>
-													Reschedule
-												</button>
+													<button
+														type="button"
+														class="btn btn-sm preset-outlined-secondary-500"
+														onclick={(event) => {
+															event.stopPropagation();
+															openComposerModal(resolvePostDate(post), { post });
+														}}
+													>
+														Reschedule
+													</button>
+												{#if normalizeStatus(post.status) === 'draft' || normalizeStatus(post.status) === 'scheduled'}
+													<button
+														type="button"
+														class="btn btn-sm preset-outlined-error-500 ml-auto px-2"
+														onclick={(event) => {
+															event.stopPropagation();
+															runPostAction(post.id, 'delete');
+														}}
+														disabled={Boolean(postActionPending[post.id])}
+														aria-label="Delete post"
+														title="Delete post"
+													>
+														<IconTrash2 class="h-4 w-4" />
+													</button>
+												{/if}
 											</div>
 										</div>
 									{/each}
@@ -1967,22 +2050,6 @@
 											</button>
 										{/each}
 									</div>
-								</div>
-
-								<!-- Post Title -->
-								<div class="field-group">
-									<label for="composer-title" class="field-label">
-										Post Title <span class="field-optional">(optional)</span>
-									</label>
-									<input
-										id="composer-title"
-										class="composer-input"
-										type="text"
-										maxlength="120"
-										bind:value={composerTitle}
-										placeholder="Weekend community ride"
-										disabled={composerReadOnly}
-									/>
 								</div>
 
 								<!-- Caption -->
@@ -2210,7 +2277,7 @@
 											<IconLoader class="h-4 w-4 animate-spin" />
 											Publishing…
 										{:else}
-											Publish
+											Post Now
 										{/if}
 									</button>
 									<button
@@ -2575,7 +2642,7 @@
 		position: fixed;
 		inset: 0;
 		margin: 0;
-		z-index: 50;
+		z-index: 120;
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;

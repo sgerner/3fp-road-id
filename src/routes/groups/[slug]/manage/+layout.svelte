@@ -471,7 +471,6 @@
 
 	.manage-page-content {
 		position: relative;
-		z-index: 1;
 	}
 
 	@keyframes hero-in {

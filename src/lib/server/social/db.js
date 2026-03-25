@@ -242,6 +242,17 @@ export async function updateGroupSocialPost(supabase, groupId, postId, patch = {
 	return data ?? null;
 }
 
+export async function deleteGroupSocialPost(supabase, groupId, postId) {
+	const id = cleanText(postId, 120);
+	if (!id) throw new Error('Post id is required.');
+	const { error } = await supabase
+		.from('group_social_posts')
+		.delete()
+		.eq('group_id', groupId)
+		.eq('id', id);
+	if (error) throw new Error(error.message);
+}
+
 export async function listGroupSocialComments(supabase, groupId, { limit = 80 } = {}) {
 	const page = await listGroupSocialCommentsPage(supabase, groupId, { limit, offset: 0 });
 	return page.rows;
