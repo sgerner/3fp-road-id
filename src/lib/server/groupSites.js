@@ -360,6 +360,82 @@ async function loadRides(fetchImpl, groupId, limit = 4) {
 	}
 }
 
+async function fetchApiList(fetchImpl, resource, params = {}) {
+	try {
+		const qs = new URLSearchParams();
+		for (const [key, value] of Object.entries(params || {})) {
+			if (value === null || value === undefined || value === '') continue;
+			qs.set(key, String(value));
+		}
+		const response = await fetchImpl(`/api/v1/${resource}${qs.toString() ? `?${qs}` : ''}`);
+		if (!response.ok) return [];
+		const payload = await response.json().catch(() => ({}));
+		const rows = payload?.data ?? payload;
+		return Array.isArray(rows) ? rows : [];
+	} catch {
+		return [];
+	}
+}
+
+async function loadGroupTaxonomy(fetchImpl, groupId) {
+	const [audiences, disciplines, skills, selectedAudienceRows, selectedDisciplineRows, selectedSkillRows] =
+		await Promise.all([
+			fetchApiList(fetchImpl, 'audience-focuses', {
+				select: 'id,name',
+				order: 'name.asc'
+			}),
+			fetchApiList(fetchImpl, 'riding-disciplines', {
+				select: 'id,name',
+				order: 'name.asc'
+			}),
+			fetchApiList(fetchImpl, 'skill-levels', {
+				select: 'id,name',
+				order: 'name.asc'
+			}),
+			fetchApiList(fetchImpl, 'group-x-audience-focuses', {
+				select: 'audience_focus_id',
+				group_id: `eq.${groupId}`
+			}),
+			fetchApiList(fetchImpl, 'group-x-riding-disciplines', {
+				select: 'riding_discipline_id',
+				group_id: `eq.${groupId}`
+			}),
+			fetchApiList(fetchImpl, 'group-x-skill-levels', {
+				select: 'skill_level_id',
+				group_id: `eq.${groupId}`
+			})
+		]);
+
+	const audienceMap = new Map(audiences.map((row) => [row.id, row.name]));
+	const disciplineMap = new Map(disciplines.map((row) => [row.id, row.name]));
+	const skillMap = new Map(skills.map((row) => [row.id, row.name]));
+
+	return {
+		audiences: selectedAudienceRows
+			.map((row) => audienceMap.get(row?.audience_focus_id))
+			.filter(Boolean)
+			.slice(0, 6),
+		disciplines: selectedDisciplineRows
+			.map((row) => disciplineMap.get(row?.riding_discipline_id))
+			.filter(Boolean)
+			.slice(0, 6),
+		skills: selectedSkillRows
+			.map((row) => skillMap.get(row?.skill_level_id))
+			.filter(Boolean)
+			.slice(0, 6)
+	};
+}
+
+async function loadOwnerCount(groupId) {
+	const db = pickGroupSiteClient();
+	const { count } = await db
+		.from('group_members')
+		.select('user_id', { count: 'exact', head: true })
+		.eq('group_id', groupId)
+		.eq('role', 'owner');
+	return Number(count || 0);
+}
+
 function summarizeStats({ group, rides, volunteerEvents }) {
 	const location = [cleanText(group?.city), cleanText(group?.state_region)]
 		.filter(Boolean)
@@ -379,7 +455,7 @@ function summarizeStats({ group, rides, volunteerEvents }) {
 	];
 }
 
-function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram, donationEnabled }) {
+function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
 	const actions = [];
 	if (primaryCta?.href) {
 		actions.push({
@@ -392,13 +468,6 @@ function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram, don
 		actions.push({
 			label: cleanText(membershipProgram?.cta_label) || 'Follow',
 			href: `${siteUrl}/join`,
-			external: false
-		});
-	}
-	if (donationEnabled) {
-		actions.push({
-			label: 'Donate',
-			href: `/donate?group=${encodeURIComponent(group.slug)}`,
 			external: false
 		});
 	}
@@ -444,14 +513,16 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 					fontPairing: siteConfig.font_pairing
 				});
 
-	const [assetBuckets, newsPosts, rides, volunteerEvents, membership, donationEnabled] =
+	const [assetBuckets, newsPosts, rides, volunteerEvents, membership, donationEnabled, taxonomy, ownerCount] =
 		await Promise.all([
 			listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => []),
-			listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 4 }).catch(() => []),
+			listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => []),
 			loadRides(fetchImpl, group.id, 4),
 			loadVolunteerEvents(fetchImpl, group.id, 4),
 			loadMembershipSummary(fetchImpl, group.slug),
-			loadDonationEnabled(group.id).catch(() => false)
+			loadDonationEnabled(group.id).catch(() => false),
+			loadGroupTaxonomy(fetchImpl, group.id),
+			loadOwnerCount(group.id).catch(() => 0)
 		]);
 
 	const photoBucket = assetBuckets.find((bucket) => bucket.slug === 'photos') || null;
@@ -464,14 +535,29 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 	const basePath = cleanText(url?.pathname).startsWith('/site/') ? previewPath : '';
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
-		membershipProgram: membership.program,
-		donationEnabled
+		membershipProgram: membership.program
 	});
 	const stats = summarizeStats({
 		group,
 		rides,
 		volunteerEvents
 	});
+	const now = Date.now();
+	const weekSpotlight = {
+		ride: rides?.[0] || null,
+		volunteer: volunteerEvents?.[0] || null,
+		news: newsPosts?.[0] || null
+	};
+	const announcementExpiry = cleanText(siteConfig.announcement_expires_at);
+	const announcementIsActive =
+		!announcementExpiry || Number.isNaN(new Date(announcementExpiry).getTime())
+			? Boolean(cleanText(siteConfig.microsite_notice))
+			: new Date(announcementExpiry).getTime() >= now && Boolean(cleanText(siteConfig.microsite_notice));
+	const trust = {
+		isClaimed: ownerCount > 0,
+		ownerCount,
+		lastUpdatedAt: group?.updated_at || null
+	};
 
 	return {
 		group,
@@ -488,6 +574,10 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 		primaryCta,
 		actions,
 		stats,
+		taxonomy,
+		weekSpotlight,
+		trust,
+		announcementIsActive,
 		storyParagraphs: buildGroupStoryParagraphs(group, siteConfig),
 		assetBuckets,
 		photoBucket,
@@ -497,6 +587,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 		membershipProgram: membership.program,
 		membershipTiers: membership.tiers,
 		membershipFormFields: membership.formFields,
-		donationEnabled
+		donationEnabled,
+		donationUrl: donationEnabled ? `/donate?group=${encodeURIComponent(group.slug)}` : ''
 	};
 }

@@ -45,6 +45,8 @@ const DEFAULT_THEME_COLORS = Object.freeze({
 	surface: ''
 });
 
+const DEFAULT_SPONSOR_LINKS = Object.freeze([]);
+
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
@@ -100,6 +102,38 @@ function normalizeThemeColors(value) {
 	};
 }
 
+function normalizeUrlish(value) {
+	const raw = cleanText(value);
+	if (!raw) return '';
+	if (/^https?:\/\//i.test(raw) || /^mailto:/i.test(raw) || /^tel:/i.test(raw)) return raw;
+	if (raw.startsWith('/')) return raw;
+	return `https://${raw}`;
+}
+
+function normalizeSponsorLinks(value) {
+	const list = Array.isArray(value)
+		? value
+		: typeof value === 'string'
+			? value
+					.split('\n')
+					.map((item) => item.trim())
+					.filter(Boolean)
+			: [];
+	const cleaned = list
+		.map((item) => normalizeUrlish(item))
+		.filter(Boolean)
+		.slice(0, 3);
+	return cleaned;
+}
+
+function normalizeIsoDateTime(value) {
+	const raw = cleanText(value);
+	if (!raw) return null;
+	const date = new Date(raw);
+	if (Number.isNaN(date.getTime())) return null;
+	return date.toISOString();
+}
+
 function normalizeSections(value) {
 	const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 	return GROUP_SITE_SECTION_KEYS.reduce((acc, key) => {
@@ -146,6 +180,18 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 		theme_mode: 'derived',
 		theme_name: '',
 		theme_colors: { ...DEFAULT_THEME_COLORS },
+		simple_mode: true,
+		microsite_notice: '',
+		microsite_notice_href: '',
+		new_rider_note: '',
+		meeting_instructions: '',
+		faq_1_q: '',
+		faq_1_a: '',
+		faq_2_q: '',
+		faq_2_a: '',
+		safety_note: '',
+		sponsor_links: [...DEFAULT_SPONSOR_LINKS],
+		announcement_expires_at: null,
 		sections: { ...DEFAULT_SITE_SECTIONS },
 		ai_prompt: '',
 		published: true
@@ -180,6 +226,18 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		theme_mode: themeMode,
 		theme_name: themeMode === 'repo' ? themeName || '3fp' : themeName,
 		theme_colors: normalizeThemeColors(source.theme_colors),
+		simple_mode: normalizeBoolean(source.simple_mode, true),
+		microsite_notice: clampText(source.microsite_notice || '', 180),
+		microsite_notice_href: normalizeUrlish(source.microsite_notice_href || ''),
+		new_rider_note: clampText(source.new_rider_note || '', 600),
+		meeting_instructions: clampText(source.meeting_instructions || '', 600),
+		faq_1_q: clampText(source.faq_1_q || '', 120),
+		faq_1_a: clampText(source.faq_1_a || '', 320),
+		faq_2_q: clampText(source.faq_2_q || '', 120),
+		faq_2_a: clampText(source.faq_2_a || '', 320),
+		safety_note: clampText(source.safety_note || '', 360),
+		sponsor_links: normalizeSponsorLinks(source.sponsor_links),
+		announcement_expires_at: normalizeIsoDateTime(source.announcement_expires_at),
 		sections: normalizeSections(source.sections),
 		ai_prompt: clampText(source.ai_prompt || '', 2000),
 		published: normalizeBoolean(source.published, true)
@@ -202,6 +260,18 @@ export function serializeGroupSiteConfig(config) {
 		theme_mode: normalized.theme_mode,
 		theme_name: normalized.theme_name || null,
 		theme_colors: normalized.theme_colors,
+		simple_mode: normalized.simple_mode,
+		microsite_notice: normalized.microsite_notice || null,
+		microsite_notice_href: normalized.microsite_notice_href || null,
+		new_rider_note: normalized.new_rider_note || null,
+		meeting_instructions: normalized.meeting_instructions || null,
+		faq_1_q: normalized.faq_1_q || null,
+		faq_1_a: normalized.faq_1_a || null,
+		faq_2_q: normalized.faq_2_q || null,
+		faq_2_a: normalized.faq_2_a || null,
+		safety_note: normalized.safety_note || null,
+		sponsor_links: normalized.sponsor_links,
+		announcement_expires_at: normalized.announcement_expires_at || null,
 		sections: normalized.sections,
 		ai_prompt: normalized.ai_prompt || null,
 		published: normalized.published
@@ -234,6 +304,22 @@ export function parseGroupSiteFormData(formData, { group = null } = {}) {
 				accent: formData.get('theme_accent'),
 				surface: formData.get('theme_surface')
 			},
+			simple_mode: formData.get('simple_mode') === 'on',
+			microsite_notice: formData.get('microsite_notice'),
+			microsite_notice_href: formData.get('microsite_notice_href'),
+			new_rider_note: formData.get('new_rider_note'),
+			meeting_instructions: formData.get('meeting_instructions'),
+			faq_1_q: formData.get('faq_1_q'),
+			faq_1_a: formData.get('faq_1_a'),
+			faq_2_q: formData.get('faq_2_q'),
+			faq_2_a: formData.get('faq_2_a'),
+			safety_note: formData.get('safety_note'),
+			sponsor_links: [
+				formData.get('sponsor_link_1'),
+				formData.get('sponsor_link_2'),
+				formData.get('sponsor_link_3')
+			],
+			announcement_expires_at: formData.get('announcement_expires_at'),
 			sections,
 			ai_prompt: formData.get('ai_prompt'),
 			published: formData.get('published') !== 'off'
@@ -261,4 +347,3 @@ export function mergeGroupSiteConfig(...values) {
 	}
 	return normalizeGroupSiteConfig(merged);
 }
-

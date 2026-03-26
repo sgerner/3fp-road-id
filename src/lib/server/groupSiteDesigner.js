@@ -30,6 +30,23 @@ const RESPONSE_SCHEMA = {
 				font_pairing: { type: 'string', nullable: true },
 				theme_mode: { type: 'string', nullable: true },
 				theme_name: { type: 'string', nullable: true },
+				simple_mode: { type: 'boolean', nullable: true },
+				microsite_notice: { type: 'string', nullable: true },
+				microsite_notice_href: { type: 'string', nullable: true },
+				new_rider_note: { type: 'string', nullable: true },
+				meeting_instructions: { type: 'string', nullable: true },
+				faq_1_q: { type: 'string', nullable: true },
+				faq_1_a: { type: 'string', nullable: true },
+				faq_2_q: { type: 'string', nullable: true },
+				faq_2_a: { type: 'string', nullable: true },
+				safety_note: { type: 'string', nullable: true },
+				sponsor_links: {
+					type: 'array',
+					nullable: true,
+					maxItems: 3,
+					items: { type: 'string' }
+				},
+				announcement_expires_at: { type: 'string', nullable: true },
 				theme_colors: {
 					type: 'object',
 					nullable: true,
@@ -96,7 +113,13 @@ Rules:
 - Prefer concise writing over marketing fluff.
 - The microsite should feel distinct from the main 3FP brand, but still clean and usable.
 - Favor layouts that work well on mobile.
+- Treat the editor audience as non-technical: defaults should be obvious and low-maintenance.
+- Keep typography mode-safe: avoid hardcoding light-only heading/body colors.
+- Prefer paired semantic tokens (for example: surface-950-50, surface-800-200) over dark: prefixed class variants.
+- Use Skeleton/Tailwind utility vocabulary only; do not invent custom framework class names.
+- For buttons, cards, and chips, require explicit Skeleton preset classes with concrete color variants (examples: preset-tonal-primary, preset-outlined-secondary-500, preset-filled-surface-50-950).
 - If custom theme colors are used, output valid 6-digit hex colors.
+- Keep custom content concise: notice <= 180 chars, FAQ answers <= 320 chars, max 3 sponsor links.
 - If a repo theme is better, set theme_mode to "repo" and use one of: 3fp, mint, cerberus, catppuccin, legacy, nouveau, rose, sahara, seafoam, wintry.
 - If custom colors are better, set theme_mode to "custom" and provide primary, secondary, accent, and surface.
 
@@ -192,4 +215,3 @@ export async function generateGroupSiteDraft({ group, currentConfig, prompt }) {
 		};
 	}
 }
-

@@ -1,8 +1,7 @@
 <script>
-	import IconBadgeDollarSign from '@lucide/svelte/icons/badge-dollar-sign';
-	import IconCheck from '@lucide/svelte/icons/check';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconUsers from '@lucide/svelte/icons/users';
+	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 
 	let { data } = $props();
 
@@ -11,6 +10,17 @@
 	const basePath = $derived(site.basePath || '');
 	const tiers = $derived(Array.isArray(site.membershipTiers) ? site.membershipTiers : []);
 	const membershipEnabled = $derived(Boolean(site.membershipProgram?.enabled === true));
+	let handoffTierId = $state('');
+	let handoffInterval = $state('month');
+	let handoffName = $state('');
+	let handoffEmail = $state('');
+
+	$effect(() => {
+		if (handoffTierId) return;
+		if (!tiers.length) return;
+		const preferred = site?.membershipProgram?.default_tier_id || tiers?.[0]?.id || '';
+		handoffTierId = preferred;
+	});
 
 	function formatAmount(cents) {
 		const value = Number(cents);
@@ -40,17 +50,19 @@
 
 <div class="microsite-join-page mx-auto max-w-6xl px-4 pt-6 pb-8 md:px-6 md:pt-10">
 	<section class="join-hero rounded-[2rem] p-6 md:p-8">
-		<p class="text-surface-50/55 text-xs font-semibold tracking-[0.24em] uppercase">
+		<p class="text-surface-700-300 text-xs font-semibold tracking-[0.24em] uppercase">
 			Join + support
 		</p>
-		<h1 class="text-surface-50 mt-3 text-4xl font-black tracking-tight">
+		<h1 class="text-surface-950-50 mt-3 text-4xl font-black tracking-tight">
 			Ways to support {site.siteConfig.site_title}
 		</h1>
-		<p class="text-surface-50/72 mt-4 max-w-3xl text-base leading-8">
-			{group.how_to_join_instructions ||
+		<AutoLinkText
+			text={group.how_to_join_instructions ||
 				group.membership_info ||
 				'Choose the support path that fits you best and continue on 3FP to complete it.'}
-		</p>
+			className="block text-surface-800-200 mt-4 max-w-3xl text-base leading-8"
+			linkClass="text-primary-700-300 underline underline-offset-2"
+		/>
 	</section>
 
 	<div class="mt-6 grid gap-6 lg:grid-cols-[1fr,0.85fr]">
@@ -60,10 +72,10 @@
 					<IconUsers class="h-5 w-5" />
 				</div>
 				<div>
-					<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
+					<p class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
 						Membership
 					</p>
-					<h2 class="text-surface-50 text-2xl font-black tracking-tight">Join the group</h2>
+					<h2 class="text-surface-950-50 text-2xl font-black tracking-tight">Join us</h2>
 				</div>
 			</div>
 
@@ -73,27 +85,86 @@
 						<div class="tier-card rounded-[1.4rem] p-5">
 							<div class="flex items-start justify-between gap-4">
 								<div>
-									<h3 class="text-surface-50 text-xl font-black tracking-tight">
+									<h3 class="text-surface-950-50 text-xl font-black tracking-tight">
 										{tier.name || 'Membership'}
 									</h3>
-									<p class="text-surface-50/68 mt-1 text-sm">{intervalLabel(tier)}</p>
+									<p class="text-surface-700-300 mt-1 text-sm">{intervalLabel(tier)}</p>
 								</div>
 								<div class="tier-price">
 									{formatAmount(tier.monthly_amount_cents ?? tier.amount_cents ?? 0)}
 								</div>
 							</div>
 							{#if tier.description}
-								<p class="text-surface-50/72 mt-4 text-sm leading-7">{tier.description}</p>
+								<AutoLinkText
+									text={tier.description}
+									className="block text-surface-800-200 mt-4 text-sm leading-7"
+									linkClass="text-primary-700-300 underline underline-offset-2"
+								/>
 							{/if}
 						</div>
 					{/each}
 				</div>
-				<a href={`/groups/${group.slug}/membership`} class="join-cta mt-5">
-					Continue to membership
-				</a>
+				<form
+					method="GET"
+					action={`/groups/${group.slug}/membership`}
+					class="border-surface-500/20 mt-5 grid gap-3 rounded-2xl border p-4 md:grid-cols-2"
+				>
+					<label class="flex flex-col gap-1">
+						<span class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
+							Tier
+						</span>
+						<select name="tier" bind:value={handoffTierId} class="input preset-filled-surface-50-950">
+							{#each tiers as tier}
+								<option value={tier.id}>{tier.name || 'Membership'}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="flex flex-col gap-1">
+						<span class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
+							Billing
+						</span>
+						<select
+							name="interval"
+							bind:value={handoffInterval}
+							class="input preset-filled-surface-50-950"
+						>
+							<option value="month">Monthly</option>
+							<option value="year">Yearly</option>
+						</select>
+					</label>
+					<label class="flex flex-col gap-1">
+						<span class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
+							Name (optional)
+						</span>
+						<input
+							type="text"
+							name="name"
+							maxlength="120"
+							bind:value={handoffName}
+							class="input preset-filled-surface-50-950"
+							placeholder="Your name"
+						/>
+					</label>
+					<label class="flex flex-col gap-1">
+						<span class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
+							Email (optional)
+						</span>
+						<input
+							type="email"
+							name="email"
+							maxlength="254"
+							bind:value={handoffEmail}
+							class="input preset-filled-surface-50-950"
+							placeholder="you@example.com"
+						/>
+					</label>
+					<button type="submit" class="join-cta mt-1 md:col-span-2">
+						Continue to secure membership
+					</button>
+				</form>
 			{:else}
-				<p class="text-surface-50/68 text-sm leading-7">
-					Membership is not configured yet, but the group may still be open to riders, volunteers,
+				<p class="text-surface-800-200 text-sm leading-7">
+					Membership is not configured yet, but we may still be open to riders, volunteers,
 					or supporters through the links on the home page.
 				</p>
 			{/if}
@@ -106,56 +177,22 @@
 						<IconHeart class="h-5 w-5" />
 					</div>
 					<div>
-						<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
+						<p class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
 							Support
 						</p>
-						<h2 class="text-surface-50 text-2xl font-black tracking-tight">Give directly</h2>
+						<h2 class="text-surface-950-50 text-2xl font-black tracking-tight">Give directly</h2>
 					</div>
 				</div>
-				<p class="text-surface-50/72 text-sm leading-7">
+				<p class="text-surface-800-200 text-sm leading-7">
 					{#if site.donationEnabled}
-						Donations are enabled for this group on 3FP.
+						Donations are enabled for us on 3FP.
 					{:else}
 						The direct donation flow is not enabled yet.
 					{/if}
 				</p>
 				{#if site.donationEnabled}
-					<a href={`/donate?group=${group.slug}`} class="join-cta mt-5">Donate to this group</a>
+					<a href={`/donate?group=${group.slug}`} class="join-cta mt-5">Donate to us</a>
 				{/if}
-			</section>
-
-			<section class="join-panel rounded-[1.7rem] p-6 md:p-8">
-				<div class="mb-5 flex items-center gap-3">
-					<div class="join-icon">
-						<IconBadgeDollarSign class="h-5 w-5" />
-					</div>
-					<div>
-						<p class="text-surface-50/52 text-xs font-semibold tracking-[0.2em] uppercase">
-							What to expect
-						</p>
-						<h2 class="text-surface-50 text-2xl font-black tracking-tight">Practical details</h2>
-					</div>
-				</div>
-				<ul class="text-surface-50/72 space-y-3 text-sm leading-7">
-					<li class="flex gap-3">
-						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
-						<span>The final checkout or join flow happens on the main 3FP membership page.</span>
-					</li>
-					<li class="flex gap-3">
-						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
-						<span
-							>Groups can keep this microsite simple while still using all the 3FP membership
-							tooling underneath.</span
-						>
-					</li>
-					<li class="flex gap-3">
-						<IconCheck class="text-surface-50/62 mt-1 h-4 w-4 flex-shrink-0" />
-						<span
-							>Unclaimed groups still get a microsite automatically, and owners can customize it
-							later.</span
-						>
-					</li>
-				</ul>
 			</section>
 		</div>
 	</div>

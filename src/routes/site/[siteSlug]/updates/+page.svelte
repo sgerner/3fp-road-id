@@ -4,6 +4,7 @@
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
+	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 
 	let { data } = $props();
 	let openSlug = $state('');
@@ -48,13 +49,13 @@
 
 <div class="microsite-updates-page mx-auto max-w-5xl px-4 pt-6 pb-8 md:px-6 md:pt-10">
 	<section class="updates-hero rounded-[2rem] p-6 md:p-8">
-		<p class="text-surface-50/55 text-xs font-semibold tracking-[0.24em] uppercase">
+		<p class="text-surface-700-300 text-xs font-semibold tracking-[0.24em] uppercase">
 			Updates archive
 		</p>
-		<h1 class="text-surface-50 mt-3 text-4xl font-black tracking-tight">
+		<h1 class="text-surface-950-50 mt-3 text-4xl font-black tracking-tight">
 			News from {data.site.siteConfig.site_title}
 		</h1>
-		<p class="text-surface-50/72 mt-4 max-w-3xl text-base leading-8">
+		<p class="text-surface-800-200 mt-4 max-w-3xl text-base leading-8">
 			Announcements, route changes, volunteer asks, recaps, and public notes, all in one place.
 		</p>
 	</section>
@@ -66,7 +67,7 @@
 					<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 						<div class="min-w-0 flex-1">
 							<div
-								class="text-surface-50/48 flex flex-wrap items-center gap-3 text-xs font-semibold tracking-[0.18em] uppercase"
+								class="text-surface-700-300 flex flex-wrap items-center gap-3 text-xs font-semibold tracking-[0.18em] uppercase"
 							>
 								<span>{formatDate(post.published_at || post.created_at)}</span>
 								<span class="inline-flex items-center gap-1">
@@ -74,8 +75,12 @@
 									{estimateReadTime(post.body_markdown)} min read
 								</span>
 							</div>
-							<h2 class="text-surface-50 mt-3 text-2xl font-black tracking-tight">{post.title}</h2>
-							<p class="text-surface-50/68 mt-2 text-sm leading-7">{post.preview_text}</p>
+							<h2 class="text-surface-950-50 mt-3 text-2xl font-black tracking-tight">{post.title}</h2>
+							<AutoLinkText
+								text={post.preview_text}
+								className="block text-surface-800-200 mt-2 text-sm leading-7"
+								linkClass="text-primary-700-300 underline underline-offset-2"
+							/>
 						</div>
 						<button type="button" class="updates-toggle" onclick={() => togglePost(post)}>
 							{#if openSlug === post.slug}
@@ -101,11 +106,11 @@
 				<div
 					class="bg-surface-50/6 mx-auto flex h-16 w-16 items-center justify-center rounded-full"
 				>
-					<IconNewspaper class="text-surface-50/45 h-7 w-7" />
+					<IconNewspaper class="text-surface-700-300 h-7 w-7" />
 				</div>
-				<h2 class="text-surface-50 mt-4 text-2xl font-black tracking-tight">No updates yet</h2>
-				<p class="text-surface-50/64 mt-2 text-sm leading-7">
-					This archive will fill in automatically when the group publishes updates.
+				<h2 class="text-surface-950-50 mt-4 text-2xl font-black tracking-tight">No updates yet</h2>
+				<p class="text-surface-800-200 mt-2 text-sm leading-7">
+					This archive fills in automatically when we publish updates.
 				</p>
 			</div>
 		{/if}

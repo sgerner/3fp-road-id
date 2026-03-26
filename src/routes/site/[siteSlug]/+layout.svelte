@@ -198,7 +198,7 @@
 		</header>
 		<div class="microsite-nav-offset" aria-hidden="true"></div>
 
-		<main class="relative z-10 flex-1">
+		<main class="relative flex-1">
 			{@render children()}
 		</main>
 
@@ -220,22 +220,22 @@
 		position: relative;
 		isolation: isolate;
 		color: var(--ms-fg, var(--color-surface-50));
-		/* Cinematic 3-orb drama: primary, secondary, tertiary - all highly saturated */
+		/* Compressed 3-orb drama: all orbs visible on viewport, highly saturated */
 		background:
 			radial-gradient(
-				85rem 65rem at 20% 25%,
-				color-mix(in oklab, var(--color-primary-500) 55%, transparent),
-				transparent 45%
+				70vw 70vw at 15% 45%,
+				color-mix(in oklab, var(--color-primary-500) 60%, transparent),
+				transparent 35%
 			),
 			radial-gradient(
-				75rem 55rem at 80% 15%,
-				color-mix(in oklab, var(--color-secondary-500) 52%, transparent),
-				transparent 48%
+				60vw 60vw at 85% 40%,
+				color-mix(in oklab, var(--color-secondary-500) 58%, transparent),
+				transparent 38%
 			),
 			radial-gradient(
-				65rem 50rem at 50% 105%,
-				color-mix(in oklab, var(--color-tertiary-500) 58%, transparent),
-				transparent 52%
+				55vw 55vw at 50% 85%,
+				color-mix(in oklab, var(--color-tertiary-500) 62%, transparent),
+				transparent 40%
 			),
 			linear-gradient(
 				180deg,
@@ -243,7 +243,8 @@
 				color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-800) 6%) 50%,
 				color-mix(in oklab, var(--color-surface-950) 96%, var(--color-tertiary-900) 4%) 100%
 			);
-		animation: cinematic-bg-shift 30s ease-in-out infinite alternate;
+		animation: cinematic-bg-shift 20s ease-in-out infinite alternate;
+		background-attachment: fixed;
 	}
 
 	.microsite-shell[data-color-mode='dark'] {
@@ -277,22 +278,22 @@
 		--ms-toggle-bg: color-mix(in oklab, white 78%, var(--color-primary-100) 22%);
 		--ms-toggle-border: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 		--ms-toggle-fg: rgb(15 23 42 / 0.9);
-		/* Cinematic light mode: 3 highly saturated orbs */
+		/* Cinematic light mode: compressed 3 highly saturated orbs */
 		background:
 			radial-gradient(
-				90rem 60rem at 25% 20%,
-				color-mix(in oklab, var(--color-primary-400) 62%, transparent),
-				transparent 42%
+				70vw 70vw at 15% 45%,
+				color-mix(in oklab, var(--color-primary-400) 65%, transparent),
+				transparent 35%
 			),
 			radial-gradient(
-				80rem 50rem at 85% 10%,
-				color-mix(in oklab, var(--color-secondary-400) 58%, transparent),
-				transparent 45%
+				60vw 60vw at 85% 40%,
+				color-mix(in oklab, var(--color-secondary-400) 62%, transparent),
+				transparent 38%
 			),
 			radial-gradient(
-				70rem 45rem at 55% 110%,
-				color-mix(in oklab, var(--color-tertiary-400) 65%, transparent),
-				transparent 48%
+				55vw 55vw at 50% 85%,
+				color-mix(in oklab, var(--color-tertiary-400) 68%, transparent),
+				transparent 40%
 			),
 			linear-gradient(
 				180deg,
@@ -300,7 +301,8 @@
 				color-mix(in oklab, white 90%, var(--color-secondary-100) 10%) 50%,
 				color-mix(in oklab, white 92%, var(--color-tertiary-100) 8%) 100%
 			);
-		animation: cinematic-bg-shift 30s ease-in-out infinite alternate;
+		animation: cinematic-bg-shift 20s ease-in-out infinite alternate;
+		background-attachment: fixed;
 	}
 
 	.microsite-shell::before {
@@ -324,6 +326,11 @@
 			transparent 1px 32px
 		);
 		opacity: 0.26;
+	}
+
+	/* Safety net: keep content-card headings readable in both modes, even if edited classes regress */
+	:global(.microsite-shell .microsite-page .glass-card :is(h1, h2, h3, h4, h5, h6)) {
+		color: var(--color-surface-950-50);
 	}
 
 	.microsite-nav-shell {
@@ -358,17 +365,22 @@
 
 	.microsite-nav--floating {
 		margin-top: 0.75rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 15%, transparent);
 		border-radius: 999px;
-		background: color-mix(in oklab, var(--color-surface-950) 78%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 65%, transparent);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		box-shadow:
+			0 8px 32px -12px color-mix(in oklab, var(--color-surface-950) 50%, transparent),
+			inset 0 1px 1px color-mix(in oklab, var(--color-surface-50) 8%, transparent);
 	}
 
 	.microsite-shell[data-color-mode='light'] .microsite-nav--floating {
-		border-color: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-		background: color-mix(in oklab, white 78%, var(--color-primary-100) 22%);
+		border-color: color-mix(in oklab, var(--color-surface-950) 15%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 70%, transparent);
 		box-shadow:
-			0 14px 34px -24px color-mix(in oklab, var(--color-primary-500) 44%, transparent),
-			0 9px 20px -18px rgb(15 23 42 / 0.25);
+			0 8px 32px -12px color-mix(in oklab, var(--color-surface-950) 15%, transparent),
+			inset 0 1px 1px color-mix(in oklab, var(--color-surface-50) 50%, transparent);
 	}
 
 	.microsite-nav--inline {
@@ -489,23 +501,36 @@
 		}
 	}
 
-	/* Cinematic background animation - subtle organic movement */
+	/* Dramatic orb animation - orbs move across full viewport */
 	@keyframes cinematic-bg-shift {
 		0% {
 			background-position:
-				0% 0%,
-				100% 0%,
-				50% 100%,
-				30% 80%,
+				-10% -10%,
+				110% -15%,
+				50% 115%,
 				0% 0%;
 		}
 		100% {
 			background-position:
-				5% 10%,
-				95% 5%,
-				55% 95%,
-				35% 75%,
+				25% 35%,
+				75% 25%,
+				20% 80%,
 				0% 0%;
 		}
+	}
+
+	/* Noise texture overlay for cinematic grain */
+	.microsite-shell::after {
+		content: '';
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+		opacity: 0.015;
+		z-index: 9999;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell::after {
+		opacity: 0.025;
 	}
 </style>

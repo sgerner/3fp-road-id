@@ -16,6 +16,9 @@
 	let { data, form } = $props();
 
 	let themeMode = $state('derived');
+	let simpleMode = $state(true);
+	let showAdvanced = $state(false);
+	let generationPrompt = $state('');
 	const themeLabels = {
 		derived: 'Derived from branding',
 		repo: 'Repo theme',
@@ -31,9 +34,28 @@
 		gallery: 'Gallery',
 		contact: 'Contact'
 	};
+	const aiPresets = [
+		{
+			label: 'Good',
+			prompt:
+				'Keep this simple, welcoming, and clear for first-time visitors. Prioritize readability and obvious calls to action.'
+		},
+		{
+			label: 'Better',
+			prompt:
+				'Create a polished neighborhood-bike-club look with strong hierarchy, concise copy, and practical sections for rides, volunteer, and contact.'
+		},
+		{
+			label: 'Best',
+			prompt:
+				'Design an exceptional but simple microsite with clear starter guidance, this-week highlights, strong visual rhythm, and excellent accessibility in light and dark mode.'
+		}
+	];
 
 	$effect(() => {
 		themeMode = data.siteConfig.theme_mode || 'derived';
+		simpleMode = data.siteConfig.simple_mode !== false;
+		if (!generationPrompt) generationPrompt = data.siteConfig.ai_prompt || '';
 	});
 </script>
 
@@ -96,6 +118,11 @@
 			</div>
 
 			<div class="mt-6 grid gap-6">
+				<label class="toggle-card">
+					<input type="checkbox" name="simple_mode" bind:checked={simpleMode} />
+					<span>Starter mode (recommended for non-technical owners)</span>
+				</label>
+
 				<div class="grid gap-4 md:grid-cols-2">
 					<label class="field">
 						<span>Site title</span>
@@ -111,6 +138,117 @@
 					<span>Home intro</span>
 					<textarea class="textarea min-h-36" name="home_intro">{data.siteConfig.home_intro}</textarea>
 				</label>
+
+				<div class="grid gap-4 md:grid-cols-2">
+					<label class="field">
+						<span>Notice banner (optional)</span>
+						<input
+							class="input"
+							name="microsite_notice"
+							maxlength="180"
+							value={data.siteConfig.microsite_notice || ''}
+						/>
+					</label>
+					<label class="field">
+						<span>Notice link (optional)</span>
+						<input
+							class="input"
+							name="microsite_notice_href"
+							value={data.siteConfig.microsite_notice_href || ''}
+						/>
+					</label>
+					<label class="field">
+						<span>Notice expires at (optional)</span>
+						<input
+							class="input"
+							type="datetime-local"
+							name="announcement_expires_at"
+							value={data.siteConfig.announcement_expires_at
+								? new Date(data.siteConfig.announcement_expires_at).toISOString().slice(0, 16)
+								: ''}
+						/>
+					</label>
+					<label class="field">
+						<span>Meeting instructions</span>
+						<input
+							class="input"
+							name="meeting_instructions"
+							maxlength="600"
+							value={data.siteConfig.meeting_instructions || ''}
+						/>
+					</label>
+				</div>
+
+				<label class="field">
+					<span>New rider starter note</span>
+					<textarea class="textarea min-h-28" name="new_rider_note" maxlength="600"
+						>{data.siteConfig.new_rider_note || ''}</textarea
+					>
+				</label>
+
+				<div class="grid gap-4 md:grid-cols-2">
+					<label class="field">
+						<span>FAQ 1 question</span>
+						<input class="input" name="faq_1_q" maxlength="120" value={data.siteConfig.faq_1_q || ''} />
+					</label>
+					<label class="field">
+						<span>FAQ 1 answer</span>
+						<input class="input" name="faq_1_a" maxlength="320" value={data.siteConfig.faq_1_a || ''} />
+					</label>
+					<label class="field">
+						<span>FAQ 2 question</span>
+						<input class="input" name="faq_2_q" maxlength="120" value={data.siteConfig.faq_2_q || ''} />
+					</label>
+					<label class="field">
+						<span>FAQ 2 answer</span>
+						<input class="input" name="faq_2_a" maxlength="320" value={data.siteConfig.faq_2_a || ''} />
+					</label>
+				</div>
+
+				<label class="field">
+					<span>Safety note</span>
+					<input class="input" name="safety_note" maxlength="360" value={data.siteConfig.safety_note || ''} />
+				</label>
+
+				<div class="grid gap-4 md:grid-cols-3">
+					<label class="field">
+						<span>Sponsor link 1</span>
+						<input
+							class="input"
+							name="sponsor_link_1"
+							value={data.siteConfig.sponsor_links?.[0] || ''}
+							placeholder="https://..."
+						/>
+					</label>
+					<label class="field">
+						<span>Sponsor link 2</span>
+						<input
+							class="input"
+							name="sponsor_link_2"
+							value={data.siteConfig.sponsor_links?.[1] || ''}
+							placeholder="https://..."
+						/>
+					</label>
+					<label class="field">
+						<span>Sponsor link 3</span>
+						<input
+							class="input"
+							name="sponsor_link_3"
+							value={data.siteConfig.sponsor_links?.[2] || ''}
+							placeholder="https://..."
+						/>
+					</label>
+				</div>
+
+				<button
+					type="button"
+					class="btn preset-tonal-surface justify-center"
+					onclick={() => (showAdvanced = !showAdvanced)}
+				>
+					{showAdvanced ? 'Hide advanced design controls' : 'Show advanced design controls'}
+				</button>
+
+				<div class:hidden={!showAdvanced && simpleMode} class="grid gap-6">
 
 				<div class="grid gap-4 md:grid-cols-2">
 					<label class="field">
@@ -214,6 +352,7 @@
 						{/each}
 					</div>
 				</div>
+				</div>
 			</div>
 		</form>
 
@@ -231,11 +370,23 @@
 				<p class="mt-4 text-sm leading-7 text-white/70">
 					Give the AI a concise direction. It will generate structured microsite settings and save them immediately.
 				</p>
+				<div class="mt-4 grid grid-cols-3 gap-2">
+					{#each aiPresets as preset}
+						<button
+							type="button"
+							class="btn btn-sm preset-tonal-surface"
+							onclick={() => (generationPrompt = preset.prompt)}
+						>
+							{preset.label}
+						</button>
+					{/each}
+				</div>
 				<textarea
 					class="textarea mt-4 min-h-36"
 					name="generation_prompt"
+					bind:value={generationPrompt}
 					placeholder="Examples: editorial and civic, warm and neighborhood-focused, energetic ride-club poster look, minimal and practical..."
-				>{data.siteConfig.ai_prompt || ''}</textarea>
+				></textarea>
 				<button class="btn preset-filled-primary-500 mt-4 w-full justify-center">
 					Generate microsite draft
 				</button>
