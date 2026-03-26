@@ -1,6 +1,5 @@
 <script>
-	import { goto } from '$app/navigation';
-	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
@@ -13,6 +12,8 @@
 		if (openSlug) return;
 		openSlug = data.initialOpenSlug || '';
 	});
+
+	const config = $derived(data.site.siteConfig);
 
 	function formatDate(value) {
 		if (!value) return 'Recently';
@@ -30,160 +31,266 @@
 		return Math.max(1, Math.ceil(body.split(/\s+/).length / 200));
 	}
 
-	async function togglePost(post) {
+	function togglePost(post) {
 		openSlug = openSlug === post.slug ? '' : post.slug;
+		if (typeof window === 'undefined') return;
 		const nextUrl = new URL(window.location.href);
 		if (openSlug) nextUrl.searchParams.set('open', openSlug);
 		else nextUrl.searchParams.delete('open');
-		await goto(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
 	}
 </script>
 
 <svelte:head>
-	<title>{data.site.siteConfig.site_title} Updates</title>
+	<title>{config.site_title} — Updates</title>
 </svelte:head>
 
-<div class="microsite-updates-page mx-auto max-w-5xl px-4 pt-6 pb-8 md:px-6 md:pt-10">
-	<section class="updates-hero rounded-[2rem] p-6 md:p-8">
-		<p class="text-surface-700-300 text-xs font-semibold tracking-[0.24em] uppercase">
-			Updates archive
-		</p>
-		<h1 class="text-surface-950-50 mt-3 text-4xl font-black tracking-tight">
-			News from {data.site.siteConfig.site_title}
-		</h1>
-		<p class="text-surface-800-200 mt-4 max-w-3xl text-base leading-8">
-			Announcements, route changes, volunteer asks, recaps, and public notes, all in one place.
-		</p>
+<div class="microsite-updates-page pb-16">
+	<!-- Hero -->
+	<section class="relative mx-auto max-w-7xl px-4 pt-6 md:px-6 md:pt-8">
+		<div
+			class="glass-card border-primary-500/20 from-primary-500/5 to-secondary-500/5 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6 md:p-8"
+		>
+			<div
+				class="from-primary-500/10 via-secondary-500/5 to-tertiary-500/10 pointer-events-none absolute inset-0 bg-gradient-to-br"
+			></div>
+			<div class="relative">
+				<div class="flex items-center gap-3">
+					<div
+						class="from-secondary-500 to-tertiary-500 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br shadow-md"
+					>
+						<IconNewspaper class="h-5 w-5 text-white" />
+					</div>
+					<div>
+						<p class="text-secondary-700-300 text-[10px] font-semibold tracking-[0.2em] uppercase">
+							Updates archive
+						</p>
+						<h1 class="text-surface-950-50 text-xl font-bold tracking-tight md:text-2xl">
+							News from {config.site_title}
+						</h1>
+					</div>
+				</div>
+				<p class="text-surface-600-400 mt-3 max-w-2xl text-sm">
+					Announcements, route changes, volunteer asks, recaps, and public notes.
+				</p>
+			</div>
+		</div>
 	</section>
 
-	<div class="mt-6 space-y-4">
+	<!-- Updates List -->
+	<section class="mx-auto max-w-7xl px-4 pt-6 md:px-6 md:pt-8">
 		{#if data.posts.length}
-			{#each data.posts as post}
-				<article class="updates-card rounded-[1.7rem] p-5 md:p-6">
-					<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-						<div class="min-w-0 flex-1">
-							<div
-								class="text-surface-700-300 flex flex-wrap items-center gap-3 text-xs font-semibold tracking-[0.18em] uppercase"
-							>
-								<span>{formatDate(post.published_at || post.created_at)}</span>
-								<span class="inline-flex items-center gap-1">
-									<IconClock3 class="h-3.5 w-3.5" />
-									{estimateReadTime(post.body_markdown)} min read
-								</span>
-							</div>
-							<h2 class="text-surface-950-50 mt-3 text-2xl font-black tracking-tight">{post.title}</h2>
-							<AutoLinkText
-								text={post.preview_text}
-								className="block text-surface-800-200 mt-2 text-sm leading-7"
-								linkClass="text-primary-700-300 underline underline-offset-2"
-							/>
-						</div>
-						<button type="button" class="updates-toggle" onclick={() => togglePost(post)}>
-							{#if openSlug === post.slug}
-								Close
-								<IconChevronUp class="h-4 w-4" />
-							{:else}
-								Open
-								<IconChevronDown class="h-4 w-4" />
-							{/if}
-						</button>
-					</div>
-					{#if openSlug === post.slug}
-						<div
-							class="updates-body prose prose-invert mt-5 max-w-none border-t border-white/10 pt-5"
+			<div class="space-y-4">
+				{#each data.posts as post}
+					<article class="glass-card border-surface-500/15 card-interactive rounded-xl border p-5">
+						<button
+							type="button"
+							class="flex w-full flex-col gap-4 text-left md:flex-row md:items-start md:justify-between"
+							onclick={() => togglePost(post)}
 						>
-							{@html post.bodyHtml}
-						</div>
-					{/if}
-				</article>
-			{/each}
+							<div class="min-w-0 flex-1">
+								<div
+									class="text-surface-600-400 flex flex-wrap items-center gap-3 text-[10px] font-semibold tracking-[0.15em] uppercase"
+								>
+									<span>{formatDate(post.published_at || post.created_at)}</span>
+									<span
+										class="bg-surface-500/10 inline-flex items-center gap-1 rounded-full px-2 py-0.5"
+									>
+										<IconClock3 class="h-3 w-3" />
+										{estimateReadTime(post.body_markdown)} min read
+									</span>
+								</div>
+								<h2 class="text-surface-950-50 mt-2 text-lg font-bold tracking-tight">
+									{post.title}
+								</h2>
+								<AutoLinkText
+									text={post.preview_text}
+									className="block text-surface-700-300 mt-2 text-sm leading-relaxed"
+									linkClass="text-primary-700-300 underline underline-offset-2"
+								/>
+							</div>
+							<div class="btn btn-sm preset-tonal-primary pointer-events-none flex-shrink-0 gap-1">
+								{#if openSlug === post.slug}
+									Close
+									<IconChevronUp class="h-4 w-4" />
+								{:else}
+									Read
+									<IconArrowRight class="h-4 w-4" />
+								{/if}
+							</div>
+						</button>
+						{#if openSlug === post.slug}
+							<div class="border-surface-500/10 mt-5 border-t pt-5">
+								<div class="prose prose-surface max-w-none">
+									{@html post.bodyHtml}
+								</div>
+							</div>
+						{/if}
+					</article>
+				{/each}
+			</div>
 		{:else}
-			<div class="updates-card rounded-[1.7rem] p-8 text-center">
+			<div class="glass-card border-surface-500/15 rounded-xl border p-8 text-center">
 				<div
-					class="bg-surface-50/6 mx-auto flex h-16 w-16 items-center justify-center rounded-full"
+					class="bg-surface-500/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full"
 				>
-					<IconNewspaper class="text-surface-700-300 h-7 w-7" />
+					<IconNewspaper class="text-surface-600-400 h-6 w-6" />
 				</div>
-				<h2 class="text-surface-950-50 mt-4 text-2xl font-black tracking-tight">No updates yet</h2>
-				<p class="text-surface-800-200 mt-2 text-sm leading-7">
+				<h2 class="text-surface-950-50 mt-4 text-lg font-bold tracking-tight">No updates yet</h2>
+				<p class="text-surface-600-400 mt-2 text-sm">
 					This archive fills in automatically when we publish updates.
 				</p>
 			</div>
 		{/if}
-	</div>
+	</section>
 </div>
 
 <style>
-	.updates-hero,
-	.updates-card {
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 76%, transparent);
-		backdrop-filter: blur(18px);
+	/* Glass card uses the global class from +page.svelte */
+	:global(.glass-card) {
+		background: color-mix(in oklab, var(--color-surface-50) 70%, transparent);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
 	}
 
-	.updates-hero {
-		background:
-			radial-gradient(
-				20rem 12rem at 100% 0%,
-				color-mix(in oklab, var(--color-primary-500) 24%, transparent),
-				transparent 60%
-			),
-			color-mix(in oklab, var(--color-surface-950) 76%, transparent);
+	:global([data-color-mode='dark']) :global(.glass-card) {
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
 	}
 
-	.updates-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		border: 0;
-		border-radius: 999px;
-		padding: 0.75rem 1rem;
-		font-weight: 800;
-		color: white;
-		background: color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+	/* Interactive card effect */
+	.card-interactive {
+		background: color-mix(in oklab, var(--color-surface-50) 50%, transparent);
+		backdrop-filter: blur(10px);
 	}
 
-	.updates-body :global(p) {
-		line-height: 1.9;
+	:global([data-color-mode='dark']) .card-interactive {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .microsite-updates-page :global(.text-white) {
-		color: rgb(15 23 42 / 0.92) !important;
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-950-50) {
+		color: rgb(248 250 252 / 0.98) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light'])
-		.microsite-updates-page
-		:global([class*='text-white/']) {
-		color: rgb(51 65 85 / 0.78) !important;
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-700-300),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-600-400),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-800-200) {
+		color: rgb(226 232 240 / 0.76) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .updates-hero,
-	:global(.microsite-shell[data-color-mode='light']) .updates-card {
-		border-color: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		background: color-mix(in oklab, white 80%, var(--color-primary-100) 20%);
-		box-shadow: 0 16px 34px -28px color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-secondary-700-300) {
+		color: color-mix(in oklab, var(--color-secondary-300) 76%, white 24%) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .updates-hero {
-		background:
-			radial-gradient(
-				20rem 12rem at 100% 0%,
-				color-mix(in oklab, var(--color-primary-300) 24%, transparent),
-				transparent 60%
-			),
-			color-mix(in oklab, white 80%, var(--color-primary-100) 20%);
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.btn.preset-tonal-primary) {
+		color: rgb(248 250 252 / 0.98);
+		background: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .updates-toggle {
-		color: rgb(15 23 42 / 0.9);
-		background: color-mix(in oklab, var(--color-primary-300) 38%, white 62%);
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface {
+		color: rgb(226 232 240 / 0.94) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='light']) .updates-body {
-		border-top-color: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(p),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(li) {
+		color: rgb(226 232 240 / 0.94);
+	}
+
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h1),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h2),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h3),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h4),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h5),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h6) {
+		color: rgb(248 250 252 / 0.99);
+	}
+
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(strong),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(b),
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(.font-semibold) {
+		color: rgb(248 250 252 / 0.98);
+	}
+
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(a) {
+		color: color-mix(in oklab, var(--color-primary-300) 72%, white 28%);
+	}
+
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.bg-surface-500\/10) {
+		background: color-mix(in oklab, white 10%, transparent) !important;
+	}
+
+	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.glass-card) {
+		border-color: color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+	}
+
+	/* Prose styles for content */
+	.prose-surface {
+		color: var(--color-surface-950-50);
+	}
+
+	.prose-surface :global(p) {
+		color: var(--color-surface-950-50);
+		line-height: 1.75;
+		margin-bottom: 1rem;
+	}
+
+	.prose-surface :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.prose-surface :global(a) {
+		color: var(--color-primary-700-300);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.prose-surface :global(ul) {
+		list-style-type: disc;
+		padding-left: 1.25rem;
+		margin-bottom: 1rem;
+	}
+
+	.prose-surface :global(li) {
+		color: var(--color-surface-950-50);
+		margin-bottom: 0.5rem;
+	}
+
+	.prose-surface :global(h2),
+	.prose-surface :global(h3),
+	.prose-surface :global(h4),
+	.prose-surface :global(h5),
+	.prose-surface :global(h6) {
+		color: var(--color-surface-950-50);
+		font-weight: 700;
+		margin-bottom: 0.75rem;
+	}
+
+	.prose-surface :global(h2) {
+		font-size: 1.25rem;
+	}
+
+	.prose-surface :global(h3) {
+		font-size: 1.125rem;
+	}
+
+	/* Section fade-in animation */
+	.microsite-updates-page > section {
+		animation: fade-in-up 0.6s ease-out forwards;
+		opacity: 0;
+		transform: translateY(20px);
+	}
+
+	.microsite-updates-page > section:nth-child(1) {
+		animation-delay: 0.1s;
+	}
+
+	.microsite-updates-page > section:nth-child(2) {
+		animation-delay: 0.2s;
+	}
+
+	@keyframes fade-in-up {
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 </style>

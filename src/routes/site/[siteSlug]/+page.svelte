@@ -30,8 +30,14 @@
 	const updatesHref = $derived(basePath ? `${basePath}/updates` : '/updates');
 	const showNotice = $derived(Boolean(site.announcementIsActive && config.microsite_notice));
 	const location = $derived(
-		[group?.city, group?.state_region, group?.country].filter(Boolean).join(', ') || null
+		[group?.city, group?.state_region].filter(Boolean).join(', ') || null
 	);
+	const mapsHref = $derived.by(() => {
+		const lat = Number(group?.latitude);
+		const lng = Number(group?.longitude);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+	});
 	function normalizeSnippet(value) {
 		return String(value || '')
 			.toLowerCase()
@@ -334,14 +340,30 @@
 						{group?.activity_frequency || 'Details coming soon'}
 					</p>
 				</div>
-				<div class="space-y-1">
-					<p class="text-primary-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
-						Where
-					</p>
-					<p class="text-surface-950-50 text-sm leading-relaxed">
-						{group?.specific_meeting_point_address || location || 'Shared in event details'}
-					</p>
-				</div>
+					<div class="space-y-1">
+						<p class="text-primary-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
+							Where
+						</p>
+						{#if mapsHref && (group?.specific_meeting_point_address || location)}
+							<a
+								href={mapsHref}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-surface-950-50 hover:text-primary-500 inline-flex items-center gap-1 text-sm leading-relaxed underline underline-offset-2 transition-colors"
+							>
+								{group?.specific_meeting_point_address
+									? `${group.specific_meeting_point_address}${location ? `, ${location}` : ''}`
+									: location}
+								<IconArrowRight class="h-3.5 w-3.5 flex-shrink-0" />
+							</a>
+						{:else}
+							<p class="text-surface-950-50 text-sm leading-relaxed">
+								{group?.specific_meeting_point_address
+									? `${group.specific_meeting_point_address}${location ? `, ${location}` : ''}`
+									: location || 'Shared in event details'}
+							</p>
+						{/if}
+					</div>
 				<div class="space-y-1">
 					<p class="text-primary-700-300 text-xs font-semibold tracking-[0.2em] uppercase">
 						Who
@@ -486,36 +508,49 @@
 				</div>
 
 				<!-- Quick facts grid -->
-				{#if location || group.service_area_description || group.activity_frequency || group.typical_activity_day_time || group.specific_meeting_point_address || config.meeting_instructions || group.zip_code}
-					{@const quickFacts = [
-						{ label: 'Location', value: location },
-						{ label: 'Service area', value: group.service_area_description },
-						{ label: 'Rides', value: group.activity_frequency },
-						{ label: 'Schedule', value: group.typical_activity_day_time },
-						{
-							label: 'Meet at',
-							value: group.specific_meeting_point_address || config.meeting_instructions
-						},
-						{ label: 'ZIP', value: group.zip_code }
-					].filter((f) => f.value)}
+					{#if location || group.service_area_description || group.activity_frequency || group.typical_activity_day_time || group.specific_meeting_point_address || config.meeting_instructions || group.zip_code}
+						{@const quickFacts = [
+							{ label: 'Location', value: location },
+							{ label: 'Service area', value: group.service_area_description },
+							{ label: 'Rides', value: group.activity_frequency },
+							{ label: 'Schedule', value: group.typical_activity_day_time },
+							{
+								label: 'Meet at',
+								value: group.specific_meeting_point_address || config.meeting_instructions,
+								href: mapsHref && group?.specific_meeting_point_address ? mapsHref : ''
+							},
+							{ label: 'ZIP', value: group.zip_code }
+						].filter((f) => f.value)}
 
 					{#if quickFacts.length > 0}
 						<div
 							class="border-surface-500/10 mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-4 md:grid-cols-3"
 						>
-							{#each quickFacts as fact}
-								<div>
-									<p
-										class="text-primary-700-300 text-[10px] font-semibold tracking-wider uppercase"
-									>
-										{fact.label}
-									</p>
-									<p class="text-surface-950-50 mt-0.5 truncate text-sm">
-										{fact.value}
-									</p>
-								</div>
-							{/each}
-						</div>
+								{#each quickFacts as fact}
+									<div>
+										<p
+											class="text-primary-700-300 text-[10px] font-semibold tracking-wider uppercase"
+										>
+											{fact.label}
+										</p>
+										{#if fact.href}
+											<a
+												href={fact.href}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="text-surface-950-50 hover:text-primary-500 mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-sm underline underline-offset-2 transition-colors"
+											>
+												{fact.value}
+												<IconArrowRight class="h-3.5 w-3.5 flex-shrink-0" />
+											</a>
+										{:else}
+											<p class="text-surface-950-50 mt-0.5 truncate text-sm">
+												{fact.value}
+											</p>
+										{/if}
+									</div>
+								{/each}
+							</div>
 					{/if}
 				{/if}
 
