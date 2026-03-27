@@ -321,9 +321,18 @@ export async function publishGroupSocialPostToPlatform({ platform, account, post
 	} catch (error) {
 		const debug = buildMetaErrorDebugPayload(error);
 		if (debug) {
+			console.error('social_publish_platform_error', {
+				platform,
+				...debug
+			});
 			logSocialPublishDebug('social_publish_platform_error', {
 				platform,
 				...debug
+			});
+		} else {
+			console.error('social_publish_platform_error', {
+				platform,
+				error: cleanText(error?.message, 1000) || 'Unknown publish error.'
 			});
 		}
 		return {

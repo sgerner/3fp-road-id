@@ -100,6 +100,36 @@ function logSocialPublishDebug(event, payload = {}) {
 	console.info(event, payload);
 }
 
+function logSocialPublishEvent(event, payload = {}) {
+	console.info(event, payload);
+	logSocialPublishDebug(event, payload);
+}
+
+function appendDebugTimelineEntry(timeline, stage, details = {}) {
+	if (!Array.isArray(timeline)) return;
+	const entry = {
+		at: new Date().toISOString(),
+		stage: cleanText(stage, 120) || 'unknown'
+	};
+	for (const [key, value] of Object.entries(details || {})) {
+		const cleanedKey = cleanText(key, 80);
+		if (!cleanedKey) continue;
+		if (value === null || value === undefined) {
+			entry[cleanedKey] = null;
+			continue;
+		}
+		if (typeof value === 'boolean' || typeof value === 'number') {
+			entry[cleanedKey] = value;
+			continue;
+		}
+		entry[cleanedKey] = cleanText(value, 1200) || null;
+	}
+	timeline.push(entry);
+	if (timeline.length > 40) {
+		timeline.splice(0, timeline.length - 40);
+	}
+}
+
 async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	const reference = parseManagedStoragePath(mediaUrl);
 	if (!reference) {
@@ -208,40 +238,73 @@ export async function publishSingleGroupSocialPost(
 
 	const platforms = normalizePlatforms(targetPost.platforms);
 	const postTarget = normalizePostTarget(targetPost.post_target);
+	const baseMetaPublishResults =
+		targetPost?.meta_publish_results && typeof targetPost.meta_publish_results === 'object'
+			? targetPost.meta_publish_results
+			: {};
+	const debugTimeline = Array.isArray(baseMetaPublishResults.debug_timeline)
+		? [...baseMetaPublishResults.debug_timeline]
+		: [];
+	const getDebugMeta = (extra = {}) => ({
+		...baseMetaPublishResults,
+		...extra,
+		debug_timeline: debugTimeline,
+		debug_last_stage: debugTimeline[debugTimeline.length - 1]?.stage || null,
+		debug_last_at: debugTimeline[debugTimeline.length - 1]?.at || null
+	});
+
+	appendDebugTimelineEntry(debugTimeline, 'publish_start', {
+		post_id: targetPost.id,
+		group_id: groupId,
+		post_target: postTarget,
+		platforms: platforms.join(','),
+		status: cleanText(targetPost.status, 40) || null,
+		publish_attempts: Number(targetPost.publish_attempts || 0)
+	});
+	logSocialPublishEvent('social_publish_post_start', {
+		post_id: targetPost.id,
+		group_id: groupId,
+		post_target: postTarget,
+		platforms,
+		publish_attempts: Number(targetPost.publish_attempts || 0),
+		status: cleanText(targetPost.status, 40) || null
+	});
 	if (!platforms.length) {
+		appendDebugTimelineEntry(debugTimeline, 'validation_failed_no_platforms');
 		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: 'No target platforms were selected.',
-			meta_publish_results: {
-				...(targetPost.meta_publish_results || {}),
+			meta_publish_results: getDebugMeta({
 				last_error: 'No target platforms were selected.'
-			}
+			})
 		});
 		return { ok: false, error: 'No target platforms were selected.' };
 	}
 	const mediaValidation = validateManagedMedia(targetPost);
 	if (!mediaValidation.ok) {
+		appendDebugTimelineEntry(debugTimeline, 'validation_failed_media', {
+			error: mediaValidation.error
+		});
 		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: mediaValidation.error,
-			meta_publish_results: {
-				...(targetPost.meta_publish_results || {}),
+			meta_publish_results: getDebugMeta({
 				last_error: mediaValidation.error
-			}
+			})
 		});
 		return { ok: false, error: mediaValidation.error };
 	}
 	if (postTarget === 'story' && extractPostMedia(targetPost).length === 0) {
+		appendDebugTimelineEntry(debugTimeline, 'validation_failed_story_requires_media');
 		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: 'Stories require at least one media item.',
-			meta_publish_results: {
-				...(targetPost.meta_publish_results || {}),
+			meta_publish_results: getDebugMeta({
 				last_error: 'Stories require at least one media item.'
-			}
+			})
 		});
 		return { ok: false, error: 'Stories require at least one media item.' };
 	}
@@ -284,14 +347,21 @@ export async function publishSingleGroupSocialPost(
 		} catch (conversionError) {
 			const message =
 				cleanText(conversionError?.message, 1000) || 'Unable to prepare Instagram media.';
+			appendDebugTimelineEntry(debugTimeline, 'instagram_media_prepare_failed', {
+				error: message
+			});
+			console.error('social_publish_instagram_prepare_failed', {
+				post_id: targetPost.id,
+				group_id: groupId,
+				error: message
+			});
 			await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 				status: 'failed',
 				updated_by: requestedBy,
 				last_publish_error: message,
-				meta_publish_results: {
-					...(targetPost.meta_publish_results || {}),
+				meta_publish_results: getDebugMeta({
 					last_error: message
-				}
+				})
 			});
 			return { ok: false, error: message };
 		}
@@ -301,10 +371,6 @@ export async function publishSingleGroupSocialPost(
 	const platformResults = {};
 	let successCount = 0;
 	let failureCount = 0;
-	const baseMetaPublishResults =
-		targetPost?.meta_publish_results && typeof targetPost.meta_publish_results === 'object'
-			? targetPost.meta_publish_results
-			: {};
 	const priorPlatformResults =
 		baseMetaPublishResults.platforms && typeof baseMetaPublishResults.platforms === 'object'
 			? baseMetaPublishResults.platforms
@@ -319,32 +385,44 @@ export async function publishSingleGroupSocialPost(
 		return message || null;
 	};
 
-	const buildMergedResults = (attemptedAtIso) => ({
-		...baseMetaPublishResults,
-		post_target: postTarget,
-		last_attempt_at: attemptedAtIso,
-		platforms: {
-			...(baseMetaPublishResults.platforms || {}),
-			...platformResults
-		},
-		success_count: successCount,
-		failure_count: failureCount,
-		partial_success: successCount > 0 && failureCount > 0
-	});
+	const buildMergedResults = (attemptedAtIso) =>
+		getDebugMeta({
+			post_target: postTarget,
+			last_attempt_at: attemptedAtIso,
+			platforms: {
+				...(baseMetaPublishResults.platforms || {}),
+				...platformResults
+			},
+			success_count: successCount,
+			failure_count: failureCount,
+			partial_success: successCount > 0 && failureCount > 0
+		});
 
 	const persistPublishingProgress = async () => {
 		const attemptedAtIso = new Date().toISOString();
+		const mergedResults = buildMergedResults(attemptedAtIso);
 		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 			status: 'publishing',
 			updated_by: requestedBy,
 			last_publish_error: buildFailureMessage(),
-			meta_publish_results: buildMergedResults(attemptedAtIso)
+			meta_publish_results: mergedResults
+		});
+		logSocialPublishEvent('social_publish_post_checkpoint', {
+			post_id: targetPost.id,
+			group_id: groupId,
+			success_count: successCount,
+			failure_count: failureCount,
+			last_error: buildFailureMessage(),
+			platforms: Object.keys(mergedResults?.platforms || {})
 		});
 	};
 
 	for (const platform of platforms) {
 		const prior = priorPlatformResults[platform];
 		if (prior?.ok === true) {
+			appendDebugTimelineEntry(debugTimeline, 'platform_skipped_already_published', {
+				platform
+			});
 			platformResults[platform] = {
 				...prior,
 				ok: true,
@@ -357,6 +435,9 @@ export async function publishSingleGroupSocialPost(
 
 		const account = findConnectedAccount(accounts, platform);
 		if (!account) {
+			appendDebugTimelineEntry(debugTimeline, 'platform_missing_account', {
+				platform
+			});
 			platformResults[platform] = {
 				ok: false,
 				error: `No active ${platform} connection found.`
@@ -367,6 +448,9 @@ export async function publishSingleGroupSocialPost(
 		}
 
 		try {
+			appendDebugTimelineEntry(debugTimeline, 'platform_publish_start', {
+				platform
+			});
 			const tokenResult = await resolveMetaAccountAccessToken(supabase, account);
 			const accessToken = tokenResult.accessToken;
 			const publishResult = await publishGroupSocialPostToPlatform({
@@ -384,13 +468,40 @@ export async function publishSingleGroupSocialPost(
 			platformResults[platform] = publishResult;
 			if (publishResult.ok) successCount += 1;
 			else failureCount += 1;
+			appendDebugTimelineEntry(debugTimeline, 'platform_publish_result', {
+				platform,
+				ok: publishResult.ok === true,
+				error: publishResult?.ok === true ? null : publishResult?.error || null,
+				meta_id: publishResult?.meta_id || null
+			});
+			logSocialPublishEvent('social_publish_platform_result', {
+				post_id: targetPost.id,
+				group_id: groupId,
+				platform,
+				ok: publishResult.ok === true,
+				error: publishResult?.ok === true ? null : publishResult?.error || null,
+				meta_id: publishResult?.meta_id || null
+			});
 			await persistPublishingProgress();
 		} catch (error) {
+			const message =
+				cleanText(error?.message, 1000) || 'Unable to resolve connected account token.';
+			appendDebugTimelineEntry(debugTimeline, 'platform_publish_exception', {
+				platform,
+				error: message
+			});
 			platformResults[platform] = {
 				ok: false,
-				error: cleanText(error?.message, 1000) || 'Unable to resolve connected account token.'
+				error: message
 			};
 			failureCount += 1;
+			console.error('social_publish_platform_exception', {
+				post_id: targetPost.id,
+				group_id: groupId,
+				platform,
+				error: message,
+				stack: cleanText(error?.stack, 4000) || null
+			});
 			await persistPublishingProgress();
 		}
 	}
@@ -408,6 +519,12 @@ export async function publishSingleGroupSocialPost(
 		nextStatus = 'failed';
 		lastPublishError = buildFailureMessage() || 'Publishing failed.';
 	}
+	appendDebugTimelineEntry(debugTimeline, 'publish_finish', {
+		status: nextStatus,
+		success_count: successCount,
+		failure_count: failureCount,
+		partial
+	});
 
 	const mergedResults = buildMergedResults(nowIso);
 
@@ -417,6 +534,16 @@ export async function publishSingleGroupSocialPost(
 		published_at: allSucceeded ? nowIso : targetPost.published_at,
 		last_publish_error: lastPublishError,
 		meta_publish_results: mergedResults
+	});
+	logSocialPublishEvent('social_publish_post_finish', {
+		post_id: targetPost.id,
+		group_id: groupId,
+		status: nextStatus,
+		ok: allSucceeded,
+		partial,
+		success_count: successCount,
+		failure_count: failureCount,
+		last_error: lastPublishError
 	});
 
 	return {
