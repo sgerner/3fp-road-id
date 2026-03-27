@@ -301,13 +301,46 @@ export async function publishSingleGroupSocialPost(
 	const platformResults = {};
 	let successCount = 0;
 	let failureCount = 0;
-	const priorPlatformResults =
-		targetPost?.meta_publish_results &&
-		typeof targetPost.meta_publish_results === 'object' &&
-		targetPost.meta_publish_results.platforms &&
-		typeof targetPost.meta_publish_results.platforms === 'object'
-			? targetPost.meta_publish_results.platforms
+	const baseMetaPublishResults =
+		targetPost?.meta_publish_results && typeof targetPost.meta_publish_results === 'object'
+			? targetPost.meta_publish_results
 			: {};
+	const priorPlatformResults =
+		baseMetaPublishResults.platforms && typeof baseMetaPublishResults.platforms === 'object'
+			? baseMetaPublishResults.platforms
+			: {};
+
+	const buildFailureMessage = () => {
+		const message = Object.values(platformResults)
+			.filter((result) => !result?.ok)
+			.map((result) => result?.error)
+			.filter(Boolean)
+			.join(' | ');
+		return message || null;
+	};
+
+	const buildMergedResults = (attemptedAtIso) => ({
+		...baseMetaPublishResults,
+		post_target: postTarget,
+		last_attempt_at: attemptedAtIso,
+		platforms: {
+			...(baseMetaPublishResults.platforms || {}),
+			...platformResults
+		},
+		success_count: successCount,
+		failure_count: failureCount,
+		partial_success: successCount > 0 && failureCount > 0
+	});
+
+	const persistPublishingProgress = async () => {
+		const attemptedAtIso = new Date().toISOString();
+		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+			status: 'publishing',
+			updated_by: requestedBy,
+			last_publish_error: buildFailureMessage(),
+			meta_publish_results: buildMergedResults(attemptedAtIso)
+		});
+	};
 
 	for (const platform of platforms) {
 		const prior = priorPlatformResults[platform];
@@ -329,6 +362,7 @@ export async function publishSingleGroupSocialPost(
 				error: `No active ${platform} connection found.`
 			};
 			failureCount += 1;
+			await persistPublishingProgress();
 			continue;
 		}
 
@@ -350,12 +384,14 @@ export async function publishSingleGroupSocialPost(
 			platformResults[platform] = publishResult;
 			if (publishResult.ok) successCount += 1;
 			else failureCount += 1;
+			await persistPublishingProgress();
 		} catch (error) {
 			platformResults[platform] = {
 				ok: false,
 				error: cleanText(error?.message, 1000) || 'Unable to resolve connected account token.'
 			};
 			failureCount += 1;
+			await persistPublishingProgress();
 		}
 	}
 
@@ -370,26 +406,10 @@ export async function publishSingleGroupSocialPost(
 		nextStatus = 'published';
 	} else if (allFailed || partial) {
 		nextStatus = 'failed';
-		const failureMessage = Object.values(platformResults)
-			.filter((result) => !result?.ok)
-			.map((result) => result?.error)
-			.filter(Boolean)
-			.join(' | ');
-		lastPublishError = failureMessage || 'Publishing failed.';
+		lastPublishError = buildFailureMessage() || 'Publishing failed.';
 	}
 
-	const mergedResults = {
-		...(targetPost.meta_publish_results || {}),
-		post_target: postTarget,
-		last_attempt_at: nowIso,
-		platforms: {
-			...(targetPost.meta_publish_results?.platforms || {}),
-			...platformResults
-		},
-		success_count: successCount,
-		failure_count: failureCount,
-		partial_success: partial
-	};
+	const mergedResults = buildMergedResults(nowIso);
 
 	const updated = await updateGroupSocialPost(supabase, groupId, targetPost.id, {
 		status: nextStatus,

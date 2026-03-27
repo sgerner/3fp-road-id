@@ -3,6 +3,8 @@ import { getCronSecretVerifier } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
 
+export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
+
 async function verifyCronRequest(request) {
 	const providedSecret =
 		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
@@ -13,9 +15,9 @@ async function verifyCronRequest(request) {
 	return getCronSecretVerifier('social_publish', providedSecret);
 }
 
-async function processBatch(supabase, { batchSize = 20 } = {}) {
+async function processBatch(supabase, { batchSize = 5 } = {}) {
 	const { data, error } = await supabase.rpc('claim_group_social_posts', {
-		target_batch_size: Math.max(1, Math.min(100, Number.parseInt(String(batchSize), 10) || 20))
+		target_batch_size: Math.max(1, Math.min(100, Number.parseInt(String(batchSize), 10) || 5))
 	});
 	if (error) throw new Error(error.message);
 	const posts = Array.isArray(data) ? data : [];
@@ -29,22 +31,34 @@ async function processBatch(supabase, { batchSize = 20 } = {}) {
 	};
 
 	for (const post of posts) {
-		const result = await publishSingleGroupSocialPost(supabase, {
-			groupId: post.group_id,
-			postId: post.id,
-			post,
-			requestedBy: null
-		});
-		summary.results.push({
-			post_id: post.id,
-			group_id: post.group_id,
-			ok: result.ok,
-			partial: result.partial === true,
-			all_failed: result.all_failed === true
-		});
-		if (result.ok) summary.published += 1;
-		else if (result.partial) summary.partial += 1;
-		else summary.failed += 1;
+		try {
+			const result = await publishSingleGroupSocialPost(supabase, {
+				groupId: post.group_id,
+				postId: post.id,
+				post,
+				requestedBy: null
+			});
+			summary.results.push({
+				post_id: post.id,
+				group_id: post.group_id,
+				ok: result.ok,
+				partial: result.partial === true,
+				all_failed: result.all_failed === true
+			});
+			if (result.ok) summary.published += 1;
+			else if (result.partial) summary.partial += 1;
+			else summary.failed += 1;
+		} catch (error) {
+			summary.results.push({
+				post_id: post.id,
+				group_id: post.group_id,
+				ok: false,
+				partial: false,
+				all_failed: true,
+				error: error?.message || 'Unexpected publish failure.'
+			});
+			summary.failed += 1;
+		}
 	}
 
 	return summary;
@@ -63,7 +77,7 @@ async function handleCron(event) {
 
 	try {
 		const summary = await processBatch(supabase, {
-			batchSize: Number.parseInt(event.url.searchParams.get('batch') || '20', 10) || 20
+			batchSize: Number.parseInt(event.url.searchParams.get('batch') || '5', 10) || 5
 		});
 		return json({ data: summary });
 	} catch (error) {
