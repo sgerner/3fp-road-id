@@ -65,20 +65,33 @@
 	}
 
 	let searchInput = $state('');
+	let appliedSearch = $state('');
 	let locationQ = $state('');
 	let hostGroupId = $state('');
 	let eventType = $state('');
 	let view = $state('list');
+	let directoryTopEl = $state(null);
 
 	$effect(() => {
 		if (!browser) return;
 		const sp = new URLSearchParams(window.location.search);
 		searchInput = sp.get('search') ?? '';
+		appliedSearch = searchInput;
 		locationQ = sp.get('location') ?? '';
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
 		view = sp.get('view') ?? 'list';
 	});
+
+	function scrollToDirectory() {
+		if (!directoryTopEl) return;
+		directoryTopEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	function applySearchAndScroll() {
+		appliedSearch = searchInput;
+		scrollToDirectory();
+	}
 
 	function eventHostGroup(event) {
 		const id = event?.host_group_id;
@@ -193,7 +206,7 @@
 		})
 	);
 
-	const normalizedSearch = $derived(searchInput.trim().toLowerCase());
+	const normalizedSearch = $derived(appliedSearch.trim().toLowerCase());
 	const normalizedLocation = $derived(locationQ.trim().toLowerCase());
 	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
 	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
@@ -521,16 +534,28 @@
 				</div>
 
 				<div class="flex flex-col gap-3">
-					<div class="relative">
-						<IconSearch
-							class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-						/>
+					<div class="input-group grid-cols-[1fr_auto]">
 						<input
 							type="search"
-							class="input bg-surface-950-50/5 pl-9"
+							class="ig-input bg-surface-950-50/5"
 							bind:value={searchInput}
 							placeholder="Find by title, host, or description"
+							onkeydown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									applySearchAndScroll();
+								}
+							}}
 						/>
+						<button
+							type="button"
+							class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
+							onclick={applySearchAndScroll}
+							aria-label="Search volunteer events"
+							title="Search"
+						>
+							<IconSearch class="h-4 w-4" />
+						</button>
 					</div>
 
 					<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -571,7 +596,7 @@
 
 				{#if showCreateButton}
 					<div class="mt-auto grid pt-2">
-						<a class="btn preset-filled-primary-500 gap-2" href={createButtonHref}>
+						<a class="btn preset-outlined-primary-500 gap-2" href={createButtonHref}>
 							<IconPlus class="h-4 w-4" />
 							Create Event
 						</a>
@@ -582,7 +607,7 @@
 	</div>
 
 	<!-- ═══════════════════════════════ RESULTS + DIRECTORY ═════════════════════════════ -->
-	<div class="space-y-5 pt-4">
+	<div class="space-y-5 pt-4" bind:this={directoryTopEl}>
 		<!-- Results toolbar -->
 		<div class="flex items-center justify-between gap-2">
 			<div>
@@ -645,6 +670,7 @@
 										class="btn preset-outlined-surface-950-50"
 										onclick={() => {
 											searchInput = '';
+											appliedSearch = '';
 											locationQ = '';
 											hostGroupId = '';
 											eventType = '';
@@ -654,7 +680,7 @@
 									</button>
 								{/if}
 								{#if showCreateButton}
-									<a class="btn preset-filled-primary-500 gap-2" href={createButtonHref}>
+									<a class="btn preset-outlined-primary-500 gap-2" href={createButtonHref}>
 										<IconPlus class="h-4 w-4" />
 										Create Event
 									</a>

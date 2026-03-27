@@ -80,6 +80,54 @@ function normalizeHost(url) {
 	}
 }
 
+function normalizeSocialHandle(value, platform) {
+	const raw = (value || '').toString().trim();
+	if (!raw) return '';
+	const platformName = platform === 'facebook' ? 'facebook' : 'instagram';
+	const allowedHosts =
+		platformName === 'facebook'
+			? new Set(['facebook.com', 'm.facebook.com'])
+			: new Set(['instagram.com']);
+	const stripHandleDecorators = (input) =>
+		input
+			.toLowerCase()
+			.replace(/^@+/, '')
+			.replace(/^\/+|\/+$/g, '')
+			.replace(/\?.*$/, '')
+			.replace(/#.*$/, '')
+			.trim();
+
+	if (!/^https?:\/\//i.test(raw)) return stripHandleDecorators(raw);
+
+	try {
+		const parsed = new URL(raw);
+		const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+		if (!allowedHosts.has(host)) return '';
+		const path = parsed.pathname
+			.split('/')
+			.map((part) => part.trim())
+			.filter(Boolean);
+		if (!path.length) return '';
+		if (platformName === 'instagram' && ['p', 'reel', 'tv'].includes(path[0]?.toLowerCase())) {
+			return '';
+		}
+		if (platformName === 'facebook' && ['share', 'events', 'groups'].includes(path[0]?.toLowerCase())) {
+			return stripHandleDecorators(path.slice(1).join('/'));
+		}
+		return stripHandleDecorators(path[0]);
+	} catch {
+		return '';
+	}
+}
+
+function normalizedSocialMap(socialLinks) {
+	const links = socialLinks && typeof socialLinks === 'object' ? socialLinks : {};
+	return {
+		instagram: normalizeSocialHandle(links.instagram, 'instagram'),
+		facebook: normalizeSocialHandle(links.facebook, 'facebook')
+	};
+}
+
 function sameText(a, b) {
 	const av = normalizeComparableText(a);
 	const bv = normalizeComparableText(b);
@@ -101,16 +149,24 @@ function formDataToObject(formData) {
 	return out;
 }
 
-async function findPotentialDuplicateGroups({ name, city, state_region, country, website_url, slug }) {
+async function findPotentialDuplicateGroups({
+	name,
+	city,
+	state_region,
+	country,
+	website_url,
+	slug,
+	social_links
+}) {
 	const safeName = (name || '').trim();
 	if (!safeName || !country) return [];
 
 	const tokens = Array.from(toTokenSet(safeName)).slice(0, 4);
 	let query = supabase
 		.from('groups')
-		.select('id, slug, name, city, state_region, country, website_url')
+		.select('id, slug, name, city, state_region, country, website_url, social_links')
 		.eq('country', country)
-		.limit(120);
+		.limit(180);
 
 	if (tokens.length) {
 		query = query.or(tokens.map((token) => `name.ilike.%${token}%`).join(','));
@@ -124,6 +180,7 @@ async function findPotentialDuplicateGroups({ name, city, state_region, country,
 	const targetState = normalizeComparableText(state_region);
 	const targetCity = normalizeComparableText(city);
 	const targetName = normalizeComparableText(safeName);
+	const targetSocials = normalizedSocialMap(social_links);
 
 	const scored = data
 		.map((group) => {
@@ -166,6 +223,24 @@ async function findPotentialDuplicateGroups({ name, city, state_region, country,
 				reasons.push('same website domain');
 			}
 
+			const groupSocials = normalizedSocialMap(group.social_links);
+			if (
+				targetSocials.instagram &&
+				groupSocials.instagram &&
+				targetSocials.instagram === groupSocials.instagram
+			) {
+				score += 1.05;
+				reasons.push('matching Instagram');
+			}
+			if (
+				targetSocials.facebook &&
+				groupSocials.facebook &&
+				targetSocials.facebook === groupSocials.facebook
+			) {
+				score += 1.05;
+				reasons.push('matching Facebook');
+			}
+
 			if (score < 1.1) return null;
 
 			return {
@@ -189,7 +264,7 @@ async function findPotentialDuplicateGroups({ name, city, state_region, country,
 
 export const load = async () => {
 	const [gt, af, rd, sl] = await Promise.all([
-		supabase.from('group_types').select('id, name').order('name'),
+		supabase.from('group_types').select('id, name').neq('name', 'Bike Shop').order('name'),
 		supabase.from('audience_focuses').select('id, name').order('name'),
 		supabase.from('riding_disciplines').select('id, name').order('name'),
 		supabase.from('skill_levels').select('id, name').order('name')
@@ -271,7 +346,8 @@ export const actions = {
 			state_region,
 			country,
 			website_url,
-			slug
+			slug,
+			social_links
 		});
 		if (duplicate_candidates.length && !allow_duplicate_override) {
 			return fail(409, {

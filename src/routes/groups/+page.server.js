@@ -413,7 +413,7 @@ export const load = async ({ url }) => {
 	if (filterIds !== null && filterIds.length === 0) {
 		const [levels, types, af, rd] = await Promise.all([
 			supabase.from('skill_levels').select('id, name').order('name'),
-			supabase.from('group_types').select('id, name').order('name'),
+			supabase.from('group_types').select('id, name').neq('name', 'Bike Shop').order('name'),
 			supabase.from('audience_focuses').select('id, name').order('name'),
 			supabase.from('riding_disciplines').select('id, name').order('name')
 		]);
@@ -463,7 +463,7 @@ export const load = async ({ url }) => {
 	function fetchFacets() {
 		return Promise.all([
 			supabase.from('skill_levels').select('id, name').order('name'),
-			supabase.from('group_types').select('id, name').order('name'),
+			supabase.from('group_types').select('id, name').neq('name', 'Bike Shop').order('name'),
 			supabase.from('audience_focuses').select('id, name').order('name'),
 			supabase.from('riding_disciplines').select('id, name').order('name')
 		]);

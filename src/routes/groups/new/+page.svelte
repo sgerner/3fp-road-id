@@ -17,6 +17,7 @@
 	const initialValues = getInitialValues();
 	const duplicateCandidates = getDuplicateCandidates();
 	const needsDuplicateOverride = getNeedsDuplicateOverride(duplicateCandidates.length);
+	let duplicateOverrideConfirmed = $state(false);
 
 	function toValueSet(input) {
 		if (Array.isArray(input)) return new Set(input.map((value) => String(value)));
@@ -509,7 +510,11 @@
 		<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
 		<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
 		<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
-		<input type="hidden" name="allow_duplicate_override" value={needsDuplicateOverride ? '1' : '0'} />
+		<input
+			type="hidden"
+			name="allow_duplicate_override"
+			value={needsDuplicateOverride && duplicateOverrideConfirmed ? '1' : '0'}
+		/>
 
 		{#if form?.error}
 			<div class="new-card border border-error-500/35 bg-error-500/10 rounded-2xl px-4 py-3">
@@ -521,7 +526,8 @@
 			<section class="new-card border border-warning-500/35 bg-warning-500/10 rounded-2xl p-4">
 				<h2 class="text-sm font-bold tracking-wide uppercase opacity-85">Possible Duplicates</h2>
 				<p class="mt-1 text-sm opacity-80">
-					These existing groups look similar. Submitting again will create a new group anyway.
+					These existing groups look similar. Confirm the override below only if this is a false
+					positive or a separate chapter.
 				</p>
 				<ul class="mt-3 space-y-2">
 					{#each duplicateCandidates as candidate}
@@ -541,6 +547,12 @@
 						</li>
 					{/each}
 				</ul>
+				<label class="mt-3 flex items-start gap-2 text-sm">
+					<input type="checkbox" class="checkbox mt-0.5" bind:checked={duplicateOverrideConfirmed} />
+					<span>
+						I confirm this is a new group and want to continue creating it.
+					</span>
+				</label>
 			</section>
 		{/if}
 
@@ -820,6 +832,7 @@
 		<div class="flex justify-end">
 			<button
 				class="btn preset-filled-primary-500 px-8 py-3 text-base font-bold shadow-lg transition-transform hover:scale-105"
+				disabled={needsDuplicateOverride && !duplicateOverrideConfirmed}
 			>
 				{needsDuplicateOverride ? 'Create Group Anyway →' : 'Create Group →'}
 			</button>

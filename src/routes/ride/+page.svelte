@@ -19,10 +19,12 @@
 
 	const { data } = $props();
 
+	let searchInput = $state('');
 	let search = $state('');
 	let selectedDifficulty = $state('all');
 	let view = $state('list');
 	let calendarReference = $state(startOfMonth(new Date()));
+	let rideListEl = $state(null);
 
 	let mapEl = $state(null);
 	let map;
@@ -121,6 +123,16 @@
 	});
 
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
+
+	function scrollToRideCards() {
+		if (!rideListEl) return;
+		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
+	function applySearchAndScroll() {
+		search = searchInput;
+		scrollToRideCards();
+	}
 
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
@@ -442,15 +454,27 @@
 					<h2 class="text-xl font-bold">Search by vibe, route, or neighborhood</h2>
 				</div>
 
-				<div class="relative">
-					<IconSearch
-						class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-					/>
+				<div class="input-group grid-cols-[1fr_auto]">
 					<input
-						class="input pl-9"
-						bind:value={search}
+						class="ig-input bg-surface-950-50/5"
+						bind:value={searchInput}
 						placeholder="Title, location, pace, discipline…"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								applySearchAndScroll();
+							}
+						}}
 					/>
+					<button
+						type="button"
+						class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
+						onclick={applySearchAndScroll}
+						aria-label="Search rides"
+						title="Search"
+					>
+						<IconSearch class="h-4 w-4" />
+					</button>
 				</div>
 
 				{#if difficultyOptions.length}
@@ -483,7 +507,7 @@
 				{/if}
 
 				<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
-					<a class="btn preset-filled-primary-500 gap-2" href="/ride/new">
+					<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
 						<IconPlus class="h-4 w-4" />
 						Create ride
 					</a>
@@ -616,7 +640,7 @@
 	<!-- ═══════════════════════════════════════════════
 	     RIDE LISTING DIRECTORY
 	═══════════════════════════════════════════════ -->
-	<section id="ride-list" class="space-y-5">
+	<section id="ride-list" class="space-y-5" bind:this={rideListEl}>
 		<div class="flex items-center justify-between gap-2">
 			<div>
 				<p class="label opacity-60">Directory</p>
@@ -783,7 +807,7 @@
 							>
 								Clear filters
 							</button>
-							<a class="btn preset-filled-primary-500 gap-2" href="/ride/new">
+							<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
 								<IconPlus class="h-4 w-4" />
 								Create ride
 							</a>
@@ -939,7 +963,7 @@
 						>
 							Clear filters
 						</button>
-						<a class="btn preset-filled-primary-500 gap-2" href="/ride/new">
+						<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
 							<IconPlus class="h-4 w-4" />
 							Create ride
 						</a>

@@ -164,7 +164,7 @@ export const load = async ({ params, cookies, url }) => {
 	}
 
 	const [gt, af, rd, sl, gx, ax, rx, sx] = await Promise.all([
-		supabase.from('group_types').select('id, name').order('name'),
+		supabase.from('group_types').select('id, name').neq('name', 'Bike Shop').order('name'),
 		supabase.from('audience_focuses').select('id, name').order('name'),
 		supabase.from('riding_disciplines').select('id, name').order('name'),
 		supabase.from('skill_levels').select('id, name').order('name'),
