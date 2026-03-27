@@ -592,6 +592,10 @@
 		return normalizePostTarget(composerPostTarget) === 'story' ? '9:16' : '4:5';
 	}
 
+	function isComposerStoryTarget() {
+		return normalizePostTarget(composerPostTarget) === 'story';
+	}
+
 	function formatDateTime(value) {
 		if (!value) return 'Not set';
 		const date = new Date(value);
@@ -917,6 +921,9 @@
 	}
 
 	function buildAssistantReplyMessage(caption) {
+		if (isComposerStoryTarget()) {
+			return 'I updated the story draft image. Want any changes to the visual style or wording in the image?';
+		}
 		const trimmedCaption = String(caption || '').trim();
 		if (!trimmedCaption) {
 			return 'I updated the draft. Want any changes to the tone, wording, or image direction?';
@@ -1176,9 +1183,10 @@
 		clearFeedback();
 		submittingIntent = intent;
 		try {
+			const storyTarget = isComposerStoryTarget();
 			const payload = {
 				intent,
-				caption: composerCaption,
+				caption: storyTarget ? '' : composerCaption,
 				post_target: normalizePostTarget(composerPostTarget),
 				platforms: composerPlatforms,
 				media: composerMedia,
@@ -1263,35 +1271,42 @@
 		aiPromptInput = '';
 		const hadPreviousGeneratedImages = aiGeneratedImages.length > 0;
 		try {
+			const storyTarget = isComposerStoryTarget();
 			const selectedPlatforms = composerPlatforms.length
 				? composerPlatforms
 				: Array.from(new Set([...connectedPlatforms]));
+			let caption = '';
+			if (!storyTarget) {
+				const captionPayload = await requestJson(`/api/groups/${slug}/social/ai-caption`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						source_prompt: userMessage,
+						ride_details: userMessage,
+						existing_caption: composerCaption,
+						target_tone: `${selectedAiTone.label}: ${selectedAiTone.guidance} ${selectedAiTone.example}`,
+						post_target: normalizePostTarget(composerPostTarget),
+						platforms: selectedPlatforms,
+						conversation_messages: aiConversation
+					})
+				});
 
-			const captionPayload = await requestJson(`/api/groups/${slug}/social/ai-caption`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					source_prompt: userMessage,
-					ride_details: userMessage,
-					existing_caption: composerCaption,
-					target_tone: `${selectedAiTone.label}: ${selectedAiTone.guidance} ${selectedAiTone.example}`,
-					post_target: normalizePostTarget(composerPostTarget),
-					platforms: selectedPlatforms,
-					conversation_messages: aiConversation
-				})
-			});
-
-			const caption = captionPayload?.data?.caption || '';
-			const prompt = captionPayload?.data?.ai_prompt || '';
-			if (caption) {
-				if (composerCaption.trim() && composerCaption.trim() !== caption.trim()) {
-					const overwrite = window.confirm('Replace your current caption with this AI suggestion?');
-					if (overwrite) composerCaption = caption;
-				} else {
-					composerCaption = caption;
+				caption = captionPayload?.data?.caption || '';
+				const prompt = captionPayload?.data?.ai_prompt || '';
+				if (caption) {
+					if (composerCaption.trim() && composerCaption.trim() !== caption.trim()) {
+						const overwrite = window.confirm(
+							'Replace your current caption with this AI suggestion?'
+						);
+						if (overwrite) composerCaption = caption;
+					} else {
+						composerCaption = caption;
+					}
 				}
+				if (prompt) composerAiPrompt = prompt;
+			} else {
+				composerAiPrompt = userMessage;
 			}
-			if (prompt) composerAiPrompt = prompt;
 
 			const generated = await requestJson('/api/ai/generate-image', {
 				method: 'POST',
@@ -1316,8 +1331,10 @@
 							: {})
 					},
 					prompt: userMessage,
+					allowTextInImage: storyTarget,
+					textOverlay: storyTarget ? userMessage : '',
 					context: {
-						description: composerCaption || userMessage,
+						description: storyTarget ? userMessage : composerCaption || userMessage,
 						ridingDisciplines: selectedPlatforms.join(', '),
 						groupState: groupProfile?.state_region || '',
 						groupLocation: [groupProfile?.city, groupProfile?.state_region, groupProfile?.country]
@@ -2340,7 +2357,12 @@
 											<div class="ai-draft-panel__header-copy">
 												<span class="ai-draft-panel__label">AI Assistant</span>
 												<p class="ai-draft-panel__subtitle">
-													Tell me what you want to post and I&apos;ll draft the caption and image.
+													{#if isComposerStoryTarget()}
+														Tell me what you want to post and I&apos;ll draft a story image with the
+														key text in-image.
+													{:else}
+														Tell me what you want to post and I&apos;ll draft the caption and image.
+													{/if}
 												</p>
 											</div>
 										</div>
@@ -2415,8 +2437,12 @@
 												bind:value={aiPromptInput}
 												onkeydown={handleAiPromptKeydown}
 												placeholder={aiConversation.length
-													? 'Reply with changes to the caption or image...'
-													: 'Example: Write a rebellious caption about why the 3-foot passing law is legal and enforceable, and end with a rider-rights call to action.'}
+													? isComposerStoryTarget()
+														? 'Reply with changes to story wording or image direction...'
+														: 'Reply with changes to the caption or image...'
+													: isComposerStoryTarget()
+														? 'Example: Make a story slide that says \"3 feet is the law\" with a bold rider-rights call to action.'
+														: 'Example: Write a rebellious caption about why the 3-foot passing law is legal and enforceable, and end with a rider-rights call to action.'}
 												rows="3"
 												disabled={composerReadOnly}
 											></textarea>
@@ -2580,18 +2606,20 @@
 									</div>
 								</div>
 
-								<!-- Caption -->
-								<div class="field-group">
-									<label for="composer-caption" class="field-label">Caption</label>
-									<textarea
-										id="composer-caption"
-										class="composer-textarea composer-textarea--tall"
-										bind:value={composerCaption}
-										placeholder="Share ride details, schedule, and call to action..."
-										rows="5"
-										disabled={composerReadOnly}
-									></textarea>
-								</div>
+								{#if !isComposerStoryTarget()}
+									<!-- Caption -->
+									<div class="field-group">
+										<label for="composer-caption" class="field-label">Caption</label>
+										<textarea
+											id="composer-caption"
+											class="composer-textarea composer-textarea--tall"
+											bind:value={composerCaption}
+											placeholder="Share ride details, schedule, and call to action..."
+											rows="5"
+											disabled={composerReadOnly}
+										></textarea>
+									</div>
+								{/if}
 
 								<!-- Media Uploads -->
 								<div class="field-group">
@@ -2748,13 +2776,15 @@
 										</div>
 									{/if}
 								</div>
-								<div class="composer-preview__caption">
-									{#if composerCaption.trim()}
-										<p class="composer-preview__caption-text">{composerCaption.trim()}</p>
-									{:else}
-										<p class="text-sm italic opacity-30">Your caption will appear here…</p>
-									{/if}
-								</div>
+								{#if !isComposerStoryTarget()}
+									<div class="composer-preview__caption">
+										{#if composerCaption.trim()}
+											<p class="composer-preview__caption-text">{composerCaption.trim()}</p>
+										{:else}
+											<p class="text-sm italic opacity-30">Your caption will appear here…</p>
+										{/if}
+									</div>
+								{/if}
 								{#if effectiveScheduleBucket}
 									<div class="composer-preview__time">
 										<IconClock class="h-3 w-3 flex-shrink-0" />

@@ -125,7 +125,16 @@ function buildTargetPrompt(target, context = {}) {
 	].join('\n');
 }
 
-function buildFinalPrompt({ target, context, prompt, stylePrompt, styleId, styleOptions }) {
+function buildFinalPrompt({
+	target,
+	context,
+	prompt,
+	stylePrompt,
+	styleId,
+	styleOptions,
+	allowTextInImage = false,
+	textOverlay = ''
+}) {
 	const targetPrompt = buildTargetPrompt(target, context);
 	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
 	const selectedStateName = selectedStateCode ? getUsStateName(selectedStateCode) : '';
@@ -149,6 +158,12 @@ Bike vibe direction:
 - Make the bike itself the clear hero, and align the environment with the same vibe.`
 			: '';
 
+	const textRequirement = allowTextInImage
+		? textOverlay
+			? `Include the essential story text directly in the image. Text to include: "${textOverlay}". Keep it readable and concise.`
+			: 'Include any essential story text directly in the image in a readable, concise layout.'
+		: 'Do not render readable words, captions, signs, logos, watermarks, or decorative lettering in the image.';
+
 	return `${stylePrompt}
 
 Target brief:
@@ -162,7 +177,7 @@ ${bikeDirective}
 Output requirements:
 - Single polished illustration suitable for a wide 16:9 cover image unless another aspect ratio is requested.
 - Keep the scene readable at thumbnail size.
-- Do not render readable words, captions, signs, logos, watermarks, or decorative lettering in the image.
+- ${textRequirement}
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 
@@ -272,6 +287,8 @@ export async function POST({ request, cookies }) {
 	const styleOptions =
 		payload?.styleOptions && typeof payload.styleOptions === 'object' ? payload.styleOptions : {};
 	const prompt = sanitizePrompt(payload?.prompt, 800);
+	const allowTextInImage = Boolean(payload?.allowTextInImage);
+	const textOverlay = sanitizePrompt(payload?.textOverlay, 280);
 	const context = payload?.context && typeof payload.context === 'object' ? payload.context : {};
 	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
 	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
@@ -293,7 +310,9 @@ export async function POST({ request, cookies }) {
 		prompt,
 		stylePrompt: stylePreset.prompt,
 		styleId: stylePreset.id,
-		styleOptions
+		styleOptions,
+		allowTextInImage,
+		textOverlay
 	});
 
 	try {
