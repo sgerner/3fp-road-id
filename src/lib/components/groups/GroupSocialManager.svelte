@@ -147,6 +147,10 @@
 	let aiSelectedStateCode = $state('');
 	let aiSelectedBikeVibeId = $state('');
 	let aiResolvingState = $state(false);
+	const composerPreviewHasImage = $derived.by(() => Boolean(getDraftPreviewImage()?.url));
+	const composerPreviewExpandedEffective = $derived.by(
+		() => composerPreviewExpanded && composerPreviewHasImage
+	);
 	const selectedAiStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === aiStyleId) ?? null
 	);
@@ -484,6 +488,10 @@
 	}
 
 	function toggleComposerPreviewExpanded() {
+		if (!composerPreviewHasImage) {
+			composerPreviewExpanded = false;
+			return;
+		}
 		composerPreviewExpanded = !composerPreviewExpanded;
 	}
 
@@ -2325,10 +2333,13 @@
 						<!-- Body: two-panel on large screens -->
 						<div
 							class="composer-body"
-							class:composer-body--preview-expanded={composerPreviewExpanded}
+							class:composer-body--preview-expanded={composerPreviewExpandedEffective}
 						>
 							<!-- LEFT: Form -->
-							<div class="composer-form" class:composer-form--hidden={composerPreviewExpanded}>
+							<div
+								class="composer-form"
+								class:composer-form--hidden={composerPreviewExpandedEffective}
+							>
 								<div class="field-group">
 									<div class="field-label">Post Type</div>
 									<div
@@ -2734,7 +2745,8 @@
 							<!-- RIGHT: Live preview pane -->
 							<aside
 								class="composer-preview"
-								class:composer-preview--expanded={composerPreviewExpanded}
+								class:composer-preview--expanded={composerPreviewExpandedEffective}
+								class:composer-preview--empty-mobile={!composerPreviewHasImage}
 							>
 								<div class="composer-preview__header">
 									<div class="flex items-center gap-2">
@@ -2749,7 +2761,7 @@
 											class="composer-preview-toggle"
 											onclick={toggleComposerPreviewExpanded}
 										>
-											{#if composerPreviewExpanded}
+											{#if composerPreviewExpandedEffective}
 												<IconMinimize2 class="h-3.5 w-3.5" />
 												Back to editor
 											{:else}
@@ -4183,6 +4195,12 @@
 		gap: 0.75rem;
 		padding: 1.25rem;
 		border-top: 1px solid color-mix(in oklab, var(--color-surface-700) 50%, transparent);
+	}
+
+	@media (max-width: 1023px) {
+		.composer-preview--empty-mobile {
+			display: none;
+		}
 	}
 
 	@media (min-width: 1024px) {
