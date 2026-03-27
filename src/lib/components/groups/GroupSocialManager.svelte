@@ -2452,7 +2452,7 @@
 														? 'Reply with changes to story wording or image direction...'
 														: 'Reply with changes to the caption or image...'
 													: isComposerStoryTarget()
-														? 'Example: Make a story slide that says \"3 feet is the law\" with a bold rider-rights call to action.'
+														? 'Example: Make a story slide that says "3 feet is the law" with a bold rider-rights call to action.'
 														: 'Example: Write a rebellious caption about why the 3-foot passing law is legal and enforceable, and end with a rider-rights call to action.'}
 												rows="3"
 												disabled={composerReadOnly}
@@ -4366,7 +4366,7 @@
 		white-space: nowrap;
 	}
 
-	.composer-footer > .composer-btn--ghost {
+	.composer-footer .composer-btn--ghost {
 		width: 100%;
 	}
 
@@ -4387,7 +4387,7 @@
 			width: auto;
 		}
 
-		.composer-footer > .composer-btn--ghost {
+		.composer-footer .composer-btn--ghost {
 			width: auto;
 		}
 	}

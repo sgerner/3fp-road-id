@@ -22,10 +22,7 @@ export async function DELETE({ cookies, params }) {
 		);
 		if (!post) return json({ error: 'Post not found.' }, { status: 404 });
 		if (!DELETABLE_STATUSES.has(post.status)) {
-			return json(
-				{ error: `Post status '${post.status}' cannot be deleted.` },
-				{ status: 400 }
-			);
+			return json({ error: `Post status '${post.status}' cannot be deleted.` }, { status: 400 });
 		}
 
 		await deleteGroupSocialPost(auth.serviceSupabase, auth.group.id, post.id);

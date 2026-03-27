@@ -111,7 +111,10 @@ function normalizeSocialHandle(value, platform) {
 		if (platformName === 'instagram' && ['p', 'reel', 'tv'].includes(path[0]?.toLowerCase())) {
 			return '';
 		}
-		if (platformName === 'facebook' && ['share', 'events', 'groups'].includes(path[0]?.toLowerCase())) {
+		if (
+			platformName === 'facebook' &&
+			['share', 'events', 'groups'].includes(path[0]?.toLowerCase())
+		) {
 			return stripHandleDecorators(path.slice(1).join('/'));
 		}
 		return stripHandleDecorators(path[0]);

@@ -15,6 +15,8 @@
 	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
+	const initialData = (() => data)();
+	const initialProgramData = initialData?.program_data || null;
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
@@ -33,7 +35,7 @@
 
 	// Data
 	let program = $state({
-		...(data?.program_data?.program || {
+		...(initialProgramData?.program || {
 			enabled: true,
 			access_mode: 'public',
 			cta_label: 'Follow',
@@ -44,12 +46,14 @@
 		})
 	});
 
-	let tiers = $state(Array.isArray(data?.program_data?.tiers) ? data.program_data.tiers : []);
+	let tiers = $state(Array.isArray(initialProgramData?.tiers) ? initialProgramData.tiers : []);
 	let formFields = $state(
-		Array.isArray(data?.program_data?.form_fields) ? data.program_data.form_fields : []
+		Array.isArray(initialProgramData?.form_fields) ? initialProgramData.form_fields : []
 	);
-	let applications = $state(Array.isArray(data?.applications) ? data.applications : []);
-	let members = $state(Array.isArray(data?.members) ? data.members : []);
+	let applications = $state(
+		Array.isArray(initialData?.applications) ? initialData.applications : []
+	);
+	let members = $state(Array.isArray(initialData?.members) ? initialData.members : []);
 
 	// Filters
 	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
@@ -498,7 +502,8 @@
 				<div class="flex-1">
 					<p class="banner-title">Connect Stripe to accept paid memberships</p>
 					<p class="banner-subtitle">
-						You have paid tiers configured. Members cannot complete payment until Stripe is connected.
+						You have paid tiers configured. Members cannot complete payment until Stripe is
+						connected.
 					</p>
 				</div>
 				<a
@@ -830,8 +835,9 @@
 						</select>
 					</div>
 					<div class="form-field submit-field">
-						<label>&nbsp;</label>
+						<label for="manual-add-member">Add member</label>
 						<button
+							id="manual-add-member"
 							class="btn preset-filled-primary-500"
 							disabled={busy || !manualMembership.user_email}
 							onclick={addManualMembership}
@@ -1033,11 +1039,11 @@
 													/>
 													<span>Default</span>
 												</label>
-													<button
-														class="btn btn-sm preset-tonal-secondary"
-														disabled={busy}
-														onclick={() => updateTier(tier)}
-													>
+												<button
+													class="btn btn-sm preset-tonal-secondary"
+													disabled={busy}
+													onclick={() => updateTier(tier)}
+												>
 													Save
 												</button>
 												<button
@@ -1314,15 +1320,15 @@
 		border: 1px solid color-mix(in oklab, var(--color-success-500) 20%, transparent);
 	}
 
-		.banner.error {
-			background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
-			border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
-		}
+	.banner.error {
+		background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
+	}
 
-		.banner.warning {
-			background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
-			border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
-		}
+	.banner.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
+	}
 
 	.banner-content {
 		display: flex;
@@ -1345,27 +1351,27 @@
 		color: var(--color-success-400);
 	}
 
-		.banner-icon.error {
-			background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
-			color: var(--color-error-400);
-		}
+	.banner-icon.error {
+		background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
+		color: var(--color-error-400);
+	}
 
-		.banner-icon.warning {
-			background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
-			color: var(--color-warning-400);
-		}
+	.banner-icon.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
+		color: var(--color-warning-400);
+	}
 
-		.banner-title {
-			font-size: 0.875rem;
-			font-weight: 600;
-			line-height: 1.25;
-		}
+	.banner-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		line-height: 1.25;
+	}
 
-		.banner-subtitle {
-			margin-top: 0.125rem;
-			font-size: 0.75rem;
-			opacity: 0.8;
-		}
+	.banner-subtitle {
+		margin-top: 0.125rem;
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
 
 	/* Stats Grid */
 	.stats-grid {

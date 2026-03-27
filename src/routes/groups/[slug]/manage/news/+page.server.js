@@ -218,10 +218,10 @@ export const actions = {
 						origin: url.origin,
 						audienceStatuses: emailAudienceStatuses
 					});
-						if (!queued.queuedCount) {
-							return fail(400, {
-								error:
-									'This update was published, but there are no matching members with email addresses to send to.',
+					if (!queued.queuedCount) {
+						return fail(400, {
+							error:
+								'This update was published, but there are no matching members with email addresses to send to.',
 							values: {
 								postId: publishedPost.id,
 								title: payload.title,

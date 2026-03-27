@@ -838,7 +838,8 @@
 						</div>
 						<h3 class="text-2xl font-bold">No groups match that filter yet</h3>
 						<p class="text-sm leading-relaxed opacity-70">
-							Try a broader search, clear some filters, or be the first to start a group in this area!
+							Try a broader search, clear some filters, or be the first to start a group in this
+							area!
 						</p>
 						<div class="flex flex-wrap justify-center gap-3 pt-2">
 							{#if activeFilterCount > 0}
@@ -855,89 +856,89 @@
 				</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each data.groups as g (g.id)}
-					<a
-						href={`/groups/${g.slug}`}
-						class="group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
-					>
-						<!-- Cover image area -->
-						<div
-							class="from-primary-800/70 to-secondary-700/50 relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br"
+					{#each data.groups as g (g.id)}
+						<a
+							href={`/groups/${g.slug}`}
+							class="group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
 						>
-							{#if g.cover_photo_url}
-								<img
-									src={g.cover_photo_url}
-									alt="{g.name} cover"
-									loading="lazy"
-									class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-								/>
-							{/if}
-
-							<!-- Bottom gradient scrim -->
+							<!-- Cover image area -->
 							<div
-								class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent"
-							></div>
-
-							<!-- Top-right: group type chips -->
-							{#if (data.group_types_map?.[g.id] || []).length}
-								<div
-									class="absolute top-2.5 right-2.5 flex max-w-[70%] flex-wrap justify-end gap-1"
-								>
-									{#each (data.group_types_map[g.id] || []).slice(0, 2) as t}
-										<span class="{chipFilled(t)} shadow-sm">{t}</span>
-									{/each}
-								</div>
-							{/if}
-
-							<!-- Bottom overlay: logo + name + location -->
-							<div class="absolute inset-x-0 bottom-0 p-3">
-								<div class="flex items-end gap-3">
-									<!-- Logo -->
-									{#if g.logo_url}
-										<img
-											src={g.logo_url}
-											alt="{g.name} logo"
-											loading="lazy"
-											class="ring-surface-950-50/20 h-12 w-12 shrink-0 rounded-xl object-cover shadow-lg ring-2"
-										/>
-									{:else}
-										<div
-											class="bg-surface-950-50/20 ring-surface-950-50/20 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-2 backdrop-blur-sm"
-										>
-											<IconUsers class="text-surface-50 h-5 w-5" />
-										</div>
-									{/if}
-
-									<div class="min-w-0 flex-1">
-										<h3
-											class="text-surface-50 m-0 truncate !text-left text-base leading-tight font-bold drop-shadow-sm"
-										>
-											{g.name}
-										</h3>
-										<p
-											class="m-0 mt-0.5 flex items-center gap-1 truncate text-[11px] text-white/70"
-										>
-											<IconMapPin class="h-3 w-3 shrink-0" />
-											{#if g.city}{g.city},{/if}
-											{g.state_region}
-											{#if g.state_region && g.country}
-												·
-											{/if}
-											{g.country}
-										</p>
-									</div>
-								</div>
-
-								<!-- Tagline, shown below -->
-								{#if g.tagline}
-									<p class="m-0 mt-2 line-clamp-1 text-xs text-white/60 drop-shadow-sm">
-										{g.tagline}
-									</p>
+								class="from-primary-800/70 to-secondary-700/50 relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br"
+							>
+								{#if g.cover_photo_url}
+									<img
+										src={g.cover_photo_url}
+										alt="{g.name} cover"
+										loading="lazy"
+										class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+									/>
 								{/if}
+
+								<!-- Bottom gradient scrim -->
+								<div
+									class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent"
+								></div>
+
+								<!-- Top-right: group type chips -->
+								{#if (data.group_types_map?.[g.id] || []).length}
+									<div
+										class="absolute top-2.5 right-2.5 flex max-w-[70%] flex-wrap justify-end gap-1"
+									>
+										{#each (data.group_types_map[g.id] || []).slice(0, 2) as t}
+											<span class="{chipFilled(t)} shadow-sm">{t}</span>
+										{/each}
+									</div>
+								{/if}
+
+								<!-- Bottom overlay: logo + name + location -->
+								<div class="absolute inset-x-0 bottom-0 p-3">
+									<div class="flex items-end gap-3">
+										<!-- Logo -->
+										{#if g.logo_url}
+											<img
+												src={g.logo_url}
+												alt="{g.name} logo"
+												loading="lazy"
+												class="ring-surface-950-50/20 h-12 w-12 shrink-0 rounded-xl object-cover shadow-lg ring-2"
+											/>
+										{:else}
+											<div
+												class="bg-surface-950-50/20 ring-surface-950-50/20 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-2 backdrop-blur-sm"
+											>
+												<IconUsers class="text-surface-50 h-5 w-5" />
+											</div>
+										{/if}
+
+										<div class="min-w-0 flex-1">
+											<h3
+												class="text-surface-50 m-0 truncate !text-left text-base leading-tight font-bold drop-shadow-sm"
+											>
+												{g.name}
+											</h3>
+											<p
+												class="m-0 mt-0.5 flex items-center gap-1 truncate text-[11px] text-white/70"
+											>
+												<IconMapPin class="h-3 w-3 shrink-0" />
+												{#if g.city}{g.city},{/if}
+												{g.state_region}
+												{#if g.state_region && g.country}
+													·
+												{/if}
+												{g.country}
+											</p>
+										</div>
+									</div>
+
+									<!-- Tagline, shown below -->
+									{#if g.tagline}
+										<p class="m-0 mt-2 line-clamp-1 text-xs text-white/60 drop-shadow-sm">
+											{g.tagline}
+										</p>
+									{/if}
+								</div>
 							</div>
-						</div>
-					</a>
-				{/each}
+						</a>
+					{/each}
 				</div>
 			{/if}
 		</div>
@@ -946,28 +947,28 @@
 		{#if data.totalGroups > limit}
 			{@const totalPages = Math.ceil(data.totalGroups / limit)}
 			<div class="mt-10 flex items-center justify-center gap-3">
-					<button
-						class="btn preset-filled-surface-50-950 px-5 shadow-sm"
-						disabled={page <= 1 || $navigating}
-						onclick={() => setPage(page - 1)}
-					>
-						Previous
-					</button>
-					<span
-						class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
-					>
-						{#if $navigating}
-							<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
-						{/if}
-						Page {page} of {totalPages}
-					</span>
-					<button
-						class="btn preset-filled-surface-50-950 px-5 shadow-sm"
-						disabled={page >= totalPages || $navigating}
-						onclick={() => setPage(page + 1)}
-					>
-						Next
-					</button>
+				<button
+					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+					disabled={page <= 1 || $navigating}
+					onclick={() => setPage(page - 1)}
+				>
+					Previous
+				</button>
+				<span
+					class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
+				>
+					{#if $navigating}
+						<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
+					{/if}
+					Page {page} of {totalPages}
+				</span>
+				<button
+					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+					disabled={page >= totalPages || $navigating}
+					onclick={() => setPage(page + 1)}
+				>
+					Next
+				</button>
 			</div>
 		{/if}
 	</section>

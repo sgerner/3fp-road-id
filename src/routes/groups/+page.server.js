@@ -146,7 +146,9 @@ function bestFuzzyVariantScore(variants, targetTokens) {
 }
 
 function buildGroupSearchIndex(group) {
-	const combined = normalizeSearchText(SEARCH_TEXT_FIELDS.map((field) => group?.[field] || '').join(' '));
+	const combined = normalizeSearchText(
+		SEARCH_TEXT_FIELDS.map((field) => group?.[field] || '').join(' ')
+	);
 	const tokens = tokenizeSearch(combined);
 	const tokenSet = new Set(tokens);
 	const nameTokens = tokenizeSearch(group?.name || '');
@@ -367,12 +369,12 @@ export const load = async ({ url }) => {
 	const hasSearchQuery = Boolean(q);
 	const hasActiveFilters = Boolean(
 		q ||
-			country ||
-			state_region ||
-			skill_level_ids.length ||
-			group_type_ids.length ||
-			audience_focus_ids.length ||
-			riding_discipline_ids.length
+		country ||
+		state_region ||
+		skill_level_ids.length ||
+		group_type_ids.length ||
+		audience_focus_ids.length ||
+		riding_discipline_ids.length
 	);
 
 	let filterIds = null;

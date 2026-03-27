@@ -4,7 +4,9 @@ import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 
 function cleanSlug(value) {
-	return String(value || '').trim().toLowerCase();
+	return String(value || '')
+		.trim()
+		.toLowerCase();
 }
 
 function resolveGroupSlug(searchParams) {

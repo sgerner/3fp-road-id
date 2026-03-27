@@ -248,7 +248,11 @@
 		{isPublished}
 		memberEmailCount={data.memberEmailCount ?? 0}
 		memberEmailCountsByStatus={data.memberEmailCountsByStatus ?? {}}
-		emailAudienceStatusOptions={data.emailAudienceStatusOptions ?? ['active', 'past_due', 'cancelled']}
+		emailAudienceStatusOptions={data.emailAudienceStatusOptions ?? [
+			'active',
+			'past_due',
+			'cancelled'
+		]}
 		{emailMembers}
 		{emailAudienceStatuses}
 		publicHref={selectedPost?.is_published

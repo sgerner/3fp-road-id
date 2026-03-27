@@ -362,9 +362,9 @@
 								connected Stripe account. Tax deductibility depends on that group's legal status and may
 								not apply.
 							{:else}
-								3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger cycling
-								culture. Your tax-deductible gift powers advocacy, education, and community programs that
-								protect riders everywhere.
+								3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger
+								cycling culture. Your tax-deductible gift powers advocacy, education, and community
+								programs that protect riders everywhere.
 							{/if}
 						</p>
 					</div>
@@ -392,48 +392,52 @@
 
 				<!-- Right: impact stat cards -->
 				<div class="flex flex-col gap-3 lg:w-56">
-						<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-primary-500);"
 							aria-hidden="true"
 						></div>
-							<div
-								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-							>
-								<IconBike class="h-4 w-4" />
-								{isGroupRecipient ? 'Direct Support' : 'Years Active'}
-							</div>
-							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Local' : '10+'}</div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconBike class="h-4 w-4" />
+							{isGroupRecipient ? 'Direct Support' : 'Years Active'}
 						</div>
+						<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Local' : '10+'}</div>
+					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-secondary-500);"
 							aria-hidden="true"
 						></div>
-							<div
-								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-							>
-								<IconUsers class="h-4 w-4" />
-								{isGroupRecipient ? 'Funds Route' : 'Advocates'}
-							</div>
-							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Group' : '100+'}</div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconUsers class="h-4 w-4" />
+							{isGroupRecipient ? 'Funds Route' : 'Advocates'}
 						</div>
+						<div class="text-3xl font-black tabular-nums">
+							{isGroupRecipient ? 'Group' : '100+'}
+						</div>
+					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-tertiary-500);"
 							aria-hidden="true"
 						></div>
-							<div
-								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-							>
-								<IconTrendingUp class="h-4 w-4" />
-								{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
-							</div>
-							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Varies' : '1000+'}</div>
+						<div
+							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+						>
+							<IconTrendingUp class="h-4 w-4" />
+							{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
 						</div>
+						<div class="text-3xl font-black tabular-nums">
+							{isGroupRecipient ? 'Varies' : '1000+'}
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>

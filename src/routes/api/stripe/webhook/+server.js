@@ -4,7 +4,10 @@ import {
 	finalizeDonationByPaymentIntentId,
 	finalizeDonationBySessionId
 } from '$lib/server/donations';
-import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import {
+	finalizeMerchOrderByPaymentIntentId,
+	finalizeMerchOrderBySessionId
+} from '$lib/server/merch';
 import { handleMembershipStripeEvent } from '$lib/server/memberships';
 import { getStripeClient } from '$lib/server/stripe';
 

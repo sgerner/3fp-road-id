@@ -27,6 +27,12 @@
 	import { cubicOut } from 'svelte/easing';
 
 	let { data } = $props();
+	const initialData = (() => data)();
+	const initialProgram = initialData?.program_data?.program || null;
+	const initialTiers = Array.isArray(initialData?.program_data?.tiers)
+		? initialData.program_data.tiers
+		: [];
+	const initialCurrentUserProfile = initialData?.current_user_profile || null;
 
 	const group = $derived(data?.group || null);
 	const program = $derived(data?.program_data?.program || null);
@@ -43,13 +49,13 @@
 	const currentUserProfile = $derived(data?.current_user_profile || null);
 	const currentUserId = $derived(data?.current_user_id || null);
 
-	let selectedTierId = $state(program?.default_tier_id || tiers?.[0]?.id || '');
+	let selectedTierId = $state(initialProgram?.default_tier_id || initialTiers?.[0]?.id || '');
 	let selectedBillingInterval = $state('month');
 	let answers = $state({});
 	let memberProfile = $state({
-		full_name: currentUserProfile?.full_name || '',
-		email: currentUserProfile?.email || '',
-		phone: currentUserProfile?.phone || ''
+		full_name: initialCurrentUserProfile?.full_name || '',
+		email: initialCurrentUserProfile?.email || '',
+		phone: initialCurrentUserProfile?.phone || ''
 	});
 	let busy = $state(false);
 	let statusError = $state('');
@@ -1120,7 +1126,7 @@
 									</div>
 
 									{#if isSelected && selectedTierAllowsCustom}
-										<div class="custom-amount-wrapper" onclick={(e) => e.stopPropagation()}>
+										<div class="custom-amount-wrapper">
 											<div class="custom-amount-input">
 												<span class="custom-prefix">$</span>
 												<input
@@ -1133,6 +1139,7 @@
 													value={selectedBillingInterval === 'year'
 														? customAnnualInput
 														: customMonthlyInput}
+													onclick={(event) => event.stopPropagation()}
 													oninput={(event) =>
 														handleCustomAmountTyping(selectedBillingInterval, event)}
 												/>
@@ -1257,12 +1264,13 @@
 										<div class="custom-fields">
 											{#each formFields as field (field.id)}
 												<div class="custom-field">
-													<label>{field.label}</label>
+													<p class="custom-field-label">{field.label}</p>
 													{#if field.help_text}
 														<p class="field-help">{field.help_text}</p>
 													{/if}
 													{#if field.field_type === 'textarea'}
 														<textarea
+															id={`custom-field-${field.id}`}
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1270,6 +1278,7 @@
 														></textarea>
 													{:else if field.field_type === 'select'}
 														<select
+															id={`custom-field-${field.id}`}
 															value={answers[field.id] || ''}
 															onchange={(e) =>
 																(answers = { ...answers, [field.id]: e.currentTarget.value })}
@@ -1298,6 +1307,7 @@
 													{:else if field.field_type === 'checkbox'}
 														<label class="checkbox-item single">
 															<input
+																id={`custom-field-${field.id}`}
 																type="checkbox"
 																checked={answers[field.id] === true}
 																onchange={(e) =>
@@ -1331,6 +1341,7 @@
 														/>
 													{:else}
 														<input
+															id={`custom-field-${field.id}`}
 															type="text"
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
@@ -1696,7 +1707,7 @@
 		border-radius: 1rem;
 		object-fit: cover;
 		box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
-		ring: 2px solid rgba(255, 255, 255, 0.1);
+		border: 2px solid rgba(255, 255, 255, 0.1);
 	}
 
 	@media (min-width: 768px) {
@@ -2230,9 +2241,7 @@
 		letter-spacing: 0.05em;
 	}
 
-	.form-field input,
-	.form-field textarea,
-	.form-field select {
+	.form-field input {
 		width: 100%;
 		padding: 0.75rem 1rem;
 		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
@@ -2243,22 +2252,14 @@
 		transition: all 200ms ease;
 	}
 
-	.form-field input:focus,
-	.form-field textarea:focus,
-	.form-field select:focus {
+	.form-field input:focus {
 		outline: none;
 		border-color: var(--color-primary-500);
 		box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary-500) 15%, transparent);
 	}
 
-	.form-field input::placeholder,
-	.form-field textarea::placeholder {
+	.form-field input::placeholder {
 		color: color-mix(in oklab, white 35%, transparent);
-	}
-
-	.form-field textarea {
-		min-height: 100px;
-		resize: vertical;
 	}
 
 	/* ── Custom Fields ── */
@@ -2274,10 +2275,11 @@
 		gap: 0.375rem;
 	}
 
-	.custom-field label {
+	.custom-field-label {
 		font-size: 0.8125rem;
 		font-weight: 600;
 		color: white;
+		margin: 0;
 	}
 
 	.field-help {

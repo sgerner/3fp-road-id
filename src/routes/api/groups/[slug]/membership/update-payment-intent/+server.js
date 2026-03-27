@@ -11,7 +11,10 @@ export async function POST({ params, cookies, request, url }) {
 		requestUrl: url
 	});
 	if (!result?.ok) {
-		return json({ error: result?.error || 'Unable to refresh payment.' }, { status: result?.status || 500 });
+		return json(
+			{ error: result?.error || 'Unable to refresh payment.' },
+			{ status: result?.status || 500 }
+		);
 	}
 	return json({
 		data: {
@@ -20,4 +23,3 @@ export async function POST({ params, cookies, request, url }) {
 		}
 	});
 }
-

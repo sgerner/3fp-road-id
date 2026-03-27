@@ -10,8 +10,10 @@ export async function POST({ params, cookies, request, fetch }) {
 		fetchImpl: fetch
 	});
 	if (!result?.ok) {
-		return json({ error: result?.error || 'Unable to finalize payment.' }, { status: result?.status || 500 });
+		return json(
+			{ error: result?.error || 'Unable to finalize payment.' },
+			{ status: result?.status || 500 }
+		);
 	}
 	return json({ data: result.data });
 }
-

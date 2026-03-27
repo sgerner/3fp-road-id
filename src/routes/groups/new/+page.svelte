@@ -517,13 +517,13 @@
 		/>
 
 		{#if form?.error}
-			<div class="new-card border border-error-500/35 bg-error-500/10 rounded-2xl px-4 py-3">
+			<div class="new-card border-error-500/35 bg-error-500/10 rounded-2xl border px-4 py-3">
 				<p class="text-error-600-400 text-sm">{form.error}</p>
 			</div>
 		{/if}
 
 		{#if needsDuplicateOverride}
-			<section class="new-card border border-warning-500/35 bg-warning-500/10 rounded-2xl p-4">
+			<section class="new-card border-warning-500/35 bg-warning-500/10 rounded-2xl border p-4">
 				<h2 class="text-sm font-bold tracking-wide uppercase opacity-85">Possible Duplicates</h2>
 				<p class="mt-1 text-sm opacity-80">
 					These existing groups look similar. Confirm the override below only if this is a false
@@ -548,10 +548,12 @@
 					{/each}
 				</ul>
 				<label class="mt-3 flex items-start gap-2 text-sm">
-					<input type="checkbox" class="checkbox mt-0.5" bind:checked={duplicateOverrideConfirmed} />
-					<span>
-						I confirm this is a new group and want to continue creating it.
-					</span>
+					<input
+						type="checkbox"
+						class="checkbox mt-0.5"
+						bind:checked={duplicateOverrideConfirmed}
+					/>
+					<span> I confirm this is a new group and want to continue creating it. </span>
 				</label>
 			</section>
 		{/if}
@@ -638,8 +640,8 @@
 						id="description"
 						name="description"
 						class="textarea preset-tonal-surface"
-						rows="4"
-					>{initialValues.description || ''}</textarea>
+						rows="4">{initialValues.description || ''}</textarea
+					>
 				</div>
 			</div>
 		</section>
@@ -743,8 +745,8 @@
 						id="how_to_join_instructions"
 						name="how_to_join_instructions"
 						class="textarea preset-tonal-surface"
-						rows="3"
-					>{initialValues.how_to_join_instructions || ''}</textarea>
+						rows="3">{initialValues.how_to_join_instructions || ''}</textarea
+					>
 				</div>
 			</div>
 		</section>

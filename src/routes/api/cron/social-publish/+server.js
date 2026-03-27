@@ -33,7 +33,9 @@ async function persistUnexpectedCronFailure(supabase, post, error) {
 		latest?.meta_publish_results && typeof latest.meta_publish_results === 'object'
 			? latest.meta_publish_results
 			: {};
-	const latestDebugTimeline = Array.isArray(latestMeta.debug_timeline) ? latestMeta.debug_timeline : [];
+	const latestDebugTimeline = Array.isArray(latestMeta.debug_timeline)
+		? latestMeta.debug_timeline
+		: [];
 	const debugTimeline = [
 		...latestDebugTimeline,
 		{
