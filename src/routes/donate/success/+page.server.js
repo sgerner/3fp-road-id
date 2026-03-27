@@ -18,10 +18,13 @@ function formatAmount(cents, currency = 'usd') {
 export const load = async ({ url, fetch }) => {
 	const sessionId = (url.searchParams.get('session_id') || '').trim();
 	const paymentIntentId = (url.searchParams.get('payment_intent') || '').trim();
+	const groupSlug = (url.searchParams.get('group') || '').trim().toLowerCase();
+	const donateAgainHref = groupSlug ? `/groups/${encodeURIComponent(groupSlug)}/donate` : '/donate';
 	if (!sessionId && !paymentIntentId) {
 		return {
 			ok: false,
-			error: 'Missing Stripe payment reference.'
+			error: 'Missing Stripe payment reference.',
+			donateAgainHref
 		};
 	}
 
@@ -31,7 +34,8 @@ export const load = async ({ url, fetch }) => {
 	if (!result?.ok) {
 		return {
 			ok: false,
-			error: result?.error || 'Unable to verify donation.'
+			error: result?.error || 'Unable to verify donation.',
+			donateAgainHref
 		};
 	}
 
@@ -39,6 +43,7 @@ export const load = async ({ url, fetch }) => {
 	return {
 		ok: true,
 		paid: result?.paid === true,
+		donateAgainHref,
 		donation: donation
 			? {
 					recipientDisplayName: donation.recipient_display_name,

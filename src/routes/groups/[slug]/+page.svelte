@@ -678,13 +678,13 @@
 						{/if}
 					</p>
 				</div>
-				{#if canAcceptDonations}
-					<a
-						href={`/donate?group=${encodeURIComponent(data.group?.slug || '')}`}
-						class="btn preset-filled-primary-500 shrink-0 font-bold"
-					>
-						Donate to {data.group?.name}
-					</a>
+					{#if canAcceptDonations}
+						<a
+							href={`/groups/${encodeURIComponent(data.group?.slug || '')}/donate`}
+							class="btn preset-filled-primary-500 shrink-0 font-bold"
+						>
+							Donate to {data.group?.name}
+						</a>
 				{:else if shouldShowDonationSetup}
 					<a
 						href={`/groups/${data.group?.slug}/manage/edit`}

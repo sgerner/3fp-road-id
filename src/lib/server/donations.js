@@ -50,6 +50,21 @@ function formatCents(cents, currency = 'usd') {
 	}
 }
 
+function buildDonatePathForRecipient(recipient, search = '') {
+	const query = String(search || '').trim();
+	if (recipient?.type === 'group' && recipient?.group?.slug) {
+		return `/groups/${encodeURIComponent(recipient.group.slug)}/donate${query ? `?${query}` : ''}`;
+	}
+	return `/donate${query ? `?${query}` : ''}`;
+}
+
+function buildDonateSuccessPathForRecipient(recipient) {
+	if (recipient?.type === 'group' && recipient?.group?.slug) {
+		return `/donate/success?group=${encodeURIComponent(recipient.group.slug)}`;
+	}
+	return '/donate/success';
+}
+
 export function buildGroupDonationAccountId(groupId) {
 	return `group:${groupId}`;
 }
@@ -308,18 +323,17 @@ export async function createDonationCheckout({
 	}
 
 	const stripe = getStripeClient();
-	const groupParam =
-		recipient.type === 'group' && recipient.group?.slug
-			? `group=${encodeURIComponent(recipient.group.slug)}&`
-			: '';
+	const cancelPath = buildDonatePathForRecipient(recipient, 'canceled=1');
+	const successPath = buildDonateSuccessPathForRecipient(recipient);
+	const successDelimiter = successPath.includes('?') ? '&' : '?';
 
 	const session = await stripe.checkout.sessions.create(
 		{
 			mode: 'payment',
 			submit_type: 'donate',
 			customer_email: normalizedDonorEmail,
-			success_url: `${baseUrl}/donate/success?session_id={CHECKOUT_SESSION_ID}`,
-			cancel_url: `${baseUrl}/donate?${groupParam}canceled=1`,
+			success_url: `${baseUrl}${successPath}${successDelimiter}session_id={CHECKOUT_SESSION_ID}`,
+			cancel_url: `${baseUrl}${cancelPath}`,
 			line_items: [
 				{
 					quantity: 1,
@@ -481,7 +495,7 @@ export async function createDonationPaymentIntent({
 		clientSecret: paymentIntent.client_secret,
 		paymentIntentId: paymentIntent.id,
 		connectedAccountId: donationAccount.stripe_account_id,
-		returnUrl: `${baseUrl}/donate/success`
+		returnUrl: `${baseUrl}${buildDonateSuccessPathForRecipient(recipient)}`
 	};
 }
 

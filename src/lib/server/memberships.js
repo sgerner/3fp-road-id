@@ -1522,11 +1522,11 @@ function renderGroupLinksBlock(group, baseUrl) {
 			label: 'Membership Page',
 			href: `${baseUrl || ''}/groups/${encodeURIComponent(group.slug)}/membership`
 		});
-		links.push({
-			label: 'Donation Page',
-			href: `${baseUrl || ''}/donate?group=${encodeURIComponent(group.slug)}`
-		});
-	}
+			links.push({
+				label: 'Donation Page',
+				href: `${baseUrl || ''}/groups/${encodeURIComponent(group.slug)}/donate`
+			});
+		}
 
 	let socials = [];
 	if (group?.social_links && typeof group.social_links === 'object') {

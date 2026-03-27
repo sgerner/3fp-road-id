@@ -12,7 +12,9 @@
 		<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-6">
 			<h1 class="text-2xl font-bold">We could not confirm this donation yet</h1>
 			<p class="mt-2 text-sm opacity-80">{data?.error || 'Please check back in a moment.'}</p>
-			<a class="btn preset-filled-primary-500 mt-4" href="/donate">Back to Donate</a>
+			<a class="btn preset-filled-primary-500 mt-4" href={data?.donateAgainHref || '/donate'}
+				>Back to Donate</a
+			>
 		</section>
 	{:else if !data?.paid}
 		<section class="rounded-2xl border border-amber-500/35 bg-amber-500/10 p-6">
@@ -20,7 +22,9 @@
 			<p class="mt-2 text-sm opacity-80">
 				If you just submitted payment, refresh this page in a few seconds.
 			</p>
-			<a class="btn preset-filled-primary-500 mt-4" href="/donate">Back to Donate</a>
+			<a class="btn preset-filled-primary-500 mt-4" href={data?.donateAgainHref || '/donate'}
+				>Back to Donate</a
+			>
 		</section>
 	{:else}
 		<section class="rounded-2xl border border-green-500/35 bg-green-500/10 p-6">
@@ -40,7 +44,9 @@
 				</p>
 			{/if}
 			<div class="mt-4 flex flex-wrap gap-2">
-				<a class="btn preset-filled-primary-500" href="/donate">Donate Again</a>
+				<a class="btn preset-filled-primary-500" href={data?.donateAgainHref || '/donate'}
+					>Donate Again</a
+				>
 				<a class="btn preset-outlined-primary-500" href="/">Return Home</a>
 			</div>
 		</section>

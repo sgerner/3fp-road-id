@@ -3,8 +3,32 @@ import { getDonationRecipient } from '$lib/server/donations';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 
+function cleanSlug(value) {
+	return String(value || '').trim().toLowerCase();
+}
+
+function resolveGroupSlug(searchParams) {
+	const explicit =
+		cleanSlug(searchParams.get('group')) ||
+		cleanSlug(searchParams.get('groupSlug')) ||
+		cleanSlug(searchParams.get('g'));
+	if (explicit) return explicit;
+
+	const emptyKeyValue = cleanSlug(searchParams.get(''));
+	if (emptyKeyValue) return emptyKeyValue;
+
+	for (const [key, value] of searchParams.entries()) {
+		if (!value) {
+			const candidate = cleanSlug(key);
+			if (candidate) return candidate;
+		}
+	}
+
+	return '';
+}
+
 export const load = async ({ url, cookies }) => {
-	const groupSlug = (url.searchParams.get('group') || '').trim();
+	const groupSlug = resolveGroupSlug(url.searchParams);
 	const recipientType = groupSlug ? 'group' : 'main';
 
 	let isAdmin = false;

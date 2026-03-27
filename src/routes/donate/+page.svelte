@@ -35,10 +35,24 @@
 	const recipient = $derived(data?.recipient ?? null);
 	const recipientLabel = $derived(recipient?.label ?? '3 Feet Please');
 	const recipientType = $derived(recipient?.type ?? 'main');
+	const isGroupRecipient = $derived(recipientType === 'group');
 	const groupSlug = $derived(recipient?.group?.slug ?? '');
+	const groupDonationIntentUrl = $derived(
+		isGroupRecipient && groupSlug
+			? `/api/groups/${encodeURIComponent(groupSlug)}/donate/create-payment-intent`
+			: '/api/donations/create-payment-intent'
+	);
 	const donationEnabled = $derived(recipient?.donationEnabled === true);
 	const accountConnected = $derived(recipient?.accountConnected === true);
 	const accountReady = $derived(recipient?.accountReady === true);
+	const pageTitle = $derived(
+		isGroupRecipient ? `Donate to ${recipientLabel} • 3 Feet Please` : 'Donate • 3 Feet Please'
+	);
+	const pageDescription = $derived(
+		isGroupRecipient
+			? `Support ${recipientLabel} directly. Donations on this page go to this group's connected Stripe account and may not be tax-deductible.`
+			: 'Support 3 Feet Please and help build safer streets for cyclists everywhere. Every dollar makes a difference.'
+	);
 
 	let stripe = null;
 	let elements = null;
@@ -107,7 +121,7 @@
 		preparingPayment = true;
 		try {
 			teardownPaymentElement();
-			const response = await fetch('/api/donations/create-payment-intent', {
+			const response = await fetch(groupDonationIntentUrl, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -296,11 +310,8 @@
 </script>
 
 <svelte:head>
-	<title>Donate • 3 Feet Please</title>
-	<meta
-		name="description"
-		content="Support 3 Feet Please and help build safer streets for cyclists everywhere. Every dollar makes a difference."
-	/>
+	<title>{pageTitle}</title>
+	<meta name="description" content={pageDescription} />
 </svelte:head>
 
 <div class="donate-page mx-auto flex w-full max-w-5xl flex-col gap-10 pb-16">
@@ -320,8 +331,13 @@
 					<IconHeart class="h-3.5 w-3.5" />
 					Donate
 				</span>
-				<span class="chip preset-tonal-secondary">501(c)(3) Nonprofit</span>
-				<span class="chip preset-tonal-tertiary">Tax-Deductible</span>
+				{#if isGroupRecipient}
+					<span class="chip preset-tonal-secondary">Community Group</span>
+					<span class="chip preset-tonal-tertiary">Tax Status Varies</span>
+				{:else}
+					<span class="chip preset-tonal-secondary">501(c)(3) Nonprofit</span>
+					<span class="chip preset-tonal-tertiary">Tax-Deductible</span>
+				{/if}
 			</div>
 
 			<!-- Two-column layout for content + stat cards -->
@@ -332,13 +348,24 @@
 						<h1
 							class="donate-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
 						>
-							Every ride counts.<br />
-							<span class="donate-headline-accent">Fund safer streets.</span>
+							{#if isGroupRecipient}
+								Support {recipientLabel}.<br />
+								<span class="donate-headline-accent">Fund local impact.</span>
+							{:else}
+								Every ride counts.<br />
+								<span class="donate-headline-accent">Fund safer streets.</span>
+							{/if}
 						</h1>
 						<p class="max-w-xl text-base leading-relaxed opacity-75">
-							3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger
-							cycling culture. Your tax-deductible gift powers advocacy, education, and community
-							programs that protect riders everywhere.
+							{#if isGroupRecipient}
+								This page sends donations directly to <strong>{recipientLabel}</strong> through their
+								connected Stripe account. Tax deductibility depends on that group's legal status and may
+								not apply.
+							{:else}
+								3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger cycling
+								culture. Your tax-deductible gift powers advocacy, education, and community programs that
+								protect riders everywhere.
+							{/if}
 						</p>
 					</div>
 
@@ -350,7 +377,11 @@
 						</span>
 						<span class="flex items-center gap-1.5">
 							<IconShield class="h-4 w-4 text-blue-400" />
-							Tax-deductible (EIN 99-3658890)
+							{#if isGroupRecipient}
+								Tax status depends on the group
+							{:else}
+								Tax-deductible (EIN 99-3658890)
+							{/if}
 						</span>
 						<span class="flex items-center gap-1.5">
 							<IconEyeOff class="h-4 w-4 text-purple-400" />
@@ -361,48 +392,48 @@
 
 				<!-- Right: impact stat cards -->
 				<div class="flex flex-col gap-3 lg:w-56">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
+						<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-primary-500);"
 							aria-hidden="true"
 						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconBike class="h-4 w-4" />
-							Years Active
+							<div
+								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+							>
+								<IconBike class="h-4 w-4" />
+								{isGroupRecipient ? 'Direct Support' : 'Years Active'}
+							</div>
+							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Local' : '10+'}</div>
 						</div>
-						<div class="text-3xl font-black tabular-nums">10+</div>
-					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-secondary-500);"
 							aria-hidden="true"
 						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							Advocates
+							<div
+								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+							>
+								<IconUsers class="h-4 w-4" />
+								{isGroupRecipient ? 'Funds Route' : 'Advocates'}
+							</div>
+							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Group' : '100+'}</div>
 						</div>
-						<div class="text-3xl font-black tabular-nums">100+</div>
-					</div>
 					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
 						<div
 							class="stat-card-glow"
 							style="background: var(--color-tertiary-500);"
 							aria-hidden="true"
 						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconTrendingUp class="h-4 w-4" />
-							Lives Impacted
+							<div
+								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
+							>
+								<IconTrendingUp class="h-4 w-4" />
+								{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
+							</div>
+							<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Varies' : '1000+'}</div>
 						</div>
-						<div class="text-3xl font-black tabular-nums">1000+</div>
-					</div>
 				</div>
 			</div>
 		</div>
@@ -545,7 +576,11 @@
 						</div>
 						<h2 class="!mt-0 !mb-0.5 !text-left text-2xl font-bold">Support {recipientLabel}</h2>
 						<p class="text-sm opacity-65">
-							Choose an amount and complete your gift directly on this page with Stripe.
+							{#if isGroupRecipient}
+								Choose an amount and complete your gift directly to this group with Stripe.
+							{:else}
+								Choose an amount and complete your gift directly on this page with Stripe.
+							{/if}
 						</p>
 					</div>
 				</div>
