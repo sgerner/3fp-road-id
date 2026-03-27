@@ -75,7 +75,7 @@ export const DEFAULT_RIDE_FORM = {
 	slug: '',
 	summary: '',
 	description: '',
-	status: 'draft',
+	status: 'published',
 	timezone: RIDE_TIMEZONES[0],
 	isHost: true,
 	startsAt: '',
