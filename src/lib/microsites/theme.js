@@ -11,20 +11,20 @@ const FALLBACK_PALETTES = [
 
 const FONT_PAIRINGS = {
 	poster: {
-		base: '"Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif',
-		heading: '"Impact", "Avenir Next Condensed", "Trebuchet MS", sans-serif'
+		base: '"Trebuchet MS", "Segoe UI", Tahoma, sans-serif',
+		heading: '"Arial Black", "Impact", "Franklin Gothic Heavy", sans-serif'
 	},
 	editorial: {
-		base: '"Avenir Next", "Helvetica Neue", sans-serif',
-		heading: '"Georgia", "Palatino Linotype", serif'
+		base: 'Georgia, "Times New Roman", Times, serif',
+		heading: '"Palatino Linotype", "Book Antiqua", Palatino, serif'
 	},
 	friendly: {
-		base: '"Gill Sans", "Trebuchet MS", sans-serif',
-		heading: '"Gill Sans", "Trebuchet MS", sans-serif'
+		base: 'Verdana, "Geneva", "Segoe UI", sans-serif',
+		heading: '"Lucida Sans", "Trebuchet MS", "Segoe UI", sans-serif'
 	},
 	utility: {
-		base: '"Verdana", "Geneva", sans-serif',
-		heading: '"Trebuchet MS", "Segoe UI", sans-serif'
+		base: '"Courier New", "Liberation Mono", Menlo, monospace',
+		heading: 'Consolas, "Lucida Console", monospace'
 	}
 };
 

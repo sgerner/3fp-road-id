@@ -14,9 +14,10 @@ import {
 	normalizeGroupSiteConfig,
 	serializeGroupSiteConfig
 } from '$lib/microsites/config';
-import { buildMicrositeUrl } from '$lib/microsites/host';
+import { buildMicrositeUrl, normalizeMicrositeSlug } from '$lib/microsites/host';
 import { buildMicrositeThemeStyle, normalizePalette } from '$lib/microsites/theme';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { filterRidesForWidget } from '$lib/rides/widgetConfig';
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const PALETTE_CACHE = new Map();
@@ -24,15 +25,6 @@ const PALETTE_CACHE = new Map();
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
-}
-
-function slugifySegment(value) {
-	return cleanText(value)
-		.toLowerCase()
-		.normalize('NFKD')
-		.replace(/[^\w\s-]/g, '')
-		.replace(/[\s_-]+/g, '-')
-		.replace(/^-+|-+$/g, '');
 }
 
 function splitTextIntoParagraphs(value) {
@@ -294,9 +286,9 @@ export async function upsertGroupSiteConfig(groupId, config) {
 	return data;
 }
 
-async function loadGroupBySlug(slug) {
+async function loadGroupByMicrositeSlug(siteSlug) {
 	const db = pickGroupSiteClient();
-	const { data, error } = await db.from('groups').select('*').eq('slug', slug).maybeSingle();
+	const { data, error } = await db.from('groups').select('*').eq('microsite_slug', siteSlug).maybeSingle();
 	if (error) throw error;
 	return data;
 }
@@ -358,6 +350,41 @@ async function loadRides(fetchImpl, groupId, limit = 4) {
 	} catch {
 		return [];
 	}
+}
+
+async function loadAllPublishedRides(fetchImpl, limit = 200) {
+	try {
+		const response = await fetchImpl('/api/rides');
+		if (!response.ok) return [];
+		const payload = await response.json().catch(() => ({}));
+		const rows = Array.isArray(payload?.data) ? payload.data : [];
+		return rows.slice(0, limit);
+	} catch {
+		return [];
+	}
+}
+
+function buildMicrositeRideWidgetRides({ allRides, group, siteConfig }) {
+	if (!siteConfig?.ride_widget_enabled) return [];
+	const hostScope = cleanText(siteConfig.ride_widget_host_scope) || 'group_only';
+	const selectedGroupIds = Array.isArray(siteConfig.ride_widget_group_ids)
+		? siteConfig.ride_widget_group_ids.map((value) => cleanText(value).toLowerCase()).filter(Boolean)
+		: [];
+	const widgetConfig = siteConfig?.ride_widget_config || {};
+
+	if (hostScope === 'group_only') {
+		return filterRidesForWidget(allRides, {
+			...widgetConfig,
+			organizationSlug: cleanText(group?.slug).toLowerCase()
+		}).slice(0, 24);
+	}
+	if (hostScope === 'selected_groups' && selectedGroupIds.length) {
+		const selected = new Set(selectedGroupIds);
+		return filterRidesForWidget(allRides, widgetConfig)
+			.filter((ride) => selected.has(cleanText(ride?.group?.id).toLowerCase()))
+			.slice(0, 24);
+	}
+	return filterRidesForWidget(allRides, widgetConfig).slice(0, 24);
 }
 
 async function fetchApiList(fetchImpl, resource, params = {}) {
@@ -492,10 +519,10 @@ export async function loadMicrositeNewsViews(groupId) {
 }
 
 export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
-	const slug = slugifySegment(siteSlug);
-	if (!slug) return null;
+	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
+	if (!normalizedSiteSlug) return null;
 
-	const group = await loadGroupBySlug(slug);
+	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug);
 	if (!group) return null;
 
 	const storedConfig = await getGroupSiteConfig(group.id, { group });
@@ -513,11 +540,12 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 					fontPairing: siteConfig.font_pairing
 				});
 
-	const [assetBuckets, newsPosts, rides, volunteerEvents, membership, donationEnabled, taxonomy, ownerCount] =
+	const [assetBuckets, newsPosts, rides, allRides, volunteerEvents, membership, donationEnabled, taxonomy, ownerCount] =
 		await Promise.all([
 			listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => []),
 			listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => []),
 			loadRides(fetchImpl, group.id, 4),
+			loadAllPublishedRides(fetchImpl, 240),
 			loadVolunteerEvents(fetchImpl, group.id, 4),
 			loadMembershipSummary(fetchImpl, group.slug),
 			loadDonationEnabled(group.id).catch(() => false),
@@ -525,13 +553,16 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 			loadOwnerCount(group.id).catch(() => 0)
 		]);
 
+	const widgetRides = buildMicrositeRideWidgetRides({ allRides, group, siteConfig });
+
 	const photoBucket = assetBuckets.find((bucket) => bucket.slug === 'photos') || null;
 	const rawContactLinks = buildContactLinks(group);
 	const rawPrimaryCta = selectPrimaryCta(group, rawContactLinks);
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
 	const primaryCta = serializePrimaryCta(rawPrimaryCta);
-	const siteUrl = buildMicrositeUrl(group.slug, url);
-	const previewPath = `/site/${encodeURIComponent(group.slug)}`;
+	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
+	const siteUrl = buildMicrositeUrl(micrositeSlug, url);
+	const previewPath = `/site/${encodeURIComponent(micrositeSlug)}`;
 	const basePath = cleanText(url?.pathname).startsWith('/site/') ? previewPath : '';
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
@@ -561,6 +592,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 
 	return {
 		group,
+		micrositeSlug,
 		siteConfig,
 		theme: {
 			dataTheme: siteConfig.theme_mode === 'repo' ? siteConfig.theme_name || '3fp' : '3fp',
@@ -583,6 +615,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 		photoBucket,
 		newsPosts,
 		rides,
+		widgetRides,
 		volunteerEvents,
 		membershipProgram: membership.program,
 		membershipTiers: membership.tiers,

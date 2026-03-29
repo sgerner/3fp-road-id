@@ -6,6 +6,13 @@ function cleanText(value) {
 	return String(value).trim();
 }
 
+export function normalizeMicrositeSlug(value) {
+	return cleanText(value)
+		.toLowerCase()
+		.normalize('NFKD')
+		.replace(/[^a-z0-9]/g, '');
+}
+
 export function normalizeHostname(value) {
 	return cleanText(value).toLowerCase().replace(/:\d+$/, '');
 }
@@ -30,7 +37,7 @@ export function extractMicrositeSlugFromHostname(hostname) {
 }
 
 export function buildMicrositeUrl(slug, requestUrl) {
-	const safeSlug = cleanText(slug).toLowerCase();
+	const safeSlug = normalizeMicrositeSlug(slug);
 	if (!safeSlug) return '';
 	if (!requestUrl) return `https://${safeSlug}.${ROOT_DOMAIN}`;
 
@@ -49,4 +56,3 @@ export function buildMicrositeUrl(slug, requestUrl) {
 
 	return `${url.origin}/site/${encodeURIComponent(safeSlug)}`;
 }
-

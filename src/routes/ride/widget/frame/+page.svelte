@@ -48,8 +48,7 @@
 	let hasInitializedView = $state(false);
 	let search = $state('');
 	let selectedDifficulty = $state('all');
-	let extraCityFilter = $state('');
-	let extraStateFilter = $state('');
+	let locationFilter = $state('');
 	let datePreset = $state('anytime');
 	let customStartDate = $state('');
 	let customEndDate = $state('');
@@ -92,16 +91,32 @@
 					.toLowerCase()
 					.includes(query);
 
-			const cityQuery = extraCityFilter.trim().toLowerCase();
-			const stateQuery = extraStateFilter.trim().toLowerCase();
-			const matchesCity = !cityQuery || (extractRideCity(ride) || '').toLowerCase() === cityQuery;
-			const matchesState =
-				!stateQuery || (extractRideState(ride) || '').toLowerCase() === stateQuery;
+			const locationQuery = locationFilter.trim().toLowerCase();
+			const locationTokens = locationQuery
+				.replace(/[^a-z0-9]+/g, ' ')
+				.split(/\s+/)
+				.filter(Boolean);
+			const locationHaystack = [
+				ride.startLocationName,
+				ride.startLocationAddress,
+				ride.group?.city,
+				ride.group?.state_region,
+				ride.group?.zip_code,
+				extractRideCity(ride),
+				extractRideState(ride)
+			]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, ' ');
+			const matchesLocation =
+				!locationTokens.length ||
+				locationTokens.every((token) => locationHaystack.includes(token));
 
 			const rideDate = parseRideDate(ride?.nextOccurrenceStart);
 			const inDateRange = matchesDateRange(rideDate, datePreset, customStartDate, customEndDate);
 
-			return matchesQuery && matchesCity && matchesState && inDateRange;
+			return matchesQuery && matchesLocation && inDateRange;
 		})
 	);
 
@@ -521,12 +536,8 @@
 				</select>
 			</label>
 			<label class="field">
-				<span>City</span>
-				<input bind:value={extraCityFilter} placeholder="Phoenix" />
-			</label>
-			<label class="field">
-				<span>State</span>
-				<input bind:value={extraStateFilter} placeholder="AZ" />
+				<span>Location</span>
+				<input bind:value={locationFilter} placeholder="City, state, or zip" />
 			</label>
 			{#if datePreset === 'custom'}
 				<label class="field">
@@ -553,7 +564,7 @@
 							href={`/ride/${ride.slug}`}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="ride-card"
+							class={`ride-card ${ride.imageUrls?.[0] ? 'has-image' : 'no-image'}`}
 							style={config.difficultyColors ? `--diff-color:${color}` : ''}
 						>
 							<div
@@ -604,14 +615,13 @@
 						<IconBike class="h-8 w-8" />
 					</div>
 					<p>No rides match the current filters.</p>
-					{#if showFilters && (search || selectedDifficulty !== 'all' || extraCityFilter || extraStateFilter)}
+					{#if showFilters && (search || selectedDifficulty !== 'all' || locationFilter)}
 						<button
 							class="empty-clear"
 							onclick={() => {
 								search = '';
 								selectedDifficulty = 'all';
-								extraCityFilter = '';
-								extraStateFilter = '';
+								locationFilter = '';
 								datePreset = 'anytime';
 							}}
 						>
@@ -944,7 +954,7 @@
 	════════════════════════════════════════════ */
 	.widget-filters {
 		display: grid;
-		grid-template-columns: repeat(5, minmax(0, 1fr));
+		grid-template-columns: minmax(0, 2fr) minmax(10rem, 1fr) minmax(12rem, 1fr);
 		gap: 0.5rem;
 	}
 
@@ -1058,6 +1068,9 @@
 			border-color 200ms ease;
 		position: relative;
 		overflow: hidden;
+	}
+	.ride-card.no-image {
+		grid-template-columns: 76px minmax(0, 1fr);
 	}
 	.ride-card::before {
 		content: '';
@@ -1549,9 +1562,9 @@
 	/* ════════════════════════════════════════════
 	   RESPONSIVE
 	════════════════════════════════════════════ */
-	@media (max-width: 1080px) {
+	@media (max-width: 920px) {
 		.widget-filters {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 
@@ -1562,7 +1575,7 @@
 		.ride-card {
 			grid-template-columns: 70px minmax(0, 1fr);
 		}
-		.ride-image {
+		.ride-card.has-image .ride-image {
 			display: none;
 		}
 		.day-cell {

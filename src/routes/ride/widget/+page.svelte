@@ -23,12 +23,9 @@
 	);
 
 	let organizationSlug = $state(initialConfig.organizationSlug);
-	let city = $state(initialConfig.city);
-	let stateRegion = $state(initialConfig.state);
+	let location = $state(initialConfig.location || [initialConfig.city, initialConfig.state].filter(Boolean).join(' '));
 	let near = $state(initialConfig.near);
 	let radiusMiles = $state(initialConfig.radiusMiles ?? '');
-	let latitude = $state(initialConfig.latitude ?? '');
-	let longitude = $state(initialConfig.longitude ?? '');
 	let defaultTab = $state(initialConfig.defaultTab);
 	let theme = $state(initialConfig.theme);
 	let density = $state(initialConfig.density);
@@ -36,7 +33,6 @@
 	let showAddButton = $state(initialConfig.showAddButton);
 	let prefixCity = $state(initialConfig.prefixCity);
 	let difficultyColors = $state(initialConfig.difficultyColors);
-	let excludeRideSlugs = $state(initialConfig.excludeRideSlugs.join(', '));
 	let iframeHeight = $state(880);
 
 	let showDirections = $state(false);
@@ -51,20 +47,16 @@
 	const normalizedConfig = $derived(
 		normalizeRideWidgetConfig({
 			organizationSlug,
-			city,
-			state: stateRegion,
+			location,
 			near,
 			radiusMiles,
-			latitude,
-			longitude,
 			defaultTab,
 			theme,
 			density,
 			showUserFilters,
 			showAddButton,
 			prefixCity,
-			difficultyColors,
-			excludeRideSlugs
+			difficultyColors
 		})
 	);
 	const configSignature = $derived(JSON.stringify(normalizedConfig));
@@ -104,12 +96,9 @@
 	function resetAll() {
 		const defaults = normalizeRideWidgetConfig({});
 		organizationSlug = defaults.organizationSlug;
-		city = defaults.city;
-		stateRegion = defaults.state;
+		location = defaults.location;
 		near = defaults.near;
 		radiusMiles = defaults.radiusMiles ?? '';
-		latitude = defaults.latitude ?? '';
-		longitude = defaults.longitude ?? '';
 		defaultTab = defaults.defaultTab;
 		theme = defaults.theme;
 		density = defaults.density;
@@ -117,7 +106,6 @@
 		showAddButton = defaults.showAddButton;
 		prefixCity = defaults.prefixCity;
 		difficultyColors = defaults.difficultyColors;
-		excludeRideSlugs = defaults.excludeRideSlugs.join(', ');
 		saveError = '';
 		saveSuccess = '';
 	}
@@ -219,22 +207,8 @@
 				</label>
 
 				<label class="flex flex-col gap-1.5">
-					<span class="label">City</span>
-					<input class="input" bind:value={city} placeholder="Phoenix" />
-				</label>
-
-				<label class="flex flex-col gap-1.5">
-					<span class="label">State</span>
-					<input class="input" bind:value={stateRegion} placeholder="AZ" />
-				</label>
-
-				<label class="flex flex-col gap-1.5">
-					<span class="label">Exclude ride slugs (comma separated)</span>
-					<input
-						class="input"
-						bind:value={excludeRideSlugs}
-						placeholder="sunset-social, friday-commute"
-					/>
+					<span class="label">Location Filter</span>
+					<input class="input" bind:value={location} placeholder="City, state, zip, or combination" />
 				</label>
 
 				<label class="flex flex-col gap-1.5">
@@ -252,16 +226,6 @@
 						max="500"
 						step="0.5"
 					/>
-				</label>
-
-				<label class="flex flex-col gap-1.5">
-					<span class="label">Latitude (optional override)</span>
-					<input class="input" bind:value={latitude} type="number" step="0.0001" />
-				</label>
-
-				<label class="flex flex-col gap-1.5">
-					<span class="label">Longitude (optional override)</span>
-					<input class="input" bind:value={longitude} type="number" step="0.0001" />
 				</label>
 			</div>
 		</div>

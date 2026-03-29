@@ -10,6 +10,7 @@
 
 	const site = $derived(data.site);
 	const group = $derived(site?.group ?? null);
+	const taxonomy = $derived(site?.taxonomy || { audiences: [], disciplines: [], skills: [] });
 	const basePath = $derived(site?.basePath || '');
 	const homeHref = $derived(basePath || '/');
 	const updatesHref = $derived(basePath ? `${basePath}/updates` : '/updates');
@@ -20,6 +21,84 @@
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
 	);
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
+	const seoCanonical = $derived(site?.siteUrl || '');
+	const seoTitle = $derived(
+		(site?.siteConfig?.site_title || group?.name || 'Cycling Group').trim()
+	);
+	const seoOgImage = $derived(
+		group?.cover_photo_url ||
+			group?.logo_url ||
+			site?.photoBucket?.image_assets?.[0]?.href ||
+			''
+	);
+
+	function cleanSeoText(value) {
+		return String(value || '')
+			.replace(/\s+/g, ' ')
+			.replace(/[#*_`>[\]]/g, ' ')
+			.trim();
+	}
+
+	function limitSeoText(value, max = 160) {
+		const text = cleanSeoText(value);
+		if (text.length <= max) return text;
+		return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+	}
+
+	const seoDescription = $derived.by(() => {
+		const city = cleanSeoText(group?.city);
+		const state = cleanSeoText(group?.state_region);
+		const locality = [city, state].filter(Boolean).join(', ');
+		const primary = cleanSeoText(site?.siteConfig?.site_tagline || site?.siteConfig?.home_intro);
+		const fallback = cleanSeoText(
+			group?.description ||
+				group?.service_area_description ||
+				group?.membership_info ||
+				'Community bike rides, local events, and advocacy.'
+		);
+		const tail = locality ? ` Join rides in ${locality}.` : ' Join local rides and events.';
+		return limitSeoText(`${primary || fallback}${tail}`, 165);
+	});
+
+	const seoKeywords = $derived.by(() => {
+		const values = new Set([
+			cleanSeoText(group?.name),
+			cleanSeoText(group?.city),
+			cleanSeoText(group?.state_region),
+			cleanSeoText(group?.primary_discipline),
+			cleanSeoText(group?.audience_focus),
+			cleanSeoText(group?.group_type),
+			'bike rides',
+			'cycling group',
+			'community cycling',
+			'group rides',
+			'bike advocacy',
+			'3 Feet Please'
+		]);
+		for (const item of taxonomy?.audiences || []) values.add(cleanSeoText(item));
+		for (const item of taxonomy?.disciplines || []) values.add(cleanSeoText(item));
+		for (const item of taxonomy?.skills || []) values.add(cleanSeoText(item));
+		return Array.from(values).filter(Boolean).slice(0, 18).join(', ');
+	});
+
+	const seoStructuredData = $derived.by(() => {
+		const sameAs = (site?.contactLinks || [])
+			.map((link) => String(link?.href || '').trim())
+			.filter((href) => /^https?:\/\//i.test(href))
+			.slice(0, 12);
+		const payload = {
+			'@context': 'https://schema.org',
+			'@type': 'SportsOrganization',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			logo: group?.logo_url || undefined,
+			image: seoOgImage || undefined,
+			areaServed: [group?.city, group?.state_region].filter(Boolean).join(', ') || undefined,
+			sameAs: sameAs.length ? sameAs : undefined
+		};
+		return JSON.stringify(payload);
+	});
 
 	const navItems = $derived.by(() => {
 		const items = [{ label: 'Home', href: homeHref }];
@@ -98,19 +177,37 @@
 </script>
 
 <svelte:head>
-	<title>{site?.siteConfig?.site_title || group?.name || 'Group'}</title>
-	<meta
-		name="description"
-		content={site?.siteConfig?.seo_description ||
-			site?.siteConfig?.home_intro ||
-			group?.description ||
-			''}
-	/>
-	<link rel="canonical" href={site?.siteUrl || ''} />
+	<title>{seoTitle}</title>
+	<meta name="description" content={seoDescription} />
+	<meta name="keywords" content={seoKeywords} />
+	<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content={seoTitle} />
+	<meta property="og:title" content={seoTitle} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoOgImage}
+		<meta property="og:image" content={seoOgImage} />
+		<meta property="og:image:alt" content={`${seoTitle} cover image`} />
+	{/if}
+
+	<meta name="twitter:card" content={seoOgImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={seoTitle} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoOgImage}
+		<meta name="twitter:image" content={seoOgImage} />
+	{/if}
+
+	<script type="application/ld+json">
+		{seoStructuredData}
+	</script>
 </svelte:head>
 
 <div
-	class="microsite-shell min-h-dvh"
+	class="microsite-shell microsite-bg--{site?.siteConfig?.background_style ||
+		'cinematic'} min-h-dvh"
 	data-theme={site?.theme?.dataTheme || '3fp'}
 	data-color-mode={colorMode}
 	style={site?.theme?.style || ''}
@@ -118,8 +215,7 @@
 	<div class="microsite-frame flex min-h-dvh flex-col">
 		<header class="microsite-nav-shell">
 			<div
-				class="microsite-nav microsite-nav--{site?.siteConfig?.nav_style ||
-					'floating'} mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
+				class="microsite-nav microsite-nav--floating mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
 			>
 				<a href={homeHref} class="microsite-mark flex min-w-0 items-center gap-3">
 					{#if group?.logo_url}
@@ -201,17 +297,6 @@
 		<main class="relative flex-1">
 			{@render children()}
 		</main>
-
-		<footer class="mt-16 pb-8 text-center">
-			<a
-				href="https://3fp.org"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="microsite-footer-link text-xs transition-colors"
-			>
-				Powered by 3fp.org
-			</a>
-		</footer>
 	</div>
 </div>
 
@@ -220,6 +305,14 @@
 		position: relative;
 		isolation: isolate;
 		color: var(--ms-fg, var(--color-surface-50));
+		font-family: var(--base-font-family);
+		font-size: var(--base-font-size);
+		line-height: var(--base-line-height);
+		font-weight: var(--base-font-weight);
+		letter-spacing: var(--base-letter-spacing);
+	}
+
+	.microsite-bg--cinematic {
 		/* Compressed 3-orb drama: all orbs visible on viewport, highly saturated */
 		background:
 			radial-gradient(
@@ -244,6 +337,176 @@
 				color-mix(in oklab, var(--color-surface-950) 96%, var(--color-tertiary-900) 4%) 100%
 			);
 		animation: cinematic-bg-shift 20s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	/* ═══════════════════════════════════════════════════════════
+BACKGROUND STYLES — Aurora, Prism, Void
+═══════════════════════════════════════════════════════════ */
+
+	/* Aurora — Flowing northern lights effect */
+	.microsite-bg--aurora {
+		background:
+		/* Diagonal flowing ribbon - primary */
+			linear-gradient(
+				125deg,
+				transparent 0%,
+				transparent 30%,
+				color-mix(in oklab, var(--color-primary-500) 35%, transparent) 40%,
+				color-mix(in oklab, var(--color-primary-400) 50%, transparent) 50%,
+				color-mix(in oklab, var(--color-secondary-500) 45%, transparent) 60%,
+				transparent 70%,
+				transparent 100%
+			),
+			/* Horizontal flowing ribbon - secondary */
+			linear-gradient(
+					175deg,
+					color-mix(in oklab, var(--color-secondary-500) 40%, transparent) 0%,
+					transparent 20%,
+					transparent 60%,
+					color-mix(in oklab, var(--color-tertiary-500) 35%, transparent) 75%,
+					transparent 100%
+				),
+			/* Subtle vertical gradient glow */
+			linear-gradient(
+					90deg,
+					color-mix(in oklab, var(--color-surface-950) 95%, var(--color-primary-900) 5%) 0%,
+					color-mix(in oklab, var(--color-surface-900) 90%, var(--color-secondary-900) 10%) 50%,
+					color-mix(in oklab, var(--color-surface-950) 93%, var(--color-tertiary-900) 7%) 100%
+				);
+		animation: aurora-flow 15s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	/* Prism — Geometric shard lighting (viewport-visible shards) */
+	.microsite-bg--prism {
+		background:
+			linear-gradient(
+				115deg,
+				color-mix(in oklab, var(--color-primary-500) 45%, transparent) 0%,
+				transparent 35%
+			),
+			linear-gradient(
+				245deg,
+				color-mix(in oklab, var(--color-secondary-500) 40%, transparent) 0%,
+				transparent 38%
+			),
+			linear-gradient(
+				25deg,
+				color-mix(in oklab, var(--color-tertiary-500) 35%, transparent) 0%,
+				transparent 42%
+			),
+			conic-gradient(
+				from 15deg at 60% 40%,
+				color-mix(in oklab, var(--color-surface-950) 88%, transparent) 0deg,
+				color-mix(in oklab, var(--color-primary-700) 70%, transparent) 80deg,
+				color-mix(in oklab, var(--color-surface-950) 88%, transparent) 160deg,
+				color-mix(in oklab, var(--color-secondary-700) 65%, transparent) 260deg,
+				color-mix(in oklab, var(--color-tertiary-700) 60%, transparent) 320deg,
+				color-mix(in oklab, var(--color-surface-950) 88%, transparent) 360deg
+			);
+		animation: prism-rotate 15s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	/* Void — Minimal refined surface */
+	.microsite-bg--void {
+		background:
+		/* Subtle top glow */
+			radial-gradient(
+				ellipse 120vw 40vh at 50% 0%,
+				color-mix(in oklab, var(--color-surface-800) 40%, transparent) 0%,
+				transparent 70%
+			),
+			/* Subtle bottom glow */
+			radial-gradient(
+					ellipse 120vw 40vh at 50% 100%,
+					color-mix(in oklab, var(--color-surface-900) 50%, transparent) 0%,
+					transparent 60%
+				),
+			/* Base surface color */ var(--color-surface-950);
+		background-attachment: fixed;
+	}
+
+	/* Light mode variants */
+	.microsite-shell[data-color-mode='light'].microsite-bg--aurora {
+		background:
+		/* Diagonal flowing ribbon - primary */
+			linear-gradient(
+				125deg,
+				transparent 0%,
+				transparent 30%,
+				color-mix(in oklab, var(--color-primary-400) 45%, transparent) 40%,
+				color-mix(in oklab, var(--color-primary-300) 55%, transparent) 50%,
+				color-mix(in oklab, var(--color-secondary-400) 50%, transparent) 60%,
+				transparent 70%,
+				transparent 100%
+			),
+			/* Horizontal flowing ribbon - secondary */
+			linear-gradient(
+					175deg,
+					color-mix(in oklab, var(--color-secondary-400) 50%, transparent) 0%,
+					transparent 20%,
+					transparent 60%,
+					color-mix(in oklab, var(--color-tertiary-400) 45%, transparent) 75%,
+					transparent 100%
+				),
+			/* Subtle vertical gradient glow */
+			linear-gradient(
+					90deg,
+					color-mix(in oklab, white 95%, var(--color-primary-100) 5%) 0%,
+					color-mix(in oklab, white 90%, var(--color-secondary-100) 10%) 50%,
+					color-mix(in oklab, white 93%, var(--color-tertiary-100) 7%) 100%
+				);
+		animation: aurora-flow 15s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	.microsite-shell[data-color-mode='light'].microsite-bg--prism {
+		background:
+			linear-gradient(
+				115deg,
+				color-mix(in oklab, var(--color-primary-400) 40%, transparent) 0%,
+				transparent 35%
+			),
+			linear-gradient(
+				245deg,
+				color-mix(in oklab, var(--color-secondary-400) 35%, transparent) 0%,
+				transparent 38%
+			),
+			linear-gradient(
+				25deg,
+				color-mix(in oklab, var(--color-tertiary-400) 30%, transparent) 0%,
+				transparent 42%
+			),
+			conic-gradient(
+				from 15deg at 60% 40%,
+				color-mix(in oklab, white 88%, transparent) 0deg,
+				color-mix(in oklab, var(--color-primary-300) 70%, transparent) 80deg,
+				color-mix(in oklab, white 88%, transparent) 160deg,
+				color-mix(in oklab, var(--color-secondary-300) 65%, transparent) 260deg,
+				color-mix(in oklab, var(--color-tertiary-300) 60%, transparent) 320deg,
+				color-mix(in oklab, white 88%, transparent) 360deg
+			);
+		animation: prism-rotate 15s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	.microsite-shell[data-color-mode='light'].microsite-bg--void {
+		background:
+		/* Subtle top glow - light mode */
+			radial-gradient(
+				ellipse 120vw 40vh at 50% 0%,
+				color-mix(in oklab, var(--color-surface-200) 60%, transparent) 0%,
+				transparent 70%
+			),
+			/* Subtle bottom glow - light mode */
+			radial-gradient(
+					ellipse 120vw 40vh at 50% 100%,
+					color-mix(in oklab, var(--color-surface-100) 80%, transparent) 0%,
+					transparent 60%
+				),
+			/* Base surface color - light mode */ var(--color-surface-50);
 		background-attachment: fixed;
 	}
 
@@ -278,6 +541,9 @@
 		--ms-toggle-bg: color-mix(in oklab, white 78%, var(--color-primary-100) 22%);
 		--ms-toggle-border: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 		--ms-toggle-fg: rgb(15 23 42 / 0.9);
+	}
+
+	.microsite-shell[data-color-mode='light'].microsite-bg--cinematic {
 		/* Cinematic light mode: compressed 3 highly saturated orbs */
 		background:
 			radial-gradient(
@@ -329,6 +595,10 @@
 	}
 
 	/* Safety net: keep content-card headings readable in both modes, even if edited classes regress */
+	:global(.microsite-shell :is(h1, h2, h3, h4, h5, h6)) {
+		font-family: var(--heading-font-family);
+	}
+
 	:global(.microsite-shell .microsite-page .glass-card :is(h1, h2, h3, h4, h5, h6)) {
 		color: var(--color-surface-950-50);
 	}
@@ -381,15 +651,6 @@
 		box-shadow:
 			0 8px 32px -12px color-mix(in oklab, var(--color-surface-950) 15%, transparent),
 			inset 0 1px 1px color-mix(in oklab, var(--color-surface-50) 50%, transparent);
-	}
-
-	.microsite-nav--inline {
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 52%, transparent);
-	}
-
-	.microsite-nav--minimal {
-		background: transparent;
 	}
 
 	.microsite-mark__fallback {
@@ -501,21 +762,62 @@
 		}
 	}
 
-	/* Dramatic orb animation - orbs move across full viewport */
+	/* Dramatic orb animation - more pronounced movement */
 	@keyframes cinematic-bg-shift {
 		0% {
 			background-position:
-				-10% -10%,
-				110% -15%,
-				50% 115%,
+				-20% -20%,
+				120% -25%,
+				60% 120%,
+				0% 0%;
+		}
+		50% {
+			background-position:
+				30% 40%,
+				70% 30%,
+				40% 70%,
 				0% 0%;
 		}
 		100% {
 			background-position:
-				25% 35%,
-				75% 25%,
-				20% 80%,
+				-20% -20%,
+				120% -25%,
+				60% 120%,
 				0% 0%;
+		}
+	}
+
+	/* Aurora flow - subtle ribbon movement */
+	@keyframes aurora-flow {
+		0%,
+		100% {
+			background-position:
+				0% 0%,
+				0% 0%,
+				0% 0%;
+		}
+		50% {
+			background-position:
+				2% 1%,
+				-1% 2%,
+				0% 0%;
+		}
+	}
+
+	/* Prism shift - subtle geometric drift */
+	@keyframes prism-rotate {
+		0%,
+		100% {
+			background-position:
+				0% 0%,
+				0% 0%,
+				0% 0%;
+		}
+		50% {
+			background-position:
+				2% 1%,
+				-1% 2%,
+				1% -1%;
 		}
 	}
 
