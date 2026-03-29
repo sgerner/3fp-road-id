@@ -146,7 +146,7 @@
 
 			<div class="flex flex-wrap items-center gap-3 lg:flex-col lg:items-end">
 				<a
-					href={basePath || site.previewPath || `/site/${site.micrositeSlug || group.slug}`}
+					href={basePath || site.previewPath || `/${site.micrositeSlug || group.slug}`}
 					class="btn preset-tonal-surface flex items-center gap-2"
 				>
 					<IconArrowLeft class="h-4 w-4" />

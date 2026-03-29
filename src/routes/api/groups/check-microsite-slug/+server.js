@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
-import { normalizeMicrositeSlug } from '$lib/microsites/host';
+import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '$lib/microsites/host';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -16,6 +16,14 @@ export const GET = async ({ url }) => {
 		return json({
 			available: false,
 			reason: 'invalid',
+			slug
+		});
+	}
+
+	if (isReservedMicrositeSlug(slug)) {
+		return json({
+			available: false,
+			reason: 'reserved',
 			slug
 		});
 	}

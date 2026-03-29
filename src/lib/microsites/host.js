@@ -1,5 +1,21 @@
-const ROOT_DOMAIN = '3fp.org';
+const ROOT_DOMAIN = '3fp.bike';
 const RESERVED_SUBDOMAINS = new Set(['www', 'api']);
+const RESERVED_MICROSITE_SLUGS = new Set([
+	'admin',
+	'api',
+	'auth',
+	'donate',
+	'groups',
+	'learn',
+	'merch',
+	'privacy',
+	'profile',
+	'ride',
+	'roadid',
+	'site',
+	'terms',
+	'volunteer'
+]);
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -24,13 +40,13 @@ export function extractMicrositeSlugFromHostname(hostname) {
 	if (normalized.endsWith(`.${ROOT_DOMAIN}`)) {
 		const label = normalized.slice(0, -1 * (`.${ROOT_DOMAIN}`.length));
 		if (!label || label.includes('.')) return '';
-		return RESERVED_SUBDOMAINS.has(label) ? '' : label;
+		return RESERVED_SUBDOMAINS.has(label) || RESERVED_MICROSITE_SLUGS.has(label) ? '' : label;
 	}
 
 	if (normalized.endsWith('.localhost')) {
 		const label = normalized.slice(0, -1 * '.localhost'.length);
 		if (!label || label.includes('.')) return '';
-		return RESERVED_SUBDOMAINS.has(label) ? '' : label;
+		return RESERVED_SUBDOMAINS.has(label) || RESERVED_MICROSITE_SLUGS.has(label) ? '' : label;
 	}
 
 	return '';
@@ -54,5 +70,10 @@ export function buildMicrositeUrl(slug, requestUrl) {
 		return `${protocol}//${safeSlug}.localhost${port}`;
 	}
 
-	return `${url.origin}/site/${encodeURIComponent(safeSlug)}`;
+	return `${url.origin}/${encodeURIComponent(safeSlug)}`;
+}
+
+export function isReservedMicrositeSlug(value) {
+	const normalized = normalizeMicrositeSlug(value);
+	return Boolean(normalized) && RESERVED_MICROSITE_SLUGS.has(normalized);
 }

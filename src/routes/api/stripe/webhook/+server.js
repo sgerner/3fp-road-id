@@ -4,13 +4,16 @@ import {
 	finalizeDonationByPaymentIntentId,
 	finalizeDonationBySessionId
 } from '$lib/server/donations';
+import { finalizeDomainOrderByCheckoutSessionId } from '$lib/server/groupSiteDomains';
 import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
 import { handleMembershipStripeEvent } from '$lib/server/memberships';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient } from '$lib/server/stripe';
 
 async function safelyFinalizeSession(sessionId, fetchImpl) {
 	let donationResult = null;
 	let merchResult = null;
+	let domainResult = null;
 	try {
 		donationResult = await finalizeDonationBySessionId(sessionId, fetchImpl);
 	} catch (error) {
@@ -21,9 +24,22 @@ async function safelyFinalizeSession(sessionId, fetchImpl) {
 	} catch (error) {
 		console.error('Merch finalize webhook error', error);
 	}
+	try {
+		const serviceSupabase = createServiceSupabaseClient();
+		if (serviceSupabase) {
+			domainResult = await finalizeDomainOrderByCheckoutSessionId({
+				serviceSupabase,
+				sessionId,
+				fetch: fetchImpl
+			});
+		}
+	} catch (error) {
+		console.error('Domain order finalize webhook error', error);
+	}
 	return {
 		donationMatched: donationResult?.ok === true,
-		merchMatched: merchResult?.ok === true
+		merchMatched: merchResult?.ok === true,
+		domainMatched: domainResult?.matched === true
 	};
 }
 
@@ -118,7 +134,12 @@ export const POST = async ({ request, fetch }) => {
 					});
 				}
 
-				if (!matchResult.donationMatched && !matchResult.merchMatched && !membershipMatched) {
+				if (
+					!matchResult.donationMatched &&
+					!matchResult.merchMatched &&
+					!matchResult.domainMatched &&
+					!membershipMatched
+				) {
 					console.warn('Stripe webhook session did not match donation or merch records', {
 						sessionId,
 						eventType: event.type

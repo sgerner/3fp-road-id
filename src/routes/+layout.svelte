@@ -426,7 +426,7 @@
 	<title>3 Feet Please</title>
 </svelte:head>
 
-<div class="min-h-dvh">
+<div class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}">
 	<Toast.Group {toaster} />
 	{#if !isMicrositeRoute}
 		<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">

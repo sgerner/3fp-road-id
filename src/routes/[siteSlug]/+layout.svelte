@@ -15,7 +15,8 @@
 	const homeHref = $derived(basePath || '/');
 	const updatesHref = $derived(basePath ? `${basePath}/updates` : '/updates');
 	const joinHref = $derived(basePath ? `${basePath}/join` : '/join');
-	const galleryHref = $derived(basePath ? `${basePath}#gallery` : '/#gallery');
+	const galleryHref = $derived(basePath ? `${basePath}/gallery` : '/gallery');
+	const assetsHref = $derived(basePath ? `${basePath}/assets` : '/assets');
 	const contactHref = $derived(basePath ? `${basePath}#contact` : '/#contact');
 	const membershipCtaLabel = $derived(
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
@@ -26,10 +27,7 @@
 		(site?.siteConfig?.site_title || group?.name || 'Cycling Group').trim()
 	);
 	const seoOgImage = $derived(
-		group?.cover_photo_url ||
-			group?.logo_url ||
-			site?.photoBucket?.image_assets?.[0]?.href ||
-			''
+		group?.cover_photo_url || group?.logo_url || site?.photoBucket?.image_assets?.[0]?.href || ''
 	);
 
 	function cleanSeoText(value) {
@@ -111,6 +109,9 @@
 		if (site?.siteConfig?.sections?.gallery && site?.photoBucket?.asset_count) {
 			items.push({ label: 'Gallery', href: galleryHref });
 		}
+		if (site?.assetBuckets?.some((b) => b.asset_count > 0 && b.slug !== 'photos')) {
+			items.push({ label: 'Resources', href: assetsHref });
+		}
 		if (site?.siteConfig?.sections?.contact) {
 			items.push({ label: 'Contact', href: contactHref });
 		}
@@ -180,7 +181,10 @@
 	<title>{seoTitle}</title>
 	<meta name="description" content={seoDescription} />
 	<meta name="keywords" content={seoKeywords} />
-	<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
 	<link rel="canonical" href={seoCanonical} />
 
 	<meta property="og:type" content="website" />
@@ -310,6 +314,17 @@
 		line-height: var(--base-line-height);
 		font-weight: var(--base-font-weight);
 		letter-spacing: var(--base-letter-spacing);
+		/* Re-map paired app tokens so microsites don't inherit main app palette pairings. */
+		--color-primary-950-50: var(--color-primary-950);
+		--color-primary-700-300: var(--color-primary-700);
+		--color-secondary-700-300: var(--color-secondary-700);
+		--color-tertiary-700-300: var(--color-tertiary-700);
+		--color-surface-950-50: var(--color-surface-950);
+		--color-surface-800-200: var(--color-surface-800);
+		--color-surface-700-300: var(--color-surface-700);
+		--color-surface-600-400: var(--color-surface-600);
+		--color-surface-100-900: var(--color-surface-100);
+		--color-surface-50-950: var(--color-surface-50);
 	}
 
 	.microsite-bg--cinematic {
@@ -512,6 +527,16 @@ BACKGROUND STYLES — Aurora, Prism, Void
 
 	.microsite-shell[data-color-mode='dark'] {
 		color-scheme: dark;
+		--color-primary-950-50: var(--color-primary-50);
+		--color-primary-700-300: var(--color-primary-300);
+		--color-secondary-700-300: var(--color-secondary-300);
+		--color-tertiary-700-300: var(--color-tertiary-300);
+		--color-surface-950-50: var(--color-surface-50);
+		--color-surface-800-200: var(--color-surface-200);
+		--color-surface-700-300: var(--color-surface-300);
+		--color-surface-600-400: var(--color-surface-400);
+		--color-surface-100-900: var(--color-surface-900);
+		--color-surface-50-950: var(--color-surface-950);
 		--ms-fg: rgb(248 250 252 / 0.98);
 		--ms-mark: rgb(255 255 255 / 0.96);
 		--ms-title: rgb(255 255 255 / 0.97);
@@ -610,19 +635,6 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		left: 0;
 		z-index: 45;
 		padding-top: 0.35rem;
-		background: linear-gradient(
-			to bottom,
-			color-mix(in oklab, var(--color-surface-950) 34%, transparent) 0%,
-			transparent 100%
-		);
-	}
-
-	.microsite-shell[data-color-mode='light'] .microsite-nav-shell {
-		background: linear-gradient(
-			to bottom,
-			color-mix(in oklab, white 92%, transparent) 0%,
-			transparent 100%
-		);
 	}
 
 	.microsite-nav-offset {

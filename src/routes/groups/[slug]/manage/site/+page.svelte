@@ -1,4 +1,5 @@
 <script>
+	import { onMount, tick } from 'svelte';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -18,13 +19,19 @@
 	import IconRefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import IconMonitor from '@lucide/svelte/icons/monitor';
 	import IconSmartphone from '@lucide/svelte/icons/smartphone';
+	import IconSendHorizontal from '@lucide/svelte/icons/send-horizontal';
+	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconGlobe from '@lucide/svelte/icons/globe';
+	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
+	import IconCreditCard from '@lucide/svelte/icons/credit-card';
+	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { slide } from 'svelte/transition';
 
 	let { data, form } = $props();
 
 	let themeMode = $state('derived');
 	let showAdvanced = $state(false);
-	let generationPrompt = $state('');
 	let sponsorItems = $state([]);
 	let sponsorItemsInitialized = $state(false);
 	let faqItems = $state([]);
@@ -54,6 +61,47 @@
 		label: 'Current',
 		message: 'This is your current microsite slug.'
 	});
+	const AI_DRAFT_STARTER_MESSAGE =
+		'I can update your site copy, visual style, and section layout. What first impression do you want visitors to get?';
+	let draftChatMessages = $state([
+		{
+			id: 'ai-draft-starter',
+			role: 'assistant',
+			content: AI_DRAFT_STARTER_MESSAGE
+		}
+	]);
+	let draftChatInput = $state('');
+	let draftChatSending = $state(false);
+	let draftChatError = $state('');
+	let draftChatBodyEl = $state(null);
+	let draftChatInputEl = $state(null);
+	let showDomainManager = $state(false);
+	let customDomains = $state([]);
+	let domainOrders = $state([]);
+	let domainsLoading = $state(false);
+	let domainMessage = $state('');
+	let domainError = $state('');
+	let existingDomainInput = $state('');
+	let verifyingDomain = $state('');
+	let domainSearchQuery = $state('');
+	let domainSearchBusy = $state(false);
+	let domainSearchResults = $state([]);
+	let checkoutBusyDomain = $state('');
+	let billingBusyDomain = $state('');
+	let renewalBusyDomain = $state('');
+	let registrarContact = $state({
+		firstName: '',
+		lastName: '',
+		email: '',
+		phone: '',
+		address1: '',
+		address2: '',
+		city: '',
+		state: '',
+		zip: '',
+		country: 'US',
+		companyName: ''
+	});
 	const themeLabels = {
 		derived: 'Derived from branding',
 		repo: 'Repo theme',
@@ -61,7 +109,6 @@
 	};
 	const sectionLabels = {
 		story: 'Story',
-		stats: 'Stats',
 		join: 'Join',
 		rides: 'Rides',
 		volunteer: 'Volunteer',
@@ -101,24 +148,6 @@
 		group_only: 'Only rides hosted by us',
 		selected_groups: 'Only selected groups'
 	};
-	const aiPresets = [
-		{
-			label: 'Good',
-			prompt:
-				'Keep this simple, welcoming, and clear for first-time visitors. Prioritize readability and obvious calls to action.'
-		},
-		{
-			label: 'Better',
-			prompt:
-				'Create a polished neighborhood-bike-club look with strong hierarchy, concise copy, and practical sections for rides, volunteer, and contact.'
-		},
-		{
-			label: 'Best',
-			prompt:
-				'Design an exceptional but simple microsite with clear starter guidance, this-week highlights, strong visual rhythm, and excellent accessibility in light and dark mode.'
-		}
-	];
-
 	$effect(() => {
 		themeMode = data.siteConfig.theme_mode || 'derived';
 		const groupCityDefault = String(data.group?.city || '').trim();
@@ -127,7 +156,6 @@
 			.join(', ')
 			.trim();
 		const radiusCenterDefault = groupCityStateDefault || groupCityDefault;
-		if (!generationPrompt) generationPrompt = data.siteConfig.ai_prompt || '';
 		if (!sponsorItemsInitialized) {
 			const fromItems = Array.isArray(data.siteConfig.sponsor_items)
 				? data.siteConfig.sponsor_items
@@ -244,7 +272,7 @@
 
 	const slugPreview = $derived(normalizeMicrositeSlugInput(slugInput));
 	const slugDomainPreview = $derived(
-		`https://${slugPreview || 'yourgroup'}${data.micrositeDomainSuffix || '.3fp.org'}`
+		`https://${slugPreview || 'yourgroup'}${data.micrositeDomainSuffix || '.3fp.bike'}`
 	);
 
 	$effect(() => {
@@ -299,6 +327,14 @@
 						message: isCurrent
 							? 'This is your current microsite slug.'
 							: 'Slug is available. Save website to claim it.'
+					};
+					return;
+				}
+				if (payload?.reason === 'reserved') {
+					slugAvailability = {
+						state: 'taken',
+						label: 'Reserved',
+						message: 'That slug is reserved by the app. Try another one.'
 					};
 					return;
 				}
@@ -362,6 +398,328 @@
 	function removeRideWidgetGroup(id) {
 		selectedRideWidgetGroupIds = selectedRideWidgetGroupIds.filter((value) => value !== id);
 	}
+
+	function createDraftMessageId(prefix = 'draft') {
+		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+			return `${prefix}-${crypto.randomUUID()}`;
+		}
+		return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+	}
+
+	async function scrollDraftChatToBottom() {
+		await tick();
+		if (!draftChatBodyEl) return;
+		draftChatBodyEl.scrollTo({ top: draftChatBodyEl.scrollHeight, behavior: 'smooth' });
+	}
+
+	function resizeDraftChatInput() {
+		if (!draftChatInputEl) return;
+		draftChatInputEl.style.height = 'auto';
+		const nextHeight = Math.max(38, Math.min(draftChatInputEl.scrollHeight, 180));
+		draftChatInputEl.style.height = `${nextHeight}px`;
+	}
+
+	function resetDraftChat() {
+		draftChatMessages = [
+			{
+				id: 'ai-draft-starter',
+				role: 'assistant',
+				content: AI_DRAFT_STARTER_MESSAGE
+			}
+		];
+		draftChatInput = '';
+		draftChatError = '';
+		resizeDraftChatInput();
+	}
+
+	const canSendDraftMessage = $derived(!draftChatSending && draftChatInput.trim().length > 0);
+
+	function handleDraftInputKeydown(event) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			void sendDraftMessage();
+		}
+	}
+
+	async function sendDraftMessage() {
+		if (!canSendDraftMessage) return;
+		const message = draftChatInput.trim();
+		draftChatInput = '';
+		draftChatError = '';
+		draftChatSending = true;
+
+		const nextMessages = [
+			...draftChatMessages,
+			{
+				id: createDraftMessageId('user'),
+				role: 'user',
+				content: message
+			}
+		];
+		draftChatMessages = nextMessages;
+		await scrollDraftChatToBottom();
+
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/site/ai-draft-chat`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						messages: nextMessages.map((entry) => ({
+							role: entry.role,
+							content: entry.content
+						}))
+					})
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to reach the AI draft assistant right now.');
+			}
+
+			const assistantReply =
+				String(payload?.reply || '').trim() ||
+				'I can keep refining this direction. Tell me anything you want to emphasize.';
+			draftChatMessages = [
+				...nextMessages,
+				{
+					id: createDraftMessageId('assistant'),
+					role: 'assistant',
+					content: assistantReply
+				}
+			];
+			await scrollDraftChatToBottom();
+
+			if (payload?.generated && payload?.redirectTo) {
+				window.location.assign(String(payload.redirectTo));
+				return;
+			}
+		} catch (error) {
+			draftChatError = error?.message || 'Unable to reach the AI draft assistant right now.';
+			draftChatMessages = [
+				...nextMessages,
+				{
+					id: createDraftMessageId('assistant'),
+					role: 'assistant',
+					content:
+						'I hit a temporary issue. Try again, or tell me the tone, audience, and must-have sections so I can proceed.'
+				}
+			];
+			await scrollDraftChatToBottom();
+		} finally {
+			draftChatSending = false;
+			resizeDraftChatInput();
+		}
+	}
+
+	onMount(() => {
+		resizeDraftChatInput();
+		void loadDomainData();
+	});
+
+	$effect(() => {
+		draftChatInput;
+		resizeDraftChatInput();
+	});
+
+	async function loadDomainData() {
+		domainsLoading = true;
+		try {
+			const response = await fetch(`/api/groups/${encodeURIComponent(data.group.slug)}/domains`);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to load domain manager.');
+			}
+			customDomains = Array.isArray(payload?.data?.domains) ? payload.data.domains : [];
+			domainOrders = Array.isArray(payload?.data?.orders) ? payload.data.orders : [];
+		} catch (error) {
+			domainError = error?.message || 'Unable to load domain manager.';
+		} finally {
+			domainsLoading = false;
+		}
+	}
+
+	async function attachExistingDomain() {
+		domainError = '';
+		domainMessage = '';
+		if (!existingDomainInput.trim()) {
+			domainError = 'Enter a domain to attach.';
+			return;
+		}
+		domainsLoading = true;
+		try {
+			const response = await fetch(`/api/groups/${encodeURIComponent(data.group.slug)}/domains`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ domain: existingDomainInput })
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to attach domain.');
+			}
+			existingDomainInput = '';
+			const records = Array.isArray(payload?.data?.instructions?.records)
+				? payload.data.instructions.records
+				: [];
+			domainMessage = records.length
+				? `Domain added. Add ${records[0].type} record ${records[0].name} => ${records[0].value}.`
+				: payload?.data?.instructions?.title || 'Domain added.';
+			await loadDomainData();
+		} catch (error) {
+			domainError = error?.message || 'Unable to attach domain.';
+		} finally {
+			domainsLoading = false;
+		}
+	}
+
+	async function verifyDomain(domain) {
+		if (!domain) return;
+		domainError = '';
+		domainMessage = '';
+		verifyingDomain = domain;
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}/verify`,
+				{
+					method: 'POST'
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to verify domain.');
+			}
+			domainMessage = payload?.data?.domain?.vercel_verified
+				? `${domain} is now verified and active.`
+				: `${domain} is not verified yet. Recheck after DNS propagates.`;
+			await loadDomainData();
+		} catch (error) {
+			domainError = error?.message || 'Unable to verify domain.';
+		} finally {
+			verifyingDomain = '';
+		}
+	}
+
+	async function searchDomains() {
+		domainError = '';
+		domainMessage = '';
+		domainSearchBusy = true;
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/search`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ query: domainSearchQuery })
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to search domains.');
+			}
+			domainSearchResults = Array.isArray(payload?.data?.results) ? payload.data.results : [];
+			if (!domainSearchResults.length) {
+				domainMessage = 'No available domains found for this search right now.';
+			}
+		} catch (error) {
+			domainError = error?.message || 'Unable to search domains.';
+		} finally {
+			domainSearchBusy = false;
+		}
+	}
+
+	async function startDomainCheckout(domain) {
+		if (!domain) return;
+		domainError = '';
+		domainMessage = '';
+		checkoutBusyDomain = domain;
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/checkout`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						domain,
+						contactInformation: registrarContact
+					})
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to start checkout.');
+			}
+			const checkoutUrl = String(payload?.data?.checkoutUrl || '').trim();
+			if (!checkoutUrl) throw new Error('Stripe checkout URL was not returned.');
+			window.location.assign(checkoutUrl);
+		} catch (error) {
+			domainError = error?.message || 'Unable to start checkout.';
+		} finally {
+			checkoutBusyDomain = '';
+		}
+	}
+
+	async function toggleAutoRenew(domain, enabled) {
+		if (!domain) return;
+		renewalBusyDomain = domain;
+		domainError = '';
+		domainMessage = '';
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}/renewal`,
+				{
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ autoRenew: enabled })
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to update auto-renew.');
+			}
+			domainMessage = enabled
+				? `Auto-renew enabled for ${domain}.`
+				: `Auto-renew paused for ${domain}.`;
+			await loadDomainData();
+		} catch (error) {
+			domainError = error?.message || 'Unable to update auto-renew.';
+		} finally {
+			renewalBusyDomain = '';
+		}
+	}
+
+	async function openBillingPortal(domain) {
+		if (!domain) return;
+		billingBusyDomain = domain;
+		domainError = '';
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}/billing-portal`,
+				{
+					method: 'POST'
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to open billing portal.');
+			}
+			const billingPortalUrl = String(payload?.data?.billingPortalUrl || '').trim();
+			if (!billingPortalUrl) throw new Error('Billing portal URL was not returned.');
+			window.location.assign(billingPortalUrl);
+		} catch (error) {
+			domainError = error?.message || 'Unable to open billing portal.';
+		} finally {
+			billingBusyDomain = '';
+		}
+	}
+
+	function formatUsd(cents) {
+		const amount = Number(cents);
+		return new Intl.NumberFormat(undefined, {
+			style: 'currency',
+			currency: 'USD'
+		}).format((Number.isFinite(amount) ? amount : 0) / 100);
+	}
 </script>
 
 <div class="space-y-6 pb-10">
@@ -404,6 +762,228 @@
 					</p>
 				</div>
 			</label>
+			<div class="mt-4">
+				<button
+					type="button"
+					class="btn w-full justify-between preset-tonal-surface"
+					onclick={() => (showDomainManager = !showDomainManager)}
+					aria-expanded={showDomainManager}
+				>
+					<span class="inline-flex items-center gap-2">
+						<IconGlobe class="h-4 w-4" />
+						Domain manager
+					</span>
+					<span class="inline-flex items-center gap-2 text-xs text-white/65">
+						{customDomains.length} active
+						<IconChevronDown
+							class="h-4 w-4 transition-transform duration-200 {showDomainManager
+								? 'rotate-180'
+								: ''}"
+						/>
+					</span>
+				</button>
+				{#if showDomainManager}
+					<div class="domain-panel mt-3 space-y-5 rounded-2xl p-4" transition:slide>
+						<div>
+							<p class="text-xs font-semibold tracking-[0.2em] text-white/48 uppercase">
+								Custom domains
+							</p>
+							<p class="mt-2 text-sm leading-6 text-white/70">
+								Add a domain you already own and we will attach it to this microsite in Vercel.
+							</p>
+						</div>
+
+						<form
+							class="flex gap-2"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void attachExistingDomain();
+							}}
+						>
+							<input
+								class="input w-full"
+								bind:value={existingDomainInput}
+								placeholder="yourdomain.com"
+								autocomplete="off"
+							/>
+							<button class="btn preset-filled-primary-500" disabled={domainsLoading}>Attach</button>
+						</form>
+
+						{#if domainMessage}
+							<div class="notice rounded-2xl p-3 text-sm">{domainMessage}</div>
+						{/if}
+						{#if domainError}
+							<div class="error-box rounded-2xl p-3 text-sm">{domainError}</div>
+						{/if}
+
+						<div class="space-y-3">
+							{#if domainsLoading && !customDomains.length}
+								<p class="text-sm text-white/70">Loading domains…</p>
+							{:else if customDomains.length}
+								{#each customDomains as domainRow}
+									<div class="domain-row rounded-2xl p-3">
+										<div class="flex items-start justify-between gap-3">
+											<div>
+												<div class="text-sm font-semibold text-white">{domainRow.domain}</div>
+												<div class="text-xs text-white/65">
+													Status: {domainRow.status}
+													{domainRow.vercel_verified
+														? ' • verified'
+														: ' • needs DNS verification'}
+												</div>
+											</div>
+											<div class="flex flex-wrap gap-2">
+												<button
+													type="button"
+													class="btn btn-xs preset-tonal-surface"
+													disabled={verifyingDomain === domainRow.domain}
+													onclick={() => void verifyDomain(domainRow.domain)}
+												>
+													{#if verifyingDomain === domainRow.domain}
+														<IconRefreshCw class="h-3.5 w-3.5 animate-spin" /> Verifying
+													{:else}
+														<IconBadgeCheck class="h-3.5 w-3.5" /> Verify
+													{/if}
+												</button>
+												<button
+													type="button"
+													class="btn btn-xs preset-tonal-warning"
+													disabled={renewalBusyDomain === domainRow.domain}
+													onclick={() =>
+														void toggleAutoRenew(domainRow.domain, !domainRow.auto_renew)}
+												>
+													{domainRow.auto_renew ? 'Pause renew' : 'Enable renew'}
+												</button>
+												<button
+													type="button"
+													class="btn btn-xs preset-tonal-primary"
+													disabled={billingBusyDomain === domainRow.domain}
+													onclick={() => void openBillingPortal(domainRow.domain)}
+												>
+													<IconCreditCard class="h-3.5 w-3.5" /> Card
+												</button>
+											</div>
+										</div>
+									</div>
+								{/each}
+							{:else}
+								<p class="text-sm text-white/70">No custom domains added yet.</p>
+							{/if}
+						</div>
+
+						<div class="domain-divider"></div>
+
+						<div>
+							<p class="text-xs font-semibold tracking-[0.2em] text-white/48 uppercase">Find + buy</p>
+							<p class="mt-2 text-sm leading-6 text-white/70">
+								Search related names and TLDs, then see pricing with 3FP + card fee included.
+							</p>
+						</div>
+
+						<form
+							class="flex gap-2"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void searchDomains();
+							}}
+						>
+							<input
+								class="input w-full"
+								bind:value={domainSearchQuery}
+								placeholder="biketempe"
+								autocomplete="off"
+							/>
+							<button class="btn preset-filled-primary-500" disabled={domainSearchBusy}>
+								{domainSearchBusy ? 'Searching…' : 'Search'}
+							</button>
+						</form>
+
+						<div class="grid gap-3 md:grid-cols-2">
+							<label class="field">
+								<span>First name</span>
+								<input class="input" bind:value={registrarContact.firstName} />
+							</label>
+							<label class="field">
+								<span>Last name</span>
+								<input class="input" bind:value={registrarContact.lastName} />
+							</label>
+							<label class="field">
+								<span>Email</span>
+								<input class="input" type="email" bind:value={registrarContact.email} />
+							</label>
+							<label class="field">
+								<span>Phone (E.164 preferred)</span>
+								<input
+									class="input"
+									bind:value={registrarContact.phone}
+									placeholder="+16025550100"
+								/>
+							</label>
+							<label class="field md:col-span-2">
+								<span>Address line 1</span>
+								<input class="input" bind:value={registrarContact.address1} />
+							</label>
+							<label class="field md:col-span-2">
+								<span>Address line 2 (optional)</span>
+								<input class="input" bind:value={registrarContact.address2} />
+							</label>
+							<label class="field">
+								<span>City</span>
+								<input class="input" bind:value={registrarContact.city} />
+							</label>
+							<label class="field">
+								<span>State / Region</span>
+								<input class="input" bind:value={registrarContact.state} />
+							</label>
+							<label class="field">
+								<span>Postal code</span>
+								<input class="input" bind:value={registrarContact.zip} />
+							</label>
+							<label class="field">
+								<span>Country (2-letter)</span>
+								<input class="input" bind:value={registrarContact.country} maxlength="2" />
+							</label>
+						</div>
+
+						<div class="space-y-3">
+							{#if domainSearchResults.length}
+								{#each domainSearchResults as row}
+									<div class="domain-row rounded-2xl p-3">
+										<div class="flex items-start justify-between gap-3">
+											<div>
+												<div class="text-sm font-semibold text-white">{row.domain}</div>
+												<div class="text-xs text-white/65">
+													Base {formatUsd(row.pricing.purchase.baseCents)} + fee{' '}
+													{formatUsd(row.pricing.purchase.markupCents)} + card{' '}
+													{formatUsd(row.pricing.purchase.stripeFeeCents)}
+												</div>
+												<div class="text-xs text-white/65">
+													Estimated annual renewal: {formatUsd(row.pricing.renewal.totalCents)}
+												</div>
+											</div>
+											<div class="text-right">
+												<div class="text-sm font-semibold text-white">
+													{formatUsd(row.pricing.purchase.totalCents)}
+												</div>
+												<button
+													type="button"
+													class="btn btn-xs preset-filled-primary-500 mt-2"
+													disabled={checkoutBusyDomain === row.domain}
+													onclick={() => void startDomainCheckout(row.domain)}
+												>
+													{checkoutBusyDomain === row.domain ? 'Starting…' : 'Buy'}
+												</button>
+											</div>
+										</div>
+									</div>
+								{/each}
+							{:else}
+								<p class="text-sm text-white/70">No search results yet.</p>
+							{/if}
+						</div>
+					</div>
+				{/if}
+			</div>
 			{#if data.saved}
 				<div class="notice mt-5 rounded-2xl p-3 text-sm">
 					{data.saved === 'palette'
@@ -1157,7 +1737,7 @@
 		</form>
 
 		<div class="space-y-6">
-			<form method="POST" action="?/generate" class="manage-card rounded-3xl p-5 md:p-6">
+			<section class="manage-card rounded-3xl p-5 md:p-6">
 				<div class="flex items-start gap-3">
 					<div class="action-icon">
 						<IconSparkles class="h-5 w-5" />
@@ -1170,37 +1750,70 @@
 					</div>
 				</div>
 				<p class="mt-4 text-sm leading-7 text-white/70">
-					Give the AI a concise direction. It will generate structured microsite settings and save
-					them immediately.
+					Tell AI what you want your site to feel like. It will ask a few quick questions, then
+					build a new draft for you.
 				</p>
-				<div class="mt-4 grid grid-cols-3 gap-2">
-					{#each aiPresets as preset}
-						<button
-							type="button"
-							class="btn btn-sm preset-tonal-surface"
-							onclick={() => (generationPrompt = preset.prompt)}
-						>
-							{preset.label}
+
+				<div class="ai-draft-chat mt-4">
+					<div class="ai-draft-chat-body" bind:this={draftChatBodyEl}>
+						{#each draftChatMessages as entry (entry.id)}
+							<div class={`ai-draft-row ${entry.role === 'user' ? 'is-user' : 'is-assistant'}`}>
+								<div class="ai-draft-bubble">
+									<p class="text-sm leading-relaxed whitespace-pre-wrap">{entry.content}</p>
+								</div>
+							</div>
+						{/each}
+						{#if draftChatSending}
+							<div class="ai-draft-row is-assistant">
+								<div class="ai-draft-bubble">
+									<div class="flex items-center gap-2 text-sm opacity-75">
+										<IconLoader class="h-4 w-4 animate-spin" /> Thinking...
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					{#if draftChatError}
+						<div class="text-error-400 mt-2 text-xs">{draftChatError}</div>
+					{/if}
+
+					<form
+						class="mt-3"
+						onsubmit={(event) => {
+							event.preventDefault();
+							void sendDraftMessage();
+						}}
+					>
+						<div class="flex items-end gap-2">
+							<textarea
+								bind:this={draftChatInputEl}
+								bind:value={draftChatInput}
+								rows="1"
+								maxlength="600"
+								placeholder="Describe your direction, tone, and any must-have details..."
+								class="input w-full resize-none p-2"
+								disabled={draftChatSending}
+								onkeydown={handleDraftInputKeydown}
+							></textarea>
+							<button
+								type="submit"
+								class="btn btn-icon preset-filled-primary-500"
+								disabled={!canSendDraftMessage}
+								aria-label="Send AI draft message"
+							>
+								<IconSendHorizontal class="h-4 w-4" />
+							</button>
+						</div>
+					</form>
+
+					<div class="mt-3 flex justify-end">
+						<button type="button" class="btn btn-xs preset-tonal-warning" onclick={resetDraftChat}>
+							Clear chat
 						</button>
-					{/each}
+					</div>
 				</div>
-				<textarea
-					class="textarea mt-4 min-h-36"
-					name="generation_prompt"
-					bind:value={generationPrompt}
-					placeholder="Examples: editorial and civic, warm and neighborhood-focused, energetic ride-club poster look, minimal and practical..."
-				></textarea>
-				<label class="field mt-4">
-					<span>AI scope</span>
-					<select class="select" name="generation_scope">
-						<option value="content">Content only (recommended)</option>
-						<option value="design">Content + design controls</option>
-					</select>
-				</label>
-				<button class="btn preset-filled-primary-500 mt-4 w-full justify-center">
-					Generate microsite draft
-				</button>
-			</form>
+			</section>
 
 			<form method="POST" action="?/deriveTheme" class="manage-card rounded-3xl p-5 md:p-6">
 				<div class="flex items-start gap-3">
@@ -1458,5 +2071,62 @@
 		border-radius: 999px;
 		color: white;
 		flex-shrink: 0;
+	}
+
+	.ai-draft-chat {
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+		border-radius: 1rem;
+		padding: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-950) 82%, transparent);
+	}
+
+	.ai-draft-chat-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		max-height: 19rem;
+		overflow-y: auto;
+		padding-right: 0.1rem;
+	}
+
+	.ai-draft-row {
+		display: flex;
+	}
+
+	.ai-draft-row.is-user {
+		justify-content: flex-end;
+	}
+
+	.ai-draft-row.is-assistant {
+		justify-content: flex-start;
+	}
+
+	.ai-draft-bubble {
+		width: min(92%, 34rem);
+		border-radius: 0.8rem;
+		padding: 0.65rem 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+		background: color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+		color: rgb(255 255 255 / 0.92);
+	}
+
+	.ai-draft-row.is-user .ai-draft-bubble {
+		background: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-400) 42%, transparent);
+	}
+
+	.domain-row {
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 76%, transparent);
+	}
+
+	.domain-panel {
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 72%, transparent);
+	}
+
+	.domain-divider {
+		height: 1px;
+		background: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
 	}
 </style>

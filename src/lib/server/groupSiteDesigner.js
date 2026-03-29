@@ -113,6 +113,7 @@ const RESPONSE_SCHEMA = {
 						rides: { type: 'boolean', nullable: true },
 						volunteer: { type: 'boolean', nullable: true },
 						news: { type: 'boolean', nullable: true },
+						instagram: { type: 'boolean', nullable: true },
 						gallery: { type: 'boolean', nullable: true },
 						contact: { type: 'boolean', nullable: true }
 					}
@@ -168,6 +169,8 @@ Rules:
   - panel_style: glass, filled, outlined
   - panel_tone: surface, primary, secondary, tertiary
   - panel_density: compact, comfortable, airy
+- Available sections include story, stats, join, rides, volunteer, news, instagram, gallery, contact.
+- Use the Instagram section when the group has an active Instagram presence or recent posts worth surfacing.
 - For buttons, cards, and chips, require explicit Skeleton preset classes with concrete color variants (examples: preset-tonal-primary, preset-outlined-secondary-500, preset-filled-surface-50-950).
 - If custom theme colors are used, output valid 6-digit hex colors.
 - Keep custom content concise: notice <= 180 chars, FAQ answers <= 320 chars, max 3 sponsors.

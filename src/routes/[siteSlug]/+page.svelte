@@ -2,14 +2,20 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
+	import IconInstagram from '@lucide/svelte/icons/instagram';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconImage from '@lucide/svelte/icons/image';
+	import IconHelpCircle from '@lucide/svelte/icons/circle-help';
+	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import { CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
 	import { fade, scale } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	let { data } = $props();
 	const site = $derived(data.site);
 	const group = $derived(site.group);
@@ -38,7 +44,80 @@
 	let lightboxIndex = $state(0);
 	let lightboxItems = $state([]);
 	// Gallery images (first 4 only)
-	const galleryImages = $derived(site.photoBucket?.image_assets?.slice(0, 4) || []);
+	const galleryImages = $derived(site.photoBucket?.image_assets?.slice(0, 3) || []);
+	// Instagram posts
+	const instagramPosts = $derived(site.instagramPosts?.slice(0, 3) || []);
+	const hasInstagramPosts = $derived(instagramPosts.length > 0);
+	// Sponsor items
+	const sponsorItems = $derived.by(() => {
+		if (Array.isArray(config?.sponsor_items) && config.sponsor_items.length) {
+			return config.sponsor_items
+				.map((item) => ({
+					name: String(item?.name || '').trim(),
+					text: String(item?.text || '').trim(),
+					logo: String(item?.logo || '').trim(),
+					url: String(item?.url || '').trim()
+				}))
+				.filter((item) => item.name || item.text || item.logo || item.url);
+		}
+		if (Array.isArray(config?.sponsor_links) && config.sponsor_links.length) {
+			return config.sponsor_links
+				.map((url) => String(url || '').trim())
+				.filter(Boolean)
+				.map((url) => ({ name: '', text: '', logo: '', url }));
+		}
+		return [];
+	});
+	// Ride widget
+	const rideWidgetFramePath = $derived.by(() => {
+		if (!config?.ride_widget_enabled) return '';
+		const baseConfig = { ...(config?.ride_widget_config || {}) };
+		if ((config?.ride_widget_host_scope || 'group_only') === 'group_only') {
+			baseConfig.organizationSlug = group?.slug || '';
+		}
+		const params = new URLSearchParams();
+		for (const [key, value] of Object.entries(baseConfig)) {
+			if (value !== null && value !== undefined && value !== '') {
+				params.set(key, String(value));
+			}
+		}
+		params.set('host_scope', config?.ride_widget_host_scope || 'group_only');
+		if (
+			config?.ride_widget_host_scope === 'selected_groups' &&
+			Array.isArray(config?.ride_widget_group_ids)
+		) {
+			params.set('group_ids', config.ride_widget_group_ids.join(','));
+		}
+		const query = params.toString();
+		return query ? `/ride/widget/frame?${query}` : '/ride/widget/frame';
+	});
+	// FAQ state
+	let faqOpen = $state(0);
+	function toggleFaq(id) {
+		faqOpen = faqOpen === id ? 0 : id;
+	}
+	// Sponsor logo tone detection
+	let sponsorLogoFrameMode = $state({});
+	function detectSponsorLogoTone(event, index) {
+		const img = event.target;
+		if (!img?.naturalWidth) return;
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+		canvas.width = 1;
+		canvas.height = 1;
+		try {
+			ctx.drawImage(img, 0, 0, 1, 1);
+			const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+			const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+			sponsorLogoFrameMode = {
+				...sponsorLogoFrameMode,
+				[index]: brightness > 0.5 ? 'light' : 'dark'
+			};
+		} catch {
+			sponsorLogoFrameMode = { ...sponsorLogoFrameMode, [index]: 'auto' };
+		}
+	}
 	// Combined events (rides + volunteer + news)
 	const upcomingEvents = $derived.by(() => {
 		const events = [];
@@ -114,7 +193,7 @@
 <svelte:head>
 	<title>{config.site_title}</title>
 </svelte:head>
-<div class="microsite-page {pageStyleClass}">
+<div class="microsite-page max-w-7xl {pageStyleClass}">
 	<!-- ═══════════════════════════════════════════════════════════
 	     HERO SECTION — Clean, focused, single-purpose
      ═══════════════════════════════════════════════════════════ -->
@@ -140,186 +219,303 @@
 			</div>
 		</section>
 	{/if}
-	<section class="hero-section">
+	<!-- ═══════════════════════════════════
+HERO — cinematic cover with integrated CTAs
+═══════════════════════════════════ -->
+	<section class="relative">
 		{#if heroStyle === 'bold'}
-			<!-- BOLD HERO: Magazine-style diagonal split -->
-			<div class="hero-bold">
-				<div class="hero-bold-bg"></div>
-				<div class="hero-bold-image-wrap">
+			<!-- ════════════════════════════════════════════════════════
+	HERO BOLD — Magazine-style diagonal split with oversized typography
+	════════════════════════════════════════════════════════ -->
+			<div
+				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-[16/10]"
+			>
+				<!-- Left diagonal panel with solid theme color -->
+				<div
+					class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-primary-500)_8%,var(--color-surface-950))_0%,color-mix(in_oklab,var(--color-surface-950)_95%,transparent)_55%)] [clip-path:polygon(0_0,60%_0,45%_100%,0_100%)] max-md:[clip-path:polygon(0_0,70%_0,55%_100%,0_100%)]"
+				></div>
+				<div
+					class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-secondary-500)_15%,transparent)_0%,transparent_50%)] [clip-path:polygon(0_0,62%_0,47%_100%,0_100%)] max-md:[clip-path:polygon(0_0,72%_0,57%_100%,0_100%)]"
+				></div>
+				<!-- Image on right side -->
+				<div
+					class="absolute inset-0 [clip-path:polygon(55%_0,100%_0,100%_100%,40%_100%)] max-md:[clip-path:polygon(65%_0,100%_0,100%_100%,50%_100%)]"
+				>
 					{#if group.cover_photo_url}
-						<img src={group.cover_photo_url} alt={group.name} class="hero-image" />
+						<img
+							src={group.cover_photo_url}
+							alt={`${group.name}`}
+							class="h-full w-full object-cover"
+						/>
 					{:else}
-						<div class="hero-gradient-fallback"></div>
+						<div
+							class="from-secondary-500/30 via-tertiary-500/25 to-primary-500/30 h-full w-full bg-gradient-to-br"
+						></div>
 					{/if}
 				</div>
-				<div class="hero-content">
-					<div class="hero-card">
+				<!-- Content overlay -->
+				<div
+					class="relative z-10 flex h-full items-end p-6 pb-[clamp(1.5rem,5vw,3rem)] pl-[clamp(1.5rem,5vw,3rem)] md:p-10 md:pb-[clamp(1.5rem,5vw,3rem)] md:pl-[clamp(1.5rem,5vw,3rem)]"
+				>
+					<div
+						class="max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
+					>
+						<!-- Location badge -->
 						{#if location}
-							<div class="location-badge">
+							<div
+								class="text-primary-200 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold tracking-[0.1em] uppercase [background:color-mix(in_oklab,var(--color-primary-500)_20%,transparent)]"
+							>
 								<IconMapPin class="h-3.5 w-3.5" />
 								<span>{location}</span>
 							</div>
+						{:else}
+							<div class="skeleton mb-3 h-4 w-32 rounded-full"></div>
 						{/if}
-						<div class="title-row">
+						<!-- Logo + Title row -->
+						<div class="mt-4 flex items-start gap-4 md:gap-6">
 							{#if group.logo_url}
-								<img src={group.logo_url} alt="{group.name} logo" class="hero-logo" />
+								<img
+									src={group.logo_url}
+									alt={`${group.name} logo`}
+									class="h-14 w-14 rounded-xl object-cover shadow-xl ring-2 ring-[color-mix(in_oklab,var(--color-surface-50)_20%,transparent)] md:h-20 md:w-20"
+								/>
+							{:else}
+								<div class="skeleton h-14 w-14 rounded-xl md:h-20 md:w-20"></div>
 							{/if}
-							<h1 class="hero-title">{config.site_title}</h1>
+							<div class="min-w-0 flex-1">
+								{#if config.site_title}
+									<h1
+										class="text-primary-500 text-4xl font-black tracking-tight [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] md:text-6xl lg:text-7xl"
+									>
+										{config.site_title}
+									</h1>
+								{:else}
+									<div class="skeleton mb-2 h-10 w-full rounded md:h-14"></div>
+									<div class="skeleton h-10 w-2/3 rounded md:h-14"></div>
+								{/if}
+							</div>
 						</div>
+						<!-- Tagline -->
 						{#if config.site_tagline}
 							<AutoLinkText
 								text={config.site_tagline}
-								className="hero-tagline"
-								linkClass="hero-tagline-link"
+								className="!text-white block mt-4 max-w-xl text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
+								linkClass="!text-white underline underline-offset-2"
 							/>
+						{:else}
+							<div class="skeleton mt-4 h-4 w-full max-w-xl rounded"></div>
 						{/if}
+						<!-- CTAs -->
 						{#if site.actions.length}
-							<div class="hero-ctas">
+							<div class="mt-6 flex flex-wrap items-center gap-3">
 								{#each site.actions as action, i}
 									<a
 										href={action.href}
 										target={action.external ? '_blank' : undefined}
 										rel={action.external ? 'noopener noreferrer' : undefined}
-										class="hero-cta {i === 0 ? 'cta-primary' : 'cta-secondary'}"
+										class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 {i ===
+										0
+											? 'bg-primary-500 text-primary-contrast-500 shadow-lg [box-shadow:0_4px_20px_-4px_color-mix(in_oklab,var(--color-primary-500)_50%,transparent)] hover:-translate-y-0.5 hover:[box-shadow:0_8px_28px_-4px_color-mix(in_oklab,var(--color-primary-500)_60%,transparent)]'
+											: 'text-surface-100 border [border-color:color-mix(in_oklab,var(--color-surface-50)_15%,transparent)] [background:color-mix(in_oklab,var(--color-surface-50)_10%,transparent)] hover:[background:color-mix(in_oklab,var(--color-surface-50)_18%,transparent)]'}"
 									>
 										<span>{action.label}</span>
 										<IconArrowRight class="h-4 w-4" />
 									</a>
 								{/each}
 							</div>
+						{:else}
+							<div class="mt-6 flex gap-3">
+								<div class="skeleton h-12 w-32 rounded-full"></div>
+								<div class="skeleton h-12 w-32 rounded-full"></div>
+							</div>
 						{/if}
 					</div>
 				</div>
 			</div>
 		{:else if heroStyle === 'orbit'}
-			<!-- ORBIT HERO: Centered floating card -->
-			<div class="hero-orbit">
+			<!-- ════════════════════════════════════════════════════════
+	HERO ORBIT — Modern floating glass card with ambient glow
+	════════════════════════════════════════════════════════ -->
+			<div
+				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-[16/11]"
+			>
 				{#if group.cover_photo_url}
-					<img src={group.cover_photo_url} alt={group.name} class="hero-image-full" />
+					<img
+						src={group.cover_photo_url}
+						alt={`${group.name}`}
+						class="absolute inset-0 h-full w-full object-cover"
+					/>
 				{:else}
-					<div class="hero-gradient-fallback-full"></div>
+					<div
+						class="from-primary-500/25 via-surface-500/10 to-secondary-500/25 absolute inset-0 bg-gradient-to-br"
+					></div>
 				{/if}
-				<div class="hero-orbit-vignette"></div>
-				<div class="hero-orbit-content">
-					<div class="hero-orbit-card">
-						{#if group.logo_url}
-							<img src={group.logo_url} alt="{group.name} logo" class="hero-logo-center" />
-						{/if}
-						{#if location}
-							<p class="hero-location"><IconMapPin class="h-3 w-3" />{location}</p>
-						{/if}
-						<h1 class="hero-title-center">{config.site_title}</h1>
-						{#if config.site_tagline}
-							<AutoLinkText
-								text={config.site_tagline}
-								className="hero-tagline-center"
-								linkClass="hero-tagline-link"
-							/>
-						{/if}
-						{#if site.actions.length}
-							<div class="hero-ctas-center">
-								{#each site.actions as action, i}
-									<a
-										href={action.href}
-										target={action.external ? '_blank' : undefined}
-										rel={action.external ? 'noopener noreferrer' : undefined}
-										class="hero-cta {i === 0 ? 'cta-primary' : 'cta-secondary'}"
+				<!-- Vignette overlay -->
+				<div
+					class="from-surface-950/80 via-surface-950/50 to-surface-950/70 absolute inset-0 bg-gradient-to-b"
+				></div>
+				<!-- Subtle dot pattern -->
+				<div
+					class="absolute inset-0 opacity-30"
+					style="background-image: radial-gradient(circle at center, color-mix(in oklab, var(--color-surface-50) 6%, transparent) 0%, transparent 1px); background-size: 32px 32px;"
+				></div>
+				<!-- Content -->
+				<div class="relative z-10 flex h-full items-center justify-center p-5 md:p-8">
+					<div class="relative w-full max-w-xl">
+						<!-- Ambient glow behind card -->
+						<div
+							class="from-primary-500/40 via-secondary-500/30 to-tertiary-500/40 absolute -inset-1 rounded-[1.75rem] bg-gradient-to-br opacity-60 blur-xl"
+						></div>
+						<!-- Glass card -->
+						<div
+							class="border-surface-50/10 bg-surface-950/70 relative rounded-3xl border px-6 py-8 shadow-2xl shadow-black/50 backdrop-blur-xl max-md:px-4 max-md:py-6"
+						>
+							<div class="flex flex-col items-center text-center">
+								{#if group.logo_url}
+									<img
+										src={group.logo_url}
+										alt={`${group.name} logo`}
+										class="ring-surface-50/30 h-16 w-16 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+									/>
+								{:else}
+									<div class="skeleton h-16 w-16 rounded-2xl md:h-20 md:w-20"></div>
+								{/if}
+								{#if location}
+									<p
+										class="text-surface-50/60 mt-4 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.3em] uppercase"
 									>
-										{action.label}
-										<IconArrowRight class="h-4 w-4" />
-									</a>
-								{/each}
+										<IconMapPin class="h-3 w-3" />{location}
+									</p>
+								{:else}
+									<div class="skeleton mt-4 h-3 w-24 rounded"></div>
+								{/if}
+								{#if config.site_title}
+									<h1
+										class="text-primary-500 mt-3 text-3xl font-black tracking-tight [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
+									>
+										{config.site_title}
+									</h1>
+								{:else}
+									<div class="skeleton mt-3 h-10 w-48 rounded"></div>
+								{/if}
+								{#if config.site_tagline}
+									<AutoLinkText
+										text={config.site_tagline}
+										className="mt-3 block max-w-md text-base leading-relaxed text-surface-50/80"
+										linkClass="text-surface-50 underline underline-offset-2"
+									/>
+								{:else}
+									<div class="skeleton mt-3 h-4 w-64 rounded"></div>
+								{/if}
 							</div>
-						{/if}
+							{#if site.actions.length}
+								<div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+									{#each site.actions as action, i}
+										<a
+											href={action.href}
+											target={action.external ? '_blank' : undefined}
+											rel={action.external ? 'noopener noreferrer' : undefined}
+											class="btn {i === 0
+												? 'preset-filled-primary-500 shadow-primary-500/25 shadow-lg'
+												: 'preset-tonal-secondary border-surface-50/20 border'} gap-2 px-5 py-2.5 text-sm font-bold"
+										>
+											{action.label}
+											<IconArrowRight class="h-4 w-4" />
+										</a>
+									{/each}
+								</div>
+							{:else}
+								<div class="mt-8 flex justify-center gap-3">
+									<div class="skeleton h-10 w-24 rounded-full"></div>
+									<div class="skeleton h-10 w-24 rounded-full"></div>
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>
 		{:else}
-			<!-- IMMERSIVE HERO: Classic gradient overlay (default) -->
-			<div class="hero-immersive">
+			<div
+				class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-[16/10]"
+			>
 				{#if group.cover_photo_url}
-					<img src={group.cover_photo_url} alt={group.name} class="hero-image-full" />
+					<img
+						src={group.cover_photo_url}
+						alt={`${group.name}`}
+						class="absolute inset-0 h-full w-full object-cover motion-safe:[animation:ken-burns_25s_ease-in-out_infinite_alternate]"
+					/>
 				{:else}
-					<div class="hero-gradient-fallback-full"></div>
+					<div
+						class="from-primary-500/30 via-secondary-500/20 to-tertiary-500/30 absolute inset-0 bg-gradient-to-br"
+					></div>
 				{/if}
-				<div class="hero-immersive-gradient"></div>
-				<div class="hero-immersive-content">
-					<div class="hero-immersive-header">
-						<div class="title-block">
+				<div
+					class="absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
+				></div>
+				<div
+					class="absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
+				></div>
+				<div class="relative z-10 flex h-full flex-col justify-end p-5 md:p-8">
+					<div class="flex flex-col gap-6">
+						<div class="flex items-end gap-4">
 							{#if group.logo_url}
-								<img src={group.logo_url} alt="{group.name} logo" class="hero-logo-immersive" />
+								<img
+									src={group.logo_url}
+									alt={`${group.name} logo`}
+									class="ring-surface-50/20 h-16 w-16 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+								/>
 							{:else}
-								<div class="hero-logo-fallback"><IconUsers class="h-7 w-7" /></div>
+								<div
+									class="from-primary-500 to-secondary-500 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-2xl md:h-20 md:w-20"
+								>
+									<IconUsers class="h-7 w-7 text-white/80" />
+								</div>
 							{/if}
-							<div class="title-text">
+							<div class="min-w-0 pb-0.5">
 								{#if location}
-									<p class="hero-location-immersive"><IconMapPin class="h-3 w-3" />{location}</p>
+									<p
+										class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.3em] text-white/70 uppercase"
+									>
+										<IconMapPin class="h-3 w-3" />{location}
+									</p>
 								{/if}
-								<h1 class="hero-title-immersive">{config.site_title}</h1>
+								<h1
+									class="text-primary-500 text-3xl font-black tracking-tight md:text-4xl lg:text-5xl"
+								>
+									{config.site_title}
+								</h1>
 							</div>
 						</div>
-					</div>
-					<div class="hero-immersive-footer">
-						{#if config.site_tagline}
-							<AutoLinkText
-								text={config.site_tagline}
-								className="hero-tagline-immersive"
-								linkClass="hero-tagline-link"
-							/>
-						{/if}
-						{#if site.actions.length}
-							<div class="hero-ctas-immersive">
-								{#each site.actions as action, i}
-									<a
-										href={action.href}
-										target={action.external ? '_blank' : undefined}
-										rel={action.external ? 'noopener noreferrer' : undefined}
-										class="hero-cta {i === 0 ? 'cta-primary' : 'cta-secondary'}"
-									>
-										{action.label}
-										<IconArrowRight class="h-4 w-4" />
-									</a>
-								{/each}
-							</div>
-						{/if}
+						<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+							{#if config.site_tagline}
+								<AutoLinkText
+									text={config.site_tagline}
+									className="block max-w-xl text-lg leading-relaxed font-medium text-white/90 md:text-xl"
+									linkClass="text-white underline underline-offset-2"
+								/>
+							{/if}
+							{#if site.actions.length}
+								<div class="flex flex-wrap items-center gap-2 md:gap-3">
+									{#each site.actions as action, i}
+										<a
+											href={action.href}
+											target={action.external ? '_blank' : undefined}
+											rel={action.external ? 'noopener noreferrer' : undefined}
+											class="btn btn-sm md:btn-base {i === 0
+												? 'preset-filled-primary-500'
+												: 'preset-tonal-tertiary'} gap-2"
+										>
+											{action.label}
+											<IconArrowRight class="h-4 w-4" />
+										</a>
+									{/each}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>
 		{/if}
-	</section>
-	<!-- ═══════════════════════════════════════════════════════════
-	     QUICK INFO BAR — Essential details at a glance
-     ═══════════════════════════════════════════════════════════ -->
-	<section class="quick-info">
-		<div class="quick-info-grid">
-			<div class="quick-info-item">
-				<p class="quick-info-label">When we ride</p>
-				<p class="quick-info-value">{group?.activity_frequency || 'Details coming soon'}</p>
-			</div>
-			<div class="quick-info-item">
-				<p class="quick-info-label">Where we meet</p>
-				{#if mapsHref && (group?.specific_meeting_point_address || location)}
-					<a href={mapsHref} target="_blank" rel="noopener noreferrer" class="quick-info-link">
-						{group?.specific_meeting_point_address || location}
-						<IconArrowRight class="h-3.5 w-3.5" />
-					</a>
-				{:else}
-					<p class="quick-info-value">{location || 'Shared in ride details'}</p>
-				{/if}
-			</div>
-			<div class="quick-info-item">
-				<p class="quick-info-label">Who can join</p>
-				<p class="quick-info-value">
-					{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
-				</p>
-			</div>
-			<div class="quick-info-item">
-				<p class="quick-info-label">How to join</p>
-				<p class="quick-info-value">
-					{group?.how_to_join_instructions || group?.membership_info || 'Follow for updates'}
-				</p>
-			</div>
-		</div>
 	</section>
 	<!-- ═══════════════════════════════════════════════════════════
 	     NEW RIDER NOTE — Helpful for newcomers (optional)
@@ -341,7 +537,12 @@
 				<form method="GET" action="/donate">
 					<input type="hidden" name="group" value={group.slug} />
 					<div class="donate-header">
-						<h2 class="donate-title">Support our work</h2>
+						<div class="flex items-center gap-3">
+							<div class="donate-icon">
+								<IconHeart class="h-5 w-5 text-white" />
+							</div>
+							<h2 class="donate-title">Support our work</h2>
+						</div>
 						<div class="donate-presets">
 							{#each donateAmountPresets as preset}
 								<button
@@ -378,8 +579,8 @@
 		</section>
 	{/if}
 	<!-- ═══════════════════════════════════════════════════════════
-	     ABOUT — Clean, focused group description
-     ═══════════════════════════════════════════════════════════ -->
+ABOUT — Comprehensive group profile
+═══════════════════════════════════════════════════════════ -->
 	{#if config.sections.story && site.storyParagraphs.length}
 		<section class="about-section" id="about">
 			<div class="about-card">
@@ -395,6 +596,169 @@
 						<AutoLinkText text={paragraph} className="about-paragraph" linkClass="about-link" />
 					{/each}
 				</div>
+
+				<!-- Quick facts grid -->
+				<div class="about-facts-grid">
+					{#if group?.activity_frequency}
+						<div class="about-fact">
+							<p class="about-fact-label">When we ride</p>
+							<p class="about-fact-value">{group.activity_frequency}</p>
+						</div>
+					{/if}
+
+					{#if location || group?.specific_meeting_point_address}
+						<div class="about-fact">
+							<p class="about-fact-label">Where we meet</p>
+							{#if mapsHref && (group?.specific_meeting_point_address || location)}
+								<a
+									href={mapsHref}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="about-fact-link"
+								>
+									{group?.specific_meeting_point_address || location}
+									<IconArrowRight class="h-3.5 w-3.5" />
+								</a>
+							{:else}
+								<p class="about-fact-value">{location || 'Shared in ride details'}</p>
+							{/if}
+						</div>
+					{/if}
+
+					{#if taxonomy?.audiences?.length || group?.audience_focus}
+						<div class="about-fact">
+							<p class="about-fact-label">Who can join</p>
+							<p class="about-fact-value">
+								{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
+							</p>
+						</div>
+					{/if}
+
+					{#if group?.how_to_join_instructions || group?.membership_info}
+						<div class="about-fact">
+							<p class="about-fact-label">How to join</p>
+							<p class="about-fact-value">
+								{group?.how_to_join_instructions || group?.membership_info}
+							</p>
+						</div>
+					{/if}
+
+					{#if group?.typical_activity_day_time}
+						<div class="about-fact">
+							<p class="about-fact-label">Typical schedule</p>
+							<p class="about-fact-value">{group.typical_activity_day_time}</p>
+						</div>
+					{/if}
+
+					{#if group?.primary_discipline}
+						<div class="about-fact">
+							<p class="about-fact-label">Primary discipline</p>
+							<p class="about-fact-value">{group.primary_discipline}</p>
+						</div>
+					{/if}
+
+					{#if group?.typical_skill_level}
+						<div class="about-fact">
+							<p class="about-fact-label">Typical skill level</p>
+							<p class="about-fact-value">{group.typical_skill_level}</p>
+						</div>
+					{/if}
+
+					{#if group?.zip_code}
+						<div class="about-fact">
+							<p class="about-fact-label">ZIP code</p>
+							<p class="about-fact-value">{group.zip_code}</p>
+						</div>
+					{/if}
+
+					{#if group?.website_url}
+						<div class="about-fact">
+							<p class="about-fact-label">Website</p>
+							<a
+								href={group.website_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="about-fact-link"
+							>
+								{group.website_url.replace(/^https?:\/\//, '')}
+								<IconArrowRight class="h-3.5 w-3.5" />
+							</a>
+						</div>
+					{/if}
+
+					{#if group?.public_contact_email}
+						<div class="about-fact">
+							<p class="about-fact-label">Email</p>
+							<a href="mailto:{group.public_contact_email}" class="about-fact-link">
+								{group.public_contact_email}
+								<IconArrowRight class="h-3.5 w-3.5" />
+							</a>
+						</div>
+					{/if}
+
+					{#if group?.public_phone_number}
+						<div class="about-fact">
+							<p class="about-fact-label">Phone</p>
+							<a href="tel:{group.public_phone_number}" class="about-fact-link">
+								{group.public_phone_number}
+								<IconArrowRight class="h-3.5 w-3.5" />
+							</a>
+						</div>
+					{/if}
+
+					{#if group?.preferred_contact_method_instructions}
+						<div class="about-fact">
+							<p class="about-fact-label">Best way to reach us</p>
+							<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- FAQ within About -->
+				{#if config.faq_1_q || config.faq_1_a || config.faq_2_q || config.faq_2_a}
+					<div class="about-faq">
+						<p class="about-faq-label">FAQ</p>
+						<div class="faq-list">
+							{#if config.faq_1_q}
+								<div class="faq-item">
+									<button
+										type="button"
+										class="faq-question"
+										onclick={() => toggleFaq(1)}
+										aria-expanded={faqOpen === 1}
+									>
+										<span>{config.faq_1_q}</span>
+										<IconChevronDown class="faq-chevron {faqOpen === 1 ? 'open' : ''}" />
+									</button>
+									{#if faqOpen === 1}
+										<div class="faq-answer" transition:slide={{ duration: 200 }}>
+											<p>{config.faq_1_a}</p>
+										</div>
+									{/if}
+								</div>
+							{/if}
+							{#if config.faq_2_q}
+								<div class="faq-item">
+									<button
+										type="button"
+										class="faq-question"
+										onclick={() => toggleFaq(2)}
+										aria-expanded={faqOpen === 2}
+									>
+										<span>{config.faq_2_q}</span>
+										<IconChevronDown class="faq-chevron {faqOpen === 2 ? 'open' : ''}" />
+									</button>
+									{#if faqOpen === 2}
+										<div class="faq-answer" transition:slide={{ duration: 200 }}>
+											<p>{config.faq_2_a}</p>
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
 				{#if group.group_type || group.audience_focus || taxonomy.audiences?.length}
 					<div class="about-tags">
 						{#if group.group_type}
@@ -418,11 +782,19 @@
 		<section class="events-section" id="events">
 			<div class="events-card">
 				<div class="events-header">
-					<div class="events-icon"><IconNewspaper class="h-5 w-5" /></div>
-					<div>
-						<p class="events-label">Coming up</p>
-						<h2 class="events-title">What's happening</h2>
+					<div class="flex items-center gap-3">
+						<div class="events-icon"><IconNewspaper class="h-5 w-5" /></div>
+						<div>
+							<p class="events-label">Coming up</p>
+							<h2 class="events-title">What's happening</h2>
+						</div>
 					</div>
+					{#if hasNews}
+						<a href="/groups/{group.slug}/news" class="btn btn-sm preset-tonal-secondary gap-1">
+							All updates
+							<IconArrowRight class="h-4 w-4" />
+						</a>
+					{/if}
 				</div>
 				<div class="events-grid">
 					{#each upcomingEvents as event}
@@ -483,46 +855,85 @@
 		</section>
 	{/if}
 	<!-- ═══════════════════════════════════════════════════════════
-	     GALLERY PREVIEW — Link to full gallery page
-     ═══════════════════════════════════════════════════════════ -->
-	{#if config.sections.gallery && galleryImages.length}
+GALLERY PREVIEW — Link to full gallery page with Instagram
+═══════════════════════════════════════════════════════════ -->
+	{#if config.sections.gallery && (galleryImages.length || hasInstagramPosts)}
 		<section class="gallery-section" id="gallery">
 			<div class="gallery-card">
 				<div class="gallery-header">
-					<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
-					<div>
-						<p class="gallery-label">Gallery</p>
-						<h2 class="gallery-title">Scenes from our rides</h2>
+					<div class="flex items-center gap-3">
+						<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
+						<div>
+							<p class="gallery-label">Gallery</p>
+							<h2 class="gallery-title">Scenes from our rides</h2>
+						</div>
 					</div>
-				</div>
-				<div class="gallery-grid">
-					{#each galleryImages as image, i}
-						<button
-							type="button"
-							onclick={() => openLightbox(i)}
-							class="gallery-item {i === 0 ? 'gallery-featured' : ''}"
-						>
-							<img src={image.href} alt={image.title} loading="lazy" />
-							<div class="gallery-overlay">
-								<span class="gallery-view">View</span>
-							</div>
-						</button>
-					{/each}
-				</div>
-				{#if site.photoBucket?.image_assets?.length > 4}
-					<div class="gallery-footer">
-						<a href={galleryHref} class="gallery-link">
+					{#if galleryImages.length}
+						<a href={galleryHref} class="btn btn-sm preset-tonal-secondary gap-1">
 							View full gallery
 							<IconArrowRight class="h-4 w-4" />
 						</a>
+					{/if}
+				</div>
+
+				<!-- Gallery Images -->
+				{#if galleryImages.length}
+					<div class="gallery-grid">
+						{#each galleryImages as image}
+							<a href={galleryHref} class="gallery-item">
+								<img src={image.href} alt={image.title} loading="lazy" />
+								<div class="gallery-overlay">
+									<span class="gallery-view">View</span>
+								</div>
+							</a>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Instagram Posts -->
+				{#if hasInstagramPosts}
+					<div class="instagram-preview-section">
+						<p class="instagram-preview-label">Recent on Instagram</p>
+						<div class="instagram-grid">
+							{#each instagramPosts as post}
+								<a
+									href={post.permalink}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="instagram-preview-item"
+								>
+									{#if post.media_url}
+										<img src={post.media_url} alt="Instagram post" loading="lazy" />
+										<div class="instagram-preview-overlay">
+											<IconInstagram class="h-4 w-4 text-white" />
+										</div>
+									{/if}
+								</a>
+							{/each}
+						</div>
 					</div>
 				{/if}
 			</div>
 		</section>
 	{/if}
+
 	<!-- ═══════════════════════════════════════════════════════════
-	     CONTACT — Streamlined contact links
-     ═══════════════════════════════════════════════════════════ -->
+RIDES WIDGET — Embedded ride calendar (standalone iframe)
+═══════════════════════════════════════════════════════════ -->
+	{#if config.ride_widget_enabled}
+		<section class="rides-widget-section" id="rides-widget">
+			<iframe
+				src={rideWidgetFramePath}
+				title={config.ride_widget_title || 'Upcoming rides'}
+				class="rides-widget-iframe"
+				loading="lazy"
+			></iframe>
+		</section>
+	{/if}
+
+	<!-- ═══════════════════════════════════════════════════════════
+NEW RIDER NOTE — Helpful for newcomers (optional)
+═══════════════════════════════════════════════════════════ -->
 	{#if config.sections.contact && site.contactLinks.length}
 		<section class="contact-section" id="contact">
 			<div class="contact-card">
@@ -557,8 +968,84 @@
 		</section>
 	{/if}
 	<!-- ═══════════════════════════════════════════════════════════
-	     FOOTER — Simple, clean
-     ═══════════════════════════════════════════════════════════ -->
+SPONSORS — Community partners showcase
+═══════════════════════════════════════════════════════════ -->
+	{#if sponsorItems.length}
+		<section class="sponsor-section" id="sponsors">
+			<div class="sponsor-card">
+				<div class="sponsor-header">
+					<div class="sponsor-header-text">
+						<p class="sponsor-label">Community partners</p>
+						<h2 class="sponsor-title">Thanks to our partners</h2>
+					</div>
+				</div>
+				<div class="sponsor-grid">
+					{#each sponsorItems as sponsor, sponsorIndex}
+						{#if sponsor.url}
+							<a
+								href={sponsor.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="sponsor-item-link"
+							>
+								{#if sponsor.logo}
+									<div
+										class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
+											? 'logo-bg-dark'
+											: sponsorLogoFrameMode[sponsorIndex] === 'light'
+												? 'logo-bg-light'
+												: 'logo-bg-auto'}"
+									>
+										<img
+											src={sponsor.logo}
+											alt={(sponsor.name || 'Sponsor') + ' logo'}
+											crossorigin="anonymous"
+											onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
+										/>
+									</div>
+								{/if}
+								<div class="sponsor-content">
+									<h3 class="sponsor-name">{sponsor.name || sponsor.url || 'Sponsor'}</h3>
+									{#if sponsor.text}
+										<p class="sponsor-text">{sponsor.text}</p>
+									{/if}
+								</div>
+								<IconArrowRight class="sponsor-arrow" />
+							</a>
+						{:else}
+							<div class="sponsor-item">
+								{#if sponsor.logo}
+									<div
+										class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
+											? 'logo-bg-dark'
+											: sponsorLogoFrameMode[sponsorIndex] === 'light'
+												? 'logo-bg-light'
+												: 'logo-bg-auto'}"
+									>
+										<img
+											src={sponsor.logo}
+											alt={(sponsor.name || 'Sponsor') + ' logo'}
+											crossorigin="anonymous"
+											onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
+										/>
+									</div>
+								{/if}
+								<div class="sponsor-content">
+									<h3 class="sponsor-name">{sponsor.name || 'Sponsor'}</h3>
+									{#if sponsor.text}
+										<p class="sponsor-text">{sponsor.text}</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</div>
+		</section>
+	{/if}
+	<!-- ═══════════════════════════════════════════════════════════
+FOOTER — Simple, clean
+═══════════════════════════════════════════════════════════ -->
 	<footer class="site-footer">
 		{#if config.footer_blurb}
 			<AutoLinkText text={config.footer_blurb} className="footer-blurb" linkClass="footer-link" />
@@ -655,7 +1142,6 @@
    BASE STYLES & CSS VARIABLES
    ═══════════════════════════════════════════════════════════ */
 	.microsite-page {
-		--ms-max-width: 900px;
 		--ms-gap: 1.25rem;
 		--ms-padding-x: 1rem;
 		--panel-bg: color-mix(in oklab, var(--color-surface-50) 70%, transparent);
@@ -663,7 +1149,6 @@
 		--panel-border: color-mix(in oklab, var(--color-surface-500) 16%, transparent);
 		--panel-blur: 20px;
 
-		max-width: var(--ms-max-width);
 		margin: 0 auto;
 		padding: var(--ms-gap) var(--ms-padding-x) 3rem;
 		display: flex;
@@ -863,7 +1348,7 @@
 		font-size: 1.75rem;
 		font-weight: 900;
 		line-height: 1.1;
-		color: var(--color-primary-50);
+		color: #ffffff;
 		text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
 	}
 	@media (min-width: 768px) {
@@ -873,13 +1358,13 @@
 	}
 	.hero-tagline {
 		font-size: 0.9375rem;
-		color: var(--color-surface-100);
+		color: rgba(255, 255, 255, 0.9);
 		margin-top: 0.75rem;
 		line-height: 1.5;
 		display: block;
 	}
 	.hero-tagline-link {
-		color: var(--color-surface-50);
+		color: #ffffff;
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
@@ -1155,72 +1640,7 @@
 		gap: 0.5rem;
 		flex-shrink: 0;
 	}
-	/* ═══════════════════════════════════════════════════════════
-   QUICK INFO BAR
-   ═══════════════════════════════════════════════════════════ */
-	.quick-info {
-		background: var(--panel-bg);
-		backdrop-filter: blur(var(--panel-blur));
-		border: 1px solid var(--panel-border);
-		border-radius: 1rem;
-		padding: 1.25rem;
-	}
-	:global([data-color-mode='dark']) .quick-info {
-		background: var(--panel-bg-dark);
-	}
-	.quick-info-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 1rem;
-	}
-	@media (min-width: 768px) {
-		.quick-info-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
-	.quick-info-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.quick-info-label {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-primary-600);
-		letter-spacing: 0.15em;
-		text-transform: uppercase;
-	}
-	:global([data-color-mode='dark']) .quick-info-label {
-		color: var(--color-primary-400);
-	}
-	.quick-info-value {
-		font-size: 0.875rem;
-		color: var(--color-surface-900);
-		line-height: 1.4;
-	}
-	:global([data-color-mode='dark']) .quick-info-value {
-		color: var(--color-surface-100);
-	}
-	.quick-info-link {
-		font-size: 0.875rem;
-		color: var(--color-surface-900);
-		line-height: 1.4;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-		transition: color 0.15s ease;
-	}
-	.quick-info-link:hover {
-		color: var(--color-primary-500);
-	}
-	:global([data-color-mode='dark']) .quick-info-link {
-		color: var(--color-surface-100);
-	}
-	:global([data-color-mode='dark']) .quick-info-link:hover {
-		color: var(--color-primary-400);
-	}
+
 	/* ═══════════════════════════════════════════════════════════
    NEW RIDER NOTE
    ═══════════════════════════════════════════════════════════ */
@@ -1297,6 +1717,17 @@
 	:global([data-color-mode='dark']) .donate-title {
 		color: var(--color-surface-100);
 	}
+	.donate-icon {
+		width: 2.25rem;
+		height: 2.25rem;
+		background: linear-gradient(135deg, var(--color-secondary-500), var(--color-primary-500));
+		border-radius: 0.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		flex-shrink: 0;
+	}
 	.donate-presets {
 		display: flex;
 		gap: 0.5rem;
@@ -1306,12 +1737,23 @@
 		font-weight: 600;
 		padding: 0.5rem 0.875rem;
 		border-radius: 0.5rem;
-		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		background: white;
+		border: 1px solid var(--color-surface-300);
 		color: var(--color-surface-700);
 		transition: all 0.15s ease;
 	}
+	:global([data-color-mode='dark']) .donate-preset {
+		background: var(--color-surface-800);
+		border-color: var(--color-surface-700);
+		color: var(--color-surface-200);
+	}
 	.donate-preset:hover {
-		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		background: var(--color-surface-50);
+		border-color: var(--color-surface-400);
+	}
+	:global([data-color-mode='dark']) .donate-preset:hover {
+		background: var(--color-surface-700);
+		border-color: var(--color-surface-600);
 	}
 	.donate-preset.active {
 		background: var(--color-primary-500);
@@ -1342,19 +1784,24 @@
 		padding-right: 1rem;
 		font-size: 1rem;
 		font-weight: 600;
-		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
-		border: 1px solid transparent;
+		background: white;
+		border: 1px solid var(--color-surface-300);
 		border-radius: 0.75rem;
 		color: var(--color-surface-900);
-		transition: border-color 0.15s ease;
+		transition: all 0.15s ease;
 	}
 	.donate-input:focus {
 		outline: none;
 		border-color: var(--color-primary-500);
+		background: white;
 	}
 	:global([data-color-mode='dark']) .donate-input {
-		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		background: var(--color-surface-800);
+		border-color: var(--color-surface-700);
 		color: var(--color-surface-100);
+	}
+	:global([data-color-mode='dark']) .donate-currency {
+		color: var(--color-surface-400);
 	}
 	.donate-btn {
 		display: inline-flex;
@@ -1473,9 +1920,76 @@
 		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 		color: var(--color-surface-300);
 	}
+
+	/* About facts grid */
+	.about-facts-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+		margin: 1.25rem 0;
+	}
+
+	@media (min-width: 768px) {
+		.about-facts-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.about-fact {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.about-fact-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-primary-800);
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+	}
+
+	:global([data-color-mode='dark']) .about-fact-label {
+		color: var(--color-primary-200);
+	}
+
+	.about-fact-value {
+		font-size: 0.875rem;
+		color: var(--color-surface-900);
+		line-height: 1.4;
+	}
+
+	:global([data-color-mode='dark']) .about-fact-value {
+		color: var(--color-surface-100);
+	}
+
+	.about-fact-link {
+		font-size: 0.875rem;
+		color: var(--color-surface-900);
+		line-height: 1.4;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		transition: color 0.15s ease;
+	}
+
+	.about-fact-link:hover {
+		color: var(--color-primary-500);
+	}
+
+	:global([data-color-mode='dark']) .about-fact-link {
+		color: var(--color-surface-100);
+	}
+
+	:global([data-color-mode='dark']) .about-fact-link:hover {
+		color: var(--color-primary-400);
+	}
+
 	/* ═══════════════════════════════════════════════════════════
-   EVENTS SECTION (Unified rides/volunteer/news)
-   ═══════════════════════════════════════════════════════════ */
+EVENTS SECTION (Unified rides/volunteer/news)
+═══════════════════════════════════════════════════════════ */
 	.events-section {
 		background: var(--panel-bg);
 		backdrop-filter: blur(var(--panel-blur));
@@ -1701,18 +2215,8 @@
 	}
 	.gallery-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5rem;
-	}
-	@media (min-width: 640px) {
-		.gallery-grid {
-			grid-template-columns: repeat(3, 1fr);
-		}
-	}
-	@media (min-width: 768px) {
-		.gallery-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
 	}
 	.gallery-item {
 		position: relative;
@@ -1720,18 +2224,6 @@
 		border-radius: 0.5rem;
 		overflow: hidden;
 		cursor: pointer;
-	}
-	.gallery-item.gallery-featured {
-		grid-column: span 2;
-		grid-row: span 2;
-		aspect-ratio: auto;
-	}
-	@media (max-width: 639px) {
-		.gallery-item.gallery-featured {
-			grid-column: span 2;
-			grid-row: span 1;
-			aspect-ratio: 2/1;
-		}
 	}
 	.gallery-item img {
 		width: 100%;
@@ -1741,6 +2233,57 @@
 	}
 	.gallery-item:hover img {
 		transform: scale(1.05);
+	}
+
+	/* Instagram Preview Section */
+	.instagram-preview-section {
+		margin-top: 1.5rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--panel-border);
+	}
+	.instagram-preview-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-secondary-600);
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin-bottom: 0.75rem;
+	}
+	:global([data-color-mode='dark']) .instagram-preview-label {
+		color: var(--color-secondary-400);
+	}
+	.instagram-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+	}
+	.instagram-preview-item {
+		position: relative;
+		aspect-ratio: 1;
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+	.instagram-preview-item img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transition: transform 0.3s ease;
+	}
+	.instagram-preview-item:hover img {
+		transform: scale(1.05);
+	}
+	.instagram-preview-overlay {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.4);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+	.instagram-preview-item:hover .instagram-preview-overlay {
+		opacity: 1;
 	}
 	.gallery-overlay {
 		position: absolute;
@@ -2106,9 +2649,255 @@
 	.microsite-page.panel-outlined .contact-section {
 		--panel-blur: 8px;
 	}
+
 	/* ═══════════════════════════════════════════════════════════
-   ANIMATIONS
-   ═══════════════════════════════════════════════════════════ */
+ABOUT FAQ — Nested accordion within About section
+═══════════════════════════════════════════════════════════ */
+	.about-faq {
+		margin-top: 1.25rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--panel-border);
+	}
+	.about-faq-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-secondary-600);
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin-bottom: 0.75rem;
+	}
+	:global([data-color-mode='dark']) .about-faq-label {
+		color: var(--color-secondary-400);
+	}
+
+	/* Shared FAQ component styles */
+	.faq-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.faq-item {
+		border: 1px solid var(--panel-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+	.faq-question {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 1rem;
+		background: color-mix(in oklab, var(--color-surface-500) 5%, transparent);
+		color: var(--color-surface-900);
+		font-weight: 600;
+		font-size: 0.9375rem;
+		text-align: left;
+		transition: background-color 0.15s ease;
+	}
+	.faq-question:hover {
+		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
+	}
+	:global([data-color-mode='dark']) .faq-question {
+		color: var(--color-surface-100);
+	}
+	.faq-chevron {
+		width: 1.25rem;
+		height: 1.25rem;
+		transition: transform 0.2s ease;
+		flex-shrink: 0;
+	}
+	.faq-chevron.open {
+		transform: rotate(180deg);
+	}
+	.faq-answer {
+		padding: 0 1rem 1rem;
+		color: var(--color-surface-700);
+		font-size: 0.9375rem;
+		line-height: 1.6;
+	}
+	:global([data-color-mode='dark']) .faq-answer {
+		color: var(--color-surface-300);
+	}
+
+	/* ═══════════════════════════════════════════════════════════
+RIDES WIDGET SECTION — Standalone iframe embed
+═══════════════════════════════════════════════════════════ */
+	.rides-widget-section {
+		border-radius: 1rem;
+		overflow: hidden;
+		border: 1px solid var(--panel-border);
+	}
+	.rides-widget-iframe {
+		width: 100%;
+		aspect-ratio: 16/10;
+		min-height: 400px;
+		border: none;
+		display: block;
+	}
+
+	/* ═══════════════════════════════════════════════════════════
+SPONSORS SECTION
+═══════════════════════════════════════════════════════════ */
+	.sponsor-section {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 15%, transparent) 0%,
+			color-mix(in oklab, var(--color-primary-500) 10%, transparent) 50%,
+			color-mix(in oklab, var(--color-tertiary-500) 8%, transparent) 100%
+		);
+		backdrop-filter: blur(var(--panel-blur));
+		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
+		border-radius: 1rem;
+		padding: 1.5rem;
+	}
+	:global([data-color-mode='dark']) .sponsor-section {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-secondary-500) 20%, transparent) 0%,
+			color-mix(in oklab, var(--color-primary-500) 15%, transparent) 50%,
+			color-mix(in oklab, var(--color-tertiary-500) 12%, transparent) 100%
+		);
+	}
+	.sponsor-card {
+		background: transparent;
+	}
+	.sponsor-header {
+		margin-bottom: 1.25rem;
+	}
+	.sponsor-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-tertiary-700);
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+	}
+	:global([data-color-mode='dark']) .sponsor-label {
+		color: var(--color-tertiary-400);
+	}
+	.sponsor-title {
+		font-size: 1.125rem;
+		font-weight: 800;
+		color: var(--color-surface-900);
+		line-height: 1.2;
+		margin-top: 0.25rem;
+	}
+	:global([data-color-mode='dark']) .sponsor-title {
+		color: var(--color-surface-100);
+	}
+	.sponsor-grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+	.sponsor-item-link,
+	.sponsor-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		flex: 1 1 16rem;
+		max-width: 25rem;
+		min-width: 14rem;
+		background: color-mix(in oklab, var(--color-surface-50) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		border-radius: 0.75rem;
+		padding: 0.75rem;
+		transition: all 0.15s ease;
+	}
+	.sponsor-item-link:hover {
+		transform: translateY(-2px);
+		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 80%, transparent);
+	}
+	:global([data-color-mode='dark']) .sponsor-item-link,
+	:global([data-color-mode='dark']) .sponsor-item {
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+	}
+	:global([data-color-mode='dark']) .sponsor-item-link:hover {
+		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
+	}
+	.sponsor-logo-frame {
+		display: flex;
+		width: 2.8rem;
+		height: 2.8rem;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		border-radius: 0.65rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 42%, transparent);
+		box-shadow:
+			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 55%, transparent),
+			0 1px 3px rgb(0 0 0 / 0.12);
+	}
+	.sponsor-logo-frame.logo-bg-light {
+		background: color-mix(in oklab, var(--color-surface-50) 88%, var(--color-primary-500) 12%);
+	}
+	.sponsor-logo-frame.logo-bg-dark {
+		background: color-mix(in oklab, var(--color-surface-950) 85%, var(--color-surface-50) 15%);
+	}
+	.sponsor-logo-frame.logo-bg-auto {
+		background: color-mix(in oklab, var(--color-surface-500) 28%, transparent);
+	}
+	:global([data-color-mode='dark']) .sponsor-logo-frame {
+		border-color: color-mix(in oklab, var(--color-surface-50) 24%, transparent);
+		box-shadow:
+			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 12%, transparent),
+			0 1px 4px rgb(0 0 0 / 0.35);
+	}
+	:global([data-color-mode='dark']) .sponsor-logo-frame.logo-bg-light {
+		background: color-mix(in oklab, var(--color-surface-50) 90%, var(--color-surface-950) 10%);
+	}
+	:global([data-color-mode='dark']) .sponsor-logo-frame.logo-bg-dark {
+		background: color-mix(in oklab, var(--color-surface-950) 88%, var(--color-surface-50) 12%);
+	}
+	.sponsor-logo-frame img {
+		max-height: 2.1rem;
+		max-width: 2.1rem;
+		object-fit: contain;
+	}
+	.sponsor-content {
+		flex: 1;
+		min-width: 0;
+	}
+	.sponsor-name {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-surface-900);
+		line-height: 1.3;
+	}
+	:global([data-color-mode='dark']) .sponsor-name {
+		color: var(--color-surface-100);
+	}
+	.sponsor-text {
+		font-size: 0.8125rem;
+		color: var(--color-surface-600);
+		line-height: 1.4;
+		margin-top: 0.25rem;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	:global([data-color-mode='dark']) .sponsor-text {
+		color: var(--color-surface-400);
+	}
+	.sponsor-arrow {
+		width: 1rem;
+		height: 1rem;
+		color: var(--color-surface-400);
+		flex-shrink: 0;
+		transition: all 0.15s ease;
+	}
+	.sponsor-item-link:hover .sponsor-arrow {
+		color: var(--color-primary-500);
+		transform: translateX(2px);
+	}
+	:global([data-color-mode='dark']) .sponsor-item-link:hover .sponsor-arrow {
+		color: var(--color-primary-400);
+	}
+
+	/* ═══════════════════════════════════════════════════════════
+ANIMATIONS
+═══════════════════════════════════════════════════════════ */
 	@keyframes fade-in-up {
 		from {
 			opacity: 0;

@@ -19,12 +19,12 @@
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+.app-shell h1,
+.app-shell h2,
+.app-shell h3,
+.app-shell h4,
+.app-shell h5,
+.app-shell h6 {
 	color: var(--color-primary-950-50);
 }
 

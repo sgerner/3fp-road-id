@@ -56,9 +56,9 @@ export async function POST({ params, request, cookies }) {
 	const generated = await generateGroupSiteDraft({
 		group: auth.group,
 		currentConfig,
-		prompt
+		prompt,
+		allowDesignChanges: true
 	});
 
 	return json(generated);
 }
-

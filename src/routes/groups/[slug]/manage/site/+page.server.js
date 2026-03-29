@@ -3,7 +3,11 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { supabase } from '$lib/supabaseClient';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { buildMicrositeUrl, normalizeMicrositeSlug } from '$lib/microsites/host';
+import {
+	buildMicrositeUrl,
+	isReservedMicrositeSlug,
+	normalizeMicrositeSlug
+} from '$lib/microsites/host';
 import {
 	buildDefaultGroupSiteConfig,
 	mergeGroupSiteConfig,
@@ -14,7 +18,6 @@ import {
 	getGroupSiteConfig,
 	upsertGroupSiteConfig
 } from '$lib/server/groupSites';
-import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
 
 const SPONSOR_LOGO_BUCKET = 'group-assets';
 const SPONSOR_LOGO_MAX_BYTES = 5 * 1024 * 1024;
@@ -142,12 +145,12 @@ function deriveMicrositeDomainSuffix(liveUrl, micrositeSlug) {
 		if (normalized && host.startsWith(`${normalized}.`)) {
 			return host.slice(normalized.length);
 		}
-		if (parsed.hostname.endsWith('.3fp.org')) return '.3fp.org';
+		if (parsed.hostname.endsWith('.3fp.bike')) return '.3fp.bike';
 		if (parsed.hostname.endsWith('.localhost')) return `.localhost${parsed.port ? `:${parsed.port}` : ''}`;
 	} catch {
 		// ignore
 	}
-	return '.3fp.org';
+	return '.3fp.bike';
 }
 
 export const load = async ({ parent, url }) => {
@@ -163,7 +166,7 @@ export const load = async ({ parent, url }) => {
 	]);
 	const availableGroups = Array.isArray(groupsResponse?.data) ? groupsResponse.data : [];
 	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
-	const previewPath = `/site/${encodeURIComponent(micrositeSlug)}`;
+	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
 	const liveUrl = buildMicrositeUrl(micrositeSlug, url);
 	const micrositeDomainSuffix = deriveMicrositeDomainSuffix(liveUrl, micrositeSlug);
 
@@ -195,6 +198,9 @@ export const actions = {
 		if (!requestedMicrositeSlug) {
 			return fail(400, { error: 'Website slug is required and can only use letters/numbers.' });
 		}
+		if (isReservedMicrositeSlug(requestedMicrositeSlug)) {
+			return fail(400, { error: 'That website slug is reserved. Pick another one.' });
+		}
 
 		const currentMicrositeSlug = normalizeMicrositeSlug(auth.group.microsite_slug || auth.group.slug);
 		if (requestedMicrositeSlug !== currentMicrositeSlug) {
@@ -225,29 +231,6 @@ export const actions = {
 		});
 		await upsertGroupSiteConfig(auth.group.id, nextConfig);
 		throw redirect(303, `/groups/${params.slug}/manage/site?saved=palette`);
-	},
-	generate: async ({ params, request, cookies }) => {
-		const auth = await requireSiteManager(cookies, params.slug);
-		const formData = await request.formData();
-		const prompt = (formData.get('generation_prompt') || '').toString();
-		const generationScope = (formData.get('generation_scope') || 'content').toString();
-		const allowDesignChanges = generationScope === 'design';
-		const currentConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
-		const generated = await generateGroupSiteDraft({
-			group: auth.group,
-			currentConfig,
-			prompt,
-			allowDesignChanges
-		});
-
-		const nextConfig = mergeGroupSiteConfig(generated.config, {
-			ai_prompt: prompt
-		});
-		await upsertGroupSiteConfig(auth.group.id, nextConfig);
-		throw redirect(
-			303,
-			`/groups/${params.slug}/manage/site?generated=${generated.source === 'ai' ? 'ai' : 'fallback'}`
-		);
 	},
 	reset: async ({ params, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);

@@ -8,6 +8,8 @@ import {
 } from '$lib/server/groupNews';
 import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
 import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
+import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
+import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import {
 	buildDefaultGroupSiteConfig,
 	mergeGroupSiteConfig,
@@ -25,6 +27,335 @@ const PALETTE_CACHE = new Map();
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
+}
+
+const INSTAGRAM_POST_LIMIT = 3;
+const INSTAGRAM_WEB_APP_ID = '936619743392459';
+const BROWSER_LIKE_HEADERS = {
+	'User-Agent':
+		'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+	Accept: 'application/json,text/plain,*/*',
+	'Accept-Language': 'en-US,en;q=0.9'
+};
+
+function parseJsonSafe(text) {
+	if (!text) return null;
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
+
+function extractConnectedInstagramProfile(account) {
+	if (!account) return null;
+	const username = cleanText(account.username);
+	const accountName = cleanText(account.account_name);
+	const metadata = account.metadata && typeof account.metadata === 'object' ? account.metadata : {};
+	const profileUrl =
+		cleanText(metadata.profile_url) ||
+		cleanText(metadata.permalink) ||
+		cleanText(metadata.instagram_profile_url) ||
+		(username ? `https://www.instagram.com/${username}/` : '');
+	return {
+		username: username || null,
+		account_name: accountName || null,
+		profile_url: profileUrl || null,
+		connected_at: account.updated_at || account.created_at || null
+	};
+}
+
+function parseInstagramPostUrl(value) {
+	const raw = cleanText(value);
+	if (!raw) return null;
+	let parsed = null;
+	try {
+		parsed = new URL(raw);
+	} catch {
+		return null;
+	}
+	if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) return null;
+	const segments = parsed.pathname.split('/').filter(Boolean);
+	if (segments.length < 2) return null;
+	const type = cleanText(segments[0]).toLowerCase();
+	const shortcode = cleanText(segments[1]);
+	if (!['p', 'reel', 'tv'].includes(type) || !shortcode) return null;
+	const permalink = `https://www.instagram.com/${type}/${shortcode}/`;
+	return {
+		type,
+		shortcode,
+		permalink,
+		embed_url: `${permalink}embed/`,
+		id: `${type}_${shortcode}`
+	};
+}
+
+function extractInstagramHandle(value) {
+	const raw = cleanText(value);
+	if (!raw) return '';
+	const lowered = raw.toLowerCase();
+	const stripped = cleanText(raw.replace(/^@/, '').split(/[/?#]/)[0]);
+	if (stripped && !/^https?:\/\//i.test(raw) && !lowered.includes('instagram.com')) {
+		return stripped;
+	}
+	const normalized = raw.startsWith('@') ? `https://www.instagram.com/${raw.slice(1)}` : raw;
+	try {
+		const parsed = new URL(/^https?:\/\//i.test(normalized) ? normalized : `https://${normalized}`);
+		if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) return '';
+		const segments = parsed.pathname.split('/').filter(Boolean);
+		if (!segments.length) return '';
+		const first = cleanText(segments[0]).toLowerCase();
+		if (['p', 'reel', 'tv', 'reels', 'explore', 'accounts', 'stories', 'direct'].includes(first)) {
+			return '';
+		}
+		return cleanText(segments[0]);
+	} catch {
+		return cleanText(raw.replace(/^@/, '').split('/')[0]);
+	}
+}
+
+function normalizeInstagramTimestamp(unixSeconds) {
+	const numeric = Number(unixSeconds);
+	if (!Number.isFinite(numeric) || numeric <= 0) return null;
+	const date = new Date(numeric * 1000);
+	return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function normalizePublicInstagramPost(node = null) {
+	if (!node || typeof node !== 'object') return null;
+	const shortcode = cleanText(node.shortcode);
+	if (!shortcode) return null;
+	const productType = cleanText(node.product_type).toUpperCase();
+	const type = productType === 'CLIPS' ? 'reel' : 'p';
+	const permalink = `https://www.instagram.com/${type}/${shortcode}/`;
+	const caption =
+		cleanText(node?.edge_media_to_caption?.edges?.[0]?.node?.text) ||
+		cleanText(node?.accessibility_caption) ||
+		null;
+	return {
+		id: `${type}_${shortcode}`,
+		type,
+		shortcode,
+		permalink,
+		embed_url: `${permalink}embed/`,
+		source: 'public_profile',
+		caption,
+		media_type: node?.is_video ? 'VIDEO' : 'IMAGE',
+		media_url: cleanText(node?.display_url || node?.thumbnail_src) || null,
+		timestamp: normalizeInstagramTimestamp(node?.taken_at_timestamp)
+	};
+}
+
+function resolveTimelineImageUrl(item) {
+	const pickFromMedia = (media) => {
+		const candidates = Array.isArray(media?.image_versions2?.candidates)
+			? media.image_versions2.candidates
+			: [];
+		for (const candidate of candidates) {
+			const url = cleanText(candidate?.url);
+			if (url) return url;
+		}
+		return cleanText(media?.display_url) || cleanText(media?.thumbnail_url) || '';
+	};
+	const carousel = Array.isArray(item?.carousel_media) ? item.carousel_media : [];
+	if (carousel.length) {
+		const firstCarouselUrl = pickFromMedia(carousel[0]);
+		if (firstCarouselUrl) return firstCarouselUrl;
+	}
+	return pickFromMedia(item);
+}
+
+function normalizeTimelineItem(item = null) {
+	if (!item || typeof item !== 'object') return null;
+	const shortcode = cleanText(item?.code);
+	if (!shortcode) return null;
+	const mediaType = Number(item?.media_type || 0);
+	const type = mediaType === 2 ? 'reel' : 'p';
+	const permalink = `https://www.instagram.com/${type}/${shortcode}/`;
+	const caption = cleanText(item?.caption?.text) || null;
+	const mediaUrl = resolveTimelineImageUrl(item) || null;
+	return {
+		id: `${type}_${shortcode}`,
+		type,
+		shortcode,
+		permalink,
+		embed_url: `${permalink}embed/`,
+		source: 'public_timeline',
+		caption,
+		media_type: mediaType === 2 ? 'VIDEO' : mediaType === 8 ? 'CAROUSEL_ALBUM' : 'IMAGE',
+		media_url: mediaUrl,
+		timestamp: normalizeInstagramTimestamp(item?.taken_at)
+	};
+}
+
+async function fetchInstagramPublicTimelinePostsByHandle(username) {
+	const timelineUrl = `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=${INSTAGRAM_POST_LIMIT}`;
+	const response = await fetch(timelineUrl, {
+		headers: {
+			...BROWSER_LIKE_HEADERS,
+			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+			Referer: `https://www.instagram.com/${username}/`
+		},
+		redirect: 'follow',
+		signal: AbortSignal.timeout(12_000)
+	});
+	const rawBody = await response.text();
+	const payload = parseJsonSafe(rawBody);
+	if (!response.ok) return [];
+	const items = Array.isArray(payload?.items) ? payload.items : [];
+	return items.map((item) => normalizeTimelineItem(item)).filter(Boolean).slice(0, INSTAGRAM_POST_LIMIT);
+}
+
+async function fetchInstagramPublicPostsByHandle(handle) {
+	const username = extractInstagramHandle(handle);
+	if (!username) return [];
+	const timelinePosts = await fetchInstagramPublicTimelinePostsByHandle(username);
+	if (timelinePosts.length) return timelinePosts;
+
+	const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+	const response = await fetch(apiUrl, {
+		headers: {
+			...BROWSER_LIKE_HEADERS,
+			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+			Referer: `https://www.instagram.com/${username}/`
+		},
+		redirect: 'follow',
+		signal: AbortSignal.timeout(10_000)
+	});
+	const rawBody = await response.text();
+	const payload = parseJsonSafe(rawBody);
+	if (!response.ok || !payload?.data?.user) return [];
+	const edges = Array.isArray(payload?.data?.user?.edge_owner_to_timeline_media?.edges)
+		? payload.data.user.edge_owner_to_timeline_media.edges
+		: [];
+	return edges
+		.map((edge) => normalizePublicInstagramPost(edge?.node))
+		.filter(Boolean)
+		.slice(0, INSTAGRAM_POST_LIMIT);
+}
+
+function extractManualInstagramPosts(group) {
+	const links = group?.social_links && typeof group.social_links === 'object' ? group.social_links : {};
+	const list = Array.isArray(links.instagram_posts) ? links.instagram_posts : [];
+	const seen = new Set();
+	const posts = [];
+	for (const entry of list) {
+		const parsed = parseInstagramPostUrl(entry);
+		if (!parsed || seen.has(parsed.id)) continue;
+		seen.add(parsed.id);
+		posts.push({
+			...parsed,
+			source: 'manual',
+			caption: null,
+			media_type: null,
+			media_url: null,
+			timestamp: null
+		});
+	}
+	return posts.slice(0, INSTAGRAM_POST_LIMIT);
+}
+
+async function fetchConnectedInstagramPosts(serviceSupabase, groupId) {
+	if (!serviceSupabase || !groupId) return { profile: null, posts: [] };
+	const { data: account, error } = await serviceSupabase
+		.from('group_social_accounts')
+		.select(
+			'id,group_id,platform,status,username,account_name,metadata,token_expires_at,access_token_encrypted,meta_instagram_account_id,created_at,updated_at'
+		)
+		.eq('group_id', groupId)
+		.eq('platform', 'instagram')
+		.eq('status', 'active')
+		.order('updated_at', { ascending: false })
+		.limit(1)
+		.maybeSingle();
+	if (error) throw error;
+	if (!account) return { profile: null, posts: [] };
+
+	const profile = extractConnectedInstagramProfile(account);
+	const tokenResult = await resolveMetaAccountAccessToken(serviceSupabase, account);
+	const accessToken = cleanText(tokenResult?.accessToken, 5000);
+	const igAccountId = cleanText(account.meta_instagram_account_id, 120);
+	if (!accessToken || !igAccountId) {
+		return { profile, posts: [] };
+	}
+
+	const callInstagramReadEdge = async (path, query) => {
+		try {
+			return await callInstagramApi({ path, accessToken, query });
+		} catch (primaryError) {
+			return callMetaApi({ path, accessToken, query }).catch(() => {
+				throw primaryError;
+			});
+		}
+	};
+
+	const mediaPayload = await callInstagramReadEdge(`/${igAccountId}/media`, {
+		fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',
+		limit: INSTAGRAM_POST_LIMIT
+	});
+	const rows = Array.isArray(mediaPayload?.data) ? mediaPayload.data : [];
+	return {
+		profile,
+		posts: rows
+			.map((entry) => {
+				const parsed = parseInstagramPostUrl(entry?.permalink);
+				if (!parsed) return null;
+				return {
+					...parsed,
+					source: 'connected',
+					caption: cleanText(entry?.caption) || null,
+					media_type: cleanText(entry?.media_type) || null,
+					media_url: cleanText(entry?.thumbnail_url) || cleanText(entry?.media_url) || null,
+					timestamp: cleanText(entry?.timestamp) || null
+				};
+			})
+				.filter(Boolean)
+				.slice(0, INSTAGRAM_POST_LIMIT)
+		};
+	}
+
+async function loadInstagramPostsForGroup({ serviceSupabase, group }) {
+	let connectedInstagram = null;
+	let instagramPosts = [];
+	let instagramPostsSource = 'none';
+
+	try {
+		if (serviceSupabase) {
+			const connected = await fetchConnectedInstagramPosts(serviceSupabase, group.id);
+			connectedInstagram = connected.profile;
+			instagramPosts = connected.posts;
+			instagramPostsSource = connected.posts.length ? 'connected' : 'none';
+		}
+	} catch {
+		connectedInstagram = null;
+		instagramPosts = [];
+		instagramPostsSource = 'none';
+	}
+
+	if (!instagramPosts.length) {
+		const profileHandle = extractInstagramHandle(group?.social_links?.instagram || '');
+		if (profileHandle) {
+			try {
+				const discoveredPosts = await fetchInstagramPublicPostsByHandle(profileHandle);
+				if (discoveredPosts.length) {
+					instagramPosts = discoveredPosts;
+					instagramPostsSource = 'public_profile';
+				}
+			} catch {
+				// ignore and fall back to manual embeds
+			}
+		}
+	}
+
+	if (!instagramPosts.length) {
+		const manualPosts = extractManualInstagramPosts(group);
+		if (manualPosts.length) {
+			instagramPosts = manualPosts;
+			instagramPostsSource = 'manual';
+		}
+	}
+
+	return { connectedInstagram, instagramPosts, instagramPostsSource };
 }
 
 function splitTextIntoParagraphs(value) {
@@ -540,18 +871,31 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 					fontPairing: siteConfig.font_pairing
 				});
 
-	const [assetBuckets, newsPosts, rides, allRides, volunteerEvents, membership, donationEnabled, taxonomy, ownerCount] =
-		await Promise.all([
-			listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => []),
-			listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => []),
-			loadRides(fetchImpl, group.id, 4),
-			loadAllPublishedRides(fetchImpl, 240),
-			loadVolunteerEvents(fetchImpl, group.id, 4),
-			loadMembershipSummary(fetchImpl, group.slug),
-			loadDonationEnabled(group.id).catch(() => false),
-			loadGroupTaxonomy(fetchImpl, group.id),
-			loadOwnerCount(group.id).catch(() => 0)
-		]);
+	const [
+		assetBuckets,
+		newsPosts,
+		rides,
+		allRides,
+		volunteerEvents,
+		membership,
+		donationEnabled,
+		taxonomy,
+		ownerCount,
+		instagramFeed
+	] = await Promise.all([
+		listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => []),
+		listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => []),
+		loadRides(fetchImpl, group.id, 4),
+		loadAllPublishedRides(fetchImpl, 240),
+		loadVolunteerEvents(fetchImpl, group.id, 4),
+		loadMembershipSummary(fetchImpl, group.slug),
+		loadDonationEnabled(group.id).catch(() => false),
+		loadGroupTaxonomy(fetchImpl, group.id),
+		loadOwnerCount(group.id).catch(() => 0),
+		loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group }).catch(
+			() => ({ connectedInstagram: null, instagramPosts: [], instagramPostsSource: 'none' })
+		)
+	]);
 
 	const widgetRides = buildMicrositeRideWidgetRides({ allRides, group, siteConfig });
 
@@ -562,8 +906,10 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 	const primaryCta = serializePrimaryCta(rawPrimaryCta);
 	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
 	const siteUrl = buildMicrositeUrl(micrositeSlug, url);
-	const previewPath = `/site/${encodeURIComponent(micrositeSlug)}`;
-	const basePath = cleanText(url?.pathname).startsWith('/site/') ? previewPath : '';
+	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
+	const pathname = cleanText(url?.pathname);
+	const basePath =
+		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`) ? previewPath : '';
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
 		membershipProgram: membership.program
@@ -613,6 +959,9 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 		storyParagraphs: buildGroupStoryParagraphs(group, siteConfig),
 		assetBuckets,
 		photoBucket,
+		connectedInstagram: instagramFeed?.connectedInstagram || null,
+		instagramPosts: instagramFeed?.instagramPosts || [],
+		instagramPostsSource: instagramFeed?.instagramPostsSource || 'none',
 		newsPosts,
 		rides,
 		widgetRides,

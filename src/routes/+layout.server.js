@@ -3,7 +3,7 @@ import { isTurnstileEnabled } from '$lib/server/turnstile';
 import { loadOwnedGroups } from '$lib/server/sectionNavigation';
 
 export const load = async ({ cookies, fetch, route }) => {
-	const isMicrosite = Boolean(route?.id?.startsWith('/site/'));
+	const isMicrosite = Boolean(route?.id?.startsWith('/[siteSlug]'));
 	if (isMicrosite) {
 		return {
 			user: null,
