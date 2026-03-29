@@ -29,6 +29,32 @@
 	import { slide } from 'svelte/transition';
 
 	let { data, form } = $props();
+	const EMPTY_SECTIONS = {
+		story: true,
+		join: true,
+		rides: true,
+		volunteer: true,
+		news: true,
+		gallery: true,
+		contact: true
+	};
+	const EMPTY_THEME_COLORS = {
+		primary: '#F59E0B',
+		secondary: '#0EA5E9',
+		accent: '#FB7185',
+		surface: '#111827'
+	};
+	let siteConfig = $state({
+		...structuredClone(data.siteConfig || {}),
+		theme_colors: {
+			...EMPTY_THEME_COLORS,
+			...structuredClone(data.siteConfig?.theme_colors || {})
+		},
+		sections: {
+			...EMPTY_SECTIONS,
+			...structuredClone(data.siteConfig?.sections || {})
+		}
+	});
 
 	let themeMode = $state('derived');
 	let showAdvanced = $state(false);
@@ -75,6 +101,10 @@
 	let draftChatError = $state('');
 	let draftChatBodyEl = $state(null);
 	let draftChatInputEl = $state(null);
+	let applyingDraft = $state(false);
+	let pendingDraft = $state(null);
+	let localGeneratedNotice = $state('');
+	let previewVersion = $state(0);
 	let showDomainManager = $state(false);
 	let customDomains = $state([]);
 	let domainOrders = $state([]);
@@ -149,7 +179,7 @@
 		selected_groups: 'Only selected groups'
 	};
 	$effect(() => {
-		themeMode = data.siteConfig.theme_mode || 'derived';
+		themeMode = siteConfig.theme_mode || 'derived';
 		const groupCityDefault = String(data.group?.city || '').trim();
 		const groupCityStateDefault = [data.group?.city, data.group?.state_region]
 			.filter(Boolean)
@@ -157,11 +187,11 @@
 			.trim();
 		const radiusCenterDefault = groupCityStateDefault || groupCityDefault;
 		if (!sponsorItemsInitialized) {
-			const fromItems = Array.isArray(data.siteConfig.sponsor_items)
-				? data.siteConfig.sponsor_items
+			const fromItems = Array.isArray(siteConfig.sponsor_items)
+				? siteConfig.sponsor_items
 				: [];
-			const fromLinks = Array.isArray(data.siteConfig.sponsor_links)
-				? data.siteConfig.sponsor_links.map((url) => ({ name: '', text: '', logo: '', url }))
+			const fromLinks = Array.isArray(siteConfig.sponsor_links)
+				? siteConfig.sponsor_links.map((url) => ({ name: '', text: '', logo: '', url }))
 				: [];
 			const seed = (fromItems.length ? fromItems : fromLinks)
 				.map((item) => ({
@@ -177,12 +207,12 @@
 		if (!faqItemsInitialized) {
 			faqItems = [
 				{
-					question: String(data.siteConfig.faq_1_q || '').trim(),
-					answer: String(data.siteConfig.faq_1_a || '').trim()
+					question: String(siteConfig.faq_1_q || '').trim(),
+					answer: String(siteConfig.faq_1_a || '').trim()
 				},
 				{
-					question: String(data.siteConfig.faq_2_q || '').trim(),
-					answer: String(data.siteConfig.faq_2_a || '').trim()
+					question: String(siteConfig.faq_2_q || '').trim(),
+					answer: String(siteConfig.faq_2_a || '').trim()
 				}
 			].filter((item) => item.question || item.answer);
 			faqItemsInitialized = true;
@@ -192,13 +222,13 @@
 			slugInputInitialized = true;
 		}
 		if (!showRideWidgetBuilder) {
-			rideWidgetEnabled = Boolean(data.siteConfig.ride_widget_enabled);
-			rideWidgetTitle = data.siteConfig.ride_widget_title || 'Ride calendar';
-			rideWidgetHostScope = data.siteConfig.ride_widget_host_scope || 'group_only';
-			selectedRideWidgetGroupIds = Array.isArray(data.siteConfig.ride_widget_group_ids)
-				? data.siteConfig.ride_widget_group_ids
+			rideWidgetEnabled = Boolean(siteConfig.ride_widget_enabled);
+			rideWidgetTitle = siteConfig.ride_widget_title || 'Ride calendar';
+			rideWidgetHostScope = siteConfig.ride_widget_host_scope || 'group_only';
+			selectedRideWidgetGroupIds = Array.isArray(siteConfig.ride_widget_group_ids)
+				? siteConfig.ride_widget_group_ids
 				: [];
-			const widget = data.siteConfig.ride_widget_config || {};
+			const widget = siteConfig.ride_widget_config || {};
 			rideWidgetLocation =
 				widget.location ||
 				[widget.city, widget.state].filter(Boolean).join(' ') ||
@@ -257,6 +287,11 @@
 		}
 		const query = params.toString();
 		return query ? `/ride/widget/frame?${query}` : '/ride/widget/frame';
+	});
+	const sitePreviewPath = $derived.by(() => {
+		const base = data.previewPath || '/';
+		const joiner = base.includes('?') ? '&' : '?';
+		return `${base}${joiner}v=${previewVersion}`;
 	});
 
 	function normalizeMicrositeSlugInput(value) {
@@ -429,6 +464,7 @@
 		];
 		draftChatInput = '';
 		draftChatError = '';
+		pendingDraft = null;
 		resizeDraftChatInput();
 	}
 
@@ -491,9 +527,16 @@
 			];
 			await scrollDraftChatToBottom();
 
-			if (payload?.generated && payload?.redirectTo) {
-				window.location.assign(String(payload.redirectTo));
-				return;
+			if (payload?.generated && payload?.config) {
+				const summary = Array.isArray(payload?.summary)
+					? payload.summary.map((item) => String(item || '').trim()).filter(Boolean)
+					: [];
+				pendingDraft = {
+					config: payload.config,
+					source: String(payload?.source || 'ai'),
+					generationPrompt: String(payload?.generationPrompt || '').trim(),
+					summary
+				};
 			}
 		} catch (error) {
 			draftChatError = error?.message || 'Unable to reach the AI draft assistant right now.';
@@ -510,6 +553,45 @@
 		} finally {
 			draftChatSending = false;
 			resizeDraftChatInput();
+		}
+	}
+
+	async function applyPendingDraft() {
+		if (!pendingDraft?.config || applyingDraft) return;
+		draftChatError = '';
+		applyingDraft = true;
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/site/ai-draft-apply`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						config: pendingDraft.config,
+						source: pendingDraft.source,
+						generationPrompt: pendingDraft.generationPrompt
+					})
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to apply this draft right now.');
+			}
+
+			siteConfig = structuredClone(payload?.config || pendingDraft.config);
+			sponsorItemsInitialized = false;
+			faqItemsInitialized = false;
+			showRideWidgetBuilder = false;
+			localGeneratedNotice =
+				payload?.source === 'ai'
+					? 'AI draft applied to the microsite.'
+					: 'AI fallback draft applied. Review and refine before publishing changes.';
+			pendingDraft = null;
+			previewVersion += 1;
+		} catch (error) {
+			draftChatError = error?.message || 'Unable to apply this draft right now.';
+		} finally {
+			applyingDraft = false;
 		}
 	}
 
@@ -998,6 +1080,9 @@
 						: 'AI fallback draft applied. Review and refine before publishing changes.'}
 				</div>
 			{/if}
+			{#if localGeneratedNotice}
+				<div class="notice mt-3 rounded-2xl p-3 text-sm">{localGeneratedNotice}</div>
+			{/if}
 			{#if data.reset}
 				<div class="notice mt-3 rounded-2xl p-3 text-sm">
 					Microsite reset to the default generated site.
@@ -1032,7 +1117,7 @@
 			<div class="mx-auto {previewMode === 'mobile' ? 'max-w-[420px]' : 'max-w-none'}">
 				<iframe
 					title="Microsite preview"
-					src={data.previewPath}
+					src={sitePreviewPath}
 					class="h-[680px] w-full rounded-[1.4rem] border border-white/10 bg-black/30"
 				></iframe>
 			</div>
@@ -1064,18 +1149,18 @@
 				<div class="grid gap-4 md:grid-cols-2">
 					<label class="field">
 						<span>Site title</span>
-						<input class="input" name="site_title" value={data.siteConfig.site_title} />
+						<input class="input" name="site_title" value={siteConfig.site_title} />
 					</label>
 					<label class="field">
 						<span>Tagline</span>
-						<input class="input" name="site_tagline" value={data.siteConfig.site_tagline} />
+						<input class="input" name="site_tagline" value={siteConfig.site_tagline} />
 					</label>
 				</div>
 
 				<label class="field">
 					<span>Home intro</span>
 					<textarea class="textarea min-h-36" name="home_intro"
-						>{data.siteConfig.home_intro}</textarea
+						>{siteConfig.home_intro}</textarea
 					>
 				</label>
 
@@ -1086,7 +1171,7 @@
 							class="input"
 							name="microsite_notice"
 							maxlength="180"
-							value={data.siteConfig.microsite_notice || ''}
+							value={siteConfig.microsite_notice || ''}
 						/>
 					</label>
 					<label class="field">
@@ -1094,7 +1179,7 @@
 						<input
 							class="input"
 							name="microsite_notice_href"
-							value={data.siteConfig.microsite_notice_href || ''}
+							value={siteConfig.microsite_notice_href || ''}
 						/>
 					</label>
 					<label class="field">
@@ -1103,8 +1188,8 @@
 							class="input"
 							type="datetime-local"
 							name="announcement_expires_at"
-							value={data.siteConfig.announcement_expires_at
-								? new Date(data.siteConfig.announcement_expires_at).toISOString().slice(0, 16)
+							value={siteConfig.announcement_expires_at
+								? new Date(siteConfig.announcement_expires_at).toISOString().slice(0, 16)
 								: ''}
 						/>
 					</label>
@@ -1114,7 +1199,7 @@
 							class="input"
 							name="meeting_instructions"
 							maxlength="600"
-							value={data.siteConfig.meeting_instructions || ''}
+							value={siteConfig.meeting_instructions || ''}
 						/>
 					</label>
 				</div>
@@ -1122,7 +1207,7 @@
 				<label class="field">
 					<span>New rider starter note</span>
 					<textarea class="textarea min-h-28" name="new_rider_note" maxlength="600"
-						>{data.siteConfig.new_rider_note || ''}</textarea
+						>{siteConfig.new_rider_note || ''}</textarea
 					>
 				</label>
 
@@ -1572,13 +1657,13 @@
 						<label class="field">
 							<span>Featured quote</span>
 							<textarea class="textarea min-h-28" name="featured_quote"
-								>{data.siteConfig.featured_quote}</textarea
+								>{siteConfig.featured_quote}</textarea
 							>
 						</label>
 						<label class="field">
 							<span>Footer blurb</span>
 							<textarea class="textarea min-h-28" name="footer_blurb"
-								>{data.siteConfig.footer_blurb}</textarea
+								>{siteConfig.footer_blurb}</textarea
 							>
 						</label>
 					</div>
@@ -1588,7 +1673,7 @@
 							<span>Hero style</span>
 							<select class="select" name="hero_style">
 								{#each GROUP_SITE_HERO_STYLES as option}
-									<option value={option} selected={data.siteConfig.hero_style === option}
+									<option value={option} selected={siteConfig.hero_style === option}
 										>{heroLabels[option]}</option
 									>
 								{/each}
@@ -1600,7 +1685,7 @@
 								{#each GROUP_SITE_FONT_PAIRING_OPTIONS as option}
 									<option
 										value={option.value}
-										selected={data.siteConfig.font_pairing === option.value}>{option.label}</option
+										selected={siteConfig.font_pairing === option.value}>{option.label}</option
 									>
 								{/each}
 							</select>
@@ -1609,7 +1694,7 @@
 							<span>Background style</span>
 							<select class="select" name="background_style">
 								{#each GROUP_SITE_BACKGROUND_STYLES as option}
-									<option value={option} selected={data.siteConfig.background_style === option}
+									<option value={option} selected={siteConfig.background_style === option}
 										>{backgroundLabels[option]}</option
 									>
 								{/each}
@@ -1622,7 +1707,7 @@
 							<span>Panel style</span>
 							<select class="select" name="panel_style">
 								{#each GROUP_SITE_PANEL_STYLES as option}
-									<option value={option} selected={data.siteConfig.panel_style === option}
+									<option value={option} selected={siteConfig.panel_style === option}
 										>{panelStyleLabels[option]}</option
 									>
 								{/each}
@@ -1632,7 +1717,7 @@
 							<span>Panel tone</span>
 							<select class="select" name="panel_tone">
 								{#each GROUP_SITE_PANEL_TONES as option}
-									<option value={option} selected={data.siteConfig.panel_tone === option}
+									<option value={option} selected={siteConfig.panel_tone === option}
 										>{panelToneLabels[option]}</option
 									>
 								{/each}
@@ -1642,7 +1727,7 @@
 							<span>Panel density</span>
 							<select class="select" name="panel_density">
 								{#each GROUP_SITE_PANEL_DENSITIES as option}
-									<option value={option} selected={data.siteConfig.panel_density === option}
+									<option value={option} selected={siteConfig.panel_density === option}
 										>{panelDensityLabels[option]}</option
 									>
 								{/each}
@@ -1663,7 +1748,7 @@
 							<span>Repo theme</span>
 							<select class="select" name="theme_name" disabled={themeMode !== 'repo'}>
 								{#each GROUP_SITE_THEME_OPTIONS as theme}
-									<option value={theme.value} selected={data.siteConfig.theme_name === theme.value}>
+									<option value={theme.value} selected={siteConfig.theme_name === theme.value}>
 										{theme.label}
 									</option>
 								{/each}
@@ -1678,7 +1763,7 @@
 								class="input"
 								type="color"
 								name="theme_primary"
-								value={data.siteConfig.theme_colors.primary || '#F59E0B'}
+								value={siteConfig.theme_colors.primary || '#F59E0B'}
 								disabled={themeMode === 'repo'}
 							/>
 						</label>
@@ -1688,7 +1773,7 @@
 								class="input"
 								type="color"
 								name="theme_secondary"
-								value={data.siteConfig.theme_colors.secondary || '#0EA5E9'}
+								value={siteConfig.theme_colors.secondary || '#0EA5E9'}
 								disabled={themeMode === 'repo'}
 							/>
 						</label>
@@ -1698,7 +1783,7 @@
 								class="input"
 								type="color"
 								name="theme_accent"
-								value={data.siteConfig.theme_colors.accent || '#FB7185'}
+								value={siteConfig.theme_colors.accent || '#FB7185'}
 								disabled={themeMode === 'repo'}
 							/>
 						</label>
@@ -1708,7 +1793,7 @@
 								class="input"
 								type="color"
 								name="theme_surface"
-								value={data.siteConfig.theme_colors.surface || '#111827'}
+								value={siteConfig.theme_colors.surface || '#111827'}
 								disabled={themeMode === 'repo'}
 							/>
 						</label>
@@ -1722,7 +1807,7 @@
 									<input
 										type="checkbox"
 										name={`section_${key}`}
-										checked={data.siteConfig.sections[key]}
+										checked={siteConfig.sections[key]}
 									/>
 									<span>{sectionLabels[key]}</span>
 								</label>
@@ -1776,6 +1861,39 @@
 
 					{#if draftChatError}
 						<div class="text-error-400 mt-2 text-xs">{draftChatError}</div>
+					{/if}
+					{#if pendingDraft}
+						<div class="draft-summary mt-3 rounded-2xl p-3">
+							<p class="text-xs font-semibold tracking-[0.18em] text-white/55 uppercase">
+								Draft ready
+							</p>
+							<p class="mt-1 text-sm text-white/80">
+								Review these proposed updates, then apply when you are ready.
+							</p>
+							<ul class="mt-2 space-y-1 text-sm text-white/85">
+								{#each pendingDraft.summary || [] as item}
+									<li>- {item}</li>
+								{/each}
+							</ul>
+							<div class="mt-3 flex flex-wrap justify-end gap-2">
+								<button
+									type="button"
+									class="btn btn-sm preset-tonal-surface"
+									onclick={() => (pendingDraft = null)}
+									disabled={applyingDraft}
+								>
+									Discard
+								</button>
+								<button
+									type="button"
+									class="btn btn-sm preset-filled-primary-500"
+									onclick={() => void applyPendingDraft()}
+									disabled={applyingDraft}
+								>
+									{applyingDraft ? 'Applying…' : 'Apply draft'}
+								</button>
+							</div>
+						</div>
 					{/if}
 
 					<form
@@ -2113,6 +2231,11 @@
 	.ai-draft-row.is-user .ai-draft-bubble {
 		background: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 		border-color: color-mix(in oklab, var(--color-primary-400) 42%, transparent);
+	}
+
+	.draft-summary {
+		border: 1px solid color-mix(in oklab, var(--color-primary-400) 34%, transparent);
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 	}
 
 	.domain-row {

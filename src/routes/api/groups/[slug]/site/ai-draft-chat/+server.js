@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
 import { getAiConfigurationError, isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
-import { mergeGroupSiteConfig } from '$lib/microsites/config';
 import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
-import { getGroupSiteConfig, upsertGroupSiteConfig } from '$lib/server/groupSites';
+import { getGroupSiteConfig } from '$lib/server/groupSites';
 
 const MAX_MESSAGES = 20;
 const RESPONSE_SCHEMA = {
@@ -113,6 +112,72 @@ ${transcript || '(no conversation yet)'}
 `;
 }
 
+const DIFF_LABELS = {
+	site_title: 'Site title',
+	site_tagline: 'Tagline',
+	home_intro: 'Home intro',
+	featured_quote: 'Featured quote',
+	footer_blurb: 'Footer blurb',
+	microsite_notice: 'Notice banner',
+	new_rider_note: 'New rider note',
+	meeting_instructions: 'Meeting instructions',
+	hero_style: 'Hero style',
+	background_style: 'Background style',
+	panel_style: 'Panel style',
+	panel_tone: 'Panel tone',
+	panel_density: 'Panel density',
+	font_pairing: 'Font pairing',
+	theme_mode: 'Theme mode',
+	theme_name: 'Repo theme',
+	ride_widget_enabled: 'Ride calendar widget',
+	ride_widget_title: 'Ride calendar title'
+};
+
+function sameValue(left, right) {
+	return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function summarizeSiteDiff(currentConfig, nextConfig) {
+	const summary = [];
+	for (const [key, label] of Object.entries(DIFF_LABELS)) {
+		if (sameValue(currentConfig?.[key], nextConfig?.[key])) continue;
+		const value = nextConfig?.[key];
+		if (typeof value === 'boolean') {
+			summary.push(`${label}: ${value ? 'enabled' : 'disabled'}`);
+			continue;
+		}
+		const text = cleanText(value);
+		if (!text) {
+			summary.push(`${label}: cleared`);
+			continue;
+		}
+		summary.push(`${label}: ${text.length > 80 ? `${text.slice(0, 77)}...` : text}`);
+	}
+
+	const currentSections = currentConfig?.sections || {};
+	const nextSections = nextConfig?.sections || {};
+	const enabled = [];
+	const disabled = [];
+	for (const key of Object.keys(nextSections)) {
+		if (Boolean(nextSections[key]) === Boolean(currentSections[key])) continue;
+		if (nextSections[key]) enabled.push(key);
+		else disabled.push(key);
+	}
+	if (enabled.length) summary.push(`Sections enabled: ${enabled.join(', ')}`);
+	if (disabled.length) summary.push(`Sections disabled: ${disabled.join(', ')}`);
+
+	const currentSponsors = Array.isArray(currentConfig?.sponsor_items) ? currentConfig.sponsor_items.length : 0;
+	const nextSponsors = Array.isArray(nextConfig?.sponsor_items) ? nextConfig.sponsor_items.length : 0;
+	if (currentSponsors !== nextSponsors) {
+		summary.push(`Sponsor cards: ${currentSponsors} -> ${nextSponsors}`);
+	}
+
+	if (!summary.length) {
+		summary.push('Refined copy and visual direction while keeping your current structure intact.');
+	}
+	return summary.slice(0, 10);
+}
+
 async function requireOwner(cookies, groupSlug) {
 	const sessionCookie = cookies.get('sb_session');
 	if (!sessionCookie) return { ok: false, status: 401, error: 'Authentication required.' };
@@ -174,20 +239,20 @@ export async function POST({ params, request, cookies }) {
 				.map((entry) => entry.content)
 				.join('\n')
 				.trim() || 'Refresh the microsite with a clear, welcoming, practical design.';
-		const generated = await generateGroupSiteDraft({
+		const proposed = await generateGroupSiteDraft({
 			group: auth.group,
 			currentConfig,
 			prompt: fallbackPrompt,
 			allowDesignChanges: true
 		});
-		const nextConfig = mergeGroupSiteConfig(generated.config, { ai_prompt: fallbackPrompt });
-		await upsertGroupSiteConfig(auth.group.id, nextConfig);
 		return json({
 			reply:
-				'AI guidance is unavailable right now, so I generated a full content-and-design draft from your notes.',
+				'AI guidance is limited right now, but I prepared a draft proposal from your notes. Review it and apply when ready.',
 			generated: true,
-			source: generated.source,
-			redirectTo: `/groups/${params.slug}/manage/site?generated=${generated.source === 'ai' ? 'ai' : 'fallback'}`,
+			source: proposed.source,
+			config: proposed.config,
+			generationPrompt: fallbackPrompt,
+			summary: summarizeSiteDiff(currentConfig, proposed.config),
 			error: getAiConfigurationError('structured_text')
 		});
 	}
@@ -223,8 +288,8 @@ export async function POST({ params, request, cookies }) {
 		const reply = cleanText(parsed.reply) || 'Tell me a bit more about the tone and priorities you want.';
 		let generationPrompt = cleanText(parsed.generation_prompt);
 
-		// Keep questioning minimal: after one assistant question and a user reply, generate.
-		if (assistantQuestionCount >= 1 && userMessageCount >= 1) {
+		// Keep questioning minimal: allow one follow-up, then generate.
+		if (assistantQuestionCount >= 1 && userMessageCount >= 2) {
 			action = 'generate';
 			if (!generationPrompt) {
 				generationPrompt = messages
@@ -239,23 +304,20 @@ export async function POST({ params, request, cookies }) {
 			return json({ reply, generated: false });
 		}
 
-		const generated = await generateGroupSiteDraft({
+		const proposed = await generateGroupSiteDraft({
 			group: auth.group,
 			currentConfig,
 			prompt: generationPrompt,
 			allowDesignChanges: true
 		});
 
-		const nextConfig = mergeGroupSiteConfig(generated.config, {
-			ai_prompt: generationPrompt
-		});
-		await upsertGroupSiteConfig(auth.group.id, nextConfig);
-
 		return json({
 			reply,
 			generated: true,
-			source: generated.source,
-			redirectTo: `/groups/${params.slug}/manage/site?generated=${generated.source === 'ai' ? 'ai' : 'fallback'}`
+			source: proposed.source,
+			config: proposed.config,
+			generationPrompt,
+			summary: summarizeSiteDiff(currentConfig, proposed.config)
 		});
 	} catch (error) {
 		return json(
