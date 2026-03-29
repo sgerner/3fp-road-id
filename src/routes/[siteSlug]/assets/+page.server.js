@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { loadGroupMicrosite } from '$lib/server/groupSites';
 
-export const load = async ({ params, fetch, url, setHeaders }) => {
+export const load = async ({ params, fetch, url }) => {
 	const site = await loadGroupMicrosite({
 		siteSlug: params.siteSlug,
 		fetch,
@@ -12,16 +12,8 @@ export const load = async ({ params, fetch, url, setHeaders }) => {
 		throw error(404, 'Microsite not found.');
 	}
 
-	setHeaders({
-		'cache-control': 'public, max-age=120, s-maxage=300, stale-while-revalidate=3600'
-	});
-
-	const activeBucket = url.searchParams.get('bucket') || '';
-	const basePath = site.basePath || '';
-
 	return {
 		site,
-		activeBucket,
-		basePath
+		basePath: site.basePath || ''
 	};
 };

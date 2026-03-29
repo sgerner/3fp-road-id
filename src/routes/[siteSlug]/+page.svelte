@@ -228,7 +228,7 @@ HERO — cinematic cover with integrated CTAs
 	HERO BOLD — Magazine-style diagonal split with oversized typography
 	════════════════════════════════════════════════════════ -->
 			<div
-				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-[16/10]"
+				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
 			>
 				<!-- Left diagonal panel with solid theme color -->
 				<div
@@ -285,7 +285,7 @@ HERO — cinematic cover with integrated CTAs
 							<div class="min-w-0 flex-1">
 								{#if config.site_title}
 									<h1
-										class="text-primary-500 text-4xl font-black tracking-tight [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] md:text-6xl lg:text-7xl"
+										class="text-primary-500 text-4xl leading-[0.92] font-black tracking-tight break-words [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] max-md:leading-[0.95] md:text-6xl lg:text-7xl"
 									>
 										{config.site_title}
 									</h1>
@@ -313,7 +313,7 @@ HERO — cinematic cover with integrated CTAs
 										href={action.href}
 										target={action.external ? '_blank' : undefined}
 										rel={action.external ? 'noopener noreferrer' : undefined}
-										class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 {i ===
+										class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 max-md:px-4 max-md:py-2.5 {i ===
 										0
 											? 'bg-primary-500 text-primary-contrast-500 shadow-lg [box-shadow:0_4px_20px_-4px_color-mix(in_oklab,var(--color-primary-500)_50%,transparent)] hover:-translate-y-0.5 hover:[box-shadow:0_8px_28px_-4px_color-mix(in_oklab,var(--color-primary-500)_60%,transparent)]'
 											: 'text-surface-100 border [border-color:color-mix(in_oklab,var(--color-surface-50)_15%,transparent)] [background:color-mix(in_oklab,var(--color-surface-50)_10%,transparent)] hover:[background:color-mix(in_oklab,var(--color-surface-50)_18%,transparent)]'}"
@@ -337,7 +337,7 @@ HERO — cinematic cover with integrated CTAs
 	HERO ORBIT — Modern floating glass card with ambient glow
 	════════════════════════════════════════════════════════ -->
 			<div
-				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-[16/11]"
+				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
 			>
 				{#if group.cover_photo_url}
 					<img
@@ -391,7 +391,7 @@ HERO — cinematic cover with integrated CTAs
 								{/if}
 								{#if config.site_title}
 									<h1
-										class="text-primary-500 mt-3 text-3xl font-black tracking-tight [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
+										class="text-primary-500 mt-3 text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
 									>
 										{config.site_title}
 									</h1>
@@ -409,7 +409,7 @@ HERO — cinematic cover with integrated CTAs
 								{/if}
 							</div>
 							{#if site.actions.length}
-								<div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+								<div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:mt-8">
 									{#each site.actions as action, i}
 										<a
 											href={action.href}
@@ -436,7 +436,7 @@ HERO — cinematic cover with integrated CTAs
 			</div>
 		{:else}
 			<div
-				class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-[16/10]"
+				class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-auto"
 			>
 				{#if group.cover_photo_url}
 					<img
@@ -457,7 +457,7 @@ HERO — cinematic cover with integrated CTAs
 				></div>
 				<div class="relative z-10 flex h-full flex-col justify-end p-5 md:p-8">
 					<div class="flex flex-col gap-6">
-						<div class="flex items-end gap-4">
+						<div class="flex items-start gap-4 md:items-end">
 							{#if group.logo_url}
 								<img
 									src={group.logo_url}
@@ -480,7 +480,7 @@ HERO — cinematic cover with integrated CTAs
 									</p>
 								{/if}
 								<h1
-									class="text-primary-500 text-3xl font-black tracking-tight md:text-4xl lg:text-5xl"
+									class="text-primary-500 text-3xl leading-tight font-black tracking-tight break-words md:text-4xl lg:text-5xl"
 								>
 									{config.site_title}
 								</h1>
@@ -517,17 +517,6 @@ HERO — cinematic cover with integrated CTAs
 			</div>
 		{/if}
 	</section>
-	<!-- ═══════════════════════════════════════════════════════════
-	     NEW RIDER NOTE — Helpful for newcomers (optional)
-     ═══════════════════════════════════════════════════════════ -->
-	{#if hasNewRiderNote}
-		<section class="new-rider-note">
-			<div class="note-content">
-				<p class="note-label">New rider starter note</p>
-				<AutoLinkText text={config.new_rider_note} className="note-text" linkClass="note-link" />
-			</div>
-		</section>
-	{/if}
 	<!-- ═══════════════════════════════════════════════════════════
 	     DONATE — Quick donation widget (optional)
      ═══════════════════════════════════════════════════════════ -->
@@ -595,6 +584,18 @@ ABOUT — Comprehensive group profile
 					{#each site.storyParagraphs.slice(0, 2) as paragraph}
 						<AutoLinkText text={paragraph} className="about-paragraph" linkClass="about-link" />
 					{/each}
+
+					<!-- New rider note -->
+					{#if hasNewRiderNote}
+						<div class="new-rider-note about-new-rider-note">
+							<p class="note-label">New Riders</p>
+							<AutoLinkText
+								text={config.new_rider_note}
+								className="note-text"
+								linkClass="note-link"
+							/>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Quick facts grid -->
@@ -782,7 +783,7 @@ ABOUT — Comprehensive group profile
 		<section class="events-section" id="events">
 			<div class="events-card">
 				<div class="events-header">
-					<div class="flex items-center gap-3">
+					<div class="events-header-main">
 						<div class="events-icon"><IconNewspaper class="h-5 w-5" /></div>
 						<div>
 							<p class="events-label">Coming up</p>
@@ -790,7 +791,10 @@ ABOUT — Comprehensive group profile
 						</div>
 					</div>
 					{#if hasNews}
-						<a href="/groups/{group.slug}/news" class="btn btn-sm preset-tonal-secondary gap-1">
+						<a
+							href="/groups/{group.slug}/news"
+							class="btn btn-sm preset-tonal-secondary events-header-cta gap-1"
+						>
 							All updates
 							<IconArrowRight class="h-4 w-4" />
 						</a>
@@ -836,18 +840,21 @@ ABOUT — Comprehensive group profile
 						</a>
 					{/each}
 				</div>
-				{#if hasRides || hasVolunteer || hasNews}
-					<div class="events-footer">
+				{#if hasRides || hasVolunteer}
+					<div class="border-surface-500/20 mt-5 flex flex-wrap gap-4 border-t pt-5">
 						{#if hasRides}
-							<a href={groupPageHref} class="events-link">View all rides →</a>
-						{/if}
-						{#if hasVolunteer}
-							<a href="/volunteer/groups/{group.slug}" class="events-link"
-								>Volunteer opportunities →</a
+							<a
+								href={groupPageHref}
+								class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
+								>View all rides →</a
 							>
 						{/if}
-						{#if hasNews}
-							<a href="/groups/{group.slug}/news" class="events-link">All updates →</a>
+						{#if hasVolunteer}
+							<a
+								href="/volunteer/groups/{group.slug}"
+								class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
+								>Volunteer opportunities →</a
+							>
 						{/if}
 					</div>
 				{/if}
@@ -861,7 +868,7 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 		<section class="gallery-section" id="gallery">
 			<div class="gallery-card">
 				<div class="gallery-header">
-					<div class="flex items-center gap-3">
+					<div class="gallery-header-main">
 						<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
 						<div>
 							<p class="gallery-label">Gallery</p>
@@ -869,7 +876,10 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 						</div>
 					</div>
 					{#if galleryImages.length}
-						<a href={galleryHref} class="btn btn-sm preset-tonal-secondary gap-1">
+						<a
+							href={galleryHref}
+							class="btn btn-sm preset-tonal-secondary gallery-header-cta gap-1"
+						>
 							View full gallery
 							<IconArrowRight class="h-4 w-4" />
 						</a>
@@ -916,9 +926,8 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 			</div>
 		</section>
 	{/if}
-
 	<!-- ═══════════════════════════════════════════════════════════
-RIDES WIDGET — Embedded ride calendar (standalone iframe)
+DONATE — Quick donation widget (optional)
 ═══════════════════════════════════════════════════════════ -->
 	{#if config.ride_widget_enabled}
 		<section class="rides-widget-section" id="rides-widget">
@@ -1062,7 +1071,7 @@ FOOTER — Simple, clean
 </div>
 <!-- ═══════════════════════════════════════════════════════════
      LIGHTBOX — For gallery images
-     ═══════════════════════════════════════════════════════════ -->
+			═══════════════════════════════════════════════════════════ -->
 {#if lightboxOpen && lightboxItems.length}
 	<div
 		class="lightbox-backdrop"
@@ -1213,9 +1222,22 @@ FOOTER — Simple, clean
 	.notice-btn:hover {
 		opacity: 0.9;
 	}
+
+	/* Dark mode adjustments for notice banner */
+	:global([data-color-mode='dark']) .notice-banner {
+		background: color-mix(in oklab, var(--color-warning-500) 15%, var(--color-surface-900));
+		border-color: color-mix(in oklab, var(--color-warning-500) 40%, transparent);
+	}
+	:global([data-color-mode='dark']) .notice-text {
+		color: var(--color-surface-50);
+	}
+	:global([data-color-mode='dark']) .notice-link {
+		color: var(--color-warning-300);
+	}
+
 	/* ═══════════════════════════════════════════════════════════
-   HERO SECTION — All variants
-   ═══════════════════════════════════════════════════════════ */
+HERO SECTION — All variants
+═══════════════════════════════════════════════════════════ */
 	.hero-section {
 		border-radius: 1.25rem;
 		overflow: hidden;
@@ -1480,7 +1502,7 @@ FOOTER — Simple, clean
 		gap: 0.375rem;
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: var(--color-surface-400);
+		color: var(--color-surface-300);
 		letter-spacing: 0.2em;
 		text-transform: uppercase;
 		margin-top: 1rem;
@@ -1857,7 +1879,7 @@ FOOTER — Simple, clean
 		text-transform: uppercase;
 	}
 	:global([data-color-mode='dark']) .about-label {
-		color: var(--color-secondary-400);
+		color: var(--color-secondary-300);
 	}
 	.about-title {
 		font-size: 1.125rem;
@@ -1870,6 +1892,26 @@ FOOTER — Simple, clean
 	}
 	.about-content {
 		margin-bottom: 1.25rem;
+	}
+
+	.about-new-rider-note {
+		margin-top: 1rem;
+		padding: 0.9rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-50) 74%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+		border-left: 3px solid color-mix(in oklab, var(--color-primary-500) 42%, transparent);
+		border-radius: 0.75rem;
+		backdrop-filter: none;
+	}
+
+	:global([data-color-mode='dark']) .about-new-rider-note {
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+		border-left-color: color-mix(in oklab, var(--color-primary-400) 50%, transparent);
+	}
+
+	.about-new-rider-note .note-label {
+		margin-bottom: 0.35rem;
 	}
 	.about-paragraph {
 		font-size: 0.9375rem;
@@ -1991,20 +2033,41 @@ FOOTER — Simple, clean
 EVENTS SECTION (Unified rides/volunteer/news)
 ═══════════════════════════════════════════════════════════ */
 	.events-section {
-		background: var(--panel-bg);
+		background: color-mix(in oklab, var(--color-surface-50) 82%, transparent);
 		backdrop-filter: blur(var(--panel-blur));
-		border: 1px solid var(--panel-border);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
 		border-radius: 1rem;
 		padding: 1.5rem;
 	}
 	:global([data-color-mode='dark']) .events-section {
-		background: var(--panel-bg-dark);
+		background: color-mix(in oklab, var(--color-surface-950) 76%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
 	}
 	.events-header {
 		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 1.25rem;
+	}
+	.events-header-main {
+		display: flex;
 		align-items: center;
 		gap: 0.875rem;
-		margin-bottom: 1.25rem;
+		min-width: 0;
+	}
+	.events-header-cta {
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+	@media (max-width: 640px) {
+		.events-header {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+		.events-header-cta {
+			margin-left: 0;
+		}
 	}
 	.events-icon {
 		width: 2.25rem;
@@ -2020,12 +2083,12 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.events-label {
 		font-size: 0.6875rem;
 		font-weight: 600;
-		color: var(--color-secondary-600);
+		color: var(--color-secondary-700);
 		letter-spacing: 0.15em;
 		text-transform: uppercase;
 	}
 	:global([data-color-mode='dark']) .events-label {
-		color: var(--color-secondary-400);
+		color: var(--color-secondary-300);
 	}
 	.events-title {
 		font-size: 1.125rem;
@@ -2045,15 +2108,23 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		display: flex;
 		gap: 1rem;
 		padding: 1rem;
-		background: color-mix(in oklab, var(--color-surface-500) 5%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 74%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
 		border-radius: 0.75rem;
 		transition: all 0.15s ease;
 	}
+	:global([data-color-mode='dark']) .event-card {
+		background: color-mix(in oklab, var(--color-surface-950) 66%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-50) 12%, transparent);
+	}
 	.event-card:hover {
 		transform: translateY(-2px);
-		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
-		border-color: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 84%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 26%, transparent);
+	}
+	:global([data-color-mode='dark']) .event-card:hover {
+		background: color-mix(in oklab, var(--color-surface-950) 78%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-400) 30%, transparent);
 	}
 	.event-date {
 		display: flex;
@@ -2131,7 +2202,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 	.event-summary {
 		font-size: 0.8125rem;
-		color: var(--color-surface-600);
+		color: var(--color-surface-700);
 		line-height: 1.5;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
@@ -2139,30 +2210,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		overflow: hidden;
 	}
 	:global([data-color-mode='dark']) .event-summary {
-		color: var(--color-surface-400);
-	}
-	.events-footer {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1rem;
-		margin-top: 1.25rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--panel-border);
-	}
-	.events-link {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-surface-600);
-		transition: color 0.15s ease;
-	}
-	.events-link:hover {
-		color: var(--color-primary-500);
-	}
-	:global([data-color-mode='dark']) .events-link {
-		color: var(--color-surface-400);
-	}
-	:global([data-color-mode='dark']) .events-link:hover {
-		color: var(--color-primary-400);
+		color: var(--color-surface-300);
 	}
 	/* ═══════════════════════════════════════════════════════════
    GALLERY SECTION
@@ -2179,9 +2227,29 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 	.gallery-header {
 		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+	.gallery-header-main {
+		display: flex;
 		align-items: center;
 		gap: 0.875rem;
-		margin-bottom: 1.25rem;
+		min-width: 0;
+	}
+	.gallery-header-cta {
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+	@media (max-width: 640px) {
+		.gallery-header {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+		.gallery-header-cta {
+			margin-left: 0;
+		}
 	}
 	.gallery-icon {
 		width: 2.25rem;
@@ -2216,7 +2284,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.gallery-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 0.5rem;
+		gap: 0.625rem;
 	}
 	.gallery-item {
 		position: relative;
@@ -2237,8 +2305,8 @@ EVENTS SECTION (Unified rides/volunteer/news)
 
 	/* Instagram Preview Section */
 	.instagram-preview-section {
-		margin-top: 1.5rem;
-		padding-top: 1.25rem;
+		margin-top: 1.125rem;
+		padding-top: 1rem;
 		border-top: 1px solid var(--panel-border);
 	}
 	.instagram-preview-label {
@@ -2255,11 +2323,11 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.instagram-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 0.5rem;
+		gap: 0.625rem;
 	}
 	.instagram-preview-item {
 		position: relative;
-		aspect-ratio: 1;
+		aspect-ratio: 4 / 5;
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
@@ -2368,16 +2436,16 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		text-transform: uppercase;
 	}
 	:global([data-color-mode='dark']) .contact-label-section {
-		color: var(--color-primary-400);
+		color: var(--color-primary-200);
 	}
 	.contact-title {
 		font-size: 1.125rem;
 		font-weight: 800;
-		color: var(--color-surface-900);
+		color: var(--color-surface-950);
 		line-height: 1.2;
 	}
 	:global([data-color-mode='dark']) .contact-title {
-		color: var(--color-surface-100);
+		color: var(--color-surface-50);
 	}
 	.contact-links {
 		display: flex;
@@ -2422,27 +2490,27 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.contact-link-label {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-surface-900);
+		color: var(--color-surface-950);
 		display: block;
 	}
 	:global([data-color-mode='dark']) .contact-link-label {
-		color: var(--color-surface-100);
+		color: var(--color-surface-50);
 	}
 	.contact-link-value {
 		font-size: 0.75rem;
-		color: var(--color-surface-500);
+		color: var(--color-surface-700);
 		display: block;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	:global([data-color-mode='dark']) .contact-link-value {
-		color: var(--color-surface-400);
+		color: var(--color-surface-200);
 	}
 	.contact-link-arrow {
 		width: 1rem;
 		height: 1rem;
-		color: var(--color-surface-400);
+		color: var(--color-surface-600);
 		flex-shrink: 0;
 		transition: all 0.15s ease;
 	}
@@ -2450,8 +2518,11 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		color: var(--color-primary-500);
 		transform: translateX(2px);
 	}
+	:global([data-color-mode='dark']) .contact-link-arrow {
+		color: var(--color-surface-200);
+	}
 	:global([data-color-mode='dark']) .contact-link:hover .contact-link-arrow {
-		color: var(--color-primary-400);
+		color: var(--color-primary-300);
 	}
 	/* ═══════════════════════════════════════════════════════════
    FOOTER
@@ -2739,119 +2810,169 @@ RIDES WIDGET SECTION — Standalone iframe embed
 SPONSORS SECTION
 ═══════════════════════════════════════════════════════════ */
 	.sponsor-section {
+		position: relative;
+		overflow: hidden;
+		background:
+			radial-gradient(
+				90% 140% at 0% 0%,
+				color-mix(in oklab, var(--color-tertiary-500) 22%, transparent) 0%,
+				transparent 55%
+			),
+			radial-gradient(
+				70% 120% at 100% 100%,
+				color-mix(in oklab, var(--color-secondary-500) 20%, transparent) 0%,
+				transparent 58%
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in oklab, var(--color-surface-50) 82%, transparent),
+				color-mix(in oklab, var(--color-primary-500) 10%, transparent)
+			);
+		backdrop-filter: blur(var(--panel-blur));
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 26%, transparent);
+		border-radius: 1.15rem;
+		padding: 1.35rem;
+		box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-surface-50) 45%, transparent);
+	}
+	.sponsor-section::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
 		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 15%, transparent) 0%,
-			color-mix(in oklab, var(--color-primary-500) 10%, transparent) 50%,
+			120deg,
+			color-mix(in oklab, var(--color-primary-500) 10%, transparent) 0%,
+			transparent 40%,
 			color-mix(in oklab, var(--color-tertiary-500) 8%, transparent) 100%
 		);
-		backdrop-filter: blur(var(--panel-blur));
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-		border-radius: 1rem;
-		padding: 1.5rem;
+		opacity: 0.45;
 	}
 	:global([data-color-mode='dark']) .sponsor-section {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 20%, transparent) 0%,
-			color-mix(in oklab, var(--color-primary-500) 15%, transparent) 50%,
-			color-mix(in oklab, var(--color-tertiary-500) 12%, transparent) 100%
-		);
+		background:
+			radial-gradient(
+				90% 140% at 0% 0%,
+				color-mix(in oklab, var(--color-tertiary-500) 28%, transparent) 0%,
+				transparent 58%
+			),
+			radial-gradient(
+				75% 120% at 100% 100%,
+				color-mix(in oklab, var(--color-secondary-500) 24%, transparent) 0%,
+				transparent 60%
+			),
+			linear-gradient(
+				135deg,
+				color-mix(in oklab, var(--color-surface-950) 72%, transparent),
+				color-mix(in oklab, var(--color-primary-500) 14%, transparent)
+			);
+		border-color: color-mix(in oklab, var(--color-primary-400) 34%, transparent);
+		box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-surface-50) 10%, transparent);
 	}
 	.sponsor-card {
+		position: relative;
+		z-index: 1;
 		background: transparent;
 	}
 	.sponsor-header {
-		margin-bottom: 1.25rem;
+		margin-bottom: 1rem;
 	}
 	.sponsor-label {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-tertiary-700);
-		letter-spacing: 0.15em;
+		font-size: 0.7rem;
+		font-weight: 700;
+		color: var(--color-primary-800);
+		letter-spacing: 0.17em;
 		text-transform: uppercase;
 	}
 	:global([data-color-mode='dark']) .sponsor-label {
-		color: var(--color-tertiary-400);
+		color: var(--color-primary-200);
 	}
 	.sponsor-title {
-		font-size: 1.125rem;
-		font-weight: 800;
-		color: var(--color-surface-900);
-		line-height: 1.2;
-		margin-top: 0.25rem;
+		font-size: 1.95rem;
+		font-weight: 900;
+		color: var(--color-surface-950);
+		line-height: 1.1;
+		margin-top: 0.35rem;
+		max-width: 22ch;
 	}
 	:global([data-color-mode='dark']) .sponsor-title {
-		color: var(--color-surface-100);
+		color: var(--color-surface-50);
+	}
+	@media (max-width: 640px) {
+		.sponsor-title {
+			font-size: 1.4rem;
+		}
 	}
 	.sponsor-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+		gap: 0.85rem;
 	}
 	.sponsor-item-link,
 	.sponsor-item {
+		position: relative;
 		display: flex;
-		align-items: flex-start;
-		gap: 0.75rem;
-		flex: 1 1 16rem;
-		max-width: 25rem;
-		min-width: 14rem;
-		background: color-mix(in oklab, var(--color-surface-50) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-		border-radius: 0.75rem;
-		padding: 0.75rem;
-		transition: all 0.15s ease;
+		align-items: center;
+		gap: 0.8rem;
+		min-height: 5.25rem;
+		background: color-mix(in oklab, var(--color-surface-50) 78%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
+		border-radius: 0.9rem;
+		padding: 0.8rem 0.9rem;
+		transition:
+			transform 170ms ease,
+			border-color 170ms ease,
+			background 170ms ease,
+			box-shadow 170ms ease;
+	}
+	.sponsor-item-link {
+		text-decoration: none;
 	}
 	.sponsor-item-link:hover {
 		transform: translateY(-2px);
-		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
-		background: color-mix(in oklab, var(--color-surface-50) 80%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 38%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 90%, transparent);
+		box-shadow: 0 10px 20px -14px color-mix(in oklab, var(--color-primary-500) 44%, transparent);
 	}
 	:global([data-color-mode='dark']) .sponsor-item-link,
 	:global([data-color-mode='dark']) .sponsor-item {
-		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
 	}
 	:global([data-color-mode='dark']) .sponsor-item-link:hover {
-		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 82%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-400) 42%, transparent);
+		box-shadow: 0 10px 20px -14px color-mix(in oklab, var(--color-primary-400) 45%, transparent);
 	}
 	.sponsor-logo-frame {
 		display: flex;
-		width: 2.8rem;
-		height: 2.8rem;
+		width: 3rem;
+		height: 3rem;
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.65rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 42%, transparent);
+		border-radius: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 34%, transparent);
 		box-shadow:
-			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 55%, transparent),
-			0 1px 3px rgb(0 0 0 / 0.12);
+			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 52%, transparent),
+			0 3px 8px rgb(0 0 0 / 0.14);
 	}
 	.sponsor-logo-frame.logo-bg-light {
-		background: color-mix(in oklab, var(--color-surface-50) 88%, var(--color-primary-500) 12%);
+		background: color-mix(in oklab, var(--color-surface-50) 90%, var(--color-primary-500) 10%);
 	}
 	.sponsor-logo-frame.logo-bg-dark {
-		background: color-mix(in oklab, var(--color-surface-950) 85%, var(--color-surface-50) 15%);
-	}
-	.sponsor-logo-frame.logo-bg-auto {
-		background: color-mix(in oklab, var(--color-surface-500) 28%, transparent);
-	}
-	:global([data-color-mode='dark']) .sponsor-logo-frame {
-		border-color: color-mix(in oklab, var(--color-surface-50) 24%, transparent);
-		box-shadow:
-			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 12%, transparent),
-			0 1px 4px rgb(0 0 0 / 0.35);
-	}
-	:global([data-color-mode='dark']) .sponsor-logo-frame.logo-bg-light {
-		background: color-mix(in oklab, var(--color-surface-50) 90%, var(--color-surface-950) 10%);
-	}
-	:global([data-color-mode='dark']) .sponsor-logo-frame.logo-bg-dark {
 		background: color-mix(in oklab, var(--color-surface-950) 88%, var(--color-surface-50) 12%);
 	}
+	.sponsor-logo-frame.logo-bg-auto {
+		background: color-mix(in oklab, var(--color-surface-500) 26%, transparent);
+	}
+	:global([data-color-mode='dark']) .sponsor-logo-frame {
+		border-color: color-mix(in oklab, var(--color-surface-50) 20%, transparent);
+		box-shadow:
+			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-50) 12%, transparent),
+			0 3px 10px rgb(0 0 0 / 0.38);
+	}
 	.sponsor-logo-frame img {
-		max-height: 2.1rem;
-		max-width: 2.1rem;
+		max-height: 2.2rem;
+		max-width: 2.2rem;
 		object-fit: contain;
 	}
 	.sponsor-content {
@@ -2859,18 +2980,18 @@ SPONSORS SECTION
 		min-width: 0;
 	}
 	.sponsor-name {
-		font-size: 0.9375rem;
-		font-weight: 700;
-		color: var(--color-surface-900);
-		line-height: 1.3;
+		font-size: 1.03rem;
+		font-weight: 800;
+		color: var(--color-surface-950);
+		line-height: 1.25;
 	}
 	:global([data-color-mode='dark']) .sponsor-name {
-		color: var(--color-surface-100);
+		color: var(--color-surface-50);
 	}
 	.sponsor-text {
-		font-size: 0.8125rem;
-		color: var(--color-surface-600);
-		line-height: 1.4;
+		font-size: 0.875rem;
+		color: var(--color-surface-700);
+		line-height: 1.35;
 		margin-top: 0.25rem;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
@@ -2878,23 +2999,27 @@ SPONSORS SECTION
 		overflow: hidden;
 	}
 	:global([data-color-mode='dark']) .sponsor-text {
-		color: var(--color-surface-400);
+		color: var(--color-surface-200);
 	}
 	.sponsor-arrow {
-		width: 1rem;
-		height: 1rem;
-		color: var(--color-surface-400);
+		width: 1.1rem;
+		height: 1.1rem;
+		color: var(--color-surface-600);
 		flex-shrink: 0;
-		transition: all 0.15s ease;
+		transition:
+			transform 170ms ease,
+			color 170ms ease;
+	}
+	:global([data-color-mode='dark']) .sponsor-arrow {
+		color: var(--color-surface-200);
 	}
 	.sponsor-item-link:hover .sponsor-arrow {
 		color: var(--color-primary-500);
-		transform: translateX(2px);
+		transform: translateX(3px);
 	}
 	:global([data-color-mode='dark']) .sponsor-item-link:hover .sponsor-arrow {
-		color: var(--color-primary-400);
+		color: var(--color-primary-300);
 	}
-
 	/* ═══════════════════════════════════════════════════════════
 ANIMATIONS
 ═══════════════════════════════════════════════════════════ */

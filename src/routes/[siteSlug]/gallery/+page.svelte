@@ -1,5 +1,4 @@
 <script>
-	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconImage from '@lucide/svelte/icons/image';
@@ -10,11 +9,14 @@
 
 	const site = $derived(data.site);
 	const group = $derived(site.group);
-	const basePath = $derived(site.basePath || '');
-	const homeHref = $derived(basePath || '/');
+	const pageStyleClass = $derived(
+		`hero-mode-${site.siteConfig?.hero_style || 'immersive'} panel-${site.siteConfig?.panel_style || 'glass'} tone-${site.siteConfig?.panel_tone || 'surface'}`
+	);
 	const galleryImages = $derived(site.photoBucket?.image_assets || []);
+	const photoCountLabel = $derived(
+		galleryImages.length === 1 ? '1 photo' : `${galleryImages.length} photos`
+	);
 
-	// Lightbox state
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
 
@@ -52,63 +54,60 @@
 	<meta
 		name="description"
 		content="Photo gallery for {site.siteConfig?.site_title ||
-			group?.name}. See moments from our rides and events."
+			group?.name}. See moments from rides and events."
 	/>
 </svelte:head>
 
-<div class="gallery-page">
-	<!-- Back button -->
-	<a href={homeHref} class="back-link">
-		<IconArrowLeft class="h-4 w-4" />
-		<span>Back to {site.siteConfig?.site_title || group?.name}</span>
-	</a>
-
-	<!-- Header -->
-	<div class="gallery-header">
-		<div class="gallery-icon">
-			<IconImage class="h-5 w-5" />
-		</div>
-		<div>
-			<p class="gallery-label">Gallery</p>
-			<h1 class="gallery-title">
-				{#if galleryImages.length === 0}
-					No photos yet
-				{:else if galleryImages.length === 1}
-					1 photo
-				{:else}
-					{galleryImages.length} photos
-				{/if}
-			</h1>
-		</div>
-	</div>
-
-	<!-- Gallery Grid -->
-	{#if galleryImages.length === 0}
-		<div class="empty-state">
-			<IconImage class="h-12 w-12" />
-			<p class="empty-title">No photos yet</p>
-			<p class="empty-text">Photos from rides and events will appear here.</p>
-		</div>
-	{:else}
-		<div class="gallery-grid">
-			{#each galleryImages as image, i}
-				<button
-					type="button"
-					onclick={() => openLightbox(i)}
-					class="gallery-item"
-					style="--stagger: {i}"
-				>
-					<img src={image.href} alt={image.title} loading="lazy" />
-					<div class="gallery-overlay">
-						<span class="gallery-view">View</span>
+<div class="microsite-page mx-auto max-w-7xl {pageStyleClass} pb-14">
+	<section class="mx-auto w-full max-w-5xl px-4 pt-6 md:px-6" in:fade={{ duration: 220 }}>
+		<div class="gallery-hero rounded-2xl p-5 sm:p-6">
+			<div class="flex items-start gap-4">
+				<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
+				<div class="min-w-0">
+					<div class="mb-1.5 flex flex-wrap items-center gap-2">
+						<span
+							class="chip preset-filled-secondary-500 text-[0.65rem] font-semibold tracking-[0.2em] uppercase"
+							>Gallery</span
+						>
+						<span class="hero-meta">{photoCountLabel}</span>
 					</div>
-				</button>
-			{/each}
+					<h1 class="hero-title">Photo gallery</h1>
+					<p class="hero-copy">
+						Moments from rides, events, and community days with {site.siteConfig?.site_title ||
+							group?.name}.
+					</p>
+				</div>
+			</div>
 		</div>
-	{/if}
+	</section>
+
+	<section class="mx-auto w-full max-w-5xl px-4 py-5 md:px-6">
+		{#if galleryImages.length === 0}
+			<div class="empty-state glass-card border-surface-500/20 rounded-2xl border">
+				<IconImage class="h-12 w-12" />
+				<p class="empty-title">No photos yet</p>
+				<p class="empty-text">Photos from rides and events will appear here.</p>
+			</div>
+		{:else}
+			<div class="gallery-grid">
+				{#each galleryImages as image, i}
+					<button
+						type="button"
+						onclick={() => openLightbox(i)}
+						class="gallery-item"
+						style="--stagger: {i}"
+					>
+						<img src={image.href} alt={image.title} loading="lazy" />
+						<div class="gallery-overlay">
+							<span class="gallery-view">View photo</span>
+						</div>
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</section>
 </div>
 
-<!-- Lightbox -->
 {#if lightboxOpen && galleryImages.length}
 	<div
 		class="lightbox-backdrop"
@@ -177,96 +176,72 @@
 {/if}
 
 <style>
-	.gallery-page {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
+	.gallery-hero {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-50) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
 	}
 
-	@media (min-width: 768px) {
-		.gallery-page {
-			padding: 2rem;
-			gap: 2rem;
-		}
-	}
-
-	.back-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-surface-600);
-		transition: color 0.15s ease;
-		width: fit-content;
-	}
-
-	.back-link:hover {
-		color: var(--color-primary-500);
-	}
-
-	:global([data-color-mode='dark']) .back-link {
-		color: var(--color-surface-400);
-	}
-
-	:global([data-color-mode='dark']) .back-link:hover {
-		color: var(--color-primary-400);
-	}
-
-	.gallery-header {
-		display: flex;
-		align-items: center;
-		gap: 0.875rem;
+	:global([data-color-mode='dark']) .gallery-hero {
+		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
+		border-color: color-mix(in oklab, var(--color-primary-400) 26%, transparent);
 	}
 
 	.gallery-icon {
-		width: 2.5rem;
-		height: 2.5rem;
+		width: 2.4rem;
+		height: 2.4rem;
+		border-radius: 0.7rem;
 		background: linear-gradient(135deg, var(--color-tertiary-500), var(--color-primary-500));
-		border-radius: 0.5rem;
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: white;
+		color: var(--color-surface-50);
 		flex-shrink: 0;
 	}
 
-	.gallery-label {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-tertiary-600);
-		letter-spacing: 0.15em;
-		text-transform: uppercase;
-	}
-
-	:global([data-color-mode='dark']) .gallery-label {
-		color: var(--color-tertiary-400);
-	}
-
-	.gallery-title {
-		font-size: 1.5rem;
+	.hero-title {
+		color: color-mix(in oklab, var(--color-surface-950) 92%, transparent);
+		font-size: clamp(1.35rem, 2.2vw, 1.8rem);
 		font-weight: 800;
-		color: var(--color-surface-900);
 		line-height: 1.2;
 	}
 
-	@media (min-width: 768px) {
-		.gallery-title {
-			font-size: 1.75rem;
-		}
+	.hero-copy {
+		margin-top: 0.35rem;
+		color: color-mix(in oklab, var(--color-surface-950) 68%, transparent);
+		font-size: 0.95rem;
 	}
 
-	:global([data-color-mode='dark']) .gallery-title {
-		color: var(--color-surface-100);
+	.hero-meta {
+		color: color-mix(in oklab, var(--color-surface-950) 64%, transparent);
+		font-size: 0.77rem;
+		font-weight: 600;
+	}
+
+	:global([data-color-mode='dark']) .hero-title {
+		color: color-mix(in oklab, var(--color-surface-50) 95%, transparent);
+	}
+
+	:global([data-color-mode='dark']) .hero-copy,
+	:global([data-color-mode='dark']) .hero-meta {
+		color: color-mix(in oklab, var(--color-surface-50) 72%, transparent);
+	}
+
+	.glass-card {
+		background: color-mix(in oklab, var(--color-surface-50) 80%, transparent);
+		backdrop-filter: blur(18px);
+		-webkit-backdrop-filter: blur(18px);
+	}
+
+	:global([data-color-mode='dark']) .glass-card {
+		background: color-mix(in oklab, var(--color-surface-950) 84%, transparent);
 	}
 
 	.empty-state {
 		text-align: center;
 		padding: 4rem 1rem;
-		color: var(--color-surface-500);
+		color: var(--color-surface-600);
 	}
 
 	.empty-state :global(svg) {
@@ -276,92 +251,82 @@
 
 	.empty-title {
 		font-size: 1.125rem;
-		font-weight: 600;
-		color: var(--color-surface-700);
+		font-weight: 700;
+		color: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
 		margin-bottom: 0.5rem;
 	}
 
-	:global([data-color-mode='dark']) .empty-title {
-		color: var(--color-surface-300);
-	}
-
 	.empty-text {
-		font-size: 0.875rem;
-		color: var(--color-surface-500);
+		font-size: 0.92rem;
+		color: color-mix(in oklab, var(--color-surface-950) 62%, transparent);
 	}
 
-	:global([data-color-mode='dark']) .empty-text {
-		color: var(--color-surface-500);
+	:global([data-color-mode='dark']) .empty-title {
+		color: color-mix(in oklab, var(--color-surface-50) 92%, transparent);
+	}
+
+	:global([data-color-mode='dark']) .empty-text,
+	:global([data-color-mode='dark']) .empty-state {
+		color: color-mix(in oklab, var(--color-surface-50) 68%, transparent);
 	}
 
 	.gallery-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.5rem;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.6rem;
 	}
 
 	@media (min-width: 640px) {
 		.gallery-grid {
-			grid-template-columns: repeat(3, 1fr);
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 			gap: 0.75rem;
 		}
 	}
 
 	@media (min-width: 1024px) {
 		.gallery-grid {
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 0.9rem;
+		}
+	}
+
+	@media (min-width: 1440px) {
+		.gallery-grid {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 		}
 	}
 
 	.gallery-item {
 		position: relative;
-		aspect-ratio: 1;
+		aspect-ratio: 4 / 5;
 		border-radius: 0.75rem;
 		overflow: hidden;
 		cursor: pointer;
-		animation: fade-in-up 0.5s ease-out forwards;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
+		animation: fade-in-up 420ms ease-out forwards;
 		opacity: 0;
-		animation-delay: calc(var(--stagger, 0) * 0.05s);
-	}
-
-	.gallery-item:nth-child(1) {
-		grid-column: span 2;
-		grid-row: span 2;
-		aspect-ratio: auto;
-	}
-	.gallery-item:nth-child(6) {
-		grid-column: span 2;
-	}
-	.gallery-item:nth-child(7) {
-		grid-column: span 2;
-	}
-
-	@media (min-width: 640px) {
-		.gallery-item:nth-child(6),
-		.gallery-item:nth-child(7) {
-			grid-column: span 1;
-		}
+		animation-delay: calc(var(--stagger, 0) * 0.03s);
 	}
 
 	.gallery-item img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		transition: transform 0.4s ease;
+		transition: transform 0.35s ease;
 	}
 
 	.gallery-item:hover img {
-		transform: scale(1.05);
+		transform: scale(1.04);
 	}
 
 	.gallery-overlay {
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+		background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 60%);
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
-		padding: 1rem;
+		padding: 0.9rem;
 		opacity: 0;
 		transition: opacity 0.2s ease;
 	}
@@ -371,19 +336,19 @@
 	}
 
 	.gallery-view {
-		font-size: 0.875rem;
+		font-size: 0.8rem;
 		font-weight: 600;
 		color: white;
 		background: rgba(255, 255, 255, 0.2);
 		backdrop-filter: blur(4px);
-		padding: 0.5rem 1.25rem;
+		padding: 0.42rem 0.95rem;
 		border-radius: 9999px;
 	}
 
 	@keyframes fade-in-up {
 		from {
 			opacity: 0;
-			transform: translateY(20px);
+			transform: translateY(12px);
 		}
 		to {
 			opacity: 1;
@@ -391,7 +356,6 @@
 		}
 	}
 
-	/* Lightbox Styles */
 	.lightbox-backdrop {
 		position: fixed;
 		inset: 0;
@@ -401,14 +365,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 1rem;
+		padding: 0.35rem;
 	}
 
 	.lightbox-panel {
 		position: relative;
-		max-width: 90vw;
-		max-height: 90vh;
-		width: 100%;
+		width: min(98vw, 1800px);
+		height: min(98dvh, 1200px);
 		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
 		border-radius: 1rem;
@@ -421,7 +384,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.75rem 1rem;
+		padding: 0.55rem 0.85rem;
 		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
 	}
 
@@ -456,12 +419,14 @@
 		align-items: center;
 		justify-content: center;
 		min-height: 0;
-		padding: 1rem;
+		padding: 0.6rem;
 	}
 
 	.lightbox-image {
+		width: 100%;
+		height: 100%;
 		max-width: 100%;
-		max-height: 60vh;
+		max-height: 100%;
 		object-fit: contain;
 		border-radius: 0.5rem;
 	}
@@ -498,8 +463,8 @@
 
 	.lightbox-thumbnails {
 		display: flex;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
+		gap: 0.45rem;
+		padding: 0.5rem 0.75rem;
 		overflow-x: auto;
 		border-top: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
 		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
@@ -520,8 +485,8 @@
 
 	.thumbnail {
 		flex-shrink: 0;
-		width: 3.5rem;
-		height: 3.5rem;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 0.375rem;
 		overflow: hidden;
 		border: 2px solid transparent;
