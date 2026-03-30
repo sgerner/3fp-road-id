@@ -5,8 +5,10 @@ import {
 	addDomainToMicrositeProject,
 	buyDomainWithVercel,
 	getDomainConfigForProject,
+	getMicrositeProjectDomain,
 	getDomainPriceQuote,
 	normalizeDomain,
+	removeDomainFromMicrositeProject,
 	searchBulkDomainAvailability,
 	updateVercelDomainAutoRenew,
 	verifyMicrositeProjectDomain
@@ -19,6 +21,12 @@ function cleanText(value) {
 
 function cleanLower(value) {
 	return cleanText(value).toLowerCase();
+}
+
+function resolveDomainStatus({ source, verified, config }) {
+	const isActive = verified === true && config?.misconfigured === false;
+	if (isActive) return 'active';
+	return cleanLower(source) === 'registered' ? 'provisioning' : 'pending_dns';
 }
 
 function toCents(value) {
@@ -226,17 +234,25 @@ export async function listGroupSiteDomainOrders(serviceSupabase, groupId, limit 
 export async function attachExistingDomainToGroup({ serviceSupabase, group, userId, domain }) {
 	const normalizedDomain = normalizeDomain(domain);
 	if (!normalizedDomain) throw new Error('Domain is required.');
-	const projectDomain = await addDomainToMicrositeProject(normalizedDomain);
+	const addedProjectDomain = await addDomainToMicrositeProject(normalizedDomain);
+	const projectDomain = await getMicrositeProjectDomain(normalizedDomain).catch(
+		() => addedProjectDomain
+	);
 	const config = await getDomainConfigForProject(normalizedDomain).catch(() => null);
+	const status = resolveDomainStatus({
+		source: 'existing',
+		verified: projectDomain.verified === true,
+		config
+	});
 
 	const rowPayload = {
 		group_id: group.id,
 		domain: normalizedDomain,
 		source: 'existing',
-		status: projectDomain.verified ? 'active' : 'pending_dns',
-		vercel_project_id: projectDomain.projectId || null,
+		status,
+		vercel_project_id: projectDomain.projectId || addedProjectDomain.projectId || null,
 		vercel_project_domain: normalizedDomain,
-		vercel_verified: projectDomain.verified === true,
+		vercel_verified: status === 'active',
 		verification: projectDomain.verification || [],
 		dns_config: config || {},
 		created_by_user_id: userId || null,
@@ -253,16 +269,18 @@ export async function attachExistingDomainToGroup({ serviceSupabase, group, user
 	return {
 		domain: data,
 		instructions: {
-			title: projectDomain.verified
-				? 'Domain added and verified'
-				: 'Domain added. Complete DNS verification',
-			steps: projectDomain.verified
-				? ['Your domain is verified in Vercel and now attached to this microsite.']
-				: [
-						'Add the DNS verification record below in your DNS provider.',
-						'After DNS propagates, click Verify in the domain manager.',
-						'Once verified, SSL will provision automatically in Vercel.'
-					],
+			title:
+				status === 'active'
+					? 'Domain added and verified'
+					: 'Domain added. Complete DNS verification',
+			steps:
+				status === 'active'
+					? ['Your domain is verified in Vercel and now attached to this microsite.']
+					: [
+							'Add the DNS verification record below in your DNS provider.',
+							'After DNS propagates, click Verify in the domain manager.',
+							'Once verified, SSL will provision automatically in Vercel.'
+						],
 			records: projectDomain.dnsRecords
 		}
 	};
@@ -271,24 +289,69 @@ export async function attachExistingDomainToGroup({ serviceSupabase, group, user
 export async function verifyAttachedDomainForGroup({ serviceSupabase, domain }) {
 	const normalizedDomain = normalizeDomain(domain);
 	if (!normalizedDomain) throw new Error('Domain is required.');
-	const verification = await verifyMicrositeProjectDomain(normalizedDomain);
-	const config = await getDomainConfigForProject(normalizedDomain).catch(() => null);
+	const { data: existingDomain, error: existingDomainError } = await serviceSupabase
+		.from('group_site_domains')
+		.select('id,source')
+		.eq('domain', normalizedDomain)
+		.maybeSingle();
+	if (existingDomainError) throw existingDomainError;
+	if (!existingDomain?.id) throw new Error('Domain is not attached to this group yet.');
 
-	const status = verification.verified ? 'active' : 'pending_dns';
+	await verifyMicrositeProjectDomain(normalizedDomain);
+	const projectDomain = await getMicrositeProjectDomain(normalizedDomain);
+	const config = await getDomainConfigForProject(normalizedDomain).catch(() => null);
+	const status = resolveDomainStatus({
+		source: existingDomain.source,
+		verified: projectDomain.verified === true,
+		config
+	});
 	const { data, error } = await serviceSupabase
 		.from('group_site_domains')
 		.update({
 			status,
-			vercel_verified: verification.verified === true,
-			verification: verification.verification || [],
+			vercel_verified: status === 'active',
+			verification: projectDomain.verification || [],
 			dns_config: config || {},
 			updated_at: new Date().toISOString()
 		})
-		.eq('domain', normalizedDomain)
+		.eq('id', existingDomain.id)
 		.select('*')
 		.single();
 	if (error) throw error;
 	return data;
+}
+
+export async function deleteAttachedDomainForGroup({ serviceSupabase, groupId, domain }) {
+	const normalizedDomain = normalizeDomain(domain);
+	if (!normalizedDomain) throw new Error('Domain is required.');
+	const { data: existingDomain, error: existingDomainError } = await serviceSupabase
+		.from('group_site_domains')
+		.select('id,group_id,domain')
+		.eq('group_id', groupId)
+		.eq('domain', normalizedDomain)
+		.maybeSingle();
+	if (existingDomainError) throw existingDomainError;
+	if (!existingDomain?.id) throw new Error('Domain is not attached to this group.');
+
+	await removeDomainFromMicrositeProject(normalizedDomain).catch(() => null);
+
+	const { error: deleteError } = await serviceSupabase
+		.from('group_site_domains')
+		.delete()
+		.eq('id', existingDomain.id);
+	if (deleteError) throw deleteError;
+
+	await serviceSupabase.from('group_site_domain_events').insert({
+		group_id: existingDomain.group_id,
+		domain_id: null,
+		provider: 'system',
+		event_type: 'domain_removed',
+		payload: {
+			domain: normalizedDomain
+		}
+	});
+
+	return { ok: true, domain: normalizedDomain };
 }
 
 export async function searchDomainsForGroup({ query, group }) {
@@ -367,7 +430,6 @@ export async function createDomainCheckoutForGroup({
 		{
 			mode: 'payment',
 			customer_creation: 'always',
-			payment_method_collection: 'always',
 			success_url: successUrl,
 			cancel_url: cancelUrl,
 			allow_promotion_codes: false,
@@ -389,21 +451,10 @@ export async function createDomainCheckoutForGroup({
 					price_data: {
 						currency: 'usd',
 						product_data: {
-							name: '3FP domain service fee',
-							description: '3% + $0.50 platform fee'
-						},
-						unit_amount: fees.purchase.markupCents
-					},
-					quantity: 1
-				},
-				{
-					price_data: {
-						currency: 'usd',
-						product_data: {
 							name: 'Card processing fee',
-							description: 'Estimated Stripe card processing fee'
+							description: 'Estimated payment and service fee'
 						},
-						unit_amount: fees.purchase.stripeFeeCents
+						unit_amount: fees.purchase.markupCents + fees.purchase.stripeFeeCents
 					},
 					quantity: 1
 				}
@@ -461,6 +512,261 @@ export async function createDomainCheckoutForGroup({
 	};
 }
 
+export async function createDomainPaymentIntentForGroup({
+	serviceSupabase,
+	group,
+	userId,
+	payload,
+	url
+}) {
+	const domain = normalizeDomain(payload?.domain);
+	if (!domain) return { ok: false, status: 400, error: 'Domain is required.' };
+	const contactInformation = normalizeContactInformation(payload?.contactInformation || {});
+	validateContactInformation(contactInformation);
+
+	const quote = await getDomainPriceQuote(domain, 1);
+	const fees = computeDomainFees({
+		basePurchasePriceCents: quote.purchasePriceCents,
+		baseRenewalPriceCents: quote.renewalPriceCents
+	});
+	const stripeConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase);
+	const stripe = getStripeClient();
+	const returnUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_payment=return`;
+
+	const customer = await stripe.customers.create(
+		{
+			email: contactInformation.email || undefined,
+			name: [contactInformation.firstName, contactInformation.lastName].filter(Boolean).join(' '),
+			phone: contactInformation.phone || undefined,
+			address: {
+				line1: contactInformation.address1 || undefined,
+				line2: contactInformation.address2 || undefined,
+				city: contactInformation.city || undefined,
+				state: contactInformation.state || undefined,
+				postal_code: contactInformation.zip || undefined,
+				country: contactInformation.country || undefined
+			},
+			metadata: {
+				context: 'group_site_domain_order',
+				group_id: group.id,
+				group_slug: group.slug,
+				domain
+			}
+		},
+		{ stripeAccount: stripeConnectedAccountId }
+	);
+
+	const paymentIntent = await stripe.paymentIntents.create(
+		{
+			amount: fees.purchase.totalCents,
+			currency: 'usd',
+			customer: customer.id,
+			receipt_email: contactInformation.email || undefined,
+			automatic_payment_methods: {
+				enabled: true
+			},
+			setup_future_usage: 'off_session',
+			metadata: {
+				context: 'group_site_domain_order',
+				group_id: group.id,
+				group_slug: group.slug,
+				domain
+			}
+		},
+		{ stripeAccount: stripeConnectedAccountId }
+	);
+
+	if (!paymentIntent?.id || !paymentIntent?.client_secret) {
+		return { ok: false, status: 502, error: 'Stripe did not return a payment intent.' };
+	}
+
+	const rowPayload = {
+		group_id: group.id,
+		requested_domain: domain,
+		status: 'checkout_pending',
+		years: 1,
+		currency: 'USD',
+		base_price_cents: fees.purchase.baseCents,
+		markup_cents: fees.purchase.markupCents,
+		stripe_fee_cents: fees.purchase.stripeFeeCents,
+		total_cents: fees.purchase.totalCents,
+		contact_information: contactInformation,
+		price_snapshot: {
+			quote,
+			fees
+		},
+		stripe_connected_account_id: stripeConnectedAccountId,
+		stripe_payment_intent_id: paymentIntent.id,
+		stripe_customer_id: customer.id,
+		receipt_email: contactInformation.email || null,
+		created_by_user_id: userId || null,
+		updated_at: new Date().toISOString()
+	};
+
+	const { data: order, error: orderError } = await serviceSupabase
+		.from('group_site_domain_orders')
+		.insert(rowPayload)
+		.select('*')
+		.single();
+	if (orderError) {
+		return {
+			ok: false,
+			status: 400,
+			error: orderError.message || 'Unable to create domain order.'
+		};
+	}
+
+	return {
+		ok: true,
+		clientSecret: paymentIntent.client_secret,
+		paymentIntentId: paymentIntent.id,
+		connectedAccountId: stripeConnectedAccountId,
+		returnUrl,
+		order
+	};
+}
+
+async function fulfillDomainOrderAfterPayment({
+	serviceSupabase,
+	order,
+	fetchImpl,
+	stripeConnectedAccountId,
+	stripeCustomerId,
+	paymentIntentId,
+	paymentMethodId,
+	checkoutSessionId
+}) {
+	const contactInformation = order.contact_information || {};
+	const domain = normalizeDomain(order.requested_domain);
+
+	await serviceSupabase
+		.from('group_site_domain_orders')
+		.update({
+			status: 'registering',
+			stripe_connected_account_id: stripeConnectedAccountId || null,
+			stripe_payment_intent_id: paymentIntentId || order.stripe_payment_intent_id || null,
+			stripe_customer_id: stripeCustomerId || order.stripe_customer_id || null,
+			stripe_payment_method_id: paymentMethodId || null,
+			paid_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		})
+		.eq('id', order.id);
+
+	try {
+		const registration = await buyDomainWithVercel({
+			domain,
+			years: order.years || 1,
+			autoRenew: true,
+			expectedPriceCents: order.base_price_cents,
+			contactInformation
+		});
+		const projectDomain = await addDomainToMicrositeProject(domain);
+		const config = await getDomainConfigForProject(domain).catch(() => null);
+		const status = resolveDomainStatus({
+			source: 'registered',
+			verified: projectDomain.verified === true,
+			config
+		});
+
+		const { data: domainRow } = await serviceSupabase
+			.from('group_site_domains')
+			.upsert(
+				{
+					group_id: order.group_id,
+					domain,
+					source: 'registered',
+					status,
+					vercel_project_domain: domain,
+					vercel_order_id: registration.orderId || null,
+					vercel_verified: status === 'active',
+					verification: projectDomain.verification || [],
+					dns_config: config || {},
+					auto_renew: true,
+					renewal_enabled: true,
+					renewal_status: 'active',
+					base_renewal_price_cents: order.base_price_cents || null,
+					renewal_markup_cents: order.markup_cents || null,
+					renewal_stripe_fee_cents: order.stripe_fee_cents || null,
+					next_renewal_charge_cents: order.total_cents || null,
+					stripe_connected_account_id: stripeConnectedAccountId || null,
+					stripe_customer_id: stripeCustomerId || null,
+					stripe_payment_method_id: paymentMethodId || null,
+					created_by_user_id: order.created_by_user_id || null,
+					updated_at: new Date().toISOString()
+				},
+				{ onConflict: 'domain' }
+			)
+			.select('*')
+			.single();
+
+		await serviceSupabase
+			.from('group_site_domain_orders')
+			.update({
+				status: 'registered',
+				domain_id: domainRow?.id || null,
+				vercel_order_id: registration.orderId || null,
+				fulfilled_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			})
+			.eq('id', order.id);
+
+		await serviceSupabase.from('group_site_domain_events').insert({
+			group_id: order.group_id,
+			domain_id: domainRow?.id || null,
+			order_id: order.id,
+			provider: 'system',
+			event_type: 'domain_order_registered',
+			payload: {
+				checkoutSessionId: checkoutSessionId || null,
+				paymentIntentId: paymentIntentId || null,
+				domain,
+				vercelOrderId: registration.orderId || null
+			}
+		});
+
+		if (cleanText(order.receipt_email)) {
+			await sendDomainReceiptEmail({
+				to: order.receipt_email,
+				domain,
+				totalCents: order.total_cents,
+				fetch: fetchImpl
+			}).catch((error) => {
+				console.error('Failed to send domain receipt email', error);
+			});
+		}
+
+		return { ok: true, matched: true, reason: 'registered', domain };
+	} catch (error) {
+		await serviceSupabase
+			.from('group_site_domain_orders')
+			.update({
+				status: 'failed',
+				last_error: error?.message || 'Failed to register domain after payment.',
+				updated_at: new Date().toISOString()
+			})
+			.eq('id', order.id);
+		await serviceSupabase.from('group_site_domain_events').insert({
+			group_id: order.group_id,
+			order_id: order.id,
+			provider: 'system',
+			event_type: 'domain_order_failed',
+			processing_status: 'failed',
+			error_message: error?.message || 'Domain order registration failed',
+			payload: {
+				checkoutSessionId: checkoutSessionId || null,
+				paymentIntentId: paymentIntentId || null,
+				domain
+			}
+		});
+		return {
+			ok: false,
+			matched: true,
+			reason: 'registration_failed',
+			error: error?.message || 'Domain registration failed.'
+		};
+	}
+}
+
 export async function finalizeDomainOrderByCheckoutSessionId({
 	serviceSupabase,
 	sessionId,
@@ -513,139 +819,92 @@ export async function finalizeDomainOrderByCheckoutSessionId({
 			: cleanText(session.payment_intent?.id);
 	let paymentMethodId = '';
 	if (paymentIntentId) {
-		const paymentIntent = await stripe.paymentIntents.retrieve(
-			paymentIntentId,
-			{},
-			stripeOptions
-		);
+		const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {}, stripeOptions);
 		paymentMethodId =
 			typeof paymentIntent.payment_method === 'string'
 				? paymentIntent.payment_method
 				: cleanText(paymentIntent.payment_method?.id);
 	}
 
-	const contactInformation = order.contact_information || {};
-	const domain = normalizeDomain(order.requested_domain);
+	return fulfillDomainOrderAfterPayment({
+		serviceSupabase,
+		order,
+		fetchImpl,
+		stripeConnectedAccountId,
+		stripeCustomerId: cleanText(session.customer) || null,
+		paymentIntentId: paymentIntentId || null,
+		paymentMethodId,
+		checkoutSessionId
+	});
+}
 
-	await serviceSupabase
+export async function finalizeDomainOrderByPaymentIntentId({
+	serviceSupabase,
+	paymentIntentId,
+	fetch: fetchImpl
+}) {
+	const normalizedPaymentIntentId = cleanText(paymentIntentId);
+	if (!normalizedPaymentIntentId) {
+		return { ok: false, matched: false, reason: 'missing_payment_intent_id' };
+	}
+
+	const { data: order } = await serviceSupabase
 		.from('group_site_domain_orders')
-		.update({
-			status: 'registering',
-			stripe_connected_account_id: stripeConnectedAccountId || null,
-			stripe_payment_intent_id: paymentIntentId || null,
-			stripe_customer_id: cleanText(session.customer) || null,
-			stripe_payment_method_id: paymentMethodId || null,
-			paid_at: new Date().toISOString(),
-			updated_at: new Date().toISOString()
-		})
-		.eq('id', order.id);
+		.select('*')
+		.eq('stripe_payment_intent_id', normalizedPaymentIntentId)
+		.maybeSingle();
+	if (!order) return { ok: true, matched: false, reason: 'order_not_found' };
+	if (['registered', 'failed', 'refunded', 'cancelled'].includes(cleanLower(order.status))) {
+		return { ok: true, matched: true, reason: 'already_terminal' };
+	}
 
-	try {
-		const registration = await buyDomainWithVercel({
-			domain,
-			years: order.years || 1,
-			autoRenew: true,
-			expectedPriceCents: order.base_price_cents,
-			contactInformation
-		});
-		const projectDomain = await addDomainToMicrositeProject(domain);
-		const config = await getDomainConfigForProject(domain).catch(() => null);
+	const stripe = getStripeClient();
+	const fallbackConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase).catch(
+		() => ''
+	);
+	const stripeConnectedAccountId =
+		cleanText(order.stripe_connected_account_id) || fallbackConnectedAccountId;
+	const stripeOptions = stripeConnectedAccountId
+		? { stripeAccount: stripeConnectedAccountId }
+		: undefined;
+	const paymentIntent = await stripe.paymentIntents.retrieve(
+		normalizedPaymentIntentId,
+		{},
+		stripeOptions
+	);
+	const intentStatus = cleanLower(paymentIntent?.status);
 
-		const { data: domainRow } = await serviceSupabase
-			.from('group_site_domains')
-			.upsert(
-				{
-					group_id: order.group_id,
-					domain,
-					source: 'registered',
-					status: projectDomain.verified ? 'active' : 'provisioning',
-					vercel_project_domain: domain,
-					vercel_order_id: registration.orderId || null,
-					vercel_verified: projectDomain.verified === true,
-					verification: projectDomain.verification || [],
-					dns_config: config || {},
-					auto_renew: true,
-					renewal_enabled: true,
-					renewal_status: 'active',
-					base_renewal_price_cents: order.base_price_cents || null,
-					renewal_markup_cents: order.markup_cents || null,
-					renewal_stripe_fee_cents: order.stripe_fee_cents || null,
-					next_renewal_charge_cents: order.total_cents || null,
-					stripe_connected_account_id: stripeConnectedAccountId || null,
-					stripe_customer_id: cleanText(session.customer) || null,
-					stripe_payment_method_id: paymentMethodId || null,
-					created_by_user_id: order.created_by_user_id || null,
-					updated_at: new Date().toISOString()
-				},
-				{ onConflict: 'domain' }
-			)
-			.select('*')
-			.single();
-
-		await serviceSupabase
-			.from('group_site_domain_orders')
-			.update({
-				status: 'registered',
-				domain_id: domainRow?.id || null,
-				vercel_order_id: registration.orderId || null,
-				fulfilled_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
-			})
-			.eq('id', order.id);
-
-		await serviceSupabase.from('group_site_domain_events').insert({
-			group_id: order.group_id,
-			domain_id: domainRow?.id || null,
-			order_id: order.id,
-			provider: 'system',
-			event_type: 'domain_order_registered',
-			payload: {
-				checkoutSessionId,
-				domain,
-				vercelOrderId: registration.orderId || null
-			}
-		});
-
-		if (cleanText(order.receipt_email)) {
-			await sendDomainReceiptEmail({
-				to: order.receipt_email,
-				domain,
-				totalCents: order.total_cents,
-				fetch: fetchImpl
-			}).catch((error) => {
-				console.error('Failed to send domain receipt email', error);
-			});
-		}
-
-		return { ok: true, matched: true, reason: 'registered', domain };
-	} catch (error) {
+	if (intentStatus !== 'succeeded') {
 		await serviceSupabase
 			.from('group_site_domain_orders')
 			.update({
 				status: 'failed',
-				last_error: error?.message || 'Failed to register domain after payment.',
+				last_error: `Payment intent is not succeeded (status: ${intentStatus || 'unknown'}).`,
 				updated_at: new Date().toISOString()
 			})
 			.eq('id', order.id);
-		await serviceSupabase.from('group_site_domain_events').insert({
-			group_id: order.group_id,
-			order_id: order.id,
-			provider: 'system',
-			event_type: 'domain_order_failed',
-			processing_status: 'failed',
-			error_message: error?.message || 'Domain order registration failed',
-			payload: {
-				checkoutSessionId,
-				domain
-			}
-		});
-		return {
-			ok: false,
-			matched: true,
-			reason: 'registration_failed',
-			error: error?.message || 'Domain registration failed.'
-		};
+		return { ok: true, matched: true, reason: 'intent_not_succeeded' };
 	}
+
+	const paymentMethodId =
+		typeof paymentIntent?.payment_method === 'string'
+			? paymentIntent.payment_method
+			: cleanText(paymentIntent?.payment_method?.id);
+	const stripeCustomerId =
+		typeof paymentIntent?.customer === 'string'
+			? paymentIntent.customer
+			: cleanText(paymentIntent?.customer?.id);
+
+	return fulfillDomainOrderAfterPayment({
+		serviceSupabase,
+		order,
+		fetchImpl,
+		stripeConnectedAccountId,
+		stripeCustomerId,
+		paymentIntentId: normalizedPaymentIntentId,
+		paymentMethodId,
+		checkoutSessionId: null
+	});
 }
 
 async function sendDomainReceiptEmail({ to, domain, totalCents, fetch: fetchImpl }) {

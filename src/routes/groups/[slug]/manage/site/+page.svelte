@@ -1,5 +1,6 @@
 <script>
-	import { onMount, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { loadStripe } from '@stripe/stripe-js';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -30,6 +31,9 @@
 	import IconLayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import IconBrush from '@lucide/svelte/icons/brush';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import IconCheck from '@lucide/svelte/icons/check';
+	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconEye from '@lucide/svelte/icons/eye';
@@ -135,7 +139,18 @@
 	let domainSearchQuery = $state('');
 	let domainSearchBusy = $state(false);
 	let domainSearchResults = $state([]);
+	let selectedDomainQuote = $state(null);
+	let domainCheckoutBusy = $state(false);
+	let domainPreparingPayment = $state(false);
+	let domainPaymentFormReady = $state(false);
+	let domainPaymentElementHost = $state(null);
+	let domainPaymentIntentId = $state('');
+	let domainPaymentReturnUrl = $state('');
+	let domainPreparedSignature = $state('');
 	let renewalBusyDomain = $state('');
+	let deletingDomain = $state('');
+	let copiedDnsField = $state('');
+	let dnsCopyResetTimer = null;
 	let registrarContact = $state({
 		firstName: '',
 		lastName: '',
@@ -149,6 +164,9 @@
 		country: 'US',
 		companyName: ''
 	});
+	let domainStripe = null;
+	let domainElements = null;
+	let domainPaymentElement = null;
 	const themeLabels = {
 		derived: 'Derived from branding',
 		repo: 'Repo theme',
@@ -553,7 +571,26 @@
 
 	onMount(() => {
 		resizeDraftChatInput();
+		if (!domainSearchQuery.trim()) {
+			domainSearchQuery = String(data.micrositeSlug || data.group?.slug || '').trim();
+		}
+		registrarContact = {
+			...registrarContact,
+			email:
+				registrarContact.email ||
+				String(data.group?.public_contact_email || data.group?.contact_email || '').trim(),
+			city: registrarContact.city || String(data.group?.city || '').trim(),
+			state: registrarContact.state || String(data.group?.state_region || '').trim(),
+			country: String(registrarContact.country || 'US')
+				.trim()
+				.toUpperCase()
+		};
 		void loadDomainData();
+	});
+
+	onDestroy(() => {
+		if (dnsCopyResetTimer) clearTimeout(dnsCopyResetTimer);
+		teardownDomainPaymentElement();
 	});
 
 	$effect(() => {
@@ -601,7 +638,7 @@
 				? payload.data.instructions.records
 				: [];
 			domainMessage = records.length
-				? `Domain added. Add ${records[0].type} record ${records[0].name} => ${records[0].value}.`
+				? 'Domain added. Add the DNS records shown below, wait for propagation, then click Verify.'
 				: payload?.data?.instructions?.title || 'Domain added.';
 			await loadDomainData();
 		} catch (error) {
@@ -625,9 +662,15 @@
 			if (!response.ok) {
 				throw new Error(payload?.error || 'Unable to verify domain.');
 			}
-			domainMessage = payload?.data?.domain?.vercel_verified
-				? `${domain} is now verified and active.`
-				: `${domain} is not verified yet. Recheck after DNS propagates.`;
+			const updatedDomain = payload?.data?.domain || null;
+			if (updatedDomain?.status === 'active') {
+				domainMessage =
+					asText(updatedDomain?.dns_config?.configuredBy).toLowerCase() === 'http'
+						? `${domain} is active, but Vercel detected a proxy. Set the DNS record to DNS-only (proxy off), then verify again.`
+						: `${domain} is verified and active.`;
+			} else {
+				domainMessage = `${domain} is not active yet. Add or confirm the DNS records below, then try Verify again.`;
+			}
 			await loadDomainData();
 		} catch (error) {
 			domainError = error?.message || 'Unable to verify domain.';
@@ -654,6 +697,12 @@
 				throw new Error(payload?.error || 'Unable to search domains.');
 			}
 			domainSearchResults = Array.isArray(payload?.data?.results) ? payload.data.results : [];
+			if (
+				!selectedDomainQuote ||
+				!domainSearchResults.some((row) => row?.domain === selectedDomainQuote?.domain)
+			) {
+				selectedDomainQuote = null;
+			}
 			if (!domainSearchResults.length) {
 				domainMessage = 'No available domains found for this search right now.';
 			}
@@ -693,12 +742,322 @@
 		}
 	}
 
+	async function removeDomain(domain) {
+		if (!domain) return;
+		const confirmed = confirm(`Remove ${domain} from this microsite?`);
+		if (!confirmed) return;
+		deletingDomain = domain;
+		domainError = '';
+		domainMessage = '';
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}`,
+				{ method: 'DELETE' }
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to remove domain.');
+			}
+			domainMessage = `${domain} was removed from this microsite.`;
+			await loadDomainData();
+		} catch (error) {
+			domainError = error?.message || 'Unable to remove domain.';
+		} finally {
+			deletingDomain = '';
+		}
+	}
+
+	function buildDomainCheckoutPayload() {
+		return {
+			domain: asText(selectedDomainQuote?.domain).toLowerCase(),
+			contactInformation: registrarContact
+		};
+	}
+
+	function buildDomainPaymentSignature() {
+		return JSON.stringify(buildDomainCheckoutPayload());
+	}
+
+	function teardownDomainPaymentElement() {
+		try {
+			domainPaymentElement?.destroy?.();
+		} catch {
+			// ignore teardown issues
+		}
+		domainPaymentElement = null;
+		domainElements = null;
+		domainStripe = null;
+		domainPaymentFormReady = false;
+		domainPaymentIntentId = '';
+		domainPaymentReturnUrl = '';
+		domainPreparedSignature = '';
+	}
+
+	async function prepareDomainPaymentElement({ quiet = false } = {}) {
+		const domain = asText(selectedDomainQuote?.domain).toLowerCase();
+		if (!domain) {
+			if (!quiet) domainError = 'Select a domain first.';
+			return false;
+		}
+		if (!domainPaymentElementHost) {
+			if (!quiet) domainError = 'Payment form is not ready yet.';
+			return false;
+		}
+
+		domainPreparingPayment = true;
+		if (!quiet) {
+			domainError = '';
+			domainMessage = '';
+		}
+		try {
+			teardownDomainPaymentElement();
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/create-payment-intent`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(buildDomainCheckoutPayload())
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to prepare domain payment.');
+			}
+			if (
+				!payload?.clientSecret ||
+				!payload?.publishableKey ||
+				!payload?.connectedAccountId ||
+				!payload?.returnUrl
+			) {
+				throw new Error('Stripe payment form could not be initialized.');
+			}
+
+			domainStripe = await loadStripe(payload.publishableKey, {
+				stripeAccount: payload.connectedAccountId
+			});
+			if (!domainStripe) throw new Error('Stripe.js failed to load.');
+
+			domainPaymentIntentId = asText(payload.paymentIntentId);
+			domainPaymentReturnUrl = asText(payload.returnUrl);
+			domainPreparedSignature = buildDomainPaymentSignature();
+
+			await tick();
+			domainElements = domainStripe.elements({
+				clientSecret: payload.clientSecret,
+				appearance: {
+					theme: 'night',
+					variables: {
+						colorPrimary: '#f4ff00',
+						colorBackground: 'rgba(10, 15, 20, 0.55)',
+						colorText: '#f8f5dd',
+						colorDanger: '#ff6b6b',
+						fontFamily: 'inherit',
+						borderRadius: '16px'
+					}
+				}
+			});
+			domainPaymentElement = domainElements.create('payment', {
+				layout: {
+					type: 'tabs',
+					defaultCollapsed: false
+				}
+			});
+			domainPaymentElement.mount(domainPaymentElementHost);
+			domainPaymentFormReady = true;
+			return true;
+		} catch (error) {
+			teardownDomainPaymentElement();
+			if (!quiet) domainError = error?.message || 'Unable to prepare payment form.';
+			return false;
+		} finally {
+			domainPreparingPayment = false;
+		}
+	}
+
+	function selectDomainQuote(row) {
+		const nextDomain = asText(row?.domain).toLowerCase();
+		const previousDomain = asText(selectedDomainQuote?.domain).toLowerCase();
+		selectedDomainQuote = row || null;
+		if (nextDomain !== previousDomain) {
+			teardownDomainPaymentElement();
+		}
+		domainError = '';
+		domainMessage = '';
+	}
+
+	async function startDomainCheckout() {
+		const domain = asText(selectedDomainQuote?.domain).toLowerCase();
+		if (!domain) {
+			domainError = 'Select a domain first.';
+			return;
+		}
+
+		domainCheckoutBusy = true;
+		domainError = '';
+		domainMessage = '';
+		try {
+			if (!domainPaymentFormReady || domainPreparedSignature !== buildDomainPaymentSignature()) {
+				const prepared = await prepareDomainPaymentElement({ quiet: false });
+				if (!prepared) return;
+			}
+			if (!domainStripe || !domainElements || !domainPaymentReturnUrl) {
+				throw new Error('Stripe payment form is not ready yet.');
+			}
+
+			const { error: stripeError } = await domainStripe.confirmPayment({
+				elements: domainElements,
+				confirmParams: {
+					return_url: domainPaymentReturnUrl
+				}
+			});
+			if (stripeError) {
+				throw new Error(stripeError.message || 'Unable to confirm payment.');
+			}
+		} catch (error) {
+			domainError = error?.message || 'Unable to start domain checkout.';
+		} finally {
+			domainCheckoutBusy = false;
+		}
+	}
+
 	function formatUsd(cents) {
 		const amount = Number(cents);
 		return new Intl.NumberFormat(undefined, {
 			style: 'currency',
 			currency: 'USD'
 		}).format((Number.isFinite(amount) ? amount : 0) / 100);
+	}
+
+	function asText(value) {
+		if (value === null || value === undefined) return '';
+		return String(value).trim();
+	}
+
+	function asArray(value) {
+		return Array.isArray(value) ? value : [];
+	}
+
+	function normalizeDnsText(value) {
+		return asText(value).replace(/\.$/, '');
+	}
+
+	function formatDnsHostForDisplay(host, domain) {
+		const cleanHost = normalizeDnsText(host).toLowerCase();
+		const cleanDomain = normalizeDnsText(domain).toLowerCase();
+		if (!cleanHost || !cleanDomain) return normalizeDnsText(host);
+		if (cleanHost === cleanDomain) return '@';
+		const suffix = `.${cleanDomain}`;
+		if (cleanHost.endsWith(suffix)) return cleanHost.slice(0, -suffix.length);
+		return normalizeDnsText(host);
+	}
+
+	function makeDnsCopyKey(record, field) {
+		return `${record.type}:${record.host}:${record.value}:${field}`;
+	}
+
+	async function copyDnsField(value, key) {
+		const text = asText(value);
+		if (!text) return;
+		try {
+			if (!navigator?.clipboard?.writeText) return;
+			await navigator.clipboard.writeText(text);
+			copiedDnsField = key;
+			if (dnsCopyResetTimer) clearTimeout(dnsCopyResetTimer);
+			dnsCopyResetTimer = setTimeout(() => {
+				copiedDnsField = '';
+			}, 1400);
+		} catch {
+			// no-op; clipboard may be unavailable in some browsers/contexts
+		}
+	}
+
+	function needsDnsInstructions(domainRow) {
+		return asText(domainRow?.status) !== 'active';
+	}
+
+	function hasProxyWarning(domainRow) {
+		return asText(domainRow?.dns_config?.configuredBy).toLowerCase() === 'http';
+	}
+
+	function getDomainDnsRecords(domainRow) {
+		const domain = asText(domainRow?.domain).toLowerCase();
+		if (!domain) return [];
+		const records = [];
+		const seen = new Set();
+		const addRecord = ({ type, name, value, reason }) => {
+			const recordType = asText(type).toUpperCase() || 'TXT';
+			const recordName = asText(name) || domain;
+			const recordValue = asText(value);
+			const recordReason = asText(reason);
+			if (!recordValue) return;
+			const key = `${recordType}|${recordName}|${recordValue}`;
+			if (seen.has(key)) return;
+			seen.add(key);
+			records.push({
+				type: recordType,
+				host: formatDnsHostForDisplay(recordName, domain),
+				value: normalizeDnsText(recordValue),
+				reason: recordReason
+			});
+		};
+
+		// 1) Add required ownership verification TXT records (if present).
+		for (const verification of asArray(domainRow?.verification)) {
+			addRecord({
+				type: verification?.type || 'TXT',
+				name: verification?.domain || domain,
+				value: verification?.value,
+				reason: verification?.reason || 'Required by Vercel for domain verification.'
+			});
+		}
+
+		// 2) Add a single routing record (A or CNAME), not every possible recommendation.
+		const config = domainRow?.dns_config || {};
+		const configuredBy = asText(config?.configuredBy).toUpperCase();
+		const rankedIpv4 = asArray(config?.recommendedIPv4)
+			.map((item) => ({
+				rank: Number(item?.rank) || Number.MAX_SAFE_INTEGER,
+				values: asArray(item?.value)
+					.map((value) => asText(value))
+					.filter(Boolean)
+			}))
+			.filter((item) => item.values.length)
+			.sort((a, b) => a.rank - b.rank);
+		const rankedCname = asArray(config?.recommendedCNAME)
+			.map((item) => ({
+				rank: Number(item?.rank) || Number.MAX_SAFE_INTEGER,
+				value: asText(item?.value)
+			}))
+			.filter((item) => item.value)
+			.sort((a, b) => a.rank - b.rank);
+
+		const preferredIpv4 = rankedIpv4[0]?.values?.[0] || '';
+		const preferredCname = rankedCname[0]?.value || '';
+		const shouldPreferCname = configuredBy === 'CNAME';
+		if (shouldPreferCname && preferredCname) {
+			addRecord({
+				type: 'CNAME',
+				name: domain,
+				value: preferredCname,
+				reason: 'Primary routing record from Vercel. Add only this routing record for this host.'
+			});
+		} else if (preferredIpv4) {
+			addRecord({
+				type: 'A',
+				name: domain,
+				value: preferredIpv4,
+				reason: 'Primary routing record from Vercel. Add only this routing record for this host.'
+			});
+		} else if (preferredCname) {
+			addRecord({
+				type: 'CNAME',
+				name: domain,
+				value: preferredCname,
+				reason: 'Primary routing record from Vercel. Add only this routing record for this host.'
+			});
+		}
+
+		return records;
 	}
 </script>
 
@@ -1653,7 +2012,12 @@
 					<!-- Custom Domains -->
 					<div class="domain-section mt-6">
 						<h3 class="subsection-title">Custom Domains</h3>
-						<p class="field-hint">Add or manage your own domains ({customDomains.length} active)</p>
+						<p class="field-hint">
+							Add or manage your own domains ({customDomains.filter(
+								(row) => row?.status === 'active'
+							).length}
+							active)
+						</p>
 
 						<!-- Attach Existing -->
 						<div class="mt-4">
@@ -1679,37 +2043,137 @@
 						{#if customDomains.length}
 							<div class="domain-list mt-4">
 								{#each customDomains as domainRow}
+									{@const dnsRecords = getDomainDnsRecords(domainRow)}
 									<div class="domain-item">
-										<div class="domain-info">
-											<div class="domain-name">{domainRow.domain}</div>
-											<div class="domain-status">
-												{domainRow.status}
-												{#if domainRow.vercel_verified}• Verified{:else}• Needs DNS{/if}
+										<div class="domain-item-top">
+											<div class="domain-info">
+												<div class="domain-name">{domainRow.domain}</div>
+												<div class="domain-status">
+													{domainRow.status}
+													{#if domainRow.status === 'active'}
+														• Active
+														{#if hasProxyWarning(domainRow)}
+															• Proxy warning
+														{/if}
+													{:else}
+														• DNS update needed
+													{/if}
+												</div>
+												{#if hasProxyWarning(domainRow)}
+													<div class="domain-warning">
+														<IconTriangleAlert class="h-3.5 w-3.5" />
+														<p>
+															Vercel detected this domain is likely behind a proxy (<code
+																>configuredBy=http</code
+															>). Set the DNS record below to DNS-only (proxy off), then click
+															Verify again.
+														</p>
+													</div>
+												{/if}
+												{#if needsDnsInstructions(domainRow)}
+													<p class="domain-guidance">
+														Add the TXT record(s) shown (if any) plus the single routing record
+														shown (A or CNAME), then click Verify.
+													</p>
+												{/if}
+											</div>
+											<div class="domain-actions">
+												<button
+													type="button"
+													class="btn btn-xs preset-tonal-surface"
+													disabled={verifyingDomain === domainRow.domain}
+													onclick={() => void verifyDomain(domainRow.domain)}
+												>
+													{#if verifyingDomain === domainRow.domain}
+														<IconRefreshCw class="h-3 w-3 animate-spin" /> Verifying
+													{:else}
+														<IconBadgeCheck class="h-3 w-3" /> Verify
+													{/if}
+												</button>
+												<button
+													type="button"
+													class="btn btn-xs preset-tonal-warning"
+													disabled={renewalBusyDomain === domainRow.domain}
+													onclick={() =>
+														void toggleAutoRenew(domainRow.domain, !domainRow.auto_renew)}
+												>
+													{domainRow.auto_renew ? 'Pause' : 'Renew'}
+												</button>
+												<button
+													type="button"
+													class="btn btn-xs domain-delete-btn"
+													aria-label="Remove domain"
+													title="Remove domain"
+													disabled={deletingDomain === domainRow.domain}
+													onclick={() => void removeDomain(domainRow.domain)}
+												>
+													{#if deletingDomain === domainRow.domain}
+														<IconRefreshCw class="h-3 w-3 animate-spin" />
+													{:else}
+														<IconTrash class="h-3 w-3" />
+													{/if}
+												</button>
 											</div>
 										</div>
-										<div class="domain-actions">
-											<button
-												type="button"
-												class="btn btn-xs preset-tonal-surface"
-												disabled={verifyingDomain === domainRow.domain}
-												onclick={() => void verifyDomain(domainRow.domain)}
-											>
-												{#if verifyingDomain === domainRow.domain}
-													<IconRefreshCw class="h-3 w-3 animate-spin" /> Verifying
-												{:else}
-													<IconBadgeCheck class="h-3 w-3" /> Verify
-												{/if}
-											</button>
-											<button
-												type="button"
-												class="btn btn-xs preset-tonal-warning"
-												disabled={renewalBusyDomain === domainRow.domain}
-												onclick={() =>
-													void toggleAutoRenew(domainRow.domain, !domainRow.auto_renew)}
-											>
-												{domainRow.auto_renew ? 'Pause' : 'Renew'}
-											</button>
-										</div>
+										{#if needsDnsInstructions(domainRow) && dnsRecords.length}
+											<div class="domain-dns">
+												<p class="domain-dns-title">DNS records to add</p>
+												<div class="domain-dns-grid">
+													<div class="domain-dns-head">Type</div>
+													<div class="domain-dns-head">Name</div>
+													<div class="domain-dns-head">Value</div>
+													<div class="domain-dns-head">Proxy</div>
+													{#each dnsRecords as record}
+														<div class="domain-dns-cell"><code>{record.type}</code></div>
+														<div class="domain-dns-cell">
+															<div class="domain-dns-copy-wrap">
+																<code>{record.host}</code>
+																<button
+																	type="button"
+																	class="domain-copy-btn"
+																	title="Copy name"
+																	aria-label="Copy DNS name"
+																	onclick={() =>
+																		void copyDnsField(record.host, makeDnsCopyKey(record, 'host'))}
+																>
+																	{#if copiedDnsField === makeDnsCopyKey(record, 'host')}
+																		<IconCheck class="h-3.5 w-3.5" />
+																	{:else}
+																		<IconCopy class="h-3.5 w-3.5" />
+																	{/if}
+																</button>
+															</div>
+														</div>
+														<div class="domain-dns-cell">
+															<div class="domain-dns-copy-wrap">
+																<code>{record.value}</code>
+																<button
+																	type="button"
+																	class="domain-copy-btn"
+																	title="Copy value"
+																	aria-label="Copy DNS value"
+																	onclick={() =>
+																		void copyDnsField(
+																			record.value,
+																			makeDnsCopyKey(record, 'value')
+																		)}
+																>
+																	{#if copiedDnsField === makeDnsCopyKey(record, 'value')}
+																		<IconCheck class="h-3.5 w-3.5" />
+																	{:else}
+																		<IconCopy class="h-3.5 w-3.5" />
+																	{/if}
+																</button>
+															</div>
+														</div>
+														<div class="domain-dns-cell domain-dns-proxy">Disabled</div>
+														{#if record.reason}
+															<div class="domain-dns-reason">{record.reason}</div>
+														{/if}
+													{/each}
+												</div>
+											</div>
+										{/if}
 									</div>
 								{/each}
 							</div>
@@ -1730,6 +2194,9 @@
 									disabled={domainSearchBusy}
 									onclick={() => void searchDomains()}
 								>
+									{#if domainSearchBusy}
+										<IconRefreshCw class="h-4 w-4 animate-spin" />
+									{/if}
 									Search
 								</button>
 							</div>
@@ -1738,15 +2205,116 @@
 						{#if domainSearchResults.length}
 							<div class="domain-results mt-4">
 								{#each domainSearchResults as row}
-									<div class="domain-result">
+									<div
+										class="domain-result {selectedDomainQuote?.domain === row.domain
+											? 'is-selected'
+											: ''}"
+										role="button"
+										tabindex="0"
+										aria-pressed={selectedDomainQuote?.domain === row.domain}
+										onclick={() => selectDomainQuote(row)}
+										onkeydown={(event) => {
+											if (event.key === 'Enter' || event.key === ' ') {
+												event.preventDefault();
+												selectDomainQuote(row);
+											}
+										}}
+									>
 										<div class="domain-result-info">
 											<div class="domain-result-name">{row.domain}</div>
 											<div class="domain-result-price">
 												{formatUsd(row.pricing.purchase.totalCents)}
 											</div>
+											<div class="domain-result-meta">
+												Renews about {formatUsd(row.pricing.renewal.totalCents)} / year
+											</div>
 										</div>
+										<button
+											type="button"
+											class="btn btn-sm preset-tonal-primary"
+											onclick={(event) => {
+												event.stopPropagation();
+												selectDomainQuote(row);
+											}}
+										>
+											{selectedDomainQuote?.domain === row.domain ? 'Selected' : 'Select'}
+										</button>
 									</div>
 								{/each}
+							</div>
+						{/if}
+
+						{#if selectedDomainQuote}
+							<div class="domain-checkout-panel mt-4">
+								<div class="domain-checkout-header">
+									<div>
+										<p class="domain-checkout-title">Selected domain</p>
+										<p class="domain-checkout-domain">{selectedDomainQuote.domain}</p>
+									</div>
+									<div class="domain-checkout-total">
+										{formatUsd(selectedDomainQuote.pricing.purchase.totalCents)}
+									</div>
+								</div>
+								<p class="domain-checkout-fee-note">
+									Includes domain registration plus combined payment/service fee.
+								</p>
+								<div class="domain-checkout-fields mt-3">
+									<input
+										class="input"
+										bind:value={registrarContact.firstName}
+										placeholder="First name"
+									/>
+									<input
+										class="input"
+										bind:value={registrarContact.lastName}
+										placeholder="Last name"
+									/>
+									<input class="input" bind:value={registrarContact.email} placeholder="Email" />
+									<input class="input" bind:value={registrarContact.phone} placeholder="Phone" />
+									<input
+										class="input"
+										bind:value={registrarContact.address1}
+										placeholder="Address line 1"
+									/>
+									<input
+										class="input"
+										bind:value={registrarContact.address2}
+										placeholder="Address line 2 (optional)"
+									/>
+									<input class="input" bind:value={registrarContact.city} placeholder="City" />
+									<input
+										class="input"
+										bind:value={registrarContact.state}
+										placeholder="State / Province"
+									/>
+									<input
+										class="input"
+										bind:value={registrarContact.zip}
+										placeholder="Postal code"
+									/>
+									<input
+										class="input"
+										bind:value={registrarContact.country}
+										placeholder="Country code (US)"
+										maxlength="2"
+									/>
+								</div>
+								<div class="domain-payment-element mt-3" bind:this={domainPaymentElementHost}></div>
+								<div class="mt-3">
+									<button
+										type="button"
+										class="btn preset-filled-primary-500"
+										disabled={domainCheckoutBusy || domainPreparingPayment}
+										onclick={() => void startDomainCheckout()}
+									>
+										{#if domainCheckoutBusy || domainPreparingPayment}
+											<IconRefreshCw class="h-4 w-4 animate-spin" />
+										{:else}
+											<IconCreditCard class="h-4 w-4" />
+										{/if}
+										Pay {formatUsd(selectedDomainQuote.pricing.purchase.totalCents)}
+									</button>
+								</div>
 							</div>
 						{/if}
 					</div>
@@ -2693,13 +3261,20 @@
 
 	.domain-item {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: stretch;
 		gap: 0.75rem;
 		padding: 0.875rem;
 		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
 		border: 1px solid var(--card-border);
 		border-radius: 0.625rem;
+	}
+
+	.domain-item-top {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
 	}
 
 	.domain-info {
@@ -2720,27 +3295,146 @@
 		margin-top: 0.125rem;
 	}
 
+	.domain-guidance {
+		font-size: 0.75rem;
+		margin-top: 0.375rem;
+		opacity: 0.85;
+		line-height: 1.35;
+	}
+
+	.domain-warning {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.4rem;
+		margin-top: 0.45rem;
+		font-size: 0.75rem;
+		line-height: 1.35;
+		padding: 0.45rem 0.5rem;
+		border-radius: 0.4rem;
+		color: color-mix(in oklab, var(--color-warning-500) 80%, white 20%);
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 30%, transparent);
+		background: color-mix(in oklab, var(--color-warning-500) 10%, transparent);
+	}
+
 	.domain-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
 	}
 
+	.domain-delete-btn {
+		padding-inline: 0.4rem;
+		min-width: 1.8rem;
+		color: color-mix(in oklab, var(--color-error-500) 85%, white 15%);
+		border-color: color-mix(in oklab, var(--color-error-500) 25%, transparent);
+	}
+
+	.domain-dns {
+		padding: 0.625rem;
+		border-radius: 0.5rem;
+		background: color-mix(in oklab, var(--color-surface-950) 75%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+	}
+
+	.domain-dns-title {
+		font-size: 0.75rem;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+		opacity: 0.9;
+	}
+
+	.domain-dns-grid {
+		display: grid;
+		grid-template-columns: 5.5rem minmax(8rem, 1fr) minmax(12rem, 2fr) 6rem;
+		gap: 0.35rem 0.5rem;
+	}
+
+	.domain-dns-head {
+		font-size: 0.6875rem;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		opacity: 0.7;
+	}
+
+	.domain-dns-cell {
+		font-size: 0.75rem;
+		line-height: 1.35;
+		word-break: break-word;
+	}
+
+	.domain-dns-copy-wrap {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		min-width: 0;
+	}
+
+	.domain-copy-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.15rem;
+		border-radius: 0.3rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+		background: color-mix(in oklab, var(--color-surface-900) 70%, transparent);
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.domain-copy-btn:hover {
+		background: color-mix(in oklab, var(--color-surface-800) 90%, transparent);
+	}
+
+	.domain-dns-proxy {
+		opacity: 0.8;
+	}
+
+	.domain-dns-reason {
+		grid-column: 1 / -1;
+		font-size: 0.6875rem;
+		opacity: 0.72;
+		margin-top: -0.1rem;
+		margin-bottom: 0.2rem;
+	}
+
+	@media (max-width: 640px) {
+		.domain-item-top {
+			flex-direction: column;
+		}
+		.domain-actions {
+			width: 100%;
+		}
+		.domain-dns-grid {
+			grid-template-columns: 1fr;
+		}
+		.domain-dns-head {
+			display: none;
+		}
+		.domain-dns-cell {
+			padding: 0.125rem 0;
+		}
+	}
+
 	.domain-results {
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-columns: 1fr;
 		gap: 0.625rem;
 	}
 
 	.domain-result {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		gap: 0.75rem;
 		padding: 0.875rem;
 		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
 		border: 1px solid var(--card-border);
 		border-radius: 0.625rem;
+	}
+
+	.domain-result.is-selected {
+		border-color: color-mix(in oklab, var(--color-primary-500) 45%, transparent);
+		box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary-500) 20%, transparent);
 	}
 
 	.domain-result-info {
@@ -2757,6 +3451,72 @@
 		font-weight: 600;
 		color: var(--color-primary-400);
 		margin-top: 0.125rem;
+	}
+
+	.domain-result-meta {
+		font-size: 0.72rem;
+		opacity: 0.72;
+		margin-top: 0.2rem;
+	}
+
+	.domain-checkout-panel {
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+		border-radius: 0.75rem;
+		padding: 0.875rem;
+	}
+
+	.domain-checkout-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.domain-checkout-title {
+		font-size: 0.72rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		opacity: 0.75;
+	}
+
+	.domain-checkout-domain {
+		font-weight: 600;
+		font-size: 0.95rem;
+	}
+
+	.domain-checkout-total {
+		font-weight: 700;
+		color: var(--color-primary-400);
+	}
+
+	.domain-checkout-fee-note {
+		font-size: 0.72rem;
+		opacity: 0.75;
+		margin-top: 0.4rem;
+	}
+
+	.domain-checkout-fields {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
+
+	.domain-payment-element {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+		border-radius: 0.6rem;
+		background: color-mix(in oklab, var(--color-surface-950) 65%, transparent);
+		padding: 0.6rem;
+		min-height: 3.25rem;
+	}
+
+	@media (min-width: 900px) {
+		.domain-results {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.domain-checkout-fields {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
 	}
 
 	/* AI Assistant - Beautiful Modern Design */

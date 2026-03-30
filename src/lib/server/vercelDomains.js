@@ -98,6 +98,17 @@ export async function addDomainToMicrositeProject(domain) {
 	};
 }
 
+export async function removeDomainFromMicrositeProject(domain) {
+	const vercel = getVercelClient();
+	const normalized = assertDomain(domain);
+	await vercel.projects.removeProjectDomain({
+		idOrName: getProjectIdOrName(),
+		domain: normalized,
+		...getTeamContext()
+	});
+	return { domain: normalized };
+}
+
 export async function verifyMicrositeProjectDomain(domain) {
 	const vercel = getVercelClient();
 	const normalized = assertDomain(domain);
@@ -106,11 +117,36 @@ export async function verifyMicrositeProjectDomain(domain) {
 		domain: normalized,
 		...getTeamContext()
 	});
+	const domainDetails = await vercel.projects
+		.getProjectDomain({
+			idOrName: getProjectIdOrName(),
+			domain: normalized,
+			...getTeamContext()
+		})
+		.catch(() => null);
+	const verification = Array.isArray(domainDetails?.verification) ? domainDetails.verification : [];
 	return {
 		domain: normalized,
-		verified: response.verified === true,
-		verification: response.verification || [],
-		dnsRecords: mapVerificationToDns(response.verification || [])
+		verified: domainDetails ? domainDetails.verified === true : response.verified === true,
+		verification,
+		dnsRecords: mapVerificationToDns(verification)
+	};
+}
+
+export async function getMicrositeProjectDomain(domain) {
+	const vercel = getVercelClient();
+	const normalized = assertDomain(domain);
+	const response = await vercel.projects.getProjectDomain({
+		idOrName: getProjectIdOrName(),
+		domain: normalized,
+		...getTeamContext()
+	});
+	const verification = Array.isArray(response?.verification) ? response.verification : [];
+	return {
+		domain: normalized,
+		verified: response?.verified === true,
+		verification,
+		dnsRecords: mapVerificationToDns(verification)
 	};
 }
 

@@ -1,19 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { normalizeDomain } from '$lib/server/vercelDomains';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
-}
-
-function looksAuthorized(request) {
-	const configured = cleanText(env.VERCEL_WEBHOOK_SECRET);
-	if (!configured) return true;
-	const signature = cleanText(request.headers.get('x-vercel-signature'));
-	const bearer = cleanText(request.headers.get('authorization')).replace(/^Bearer\s+/i, '');
-	return signature === configured || bearer === configured;
 }
 
 function extractDomain(payload = {}) {
@@ -33,10 +24,6 @@ function extractDomain(payload = {}) {
 }
 
 export async function POST({ request }) {
-	if (!looksAuthorized(request)) {
-		return json({ error: 'Invalid Vercel webhook signature.' }, { status: 401 });
-	}
-
 	const body = await request.json().catch(() => ({}));
 	const eventType = cleanText(body?.type || body?.event || body?.name || 'unknown');
 	const externalEventId = cleanText(body?.id || body?.eventId || body?.uid || '');
