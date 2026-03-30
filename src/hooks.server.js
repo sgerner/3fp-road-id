@@ -53,7 +53,6 @@ function firstHeaderValue(value) {
 function isCoreHostname(hostname) {
 	return (
 		!hostname ||
-		hostname === '3fp.bike' ||
 		hostname === 'www.3fp.bike' ||
 		hostname === 'localhost' ||
 		hostname === '127.0.0.1' ||
