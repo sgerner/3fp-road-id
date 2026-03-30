@@ -16,7 +16,7 @@ import {
 	normalizeGroupSiteConfig,
 	serializeGroupSiteConfig
 } from '$lib/microsites/config';
-import { buildMicrositeUrl, normalizeMicrositeSlug } from '$lib/microsites/host';
+import { normalizeMicrositeSlug } from '$lib/microsites/host';
 import { buildMicrositeThemeStyle, normalizePalette } from '$lib/microsites/theme';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { filterRidesForWidget } from '$lib/rides/widgetConfig';
@@ -874,7 +874,7 @@ export async function loadMicrositeNewsViews(groupId) {
 	return Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
 }
 
-export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
+export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publicPathname }) {
 	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
 	if (!normalizedSiteSlug) return null;
 
@@ -932,9 +932,13 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
 	const primaryCta = serializePrimaryCta(rawPrimaryCta);
 	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
-	const siteUrl = buildMicrositeUrl(micrositeSlug, url);
+	const visiblePathname = cleanText(publicPathname || url?.pathname || '') || '/';
+	const siteUrl =
+		visiblePathname === '/'
+			? new URL(url).origin
+			: `${new URL(url).origin}${visiblePathname.startsWith('/') ? visiblePathname : `/${visiblePathname}`}`;
 	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
-	const pathname = cleanText(url?.pathname);
+	const pathname = cleanText(publicPathname || url?.pathname);
 	const basePath =
 		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`)
 			? previewPath

@@ -136,15 +136,23 @@ export const handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname || '/';
 	const normalizedHost = resolveRequestHostname(event);
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
+	const slugFromCustomDomain = !slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)
+		? await lookupCustomDomainMicrositeSlug(normalizedHost)
+		: '';
 
-	if (!slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)) {
-		const slugFromCustomDomain = await lookupCustomDomainMicrositeSlug(normalizedHost);
-		if (slugFromCustomDomain) {
+	if (slugFromCustomDomain) {
+		event.locals.micrositeSlug = slugFromCustomDomain;
+		event.locals.micrositePublicPathname = pathname;
+		if (pathname === '/' || pathname === '') {
+			const rewritten = new URL(event.url);
+			rewritten.pathname = `/${encodeURIComponent(slugFromCustomDomain)}`;
+			event.url = rewritten;
+		} else {
 			const prefix = `/${encodeURIComponent(slugFromCustomDomain)}`;
 			if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) {
-				const targetUrl = new URL(event.url);
-				targetUrl.pathname = `${prefix}${pathname === '/' ? '' : pathname}`;
-				return Response.redirect(targetUrl.toString(), 307);
+				const rewritten = new URL(event.url);
+				rewritten.pathname = `${prefix}${pathname}`;
+				event.url = rewritten;
 			}
 		}
 	}

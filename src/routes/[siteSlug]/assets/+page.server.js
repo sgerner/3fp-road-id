@@ -1,11 +1,12 @@
 import { error } from '@sveltejs/kit';
 import { loadGroupMicrosite } from '$lib/server/groupSites';
 
-export const load = async ({ params, fetch, url }) => {
+export const load = async ({ params, fetch, url, locals }) => {
 	const site = await loadGroupMicrosite({
 		siteSlug: params.siteSlug,
 		fetch,
-		url
+		url,
+		publicPathname: locals?.micrositePublicPathname || url.pathname
 	});
 
 	if (!site) {
