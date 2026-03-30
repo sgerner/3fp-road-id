@@ -21,4 +21,3 @@ export const load = async ({ params, fetch, url, setHeaders }) => {
 		site
 	};
 };
-

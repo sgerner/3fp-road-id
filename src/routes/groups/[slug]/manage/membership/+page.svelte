@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -18,6 +19,15 @@
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
+	const DEFAULT_PROGRAM = {
+		enabled: true,
+		access_mode: 'public',
+		cta_label: 'Follow',
+		contribution_mode: 'donation',
+		default_tier_id: null,
+		policy_markdown: `By joining, you agree to this membership policy.\n\nCancellation:\n- You can cancel anytime.\n- Cancellation takes effect at the end of your current billing cycle.\n\nRefunds:\n- Payments are non-refundable unless required by law.\n\nQuestions:\n- Contact group organizers through the group page.`,
+		policy_version: 1
+	};
 
 	// Panel states
 	let settingsOpen = $state(false);
@@ -32,24 +42,28 @@
 	let error = $state('');
 
 	// Data
-	let program = $state({
-		...(data?.program_data?.program || {
-			enabled: true,
-			access_mode: 'public',
-			cta_label: 'Follow',
-			contribution_mode: 'donation',
-			default_tier_id: null,
-			policy_markdown: `By joining, you agree to this membership policy.\n\nCancellation:\n- You can cancel anytime.\n- Cancellation takes effect at the end of your current billing cycle.\n\nRefunds:\n- Payments are non-refundable unless required by law.\n\nQuestions:\n- Contact group organizers through the group page.`,
-			policy_version: 1
-		})
-	});
-
-	let tiers = $state(Array.isArray(data?.program_data?.tiers) ? data.program_data.tiers : []);
-	let formFields = $state(
-		Array.isArray(data?.program_data?.form_fields) ? data.program_data.form_fields : []
+	let program = $state(
+		untrack(() => structuredClone(data?.program_data?.program || DEFAULT_PROGRAM))
 	);
-	let applications = $state(Array.isArray(data?.applications) ? data.applications : []);
-	let members = $state(Array.isArray(data?.members) ? data.members : []);
+
+	let tiers = $state(
+		untrack(() =>
+			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
+		)
+	);
+	let formFields = $state(
+		untrack(() =>
+			Array.isArray(data?.program_data?.form_fields)
+				? structuredClone(data.program_data.form_fields)
+				: []
+		)
+	);
+	let applications = $state(
+		untrack(() => (Array.isArray(data?.applications) ? structuredClone(data.applications) : []))
+	);
+	let members = $state(
+		untrack(() => (Array.isArray(data?.members) ? structuredClone(data.members) : []))
+	);
 
 	// Filters
 	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
@@ -498,7 +512,8 @@
 				<div class="flex-1">
 					<p class="banner-title">Connect Stripe to accept paid memberships</p>
 					<p class="banner-subtitle">
-						You have paid tiers configured. Members cannot complete payment until Stripe is connected.
+						You have paid tiers configured. Members cannot complete payment until Stripe is
+						connected.
 					</p>
 				</div>
 				<a
@@ -830,7 +845,7 @@
 						</select>
 					</div>
 					<div class="form-field submit-field">
-						<label>&nbsp;</label>
+						<div class="submit-label-spacer" aria-hidden="true"></div>
 						<button
 							class="btn preset-filled-primary-500"
 							disabled={busy || !manualMembership.user_email}
@@ -1033,11 +1048,11 @@
 													/>
 													<span>Default</span>
 												</label>
-													<button
-														class="btn btn-sm preset-tonal-secondary"
-														disabled={busy}
-														onclick={() => updateTier(tier)}
-													>
+												<button
+													class="btn btn-sm preset-tonal-secondary"
+													disabled={busy}
+													onclick={() => updateTier(tier)}
+												>
 													Save
 												</button>
 												<button
@@ -1314,15 +1329,15 @@
 		border: 1px solid color-mix(in oklab, var(--color-success-500) 20%, transparent);
 	}
 
-		.banner.error {
-			background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
-			border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
-		}
+	.banner.error {
+		background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
+	}
 
-		.banner.warning {
-			background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
-			border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
-		}
+	.banner.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
+	}
 
 	.banner-content {
 		display: flex;
@@ -1345,27 +1360,27 @@
 		color: var(--color-success-400);
 	}
 
-		.banner-icon.error {
-			background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
-			color: var(--color-error-400);
-		}
+	.banner-icon.error {
+		background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
+		color: var(--color-error-400);
+	}
 
-		.banner-icon.warning {
-			background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
-			color: var(--color-warning-400);
-		}
+	.banner-icon.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
+		color: var(--color-warning-400);
+	}
 
-		.banner-title {
-			font-size: 0.875rem;
-			font-weight: 600;
-			line-height: 1.25;
-		}
+	.banner-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		line-height: 1.25;
+	}
 
-		.banner-subtitle {
-			margin-top: 0.125rem;
-			font-size: 0.75rem;
-			opacity: 0.8;
-		}
+	.banner-subtitle {
+		margin-top: 0.125rem;
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
 
 	/* Stats Grid */
 	.stats-grid {
@@ -2032,6 +2047,14 @@
 
 	.form-field.submit-field {
 		justify-content: flex-end;
+	}
+
+	.submit-label-spacer {
+		min-height: 0.875rem;
+	}
+
+	.submit-label-spacer {
+		min-height: 0.875rem;
 	}
 
 	.form-field label {

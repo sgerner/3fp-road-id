@@ -76,8 +76,7 @@ function rgbToHsl({ r, g, b }) {
 
 	if (!delta) return { h: 0, s: 0, l: lightness };
 
-	const saturation =
-		lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+	const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
 	let hue = 0;
 	if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0);
 	else if (max === green) hue = (blue - red) / delta + 2;

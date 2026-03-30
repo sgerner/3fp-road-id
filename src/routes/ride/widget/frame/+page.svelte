@@ -110,8 +110,7 @@
 				.toLowerCase()
 				.replace(/[^a-z0-9]+/g, ' ');
 			const matchesLocation =
-				!locationTokens.length ||
-				locationTokens.every((token) => locationHaystack.includes(token));
+				!locationTokens.length || locationTokens.every((token) => locationHaystack.includes(token));
 
 			const rideDate = parseRideDate(ride?.nextOccurrenceStart);
 			const inDateRange = matchesDateRange(rideDate, datePreset, customStartDate, customEndDate);

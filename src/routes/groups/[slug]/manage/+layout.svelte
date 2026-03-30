@@ -35,30 +35,30 @@
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
 		},
-			{
-				id: 'site',
-				label: 'Website',
-				icon: IconMonitorSmartphone,
-				href: `/groups/${slug}/manage/site`
-			},
-			{
-				id: 'membership',
-				label: 'Membership',
-				icon: IconIdCard,
-				href: `/groups/${slug}/manage/membership`
-			},
-			{
-				id: 'assets',
-				label: 'Assets',
-				icon: IconFolderOpen,
-				href: `/groups/${slug}/manage/assets`
-			},
-			{
-				id: 'news',
-				label: 'Updates',
-				icon: IconNewspaper,
-				href: `/groups/${slug}/manage/news`
-			},
+		{
+			id: 'site',
+			label: 'Website',
+			icon: IconMonitorSmartphone,
+			href: `/groups/${slug}/manage/site`
+		},
+		{
+			id: 'membership',
+			label: 'Membership',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`
+		},
+		{
+			id: 'assets',
+			label: 'Assets',
+			icon: IconFolderOpen,
+			href: `/groups/${slug}/manage/assets`
+		},
+		{
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
+		},
 		...(data.can_manage_social
 			? [
 					{

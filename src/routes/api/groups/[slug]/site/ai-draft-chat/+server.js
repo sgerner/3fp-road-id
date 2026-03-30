@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
-import { getAiConfigurationError, isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
+import {
+	getAiConfigurationError,
+	isAiModelConfigured,
+	requireAiModel
+} from '$lib/server/ai/models';
 import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
 import { getGroupSiteConfig } from '$lib/server/groupSites';
 
@@ -36,7 +40,8 @@ function normalizeMessages(raw) {
 }
 
 function countAssistantQuestions(messages) {
-	return messages.filter((entry) => entry.role === 'assistant' && entry.content.includes('?')).length;
+	return messages.filter((entry) => entry.role === 'assistant' && entry.content.includes('?'))
+		.length;
 }
 
 function safeParseJson(text) {
@@ -53,7 +58,9 @@ function safeParseJson(text) {
 }
 
 function buildPlannerPrompt({ group, currentConfig, messages }) {
-	const transcript = messages.map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n\n');
+	const transcript = messages
+		.map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`)
+		.join('\n\n');
 	return `
 You are the AI Draft guide for a community bike-group microsite editor.
 
@@ -90,22 +97,22 @@ Group context:
 
 Current config summary:
 ${JSON.stringify(
-		{
-			site_title: currentConfig?.site_title || '',
-			site_tagline: currentConfig?.site_tagline || '',
-			hero_style: currentConfig?.hero_style || '',
-			background_style: currentConfig?.background_style || '',
-			panel_style: currentConfig?.panel_style || '',
-			panel_tone: currentConfig?.panel_tone || '',
-			panel_density: currentConfig?.panel_density || '',
-			font_pairing: currentConfig?.font_pairing || '',
-			theme_mode: currentConfig?.theme_mode || '',
-			theme_name: currentConfig?.theme_name || '',
-			sections: currentConfig?.sections || {}
-		},
-		null,
-		2
-	)}
+	{
+		site_title: currentConfig?.site_title || '',
+		site_tagline: currentConfig?.site_tagline || '',
+		hero_style: currentConfig?.hero_style || '',
+		background_style: currentConfig?.background_style || '',
+		panel_style: currentConfig?.panel_style || '',
+		panel_tone: currentConfig?.panel_tone || '',
+		panel_density: currentConfig?.panel_density || '',
+		font_pairing: currentConfig?.font_pairing || '',
+		theme_mode: currentConfig?.theme_mode || '',
+		theme_name: currentConfig?.theme_name || '',
+		sections: currentConfig?.sections || {}
+	},
+	null,
+	2
+)}
 
 Conversation transcript:
 ${transcript || '(no conversation yet)'}
@@ -166,8 +173,12 @@ function summarizeSiteDiff(currentConfig, nextConfig) {
 	if (enabled.length) summary.push(`Sections enabled: ${enabled.join(', ')}`);
 	if (disabled.length) summary.push(`Sections disabled: ${disabled.join(', ')}`);
 
-	const currentSponsors = Array.isArray(currentConfig?.sponsor_items) ? currentConfig.sponsor_items.length : 0;
-	const nextSponsors = Array.isArray(nextConfig?.sponsor_items) ? nextConfig.sponsor_items.length : 0;
+	const currentSponsors = Array.isArray(currentConfig?.sponsor_items)
+		? currentConfig.sponsor_items.length
+		: 0;
+	const nextSponsors = Array.isArray(nextConfig?.sponsor_items)
+		? nextConfig.sponsor_items.length
+		: 0;
 	if (currentSponsors !== nextSponsors) {
 		summary.push(`Sponsor cards: ${currentSponsors} -> ${nextSponsors}`);
 	}
@@ -285,7 +296,8 @@ export async function POST({ params, request, cookies }) {
 		if (typeof responseText === 'function') responseText = responseText();
 		const parsed = safeParseJson(responseText) || {};
 		let action = parsed.action === 'generate' ? 'generate' : 'ask';
-		const reply = cleanText(parsed.reply) || 'Tell me a bit more about the tone and priorities you want.';
+		const reply =
+			cleanText(parsed.reply) || 'Tell me a bit more about the tone and priorities you want.';
 		let generationPrompt = cleanText(parsed.generation_prompt);
 
 		// Keep questioning minimal: allow one follow-up, then generate.

@@ -25,24 +25,24 @@
 			icon: IconSquarePen,
 			href: `/groups/${slug}/manage/edit`
 		},
-			{
-				id: 'membership',
-				label: 'Membership',
-				icon: IconIdCard,
-				href: `/groups/${slug}/manage/membership`
-			},
-			{
-				id: 'assets',
-				label: 'Assets',
-				icon: IconFolderOpen,
-				href: `/groups/${slug}/manage/assets`
-			},
-			{
-				id: 'news',
-				label: 'Updates',
-				icon: IconNewspaper,
-				href: `/groups/${slug}/manage/news`
-			},
+		{
+			id: 'membership',
+			label: 'Membership',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`
+		},
+		{
+			id: 'assets',
+			label: 'Assets',
+			icon: IconFolderOpen,
+			href: `/groups/${slug}/manage/assets`
+		},
+		{
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
+		},
 		...(canManageSocial
 			? [
 					{

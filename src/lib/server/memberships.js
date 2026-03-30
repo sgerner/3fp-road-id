@@ -1,6 +1,9 @@
 import { sendEmail } from '$lib/services/email';
 import { resolveSession } from '$lib/server/session';
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
 import { PUBLIC_URL_BASE } from '$env/static/public';
 
@@ -259,7 +262,10 @@ function formatDate(value) {
 
 function stripHtml(input) {
 	if (!input) return '';
-	return String(input).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+	return String(input)
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 function renderTemplate(input, context) {
@@ -277,7 +283,9 @@ function toIsoNow() {
 }
 
 function resolveAbsoluteUrl(path) {
-	const base = String(PUBLIC_URL_BASE || process.env.PUBLIC_URL_BASE || '').trim().replace(/\/+$/, '');
+	const base = String(PUBLIC_URL_BASE || process.env.PUBLIC_URL_BASE || '')
+		.trim()
+		.replace(/\/+$/, '');
 	const route = `/${String(path || '').replace(/^\/+/, '')}`;
 	return base ? `${base}${route}` : route;
 }
@@ -309,7 +317,9 @@ function isPaymentOwnerNotice(tags) {
 			tag &&
 			typeof tag === 'object' &&
 			String(tag.Name || '').toLowerCase() === 'context' &&
-			String(tag.Value || '').toLowerCase().includes('membership-payment')
+			String(tag.Value || '')
+				.toLowerCase()
+				.includes('membership-payment')
 	);
 }
 
@@ -437,7 +447,15 @@ async function resolveOwnerEmails(serviceSupabase, groupId, { paymentOnly = fals
 	);
 }
 
-async function sendOwnerNotification({ serviceSupabase, group, subject, html, text, tags, fetchImpl }) {
+async function sendOwnerNotification({
+	serviceSupabase,
+	group,
+	subject,
+	html,
+	text,
+	tags,
+	fetchImpl
+}) {
 	try {
 		const paymentNotice = isPaymentOwnerNotice(tags);
 		const emails = await resolveOwnerEmails(serviceSupabase, group.id, {
@@ -539,7 +557,8 @@ async function sendMembershipPaymentSuccessNotifications({
 	const memberEmail = sanitizeEmail(memberProfile?.email || '');
 	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
 	const paidAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
-	const billingInterval = cleanNullableText(metadata?.membership_interval_unit, 16) || membership?.interval_unit || null;
+	const billingInterval =
+		cleanNullableText(metadata?.membership_interval_unit, 16) || membership?.interval_unit || null;
 	const contribution = amountCents > 0 ? `${paidAmount}/${intervalLabel(billingInterval)}` : 'Free';
 	const tierName = cleanText(tier?.name || 'Membership', 120);
 	const renewsAt = membership?.renews_at ? formatDate(membership.renews_at) : '';
@@ -603,7 +622,8 @@ async function sendMembershipPaymentFailureNotifications({
 	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
 	const billedAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
 	const billingInterval = cleanNullableText(metadata?.membership_interval_unit, 16) || null;
-	const contribution = amountCents > 0 ? `${billedAmount}/${intervalLabel(billingInterval)}` : billedAmount;
+	const contribution =
+		amountCents > 0 ? `${billedAmount}/${intervalLabel(billingInterval)}` : billedAmount;
 	const tierName = cleanText(tier?.name || 'Membership', 120);
 	const memberMembershipUrl = `/groups/${group.slug}/membership`;
 
@@ -807,7 +827,11 @@ async function createCheckoutSession({
 }) {
 	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, group.id);
 	if (!donationAccount?.stripe_account_id || donationAccount?.charges_enabled !== true) {
-		return { ok: false, status: 409, error: 'This group has not connected Stripe for memberships.' };
+		return {
+			ok: false,
+			status: 409,
+			error: 'This group has not connected Stripe for memberships.'
+		};
 	}
 
 	const baseUrl = resolvePublicBaseUrl(requestUrl);
@@ -829,7 +853,8 @@ async function createCheckoutSession({
 		unit_amount: amountCents,
 		product_data: {
 			name: `${group.name} Membership: ${tier.name}`,
-			description: cleanText(tier.description || `${program.cta_label || 'Membership'}`, 1000) || undefined
+			description:
+				cleanText(tier.description || `${program.cta_label || 'Membership'}`, 1000) || undefined
 		}
 	};
 	if (mode === 'subscription') {
@@ -874,20 +899,24 @@ async function createCheckoutSession({
 				payment_intent_data:
 					mode === 'payment'
 						? {
-							metadata
-						}
+								metadata
+							}
 						: undefined,
 				subscription_data:
 					mode === 'subscription'
 						? {
-							metadata
-						}
+								metadata
+							}
 						: undefined
 			},
 			{ stripeAccount: donationAccount.stripe_account_id }
 		);
 	} catch (error) {
-		return { ok: false, status: 502, error: error?.message || 'Unable to create checkout session.' };
+		return {
+			ok: false,
+			status: 502,
+			error: error?.message || 'Unable to create checkout session.'
+		};
 	}
 
 	if (!checkoutSession?.url) {
@@ -928,7 +957,8 @@ async function findOrCreateMembership({
 
 	const tier = await loadTierById(serviceSupabase, tierId);
 	const now = new Date();
-	const normalizedInterval = billingInterval && INTERVAL_UNITS.has(billingInterval) ? billingInterval : null;
+	const normalizedInterval =
+		billingInterval && INTERVAL_UNITS.has(billingInterval) ? billingInterval : null;
 	const resolvedAmountCents =
 		contributionAmountCents === null || contributionAmountCents === undefined
 			? normalizeAmountCents(resolveTierAmountByInterval(tier, normalizedInterval), 0)
@@ -944,14 +974,14 @@ async function findOrCreateMembership({
 			user_id: userId,
 			tier_id: tierId,
 			status: MEMBERSHIP_STATUSES.has(status) ? status : 'active',
-				source,
-				started_at: now.toISOString(),
-				renews_at: renewsAt,
-				interval_unit: normalizedInterval,
-				contribution_amount_cents: resolvedAmountCents,
-				created_by_owner_id: createdByOwnerId,
-				created_from_application_id: applicationId,
-				created_at: now.toISOString(),
+			source,
+			started_at: now.toISOString(),
+			renews_at: renewsAt,
+			interval_unit: normalizedInterval,
+			contribution_amount_cents: resolvedAmountCents,
+			created_by_owner_id: createdByOwnerId,
+			created_from_application_id: applicationId,
+			created_at: now.toISOString(),
 			updated_at: now.toISOString()
 		})
 		.select('*')
@@ -1036,7 +1066,9 @@ async function resolveGroupProgramAndTier(serviceSupabase, groupId, tierId = nul
 	}
 	if (!tier) {
 		tier =
-			bundle.tiers.find((entry) => entry.id === program.default_tier_id && entry.is_active !== false) ||
+			bundle.tiers.find(
+				(entry) => entry.id === program.default_tier_id && entry.is_active !== false
+			) ||
 			bundle.tiers.find((entry) => entry.is_default === true && entry.is_active !== false) ||
 			bundle.tiers.find((entry) => entry.is_active !== false) ||
 			null;
@@ -1094,8 +1126,9 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 		.maybeSingle();
 
 	const now = toIsoNow();
-	const nextIntervalUnit =
-		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
+	const nextIntervalUnit = INTERVAL_UNITS.has(membership?.interval_unit || '')
+		? membership.interval_unit
+		: 'month';
 	const nextContributionAmount = normalizeAmountCents(
 		resolveTierAmountByInterval(requestedTier, nextIntervalUnit),
 		0
@@ -1143,7 +1176,9 @@ async function ensureStripeCatalogForMembershipTier({
 	const accountMatches =
 		cleanNullableText(tier?.stripe_account_id, 255) === cleanNullableText(stripeAccountId, 255);
 	let productId = accountMatches ? cleanNullableText(tier?.stripe_product_id, 255) : null;
-	let monthlyPriceId = accountMatches ? cleanNullableText(tier?.stripe_monthly_price_id, 255) : null;
+	let monthlyPriceId = accountMatches
+		? cleanNullableText(tier?.stripe_monthly_price_id, 255)
+		: null;
 	let annualPriceId = accountMatches ? cleanNullableText(tier?.stripe_annual_price_id, 255) : null;
 	const stripe = getStripeClient();
 	const stripeOptions = { stripeAccount: stripeAccountId };
@@ -1173,7 +1208,11 @@ async function ensureStripeCatalogForMembershipTier({
 	}
 
 	if (tier.allow_custom_amount !== true) {
-		if (!monthlyPriceId && tier.monthly_amount_cents !== null && tier.monthly_amount_cents !== undefined) {
+		if (
+			!monthlyPriceId &&
+			tier.monthly_amount_cents !== null &&
+			tier.monthly_amount_cents !== undefined
+		) {
 			const monthlyPrice = await stripe.prices.create(
 				{
 					product: productId,
@@ -1196,7 +1235,11 @@ async function ensureStripeCatalogForMembershipTier({
 			monthlyPriceId = cleanNullableText(monthlyPrice?.id, 255);
 		}
 
-		if (!annualPriceId && tier.annual_amount_cents !== null && tier.annual_amount_cents !== undefined) {
+		if (
+			!annualPriceId &&
+			tier.annual_amount_cents !== null &&
+			tier.annual_amount_cents !== undefined
+		) {
 			const annualPrice = await stripe.prices.create(
 				{
 					product: productId,
@@ -1281,10 +1324,14 @@ async function updateStripeSubscriptionPriceForTierChange({
 	if (billingError) throw new Error(billingError.message);
 	if (!billing?.stripe_subscription_id) return null;
 
-	const intervalUnit =
-		INTERVAL_UNITS.has(membership?.interval_unit || '') ? membership.interval_unit : 'month';
+	const intervalUnit = INTERVAL_UNITS.has(membership?.interval_unit || '')
+		? membership.interval_unit
+		: 'month';
 	const group = await loadGroupById(serviceSupabase, membership.group_id);
-	const amountCents = normalizeAmountCents(resolveTierAmountByInterval(requestedTier, intervalUnit), 0);
+	const amountCents = normalizeAmountCents(
+		resolveTierAmountByInterval(requestedTier, intervalUnit),
+		0
+	);
 	const { priceId: nextStripePriceId } = await ensureStripeCatalogForMembershipTier({
 		serviceSupabase,
 		group,
@@ -1456,11 +1503,14 @@ async function loadUpcomingVolunteerRows(serviceSupabase, groupId) {
 }
 
 function renderRidesBlock(rides, baseUrl) {
-	if (!rides.length) return { html: '<p>No upcoming rides scheduled.</p>', text: 'No upcoming rides.' };
+	if (!rides.length)
+		return { html: '<p>No upcoming rides scheduled.</p>', text: 'No upcoming rides.' };
 	const htmlItems = rides
 		.map((ride) => {
 			const when = formatDate(ride.next_occurrence_start);
-			const href = baseUrl ? `${baseUrl}/ride/${encodeURIComponent(ride.slug)}` : `/ride/${ride.slug}`;
+			const href = baseUrl
+				? `${baseUrl}/ride/${encodeURIComponent(ride.slug)}`
+				: `/ride/${ride.slug}`;
 			const location = cleanText(ride.start_location_name || ride.start_location_address, 200);
 			return `<li><a href="${href}">${ride.title}</a>${when ? ` - ${when}` : ''}${
 				location ? ` (${location})` : ''
@@ -1628,7 +1678,11 @@ export async function requireMembershipUser(cookies, groupSlug) {
 	};
 }
 
-export async function getMembershipProgramForViewer({ cookies, groupSlug, includeInactive = false }) {
+export async function getMembershipProgramForViewer({
+	cookies,
+	groupSlug,
+	includeInactive = false
+}) {
 	const viewer = await getViewerContext(cookies);
 	const group = await loadGroupBySlug(viewer.requestSupabase, groupSlug);
 	if (!group) {
@@ -1637,7 +1691,12 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 
 	let canManage = false;
 	if (viewer.userId) {
-		canManage = await isGroupManager(viewer.requestSupabase, group.id, viewer.userId, viewer.isAdmin);
+		canManage = await isGroupManager(
+			viewer.requestSupabase,
+			group.id,
+			viewer.userId,
+			viewer.isAdmin
+		);
 	}
 
 	const serviceSupabase = await getServiceSupabase();
@@ -1669,13 +1728,15 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 				program: null,
 				tiers: [],
 				form_fields: [],
-					stripe_connection: stripeConnection,
-					can_manage: canManage
-				}
-			};
+				stripe_connection: stripeConnection,
+				can_manage: canManage
+			}
+		};
 	}
 
-	const { tiers, fields } = await loadProgramBundle(sourceSupabase, program.id, { includeInactive });
+	const { tiers, fields } = await loadProgramBundle(sourceSupabase, program.id, {
+		includeInactive
+	});
 	return {
 		ok: true,
 		data: {
@@ -1683,10 +1744,10 @@ export async function getMembershipProgramForViewer({ cookies, groupSlug, includ
 			program,
 			tiers,
 			form_fields: fields,
-				stripe_connection: stripeConnection,
-				can_manage: canManage
-			}
-		};
+			stripe_connection: stripeConnection,
+			can_manage: canManage
+		}
+	};
 }
 
 export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
@@ -1708,7 +1769,11 @@ export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
 	if (defaultTierId) {
 		const tier = await loadTierById(serviceSupabase, defaultTierId);
 		if (!tier || tier.program_id !== before.id) {
-			return { ok: false, status: 400, error: 'Default tier must belong to this membership program.' };
+			return {
+				ok: false,
+				status: 400,
+				error: 'Default tier must belong to this membership program.'
+			};
 		}
 	}
 
@@ -1755,7 +1820,9 @@ export async function updateMembershipPolicy({ cookies, groupSlug, payload }) {
 		policy_markdown: markdown,
 		policy_updated_at: toIsoNow(),
 		updated_at: toIsoNow(),
-		policy_version: bumpVersion ? (normalizeInteger(before.policy_version, 1) || 1) + 1 : before.policy_version
+		policy_version: bumpVersion
+			? (normalizeInteger(before.policy_version, 1) || 1) + 1
+			: before.policy_version
 	};
 
 	const { data, error } = await serviceSupabase
@@ -1772,7 +1839,10 @@ export async function updateMembershipPolicy({ cookies, groupSlug, payload }) {
 		action: 'policy.updated',
 		entity_type: 'group_membership_program',
 		entity_id: data.id,
-		before_snapshot: { policy_markdown: before.policy_markdown, policy_version: before.policy_version },
+		before_snapshot: {
+			policy_markdown: before.policy_markdown,
+			policy_version: before.policy_version
+		},
 		after_snapshot: { policy_markdown: data.policy_markdown, policy_version: data.policy_version }
 	});
 
@@ -1859,7 +1929,9 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 		if (existing) {
 			const updatePayload = {
 				...payload,
-				sort_order: template.is_default ? 0 : DEFAULT_MEMBERSHIP_TIER_TEMPLATES.indexOf(template) + 1,
+				sort_order: template.is_default
+					? 0
+					: DEFAULT_MEMBERSHIP_TIER_TEMPLATES.indexOf(template) + 1,
 				updated_at: now
 			};
 			const { data: nextTier, error: updateError } = await serviceSupabase
@@ -2055,13 +2127,17 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 			? normalizeBoolean(payload.allow_custom_amount, before.allow_custom_amount === true)
 			: before.allow_custom_amount === true;
 	const nextBillingType =
-		nextMonthlyAmount !== null || nextAnnualAmount !== null || nextAllowCustom ? 'recurring' : 'one_time';
+		nextMonthlyAmount !== null || nextAnnualAmount !== null || nextAllowCustom
+			? 'recurring'
+			: 'one_time';
 	const pricingChanged =
-		nextMonthlyAmount !== normalizeNullableAmountCents(before.monthly_amount_cents ?? before.amount_cents) ||
+		nextMonthlyAmount !==
+			normalizeNullableAmountCents(before.monthly_amount_cents ?? before.amount_cents) ||
 		nextAnnualAmount !== normalizeNullableAmountCents(before.annual_amount_cents) ||
 		nextBillingType !== before.billing_type ||
 		nextAllowCustom !== (before.allow_custom_amount === true) ||
-		(payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency) !== before.currency;
+		(payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency) !==
+			before.currency;
 
 	const updates = {
 		name: payload?.name !== undefined ? cleanText(payload?.name, 80) : before.name,
@@ -2072,12 +2148,15 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 		amount_cents: nextMonthlyAmount ?? 0,
 		monthly_amount_cents: nextMonthlyAmount,
 		annual_amount_cents: nextAnnualAmount,
-		currency: payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency,
+		currency:
+			payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency,
 		billing_type: nextBillingType,
 		interval_unit: nextBillingType === 'recurring' ? 'month' : null,
 		interval_count: nextBillingType === 'recurring' ? 1 : null,
 		is_default:
-			payload?.is_default !== undefined ? normalizeBoolean(payload.is_default, false) : before.is_default,
+			payload?.is_default !== undefined
+				? normalizeBoolean(payload.is_default, false)
+				: before.is_default,
 		is_active:
 			payload?.is_active !== undefined
 				? normalizeBoolean(payload.is_active, before.is_active !== false)
@@ -2094,28 +2173,25 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 			payload?.min_amount_cents !== undefined
 				? normalizeInteger(payload.min_amount_cents, before.min_amount_cents)
 				: before.min_amount_cents,
-		stripe_price_id:
-			pricingChanged
-				? null
-				: payload?.stripe_price_id !== undefined
+		stripe_price_id: pricingChanged
+			? null
+			: payload?.stripe_price_id !== undefined
 				? cleanNullableText(payload.stripe_price_id, 255)
 				: before.stripe_price_id,
 		stripe_product_id:
 			payload?.stripe_product_id !== undefined
 				? cleanNullableText(payload.stripe_product_id, 255)
 				: before.stripe_product_id,
-		stripe_monthly_price_id:
-			pricingChanged
-				? null
-				: payload?.stripe_monthly_price_id !== undefined
-					? cleanNullableText(payload.stripe_monthly_price_id, 255)
-					: before.stripe_monthly_price_id,
-		stripe_annual_price_id:
-			pricingChanged
-				? null
-				: payload?.stripe_annual_price_id !== undefined
-					? cleanNullableText(payload.stripe_annual_price_id, 255)
-					: before.stripe_annual_price_id,
+		stripe_monthly_price_id: pricingChanged
+			? null
+			: payload?.stripe_monthly_price_id !== undefined
+				? cleanNullableText(payload.stripe_monthly_price_id, 255)
+				: before.stripe_monthly_price_id,
+		stripe_annual_price_id: pricingChanged
+			? null
+			: payload?.stripe_annual_price_id !== undefined
+				? cleanNullableText(payload.stripe_annual_price_id, 255)
+				: before.stripe_annual_price_id,
 		stripe_account_id: pricingChanged ? null : before.stripe_account_id,
 		updated_at: toIsoNow()
 	};
@@ -2297,15 +2373,15 @@ export async function updateMembershipFormField({ cookies, groupSlug, fieldId, p
 	const updates = {
 		label: payload?.label !== undefined ? cleanText(payload.label, 120) : before.label,
 		help_text:
-			payload?.help_text !== undefined ? cleanNullableText(payload.help_text, 1000) : before.help_text,
+			payload?.help_text !== undefined
+				? cleanNullableText(payload.help_text, 1000)
+				: before.help_text,
 		required:
 			payload?.required !== undefined
 				? normalizeBoolean(payload.required, before.required === true)
 				: before.required,
 		options_json:
-			payload?.options_json !== undefined
-				? payload.options_json
-				: before.options_json || [],
+			payload?.options_json !== undefined ? payload.options_json : before.options_json || [],
 		sort_order:
 			payload?.sort_order !== undefined
 				? normalizeInteger(payload.sort_order, before.sort_order || 0)
@@ -2448,7 +2524,9 @@ export async function applyForMembership({ cookies, groupSlug, payload, fetchImp
 	if (appError) return { ok: false, status: 400, error: appError.message };
 
 	if (answers.length && fields.length) {
-		const validFieldIds = new Set(fields.filter((field) => field.active !== false).map((field) => field.id));
+		const validFieldIds = new Set(
+			fields.filter((field) => field.active !== false).map((field) => field.id)
+		);
 		const insertAnswers = answers
 			.map((answer) => ({
 				application_id: application.id,
@@ -2498,7 +2576,11 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 	});
 	const requestedTierId = cleanNullableText(payload?.tier_id, 64);
 	const requestedInterval = cleanNullableText(payload?.billing_interval, 16);
-	const { program, tier } = await resolveGroupProgramAndTier(serviceSupabase, auth.group.id, requestedTierId);
+	const { program, tier } = await resolveGroupProgramAndTier(
+		serviceSupabase,
+		auth.group.id,
+		requestedTierId
+	);
 
 	if (!program || program.enabled === false) {
 		return { ok: false, status: 409, error: 'Membership is not currently enabled for this group.' };
@@ -2583,7 +2665,11 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	const requestedTierId = cleanNullableText(payload?.tier_id, 64);
 	const requestedInterval = cleanNullableText(payload?.billing_interval, 16);
 	const applicationId = cleanNullableText(payload?.application_id, 64);
-	const { program, tier } = await resolveGroupProgramAndTier(serviceSupabase, auth.group.id, requestedTierId);
+	const { program, tier } = await resolveGroupProgramAndTier(
+		serviceSupabase,
+		auth.group.id,
+		requestedTierId
+	);
 
 	if (!program || program.enabled === false) {
 		return { ok: false, status: 409, error: 'Membership is not currently enabled for this group.' };
@@ -2600,7 +2686,11 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 			};
 		}
 		application = await resolveApplicationContext(serviceSupabase, applicationId);
-		if (!application || application.group_id !== auth.group.id || application.user_id !== auth.userId) {
+		if (
+			!application ||
+			application.group_id !== auth.group.id ||
+			application.user_id !== auth.userId
+		) {
 			return { ok: false, status: 404, error: 'Application not found.' };
 		}
 		if (!['approved', 'payment_pending'].includes(application.status)) {
@@ -2615,13 +2705,21 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	const billingInterval = resolveTierBillingInterval(tier, requestedInterval);
 	const contributionMode = normalizeContributionMode(program.contribution_mode, 'donation');
 	if (!billingInterval) {
-		return { ok: false, status: 400, error: 'This tier does not have a monthly or annual rate configured.' };
+		return {
+			ok: false,
+			status: 400,
+			error: 'This tier does not have a monthly or annual rate configured.'
+		};
 	}
 	const tierAmount = normalizeAmountCents(resolveTierAmountByInterval(tier, billingInterval), 0);
 	const customAmountCents = tier.allow_custom_amount
 		? normalizeCustomAmountCents(payload?.custom_amount_cents, tier.min_amount_cents || 0)
 		: null;
-	if (tier.allow_custom_amount && payload?.custom_amount_cents !== undefined && customAmountCents === null) {
+	if (
+		tier.allow_custom_amount &&
+		payload?.custom_amount_cents !== undefined &&
+		customAmountCents === null
+	) {
 		return {
 			ok: false,
 			status: 400,
@@ -2631,17 +2729,17 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	const finalAmount = customAmountCents ?? tierAmount;
 
 	if (contributionMode === 'donation' && finalAmount <= 0) {
-			const membership = await findOrCreateMembership({
-				serviceSupabase,
-				groupId: auth.group.id,
-				userId: auth.userId,
-				tierId: tier.id,
-				billingInterval,
-				contributionAmountCents: 0,
-				source: 'online',
-				applicationId: application?.id || null,
-				status: 'active'
-			});
+		const membership = await findOrCreateMembership({
+			serviceSupabase,
+			groupId: auth.group.id,
+			userId: auth.userId,
+			tierId: tier.id,
+			billingInterval,
+			contributionAmountCents: 0,
+			source: 'online',
+			applicationId: application?.id || null,
+			status: 'active'
+		});
 		return { ok: true, data: { requires_checkout: false, membership } };
 	}
 
@@ -2699,7 +2797,11 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	const requestedTierId = cleanNullableText(payload?.tier_id, 64);
 	const requestedInterval = cleanNullableText(payload?.billing_interval, 16);
 	const applicationId = cleanNullableText(payload?.application_id, 64);
-	const { program, tier } = await resolveGroupProgramAndTier(serviceSupabase, auth.group.id, requestedTierId);
+	const { program, tier } = await resolveGroupProgramAndTier(
+		serviceSupabase,
+		auth.group.id,
+		requestedTierId
+	);
 
 	if (!program || program.enabled === false) {
 		return { ok: false, status: 409, error: 'Membership is not currently enabled for this group.' };
@@ -2716,7 +2818,11 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 			};
 		}
 		application = await resolveApplicationContext(serviceSupabase, applicationId);
-		if (!application || application.group_id !== auth.group.id || application.user_id !== auth.userId) {
+		if (
+			!application ||
+			application.group_id !== auth.group.id ||
+			application.user_id !== auth.userId
+		) {
 			return { ok: false, status: 404, error: 'Application not found.' };
 		}
 		if (!['approved', 'payment_pending'].includes(application.status)) {
@@ -2731,14 +2837,22 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	const billingInterval = resolveTierBillingInterval(tier, requestedInterval);
 	const contributionMode = normalizeContributionMode(program.contribution_mode, 'donation');
 	if (!billingInterval) {
-		return { ok: false, status: 400, error: 'This tier does not have a monthly or annual rate configured.' };
+		return {
+			ok: false,
+			status: 400,
+			error: 'This tier does not have a monthly or annual rate configured.'
+		};
 	}
 
 	const tierAmount = normalizeAmountCents(resolveTierAmountByInterval(tier, billingInterval), 0);
 	const customAmountCents = tier.allow_custom_amount
 		? normalizeCustomAmountCents(payload?.custom_amount_cents, tier.min_amount_cents || 0)
 		: null;
-	if (tier.allow_custom_amount && payload?.custom_amount_cents !== undefined && customAmountCents === null) {
+	if (
+		tier.allow_custom_amount &&
+		payload?.custom_amount_cents !== undefined &&
+		customAmountCents === null
+	) {
 		return {
 			ok: false,
 			status: 400,
@@ -2768,7 +2882,11 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 
 	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
 	if (!donationAccount?.stripe_account_id || donationAccount?.charges_enabled !== true) {
-		return { ok: false, status: 409, error: 'This group has not connected Stripe for memberships.' };
+		return {
+			ok: false,
+			status: 409,
+			error: 'This group has not connected Stripe for memberships.'
+		};
 	}
 
 	const baseUrl = resolvePublicBaseUrl(requestUrl);
@@ -2810,8 +2928,8 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 					description: `${auth.group.name} Membership: ${tier.name}`,
 					metadata
 				},
-					{ stripeAccount: donationAccount.stripe_account_id }
-				);
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
 			clientSecret = cleanText(paymentIntent?.client_secret || '', 2000);
 			clientSecretSource = clientSecret ? 'payment_intent.create.client_secret' : '';
 		} else {
@@ -2837,76 +2955,77 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				throw new Error('Unable to prepare Stripe price for this membership tier.');
 			}
 			metadata.membership_tier_price_id = recurringPriceId;
-				subscription = await stripe.subscriptions.create(
-					{
-						customer: customer.id,
-						collection_method: 'charge_automatically',
-						payment_behavior: 'default_incomplete',
+			subscription = await stripe.subscriptions.create(
+				{
+					customer: customer.id,
+					collection_method: 'charge_automatically',
+					payment_behavior: 'default_incomplete',
 					payment_settings: {
 						save_default_payment_method: 'on_subscription'
 					},
-						items: [
-							{
-								price: recurringPriceId
-							}
-						],
-						metadata,
-						expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent']
-					},
-					{ stripeAccount: donationAccount.stripe_account_id }
-				);
-				latestInvoiceSnapshot =
-					subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
-						? subscription.latest_invoice
-						: null;
-				paymentIntent =
-					subscription?.latest_invoice &&
-					typeof subscription.latest_invoice === 'object' &&
+					items: [
+						{
+							price: recurringPriceId
+						}
+					],
+					metadata,
+					expand: [
+						'latest_invoice.confirmation_secret',
+						'latest_invoice.payment_intent',
+						'pending_setup_intent'
+					]
+				},
+				{ stripeAccount: donationAccount.stripe_account_id }
+			);
+			latestInvoiceSnapshot =
+				subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
+					? subscription.latest_invoice
+					: null;
+			paymentIntent =
+				subscription?.latest_invoice &&
+				typeof subscription.latest_invoice === 'object' &&
 				subscription.latest_invoice.payment_intent &&
 				typeof subscription.latest_invoice.payment_intent === 'object'
-						? subscription.latest_invoice.payment_intent
-						: null;
-				clientSecret = cleanText(
-					subscription?.latest_invoice &&
-						typeof subscription.latest_invoice === 'object' &&
-						subscription.latest_invoice.confirmation_secret &&
-						typeof subscription.latest_invoice.confirmation_secret === 'object'
-						? subscription.latest_invoice.confirmation_secret.client_secret || ''
-						: '',
-					2000
-				);
-				clientSecretSource = clientSecret ? 'subscription.latest_invoice.confirmation_secret' : '';
+					? subscription.latest_invoice.payment_intent
+					: null;
+			clientSecret = cleanText(
+				subscription?.latest_invoice &&
+					typeof subscription.latest_invoice === 'object' &&
+					subscription.latest_invoice.confirmation_secret &&
+					typeof subscription.latest_invoice.confirmation_secret === 'object'
+					? subscription.latest_invoice.confirmation_secret.client_secret || ''
+					: '',
+				2000
+			);
+			clientSecretSource = clientSecret ? 'subscription.latest_invoice.confirmation_secret' : '';
 
-				if (!paymentIntent) {
+			if (!paymentIntent) {
 				const latestInvoiceId =
 					typeof subscription?.latest_invoice === 'string'
 						? subscription.latest_invoice
 						: subscription?.latest_invoice?.id || null;
-					if (latestInvoiceId) {
-						const latestInvoice = await stripe.invoices.retrieve(
-							latestInvoiceId,
-							{ expand: ['confirmation_secret', 'payment_intent'] },
-							{ stripeAccount: donationAccount.stripe_account_id }
-						);
-						latestInvoiceSnapshot = latestInvoice || null;
-						if (latestInvoice?.payment_intent) {
-							paymentIntent = latestInvoice.payment_intent;
-						}
-							if (
-								!clientSecret &&
-								latestInvoice?.confirmation_secret &&
-								typeof latestInvoice.confirmation_secret === 'object'
-							) {
-								clientSecret = cleanText(
-									latestInvoice.confirmation_secret.client_secret || '',
-									2000
-								);
-								clientSecretSource = clientSecret
-									? 'invoice.retrieve.confirmation_secret'
-									: clientSecretSource;
-							}
-						}
+				if (latestInvoiceId) {
+					const latestInvoice = await stripe.invoices.retrieve(
+						latestInvoiceId,
+						{ expand: ['confirmation_secret', 'payment_intent'] },
+						{ stripeAccount: donationAccount.stripe_account_id }
+					);
+					latestInvoiceSnapshot = latestInvoice || null;
+					if (latestInvoice?.payment_intent) {
+						paymentIntent = latestInvoice.payment_intent;
 					}
+					if (
+						!clientSecret &&
+						latestInvoice?.confirmation_secret &&
+						typeof latestInvoice.confirmation_secret === 'object'
+					) {
+						clientSecret = cleanText(latestInvoice.confirmation_secret.client_secret || '', 2000);
+						clientSecretSource = clientSecret
+							? 'invoice.retrieve.confirmation_secret'
+							: clientSecretSource;
+					}
+				}
+			}
 
 			let paymentIntentId =
 				typeof paymentIntent === 'string'
@@ -2919,29 +3038,29 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				!paymentIntent ||
 				typeof paymentIntent !== 'object' ||
 				!cleanText(paymentIntent.client_secret || '', 2000);
-				if (paymentIntentId && missingClientSecret) {
-					const expandedIntent = await stripe.paymentIntents.retrieve(
+			if (paymentIntentId && missingClientSecret) {
+				const expandedIntent = await stripe.paymentIntents.retrieve(
 					paymentIntentId,
 					{},
 					{ stripeAccount: donationAccount.stripe_account_id }
 				);
-					if (expandedIntent?.id) {
-						paymentIntent = expandedIntent;
-						paymentIntentId = expandedIntent.id;
-						clientSecret = cleanText(expandedIntent.client_secret || '', 2000) || clientSecret;
-						if (cleanText(expandedIntent.client_secret || '', 2000)) {
-							clientSecretSource = 'payment_intent.retrieve.client_secret';
-						}
+				if (expandedIntent?.id) {
+					paymentIntent = expandedIntent;
+					paymentIntentId = expandedIntent.id;
+					clientSecret = cleanText(expandedIntent.client_secret || '', 2000) || clientSecret;
+					if (cleanText(expandedIntent.client_secret || '', 2000)) {
+						clientSecretSource = 'payment_intent.retrieve.client_secret';
 					}
 				}
 			}
-		} catch (error) {
-			return {
-				ok: false,
-				status: 502,
-				error: error?.message || 'Unable to prepare Stripe payment form.'
-			};
 		}
+	} catch (error) {
+		return {
+			ok: false,
+			status: 502,
+			error: error?.message || 'Unable to prepare Stripe payment form.'
+		};
+	}
 
 	const paymentIntentId =
 		typeof paymentIntent === 'string'
@@ -2951,11 +3070,9 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				: null;
 	const resolvedClientSecret =
 		cleanText(
-			typeof paymentIntent === 'object' && paymentIntent
-				? paymentIntent.client_secret || ''
-				: '',
+			typeof paymentIntent === 'object' && paymentIntent ? paymentIntent.client_secret || '' : '',
 			2000
-			) || clientSecret;
+		) || clientSecret;
 	if (!resolvedClientSecret) {
 		const invoicePaid =
 			latestInvoiceSnapshot?.paid === true ||
@@ -3020,12 +3137,7 @@ export async function updateMembershipPaymentIntent({ cookies, groupSlug, payloa
 	return createMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl });
 }
 
-export async function finalizeMembershipPaymentIntent({
-	cookies,
-	groupSlug,
-	payload,
-	fetchImpl
-}) {
+export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payload, fetchImpl }) {
 	const auth = await requireMembershipUser(cookies, groupSlug);
 	if (!auth.ok) return auth;
 
@@ -3041,7 +3153,11 @@ export async function finalizeMembershipPaymentIntent({
 
 	const donationAccount = await loadDonationAccountForGroup(auth.serviceSupabase, auth.group.id);
 	if (!donationAccount?.stripe_account_id || donationAccount?.charges_enabled !== true) {
-		return { ok: false, status: 409, error: 'This group has not connected Stripe for memberships.' };
+		return {
+			ok: false,
+			status: 409,
+			error: 'This group has not connected Stripe for memberships.'
+		};
 	}
 
 	const stripe = getStripeClient();
@@ -3065,7 +3181,7 @@ export async function finalizeMembershipPaymentIntent({
 				subscriptionMetadata =
 					paymentIntent.invoice.subscription.metadata &&
 					typeof paymentIntent.invoice.subscription.metadata === 'object'
-					? paymentIntent.invoice.subscription.metadata
+						? paymentIntent.invoice.subscription.metadata
 						: null;
 			}
 			if (!subscriptionMetadata && subscriptionIdFromPayload) {
@@ -3088,7 +3204,9 @@ export async function finalizeMembershipPaymentIntent({
 			);
 			resolvedSubscriptionId = subscription.id;
 			subscriptionMetadata =
-				subscription?.metadata && typeof subscription.metadata === 'object' ? subscription.metadata : null;
+				subscription?.metadata && typeof subscription.metadata === 'object'
+					? subscription.metadata
+					: null;
 			const latestInvoice =
 				subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
 					? subscription.latest_invoice
@@ -3129,7 +3247,11 @@ export async function finalizeMembershipPaymentIntent({
 		cleanText(metadata.membership_group_id, 64) !== auth.group.id ||
 		cleanText(metadata.membership_user_id, 64) !== auth.userId
 	) {
-		return { ok: false, status: 403, error: 'Payment intent does not belong to this membership context.' };
+		return {
+			ok: false,
+			status: 403,
+			error: 'Payment intent does not belong to this membership context.'
+		};
 	}
 
 	if (paymentIntent.status !== 'succeeded') {
@@ -3221,7 +3343,8 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 		return {
 			ok: false,
 			status: 400,
-			error: 'Changing to a pay-what-you-want tier is not supported yet. Join that tier separately with an amount.'
+			error:
+				'Changing to a pay-what-you-want tier is not supported yet. Join that tier separately with an amount.'
 		};
 	}
 
@@ -3303,7 +3426,10 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 		}
 	} catch (error) {
 		if (data?.id && rollbackPending?.mode === 'delete') {
-			await serviceSupabase.from('group_membership_tier_change_requests').delete().eq('id', data.id);
+			await serviceSupabase
+				.from('group_membership_tier_change_requests')
+				.delete()
+				.eq('id', data.id);
 		}
 		if (data?.id && rollbackPending?.mode === 'update' && rollbackPending.record) {
 			await serviceSupabase
@@ -3454,8 +3580,12 @@ export async function cancelMembership({ cookies, groupSlug, payload, fetchImpl 
 		data?.contribution_amount_cents ?? membership?.contribution_amount_cents,
 		0
 	);
-	const billingInterval = cleanNullableText(data?.interval_unit || membership?.interval_unit, 16) || null;
-	const contribution = amountCents > 0 ? `${formatMoneyFromCents(amountCents, tier?.currency || 'usd')}/${intervalLabel(billingInterval)}` : 'Free';
+	const billingInterval =
+		cleanNullableText(data?.interval_unit || membership?.interval_unit, 16) || null;
+	const contribution =
+		amountCents > 0
+			? `${formatMoneyFromCents(amountCents, tier?.currency || 'usd')}/${intervalLabel(billingInterval)}`
+			: 'Free';
 	const effectiveLabel =
 		data?.cancel_at_period_end === true
 			? data?.renews_at
@@ -3597,10 +3727,7 @@ export async function approveMembershipApplication({
 	const defaultInterval = resolveTierBillingInterval(tier, 'month');
 	const contributionMode = normalizeContributionMode(program.contribution_mode, 'donation');
 	const defaultAmount = normalizeAmountCents(resolveTierAmountByInterval(tier, defaultInterval), 0);
-	const needsPayment =
-		contributionMode === 'paid'
-			? true
-			: defaultAmount > 0;
+	const needsPayment = contributionMode === 'paid' ? true : defaultAmount > 0;
 	if (contributionMode === 'paid' && defaultAmount <= 0) {
 		return {
 			ok: false,
@@ -3702,7 +3829,13 @@ export async function approveMembershipApplication({
 	};
 }
 
-export async function rejectMembershipApplication({ cookies, groupSlug, applicationId, payload, fetchImpl }) {
+export async function rejectMembershipApplication({
+	cookies,
+	groupSlug,
+	applicationId,
+	payload,
+	fetchImpl
+}) {
 	const auth = await requireMembershipManager(cookies, groupSlug);
 	if (!auth.ok) return auth;
 
@@ -3801,7 +3934,9 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 	if (billingRes.error) return { ok: false, status: 400, error: billingRes.error.message };
 
 	const tierMap = new Map((tierRes.data || []).map((tier) => [tier.id, tier]));
-	const billingMap = new Map((billingRes.data || []).map((billing) => [billing.membership_id, billing]));
+	const billingMap = new Map(
+		(billingRes.data || []).map((billing) => [billing.membership_id, billing])
+	);
 
 	const queryText = cleanText(filters?.query || '', 120).toLowerCase();
 	const mapped = latestRows
@@ -3884,7 +4019,13 @@ export async function lookupMembershipUserByEmail({ cookies, groupSlug, email })
 	};
 }
 
-export async function createManualMembership({ cookies, groupSlug, payload, fetchImpl, requestUrl }) {
+export async function createManualMembership({
+	cookies,
+	groupSlug,
+	payload,
+	fetchImpl,
+	requestUrl
+}) {
 	const auth = await requireMembershipManager(cookies, groupSlug);
 	if (!auth.ok) return auth;
 
@@ -3967,7 +4108,10 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 
 	const status = normalizeMembershipStatus(payload?.status, 'active');
 	const startedAt = normalizeTimestamp(payload?.started_at, toIsoNow());
-	const renewsAt = normalizeTimestamp(payload?.renews_at, calculateRenewalDate(tier, new Date(startedAt)));
+	const renewsAt = normalizeTimestamp(
+		payload?.renews_at,
+		calculateRenewalDate(tier, new Date(startedAt))
+	);
 	const endsAt = normalizeTimestamp(payload?.ends_at, null);
 	const manualPaymentNotes = cleanNullableText(payload?.manual_payment_notes, 5000);
 	const manualIntervalUnit =
@@ -3988,14 +4132,14 @@ export async function createManualMembership({ cookies, groupSlug, payload, fetc
 			user_id: userId,
 			tier_id: tier.id,
 			status,
-				source: 'manual_offline',
-				started_at: startedAt,
-				renews_at: renewsAt,
-				ends_at: endsAt,
-				interval_unit: manualIntervalUnit,
-				contribution_amount_cents: manualContributionAmount,
-				cancel_at_period_end: false,
-				manual_payment_notes: manualPaymentNotes,
+			source: 'manual_offline',
+			started_at: startedAt,
+			renews_at: renewsAt,
+			ends_at: endsAt,
+			interval_unit: manualIntervalUnit,
+			contribution_amount_cents: manualContributionAmount,
+			cancel_at_period_end: false,
+			manual_payment_notes: manualPaymentNotes,
 			created_by_owner_id: auth.userId,
 			created_at: toIsoNow(),
 			updated_at: toIsoNow()
@@ -4076,7 +4220,9 @@ export async function updateMembershipStatus({ cookies, groupSlug, membershipId,
 				? normalizeTimestamp(payload.renews_at, membership.renews_at)
 				: membership.renews_at,
 		ends_at:
-			payload?.ends_at !== undefined ? normalizeTimestamp(payload.ends_at, membership.ends_at) : membership.ends_at,
+			payload?.ends_at !== undefined
+				? normalizeTimestamp(payload.ends_at, membership.ends_at)
+				: membership.ends_at,
 		updated_at: toIsoNow()
 	};
 
@@ -4259,9 +4405,9 @@ async function sendMembershipCampaignNowInternal({
 		const subject = renderTemplate(emailCampaign.subject_template, context);
 		let htmlBody = renderTemplate(emailCampaign.body_template, context);
 		htmlBody = renderTemplate(htmlBody, {
-			'upcoming_rides_block': ridesBlock.html,
-			'upcoming_volunteer_events_block': volunteerBlock.html,
-			'group_links_block': linksBlock.html
+			upcoming_rides_block: ridesBlock.html,
+			upcoming_volunteer_events_block: volunteerBlock.html,
+			group_links_block: linksBlock.html
 		});
 
 		const textBody = stripHtml(
@@ -4293,7 +4439,12 @@ async function sendMembershipCampaignNowInternal({
 			sentCount += 1;
 			await serviceSupabase
 				.from('group_membership_email_sends')
-				.update({ send_state: 'sent', sent_at: toIsoNow(), updated_at: toIsoNow(), error_text: null })
+				.update({
+					send_state: 'sent',
+					sent_at: toIsoNow(),
+					updated_at: toIsoNow(),
+					error_text: null
+				})
 				.eq('email_id', emailCampaign.id)
 				.eq('recipient_user_id', recipient.membership.user_id);
 		} catch (error) {
@@ -4348,7 +4499,13 @@ async function sendMembershipCampaignNowInternal({
 	};
 }
 
-export async function sendMembershipEmailCampaignNow({ cookies, groupSlug, emailId, fetchImpl, originBaseUrl }) {
+export async function sendMembershipEmailCampaignNow({
+	cookies,
+	groupSlug,
+	emailId,
+	fetchImpl,
+	originBaseUrl
+}) {
 	const auth = await requireMembershipManager(cookies, groupSlug);
 	if (!auth.ok) return auth;
 	const serviceSupabase = auth.serviceSupabase;
@@ -4389,7 +4546,11 @@ export async function listMembershipEmailHistory({ cookies, groupSlug }) {
 	return { ok: true, data: data || [] };
 }
 
-export async function processScheduledMembershipEmails({ fetchImpl, maxCampaigns = 25, now = new Date() }) {
+export async function processScheduledMembershipEmails({
+	fetchImpl,
+	maxCampaigns = 25,
+	now = new Date()
+}) {
 	const serviceSupabase = await getServiceSupabase();
 	const nowIso = now.toISOString();
 	const { data: campaigns, error } = await serviceSupabase
@@ -4457,7 +4618,8 @@ async function activateMembershipFromMetadata({
 	}
 
 	const group = await loadGroupById(serviceSupabase, groupId);
-	if (!group) return { ok: false, matched: true, error: 'Group not found for membership metadata.' };
+	if (!group)
+		return { ok: false, matched: true, error: 'Group not found for membership metadata.' };
 
 	const membership = await findOrCreateMembership({
 		serviceSupabase,
@@ -4652,7 +4814,9 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		if (!subscriptionId) return { ok: true, matched: false };
 
 		let billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
-		let membership = billing ? await loadMembershipById(serviceSupabase, billing.membership_id) : null;
+		let membership = billing
+			? await loadMembershipById(serviceSupabase, billing.membership_id)
+			: null;
 
 		if ((!billing || !membership) && stripeAccountId && eventType === 'invoice.paid') {
 			try {
@@ -4790,7 +4954,9 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 				status: membershipStatus,
 				renews_at: renewsAt,
 				ends_at:
-					membershipStatus === 'cancelled' ? normalizeTimestamp(dataObject?.ended_at, toIsoNow()) : membership.ends_at,
+					membershipStatus === 'cancelled'
+						? normalizeTimestamp(dataObject?.ended_at, toIsoNow())
+						: membership.ends_at,
 				updated_at: toIsoNow()
 			})
 			.eq('id', membership.id);
@@ -4801,7 +4967,8 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 				last_payment_status: subStatus || billing.last_payment_status,
 				next_billing_at: renewsAt,
 				stripe_price_id:
-					cleanNullableText(dataObject?.items?.data?.[0]?.price?.id, 255) || billing.stripe_price_id,
+					cleanNullableText(dataObject?.items?.data?.[0]?.price?.id, 255) ||
+					billing.stripe_price_id,
 				updated_at: toIsoNow()
 			})
 			.eq('membership_id', membership.id);

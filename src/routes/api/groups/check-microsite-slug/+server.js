@@ -28,7 +28,11 @@ export const GET = async ({ url }) => {
 		});
 	}
 
-	const { data, error } = await supabase.from('groups').select('id').eq('microsite_slug', slug).limit(1);
+	const { data, error } = await supabase
+		.from('groups')
+		.select('id')
+		.eq('microsite_slug', slug)
+		.limit(1);
 	if (error) {
 		return json(
 			{

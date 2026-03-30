@@ -203,7 +203,10 @@ async function fetchInstagramPublicTimelinePostsByHandle(username) {
 	const payload = parseJsonSafe(rawBody);
 	if (!response.ok) return [];
 	const items = Array.isArray(payload?.items) ? payload.items : [];
-	return items.map((item) => normalizeTimelineItem(item)).filter(Boolean).slice(0, INSTAGRAM_POST_LIMIT);
+	return items
+		.map((item) => normalizeTimelineItem(item))
+		.filter(Boolean)
+		.slice(0, INSTAGRAM_POST_LIMIT);
 }
 
 async function fetchInstagramPublicPostsByHandle(handle) {
@@ -235,7 +238,8 @@ async function fetchInstagramPublicPostsByHandle(handle) {
 }
 
 function extractManualInstagramPosts(group) {
-	const links = group?.social_links && typeof group.social_links === 'object' ? group.social_links : {};
+	const links =
+		group?.social_links && typeof group.social_links === 'object' ? group.social_links : {};
 	const list = Array.isArray(links.instagram_posts) ? links.instagram_posts : [];
 	const seen = new Set();
 	const posts = [];
@@ -309,10 +313,10 @@ async function fetchConnectedInstagramPosts(serviceSupabase, groupId) {
 					timestamp: cleanText(entry?.timestamp) || null
 				};
 			})
-				.filter(Boolean)
-				.slice(0, INSTAGRAM_POST_LIMIT)
-		};
-	}
+			.filter(Boolean)
+			.slice(0, INSTAGRAM_POST_LIMIT)
+	};
+}
 
 async function loadInstagramPostsForGroup({ serviceSupabase, group }) {
 	let connectedInstagram = null;
@@ -377,7 +381,7 @@ function serializeContactLink(link) {
 
 	const label = cleanText(link?.label);
 	if (label) serialized.label = label;
-	if (Boolean(link?.showText)) serialized.showText = true;
+	if (link?.showText) serialized.showText = true;
 
 	return serialized;
 }
@@ -447,8 +451,7 @@ function rgbToHsl({ r, g, b }) {
 		return { h: 0, s: 0, l: lightness };
 	}
 
-	const saturation =
-		lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+	const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
 	let hue = 0;
 	if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0);
 	else if (max === green) hue = (blue - red) / delta + 2;
@@ -459,15 +462,17 @@ function rgbToHsl({ r, g, b }) {
 
 function rgbToHex({ r, g, b }) {
 	return `#${[r, g, b]
-		.map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0'))
+		.map((channel) =>
+			Math.max(0, Math.min(255, Math.round(channel)))
+				.toString(16)
+				.padStart(2, '0')
+		)
 		.join('')
 		.toUpperCase()}`;
 }
 
 function distanceBetweenColors(left, right) {
-	return Math.sqrt(
-		(left.r - right.r) ** 2 + (left.g - right.g) ** 2 + (left.b - right.b) ** 2
-	);
+	return Math.sqrt((left.r - right.r) ** 2 + (left.g - right.g) ** 2 + (left.b - right.b) ** 2);
 }
 
 function quantizeColor({ r, g, b }) {
@@ -594,7 +599,11 @@ export async function deriveGroupSitePalette(group, siteConfig = null) {
 export async function getGroupSiteConfig(groupId, { group = null } = {}) {
 	if (!groupId) return normalizeGroupSiteConfig({}, { group });
 	const db = pickGroupSiteClient();
-	const { data } = await db.from('group_site_configs').select('*').eq('group_id', groupId).maybeSingle();
+	const { data } = await db
+		.from('group_site_configs')
+		.select('*')
+		.eq('group_id', groupId)
+		.maybeSingle();
 	return normalizeGroupSiteConfig(data || {}, { group });
 }
 
@@ -619,7 +628,11 @@ export async function upsertGroupSiteConfig(groupId, config) {
 
 async function loadGroupByMicrositeSlug(siteSlug) {
 	const db = pickGroupSiteClient();
-	const { data, error } = await db.from('groups').select('*').eq('microsite_slug', siteSlug).maybeSingle();
+	const { data, error } = await db
+		.from('groups')
+		.select('*')
+		.eq('microsite_slug', siteSlug)
+		.maybeSingle();
 	if (error) throw error;
 	return data;
 }
@@ -699,7 +712,9 @@ function buildMicrositeRideWidgetRides({ allRides, group, siteConfig }) {
 	if (!siteConfig?.ride_widget_enabled) return [];
 	const hostScope = cleanText(siteConfig.ride_widget_host_scope) || 'group_only';
 	const selectedGroupIds = Array.isArray(siteConfig.ride_widget_group_ids)
-		? siteConfig.ride_widget_group_ids.map((value) => cleanText(value).toLowerCase()).filter(Boolean)
+		? siteConfig.ride_widget_group_ids
+				.map((value) => cleanText(value).toLowerCase())
+				.filter(Boolean)
 		: [];
 	const widgetConfig = siteConfig?.ride_widget_config || {};
 
@@ -736,33 +751,39 @@ async function fetchApiList(fetchImpl, resource, params = {}) {
 }
 
 async function loadGroupTaxonomy(fetchImpl, groupId) {
-	const [audiences, disciplines, skills, selectedAudienceRows, selectedDisciplineRows, selectedSkillRows] =
-		await Promise.all([
-			fetchApiList(fetchImpl, 'audience-focuses', {
-				select: 'id,name',
-				order: 'name.asc'
-			}),
-			fetchApiList(fetchImpl, 'riding-disciplines', {
-				select: 'id,name',
-				order: 'name.asc'
-			}),
-			fetchApiList(fetchImpl, 'skill-levels', {
-				select: 'id,name',
-				order: 'name.asc'
-			}),
-			fetchApiList(fetchImpl, 'group-x-audience-focuses', {
-				select: 'audience_focus_id',
-				group_id: `eq.${groupId}`
-			}),
-			fetchApiList(fetchImpl, 'group-x-riding-disciplines', {
-				select: 'riding_discipline_id',
-				group_id: `eq.${groupId}`
-			}),
-			fetchApiList(fetchImpl, 'group-x-skill-levels', {
-				select: 'skill_level_id',
-				group_id: `eq.${groupId}`
-			})
-		]);
+	const [
+		audiences,
+		disciplines,
+		skills,
+		selectedAudienceRows,
+		selectedDisciplineRows,
+		selectedSkillRows
+	] = await Promise.all([
+		fetchApiList(fetchImpl, 'audience-focuses', {
+			select: 'id,name',
+			order: 'name.asc'
+		}),
+		fetchApiList(fetchImpl, 'riding-disciplines', {
+			select: 'id,name',
+			order: 'name.asc'
+		}),
+		fetchApiList(fetchImpl, 'skill-levels', {
+			select: 'id,name',
+			order: 'name.asc'
+		}),
+		fetchApiList(fetchImpl, 'group-x-audience-focuses', {
+			select: 'audience_focus_id',
+			group_id: `eq.${groupId}`
+		}),
+		fetchApiList(fetchImpl, 'group-x-riding-disciplines', {
+			select: 'riding_discipline_id',
+			group_id: `eq.${groupId}`
+		}),
+		fetchApiList(fetchImpl, 'group-x-skill-levels', {
+			select: 'skill_level_id',
+			group_id: `eq.${groupId}`
+		})
+	]);
 
 	const audienceMap = new Map(audiences.map((row) => [row.id, row.name]));
 	const disciplineMap = new Map(disciplines.map((row) => [row.id, row.name]));
@@ -808,7 +829,9 @@ function summarizeStats({ group, rides, volunteerEvents }) {
 		},
 		{
 			label: 'Volunteer',
-			value: volunteerEvents.length ? `${volunteerEvents.length} upcoming opportunities` : 'Watch this space'
+			value: volunteerEvents.length
+				? `${volunteerEvents.length} upcoming opportunities`
+				: 'Watch this space'
 		}
 	];
 }
@@ -843,7 +866,9 @@ export async function loadMicrositeNewsViews(groupId) {
 	const db = pickGroupSiteClient();
 	const posts = await listPublishedGroupNewsPosts(db, groupId);
 	const profileIds = Array.from(
-		new Set(posts.flatMap((post) => [post.created_by_user_id, post.updated_by_user_id]).filter(Boolean))
+		new Set(
+			posts.flatMap((post) => [post.created_by_user_id, post.updated_by_user_id]).filter(Boolean)
+		)
 	);
 	const profiles = await getGroupNewsProfilesMap(db, profileIds);
 	return Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
@@ -892,9 +917,11 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 		loadDonationEnabled(group.id).catch(() => false),
 		loadGroupTaxonomy(fetchImpl, group.id),
 		loadOwnerCount(group.id).catch(() => 0),
-		loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group }).catch(
-			() => ({ connectedInstagram: null, instagramPosts: [], instagramPostsSource: 'none' })
-		)
+		loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group }).catch(() => ({
+			connectedInstagram: null,
+			instagramPosts: [],
+			instagramPostsSource: 'none'
+		}))
 	]);
 
 	const widgetRides = buildMicrositeRideWidgetRides({ allRides, group, siteConfig });
@@ -909,7 +936,9 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
 	const pathname = cleanText(url?.pathname);
 	const basePath =
-		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`) ? previewPath : '';
+		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`)
+			? previewPath
+			: '';
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
 		membershipProgram: membership.program
@@ -929,7 +958,8 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url }) {
 	const announcementIsActive =
 		!announcementExpiry || Number.isNaN(new Date(announcementExpiry).getTime())
 			? Boolean(cleanText(siteConfig.microsite_notice))
-			: new Date(announcementExpiry).getTime() >= now && Boolean(cleanText(siteConfig.microsite_notice));
+			: new Date(announcementExpiry).getTime() >= now &&
+				Boolean(cleanText(siteConfig.microsite_notice));
 	const trust = {
 		isClaimed: ownerCount > 0,
 		ownerCount,

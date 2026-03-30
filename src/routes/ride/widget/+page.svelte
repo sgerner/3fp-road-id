@@ -23,7 +23,9 @@
 	);
 
 	let organizationSlug = $state(initialConfig.organizationSlug);
-	let location = $state(initialConfig.location || [initialConfig.city, initialConfig.state].filter(Boolean).join(' '));
+	let location = $state(
+		initialConfig.location || [initialConfig.city, initialConfig.state].filter(Boolean).join(' ')
+	);
 	let near = $state(initialConfig.near);
 	let radiusMiles = $state(initialConfig.radiusMiles ?? '');
 	let defaultTab = $state(initialConfig.defaultTab);
@@ -208,7 +210,11 @@
 
 				<label class="flex flex-col gap-1.5">
 					<span class="label">Location Filter</span>
-					<input class="input" bind:value={location} placeholder="City, state, zip, or combination" />
+					<input
+						class="input"
+						bind:value={location}
+						placeholder="City, state, zip, or combination"
+					/>
 				</label>
 
 				<label class="flex flex-col gap-1.5">

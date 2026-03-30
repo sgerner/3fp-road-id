@@ -66,20 +66,20 @@
 				</div>
 
 				<!-- CTA -->
-					<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-						{#if membershipCta}
-							<a
-								href={membershipCta.href}
-								class="btn preset-filled-secondary-500 font-bold shadow-lg"
-								onclick={membershipCta.onClick}
-							>
-								{membershipCta.label}
-							</a>
-						{/if}
-						{#if canEdit}
-							<a
-								href={`/groups/${group?.slug ?? ''}/manage`}
-								class="btn preset-filled-primary-500 font-bold shadow-lg"
+				<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+					{#if membershipCta}
+						<a
+							href={membershipCta.href}
+							class="btn preset-filled-secondary-500 font-bold shadow-lg"
+							onclick={membershipCta.onClick}
+						>
+							{membershipCta.label}
+						</a>
+					{/if}
+					{#if canEdit}
+						<a
+							href={`/groups/${group?.slug ?? ''}/manage`}
+							class="btn preset-filled-primary-500 font-bold shadow-lg"
 						>
 							Manage Group
 						</a>

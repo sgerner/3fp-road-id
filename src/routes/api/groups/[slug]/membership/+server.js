@@ -33,7 +33,9 @@ export const POST = async ({ params, cookies, request }) => {
 	// Load tier
 	const { data: tier } = await serviceSupabase
 		.from('group_membership_tiers')
-		.select('id,name,amount_cents,billing_type,interval_unit,monthly_amount_cents,annual_amount_cents,stripe_price_id,allow_custom_amount')
+		.select(
+			'id,name,amount_cents,billing_type,interval_unit,monthly_amount_cents,annual_amount_cents,stripe_price_id,allow_custom_amount'
+		)
 		.eq('id', tier_id)
 		.eq('program_id', program.id)
 		.eq('is_active', true)

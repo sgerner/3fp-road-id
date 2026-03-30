@@ -1,6 +1,6 @@
 <script>
 	import { loadStripe } from '@stripe/stripe-js';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
@@ -44,14 +44,16 @@
 	const currentUserProfile = $derived(data?.current_user_profile || null);
 	const currentUserId = $derived(data?.current_user_id || null);
 
-	let selectedTierId = $state(program?.default_tier_id || tiers?.[0]?.id || '');
+	let selectedTierId = $state(untrack(() => program?.default_tier_id || tiers?.[0]?.id || ''));
 	let selectedBillingInterval = $state('month');
 	let answers = $state({});
-	let memberProfile = $state({
-		full_name: currentUserProfile?.full_name || '',
-		email: currentUserProfile?.email || '',
-		phone: currentUserProfile?.phone || ''
-	});
+	let memberProfile = $state(
+		untrack(() => ({
+			full_name: currentUserProfile?.full_name || '',
+			email: currentUserProfile?.email || '',
+			phone: currentUserProfile?.phone || ''
+		}))
+	);
 	let busy = $state(false);
 	let statusError = $state('');
 	let statusMessage = $state('');
@@ -75,7 +77,9 @@
 		const params = $page?.url?.searchParams;
 		return {
 			tier: String(params?.get('tier') || '').trim(),
-			interval: String(params?.get('interval') || '').trim().toLowerCase(),
+			interval: String(params?.get('interval') || '')
+				.trim()
+				.toLowerCase(),
 			name: String(params?.get('name') || '').trim(),
 			email: String(params?.get('email') || '').trim()
 		};
@@ -1162,7 +1166,7 @@
 									</div>
 
 									{#if isSelected && selectedTierAllowsCustom}
-										<div class="custom-amount-wrapper" onclick={(e) => e.stopPropagation()}>
+										<div class="custom-amount-wrapper">
 											<div class="custom-amount-input">
 												<span class="custom-prefix">$</span>
 												<input
@@ -1299,7 +1303,7 @@
 										<div class="custom-fields">
 											{#each formFields as field (field.id)}
 												<div class="custom-field">
-													<label>{field.label}</label>
+													<div class="field-label">{field.label}</div>
 													{#if field.help_text}
 														<p class="field-help">{field.help_text}</p>
 													{/if}
@@ -1737,8 +1741,9 @@
 		height: 4rem;
 		border-radius: 1rem;
 		object-fit: cover;
-		box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
-		ring: 2px solid rgba(255, 255, 255, 0.1);
+		box-shadow:
+			0 4px 12px -2px rgba(0, 0, 0, 0.3),
+			0 0 0 2px rgba(255, 255, 255, 0.1);
 	}
 
 	@media (min-width: 768px) {
@@ -2272,9 +2277,7 @@
 		letter-spacing: 0.05em;
 	}
 
-	.form-field input,
-	.form-field textarea,
-	.form-field select {
+	.form-field input {
 		width: 100%;
 		padding: 0.75rem 1rem;
 		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
@@ -2285,22 +2288,14 @@
 		transition: all 200ms ease;
 	}
 
-	.form-field input:focus,
-	.form-field textarea:focus,
-	.form-field select:focus {
+	.form-field input:focus {
 		outline: none;
 		border-color: var(--color-primary-500);
 		box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary-500) 15%, transparent);
 	}
 
-	.form-field input::placeholder,
-	.form-field textarea::placeholder {
+	.form-field input::placeholder {
 		color: color-mix(in oklab, white 35%, transparent);
-	}
-
-	.form-field textarea {
-		min-height: 100px;
-		resize: vertical;
 	}
 
 	/* ── Custom Fields ── */
@@ -2316,7 +2311,7 @@
 		gap: 0.375rem;
 	}
 
-	.custom-field label {
+	.custom-field .field-label {
 		font-size: 0.8125rem;
 		font-weight: 600;
 		color: white;

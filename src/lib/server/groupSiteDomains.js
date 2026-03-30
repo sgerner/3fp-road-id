@@ -40,14 +40,20 @@ export function computeDomainFees({ basePurchasePriceCents, baseRenewalPriceCent
 	const stripeFeeRate = Number(env.DOMAIN_STRIPE_FEE_BPS || 290) / 10_000;
 	const stripeFeeFixedCents = toCents(env.DOMAIN_STRIPE_FEE_FIXED_CENTS || 30);
 
-	const purchaseMarkupCents = Math.max(0, Math.round(purchaseBase * appMarkupRate) + appMarkupFixedCents);
+	const purchaseMarkupCents = Math.max(
+		0,
+		Math.round(purchaseBase * appMarkupRate) + appMarkupFixedCents
+	);
 	const purchaseStripeFeeCents = Math.max(
 		0,
 		Math.round((purchaseBase + purchaseMarkupCents) * stripeFeeRate) + stripeFeeFixedCents
 	);
 	const purchaseTotalCents = purchaseBase + purchaseMarkupCents + purchaseStripeFeeCents;
 
-	const renewalMarkupCents = Math.max(0, Math.round(renewalBase * appMarkupRate) + appMarkupFixedCents);
+	const renewalMarkupCents = Math.max(
+		0,
+		Math.round(renewalBase * appMarkupRate) + appMarkupFixedCents
+	);
 	const renewalStripeFeeCents = Math.max(
 		0,
 		Math.round((renewalBase + renewalMarkupCents) * stripeFeeRate) + stripeFeeFixedCents
@@ -199,12 +205,7 @@ export async function listGroupSiteDomainOrders(serviceSupabase, groupId, limit 
 	return Array.isArray(data) ? data : [];
 }
 
-export async function attachExistingDomainToGroup({
-	serviceSupabase,
-	group,
-	userId,
-	domain
-}) {
+export async function attachExistingDomainToGroup({ serviceSupabase, group, userId, domain }) {
 	const normalizedDomain = normalizeDomain(domain);
 	if (!normalizedDomain) throw new Error('Domain is required.');
 	const projectDomain = await addDomainToMicrositeProject(normalizedDomain);
@@ -642,12 +643,7 @@ async function sendDomainReceiptEmail({ to, domain, totalCents, fetch: fetchImpl
 	);
 }
 
-export async function setDomainAutoRenewForGroup({
-	serviceSupabase,
-	groupId,
-	domain,
-	autoRenew
-}) {
+export async function setDomainAutoRenewForGroup({ serviceSupabase, groupId, domain, autoRenew }) {
 	const normalizedDomain = normalizeDomain(domain);
 	await updateVercelDomainAutoRenew({ domain: normalizedDomain, autoRenew });
 	const { data, error } = await serviceSupabase

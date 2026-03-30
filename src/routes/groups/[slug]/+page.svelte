@@ -257,15 +257,17 @@
 	const myMemberships = $derived(Array.isArray(data?.my_memberships) ? data.my_memberships : []);
 	const membershipEnabled = $derived(Boolean(membershipProgram?.enabled === true));
 	const hasCurrentMembership = $derived(
-		myMemberships.some((membership) => ['active', 'past_due', 'paused'].includes(membership?.status))
+		myMemberships.some((membership) =>
+			['active', 'past_due', 'paused'].includes(membership?.status)
+		)
 	);
 	const membershipCtaLabel = $derived(
 		hasCurrentMembership
 			? 'Membership'
 			: membershipProgram?.cta_label ||
-			(membershipProgram?.access_mode === 'private_request'
-				? 'Request Membership'
-				: 'Join Membership')
+					(membershipProgram?.access_mode === 'private_request'
+						? 'Request Membership'
+						: 'Join Membership')
 	);
 	const headerMembershipCta = $derived(
 		membershipEnabled
@@ -288,8 +290,7 @@
 		const tier = membershipTiers[0];
 		const monthlyAmount = Number(tier?.monthly_amount_cents ?? tier?.amount_cents ?? 0);
 		const annualAmount = Number(tier?.annual_amount_cents ?? 0);
-		const isFree =
-			monthlyAmount <= 0 && annualAmount <= 0 && tier?.allow_custom_amount !== true;
+		const isFree = monthlyAmount <= 0 && annualAmount <= 0 && tier?.allow_custom_amount !== true;
 		return isFree ? tier : null;
 	}
 	const singleFreeFollowTier = $derived(resolveSingleFreeFollowTier());
@@ -310,14 +311,17 @@
 		followLoading = true;
 		followError = '';
 		try {
-			const response = await fetch(`/api/groups/${encodeURIComponent(data.group.slug)}/membership/join`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					tier_id: singleFreeFollowTier.id,
-					billing_interval: 'month'
-				})
-			});
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(data.group.slug)}/membership/join`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						tier_id: singleFreeFollowTier.id,
+						billing_interval: 'month'
+					})
+				}
+			);
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				if (response.status === 401) {
@@ -542,7 +546,7 @@
 
 	{#if followFlag === 'success'}
 		<section
-			class="auth-notice rounded-2xl border border-success-400-600/40 bg-success-500/8 p-4"
+			class="auth-notice border-success-400-600/40 bg-success-500/8 rounded-2xl border p-4"
 			in:fade={{ duration: 180 }}
 		>
 			<div class="flex items-start gap-3">
@@ -554,7 +558,7 @@
 		</section>
 	{:else if followFlag === 'error'}
 		<section
-			class="auth-notice rounded-2xl border border-error-400-600/40 bg-error-500/8 p-4"
+			class="auth-notice border-error-400-600/40 bg-error-500/8 rounded-2xl border p-4"
 			in:fade={{ duration: 180 }}
 		>
 			<div class="flex items-start gap-3">
@@ -678,8 +682,8 @@
 				<div>
 					<h3 class="text-lg font-semibold">Follow {data.group?.name}</h3>
 					<p class="text-surface-700-300 mt-1 text-sm">
-						Enter your email to log in or create an account. We'll add you as a follower right after you
-						open the magic link.
+						Enter your email to log in or create an account. We'll add you as a follower right after
+						you open the magic link.
 					</p>
 				</div>
 				<label class="flex flex-col gap-1.5">
@@ -719,7 +723,7 @@
 		</div>
 	{/if}
 
-		<!-- Sticky subheader (appears after hero scrolls out) -->
+	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
 			class="border-surface-300-700/30 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur-xl"
@@ -922,7 +926,7 @@
 									${preset}
 								</button>
 							{/each}
-							<div class="relative flex-1 min-w-[120px] max-w-[140px]">
+							<div class="relative max-w-[140px] min-w-[120px] flex-1">
 								<span
 									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lg font-bold opacity-50"
 									>$</span

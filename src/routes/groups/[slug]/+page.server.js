@@ -532,7 +532,9 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		if (response.ok && payload?.data) {
 			membershipProgram = payload.data.program ?? null;
 			membershipTiers = Array.isArray(payload.data.tiers) ? payload.data.tiers : [];
-			membershipFormFields = Array.isArray(payload.data.form_fields) ? payload.data.form_fields : [];
+			membershipFormFields = Array.isArray(payload.data.form_fields)
+				? payload.data.form_fields
+				: [];
 		}
 	} catch (err) {
 		console.warn('Failed to load membership program for group page', err);

@@ -90,7 +90,11 @@ export const load = async ({ url, fetch }) => {
 		} else {
 			const allowed = new Set(groupIds);
 			filteredRides = filteredRides.filter((ride) =>
-				allowed.has(String(ride?.group?.id || '').trim().toLowerCase())
+				allowed.has(
+					String(ride?.group?.id || '')
+						.trim()
+						.toLowerCase()
+				)
 			);
 		}
 	}

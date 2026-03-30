@@ -12,7 +12,9 @@ function cleanText(value) {
 
 function isAuthorized(request) {
 	const expected =
-		cleanText(env.CRON_SECRET) || cleanText(env.CRON_AUTH_TOKEN) || cleanText(env.VERCEL_CRON_SECRET);
+		cleanText(env.CRON_SECRET) ||
+		cleanText(env.CRON_AUTH_TOKEN) ||
+		cleanText(env.VERCEL_CRON_SECRET);
 	if (!expected) return false;
 	const authHeader = cleanText(request.headers.get('authorization')).replace(/^Bearer\s+/i, '');
 	const cronHeader = cleanText(request.headers.get('x-vercel-cron-secret'));
@@ -93,7 +95,8 @@ export async function POST({ request, fetch }) {
 		const domain = cleanText(domainRow.domain).toLowerCase();
 		const amountCents = Number(domainRow.next_renewal_charge_cents || 0);
 		const baseRenewalCents =
-			Number(domainRow.base_renewal_price_cents || 0) || Number(domainRow.next_renewal_charge_cents || 0);
+			Number(domainRow.base_renewal_price_cents || 0) ||
+			Number(domainRow.next_renewal_charge_cents || 0);
 		const customerId = cleanText(domainRow.stripe_customer_id);
 		const paymentMethodId = cleanText(domainRow.stripe_payment_method_id);
 

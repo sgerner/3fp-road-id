@@ -211,11 +211,12 @@ function buildFallbackDraft({ group, currentConfig, prompt }) {
 	const seed = cleanText(prompt).toLowerCase();
 	const wantsVoid = seed.includes('minimal') || seed.includes('clean') || seed.includes('void');
 	const isEditorial = seed.includes('editorial') || seed.includes('magazine');
-	const hero = seed.includes('bold') || seed.includes('centered')
-		? 'bold'
-		: seed.includes('orbit') || seed.includes('panel')
-			? 'orbit'
-			: 'immersive';
+	const hero =
+		seed.includes('bold') || seed.includes('centered')
+			? 'bold'
+			: seed.includes('orbit') || seed.includes('panel')
+				? 'orbit'
+				: 'immersive';
 	return mergeGroupSiteConfig(base, currentConfig, {
 		hero_style: hero,
 		background_style: wantsVoid ? 'void' : isEditorial ? 'prism' : 'cinematic',
@@ -230,7 +231,12 @@ function buildFallbackDraft({ group, currentConfig, prompt }) {
 	});
 }
 
-export async function generateGroupSiteDraft({ group, currentConfig, prompt, allowDesignChanges = false }) {
+export async function generateGroupSiteDraft({
+	group,
+	currentConfig,
+	prompt,
+	allowDesignChanges = false
+}) {
 	const normalizedCurrent = normalizeGroupSiteConfig(currentConfig, { group });
 	if (!isAiModelConfigured('structured_text')) {
 		return {
@@ -242,7 +248,12 @@ export async function generateGroupSiteDraft({ group, currentConfig, prompt, all
 	}
 
 	const { client, model } = requireAiModel('structured_text');
-	const contents = buildPrompt({ group, currentConfig: normalizedCurrent, prompt, allowDesignChanges });
+	const contents = buildPrompt({
+		group,
+		currentConfig: normalizedCurrent,
+		prompt,
+		allowDesignChanges
+	});
 	const aiConfig = { responseMimeType: 'application/json' };
 	if (!schemaUnsupported) aiConfig.responseSchema = RESPONSE_SCHEMA;
 

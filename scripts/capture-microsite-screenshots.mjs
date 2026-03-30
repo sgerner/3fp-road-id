@@ -23,10 +23,7 @@ try {
 		const page = await context.newPage();
 		await page.goto(`http://127.0.0.1:4173${sitePath}`, { waitUntil: 'networkidle' });
 		await page.waitForTimeout(1200);
-		const outPath = path.join(
-			outDir,
-			`site-3-feet-please-layout-${preset}-${mode}.png`
-		);
+		const outPath = path.join(outDir, `site-3-feet-please-layout-${preset}-${mode}.png`);
 		await page.screenshot({ path: outPath, fullPage: true });
 		await context.close();
 	}

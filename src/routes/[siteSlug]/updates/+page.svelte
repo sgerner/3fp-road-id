@@ -167,21 +167,33 @@
 		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-950-50) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.text-surface-950-50) {
 		color: rgb(248 250 252 / 0.98) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-700-300),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-600-400),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-surface-800-200) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.text-surface-700-300),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.text-surface-600-400),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.text-surface-800-200) {
 		color: rgb(226 232 240 / 0.76) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.text-secondary-700-300) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.text-secondary-700-300) {
 		color: color-mix(in oklab, var(--color-secondary-300) 76%, white 24%) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.btn.preset-tonal-primary) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.btn.preset-tonal-primary) {
 		color: rgb(248 250 252 / 0.98);
 		background: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
 	}
@@ -190,31 +202,69 @@
 		color: rgb(226 232 240 / 0.94) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(p),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(li) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(p),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(li) {
 		color: rgb(226 232 240 / 0.94);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h1),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h2),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h3),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h4),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h5),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(h6) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h1),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h2),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h3),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h4),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h5),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(h6) {
 		color: rgb(248 250 252 / 0.99);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(strong),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(b),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(.font-semibold) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(strong),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(b),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(.font-semibold) {
 		color: rgb(248 250 252 / 0.98);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page .prose-surface :global(a) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		.prose-surface
+		:global(a) {
 		color: color-mix(in oklab, var(--color-primary-300) 72%, white 28%);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-updates-page :global(.bg-surface-500\/10) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-updates-page
+		:global(.bg-surface-500\/10) {
 		background: color-mix(in oklab, white 10%, transparent) !important;
 	}
 

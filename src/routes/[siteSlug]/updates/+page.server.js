@@ -13,4 +13,3 @@ export const load = async ({ parent, url }) => {
 		initialOpenSlug
 	};
 };
-

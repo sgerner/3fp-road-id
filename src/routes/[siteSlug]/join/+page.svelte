@@ -314,12 +314,18 @@
 		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-join-page :global(.text-surface-600-400),
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-join-page :global(.text-surface-800-200) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-join-page
+		:global(.text-surface-600-400),
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-join-page
+		:global(.text-surface-800-200) {
 		color: rgb(226 232 240 / 0.84) !important;
 	}
 
-	:global(.microsite-shell[data-color-mode='dark']) .microsite-join-page :global(.text-surface-950-50) {
+	:global(.microsite-shell[data-color-mode='dark'])
+		.microsite-join-page
+		:global(.text-surface-950-50) {
 		color: rgb(248 250 252 / 0.98) !important;
 	}
 

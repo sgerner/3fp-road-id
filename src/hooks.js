@@ -16,4 +16,3 @@ export function reroute({ url }) {
 
 	return `/site/${encodeURIComponent(micrositeSlug)}${url.pathname === '/' ? '' : url.pathname}`;
 }
-

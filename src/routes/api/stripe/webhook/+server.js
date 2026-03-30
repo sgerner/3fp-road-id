@@ -5,7 +5,10 @@ import {
 	finalizeDonationBySessionId
 } from '$lib/server/donations';
 import { finalizeDomainOrderByCheckoutSessionId } from '$lib/server/groupSiteDomains';
-import { finalizeMerchOrderByPaymentIntentId, finalizeMerchOrderBySessionId } from '$lib/server/merch';
+import {
+	finalizeMerchOrderByPaymentIntentId,
+	finalizeMerchOrderBySessionId
+} from '$lib/server/merch';
 import { handleMembershipStripeEvent } from '$lib/server/memberships';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient } from '$lib/server/stripe';

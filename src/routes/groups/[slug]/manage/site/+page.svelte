@@ -1,5 +1,5 @@
 <script>
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -65,17 +65,19 @@
 		accent: '#FB7185',
 		surface: '#111827'
 	};
-	let siteConfig = $state({
-		...structuredClone(data.siteConfig || {}),
-		theme_colors: {
-			...EMPTY_THEME_COLORS,
-			...structuredClone(data.siteConfig?.theme_colors || {})
-		},
-		sections: {
-			...EMPTY_SECTIONS,
-			...structuredClone(data.siteConfig?.sections || {})
-		}
-	});
+	let siteConfig = $state(
+		untrack(() => ({
+			...structuredClone(data.siteConfig || {}),
+			theme_colors: {
+				...EMPTY_THEME_COLORS,
+				...structuredClone(data.siteConfig?.theme_colors || {})
+			},
+			sections: {
+				...EMPTY_SECTIONS,
+				...structuredClone(data.siteConfig?.sections || {})
+			}
+		}))
+	);
 
 	let themeMode = $state('derived');
 	let sponsorItems = $state([]);
@@ -759,29 +761,31 @@
 	<!-- Live Preview -->
 	<section class="card preview-section">
 		<div class="card-accent secondary"></div>
-		<button
-			type="button"
-			class="preview-toggle flex flex-wrap"
-			onclick={() => (previewOpen = !previewOpen)}
-			aria-expanded={previewOpen}
-		>
-			<div class="preview-toggle-left">
-				<div class="card-icon secondary">
-					<IconEye class="h-5 w-5" />
+		<div class="preview-toggle flex flex-wrap">
+			<button
+				type="button"
+				class="preview-toggle-main"
+				onclick={() => (previewOpen = !previewOpen)}
+				aria-expanded={previewOpen}
+			>
+				<div class="preview-toggle-left">
+					<div class="card-icon secondary">
+						<IconEye class="h-5 w-5" />
+					</div>
+					<div>
+						<h2 class="preview-title">Live Preview</h2>
+						<p class="preview-subtitle">See changes as you make them</p>
+					</div>
 				</div>
-				<div>
-					<h2 class="preview-title">Live Preview</h2>
-					<p class="preview-subtitle">See changes as you make them</p>
-				</div>
-			</div>
-			<div class="preview-toggle-right">
-				{#if previewOpen}
+				<IconChevronDown class="chevron {previewOpen ? 'rotate' : ''}" />
+			</button>
+			{#if previewOpen}
+				<div class="preview-toggle-right">
 					<div class="preview-modes">
 						<button
 							type="button"
 							class="mode-btn {previewMode === 'desktop' ? 'active' : ''}"
-							onclick={(e) => {
-								e.stopPropagation();
+							onclick={() => {
 								previewMode = 'desktop';
 							}}
 						>
@@ -791,8 +795,7 @@
 						<button
 							type="button"
 							class="mode-btn {previewMode === 'mobile' ? 'active' : ''}"
-							onclick={(e) => {
-								e.stopPropagation();
+							onclick={() => {
 								previewMode = 'mobile';
 							}}
 						>
@@ -800,10 +803,9 @@
 							<span>Mobile</span>
 						</button>
 					</div>
-				{/if}
-				<IconChevronDown class="chevron {previewOpen ? 'rotate' : ''}" />
-			</div>
-		</button>
+				</div>
+			{/if}
+		</div>
 		{#if previewOpen}
 			<div class="preview-body" transition:slide={{ duration: 200 }}>
 				<div class="preview-frame {previewMode}">
@@ -1656,22 +1658,21 @@
 						<!-- Attach Existing -->
 						<div class="mt-4">
 							<p class="mb-2 text-sm font-medium">Attach Existing Domain</p>
-							<form
-								class="flex gap-2"
-								onsubmit={(e) => {
-									e.preventDefault();
-									void attachExistingDomain();
-								}}
-							>
+							<div class="flex gap-2">
 								<input
 									class="input flex-1"
 									bind:value={existingDomainInput}
 									placeholder="yourdomain.com"
 								/>
-								<button class="btn preset-filled-primary-500" disabled={domainsLoading}
-									>Attach</button
+								<button
+									type="button"
+									class="btn preset-filled-primary-500"
+									disabled={domainsLoading}
+									onclick={() => void attachExistingDomain()}
 								>
-							</form>
+									Attach
+								</button>
+							</div>
 						</div>
 
 						<!-- Domain List -->
@@ -1717,22 +1718,21 @@
 						<!-- Buy Domain -->
 						<div class="mt-4">
 							<p class="mb-2 text-sm font-medium">Buy Domain</p>
-							<form
-								class="flex gap-2"
-								onsubmit={(e) => {
-									e.preventDefault();
-									void searchDomains();
-								}}
-							>
+							<div class="flex gap-2">
 								<input
 									class="input flex-1"
 									bind:value={domainSearchQuery}
 									placeholder="biketempe"
 								/>
-								<button class="btn preset-filled-primary-500" disabled={domainSearchBusy}
-									>Search</button
+								<button
+									type="button"
+									class="btn preset-filled-primary-500"
+									disabled={domainSearchBusy}
+									onclick={() => void searchDomains()}
 								>
-							</form>
+									Search
+								</button>
+							</div>
 						</div>
 
 						{#if domainSearchResults.length}
@@ -2127,11 +2127,20 @@
 		gap: 1rem;
 		padding: 1rem 1.25rem;
 		width: 100%;
+	}
+
+	.preview-toggle-main {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex: 1;
 		background: none;
 		border: none;
 		color: inherit;
 		cursor: pointer;
 		text-align: left;
+		padding: 0;
 	}
 
 	.preview-toggle-left {

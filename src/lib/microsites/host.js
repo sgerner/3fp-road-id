@@ -38,7 +38,7 @@ export function extractMicrositeSlugFromHostname(hostname) {
 	if (!normalized) return '';
 
 	if (normalized.endsWith(`.${ROOT_DOMAIN}`)) {
-		const label = normalized.slice(0, -1 * (`.${ROOT_DOMAIN}`.length));
+		const label = normalized.slice(0, -1 * `.${ROOT_DOMAIN}`.length);
 		if (!label || label.includes('.')) return '';
 		return RESERVED_SUBDOMAINS.has(label) || RESERVED_MICROSITE_SLUGS.has(label) ? '' : label;
 	}

@@ -204,9 +204,7 @@
 		<meta name="twitter:image" content={seoOgImage} />
 	{/if}
 
-	<script type="application/ld+json">
-		{seoStructuredData}
-	</script>
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
 <div

@@ -10,10 +10,7 @@ function normalizeMetadata(existing) {
 export async function GET({ params, cookies, url }) {
 	const { accessToken, user } = resolveSession(cookies);
 	if (!accessToken || !user?.id) {
-		throw redirect(
-			302,
-			`/login?returnTo=${encodeURIComponent(url.pathname + (url.search || ''))}`
-		);
+		throw redirect(302, `/login?returnTo=${encodeURIComponent(url.pathname + (url.search || ''))}`);
 	}
 
 	const serviceSupabase = createServiceSupabaseClient();
@@ -70,4 +67,3 @@ export async function GET({ params, cookies, url }) {
 
 	throw redirect(302, `/groups/${group.slug}/manage/membership?ownerPaymentEmails=off`);
 }
-
