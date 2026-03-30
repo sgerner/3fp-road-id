@@ -932,17 +932,13 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
 	const primaryCta = serializePrimaryCta(rawPrimaryCta);
 	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
-	const visiblePathname = cleanText(publicPathname || url?.pathname || '') || '/';
-	const siteUrl =
-		visiblePathname === '/'
-			? new URL(url).origin
-			: `${new URL(url).origin}${visiblePathname.startsWith('/') ? visiblePathname : `/${visiblePathname}`}`;
 	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
 	const pathname = cleanText(publicPathname || url?.pathname);
 	const basePath =
 		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`)
 			? previewPath
 			: '';
+	const siteUrl = `${new URL(url).origin}${basePath}`;
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
 		membershipProgram: membership.program

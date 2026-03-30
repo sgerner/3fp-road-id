@@ -127,6 +127,25 @@ async function lookupCustomDomainMicrositeSlug(hostname) {
 	return slug;
 }
 
+function buildMicrositeRoutePath(pathname, micrositeSlug) {
+	const prefix = `/${encodeURIComponent(micrositeSlug)}`;
+	if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return '';
+	return `${prefix}${pathname === '/' ? '' : pathname}`;
+}
+
+export const reroute = async ({ url }) => {
+	const pathname = url.pathname || '/';
+	if (shouldSkipMicrositeRedirect(pathname)) return;
+
+	const normalizedHost = normalizeHostname(url.hostname);
+	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
+	const micrositeSlug =
+		slugFromSubdomain || (await lookupCustomDomainMicrositeSlug(normalizedHost));
+	if (!micrositeSlug) return;
+
+	return buildMicrositeRoutePath(pathname, micrositeSlug) || undefined;
+};
+
 export const handle = async ({ event, resolve }) => {
 	const path = event.url.pathname.slice(1); // remove leading slash
 	if (redirectCodes.has(path)) {
@@ -139,22 +158,11 @@ export const handle = async ({ event, resolve }) => {
 	const slugFromCustomDomain = !slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)
 		? await lookupCustomDomainMicrositeSlug(normalizedHost)
 		: '';
+	const micrositeSlug = slugFromSubdomain || slugFromCustomDomain;
 
-	if (slugFromCustomDomain) {
-		event.locals.micrositeSlug = slugFromCustomDomain;
+	if (micrositeSlug) {
+		event.locals.micrositeSlug = micrositeSlug;
 		event.locals.micrositePublicPathname = pathname;
-		if (pathname === '/' || pathname === '') {
-			const rewritten = new URL(event.url);
-			rewritten.pathname = `/${encodeURIComponent(slugFromCustomDomain)}`;
-			event.url = rewritten;
-		} else {
-			const prefix = `/${encodeURIComponent(slugFromCustomDomain)}`;
-			if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) {
-				const rewritten = new URL(event.url);
-				rewritten.pathname = `${prefix}${pathname}`;
-				event.url = rewritten;
-			}
-		}
 	}
 
 	return resolve(event);
