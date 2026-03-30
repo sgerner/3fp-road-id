@@ -26,9 +26,30 @@
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconSettings from '@lucide/svelte/icons/settings';
+	import IconLayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import IconBrush from '@lucide/svelte/icons/brush';
+	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconTrash from '@lucide/svelte/icons/trash';
+	import IconPlus from '@lucide/svelte/icons/plus';
+	import IconEye from '@lucide/svelte/icons/eye';
+	import IconX from '@lucide/svelte/icons/x';
+	import IconSave from '@lucide/svelte/icons/save';
 	import { slide } from 'svelte/transition';
 
 	let { data, form } = $props();
+
+	// Panel states
+	let previewOpen = $state(true);
+	let contentOpen = $state(true);
+	let aiOpen = $state(false);
+	let designOpen = $state(false);
+	let sectionsOpen = $state(false);
+	let widgetOpen = $state(false);
+	let advancedOpen = $state(false);
+	let domainOpen = $state(false);
+	let previewMode = $state('desktop');
+
 	const EMPTY_SECTIONS = {
 		story: true,
 		join: true,
@@ -57,15 +78,12 @@
 	});
 
 	let themeMode = $state('derived');
-	let showAdvanced = $state(false);
 	let sponsorItems = $state([]);
 	let sponsorItemsInitialized = $state(false);
 	let faqItems = $state([]);
 	let faqItemsInitialized = $state(false);
-	let previewMode = $state('desktop');
 	let slugInput = $state('');
 	let slugInputInitialized = $state(false);
-	let showRideWidgetBuilder = $state(false);
 	let rideWidgetEnabled = $state(false);
 	let rideWidgetTitle = $state('Ride calendar');
 	let rideWidgetHostScope = $state('group_only');
@@ -105,7 +123,6 @@
 	let pendingDraft = $state(null);
 	let localGeneratedNotice = $state('');
 	let previewVersion = $state(0);
-	let showDomainManager = $state(false);
 	let customDomains = $state([]);
 	let domainOrders = $state([]);
 	let domainsLoading = $state(false);
@@ -116,8 +133,6 @@
 	let domainSearchQuery = $state('');
 	let domainSearchBusy = $state(false);
 	let domainSearchResults = $state([]);
-	let checkoutBusyDomain = $state('');
-	let billingBusyDomain = $state('');
 	let renewalBusyDomain = $state('');
 	let registrarContact = $state({
 		firstName: '',
@@ -147,20 +162,20 @@
 		contact: 'Contact'
 	};
 	const heroLabels = {
-		immersive: 'Immersive (Cinematic image with overlay)',
-		bold: 'Bold (Typography-forward editorial with dramatic scale)',
-		orbit: 'Orbit (Floating glass card with depth and motion)'
+		immersive: 'Immersive (Cinematic)',
+		bold: 'Bold (Editorial)',
+		orbit: 'Orbit (Floating cards)'
 	};
 	const backgroundLabels = {
-		cinematic: 'Cinematic (Animated color orbs)',
-		aurora: 'Aurora (Flowing northern lights effect)',
-		prism: 'Prism (Geometric shard lighting)',
-		void: 'Void (Deep space with subtle nebula)'
+		cinematic: 'Cinematic (Color orbs)',
+		aurora: 'Aurora (Northern lights)',
+		prism: 'Prism (Geometric shards)',
+		void: 'Void (Deep space)'
 	};
 	const panelStyleLabels = {
-		glass: 'Glass (Translucent, blurred)',
-		filled: 'Filled (Solid tinted panels)',
-		outlined: 'Outlined (Low-fill with stronger borders)'
+		glass: 'Glass (Translucent)',
+		filled: 'Filled (Solid)',
+		outlined: 'Outlined (Border focus)'
 	};
 	const panelToneLabels = {
 		surface: 'Surface',
@@ -175,9 +190,10 @@
 	};
 	const rideWidgetHostScopeLabels = {
 		all: 'All published rides',
-		group_only: 'Only rides hosted by us',
-		selected_groups: 'Only selected groups'
+		group_only: 'Only our rides',
+		selected_groups: 'Selected groups'
 	};
+
 	$effect(() => {
 		themeMode = siteConfig.theme_mode || 'derived';
 		const groupCityDefault = String(data.group?.city || '').trim();
@@ -187,9 +203,7 @@
 			.trim();
 		const radiusCenterDefault = groupCityStateDefault || groupCityDefault;
 		if (!sponsorItemsInitialized) {
-			const fromItems = Array.isArray(siteConfig.sponsor_items)
-				? siteConfig.sponsor_items
-				: [];
+			const fromItems = Array.isArray(siteConfig.sponsor_items) ? siteConfig.sponsor_items : [];
 			const fromLinks = Array.isArray(siteConfig.sponsor_links)
 				? siteConfig.sponsor_links.map((url) => ({ name: '', text: '', logo: '', url }))
 				: [];
@@ -221,73 +235,28 @@
 			slugInput = data.micrositeSlug || '';
 			slugInputInitialized = true;
 		}
-		if (!showRideWidgetBuilder) {
-			rideWidgetEnabled = Boolean(siteConfig.ride_widget_enabled);
-			rideWidgetTitle = siteConfig.ride_widget_title || 'Ride calendar';
-			rideWidgetHostScope = siteConfig.ride_widget_host_scope || 'group_only';
-			selectedRideWidgetGroupIds = Array.isArray(siteConfig.ride_widget_group_ids)
-				? siteConfig.ride_widget_group_ids
-				: [];
-			const widget = siteConfig.ride_widget_config || {};
-			rideWidgetLocation =
-				widget.location ||
-				[widget.city, widget.state].filter(Boolean).join(' ') ||
-				groupCityDefault;
-			rideWidgetNear = widget.near || radiusCenterDefault;
-			rideWidgetRadiusMiles = widget.radiusMiles || '50';
-			rideWidgetDefaultTab = widget.defaultTab || 'list';
-			rideWidgetTheme = widget.theme || 'auto';
-			rideWidgetDensity = widget.density || 'comfortable';
-			rideWidgetShowUserFilters = widget.showUserFilters ?? true;
-			rideWidgetShowAddButton = widget.showAddButton ?? true;
-			rideWidgetPrefixCity = widget.prefixCity ?? false;
-			rideWidgetDifficultyColors = widget.difficultyColors ?? true;
-			rideWidgetFilterMode =
-				widget.near || widget.radiusMiles ? 'radius' : widget.location ? 'location' : 'none';
-		}
+		rideWidgetEnabled = Boolean(siteConfig.ride_widget_enabled);
+		rideWidgetTitle = siteConfig.ride_widget_title || 'Ride calendar';
+		rideWidgetHostScope = siteConfig.ride_widget_host_scope || 'group_only';
+		selectedRideWidgetGroupIds = Array.isArray(siteConfig.ride_widget_group_ids)
+			? siteConfig.ride_widget_group_ids
+			: [];
+		const widget = siteConfig.ride_widget_config || {};
+		rideWidgetLocation =
+			widget.location || [widget.city, widget.state].filter(Boolean).join(' ') || groupCityDefault;
+		rideWidgetNear = widget.near || radiusCenterDefault;
+		rideWidgetRadiusMiles = widget.radiusMiles || '50';
+		rideWidgetDefaultTab = widget.defaultTab || 'list';
+		rideWidgetTheme = widget.theme || 'auto';
+		rideWidgetDensity = widget.density || 'comfortable';
+		rideWidgetShowUserFilters = widget.showUserFilters ?? true;
+		rideWidgetShowAddButton = widget.showAddButton ?? true;
+		rideWidgetPrefixCity = widget.prefixCity ?? false;
+		rideWidgetDifficultyColors = widget.difficultyColors ?? true;
+		rideWidgetFilterMode =
+			widget.near || widget.radiusMiles ? 'radius' : widget.location ? 'location' : 'none';
 	});
 
-	const selectedGroups = $derived(
-		(data.availableGroups || []).filter((group) => selectedRideWidgetGroupIds.includes(group.id))
-	);
-	const groupSuggestions = $derived.by(() => {
-		if (rideWidgetHostScope !== 'selected_groups') return [];
-		const query = groupSearch.trim().toLowerCase();
-		if (!query) return [];
-		return (data.availableGroups || [])
-			.filter((group) => !selectedRideWidgetGroupIds.includes(group.id))
-			.filter((group) =>
-				[group.name, group.slug, group.city, group.state_region]
-					.filter(Boolean)
-					.join(' ')
-					.toLowerCase()
-					.includes(query)
-			)
-			.slice(0, 8);
-	});
-	const widgetPreviewPath = $derived.by(() => {
-		const previewOrganizationSlug = rideWidgetHostScope === 'group_only' ? data.group.slug : '';
-		const normalized = normalizeRideWidgetConfig({
-			organizationSlug: previewOrganizationSlug,
-			location: rideWidgetFilterMode === 'location' ? rideWidgetLocation : '',
-			near: rideWidgetFilterMode === 'radius' ? rideWidgetNear : '',
-			radiusMiles: rideWidgetFilterMode === 'radius' ? rideWidgetRadiusMiles : '',
-			defaultTab: rideWidgetDefaultTab,
-			theme: rideWidgetTheme,
-			density: rideWidgetDensity,
-			showUserFilters: rideWidgetShowUserFilters,
-			showAddButton: rideWidgetShowAddButton,
-			prefixCity: rideWidgetPrefixCity,
-			difficultyColors: rideWidgetDifficultyColors
-		});
-		const params = buildRideWidgetSearchParams(normalized);
-		params.set('host_scope', rideWidgetHostScope);
-		if (rideWidgetHostScope === 'selected_groups' && selectedRideWidgetGroupIds.length) {
-			params.set('group_ids', selectedRideWidgetGroupIds.join(','));
-		}
-		const query = params.toString();
-		return query ? `/ride/widget/frame?${query}` : '/ride/widget/frame';
-	});
 	const sitePreviewPath = $derived.by(() => {
 		const base = data.previewPath || '/';
 		const joiner = base.includes('?') ? '&' : '?';
@@ -306,9 +275,7 @@
 	}
 
 	const slugPreview = $derived(normalizeMicrositeSlugInput(slugInput));
-	const slugDomainPreview = $derived(
-		`https://${slugPreview || 'yourgroup'}${data.micrositeDomainSuffix || '.3fp.bike'}`
-	);
+	const slugDomainPreview = $derived(`${data.hostName || ''}/${slugPreview || 'yourgroup'}`);
 
 	$effect(() => {
 		const slug = slugPreview;
@@ -341,9 +308,7 @@
 			try {
 				const response = await fetch(
 					`/api/groups/check-microsite-slug?slug=${encodeURIComponent(slug)}&current_group_id=${encodeURIComponent(data.group.id)}`,
-					{
-						signal: controller.signal
-					}
+					{ signal: controller.signal }
 				);
 				const payload = await response.json().catch(() => ({}));
 				if (!response.ok) {
@@ -421,17 +386,6 @@
 		faqItems = faqItems.map((item, idx) =>
 			idx === index ? { ...item, [key]: String(value || '') } : item
 		);
-	}
-
-	function addRideWidgetGroup(id) {
-		if (!id) return;
-		if (selectedRideWidgetGroupIds.includes(id)) return;
-		selectedRideWidgetGroupIds = [...selectedRideWidgetGroupIds, id];
-		groupSearch = '';
-	}
-
-	function removeRideWidgetGroup(id) {
-		selectedRideWidgetGroupIds = selectedRideWidgetGroupIds.filter((value) => value !== id);
 	}
 
 	function createDraftMessageId(prefix = 'draft') {
@@ -581,7 +535,7 @@
 			siteConfig = structuredClone(payload?.config || pendingDraft.config);
 			sponsorItemsInitialized = false;
 			faqItemsInitialized = false;
-			showRideWidgetBuilder = false;
+			widgetOpen = false;
 			localGeneratedNotice =
 				payload?.source === 'ai'
 					? 'AI draft applied to the microsite.'
@@ -663,9 +617,7 @@
 		try {
 			const response = await fetch(
 				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}/verify`,
-				{
-					method: 'POST'
-				}
+				{ method: 'POST' }
 			);
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
@@ -710,37 +662,6 @@
 		}
 	}
 
-	async function startDomainCheckout(domain) {
-		if (!domain) return;
-		domainError = '';
-		domainMessage = '';
-		checkoutBusyDomain = domain;
-		try {
-			const response = await fetch(
-				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/checkout`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						domain,
-						contactInformation: registrarContact
-					})
-				}
-			);
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to start checkout.');
-			}
-			const checkoutUrl = String(payload?.data?.checkoutUrl || '').trim();
-			if (!checkoutUrl) throw new Error('Stripe checkout URL was not returned.');
-			window.location.assign(checkoutUrl);
-		} catch (error) {
-			domainError = error?.message || 'Unable to start checkout.';
-		} finally {
-			checkoutBusyDomain = '';
-		}
-	}
-
 	async function toggleAutoRenew(domain, enabled) {
 		if (!domain) return;
 		renewalBusyDomain = domain;
@@ -770,31 +691,6 @@
 		}
 	}
 
-	async function openBillingPortal(domain) {
-		if (!domain) return;
-		billingBusyDomain = domain;
-		domainError = '';
-		try {
-			const response = await fetch(
-				`/api/groups/${encodeURIComponent(data.group.slug)}/domains/${encodeURIComponent(domain)}/billing-portal`,
-				{
-					method: 'POST'
-				}
-			);
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to open billing portal.');
-			}
-			const billingPortalUrl = String(payload?.data?.billingPortalUrl || '').trim();
-			if (!billingPortalUrl) throw new Error('Billing portal URL was not returned.');
-			window.location.assign(billingPortalUrl);
-		} catch (error) {
-			domainError = error?.message || 'Unable to open billing portal.';
-		} finally {
-			billingBusyDomain = '';
-		}
-	}
-
 	function formatUsd(cents) {
 		const amount = Number(cents);
 		return new Intl.NumberFormat(undefined, {
@@ -804,591 +700,745 @@
 	}
 </script>
 
-<div class="space-y-6 pb-10">
-	<section class="grid gap-4 lg:grid-cols-[0.75fr,1.25fr]">
-		<div class="manage-card rounded-3xl p-5">
-			<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">Microsite</p>
-			<h1 class="mt-3 text-3xl font-black tracking-tight text-white">Website builder</h1>
-			<p class="mt-3 text-sm leading-7 text-white/70">
-				Every group now has a default microsite at its subdomain. Use this page to tune the layout,
-				theme, sections, and copy.
+<div class="site-manage">
+	<!-- Header -->
+	<div class="page-header">
+		<div class="header-content">
+			<h1 class="page-title">Website Builder</h1>
+			<p class="page-subtitle">Customize your group's public microsite</p>
+		</div>
+		<a
+			href={`/${slugPreview}`}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="btn preset-filled-primary-500"
+		>
+			<IconExternalLink class="h-4 w-4" />
+			View Live
+		</a>
+	</div>
+
+	<!-- Notifications -->
+	{#if data.saved}
+		<div class="banner success" role="status">
+			<IconBadgeCheck class="h-4 w-4" />
+			<p>
+				{data.saved === 'palette' ? 'Palette updated from branding.' : 'Microsite settings saved.'}
 			</p>
-			<div class="mt-5 grid gap-3">
-				<a href={data.liveUrl} target="_blank" rel="noopener noreferrer" class="website-link">
-					Live subdomain
-					<div class="website-link-value">
-						<span>{data.liveUrl}</span>
-						<IconExternalLink class="h-4 w-4 flex-shrink-0 opacity-75" />
-					</div>
-				</a>
+		</div>
+	{/if}
+	{#if data.generated}
+		<div class="banner success" role="status">
+			<IconSparkles class="h-4 w-4" />
+			<p>
+				{data.generated === 'ai'
+					? 'AI draft applied to the microsite.'
+					: 'AI fallback draft applied. Review and refine before publishing changes.'}
+			</p>
+		</div>
+	{/if}
+	{#if localGeneratedNotice}
+		<div class="banner success" role="status">
+			<IconSparkles class="h-4 w-4" />
+			<p>{localGeneratedNotice}</p>
+		</div>
+	{/if}
+	{#if data.reset}
+		<div class="banner success" role="status">
+			<IconRefreshCcw class="h-4 w-4" />
+			<p>Microsite reset to the default generated site.</p>
+		</div>
+	{/if}
+	{#if form?.error}
+		<div class="banner error" role="alert">
+			<IconTrash class="h-4 w-4" />
+			<p>{form.error}</p>
+		</div>
+	{/if}
+
+	<!-- Live Preview -->
+	<section class="card preview-section">
+		<div class="card-accent secondary"></div>
+		<button
+			type="button"
+			class="preview-toggle flex flex-wrap"
+			onclick={() => (previewOpen = !previewOpen)}
+			aria-expanded={previewOpen}
+		>
+			<div class="preview-toggle-left">
+				<div class="card-icon secondary">
+					<IconEye class="h-5 w-5" />
+				</div>
+				<div>
+					<h2 class="preview-title">Live Preview</h2>
+					<p class="preview-subtitle">See changes as you make them</p>
+				</div>
 			</div>
-			<label class="field mt-5">
-				<span>Website slug</span>
-				<div class="slug-input-wrap">
-					<input
-						class="input pr-28"
-						value={slugInput}
-						oninput={onSlugInput}
-						pattern="[A-Za-z0-9]+"
-						maxlength="40"
-						placeholder="letters and numbers only"
-					/>
-					<span class="slug-status slug-status-{slugAvailability.state}">
-						{slugAvailability.label}
-					</span>
-				</div>
-				<div class="slug-meta-row">
-					<p class="slug-preview">{slugDomainPreview}</p>
-					<p class="slug-message slug-message-{slugAvailability.state}">
-						{slugAvailability.message}
-					</p>
-				</div>
-			</label>
-			<div class="mt-4">
-				<button
-					type="button"
-					class="btn w-full justify-between preset-tonal-surface"
-					onclick={() => (showDomainManager = !showDomainManager)}
-					aria-expanded={showDomainManager}
-				>
-					<span class="inline-flex items-center gap-2">
-						<IconGlobe class="h-4 w-4" />
-						Domain manager
-					</span>
-					<span class="inline-flex items-center gap-2 text-xs text-white/65">
-						{customDomains.length} active
-						<IconChevronDown
-							class="h-4 w-4 transition-transform duration-200 {showDomainManager
-								? 'rotate-180'
-								: ''}"
-						/>
-					</span>
-				</button>
-				{#if showDomainManager}
-					<div class="domain-panel mt-3 space-y-5 rounded-2xl p-4" transition:slide>
-						<div>
-							<p class="text-xs font-semibold tracking-[0.2em] text-white/48 uppercase">
-								Custom domains
-							</p>
-							<p class="mt-2 text-sm leading-6 text-white/70">
-								Add a domain you already own and we will attach it to this microsite in Vercel.
-							</p>
-						</div>
-
-						<form
-							class="flex gap-2"
-							onsubmit={(event) => {
-								event.preventDefault();
-								void attachExistingDomain();
+			<div class="preview-toggle-right">
+				{#if previewOpen}
+					<div class="preview-modes">
+						<button
+							type="button"
+							class="mode-btn {previewMode === 'desktop' ? 'active' : ''}"
+							onclick={(e) => {
+								e.stopPropagation();
+								previewMode = 'desktop';
 							}}
 						>
-							<input
-								class="input w-full"
-								bind:value={existingDomainInput}
-								placeholder="yourdomain.com"
-								autocomplete="off"
-							/>
-							<button class="btn preset-filled-primary-500" disabled={domainsLoading}>Attach</button>
-						</form>
-
-						{#if domainMessage}
-							<div class="notice rounded-2xl p-3 text-sm">{domainMessage}</div>
-						{/if}
-						{#if domainError}
-							<div class="error-box rounded-2xl p-3 text-sm">{domainError}</div>
-						{/if}
-
-						<div class="space-y-3">
-							{#if domainsLoading && !customDomains.length}
-								<p class="text-sm text-white/70">Loading domains…</p>
-							{:else if customDomains.length}
-								{#each customDomains as domainRow}
-									<div class="domain-row rounded-2xl p-3">
-										<div class="flex items-start justify-between gap-3">
-											<div>
-												<div class="text-sm font-semibold text-white">{domainRow.domain}</div>
-												<div class="text-xs text-white/65">
-													Status: {domainRow.status}
-													{domainRow.vercel_verified
-														? ' • verified'
-														: ' • needs DNS verification'}
-												</div>
-											</div>
-											<div class="flex flex-wrap gap-2">
-												<button
-													type="button"
-													class="btn btn-xs preset-tonal-surface"
-													disabled={verifyingDomain === domainRow.domain}
-													onclick={() => void verifyDomain(domainRow.domain)}
-												>
-													{#if verifyingDomain === domainRow.domain}
-														<IconRefreshCw class="h-3.5 w-3.5 animate-spin" /> Verifying
-													{:else}
-														<IconBadgeCheck class="h-3.5 w-3.5" /> Verify
-													{/if}
-												</button>
-												<button
-													type="button"
-													class="btn btn-xs preset-tonal-warning"
-													disabled={renewalBusyDomain === domainRow.domain}
-													onclick={() =>
-														void toggleAutoRenew(domainRow.domain, !domainRow.auto_renew)}
-												>
-													{domainRow.auto_renew ? 'Pause renew' : 'Enable renew'}
-												</button>
-												<button
-													type="button"
-													class="btn btn-xs preset-tonal-primary"
-													disabled={billingBusyDomain === domainRow.domain}
-													onclick={() => void openBillingPortal(domainRow.domain)}
-												>
-													<IconCreditCard class="h-3.5 w-3.5" /> Card
-												</button>
-											</div>
-										</div>
-									</div>
-								{/each}
-							{:else}
-								<p class="text-sm text-white/70">No custom domains added yet.</p>
-							{/if}
-						</div>
-
-						<div class="domain-divider"></div>
-
-						<div>
-							<p class="text-xs font-semibold tracking-[0.2em] text-white/48 uppercase">Find + buy</p>
-							<p class="mt-2 text-sm leading-6 text-white/70">
-								Search related names and TLDs, then see pricing with 3FP + card fee included.
-							</p>
-						</div>
-
-						<form
-							class="flex gap-2"
-							onsubmit={(event) => {
-								event.preventDefault();
-								void searchDomains();
+							<IconMonitor class="h-4 w-4" />
+							<span>Desktop</span>
+						</button>
+						<button
+							type="button"
+							class="mode-btn {previewMode === 'mobile' ? 'active' : ''}"
+							onclick={(e) => {
+								e.stopPropagation();
+								previewMode = 'mobile';
 							}}
 						>
-							<input
-								class="input w-full"
-								bind:value={domainSearchQuery}
-								placeholder="biketempe"
-								autocomplete="off"
-							/>
-							<button class="btn preset-filled-primary-500" disabled={domainSearchBusy}>
-								{domainSearchBusy ? 'Searching…' : 'Search'}
-							</button>
-						</form>
-
-						<div class="grid gap-3 md:grid-cols-2">
-							<label class="field">
-								<span>First name</span>
-								<input class="input" bind:value={registrarContact.firstName} />
-							</label>
-							<label class="field">
-								<span>Last name</span>
-								<input class="input" bind:value={registrarContact.lastName} />
-							</label>
-							<label class="field">
-								<span>Email</span>
-								<input class="input" type="email" bind:value={registrarContact.email} />
-							</label>
-							<label class="field">
-								<span>Phone (E.164 preferred)</span>
-								<input
-									class="input"
-									bind:value={registrarContact.phone}
-									placeholder="+16025550100"
-								/>
-							</label>
-							<label class="field md:col-span-2">
-								<span>Address line 1</span>
-								<input class="input" bind:value={registrarContact.address1} />
-							</label>
-							<label class="field md:col-span-2">
-								<span>Address line 2 (optional)</span>
-								<input class="input" bind:value={registrarContact.address2} />
-							</label>
-							<label class="field">
-								<span>City</span>
-								<input class="input" bind:value={registrarContact.city} />
-							</label>
-							<label class="field">
-								<span>State / Region</span>
-								<input class="input" bind:value={registrarContact.state} />
-							</label>
-							<label class="field">
-								<span>Postal code</span>
-								<input class="input" bind:value={registrarContact.zip} />
-							</label>
-							<label class="field">
-								<span>Country (2-letter)</span>
-								<input class="input" bind:value={registrarContact.country} maxlength="2" />
-							</label>
-						</div>
-
-						<div class="space-y-3">
-							{#if domainSearchResults.length}
-								{#each domainSearchResults as row}
-									<div class="domain-row rounded-2xl p-3">
-										<div class="flex items-start justify-between gap-3">
-											<div>
-												<div class="text-sm font-semibold text-white">{row.domain}</div>
-												<div class="text-xs text-white/65">
-													Base {formatUsd(row.pricing.purchase.baseCents)} + fee{' '}
-													{formatUsd(row.pricing.purchase.markupCents)} + card{' '}
-													{formatUsd(row.pricing.purchase.stripeFeeCents)}
-												</div>
-												<div class="text-xs text-white/65">
-													Estimated annual renewal: {formatUsd(row.pricing.renewal.totalCents)}
-												</div>
-											</div>
-											<div class="text-right">
-												<div class="text-sm font-semibold text-white">
-													{formatUsd(row.pricing.purchase.totalCents)}
-												</div>
-												<button
-													type="button"
-													class="btn btn-xs preset-filled-primary-500 mt-2"
-													disabled={checkoutBusyDomain === row.domain}
-													onclick={() => void startDomainCheckout(row.domain)}
-												>
-													{checkoutBusyDomain === row.domain ? 'Starting…' : 'Buy'}
-												</button>
-											</div>
-										</div>
-									</div>
-								{/each}
-							{:else}
-								<p class="text-sm text-white/70">No search results yet.</p>
-							{/if}
-						</div>
+							<IconSmartphone class="h-4 w-4" />
+							<span>Mobile</span>
+						</button>
 					</div>
 				{/if}
+				<IconChevronDown class="chevron {previewOpen ? 'rotate' : ''}" />
 			</div>
-			{#if data.saved}
-				<div class="notice mt-5 rounded-2xl p-3 text-sm">
-					{data.saved === 'palette'
-						? 'Palette updated from branding.'
-						: 'Microsite settings saved.'}
+		</button>
+		{#if previewOpen}
+			<div class="preview-body" transition:slide={{ duration: 200 }}>
+				<div class="preview-frame {previewMode}">
+					<iframe title="Microsite preview" src={sitePreviewPath}></iframe>
 				</div>
-			{/if}
-			{#if data.generated}
-				<div class="notice mt-3 rounded-2xl p-3 text-sm">
-					{data.generated === 'ai'
-						? 'AI draft applied to the microsite.'
-						: 'AI fallback draft applied. Review and refine before publishing changes.'}
-				</div>
-			{/if}
-			{#if localGeneratedNotice}
-				<div class="notice mt-3 rounded-2xl p-3 text-sm">{localGeneratedNotice}</div>
-			{/if}
-			{#if data.reset}
-				<div class="notice mt-3 rounded-2xl p-3 text-sm">
-					Microsite reset to the default generated site.
-				</div>
-			{/if}
-			{#if form?.error}
-				<div class="error-box mt-3 rounded-2xl p-3 text-sm">{form.error}</div>
-			{/if}
-		</div>
-
-		<div class="manage-card rounded-3xl p-3 md:p-4">
-			<div class="mb-3 flex items-center justify-end gap-2">
-				<button
-					type="button"
-					class="btn btn-xs {previewMode === 'desktop'
-						? 'preset-filled-primary-500'
-						: 'preset-tonal-surface'}"
-					onclick={() => (previewMode = 'desktop')}
-				>
-					<IconMonitor class="h-3.5 w-3.5" /> Desktop
-				</button>
-				<button
-					type="button"
-					class="btn btn-xs {previewMode === 'mobile'
-						? 'preset-filled-primary-500'
-						: 'preset-tonal-surface'}"
-					onclick={() => (previewMode = 'mobile')}
-				>
-					<IconSmartphone class="h-3.5 w-3.5" /> Mobile
-				</button>
 			</div>
-			<div class="mx-auto {previewMode === 'mobile' ? 'max-w-[420px]' : 'max-w-none'}">
-				<iframe
-					title="Microsite preview"
-					src={sitePreviewPath}
-					class="h-[680px] w-full rounded-[1.4rem] border border-white/10 bg-black/30"
-				></iframe>
-			</div>
-		</div>
+		{/if}
 	</section>
 
-	<section class="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
-		<form
-			method="POST"
-			action="?/save"
-			enctype="multipart/form-data"
-			class="manage-card rounded-3xl p-5 md:p-6"
-			id="site-settings-form"
-		>
-			<div class="flex items-start justify-between gap-4">
-				<div>
-					<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">
-						Site settings
-					</p>
-					<h2 class="mt-2 text-2xl font-black tracking-tight text-white">Design + content</h2>
+	<!-- Main Form -->
+	<form
+		method="POST"
+		action="?/save"
+		enctype="multipart/form-data"
+		class="form-stack"
+		id="site-form"
+	>
+		<input type="hidden" name="simple_mode" value="on" />
+		<input type="hidden" name="microsite_slug" value={slugPreview} />
+
+		<!-- Content Section -->
+		<section class="card">
+			<div class="card-accent primary"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (contentOpen = !contentOpen)}
+				aria-expanded={contentOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon primary">
+						<IconLayoutGrid class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Content</h2>
+						<p class="card-subtitle">Title, tagline, and copy</p>
+					</div>
 				</div>
-				<button class="btn preset-filled-primary-500">Save website</button>
-			</div>
+				<IconChevronDown class="chevron {contentOpen ? 'rotate' : ''}" />
+			</button>
+			{#if contentOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="form-grid">
+						<div class="field">
+							<label class="field-label" for="site-title">Site Title</label>
+							<input
+								id="site-title"
+								class="input"
+								name="site_title"
+								value={siteConfig.site_title}
+							/>
+						</div>
+						<div class="field">
+							<label class="field-label" for="site-tagline">Tagline</label>
+							<input
+								id="site-tagline"
+								class="input"
+								name="site_tagline"
+								value={siteConfig.site_tagline}
+							/>
+						</div>
+					</div>
 
-			<div class="mt-6 grid gap-6">
-				<input type="hidden" name="simple_mode" value="on" />
-				<input type="hidden" name="microsite_slug" value={slugPreview} />
+					<div class="field mt-4">
+						<label class="field-label" for="home-intro">Home Intro</label>
+						<textarea id="home-intro" class="textarea" name="home_intro" rows="4"
+							>{siteConfig.home_intro}</textarea
+						>
+					</div>
 
-				<div class="grid gap-4 md:grid-cols-2">
-					<label class="field">
-						<span>Site title</span>
-						<input class="input" name="site_title" value={siteConfig.site_title} />
-					</label>
-					<label class="field">
-						<span>Tagline</span>
-						<input class="input" name="site_tagline" value={siteConfig.site_tagline} />
-					</label>
-				</div>
+					<div class="form-grid mt-4">
+						<div class="field">
+							<label class="field-label" for="notice">Notice Banner</label>
+							<input
+								id="notice"
+								class="input"
+								name="microsite_notice"
+								maxlength="180"
+								value={siteConfig.microsite_notice || ''}
+								placeholder="Optional announcement..."
+							/>
+						</div>
+						<div class="field">
+							<label class="field-label" for="notice-link">Notice Link</label>
+							<input
+								id="notice-link"
+								class="input"
+								name="microsite_notice_href"
+								value={siteConfig.microsite_notice_href || ''}
+								placeholder="https://..."
+							/>
+						</div>
+					</div>
 
-				<label class="field">
-					<span>Home intro</span>
-					<textarea class="textarea min-h-36" name="home_intro"
-						>{siteConfig.home_intro}</textarea
-					>
-				</label>
-
-				<div class="grid gap-4 md:grid-cols-2">
-					<label class="field">
-						<span>Notice banner (optional)</span>
-						<input
-							class="input"
-							name="microsite_notice"
-							maxlength="180"
-							value={siteConfig.microsite_notice || ''}
-						/>
-					</label>
-					<label class="field">
-						<span>Notice link (optional)</span>
-						<input
-							class="input"
-							name="microsite_notice_href"
-							value={siteConfig.microsite_notice_href || ''}
-						/>
-					</label>
-					<label class="field">
-						<span>Notice expires at (optional)</span>
-						<input
-							class="input"
-							type="datetime-local"
-							name="announcement_expires_at"
-							value={siteConfig.announcement_expires_at
-								? new Date(siteConfig.announcement_expires_at).toISOString().slice(0, 16)
-								: ''}
-						/>
-					</label>
-					<label class="field">
-						<span>Meeting instructions</span>
-						<input
-							class="input"
-							name="meeting_instructions"
+					<div class="field mt-4">
+						<label class="field-label" for="new-rider-note">New Rider Starter Note</label>
+						<textarea
+							id="new-rider-note"
+							class="textarea"
+							name="new_rider_note"
 							maxlength="600"
-							value={siteConfig.meeting_instructions || ''}
-						/>
-					</label>
-				</div>
+							rows="3">{siteConfig.new_rider_note || ''}</textarea
+						>
+					</div>
 
-				<label class="field">
-					<span>New rider starter note</span>
-					<textarea class="textarea min-h-28" name="new_rider_note" maxlength="600"
-						>{siteConfig.new_rider_note || ''}</textarea
-					>
-				</label>
-
-				<div class="grid gap-4">
-					<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">
-						FAQs (optional)
-					</p>
-					<input type="hidden" name="faq_1_q" value={faqItems[0]?.question || ''} />
-					<input type="hidden" name="faq_1_a" value={faqItems[0]?.answer || ''} />
-					<input type="hidden" name="faq_2_q" value={faqItems[1]?.question || ''} />
-					<input type="hidden" name="faq_2_a" value={faqItems[1]?.answer || ''} />
-					{#if faqItems.length}
-						<div class="grid gap-4 md:grid-cols-2">
-							{#each faqItems as item, idx}
-								<div class="field rounded-2xl border border-white/10 p-3">
-									<div class="mb-3 flex items-center justify-between gap-3">
-										<span>FAQ {idx + 1}</span>
-										<button
-											type="button"
-											class="btn btn-xs preset-outlined-surface-500"
-											onclick={() => removeFaq(idx)}
-										>
-											Remove
-										</button>
-									</div>
-									<div class="grid gap-3">
-										<label class="field">
-											<span>Question</span>
+					<!-- FAQs -->
+					<div class="subsection mt-4">
+						<div class="subsection-header">
+							<h3 class="subsection-title">FAQs</h3>
+							<button
+								type="button"
+								class="btn btn-sm preset-tonal-primary"
+								onclick={addFaq}
+								disabled={faqItems.length >= 2}
+							>
+								<IconPlus class="h-4 w-4" /> Add
+							</button>
+						</div>
+						<input type="hidden" name="faq_1_q" value={faqItems[0]?.question || ''} />
+						<input type="hidden" name="faq_1_a" value={faqItems[0]?.answer || ''} />
+						<input type="hidden" name="faq_2_q" value={faqItems[1]?.question || ''} />
+						<input type="hidden" name="faq_2_a" value={faqItems[1]?.answer || ''} />
+						{#if faqItems.length}
+							<div class="faq-list">
+								{#each faqItems as item, idx}
+									<div class="faq-item">
+										<div class="faq-header">
+											<span class="faq-label">FAQ {idx + 1}</span>
+											<button
+												type="button"
+												class="btn btn-xs preset-outlined-surface"
+												onclick={() => removeFaq(idx)}
+											>
+												<IconTrash class="h-3 w-3" />
+											</button>
+										</div>
+										<div class="faq-fields">
 											<input
 												class="input"
 												value={item.question}
 												maxlength="120"
-												placeholder="What should people know?"
-												oninput={(event) => updateFaq(idx, 'question', event.currentTarget.value)}
+												placeholder="Question"
+												oninput={(e) => updateFaq(idx, 'question', e.currentTarget.value)}
 											/>
-										</label>
-										<label class="field">
-											<span>Answer</span>
 											<input
 												class="input"
 												value={item.answer}
 												maxlength="320"
-												placeholder="Short, direct answer"
-												oninput={(event) => updateFaq(idx, 'answer', event.currentTarget.value)}
+												placeholder="Answer"
+												oninput={(e) => updateFaq(idx, 'answer', e.currentTarget.value)}
 											/>
-										</label>
+										</div>
 									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-					<button
-						type="button"
-						class="btn preset-tonal-primary w-fit"
-						onclick={addFaq}
-						disabled={faqItems.length >= 2}
-					>
-						+ Add FAQ
-					</button>
-				</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
 
-				<div class="grid gap-4">
-					<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">
-						Sponsors (optional)
-					</p>
-					<input type="hidden" name="sponsor_items_json" value={JSON.stringify(sponsorItems)} />
-					{#if sponsorItems.length}
-						<div class="grid gap-4 md:grid-cols-2">
-							{#each sponsorItems as item, idx}
-								<div class="field rounded-2xl border border-white/10 p-3">
-									<div class="mb-3 flex items-center justify-between gap-3">
-										<span>Sponsor {idx + 1}</span>
-										<button
-											type="button"
-											class="btn btn-xs preset-outlined-surface-500"
-											onclick={() => removeSponsor(idx)}
-										>
-											Remove
-										</button>
-									</div>
-									<div class="grid gap-3">
-										<label class="field">
-											<span>Name</span>
+					<!-- Sponsors -->
+					<div class="subsection mt-4">
+						<div class="subsection-header">
+							<h3 class="subsection-title">Sponsors</h3>
+							<button type="button" class="btn btn-sm preset-tonal-primary" onclick={addSponsor}>
+								<IconPlus class="h-4 w-4" /> Add
+							</button>
+						</div>
+						<input type="hidden" name="sponsor_items_json" value={JSON.stringify(sponsorItems)} />
+						{#if sponsorItems.length}
+							<div class="sponsor-list">
+								{#each sponsorItems as item, idx}
+									<div class="sponsor-item">
+										<div class="sponsor-header">
+											<span class="sponsor-label">Sponsor {idx + 1}</span>
+											<button
+												type="button"
+												class="btn btn-xs preset-outlined-surface"
+												onclick={() => removeSponsor(idx)}
+											>
+												<IconTrash class="h-3 w-3" />
+											</button>
+										</div>
+										<div class="sponsor-fields">
 											<input
 												class="input"
 												value={item.name}
 												maxlength="120"
-												placeholder="Partner name"
-												oninput={(event) => updateSponsor(idx, 'name', event.currentTarget.value)}
+												placeholder="Name"
+												oninput={(e) => updateSponsor(idx, 'name', e.currentTarget.value)}
 											/>
-										</label>
-										<label class="field">
-											<span>Text</span>
 											<input
 												class="input"
 												value={item.text}
 												maxlength="220"
-												placeholder="Short sponsor blurb"
-												oninput={(event) => updateSponsor(idx, 'text', event.currentTarget.value)}
+												placeholder="Description"
+												oninput={(e) => updateSponsor(idx, 'text', e.currentTarget.value)}
 											/>
-										</label>
-										<label class="field">
-											<span>Logo</span>
-											<div class="grid gap-2">
-												{#if item.logo}
-													<div
-														class="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2"
-													>
-														<img
-															src={item.logo}
-															alt={`${item.name || 'Sponsor'} logo`}
-															class="h-10 w-10 rounded-lg bg-white/90 object-contain p-1"
-														/>
-														<p class="text-xs text-white/60">Current logo uploaded</p>
-														<button
-															type="button"
-															class="btn btn-xs preset-outlined-surface-500 ml-auto"
-															onclick={() => updateSponsor(idx, 'logo', '')}
-														>
-															Remove
-														</button>
-													</div>
-												{/if}
-												<input
-													class="input"
-													type="file"
-													name={`sponsor_logo_file_${idx}`}
-													accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-												/>
-												<p class="text-[11px] text-white/55">
-													Upload PNG, JPG, WebP, GIF, or SVG (max 5 MB).
-												</p>
-											</div>
-										</label>
-										<label class="field">
-											<span>Link URL</span>
 											<input
 												class="input"
 												value={item.url}
 												placeholder="https://..."
-												oninput={(event) => updateSponsor(idx, 'url', event.currentTarget.value)}
+												oninput={(e) => updateSponsor(idx, 'url', e.currentTarget.value)}
 											/>
-										</label>
+											{#if item.logo}
+												<div class="sponsor-logo">
+													<img src={item.logo} alt="" class="logo-thumb" />
+													<button
+														type="button"
+														class="btn btn-xs preset-outlined-surface"
+														onclick={() => updateSponsor(idx, 'logo', '')}>Remove</button
+													>
+												</div>
+											{/if}
+											<input
+												class="input"
+												type="file"
+												name={`sponsor_logo_file_${idx}`}
+												accept="image/*"
+											/>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+		</section>
+
+		<!-- AI Assistant -->
+		<section class="card ai-card">
+			<div class="card-accent accent"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (aiOpen = !aiOpen)}
+				aria-expanded={aiOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon accent">
+						<IconSparkles class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">AI Assistant</h2>
+						<p class="card-subtitle">Generate fresh content</p>
+					</div>
+				</div>
+				<IconChevronDown class="chevron {aiOpen ? 'rotate' : ''}" />
+			</button>
+			{#if aiOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="ai-assistant-inner">
+						<div class="ai-chat-container" bind:this={draftChatBodyEl}>
+							{#if draftChatMessages.length === 1}
+								<div class="ai-welcome">
+									<div class="ai-welcome-bubble">
+										<p class="ai-welcome-text">
+											I can update your site copy, visual style, and section layout. What first
+											impression do you want visitors to get?
+										</p>
+										<div class="ai-quick-prompts">
+											<button
+												class="quick-prompt"
+												type="button"
+												onclick={() => {
+													draftChatInput = 'Make it bold and energetic for young cyclists';
+													sendDraftMessage();
+												}}
+											>
+												"Make it bold and energetic..."
+											</button>
+											<button
+												class="quick-prompt"
+												type="button"
+												onclick={() => {
+													draftChatInput = 'Create a welcoming community feel';
+													sendDraftMessage();
+												}}
+											>
+												"Create a welcoming feel..."
+											</button>
+											<button
+												class="quick-prompt"
+												type="button"
+												onclick={() => {
+													draftChatInput = 'Focus on safety and education';
+													sendDraftMessage();
+												}}
+											>
+												"Focus on safety and education..."
+											</button>
+										</div>
 									</div>
 								</div>
-							{/each}
+							{:else}
+								<div class="ai-messages">
+									{#each draftChatMessages.slice(1) as entry (entry.id)}
+										<div class="ai-message {entry.role}">
+											<div class="ai-message-avatar">
+												{#if entry.role === 'assistant'}
+													<IconSparkles class="h-4 w-4" />
+												{:else}
+													<span class="user-avatar">You</span>
+												{/if}
+											</div>
+											<div class="ai-message-content">
+												<p class="ai-message-text">{entry.content}</p>
+											</div>
+										</div>
+									{/each}
+									{#if draftChatSending}
+										<div class="ai-message assistant loading">
+											<div class="ai-message-avatar">
+												<IconSparkles class="h-4 w-4" />
+											</div>
+											<div class="ai-message-content">
+												<div class="typing-indicator">
+													<span></span>
+													<span></span>
+													<span></span>
+												</div>
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/if}
 						</div>
-					{/if}
-					<button type="button" class="btn preset-tonal-primary w-fit" onclick={addSponsor}>
-						+ Add sponsor
-					</button>
-				</div>
 
-				<div class="rounded-2xl border border-white/10 p-4">
-					<button
-						type="button"
-						class="w-full text-left"
-						onclick={() => (showRideWidgetBuilder = !showRideWidgetBuilder)}
-					>
-						<div class="flex items-center justify-between gap-3">
-							<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">
-								Rides calendar widget
-							</p>
-							<span class="text-xs text-white/60">{showRideWidgetBuilder ? 'Hide' : 'Show'}</span>
+						{#if pendingDraft}
+							<div class="draft-preview">
+								<p class="draft-title">Draft Ready</p>
+								<ul class="draft-list">
+									{#each pendingDraft.summary || [] as item}
+										<li>{item}</li>
+									{/each}
+								</ul>
+								<div class="draft-actions">
+									<button
+										type="button"
+										class="btn btn-sm preset-tonal-surface"
+										onclick={() => (pendingDraft = null)}
+										disabled={applyingDraft}>Discard</button
+									>
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-primary-500"
+										onclick={() => void applyPendingDraft()}
+										disabled={applyingDraft}
+									>
+										{applyingDraft ? 'Applying…' : 'Apply Draft'}
+									</button>
+								</div>
+							</div>
+						{/if}
+
+						<div class="ai-composer">
+							<div class="ai-input-area">
+								<textarea
+									bind:this={draftChatInputEl}
+									bind:value={draftChatInput}
+									rows="2"
+									maxlength="600"
+									placeholder={draftChatMessages.length > 1
+										? 'Reply to refine the draft...'
+										: 'What vibe do you want for your site?'}
+									disabled={draftChatSending}
+									onkeydown={handleDraftInputKeydown}
+								></textarea>
+								<button
+									class="ai-send-btn"
+									type="button"
+									onclick={sendDraftMessage}
+									disabled={draftChatSending || !canSendDraftMessage}
+								>
+									<IconSendHorizontal class="h-5 w-5" />
+								</button>
+								<button
+									class="ai-clear-btn"
+									type="button"
+									onclick={resetDraftChat}
+									title="Clear conversation"
+								>
+									<IconRefreshCw class="h-4 w-4" />
+								</button>
+							</div>
+							{#if draftChatMessages.length > 1}
+								<p class="ai-hint">Press Enter to send, Shift+Enter for new line</p>
+							{/if}
 						</div>
-					</button>
-					{#if showRideWidgetBuilder}
-						<div class="mt-4 grid gap-4" transition:slide={{ duration: 180 }}>
-							<div class="grid gap-4 md:grid-cols-2">
-								<label class="field">
-									<span>Widget title</span>
+
+						{#if draftChatError}
+							<div class="ai-status error">
+								<span>{draftChatError}</span>
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+		</section>
+
+		<!-- Design & Colors Section -->
+		<section class="card">
+			<div class="card-accent secondary"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (designOpen = !designOpen)}
+				aria-expanded={designOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon secondary">
+						<IconBrush class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Design & Colors</h2>
+						<p class="card-subtitle">Theme and styling</p>
+					</div>
+				</div>
+				<IconChevronDown class="chevron {designOpen ? 'rotate' : ''}" />
+			</button>
+			{#if designOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="form-grid">
+						<div class="field">
+							<label class="field-label" for="hero-style">Hero Style</label>
+							<select id="hero-style" class="select" name="hero_style">
+								{#each GROUP_SITE_HERO_STYLES as option}
+									<option value={option} selected={siteConfig.hero_style === option}
+										>{heroLabels[option]}</option
+									>
+								{/each}
+							</select>
+						</div>
+						<div class="field">
+							<label class="field-label" for="bg-style">Background</label>
+							<select id="bg-style" class="select" name="background_style">
+								{#each GROUP_SITE_BACKGROUND_STYLES as option}
+									<option value={option} selected={siteConfig.background_style === option}
+										>{backgroundLabels[option]}</option
+									>
+								{/each}
+							</select>
+						</div>
+					</div>
+
+					<div class="form-grid mt-4">
+						<div class="field">
+							<label class="field-label" for="font-pairing">Font Pairing</label>
+							<select id="font-pairing" class="select" name="font_pairing">
+								{#each GROUP_SITE_FONT_PAIRING_OPTIONS as option}
+									<option value={option.value} selected={siteConfig.font_pairing === option.value}
+										>{option.label}</option
+									>
+								{/each}
+							</select>
+						</div>
+						<div class="field">
+							<label class="field-label" for="panel-style">Panel Style</label>
+							<select id="panel-style" class="select" name="panel_style">
+								{#each GROUP_SITE_PANEL_STYLES as option}
+									<option value={option} selected={siteConfig.panel_style === option}
+										>{panelStyleLabels[option]}</option
+									>
+								{/each}
+							</select>
+						</div>
+					</div>
+
+					<div class="color-grid mt-4">
+						<div class="field">
+							<label class="field-label" for="theme-primary">Primary</label>
+							<div class="color-input">
+								<input
+									id="theme-primary"
+									class="input"
+									type="color"
+									name="theme_primary"
+									value={siteConfig.theme_colors.primary || '#F59E0B'}
+									disabled={themeMode === 'repo'}
+								/>
+								<span class="color-value">{siteConfig.theme_colors.primary || '#F59E0B'}</span>
+							</div>
+						</div>
+						<div class="field">
+							<label class="field-label" for="theme-secondary">Secondary</label>
+							<div class="color-input">
+								<input
+									id="theme-secondary"
+									class="input"
+									type="color"
+									name="theme_secondary"
+									value={siteConfig.theme_colors.secondary || '#0EA5E9'}
+									disabled={themeMode === 'repo'}
+								/>
+								<span class="color-value">{siteConfig.theme_colors.secondary || '#0EA5E9'}</span>
+							</div>
+						</div>
+						<div class="field">
+							<label class="field-label" for="theme-accent">Accent</label>
+							<div class="color-input">
+								<input
+									id="theme-accent"
+									class="input"
+									type="color"
+									name="theme_accent"
+									value={siteConfig.theme_colors.accent || '#FB7185'}
+									disabled={themeMode === 'repo'}
+								/>
+								<span class="color-value">{siteConfig.theme_colors.accent || '#FB7185'}</span>
+							</div>
+						</div>
+						<div class="field">
+							<label class="field-label" for="theme-surface">Surface</label>
+							<div class="color-input">
+								<input
+									id="theme-surface"
+									class="input"
+									type="color"
+									name="theme_surface"
+									value={siteConfig.theme_colors.surface || '#111827'}
+									disabled={themeMode === 'repo'}
+								/>
+								<span class="color-value">{siteConfig.theme_colors.surface || '#111827'}</span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Derive Colors from Branding -->
+					<div class="derive-section mt-6">
+						<div class="derive-content">
+							<div class="derive-icon">
+								<IconPalette class="h-5 w-5" />
+							</div>
+							<div class="derive-text">
+								<h3 class="derive-title">Pull Colors from Branding</h3>
+								<p class="derive-desc">
+									Sample colors from your logo and apply them to the site theme automatically
+								</p>
+							</div>
+						</div>
+						<button type="submit" formaction="?/deriveTheme" class="btn preset-tonal-primary">
+							Derive Colors
+						</button>
+					</div>
+				</div>
+			{/if}
+		</section>
+
+		<!-- Sections Toggle -->
+		<section class="card">
+			<div class="card-accent tertiary"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (sectionsOpen = !sectionsOpen)}
+				aria-expanded={sectionsOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon tertiary">
+						<IconSettings class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Sections</h2>
+						<p class="card-subtitle">Which pages to show</p>
+					</div>
+				</div>
+				<IconChevronDown class="chevron {sectionsOpen ? 'rotate' : ''}" />
+			</button>
+			{#if sectionsOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="sections-toggle-grid">
+						{#each GROUP_SITE_SECTION_KEYS as key}
+							<div class="section-toggle-item">
+								<span class="section-toggle-label">{sectionLabels[key]}</span>
+								<label class="toggle-switch">
 									<input
+										type="checkbox"
+										name={`section_${key}`}
+										checked={siteConfig.sections[key]}
+									/>
+									<span class="toggle-track"></span>
+								</label>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</section>
+
+		<!-- Ride Widget -->
+		<section class="card">
+			<div class="card-accent primary"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (widgetOpen = !widgetOpen)}
+				aria-expanded={widgetOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon primary">
+						<IconCalendar class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Ride Calendar</h2>
+						<p class="card-subtitle">Widget settings</p>
+					</div>
+				</div>
+				<IconChevronDown class="chevron {widgetOpen ? 'rotate' : ''}" />
+			</button>
+			{#if widgetOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="widget-enable">
+						<label class="toggle-switch">
+							<input type="checkbox" name="ride_widget_enabled" bind:checked={rideWidgetEnabled} />
+							<span class="toggle-track"></span>
+						</label>
+						<span class="toggle-label">{rideWidgetEnabled ? 'Enabled' : 'Disabled'}</span>
+					</div>
+
+					{#if rideWidgetEnabled}
+						<div class="widget-settings mt-4 space-y-4">
+							<div class="form-grid">
+								<div class="field">
+									<label class="field-label" for="widget-title">Widget Title</label>
+									<input
+										id="widget-title"
 										class="input"
 										name="ride_widget_title"
 										maxlength="120"
 										bind:value={rideWidgetTitle}
 									/>
-								</label>
-								<label class="field">
-									<span>Rides source</span>
+								</div>
+								<div class="field">
+									<label class="field-label" for="rides-source">Rides Source</label>
 									<select
+										id="rides-source"
 										class="select"
 										name="ride_widget_host_scope"
 										bind:value={rideWidgetHostScope}
@@ -1397,124 +1447,14 @@
 											<option value={option}>{rideWidgetHostScopeLabels[option]}</option>
 										{/each}
 									</select>
-								</label>
+								</div>
 							</div>
 
-							{#if rideWidgetHostScope === 'selected_groups'}
-								<div class="grid gap-3">
-									<input
-										type="hidden"
-										name="ride_widget_group_ids"
-										value={selectedRideWidgetGroupIds.join(',')}
-									/>
-									<label class="field relative">
-										<span>Selected groups</span>
-										<input
-											class="input"
-											placeholder="Search groups by name..."
-											bind:value={groupSearch}
-										/>
-										{#if groupSuggestions.length}
-											<div
-												class="absolute top-full right-0 left-0 z-20 mt-1 rounded-xl border border-white/10 bg-black/85 p-1"
-											>
-												{#each groupSuggestions as group}
-													<button
-														type="button"
-														class="w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/10"
-														onclick={() => addRideWidgetGroup(group.id)}
-													>
-														<span class="font-semibold">{group.name}</span>
-														<span class="ml-2 text-xs text-white/60">({group.slug})</span>
-													</button>
-												{/each}
-											</div>
-										{/if}
-									</label>
-									{#if selectedGroups.length}
-										<div class="flex flex-wrap gap-2">
-											{#each selectedGroups as group}
-												<span class="chip preset-tonal-primary gap-1 text-xs">
-													{group.name}
-													<button
-														type="button"
-														class="ml-1 rounded-full px-1 leading-none"
-														onclick={() => removeRideWidgetGroup(group.id)}
-													>
-														x
-													</button>
-												</span>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{:else}
-								<input type="hidden" name="ride_widget_group_ids" value="" />
-							{/if}
-
-							<div class="grid gap-3 md:grid-cols-2">
-								<label class="field">
-									<span>Location filter</span>
+							<div class="form-grid">
+								<div class="field">
+									<label class="field-label" for="default-tab">Default Tab</label>
 									<select
-										class="select"
-										name="ride_widget_filter_mode"
-										bind:value={rideWidgetFilterMode}
-									>
-										<option value="none">None</option>
-										<option value="location">Location Filter</option>
-										<option value="radius">Radius Center + Miles</option>
-									</select>
-								</label>
-							</div>
-							{#if rideWidgetFilterMode === 'location'}
-								<div class="grid gap-4">
-									<label class="field">
-										<span>Location Filter</span>
-										<input
-											class="input"
-											name="ride_widget_location"
-											bind:value={rideWidgetLocation}
-											placeholder="City, state, zip, or combination"
-										/>
-									</label>
-								</div>
-								<input type="hidden" name="ride_widget_near" value="" />
-								<input type="hidden" name="ride_widget_radius_miles" value="" />
-							{:else if rideWidgetFilterMode === 'radius'}
-								<div class="grid gap-4 md:grid-cols-2">
-									<label class="field">
-										<span>Radius center</span>
-										<input
-											class="input"
-											name="ride_widget_near"
-											bind:value={rideWidgetNear}
-											placeholder="85004 or Tempe, AZ"
-										/>
-									</label>
-									<label class="field">
-										<span>Radius (miles)</span>
-										<input
-											class="input"
-											type="number"
-											min="1"
-											max="500"
-											step="0.5"
-											name="ride_widget_radius_miles"
-											bind:value={rideWidgetRadiusMiles}
-										/>
-									</label>
-								</div>
-								<input type="hidden" name="ride_widget_location" value="" />
-							{:else}
-								<input type="hidden" name="ride_widget_location" value="" />
-								<input type="hidden" name="ride_widget_near" value="" />
-								<input type="hidden" name="ride_widget_radius_miles" value="" />
-							{/if}
-
-							<div class="grid gap-4 md:grid-cols-3">
-								<label class="field">
-									<span>Default tab</span>
-									<select
+										id="default-tab"
 										class="select"
 										name="ride_widget_default_tab"
 										bind:value={rideWidgetDefaultTab}
@@ -1523,32 +1463,30 @@
 										<option value="calendar">Calendar</option>
 										<option value="map">Map</option>
 									</select>
-								</label>
-								<label class="field">
-									<span>Theme</span>
-									<select class="select" name="ride_widget_theme" bind:value={rideWidgetTheme}>
+								</div>
+								<div class="field">
+									<label class="field-label" for="widget-theme">Theme</label>
+									<select
+										id="widget-theme"
+										class="select"
+										name="ride_widget_theme"
+										bind:value={rideWidgetTheme}
+									>
 										<option value="auto">Auto</option>
 										<option value="light">Light</option>
 										<option value="dark">Dark</option>
 									</select>
-								</label>
-								<label class="field">
-									<span>Density</span>
-									<select class="select" name="ride_widget_density" bind:value={rideWidgetDensity}>
-										<option value="comfortable">Comfortable</option>
-										<option value="compact">Compact</option>
-									</select>
-								</label>
+								</div>
 							</div>
 
-							<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+							<div class="widget-toggles">
 								<label class="toggle-card">
 									<input
 										type="checkbox"
 										name="ride_widget_show_user_filters"
 										bind:checked={rideWidgetShowUserFilters}
 									/>
-									<span>Allow user filters</span>
+									<span>User filters</span>
 								</label>
 								<label class="toggle-card">
 									<input
@@ -1556,15 +1494,7 @@
 										name="ride_widget_show_add_button"
 										bind:checked={rideWidgetShowAddButton}
 									/>
-									<span>Show add event button</span>
-								</label>
-								<label class="toggle-card">
-									<input
-										type="checkbox"
-										name="ride_widget_prefix_city"
-										bind:checked={rideWidgetPrefixCity}
-									/>
-									<span>Prefix title with city</span>
+									<span>Add event button</span>
 								</label>
 								<label class="toggle-card">
 									<input
@@ -1572,445 +1502,759 @@
 										name="ride_widget_difficulty_colors"
 										bind:checked={rideWidgetDifficultyColors}
 									/>
-									<span>Difficulty color coding</span>
+									<span>Difficulty colors</span>
 								</label>
-							</div>
-
-							<div class="widget-enable-row rounded-2xl border border-white/10 p-3">
-								<button
-									type="button"
-									class={`toggle-switch ${rideWidgetEnabled ? 'is-on' : ''}`}
-									role="switch"
-									aria-label="Toggle ride calendar widget"
-									aria-checked={rideWidgetEnabled}
-									onclick={() => (rideWidgetEnabled = !rideWidgetEnabled)}
-								>
-									<span></span>
-								</button>
-								<div class="text-sm font-semibold text-white/85">
-									{rideWidgetEnabled ? 'Enable' : 'Disable'}
-								</div>
-								<button class="btn btn-sm preset-filled-primary-500 ml-auto">Save website</button>
-							</div>
-
-							<div class="rounded-2xl border border-white/10 p-2">
-								<p class="mb-2 text-xs font-semibold tracking-[0.2em] text-white/50 uppercase">
-									Widget preview
-								</p>
-								<iframe
-									title="Ride widget preview"
-									src={widgetPreviewPath}
-									class="h-[460px] w-full rounded-xl border border-white/10 bg-black/30"
-								></iframe>
 							</div>
 						</div>
 					{/if}
 				</div>
-				{#if !showRideWidgetBuilder}
-					<input type="hidden" name="ride_widget_title" value={rideWidgetTitle} />
-					<input type="hidden" name="ride_widget_host_scope" value={rideWidgetHostScope} />
-					<input
-						type="hidden"
-						name="ride_widget_group_ids"
-						value={selectedRideWidgetGroupIds.join(',')}
-					/>
-					<input type="hidden" name="ride_widget_filter_mode" value={rideWidgetFilterMode} />
-					<input type="hidden" name="ride_widget_location" value={rideWidgetLocation} />
-					<input type="hidden" name="ride_widget_near" value={rideWidgetNear} />
-					<input type="hidden" name="ride_widget_radius_miles" value={rideWidgetRadiusMiles} />
-					<input type="hidden" name="ride_widget_default_tab" value={rideWidgetDefaultTab} />
-					<input type="hidden" name="ride_widget_theme" value={rideWidgetTheme} />
-					<input type="hidden" name="ride_widget_density" value={rideWidgetDensity} />
-					<input
-						type="hidden"
-						name="ride_widget_show_user_filters"
-						value={rideWidgetShowUserFilters ? 'on' : 'off'}
-					/>
-					<input
-						type="hidden"
-						name="ride_widget_show_add_button"
-						value={rideWidgetShowAddButton ? 'on' : 'off'}
-					/>
-					<input
-						type="hidden"
-						name="ride_widget_prefix_city"
-						value={rideWidgetPrefixCity ? 'on' : 'off'}
-					/>
-					<input
-						type="hidden"
-						name="ride_widget_difficulty_colors"
-						value={rideWidgetDifficultyColors ? 'on' : 'off'}
-					/>
-				{/if}
-				<input type="hidden" name="ride_widget_enabled" value={rideWidgetEnabled ? 'on' : 'off'} />
+			{/if}
+		</section>
 
-				<button
-					type="button"
-					class="btn preset-tonal-surface justify-center"
-					onclick={() => (showAdvanced = !showAdvanced)}
-				>
-					{showAdvanced ? 'Hide advanced design controls' : 'Show advanced design controls'}
-				</button>
-
-				<div class:hidden={!showAdvanced} class="grid gap-6">
-					<div class="grid gap-4 md:grid-cols-2">
-						<label class="field">
-							<span>Featured quote</span>
-							<textarea class="textarea min-h-28" name="featured_quote"
-								>{siteConfig.featured_quote}</textarea
-							>
-						</label>
-						<label class="field">
-							<span>Footer blurb</span>
-							<textarea class="textarea min-h-28" name="footer_blurb"
-								>{siteConfig.footer_blurb}</textarea
-							>
-						</label>
+		<!-- Advanced -->
+		<section class="card">
+			<div class="card-accent muted"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (advancedOpen = !advancedOpen)}
+				aria-expanded={advancedOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon muted">
+						<IconSettings class="h-5 w-5" />
 					</div>
-
-					<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-						<label class="field">
-							<span>Hero style</span>
-							<select class="select" name="hero_style">
-								{#each GROUP_SITE_HERO_STYLES as option}
-									<option value={option} selected={siteConfig.hero_style === option}
-										>{heroLabels[option]}</option
-									>
-								{/each}
-							</select>
-						</label>
-						<label class="field">
-							<span>Font pairing</span>
-							<select class="select" name="font_pairing">
-								{#each GROUP_SITE_FONT_PAIRING_OPTIONS as option}
-									<option
-										value={option.value}
-										selected={siteConfig.font_pairing === option.value}>{option.label}</option
-									>
-								{/each}
-							</select>
-						</label>
-						<label class="field">
-							<span>Background style</span>
-							<select class="select" name="background_style">
-								{#each GROUP_SITE_BACKGROUND_STYLES as option}
-									<option value={option} selected={siteConfig.background_style === option}
-										>{backgroundLabels[option]}</option
-									>
-								{/each}
-							</select>
-						</label>
+					<div class="card-title-group">
+						<h2 class="card-title">Advanced</h2>
+						<p class="card-subtitle">Fine-tune the design</p>
 					</div>
-
-					<div class="grid gap-4 md:grid-cols-3">
-						<label class="field">
-							<span>Panel style</span>
-							<select class="select" name="panel_style">
-								{#each GROUP_SITE_PANEL_STYLES as option}
-									<option value={option} selected={siteConfig.panel_style === option}
-										>{panelStyleLabels[option]}</option
-									>
-								{/each}
-							</select>
-						</label>
-						<label class="field">
-							<span>Panel tone</span>
-							<select class="select" name="panel_tone">
+				</div>
+				<IconChevronDown class="chevron {advancedOpen ? 'rotate' : ''}" />
+			</button>
+			{#if advancedOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<div class="form-grid">
+						<div class="field">
+							<label class="field-label" for="panel-tone">Panel Tone</label>
+							<select id="panel-tone" class="select" name="panel_tone">
 								{#each GROUP_SITE_PANEL_TONES as option}
 									<option value={option} selected={siteConfig.panel_tone === option}
 										>{panelToneLabels[option]}</option
 									>
 								{/each}
 							</select>
-						</label>
-						<label class="field">
-							<span>Panel density</span>
-							<select class="select" name="panel_density">
+						</div>
+						<div class="field">
+							<label class="field-label" for="panel-density">Panel Density</label>
+							<select id="panel-density" class="select" name="panel_density">
 								{#each GROUP_SITE_PANEL_DENSITIES as option}
 									<option value={option} selected={siteConfig.panel_density === option}
 										>{panelDensityLabels[option]}</option
 									>
 								{/each}
 							</select>
-						</label>
+						</div>
 					</div>
 
-					<div class="grid gap-4 md:grid-cols-2">
-						<label class="field">
-							<span>Theme mode</span>
-							<select class="select" name="theme_mode" bind:value={themeMode}>
+					<div class="form-grid mt-4">
+						<div class="field">
+							<label class="field-label" for="theme-mode">Theme Mode</label>
+							<select id="theme-mode" class="select" name="theme_mode" bind:value={themeMode}>
 								{#each GROUP_SITE_THEME_MODES as option}
 									<option value={option}>{themeLabels[option]}</option>
 								{/each}
 							</select>
-						</label>
-						<label class="field">
-							<span>Repo theme</span>
-							<select class="select" name="theme_name" disabled={themeMode !== 'repo'}>
+						</div>
+						<div class="field">
+							<label class="field-label" for="repo-theme">Repo Theme</label>
+							<select
+								id="repo-theme"
+								class="select"
+								name="theme_name"
+								disabled={themeMode !== 'repo'}
+							>
 								{#each GROUP_SITE_THEME_OPTIONS as theme}
-									<option value={theme.value} selected={siteConfig.theme_name === theme.value}>
-										{theme.label}
-									</option>
+									<option value={theme.value} selected={siteConfig.theme_name === theme.value}
+										>{theme.label}</option
+									>
 								{/each}
 							</select>
-						</label>
-					</div>
-
-					<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-						<label class="field">
-							<span>Primary</span>
-							<input
-								class="input"
-								type="color"
-								name="theme_primary"
-								value={siteConfig.theme_colors.primary || '#F59E0B'}
-								disabled={themeMode === 'repo'}
-							/>
-						</label>
-						<label class="field">
-							<span>Secondary</span>
-							<input
-								class="input"
-								type="color"
-								name="theme_secondary"
-								value={siteConfig.theme_colors.secondary || '#0EA5E9'}
-								disabled={themeMode === 'repo'}
-							/>
-						</label>
-						<label class="field">
-							<span>Accent</span>
-							<input
-								class="input"
-								type="color"
-								name="theme_accent"
-								value={siteConfig.theme_colors.accent || '#FB7185'}
-								disabled={themeMode === 'repo'}
-							/>
-						</label>
-						<label class="field">
-							<span>Surface</span>
-							<input
-								class="input"
-								type="color"
-								name="theme_surface"
-								value={siteConfig.theme_colors.surface || '#111827'}
-								disabled={themeMode === 'repo'}
-							/>
-						</label>
-					</div>
-
-					<div>
-						<p class="mb-3 text-sm font-semibold text-white">Sections</p>
-						<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-							{#each GROUP_SITE_SECTION_KEYS as key}
-								<label class="toggle-card">
-									<input
-										type="checkbox"
-										name={`section_${key}`}
-										checked={siteConfig.sections[key]}
-									/>
-									<span>{sectionLabels[key]}</span>
-								</label>
-							{/each}
 						</div>
 					</div>
-				</div>
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<button class="btn preset-filled-primary-500 justify-center">Save website</button>
-				</div>
-			</div>
-		</form>
 
-		<div class="space-y-6">
-			<section class="manage-card rounded-3xl p-5 md:p-6">
-				<div class="flex items-start gap-3">
-					<div class="action-icon">
-						<IconSparkles class="h-5 w-5" />
+					<div class="field mt-4">
+						<label class="field-label" for="featured-quote">Featured Quote</label>
+						<textarea id="featured-quote" class="textarea" name="featured_quote" rows="3"
+							>{siteConfig.featured_quote}</textarea
+						>
 					</div>
-					<div>
-						<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">AI draft</p>
-						<h2 class="mt-2 text-2xl font-black tracking-tight text-white">
-							Generate a fresh site direction
-						</h2>
+
+					<div class="field mt-4">
+						<label class="field-label" for="footer-blurb">Footer Blurb</label>
+						<textarea id="footer-blurb" class="textarea" name="footer_blurb" rows="3"
+							>{siteConfig.footer_blurb}</textarea
+						>
 					</div>
 				</div>
-				<p class="mt-4 text-sm leading-7 text-white/70">
-					Tell AI what you want your site to feel like. It will ask a few quick questions, then
-					build a new draft for you.
-				</p>
+			{/if}
+		</section>
 
-				<div class="ai-draft-chat mt-4">
-					<div class="ai-draft-chat-body" bind:this={draftChatBodyEl}>
-						{#each draftChatMessages as entry (entry.id)}
-							<div class={`ai-draft-row ${entry.role === 'user' ? 'is-user' : 'is-assistant'}`}>
-								<div class="ai-draft-bubble">
-									<p class="text-sm leading-relaxed whitespace-pre-wrap">{entry.content}</p>
-								</div>
+		<!-- Domain Manager (Combined URL + Domains) -->
+		<section class="card">
+			<div class="card-accent primary"></div>
+			<button
+				type="button"
+				class="card-toggle"
+				onclick={() => (domainOpen = !domainOpen)}
+				aria-expanded={domainOpen}
+			>
+				<div class="card-header-left">
+					<div class="card-icon primary">
+						<IconGlobe class="h-5 w-5" />
+					</div>
+					<div class="card-title-group">
+						<h2 class="card-title">Domain</h2>
+						<p class="card-subtitle">URL settings and custom domains</p>
+					</div>
+				</div>
+				<IconChevronDown class="chevron {domainOpen ? 'rotate' : ''}" />
+			</button>
+			{#if domainOpen}
+				<div class="card-body" transition:slide={{ duration: 200 }}>
+					<!-- Site URL -->
+					<div class="domain-section">
+						<h3 class="subsection-title">Site URL</h3>
+						<a href={`/${slugPreview}`} target="_blank" rel="noopener noreferrer" class="url-link">
+							<span class="url-text">{slugDomainPreview}</span>
+							<IconExternalLink class="h-4 w-4" />
+						</a>
+
+						<div class="slug-field mt-4">
+							<label class="field-label" for="slug-input">Website Slug</label>
+							<div class="slug-input-wrap">
+								<input
+									id="slug-input"
+									class="input"
+									value={slugInput}
+									oninput={onSlugInput}
+									pattern="[A-Za-z0-9]+"
+									maxlength="40"
+									placeholder="yourgroup"
+								/>
+								<span class="slug-status {slugAvailability.state}">{slugAvailability.label}</span>
 							</div>
-						{/each}
-						{#if draftChatSending}
-							<div class="ai-draft-row is-assistant">
-								<div class="ai-draft-bubble">
-									<div class="flex items-center gap-2 text-sm opacity-75">
-										<IconLoader class="h-4 w-4 animate-spin" /> Thinking...
+							<p class="slug-preview">{slugDomainPreview}</p>
+							<p class="slug-message {slugAvailability.state}">{slugAvailability.message}</p>
+						</div>
+					</div>
+
+					<!-- Custom Domains -->
+					<div class="domain-section mt-6">
+						<h3 class="subsection-title">Custom Domains</h3>
+						<p class="field-hint">Add or manage your own domains ({customDomains.length} active)</p>
+
+						<!-- Attach Existing -->
+						<div class="mt-4">
+							<p class="mb-2 text-sm font-medium">Attach Existing Domain</p>
+							<form
+								class="flex gap-2"
+								onsubmit={(e) => {
+									e.preventDefault();
+									void attachExistingDomain();
+								}}
+							>
+								<input
+									class="input flex-1"
+									bind:value={existingDomainInput}
+									placeholder="yourdomain.com"
+								/>
+								<button class="btn preset-filled-primary-500" disabled={domainsLoading}
+									>Attach</button
+								>
+							</form>
+						</div>
+
+						<!-- Domain List -->
+						{#if customDomains.length}
+							<div class="domain-list mt-4">
+								{#each customDomains as domainRow}
+									<div class="domain-item">
+										<div class="domain-info">
+											<div class="domain-name">{domainRow.domain}</div>
+											<div class="domain-status">
+												{domainRow.status}
+												{#if domainRow.vercel_verified}• Verified{:else}• Needs DNS{/if}
+											</div>
+										</div>
+										<div class="domain-actions">
+											<button
+												type="button"
+												class="btn btn-xs preset-tonal-surface"
+												disabled={verifyingDomain === domainRow.domain}
+												onclick={() => void verifyDomain(domainRow.domain)}
+											>
+												{#if verifyingDomain === domainRow.domain}
+													<IconRefreshCw class="h-3 w-3 animate-spin" /> Verifying
+												{:else}
+													<IconBadgeCheck class="h-3 w-3" /> Verify
+												{/if}
+											</button>
+											<button
+												type="button"
+												class="btn btn-xs preset-tonal-warning"
+												disabled={renewalBusyDomain === domainRow.domain}
+												onclick={() =>
+													void toggleAutoRenew(domainRow.domain, !domainRow.auto_renew)}
+											>
+												{domainRow.auto_renew ? 'Pause' : 'Renew'}
+											</button>
+										</div>
 									</div>
-								</div>
+								{/each}
+							</div>
+						{/if}
+
+						<!-- Buy Domain -->
+						<div class="mt-4">
+							<p class="mb-2 text-sm font-medium">Buy Domain</p>
+							<form
+								class="flex gap-2"
+								onsubmit={(e) => {
+									e.preventDefault();
+									void searchDomains();
+								}}
+							>
+								<input
+									class="input flex-1"
+									bind:value={domainSearchQuery}
+									placeholder="biketempe"
+								/>
+								<button class="btn preset-filled-primary-500" disabled={domainSearchBusy}
+									>Search</button
+								>
+							</form>
+						</div>
+
+						{#if domainSearchResults.length}
+							<div class="domain-results mt-4">
+								{#each domainSearchResults as row}
+									<div class="domain-result">
+										<div class="domain-result-info">
+											<div class="domain-result-name">{row.domain}</div>
+											<div class="domain-result-price">
+												{formatUsd(row.pricing.purchase.totalCents)}
+											</div>
+										</div>
+									</div>
+								{/each}
 							</div>
 						{/if}
 					</div>
 
-					{#if draftChatError}
-						<div class="text-error-400 mt-2 text-xs">{draftChatError}</div>
-					{/if}
-					{#if pendingDraft}
-						<div class="draft-summary mt-3 rounded-2xl p-3">
-							<p class="text-xs font-semibold tracking-[0.18em] text-white/55 uppercase">
-								Draft ready
-							</p>
-							<p class="mt-1 text-sm text-white/80">
-								Review these proposed updates, then apply when you are ready.
-							</p>
-							<ul class="mt-2 space-y-1 text-sm text-white/85">
-								{#each pendingDraft.summary || [] as item}
-									<li>- {item}</li>
-								{/each}
-							</ul>
-							<div class="mt-3 flex flex-wrap justify-end gap-2">
-								<button
-									type="button"
-									class="btn btn-sm preset-tonal-surface"
-									onclick={() => (pendingDraft = null)}
-									disabled={applyingDraft}
-								>
-									Discard
-								</button>
-								<button
-									type="button"
-									class="btn btn-sm preset-filled-primary-500"
-									onclick={() => void applyPendingDraft()}
-									disabled={applyingDraft}
-								>
-									{applyingDraft ? 'Applying…' : 'Apply draft'}
-								</button>
-							</div>
+					{#if domainMessage}
+						<div class="banner success mt-4">
+							<IconBadgeCheck class="h-4 w-4" />
+							<p>{domainMessage}</p>
 						</div>
 					{/if}
-
-					<form
-						class="mt-3"
-						onsubmit={(event) => {
-							event.preventDefault();
-							void sendDraftMessage();
-						}}
-					>
-						<div class="flex items-end gap-2">
-							<textarea
-								bind:this={draftChatInputEl}
-								bind:value={draftChatInput}
-								rows="1"
-								maxlength="600"
-								placeholder="Describe your direction, tone, and any must-have details..."
-								class="input w-full resize-none p-2"
-								disabled={draftChatSending}
-								onkeydown={handleDraftInputKeydown}
-							></textarea>
-							<button
-								type="submit"
-								class="btn btn-icon preset-filled-primary-500"
-								disabled={!canSendDraftMessage}
-								aria-label="Send AI draft message"
-							>
-								<IconSendHorizontal class="h-4 w-4" />
-							</button>
+					{#if domainError}
+						<div class="banner error mt-4">
+							<IconTrash class="h-4 w-4" />
+							<p>{domainError}</p>
 						</div>
-					</form>
-
-					<div class="mt-3 flex justify-end">
-						<button type="button" class="btn btn-xs preset-tonal-warning" onclick={resetDraftChat}>
-							Clear chat
-						</button>
-					</div>
+					{/if}
 				</div>
-			</section>
+			{/if}
+		</section>
 
-			<form method="POST" action="?/deriveTheme" class="manage-card rounded-3xl p-5 md:p-6">
-				<div class="flex items-start gap-3">
-					<div class="action-icon">
-						<IconPalette class="h-5 w-5" />
-					</div>
-					<div>
-						<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">
-							Brand palette
-						</p>
-						<h2 class="mt-2 text-2xl font-black tracking-tight text-white">
-							Pull colors from logo or cover
-						</h2>
-					</div>
-				</div>
-				<p class="mt-4 text-sm leading-7 text-white/70">
-					This samples the group branding image, converts it into editable custom colors, and
-					applies the result to the microsite.
-				</p>
-				<button class="btn preset-outlined-primary-500 mt-4 w-full justify-center">
-					Derive palette from branding
-				</button>
-			</form>
-
-			<form method="POST" action="?/reset" class="manage-card rounded-3xl p-5 md:p-6">
-				<div class="flex items-start gap-3">
-					<div class="action-icon">
+		<!-- Reset to Default -->
+		<section class="card reset-card">
+			<div class="card-accent warning"></div>
+			<div class="card-body">
+				<div class="reset-content">
+					<div class="reset-icon">
 						<IconRefreshCcw class="h-5 w-5" />
 					</div>
-					<div>
-						<p class="text-xs font-semibold tracking-[0.24em] text-white/48 uppercase">Reset</p>
-						<h2 class="mt-2 text-2xl font-black tracking-tight text-white">
-							Return to the default microsite
-						</h2>
+					<div class="reset-text">
+						<h3 class="reset-title">Reset to Default</h3>
+						<p class="reset-desc">Remove all customizations and return to the generated default</p>
 					</div>
 				</div>
-				<p class="mt-4 text-sm leading-7 text-white/70">
-					This removes the saved microsite config for the group. The public site still exists, but
-					it falls back to the generated default state.
-				</p>
-				<button class="btn preset-outlined-warning-500 mt-4 w-full justify-center"
-					>Reset customizations</button
+				<button type="submit" formaction="?/reset" class="btn preset-outlined-warning-500"
+					>Reset</button
 				>
-			</form>
+			</div>
+		</section>
+
+		<!-- Sticky Bottom Action Bar -->
+		<div class="action-bar">
+			<div class="action-bar-content">
+				<div class="action-bar-left">
+					<div class="action-bar-icon">
+						<IconSave class="h-5 w-5" />
+					</div>
+					<div class="action-bar-text">
+						<h3 class="action-bar-title">Save your changes</h3>
+						<p class="action-bar-desc">Your edits won't be published until you save</p>
+					</div>
+				</div>
+				<button
+					type="submit"
+					class="btn preset-filled-primary-500 action-bar-btn"
+					formaction="?/save"
+				>
+					<IconSave class="h-4 w-4" />
+					Save Changes
+				</button>
+			</div>
 		</div>
-	</section>
+	</form>
 </div>
 
 <style>
-	.manage-card,
-	.toggle-card,
-	.notice,
-	.error-box,
-	.website-link,
-	.action-icon {
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 76%, transparent);
-		backdrop-filter: blur(18px);
+	.site-manage {
+		--card-bg: color-mix(in oklab, var(--color-surface-900) 98%, var(--color-surface-500) 2%);
+		--card-border: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		--hover-bg: color-mix(in oklab, var(--color-surface-800) 80%, transparent);
+
+		margin: 0 auto;
+		padding-bottom: 6rem;
 	}
 
-	.field {
+	@media (min-width: 640px) {
+		.site-manage {
+			padding: 1.5rem;
+			padding-bottom: 8rem;
+		}
+	}
+
+	/* Page Header */
+	.page-header {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 1rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.field span {
-		font-size: 0.8rem;
+	@media (min-width: 640px) {
+		.page-header {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+		}
+	}
+
+	.page-title {
+		font-size: 1.5rem;
 		font-weight: 700;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: rgb(255 255 255 / 0.55);
+		letter-spacing: -0.02em;
 	}
 
-	.input,
-	.textarea,
-	.select {
-		background: color-mix(in oklab, var(--color-surface-950) 86%, transparent);
-		border-color: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+	.page-subtitle {
+		font-size: 0.875rem;
+		opacity: 0.7;
+		margin-top: 0.25rem;
+	}
+
+	/* Banners */
+	.banner {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		border-radius: 0.75rem;
+		padding: 0.875rem 1rem;
+		margin-bottom: 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.banner.success {
+		background: color-mix(in oklab, var(--color-success-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-success-500) 20%, transparent);
+	}
+
+	.banner.error {
+		background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
+	}
+
+	.banner :global(svg) {
+		flex-shrink: 0;
+		opacity: 0.8;
+	}
+
+	/* Cards */
+	.card {
+		position: relative;
+		background: var(--card-bg);
+		border: 1px solid var(--card-border);
+		border-radius: 1rem;
+		overflow: hidden;
+		margin-bottom: 1rem;
+	}
+
+	.card-accent {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		pointer-events: none;
+	}
+
+	.card-accent.primary {
+		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
+	}
+
+	.card-accent.secondary {
+		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
+	}
+
+	.card-accent.tertiary {
+		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
+	}
+
+	.card-accent.accent {
+		background: linear-gradient(
+			90deg,
+			var(--color-primary-500),
+			var(--color-secondary-500),
+			var(--color-tertiary-500)
+		);
+	}
+
+	.card-accent.warning {
+		background: linear-gradient(90deg, var(--color-warning-500), var(--color-error-500));
+	}
+
+	.card-accent.muted {
+		background: linear-gradient(90deg, var(--color-surface-500), var(--color-surface-400));
+	}
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--card-border);
+	}
+
+	.card-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		width: 100%;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.card-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
+	.card-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.625rem;
+		flex-shrink: 0;
+	}
+
+	.card-icon.primary {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		color: var(--color-primary-400);
+	}
+
+	.card-icon.secondary {
+		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		color: var(--color-secondary-400);
+	}
+
+	.card-icon.tertiary {
+		background: color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
+		color: var(--color-tertiary-400);
+	}
+
+	.card-icon.muted {
+		background: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		color: var(--color-surface-400);
+	}
+
+	.card-icon.accent {
+		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+		color: white;
+	}
+
+	.card-title-group {
+		min-width: 0;
+	}
+
+	.card-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		line-height: 1.25;
+	}
+
+	.card-subtitle {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	.card-body {
+		padding: 1rem 1.25rem;
+	}
+
+	.chevron {
+		flex-shrink: 0;
+		opacity: 0.6;
+		transition: transform 200ms ease;
+	}
+
+	.chevron.rotate {
+		transform: rotate(180deg);
+	}
+
+	/* Sticky Bottom Action Bar */
+	.action-bar {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 50;
+		padding: 0.75rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-950) 98%, var(--color-surface-900) 2%);
+		border-top: 1px solid var(--card-border);
+		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+	}
+
+	@media (min-width: 640px) {
+		.action-bar {
+			padding: 1rem 1.5rem;
+		}
+	}
+
+	.action-bar-content {
+		max-width: 56rem;
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.action-bar-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
+	.action-bar-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		color: var(--color-primary-400);
+		flex-shrink: 0;
+	}
+
+	.action-bar-text {
+		min-width: 0;
+		display: none;
+	}
+
+	@media (min-width: 480px) {
+		.action-bar-text {
+			display: block;
+		}
+	}
+
+	.action-bar-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		line-height: 1.25;
+	}
+
+	.action-bar-desc {
+		font-size: 0.75rem;
+		opacity: 0.6;
+	}
+
+	.action-bar-btn {
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 639px) {
+		.action-bar-content {
+			justify-content: center;
+		}
+
+		.action-bar-left {
+			display: none;
+		}
+
+		.action-bar-btn {
+			width: 100%;
+			max-width: 280px;
+		}
+	}
+
+	/* Preview Section */
+	.preview-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.preview-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
+		width: 100%;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.preview-toggle-left {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.preview-toggle-right {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.preview-title {
+		font-size: 0.9375rem;
+		font-weight: 600;
+	}
+
+	.preview-subtitle {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	.preview-modes {
+		display: flex;
+		gap: 0.375rem;
+	}
+
+	.mode-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid var(--card-border);
+		color: inherit;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.mode-btn:hover {
+		background: var(--hover-bg);
+	}
+
+	.mode-btn.active {
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-500);
+		color: white;
+	}
+
+	.preview-body {
+		padding: 0 1.25rem 1.25rem;
+	}
+
+	.preview-frame {
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.preview-frame iframe {
+		width: 100%;
+		height: 400px;
+		border: none;
+		display: block;
+	}
+
+	.preview-frame.mobile {
+		max-width: 375px;
+		margin: 0 auto;
+	}
+
+	@media (min-width: 640px) {
+		.preview-frame iframe {
+			height: 500px;
+		}
+	}
+
+	/* Form Stack */
+	.form-stack {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	/* URL Link */
+	.url-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.875rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		text-decoration: none;
+		color: inherit;
+		transition: all 150ms ease;
+	}
+
+	.url-link:hover {
+		background: var(--hover-bg);
+		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.url-text {
+		font-size: 0.875rem;
+		font-weight: 500;
+		opacity: 0.9;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Slug Field */
+	.slug-field {
+		position: relative;
 	}
 
 	.slug-input-wrap {
@@ -2019,237 +2263,905 @@
 
 	.slug-status {
 		position: absolute;
-		right: 0.55rem;
+		right: 0.5rem;
 		top: 50%;
 		transform: translateY(-50%);
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
 		text-transform: uppercase;
-		padding: 0.22rem 0.55rem;
+		padding: 0.25rem 0.5rem;
 		border-radius: 999px;
 		border: 1px solid transparent;
 	}
 
-	.slug-status-available {
+	.slug-status.available {
 		color: var(--color-success-300);
-		background: color-mix(in oklab, var(--color-success-500) 18%, transparent);
-		border-color: color-mix(in oklab, var(--color-success-400) 42%, transparent);
+		background: color-mix(in oklab, var(--color-success-500) 15%, transparent);
+		border-color: color-mix(in oklab, var(--color-success-400) 40%, transparent);
 	}
 
-	.slug-status-checking {
+	.slug-status.checking {
 		color: var(--color-warning-300);
-		background: color-mix(in oklab, var(--color-warning-500) 16%, transparent);
+		background: color-mix(in oklab, var(--color-warning-500) 15%, transparent);
 		border-color: color-mix(in oklab, var(--color-warning-400) 40%, transparent);
 	}
 
-	.slug-status-taken,
-	.slug-status-error {
+	.slug-status.taken,
+	.slug-status.error {
 		color: var(--color-error-300);
-		background: color-mix(in oklab, var(--color-error-500) 18%, transparent);
-		border-color: color-mix(in oklab, var(--color-error-400) 42%, transparent);
+		background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
+		border-color: color-mix(in oklab, var(--color-error-400) 40%, transparent);
 	}
 
 	.slug-preview {
-		font-size: 0.8rem;
-		color: rgb(255 255 255 / 0.62);
+		font-size: 0.75rem;
+		opacity: 0.7;
+		margin-top: 0.375rem;
 		word-break: break-all;
 	}
 
 	.slug-message {
-		font-size: 0.78rem;
-		text-align: right;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
 	}
 
-	.slug-meta-row {
-		margin-top: 0.4rem;
+	.slug-message.available {
+		color: var(--color-success-400);
+	}
+
+	.slug-message.checking {
+		color: var(--color-warning-400);
+	}
+
+	.slug-message.taken,
+	.slug-message.error {
+		color: var(--color-error-400);
+	}
+
+	/* Form Elements */
+	.field {
 		display: flex;
-		align-items: baseline;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.field-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		opacity: 0.65;
+	}
+
+	.input,
+	.textarea,
+	.select {
+		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
+		border-radius: 0.625rem;
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		color: inherit;
+		width: 100%;
+		transition: all 150ms ease;
+	}
+
+	.input:focus,
+	.textarea:focus,
+	.select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+	}
+
+	.textarea {
+		resize: vertical;
+		min-height: 5rem;
+	}
+
+	.form-grid {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: 1fr;
+	}
+
+	@media (min-width: 640px) {
+		.form-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	/* Subsections */
+	.subsection {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		padding: 1rem;
+	}
+
+	.subsection-header {
+		display: flex;
+		align-items: center;
 		justify-content: space-between;
 		gap: 0.75rem;
-		flex-wrap: wrap;
+		margin-bottom: 0.75rem;
 	}
 
-	.slug-message-available {
-		color: var(--color-success-300);
+	.subsection-title {
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		opacity: 0.7;
 	}
 
-	.slug-message-checking {
-		color: var(--color-warning-300);
+	.field-hint {
+		font-size: 0.75rem;
+		opacity: 0.6;
 	}
 
-	.slug-message-taken,
-	.slug-message-error {
-		color: var(--color-error-300);
+	/* FAQs & Sponsors */
+	.faq-list,
+	.sponsor-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 
-	:global(input[type='color'].input) {
-		border-width: 2px;
-		border-style: solid;
-		border-color: color-mix(in oklab, var(--color-surface-50) 28%, transparent);
-		box-shadow:
-			inset 0 0 0 1px color-mix(in oklab, var(--color-surface-950) 72%, transparent),
-			0 0 0 1px color-mix(in oklab, var(--color-surface-50) 18%, transparent);
+	.faq-item,
+	.sponsor-item {
+		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.625rem;
+		padding: 0.875rem;
+	}
+
+	.faq-header,
+	.sponsor-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.625rem;
+	}
+
+	.faq-label,
+	.sponsor-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		opacity: 0.8;
+	}
+
+	.faq-fields,
+	.sponsor-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.sponsor-logo {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 0.375rem;
+	}
+
+	.logo-thumb {
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 0.375rem;
+		object-fit: cover;
+		background: white;
+	}
+
+	/* Color Grid */
+	.color-grid {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	@media (min-width: 640px) {
+		.color-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.color-input {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+	}
+
+	.color-input .input {
+		width: 3.5rem;
+		height: 2.5rem;
+		padding: 0.25rem;
+		cursor: pointer;
+	}
+
+	.color-value {
+		font-size: 0.75rem;
+		font-family: monospace;
+		opacity: 0.7;
+	}
+
+	/* Derive Section */
+	.derive-section {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.derive-content {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
+	.derive-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		color: var(--color-primary-400);
+		flex-shrink: 0;
+	}
+
+	.derive-text {
+		min-width: 0;
+	}
+
+	.derive-title {
+		font-size: 0.875rem;
+		font-weight: 500;
+		line-height: 1.25;
+	}
+
+	.derive-desc {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	/* Sections Grid */
+	.sections-grid {
+		display: grid;
+		gap: 0.5rem;
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	@media (min-width: 640px) {
+		.sections-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
 	}
 
 	.toggle-card {
 		display: flex;
 		align-items: center;
-		gap: 0.7rem;
-		padding: 0.85rem 1rem;
-		border-radius: 1rem;
-		color: white;
+		gap: 0.5rem;
+		padding: 0.625rem 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: all 150ms ease;
 	}
 
-	.widget-enable-row {
+	.toggle-card:hover {
+		background: var(--hover-bg);
+	}
+
+	.toggle-card input[type='checkbox'] {
+		width: 1rem;
+		height: 1rem;
+		accent-color: var(--color-primary-500);
+	}
+
+	.toggle-card span {
+		font-size: 0.8125rem;
+		font-weight: 500;
+	}
+
+	/* Sections Toggle Grid */
+	.sections-toggle-grid {
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	@media (min-width: 640px) {
+		.sections-toggle-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.section-toggle-item {
 		display: flex;
 		align-items: center;
-		gap: 0.7rem;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.625rem 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.5rem;
+	}
+
+	.section-toggle-label {
+		font-size: 0.8125rem;
+		font-weight: 500;
+	}
+
+	/* Widget */
+	.widget-enable {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
 	}
 
 	.toggle-switch {
 		display: inline-flex;
-		flex-shrink: 0;
 		align-items: center;
 		width: 2.75rem;
 		height: 1.5rem;
-		padding: 0.16rem;
+		padding: 0.125rem;
 		border-radius: 999px;
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 22%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 30%, transparent);
 		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		transition:
-			background-color 180ms ease,
-			border-color 180ms ease;
+		cursor: pointer;
+		position: relative;
+		transition: all 180ms ease;
+	}
+
+	.toggle-switch:has(input:checked) {
+		background: color-mix(in oklab, var(--color-primary-500) 60%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 70%, transparent);
+	}
+
+	.toggle-switch input {
+		position: absolute;
+		opacity: 0;
+		width: 100%;
+		height: 100%;
 		cursor: pointer;
 	}
 
-	.toggle-switch span {
-		width: 1.1rem;
-		height: 1.1rem;
+	.toggle-track {
+		display: block;
+		width: 1.125rem;
+		height: 1.125rem;
+		background: white;
 		border-radius: 999px;
-		background: var(--color-surface-50);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 		transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
-		box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 	}
 
-	.toggle-switch.is-on {
-		background: color-mix(in oklab, var(--color-primary-500) 62%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 76%, transparent);
+	.toggle-switch:has(input:checked) .toggle-track {
+		transform: translateX(1.25rem);
 	}
 
-	.toggle-switch.is-on span {
-		transform: translateX(1.2rem);
+	.toggle-label {
+		font-size: 0.875rem;
+		font-weight: 500;
 	}
 
-	.notice {
-		color: white;
-		background: color-mix(in oklab, var(--color-success-500) 12%, var(--color-surface-950) 88%);
+	.widget-toggles {
+		display: grid;
+		gap: 0.5rem;
+		grid-template-columns: repeat(2, 1fr);
 	}
 
-	.error-box {
-		color: white;
-		background: color-mix(in oklab, var(--color-error-500) 14%, var(--color-surface-950) 86%);
+	@media (min-width: 640px) {
+		.widget-toggles {
+			grid-template-columns: repeat(3, 1fr);
+		}
 	}
 
-	.website-link {
+	/* Domain */
+	.domain-section {
+		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		padding: 1rem;
+	}
+
+	.domain-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.domain-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.95rem 1rem;
-		border-radius: 1rem;
-		text-decoration: none;
-		color: white;
+		gap: 0.75rem;
+		padding: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.625rem;
 	}
 
-	.website-link span {
+	.domain-info {
 		min-width: 0;
-		font-size: 0.85rem;
-		text-align: right;
-		color: rgb(255 255 255 / 0.6);
+	}
+
+	.domain-name {
+		font-size: 0.875rem;
+		font-weight: 500;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	.website-link-value {
-		min-width: 0;
-		flex: 1;
-		display: inline-flex;
+	.domain-status {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
+	}
+
+	.domain-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.domain-results {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.domain-result {
+		display: flex;
 		align-items: center;
-		justify-content: flex-end;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
+		border: 1px solid var(--card-border);
+		border-radius: 0.625rem;
+	}
+
+	.domain-result-info {
+		min-width: 0;
+	}
+
+	.domain-result-name {
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.domain-result-price {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-primary-400);
+		margin-top: 0.125rem;
+	}
+
+	/* AI Assistant - Beautiful Modern Design */
+	.ai-assistant {
+		background: linear-gradient(
+			145deg,
+			color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%),
+			color-mix(in oklab, var(--color-surface-950) 90%, transparent)
+		);
+		border: 1px solid color-mix(in oklab, var(--color-surface-400) 12%, transparent);
+		border-radius: 1rem;
+		overflow: hidden;
+		box-shadow:
+			0 1px 2px color-mix(in oklab, black 5%, transparent),
+			inset 0 1px 0 color-mix(in oklab, white 3%, transparent);
+		margin-bottom: 1rem;
+	}
+
+	.ai-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.875rem 1rem;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+	}
+
+	.ai-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+	}
+
+	.ai-avatar {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.5rem;
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		color: white;
+		box-shadow: 0 2px 8px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.ai-header-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+
+	.ai-title {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		line-height: 1.2;
+		letter-spacing: -0.01em;
+	}
+
+	.ai-subtitle {
+		font-size: 0.6875rem;
+		opacity: 0.55;
+		line-height: 1.2;
+	}
+
+	.ai-clear-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.375rem;
+		background: transparent;
+		border: none;
+		color: color-mix(in oklab, var(--color-surface-300) 70%, transparent);
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.ai-clear-btn:hover {
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		color: var(--color-surface-200);
+	}
+
+	.ai-chat-container {
+		padding: 1rem;
+		min-height: 200px;
+		max-height: 320px;
+		overflow-y: auto;
+	}
+
+	/* Welcome State */
+	.ai-welcome {
+		display: flex;
+		justify-content: center;
+		padding: 0.5rem 0;
+	}
+
+	.ai-welcome-bubble {
+		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		border-radius: 1rem;
+		padding: 1rem 1.25rem;
+		max-width: 28rem;
+	}
+
+	.ai-welcome-text {
+		font-size: 0.875rem;
+		line-height: 1.5;
+		text-align: center;
+		opacity: 0.9;
+		margin-bottom: 0.875rem;
+	}
+
+	.ai-quick-prompts {
+		display: flex;
+		flex-direction: column;
 		gap: 0.5rem;
 	}
 
-	.action-icon {
-		display: inline-flex;
+	.quick-prompt {
+		width: 100%;
+		padding: 0.625rem 0.875rem;
+		font-size: 0.8125rem;
+		text-align: left;
+		background: color-mix(in oklab, var(--color-surface-700) 30%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.5rem;
+		color: inherit;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.quick-prompt:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 10%, transparent);
+		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	/* Messages */
+	.ai-messages {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.ai-message {
+		display: flex;
+		gap: 0.625rem;
+		align-items: flex-start;
+	}
+
+	.ai-message.user {
+		flex-direction: row-reverse;
+	}
+
+	.ai-message-avatar {
+		flex-shrink: 0;
+		width: 1.75rem;
+		height: 1.75rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+		color: color-mix(in oklab, var(--color-surface-300) 80%, transparent);
+		font-size: 0.625rem;
+		font-weight: 600;
+	}
+
+	.ai-message.assistant .ai-message-avatar {
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		color: white;
+	}
+
+	.user-avatar {
+		font-size: 0.5625rem;
+		letter-spacing: 0.02em;
+	}
+
+	.ai-message-content {
+		flex: 1;
+		max-width: calc(100% - 3rem);
+	}
+
+	.ai-message-text {
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	}
+
+	.ai-message.assistant .ai-message-content {
+		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+		border-radius: 0.75rem;
+		border-top-left-radius: 0.25rem;
+		padding: 0.75rem 0.875rem;
+	}
+
+	.ai-message.user .ai-message-content {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		border-radius: 0.75rem;
+		border-top-right-radius: 0.25rem;
+		padding: 0.75rem 0.875rem;
+	}
+
+	/* Typing Indicator */
+	.typing-indicator {
+		display: flex;
+		gap: 0.25rem;
+		padding: 0.5rem 0;
+	}
+
+	.typing-indicator span {
+		width: 0.5rem;
+		height: 0.5rem;
+		background: color-mix(in oklab, var(--color-surface-400) 60%, transparent);
+		border-radius: 9999px;
+		animation: typing-bounce 1.4s ease-in-out infinite;
+	}
+
+	.typing-indicator span:nth-child(1) {
+		animation-delay: 0ms;
+	}
+
+	.typing-indicator span:nth-child(2) {
+		animation-delay: 160ms;
+	}
+
+	.typing-indicator span:nth-child(3) {
+		animation-delay: 320ms;
+	}
+
+	@keyframes typing-bounce {
+		0%,
+		60%,
+		100% {
+			transform: translateY(0);
+		}
+		30% {
+			transform: translateY(-4px);
+		}
+	}
+
+	/* Composer */
+	.ai-composer {
+		padding: 0.875rem 1rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
+		background: color-mix(in oklab, var(--color-surface-800) 20%, transparent);
+	}
+
+	.ai-input-area {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-start;
+	}
+
+	.ai-input-area textarea {
+		flex: 1;
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-radius: 0.625rem;
+		color: inherit;
+		resize: none;
+		min-height: 2.75rem;
+		max-height: 6rem;
+		transition: all 150ms ease;
+	}
+
+	.ai-input-area textarea:focus {
+		outline: none;
+		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
+	}
+
+	.ai-send-btn {
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 2.5rem;
 		height: 2.5rem;
-		border-radius: 999px;
+		border-radius: 0.5rem;
+		background: var(--color-primary-500);
 		color: white;
+		border: none;
+		cursor: pointer;
+		transition: all 150ms ease;
 		flex-shrink: 0;
 	}
 
-	.ai-draft-chat {
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
-		border-radius: 1rem;
-		padding: 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-950) 82%, transparent);
+	.ai-send-btn:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-primary-500) 85%, black 15%);
+		transform: translateY(-1px);
 	}
 
-	.ai-draft-chat-body {
+	.ai-send-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-hint {
+		font-size: 0.6875rem;
+		opacity: 0.5;
+		margin-top: 0.5rem;
+		text-align: center;
+	}
+
+	.ai-status {
 		display: flex;
-		flex-direction: column;
-		gap: 0.55rem;
-		max-height: 19rem;
-		overflow-y: auto;
-		padding-right: 0.1rem;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.625rem 1rem;
+		font-size: 0.8125rem;
 	}
 
-	.ai-draft-row {
+	.ai-status.success {
+		background: color-mix(in oklab, var(--color-success-500) 8%, transparent);
+		color: var(--color-success-400);
+	}
+
+	.ai-status.error {
+		background: color-mix(in oklab, var(--color-error-500) 10%, transparent);
+		color: var(--color-error-400);
+	}
+
+	.draft-preview {
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950) 92%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		border-radius: 0.75rem;
+		padding: 0.875rem;
+	}
+
+	.draft-title {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		opacity: 0.7;
+		margin-bottom: 0.5rem;
+	}
+
+	.draft-list {
+		font-size: 0.8125rem;
+		opacity: 0.9;
+		list-style: disc;
+		padding-left: 1rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.draft-list li {
+		margin-bottom: 0.25rem;
+	}
+
+	.draft-actions {
 		display: flex;
-	}
-
-	.ai-draft-row.is-user {
 		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 
-	.ai-draft-row.is-assistant {
-		justify-content: flex-start;
+	/* Reset Card */
+	.reset-card {
+		border: 1px solid color-mix(in oklab, var(--color-warning-500) 25%, transparent);
 	}
 
-	.ai-draft-bubble {
-		width: min(92%, 34rem);
-		border-radius: 0.8rem;
-		padding: 0.65rem 0.75rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 14%, transparent);
-		background: color-mix(in oklab, var(--color-surface-500) 14%, transparent);
-		color: rgb(255 255 255 / 0.92);
+	.reset-card .card-body {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
 	}
 
-	.ai-draft-row.is-user .ai-draft-bubble {
-		background: color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-400) 42%, transparent);
+	.reset-content {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
 	}
 
-	.draft-summary {
-		border: 1px solid color-mix(in oklab, var(--color-primary-400) 34%, transparent);
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
+	.reset-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 0.625rem;
+		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		color: var(--color-warning-400);
+		flex-shrink: 0;
 	}
 
-	.domain-row {
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 76%, transparent);
+	.reset-text {
+		min-width: 0;
 	}
 
-	.domain-panel {
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 12%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 72%, transparent);
+	.reset-title {
+		font-size: 0.875rem;
+		font-weight: 500;
+		line-height: 1.25;
 	}
 
-	.domain-divider {
-		height: 1px;
-		background: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+	.reset-desc {
+		font-size: 0.75rem;
+		opacity: 0.6;
+		margin-top: 0.125rem;
 	}
 </style>

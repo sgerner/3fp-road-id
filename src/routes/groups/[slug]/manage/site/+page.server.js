@@ -146,7 +146,8 @@ function deriveMicrositeDomainSuffix(liveUrl, micrositeSlug) {
 			return host.slice(normalized.length);
 		}
 		if (parsed.hostname.endsWith('.3fp.bike')) return '.3fp.bike';
-		if (parsed.hostname.endsWith('.localhost')) return `.localhost${parsed.port ? `:${parsed.port}` : ''}`;
+		if (parsed.hostname.endsWith('.localhost'))
+			return `.localhost${parsed.port ? `:${parsed.port}` : ''}`;
 	} catch {
 		// ignore
 	}
@@ -179,6 +180,7 @@ export const load = async ({ parent, url }) => {
 		defaultSiteConfig: buildDefaultGroupSiteConfig(group),
 		previewPath,
 		liveUrl,
+		hostName: url.origin,
 		saved: (url.searchParams.get('saved') || '').trim(),
 		generated: (url.searchParams.get('generated') || '').trim(),
 		reset: (url.searchParams.get('reset') || '').trim()
@@ -202,7 +204,9 @@ export const actions = {
 			return fail(400, { error: 'That website slug is reserved. Pick another one.' });
 		}
 
-		const currentMicrositeSlug = normalizeMicrositeSlug(auth.group.microsite_slug || auth.group.slug);
+		const currentMicrositeSlug = normalizeMicrositeSlug(
+			auth.group.microsite_slug || auth.group.slug
+		);
 		if (requestedMicrositeSlug !== currentMicrositeSlug) {
 			const { error: slugError } = await supabase
 				.from('groups')
@@ -234,7 +238,10 @@ export const actions = {
 	},
 	reset: async ({ params, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);
-		const { error } = await supabase.from('group_site_configs').delete().eq('group_id', auth.group.id);
+		const { error } = await supabase
+			.from('group_site_configs')
+			.delete()
+			.eq('group_id', auth.group.id);
 		if (error) {
 			return fail(400, { error: error.message });
 		}

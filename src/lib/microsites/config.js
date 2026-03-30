@@ -28,7 +28,6 @@ export const GROUP_SITE_FONT_PAIRING_OPTIONS = [
 ];
 export const GROUP_SITE_SECTION_KEYS = [
 	'story',
-	'stats',
 	'join',
 	'rides',
 	'volunteer',
@@ -309,7 +308,9 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 			new Set(
 				(Array.isArray(source.ride_widget_group_ids) ? source.ride_widget_group_ids : [])
 					.map((value) => cleanText(value).toLowerCase())
-					.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))
+					.filter((value) =>
+						/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+					)
 			)
 		).slice(0, 48),
 		ride_widget_config: normalizeRideWidgetConfig(source.ride_widget_config || {}),
