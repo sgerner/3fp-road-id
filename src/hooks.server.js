@@ -44,6 +44,12 @@ const redirectCodes = new Set([
 const CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS = 60_000;
 const customDomainSlugCache = new Map();
 
+function firstHeaderValue(value) {
+	return String(value || '')
+		.split(',')[0]
+		?.trim();
+}
+
 function isCoreHostname(hostname) {
 	return (
 		!hostname ||
@@ -68,6 +74,17 @@ function shouldSkipMicrositeRedirect(pathname) {
 	return /\.[a-z0-9]+$/i.test(pathname);
 }
 
+function resolveRequestHostname(event) {
+	const headers = event.request.headers;
+	const forwardedHost = normalizeHostname(firstHeaderValue(headers.get('x-forwarded-host')));
+	if (forwardedHost) return forwardedHost;
+
+	const hostHeader = normalizeHostname(firstHeaderValue(headers.get('host')));
+	if (hostHeader) return hostHeader;
+
+	return normalizeHostname(event.url.hostname);
+}
+
 async function lookupCustomDomainMicrositeSlug(hostname) {
 	const normalizedHost = normalizeHostname(hostname);
 	if (!normalizedHost || isCoreHostname(normalizedHost)) return '';
@@ -79,26 +96,35 @@ async function lookupCustomDomainMicrositeSlug(hostname) {
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) return '';
 
+	const candidateHosts = normalizedHost.startsWith('www.')
+		? [normalizedHost, normalizedHost.slice(4)]
+		: [normalizedHost];
+
 	const { data, error } = await serviceSupabase
 		.from('group_site_domains')
 		.select('domain,status,groups!inner(microsite_slug,slug)')
-		.eq('domain', normalizedHost)
+		.in('domain', candidateHosts)
 		.eq('status', 'active')
+		.limit(1)
 		.maybeSingle();
 
 	if (error || !data) {
-		customDomainSlugCache.set(normalizedHost, {
-			slug: '',
-			expiresAt: now + CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS
-		});
+		for (const candidateHost of candidateHosts) {
+			customDomainSlugCache.set(candidateHost, {
+				slug: '',
+				expiresAt: now + CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS
+			});
+		}
 		return '';
 	}
 
 	const slug = normalizeMicrositeSlug(data?.groups?.microsite_slug || data?.groups?.slug || '');
-	customDomainSlugCache.set(normalizedHost, {
-		slug,
-		expiresAt: now + CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS
-	});
+	for (const candidateHost of candidateHosts) {
+		customDomainSlugCache.set(candidateHost, {
+			slug,
+			expiresAt: now + CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS
+		});
+	}
 	return slug;
 }
 
@@ -109,7 +135,7 @@ export const handle = async ({ event, resolve }) => {
 	}
 
 	const pathname = event.url.pathname || '/';
-	const normalizedHost = normalizeHostname(event.url.hostname);
+	const normalizedHost = resolveRequestHostname(event);
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
 
 	if (!slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)) {
