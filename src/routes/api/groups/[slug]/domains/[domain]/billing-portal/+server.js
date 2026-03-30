@@ -19,6 +19,7 @@ export async function POST({ cookies, params, url }) {
 		if (!domainRow) return json({ error: 'Domain not found.' }, { status: 404 });
 
 		const billingPortalUrl = await createDomainBillingPortalSession({
+			serviceSupabase: auth.serviceSupabase,
 			domainRow,
 			groupSlug: auth.group.slug,
 			url

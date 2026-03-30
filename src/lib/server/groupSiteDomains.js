@@ -186,6 +186,24 @@ function validateContactInformation(contactInfo) {
 	}
 }
 
+async function getMainStripeConnectedAccount(serviceSupabase) {
+	const { data, error } = await serviceSupabase
+		.from('donation_accounts')
+		.select('id,stripe_account_id,charges_enabled')
+		.eq('id', 'main')
+		.maybeSingle();
+	if (error) throw error;
+
+	const connectedAccountId = cleanText(data?.stripe_account_id);
+	if (!connectedAccountId) {
+		throw new Error('Main Stripe account is not connected yet.');
+	}
+	if (data?.charges_enabled !== true) {
+		throw new Error('Main Stripe account is connected but not ready for charges yet.');
+	}
+	return connectedAccountId;
+}
+
 export async function listGroupSiteDomains(serviceSupabase, groupId) {
 	const { data } = await serviceSupabase
 		.from('group_site_domains')
@@ -340,69 +358,73 @@ export async function createDomainCheckoutForGroup({
 		basePurchasePriceCents: quote.purchasePriceCents,
 		baseRenewalPriceCents: quote.renewalPriceCents
 	});
+	const stripeConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase);
 	const stripe = getStripeClient();
 	const successUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_checkout=success&session_id={CHECKOUT_SESSION_ID}`;
 	const cancelUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_checkout=cancel`;
 
-	const session = await stripe.checkout.sessions.create({
-		mode: 'payment',
-		customer_creation: 'always',
-		payment_method_collection: 'always',
-		success_url: successUrl,
-		cancel_url: cancelUrl,
-		allow_promotion_codes: false,
-		billing_address_collection: 'required',
-		customer_email: contactInformation.email || undefined,
-		line_items: [
-			{
-				price_data: {
-					currency: 'usd',
-					product_data: {
-						name: `Domain registration: ${domain}`,
-						description: 'Base annual registrar price from Vercel Domains'
+	const session = await stripe.checkout.sessions.create(
+		{
+			mode: 'payment',
+			customer_creation: 'always',
+			payment_method_collection: 'always',
+			success_url: successUrl,
+			cancel_url: cancelUrl,
+			allow_promotion_codes: false,
+			billing_address_collection: 'required',
+			customer_email: contactInformation.email || undefined,
+			line_items: [
+				{
+					price_data: {
+						currency: 'usd',
+						product_data: {
+							name: `Domain registration: ${domain}`,
+							description: 'Base annual registrar price from Vercel Domains'
+						},
+						unit_amount: fees.purchase.baseCents
 					},
-					unit_amount: fees.purchase.baseCents
+					quantity: 1
 				},
-				quantity: 1
+				{
+					price_data: {
+						currency: 'usd',
+						product_data: {
+							name: '3FP domain service fee',
+							description: '3% + $0.50 platform fee'
+						},
+						unit_amount: fees.purchase.markupCents
+					},
+					quantity: 1
+				},
+				{
+					price_data: {
+						currency: 'usd',
+						product_data: {
+							name: 'Card processing fee',
+							description: 'Estimated Stripe card processing fee'
+						},
+						unit_amount: fees.purchase.stripeFeeCents
+					},
+					quantity: 1
+				}
+			],
+			payment_intent_data: {
+				setup_future_usage: 'off_session',
+				metadata: {
+					context: 'group_site_domain_order',
+					group_id: group.id,
+					domain
+				}
 			},
-			{
-				price_data: {
-					currency: 'usd',
-					product_data: {
-						name: '3FP domain service fee',
-						description: '3% + $0.50 platform fee'
-					},
-					unit_amount: fees.purchase.markupCents
-				},
-				quantity: 1
-			},
-			{
-				price_data: {
-					currency: 'usd',
-					product_data: {
-						name: 'Card processing fee',
-						description: 'Estimated Stripe card processing fee'
-					},
-					unit_amount: fees.purchase.stripeFeeCents
-				},
-				quantity: 1
-			}
-		],
-		payment_intent_data: {
-			setup_future_usage: 'off_session',
 			metadata: {
 				context: 'group_site_domain_order',
 				group_id: group.id,
+				group_slug: group.slug,
 				domain
 			}
 		},
-		metadata: {
-			context: 'group_site_domain_order',
-			group_id: group.id,
-			group_slug: group.slug,
-			domain
-		}
-	});
+		{ stripeAccount: stripeConnectedAccountId }
+	);
 
 	const rowPayload = {
 		group_id: group.id,
@@ -419,6 +441,7 @@ export async function createDomainCheckoutForGroup({
 			quote,
 			fees
 		},
+		stripe_connected_account_id: stripeConnectedAccountId,
 		stripe_checkout_session_id: session.id,
 		receipt_email: contactInformation.email || null,
 		created_by_user_id: userId || null,
@@ -457,9 +480,19 @@ export async function finalizeDomainOrderByCheckoutSessionId({
 	}
 
 	const stripe = getStripeClient();
-	const session = await stripe.checkout.sessions.retrieve(checkoutSessionId, {
-		expand: ['payment_intent']
-	});
+	const fallbackConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase).catch(
+		() => ''
+	);
+	const stripeConnectedAccountId =
+		cleanText(order.stripe_connected_account_id) || fallbackConnectedAccountId;
+	const stripeOptions = stripeConnectedAccountId
+		? { stripeAccount: stripeConnectedAccountId }
+		: undefined;
+	const session = await stripe.checkout.sessions.retrieve(
+		checkoutSessionId,
+		{ expand: ['payment_intent'] },
+		stripeOptions
+	);
 
 	const paymentStatus = cleanLower(session?.payment_status);
 	if (paymentStatus !== 'paid') {
@@ -480,7 +513,11 @@ export async function finalizeDomainOrderByCheckoutSessionId({
 			: cleanText(session.payment_intent?.id);
 	let paymentMethodId = '';
 	if (paymentIntentId) {
-		const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+		const paymentIntent = await stripe.paymentIntents.retrieve(
+			paymentIntentId,
+			{},
+			stripeOptions
+		);
 		paymentMethodId =
 			typeof paymentIntent.payment_method === 'string'
 				? paymentIntent.payment_method
@@ -494,6 +531,7 @@ export async function finalizeDomainOrderByCheckoutSessionId({
 		.from('group_site_domain_orders')
 		.update({
 			status: 'registering',
+			stripe_connected_account_id: stripeConnectedAccountId || null,
 			stripe_payment_intent_id: paymentIntentId || null,
 			stripe_customer_id: cleanText(session.customer) || null,
 			stripe_payment_method_id: paymentMethodId || null,
@@ -533,6 +571,7 @@ export async function finalizeDomainOrderByCheckoutSessionId({
 					renewal_markup_cents: order.markup_cents || null,
 					renewal_stripe_fee_cents: order.stripe_fee_cents || null,
 					next_renewal_charge_cents: order.total_cents || null,
+					stripe_connected_account_id: stripeConnectedAccountId || null,
 					stripe_customer_id: cleanText(session.customer) || null,
 					stripe_payment_method_id: paymentMethodId || null,
 					created_by_user_id: order.created_by_user_id || null,
@@ -662,16 +701,32 @@ export async function setDomainAutoRenewForGroup({ serviceSupabase, groupId, dom
 	return data;
 }
 
-export async function createDomainBillingPortalSession({ domainRow, groupSlug, url }) {
+export async function createDomainBillingPortalSession({
+	serviceSupabase,
+	domainRow,
+	groupSlug,
+	url
+}) {
 	const customerId = cleanText(domainRow?.stripe_customer_id);
 	if (!customerId) {
 		throw new Error('No Stripe customer found for this domain yet.');
 	}
+	const fallbackConnectedAccountId = serviceSupabase
+		? await getMainStripeConnectedAccount(serviceSupabase).catch(() => '')
+		: '';
+	const stripeConnectedAccountId =
+		cleanText(domainRow?.stripe_connected_account_id) || fallbackConnectedAccountId;
+	if (!stripeConnectedAccountId) {
+		throw new Error('No Stripe connected account is configured for this domain.');
+	}
 	const stripe = getStripeClient();
 	const returnUrl = `${resolvePublicBaseUrl(url)}/groups/${groupSlug}/manage/site`;
-	const session = await stripe.billingPortal.sessions.create({
-		customer: customerId,
-		return_url: returnUrl
-	});
+	const session = await stripe.billingPortal.sessions.create(
+		{
+			customer: customerId,
+			return_url: returnUrl
+		},
+		{ stripeAccount: stripeConnectedAccountId }
+	);
 	return cleanText(session.url);
 }

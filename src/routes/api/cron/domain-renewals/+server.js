@@ -28,6 +28,16 @@ function plusOneYearIso(value) {
 	return next.toISOString();
 }
 
+async function getMainStripeConnectedAccountId(serviceSupabase) {
+	const { data, error } = await serviceSupabase
+		.from('donation_accounts')
+		.select('id,stripe_account_id')
+		.eq('id', 'main')
+		.maybeSingle();
+	if (error) throw error;
+	return cleanText(data?.stripe_account_id);
+}
+
 async function lookupReceiptEmail(serviceSupabase, domainRow) {
 	const { data } = await serviceSupabase
 		.from('group_site_domain_orders')
@@ -88,6 +98,9 @@ export async function POST({ request, fetch }) {
 		.limit(40);
 
 	const stripe = getStripeClient();
+	const defaultConnectedAccountId = await getMainStripeConnectedAccountId(serviceSupabase).catch(
+		() => ''
+	);
 	let renewed = 0;
 	let failed = 0;
 	const results = [];
@@ -99,28 +112,39 @@ export async function POST({ request, fetch }) {
 			Number(domainRow.next_renewal_charge_cents || 0);
 		const customerId = cleanText(domainRow.stripe_customer_id);
 		const paymentMethodId = cleanText(domainRow.stripe_payment_method_id);
+		const stripeConnectedAccountId =
+			cleanText(domainRow.stripe_connected_account_id) || defaultConnectedAccountId;
+		const stripeOptions = stripeConnectedAccountId
+			? { stripeAccount: stripeConnectedAccountId }
+			: undefined;
 
 		try {
 			if (!(amountCents > 0) || !customerId || !paymentMethodId || !(baseRenewalCents > 0)) {
 				throw new Error('Missing renewal billing configuration.');
 			}
+			if (!stripeConnectedAccountId) {
+				throw new Error('Missing Stripe connected account for renewal billing.');
+			}
 
-			await stripe.paymentIntents.create({
-				amount: amountCents,
-				currency: 'usd',
-				customer: customerId,
-				payment_method: paymentMethodId,
-				confirm: true,
-				off_session: true,
-				automatic_payment_methods: {
-					enabled: false
+			await stripe.paymentIntents.create(
+				{
+					amount: amountCents,
+					currency: 'usd',
+					customer: customerId,
+					payment_method: paymentMethodId,
+					confirm: true,
+					off_session: true,
+					automatic_payment_methods: {
+						enabled: false
+					},
+					metadata: {
+						context: 'group_site_domain_renewal',
+						domain,
+						group_id: cleanText(domainRow.group_id)
+					}
 				},
-				metadata: {
-					context: 'group_site_domain_renewal',
-					domain,
-					group_id: cleanText(domainRow.group_id)
-				}
-			});
+				stripeOptions
+			);
 
 			const renewal = await renewDomainWithVercel({
 				domain,
