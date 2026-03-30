@@ -9,6 +9,7 @@
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
+	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 
 	let { data } = $props();
 
@@ -44,6 +45,16 @@
 				accent: 'primary',
 				badge: completion < 100 ? `${completion}%` : null,
 				badgeVariant: completion < 50 ? 'error' : completion < 80 ? 'warning' : 'success'
+			},
+			{
+				id: 'site',
+				label: 'Microsite',
+				description: 'Customize your public website builder page',
+				icon: IconMonitorSmartphone,
+				href: `/groups/${slug}/manage/site`,
+				accent: 'primary',
+				badge: 'New',
+				badgeVariant: 'success'
 			},
 			{
 				id: 'membership',

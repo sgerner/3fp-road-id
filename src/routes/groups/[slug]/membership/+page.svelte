@@ -1,6 +1,6 @@
 <script>
 	import { loadStripe } from '@stripe/stripe-js';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
@@ -23,6 +23,7 @@
 	import IconWallet from '@lucide/svelte/icons/wallet';
 	import IconUser from '@lucide/svelte/icons/user';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import { page } from '$app/stores';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
@@ -74,6 +75,19 @@
 	let elements = null;
 	let paymentElement = null;
 	let paymentElementHost = $state(null);
+	let handoffPrefillApplied = $state(false);
+
+	const handoffPrefill = $derived.by(() => {
+		const params = $page?.url?.searchParams;
+		return {
+			tier: String(params?.get('tier') || '').trim(),
+			interval: String(params?.get('interval') || '')
+				.trim()
+				.toLowerCase(),
+			name: String(params?.get('name') || '').trim(),
+			email: String(params?.get('email') || '').trim()
+		};
+	});
 
 	const currentMembership = $derived(
 		myMemberships.find((entry) => ['active', 'past_due', 'paused'].includes(entry.status)) || null
@@ -175,6 +189,36 @@
 				? selectedTierAnnualCents
 				: selectedTierMonthlyCents
 	);
+
+	$effect(() => {
+		if (handoffPrefillApplied) return;
+		if (!tiers.length) return;
+
+		const tierMatch = tiers.find((tier) => tier.id === handoffPrefill.tier);
+		if (tierMatch) {
+			selectedTierId = tierMatch.id;
+			if (
+				handoffPrefill.interval === 'year' &&
+				(tierMatch.annual_amount_cents === null || tierMatch.annual_amount_cents === undefined) &&
+				tierMatch.allow_custom_amount !== true
+			) {
+				selectedBillingInterval = 'month';
+			}
+		}
+
+		if (handoffPrefill.interval === 'month' || handoffPrefill.interval === 'year') {
+			selectedBillingInterval = handoffPrefill.interval;
+		}
+
+		if (handoffPrefill.name) {
+			memberProfile = { ...memberProfile, full_name: handoffPrefill.name };
+		}
+		if (handoffPrefill.email) {
+			memberProfile = { ...memberProfile, email: handoffPrefill.email };
+		}
+
+		handoffPrefillApplied = true;
+	});
 
 	function setFeedback(message = '', error = '') {
 		statusMessage = message;
@@ -1264,7 +1308,7 @@
 										<div class="custom-fields">
 											{#each formFields as field (field.id)}
 												<div class="custom-field">
-													<p class="custom-field-label">{field.label}</p>
+													<div class="field-label">{field.label}</div>
 													{#if field.help_text}
 														<p class="field-help">{field.help_text}</p>
 													{/if}
@@ -1706,8 +1750,9 @@
 		height: 4rem;
 		border-radius: 1rem;
 		object-fit: cover;
-		box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
-		border: 2px solid rgba(255, 255, 255, 0.1);
+		box-shadow:
+			0 4px 12px -2px rgba(0, 0, 0, 0.3),
+			0 0 0 2px rgba(255, 255, 255, 0.1);
 	}
 
 	@media (min-width: 768px) {
@@ -2275,7 +2320,7 @@
 		gap: 0.375rem;
 	}
 
-	.custom-field-label {
+	.custom-field .field-label {
 		font-size: 0.8125rem;
 		font-weight: 600;
 		color: white;

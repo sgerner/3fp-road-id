@@ -6,6 +6,7 @@ import {
 } from '$lib/rides/widgetConfig';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const HOST_SCOPE_VALUES = new Set(['all', 'group_only', 'selected_groups']);
 
 function toFiniteNumber(value) {
 	if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -74,7 +75,29 @@ export const load = async ({ url, fetch }) => {
 	const rides = Array.isArray(ridesPayload?.data) ? ridesPayload.data : [];
 
 	const center = await resolveRadiusCenter(config, fetch);
-	const filteredRides = filterRidesForWidget(rides, config, { center });
+	let filteredRides = filterRidesForWidget(rides, config, { center });
+
+	const hostScopeRaw = (url.searchParams.get('host_scope') || '').trim().toLowerCase();
+	const hostScope = HOST_SCOPE_VALUES.has(hostScopeRaw) ? hostScopeRaw : 'all';
+	const groupIds = (url.searchParams.get('group_ids') || '')
+		.split(',')
+		.map((value) => value.trim().toLowerCase())
+		.filter((value) => UUID_RE.test(value));
+
+	if (hostScope === 'selected_groups') {
+		if (!groupIds.length) {
+			filteredRides = [];
+		} else {
+			const allowed = new Set(groupIds);
+			filteredRides = filteredRides.filter((ride) =>
+				allowed.has(
+					String(ride?.group?.id || '')
+						.trim()
+						.toLowerCase()
+				)
+			);
+		}
+	}
 
 	return {
 		config,

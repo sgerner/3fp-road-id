@@ -2,7 +2,19 @@ import { supabase } from '$lib/supabaseClient';
 import { isTurnstileEnabled } from '$lib/server/turnstile';
 import { loadOwnedGroups } from '$lib/server/sectionNavigation';
 
-export const load = async ({ cookies, fetch }) => {
+export const load = async ({ cookies, fetch, route }) => {
+	const isMicrosite = Boolean(route?.id?.startsWith('/[siteSlug]'));
+	if (isMicrosite) {
+		return {
+			user: null,
+			userProfile: null,
+			ownedGroups: [],
+			isAdmin: false,
+			turnstileEnabled: false,
+			isMicrosite: true
+		};
+	}
+
 	const session = cookies.get('sb_session');
 	if (!session) {
 		return {
@@ -10,7 +22,8 @@ export const load = async ({ cookies, fetch }) => {
 			userProfile: null,
 			ownedGroups: [],
 			isAdmin: false,
-			turnstileEnabled: isTurnstileEnabled()
+			turnstileEnabled: isTurnstileEnabled(),
+			isMicrosite: false
 		};
 	}
 
@@ -27,7 +40,8 @@ export const load = async ({ cookies, fetch }) => {
 			userProfile: null,
 			ownedGroups: [],
 			isAdmin: false,
-			turnstileEnabled: isTurnstileEnabled()
+			turnstileEnabled: isTurnstileEnabled(),
+			isMicrosite: false
 		};
 	}
 
@@ -72,6 +86,7 @@ export const load = async ({ cookies, fetch }) => {
 		userProfile,
 		ownedGroups,
 		isAdmin,
-		turnstileEnabled: isTurnstileEnabled()
+		turnstileEnabled: isTurnstileEnabled(),
+		isMicrosite: false
 	};
 };

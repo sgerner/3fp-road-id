@@ -32,6 +32,12 @@ function resolveGroupSlug(searchParams) {
 export const load = async ({ url, cookies }) => {
 	const groupSlug = resolveGroupSlug(url.searchParams);
 	const recipientType = groupSlug ? 'group' : 'main';
+	const requestedAmount = Number(url.searchParams.get('amount') || 0);
+	const prefillAmount = Number.isFinite(requestedAmount)
+		? Math.max(1, Math.min(25000, Math.round(requestedAmount)))
+		: 25;
+	const prefillName = (url.searchParams.get('name') || '').trim().slice(0, 120);
+	const prefillEmail = (url.searchParams.get('email') || '').trim().slice(0, 254);
 
 	let isAdmin = false;
 	const { accessToken, user } = resolveSession(cookies);
@@ -70,6 +76,11 @@ export const load = async ({ url, cookies }) => {
 	return {
 		loadError,
 		groupSlug,
+		prefill: {
+			amount: prefillAmount,
+			donorName: prefillName,
+			donorEmail: prefillEmail
+		},
 		recipient: recipient
 			? {
 					type: recipient.type,

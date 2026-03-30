@@ -15,6 +15,7 @@
 
 	let { data } = $props();
 
+	const prefill = $derived(data?.prefill ?? {});
 	let amount = $state(25);
 	let donorName = $state('');
 	let donorEmail = $state('');
@@ -58,6 +59,13 @@
 	let elements = null;
 	let paymentElement = null;
 	let preparedSignature = '';
+
+	$effect(() => {
+		const amountValue = Number(prefill?.amount) || 25;
+		if (amount === 25 && amountValue !== 25) amount = amountValue;
+		if (!donorName && prefill?.donorName) donorName = prefill.donorName;
+		if (!donorEmail && prefill?.donorEmail) donorEmail = prefill.donorEmail;
+	});
 
 	function formatAmount(value) {
 		const n = Number(value || 0);

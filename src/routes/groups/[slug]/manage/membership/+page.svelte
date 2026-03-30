@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -15,11 +16,18 @@
 	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
-	const initialData = (() => data)();
-	const initialProgramData = initialData?.program_data || null;
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
+	const DEFAULT_PROGRAM = {
+		enabled: true,
+		access_mode: 'public',
+		cta_label: 'Follow',
+		contribution_mode: 'donation',
+		default_tier_id: null,
+		policy_markdown: `By joining, you agree to this membership policy.\n\nCancellation:\n- You can cancel anytime.\n- Cancellation takes effect at the end of your current billing cycle.\n\nRefunds:\n- Payments are non-refundable unless required by law.\n\nQuestions:\n- Contact group organizers through the group page.`,
+		policy_version: 1
+	};
 
 	// Panel states
 	let settingsOpen = $state(false);
@@ -34,26 +42,28 @@
 	let error = $state('');
 
 	// Data
-	let program = $state({
-		...(initialProgramData?.program || {
-			enabled: true,
-			access_mode: 'public',
-			cta_label: 'Follow',
-			contribution_mode: 'donation',
-			default_tier_id: null,
-			policy_markdown: `By joining, you agree to this membership policy.\n\nCancellation:\n- You can cancel anytime.\n- Cancellation takes effect at the end of your current billing cycle.\n\nRefunds:\n- Payments are non-refundable unless required by law.\n\nQuestions:\n- Contact group organizers through the group page.`,
-			policy_version: 1
-		})
-	});
+	let program = $state(
+		untrack(() => structuredClone(data?.program_data?.program || DEFAULT_PROGRAM))
+	);
 
-	let tiers = $state(Array.isArray(initialProgramData?.tiers) ? initialProgramData.tiers : []);
+	let tiers = $state(
+		untrack(() =>
+			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
+		)
+	);
 	let formFields = $state(
-		Array.isArray(initialProgramData?.form_fields) ? initialProgramData.form_fields : []
+		untrack(() =>
+			Array.isArray(data?.program_data?.form_fields)
+				? structuredClone(data.program_data.form_fields)
+				: []
+		)
 	);
 	let applications = $state(
-		Array.isArray(initialData?.applications) ? initialData.applications : []
+		untrack(() => (Array.isArray(data?.applications) ? structuredClone(data.applications) : []))
 	);
-	let members = $state(Array.isArray(initialData?.members) ? initialData.members : []);
+	let members = $state(
+		untrack(() => (Array.isArray(data?.members) ? structuredClone(data.members) : []))
+	);
 
 	// Filters
 	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
@@ -835,7 +845,7 @@
 						</select>
 					</div>
 					<div class="form-field submit-field">
-						<label for="manual-add-member">Add member</label>
+						<div class="submit-label-spacer" aria-hidden="true"></div>
 						<button
 							id="manual-add-member"
 							class="btn preset-filled-primary-500"
@@ -2038,6 +2048,14 @@
 
 	.form-field.submit-field {
 		justify-content: flex-end;
+	}
+
+	.submit-label-spacer {
+		min-height: 0.875rem;
+	}
+
+	.submit-label-spacer {
+		min-height: 0.875rem;
 	}
 
 	.form-field label {

@@ -12,6 +12,8 @@
 	import IconShield from '@lucide/svelte/icons/shield';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
+	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+	import IconIdCard from '@lucide/svelte/icons/id-card';
 
 	let { children, data } = $props();
 
@@ -29,21 +31,23 @@
 			icon: IconLayoutDashboard,
 			href: `/groups/${slug}/manage`
 		},
-		...(data.can_manage_social
-			? [
-					{
-						id: 'social',
-						label: 'Socials',
-						icon: IconRss,
-						href: `/groups/${slug}/manage/social`
-					}
-				]
-			: []),
 		{
-			id: 'news',
-			label: 'Updates',
-			icon: IconNewspaper,
-			href: `/groups/${slug}/manage/news`
+			id: 'edit',
+			label: 'Edit Profile',
+			icon: IconSquarePen,
+			href: `/groups/${slug}/manage/edit`
+		},
+		{
+			id: 'site',
+			label: 'Website',
+			icon: IconMonitorSmartphone,
+			href: `/groups/${slug}/manage/site`
+		},
+		{
+			id: 'membership',
+			label: 'Membership',
+			icon: IconIdCard,
+			href: `/groups/${slug}/manage/membership`
 		},
 		{
 			id: 'assets',
@@ -52,11 +56,21 @@
 			href: `/groups/${slug}/manage/assets`
 		},
 		{
-			id: 'edit',
-			label: 'Edit Profile',
-			icon: IconSquarePen,
-			href: `/groups/${slug}/manage/edit`
-		}
+			id: 'news',
+			label: 'Updates',
+			icon: IconNewspaper,
+			href: `/groups/${slug}/manage/news`
+		},
+		...(data.can_manage_social
+			? [
+					{
+						id: 'social',
+						label: 'Social Media',
+						icon: IconRss,
+						href: `/groups/${slug}/manage/social`
+					}
+				]
+			: [])
 	]);
 
 	const pathname = $derived($page.url.pathname);

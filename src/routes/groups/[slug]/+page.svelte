@@ -304,6 +304,7 @@
 	let followError = $state('');
 	let followSuccess = $state('');
 	const followEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(followEmail));
+	let donationStartAmount = $state(25);
 
 	async function joinSingleFreeTierNow() {
 		if (!singleFreeFollowTier) return;
@@ -662,45 +663,6 @@
 		</section>
 	{/if}
 
-	{#if canAcceptDonations || shouldShowDonationSetup}
-		<section
-			class="card border-surface-300-700 bg-surface-100-900/70 space-y-4 rounded-2xl border p-5"
-			in:fade={{ duration: 220 }}
-		>
-			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<div>
-					<div class="mb-1 flex items-center gap-2">
-						<IconHandHeart class="text-primary-400 h-5 w-5" />
-						<p class="label opacity-60">Support</p>
-					</div>
-					<h2 class="text-xl font-bold">Support {data.group?.name}</h2>
-					<p class="text-surface-600-400 mt-0.5 text-sm">
-						{#if canAcceptDonations}
-							Donate directly to this group through their connected Stripe account.
-						{:else}
-							Connect Stripe in the edit page to enable donations for this claimed group.
-						{/if}
-					</p>
-				</div>
-				{#if canAcceptDonations}
-					<a
-						href={`/groups/${encodeURIComponent(data.group?.slug || '')}/donate`}
-						class="btn preset-filled-primary-500 shrink-0 font-bold"
-					>
-						Donate to {data.group?.name}
-					</a>
-				{:else if shouldShowDonationSetup}
-					<a
-						href={`/groups/${data.group?.slug}/manage/edit`}
-						class="btn preset-outlined-primary-500 shrink-0"
-					>
-						Connect Stripe
-					</a>
-				{/if}
-			</div>
-		</section>
-	{/if}
-
 	{#if followModalOpen}
 		<div
 			class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -913,6 +875,83 @@
 			</div>
 		{/if}
 	</section>
+
+	{#if canAcceptDonations || shouldShowDonationSetup}
+		<section
+			class="support-section relative overflow-hidden rounded-2xl"
+			in:fade={{ duration: 220 }}
+		>
+			<div class="support-accent-bar" aria-hidden="true"></div>
+			<div class="support-glow" aria-hidden="true"></div>
+
+			<div class="relative z-10 p-5">
+				<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+					<div class="flex items-start gap-3">
+						<div
+							class="support-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconHandHeart class="h-5 w-5 text-white" />
+						</div>
+						<div>
+							<h2 class="text-lg font-bold">Support {data.group?.name}</h2>
+							{#if shouldShowDonationSetup}
+								<p class="text-surface-600-400 text-sm">
+									Connect Stripe in the edit page to enable donations for this claimed group.
+								</p>
+							{/if}
+						</div>
+					</div>
+					{#if shouldShowDonationSetup}
+						<a
+							href={`/groups/${data.group?.slug}/manage/edit`}
+							class="btn preset-outlined-primary-500 shrink-0"
+						>
+							Connect Stripe
+						</a>
+					{/if}
+				</div>
+
+				{#if canAcceptDonations}
+					<form method="GET" action="/donate" class="mt-4">
+						<input type="hidden" name="group" value={data.group?.slug || ''} />
+						<div class="flex flex-wrap items-center gap-2">
+							{#each [10, 25, 50, 100] as preset}
+								<button
+									type="button"
+									class="btn px-4 py-2 {Number(donationStartAmount) === preset
+										? 'preset-filled-primary-500'
+										: 'preset-tonal-surface'} font-bold"
+									onclick={() => (donationStartAmount = preset)}
+								>
+									${preset}
+								</button>
+							{/each}
+							<div class="relative max-w-[140px] min-w-[120px] flex-1">
+								<span
+									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lg font-bold opacity-50"
+									>$</span
+								>
+								<input
+									type="number"
+									min="1"
+									max="25000"
+									step="1"
+									name="amount"
+									class="input w-full pl-7 font-bold"
+									bind:value={donationStartAmount}
+									required
+								/>
+							</div>
+							<button type="submit" class="btn preset-filled-primary-500 gap-1 font-bold">
+								Donate
+								<IconArrowRight class="h-4 w-4" />
+							</button>
+						</div>
+					</form>
+				{/if}
+			</div>
+		</section>
+	{/if}
 
 	{#if groupNewsPosts.length}
 		<section
@@ -1894,6 +1933,47 @@
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 		border-radius: 0.875rem;
 		overflow: hidden;
+	}
+
+	/* ── Support section ── */
+	.support-section {
+		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		animation: card-in 380ms ease both;
+		animation-delay: 30ms;
+	}
+
+	.support-accent-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, var(--color-warning-500), var(--color-success-500));
+		opacity: 0.7;
+		border-radius: 2rem 2rem 0 0;
+	}
+
+	.support-glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			ellipse 70% 50% at 20% 0%,
+			color-mix(in oklab, var(--color-warning-500) 10%, transparent),
+			transparent 70%
+		);
+		pointer-events: none;
+	}
+
+	.support-icon-ring {
+		background: linear-gradient(
+			135deg,
+			color-mix(in oklab, var(--color-warning-500) 80%, var(--color-success-500) 20%),
+			color-mix(in oklab, var(--color-success-500) 70%, var(--color-warning-500) 30%)
+		);
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-warning-500) 40%, transparent),
+			0 4px 14px -2px color-mix(in oklab, var(--color-warning-500) 30%, transparent);
 	}
 
 	/* ── Resources section ── */

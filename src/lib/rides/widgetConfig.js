@@ -4,6 +4,7 @@ const DENSITY_OPTIONS = ['comfortable', 'compact'];
 
 export const DEFAULT_RIDE_WIDGET_CONFIG = Object.freeze({
 	organizationSlug: '',
+	location: '',
 	city: '',
 	state: '',
 	near: '',
@@ -67,9 +68,11 @@ function normalizeLatLng(value, min, max) {
 
 export function normalizeRideWidgetConfig(input = {}) {
 	const radius = toFiniteNumber(input.radiusMiles);
+	const locationFallback = [safeTrim(input.city), safeTrim(input.state)].filter(Boolean).join(' ');
 
 	return {
 		organizationSlug: safeTrim(input.organizationSlug).toLowerCase(),
+		location: safeTrim(input.location || locationFallback),
 		city: safeTrim(input.city),
 		state: safeTrim(input.state),
 		near: safeTrim(input.near),
@@ -100,6 +103,8 @@ export function parseRideWidgetConfigFromSearchParams(searchParams, { partial = 
 	const read = (key) => searchParams.get(key);
 
 	if (has('org')) parsed.organizationSlug = read('org');
+	if (has('location')) parsed.location = read('location');
+	if (has('loc')) parsed.location = read('loc');
 	if (has('city')) parsed.city = read('city');
 	if (has('state')) parsed.state = read('state');
 	if (has('near')) parsed.near = read('near');
@@ -137,6 +142,7 @@ export function buildRideWidgetSearchParams(config, { includeDefaults = false } 
 	};
 
 	setIfNeeded('org', normalized.organizationSlug, DEFAULT_RIDE_WIDGET_CONFIG.organizationSlug);
+	setIfNeeded('location', normalized.location, DEFAULT_RIDE_WIDGET_CONFIG.location);
 	setIfNeeded('city', normalized.city, DEFAULT_RIDE_WIDGET_CONFIG.city);
 	setIfNeeded('state', normalized.state, DEFAULT_RIDE_WIDGET_CONFIG.state);
 	setIfNeeded('near', normalized.near, DEFAULT_RIDE_WIDGET_CONFIG.near);
@@ -269,13 +275,44 @@ function matchesRadius(ride, radiusMiles, center) {
 	return distance <= radiusMiles;
 }
 
+function matchesLocation(ride, locationQuery) {
+	const query = normalizeText(locationQuery);
+	if (!query) return true;
+	const tokens = query
+		.replace(/[^a-z0-9]+/g, ' ')
+		.split(/\s+/)
+		.filter(Boolean);
+	if (!tokens.length) return true;
+
+	const haystack = [
+		ride?.startLocationName,
+		ride?.startLocationAddress,
+		ride?.group?.name,
+		ride?.group?.city,
+		ride?.group?.state_region,
+		ride?.group?.zip_code,
+		extractRideCity(ride),
+		extractRideState(ride)
+	]
+		.filter(Boolean)
+		.join(' ')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, ' ');
+
+	return tokens.every((token) => haystack.includes(token));
+}
+
 export function filterRidesForWidget(rides, config, { center = null } = {}) {
 	const normalized = normalizeRideWidgetConfig(config);
 	return (rides ?? []).filter((ride) => {
+		const matchesLegacyCityState =
+			!normalized.location &&
+			matchesCity(ride, normalized.city) &&
+			matchesState(ride, normalized.state);
+
 		return (
 			matchesOrganization(ride, normalized.organizationSlug) &&
-			matchesCity(ride, normalized.city) &&
-			matchesState(ride, normalized.state) &&
+			(matchesLocation(ride, normalized.location) || matchesLegacyCityState) &&
 			matchesExcludeList(ride, normalized.excludeRideSlugs) &&
 			matchesRadius(ride, normalized.radiusMiles, center)
 		);
