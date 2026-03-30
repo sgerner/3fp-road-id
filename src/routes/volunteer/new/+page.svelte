@@ -134,6 +134,41 @@
 		return undefined;
 	}
 
+	function safeParseEmbeddedJson(text) {
+		if (typeof text !== 'string') return null;
+		const first = text.indexOf('{');
+		const last = text.lastIndexOf('}');
+		if (first === -1 || last === -1 || last <= first) return null;
+		const candidate = text.slice(first, last + 1).trim();
+		try {
+			return JSON.parse(candidate);
+		} catch {
+			const cleaned = candidate.replace(/^```json\n?|```$/g, '');
+			try {
+				return JSON.parse(cleaned);
+			} catch {
+				return null;
+			}
+		}
+	}
+
+	function normalizeAiResponse(payload) {
+		if (!payload || typeof payload !== 'object') return payload;
+
+		const nested = safeParseEmbeddedJson(payload.reply);
+		if (!nested || typeof nested !== 'object') return payload;
+
+		if (
+			typeof nested.reply === 'string' ||
+			Object.prototype.hasOwnProperty.call(nested, 'follow_up_questions') ||
+			Object.prototype.hasOwnProperty.call(nested, 'draft')
+		) {
+			return nested;
+		}
+
+		return payload;
+	}
+
 	const steps = [
 		{
 			key: 'overview',
@@ -1305,7 +1340,7 @@
 				throw new Error(info.error || res.statusText || 'AI request failed');
 			}
 
-			const payload = await res.json();
+			const payload = normalizeAiResponse(await res.json());
 			followUpQuestions = Array.isArray(payload.follow_up_questions)
 				? payload.follow_up_questions.filter(Boolean)
 				: [];

@@ -216,6 +216,26 @@ function safeParseJson(text) {
 	}
 }
 
+function normalizeAiPayload(parsed) {
+	if (!parsed || typeof parsed !== 'object') return parsed;
+
+	const reply = parsed.reply;
+	if (typeof reply !== 'string') return parsed;
+
+	const nested = safeParseJson(reply);
+	if (!nested || typeof nested !== 'object') return parsed;
+
+	if (
+		typeof nested.reply === 'string' ||
+		Object.prototype.hasOwnProperty.call(nested, 'follow_up_questions') ||
+		Object.prototype.hasOwnProperty.call(nested, 'draft')
+	) {
+		return nested;
+	}
+
+	return parsed;
+}
+
 export const POST = async ({ request }) => {
 	if (!isAiModelConfigured('structured_text')) {
 		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
@@ -290,7 +310,7 @@ Default shift timezones to the event timezone when none is provided and mirror t
 
 		let text = response?.text ?? '';
 		if (typeof text === 'function') text = text();
-		const parsed = safeParseJson(text);
+		const parsed = normalizeAiPayload(safeParseJson(text));
 		if (!parsed) {
 			return json({ reply: text || '', follow_up_questions: null, draft: null });
 		}
@@ -311,7 +331,7 @@ Default shift timezones to the event timezone when none is provided and mirror t
 
 				let text = fallbackResponse?.text ?? '';
 				if (typeof text === 'function') text = text();
-				const parsed = safeParseJson(text);
+				const parsed = normalizeAiPayload(safeParseJson(text));
 				if (!parsed) {
 					return json({ reply: text || '', follow_up_questions: null, draft: null });
 				}
