@@ -8,12 +8,13 @@ export const load = async ({ params, cookies, url }) => {
 	const supabase = getGroupAssetsReadClient();
 	const { data: group, error: groupError } = await supabase
 		.from('groups')
-		.select('id,slug,name,logo_url')
+		.select('id,slug,name,logo_url,is_published')
 		.eq('slug', params.slug)
 		.maybeSingle();
 
 	if (groupError) throw error(500, groupError.message);
 	if (!group) throw error(404, 'Group not found.');
+	if (group.is_published === false) throw error(404, 'Group not found.');
 
 	const buckets = await listGroupAssetBuckets(supabase, group.id, { includeEmpty: true }).catch(
 		(err) => {

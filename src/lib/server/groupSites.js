@@ -880,6 +880,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 
 	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug);
 	if (!group) return null;
+	if (group.is_published === false) return null;
 
 	const storedConfig = await getGroupSiteConfig(group.id, { group });
 	const siteConfig = mergeGroupSiteConfig(buildDefaultGroupSiteConfig(group), storedConfig);

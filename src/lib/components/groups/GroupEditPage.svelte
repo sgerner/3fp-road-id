@@ -4,6 +4,8 @@
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
 	import IconRemove from '@lucide/svelte/icons/circle-x';
+	import IconAlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
@@ -1080,6 +1082,14 @@
 		const slug = data.group?.slug || '';
 		if (!slug) return;
 		window.location.href = `/api/donations/connect/start?recipient=group&group=${encodeURIComponent(slug)}`;
+	}
+
+	function confirmDeleteGroup(event) {
+		if (typeof window === 'undefined') return;
+		const ok = window.confirm(
+			'Delete this group from display? This will hide it from the public group list and public pages.'
+		);
+		if (!ok) event.preventDefault();
 	}
 
 	async function disconnectStripeForGroup() {
@@ -2213,6 +2223,29 @@
 		{#if $page.form?.error}<p class="text-error-600-400 text-sm">{$page.form.error}</p>{/if}
 	</form>
 
+	<section class="edit-card danger relative overflow-hidden rounded-2xl p-5">
+		<div class="edit-card-accent-bar danger" aria-hidden="true"></div>
+		<div class="flex items-start gap-3">
+			<div
+				class="bg-error-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+			>
+				<IconAlertTriangle class="text-error-500 h-5 w-5" />
+			</div>
+			<div class="min-w-0 flex-1">
+				<h2 class="edit-section-title">Delete from display</h2>
+				<p class="text-surface-600-400 mt-2 text-sm">
+					This hides the group from public listings, public group pages, and microsite routes.
+				</p>
+			</div>
+		</div>
+		<form method="POST" action="?/delete" class="mt-4 flex justify-end" onsubmit={confirmDeleteGroup}>
+			<button type="submit" class="btn preset-filled-error-500 flex items-center gap-2">
+				<IconTrash2 class="h-4 w-4" />
+				<span>Delete</span>
+			</button>
+		</form>
+	</section>
+
 	<!-- ── Crop modal ── -->
 	{#if cropping}
 		<div
@@ -2365,6 +2398,14 @@
 	.edit-card-accent-bar.tertiary {
 		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
 		opacity: 0.6;
+	}
+	.edit-card.danger {
+		background: color-mix(in oklab, var(--color-error-500) 10%, var(--color-surface-900) 90%);
+		border-color: color-mix(in oklab, var(--color-error-500) 25%, transparent);
+	}
+	.edit-card-accent-bar.danger {
+		background: linear-gradient(90deg, var(--color-error-500), var(--color-warning-500));
+		opacity: 0.8;
 	}
 
 	.edit-section-title {

@@ -91,6 +91,69 @@ async function uploadDataUrlToStorage(dataUrl, destBasePath) {
 	return data?.publicUrl || null;
 }
 
+async function resolveGroupEditorContext({ params, cookies }) {
+	const slug = params.slug;
+
+	// Require authenticated user
+	const sessionCookie = cookies.get('sb_session');
+	if (!sessionCookie) {
+		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse(sessionCookie);
+	} catch {
+		parsed = null;
+	}
+	const access_token = parsed?.access_token;
+	if (!access_token) {
+		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
+	}
+	const { data: userRes } = await supabase.auth.getUser(access_token);
+	const user_id = userRes?.user?.id;
+	if (!user_id) {
+		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
+	}
+
+	const { data: group, error: ge } = await supabase
+		.from('groups')
+		.select('id, slug, logo_url, cover_photo_url, is_published')
+		.eq('slug', slug)
+		.single();
+	if (ge || !group) {
+		return { ok: false, response: fail(404, { error: 'Group not found' }) };
+	}
+
+	// Admin or owner can proceed
+	let isAdmin = false;
+	try {
+		const { data: prof } = await supabase
+			.from('profiles')
+			.select('user_id, email, admin')
+			.eq('user_id', user_id)
+			.maybeSingle();
+		isAdmin = !!prof?.admin;
+	} catch {
+		// ignore
+	}
+	if (!isAdmin) {
+		const { data: ownerRows } = await supabase
+			.from('group_members')
+			.select('user_id')
+			.eq('group_id', group.id)
+			.eq('role', 'owner')
+			.eq('user_id', user_id);
+		if (!ownerRows || ownerRows.length === 0) {
+			return {
+				ok: false,
+				response: fail(403, { error: 'You do not have permission to edit this group.' })
+			};
+		}
+	}
+
+	return { ok: true, slug, group, group_id: group.id, user_id, isAdmin };
+}
+
 export const load = async ({ params, cookies, url }) => {
 	const slug = params.slug;
 
@@ -217,52 +280,9 @@ export const load = async ({ params, cookies, url }) => {
 
 export const actions = {
 	default: async ({ params, request, cookies }) => {
-		const slug = params.slug;
-
-		// Require authenticated owner
-		const sessionCookie = cookies.get('sb_session');
-		if (!sessionCookie) return fail(401, { error: 'Authentication required.' });
-		let parsed;
-		try {
-			parsed = JSON.parse(sessionCookie);
-		} catch {
-			parsed = null;
-		}
-		const access_token = parsed?.access_token;
-		if (!access_token) return fail(401, { error: 'Authentication required.' });
-		const { data: userRes } = await supabase.auth.getUser(access_token);
-		const user_id = userRes?.user?.id;
-		if (!user_id) return fail(401, { error: 'Authentication required.' });
-		const { data: group, error: ge } = await supabase
-			.from('groups')
-			.select('id, slug, logo_url, cover_photo_url')
-			.eq('slug', slug)
-			.single();
-		if (ge || !group) return fail(404, { error: 'Group not found' });
-		const group_id = group.id;
-
-		// Admin or owner can proceed
-		let isAdmin = false;
-		try {
-			const { data: prof } = await supabase
-				.from('profiles')
-				.select('user_id, email, admin')
-				.eq('user_id', user_id)
-				.maybeSingle();
-			isAdmin = !!prof?.admin;
-		} catch (e) {
-			// ignore
-		}
-		if (!isAdmin) {
-			const { data: ownerRows } = await supabase
-				.from('group_members')
-				.select('user_id')
-				.eq('group_id', group_id)
-				.eq('role', 'owner')
-				.eq('user_id', user_id);
-			if (!ownerRows || ownerRows.length === 0)
-				return fail(403, { error: 'You do not have permission to edit this group.' });
-		}
+		const auth = await resolveGroupEditorContext({ params, cookies });
+		if (!auth.ok) return auth.response;
+		const { slug, group, group_id } = auth;
 
 		const form = await request.formData();
 
@@ -534,5 +554,21 @@ export const actions = {
 		}
 
 		throw redirect(303, `/groups/${slug}/manage/edit?saved=1`);
+	},
+	delete: async ({ params, cookies }) => {
+		const auth = await resolveGroupEditorContext({ params, cookies });
+		if (!auth.ok) return auth.response;
+
+		const { group_id } = auth;
+		const { error: deleteError } = await supabase
+			.from('groups')
+			.update({
+				is_published: false,
+				updated_at: new Date().toISOString()
+			})
+			.eq('id', group_id);
+		if (deleteError) return fail(500, { error: deleteError.message });
+
+		throw redirect(303, `/groups/my`);
 	}
 };

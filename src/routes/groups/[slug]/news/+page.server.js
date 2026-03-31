@@ -14,6 +14,9 @@ export const load = async ({ params, cookies, url }) => {
 	if (!group) {
 		throw error(404, 'Group not found.');
 	}
+	if (group.is_published === false) {
+		throw error(404, 'Group not found.');
+	}
 
 	const posts = await listPublishedGroupNewsPosts(supabase, group.id);
 	const profileIds = Array.from(

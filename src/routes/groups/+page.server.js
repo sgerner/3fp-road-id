@@ -435,6 +435,7 @@ export const load = async ({ url }) => {
 
 	function applyCommonFilters(qBuilder, { includeSearch = true } = {}) {
 		let query = qBuilder;
+		query = query.eq('is_published', true);
 		if (includeSearch && q) {
 			const like = `%${q}%`;
 			query = query.or(

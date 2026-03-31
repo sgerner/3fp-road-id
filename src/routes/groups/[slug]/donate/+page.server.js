@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE } from '$lib/donations/constants';
 import { getDonationRecipient } from '$lib/server/donations';
 
@@ -8,8 +9,11 @@ export const load = async ({ params, url }) => {
 	let loadError = '';
 	try {
 		recipient = await getDonationRecipient({ recipientType: 'group', groupSlug });
-	} catch (error) {
-		loadError = error?.message || 'Unable to load donation recipient.';
+	} catch (err) {
+		if (err?.message === 'Group not found.') {
+			throw error(404, 'Group not found.');
+		}
+		loadError = err?.message || 'Unable to load donation recipient.';
 	}
 
 	if (!recipient && !loadError) {

@@ -90,7 +90,7 @@ export async function loadOwnedGroups(fetchImpl, userId) {
 	if (!groupIds.length) return [];
 
 	const groupRows = await fetchList(fetchImpl, 'groups', {
-		select: 'id,slug,name',
+		select: 'id,slug,name,is_published',
 		id: `in.(${groupIds.join(',')})`,
 		order: 'name.asc'
 	}).catch((err) => {
@@ -100,6 +100,7 @@ export async function loadOwnedGroups(fetchImpl, userId) {
 
 	return uniqueBy(
 		groupRows
+			.filter((row) => row?.is_published === true)
 			.map((row) => ({
 				id: row?.id ?? null,
 				slug: row?.slug ?? null,

@@ -244,11 +244,12 @@ export async function getDonationRecipient({ recipientType, groupSlug }) {
 
 	const { data: group, error: groupError } = await supabase
 		.from('groups')
-		.select('id,slug,name,public_contact_email')
+		.select('id,slug,name,public_contact_email,is_published')
 		.eq('slug', slug)
 		.maybeSingle();
 	if (groupError) throw new Error(groupError.message);
 	if (!group) throw new Error('Group not found.');
+	if (group.is_published === false) throw new Error('Group not found.');
 
 	const { count: ownerCount, error: ownerError } = await supabase
 		.from('group_members')
@@ -300,7 +301,15 @@ export async function createDonationCheckout({
 		};
 	}
 
-	const recipient = await getDonationRecipient({ recipientType, groupSlug });
+	let recipient;
+	try {
+		recipient = await getDonationRecipient({ recipientType, groupSlug });
+	} catch (error) {
+		if (error?.message === 'Group not found.') {
+			return { ok: false, status: 404, error: 'Group not found.' };
+		}
+		throw error;
+	}
 	if (recipient.type === 'group' && !recipient.claimed) {
 		return { ok: false, status: 400, error: 'This group has not been claimed yet.' };
 	}

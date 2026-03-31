@@ -11,6 +11,7 @@ export const load = async (event) => {
 	const groupCols = [
 		'id',
 		'slug',
+		'is_published',
 		'name',
 		'tagline',
 		'city',
@@ -34,6 +35,9 @@ export const load = async (event) => {
 	const { data: groupRow, error: groupError } = await groupResp.json();
 
 	if (groupError || !groupRow) {
+		throw error(404, 'Group not found');
+	}
+	if (groupRow.is_published === false) {
 		throw error(404, 'Group not found');
 	}
 
