@@ -117,6 +117,8 @@
 	let queuedMediaFiles = $state([]);
 	let composerModalOpen = $state(false);
 	let composerPreviewExpanded = $state(false);
+	let mobilePreviewOpen = $state(false);
+	let mediaDropActive = $state(false);
 	let composerReadOnly = $state(false);
 	let calendarView = $state('month');
 	let calendarReference = $state(new Date());
@@ -289,6 +291,13 @@
 		}
 	});
 
+	$effect(() => {
+		if (!composerPreviewHasImage && mobilePreviewOpen) {
+			mobilePreviewOpen = false;
+			composerPreviewExpanded = false;
+		}
+	});
+
 	onMount(() => {
 		if (canManageSocial) {
 			void loadDashboard();
@@ -432,12 +441,29 @@
 		return slot;
 	}
 
+	function resetComposerDraftState() {
+		composerCaption = '';
+		composerPostTarget = 'page';
+		composerPlatforms = [...new Set([...connectedPlatforms])];
+		composerMedia = [];
+		composerAiPrompt = '';
+		queuedMediaFiles = [];
+		aiGeneratedImages = [];
+		aiSelectedImageUrl = '';
+		mobilePreviewOpen = false;
+	}
+
 	function openComposerModal(prefillDate = null, options = {}) {
 		const sourcePost = options?.post && typeof options.post === 'object' ? options.post : null;
+		clearFeedback();
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
+		mobilePreviewOpen = false;
 		aiPromptInput = '';
 		aiConversation = [];
+		queuedMediaFiles = [];
+		aiGeneratedImages = [];
+		aiSelectedImageUrl = '';
 		if (sourcePost) {
 			composerCaption = sourcePost?.caption || '';
 			composerPostTarget = normalizePostTarget(sourcePost?.post_target);
@@ -450,19 +476,17 @@
 			} else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
 				const snapped = roundToQuarterHour(prefillDate);
 				composerScheduledFor = formatLocalDateTimeInput(snapped);
+			} else {
+				const next = nextSchedulableDate();
+				composerScheduledFor = formatLocalDateTimeInput(next);
 			}
-		} else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
-			const snapped = roundToQuarterHour(prefillDate);
-			composerScheduledFor = formatLocalDateTimeInput(snapped);
-		} else if (!composerScheduledFor) {
-			const next = nextSchedulableDate();
-			composerScheduledFor = formatLocalDateTimeInput(next);
-		}
-		if (!sourcePost) {
-			composerPostTarget = 'page';
-		}
-		if (!sourcePost && composerPlatforms.length === 0) {
-			composerPlatforms = [...new Set([...connectedPlatforms])];
+		} else {
+			resetComposerDraftState();
+			const slotDate =
+				prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())
+					? roundToQuarterHour(prefillDate)
+					: nextSchedulableDate();
+			composerScheduledFor = formatLocalDateTimeInput(slotDate);
 		}
 		composerModalOpen = true;
 	}
@@ -470,20 +494,28 @@
 	function closeComposerModal() {
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
+		mobilePreviewOpen = false;
+		mediaDropActive = false;
 		aiPromptInput = '';
 		aiConversation = [];
+		queuedMediaFiles = [];
 		composerModalOpen = false;
 	}
 
 	function openPublishedPostModal(post) {
+		clearFeedback();
 		composerReadOnly = true;
 		composerPreviewExpanded = false;
+		mobilePreviewOpen = false;
 		composerCaption = post?.caption || '';
 		composerPostTarget = normalizePostTarget(post?.post_target);
 		composerPlatforms = Array.isArray(post?.platforms) ? [...post.platforms] : [];
 		composerMedia = Array.isArray(post?.media) ? [...post.media] : [];
 		composerScheduledFor = '';
 		composerAiPrompt = post?.ai_prompt || '';
+		queuedMediaFiles = [];
+		aiGeneratedImages = [];
+		aiSelectedImageUrl = '';
 		composerModalOpen = true;
 	}
 
@@ -493,6 +525,19 @@
 			return;
 		}
 		composerPreviewExpanded = !composerPreviewExpanded;
+	}
+
+	function closeMobilePreview() {
+		mobilePreviewOpen = false;
+		composerPreviewExpanded = false;
+	}
+
+	function toggleMobilePreview() {
+		if (!composerPreviewHasImage) return;
+		mobilePreviewOpen = !mobilePreviewOpen;
+		if (!mobilePreviewOpen) {
+			composerPreviewExpanded = false;
+		}
 	}
 
 	function handleCalendarSlotClick(date, hour = 9) {
@@ -917,10 +962,36 @@
 		}
 	}
 
-	function queueMediaFiles(event) {
+	async function queueMediaFiles(event) {
 		if (composerReadOnly) return;
-		const files = Array.from(event.currentTarget?.files || []);
-		queuedMediaFiles = files;
+		const input = event.currentTarget;
+		const files = Array.from(input?.files || []);
+		if (input && 'value' in input) {
+			input.value = '';
+		}
+		await uploadSelectedMediaFiles(files, { silentIfEmpty: true });
+	}
+
+	function handleMediaDragOver(event) {
+		if (composerReadOnly) return;
+		event.preventDefault();
+		mediaDropActive = true;
+	}
+
+	function handleMediaDragLeave(event) {
+		if (composerReadOnly) return;
+		event.preventDefault();
+		const related = event.relatedTarget;
+		if (related && event.currentTarget?.contains?.(related)) return;
+		mediaDropActive = false;
+	}
+
+	async function handleMediaDrop(event) {
+		if (composerReadOnly) return;
+		event.preventDefault();
+		mediaDropActive = false;
+		const files = Array.from(event.dataTransfer?.files || []);
+		await uploadSelectedMediaFiles(files, { silentIfEmpty: true });
 	}
 
 	function resetAiConversation() {
@@ -1151,18 +1222,23 @@
 		}
 	}
 
-	async function uploadQueuedMedia() {
+	async function uploadSelectedMediaFiles(files = [], { silentIfEmpty = false } = {}) {
 		if (!slug) return;
 		if (composerReadOnly) return;
-		if (!queuedMediaFiles.length) {
-			showActionError('Select one or more images first.');
+		if (!Array.isArray(files) || files.length === 0) {
+			if (!silentIfEmpty) showActionError('Select one or more images first.');
+			return;
+		}
+		if (uploadingMedia) {
+			showActionError('An upload is already in progress.');
 			return;
 		}
 		clearFeedback();
+		queuedMediaFiles = files;
 		uploadingMedia = true;
 		try {
 			const formData = new FormData();
-			for (const file of queuedMediaFiles) {
+			for (const file of files) {
 				formData.append('files', file);
 			}
 			const payload = await requestJson(`/api/groups/${slug}/social/assets`, {
@@ -1176,6 +1252,7 @@
 		} catch (error) {
 			showActionError(error?.message || 'Unable to upload media files.');
 		} finally {
+			queuedMediaFiles = [];
 			uploadingMedia = false;
 		}
 	}
@@ -1527,17 +1604,26 @@
 						return `${platform}: ${reason}`;
 					})
 					.join(' | ');
-				actionError = `Some comments could not be synced. ${detail}`;
-				toaster.error({ title: actionError });
-				actionNotice = '';
-				showConnectionsPanel = true;
+				if (auto) {
+					console.warn('social_comments_auto_sync_failed', detail);
+				} else {
+					actionError = `Some comments could not be synced. ${detail}`;
+					toaster.error({ title: actionError });
+					actionNotice = '';
+					showConnectionsPanel = true;
+				}
 			} else if (!silent) {
 				actionNotice = 'Comments synced.';
 			} else if (!auto) {
 				actionNotice = 'Comments synced.';
 			}
 		} catch (error) {
-			showActionError(error?.message || 'Unable to sync comments.');
+			const message = error?.message || 'Unable to sync comments.';
+			if (auto) {
+				console.warn('social_comments_auto_sync_exception', message);
+			} else {
+				showActionError(message);
+			}
 		} finally {
 			syncingComments = false;
 		}
@@ -2329,6 +2415,18 @@
 						{:else if actionNotice}
 							<div class="composer-feedback composer-feedback--success">{actionNotice}</div>
 						{/if}
+							{#if composerPreviewHasImage && !mobilePreviewOpen}
+								<div class="composer-mobile-preview-row">
+									<button
+										type="button"
+										class="composer-mobile-preview-toggle"
+										onclick={toggleMobilePreview}
+									>
+										<IconMaximize2 class="h-3.5 w-3.5" />
+										Show preview
+									</button>
+								</div>
+							{/if}
 
 						<!-- Body: two-panel on large screens -->
 						<div
@@ -2635,7 +2733,15 @@
 								<!-- Media Uploads -->
 								<div class="field-group">
 									<div class="field-label">Media</div>
-									<label class="media-drop-zone" for="composer-media-input">
+									<label
+										class="media-drop-zone"
+										class:media-drop-zone--active={mediaDropActive}
+										for="composer-media-input"
+										ondragover={handleMediaDragOver}
+										ondragenter={handleMediaDragOver}
+										ondragleave={handleMediaDragLeave}
+										ondrop={handleMediaDrop}
+									>
 										<IconUpload class="h-5 w-5 opacity-50" />
 										<span class="text-sm font-medium">Drop images here or <u>browse</u></span>
 										<span class="text-xs opacity-60">PNG, JPG, WebP</span>
@@ -2649,25 +2755,15 @@
 											disabled={composerReadOnly}
 										/>
 									</label>
-									{#if queuedMediaFiles.length > 0}
+									{#if uploadingMedia}
 										<div class="media-queued-row">
-											<span class="text-xs opacity-70">
-												Queued: {queuedMediaFiles.map((f) => f.name).join(', ')}
-											</span>
-											<button
-												type="button"
-												class="media-upload-btn"
-												onclick={uploadQueuedMedia}
-												disabled={uploadingMedia || composerReadOnly}
-											>
-												{#if uploadingMedia}
-													<IconLoader class="h-3.5 w-3.5 animate-spin" />
-													Uploading…
-												{:else}
-													<IconUpload class="h-3.5 w-3.5" />
-													Upload
+											<span class="inline-flex items-center gap-2 text-xs opacity-70">
+												<IconLoader class="h-3.5 w-3.5 animate-spin" />
+												Uploading
+												{#if queuedMediaFiles.length > 0}
+													: {queuedMediaFiles.map((f) => f.name).join(', ')}
 												{/if}
-											</button>
+											</span>
 										</div>
 									{/if}
 									{#if composerMedia.length}
@@ -2746,7 +2842,7 @@
 							<aside
 								class="composer-preview"
 								class:composer-preview--expanded={composerPreviewExpandedEffective}
-								class:composer-preview--empty-mobile={!composerPreviewHasImage}
+								class:composer-preview--mobile-open={mobilePreviewOpen}
 							>
 								<div class="composer-preview__header">
 									<div class="flex items-center gap-2">
@@ -2758,7 +2854,7 @@
 									{#if getDraftPreviewImage()?.url}
 										<button
 											type="button"
-											class="composer-preview-toggle"
+											class="composer-preview-toggle composer-preview-toggle--desktop"
 											onclick={toggleComposerPreviewExpanded}
 										>
 											{#if composerPreviewExpandedEffective}
@@ -2768,6 +2864,14 @@
 												<IconMaximize2 class="h-3.5 w-3.5" />
 												View large
 											{/if}
+										</button>
+										<button
+											type="button"
+											class="composer-preview-toggle composer-preview-toggle--mobile"
+											onclick={closeMobilePreview}
+										>
+											<IconMinimize2 class="h-3.5 w-3.5" />
+											Back to editor
 										</button>
 									{/if}
 								</div>
@@ -3377,8 +3481,10 @@
 		scrollbar-gutter: stable;
 	}
 
-	.composer-form--hidden {
-		display: none;
+	@media (min-width: 1024px) {
+		.composer-form--hidden {
+			display: none;
+		}
 	}
 
 	/* ─── AI Draft Panel ─── */
@@ -3926,6 +4032,11 @@
 		background: color-mix(in oklab, var(--color-secondary-500) 6%, transparent);
 	}
 
+	.media-drop-zone--active {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 50%, transparent);
+		background: color-mix(in oklab, var(--color-secondary-500) 6%, transparent);
+	}
+
 	.media-queued-row {
 		display: flex;
 		flex-wrap: wrap;
@@ -3936,24 +4047,6 @@
 		border-radius: 0.5rem;
 		background: color-mix(in oklab, var(--color-surface-700) 30%, transparent);
 		color: var(--color-surface-400);
-	}
-
-	.media-upload-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.375rem 0.75rem;
-		border-radius: 0.5rem;
-		font-size: 0.75rem;
-		font-weight: 600;
-		background: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
-		color: var(--color-primary-300);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-		transition: background 0.15s;
-	}
-
-	.media-upload-btn:hover:not(:disabled) {
-		background: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
 	.media-thumbs {
@@ -4189,6 +4282,23 @@
 	}
 
 	/* ─── Preview pane ─── */
+	.composer-mobile-preview-row {
+		display: none;
+	}
+
+	.composer-mobile-preview-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-primary-300);
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+	}
+
 	.composer-preview {
 		display: flex;
 		flex-direction: column;
@@ -4198,7 +4308,35 @@
 	}
 
 	@media (max-width: 1023px) {
-		.composer-preview--empty-mobile {
+		.composer-mobile-preview-row {
+			display: flex;
+			justify-content: flex-end;
+			padding: 0.625rem 1.25rem 0;
+		}
+
+		.composer-preview {
+			display: none;
+		}
+
+		.composer-preview--mobile-open {
+			display: flex;
+		}
+
+		.composer-preview-toggle--desktop {
+			display: none;
+		}
+
+		.composer-preview-toggle--mobile {
+			display: inline-flex;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.composer-mobile-preview-row {
+			display: none;
+		}
+
+		.composer-preview-toggle--mobile {
 			display: none;
 		}
 	}
@@ -4314,7 +4452,13 @@
 	}
 
 	.composer-body--preview-expanded {
-		display: block;
+		display: flex;
+	}
+
+	@media (min-width: 1024px) {
+		.composer-body--preview-expanded {
+			display: block;
+		}
 	}
 
 	.composer-preview--expanded {
