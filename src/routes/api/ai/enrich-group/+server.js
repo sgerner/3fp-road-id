@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { DomUtils, parseDocument } from 'htmlparser2';
 import { supabase } from '$lib/supabaseClient';
 import { searchGeocode } from '$lib/server/geocoding';
 import {
@@ -14,8 +15,8 @@ export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 const DEFAULT_FETCH_TIMEOUT = 3000; // ms
 const JINA_READER_TIMEOUT = 9000;
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
-const SITE_CRAWL_PAGE_LIMIT = 5;
-const SITE_CRAWL_BATCH_SIZE = 3;
+const SITE_CRAWL_PAGE_LIMIT = 8;
+const SITE_CRAWL_BATCH_SIZE = 4;
 const SITE_CANDIDATE_LIMIT = 25;
 const MAX_TEXT_PER_DOC = 12000;
 const MAX_CONTEXT_TEXT_BUDGET = 14000;
@@ -28,7 +29,7 @@ const MAX_EVIDENCE_SNIPPETS_PER_FIELD = 3;
 const MAX_NARRATIVE_EVIDENCE_SNIPPETS = 16;
 const MAX_SOCIAL_FALLBACK_SITES = 0;
 const RECENT_DAYS_WINDOW = 365;
-const ENABLE_SITEMAP_DISCOVERY = false;
+const ENABLE_SITEMAP_DISCOVERY = true;
 const ENABLE_ASSET_FETCH = false;
 const EXTRACTION_PASS_TIMEOUT_MS = 30000;
 const EXTRACTION_RETRY_TIMEOUT_MS = 22000;
@@ -106,6 +107,59 @@ const SOURCE_RELIABILITY_WEIGHTS = {
 	ai: 0.72,
 	unknown: 0.62
 };
+const HTML_BLOCK_TAGS = new Set([
+	'h1',
+	'h2',
+	'h3',
+	'h4',
+	'h5',
+	'h6',
+	'p',
+	'li',
+	'blockquote',
+	'figcaption',
+	'dt',
+	'dd',
+	'td',
+	'th',
+	'summary'
+]);
+const HTML_SKIP_TAGS = new Set([
+	'script',
+	'style',
+	'noscript',
+	'nav',
+	'header',
+	'footer',
+	'aside',
+	'menu',
+	'svg',
+	'canvas',
+	'iframe',
+	'template',
+	'form',
+	'button',
+	'input',
+	'select',
+	'option'
+]);
+const DESCRIPTION_BOILERPLATE_MARKERS = [
+	'quick links',
+	'learn more about us',
+	'become a member',
+	'donate',
+	'volunteer',
+	'contact us',
+	'about us',
+	'copyright',
+	'all rights reserved',
+	'privacy policy',
+	'terms of use',
+	'skip to content',
+	'home',
+	'login',
+	'sign in'
+];
 const BROWSER_LIKE_HEADERS = {
 	'User-Agent':
 		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -294,11 +348,19 @@ async function fetchAndExtract(url) {
 		const readerText = await fetchReaderMarkdown(url);
 		const text = truncate(readerText || fallbackText, MAX_TEXT_PER_DOC);
 		if (!text) return null;
+		const analysisText = buildAnalysisText({
+			html,
+			readerText,
+			fallbackText,
+			pageSignals,
+			structured
+		});
 
 		return {
 			url,
 			html,
 			text,
+			analysisText,
 			structured,
 			pageSignals
 		};
@@ -1314,11 +1376,12 @@ function extractDeterministicFacts(
 	}
 
 	for (const doc of docs || []) {
-		if (!doc?.text) continue;
+		const text = doc?.analysisText || doc?.text || '';
+		if (!text) continue;
 		const sourceType = inferDocSourceType(doc);
 		const weight = SOURCE_RELIABILITY_WEIGHTS[sourceType] ?? SOURCE_RELIABILITY_WEIGHTS.unknown;
 		const baseScore = Math.max(0.45, weight + recencyBoost(doc));
-		const text = doc.text;
+		const urlText = doc?.text || text;
 		const pageTitle = doc.pageSignals?.title;
 		if (pageTitle && !isLowValueTitle(pageTitle)) {
 			const titleName = extractNameFromPageTitle(pageTitle);
@@ -1348,7 +1411,7 @@ function extractDeterministicFacts(
 				sourceType
 			);
 		}
-		for (const url of extractUrls(text)) {
+		for (const url of extractUrls(urlText)) {
 			const normalized = normalizeAnyUrl(url);
 			if (!normalized) continue;
 			let host = '';
@@ -2137,7 +2200,7 @@ function uniqueNormalizedValues(values = []) {
 
 function inferCategoriesFromDocs(docs = []) {
 	const text = docs
-		.map((doc) => doc?.text || '')
+		.map((doc) => doc?.analysisText || doc?.text || '')
 		.join(' ')
 		.toLowerCase();
 	const categories = {
@@ -2201,7 +2264,7 @@ function scoreAiCandidate(field, value, docs = []) {
 		typeof normalizedValue === 'string' ? normalizedValue.toLowerCase() : `${normalizedValue}`;
 	let mentions = 0;
 	for (const doc of docs) {
-		const hay = `${doc?.text || ''} ${doc?.pageSignals?.title || ''}`.toLowerCase();
+		const hay = `${doc?.analysisText || doc?.text || ''} ${doc?.pageSignals?.title || ''}`.toLowerCase();
 		if (!needle || needle.length < 4) break;
 		if (hay.includes(needle)) mentions += 1;
 	}
@@ -2373,6 +2436,72 @@ function extractLikelyImageFromStructured(doc, keyPattern) {
 	return null;
 }
 
+function extractImageCandidatesFromDoc(doc) {
+	const logo = [];
+	const cover = [];
+	const seen = new Set();
+	const push = (list, url, baseUrl) => {
+		const normalized = normalizeAssetUrl(url, baseUrl) || normalizeAnyUrl(url);
+		if (!normalized || seen.has(normalized)) return;
+		seen.add(normalized);
+		list.push(normalized);
+	};
+
+	for (const candidate of doc?.pageSignals?.images?.logo || []) push(logo, candidate, doc?.url);
+	for (const candidate of doc?.pageSignals?.images?.cover || []) push(cover, candidate, doc?.url);
+
+	for (const snippet of doc?.structured || []) {
+		const parsed = safeParseJson(snippet?.json || '');
+		if (!parsed) continue;
+		collectImageCandidatesFromValue(parsed, [], { logo, cover }, doc?.url, push);
+	}
+
+	return { logo, cover };
+}
+
+function collectImageCandidatesFromValue(value, path, buckets, baseUrl, push) {
+	if (value == null) return;
+	if (typeof value === 'string') {
+		const normalized = normalizeAssetUrl(value, baseUrl) || normalizeAnyUrl(value);
+		if (!normalized) return;
+		const pathText = path.join('.').toLowerCase();
+		if (/(profile_pic|profilepicture|avatar|logo|favicon|icon|brand)/i.test(pathText)) {
+			push(buckets.logo, normalized, baseUrl);
+		} else if (
+			/(cover|hero|banner|header|poster|image|photo)/i.test(pathText) ||
+			/(^|\.)(og:image|twitter:image)(:|$)/i.test(pathText)
+		) {
+			push(buckets.cover, normalized, baseUrl);
+		}
+		return;
+	}
+	if (Array.isArray(value)) {
+		for (const [index, item] of value.entries()) {
+			collectImageCandidatesFromValue(item, [...path, String(index)], buckets, baseUrl, push);
+		}
+		return;
+	}
+	if (typeof value === 'object') {
+		for (const [key, item] of Object.entries(value)) {
+			const nextPath = [...path, key];
+			const keyLower = key.toLowerCase();
+			if (typeof item === 'string') {
+				const normalized = normalizeAssetUrl(item, baseUrl) || normalizeAnyUrl(item);
+				if (!normalized) continue;
+				if (/(profile_pic|profilepicture|avatar|logo|favicon|icon|brand)/i.test(keyLower)) {
+					push(buckets.logo, normalized, baseUrl);
+				} else if (
+					/(cover|hero|banner|header|poster|image|photo)/i.test(keyLower) ||
+					/(^|\.)(og:image|twitter:image)(:|$)/i.test(nextPath.join('.').toLowerCase())
+				) {
+					push(buckets.cover, normalized, baseUrl);
+				}
+			}
+			collectImageCandidatesFromValue(item, nextPath, buckets, baseUrl, push);
+		}
+	}
+}
+
 function extractEmailCandidates(text = '') {
 	return uniqueNormalizedValues(
 		(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []).map((e) => e.toLowerCase())
@@ -2462,6 +2591,25 @@ function isLikelyBoilerplateText(value = '') {
 	return false;
 }
 
+function isLowValueDescription(value = '') {
+	const text = normalizeText(value);
+	if (!text) return true;
+	if (isLikelyBoilerplateText(text)) return true;
+	const lower = text.toLowerCase();
+	let markerCount = 0;
+	for (const marker of DESCRIPTION_BOILERPLATE_MARKERS) {
+		if (lower.includes(marker)) markerCount += 1;
+		if (markerCount >= 2) return true;
+	}
+	if (
+		/\b(copyright|all rights reserved|quick links|learn more about us|home|login|sign in)\b/i.test(
+			text
+		)
+	)
+		return true;
+	return false;
+}
+
 function isLowValueContactInstruction(value = '') {
 	const text = normalizeText(value);
 	if (!text) return true;
@@ -2531,6 +2679,25 @@ function sanitizeContactInstruction(value) {
 	return truncateAtWord(sentence || text, 220);
 }
 
+function sanitizeDescription(value) {
+	const text = normalizeText(value);
+	if (!text || isLowValueDescription(text)) return null;
+	const sentences = text
+		.split(/(?<=[.!?])\s+/)
+		.map((part) => normalizeText(part))
+		.filter(Boolean)
+		.filter((part) => !isLikelyBoilerplateText(part));
+	if (!sentences.length) return null;
+	const chosen = [];
+	for (const sentence of sentences) {
+		if (sentence.length < 35) continue;
+		chosen.push(sentence);
+		if (chosen.length >= 3) break;
+	}
+	const output = chosen.length ? chosen.join(' ') : sentences[0];
+	return truncateAtWord(output, 900);
+}
+
 function deriveTaglineFromDescription(description) {
 	const text = normalizeText(description || '');
 	if (!text) return null;
@@ -2557,6 +2724,7 @@ function shouldRunNarrativePass({ fields = {}, fieldEvidence = {} }) {
 		if (!fields?.[key]) return true;
 	}
 	if ((fields.tagline || '').length > 130) return true;
+	if (isLowValueDescription(fields.description || '')) return true;
 	if (isLowValueContactInstruction(fields.preferred_contact_method_instructions || '')) return true;
 	const criticalNarrative = ['tagline', 'description', 'how_to_join_instructions'];
 	for (const key of criticalNarrative) {
@@ -2632,6 +2800,8 @@ function applyFieldQualityGuards({
 	if (!out.tagline)
 		out.tagline =
 			sanitizeTagline(baseline.tagline || '') || deriveTaglineFromDescription(out.description);
+	out.description = sanitizeDescription(out.description);
+	if (!out.description) out.description = sanitizeDescription(baseline.description || '');
 
 	out.preferred_contact_method_instructions = sanitizeContactInstruction(
 		out.preferred_contact_method_instructions
@@ -2710,13 +2880,27 @@ async function crawlImportantSitePages({
 	const predictablePaths = [
 		'/about',
 		'/about-us',
+		'/our-story',
+		'/who-we-are',
 		'/mission',
+		'/about/mission',
+		'/about/who-we-are',
+		'/join-us',
 		'/rides',
 		'/events',
 		'/calendar',
 		'/join',
 		'/membership',
+		'/members',
 		'/contact',
+		'/contact-us',
+		'/support',
+		'/volunteer',
+		'/team',
+		'/leadership',
+		'/programs',
+		'/news',
+		'/blog',
 		'/faq',
 		'/community'
 	];
@@ -2942,7 +3126,9 @@ function scoreInternalLink(url, anchorText = '', depth = 0) {
 	}
 
 	if (/^\/(about|about-us|mission|our-story)$/.test(path)) score += 6;
+	if (/^\/(who-we-are|our-mission|about\/mission|about\/who-we-are)$/.test(path)) score += 5.5;
 	if (/^\/(join|membership|get-involved|members)$/.test(path)) score += 7;
+	if (/^\/(join-us|become-a-member|support|volunteer)$/.test(path)) score += 6.2;
 	if (/^\/(contact|contact-us)$/.test(path)) score += 6;
 	if (/^\/(rides|events|calendar|schedule)$/.test(path)) score += 6;
 
@@ -2985,7 +3171,10 @@ function extractPageSignals(html) {
 	if (!html) return null;
 	const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
 	const metaDescriptionMatch = html.match(
-		/<meta[^>]+name=["']description["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i
+		/<meta[^>]+(?:name|property)=["'](?:description|og:description|twitter:description)["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i
+	);
+	const metaTitleMatch = html.match(
+		/<meta[^>]+(?:name|property)=["'](?:og:title|twitter:title)["'][^>]*content=["']([\s\S]*?)["'][^>]*>/i
 	);
 	const h1Matches = Array.from(html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi))
 		.map((m) => normalizeText(m[1] || ''))
@@ -2996,15 +3185,59 @@ function extractPageSignals(html) {
 		.filter(Boolean)
 		.slice(0, 4);
 
-	const title = normalizeText(titleMatch?.[1] || '');
+	const title = normalizeText(titleMatch?.[1] || metaTitleMatch?.[1] || '');
 	const description = normalizeText(metaDescriptionMatch?.[1] || '');
-	if (!title && !description && !h1Matches.length && !h2Matches.length) return null;
+	const images = extractImageSignalsFromHtml(html);
+	if (!title && !description && !h1Matches.length && !h2Matches.length && !images) return null;
 	return {
 		title: truncate(title, 180),
 		description: truncate(description, 260),
 		h1: h1Matches.map((h) => truncate(h, 120)),
-		h2: h2Matches.map((h) => truncate(h, 120))
+		h2: h2Matches.map((h) => truncate(h, 120)),
+		images
 	};
+}
+
+function extractImageSignalsFromHtml(html = '') {
+	if (!html) return null;
+	let dom;
+	try {
+		dom = parseDocument(html, { decodeEntities: true });
+	} catch {
+		return null;
+	}
+	const images = { logo: [], cover: [] };
+	const seen = new Set();
+	const push = (field, url, baseUrl = '') => {
+		const normalized = normalizeAssetUrl(url, baseUrl) || normalizeAnyUrl(url);
+		if (!normalized || seen.has(normalized)) return;
+		seen.add(normalized);
+		images[field].push(normalized);
+	};
+	const visit = (node) => {
+		if (!node || node.type !== 'tag') return;
+		const tag = (node.name || '').toLowerCase();
+		const attrs = node.attribs || {};
+		if (tag === 'meta') {
+			const key = `${attrs.property || attrs.name || ''}`.toLowerCase();
+			const content = attrs.content || '';
+			if (!content) return;
+			if (/(^|:)(og:image|twitter:image|twitter:image:src|image)$/i.test(key)) {
+				push('cover', content);
+			}
+			if (/(logo|profile_pic|avatar)/i.test(key)) push('logo', content);
+		}
+		if (tag === 'link') {
+			const rel = `${attrs.rel || ''}`.toLowerCase();
+			const href = attrs.href || '';
+			if (!href) return;
+			if (/(apple-touch-icon|icon|shortcut icon|mask-icon)/i.test(rel)) push('logo', href);
+			if (/(preload|image_src)/i.test(rel)) push('cover', href);
+		}
+		for (const child of node.children || []) visit(child);
+	};
+	for (const child of dom.children || []) visit(child);
+	return images.logo.length || images.cover.length ? images : null;
 }
 
 function rankDocsForContext(docs, crawlPlan = []) {
@@ -3039,6 +3272,116 @@ function buildPageSignalsText(signals) {
 	if (signals.h1?.length) lines.push(`H1: ${signals.h1.join(' | ')}`);
 	if (signals.h2?.length) lines.push(`H2: ${signals.h2.join(' | ')}`);
 	return lines.join('\n');
+}
+
+function buildAnalysisText({ html = '', readerText = '', fallbackText = '', pageSignals = null }) {
+	const sections = [];
+	const signalText = buildPageSignalsText(pageSignals);
+	if (signalText) sections.push(signalText);
+	const htmlBlocks = extractHighValueHtmlBlocks(html);
+	const readerBlocks = extractHighValueTextBlocks(readerText);
+	const fallbackBlocks = extractHighValueTextBlocks(fallbackText);
+	const blocks = htmlBlocks.length ? htmlBlocks : readerBlocks.length ? readerBlocks : fallbackBlocks;
+	if (blocks.length) sections.push(blocks.slice(0, 8).join('\n\n'));
+	return truncate(
+		sections.map((part) => normalizeText(part)).filter(Boolean).join('\n\n'),
+		MAX_TEXT_PER_DOC
+	);
+}
+
+function extractHighValueHtmlBlocks(html = '') {
+	if (!html) return [];
+	let dom;
+	try {
+		dom = parseDocument(html, { decodeEntities: true });
+	} catch {
+		return [];
+	}
+	const blocks = [];
+	const seen = new Set();
+	const visit = (node) => {
+		if (!node || node.type !== 'tag') return;
+		const tag = (node.name || '').toLowerCase();
+		if (HTML_SKIP_TAGS.has(tag)) return;
+		if (HTML_BLOCK_TAGS.has(tag)) {
+			const text = normalizeText(DomUtils.getText(node) || '');
+			if (!text) return;
+			const key = text.toLowerCase();
+			if (seen.has(key) || isLowValueBlockText(text)) return;
+			seen.add(key);
+			blocks.push({ text, score: scoreContentBlock(text, tag) });
+			return;
+		}
+		for (const child of node.children || []) visit(child);
+	};
+	for (const child of dom.children || []) visit(child);
+	return blocks
+		.sort((a, b) => b.score - a.score)
+		.map((item) => item.text)
+		.slice(0, 12);
+}
+
+function extractHighValueTextBlocks(text = '') {
+	if (!text) return [];
+	const rawBlocks = text
+		.replace(/\r/g, '\n')
+		.split(/\n{2,}/)
+		.map((part) => normalizeText(part))
+		.filter(Boolean);
+	const blocks = [];
+	const seen = new Set();
+	for (const block of rawBlocks) {
+		const key = block.toLowerCase();
+		if (seen.has(key) || isLowValueBlockText(block)) continue;
+		seen.add(key);
+		blocks.push({ text: block, score: scoreContentBlock(block, 'p') });
+	}
+	return blocks
+		.sort((a, b) => b.score - a.score)
+		.map((item) => item.text)
+		.slice(0, 12);
+}
+
+function scoreContentBlock(text = '', tag = '') {
+	const normalized = normalizeText(text);
+	if (!normalized) return -10;
+	let score = 0;
+	const length = normalized.length;
+	if (tag === 'h1' || tag === 'h2') score += 4;
+	else if (tag === 'h3' || tag === 'h4') score += 2.5;
+	else if (tag === 'li') score += 0.8;
+	else score += 1.5;
+	if (length >= 40 && length <= 220) score += 3;
+	else if (length > 220 && length <= 420) score += 1.5;
+	else if (length < 25) score -= 3.5;
+	if (
+		/\b(about|mission|join|membership|ride|event|program|community|contact|support|serve|who we are)\b/i.test(
+			normalized
+		)
+	)
+		score += 2.2;
+	if (
+		/\b(we are|our mission|our work|join us|contact us|how to join|members|volunteer)\b/i.test(
+			normalized
+		)
+	)
+		score += 1.8;
+	if (/\b(copyright|quick links|privacy|terms|home|login|sign in)\b/i.test(normalized))
+		score -= 4.5;
+	return score;
+}
+
+function isLowValueBlockText(text = '') {
+	const normalized = normalizeText(text);
+	if (!normalized) return true;
+	if (isLikelyBoilerplateText(normalized)) return true;
+	const lower = normalized.toLowerCase();
+	let markerCount = 0;
+	for (const marker of DESCRIPTION_BOILERPLATE_MARKERS) {
+		if (lower.includes(marker)) markerCount += 1;
+		if (markerCount >= 2) return true;
+	}
+	return false;
 }
 
 function normalizeText(text = '') {
@@ -3289,7 +3632,7 @@ function buildHighLevelHints(
 ) {
 	const hints = [];
 	const combined = docs
-		.map((doc) => doc?.text || '')
+		.map((doc) => doc?.analysisText || doc?.text || '')
 		.join(' ')
 		.toLowerCase();
 	const add = (condition, message) => {
