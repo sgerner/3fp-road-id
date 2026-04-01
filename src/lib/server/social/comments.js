@@ -5,7 +5,7 @@ import {
 	listGroupSocialComments,
 	listGroupSocialPosts,
 	setGroupSocialAccountStatus,
-	upsertGroupSocialComment
+	upsertGroupSocialCommentsBatch
 } from '$lib/server/social/db';
 import {
 	fetchConnectedAccountComments,
@@ -102,16 +102,18 @@ export async function syncGroupSocialComments(
 				account: { ...account, accessToken },
 				limit
 			});
-			for (const comment of comments) {
+
+			const upsertPayloads = comments.map((comment) => {
 				const linkedPostId = resolveLinkedSocialPostId(comment, postLookup);
-				await upsertGroupSocialComment(supabase, {
+				return {
 					group_id: groupId,
 					social_account_id: account.id,
 					social_post_id: linkedPostId,
 					...comment
-				});
-				inserted += 1;
-			}
+				};
+			});
+			inserted += await upsertGroupSocialCommentsBatch(supabase, upsertPayloads);
+
 			syncSummary.push({
 				platform: account.platform,
 				ok: true,

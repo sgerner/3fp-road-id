@@ -7,6 +7,8 @@ import {
 	loadRideById
 } from '$lib/server/activities';
 
+const EMAIL_SEND_CONCURRENCY = 10;
+
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
@@ -16,6 +18,14 @@ function textToHtml(text) {
 		.split(/\n{2,}/)
 		.map((block) => `<p>${block.replace(/\n/g, '<br />')}</p>`)
 		.join('');
+}
+
+async function runInBatches(items, batchSize, worker) {
+	const safeBatchSize = Math.max(1, Number.parseInt(String(batchSize), 10) || 1);
+	for (let index = 0; index < items.length; index += safeBatchSize) {
+		const batch = items.slice(index, index + safeBatchSize);
+		await Promise.all(batch.map((item) => worker(item)));
+	}
 }
 
 export async function POST(event) {
@@ -45,18 +55,23 @@ export async function POST(event) {
 	);
 	if (!occurrence) return invalid('Ride occurrence not found.', 404);
 
-	const recipients = occurrence.rsvps
-		.filter((rsvp) => rsvp.status === 'going' && rsvp.participantEmail)
-		.map((rsvp) => rsvp.participantEmail);
+	const recipients = Array.from(
+		new Set(
+			occurrence.rsvps
+				.filter((rsvp) => rsvp.status === 'going' && rsvp.participantEmail)
+				.map((rsvp) => rsvp.participantEmail)
+		)
+	);
 	if (!recipients.length) return invalid('No active participants found for this occurrence.', 400);
 
-	for (const recipient of recipients) {
+	const htmlBody = textToHtml(payload.body);
+	await runInBatches(recipients, EMAIL_SEND_CONCURRENCY, async (recipient) =>
 		await sendEmail(
 			{
 				to: recipient,
 				subject: payload.subject,
 				text: payload.body,
-				html: textToHtml(payload.body),
+				html: htmlBody,
 				replyTo: ride.activity.contact_email || undefined,
 				tags: [
 					{ Name: 'context', Value: 'ride-organizer-broadcast' },
@@ -65,8 +80,8 @@ export async function POST(event) {
 				]
 			},
 			{ fetch }
-		);
-	}
+		)
+	);
 
 	return json({
 		data: {

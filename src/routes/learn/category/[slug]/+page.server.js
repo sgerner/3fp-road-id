@@ -1,6 +1,28 @@
 import { error, fail } from '@sveltejs/kit';
 import { getLearnClient, slugifyLearn } from '$lib/server/learn';
 
+function normalizeOrderItemList(type, value) {
+	if (!Array.isArray(value)) return [];
+	if (type === 'subcategory') {
+		return value
+			.map((item) => ({
+				id: String(item?.id || '').trim(),
+				sort_order: Number.parseInt(String(item?.sort_order), 10)
+			}))
+			.filter((item) => item.id && Number.isFinite(item.sort_order));
+	}
+	if (type === 'article') {
+		return value
+			.map((item) => ({
+				id: String(item?.id || '').trim(),
+				sort_order: Number.parseInt(String(item?.sort_order), 10),
+				subcategory_slug: item?.subcategory_slug ? String(item.subcategory_slug).trim() : null
+			}))
+			.filter((item) => item.id && Number.isFinite(item.sort_order));
+	}
+	return [];
+}
+
 export const load = async ({ params, cookies }) => {
 	const { user, supabase } = getLearnClient(cookies);
 
@@ -74,25 +96,18 @@ export const actions = {
 		const type = formData.get('type');
 		const itemsStr = formData.get('items');
 		try {
-			const items = JSON.parse(itemsStr);
-			if (type === 'subcategory') {
-				for (const item of items) {
-					await supabase
-						.from('learn_subcategories')
-						.update({ sort_order: item.sort_order })
-						.eq('slug', item.id);
-				}
-			} else if (type === 'article') {
-				for (const item of items) {
-					await supabase
-						.from('learn_articles')
-						.update({
-							sort_order: item.sort_order,
-							subcategory_slug: item.subcategory_slug || null
-						})
-						.eq('id', item.id);
-				}
+			if (type !== 'subcategory' && type !== 'article') {
+				return fail(400, { error: 'Invalid order update type' });
 			}
+
+			const parsedItems = JSON.parse(String(itemsStr || '[]'));
+			const normalizedItems = normalizeOrderItemList(type, parsedItems);
+
+			const { error: updateError } = await supabase.rpc('learn_apply_order_updates', {
+				p_type: type,
+				p_items: normalizedItems
+			});
+			if (updateError) return fail(400, { error: updateError.message });
 		} catch (e) {
 			return fail(400, { error: 'Invalid order data' });
 		}
