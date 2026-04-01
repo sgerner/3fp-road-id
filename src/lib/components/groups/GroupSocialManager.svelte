@@ -2580,118 +2580,164 @@
 												Press Enter to send, Shift+Enter for new line
 											</p>
 										{/if}
-										<div class="ai-draft-panel__controls">
-											<label class="ai-style-label">
-												<span class="field-label-sm">Image Model</span>
-												<select class="ai-style-select" bind:value={aiImageModelId}>
-													{#each SOCIAL_IMAGE_GENERATION_MODELS as option}
-														<option value={option.id}>{option.label}</option>
+										<!-- AI Settings Row -->
+										<div class="ai-settings-row">
+											<!-- Tone -->
+											<div class="ai-setting">
+												<label class="ai-setting__label" for="ai-tone">Tone</label>
+												<select
+													id="ai-tone"
+													class="ai-setting__select"
+													bind:value={aiToneId}
+													disabled={composerReadOnly}
+												>
+													{#each AI_TONE_OPTIONS as tone}
+														<option value={tone.id}>{tone.label}</option>
 													{/each}
 												</select>
-											</label>
-											<label class="ai-style-label">
-												<span class="field-label-sm">Tone</span>
-												<select class="ai-style-select" bind:value={aiToneId}>
-													{#each AI_TONE_OPTIONS as option}
-														<option value={option.id}>{option.label}</option>
+											</div>
+
+											<!-- Style -->
+											<div class="ai-setting ai-setting--grow">
+												<label class="ai-setting__label" for="ai-style">Style</label>
+												<select
+													id="ai-style"
+													class="ai-setting__select"
+													bind:value={aiStyleId}
+													disabled={composerReadOnly}
+												>
+													{#each IMAGE_STYLE_PRESETS as style}
+														<option value={style.id}>{style.label}</option>
 													{/each}
 												</select>
-												<p class="ai-style-description">
-													{selectedAiTone.guidance}
-													<br />
-													{selectedAiTone.example}
-												</p>
-											</label>
-											<label class="ai-style-label">
-												<span class="field-label-sm">Art Style</span>
-												<select class="ai-style-select" bind:value={aiStyleId}>
-													{#each IMAGE_STYLE_PRESETS as preset}
-														<option value={preset.id}>{preset.label}</option>
-													{/each}
-												</select>
-												{#if selectedAiStyle?.description}
-													<p class="ai-style-description">{selectedAiStyle.description}</p>
-												{/if}
+											</div>
+
+											<!-- Model Toggle -->
+											<div class="ai-setting">
+												<span class="ai-setting__label">Model</span>
+												<div class="ai-model-toggle">
+													<button
+														type="button"
+														class="ai-model-toggle__btn"
+														class:ai-model-toggle__btn--active={aiImageModelId ===
+															'bedrock/stability-stable-image-core-v1'}
+														onclick={() =>
+															(aiImageModelId = 'bedrock/stability-stable-image-core-v1')}
+														disabled={composerReadOnly}
+													>
+														Stable
+													</button>
+													<button
+														type="button"
+														class="ai-model-toggle__btn"
+														class:ai-model-toggle__btn--active={aiImageModelId ===
+															'google/gemini-3.1-flash-image-preview'}
+														onclick={() =>
+															(aiImageModelId = 'google/gemini-3.1-flash-image-preview')}
+														disabled={composerReadOnly}
+													>
+														Gemini
+													</button>
+												</div>
+											</div>
+										</div>
+
+										<!-- Optional: Tone description hint -->
+										{#if selectedAiTone?.guidance}
+											<p class="ai-tone-hint">{selectedAiTone.guidance}</p>
+										{/if}
+
+										<!-- Conditional Options -->
+										{#if requiresAiStateSelection || requiresAiBikeVibeSelection}
+											<div class="ai-conditional-row">
 												{#if requiresAiStateSelection}
-													<span class="field-label-sm mt-2 block">State or territory</span>
-													<select class="ai-style-select" bind:value={aiSelectedStateCode}>
-														<option value="">Select a state</option>
-														{#each US_STATE_OPTIONS as option}
-															<option value={option.code}>
-																{option.name} ({option.code})
-															</option>
-														{/each}
-													</select>
-													{#if aiResolvingState}
-														<p class="ai-style-description">
-															Detecting a default from available location data…
-														</p>
-													{/if}
+													<div class="ai-setting">
+														<label class="ai-setting__label" for="ai-state">State</label>
+														<select
+															id="ai-state"
+															class="ai-setting__select"
+															bind:value={aiSelectedStateCode}
+															disabled={composerReadOnly}
+														>
+															<option value="">Select...</option>
+															{#each US_STATE_OPTIONS as option}
+																<option value={option.code}>{option.code}</option>
+															{/each}
+														</select>
+													</div>
 												{/if}
 												{#if requiresAiBikeVibeSelection}
-													<span class="field-label-sm mt-2 block">Bike type or vibe</span>
-													<select class="ai-style-select" bind:value={aiSelectedBikeVibeId}>
-														<option value="">Select a bike vibe</option>
-														{#each BIKE_VIBE_OPTIONS as option}
-															<option value={option.id}>{option.label}</option>
-														{/each}
-													</select>
-												{/if}
-											</label>
-										</div>
-										{#if aiGeneratedImages.length > 0}
-											<div class="ai-generated-history">
-												<div class="ai-generated-history__header">
-													<span class="field-label-sm">Recent AI Images</span>
-													<span class="ai-generated-history__hint">
-														Selecting one makes it the active post image.
-													</span>
-												</div>
-												<div class="ai-generated-history__grid">
-													{#each aiGeneratedImages as item}
-														{@const selected = item?.url === aiSelectedImageUrl}
-														<div
-															class="ai-generated-history__card"
-															class:ai-generated-history__card--selected={selected}
+													<div class="ai-setting ai-setting--grow">
+														<label class="ai-setting__label" for="ai-bike">Bike Vibe</label>
+														<select
+															id="ai-bike"
+															class="ai-setting__select"
+															bind:value={aiSelectedBikeVibeId}
+															disabled={composerReadOnly}
 														>
-															<button
-																type="button"
-																class="ai-generated-history__preview"
-																onclick={() => selectGeneratedImage(item)}
-																disabled={composerReadOnly}
-															>
-																<img
-																	src={item.url}
-																	alt={item.file_name || 'Generated image'}
-																	class="ai-generated-history__image"
-																/>
-															</button>
-															<div class="ai-generated-history__actions">
-																<button
-																	type="button"
-																	class="ai-generated-history__btn"
-																	onclick={() => selectGeneratedImage(item)}
-																	disabled={composerReadOnly || selected}
-																>
-																	{selected ? 'Active' : 'Use'}
-																</button>
-																<button
-																	type="button"
-																	class="ai-generated-history__icon-btn"
-																	onclick={() => removeGeneratedImage(item.url)}
-																	disabled={composerReadOnly}
-																	aria-label="Remove image"
-																	title="Remove image"
-																>
-																	<IconTrash2 class="h-4 w-4" />
-																</button>
-															</div>
-														</div>
-													{/each}
-												</div>
+															<option value="">Select...</option>
+															{#each BIKE_VIBE_OPTIONS as option}
+																<option value={option.id}>{option.label}</option>
+															{/each}
+														</select>
+													</div>
+												{/if}
 											</div>
 										{/if}
 									</div>
+
+									{#if aiGeneratedImages.length > 0}
+										<div class="ai-generated-history">
+											<div class="ai-generated-history__header">
+												<span class="field-label-sm">Recent AI Images</span>
+												<span class="ai-generated-history__hint">
+													Selecting one makes it the active post image.
+												</span>
+											</div>
+											<div class="ai-generated-history__grid">
+												{#each aiGeneratedImages as item}
+													{@const selected = item?.url === aiSelectedImageUrl}
+													<div
+														class="ai-generated-history__card"
+														class:ai-generated-history__card--selected={selected}
+													>
+														<button
+															type="button"
+															class="ai-generated-history__preview"
+															onclick={() => selectGeneratedImage(item)}
+															disabled={composerReadOnly}
+														>
+															<img
+																src={item.url}
+																alt={item.file_name || 'Generated image'}
+																class="ai-generated-history__image"
+															/>
+														</button>
+														<div class="ai-generated-history__actions">
+															<button
+																type="button"
+																class="ai-generated-history__btn"
+																onclick={() => selectGeneratedImage(item)}
+																disabled={composerReadOnly || selected}
+															>
+																{selected ? 'Active' : 'Use'}
+															</button>
+															<button
+																type="button"
+																class="ai-generated-history__icon-btn"
+																onclick={() => removeGeneratedImage(item.url)}
+																disabled={composerReadOnly}
+																aria-label="Remove image"
+																title="Remove image"
+															>
+																<IconTrash2 class="h-4 w-4" />
+															</button>
+														</div>
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/if}
 								</section>
 
 								<!-- Section divider -->
@@ -2871,22 +2917,19 @@
 											class="composer-preview-toggle composer-preview-toggle--desktop"
 											onclick={toggleComposerPreviewExpanded}
 										>
-											{#if composerPreviewExpandedEffective}
+											<IconMaximize2 class="h-3.5 w-3.5" />
+											View large
+										</button>
+										{#if mobilePreviewOpen}
+											<button
+												type="button"
+												class="composer-preview-toggle composer-preview-toggle--mobile lg:hidden"
+												onclick={closeMobilePreview}
+											>
 												<IconMinimize2 class="h-3.5 w-3.5" />
 												Back to editor
-											{:else}
-												<IconMaximize2 class="h-3.5 w-3.5" />
-												View large
-											{/if}
-										</button>
-										<button
-											type="button"
-											class="composer-preview-toggle composer-preview-toggle--mobile"
-											onclick={closeMobilePreview}
-										>
-											<IconMinimize2 class="h-3.5 w-3.5" />
-											Back to editor
-										</button>
+											</button>
+										{/if}
 									{/if}
 								</div>
 								<div class="composer-preview__image-wrap">
@@ -5250,36 +5293,630 @@
 		}
 
 		.reply-actions {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.ai-reply-btn,
-		.send-reply-btn {
-			justify-content: center;
-		}
-
-		.linked-post-content {
-			flex-direction: column;
-		}
-
-		.linked-post-thumb {
-			width: 100%;
-			height: 8rem;
-		}
-
-		.reply-composer-line,
-		.reply-line {
-			margin-left: 0.5rem;
+			flex-wrap: wrap;
 		}
 	}
 
-	/* Reduce motion preference */
-	@media (prefers-reduced-motion: reduce) {
-		.comment-card,
-		.loading-orb,
-		.loading-spinner {
-			animation: none;
+	/* ─── Compact AI Settings Row ─── */
+	.ai-settings-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+		border-radius: 0.75rem;
+	}
+
+	.ai-setting {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		min-width: 7rem;
+	}
+
+	.ai-setting--grow {
+		flex: 1;
+		min-width: 10rem;
+	}
+
+	.ai-setting__label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-surface-400);
+	}
+
+	.ai-setting__select {
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8125rem;
+		color: var(--color-surface-100);
+		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.5rem;
+		cursor: pointer;
+		outline: none;
+		transition: all 0.15s ease;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' /%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.5rem center;
+		background-size: 1rem;
+		padding-right: 1.75rem;
+	}
+
+	.ai-setting__select:hover:not(:disabled) {
+		background-color: color-mix(in oklab, var(--color-surface-700) 80%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	.ai-setting__select:focus {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
+	}
+
+	.ai-setting__select:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Model Toggle */
+	.ai-model-toggle {
+		display: flex;
+		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+
+	.ai-model-toggle__btn {
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-surface-400);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.ai-model-toggle__btn:hover:not(:disabled) {
+		color: var(--color-surface-200);
+		background: color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+	}
+
+	.ai-model-toggle__btn--active {
+		color: var(--color-surface-100);
+		background: color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
+	}
+
+	.ai-model-toggle__btn--active:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-secondary-500) 35%, transparent);
+	}
+
+	.ai-model-toggle__btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Tone Hint */
+	.ai-tone-hint {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--color-surface-400);
+		margin-top: 0.25rem;
+		padding: 0.5rem 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
+		border-radius: 0.5rem;
+		border-left: 2px solid color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	/* Conditional Row */
+	.ai-conditional-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 30%, transparent);
+		border-radius: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	/* ─── AI Model Chips ─── */
+	.ai-model-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.ai-model-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		background: color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+		border-radius: 9999px;
+		cursor: pointer;
+		transition: all 0.15s ease;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-surface-100);
+	}
+
+	.ai-model-chip:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-500) 50%, transparent);
+	}
+
+	.ai-model-chip--selected {
+		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+		color: var(--color-secondary-300);
+	}
+
+	.ai-model-chip--selected:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 70%, transparent);
+	}
+
+	.ai-model-chip:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-model-chip__check {
+		width: 0.875rem;
+		height: 0.875rem;
+		color: var(--color-secondary-400);
+		flex-shrink: 0;
+	}
+
+	.ai-model-chip__name {
+		white-space: nowrap;
+	}
+
+	.ai-model-chip__badge {
+		font-size: 0.625rem;
+		font-weight: 600;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+		color: white;
+		flex-shrink: 0;
+	}
+
+	/* ─── Simple Selects ─── */
+	.ai-select {
+		width: 100%;
+		padding: 0.625rem 0.875rem;
+		font-size: 0.875rem;
+		color: var(--color-surface-100);
+		background: color-mix(in oklab, var(--color-surface-700) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.625rem;
+		cursor: pointer;
+		outline: none;
+		transition: all 0.15s ease;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' /%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 1.25rem;
+		padding-right: 2.5rem;
+	}
+
+	.ai-select:hover:not(:disabled) {
+		background-color: color-mix(in oklab, var(--color-surface-700) 70%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	.ai-select:focus {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+		box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
+	}
+
+	.ai-select:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-hint {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--color-surface-400);
+		margin-top: 0.375rem;
+	}
+
+	/* ─── AI Style List ─── */
+	.ai-style-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.ai-style-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
+		border-radius: 9999px;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.ai-style-item:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-500) 50%, transparent);
+	}
+
+	.ai-style-item--selected {
+		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+		color: var(--color-secondary-300);
+	}
+
+	.ai-style-item--selected:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 70%, transparent);
+	}
+
+	.ai-style-item:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-style-item__dot {
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 9999px;
+		flex-shrink: 0;
+	}
+
+	/* Color dots for each style */
+	.ai-style-item__dot[data-style='comic_house'] {
+		background: linear-gradient(135deg, #e63946, #f4a261);
+	}
+
+	.ai-style-item__dot[data-style='risograph_patchwork'] {
+		background: linear-gradient(135deg, #ff6b35, #004e89);
+	}
+
+	.ai-style-item__dot[data-style='quiet_gouache'] {
+		background: linear-gradient(135deg, #a8dadc, #457b9d);
+	}
+
+	.ai-style-item__dot[data-style='wpa_travel_poster'] {
+		background: linear-gradient(135deg, #264653, #e9c46a);
+	}
+
+	.ai-style-item__dot[data-style='bubbly_nautical_cartoon'] {
+		background: linear-gradient(135deg, #00b4d8, #ff006e);
+	}
+
+	.ai-style-item__dot[data-style='anime'] {
+		background: linear-gradient(135deg, #c77dff, #ffbe0b);
+	}
+
+	.ai-style-item__dot[data-style='crafty_clay'] {
+		background: linear-gradient(135deg, #d4a373, #ccd5ae);
+	}
+
+	.ai-style-item__dot[data-style='fantasy_art'] {
+		background: linear-gradient(135deg, #3d1f7a, #f72585);
+	}
+
+	.ai-style-item__dot[data-style='line_art'] {
+		background: linear-gradient(135deg, #212529, #adb5bd);
+	}
+
+	.ai-style-item__dot[data-style='origami'] {
+		background: linear-gradient(135deg, #f8f9fa, #adb5bd);
+	}
+
+	.ai-style-item__dot[data-style='pixel_art'] {
+		background: repeating-linear-gradient(
+			45deg,
+			#ff0000 0px,
+			#ff0000 2px,
+			#00ff00 2px,
+			#00ff00 4px,
+			#0000ff 4px,
+			#0000ff 6px
+		);
+	}
+
+	.ai-style-item__dot[data-style='bike_vibe_spotlight'] {
+		background: linear-gradient(135deg, #06d6a0, #118ab2);
+	}
+
+	.ai-style-item__dot[data-style='state_mascot_bike'] {
+		background: linear-gradient(135deg, #ff9f1c, #2ec4b6);
+	}
+
+	.ai-style-item__name {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-surface-100);
+		white-space: nowrap;
+	}
+
+	.ai-style-item--selected .ai-style-item__name {
+		color: var(--color-secondary-200);
+	}
+
+	.ai-style-item__check {
+		width: 0.875rem;
+		height: 0.875rem;
+		color: var(--color-secondary-400);
+		flex-shrink: 0;
+	}
+
+	.ai-style-hint {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--color-surface-400);
+		margin-top: 0.5rem;
+	}
+
+	.ai-tone-trigger {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: color-mix(in oklab, var(--color-surface-700) 50%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.625rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.ai-tone-trigger:hover:not(:disabled) {
+		background: color-mix(in oklab, var(--color-surface-700) 70%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	.ai-tone-trigger:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-tone-trigger__content {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.125rem;
+		min-width: 0;
+	}
+
+	.ai-tone-trigger__name {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--color-surface-100);
+	}
+
+	.ai-tone-trigger__preview {
+		font-size: 0.75rem;
+		color: var(--color-surface-400);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+	}
+
+	.ai-tone-trigger__chevron {
+		width: 1.25rem;
+		height: 1.25rem;
+		color: var(--color-surface-400);
+		flex-shrink: 0;
+		transition: transform 0.2s ease;
+	}
+
+	.ai-tone-dropdown {
+		position: absolute;
+		top: calc(100% + 0.375rem);
+		left: 0;
+		right: 0;
+		background: color-mix(in oklab, var(--color-surface-800) 98%, var(--color-surface-700) 2%);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.75rem;
+		box-shadow:
+			0 10px 40px -10px color-mix(in oklab, var(--color-surface-950) 90%, transparent),
+			0 0 0 1px color-mix(in oklab, var(--color-surface-700) 30%, transparent);
+		z-index: 100;
+		max-height: 20rem;
+		overflow-y: auto;
+		opacity: 0;
+		visibility: hidden;
+		transform: translateY(-0.5rem);
+		transition: all 0.2s ease;
+	}
+
+	.ai-tone-dropdown--open {
+		opacity: 1;
+		visibility: visible;
+		transform: translateY(0);
+	}
+
+	.ai-tone-option {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.25rem;
+		padding: 0.875rem 1rem;
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-600) 20%, transparent);
+		cursor: pointer;
+		transition: background 0.15s ease;
+		text-align: left;
+	}
+
+	.ai-tone-option:last-child {
+		border-bottom: none;
+	}
+
+	.ai-tone-option:hover {
+		background: color-mix(in oklab, var(--color-surface-700) 40%, transparent);
+	}
+
+	.ai-tone-option--selected {
+		background: color-mix(in oklab, var(--color-secondary-500) 10%, transparent);
+	}
+
+	.ai-tone-option--selected:hover {
+		background: color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
+	}
+
+	.ai-tone-option__header {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.ai-tone-option__name {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-surface-100);
+	}
+
+	.ai-tone-option__check {
+		width: 1rem;
+		height: 1rem;
+		color: var(--color-secondary-400);
+	}
+
+	.ai-tone-option__desc {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--color-surface-400);
+	}
+
+	.ai-tone-option__example {
+		font-size: 0.6875rem;
+		font-style: italic;
+		color: var(--color-surface-500);
+		padding-left: 0.5rem;
+		border-left: 2px solid color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	}
+
+	/* ─── Conditional Fields ─── */
+	.ai-conditional-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.ai-conditional-field__label {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-surface-300);
+	}
+
+	.ai-conditional-field__icon {
+		width: 0.875rem;
+		height: 0.875rem;
+		color: var(--color-secondary-400);
+	}
+
+	.ai-conditional-field__select {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8125rem;
+		color: var(--color-surface-100);
+		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		border-radius: 0.5rem;
+		cursor: pointer;
+		outline: none;
+		transition: all 0.15s ease;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' /%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.625rem center;
+		background-size: 1rem;
+		padding-right: 2rem;
+	}
+
+	.ai-conditional-field__select:hover:not(:disabled) {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+		background-color: color-mix(in oklab, var(--color-surface-700) 80%, transparent);
+	}
+
+	.ai-conditional-field__select:focus {
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+		box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
+	}
+
+	.ai-conditional-field__select:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.ai-conditional-field__hint {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.6875rem;
+		color: var(--color-surface-400);
+	}
+
+	.ai-conditional-field__spinner {
+		width: 0.875rem;
+		height: 0.875rem;
+		animation: spin 1s linear infinite;
+	}
+
+	/* ─── Mobile Optimizations for AI Config ─── */
+	@media (max-width: 640px) {
+		.ai-config-panel {
+			padding: 0.875rem;
+		}
+
+		.ai-model-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.ai-style-grid {
+			grid-template-columns: repeat(2, 1fr);
+			max-height: 14rem;
+		}
+
+		.ai-tone-dropdown {
+			position: fixed;
+			inset: auto;
+			left: 0.75rem;
+			right: 0.75rem;
+			top: 50%;
+			transform: translateY(-50%);
+			max-height: 60vh;
+			box-shadow:
+				0 25px 50px -12px color-mix(in oklab, var(--color-surface-950) 95%, transparent),
+				0 0 0 9999px color-mix(in oklab, var(--color-surface-950) 80%, transparent);
+		}
+
+		.ai-tone-dropdown--open {
+			transform: translateY(-50%);
+		}
+	}
+
+	@media (min-width: 641px) and (max-width: 1023px) {
+		.ai-style-grid {
+			grid-template-columns: repeat(3, 1fr);
 		}
 	}
 </style>
