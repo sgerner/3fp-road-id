@@ -103,6 +103,108 @@ Text guidance: avoid paragraphs and dense text blocks; if any lettering appears,
 Avoid direct imitation of existing copyrighted characters or logos, photorealism, muddy palettes, heavy noise, and cluttered unreadable layouts.`
 	},
 	{
+		id: 'anime',
+		label: 'Anime',
+		description:
+			'Expressive anime-inspired illustration with cinematic framing, bold character poses, and clean cel shading.',
+		prompt: `anime-inspired stylized illustration, dynamic composition, expressive character posing, clean linework, cel shading, dramatic but readable lighting, poster-ready scene design, not photorealistic
+
+Visual characteristics: crisp outlines, simplified high-contrast shading, clear focal subject, strong silhouettes, selective environmental detail.
+
+Color direction: vibrant but controlled palette with defined shadow tones and highlight accents; avoid muddy realism.
+
+Composition rules: cinematic framing, clear depth layers, action-forward posture, scene clarity at thumbnail size.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid direct imitation of copyrighted characters, logos, photorealistic skin rendering, and cluttered backgrounds.`
+	},
+	{
+		id: 'crafty_clay',
+		label: 'Crafty Clay',
+		description:
+			'Handmade clay-diorama look with tactile textures, playful forms, and stop-motion charm.',
+		prompt: `handcrafted clay art style, miniature diorama aesthetic, tactile sculpted forms, soft studio lighting, subtle stop-motion charm, whimsical composition, not photorealistic
+
+Visual characteristics: visible clay fingerprints, rounded handmade forms, layered paper-and-clay props, soft shadows, practical handcrafted imperfections.
+
+Color direction: warm playful palette with matte clay surfaces, balanced contrast, no glossy CGI plastic look.
+
+Composition rules: one strong focal subject, simple layered environment, clear foreground/midground/background separation.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid hyper-real CGI, polished 3D rendering, tiny noisy details, and logo-heavy props.`
+	},
+	{
+		id: 'fantasy_art',
+		label: 'Fantasy Art',
+		description:
+			'Epic fantasy illustration with painterly atmosphere, symbolic worldbuilding, and heroic visual storytelling.',
+		prompt: `stylized fantasy illustration, epic yet readable scene, painterly atmosphere, heroic composition, imaginative environmental storytelling, not photorealistic
+
+Visual characteristics: dramatic skies, rich texture, stylized light shafts, symbolic props, strong silhouette readability.
+
+Color direction: high-contrast cinematic palette with jewel tones and warm highlights; avoid washed-out realism.
+
+Composition rules: clear hero subject, layered depth, environmental motifs that support mythic tone without clutter.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid copied IP, modern brand logos, photoreal human skin detail, and overpacked chaotic scenes.`
+	},
+	{
+		id: 'line_art',
+		label: 'Line Art',
+		description:
+			'Minimalist line-focused illustration with strong contours, elegant negative space, and editorial clarity.',
+		prompt: `minimalist line-art illustration, clean contour drawing, bold and delicate stroke variation, strong negative space, graphic editorial clarity, not photorealistic
+
+Visual characteristics: high line fidelity, limited fill areas, restrained shading, simplified forms, crisp composition.
+
+Color direction: monochrome or very limited accent palette; prioritize line hierarchy over color complexity.
+
+Composition rules: clear primary subject, uncluttered framing, strong readability at small sizes.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid dense crosshatching noise, painterly realism, 3D rendering artifacts, and cluttered backgrounds.`
+	},
+	{
+		id: 'origami',
+		label: 'Origami',
+		description:
+			'Paper-folded origami aesthetic with geometric forms, crisp creases, and handcrafted visual rhythm.',
+		prompt: `origami-inspired paper art illustration, folded geometric forms, visible crease lines, layered paper scene construction, handcrafted precision, not photorealistic
+
+Visual characteristics: faceted paper surfaces, crisp folds, tactile paper grain, directional shadows, simplified shape language.
+
+Color direction: harmonious paper palette with 3 to 6 tones, clean contrast, no glossy plastic materials.
+
+Composition rules: one clear focal subject built from folded forms, balanced scene geometry, strong depth cues.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid CGI realism, chaotic micro-fold detail, logo marks, and visual clutter that breaks paper readability.`
+	},
+	{
+		id: 'pixel_art',
+		label: 'Pixel Art',
+		description:
+			'Retro pixel-art scene with deliberate sprite-like forms, limited palette, and crisp low-res style.',
+		prompt: `retro pixel art illustration, deliberate low-resolution sprite aesthetic, visible pixel grid, limited palette, game-like scene readability, not photorealistic
+
+Visual characteristics: crisp pixel edges, blocky forms, controlled dithering, simple tile-like backgrounds, strong icon clarity.
+
+Color direction: tightly limited palette with intentional contrast bands; avoid smooth gradients and anti-aliased blur.
+
+Composition rules: clear central subject, clean background separation, readable silhouette at very small sizes.
+
+Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
+
+Avoid modern painterly rendering, vector-like smooth curves, noisy texture overlays, and over-detailed backgrounds.`
+	},
+	{
 		id: BIKE_VIBE_STYLE_ID,
 		label: 'Bike Vibe Spotlight',
 		description:

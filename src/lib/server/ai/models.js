@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { env } from '$env/dynamic/private';
+import { IMAGE_GENERATION_MODEL_IDS } from '$lib/ai/imageGenerationModels';
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',
@@ -17,7 +19,8 @@ const MODEL_ID = {
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
 	GEMINI_31_FLASH_LITE_PREVIEW: 'google/gemini-3.1-flash-lite-preview',
-	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview'
+	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview',
+	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
 };
 
 const AI_MODELS = {
@@ -87,6 +90,13 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_INPUT,
 			AI_CAPABILITIES.MULTIMODAL_OUTPUT
 		]
+	},
+	[MODEL_ID.STABLE_IMAGE_CORE]: {
+		id: MODEL_ID.STABLE_IMAGE_CORE,
+		provider: 'bedrock',
+		model: 'stability.stable-image-core-v1:1',
+		label: 'Stable Image Core',
+		capabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	}
 };
 
@@ -143,6 +153,17 @@ const AI_MODEL_PROFILES = {
 
 let cachedGoogleClient = null;
 let cachedGoogleApiKey = null;
+let cachedBedrockClient = null;
+let cachedBedrockConfigKey = null;
+
+const STABLE_IMAGE_CORE_ASPECT_RATIO_MAP = {
+	'1:1': '1:1',
+	'3:4': '2:3',
+	'4:3': '3:2',
+	'4:5': '4:5',
+	'9:16': '9:16',
+	'16:9': '16:9'
+};
 
 function convertSchemaNode(node) {
 	if (!node || typeof node !== 'object' || Array.isArray(node)) {
@@ -207,7 +228,7 @@ function createGoogleProviderClient(ai) {
 				return ai.models.generateContent({ model: fallbackModel, contents, config });
 			}
 		},
-		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '2K' }) {
+		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '1K' }) {
 			const response = await ai.models.generateContent({
 				model,
 				contents: prompt,
@@ -248,6 +269,107 @@ function createGoogleProviderClient(ai) {
 			}
 
 			throw new Error('Model did not return an image.');
+		}
+	};
+}
+
+function mapStableImageCoreAspectRatio(aspectRatio = '16:9') {
+	return STABLE_IMAGE_CORE_ASPECT_RATIO_MAP[aspectRatio] || '16:9';
+}
+
+async function decodeBedrockBody(body) {
+	if (!body) return '';
+	if (typeof body === 'string') return body;
+	if (body instanceof Uint8Array) return new TextDecoder().decode(body);
+	if (typeof body.transformToString === 'function') {
+		return body.transformToString();
+	}
+	if (Symbol.asyncIterator in body) {
+		const chunks = [];
+		for await (const chunk of body) {
+			chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk || []));
+		}
+		return Buffer.concat(chunks).toString('utf8');
+	}
+	return '';
+}
+
+async function invokeBedrockJson(client, { modelId, payload, bearerToken = '', region = '' }) {
+	let text = '';
+
+	if (bearerToken) {
+		const endpoint = `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(modelId)}/invoke`;
+		const response = await fetch(endpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+				Authorization: `Bearer ${bearerToken}`
+			},
+			body: JSON.stringify(payload)
+		});
+		text = await response.text().catch(() => '');
+		if (!response.ok) {
+			throw new Error(text || `Bedrock invoke failed with status ${response.status}.`);
+		}
+	} else {
+		const response = await client.send(
+			new InvokeModelCommand({
+				modelId,
+				contentType: 'application/json',
+				accept: 'application/json',
+				body: JSON.stringify(payload)
+			})
+		);
+		text = await decodeBedrockBody(response?.body);
+	}
+
+	if (!text) {
+		throw new Error('Bedrock model response was empty.');
+	}
+
+	try {
+		return JSON.parse(text);
+	} catch {
+		throw new Error('Bedrock model returned invalid JSON.');
+	}
+}
+
+function createBedrockProviderClient({ client, bearerToken = '', region = '' }) {
+	return {
+		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
+			if (model === 'stability.stable-image-core-v1:1') {
+				const response = await invokeBedrockJson(client, {
+					modelId: model,
+					bearerToken,
+					region,
+					payload: {
+						prompt,
+						aspect_ratio: mapStableImageCoreAspectRatio(aspectRatio),
+						output_format: 'png'
+					}
+				});
+
+				const finishReason = Array.isArray(response?.finish_reasons)
+					? response.finish_reasons.find((reason) => reason != null)
+					: null;
+				if (finishReason) {
+					throw new Error(`Stable Image Core generation failed: ${finishReason}`);
+				}
+
+				const imageBytes = response?.images?.[0];
+				if (!imageBytes) {
+					throw new Error('Stable Image Core returned no image.');
+				}
+
+				return {
+					imageBytes,
+					mimeType: 'image/png',
+					raw: response
+				};
+			}
+
+			throw new Error(`Unsupported Bedrock image model "${model}".`);
 		}
 	};
 }
@@ -309,6 +431,71 @@ function getGoogleClient() {
 	return cachedGoogleClient;
 }
 
+function getBedrockConfigurationIssue() {
+	const bearerToken = env.AWS_BEARER_TOKEN_BEDROCK || null;
+	const region = env.AWS_BEDROCK_REGION || env.AWS_REGION || null;
+	if (!region) {
+		return 'AWS_BEDROCK_REGION or AWS_REGION is not configured.';
+	}
+	if (bearerToken) return null;
+
+	const accessKeyId = env.AWS_BEDROCK_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID || null;
+	const secretAccessKey = env.AWS_BEDROCK_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY || null;
+	if ((accessKeyId && !secretAccessKey) || (!accessKeyId && secretAccessKey)) {
+		return 'Set both AWS_BEDROCK_ACCESS_KEY_ID and AWS_BEDROCK_SECRET_ACCESS_KEY (or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY).';
+	}
+
+	return null;
+}
+
+function getBedrockClient() {
+	const configIssue = getBedrockConfigurationIssue();
+	if (configIssue) return null;
+
+	const region = env.AWS_BEDROCK_REGION || env.AWS_REGION;
+	const bearerToken = (env.AWS_BEARER_TOKEN_BEDROCK || '').trim();
+	const accessKeyId = env.AWS_BEDROCK_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID || null;
+	const secretAccessKey = env.AWS_BEDROCK_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY || null;
+	const sessionToken = env.AWS_BEDROCK_SESSION_TOKEN || env.AWS_SESSION_TOKEN || null;
+	const configKey = [
+		region,
+		bearerToken ? `bearer:${bearerToken.slice(0, 12)}` : '',
+		accessKeyId || '',
+		secretAccessKey ? '1' : '0',
+		sessionToken || ''
+	].join(':');
+
+	if (cachedBedrockClient && cachedBedrockConfigKey === configKey) {
+		return cachedBedrockClient;
+	}
+
+	if (bearerToken) {
+		cachedBedrockClient = createBedrockProviderClient({
+			client: null,
+			bearerToken,
+			region
+		});
+		cachedBedrockConfigKey = configKey;
+		return cachedBedrockClient;
+	}
+
+	const clientConfig = { region };
+	if (accessKeyId && secretAccessKey) {
+		clientConfig.credentials = {
+			accessKeyId,
+			secretAccessKey,
+			...(sessionToken ? { sessionToken } : {})
+		};
+	}
+
+	cachedBedrockClient = createBedrockProviderClient({
+		client: new BedrockRuntimeClient(clientConfig),
+		region
+	});
+	cachedBedrockConfigKey = configKey;
+	return cachedBedrockClient;
+}
+
 function getInceptionClient() {
 	const apiKey = env.INCEPTION_API_KEY || null;
 	if (!apiKey) return null;
@@ -341,12 +528,17 @@ function resolveModelId(profileName) {
 	return env[profile.envVar] || resolveDefaultModelId(profile) || profile.fallbackModelId;
 }
 
-function resolveModel(profileName) {
+function resolveModel(profileName, options = {}) {
 	const profile = resolveProfile(profileName);
-	const modelId = resolveModelId(profileName);
+	const explicitModelId =
+		typeof options?.modelIdOverride === 'string' ? options.modelIdOverride.trim() : '';
+	const modelId = explicitModelId || resolveModelId(profileName);
 	const model = AI_MODELS[modelId];
 
 	if (!model) {
+		if (explicitModelId) {
+			throw new Error(`Unknown AI model "${modelId}".`);
+		}
 		throw new Error(`AI model profile "${profileName}" points to unknown model "${modelId}".`);
 	}
 
@@ -361,18 +553,20 @@ function resolveModel(profileName) {
 
 function resolveProviderClient(provider) {
 	if (provider === 'google') return getGoogleClient();
+	if (provider === 'bedrock') return getBedrockClient();
 	if (provider === 'inception') return getInceptionClient();
 	throw new Error(`Unsupported AI provider "${provider}".`);
 }
 
 function missingApiKeyMessage(provider) {
 	if (provider === 'google') return 'GENAI_API_KEY not configured.';
+	if (provider === 'bedrock') return getBedrockConfigurationIssue() || 'Bedrock is not configured.';
 	if (provider === 'inception') return 'INCEPTION_API_KEY not configured.';
 	return 'AI provider not configured.';
 }
 
-export function getAiModel(profileName) {
-	const model = resolveModel(profileName);
+export function getAiModel(profileName, options = {}) {
+	const model = resolveModel(profileName, options);
 	const client = resolveProviderClient(model.provider);
 
 	if (!client) return null;
@@ -380,8 +574,8 @@ export function getAiModel(profileName) {
 	return { client, model, profile: profileName };
 }
 
-export function requireAiModel(profileName) {
-	const model = resolveModel(profileName);
+export function requireAiModel(profileName, options = {}) {
+	const model = resolveModel(profileName, options);
 	const client = resolveProviderClient(model.provider);
 	if (!client) {
 		throw new Error(missingApiKeyMessage(model.provider));
@@ -389,13 +583,13 @@ export function requireAiModel(profileName) {
 	return { client, model, profile: profileName };
 }
 
-export function getAiConfigurationError(profileName) {
-	const model = resolveModel(profileName);
+export function getAiConfigurationError(profileName, options = {}) {
+	const model = resolveModel(profileName, options);
 	return resolveProviderClient(model.provider) ? null : missingApiKeyMessage(model.provider);
 }
 
-export function isAiModelConfigured(profileName) {
-	return !getAiConfigurationError(profileName);
+export function isAiModelConfigured(profileName, options = {}) {
+	return !getAiConfigurationError(profileName, options);
 }
 
 export function listAiModelProfiles() {

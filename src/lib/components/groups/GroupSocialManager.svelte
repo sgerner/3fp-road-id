@@ -31,6 +31,10 @@
 		IMAGE_STYLE_PRESETS,
 		STATE_MASCOT_STYLE_ID
 	} from '$lib/ai/imageStyles';
+	import {
+		DEFAULT_SOCIAL_IMAGE_GENERATION_MODEL_ID,
+		SOCIAL_IMAGE_GENERATION_MODELS
+	} from '$lib/ai/imageGenerationModels';
 	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '$lib/ai/bikeVibes';
 	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '$lib/geo/usStates';
 	import { toaster } from '../../../routes/toaster-svelte';
@@ -141,6 +145,7 @@
 	let aiPromptInput = $state('');
 	let aiToneId = $state(AI_TONE_OPTIONS[0].id);
 	let aiStyleId = $state(IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house');
+	let aiImageModelId = $state(DEFAULT_SOCIAL_IMAGE_GENERATION_MODEL_ID);
 	let aiConversation = $state([]);
 	let aiGeneratedImages = $state([]);
 	let aiSelectedImageUrl = $state('');
@@ -1398,6 +1403,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					target: 'group',
+					modelId: aiImageModelId,
 					aspectRatio: composerAspectRatio(),
 					styleId: aiStyleId,
 					styleOptions: {
@@ -2415,18 +2421,18 @@
 						{:else if actionNotice}
 							<div class="composer-feedback composer-feedback--success">{actionNotice}</div>
 						{/if}
-							{#if composerPreviewHasImage && !mobilePreviewOpen}
-								<div class="composer-mobile-preview-row">
-									<button
-										type="button"
-										class="composer-mobile-preview-toggle"
-										onclick={toggleMobilePreview}
-									>
-										<IconMaximize2 class="h-3.5 w-3.5" />
-										Show preview
-									</button>
-								</div>
-							{/if}
+						{#if composerPreviewHasImage && !mobilePreviewOpen}
+							<div class="composer-mobile-preview-row">
+								<button
+									type="button"
+									class="composer-mobile-preview-toggle"
+									onclick={toggleMobilePreview}
+								>
+									<IconMaximize2 class="h-3.5 w-3.5" />
+									Show preview
+								</button>
+							</div>
+						{/if}
 
 						<!-- Body: two-panel on large screens -->
 						<div
@@ -2575,6 +2581,14 @@
 											</p>
 										{/if}
 										<div class="ai-draft-panel__controls">
+											<label class="ai-style-label">
+												<span class="field-label-sm">Image Model</span>
+												<select class="ai-style-select" bind:value={aiImageModelId}>
+													{#each SOCIAL_IMAGE_GENERATION_MODELS as option}
+														<option value={option.id}>{option.label}</option>
+													{/each}
+												</select>
+											</label>
 											<label class="ai-style-label">
 												<span class="field-label-sm">Tone</span>
 												<select class="ai-style-select" bind:value={aiToneId}>

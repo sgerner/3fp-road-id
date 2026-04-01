@@ -5,11 +5,16 @@ import {
 	getImageStylePreset,
 	STATE_MASCOT_STYLE_ID
 } from '$lib/ai/imageStyles';
+import {
+	IMAGE_GENERATION_MODEL_IDS,
+	normalizeSocialImageGenerationModelId
+} from '$lib/ai/imageGenerationModels';
 import { getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
 import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
+	getAiModel,
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
@@ -38,6 +43,19 @@ function slugifySegment(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
+function safeParseJson(text) {
+	if (!text) return null;
+	const first = text.indexOf('{');
+	const last = text.lastIndexOf('}');
+	if (first === -1 || last === -1 || last <= first) return null;
+	const candidate = text.slice(first, last + 1).trim();
+	try {
+		return JSON.parse(candidate);
+	} catch {
+		return null;
+	}
+}
+
 function summarizeMarkdown(markdown, limit = 1200) {
 	const normalized = safeTrim(markdown)
 		.replace(/```[\s\S]*?```/g, ' ')
@@ -47,6 +65,65 @@ function summarizeMarkdown(markdown, limit = 1200) {
 		.replace(/[#>*_\-\n\r]+/g, ' ')
 		.replace(/\s+/g, ' ');
 	return normalized.slice(0, limit);
+}
+
+const STABILITY_REWRITE_SCHEMA = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['optimized_prompt'],
+	properties: {
+		optimized_prompt: { type: 'string' }
+	}
+};
+
+async function optimizePromptForStability(
+	finalPrompt,
+	{ allowTextInImage = false, target = 'group' } = {}
+) {
+	const optimizer = getAiModel('narrative_text_fast');
+	if (!optimizer) return finalPrompt;
+
+	const optimizationPrompt = `Rewrite the following image prompt so it works better for Stability AI "Stable Image Core".
+
+Goals:
+- Keep the creative direction, tone, and key constraints intact.
+- Translate abstract language into concrete visual direction (subjects, composition, lighting, scene details).
+- Keep it concise and production-ready for text-to-image.
+- Avoid over-literal interpretation of metaphors and slogans.
+- Prefer one clear scene with one primary focal subject.
+- Preserve aspect-ratio-neutral framing.
+- Preserve whether text is allowed in-image.
+
+Rules:
+- Do not add brand names, logos, watermarks, or copyrighted characters.
+- Do not invent factual event details that are not in the source prompt.
+- If target is a social post cover, optimize for strong thumbnail readability.
+- Return strict JSON: {"optimized_prompt":"..."}.
+
+Generation target: ${safeTrim(target) || 'group'}
+Text allowed in image: ${allowTextInImage ? 'yes' : 'no'}
+
+Source prompt:
+${finalPrompt}`;
+
+	try {
+		const { client, model } = optimizer;
+		const rewritten = await client.generateContent({
+			model: model.model,
+			contents: optimizationPrompt,
+			config: {
+				responseMimeType: 'application/json',
+				responseSchema: STABILITY_REWRITE_SCHEMA
+			}
+		});
+		let text = rewritten?.text ?? '';
+		if (typeof text === 'function') text = text();
+		const parsed = safeParseJson(text);
+		const optimized = sanitizePrompt(parsed?.optimized_prompt || text, 5000);
+		return optimized || finalPrompt;
+	} catch {
+		return finalPrompt;
+	}
 }
 
 function formatContextLines(context = {}) {
@@ -260,10 +337,6 @@ async function persistLearnAsset({
 }
 
 export async function POST({ request, cookies }) {
-	if (!isAiModelConfigured('image_generation')) {
-		return json({ error: getAiConfigurationError('image_generation') }, { status: 503 });
-	}
-
 	const { user } = resolveSession(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
@@ -275,6 +348,18 @@ export async function POST({ request, cookies }) {
 	}
 
 	const payload = await request.json().catch(() => null);
+	const requestedModelId = normalizeSocialImageGenerationModelId(payload?.modelId);
+	if (safeTrim(payload?.modelId) && !requestedModelId) {
+		return json({ error: 'Unsupported image generation model.' }, { status: 400 });
+	}
+	const modelOptions = requestedModelId ? { modelIdOverride: requestedModelId } : {};
+	if (!isAiModelConfigured('image_generation', modelOptions)) {
+		return json(
+			{ error: getAiConfigurationError('image_generation', modelOptions) },
+			{ status: 503 }
+		);
+	}
+
 	const target = safeTrim(payload?.target);
 	if (!ALLOWED_TARGETS.has(target)) {
 		return json({ error: 'Unsupported image target.' }, { status: 400 });
@@ -316,10 +401,14 @@ export async function POST({ request, cookies }) {
 	});
 
 	try {
-		const { client, model } = requireAiModel('image_generation');
+		const { client, model } = requireAiModel('image_generation', modelOptions);
+		const optimizedPrompt =
+			model.id === IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
+				? await optimizePromptForStability(finalPrompt, { allowTextInImage, target })
+				: finalPrompt;
 		const generated = await client.generateImage({
 			model: model.model,
-			prompt: finalPrompt,
+			prompt: optimizedPrompt,
 			aspectRatio
 		});
 
