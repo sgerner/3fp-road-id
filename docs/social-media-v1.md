@@ -47,6 +47,7 @@ Add these server-side variables:
 4. Request/enable scopes used in v1:
    - `pages_show_list`
    - `pages_read_engagement`
+   - `pages_manage_engagement`
    - `pages_manage_posts`
    - `pages_manage_metadata`
    - `pages_read_user_content`

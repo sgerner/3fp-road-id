@@ -22,6 +22,37 @@ function firstString(values = [], maxLength = 0) {
 	return '';
 }
 
+function isFacebookReplyRetryableError(error) {
+	const text = cleanText(error?.message || error, 1200).toLowerCase();
+	if (!text) return false;
+	return (
+		text.includes('permissions error') ||
+		text.includes('insufficient permission') ||
+		text.includes('must be posted to a page as the page itself')
+	);
+}
+
+async function resolveFacebookPageAccessToken({ pageId, accessToken }) {
+	const normalizedPageId = cleanText(pageId, 120);
+	const token = cleanText(accessToken, 5000);
+	if (!normalizedPageId || !token) return '';
+	try {
+		const payload = await callMetaApi({
+			path: '/me/accounts',
+			accessToken: token,
+			query: {
+				fields: 'id,access_token',
+				limit: 50
+			}
+		});
+		const pages = Array.isArray(payload?.data) ? payload.data : [];
+		const selected = pages.find((entry) => cleanText(entry?.id, 120) === normalizedPageId);
+		return cleanText(selected?.access_token, 5000);
+	} catch {
+		return '';
+	}
+}
+
 function extractFacebookPostImage(sourcePost = null) {
 	const direct = firstString(
 		[
@@ -245,26 +276,43 @@ export async function replyToConnectedComment({ platform, account, metaCommentId
 	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
 	const commentId = cleanText(metaCommentId, 200);
 	const message = cleanText(body, 2200);
+	const normalizedPlatform = cleanText(platform, 40).toLowerCase();
 	if (!accessToken) throw new Error('Missing connected account access token.');
 	if (!commentId) throw new Error('Missing comment id.');
 	if (!message) throw new Error('Reply message is required.');
 
 	try {
-		if (platform === 'facebook') {
-			const response = await callMetaApi({
-				path: `/${commentId}/comments`,
-				method: 'POST',
-				accessToken,
-				query: { message }
-			});
+		if (normalizedPlatform === 'facebook') {
+			const postFacebookReply = async (token) =>
+				callMetaApi({
+					path: `/${commentId}/comments`,
+					method: 'POST',
+					accessToken: token,
+					query: { message }
+				});
+			let response = null;
+			let usedPageTokenFallback = false;
+			try {
+				response = await postFacebookReply(accessToken);
+			} catch (primaryError) {
+				if (!isFacebookReplyRetryableError(primaryError)) throw primaryError;
+				const pageToken = await resolveFacebookPageAccessToken({
+					pageId: account?.meta_page_id,
+					accessToken
+				});
+				if (!pageToken || pageToken === accessToken) throw primaryError;
+				response = await postFacebookReply(pageToken);
+				usedPageTokenFallback = true;
+			}
 			return {
 				ok: true,
-				platform,
-				meta_reply_id: cleanText(response?.id, 200) || null
+				platform: normalizedPlatform,
+				meta_reply_id: cleanText(response?.id, 200) || null,
+				used_page_token_fallback: usedPageTokenFallback
 			};
 		}
 
-		if (platform === 'instagram') {
+		if (normalizedPlatform === 'instagram') {
 			const response = await (async () => {
 				try {
 					return await callInstagramApi({
@@ -286,17 +334,26 @@ export async function replyToConnectedComment({ platform, account, metaCommentId
 			})();
 			return {
 				ok: true,
-				platform,
+				platform: normalizedPlatform,
 				meta_reply_id: cleanText(response?.id, 200) || null
 			};
 		}
 
-		throw new Error(`Unsupported platform: ${platform}`);
+		throw new Error(`Unsupported platform: ${normalizedPlatform || platform}`);
 	} catch (error) {
+		const message = normalizeMetaError(error, 'Unable to send comment reply.');
+		if (normalizedPlatform === 'facebook' && /permissions?\s+error/i.test(message)) {
+			return {
+				ok: false,
+				platform: normalizedPlatform,
+				error:
+					'Facebook permissions error. Reconnect Facebook and approve pages_manage_engagement, then try again.'
+			};
+		}
 		return {
 			ok: false,
-			platform,
-			error: normalizeMetaError(error, 'Unable to send comment reply.')
+			platform: normalizedPlatform || platform,
+			error: message
 		};
 	}
 }

@@ -32,6 +32,12 @@ function isTokenInvalidError(error) {
 	);
 }
 
+function isPermissionsError(error) {
+	const text = cleanText(error, 1200).toLowerCase();
+	if (!text) return false;
+	return text.includes('permissions error') || text.includes('insufficient permission');
+}
+
 function platformName(platform) {
 	return cleanText(platform, 40).toLowerCase() === 'instagram' ? 'Instagram' : 'Facebook';
 }
@@ -177,6 +183,21 @@ export async function replyToGroupSocialComment(supabase, { groupId, commentId, 
 	});
 
 	if (!result.ok) {
+		const errorMessage = result.error || 'Reply failed.';
+		if (isPermissionsError(errorMessage)) {
+			const hint =
+				cleanText(comment.platform, 40).toLowerCase() === 'facebook'
+					? 'Facebook permissions are missing (pages_manage_engagement). Reconnect required.'
+					: 'Instagram permissions are missing. Reconnect required.';
+			await setGroupSocialAccountStatus(supabase, {
+				groupId,
+				platform: comment.platform,
+				status: 'error',
+				lastError: hint
+			}).catch(() => {
+				// ignore status update failures while reporting reply errors
+			});
+		}
 		const failed = await createGroupSocialCommentReply(supabase, {
 			group_comment_id: comment.id,
 			group_id: groupId,
@@ -184,12 +205,12 @@ export async function replyToGroupSocialComment(supabase, { groupId, commentId, 
 			created_by: createdBy,
 			body,
 			status: 'failed',
-			error_text: result.error || 'Reply failed.'
+			error_text: errorMessage
 		});
 		return {
 			ok: false,
 			status: 500,
-			error: result.error || 'Reply failed.',
+			error: errorMessage,
 			reply: failed
 		};
 	}
