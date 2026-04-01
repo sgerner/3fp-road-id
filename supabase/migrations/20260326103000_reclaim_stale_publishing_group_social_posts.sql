@@ -45,5 +45,4 @@ begin
 	select * from updated;
 end;
 $$;
-
 revoke all on function public.claim_group_social_posts(integer) from public;

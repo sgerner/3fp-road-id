@@ -28,17 +28,6 @@ const SEARCH_SYNONYM_GROUPS = [
 	['road', 'gravel', 'commute', 'commuter', 'commuting']
 ];
 
-const SEARCH_TEXT_FIELDS = [
-	'name',
-	'tagline',
-	'description',
-	'membership_info',
-	'service_area_description',
-	'city',
-	'state_region',
-	'country'
-];
-
 const SEARCH_COLUMN_LIST =
 	'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude';
 
@@ -66,21 +55,6 @@ function normalizeSearchText(text) {
 		.trim();
 }
 
-function singularizeToken(token) {
-	if (!token) return '';
-	if (token.length > 4 && token.endsWith('ies')) return `${token.slice(0, -3)}y`;
-	if (token.length > 3 && token.endsWith('es')) return token.slice(0, -2);
-	if (token.length > 3 && token.endsWith('s')) return token.slice(0, -1);
-	return token;
-}
-
-function pluralizeToken(token) {
-	if (!token) return '';
-	if (token.endsWith('y') && token.length > 2) return `${token.slice(0, -1)}ies`;
-	if (token.endsWith('s')) return token;
-	return `${token}s`;
-}
-
 function tokenizeSearch(text) {
 	return normalizeSearchText(text)
 		.split(' ')
@@ -90,149 +64,27 @@ function tokenizeSearch(text) {
 
 function expandTokenVariants(token) {
 	const normalized = normalizeSearchText(token);
-	if (!normalized) return [normalized];
+	if (!normalized) return [];
 	const out = new Set([normalized]);
-	const singular = singularizeToken(normalized);
-	const plural = pluralizeToken(normalized);
-	if (singular) out.add(singular);
-	if (plural) out.add(plural);
-	for (const key of [normalized, singular, plural]) {
+	for (const key of [normalized]) {
 		if (!key) continue;
 		for (const synonym of SEARCH_SYNONYMS.get(key) || []) out.add(synonym);
 	}
 	return Array.from(out).filter(Boolean);
 }
 
-function levenshteinDistance(a, b) {
-	if (a === b) return 0;
-	if (!a.length) return b.length;
-	if (!b.length) return a.length;
-	const prev = new Array(b.length + 1);
-	const curr = new Array(b.length + 1);
-	for (let j = 0; j <= b.length; j += 1) prev[j] = j;
-	for (let i = 1; i <= a.length; i += 1) {
-		curr[0] = i;
-		for (let j = 1; j <= b.length; j += 1) {
-			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-			curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
-		}
-		for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j];
-	}
-	return prev[b.length];
-}
-
-function fuzzySimilarity(a, b) {
-	if (!a || !b) return 0;
-	const maxLen = Math.max(a.length, b.length);
-	if (!maxLen) return 0;
-	const distance = levenshteinDistance(a, b);
-	return 1 - distance / maxLen;
-}
-
-function bestFuzzyVariantScore(variants, targetTokens) {
-	let best = 0;
-	for (const variant of variants) {
-		if (!variant || variant.length < 3) continue;
-		for (const token of targetTokens) {
-			if (!token || token.length < 3) continue;
-			if (Math.abs(token.length - variant.length) > 2) continue;
-			if (token[0] !== variant[0] && token.slice(0, 2) !== variant.slice(0, 2)) continue;
-			const sim = fuzzySimilarity(variant, token);
-			if (sim > best) best = sim;
-			if (best >= 0.96) return best;
-		}
-	}
-	return best;
-}
-
-function buildGroupSearchIndex(group) {
-	const combined = normalizeSearchText(
-		SEARCH_TEXT_FIELDS.map((field) => group?.[field] || '').join(' ')
-	);
-	const tokens = tokenizeSearch(combined);
-	const tokenSet = new Set(tokens);
-	const nameTokens = tokenizeSearch(group?.name || '');
-	const nameTokenSet = new Set(nameTokens);
-	return { group, combined, tokens, tokenSet, nameTokenSet };
-}
-
-function scoreGroupIndex(index, query) {
-	if (!query.tokens.length) return 0;
-	let score = 0;
-	let matched = 0;
-	let matchedInName = 0;
-
-	if (query.normalizedPhrase && index.combined.includes(query.normalizedPhrase)) score += 1.25;
-
-	for (let i = 0; i < query.tokens.length; i += 1) {
-		const token = query.tokens[i];
-		const variants = query.variantsByToken[i];
-		const hasExactInName = index.nameTokenSet.has(token);
-		const hasExact = index.tokenSet.has(token);
-		const hasVariantInName = variants.some((value) => index.nameTokenSet.has(value));
-		const hasVariant = variants.some((value) => index.tokenSet.has(value));
-
-		if (hasExactInName) {
-			score += 1.5;
-			matched += 1;
-			matchedInName += 1;
-			continue;
-		}
-		if (hasExact) {
-			score += 1.2;
-			matched += 1;
-			continue;
-		}
-		if (hasVariantInName) {
-			score += 1.0;
-			matched += 1;
-			matchedInName += 1;
-			continue;
-		}
-		if (hasVariant) {
-			score += 0.85;
-			matched += 1;
-			continue;
-		}
-
-		const fuzzyScore = bestFuzzyVariantScore(variants, index.tokens);
-		if (fuzzyScore >= 0.78) {
-			score += 0.8 * fuzzyScore;
-			matched += 1;
-		}
-	}
-
-	if (matched < query.requiredMatches) return 0;
-	if (matched === query.tokens.length) score += 1.1;
-	if (matchedInName >= Math.min(query.tokens.length, query.requiredMatches)) score += 0.45;
-	return score;
-}
-
-function buildFuzzyQuery(q) {
-	const normalizedPhrase = normalizeSearchText(q);
-	const tokens = tokenizeSearch(normalizedPhrase);
-	const variantsByToken = tokens.map((token) => expandTokenVariants(token));
-	const requiredMatches =
-		tokens.length <= 2 ? tokens.length : Math.max(2, Math.ceil(tokens.length * 0.67));
-	return { normalizedPhrase, tokens, variantsByToken, requiredMatches };
-}
-
-function fuzzySearchGroups(groups, q) {
-	const query = buildFuzzyQuery(q);
-	if (!query.tokens.length) {
-		return (groups || []).map((group) => ({ group, score: 0 }));
-	}
-	const scored = [];
-	for (const group of groups || []) {
-		const index = buildGroupSearchIndex(group);
-		const score = scoreGroupIndex(index, query);
-		if (score <= 0) continue;
-		scored.push({ group, score });
-	}
-	return scored.sort((a, b) => {
-		if (b.score !== a.score) return b.score - a.score;
-		return (a.group?.name || '').localeCompare(b.group?.name || '');
+function buildSearchQueryText(input) {
+	const tokens = tokenizeSearch(input);
+	if (!tokens.length) return normalizeSearchText(input);
+	const tokenExpressions = tokens.map((token) => {
+		const variants = expandTokenVariants(token)
+			.filter((value) => value.length >= 2)
+			.slice(0, 8);
+		if (!variants.length) return '';
+		if (variants.length === 1) return variants[0];
+		return `(${variants.join(' OR ')})`;
 	});
+	return tokenExpressions.filter(Boolean).join(' ');
 }
 
 export const load = async ({ url }) => {
@@ -366,7 +218,6 @@ export const load = async ({ url }) => {
 		.getAll('group_type_ids')
 		.map(Number)
 		.filter((n) => Number.isFinite(n) && n > 0);
-	const hasSearchQuery = Boolean(q);
 	const hasActiveFilters = Boolean(
 		q ||
 		country ||
@@ -378,27 +229,51 @@ export const load = async ({ url }) => {
 	);
 
 	let filterIds = null;
-	async function intersectFilter(table, col, vals) {
-		if (!vals.length) return;
-		const { data, error } = await supabase.from(table).select('group_id').in(col, vals);
-		if (error) return;
-		const ids = Array.from(new Set((data || []).map((m) => m.group_id)));
-		if (filterIds === null) {
-			filterIds = ids;
-		} else {
-			const set = new Set(ids);
-			filterIds = filterIds.filter((id) => set.has(id));
+	const filterRequests = [
+		{
+			table: 'group_x_skill_levels',
+			column: 'skill_level_id',
+			values: skill_level_ids
+		},
+		{
+			table: 'group_x_group_types',
+			column: 'group_type_id',
+			values: group_type_ids
+		},
+		{
+			table: 'group_x_audience_focuses',
+			column: 'audience_focus_id',
+			values: audience_focus_ids
+		},
+		{
+			table: 'group_x_riding_disciplines',
+			column: 'riding_discipline_id',
+			values: riding_discipline_ids
+		}
+	].filter((entry) => entry.values.length > 0);
+
+	if (filterRequests.length) {
+		const filterResults = await Promise.all(
+			filterRequests.map(async (entry) => {
+				const { data, error } = await supabase
+					.from(entry.table)
+					.select('group_id')
+					.in(entry.column, entry.values);
+				return { data, error };
+			})
+		);
+
+		for (const result of filterResults) {
+			if (result.error) continue;
+			const ids = Array.from(new Set((result.data || []).map((row) => row.group_id)));
+			if (filterIds === null) {
+				filterIds = ids;
+			} else {
+				const set = new Set(ids);
+				filterIds = filterIds.filter((id) => set.has(id));
+			}
 		}
 	}
-
-	await intersectFilter('group_x_skill_levels', 'skill_level_id', skill_level_ids);
-	await intersectFilter('group_x_group_types', 'group_type_id', group_type_ids);
-	await intersectFilter('group_x_audience_focuses', 'audience_focus_id', audience_focus_ids);
-	await intersectFilter(
-		'group_x_riding_disciplines',
-		'riding_discipline_id',
-		riding_discipline_ids
-	);
 
 	const commonContext = {
 		q,
@@ -437,19 +312,10 @@ export const load = async ({ url }) => {
 		let query = qBuilder;
 		query = query.eq('is_published', true);
 		if (includeSearch && q) {
-			const like = `%${q}%`;
-			query = query.or(
-				[
-					`name.ilike.${like}`,
-					`tagline.ilike.${like}`,
-					`description.ilike.${like}`,
-					`membership_info.ilike.${like}`,
-					`service_area_description.ilike.${like}`,
-					`city.ilike.${like}`,
-					`state_region.ilike.${like}`,
-					`country.ilike.${like}`
-				].join(',')
-			);
+			const searchQuery = buildSearchQueryText(q);
+			if (searchQuery) {
+				query = query.textSearch('search_document', searchQuery, { type: 'websearch' });
+			}
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
@@ -487,70 +353,6 @@ export const load = async ({ url }) => {
 			if (nm) arr.push(nm);
 		}
 		return map;
-	}
-
-	if (hasSearchQuery) {
-		function buildSearchChunkQuery(from, to) {
-			let query = supabase.from('groups').select(SEARCH_COLUMN_LIST).order('id').range(from, to);
-			query = applyCommonFilters(query, { includeSearch: false });
-			return query;
-		}
-
-		async function fetchAllSearchCandidates() {
-			const pageSize = 1000;
-			let from = 0;
-			const rows = [];
-			while (true) {
-				const { data, error } = await buildSearchChunkQuery(from, from + pageSize - 1);
-				if (error) return { data: [], error };
-				const chunk = data || [];
-				rows.push(...chunk);
-				if (chunk.length < pageSize) break;
-				from += pageSize;
-				if (rows.length >= 15000) break;
-			}
-			return { data: rows, error: null };
-		}
-
-		const [candidatesRes, facetResults] = await Promise.all([
-			fetchAllSearchCandidates(),
-			fetchFacets()
-		]);
-		const [levelsRes, typesAllRes, afRes, rdRes] = facetResults;
-
-		const scored = fuzzySearchGroups(candidatesRes.data || [], q);
-		const totalGroups = scored.length;
-		const start = Math.max(0, (page - 1) * limit);
-		const end = start + limit;
-		const groups = scored.slice(start, end).map((entry) => entry.group);
-		const mapPoints = scored
-			.map((entry) => entry.group)
-			.filter((group) => Number.isFinite(group.latitude) && Number.isFinite(group.longitude))
-			.map((group) => ({
-				id: group.id,
-				slug: group.slug,
-				name: group.name,
-				latitude: group.latitude,
-				longitude: group.longitude,
-				city: group.city,
-				state_region: group.state_region,
-				country: group.country
-			}));
-
-		const group_types_map = await fetchGroupTypesMap(groups, typesAllRes.data || []);
-
-		return {
-			groups,
-			mapPoints,
-			totalGroups,
-			error: candidatesRes.error?.message || null,
-			filters: commonContext,
-			skill_levels: levelsRes.data || [],
-			group_types_map,
-			group_types: typesAllRes.data || [],
-			audience_focuses: afRes.data || [],
-			riding_disciplines: rdRes.data || []
-		};
 	}
 
 	let listQuery = supabase

@@ -19,7 +19,7 @@ select
 					(select secret from private.cron_secrets where name = 'rides_import_weeklyrides')
 				),
 				body := '{}'::jsonb,
-				timeout_milliseconds := 300000
+				timeout_milliseconds := 120000
 			)
 		$$
 	);;

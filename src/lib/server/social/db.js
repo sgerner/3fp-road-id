@@ -286,8 +286,8 @@ export async function listGroupSocialCommentsPage(
 	};
 }
 
-export async function upsertGroupSocialComment(supabase, payload) {
-	const upsertPayload = {
+function buildGroupSocialCommentUpsertPayload(payload) {
+	return {
 		group_id: payload.group_id,
 		social_account_id: payload.social_account_id,
 		social_post_id: payload.social_post_id || null,
@@ -304,6 +304,43 @@ export async function upsertGroupSocialComment(supabase, payload) {
 		commented_at: toIso(payload.commented_at) || new Date().toISOString(),
 		last_synced_at: new Date().toISOString()
 	};
+}
+
+export async function upsertGroupSocialCommentsBatch(
+	supabase,
+	payloads,
+	{ chunkSize = 150 } = {}
+) {
+	const normalizedPayloads = Array.isArray(payloads)
+		? payloads
+				.map((payload) => buildGroupSocialCommentUpsertPayload(payload))
+				.filter(
+					(payload) =>
+						payload.group_id &&
+						payload.social_account_id &&
+						cleanText(payload.platform, 40) &&
+						cleanText(payload.meta_comment_id, 200)
+				)
+		: [];
+	if (!normalizedPayloads.length) return 0;
+
+	const safeChunkSize = Math.max(1, Number.parseInt(String(chunkSize), 10) || 1);
+	let processed = 0;
+
+	for (let index = 0; index < normalizedPayloads.length; index += safeChunkSize) {
+		const chunk = normalizedPayloads.slice(index, index + safeChunkSize);
+		const { error } = await supabase
+			.from('group_social_comments')
+			.upsert(chunk, { onConflict: 'platform,meta_comment_id' });
+		if (error) throw new Error(error.message);
+		processed += chunk.length;
+	}
+
+	return processed;
+}
+
+export async function upsertGroupSocialComment(supabase, payload) {
+	const upsertPayload = buildGroupSocialCommentUpsertPayload(payload);
 
 	const { data, error } = await supabase
 		.from('group_social_comments')
