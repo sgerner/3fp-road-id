@@ -74,7 +74,7 @@
 			.slice(0, 4)
 			.map((group) => ({
 				label: group.name,
-				href: `/groups/${group.slug}`,
+				href: `/groups/${group.slug}/manage`,
 				icon: IconUsers,
 				tone: 'primary'
 			}));
