@@ -5568,67 +5568,6 @@
 		flex-shrink: 0;
 	}
 
-	/* Color dots for each style */
-	.ai-style-item__dot[data-style='comic_house'] {
-		background: linear-gradient(135deg, #e63946, #f4a261);
-	}
-
-	.ai-style-item__dot[data-style='risograph_patchwork'] {
-		background: linear-gradient(135deg, #ff6b35, #004e89);
-	}
-
-	.ai-style-item__dot[data-style='quiet_gouache'] {
-		background: linear-gradient(135deg, #a8dadc, #457b9d);
-	}
-
-	.ai-style-item__dot[data-style='wpa_travel_poster'] {
-		background: linear-gradient(135deg, #264653, #e9c46a);
-	}
-
-	.ai-style-item__dot[data-style='bubbly_nautical_cartoon'] {
-		background: linear-gradient(135deg, #00b4d8, #ff006e);
-	}
-
-	.ai-style-item__dot[data-style='anime'] {
-		background: linear-gradient(135deg, #c77dff, #ffbe0b);
-	}
-
-	.ai-style-item__dot[data-style='crafty_clay'] {
-		background: linear-gradient(135deg, #d4a373, #ccd5ae);
-	}
-
-	.ai-style-item__dot[data-style='fantasy_art'] {
-		background: linear-gradient(135deg, #3d1f7a, #f72585);
-	}
-
-	.ai-style-item__dot[data-style='line_art'] {
-		background: linear-gradient(135deg, #212529, #adb5bd);
-	}
-
-	.ai-style-item__dot[data-style='origami'] {
-		background: linear-gradient(135deg, #f8f9fa, #adb5bd);
-	}
-
-	.ai-style-item__dot[data-style='pixel_art'] {
-		background: repeating-linear-gradient(
-			45deg,
-			#ff0000 0px,
-			#ff0000 2px,
-			#00ff00 2px,
-			#00ff00 4px,
-			#0000ff 4px,
-			#0000ff 6px
-		);
-	}
-
-	.ai-style-item__dot[data-style='bike_vibe_spotlight'] {
-		background: linear-gradient(135deg, #06d6a0, #118ab2);
-	}
-
-	.ai-style-item__dot[data-style='state_mascot_bike'] {
-		background: linear-gradient(135deg, #ff9f1c, #2ec4b6);
-	}
-
 	.ai-style-item__name {
 		font-size: 0.8125rem;
 		font-weight: 500;

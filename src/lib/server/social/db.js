@@ -306,11 +306,7 @@ function buildGroupSocialCommentUpsertPayload(payload) {
 	};
 }
 
-export async function upsertGroupSocialCommentsBatch(
-	supabase,
-	payloads,
-	{ chunkSize = 150 } = {}
-) {
+export async function upsertGroupSocialCommentsBatch(supabase, payloads, { chunkSize = 150 } = {}) {
 	const normalizedPayloads = Array.isArray(payloads)
 		? payloads
 				.map((payload) => buildGroupSocialCommentUpsertPayload(payload))

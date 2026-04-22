@@ -2226,9 +2226,7 @@
 	<section class="edit-card danger relative overflow-hidden rounded-2xl p-5">
 		<div class="edit-card-accent-bar danger" aria-hidden="true"></div>
 		<div class="flex items-start gap-3">
-			<div
-				class="bg-error-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-			>
+			<div class="bg-error-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
 				<IconAlertTriangle class="text-error-500 h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
@@ -2238,7 +2236,12 @@
 				</p>
 			</div>
 		</div>
-		<form method="POST" action="?/delete" class="mt-4 flex justify-end" onsubmit={confirmDeleteGroup}>
+		<form
+			method="POST"
+			action="?/delete"
+			class="mt-4 flex justify-end"
+			onsubmit={confirmDeleteGroup}
+		>
 			<button type="submit" class="btn preset-filled-error-500 flex items-center gap-2">
 				<IconTrash2 class="h-4 w-4" />
 				<span>Delete</span>

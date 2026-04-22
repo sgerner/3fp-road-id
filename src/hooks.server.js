@@ -76,9 +76,10 @@ export const handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname || '/';
 	const normalizedHost = resolveRequestHostname(event);
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
-	const slugFromCustomDomain = !slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)
-		? await lookupCustomDomainMicrositeSlug(normalizedHost)
-		: '';
+	const slugFromCustomDomain =
+		!slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)
+			? await lookupCustomDomainMicrositeSlug(normalizedHost)
+			: '';
 	const micrositeSlug = slugFromSubdomain || slugFromCustomDomain;
 
 	if (micrositeSlug) {

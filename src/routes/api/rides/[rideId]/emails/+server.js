@@ -65,22 +65,25 @@ export async function POST(event) {
 	if (!recipients.length) return invalid('No active participants found for this occurrence.', 400);
 
 	const htmlBody = textToHtml(payload.body);
-	await runInBatches(recipients, EMAIL_SEND_CONCURRENCY, async (recipient) =>
-		await sendEmail(
-			{
-				to: recipient,
-				subject: payload.subject,
-				text: payload.body,
-				html: htmlBody,
-				replyTo: ride.activity.contact_email || undefined,
-				tags: [
-					{ Name: 'context', Value: 'ride-organizer-broadcast' },
-					{ Name: 'ride_id', Value: String(ride.activity.id) },
-					{ Name: 'ride_occurrence_id', Value: String(occurrence.id) }
-				]
-			},
-			{ fetch }
-		)
+	await runInBatches(
+		recipients,
+		EMAIL_SEND_CONCURRENCY,
+		async (recipient) =>
+			await sendEmail(
+				{
+					to: recipient,
+					subject: payload.subject,
+					text: payload.body,
+					html: htmlBody,
+					replyTo: ride.activity.contact_email || undefined,
+					tags: [
+						{ Name: 'context', Value: 'ride-organizer-broadcast' },
+						{ Name: 'ride_id', Value: String(ride.activity.id) },
+						{ Name: 'ride_occurrence_id', Value: String(occurrence.id) }
+					]
+				},
+				{ fetch }
+			)
 	);
 
 	return json({

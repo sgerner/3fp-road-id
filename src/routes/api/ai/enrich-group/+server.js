@@ -2264,7 +2264,8 @@ function scoreAiCandidate(field, value, docs = []) {
 		typeof normalizedValue === 'string' ? normalizedValue.toLowerCase() : `${normalizedValue}`;
 	let mentions = 0;
 	for (const doc of docs) {
-		const hay = `${doc?.analysisText || doc?.text || ''} ${doc?.pageSignals?.title || ''}`.toLowerCase();
+		const hay =
+			`${doc?.analysisText || doc?.text || ''} ${doc?.pageSignals?.title || ''}`.toLowerCase();
 		if (!needle || needle.length < 4) break;
 		if (hay.includes(needle)) mentions += 1;
 	}
@@ -3281,10 +3282,17 @@ function buildAnalysisText({ html = '', readerText = '', fallbackText = '', page
 	const htmlBlocks = extractHighValueHtmlBlocks(html);
 	const readerBlocks = extractHighValueTextBlocks(readerText);
 	const fallbackBlocks = extractHighValueTextBlocks(fallbackText);
-	const blocks = htmlBlocks.length ? htmlBlocks : readerBlocks.length ? readerBlocks : fallbackBlocks;
+	const blocks = htmlBlocks.length
+		? htmlBlocks
+		: readerBlocks.length
+			? readerBlocks
+			: fallbackBlocks;
 	if (blocks.length) sections.push(blocks.slice(0, 8).join('\n\n'));
 	return truncate(
-		sections.map((part) => normalizeText(part)).filter(Boolean).join('\n\n'),
+		sections
+			.map((part) => normalizeText(part))
+			.filter(Boolean)
+			.join('\n\n'),
 		MAX_TEXT_PER_DOC
 	);
 }
