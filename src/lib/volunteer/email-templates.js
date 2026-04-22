@@ -1,4 +1,5 @@
 import { escapeHtml } from '$lib/markdown';
+import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
 
 function safeTrim(value) {
 	if (typeof value !== 'string') return '';
@@ -77,6 +78,8 @@ function buildShiftDetails(shifts, { event, opportunity }) {
 			id: shift.id ?? index,
 			title,
 			time,
+			startsAt: shift.starts_at || null,
+			endsAt: shift.ends_at || null,
 			location: joinDetails([locationName, locationAddress]),
 			notes: safeTrim(notes)
 		};
@@ -195,17 +198,50 @@ export function buildVolunteerStatusUpdateEmail(options) {
 	}
 
 	const shiftHtmlItems = shiftDetails.map((shift) => {
+		const shiftIcsUrl =
+			event?.slug && eventUrl
+				? `${new URL(`/api/calendar/volunteer-events/${encodeURIComponent(event.slug)}`, eventUrl).toString()}?shiftId=${encodeURIComponent(shift.id)}`
+				: '';
+		const shiftGoogleUrl = buildGoogleCalendarUrl({
+			title: `${eventDetails.title} - ${shift.title}`,
+			start: shift.startsAt,
+			end: shift.endsAt,
+			description: shift.notes || event?.summary || event?.description || '',
+			location: shift.location,
+			url: eventUrl
+		});
 		const pieces = [
 			`<strong>${escapeHtml(shift.title)}</strong>: ${escapeHtml(shift.time)}`,
-			shift.notes ? `Notes: ${escapeHtml(shift.notes)}` : ''
+			shift.location ? `Location: ${escapeHtml(shift.location)}` : '',
+			shift.notes ? `Notes: ${escapeHtml(shift.notes)}` : '',
+			shiftGoogleUrl
+				? `Add to Google Calendar: <a href="${escapeHtml(shiftGoogleUrl)}">Open link</a>`
+				: '',
+			shiftIcsUrl
+				? `Add to Apple/Outlook: <a href="${escapeHtml(shiftIcsUrl)}">Download .ics</a>`
+				: ''
 		].filter(Boolean);
 		return pieces.join('<br />');
 	});
 
 	const shiftTextItems = shiftDetails.map((shift, index) => {
+		const shiftIcsUrl =
+			event?.slug && eventUrl
+				? `${new URL(`/api/calendar/volunteer-events/${encodeURIComponent(event.slug)}`, eventUrl).toString()}?shiftId=${encodeURIComponent(shift.id)}`
+				: '';
+		const shiftGoogleUrl = buildGoogleCalendarUrl({
+			title: `${eventDetails.title} - ${shift.title}`,
+			start: shift.startsAt,
+			end: shift.endsAt,
+			description: shift.notes || event?.summary || event?.description || '',
+			location: eventLocation(shift.location),
+			url: eventUrl
+		});
 		const lines = [`Shift ${index + 1}: ${shift.time}`];
 		if (shift.location) lines.push(`Location: ${shift.location}`);
 		if (shift.notes) lines.push(`Notes: ${shift.notes}`);
+		if (shiftGoogleUrl) lines.push(`Add to Google Calendar: ${shiftGoogleUrl}`);
+		if (shiftIcsUrl) lines.push(`Add to Apple/Outlook: ${shiftIcsUrl}`);
 		return lines.join('\n');
 	});
 

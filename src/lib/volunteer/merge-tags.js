@@ -1,4 +1,5 @@
 import { escapeHtml, renderMarkdown } from '$lib/markdown';
+import { buildGoogleCalendarUrl } from '$lib/calendar/links';
 import {
 	VOLUNTEER_PORTAL_PATH,
 	wrapHtmlWithBranding,
@@ -63,6 +64,7 @@ function formatEventSchedule(event) {
 
 function normalizeEvent(eventLike = {}) {
 	const normalized = {
+		slug: safeString(eventLike.slug ?? eventLike.event_slug ?? ''),
 		title:
 			safeString(
 				eventLike.title ??
@@ -261,11 +263,25 @@ function buildShiftDetails({ assignments = [], opportunities = [], event, origin
 			assignmentId: assignment.id,
 			shiftId: assignment.shiftId,
 			title: label,
+			startsAt: shift.startsAt,
+			endsAt: shift.endsAt,
 			timeWindow,
 			location,
 			notes: shift.notes || '',
 			confirmUrl,
-			cancelUrl
+			cancelUrl,
+			calendarIcsUrl:
+				event.slug && shift.id
+					? `${origin}/api/calendar/volunteer-events/${encodeURIComponent(event.slug)}?shiftId=${encodeURIComponent(shift.id)}`
+					: '',
+			calendarGoogleUrl: buildGoogleCalendarUrl({
+				title: `${event.title || 'Volunteer event'} - ${label}`,
+				start: shift.startsAt,
+				end: shift.endsAt,
+				description: shift.notes || '',
+				location,
+				url: event.slug ? `${origin}/volunteer/${encodeURIComponent(event.slug)}` : ''
+			})
 		});
 	}
 
@@ -276,11 +292,25 @@ function buildShiftDetails({ assignments = [], opportunities = [], event, origin
 				assignmentId: 'sample-assignment',
 				shiftId: sample.id ?? 'sample-shift',
 				title: sample.title || opportunities[0]?.title || event.title,
+				startsAt: sample.startsAt,
+				endsAt: sample.endsAt,
 				timeWindow: formatShiftWindow(sample, event.timezone),
 				location: [sample.locationName, sample.locationAddress].filter(Boolean).join(', '),
 				notes: sample.notes || '',
 				confirmUrl: `${origin}${VOLUNTEER_PORTAL_PATH}/sample-assignment/confirm`,
-				cancelUrl: `${origin}${VOLUNTEER_PORTAL_PATH}/sample-assignment/cancel`
+				cancelUrl: `${origin}${VOLUNTEER_PORTAL_PATH}/sample-assignment/cancel`,
+				calendarIcsUrl:
+					event.slug && sample.id
+						? `${origin}/api/calendar/volunteer-events/${encodeURIComponent(event.slug)}?shiftId=${encodeURIComponent(sample.id)}`
+						: '',
+				calendarGoogleUrl: buildGoogleCalendarUrl({
+					title: `${event.title || 'Volunteer event'} - ${sample.title || opportunities[0]?.title || 'Shift'}`,
+					start: sample.startsAt,
+					end: sample.endsAt,
+					description: sample.notes || '',
+					location: [sample.locationName, sample.locationAddress].filter(Boolean).join(', '),
+					url: event.slug ? `${origin}/volunteer/${encodeURIComponent(event.slug)}` : ''
+				})
 			});
 		}
 	}
@@ -478,6 +508,48 @@ function buildPortalBlock(portalUrl) {
 
 function buildPortalText(portalUrl) {
 	return `Manage your volunteer shifts: ${portalUrl}`;
+}
+
+function buildShiftCalendarHtml(shiftDetails = []) {
+	const rows = shiftDetails
+		.filter((shift) => shift?.calendarGoogleUrl || shift?.calendarIcsUrl)
+		.map((shift, index) => {
+			const links = [
+				shift.calendarGoogleUrl
+					? `<a href="${escapeHtml(shift.calendarGoogleUrl)}" style="color:#38bdf8;text-decoration:underline;">Google Calendar</a>`
+					: '',
+				shift.calendarIcsUrl
+					? `<a href="${escapeHtml(shift.calendarIcsUrl)}" style="color:#38bdf8;text-decoration:underline;">Apple/Outlook (.ics)</a>`
+					: ''
+			]
+				.filter(Boolean)
+				.join(' · ');
+			if (!links) return '';
+			return `<li style="margin-bottom:6px;"><strong>${escapeHtml(shift.title || `Shift ${index + 1}`)}</strong>: ${links}</li>`;
+		})
+		.filter(Boolean)
+		.join('');
+	if (!rows) return '';
+	return `
+<section class="merge-block" style="border-radius:16px;padding:16px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.35);">
+	<h4 style="margin:0 0 12px;font-size:16px;font-weight:600;color:#e2e8f0;">Add your shifts to calendar</h4>
+	<ul style="margin:0;padding:0 0 0 18px;color:#cbd5f5;font-size:14px;line-height:1.6;">
+		${rows}
+	</ul>
+</section>
+`.trim();
+}
+
+function buildShiftCalendarText(shiftDetails = []) {
+	const rows = shiftDetails
+		.filter((shift) => shift?.calendarGoogleUrl || shift?.calendarIcsUrl)
+		.map((shift, index) => {
+			const lines = [shift.title || `Shift ${index + 1}`];
+			if (shift.calendarGoogleUrl) lines.push(`Google Calendar: ${shift.calendarGoogleUrl}`);
+			if (shift.calendarIcsUrl) lines.push(`Apple/Outlook (.ics): ${shift.calendarIcsUrl}`);
+			return lines.join('\n');
+		});
+	return rows.join('\n\n');
 }
 
 const MERGE_TAG_DEFINITIONS = [
@@ -730,3 +802,9 @@ export function getMergeTagExample(token, context, format = 'text') {
 }
 
 export { VOLUNTEER_PORTAL_PATH };
+export function buildShiftCalendarBlocks(context = {}) {
+	return {
+		html: buildShiftCalendarHtml(context.shiftDetails ?? []),
+		text: buildShiftCalendarText(context.shiftDetails ?? [])
+	};
+}

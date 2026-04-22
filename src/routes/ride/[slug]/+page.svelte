@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
@@ -9,6 +10,7 @@
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import { escapeHtml } from '$lib/markdown';
+	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
 	import 'leaflet/dist/leaflet.css';
 
 	const { data } = $props();
@@ -45,6 +47,7 @@
 		Boolean(currentUser?.id) && !activity?.host_user_id && !activity?.host_group_id
 	);
 	const claimLabel = $derived(ride?.recurrenceRule ? 'Claim Ride Series' : 'Claim Ride');
+	const selectedCalendarLinks = $derived(selectedOccurrenceCalendarLinks());
 	const urlPattern = /(?:https?:\/\/|www\.)[^\s<]+/gi;
 	const maxLinkLabelLength = 88;
 
@@ -125,6 +128,29 @@
 		const start = new Date(occurrence.starts_at);
 		const end = new Date(occurrence.ends_at);
 		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+	}
+
+	function selectedOccurrenceCalendarLinks() {
+		if (!selectedOccurrence?.starts_at) return { googleUrl: '', icsUrl: '' };
+		const origin = $page?.url?.origin || '';
+		const slug = activity?.slug || '';
+		const rideUrl = origin && slug ? `${origin}/ride/${encodeURIComponent(slug)}` : '';
+		const icsUrl =
+			origin && slug && selectedOccurrence?.id
+				? `${origin}/api/calendar/rides/${encodeURIComponent(slug)}?occurrenceId=${encodeURIComponent(selectedOccurrence.id)}`
+				: '';
+		const googleUrl = buildGoogleCalendarUrl({
+			title: activity?.title || 'Ride',
+			start: selectedOccurrence.starts_at,
+			end: selectedOccurrence.ends_at,
+			description: activity?.summary || activity?.description || '',
+			location: eventLocation(
+				selectedOccurrence?.start_location_name || activity?.start_location_name,
+				selectedOccurrence?.start_location_address || activity?.start_location_address
+			),
+			url: rideUrl
+		});
+		return { googleUrl, icsUrl };
 	}
 
 	function currentUserRsvp(occurrence) {
@@ -284,6 +310,24 @@
 							class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
 							href="/ride/new">Log in to RSVP</a
 						>
+					{/if}
+					{#if selectedCalendarLinks.googleUrl}
+						<a
+							class="btn preset-outlined-secondary-500 bg-surface-950-50/10 backdrop-blur-sm"
+							href={selectedCalendarLinks.googleUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Add to Google Calendar
+						</a>
+					{/if}
+					{#if selectedCalendarLinks.icsUrl}
+						<a
+							class="btn preset-outlined-surface-950-50 bg-surface-950-50/10 backdrop-blur-sm"
+							href={selectedCalendarLinks.icsUrl}
+						>
+							Download .ics
+						</a>
 					{/if}
 				</div>
 			</div>

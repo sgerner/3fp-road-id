@@ -16,6 +16,7 @@
 	} from '$lib/services/volunteers';
 	import { notifyVolunteerHosts } from '$lib/services/volunteerHostNotifications';
 	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates.js';
+	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconCircle from '@lucide/svelte/icons/circle';
@@ -646,6 +647,32 @@
 			return `${start} -> ${end}`;
 		}
 		return start || end || 'Shift timing TBD';
+	}
+
+	function volunteerShiftCalendarLinks(shift, opportunity) {
+		const origin = $page?.url?.origin || '';
+		const slug = event?.slug || '';
+		const eventUrl =
+			origin && slug ? new URL(`/volunteer/${encodeURIComponent(slug)}`, origin).toString() : '';
+		const icsUrl =
+			origin && slug && shift?.id
+				? new URL(
+						`/api/calendar/volunteer-events/${encodeURIComponent(slug)}?shiftId=${encodeURIComponent(shift.id)}`,
+						origin
+					).toString()
+				: '';
+		const googleUrl = buildGoogleCalendarUrl({
+			title: `${event?.title || 'Volunteer event'} - ${opportunity?.title || 'Shift'}`,
+			start: shift?.starts_at,
+			end: shift?.ends_at,
+			description: shift?.notes || opportunity?.description || event?.summary || '',
+			location: eventLocation(
+				shift?.location_name || opportunity?.location_name || event?.location_name,
+				shift?.location_address || opportunity?.location_address || event?.location_address
+			),
+			url: eventUrl
+		});
+		return { googleUrl, icsUrl };
 	}
 
 	function eventDateLabel(startIso, endIso, timezone) {
@@ -1758,6 +1785,7 @@
 													{@const isSelected = form.shiftIds?.includes(shift.id)}
 													{@const approvedCount = getShiftSignupCount(shift.id)}
 													{@const waitlistedCount = getShiftWaitlistCount(shift.id)}
+													{@const calendarLinks = volunteerShiftCalendarLinks(shift, opportunity)}
 													{@const cap = Number(shift.capacity) || 0}
 													{@const pct = cap
 														? Math.min(100, Math.round((approvedCount / cap) * 100))
@@ -1828,6 +1856,30 @@
 																<p class="text-surface-400 mt-2 text-xs">{shift.notes}</p>
 															{/if}
 														</button>
+														{#if calendarLinks.googleUrl || calendarLinks.icsUrl}
+															<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
+																{#if calendarLinks.googleUrl}
+																	<a
+																		href={calendarLinks.googleUrl}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		class="text-secondary-300 hover:text-secondary-100 underline"
+																		onclick={(eventObj) => eventObj.stopPropagation()}
+																	>
+																		Add to Google Calendar
+																	</a>
+																{/if}
+																{#if calendarLinks.icsUrl}
+																	<a
+																		href={calendarLinks.icsUrl}
+																		class="text-secondary-300 hover:text-secondary-100 underline"
+																		onclick={(eventObj) => eventObj.stopPropagation()}
+																	>
+																		Download .ics
+																	</a>
+																{/if}
+															</div>
+														{/if}
 													</li>
 												{/each}
 											</ul>

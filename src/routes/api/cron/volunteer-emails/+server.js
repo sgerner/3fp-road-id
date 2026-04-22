@@ -1,7 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { createMergeContext, renderEmailBody, renderSubject } from '$lib/volunteer/merge-tags';
+import {
+	buildShiftCalendarBlocks,
+	createMergeContext,
+	renderEmailBody,
+	renderSubject
+} from '$lib/volunteer/merge-tags';
 import { sendEmail } from '$lib/services/email';
 
 const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
@@ -141,13 +146,10 @@ async function loadEventContext(supabase, eventRecord) {
 
 	const assignmentsBySignup = new Map();
 	if (signupIds.length) {
-		const idList = signupIds.map((id) => `"${id}"`).join(',');
 		const assignmentRes = await supabase
 			.from('volunteer_signup_shifts')
-			.select(
-				'id,signup_id,volunteer_signup_id,shift_id,volunteer_shift_id,status,attendance_status'
-			)
-			.or(`signup_id.in.(${idList}),volunteer_signup_id.in.(${idList})`);
+			.select('id,signup_id,shift_id,status')
+			.in('signup_id', signupIds);
 		if (assignmentRes.error) throw assignmentRes.error;
 
 		for (const row of assignmentRes.data ?? []) {
@@ -294,14 +296,17 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 		const htmlBody = safeTrim(bodyOutput.html || '');
 		const textBody = safeTrim(bodyOutput.text || '');
 		if (!htmlBody && !textBody) continue;
+		const calendarBlocks = buildShiftCalendarBlocks(mergeContext);
+		const htmlWithCalendar = [htmlBody, calendarBlocks.html].filter(Boolean).join('\n\n');
+		const textWithCalendar = [textBody, calendarBlocks.text].filter(Boolean).join('\n\n');
 
 		try {
 			await sendEmail(
 				{
 					to,
 					subject,
-					html: htmlBody || undefined,
-					text: textBody || undefined,
+					html: htmlWithCalendar || undefined,
+					text: textWithCalendar || undefined,
 					replyTo:
 						safeTrim(eventRecord?.contact_email) ||
 						safeTrim(eventRecord?.contactEmail) ||
