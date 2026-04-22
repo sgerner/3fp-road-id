@@ -110,15 +110,13 @@ async function loadEventContext(supabase, eventRecord) {
 		supabase
 			.from('volunteer_opportunities')
 			.select(
-				'id,title,location_name,location_address,notes,shifts:volunteer_opportunity_shifts(id,shift_id,volunteer_shift_id,starts_at,ends_at,time_zone,timezone,location_name,location_address,notes,title)'
+				'id,title,location_name,locationNotes:location_notes,description,shifts:volunteer_opportunity_shifts(id,starts_at,ends_at,timezone,location_name,location_address,notes)'
 			)
 			.eq('event_id', eventId)
 			.order('title', { ascending: true }),
 		supabase
 			.from('volunteer_signups')
-			.select(
-				'id,volunteer_email,volunteer_name,full_name,email,status,volunteer_user_id,volunteer_profile_id,user_id,profile_id'
-			)
+			.select('id,volunteer_email,volunteer_name,volunteer_user_id')
 			.eq('event_id', eventId),
 		eventRecord?.host_group_id
 			? supabase
