@@ -2616,28 +2616,17 @@
 											<div class="ai-setting">
 												<span class="ai-setting__label">Model</span>
 												<div class="ai-model-toggle">
-													<button
-														type="button"
-														class="ai-model-toggle__btn"
-														class:ai-model-toggle__btn--active={aiImageModelId ===
-															'bedrock/stability-stable-image-core-v1'}
-														onclick={() =>
-															(aiImageModelId = 'bedrock/stability-stable-image-core-v1')}
-														disabled={composerReadOnly}
-													>
-														Stable
-													</button>
-													<button
-														type="button"
-														class="ai-model-toggle__btn"
-														class:ai-model-toggle__btn--active={aiImageModelId ===
-															'google/gemini-3.1-flash-image-preview'}
-														onclick={() =>
-															(aiImageModelId = 'google/gemini-3.1-flash-image-preview')}
-														disabled={composerReadOnly}
-													>
-														Gemini
-													</button>
+													{#each SOCIAL_IMAGE_GENERATION_MODELS as option (option.id)}
+														<button
+															type="button"
+															class="ai-model-toggle__btn"
+															class:ai-model-toggle__btn--active={aiImageModelId === option.id}
+															onclick={() => (aiImageModelId = option.id)}
+															disabled={composerReadOnly}
+														>
+															{option.label}
+														</button>
+													{/each}
 												</div>
 											</div>
 										</div>

@@ -20,6 +20,7 @@ const MODEL_ID = {
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
 	GEMINI_31_FLASH_LITE_PREVIEW: 'google/gemini-3.1-flash-lite-preview',
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview',
+	OPENAI_GPT_IMAGE_2: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_2,
 	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
 };
 
@@ -91,6 +92,13 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_OUTPUT
 		]
 	},
+	[MODEL_ID.OPENAI_GPT_IMAGE_2]: {
+		id: MODEL_ID.OPENAI_GPT_IMAGE_2,
+		provider: 'openai',
+		model: 'gpt-image-2',
+		label: 'OpenAI GPT Image 2',
+		capabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
+	},
 	[MODEL_ID.STABLE_IMAGE_CORE]: {
 		id: MODEL_ID.STABLE_IMAGE_CORE,
 		provider: 'bedrock',
@@ -146,13 +154,15 @@ const AI_MODEL_PROFILES = {
 	},
 	image_generation: {
 		envVar: 'AI_MODEL_IMAGE_GENERATION',
-		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_IMAGE_2,
 		requiredCapabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	}
 };
 
 let cachedGoogleClient = null;
 let cachedGoogleApiKey = null;
+let cachedOpenAiClient = null;
+let cachedOpenAiApiKey = null;
 let cachedBedrockClient = null;
 let cachedBedrockConfigKey = null;
 
@@ -163,6 +173,15 @@ const STABLE_IMAGE_CORE_ASPECT_RATIO_MAP = {
 	'4:5': '4:5',
 	'9:16': '9:16',
 	'16:9': '16:9'
+};
+
+const OPENAI_IMAGE_SIZE_BY_ASPECT_RATIO = {
+	'1:1': '1024x1024',
+	'3:4': '1024x1536',
+	'4:3': '1536x1024',
+	'4:5': '1024x1536',
+	'9:16': '1024x1536',
+	'16:9': '1536x1024'
 };
 
 function convertSchemaNode(node) {
@@ -269,6 +288,49 @@ function createGoogleProviderClient(ai) {
 			}
 
 			throw new Error('Model did not return an image.');
+		}
+	};
+}
+
+function mapOpenAiImageSize(aspectRatio = '16:9') {
+	return OPENAI_IMAGE_SIZE_BY_ASPECT_RATIO[aspectRatio] || '1536x1024';
+}
+
+function createOpenAiProviderClient(apiKey) {
+	return {
+		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
+			const response = await fetch('https://api.openai.com/v1/images/generations', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${apiKey}`
+				},
+				body: JSON.stringify({
+					model,
+					prompt,
+					size: mapOpenAiImageSize(aspectRatio),
+					response_format: 'b64_json'
+				})
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text().catch(() => '');
+				throw new Error(
+					errorText || `OpenAI image generation failed with status ${response.status}.`
+				);
+			}
+
+			const data = await response.json();
+			const imageBytes = data?.data?.[0]?.b64_json;
+			if (!imageBytes) {
+				throw new Error('OpenAI image generation returned no image.');
+			}
+
+			return {
+				imageBytes,
+				mimeType: 'image/png',
+				raw: data
+			};
 		}
 	};
 }
@@ -431,6 +493,18 @@ function getGoogleClient() {
 	return cachedGoogleClient;
 }
 
+function getOpenAiClient() {
+	const apiKey = env.OPENAI_API_KEY || null;
+	if (!apiKey) return null;
+	if (cachedOpenAiClient && cachedOpenAiApiKey === apiKey) {
+		return cachedOpenAiClient;
+	}
+
+	cachedOpenAiClient = createOpenAiProviderClient(apiKey);
+	cachedOpenAiApiKey = apiKey;
+	return cachedOpenAiClient;
+}
+
 function getBedrockConfigurationIssue() {
 	const bearerToken = env.AWS_BEARER_TOKEN_BEDROCK || null;
 	const region = env.AWS_BEDROCK_REGION || env.AWS_REGION || null;
@@ -553,6 +627,7 @@ function resolveModel(profileName, options = {}) {
 
 function resolveProviderClient(provider) {
 	if (provider === 'google') return getGoogleClient();
+	if (provider === 'openai') return getOpenAiClient();
 	if (provider === 'bedrock') return getBedrockClient();
 	if (provider === 'inception') return getInceptionClient();
 	throw new Error(`Unsupported AI provider "${provider}".`);
@@ -560,6 +635,7 @@ function resolveProviderClient(provider) {
 
 function missingApiKeyMessage(provider) {
 	if (provider === 'google') return 'GENAI_API_KEY not configured.';
+	if (provider === 'openai') return 'OPENAI_API_KEY not configured.';
 	if (provider === 'bedrock') return getBedrockConfigurationIssue() || 'Bedrock is not configured.';
 	if (provider === 'inception') return 'INCEPTION_API_KEY not configured.';
 	return 'AI provider not configured.';
