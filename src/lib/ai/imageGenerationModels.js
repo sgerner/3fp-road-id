@@ -7,15 +7,15 @@ export const IMAGE_GENERATION_MODEL_IDS = Object.freeze({
 export const SOCIAL_IMAGE_GENERATION_MODELS = Object.freeze([
 	{
 		id: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_2,
-		label: 'OpenAI GPT Image 2'
+		label: 'ChatGPT'
 	},
 	{
 		id: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE,
-		label: 'Stable Image Core'
+		label: 'Stability'
 	},
 	{
 		id: IMAGE_GENERATION_MODEL_IDS.GEMINI_31_FLASH_IMAGE_PREVIEW,
-		label: 'Gemini 3.1 Flash Image Preview'
+		label: 'Gemini'
 	}
 ]);
 

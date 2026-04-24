@@ -84,7 +84,7 @@ const AI_MODELS = {
 		id: MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW,
 		provider: 'google',
 		model: 'gemini-3.1-flash-image-preview',
-		label: 'Gemini 3.1 Flash Image Preview',
+		label: 'Gemini',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.IMAGE_GENERATION,
@@ -96,14 +96,14 @@ const AI_MODELS = {
 		id: MODEL_ID.OPENAI_GPT_IMAGE_2,
 		provider: 'openai',
 		model: 'gpt-image-2',
-		label: 'OpenAI GPT Image 2',
+		label: 'ChatGPT',
 		capabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	},
 	[MODEL_ID.STABLE_IMAGE_CORE]: {
 		id: MODEL_ID.STABLE_IMAGE_CORE,
 		provider: 'bedrock',
 		model: 'stability.stable-image-core-v1:1',
-		label: 'Stable Image Core',
+		label: 'Stability',
 		capabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	}
 };
@@ -299,18 +299,24 @@ function mapOpenAiImageSize(aspectRatio = '16:9') {
 function createOpenAiProviderClient(apiKey) {
 	return {
 		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
+			const body = {
+				model,
+				prompt,
+				size: mapOpenAiImageSize(aspectRatio)
+			};
+
+			// Some models (like Google's Imagen 2 via OpenAI proxy) don't support response_format
+			if (model !== 'gpt-image-2') {
+				body.response_format = 'b64_json';
+			}
+
 			const response = await fetch('https://api.openai.com/v1/images/generations', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${apiKey}`
 				},
-				body: JSON.stringify({
-					model,
-					prompt,
-					size: mapOpenAiImageSize(aspectRatio),
-					response_format: 'b64_json'
-				})
+				body: JSON.stringify(body)
 			});
 
 			if (!response.ok) {
@@ -321,14 +327,29 @@ function createOpenAiProviderClient(apiKey) {
 			}
 
 			const data = await response.json();
-			const imageBytes = data?.data?.[0]?.b64_json;
+			let imageBytes = data?.data?.[0]?.b64_json;
+			let mimeType = 'image/png';
+
+			if (!imageBytes && data?.data?.[0]?.url) {
+				const imageResponse = await fetch(data.data[0].url);
+				if (!imageResponse.ok) {
+					throw new Error(
+						`Failed to fetch generated image from URL: ${imageResponse.statusText}`
+					);
+				}
+				const contentType = imageResponse.headers.get('content-type');
+				if (contentType) mimeType = contentType;
+				const arrayBuffer = await imageResponse.arrayBuffer();
+				imageBytes = Buffer.from(arrayBuffer).toString('base64');
+			}
+
 			if (!imageBytes) {
 				throw new Error('OpenAI image generation returned no image.');
 			}
 
 			return {
 				imageBytes,
-				mimeType: 'image/png',
+				mimeType,
 				raw: data
 			};
 		}
