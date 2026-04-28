@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { resolveSession } from '$lib/server/session';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();
@@ -68,8 +69,9 @@ export const load = async ({ params, cookies, fetch }) => {
 		throw error(404, 'Group not found.');
 	}
 
-	const { user: sessionUser } = resolveSession(cookies);
+	const { accessToken, user: sessionUser } = resolveSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
+	const supabase = createRequestSupabaseClient(accessToken);
 
 	const ownerRows = await fetchList(fetch, 'group-members', {
 		select: 'user_id',
@@ -92,15 +94,30 @@ export const load = async ({ params, cookies, fetch }) => {
 			})
 		: [];
 
+	let isAdmin = false;
+	if (sessionUserId) {
+		try {
+			const { data: prof } = await supabase
+				.from('profiles')
+				.select('admin')
+				.eq('user_id', sessionUserId)
+				.maybeSingle();
+			isAdmin = Boolean(prof?.admin);
+		} catch {
+			isAdmin = false;
+		}
+	}
+
 	const is_claimed = ownerRows.length > 0;
-	const is_social_manager = managerRows.length > 0;
-	const can_manage_social = Boolean(sessionUserId && is_claimed && is_social_manager);
+	const is_social_manager = managerRows.length > 0 || isAdmin;
+	const can_manage_social = Boolean(sessionUserId && (is_social_manager || isAdmin));
 
 	return {
 		group,
 		is_claimed,
 		is_social_manager,
 		can_manage_social,
+		is_admin: isAdmin,
 		session_user_id: sessionUserId
 	};
 };

@@ -626,12 +626,13 @@ export async function upsertGroupSiteConfig(groupId, config) {
 	return data;
 }
 
-async function loadGroupByMicrositeSlug(siteSlug) {
+async function loadGroupByMicrositeSlug(normalizedSlug, rawSlug) {
 	const db = pickGroupSiteClient();
 	const { data, error } = await db
 		.from('groups')
 		.select('*')
-		.eq('microsite_slug', siteSlug)
+		.or(`microsite_slug.eq.${normalizedSlug},slug.eq.${rawSlug}`)
+		.limit(1)
 		.maybeSingle();
 	if (error) throw error;
 	return data;
@@ -878,9 +879,8 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
 	if (!normalizedSiteSlug) return null;
 
-	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug);
+	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug, siteSlug);
 	if (!group) return null;
-	if (group.is_published === false) return null;
 
 	const storedConfig = await getGroupSiteConfig(group.id, { group });
 	const siteConfig = mergeGroupSiteConfig(buildDefaultGroupSiteConfig(group), storedConfig);

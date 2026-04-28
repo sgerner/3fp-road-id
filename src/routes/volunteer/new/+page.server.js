@@ -1,4 +1,6 @@
 import { supabase } from '$lib/supabaseClient';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 
 async function resolveUserFromCookies(cookies) {
 	const sessionCookie = cookies.get('sb_session');
@@ -18,10 +20,14 @@ export const load = async ({ cookies, url }) => {
 	const currentUser = await resolveUserFromCookies(cookies);
 	const userId = currentUser?.id ?? null;
 
+	const { accessToken } = resolveSession(cookies);
+	const supabaseReq = createRequestSupabaseClient(accessToken);
+
 	const [
 		{ data: groups, error: groupsError },
 		{ data: eventTypes, error: eventTypesError },
-		ownerQuery
+		ownerQuery,
+		profileQuery
 	] = await Promise.all([
 		supabase.from('groups').select('id, name').order('name'),
 		supabase
@@ -30,18 +36,25 @@ export const load = async ({ cookies, url }) => {
 			.order('event_type'),
 		userId
 			? supabase.from('group_members').select('group_id').eq('user_id', userId).eq('role', 'owner')
-			: Promise.resolve({ data: [], error: null })
+			: Promise.resolve({ data: [], error: null }),
+		userId
+			? supabaseReq.from('profiles').select('admin').eq('user_id', userId).maybeSingle()
+			: Promise.resolve({ data: null, error: null })
 	]);
 
-	const ownerGroupIds = Array.isArray(ownerQuery?.data)
-		? ownerQuery.data.map((row) => row.group_id).filter(Boolean)
-		: [];
+	const isAdmin = profileQuery?.data?.admin === true;
+	const ownerGroupIds = isAdmin
+		? (groups ?? []).map((g) => g.id)
+		: Array.isArray(ownerQuery?.data)
+			? ownerQuery.data.map((row) => row.group_id).filter(Boolean)
+			: [];
 
 	return {
 		hostGroups: groupsError ? [] : (groups ?? []),
 		eventTypes: eventTypesError ? [] : (eventTypes ?? []),
 		ownerGroupIds,
 		currentUser,
+		isAdmin,
 		returnTo: url.pathname + url.search
 	};
 };

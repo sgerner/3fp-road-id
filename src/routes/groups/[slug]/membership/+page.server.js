@@ -23,9 +23,6 @@ export const load = async ({ params, fetch, cookies }) => {
 	if (!group) {
 		throw error(404, 'Group not found.');
 	}
-	if (group.is_published === false) {
-		throw error(404, 'Group not found.');
-	}
 
 	const programData = await safeJson(
 		fetch(`/api/groups/${encodeURIComponent(slug)}/membership/program?include_inactive=false`),

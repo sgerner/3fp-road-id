@@ -1,9 +1,10 @@
-import { supabase } from '$lib/supabaseClient';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
-async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
+async function mirrorRemoteImageToStorage(supabase, remoteUrl, destBasePath) {
 	try {
 		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
 		const res = await fetch(remoteUrl, { redirect: 'follow' });
@@ -31,7 +32,7 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	}
 }
 
-async function uploadLocalImageToStorage(file, destBasePath) {
+async function uploadLocalImageToStorage(supabase, file, destBasePath) {
 	try {
 		if (!file || typeof file.arrayBuffer !== 'function') return null;
 		const ct = file.type || 'application/octet-stream';
@@ -69,7 +70,7 @@ function parseDataUrl(dataUrl) {
 	}
 }
 
-async function uploadDataUrlToStorage(dataUrl, destBasePath) {
+async function uploadDataUrlToStorage(supabase, dataUrl, destBasePath) {
 	const parsed = parseDataUrl(dataUrl);
 	if (!parsed) return null;
 	const { mime, buffer } = parsed;
@@ -95,26 +96,12 @@ async function resolveGroupEditorContext({ params, cookies }) {
 	const slug = params.slug;
 
 	// Require authenticated user
-	const sessionCookie = cookies.get('sb_session');
-	if (!sessionCookie) {
-		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
-	}
-	let parsed;
-	try {
-		parsed = JSON.parse(sessionCookie);
-	} catch {
-		parsed = null;
-	}
-	const access_token = parsed?.access_token;
-	if (!access_token) {
-		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
-	}
-	const { data: userRes } = await supabase.auth.getUser(access_token);
-	const user_id = userRes?.user?.id;
-	if (!user_id) {
+	const { accessToken, user } = resolveSession(cookies);
+	if (!accessToken || !user?.id) {
 		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
 	}
 
+	const supabase = createRequestSupabaseClient(accessToken);
 	const { data: group, error: ge } = await supabase
 		.from('groups')
 		.select('id, slug, logo_url, cover_photo_url, is_published')
@@ -130,7 +117,7 @@ async function resolveGroupEditorContext({ params, cookies }) {
 		const { data: prof } = await supabase
 			.from('profiles')
 			.select('user_id, email, admin')
-			.eq('user_id', user_id)
+			.eq('user_id', user.id)
 			.maybeSingle();
 		isAdmin = !!prof?.admin;
 	} catch {
@@ -142,7 +129,7 @@ async function resolveGroupEditorContext({ params, cookies }) {
 			.select('user_id')
 			.eq('group_id', group.id)
 			.eq('role', 'owner')
-			.eq('user_id', user_id);
+			.eq('user_id', user.id);
 		if (!ownerRows || ownerRows.length === 0) {
 			return {
 				ok: false,
@@ -151,27 +138,17 @@ async function resolveGroupEditorContext({ params, cookies }) {
 		}
 	}
 
-	return { ok: true, slug, group, group_id: group.id, user_id, isAdmin };
+	return { ok: true, slug, group, group_id: group.id, user_id: user.id, isAdmin, supabase };
 }
 
 export const load = async ({ params, cookies, url }) => {
 	const slug = params.slug;
 
 	// Require authenticated user
-	const sessionCookie = cookies.get('sb_session');
-	if (!sessionCookie) throw redirect(303, `/groups/${slug}?auth=required`);
-	let parsed;
-	try {
-		parsed = JSON.parse(sessionCookie);
-	} catch {
-		parsed = null;
-	}
-	const access_token = parsed?.access_token;
-	if (!access_token) throw redirect(303, `/groups/${slug}?auth=required`);
-	const { data: userRes } = await supabase.auth.getUser(access_token);
-	const user_id = userRes?.user?.id;
-	if (!user_id) throw redirect(303, `/groups/${slug}?auth=required`);
+	const { accessToken, user } = resolveSession(cookies);
+	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
 
+	const supabase = createRequestSupabaseClient(accessToken);
 	const { data: group, error: groupError } = await supabase
 		.from('groups')
 		.select('*')
@@ -186,7 +163,7 @@ export const load = async ({ params, cookies, url }) => {
 		const { data: prof } = await supabase
 			.from('profiles')
 			.select('user_id, email, admin')
-			.eq('user_id', user_id)
+			.eq('user_id', user.id)
 			.maybeSingle();
 		profileRow = prof || null;
 		isAdmin = !!prof?.admin;
@@ -200,7 +177,7 @@ export const load = async ({ params, cookies, url }) => {
 			.select('user_id')
 			.eq('group_id', group.id)
 			.eq('role', 'owner')
-			.eq('user_id', user_id);
+			.eq('user_id', user.id);
 		if (ownerErr) throw redirect(303, `/groups/${slug}`);
 		if (!ownerRows || ownerRows.length === 0) throw redirect(303, `/groups/${slug}?auth=forbidden`);
 	}
@@ -273,11 +250,10 @@ export const load = async ({ params, cookies, url }) => {
 		donation_account: donationAccount,
 		stripe_status: url.searchParams.get('stripe') || '',
 		stripe_reason: url.searchParams.get('reason') || '',
-		current_user_id: user_id,
+		current_user_id: user.id,
 		current_profile: profileRow
 	};
 };
-
 export const actions = {
 	default: async ({ params, request, cookies }) => {
 		const auth = await resolveGroupEditorContext({ params, cookies });

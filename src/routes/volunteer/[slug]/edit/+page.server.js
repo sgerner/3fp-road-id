@@ -248,9 +248,11 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		})
 	]);
 
-	const ownerGroupIds = Array.isArray(ownerMembershipRows)
-		? ownerMembershipRows.map((row) => row?.group_id).filter((value) => Boolean(value))
-		: [];
+	const ownerGroupIds = isAdmin
+		? (hostGroups ?? []).map((g) => g.id)
+		: Array.isArray(ownerMembershipRows)
+			? ownerMembershipRows.map((row) => row?.group_id).filter((value) => Boolean(value))
+			: [];
 
 	return {
 		event: eventRecord,
@@ -261,6 +263,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		eventTypes: eventTypes ?? [],
 		ownerGroupIds,
 		currentUser,
+		isAdmin,
 		returnTo: url.pathname + url.search
 	};
 };

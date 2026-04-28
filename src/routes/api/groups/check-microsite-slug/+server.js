@@ -31,7 +31,7 @@ export const GET = async ({ url }) => {
 	const { data, error } = await supabase
 		.from('groups')
 		.select('id')
-		.eq('microsite_slug', slug)
+		.or(`microsite_slug.eq.${slug},slug.eq.${requested}`)
 		.limit(1);
 	if (error) {
 		return json(

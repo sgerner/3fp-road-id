@@ -249,7 +249,6 @@ export async function getDonationRecipient({ recipientType, groupSlug }) {
 		.maybeSingle();
 	if (groupError) throw new Error(groupError.message);
 	if (!group) throw new Error('Group not found.');
-	if (group.is_published === false) throw new Error('Group not found.');
 
 	const { count: ownerCount, error: ownerError } = await supabase
 		.from('group_members')

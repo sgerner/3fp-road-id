@@ -1,25 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 import { getGroupSiteConfig } from '$lib/server/groupSites';
 import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
 
 async function requireOwner(cookies, groupSlug) {
-	const sessionCookie = cookies.get('sb_session');
-	if (!sessionCookie) return { ok: false, status: 401, error: 'Authentication required.' };
+	const { accessToken, user } = resolveSession(cookies);
+	if (!accessToken || !user?.id) return { ok: false, status: 401, error: 'Authentication required.' };
 
-	let parsed = null;
-	try {
-		parsed = JSON.parse(sessionCookie);
-	} catch {
-		parsed = null;
-	}
-
-	const accessToken = parsed?.access_token;
-	if (!accessToken) return { ok: false, status: 401, error: 'Authentication required.' };
-	const { data: userRes } = await supabase.auth.getUser(accessToken);
-	const userId = userRes?.user?.id ?? null;
-	if (!userId) return { ok: false, status: 401, error: 'Authentication required.' };
-
+	const supabase = createRequestSupabaseClient(accessToken);
 	const { data: group } = await supabase
 		.from('groups')
 		.select('*')
@@ -28,12 +17,12 @@ async function requireOwner(cookies, groupSlug) {
 	if (!group) return { ok: false, status: 404, error: 'Group not found.' };
 
 	const [{ data: profile }, { data: ownerRows }] = await Promise.all([
-		supabase.from('profiles').select('admin').eq('user_id', userId).maybeSingle(),
+		supabase.from('profiles').select('admin').eq('user_id', user.id).maybeSingle(),
 		supabase
 			.from('group_members')
 			.select('user_id')
 			.eq('group_id', group.id)
-			.eq('user_id', userId)
+			.eq('user_id', user.id)
 			.eq('role', 'owner')
 	]);
 

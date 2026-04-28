@@ -1,30 +1,35 @@
 import { redirect } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 
 export const load = async ({ params, cookies, fetch }) => {
 	const slug = params.slug;
 
+	// Resolve session
+	const { accessToken, user: sessionUser } = resolveSession(cookies);
+	const sessionUserId = sessionUser?.id ?? null;
+
+	if (!sessionUserId) {
+		throw redirect(303, `/groups/${slug}?auth=required`);
+	}
+
+	const supabase = createRequestSupabaseClient(accessToken);
+
 	// Load the group
 	let group = null;
 	try {
-		const res = await fetch(`/api/v1/groups?slug=eq.${encodeURIComponent(slug)}&single=true`);
-		const json = await res.json().catch(() => ({}));
-		group = json?.data ?? json ?? null;
+		const { data: groupData } = await supabase
+			.from('groups')
+			.select('*')
+			.eq('slug', slug)
+			.maybeSingle();
+		group = groupData;
 	} catch {
 		group = null;
 	}
 
 	if (!group) {
 		throw redirect(303, `/groups/${slug}`);
-	}
-
-	// Resolve session
-	const { user: sessionUser } = resolveSession(cookies);
-	const sessionUserId = sessionUser?.id ?? null;
-
-	if (!sessionUserId) {
-		throw redirect(303, `/groups/${slug}?auth=required`);
 	}
 
 	// Check admin

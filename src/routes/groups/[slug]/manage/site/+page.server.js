@@ -1,8 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { supabase } from '$lib/supabaseClient';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 import {
 	buildMicrositeUrl,
 	isReservedMicrositeSlug,
@@ -100,33 +100,20 @@ async function uploadSponsorLogosAndRewriteJson({ formData, groupId }) {
 }
 
 async function requireSiteManager(cookies, slug) {
-	const sessionCookie = cookies.get('sb_session');
-	if (!sessionCookie) throw redirect(303, `/groups/${slug}?auth=required`);
+	const { accessToken, user } = resolveSession(cookies);
+	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
 
-	let parsed = null;
-	try {
-		parsed = JSON.parse(sessionCookie);
-	} catch {
-		parsed = null;
-	}
-
-	const accessToken = parsed?.access_token;
-	if (!accessToken) throw redirect(303, `/groups/${slug}?auth=required`);
-
-	const { data: userRes } = await supabase.auth.getUser(accessToken);
-	const userId = userRes?.user?.id;
-	if (!userId) throw redirect(303, `/groups/${slug}?auth=required`);
-
+	const supabase = createRequestSupabaseClient(accessToken);
 	const { data: group } = await supabase.from('groups').select('*').eq('slug', slug).maybeSingle();
 	if (!group) throw redirect(303, `/groups/${slug}`);
 
 	const [{ data: profile }, { data: ownerRows }] = await Promise.all([
-		supabase.from('profiles').select('admin').eq('user_id', userId).maybeSingle(),
+		supabase.from('profiles').select('admin').eq('user_id', user.id).maybeSingle(),
 		supabase
 			.from('group_members')
 			.select('user_id')
 			.eq('group_id', group.id)
-			.eq('user_id', userId)
+			.eq('user_id', user.id)
 			.eq('role', 'owner')
 	]);
 
@@ -134,7 +121,7 @@ async function requireSiteManager(cookies, slug) {
 		throw redirect(303, `/groups/${slug}?auth=forbidden`);
 	}
 
-	return { group, userId, isAdmin: profile?.admin === true };
+	return { group, userId: user.id, isAdmin: profile?.admin === true, supabase };
 }
 
 function deriveMicrositeDomainSuffix(liveUrl, micrositeSlug) {
@@ -154,9 +141,12 @@ function deriveMicrositeDomainSuffix(liveUrl, micrositeSlug) {
 	return '.3fp.bike';
 }
 
-export const load = async ({ parent, url }) => {
+export const load = async ({ parent, url, cookies }) => {
 	const parentData = await parent();
 	const group = parentData.group;
+	const { accessToken } = resolveSession(cookies);
+	const supabase = createRequestSupabaseClient(accessToken);
+
 	const [siteConfig, groupsResponse] = await Promise.all([
 		getGroupSiteConfig(group.id, { group }),
 		supabase
@@ -190,6 +180,7 @@ export const load = async ({ parent, url }) => {
 export const actions = {
 	save: async ({ params, request, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);
+		const { supabase } = auth;
 		const formData = await request.formData();
 		try {
 			await uploadSponsorLogosAndRewriteJson({ formData, groupId: auth.group.id });
@@ -238,6 +229,7 @@ export const actions = {
 	},
 	reset: async ({ params, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);
+		const { supabase } = auth;
 		const { error } = await supabase
 			.from('group_site_configs')
 			.delete()
