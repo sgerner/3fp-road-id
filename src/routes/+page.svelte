@@ -2,6 +2,7 @@
 	let { data } = $props();
 	import AlertSystem from '$lib/components/AlertSystem.svelte';
 	import CrashResponse from '$lib/components/CrashResponse.svelte';
+	import { buildAbsoluteUrl, limitSeoText } from '$lib/seo';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
@@ -11,7 +12,54 @@
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+
+	const siteOrigin = $derived(data.siteOrigin || '');
+	const canonicalUrl = $derived(siteOrigin ? buildAbsoluteUrl(siteOrigin, '/') : '/');
+	const seoTitle = '3 Feet Please';
+	const seoDescription = $derived(
+		limitSeoText(
+			'Public rides, cycling groups, volunteer events, merch, emergency contacts, and road-safety resources from 3 Feet Please.',
+			160
+		)
+	);
+	const seoImage = $derived(siteOrigin ? buildAbsoluteUrl(siteOrigin, '/3fp.png') : '/3fp.png');
+	const seoStructuredData = $derived.by(() =>
+		JSON.stringify({
+			'@context': 'https://schema.org',
+			'@type': 'Organization',
+			name: seoTitle,
+			url: canonicalUrl,
+			description: seoDescription,
+			logo: siteOrigin ? buildAbsoluteUrl(siteOrigin, '/logo.png') : '/logo.png',
+			sameAs: ['https://3feetplease.org']
+		})
+	);
 </script>
+
+<svelte:head>
+	<title>{seoTitle} | Road safety and cycling community resources</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
+	<link rel="canonical" href={canonicalUrl} />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content={seoTitle} />
+	<meta property="og:title" content={`${seoTitle} | Road safety and cycling community resources`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={canonicalUrl} />
+	<meta property="og:image" content={seoImage} />
+	<meta property="og:image:alt" content="3 Feet Please logo" />
+
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={`${seoTitle} | Road safety and cycling community resources`} />
+	<meta name="twitter:description" content={seoDescription} />
+	<meta name="twitter:image" content={seoImage} />
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
+</svelte:head>
 
 <!-- ============================================================
      CINEMATIC HERO — full-bleed, bleeds behind the sidebar

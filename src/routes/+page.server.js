@@ -1,4 +1,14 @@
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch, setHeaders, url }) => {
+	setHeaders({
+		'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+		link: [
+			`<${url.origin}/.well-known/api-catalog>; rel="api-catalog"`,
+			`<${url.origin}/api>; rel="service-doc"`,
+			`<${url.origin}/api/openapi.json>; rel="describedby"; type="application/vnd.oai.openapi+json"`,
+			`<${url.origin}/api/health>; rel="status"`
+		].join(', ')
+	});
+
 	const cols = [
 		'id',
 		'slug',

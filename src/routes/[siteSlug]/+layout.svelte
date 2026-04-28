@@ -1,6 +1,13 @@
 <script>
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import {
+		buildAbsoluteUrl,
+		cleanSeoText,
+		getRelativePathname,
+		limitSeoText,
+		normalizePathname
+	} from '$lib/seo';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconMoonStar from '@lucide/svelte/icons/moon-star';
 	import IconSun from '@lucide/svelte/icons/sun';
@@ -22,28 +29,55 @@
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
 	);
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
-	const seoCanonical = $derived(site?.siteUrl || '');
+	const currentPathname = $derived(normalizePathname($page.url.pathname));
+	const homePathname = $derived(normalizePathname(homeHref));
+	const siteRootUrl = $derived(buildAbsoluteUrl($page.url.origin, homeHref || '/'));
+	const seoCanonical = $derived(buildAbsoluteUrl($page.url.origin, currentPathname || '/'));
+	const seoSection = $derived.by(() => {
+		const relative = getRelativePathname(currentPathname, homePathname);
+		return relative.split('/')[0] || '';
+	});
+	const isHomePage = $derived(currentPathname === homePathname);
 	const seoTitle = $derived(
 		(site?.siteConfig?.site_title || group?.name || 'Cycling Group').trim()
 	);
+	const seoPageTitle = $derived.by(() => {
+		if (isHomePage) return seoTitle;
+		const sectionTitles = {
+			updates: 'Updates',
+			gallery: 'Gallery',
+			join: membershipCtaLabel || 'Join',
+			assets: 'Resources'
+		};
+		const sectionTitle = sectionTitles[seoSection];
+		return sectionTitle ? `${sectionTitle} — ${seoTitle}` : seoTitle;
+	});
 	const seoOgImage = $derived(
 		group?.cover_photo_url || group?.logo_url || site?.photoBucket?.image_assets?.[0]?.href || ''
 	);
 
-	function cleanSeoText(value) {
-		return String(value || '')
-			.replace(/\s+/g, ' ')
-			.replace(/[#*_`>[\]]/g, ' ')
-			.trim();
-	}
-
-	function limitSeoText(value, max = 160) {
-		const text = cleanSeoText(value);
-		if (text.length <= max) return text;
-		return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
-	}
-
 	const seoDescription = $derived.by(() => {
+		const sectionDescriptions = {
+			updates: limitSeoText(
+				`${seoTitle} updates, announcements, route changes, volunteer asks, and public notes.`,
+				165
+			),
+			gallery: limitSeoText(
+				`Photo gallery from rides, events, and community days with ${seoTitle}.`,
+				165
+			),
+			join: limitSeoText(
+				`Join ${seoTitle} to follow membership options, support the group, and stay connected.`,
+				165
+			),
+			assets: limitSeoText(
+				`Official links and downloadable resources shared by ${seoTitle}.`,
+				165
+			)
+		};
+		if (!isHomePage && sectionDescriptions[seoSection]) {
+			return sectionDescriptions[seoSection];
+		}
 		const city = cleanSeoText(group?.city);
 		const state = cleanSeoText(group?.state_region);
 		const locality = [city, state].filter(Boolean).join(', ');
@@ -51,7 +85,7 @@
 		const fallback = cleanSeoText(
 			group?.description ||
 				group?.service_area_description ||
-				group?.membership_info ||
+			group?.membership_info ||
 				'Community bike rides, local events, and advocacy.'
 		);
 		const tail = locality ? ` Join rides in ${locality}.` : ' Join local rides and events.';
@@ -73,6 +107,7 @@
 			'bike advocacy',
 			'3 Feet Please'
 		]);
+		if (seoSection) values.add(seoSection);
 		for (const item of taxonomy?.audiences || []) values.add(cleanSeoText(item));
 		for (const item of taxonomy?.disciplines || []) values.add(cleanSeoText(item));
 		for (const item of taxonomy?.skills || []) values.add(cleanSeoText(item));
@@ -84,17 +119,31 @@
 			.map((link) => String(link?.href || '').trim())
 			.filter((href) => /^https?:\/\//i.test(href))
 			.slice(0, 12);
-		const payload = {
-			'@context': 'https://schema.org',
-			'@type': 'SportsOrganization',
-			name: seoTitle,
-			description: seoDescription,
-			url: seoCanonical,
-			logo: group?.logo_url || undefined,
-			image: seoOgImage || undefined,
-			areaServed: [group?.city, group?.state_region].filter(Boolean).join(', ') || undefined,
-			sameAs: sameAs.length ? sameAs : undefined
-		};
+		const payload = isHomePage
+			? {
+					'@context': 'https://schema.org',
+					'@type': 'SportsOrganization',
+					name: seoTitle,
+					description: seoDescription,
+					url: siteRootUrl,
+					logo: group?.logo_url || undefined,
+					image: seoOgImage || undefined,
+					areaServed: [group?.city, group?.state_region].filter(Boolean).join(', ') || undefined,
+					sameAs: sameAs.length ? sameAs : undefined
+				}
+			: {
+					'@context': 'https://schema.org',
+					'@type': 'WebPage',
+					name: seoPageTitle,
+					description: seoDescription,
+					url: seoCanonical,
+					image: seoOgImage || undefined,
+					isPartOf: {
+						'@type': 'WebSite',
+						name: seoTitle,
+						url: siteRootUrl
+					}
+				};
 		return JSON.stringify(payload);
 	});
 
@@ -150,11 +199,6 @@
 		}
 	});
 
-	function normalizePath(pathname) {
-		const value = String(pathname || '').replace(/\/+$/g, '');
-		return value || '/';
-	}
-
 	function isActive(href) {
 		if (!href) return false;
 		let targetUrl;
@@ -164,8 +208,8 @@
 			return false;
 		}
 
-		const currentPath = normalizePath($page.url.pathname);
-		const targetPath = normalizePath(targetUrl.pathname);
+		const currentPath = normalizePathname($page.url.pathname);
+		const targetPath = normalizePathname(targetUrl.pathname);
 		const currentHash = $page.url.hash || '';
 		const targetHash = targetUrl.hash || '';
 
@@ -178,7 +222,7 @@
 </script>
 
 <svelte:head>
-	<title>{seoTitle}</title>
+	<title>{seoPageTitle}</title>
 	<meta name="description" content={seoDescription} />
 	<meta name="keywords" content={seoKeywords} />
 	<meta
@@ -189,7 +233,7 @@
 
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content={seoTitle} />
-	<meta property="og:title" content={seoTitle} />
+	<meta property="og:title" content={seoPageTitle} />
 	<meta property="og:description" content={seoDescription} />
 	<meta property="og:url" content={seoCanonical} />
 	{#if seoOgImage}
@@ -198,7 +242,7 @@
 	{/if}
 
 	<meta name="twitter:card" content={seoOgImage ? 'summary_large_image' : 'summary'} />
-	<meta name="twitter:title" content={seoTitle} />
+	<meta name="twitter:title" content={seoPageTitle} />
 	<meta name="twitter:description" content={seoDescription} />
 	{#if seoOgImage}
 		<meta name="twitter:image" content={seoOgImage} />
