@@ -1116,7 +1116,6 @@ async function loadRecommendationsData(supabase) {
 				.select(
 					'id,slug,name,tagline,description,city,state_region,country,membership_info,service_area_description,activity_frequency,typical_activity_day_time'
 				)
-				.eq('is_published', true)
 				.order('updated_at', { ascending: false })
 				.limit(120),
 			'groups recommendations'

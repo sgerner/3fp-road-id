@@ -37,9 +37,6 @@ export const load = async (event) => {
 	if (groupError || !groupRow) {
 		throw error(404, 'Group not found');
 	}
-	if (groupRow.is_published === false) {
-		throw error(404, 'Group not found');
-	}
 
 	const now = new Date();
 	const horizon = new Date(now);

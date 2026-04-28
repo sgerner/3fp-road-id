@@ -310,7 +310,6 @@ export const load = async ({ url }) => {
 
 	function applyCommonFilters(qBuilder, { includeSearch = true } = {}) {
 		let query = qBuilder;
-		query = query.eq('is_published', true);
 		if (includeSearch && q) {
 			const searchQuery = buildSearchQueryText(q);
 			if (searchQuery) {

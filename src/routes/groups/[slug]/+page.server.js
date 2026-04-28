@@ -505,9 +505,6 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const is_owner = sessionUserId ? ownerIds.includes(sessionUserId) : false;
 	const is_social_manager = sessionUserId ? managerIds.includes(sessionUserId) : false;
 	const can_edit = sessionIsAdmin || is_owner;
-	if (!group.is_published && !can_edit) {
-		return { error: 'Group not found' };
-	}
 	const is_claimed = ownerIds.length > 0;
 	const can_manage_social = is_claimed && is_social_manager;
 

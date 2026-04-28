@@ -14,7 +14,6 @@ export const load = async ({ params, cookies, url }) => {
 
 	if (groupError) throw error(500, groupError.message);
 	if (!group) throw error(404, 'Group not found.');
-	if (group.is_published === false) throw error(404, 'Group not found.');
 
 	const buckets = await listGroupAssetBuckets(supabase, group.id, { includeEmpty: true }).catch(
 		(err) => {
