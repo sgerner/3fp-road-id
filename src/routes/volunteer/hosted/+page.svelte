@@ -50,6 +50,7 @@
 
 <svelte:head>
 	<title>Hosted Volunteer Events</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <section class="mx-auto w-full max-w-5xl space-y-6">

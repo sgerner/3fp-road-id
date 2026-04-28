@@ -1747,6 +1747,7 @@
 
 <svelte:head>
 	<title>{event?.title || 'Event'} — Manage Volunteers</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <!-- ── Sticky management header ─────────────────────────────────────────── -->

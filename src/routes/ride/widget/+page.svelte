@@ -141,6 +141,7 @@
 		name="description"
 		content="Create an embeddable 3FP ride directory widget with list, calendar, and map views."
 	/>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="widget-builder mx-auto flex w-full max-w-7xl flex-col gap-8">

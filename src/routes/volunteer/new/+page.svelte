@@ -1880,6 +1880,7 @@
 
 <svelte:head>
 	<title>Volunteer Event Builder • 3FP</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 {#if currentUser?.id}

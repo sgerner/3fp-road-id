@@ -491,6 +491,7 @@
 		name="description"
 		content="Complete your order and support safer streets. Every purchase directly funds 3FP street safety advocacy."
 	/>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="checkout-page mx-auto w-full max-w-5xl space-y-6 pb-12">

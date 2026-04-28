@@ -11,7 +11,15 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import { page } from '$app/stores';
 	import { enhance } from '$app/forms';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 
 	let { data, form } = $props();
 
@@ -193,16 +201,85 @@
 	}
 
 	const FLIP_MS = 200;
+	const seoTitle = $derived.by(() => cleanSeoText(data.category.name || 'Learn Category'));
+	const seoDescription = $derived.by(() =>
+		limitSeoText(
+			data.category.description ||
+				`Browse ${seoTitle} guides in the 3 Feet Please knowledge library.`,
+			165
+		)
+	);
+	const seoCanonical = $derived(buildCanonicalUrl($page.url));
+	const seoStructuredData = $derived.by(() => {
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Learn',
+					item: buildAbsoluteUrl($page.url.origin, '/learn')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: seoTitle,
+					item: seoCanonical
+				}
+			]
+		};
+		const collection = {
+			'@context': 'https://schema.org',
+			'@type': 'CollectionPage',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			mainEntity: {
+				'@type': 'ItemList',
+				numberOfItems: articles.length,
+				itemListElement: articles.map((article, index) => ({
+					'@type': 'ListItem',
+					position: index + 1,
+					name: article.title,
+					url: buildAbsoluteUrl($page.url.origin, `/learn/${article.slug}`)
+				}))
+			}
+		};
+		return toJsonLd([breadcrumbs, collection]);
+	});
 </script>
 
 <svelte:head>
-	<title>{data.category.name} · Learn · 3 Feet Please</title>
+	<title>{seoTitle} · Learn · 3 Feet Please</title>
 	<meta
 		name="description"
-		content={data.category.description ||
-			`Browse ${data.category.name} guides in the 3 Feet Please knowledge library.`}
+		content={seoDescription}
 	/>
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} · Learn · 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={`${seoTitle} · Learn · 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
+
+<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
+	<a class="hover:opacity-100" href="/learn">Learn</a>
+	<span aria-hidden="true">/</span>
+	<span class="text-surface-600-400">{seoTitle}</span>
+</nav>
 
 <!-- ── Article card snippet ───────────────────────────────────────────── -->
 {#snippet articleCard(article)}

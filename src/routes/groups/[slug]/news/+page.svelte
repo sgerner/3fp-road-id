@@ -6,6 +6,14 @@
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 
 	const { data } = $props();
 	let openSlug = $state('');
@@ -51,14 +59,113 @@
 			keepFocus: true
 		});
 	}
+
+	const seoTitle = $derived.by(() => cleanSeoText(`${data.group.name} Updates`));
+	const seoDescription = $derived.by(() =>
+		limitSeoText(
+			`${data.group.name} updates, route changes, event recaps, volunteer asks, and announcements.`,
+			165
+		)
+	);
+	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['open']));
+	const seoImage = $derived.by(() => {
+		const image = data.group.cover_photo_url || data.group.logo_url || '';
+		if (!image) return '';
+		try {
+			return new URL(image, $page.url.origin).toString();
+		} catch {
+			return image;
+		}
+	});
+	const hasOpenQuery = $derived(Boolean(openSlug || data.initialOpenSlug || $page.url.searchParams.get('open')));
+	const seoStructuredData = $derived.by(() => {
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Groups',
+					item: buildAbsoluteUrl($page.url.origin, '/groups')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: data.group.name,
+					item: buildAbsoluteUrl($page.url.origin, `/groups/${data.group.slug}`)
+				},
+				{
+					'@type': 'ListItem',
+					position: 3,
+					name: 'Updates',
+					item: seoCanonical
+				}
+			]
+		};
+		const archive = {
+			'@context': 'https://schema.org',
+			'@type': 'CollectionPage',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			mainEntity: {
+				'@type': 'ItemList',
+				numberOfItems: data.posts.length,
+				itemListElement: data.posts.map((post, index) => ({
+					'@type': 'ListItem',
+					position: index + 1,
+					name: post.title,
+					url: buildAbsoluteUrl(
+						$page.url.origin,
+						`/groups/${data.group.slug}/news?open=${encodeURIComponent(post.slug)}`
+					)
+				}))
+			}
+		};
+		return toJsonLd([breadcrumbs, archive]);
+	});
 </script>
 
 <svelte:head>
-	<title>{data.group.name} Updates</title>
-	<meta name="description" content={`Latest updates from ${data.group.name}.`} />
+	<title>{seoTitle} | 3 Feet Please</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content={hasOpenQuery
+			? 'noindex,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
+			: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'}
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoImage}
+		<meta property="og:image" content={seoImage} />
+	{/if}
+
+	<meta name="twitter:card" content={seoImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoImage}
+		<meta name="twitter:image" content={seoImage} />
+	{/if}
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
 <div class="mx-auto w-full max-w-4xl pb-10">
+	<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
+		<a class="hover:opacity-100" href="/groups">Groups</a>
+		<span aria-hidden="true">/</span>
+		<a class="hover:opacity-100" href={`/groups/${data.group.slug}`}>{data.group.name}</a>
+		<span aria-hidden="true">/</span>
+		<span class="text-surface-600-400">Updates</span>
+	</nav>
+
 	<!-- Hero Section -->
 	<section class="news-hero relative overflow-hidden rounded-2xl" in:fade={{ duration: 240 }}>
 		<div class="news-accent-bar" aria-hidden="true"></div>

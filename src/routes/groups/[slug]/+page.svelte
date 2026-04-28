@@ -30,6 +30,13 @@
 	import { fade, slide } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 
 	// UI state
 	let showSticky = $state(false);
@@ -484,6 +491,79 @@
 	);
 
 	const hasPosts = $derived(instagramPosts.length > 0 || !!connectedInstagramLabel);
+	const seoTitle = $derived.by(() => cleanSeoText(data.group?.name || 'Group'));
+	const seoDescription = $derived.by(() => {
+		const city = cleanSeoText(data.group?.city);
+		const state = cleanSeoText(data.group?.state_region);
+		const locality = [city, state].filter(Boolean).join(', ');
+		const base =
+			cleanSeoText(
+				data.group?.description ||
+					data.group?.membership_info ||
+					data.group?.service_area_description
+			) ||
+			`${seoTitle} is a cycling community on 3 Feet Please.`;
+		const tail = locality
+			? ` Explore rides, updates, and volunteer opportunities in ${locality}.`
+			: ' Explore rides, updates, and volunteer opportunities.';
+		return limitSeoText(`${base}${tail}`, 165);
+	});
+	const seoCanonical = $derived(
+		buildCanonicalUrl($page.url, [
+			'auth',
+			'follow',
+			'follow_msg',
+			'auto_follow',
+			'auto_follow_tier'
+		])
+	);
+	const seoImage = $derived.by(() => {
+		const image = data.group?.cover_photo_url || data.group?.logo_url || '';
+		if (!image) return '';
+		try {
+			return new URL(image, $page.url.origin).toString();
+		} catch {
+			return image;
+		}
+	});
+	const seoStructuredData = $derived.by(() => {
+		const sameAs = (contactLinks || [])
+			.map((link) => String(link?.href || '').trim())
+			.filter((href) => /^https?:\/\//i.test(href))
+			.slice(0, 12);
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Groups',
+					item: buildAbsoluteUrl($page.url.origin, '/groups')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: seoTitle,
+					item: seoCanonical
+				}
+			]
+		};
+		const organization = {
+			'@context': 'https://schema.org',
+			'@type': 'SportsOrganization',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			logo: data.group?.logo_url || undefined,
+			image: seoImage || undefined,
+			areaServed: [data.group?.city, data.group?.state_region]
+				.filter(Boolean)
+				.join(', ') || undefined,
+			sameAs: sameAs.length ? sameAs : undefined
+		};
+		return toJsonLd([breadcrumbs, organization]);
+	});
 
 	function newsPostDate(post) {
 		const raw = post?.published_at || post?.created_at;
@@ -498,7 +578,47 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{seoTitle} | 3 Feet Please</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoImage}
+		<meta property="og:image" content={seoImage} />
+	{/if}
+
+	<meta name="twitter:card" content={seoImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoImage}
+		<meta name="twitter:image" content={seoImage} />
+	{/if}
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
+</svelte:head>
+
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
+	<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
+		<a class="hover:opacity-100" href="/groups">Groups</a>
+		<span aria-hidden="true">/</span>
+		<span class="text-surface-600-400">{seoTitle}</span>
+		<span aria-hidden="true">·</span>
+		<a class="hover:opacity-100" href={`/groups/${data.group.slug}/news`}>Updates</a>
+		<a class="hover:opacity-100" href="/ride">Rides</a>
+		<a class="hover:opacity-100" href="/volunteer">Volunteer</a>
+		<a class="hover:opacity-100" href={`/volunteer/groups/${data.group.slug}`}>Volunteer Events</a>
+		<a class="hover:opacity-100" href="/learn">Learn</a>
+	</nav>
+
 	<GroupHeroCard
 		group={data.group}
 		canEdit={data.can_edit}

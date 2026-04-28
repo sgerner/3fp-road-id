@@ -2,6 +2,8 @@
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import VolunteerEventsExplorer from '$lib/components/volunteer/VolunteerEventsExplorer.svelte';
 	import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
+	import { page } from '$app/stores';
+	import { buildCanonicalUrl, cleanSeoText, limitSeoText } from '$lib/seo';
 
 	const { data } = $props();
 
@@ -25,7 +27,9 @@
 			.filter(Boolean)
 			.join(', ');
 	});
-	const title = $derived(group?.name ? `Volunteer with ${group.name}` : 'Volunteer Opportunities');
+	const title = $derived(
+		group?.name ? cleanSeoText(`Volunteer with ${group.name}`) : 'Volunteer Opportunities'
+	);
 	const description = $derived.by(() => {
 		if (!group) {
 			return 'Join upcoming volunteer opportunities hosted by this group.';
@@ -36,10 +40,22 @@
 		}
 		return `Support ${group.name} by joining their upcoming volunteer events.`;
 	});
+	const seoCanonical = $derived(buildCanonicalUrl($page.url));
 </script>
 
 <svelte:head>
 	<title>{group?.name ? `Volunteer with ${group.name}` : 'Group Volunteer Opportunities'}</title>
+	<meta
+		name="description"
+		content={group
+			? limitSeoText(description, 165)
+			: 'Join upcoming volunteer opportunities hosted by this group.'}
+	/>
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
+	<link rel="canonical" href={seoCanonical} />
 </svelte:head>
 
 {#if group}

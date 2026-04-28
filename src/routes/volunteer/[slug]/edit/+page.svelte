@@ -831,6 +831,7 @@
 
 <svelte:head>
 	<title>Edit volunteer event</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl space-y-8 pb-16">

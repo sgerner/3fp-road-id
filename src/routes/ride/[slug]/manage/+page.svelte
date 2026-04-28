@@ -6,6 +6,7 @@
 
 <svelte:head>
 	<title>Manage Ride</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <RideEditor

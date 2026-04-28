@@ -26,6 +26,19 @@ export function buildAbsoluteUrl(origin, pathname = '/') {
 	}
 }
 
+export function buildCanonicalUrl(url, paramsToRemove = []) {
+	try {
+		const canonical = new URL(url instanceof URL ? url.toString() : String(url));
+		canonical.hash = '';
+		for (const param of paramsToRemove) {
+			canonical.searchParams.delete(param);
+		}
+		return canonical.toString();
+	} catch {
+		return String(url || '');
+	}
+}
+
 export function getRelativePathname(pathname, basePath = '/') {
 	const current = normalizePathname(pathname);
 	const base = normalizePathname(basePath);
@@ -36,4 +49,8 @@ export function getRelativePathname(pathname, basePath = '/') {
 	}
 	if (!current.startsWith(`${base}/`)) return '';
 	return current.slice(base.length + 1);
+}
+
+export function toJsonLd(payload) {
+	return JSON.stringify(payload).replace(/</g, '\\u003c');
 }

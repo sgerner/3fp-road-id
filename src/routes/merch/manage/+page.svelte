@@ -186,6 +186,7 @@
 
 <svelte:head>
 	<title>Merch Manager • 3 Feet Please</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="mx-auto w-full max-w-7xl space-y-6 pb-12" in:fade={{ duration: 180 }}>

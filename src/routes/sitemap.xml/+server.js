@@ -76,6 +76,111 @@ async function loadPublishedGroupRows() {
 		.filter(({ config }) => config?.published !== false);
 }
 
+async function loadPublicGroupRows() {
+	const db = pickDbClient();
+	const { data } = await db
+		.from('groups')
+		.select('id,slug,updated_at,is_published')
+		.eq('is_published', true)
+		.order('updated_at', { ascending: false })
+		.limit(5000);
+	return Array.isArray(data) ? data : [];
+}
+
+async function loadPublishedRideRows() {
+	const db = pickDbClient();
+	const { data } = await db
+		.from('activity_events')
+		.select('slug,updated_at,published_at,created_at')
+		.eq('activity_type', 'ride')
+		.eq('status', 'published')
+		.order('updated_at', { ascending: false })
+		.limit(5000);
+	return Array.isArray(data) ? data : [];
+}
+
+async function loadPublishedLearnRows() {
+	const db = pickDbClient();
+	const { data } = await db
+		.from('learn_articles')
+		.select('slug,updated_at,published_at,created_at,category_slug,category_name,is_published')
+		.eq('is_published', true)
+		.order('updated_at', { ascending: false })
+		.limit(5000);
+	return Array.isArray(data) ? data : [];
+}
+
+async function loadPublishedVolunteerRows() {
+	const db = pickDbClient();
+	const { data } = await db
+		.from('volunteer_events')
+		.select('slug,updated_at,published_at,created_at,status,event_start,event_end')
+		.eq('status', 'published')
+		.order('updated_at', { ascending: false })
+		.limit(5000);
+	return Array.isArray(data) ? data : [];
+}
+
+async function loadPublishedGroupNewsRows() {
+	const db = pickDbClient();
+	const { data } = await db
+		.from('group_news_posts')
+		.select('group_id,slug,updated_at,published_at,created_at')
+		.not('published_at', 'is', null)
+		.eq('is_private', false)
+		.order('published_at', { ascending: false, nullsFirst: false })
+		.order('updated_at', { ascending: false })
+		.limit(5000);
+	return Array.isArray(data) ? data : [];
+}
+
+function toSitemapTimestamp(...values) {
+	for (const value of values) {
+		if (!value) continue;
+		const parsed = new Date(value);
+		if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+	}
+	return null;
+}
+
+function addSitemapEntry(entryMap, loc, lastmod) {
+	if (!loc) return;
+	const normalizedLastmod = toSitemapTimestamp(lastmod);
+	const current = entryMap.get(loc);
+	if (!current) {
+		entryMap.set(loc, { loc, lastmod: normalizedLastmod });
+		return;
+	}
+	if (!normalizedLastmod) return;
+	if (!current.lastmod) {
+		entryMap.set(loc, { loc, lastmod: normalizedLastmod });
+		return;
+	}
+	if (new Date(normalizedLastmod).getTime() > new Date(current.lastmod).getTime()) {
+		entryMap.set(loc, { loc, lastmod: normalizedLastmod });
+	}
+}
+
+function addCommonPublicEntries(entryMap, origin) {
+	for (const pathname of [
+		'/',
+		'/groups',
+		'/ride',
+		'/volunteer',
+		'/learn',
+		'/volunteer/groups',
+		'/merch',
+		'/get-involved',
+		'/donate',
+		'/roadid',
+		'/terms',
+		'/privacy',
+		'/data-deletion'
+	]) {
+		addSitemapEntry(entryMap, toAbsoluteUrl(origin, pathname), null);
+	}
+}
+
 function buildMicrositeEntries(site, origin) {
 	const entries = [];
 	const homePath = normalizePathname(site?.basePath || '/');
@@ -116,23 +221,6 @@ function buildMicrositeEntries(site, origin) {
 	return entries;
 }
 
-function buildCoreEntries(origin) {
-	return [
-		'/',
-		'/groups',
-		'/ride',
-		'/volunteer',
-		'/learn',
-		'/merch',
-		'/get-involved',
-		'/donate',
-		'/roadid',
-		'/terms',
-		'/privacy',
-		'/data-deletion'
-	].map((pathname) => ({ loc: toAbsoluteUrl(origin, pathname), lastmod: null }));
-}
-
 function buildXmlUrlEntry({ loc, lastmod = null }) {
 	const pieces = [`    <loc>${escapeXml(loc)}</loc>`];
 	if (lastmod) {
@@ -152,7 +240,7 @@ function buildSitemapXml(entries) {
 
 export const GET = async ({ fetch, url }) => {
 	const micrositeSlug = await resolveRequestMicrositeSlug(url);
-	const entries = [];
+	const entryMap = new Map();
 
 	if (micrositeSlug) {
 		const site = await loadGroupMicrosite({
@@ -162,24 +250,131 @@ export const GET = async ({ fetch, url }) => {
 			publicPathname: '/'
 		}).catch(() => null);
 		if (site) {
-			entries.push(...buildMicrositeEntries(site, url.origin));
+			for (const entry of buildMicrositeEntries(site, url.origin)) {
+				addSitemapEntry(entryMap, entry.loc, entry.lastmod);
+			}
 		}
 	}
 
-	if (!entries.length) {
-		const publishedSites = await loadPublishedGroupRows().catch(() => []);
+	if (!entryMap.size) {
+		const [publishedSites, publicGroups, rideRows, learnRows, volunteerRows, groupNewsRows] =
+			await Promise.all([
+				loadPublishedGroupRows().catch(() => []),
+				loadPublicGroupRows().catch(() => []),
+				loadPublishedRideRows().catch(() => []),
+				loadPublishedLearnRows().catch(() => []),
+				loadPublishedVolunteerRows().catch(() => []),
+				loadPublishedGroupNewsRows().catch(() => [])
+			]);
+
 		for (const { group, config } of publishedSites) {
-			const micrositePath = `/${normalizeMicrositeSlug(group?.microsite_slug || group?.slug || '')}`;
-			if (!micrositePath || micrositePath === '/') continue;
-			entries.push({
-				loc: toAbsoluteUrl(url.origin, micrositePath),
-				lastmod: config?.updated_at || group?.updated_at || null
-			});
+			const groupSlug = normalizeMicrositeSlug(group?.slug || '');
+			if (groupSlug) {
+				addSitemapEntry(
+					entryMap,
+					toAbsoluteUrl(url.origin, `/groups/${groupSlug}`),
+					config?.updated_at || group?.updated_at || null
+				);
+			}
 		}
-		entries.push(...buildCoreEntries(url.origin));
+
+		for (const row of rideRows) {
+			if (!row?.slug) continue;
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/ride/${encodeURIComponent(row.slug)}`),
+				row.published_at || row.updated_at || row.created_at || null
+			);
+		}
+
+		const learnCategoryMap = new Map();
+		for (const row of learnRows) {
+			if (!row?.slug) continue;
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/learn/${encodeURIComponent(row.slug)}`),
+				row.published_at || row.updated_at || row.created_at || null
+			);
+			if (!row.category_slug) continue;
+			const current = learnCategoryMap.get(row.category_slug) || null;
+			const nextStamp = row.updated_at || row.published_at || row.created_at || null;
+			if (!current) {
+				learnCategoryMap.set(row.category_slug, {
+					slug: row.category_slug,
+					lastmod: nextStamp
+				});
+				continue;
+			}
+			const currentStamp = toSitemapTimestamp(current.lastmod);
+			const nextTs = toSitemapTimestamp(nextStamp);
+			if (nextTs && (!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())) {
+				learnCategoryMap.set(row.category_slug, {
+					slug: row.category_slug,
+					lastmod: nextStamp
+				});
+			}
+		}
+
+		for (const category of learnCategoryMap.values()) {
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/learn/category/${encodeURIComponent(category.slug)}`),
+				category.lastmod
+			);
+		}
+
+		for (const row of volunteerRows) {
+			if (!row?.slug) continue;
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/volunteer/${encodeURIComponent(row.slug)}`),
+				row.published_at || row.updated_at || row.created_at || row.event_start || row.event_end || null
+			);
+		}
+
+		const groupNewsLatestByGroupId = new Map();
+		for (const row of groupNewsRows) {
+			if (!row?.group_id) continue;
+			const nextStamp = row.published_at || row.updated_at || row.created_at || null;
+			const current = groupNewsLatestByGroupId.get(row.group_id);
+			if (!current) {
+				groupNewsLatestByGroupId.set(row.group_id, nextStamp);
+				continue;
+			}
+			const currentStamp = toSitemapTimestamp(current);
+			const nextTs = toSitemapTimestamp(nextStamp);
+			if (nextTs && (!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())) {
+				groupNewsLatestByGroupId.set(row.group_id, nextStamp);
+			}
+		}
+
+		for (const group of publicGroups) {
+			const groupSlug = normalizeMicrositeSlug(group?.slug || '');
+			if (!groupSlug) continue;
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/groups/${groupSlug}`),
+				group?.updated_at || null
+			);
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, `/volunteer/groups/${groupSlug}`),
+				group?.updated_at || null
+			);
+			const newsLastmod = groupNewsLatestByGroupId.get(group.id) || null;
+			if (newsLastmod) {
+				addSitemapEntry(
+					entryMap,
+					toAbsoluteUrl(url.origin, `/groups/${groupSlug}/news`),
+					newsLastmod
+				);
+			}
+		}
+
+		addCommonPublicEntries(entryMap, url.origin);
 	}
 
-	const xml = buildSitemapXml(entries);
+	const xml = buildSitemapXml(Array.from(entryMap.values()));
 	return new Response(xml, {
 		status: 200,
 		headers: {

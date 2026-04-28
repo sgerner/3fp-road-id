@@ -17,6 +17,7 @@
 <svelte:head>
 	<title>My Groups · 3 Feet Please</title>
 	<meta name="description" content="Manage your cycling groups and communities." />
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="my-groups-page mx-auto flex w-full max-w-7xl flex-col gap-10">

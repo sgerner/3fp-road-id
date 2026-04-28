@@ -41,6 +41,7 @@
 
 <svelte:head>
 	<title>Edit {data.article.title} · Learn</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-5xl flex-col gap-6">

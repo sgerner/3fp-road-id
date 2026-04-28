@@ -394,6 +394,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Create Group · 3 Feet Please</title>
+	<meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <div class="new-group-page mx-auto w-full max-w-3xl space-y-5 pb-10">
 	<!-- ── Cinematic header ── -->
 	<header class="new-header relative overflow-hidden rounded-3xl">

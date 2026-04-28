@@ -12,6 +12,7 @@
 
 <svelte:head>
 	<title>Order History • 3 Feet Please Merch</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="mx-auto w-full max-w-4xl space-y-5 pb-10">

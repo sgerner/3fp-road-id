@@ -11,6 +11,13 @@
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import { escapeHtml } from '$lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 	import 'leaflet/dist/leaflet.css';
 
 	const { data } = $props();
@@ -48,6 +55,65 @@
 	);
 	const claimLabel = $derived(ride?.recurrenceRule ? 'Claim Ride Series' : 'Claim Ride');
 	const selectedCalendarLinks = $derived(selectedOccurrenceCalendarLinks());
+	const seoTitle = $derived.by(() => cleanSeoText(activity?.title || 'Ride'));
+	const seoDescription = $derived.by(() =>
+		limitSeoText(
+			activity?.summary ||
+				activity?.description ||
+				`${seoTitle} on 3 Feet Please with route details, RSVP links, and calendar downloads.`,
+			165
+		)
+	);
+	const seoCanonical = $derived(buildCanonicalUrl($page.url));
+	const seoImage = $derived.by(() => {
+		const image = leadRideImage || '';
+		if (!image) return '';
+		try {
+			return new URL(image, $page.url.origin).toString();
+		} catch {
+			return image;
+		}
+	});
+	const seoStructuredData = $derived.by(() => {
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Rides',
+					item: buildAbsoluteUrl($page.url.origin, '/ride')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: seoTitle,
+					item: seoCanonical
+				}
+			]
+		};
+		const rideEvent = {
+			'@context': 'https://schema.org',
+			'@type': 'Event',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			image: seoImage || undefined,
+			startDate: selectedOccurrence?.starts_at || activity?.starts_at || undefined,
+			endDate: selectedOccurrence?.ends_at || activity?.ends_at || undefined,
+			eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+			location:
+				activity?.start_location_name || activity?.start_location_address
+					? {
+							'@type': 'Place',
+							name: activity?.start_location_name || undefined,
+							address: activity?.start_location_address || undefined
+						}
+					: undefined
+		};
+		return toJsonLd([breadcrumbs, rideEvent]);
+	});
 	const urlPattern = /(?:https?:\/\/|www\.)[^\s<]+/gi;
 	const maxLinkLabelLength = 88;
 
@@ -232,10 +298,40 @@
 </script>
 
 <svelte:head>
-	<title>{activity?.title || 'Ride'}</title>
+	<title>{seoTitle} | 3 Feet Please</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="event" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoImage}
+		<meta property="og:image" content={seoImage} />
+	{/if}
+
+	<meta name="twitter:card" content={seoImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={`${seoTitle} | 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoImage}
+		<meta name="twitter:image" content={seoImage} />
+	{/if}
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
+	<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
+		<a class="hover:opacity-100" href="/ride">Rides</a>
+		<span aria-hidden="true">/</span>
+		<span class="text-surface-600-400">{seoTitle}</span>
+	</nav>
+
 	<section
 		class="hero-section relative overflow-hidden rounded-3xl"
 		class:hero-section--cover={leadRideImage}

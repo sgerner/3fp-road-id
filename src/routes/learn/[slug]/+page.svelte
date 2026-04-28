@@ -5,6 +5,14 @@
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
+	import { page } from '$app/stores';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 
 	const { data, form } = $props();
 	let showVersionHistory = $state(false);
@@ -102,6 +110,76 @@
 	// Filter: TOC shows h1+h2 on mobile accordion, h1+h2+h3 on desktop sidebar
 	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 3));
 	const tocHeadingsMobile = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
+	const seoTitle = $derived.by(() => cleanSeoText(data.article.title || 'Learn'));
+	const seoDescription = $derived.by(() =>
+		limitSeoText(
+			data.article.summary ||
+				`${seoTitle} in the 3 Feet Please learn library, with explanations, examples, and practical guidance.`,
+			165
+		)
+	);
+	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['revision']));
+	const seoImage = $derived.by(() => {
+		const image = data.article.cover_image_url || '';
+		if (!image) return '';
+		try {
+			return new URL(image, $page.url.origin).toString();
+		} catch {
+			return image;
+		}
+	});
+	const seoStructuredData = $derived.by(() => {
+		const categoryUrl = buildAbsoluteUrl($page.url.origin, `/learn/category/${data.article.category_slug}`);
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Learn',
+					item: buildAbsoluteUrl($page.url.origin, '/learn')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: data.article.category_name || 'Category',
+					item: categoryUrl
+				},
+				{
+					'@type': 'ListItem',
+					position: 3,
+					name: seoTitle,
+					item: seoCanonical
+				}
+			]
+		};
+		const article = {
+			'@context': 'https://schema.org',
+			'@type': 'Article',
+			headline: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			mainEntityOfPage: seoCanonical,
+			image: seoImage || undefined,
+			articleSection: data.article.category_name || undefined,
+			datePublished: data.article.created_at || data.article.updated_at || undefined,
+			dateModified: data.viewingRevision?.createdAt || data.article.updated_at || undefined,
+			author:
+				data.article.authorProfile?.full_name || data.article.authorProfile?.email
+					? {
+							'@type': 'Person',
+							name: data.article.authorProfile?.full_name || data.article.authorProfile?.email
+						}
+					: undefined,
+			publisher: {
+				'@type': 'Organization',
+				name: '3 Feet Please',
+				url: buildAbsoluteUrl($page.url.origin, '/')
+			}
+		};
+		return toJsonLd([breadcrumbs, article]);
+	});
 
 	function formatDate(value, withTime = false) {
 		if (!value) return 'Recently';
@@ -115,8 +193,33 @@
 </script>
 
 <svelte:head>
-	<title>{data.article.title} · Learn</title>
-	<meta name="description" content={data.article.summary || data.article.title} />
+	<title>{seoTitle} · Learn | 3 Feet Please</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content={data.viewingRevision
+			? 'noindex,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
+			: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'}
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="article" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} · Learn | 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoImage}
+		<meta property="og:image" content={seoImage} />
+	{/if}
+
+	<meta name="twitter:card" content={seoImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={`${seoTitle} · Learn | 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoImage}
+		<meta name="twitter:image" content={seoImage} />
+	{/if}
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
 <!--
@@ -131,6 +234,16 @@
 </div>
 
 <div class="article-page-root">
+	<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
+		<a class="hover:opacity-100" href="/learn">Learn</a>
+		<span aria-hidden="true">/</span>
+		<a class="hover:opacity-100" href={`/learn/category/${data.article.category_slug}`}>
+			{data.article.category_name}
+		</a>
+		<span aria-hidden="true">/</span>
+		<span class="text-surface-600-400">{seoTitle}</span>
+	</nav>
+
 	<!-- ═══ MAIN ARTICLE COLUMN ══════════════════════════════════════════ -->
 	<div class="article-main">
 		<section

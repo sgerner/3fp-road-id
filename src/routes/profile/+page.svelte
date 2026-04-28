@@ -208,6 +208,7 @@
 		name="description"
 		content="Set your profile basics so 3 Feet Please can suggest better groups, rides, and volunteer opportunities."
 	/>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class="profile-page mx-auto flex w-full max-w-7xl flex-col gap-8">

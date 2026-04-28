@@ -438,6 +438,7 @@
 
 <svelte:head>
 	<title>3FP Ride Directory Widget</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 <div class={`ride-widget-shell theme-${resolvedTheme} density-${config.density}`}>

@@ -103,6 +103,10 @@
 	}
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <div class="manage-shell min-h-screen w-full">
 	<main class="mx-auto max-w-6xl space-y-6 pt-4 pb-12 md:px-4 lg:px-6">
 		<section

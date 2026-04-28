@@ -40,6 +40,13 @@
 	import { slide, fade } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import {
+		buildAbsoluteUrl,
+		buildCanonicalUrl,
+		cleanSeoText,
+		limitSeoText,
+		toJsonLd
+	} from '$lib/seo';
 
 	function getPageData() {
 		return data ?? {};
@@ -1294,15 +1301,103 @@
 	function opportunityAccent(type) {
 		return opportunityTypeAccent[(type || '').toLowerCase()] ?? 'border-l-secondary-500';
 	}
+
+	const seoTitle = $derived.by(() => cleanSeoText(event.title || 'Volunteer Event'));
+	const seoDescription = $derived.by(() =>
+		limitSeoText(
+			event.summary ||
+				eventType?.description ||
+				`${seoTitle} on 3 Feet Please with roles, shifts, and signup details.`,
+			165
+		)
+	);
+	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['auth']));
+	const seoImage = $derived.by(() => {
+		const image = hostGroup?.cover_photo_url || hostGroup?.logo_url || '';
+		if (!image) return '';
+		try {
+			return new URL(image, $page.url.origin).toString();
+		} catch {
+			return image;
+		}
+	});
+	const seoStructuredData = $derived.by(() => {
+		const breadcrumbs = {
+			'@context': 'https://schema.org',
+			'@type': 'BreadcrumbList',
+			itemListElement: [
+				{
+					'@type': 'ListItem',
+					position: 1,
+					name: 'Volunteer',
+					item: buildAbsoluteUrl($page.url.origin, '/volunteer')
+				},
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: seoTitle,
+					item: seoCanonical
+				}
+			]
+		};
+		const eventSchema = {
+			'@context': 'https://schema.org',
+			'@type': 'Event',
+			name: seoTitle,
+			description: seoDescription,
+			url: seoCanonical,
+			image: seoImage || undefined,
+			startDate: event?.event_start || undefined,
+			endDate: event?.event_end || undefined,
+			eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+			location:
+				event?.location_name || event?.location_address
+					? {
+							'@type': 'Place',
+							name: event?.location_name || undefined,
+							address: event?.location_address || undefined
+						}
+					: undefined,
+			organizer: hostGroup?.name
+				? {
+						'@type': 'Organization',
+						name: hostGroup.name,
+						url: buildAbsoluteUrl($page.url.origin, `/groups/${hostGroup.slug}`)
+					}
+				: undefined
+		};
+		return toJsonLd([breadcrumbs, eventSchema]);
+	});
 </script>
 
 <svelte:head>
-	<title
-		>{event.title ? `${event.title} - Volunteer Event` : 'Volunteer Event'} | 3 Feet Please</title
-	>
-	{#if event.summary}
-		<meta name="description" content={event.summary} />
+	<title>{seoTitle} | Volunteer | 3 Feet Please</title>
+	<meta name="description" content={seoDescription} />
+	<meta
+		name="robots"
+		content={(draftRestricted || authRequired)
+			? 'noindex,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
+			: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'}
+	/>
+	<link rel="canonical" href={seoCanonical} />
+
+	<meta property="og:type" content="event" />
+	<meta property="og:site_name" content="3 Feet Please" />
+	<meta property="og:title" content={`${seoTitle} | Volunteer | 3 Feet Please`} />
+	<meta property="og:description" content={seoDescription} />
+	<meta property="og:url" content={seoCanonical} />
+	{#if seoImage}
+		<meta property="og:image" content={seoImage} />
 	{/if}
+
+	<meta name="twitter:card" content={seoImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content={`${seoTitle} | Volunteer | 3 Feet Please`} />
+	<meta name="twitter:description" content={seoDescription} />
+	{#if seoImage}
+		<meta name="twitter:image" content={seoImage} />
+	{/if}
+
+	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
 {#if draftRestricted}
@@ -1369,6 +1464,18 @@
 	</section>
 {:else}
 	<section class="mx-auto max-w-6xl space-y-8 px-2 py-8">
+		<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
+			<a class="hover:opacity-100" href="/volunteer">Volunteer</a>
+			<span aria-hidden="true">/</span>
+			<span class="text-surface-600-400">{seoTitle}</span>
+			{#if hostGroup?.slug}
+				<span aria-hidden="true">·</span>
+				<a class="hover:opacity-100" href={`/volunteer/groups/${hostGroup.slug}`}>
+					{hostGroup.name}
+				</a>
+			{/if}
+		</nav>
+
 		{#if authFlag === 'required' || authFlag === 'forbidden'}
 			<section
 				class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'

@@ -7,6 +7,7 @@
 
 <svelte:head>
 	<title>Create Ride</title>
+	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
 {#if isLoggedIn}
