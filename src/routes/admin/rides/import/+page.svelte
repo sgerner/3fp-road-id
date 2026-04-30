@@ -79,8 +79,9 @@
 
 		<!-- JSON Input -->
 		<div class="space-y-1">
-			<label class="text-sm font-medium">Ride JSON</label>
+			<label class="text-sm font-medium" for="ride-json">Ride JSON</label>
 			<textarea
+				id="ride-json"
 				class="textarea min-h-[20rem] w-full font-mono text-sm"
 				name="json"
 				placeholder="Enter JSON here...">{values.json}</textarea

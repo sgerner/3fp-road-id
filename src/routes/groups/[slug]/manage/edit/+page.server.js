@@ -258,7 +258,7 @@ export const actions = {
 	default: async ({ params, request, cookies }) => {
 		const auth = await resolveGroupEditorContext({ params, cookies });
 		if (!auth.ok) return auth.response;
-		const { slug, group, group_id } = auth;
+		const { slug, group, group_id, supabase } = auth;
 
 		const form = await request.formData();
 
@@ -535,7 +535,7 @@ export const actions = {
 		const auth = await resolveGroupEditorContext({ params, cookies });
 		if (!auth.ok) return auth.response;
 
-		const { group_id } = auth;
+		const { group_id, supabase } = auth;
 		const { error: deleteError } = await supabase
 			.from('groups')
 			.update({
