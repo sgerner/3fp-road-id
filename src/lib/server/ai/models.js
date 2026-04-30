@@ -333,9 +333,7 @@ function createOpenAiProviderClient(apiKey) {
 			if (!imageBytes && data?.data?.[0]?.url) {
 				const imageResponse = await fetch(data.data[0].url);
 				if (!imageResponse.ok) {
-					throw new Error(
-						`Failed to fetch generated image from URL: ${imageResponse.statusText}`
-					);
+					throw new Error(`Failed to fetch generated image from URL: ${imageResponse.statusText}`);
 				}
 				const contentType = imageResponse.headers.get('content-type');
 				if (contentType) mimeType = contentType;

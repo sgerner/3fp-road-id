@@ -70,10 +70,7 @@
 				`Join ${seoTitle} to follow membership options, support the group, and stay connected.`,
 				165
 			),
-			assets: limitSeoText(
-				`Official links and downloadable resources shared by ${seoTitle}.`,
-				165
-			)
+			assets: limitSeoText(`Official links and downloadable resources shared by ${seoTitle}.`, 165)
 		};
 		if (!isHomePage && sectionDescriptions[seoSection]) {
 			return sectionDescriptions[seoSection];
@@ -85,7 +82,7 @@
 		const fallback = cleanSeoText(
 			group?.description ||
 				group?.service_area_description ||
-			group?.membership_info ||
+				group?.membership_info ||
 				'Community bike rides, local events, and advocacy.'
 		);
 		const tail = locality ? ` Join rides in ${locality}.` : ' Join local rides and events.';

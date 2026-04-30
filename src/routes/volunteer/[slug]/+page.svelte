@@ -1375,7 +1375,7 @@
 	<meta name="description" content={seoDescription} />
 	<meta
 		name="robots"
-		content={(draftRestricted || authRequired)
+		content={draftRestricted || authRequired
 			? 'noindex,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'
 			: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'}
 	/>

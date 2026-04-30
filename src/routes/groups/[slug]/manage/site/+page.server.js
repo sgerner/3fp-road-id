@@ -1,7 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
 	buildMicrositeUrl,

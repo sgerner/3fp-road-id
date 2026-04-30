@@ -11,7 +11,8 @@ function cleanText(value) {
 
 async function requireOwner(cookies, groupSlug) {
 	const { accessToken, user } = resolveSession(cookies);
-	if (!accessToken || !user?.id) return { ok: false, status: 401, error: 'Authentication required.' };
+	if (!accessToken || !user?.id)
+		return { ok: false, status: 401, error: 'Authentication required.' };
 
 	const supabase = createRequestSupabaseClient(accessToken);
 	const { data: group } = await supabase

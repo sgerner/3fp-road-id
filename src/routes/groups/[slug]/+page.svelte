@@ -501,8 +501,7 @@
 				data.group?.description ||
 					data.group?.membership_info ||
 					data.group?.service_area_description
-			) ||
-			`${seoTitle} is a cycling community on 3 Feet Please.`;
+			) || `${seoTitle} is a cycling community on 3 Feet Please.`;
 		const tail = locality
 			? ` Explore rides, updates, and volunteer opportunities in ${locality}.`
 			: ' Explore rides, updates, and volunteer opportunities.';
@@ -557,9 +556,8 @@
 			url: seoCanonical,
 			logo: data.group?.logo_url || undefined,
 			image: seoImage || undefined,
-			areaServed: [data.group?.city, data.group?.state_region]
-				.filter(Boolean)
-				.join(', ') || undefined,
+			areaServed:
+				[data.group?.city, data.group?.state_region].filter(Boolean).join(', ') || undefined,
 			sameAs: sameAs.length ? sameAs : undefined
 		};
 		return toJsonLd([breadcrumbs, organization]);
@@ -607,18 +605,6 @@
 </svelte:head>
 
 <div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
-	<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
-		<a class="hover:opacity-100" href="/groups">Groups</a>
-		<span aria-hidden="true">/</span>
-		<span class="text-surface-600-400">{seoTitle}</span>
-		<span aria-hidden="true">·</span>
-		<a class="hover:opacity-100" href={`/groups/${data.group.slug}/news`}>Updates</a>
-		<a class="hover:opacity-100" href="/ride">Rides</a>
-		<a class="hover:opacity-100" href="/volunteer">Volunteer</a>
-		<a class="hover:opacity-100" href={`/volunteer/groups/${data.group.slug}`}>Volunteer Events</a>
-		<a class="hover:opacity-100" href="/learn">Learn</a>
-	</nav>
-
 	<GroupHeroCard
 		group={data.group}
 		canEdit={data.can_edit}

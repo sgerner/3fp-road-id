@@ -41,7 +41,9 @@ function pickDbClient() {
 }
 
 async function resolveRequestMicrositeSlug(url) {
-	const normalizedHost = String(url.hostname || '').toLowerCase().replace(/:\d+$/, '');
+	const normalizedHost = String(url.hostname || '')
+		.toLowerCase()
+		.replace(/:\d+$/, '');
 	const subdomainSlug = extractMicrositeSlugFromHostname(normalizedHost);
 	if (subdomainSlug) return subdomainSlug;
 
@@ -190,7 +192,8 @@ function buildMicrositeEntries(site, origin) {
 	entries.push({ loc: homeUrl, lastmod: homeLastmod });
 
 	if (site?.siteConfig?.sections?.news && (site?.newsPosts?.length || 0) > 0) {
-		const latestNews = site.newsPosts.find((post) => post?.published_at || post?.created_at) || null;
+		const latestNews =
+			site.newsPosts.find((post) => post?.published_at || post?.created_at) || null;
 		entries.push({
 			loc: toAbsoluteUrl(origin, joinPathname(homePath, 'updates')),
 			lastmod: latestNews?.published_at || latestNews?.created_at || homeLastmod
@@ -307,7 +310,10 @@ export const GET = async ({ fetch, url }) => {
 			}
 			const currentStamp = toSitemapTimestamp(current.lastmod);
 			const nextTs = toSitemapTimestamp(nextStamp);
-			if (nextTs && (!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())) {
+			if (
+				nextTs &&
+				(!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())
+			) {
 				learnCategoryMap.set(row.category_slug, {
 					slug: row.category_slug,
 					lastmod: nextStamp
@@ -328,7 +334,12 @@ export const GET = async ({ fetch, url }) => {
 			addSitemapEntry(
 				entryMap,
 				toAbsoluteUrl(url.origin, `/volunteer/${encodeURIComponent(row.slug)}`),
-				row.published_at || row.updated_at || row.created_at || row.event_start || row.event_end || null
+				row.published_at ||
+					row.updated_at ||
+					row.created_at ||
+					row.event_start ||
+					row.event_end ||
+					null
 			);
 		}
 
@@ -343,7 +354,10 @@ export const GET = async ({ fetch, url }) => {
 			}
 			const currentStamp = toSitemapTimestamp(current);
 			const nextTs = toSitemapTimestamp(nextStamp);
-			if (nextTs && (!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())) {
+			if (
+				nextTs &&
+				(!currentStamp || new Date(nextTs).getTime() > new Date(currentStamp).getTime())
+			) {
 				groupNewsLatestByGroupId.set(row.group_id, nextStamp);
 			}
 		}

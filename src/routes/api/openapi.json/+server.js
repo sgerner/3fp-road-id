@@ -11,7 +11,7 @@ const spec = {
 			get: {
 				summary: 'Health check',
 				responses: {
-					'200': {
+					200: {
 						description: 'Service is healthy'
 					}
 				}
@@ -21,7 +21,7 @@ const spec = {
 			get: {
 				summary: 'Check whether a group slug is available',
 				responses: {
-					'200': {
+					200: {
 						description: 'Availability result'
 					}
 				}
@@ -31,7 +31,7 @@ const spec = {
 			get: {
 				summary: 'Check whether a microsite slug is available',
 				responses: {
-					'200': {
+					200: {
 						description: 'Availability result'
 					}
 				}
@@ -41,7 +41,7 @@ const spec = {
 			get: {
 				summary: 'Resolve a timezone from coordinates or region input',
 				responses: {
-					'200': {
+					200: {
 						description: 'Timezone result'
 					}
 				}
@@ -51,7 +51,7 @@ const spec = {
 			get: {
 				summary: 'Geocode a location',
 				responses: {
-					'200': {
+					200: {
 						description: 'Geocoding result'
 					}
 				}

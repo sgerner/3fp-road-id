@@ -15,11 +15,11 @@
 
 <div class="mx-auto max-w-4xl px-4 py-10">
 	<div class="space-y-4">
-		<p class="text-sm font-semibold uppercase tracking-[0.2em] text-surface-600-400">
+		<p class="text-surface-600-400 text-sm font-semibold tracking-[0.2em] uppercase">
 			API discovery
 		</p>
 		<h1 class="text-3xl font-black tracking-tight">Public API</h1>
-		<p class="max-w-2xl text-surface-700-300">
+		<p class="text-surface-700-300 max-w-2xl">
 			Discovery metadata, a lightweight health check, and machine-readable documentation for the
 			public endpoints exposed by this site.
 		</p>
@@ -28,21 +28,21 @@
 	<div class="mt-8 grid gap-4 md:grid-cols-3">
 		<a href="/.well-known/api-catalog" class="card border p-4">
 			<div class="text-sm font-semibold">API catalog</div>
-			<div class="mt-1 text-sm text-surface-700-300">Linkset metadata for automated discovery.</div>
+			<div class="text-surface-700-300 mt-1 text-sm">Linkset metadata for automated discovery.</div>
 		</a>
 		<a href="/api/openapi.json" class="card border p-4">
 			<div class="text-sm font-semibold">OpenAPI spec</div>
-			<div class="mt-1 text-sm text-surface-700-300">Machine-readable endpoint descriptions.</div>
+			<div class="text-surface-700-300 mt-1 text-sm">Machine-readable endpoint descriptions.</div>
 		</a>
 		<a href="/api/health" class="card border p-4">
 			<div class="text-sm font-semibold">Health check</div>
-			<div class="mt-1 text-sm text-surface-700-300">A simple JSON status response.</div>
+			<div class="text-surface-700-300 mt-1 text-sm">A simple JSON status response.</div>
 		</a>
 	</div>
 
 	<div class="mt-8 space-y-2">
 		<p class="text-sm font-semibold">Useful endpoints</p>
-		<ul class="list-disc space-y-1 pl-5 text-sm text-surface-700-300">
+		<ul class="text-surface-700-300 list-disc space-y-1 pl-5 text-sm">
 			<li><code>/api/v1/groups/check-slug</code></li>
 			<li><code>/api/v1/groups/check-microsite-slug</code></li>
 			<li><code>/api/timezone</code></li>

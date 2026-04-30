@@ -54,7 +54,10 @@
 	<meta property="og:image:alt" content="3 Feet Please logo" />
 
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content={`${seoTitle} | Road safety and cycling community resources`} />
+	<meta
+		name="twitter:title"
+		content={`${seoTitle} | Road safety and cycling community resources`}
+	/>
 	<meta name="twitter:description" content={seoDescription} />
 	<meta name="twitter:image" content={seoImage} />
 

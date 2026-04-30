@@ -252,10 +252,7 @@
 
 <svelte:head>
 	<title>{seoTitle} · Learn · 3 Feet Please</title>
-	<meta
-		name="description"
-		content={seoDescription}
-	/>
+	<meta name="description" content={seoDescription} />
 	<meta
 		name="robots"
 		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"

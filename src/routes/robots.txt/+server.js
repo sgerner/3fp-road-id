@@ -37,7 +37,10 @@ function buildRulesBlock(userAgent, origin) {
 }
 
 export const GET = async ({ url }) => {
-	const blocks = [buildRulesBlock('*', url.origin), ...AI_CRAWLERS.map((agent) => buildRulesBlock(agent, url.origin))];
+	const blocks = [
+		buildRulesBlock('*', url.origin),
+		...AI_CRAWLERS.map((agent) => buildRulesBlock(agent, url.origin))
+	];
 	blocks.push('Content-Signal: ai-train=no, search=yes, ai-input=yes');
 
 	return new Response(blocks.join('\n\n') + '\n', {

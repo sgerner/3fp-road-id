@@ -129,7 +129,10 @@
 		}
 	});
 	const seoStructuredData = $derived.by(() => {
-		const categoryUrl = buildAbsoluteUrl($page.url.origin, `/learn/category/${data.article.category_slug}`);
+		const categoryUrl = buildAbsoluteUrl(
+			$page.url.origin,
+			`/learn/category/${data.article.category_slug}`
+		);
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',

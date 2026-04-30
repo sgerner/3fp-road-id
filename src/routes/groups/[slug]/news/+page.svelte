@@ -77,7 +77,9 @@
 			return image;
 		}
 	});
-	const hasOpenQuery = $derived(Boolean(openSlug || data.initialOpenSlug || $page.url.searchParams.get('open')));
+	const hasOpenQuery = $derived(
+		Boolean(openSlug || data.initialOpenSlug || $page.url.searchParams.get('open'))
+	);
 	const seoStructuredData = $derived.by(() => {
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
