@@ -1,5 +1,6 @@
 <script>
 	import { formatDistanceToNow } from 'date-fns';
+	import { slide } from 'svelte/transition';
 	import IconCircleCheck from '@lucide/svelte/icons/circle-check';
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
@@ -85,6 +86,7 @@
 		} else {
 			expandedGroups.add(groupId);
 		}
+		expandedGroups = new Set(expandedGroups);
 	}
 
 	$effect(() => {
@@ -290,12 +292,24 @@
 						<!-- Health Reasons -->
 						{#if g.health.reasons?.length}
 							<div class="space-y-1">
-								{#each isExpanded ? g.health.reasons : g.health.reasons.slice(0, 2) as reason}
+								{#each g.health.reasons.slice(0, 2) as reason}
 									<p class="text-surface-700-300 flex items-start gap-1.5 text-xs">
 										<span class="text-surface-400">•</span>
 										<span>{reason}</span>
 									</p>
 								{/each}
+
+								{#if isExpanded}
+									<div transition:slide={{ duration: 200 }}>
+										{#each g.health.reasons.slice(2) as reason}
+											<p class="text-surface-700-300 mb-1 flex items-start gap-1.5 text-xs">
+												<span class="text-surface-400">•</span>
+												<span>{reason}</span>
+											</p>
+										{/each}
+									</div>
+								{/if}
+
 								{#if g.health.reasons.length > 2}
 									<button
 										class="text-primary-500 cursor-pointer text-xs font-medium hover:underline"
