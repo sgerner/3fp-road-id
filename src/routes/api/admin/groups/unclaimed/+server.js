@@ -45,8 +45,9 @@ export async function GET({ cookies, url }) {
 		return json({ error: 'Service role key missing' }, { status: 500 });
 	}
 
-	const status = url.searchParams.get('status') || 'pending';
-	const limit = Math.min(Number.parseInt(url.searchParams.get('limit') || '50', 10), 200);
+	const status = url.searchParams.get('status') || 'all';
+	const rawLimit = Number.parseInt(url.searchParams.get('limit') || '0', 10);
+	const limit = Number.isFinite(rawLimit) ? Math.max(0, Math.min(rawLimit, 200)) : 0;
 	const offset = Number.parseInt(url.searchParams.get('offset') || '0', 10);
 
 	// Use a more robust way to find unclaimed groups.
@@ -134,10 +135,16 @@ export async function GET({ cookies, url }) {
 	const sort = url.searchParams.get('sort') || 'completeness';
 	if (sort === 'completeness') {
 		filtered.sort((a, b) => b.completeness - a.completeness);
+	} else if (sort === 'newest') {
+		filtered.sort(
+			(a, b) =>
+				new Date(b.enrichment?.created_at || b.last_contact?.contacted_at || 0) -
+				new Date(a.enrichment?.created_at || a.last_contact?.contacted_at || 0)
+		);
 	}
 
 	const total = filtered.length;
-	const paginated = filtered.slice(offset, offset + limit);
+	const paginated = limit > 0 ? filtered.slice(offset, offset + limit) : filtered;
 
 	return json({
 		groups: paginated,
