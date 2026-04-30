@@ -52,22 +52,24 @@ export async function GET({ cookies, url }) {
 	// Use a more robust way to find unclaimed groups.
 	// We'll fetch all groups and then filter based on whether they have an owner.
 
-	// Fetch groups
+	// Fetch groups (increased limit to handle large databases)
 	const { data: groups, error: groupsError } = await supabase
 		.from('groups')
 		.select('*')
-		.order('created_at', { ascending: false });
+		.order('created_at', { ascending: false })
+		.limit(5000);
 
 	if (groupsError) {
 		console.error('Groups Fetch Error:', groupsError);
 		return json({ error: groupsError.message }, { status: 500 });
 	}
 
-	// Fetch owners to filter
+	// Fetch owners to filter (increased limit)
 	const { data: owners, error: ownersError } = await supabase
 		.from('group_members')
 		.select('group_id')
-		.eq('role', 'owner');
+		.eq('role', 'owner')
+		.limit(5000);
 
 	if (ownersError) {
 		console.error('Owners Fetch Error:', ownersError);
@@ -76,14 +78,16 @@ export async function GET({ cookies, url }) {
 
 	const claimedSet = new Set(owners.map((o) => o.group_id).filter(Boolean));
 
-	// Optional: Fetch enrichment and outreach separately to avoid join errors if tables missing
+	// Optional: Fetch enrichment and outreach separately
 	const { data: enrichments } = await supabase
 		.from('group_enrichment')
 		.select('*')
+		.limit(5000)
 		.catch(() => ({ data: [] }));
 	const { data: outreachHistory } = await supabase
 		.from('group_outreach')
 		.select('group_id, contacted_at, contact_method')
+		.limit(5000)
 		.catch(() => ({ data: [] }));
 
 	const enrichmentMap = new Map((enrichments || []).map((e) => [e.group_id, e]));
