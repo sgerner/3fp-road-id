@@ -762,10 +762,10 @@
 
 							{#if data.isAdmin}
 								<a
-									href="/admin/rides/import"
+									href="/admin"
 									class="text-surface-700-300 hover:text-surface-600-400 w-full px-2 py-1 text-center text-[0.65rem] transition"
 								>
-									Import Rides
+									Admin
 								</a>
 							{/if}
 						</div>

@@ -5,11 +5,11 @@ export async function load({ fetch, url, cookies }) {
 	await requireAdmin(cookies);
 
 	const windowDays = url.searchParams.get('window_days') || '30';
-	const limit = url.searchParams.get('limit') || '100';
 
 	const apiUrl = new URL('/api/admin/groups/health', url.origin);
 	apiUrl.searchParams.set('window_days', windowDays);
-	apiUrl.searchParams.set('limit', limit);
+	// We set limit=0 to get all groups for client-side search/pagination
+	apiUrl.searchParams.set('limit', '0');
 
 	const res = await fetch(apiUrl.toString());
 
@@ -22,7 +22,6 @@ export async function load({ fetch, url, cookies }) {
 
 	return {
 		healthData,
-		windowDays: Number.parseInt(windowDays, 10),
-		limit: Number.parseInt(limit, 10)
+		windowDays: Number.parseInt(windowDays, 10)
 	};
 }

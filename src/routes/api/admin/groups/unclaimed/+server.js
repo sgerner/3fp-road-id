@@ -38,7 +38,12 @@ function calculateCompleteness(group) {
 }
 
 export async function GET({ cookies, url }) {
-	const { supabase } = await requireAdmin(cookies);
+	await requireAdmin(cookies);
+
+	const supabase = createServiceSupabaseClient();
+	if (!supabase) {
+		return json({ error: 'Service role key missing' }, { status: 500 });
+	}
 
 	const status = url.searchParams.get('status') || 'pending';
 	const limit = Math.min(Number.parseInt(url.searchParams.get('limit') || '50', 10), 200);
