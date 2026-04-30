@@ -57,10 +57,6 @@ function computeHealth(group, { nowMs, windowDays }) {
 	const upcomingCount = group.activity.rides_upcoming + group.activity.volunteer_events_upcoming;
 	const lastActivityDays = daysSince(group.signals.last_activity_at, nowMs);
 
-	if (!group.group.is_published) {
-		score -= 10;
-		reasons.push('Group page is not published.');
-	}
 	if (lastActivityDays === null) {
 		score -= 50;
 		reasons.push('No measurable activity found.');
@@ -115,7 +111,6 @@ function initGroupSummary(group, ownerClaimedAt) {
 			name: group.name,
 			city: group.city,
 			state_region: group.state_region,
-			is_published: group.is_published === true,
 			created_at: group.created_at || null,
 			updated_at: group.updated_at || null
 		},
@@ -236,7 +231,7 @@ export async function GET({ cookies, url }) {
 
 	const { data: groupsData, error: groupsError } = await supabase
 		.from('groups')
-		.select('id,slug,name,city,state_region,is_published,created_at,updated_at')
+		.select('id,slug,name,city,state_region,created_at,updated_at')
 		.in('id', claimedGroupIds);
 	if (groupsError) {
 		return json({ error: groupsError.message || 'Unable to load groups.' }, { status: 500 });
