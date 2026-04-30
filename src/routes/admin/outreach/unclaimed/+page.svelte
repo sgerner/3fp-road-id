@@ -1,7 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { formatDistanceToNow } from 'date-fns';
-	import { fade } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconFilter from '@lucide/svelte/icons/filter';
@@ -9,12 +9,16 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconCopy from '@lucide/svelte/icons/copy';
-	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
-	import IconMessageSquare from '@lucide/svelte/icons/message-square';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import IconImageUp from '@lucide/svelte/icons/image-up';
+	import IconX from '@lucide/svelte/icons/x';
+	import IconSend from '@lucide/svelte/icons/send';
+	import IconWand2 from '@lucide/svelte/icons/wand-2';
+	import IconLink from '@lucide/svelte/icons/link';
+	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 
 	let { data, form } = $props();
 	let removedGroupIds = $state(new Set());
@@ -23,7 +27,6 @@
 
 	let selectedGroupId = $state(null);
 	let copiedGroupId = $state(null);
-	let contactsExpanded = $state(new Set());
 	let messageByGroup = $state({});
 	let subjectByGroup = $state({});
 	let emailStatusByGroup = $state({});
@@ -147,59 +150,32 @@
 		return emailStatusByGroup[groupId] || null;
 	}
 
-	function getCompletenessTextClass(score) {
-		if (score >= 80) return 'text-success-700-300';
-		if (score >= 50) return 'text-warning-700-300';
-		return 'text-error-700-300';
+	function getContactItems(group) {
+		const items = [];
+		if (group.public_contact_email) items.push({ key: 'email', label: 'Email' });
+		for (const [platform, url] of Object.entries(group.social_links || {})) {
+			if (!url) continue;
+			items.push({ key: platform, label: platform });
+		}
+		return items;
 	}
 
 	function selectGroup(group) {
 		selectedGroupId = group.id;
 		emailStatusByGroup = { ...emailStatusByGroup, [group.id]: null };
 		generating = true;
-		queueMicrotask(() => {
-			generateFormEl?.requestSubmit?.();
-		});
+		queueMicrotask(() => generateFormEl?.requestSubmit?.());
 	}
 
 	function hasSocials(group) {
 		return Object.values(group.social_links || {}).some(Boolean);
 	}
 
-	function getContactItems(group) {
-		const items = [];
-		if (group.public_contact_email) items.push({ key: 'email', label: 'Email', url: `mailto:${group.public_contact_email}` });
-		for (const [platform, url] of Object.entries(group.social_links || {})) {
-			if (!url) continue;
-			items.push({ key: platform, label: platform, url });
-		}
-		return items;
-	}
-
-	function getVisibleContacts(group) {
-		const all = getContactItems(group);
-		if (contactsExpanded.has(group.id) || all.length <= 2) return all;
-		return all.slice(0, 2);
-	}
-
-	function getHiddenContactsCount(group) {
-		return Math.max(0, getContactItems(group).length - 2);
-	}
-
-	function toggleContacts(groupId, event) {
-		event?.stopPropagation?.();
-		if (contactsExpanded.has(groupId)) contactsExpanded.delete(groupId);
-		else contactsExpanded.add(groupId);
-		contactsExpanded = new Set(contactsExpanded);
-	}
-
 	async function copyClaimLink(group, event) {
 		event?.stopPropagation?.();
 		await navigator.clipboard.writeText(group.claim_url);
 		copiedGroupId = group.id;
-		setTimeout(() => {
-			if (copiedGroupId === group.id) copiedGroupId = null;
-		}, 1400);
+		setTimeout(() => copiedGroupId === group.id && (copiedGroupId = null), 1400);
 	}
 
 	function openImageModal(group, target) {
@@ -225,9 +201,7 @@
 		const file = event?.target?.files?.[0];
 		if (!file) return;
 		const reader = new FileReader();
-		reader.onload = () => {
-			imagePreviewSrc = String(reader.result || '');
-		};
+		reader.onload = () => (imagePreviewSrc = String(reader.result || ''));
 		reader.readAsDataURL(file);
 	}
 
@@ -249,12 +223,7 @@
 	function startCropDrag(event) {
 		if (!imagePreviewSrc) return;
 		draggingCrop = true;
-		cropDragStart = {
-			pointerX: event.clientX,
-			pointerY: event.clientY,
-			cropX,
-			cropY
-		};
+		cropDragStart = { pointerX: event.clientX, pointerY: event.clientY, cropX, cropY };
 		event.currentTarget?.setPointerCapture?.(event.pointerId);
 	}
 
@@ -313,6 +282,43 @@
 		await Promise.resolve();
 		imageFormEl?.requestSubmit?.();
 	}
+
+	function getSortValue(group) {
+		const sort = data.sort || 'priority';
+		switch (sort) {
+			case 'priority':
+				return { label: 'Priority', value: group.priority_score, color: 'text-tertiary-600' };
+			case 'completeness':
+				return {
+					label: 'Complete',
+					value: `${group.completeness}%`,
+					color:
+						group.completeness >= 80
+							? 'text-success-600'
+							: group.completeness >= 50
+								? 'text-warning-600'
+								: 'text-error-600'
+				};
+			case 'newest':
+				return {
+					label: 'Added',
+					value: group.enrichment?.created_at
+						? formatDistanceToNow(new Date(group.enrichment.created_at), { addSuffix: true })
+						: 'Unknown',
+					color: 'text-surface-600-400'
+				};
+			case 'stale':
+				return {
+					label: 'Last',
+					value: group.last_contact
+						? formatDistanceToNow(new Date(group.last_contact.contacted_at), { addSuffix: true })
+						: 'Never',
+					color: 'text-surface-600-400'
+				};
+			default:
+				return { label: 'Priority', value: group.priority_score, color: 'text-tertiary-600' };
+		}
+	}
 </script>
 
 <svelte:head>
@@ -320,202 +326,760 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:py-8">
-	<header class="flex flex-col gap-2">
-		<h1 class="h2 flex items-center gap-2"><IconSparkles class="h-6 w-6" />Unclaimed Groups</h1>
-		<p class="text-surface-700-300 flex items-center gap-2 text-sm"><IconUsers class="h-4 w-4" />{total} groups waiting for outreach</p>
+<div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 md:py-8">
+	<!-- Header -->
+	<header class="flex flex-col gap-1">
+		<h1 class="h2 flex items-center gap-2">
+			<IconSparkles class="text-tertiary-500 h-6 w-6" />
+			Unclaimed Groups
+		</h1>
+		<p class="text-surface-600-400 flex items-center gap-2 text-sm">
+			<IconUsers class="h-4 w-4" />
+			{total} groups waiting for outreach
+		</p>
 	</header>
 
-	<form method="GET" class="card preset-tonal-surface grid gap-2 p-3 md:grid-cols-2 xl:grid-cols-5" transition:fade>
-		<div class="relative min-w-[220px] xl:col-span-2"><IconSearch class="text-surface-700-300 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" /><input type="search" name="q" value={data.q || ''} placeholder="Search name, city, state, slug..." class="input preset-tonal-surface pl-9" /></div>
-		<div class="relative"><IconFilter class="text-surface-700-300 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" /><select name="contact" class="select preset-tonal-surface pl-9" value={data.contact || 'all'}><option value="all">Any Contact Type</option><option value="email">Has Email</option><option value="social">Has Social</option><option value="none">No Contacts</option></select></div>
-		<div class="relative"><IconFilter class="text-surface-700-300 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" /><select name="min_completeness" class="select preset-tonal-surface pl-9" value={String(data.minCompleteness || 0)}><option value="0">Any Completeness</option><option value="40">40%+ Complete</option><option value="60">60%+ Complete</option><option value="80">80%+ Complete</option></select></div>
-		<div class="flex items-center gap-2"><div class="relative min-w-0 flex-1"><IconArrowUpDown class="text-surface-700-300 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" /><select name="sort" class="select preset-tonal-surface pl-9" value={data.sort || 'priority'}><option value="priority">Outreach Priority</option><option value="completeness">Most Complete</option><option value="newest">Newest First</option><option value="stale">Stalest Contact First</option></select></div><button type="submit" class="btn btn-sm preset-filled-primary-500">Apply</button></div>
+	<!-- Filters -->
+	<form method="GET" class="card preset-outlined-surface-200-800 p-3" transition:fade>
+		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+			<div class="relative lg:col-span-2">
+				<IconSearch class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<input
+					type="search"
+					name="q"
+					value={data.q || ''}
+					placeholder="Search groups..."
+					class="input preset-tonal-surface pl-9"
+				/>
+			</div>
+			<div class="relative">
+				<IconFilter class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<select
+					name="contact"
+					class="select preset-tonal-surface pl-9"
+					value={data.contact || 'all'}
+				>
+					<option value="all">All contacts</option>
+					<option value="email">Has email</option>
+					<option value="social">Has social</option>
+					<option value="none">No contacts</option>
+				</select>
+			</div>
+			<div class="relative">
+				<IconFilter class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<select
+					name="min_completeness"
+					class="select preset-tonal-surface pl-9"
+					value={String(data.minCompleteness || 0)}
+				>
+					<option value="0">Any completeness</option>
+					<option value="40">40%+ complete</option>
+					<option value="60">60%+ complete</option>
+					<option value="80">80%+ complete</option>
+				</select>
+			</div>
+			<div class="flex items-center gap-2">
+				<div class="relative min-w-0 flex-1">
+					<IconArrowUpDown
+						class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+					/>
+					<select
+						name="sort"
+						class="select preset-tonal-surface pl-9"
+						value={data.sort || 'priority'}
+					>
+						<option value="priority">Priority (high first)</option>
+						<option value="completeness">Most complete</option>
+						<option value="newest">Newest first</option>
+						<option value="stale">Stalest contact</option>
+					</select>
+				</div>
+				<button type="submit" class="btn preset-filled-primary-500 px-4">Apply</button>
+			</div>
+		</div>
 	</form>
 
-	<div class="card preset-outlined-surface-300-700 overflow-hidden" transition:fade>
-		<div class="overflow-x-auto">
-			<table class="table w-full text-sm">
-				<thead class="bg-surface-100-900"><tr><th class="text-surface-700-300 px-4 py-3 text-left text-xs font-bold uppercase">Group</th><th class="text-surface-700-300 px-4 py-3 text-center text-xs font-bold uppercase">Profile</th><th class="text-surface-700-300 px-4 py-3 text-center text-xs font-bold uppercase">Priority</th><th class="text-surface-700-300 px-4 py-3 text-left text-xs font-bold uppercase">Contacts</th><th class="text-surface-700-300 px-4 py-3 text-left text-xs font-bold uppercase">Last Contact</th></tr></thead>
-				<tbody class="divide-surface-200-800 divide-y">
-					{#each groups as g (g.id)}
-						<tr class="cursor-pointer transition-colors hover:preset-tonal-surface {selectedGroupId === g.id ? 'preset-tonal-surface' : ''}" onclick={() => selectGroup(g)}>
-							<td class="px-4 py-3"><div class="flex flex-col"><div class="flex items-center gap-2">{#if g.logo_url}<img src={g.logo_url} alt="{g.name} logo" class="h-7 w-7 rounded-full object-cover ring-1 ring-surface-500/30" />{/if}<span class="font-bold">{g.name}</span><a href="/groups/{g.slug}" target="_blank" class="text-surface-700-300 hover:text-primary-700-300" onclick={(event) => event.stopPropagation()}><IconExternalLink class="h-3 w-3" /></a><button type="button" class="btn btn-sm preset-tonal-primary ml-1" onclick={(event) => { event.stopPropagation(); selectGroup(g); }}><IconMessageSquare class="h-3 w-3" />Contact</button></div><span class="text-surface-700-300 text-xs">{g.city}, {g.state_region}</span></div></td>
-							<td class="px-4 py-3"><div class="flex flex-col items-center gap-1"><span class="{getCompletenessTextClass(g.completeness)} font-bold">{g.completeness}%</span><progress class="progress w-20" value={g.completeness} max="100"></progress></div></td>
-							<td class="px-4 py-3 text-center"><span class="text-surface-900-100 text-sm font-bold">{g.priority_score}</span></td>
-							<td class="px-4 py-3"><div class="flex flex-wrap items-center gap-1">{#each getVisibleContacts(g) as c}<a href={c.url} target={c.key === 'email' ? undefined : '_blank'} class="badge preset-tonal-surface text-xs" onclick={(event) => event.stopPropagation()}>{c.label}</a>{/each}{#if getHiddenContactsCount(g) > 0}<button type="button" class="badge preset-tonal-primary text-xs" onclick={(event) => toggleContacts(g.id, event)}>+{getHiddenContactsCount(g)}<IconChevronDown class="h-3 w-3" /></button>{/if}</div></td>
-							<td class="px-4 py-3">{#if g.last_contact}<span class="text-sm">{formatDistanceToNow(new Date(g.last_contact.contacted_at), { addSuffix: true })}</span><p class="text-surface-700-300 text-xs">{g.last_contact.contact_method}</p>{:else}<span class="text-surface-700-300 text-sm">Never</span>{/if}</td>
-						</tr>
-						{#if selectedGroupId === g.id}
-							<tr class="bg-surface-100-900/35" in:fade>
-								<td colspan="5" class="px-4 py-4">
-									<div class="grid gap-4 xl:grid-cols-[1.1fr_1.1fr]">
-										<div class="space-y-3">
-											<form bind:this={generateFormEl} method="POST" action="?/generate" use:enhance={enhanceWithFlag((v) => (generating = v))} class="hidden">
-												<input type="hidden" name="group_id" value={g.id} />
-											</form>
-											<div class="flex flex-wrap items-center gap-2">
-												<h2 class="h5">{g.name}</h2>
-												<button type="button" class="btn btn-sm preset-tonal-surface" onclick={(event) => copyClaimLink(g, event)}><IconCopy class="h-3 w-3" />{copiedGroupId === g.id ? 'Copied' : 'Copy Claim URL'}</button>
-												<form method="POST" action="?/enrich" use:enhance={enhanceWithFlag((v) => (enriching = v))}><input type="hidden" name="group_id" value={g.id} /><button type="submit" class="btn btn-sm preset-tonal-secondary" disabled={enriching}>{#if enriching}<span class="loading loading-spinner loading-xs"></span>{/if}<IconRefreshCw class="h-3 w-3 {enriching ? 'animate-spin' : ''}" />{enriching ? 'Enriching...' : 'Deep Enrich'}</button></form>
-												<form method="POST" action="?/toggleLowPriority" use:enhance><input type="hidden" name="group_id" value={g.id} /><input type="hidden" name="value" value={g.is_low_priority ? 'false' : 'true'} /><button type="submit" class="btn btn-sm {g.is_low_priority ? 'preset-outlined-warning-300-700' : 'preset-tonal-warning'}">{g.is_low_priority ? 'Restore Priority' : 'Mark Low Priority'}</button></form>
-											</div>
-											<div class="grid gap-2 sm:grid-cols-2"><div class="card preset-tonal-surface p-2"><div class="text-surface-700-300 mb-1 text-[10px] font-bold uppercase">Logo</div>{#if g.logo_url}<img src={g.logo_url} alt="{g.name} logo" class="h-16 w-16 rounded-lg object-cover ring-1 ring-surface-500/30" />{/if}<button type="button" class="btn btn-sm preset-tonal-surface mt-2" onclick={() => openImageModal(g, 'logo')}><IconImageUp class="h-3 w-3" />Edit Logo</button></div><div class="card preset-tonal-surface p-2"><div class="text-surface-700-300 mb-1 text-[10px] font-bold uppercase">Cover</div>{#if g.cover_photo_url}<img src={g.cover_photo_url} alt="{g.name} cover" class="h-16 w-full rounded-lg object-cover ring-1 ring-surface-500/30" />{/if}<button type="button" class="btn btn-sm preset-tonal-surface mt-2" onclick={() => openImageModal(g, 'cover')}><IconImageUp class="h-3 w-3" />Edit Cover</button></div></div>
-											{#if confirmDeleteFor === g.id}
-												<div class="card preset-outlined-error-300-700 p-3" in:fade><p class="text-error-700-300 mb-2 flex items-center gap-2 text-sm font-bold"><IconTriangleAlert class="h-4 w-4" />Delete this group permanently?</p><div class="flex items-center gap-2"><form method="POST" action="?/deleteGroup" use:enhance={enhanceWithFlag((v) => (deletingGroup = v))}><input type="hidden" name="group_id" value={g.id} /><button type="submit" class="btn btn-sm preset-filled-error-500" disabled={deletingGroup}>{#if deletingGroup}<span class="loading loading-spinner loading-xs"></span>{/if}{deletingGroup ? 'Deleting...' : 'Yes, Delete Group'}</button></form><button type="button" class="btn btn-sm preset-tonal-surface" onclick={() => (confirmDeleteFor = null)}>Cancel</button></div></div>
-											{:else}
-												<button type="button" class="btn btn-sm preset-tonal-error" onclick={() => (confirmDeleteFor = g.id)}><IconTrash2 class="h-3 w-3" />Delete Group</button>
-											{/if}
-										</div>
-										<div class="space-y-3">
-											<div class="card preset-tonal-surface p-3">
-												<div class="mb-2 flex items-center justify-between gap-2">
-													<p class="text-surface-700-300 text-xs font-bold uppercase">Message</p>
-													{#if generating && selectedGroupId === g.id}
-														<span class="loading loading-spinner loading-sm"></span>
-													{/if}
-												</div>
-												{#if g.public_contact_email}
-													<form method="POST" action="?/sendMessage" use:enhance={enhanceWithFlag((v) => (sending = v))} class="space-y-2">
-														<input type="hidden" name="group_id" value={g.id} />
-														<label class="label" for={`subject-${g.id}`}>Subject</label>
-														<input
-															id={`subject-${g.id}`}
-															type="text"
-															name="subject"
-															class="input preset-tonal-surface"
-															value={getSubject(g)}
-															oninput={(e) => setSubject(g.id, e.currentTarget.value)}
-															placeholder="Email subject"
-														/>
-														<label class="label" for={`message-${g.id}`}>Message</label>
-														<div class="relative">
-															<textarea
-																id={`message-${g.id}`}
-																name="content"
-																class="textarea preset-tonal-surface min-h-56 w-full"
-																value={getMessage(g)}
-																oninput={(e) => setMessage(g.id, e.currentTarget.value)}
-																placeholder={generating && selectedGroupId === g.id ? 'Generating a fresh message...' : 'Outreach message...'}
-																disabled={generating && selectedGroupId === g.id}
-															></textarea>
-															{#if generating && selectedGroupId === g.id}
-																<div class="bg-surface-100-900/70 absolute inset-0 grid place-items-center rounded-lg">
-																	<div class="flex flex-col items-center gap-2">
-																		<span class="loading loading-spinner loading-md"></span>
-																		<p class="text-surface-700-300 text-xs">Crafting a fresh outreach note...</p>
-																	</div>
-																</div>
-															{/if}
-														</div>
-														<button type="submit" class="btn btn-sm preset-filled-primary-500" disabled={sending}>
-															{#if sending}<span class="loading loading-spinner loading-xs"></span>{/if}
-															{sending ? 'Sending...' : 'Send Email Now'}
-														</button>
-														{#if getEmailStatus(g.id)?.type === 'error'}
-															<p class="text-error-700-300 text-xs">{getEmailStatus(g.id)?.message}</p>
-														{/if}
-														{#if getEmailStatus(g.id)?.type === 'success'}
-															<p class="text-success-700-300 text-xs">{getEmailStatus(g.id)?.message}</p>
-														{/if}
-													</form>
-												{:else}
-													<div class="relative">
-														<textarea
-															id={`message-${g.id}`}
-															class="textarea preset-tonal-surface min-h-56 w-full"
-															value={getMessage(g)}
-															oninput={(e) => setMessage(g.id, e.currentTarget.value)}
-															placeholder={generating && selectedGroupId === g.id ? 'Generating a fresh message...' : 'Outreach message...'}
-															disabled={generating && selectedGroupId === g.id}
-														></textarea>
-														{#if generating && selectedGroupId === g.id}
-															<div class="bg-surface-100-900/70 absolute inset-0 grid place-items-center rounded-lg">
-																<div class="flex flex-col items-center gap-2">
-																	<span class="loading loading-spinner loading-md"></span>
-																	<p class="text-surface-700-300 text-xs">Crafting a fresh outreach note...</p>
-																</div>
-															</div>
-														{/if}
-													</div>
-												{/if}
-											</div>
-											{#if hasSocials(g)}
-												<div class="card preset-tonal-surface p-3">
-													<p class="text-surface-700-300 mb-2 text-xs font-bold uppercase">Manual Social DM Shortcuts</p>
-													<div class="flex flex-wrap gap-2">
-														{#each Object.entries(g.social_links || {}).filter(([, url]) => Boolean(url) && !String(url).includes('instagram.com/p/')) as [platform, url]}
-															<button
-																type="button"
-																class="btn btn-sm preset-tonal-surface"
-																onclick={(event) => openProfileAndCopy(url, getMessage(g), event)}
-															>
-																Open {platform.replace(/_/g, ' ')}
-															</button>
-														{/each}
-														<button type="button" class="btn btn-sm preset-tonal-secondary" onclick={() => copyText(getMessage(g))}>Copy Message</button>
-													</div>
-													<p class="text-surface-700-300 mt-2 text-[11px]">
-														Opening a profile automatically copies the current message draft to your clipboard.
-													</p>
-												</div>
-											{/if}
-										</div>
-									</div>
-								</td>
-							</tr>
+	<!-- Desktop Layout -->
+	<div class="hidden items-start gap-5 lg:grid lg:grid-cols-[320px_1fr]">
+		<!-- Group List -->
+		<div class="flex max-h-[calc(100vh-11rem)] flex-col gap-1.5 overflow-y-auto pr-1">
+			{#each groups as g (g.id)}
+				{@const sortInfo = getSortValue(g)}
+				<button
+					type="button"
+					class="group rounded-lg border p-3 text-left transition-all duration-150 {selectedGroupId ===
+					g.id
+						? 'bg-primary-500/10 border-primary-500/40'
+						: 'bg-surface-50-950 border-surface-200-800 hover:border-surface-300-700'}"
+					onclick={() => selectGroup(g)}
+				>
+					<div class="flex items-center gap-3">
+						{#if g.logo_url}
+							<img
+								src={g.logo_url}
+								alt=""
+								class="ring-surface-500/20 h-9 w-9 shrink-0 rounded-lg object-cover ring-1"
+							/>
+						{:else}
+							<div
+								class="preset-tonal-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+							>
+								<IconUsers class="h-4 w-4 opacity-40" />
+							</div>
 						{/if}
-					{:else}
-						<tr><td colspan="5" class="px-4 py-8 text-center"><IconUsers class="mx-auto h-8 w-8 opacity-20" /><p class="text-surface-700-300 mt-2">All caught up!</p><p class="text-surface-700-300 text-sm">No unclaimed groups match your filters.</p></td></tr>
-					{/each}
-				</tbody>
-			</table>
+						<div class="min-w-0 flex-1">
+							<div class="flex items-center gap-2">
+								<span class="text-surface-900-100 truncate text-sm font-medium">{g.name}</span>
+								{#if g.is_low_priority}
+									<span
+										class="bg-warning-500/20 text-warning-700-300 rounded px-1.5 py-0.5 text-[9px]"
+										>LOW</span
+									>
+								{/if}
+							</div>
+							<div class="text-surface-600-400 text-xs">{g.city}, {g.state_region}</div>
+						</div>
+						<div class="flex shrink-0 flex-col items-end">
+							<span class="text-xs font-bold {sortInfo.color}">{sortInfo.value}</span>
+							<span class="text-surface-500 text-[10px] uppercase">{sortInfo.label}</span>
+						</div>
+					</div>
+					<div class="mt-2 flex flex-wrap gap-1">
+						{#each getContactItems(g).slice(0, 4) as c}
+							<span
+								class="bg-surface-200-800 text-surface-600-400 rounded px-1.5 py-0.5 text-[10px]"
+								>{c.label}</span
+							>
+						{/each}
+						{#if getContactItems(g).length > 4}
+							<span
+								class="bg-surface-200-800 text-surface-600-400 rounded px-1.5 py-0.5 text-[10px]"
+								>+{getContactItems(g).length - 4}</span
+							>
+						{/if}
+					</div>
+				</button>
+			{:else}
+				<div class="card preset-tonal-surface p-8 text-center">
+					<div
+						class="w-12 h-12 mx-auto rounded-full bg-surface-200-800 flex items-center justify-center mb-2"
+					>
+						<IconSparkles class="h-6 w-6 text-surface-500" />
+					</div>
+					<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Detail Panel -->
+		<div class="sticky top-4">
+			{#if selectedGroup}
+				<div
+					class="card bg-surface-50-950 border-surface-200-800 overflow-hidden rounded-xl border"
+				>
+					{@render detailContent(selectedGroup)}
+				</div>
+			{:else}
+				<div class="card preset-tonal-surface p-10 text-center">
+					<div
+						class="bg-surface-200-800 mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl"
+					>
+						<IconSend class="text-surface-500 h-8 w-8" />
+					</div>
+					<h3 class="h5 text-surface-700-300">Select a group</h3>
+					<p class="text-surface-600-400 mt-1 text-sm">
+						Choose a group to compose your outreach message.
+					</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	{#if imageModalOpen}
-		<div class="bg-surface-900/70 fixed inset-0 z-50 grid place-items-center p-4" in:fade>
-			<div class="card preset-tonal-surface w-full max-w-3xl space-y-3 p-4">
-				<div class="flex items-center justify-between"><h3 class="h5">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover Photo'}</h3><button type="button" class="btn btn-sm preset-tonal-surface" onclick={() => (imageModalOpen = false)}>Close</button></div>
-				<div class="grid gap-3 md:grid-cols-[0.8fr_1.2fr]">
-					<div class="space-y-2">
-						<label class="label" for="image-url">Image URL</label>
-						<input id="image-url" class="input preset-tonal-surface" bind:value={imageUrlDraft} placeholder="https://..." />
-						<button type="button" class="btn btn-sm preset-tonal-surface" onclick={applyUrlPreview}>Load URL</button>
-						<label class="label" for="image-file">Upload file</label>
-						<input id="image-file" type="file" accept="image/*" class="file-input" onchange={onImageFileSelected} />
-						<label class="label" for="crop-zoom">Zoom</label>
-						<input id="crop-zoom" type="range" min="1" max="2.5" step="0.01" bind:value={cropScale} />
-						<p class="text-surface-700-300 text-xs">Drag the image in the preview to reposition it.</p>
+	<!-- Mobile/Tablet Layout -->
+	<div class="flex flex-col gap-2 lg:hidden">
+		{#each groups as g (g.id)}
+			{@const sortInfo = getSortValue(g)}
+			<button
+				type="button"
+				class="group rounded-lg border p-3 text-left transition-all duration-150 {selectedGroupId ===
+				g.id
+					? 'bg-primary-500/10 border-primary-500/40'
+					: 'bg-surface-50-950 border-surface-200-800'}"
+				onclick={() => selectGroup(g)}
+			>
+				<div class="flex items-center gap-3">
+					{#if g.logo_url}
+						<img
+							src={g.logo_url}
+							alt=""
+							class="ring-surface-500/20 h-10 w-10 shrink-0 rounded-lg object-cover ring-1"
+						/>
+					{:else}
+						<div
+							class="preset-tonal-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+						>
+							<IconUsers class="h-5 w-5 opacity-40" />
+						</div>
+					{/if}
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center gap-2">
+							<span class="text-surface-900-100 truncate font-medium">{g.name}</span>
+							{#if g.is_low_priority}
+								<span
+									class="bg-warning-500/20 text-warning-700-300 rounded px-1.5 py-0.5 text-[9px]"
+									>LOW</span
+								>
+							{/if}
+						</div>
+						<div class="text-surface-600-400 text-sm">{g.city}, {g.state_region}</div>
 					</div>
-					<div
-						class="bg-surface-300-700 relative overflow-hidden rounded-lg touch-none select-none"
-						style={`aspect-ratio:${imageEditTarget === 'logo' ? '1/1' : '16/9'}`}
-						role="group"
-						aria-label="Image crop preview. Drag the image to reposition it."
-						bind:clientWidth={cropStageWidth}
-						bind:clientHeight={cropStageHeight}
-						onpointerdown={startCropDrag}
-						onpointermove={moveCropDrag}
-						onpointerup={endCropDrag}
-						onpointercancel={endCropDrag}
-						onpointerleave={endCropDrag}
-					>
-						{#if imagePreviewSrc}
-							<img
-								src={imagePreviewSrc}
-								alt="crop preview"
-								draggable="false"
-								onload={onPreviewImageLoad}
-								style={`position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) translate(${cropX}px, ${cropY}px) scale(${getCropFitScale() * cropScale});max-width:none;max-height:none;width:auto;height:auto;cursor:${draggingCrop ? 'grabbing' : 'grab'};user-select:none;touch-action:none;`}
-							/>
-						{:else}
-							<div class="text-surface-700-300 grid h-full place-items-center text-sm">Add a URL or upload an image</div>
-						{/if}
+					<div class="flex shrink-0 flex-col items-end">
+						<span class="text-sm font-bold {sortInfo.color}">{sortInfo.value}</span>
+						<span class="text-surface-500 text-[10px] uppercase">{sortInfo.label}</span>
 					</div>
 				</div>
-				<form bind:this={imageFormEl} method="POST" action="?/updateAssets" use:enhance={enhanceWithFlag((v) => (savingAssets = v))} class="flex items-center gap-2"><input type="hidden" name="group_id" value={imageEditGroupId} />{#if imageEditTarget === 'logo'}<input type="hidden" name="logo_file_cropped" value={logoCroppedDataUrl} /><input type="hidden" name="logo_url" value={imageUrlDraft} />{:else}<input type="hidden" name="cover_file_cropped" value={coverCroppedDataUrl} /><input type="hidden" name="cover_photo_url" value={imageUrlDraft} />{/if}<button type="button" class="btn btn-sm preset-filled-primary-500" disabled={savingAssets} onclick={prepareCroppedAndSubmit}>{#if savingAssets}<span class="loading loading-spinner loading-xs"></span>{/if}{savingAssets ? 'Saving...' : 'Save Image'}</button></form>
+				<div class="mt-2 flex flex-wrap gap-1.5">
+					{#each getContactItems(g) as c}
+						<span class="bg-surface-200-800 text-surface-600-400 rounded px-2 py-0.5 text-xs"
+							>{c.label}</span
+						>
+					{/each}
+				</div>
+			</button>
+		{:else}
+			<div class="card preset-tonal-surface p-8 text-center">
+				<div
+					class="w-12 h-12 mx-auto rounded-full bg-surface-200-800 flex items-center justify-center mb-2"
+				>
+					<IconSparkles class="h-6 w-6 text-surface-500" />
+				</div>
+				<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
+			</div>
+		{/each}
+	</div>
+
+	<!-- Mobile Detail Sheet -->
+	{#if selectedGroupId && selectedGroup}
+		<div class="fixed inset-0 z-50 lg:hidden" transition:fade={{ duration: 150 }}>
+			<button
+				type="button"
+				class="bg-surface-950/60 absolute inset-0 backdrop-blur-sm"
+				aria-label="Close outreach panel"
+				onclick={() => (selectedGroupId = null)}
+			></button>
+			<div
+				class="bg-surface-50-950 absolute inset-x-0 top-12 bottom-0 flex flex-col overflow-hidden rounded-t-2xl"
+				transition:slide={{ duration: 200 }}
+			>
+				<div
+					class="border-surface-200-800 flex shrink-0 items-center justify-between border-b px-4 py-2"
+				>
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-surface"
+						onclick={() => (selectedGroupId = null)}
+					>
+						<IconChevronLeft class="h-4 w-4" /> Back
+					</button>
+					<span class="text-surface-500 text-xs font-medium">Outreach</span>
+					<div class="w-16"></div>
+				</div>
+				<div class="flex-1 overflow-y-auto">
+					{@render detailContent(selectedGroup)}
+				</div>
 			</div>
 		</div>
 	{/if}
 </div>
+
+{#snippet detailContent(group)}
+	<form
+		bind:this={generateFormEl}
+		method="POST"
+		action="?/generate"
+		use:enhance={enhanceWithFlag((v) => (generating = v))}
+		class="hidden"
+	>
+		<input type="hidden" name="group_id" value={group.id} />
+	</form>
+
+	<!-- Group Header -->
+	<div class="border-surface-200-800 border-b p-4">
+		<div class="flex items-center gap-3">
+			{#if group.logo_url}
+				<img
+					src={group.logo_url}
+					alt=""
+					class="ring-surface-500/20 h-12 w-12 shrink-0 rounded-xl object-cover ring-1"
+				/>
+			{:else}
+				<div
+					class="preset-tonal-surface flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+				>
+					<IconUsers class="h-6 w-6 opacity-40" />
+				</div>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<div class="flex items-center gap-2">
+					<h2 class="h5 truncate">{group.name}</h2>
+					<a
+						href="/groups/{group.slug}"
+						target="_blank"
+						class="text-surface-500 hover:text-primary-500 shrink-0 transition-colors"
+						onclick={(event) => event.stopPropagation()}
+					>
+						<IconExternalLink class="h-4 w-4" />
+					</a>
+				</div>
+				<p class="text-surface-600-400 text-sm">{group.city}, {group.state_region}</p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Primary: Message Composer -->
+	<div class="space-y-3 p-4">
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-2">
+				<IconSend class="text-primary-500 h-4 w-4" />
+				<span class="text-sm font-medium">Compose Message</span>
+			</div>
+			{#if generating}
+				<span class="loading loading-spinner loading-sm text-primary-500"></span>
+			{/if}
+		</div>
+
+		{#if group.public_contact_email}
+			<form
+				method="POST"
+				action="?/sendMessage"
+				use:enhance={enhanceWithFlag((v) => (sending = v))}
+				class="space-y-3"
+			>
+				<input type="hidden" name="group_id" value={group.id} />
+				<div>
+					<label class="label text-surface-500 mb-1 text-xs" for={`subject-${group.id}`}
+						>Subject</label
+					>
+					<input
+						id={`subject-${group.id}`}
+						type="text"
+						name="subject"
+						class="input preset-tonal-surface"
+						value={getSubject(group)}
+						oninput={(e) => setSubject(group.id, e.currentTarget.value)}
+					/>
+				</div>
+				<div class="relative">
+					<label class="label text-surface-500 mb-1 text-xs" for={`message-${group.id}`}
+						>Message</label
+					>
+					<textarea
+						id={`message-${group.id}`}
+						name="content"
+						class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
+						value={getMessage(group)}
+						oninput={(e) => setMessage(group.id, e.currentTarget.value)}
+						disabled={generating}
+					></textarea>
+					{#if generating}
+						<div
+							class="bg-surface-100-900/80 absolute inset-0 flex items-center justify-center rounded-lg backdrop-blur-sm"
+						>
+							<div class="text-surface-600-400 flex items-center gap-2">
+								<span class="loading loading-spinner loading-sm"></span>
+								<span class="text-sm">Crafting...</span>
+							</div>
+						</div>
+					{/if}
+				</div>
+				<div class="flex items-center gap-3">
+					<button type="submit" class="btn preset-filled-primary-500" disabled={sending}>
+						{#if sending}
+							<span class="loading loading-spinner loading-xs"></span>
+						{:else}
+							<IconSend class="h-4 w-4" />
+						{/if}
+						{sending ? 'Sending...' : 'Send Email'}
+					</button>
+					{#if getEmailStatus(group.id)?.type === 'success'}
+						<span class="text-success-600 flex items-center gap-1 text-sm">
+							<IconAlertCircle class="h-4 w-4" />
+							{getEmailStatus(group.id)?.message}
+						</span>
+					{:else if getEmailStatus(group.id)?.type === 'error'}
+						<span class="text-error-600 flex items-center gap-1 text-sm">
+							<IconAlertCircle class="h-4 w-4" />
+							{getEmailStatus(group.id)?.message}
+						</span>
+					{/if}
+				</div>
+			</form>
+		{:else}
+			<div class="relative">
+				<textarea
+					id={`message-${group.id}`}
+					class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
+					value={getMessage(group)}
+					oninput={(e) => setMessage(group.id, e.currentTarget.value)}
+					disabled={generating}
+				></textarea>
+				{#if generating}
+					<div
+						class="bg-surface-100-900/80 absolute inset-0 flex items-center justify-center rounded-lg backdrop-blur-sm"
+					>
+						<div class="text-surface-600-400 flex items-center gap-2">
+							<span class="loading loading-spinner loading-sm"></span>
+							<span class="text-sm">Crafting...</span>
+						</div>
+					</div>
+				{/if}
+			</div>
+			<div class="text-warning-600 flex items-center gap-2 text-sm">
+				<IconAlertCircle class="h-4 w-4" />
+				<span>No public email. Use social DMs below.</span>
+			</div>
+		{/if}
+
+		{#if hasSocials(group)}
+			<div class="flex flex-wrap gap-2 pt-2">
+				{#each Object.entries(group.social_links || {}).filter(([, url]) => Boolean(url) && !String(url).includes('instagram.com/p/')) as [platform, url]}
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-surface"
+						onclick={(event) => openProfileAndCopy(url, getMessage(group), event)}
+					>
+						Open {platform.replace(/_/g, ' ')}
+					</button>
+				{/each}
+				<button
+					type="button"
+					class="btn btn-sm preset-tonal-secondary"
+					onclick={() => copyText(getMessage(group))}
+				>
+					<IconCopy class="h-3.5 w-3.5" /> Copy
+				</button>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Collapsible: Actions -->
+	<div class="border-surface-200-800 border-t">
+		<div class="bg-surface-100-900/50 p-3">
+			<div class="flex flex-wrap gap-2">
+				<button
+					type="button"
+					class="btn btn-sm preset-tonal-surface"
+					onclick={(event) => copyClaimLink(group, event)}
+				>
+					<IconLink class="h-3.5 w-3.5" />
+					{copiedGroupId === group.id ? 'Copied!' : 'Claim URL'}
+				</button>
+				<form
+					method="POST"
+					action="?/enrich"
+					use:enhance={enhanceWithFlag((v) => (enriching = v))}
+					class="contents"
+				>
+					<input type="hidden" name="group_id" value={group.id} />
+					<button type="submit" class="btn btn-sm preset-tonal-secondary" disabled={enriching}>
+						<IconWand2 class="h-3.5 w-3.5 {enriching ? 'animate-spin' : ''}" />
+						{enriching ? 'Enriching...' : 'Enrich'}
+					</button>
+				</form>
+				<form method="POST" action="?/toggleLowPriority" use:enhance class="contents">
+					<input type="hidden" name="group_id" value={group.id} />
+					<input type="hidden" name="value" value={group.is_low_priority ? 'false' : 'true'} />
+					<button
+						type="submit"
+						class="btn btn-sm {group.is_low_priority
+							? 'preset-outlined-warning-300-700'
+							: 'preset-tonal-warning'}"
+					>
+						{group.is_low_priority ? 'Restore' : 'Low Priority'}
+					</button>
+				</form>
+				{#if confirmDeleteFor === group.id}
+					<div
+						class="bg-error-500/10 border-error-500/30 mt-1 flex w-full items-center gap-2 rounded-lg border p-2"
+						transition:slide
+					>
+						<IconAlertCircle class="text-error-500 h-4 w-4 shrink-0" />
+						<span class="text-error-700-300 flex-1 text-xs">Delete permanently?</span>
+						<form
+							method="POST"
+							action="?/deleteGroup"
+							use:enhance={enhanceWithFlag((v) => (deletingGroup = v))}
+						>
+							<input type="hidden" name="group_id" value={group.id} />
+							<button
+								type="submit"
+								class="btn btn-sm preset-filled-error-500"
+								disabled={deletingGroup}
+							>
+								{deletingGroup ? '...' : 'Delete'}
+							</button>
+						</form>
+						<button
+							type="button"
+							class="btn btn-sm preset-tonal-surface"
+							onclick={() => (confirmDeleteFor = null)}>Cancel</button
+						>
+					</div>
+				{:else}
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-error"
+						onclick={() => (confirmDeleteFor = group.id)}
+					>
+						<IconTrash2 class="h-3.5 w-3.5" />
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+
+	<!-- Collapsible: Assets (compact) -->
+	<div class="border-surface-200-800 border-t">
+		<div class="p-3">
+			<div class="flex items-center gap-4">
+				<!-- Logo thumbnail -->
+				<div class="flex items-center gap-2">
+					<div
+						class="ring-surface-500/20 bg-surface-100-900 h-10 w-10 overflow-hidden rounded-lg ring-1"
+					>
+						{#if group.logo_url}
+							<img src={group.logo_url} alt="" class="h-full w-full object-cover" />
+						{:else}
+							<div class="flex h-full w-full items-center justify-center">
+								<IconImageUp class="text-surface-400 h-4 w-4" />
+							</div>
+						{/if}
+					</div>
+					<button
+						type="button"
+						class="text-surface-500 hover:text-surface-900-100 text-xs transition-colors"
+						onclick={() => openImageModal(group, 'logo')}
+					>
+						Edit
+					</button>
+				</div>
+				<!-- Cover thumbnail -->
+				<div class="flex items-center gap-2">
+					<div
+						class="ring-surface-500/20 bg-surface-100-900 h-10 w-16 overflow-hidden rounded-lg ring-1"
+					>
+						{#if group.cover_photo_url}
+							<img src={group.cover_photo_url} alt="" class="h-full w-full object-cover" />
+						{:else}
+							<div class="flex h-full w-full items-center justify-center">
+								<IconImageUp class="text-surface-400 h-4 w-4" />
+							</div>
+						{/if}
+					</div>
+					<button
+						type="button"
+						class="text-surface-500 hover:text-surface-900-100 text-xs transition-colors"
+						onclick={() => openImageModal(group, 'cover')}
+					>
+						Edit
+					</button>
+				</div>
+				<!-- Stats -->
+				<div class="ml-auto flex items-center gap-4 text-xs">
+					<div class="text-center">
+						<div class="text-surface-500">Complete</div>
+						<div
+							class="font-bold {group.completeness >= 80
+								? 'text-success-600'
+								: group.completeness >= 50
+									? 'text-warning-600'
+									: 'text-error-600'}"
+						>
+							{group.completeness}%
+						</div>
+					</div>
+					<div class="text-center">
+						<div class="text-surface-500">Priority</div>
+						<div class="text-tertiary-600 font-bold">{group.priority_score}</div>
+					</div>
+					<div class="text-center">
+						<div class="text-surface-500">Contacts</div>
+						<div class="text-surface-900-100 font-bold">{group.contacts_count}</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#if imageModalOpen}
+	<div
+		class="bg-surface-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+		transition:fade={{ duration: 150 }}
+	>
+		<div
+			class="card bg-surface-50-950 border-surface-200-800 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
+			transition:slide={{ duration: 200 }}
+		>
+			<!-- Header -->
+			<div
+				class="border-surface-200-800 flex shrink-0 items-center justify-between border-b px-5 py-4"
+			>
+				<div class="flex items-center gap-2">
+					<IconImageUp class="text-primary-500 h-5 w-5" />
+					<h3 class="h5">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h3>
+				</div>
+				<button
+					type="button"
+					class="btn-icon preset-tonal-surface"
+					onclick={() => (imageModalOpen = false)}
+				>
+					<IconX class="h-5 w-5" />
+				</button>
+			</div>
+
+			<!-- Preview (Hero) -->
+			<div
+				class="bg-surface-100-900 border-surface-200-800 relative shrink-0 overflow-hidden border-b"
+			>
+				<div
+					class="relative mx-auto touch-none select-none"
+					class:w-48={imageEditTarget === 'logo'}
+					class:h-48={imageEditTarget === 'logo'}
+					class:w-full={imageEditTarget === 'cover'}
+					class:h-40={imageEditTarget === 'cover'}
+					role="group"
+					aria-label="Image crop preview"
+					bind:clientWidth={cropStageWidth}
+					bind:clientHeight={cropStageHeight}
+					onpointerdown={startCropDrag}
+					onpointermove={moveCropDrag}
+					onpointerup={endCropDrag}
+					onpointercancel={endCropDrag}
+					onpointerleave={endCropDrag}
+				>
+					{#if imagePreviewSrc}
+						<img
+							src={imagePreviewSrc}
+							alt="crop preview"
+							draggable="false"
+							onload={onPreviewImageLoad}
+							class="absolute top-1/2 left-1/2 h-auto max-h-none w-auto max-w-none touch-none select-none"
+							style="transform: translate(-50%, -50%) translate({cropX}px, {cropY}px) scale({getCropFitScale() *
+								cropScale}); cursor: {draggingCrop ? 'grabbing' : 'grab'}"
+						/>
+					{:else}
+						<div
+							class="text-surface-500 absolute inset-0 flex flex-col items-center justify-center gap-2"
+						>
+							<IconImageUp class="h-10 w-10 opacity-40" />
+							<span class="text-sm">Add an image to start</span>
+						</div>
+					{/if}
+				</div>
+				{#if imagePreviewSrc}
+					<div
+						class="bg-surface-950/60 text-surface-100 absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs backdrop-blur-sm"
+					>
+						Drag to reposition
+					</div>
+				{/if}
+			</div>
+
+			<!-- Controls -->
+			<div class="space-y-4 overflow-y-auto p-5">
+				<!-- Zoom -->
+				<div class="space-y-2">
+					<div class="flex items-center justify-between">
+						<label
+							class="text-surface-600-400 text-xs font-medium tracking-wider uppercase"
+							for="crop-zoom">Zoom</label
+						>
+						<span class="text-surface-500 text-xs">{Math.round(cropScale * 100)}%</span>
+					</div>
+					<input
+						id="crop-zoom"
+						type="range"
+						min="1"
+						max="2.5"
+						step="0.01"
+						bind:value={cropScale}
+						class="accent-primary-500 w-full"
+					/>
+				</div>
+
+				<!-- Source Tabs -->
+				<div class="bg-surface-100-900 grid grid-cols-2 gap-2 rounded-xl p-1">
+					<button
+						type="button"
+						class="rounded-lg px-3 py-2 text-sm font-medium transition-all {imageUrlDraft
+							? 'bg-surface-50-950 shadow-sm'
+							: 'text-surface-500 hover:text-surface-900-100'}"
+						onclick={() => {
+							imageUrlDraft = imagePreviewSrc || '';
+						}}
+					>
+						URL
+					</button>
+					<label
+						class="cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-medium transition-all {imagePreviewSrc &&
+						!imageUrlDraft
+							? 'bg-surface-50-950 shadow-sm'
+							: 'text-surface-500 hover:text-surface-900-100'}"
+					>
+						Upload
+						<input type="file" accept="image/*" class="hidden" onchange={onImageFileSelected} />
+					</label>
+				</div>
+
+				<!-- URL Input -->
+				<div class="flex gap-2">
+					<input
+						type="text"
+						class="input preset-tonal-surface flex-1"
+						bind:value={imageUrlDraft}
+						placeholder="https://example.com/image.jpg"
+						onkeydown={(e) => e.key === 'Enter' && applyUrlPreview()}
+					/>
+					<button type="button" class="btn preset-tonal-surface" onclick={applyUrlPreview}>
+						Load
+					</button>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="border-surface-200-800 bg-surface-100-900/50 shrink-0 border-t px-5 py-4">
+				<form
+					bind:this={imageFormEl}
+					method="POST"
+					action="?/updateAssets"
+					use:enhance={enhanceWithFlag((v) => (savingAssets = v))}
+					class="flex justify-end gap-2"
+				>
+					<input type="hidden" name="group_id" value={imageEditGroupId} />
+					{#if imageEditTarget === 'logo'}
+						<input type="hidden" name="logo_file_cropped" value={logoCroppedDataUrl} />
+						<input type="hidden" name="logo_url" value={imageUrlDraft} />
+					{:else}
+						<input type="hidden" name="cover_file_cropped" value={coverCroppedDataUrl} />
+						<input type="hidden" name="cover_photo_url" value={imageUrlDraft} />
+					{/if}
+					<button
+						type="button"
+						class="btn preset-tonal-surface"
+						onclick={() => (imageModalOpen = false)}>Cancel</button
+					>
+					<button
+						type="button"
+						class="btn preset-filled-primary-500"
+						disabled={savingAssets || !imagePreviewSrc}
+						onclick={prepareCroppedAndSubmit}
+					>
+						{#if savingAssets}<span class="loading loading-spinner loading-xs"></span>{/if}
+						{savingAssets ? 'Saving...' : 'Save'}
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+{/if}

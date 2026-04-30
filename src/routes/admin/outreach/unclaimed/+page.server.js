@@ -71,7 +71,10 @@ function cleanText(value, maxLength = 0) {
 function stripCodeFences(value) {
 	const text = cleanText(value, 100000);
 	if (!text) return '';
-	return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+	return text
+		.replace(/^```(?:json)?\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim();
 }
 
 function safeJsonParse(value) {
@@ -91,6 +94,10 @@ function safeJsonParse(value) {
 		}
 		return null;
 	}
+}
+
+function removeEmDashes(value) {
+	return cleanText(value).replace(/[—–]/g, '-');
 }
 
 function parseDataUrl(dataUrl) {
@@ -123,7 +130,9 @@ async function uploadCroppedImage(serviceSupabase, groupId, field, dataUrl) {
 			cacheControl: '3600'
 		});
 	if (uploadError) throw new Error(uploadError.message);
-	const { data: urlData } = serviceSupabase.storage.from(GROUP_ASSET_BUCKET).getPublicUrl(objectPath);
+	const { data: urlData } = serviceSupabase.storage
+		.from(GROUP_ASSET_BUCKET)
+		.getPublicUrl(objectPath);
 	return urlData?.publicUrl || null;
 }
 
@@ -219,8 +228,9 @@ export async function load({ cookies, url }) {
 				claim_url: `https://3fp.org/groups/${g.slug}/claim`,
 				outreach_count: history.length,
 				outreach_history: history.slice(0, 8),
-				recent_contact_methods: [...new Set(history.map((item) => item.contact_method).filter(Boolean))]
-					.slice(0, 3)
+				recent_contact_methods: [
+					...new Set(history.map((item) => item.contact_method).filter(Boolean))
+				].slice(0, 3)
 			};
 		});
 
@@ -228,7 +238,8 @@ export async function load({ cookies, url }) {
 	if (status !== 'all') filtered = filtered.filter((g) => g.outreach_status === status);
 	if (q) {
 		filtered = filtered.filter((g) => {
-			const haystack = `${g.name || ''} ${g.city || ''} ${g.state_region || ''} ${g.slug || ''}`.toLowerCase();
+			const haystack =
+				`${g.name || ''} ${g.city || ''} ${g.state_region || ''} ${g.slug || ''}`.toLowerCase();
 			return haystack.includes(q);
 		});
 	}
@@ -292,25 +303,40 @@ export const actions = {
 			.select('full_name,email')
 			.eq('user_id', user.id)
 			.maybeSingle();
-		const senderName = cleanText(profile?.full_name || profile?.email || user?.email, 140) || 'a teammate';
-		const location = [group.city, group.state_region].filter(Boolean).join(', ') || 'your community';
+		const senderName =
+			cleanText(profile?.full_name || profile?.email || user?.email, 140) || 'a teammate';
+		const location =
+			[group.city, group.state_region].filter(Boolean).join(', ') || 'your community';
 
 		const ai = requireAiModel('group_enrichment');
 		const prompt = `Write a realistic outreach message from a real human at 3 Feet Please.
 Audience: organizers of "${group.name}".
 Mission: invite them to claim their profile on 3fp.org.
 Critical rule: do not pretend we know details we do not have.
-Tone: warm, practical, lightly playful, a few bike puns max, no AI-marketing fluff.
+Tone: warm, personable, modest, and practical. It should read like one cyclist speaking to another, not like marketing copy.
+Always include at least one light bike pun naturally, but keep it subtle and human.
 Every generated message must be unique in wording and structure.
 
 Must include these details naturally:
 - Sender context with real name: "I'm ${senderName} from 3 Feet Please, a small volunteer powered national cycling non-profit..."
 - Group mention with claim URL: https://3fp.org/groups/${group.slug}/claim
-- Benefits links: https://3fp.org/groups and https://3fp.org/rides and https://3fp.org/learn
-- Mention upcoming newsletter/mailchimp replacement and accounting module briefly.
-- Ask for feedback and a chance to connect. Mention Phoenix and Bay Area as places we often ride.
+- A short mention that 3fp.org can help them share their group with other cyclists, public rides, and local advocacy resources: https://3fp.org/groups, https://3fp.org/rides, https://3fp.org/learn
+- Mention up to 3 specific manage tools the group may find useful, chosen from and described in plain language:
+  - Edit Profile: update the group name, description, location, contacts, logo, cover image, and other public details.
+  - Website / Microsite: publish and manage a simple public group website or landing page.
+  - Membership: support free or paid memberships, recurring charges or donations, signups, roster tracking, and billing.
+  - Shared Assets: keep photos, files, links, and other reusable group materials organized in one place.
+  - Updates: publish mini-blog style posts, share announcements, and quickly send email updates to members.
+  - Social Media: connect Facebook and Instagram, schedule posts, and quickly reply to comments and messages.
+  - Volunteer Events: organize volunteer opportunities and event details for members and supporters.
+- Ask for feedback and a chance to connect.
+- Say our board is based in Phoenix and the Bay Area and is always happy to connect with new cyclists.
 - Thank them for what they do for cyclists locally.
 - Mention local area as ${location}.
+
+Do not mention mailchimp, newsletters, or accounting.
+Do not claim personal familiarity or shared rides if we do not know that.
+Do not use em dashes or en dashes anywhere in the output. Use regular hyphens instead.
 
 Return ONLY valid JSON in this exact shape:
 {
@@ -327,8 +353,10 @@ Do not wrap in markdown or code fences.`;
 		let responseText = response.text ?? '';
 		if (typeof responseText === 'function') responseText = responseText();
 		const parsed = safeJsonParse(responseText) || {};
-		const generatedSubject = cleanText(parsed.subject || `Quick hello from 3 Feet Please for ${group.name}`, 300);
-		const generatedMessage = cleanText(parsed.body || responseText, 12000);
+		const generatedSubject = removeEmDashes(
+			parsed.subject || `Quick hello from 3 Feet Please for ${group.name}`
+		).slice(0, 300);
+		const generatedMessage = removeEmDashes(parsed.body || responseText).slice(0, 12000);
 		return { success: true, generatedMessage, generatedSubject, selectedGroupId: groupId };
 	},
 
@@ -338,7 +366,8 @@ Do not wrap in markdown or code fences.`;
 		const groupId = formData.get('group_id');
 		const method = formData.get('method');
 		const content = formData.get('content');
-		if (!groupId || !method) return fail(400, { error: 'Missing outreach details', selectedGroupId: groupId });
+		if (!groupId || !method)
+			return fail(400, { error: 'Missing outreach details', selectedGroupId: groupId });
 
 		const supabase = createServiceSupabaseClient();
 		const { error: logError } = await supabase.from('group_outreach').insert({
@@ -380,7 +409,10 @@ Do not wrap in markdown or code fences.`;
 		});
 		if (!res.ok) {
 			const err = await res.json().catch(() => ({}));
-			return fail(res.status, { error: err.error || 'Deep enrichment failed', selectedGroupId: groupId });
+			return fail(res.status, {
+				error: err.error || 'Deep enrichment failed',
+				selectedGroupId: groupId
+			});
 		}
 		const enrichedData = await res.json();
 		const { error: updateError } = await supabase.from('group_enrichment').upsert({
@@ -410,11 +442,18 @@ Do not wrap in markdown or code fences.`;
 		const payload = {};
 		const supabase = createServiceSupabaseClient();
 		if (hasLogoCrop || hasLogoUrl) {
-			if (logoFileCropped) payload.logo_url = await uploadCroppedImage(supabase, groupId, 'logo', logoFileCropped);
+			if (logoFileCropped)
+				payload.logo_url = await uploadCroppedImage(supabase, groupId, 'logo', logoFileCropped);
 			else payload.logo_url = logoUrl || null;
 		}
 		if (hasCoverCrop || hasCoverUrl) {
-			if (coverFileCropped) payload.cover_photo_url = await uploadCroppedImage(supabase, groupId, 'cover', coverFileCropped);
+			if (coverFileCropped)
+				payload.cover_photo_url = await uploadCroppedImage(
+					supabase,
+					groupId,
+					'cover',
+					coverFileCropped
+				);
 			else payload.cover_photo_url = coverPhotoUrl || null;
 		}
 		const { error: updateError } = await supabase.from('groups').update(payload).eq('id', groupId);
@@ -434,7 +473,10 @@ Do not wrap in markdown or code fences.`;
 			.select('enrichment_data')
 			.eq('group_id', groupId)
 			.maybeSingle();
-		const enrichmentData = current?.enrichment_data && typeof current.enrichment_data === 'object' ? current.enrichment_data : {};
+		const enrichmentData =
+			current?.enrichment_data && typeof current.enrichment_data === 'object'
+				? current.enrichment_data
+				: {};
 		const nextEnrichmentData = {
 			...enrichmentData,
 			outreach: {
@@ -472,7 +514,10 @@ Do not wrap in markdown or code fences.`;
 		if (group.public_contact_email) {
 			const html = content
 				.split('\n')
-				.map((line) => `<p style="margin:0 0 12px 0;">${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+				.map(
+					(line) =>
+						`<p style="margin:0 0 12px 0;">${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
+				)
 				.join('');
 			await sendEmail(
 				{
@@ -497,7 +542,7 @@ Do not wrap in markdown or code fences.`;
 		await supabase.from('group_outreach').insert({
 			group_id: groupId,
 			contacted_by: user.id,
-			contact_method: sendEmailPlatform && emailSent ? 'email' : 'social_dm',
+			contact_method: emailSent ? 'email' : 'manual_social',
 			message_content: content,
 			contacted_at: new Date().toISOString()
 		});
