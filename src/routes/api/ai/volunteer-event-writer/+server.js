@@ -5,7 +5,7 @@ import {
 	requireAiModel
 } from '$lib/server/ai/models';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
 const STYLE_GUIDE = `You are writing event descriptions for a grassroots cycling community. Your audience is a diverse mix of riders: road racers, cargo-bike parents, trail explorers, commuters, and late-night coffee-shop fixie kids. They share a streak of independence and a deep respect for others. Your job is to make them feel the event is alive, worth showing up for, and welcoming to every type of rider.
 

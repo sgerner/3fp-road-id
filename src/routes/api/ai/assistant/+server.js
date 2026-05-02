@@ -3,7 +3,7 @@ import { getActivityClient } from '$lib/server/activities';
 import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
 import { buildHybridArticleCandidates, inferArticleIntent } from '$lib/server/learnRecommendations';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
 const MAX_MESSAGE_COUNT = 24;
 const MAX_MESSAGE_LENGTH = 1000;

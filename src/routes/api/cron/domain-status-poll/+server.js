@@ -3,7 +3,7 @@ import { getCronSecretVerifier } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getDomainConfigForProject, verifyMicrositeProjectDomain } from '$lib/server/vercelDomains';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
