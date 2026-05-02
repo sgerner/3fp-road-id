@@ -310,7 +310,7 @@ function createOpenAiProviderClient(apiKey) {
 				body.output_format = 'webp';
 				body.output_compression = 80;
 				if (thinking && thinking !== 'off') {
-					body.thinking = thinking;
+					body.reasoning_effort = thinking;
 				}
 			} else {
 				body.response_format = 'b64_json';
