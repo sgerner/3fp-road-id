@@ -298,7 +298,7 @@ function mapOpenAiImageSize(aspectRatio = '16:9') {
 
 function createOpenAiProviderClient(apiKey) {
 	return {
-		async generateImage({ model, prompt, aspectRatio = '16:9', thinking = 'low' }) {
+		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
 			const body = {
 				model,
 				prompt,
@@ -306,13 +306,7 @@ function createOpenAiProviderClient(apiKey) {
 				quality: 'low'
 			};
 
-			if (model === 'gpt-image-2') {
-				body.output_format = 'webp';
-				body.output_compression = 80;
-				if (thinking && thinking !== 'off') {
-					body.reasoning_effort = thinking;
-				}
-			} else {
+			if (model !== 'gpt-image-2') {
 				body.response_format = 'b64_json';
 			}
 
