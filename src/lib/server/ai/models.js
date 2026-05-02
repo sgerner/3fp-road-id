@@ -308,7 +308,7 @@ function createOpenAiProviderClient(apiKey) {
 
 			if (model === 'gpt-image-2') {
 				body.output_format = 'webp';
-				body.compression = 80;
+				body.output_compression = 80;
 				if (thinking && thinking !== 'off') {
 					body.thinking = thinking;
 				}
