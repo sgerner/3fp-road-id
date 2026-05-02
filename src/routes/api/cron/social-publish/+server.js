@@ -4,7 +4,7 @@ import { getGroupSocialPostById, updateGroupSocialPost } from '$lib/server/socia
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
 
 async function verifyCronRequest(request) {
 	const providedSecret =

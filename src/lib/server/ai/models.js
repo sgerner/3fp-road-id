@@ -177,11 +177,11 @@ const STABLE_IMAGE_CORE_ASPECT_RATIO_MAP = {
 
 const OPENAI_IMAGE_SIZE_BY_ASPECT_RATIO = {
 	'1:1': '1024x1024',
-	'3:4': '1024x1536',
-	'4:3': '1536x1024',
-	'4:5': '1024x1536',
-	'9:16': '1024x1536',
-	'16:9': '1536x1024'
+	'3:4': '768x1024',
+	'4:3': '1024x768',
+	'4:5': '820x1024',
+	'9:16': '576x1024',
+	'16:9': '1024x576'
 };
 
 function convertSchemaNode(node) {
@@ -298,15 +298,21 @@ function mapOpenAiImageSize(aspectRatio = '16:9') {
 
 function createOpenAiProviderClient(apiKey) {
 	return {
-		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
+		async generateImage({ model, prompt, aspectRatio = '16:9', thinking = 'low' }) {
 			const body = {
 				model,
 				prompt,
-				size: mapOpenAiImageSize(aspectRatio)
+				size: mapOpenAiImageSize(aspectRatio),
+				quality: 'low'
 			};
 
-			// Some models (like Google's Imagen 2 via OpenAI proxy) don't support response_format
-			if (model !== 'gpt-image-2') {
+			if (model === 'gpt-image-2') {
+				body.output_format = 'webp';
+				body.compression = 80;
+				if (thinking && thinking !== 'off') {
+					body.thinking = thinking;
+				}
+			} else {
 				body.response_format = 'b64_json';
 			}
 

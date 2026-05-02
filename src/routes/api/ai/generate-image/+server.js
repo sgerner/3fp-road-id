@@ -20,7 +20,7 @@ import {
 	requireAiModel
 } from '$lib/server/ai/models';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
 
 const ALLOWED_TARGETS = new Set(['ride', 'learn', 'group']);
 const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '4:5', '9:16', '16:9']);
@@ -258,29 +258,30 @@ Output requirements:
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 
-function getStorageConfig(target, userId, articleId, context) {
+function getStorageConfig(target, userId, articleId, context, extension = 'png') {
 	const baseName =
 		slugifySegment(context?.title || context?.name || context?.slug || `${target}-image`) ||
 		`${target}-image`;
+	const safeExt = extension.replace(/^\./, '');
 
 	if (target === 'ride') {
 		return {
 			bucket: 'ride-media',
-			objectPath: `${userId}/${Date.now()}-${baseName}.png`
+			objectPath: `${userId}/${Date.now()}-${baseName}.${safeExt}`
 		};
 	}
 
 	if (target === 'learn') {
 		return {
 			bucket: 'learn-media',
-			objectPath: `${userId}/${Date.now()}-${baseName}.png`,
+			objectPath: `${userId}/${Date.now()}-${baseName}.${safeExt}`,
 			articleId: safeTrim(articleId) || null
 		};
 	}
 
 	return {
 		bucket: 'storage',
-		objectPath: `groups/generated/${userId}/${Date.now()}-${baseName}.png`
+		objectPath: `groups/generated/${userId}/${Date.now()}-${baseName}.${safeExt}`
 	};
 }
 
@@ -374,6 +375,9 @@ export async function POST({ request, cookies }) {
 	const prompt = sanitizePrompt(payload?.prompt, 800);
 	const allowTextInImage = Boolean(payload?.allowTextInImage);
 	const textOverlay = sanitizePrompt(payload?.textOverlay, 280);
+	const thinking = ['off', 'low', 'medium', 'high'].includes(payload?.thinking)
+		? payload.thinking
+		: 'low';
 	const context = payload?.context && typeof payload.context === 'object' ? payload.context : {};
 	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
 	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
@@ -409,7 +413,8 @@ export async function POST({ request, cookies }) {
 		const generated = await client.generateImage({
 			model: model.model,
 			prompt: optimizedPrompt,
-			aspectRatio
+			aspectRatio,
+			thinking
 		});
 
 		const imageBytes = generated?.imageBytes;
@@ -417,12 +422,14 @@ export async function POST({ request, cookies }) {
 			return json({ error: 'Image generation returned no image data.' }, { status: 502 });
 		}
 
-		const storage = getStorageConfig(target, user.id, payload?.articleId, context);
+		const mimeType = generated?.mimeType || 'image/png';
+		const extension = mimeType.split('/')[1] || 'png';
+		const storage = getStorageConfig(target, user.id, payload?.articleId, context, extension);
 		const buffer = Buffer.from(imageBytes, 'base64');
 		const uploadResult = await supabase.storage
 			.from(storage.bucket)
 			.upload(storage.objectPath, buffer, {
-				contentType: generated?.mimeType || 'image/png',
+				contentType: mimeType,
 				upsert: false
 			});
 

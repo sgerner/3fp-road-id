@@ -10,7 +10,7 @@ import {
 } from '$lib/server/ai/models';
 
 // Ensure Vercel runs this on the Node runtime and gives us enough time for the AI call.
-export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
+export const config = { runtime: 'nodejs20.x', maxDuration: 300 };
 
 const DEFAULT_FETCH_TIMEOUT = 3000; // ms
 const JINA_READER_TIMEOUT = 9000;
