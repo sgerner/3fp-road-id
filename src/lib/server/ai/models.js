@@ -18,7 +18,7 @@ const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
-	GEMINI_31_FLASH_LITE_PREVIEW: 'google/gemini-3.1-flash-lite-preview',
+	GEMINI_31_FLASH_LITE: 'google/gemini-3.1-flash-lite',
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview',
 	OPENAI_GPT_IMAGE_2: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_2,
 	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
@@ -65,11 +65,11 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_INPUT
 		]
 	},
-	[MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW]: {
-		id: MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW,
+	[MODEL_ID.GEMINI_31_FLASH_LITE]: {
+		id: MODEL_ID.GEMINI_31_FLASH_LITE,
 		provider: 'google',
-		model: 'gemini-3.1-flash-lite-preview',
-		label: 'Gemini 3.1 Flash Lite Preview',
+		model: 'gemini-3.1-flash-lite',
+		label: 'Gemini 3.1 Flash Lite',
 		fallbackModel: 'gemini-2.5-flash',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
@@ -131,7 +131,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
-		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_LITE_PREVIEW,
+		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_LITE,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
