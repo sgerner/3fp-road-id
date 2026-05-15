@@ -309,34 +309,79 @@ export const actions = {
 			[group.city, group.state_region].filter(Boolean).join(', ') || 'your community';
 
 		const ai = requireAiModel('group_enrichment');
-		const prompt = `Write a realistic outreach message from a real human at 3 Feet Please.
+		const prompt = `Write a short, realistic outreach message from a real human at 3 Feet Please.
+
 Audience: organizers of "${group.name}".
-Mission: invite them to claim their profile on 3fp.org.
-Critical rule: do not pretend we know details we do not have.
-Tone: warm, personable, modest, and practical. It should read like one cyclist speaking to another, not like marketing copy.
-Always include at least one light bike pun naturally, but keep it subtle and human.
-Every generated message must be unique in wording and structure.
 
-Must include these details naturally:
-- Sender context with real name: "I'm ${senderName} from 3 Feet Please, a small volunteer powered national cycling non-profit..."
-- Group mention with claim URL: https://3fp.org/groups/${group.slug}/claim
-- A short mention that 3fp.org can help them share their group with other cyclists, public rides, and local advocacy resources: https://3fp.org/groups, https://3fp.org/rides, https://3fp.org/learn
-- Mention up to 3 specific manage tools the group may find useful, chosen from and described in plain language:
-  - Edit Profile: update the group name, description, location, contacts, logo, cover image, and other public details.
-  - Website / Microsite: publish and manage a simple public group website or landing page.
-  - Membership: support free or paid memberships, recurring charges or donations, signups, roster tracking, and billing.
-  - Shared Assets: keep photos, files, links, and other reusable group materials organized in one place.
-  - Updates: publish mini-blog style posts, share announcements, and quickly send email updates to members.
-  - Social Media: connect Facebook and Instagram, schedule posts, and quickly reply to comments and messages.
-  - Volunteer Events: organize volunteer opportunities and event details for members and supporters.
-- Ask for feedback and a chance to connect.
-- Say our board is based in Phoenix and the Bay Area and is always happy to connect with new cyclists.
-- Thank them for what they do for cyclists locally.
-- Mention local area as ${location}.
+Primary goal: encourage the group owner to claim or check their 3FP directory page so cyclists who find it get accurate, useful information.
 
-Do not mention mailchimp, newsletters, or accounting.
-Do not claim personal familiarity or shared rides if we do not know that.
-Do not use em dashes or en dashes anywhere in the output. Use regular hyphens instead.
+Important framing:
+- Focus on the benefit to individual cyclists and potential riders first.
+- The message should feel like: "We want people looking for a ride near you to find the right info."
+- Do not make the message feel like a sales pitch, platform pitch, marketing email, or fundraising message.
+- Do not over-explain 3FP.
+- Do not list features like a brochure.
+- Do not pretend we know the group personally or know anything beyond the provided data.
+
+Tone:
+- Human, modest, practical, and warm.
+- Like one volunteer cyclist writing a useful note to another group organizer.
+- Short, focused, approachable.
+- No hype, slogans, generic praise, fake flattery, or bike puns.
+- Every message should be unique in wording and structure.
+
+Length:
+- 90-140 words.
+- Prefer 2 or 3 short paragraphs.
+- Use plain language.
+
+Must include naturally:
+- Sender context: "I'm ${senderName} from 3 Feet Please..."
+- 3FP is a volunteer-powered nonprofit that helps cyclists find local groups and rides and works to make roads safer.
+- Someone added "${group.name}" to the 3FP directory.
+- Mention "${location}" only as the directory location. Do not imply personal knowledge of the group's work there.
+- Ask them to check whether the profile and upcoming rides are accurate.
+- Group page URL: https://3fp.org/groups/${group.slug}
+- Mention that claiming the page is free.
+- Try hard to mention 2 or 3 relevant benefits for the group in claiming the page, described by user benefit, not feature name.
+
+Choose 2 or 3 benefits from this list when they fit naturally:
+- keep public group details up to date
+- add or update upcoming rides
+- give new riders a simple page to learn about the group
+- send updates or announcements to members
+- manage signups, memberships, donations, or volunteer events
+- organize photos, files, links, or reusable group materials
+- schedule social posts or reply to messages
+
+Good examples of concrete benefits to mention when relevant:
+- free email newsletter for member updates, similar to Mailchimp
+- membership management
+- easily accept donations
+- social media scheduling
+
+Optional:
+- It is okay to say the tools came from our experience helping run local bike groups in Phoenix and the Bay Area, but only if it fits naturally and does not make the message longer or more self-focused.
+
+Closing:
+- End with one short sentence inviting corrections, questions, or feedback.
+
+Subject line:
+- Write a short, specific subject line that gives the recipient a real reason to open the email.
+- Make it clear this is about their group's 3FP page or ride information.
+- Keep it useful, human, and moderately interesting, not clever or salesy.
+- Prefer concrete context like the group name, ride info, or directory accuracy.
+- Avoid vague subjects like "${group.name} directory page".
+- Avoid spammy or marketing-style wording, urgency tricks, or excessive punctuation.
+
+Do not:
+- Say or imply we know the group personally.
+- Compliment the group beyond a simple thanks.
+- Claim personal familiarity, shared rides, or local knowledge.
+- Include a bike pun.
+- Use em dashes or en dashes. Use regular hyphens only.
+- Use feature labels like "Edit Profile", "Membership", or "Social Media" unless absolutely necessary.
+- Use phrases like "powerful tools", "grow your audience", "boost engagement", "unlock", "leverage", or "platform".
 
 Return ONLY valid JSON in this exact shape:
 {
