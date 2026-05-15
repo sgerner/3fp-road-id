@@ -879,6 +879,15 @@
 							>
 								Terms
 							</a>
+							{#if data.isAdmin}
+								<a
+									href="/admin"
+									class="text-surface-700-300 hover:text-surface-600-400 transition"
+									onclick={() => (showMobileMenu = false)}
+								>
+									Admin
+								</a>
+							{/if}
 						</div>
 					</div>
 				</div>
