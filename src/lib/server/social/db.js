@@ -154,6 +154,8 @@ export async function createGroupSocialPost(supabase, payload) {
 		title: safeTitle(payload.title),
 		caption: safeCaption(payload.caption),
 		ai_prompt: safePrompt(payload.ai_prompt),
+		ai_add_page_text: payload.ai_add_page_text === true,
+		content_library_item_id: payload.content_library_item_id || null,
 		media: normalizeJsonArray(payload.media),
 		scheduled_for: toIso(payload.scheduled_for),
 		schedule_bucket: toIso(payload.schedule_bucket),
@@ -217,6 +219,10 @@ export async function updateGroupSocialPost(supabase, groupId, postId, patch = {
 	if (patch.title !== undefined) payload.title = safeTitle(patch.title);
 	if (patch.caption !== undefined) payload.caption = safeCaption(patch.caption);
 	if (patch.ai_prompt !== undefined) payload.ai_prompt = safePrompt(patch.ai_prompt);
+	if (patch.ai_add_page_text !== undefined) payload.ai_add_page_text = patch.ai_add_page_text === true;
+	if (patch.content_library_item_id !== undefined) {
+		payload.content_library_item_id = patch.content_library_item_id || null;
+	}
 	if (patch.media !== undefined) payload.media = normalizeJsonArray(patch.media);
 	if (patch.scheduled_for !== undefined) payload.scheduled_for = toIso(patch.scheduled_for);
 	if (patch.schedule_bucket !== undefined) payload.schedule_bucket = toIso(patch.schedule_bucket);
@@ -424,8 +430,56 @@ export function serializeSocialPost(post) {
 		...post,
 		post_target: normalizePostTarget(post.post_target),
 		platforms: normalizePlatforms(post.platforms),
+		ai_add_page_text: post.ai_add_page_text === true,
+		content_library_item_id: post.content_library_item_id || null,
 		media: normalizeJsonArray(post.media),
 		meta_publish_results: normalizeJsonObject(post.meta_publish_results)
+	};
+}
+
+export async function createGroupSocialLibraryItem(supabase, payload) {
+	const nowIso = new Date().toISOString();
+	const insertPayload = {
+		group_id: payload.group_id,
+		created_by: payload.created_by || null,
+		caption: safeCaption(payload.caption),
+		ai_prompt: safePrompt(payload.ai_prompt),
+		post_target: normalizePostTarget(payload.post_target),
+		ai_add_page_text: payload.ai_add_page_text === true,
+		media: normalizeJsonArray(payload.media),
+		metadata: normalizeJsonObject(payload.metadata),
+		created_at: nowIso,
+		updated_at: nowIso
+	};
+	const { data, error } = await supabase
+		.from('group_social_content_library')
+		.insert(insertPayload)
+		.select('*')
+		.single();
+	if (error) throw new Error(error.message);
+	return data;
+}
+
+export async function listGroupSocialLibraryItems(supabase, groupId, { limit = 120 } = {}) {
+	const safeLimit = Math.max(1, Math.min(400, Number.parseInt(String(limit), 10) || 120));
+	const { data, error } = await supabase
+		.from('group_social_content_library')
+		.select('*')
+		.eq('group_id', groupId)
+		.order('created_at', { ascending: false })
+		.limit(safeLimit);
+	if (error) throw new Error(error.message);
+	return Array.isArray(data) ? data : [];
+}
+
+export function serializeSocialLibraryItem(item) {
+	if (!item) return null;
+	return {
+		...item,
+		post_target: normalizePostTarget(item.post_target),
+		ai_add_page_text: item.ai_add_page_text === true,
+		media: normalizeJsonArray(item.media),
+		metadata: normalizeJsonObject(item.metadata)
 	};
 }
 

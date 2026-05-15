@@ -111,6 +111,8 @@ export async function POST({ cookies, params, request }) {
 		const caption = cleanText(body.caption, 4000);
 		const title = cleanText(body.title, 200) || null;
 		const aiPrompt = cleanText(body.ai_prompt, 3000) || null;
+		const aiAddPageText = body.ai_add_page_text === true;
+		const contentLibraryItemId = cleanText(body.content_library_item_id, 120) || null;
 		const media = normalizeMediaList(body.media);
 		const postTarget = normalizePostTarget(body.post_target);
 		const requestedPlatforms = normalizePlatforms(body.platforms);
@@ -165,6 +167,8 @@ export async function POST({ cookies, params, request }) {
 			title,
 			caption,
 			ai_prompt: aiPrompt,
+			ai_add_page_text: aiAddPageText,
+			content_library_item_id: contentLibraryItemId,
 			media,
 			scheduled_for: scheduledFor,
 			schedule_bucket: scheduleBucket,

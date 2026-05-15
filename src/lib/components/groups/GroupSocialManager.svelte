@@ -142,6 +142,13 @@
 	let composerMedia = $state([]);
 	let composerScheduledFor = $state('');
 	let composerAiPrompt = $state('');
+	let composerAiAddPageText = $state(false);
+	let composerContentLibraryItemId = $state('');
+	let loadingLibrary = $state(false);
+	let contentLibrary = $state([]);
+	let contentLibraryFilter = $state('unused');
+	let libraryUploadFiles = $state([]);
+	let libraryUploading = $state(false);
 
 	let aiPromptInput = $state('');
 	let aiToneId = $state(AI_TONE_OPTIONS[0].id);
@@ -307,6 +314,15 @@
 	const shouldShowConnectionsPanel = $derived.by(
 		() => socialConnectionsResolved && (!hasConnectedAccounts || showConnectionsPanel)
 	);
+	const filteredLibraryItems = $derived.by(() => {
+		if (contentLibraryFilter === 'all') return contentLibrary;
+		return contentLibrary.filter((item) => {
+			const usage = item?.usage || {};
+			if (contentLibraryFilter === 'posted') return usage.posted === true;
+			if (contentLibraryFilter === 'scheduled') return usage.scheduled === true;
+			return usage.posted !== true && usage.scheduled !== true && Number(usage.usage_count || 0) === 0;
+		});
+	});
 
 	$effect(() => {
 		const connectedSet = new Set(connectedPlatforms);
@@ -476,6 +492,8 @@
 		composerPlatforms = [...new Set([...connectedPlatforms])];
 		composerMedia = [];
 		composerAiPrompt = '';
+		composerAiAddPageText = false;
+		composerContentLibraryItemId = '';
 		queuedMediaFiles = [];
 		aiGeneratedImages = [];
 		aiSelectedImageUrl = '';
@@ -499,6 +517,8 @@
 			composerPlatforms = Array.isArray(sourcePost?.platforms) ? [...sourcePost.platforms] : [];
 			composerMedia = Array.isArray(sourcePost?.media) ? [...sourcePost.media] : [];
 			composerAiPrompt = sourcePost?.ai_prompt || '';
+			composerAiAddPageText = sourcePost?.ai_add_page_text === true;
+			composerContentLibraryItemId = sourcePost?.content_library_item_id || '';
 			const scheduledDate = parsePostDate(sourcePost?.scheduled_for);
 			if (scheduledDate) {
 				composerScheduledFor = formatLocalDateTimeInput(scheduledDate);
@@ -542,6 +562,8 @@
 		composerMedia = Array.isArray(post?.media) ? [...post.media] : [];
 		composerScheduledFor = '';
 		composerAiPrompt = post?.ai_prompt || '';
+		composerAiAddPageText = post?.ai_add_page_text === true;
+		composerContentLibraryItemId = post?.content_library_item_id || '';
 		queuedMediaFiles = [];
 		aiGeneratedImages = [];
 		aiSelectedImageUrl = '';
@@ -1184,6 +1206,23 @@
 		}
 	}
 
+	async function loadContentLibrary(filter = contentLibraryFilter) {
+		if (!slug) return;
+		loadingLibrary = true;
+		try {
+			const safeFilter =
+				filter === 'posted' || filter === 'scheduled' || filter === 'unused' ? filter : 'all';
+			const payload = await requestJson(
+				`/api/groups/${slug}/social/library?filter=${encodeURIComponent(safeFilter)}`
+			);
+			contentLibrary = Array.isArray(payload?.data) ? payload.data : [];
+		} catch (error) {
+			showActionError(error?.message || 'Unable to load content library.');
+		} finally {
+			loadingLibrary = false;
+		}
+	}
+
 	async function loadDashboard() {
 		if (!canManageSocial || !slug) return;
 		clearFeedback();
@@ -1204,6 +1243,7 @@
 				posts = [];
 			}
 			await loadCommentsPage(0);
+			await loadContentLibrary(contentLibraryFilter);
 			if (!autoCommentSyncStarted) {
 				autoCommentSyncStarted = true;
 				void syncComments({ silent: true, auto: true });
@@ -1213,6 +1253,64 @@
 		} finally {
 			socialConnectionsResolved = true;
 			loading = false;
+		}
+	}
+
+	function applyLibraryItemToComposer(item) {
+		if (!item || typeof item !== 'object') return;
+		openComposerModal(nextSchedulableDate(), {
+			post: {
+				caption: item.caption || '',
+				post_target: item.post_target || 'page',
+				platforms: [...connectedPlatforms],
+				media: Array.isArray(item.media) ? item.media : [],
+				ai_prompt: item.ai_prompt || '',
+				ai_add_page_text: item.ai_add_page_text === true,
+				content_library_item_id: item.id || ''
+			}
+		});
+		actionNotice = 'Loaded library content into composer.';
+	}
+
+	async function uploadLibraryFiles(event) {
+		if (!slug) return;
+		const input = event.currentTarget;
+		const files = Array.from(input?.files || []);
+		if (input && 'value' in input) {
+			input.value = '';
+		}
+		if (!files.length) {
+			showActionError('Select one or more images first.');
+			return;
+		}
+		if (libraryUploading) {
+			showActionError('A library upload is already in progress.');
+			return;
+		}
+
+		clearFeedback();
+		libraryUploading = true;
+		libraryUploadFiles = files;
+		try {
+			const formData = new FormData();
+			for (const file of files) {
+				formData.append('files', file);
+			}
+			const payload = await requestJson(`/api/groups/${slug}/social/library`, {
+				method: 'POST',
+				body: formData
+			});
+			const created = payload?.data;
+			actionNotice = created?.id
+				? 'Images saved to content library.'
+				: 'Content library entry saved.';
+			libraryUploadFiles = [];
+			await loadContentLibrary(contentLibraryFilter);
+		} catch (error) {
+			showActionError(error?.message || 'Unable to upload content library images.');
+		} finally {
+			libraryUploading = false;
+			libraryUploadFiles = [];
 		}
 	}
 
@@ -1304,7 +1402,9 @@
 				post_target: normalizePostTarget(composerPostTarget),
 				platforms: composerPlatforms,
 				media: composerMedia,
-				ai_prompt: composerAiPrompt
+				ai_prompt: composerAiPrompt,
+				ai_add_page_text: normalizePostTarget(composerPostTarget) === 'page' && composerAiAddPageText,
+				content_library_item_id: composerContentLibraryItemId || null
 			};
 			if (intent === 'schedule') {
 				const scheduleDate = new Date(composerScheduledFor);
@@ -1329,6 +1429,7 @@
 			}
 
 			await refreshPosts();
+			await loadContentLibrary(contentLibraryFilter);
 			if (intent !== 'save_draft') {
 				composerModalOpen = false;
 			}
@@ -1446,8 +1547,8 @@
 							: {})
 					},
 					prompt: userMessage,
-					allowTextInImage: storyTarget,
-					textOverlay: storyTarget ? userMessage : '',
+					allowTextInImage: storyTarget || composerAiAddPageText,
+					textOverlay: storyTarget ? userMessage : composerAiAddPageText ? caption || composerCaption || userMessage : '',
 					context: {
 						description: storyTarget ? userMessage : composerCaption || userMessage,
 						ridingDisciplines: selectedPlatforms.join(', '),
@@ -1575,6 +1676,7 @@
 			if (action === 'cancel') actionNotice = 'Scheduled post cancelled.';
 			if (action === 'publish') actionNotice = 'Publish started.';
 			if (action === 'delete') actionNotice = 'Post deleted.';
+			await loadContentLibrary(contentLibraryFilter);
 		} catch (error) {
 			showActionError(error?.message || 'Unable to run post action.');
 		} finally {
@@ -2659,6 +2761,24 @@
 													{/each}
 												</div>
 											</div>
+											{#if !isComposerStoryTarget()}
+												<div class="ai-setting ai-setting--switch">
+													<label class="ai-setting__label" for="composer-ai-add-page-text">
+														Image Text
+													</label>
+													<label class="ai-switch">
+														<input
+															id="composer-ai-add-page-text"
+															type="checkbox"
+															bind:checked={composerAiAddPageText}
+															disabled={composerReadOnly}
+														/>
+														<span class="ai-switch__track" aria-hidden="true">
+															<span class="ai-switch__thumb"></span>
+														</span>
+													</label>
+												</div>
+											{/if}
 										</div>
 
 										<!-- Optional: Tone description hint -->
@@ -3050,6 +3170,124 @@
 				</div>
 				<!-- /composer-backdrop -->
 			{/if}
+
+			<section class="space-y-3">
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h3 class="text-base font-semibold">Content Library</h3>
+						<p class="text-surface-700-300 mt-1 text-sm">
+							Reuse saved image + caption combos for future posts.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<div
+							class="bg-surface-200-800/70 border-surface-500/40 inline-flex items-center overflow-hidden rounded-lg border"
+						>
+							<button
+								type="button"
+								class={`px-3 py-1.5 text-sm transition-colors ${contentLibraryFilter === 'unused' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+								onclick={() => {
+									contentLibraryFilter = 'unused';
+									void loadContentLibrary('unused');
+								}}
+							>
+								Unused
+							</button>
+							<button
+								type="button"
+								class={`px-3 py-1.5 text-sm transition-colors ${contentLibraryFilter === 'scheduled' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+								onclick={() => {
+									contentLibraryFilter = 'scheduled';
+									void loadContentLibrary('scheduled');
+								}}
+							>
+								Scheduled
+							</button>
+							<button
+								type="button"
+								class={`px-3 py-1.5 text-sm transition-colors ${contentLibraryFilter === 'posted' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+								onclick={() => {
+									contentLibraryFilter = 'posted';
+									void loadContentLibrary('posted');
+								}}
+							>
+								Posted
+							</button>
+						</div>
+						<button
+							type="button"
+							class="btn btn-sm preset-outlined-primary-500"
+							onclick={() => loadContentLibrary(contentLibraryFilter)}
+							disabled={loadingLibrary}
+						>
+							{loadingLibrary ? 'Refreshing…' : 'Refresh Library'}
+						</button>
+					</div>
+				</div>
+				<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4">
+					<div class="flex flex-wrap items-end gap-3">
+						<label
+							class="btn btn-sm preset-filled-primary-500 cursor-pointer justify-center"
+							for="library-upload-input"
+						>
+							{libraryUploading ? 'Uploading…' : 'Upload Images'}
+						</label>
+						<input
+							id="library-upload-input"
+							type="file"
+							multiple
+							accept="image/*"
+							class="sr-only"
+							onchange={uploadLibraryFiles}
+							disabled={libraryUploading}
+						/>
+						{#if libraryUploadFiles.length > 0}
+							<div class="text-surface-600-400 text-xs">
+								{libraryUploadFiles.length} selected
+							</div>
+						{/if}
+					</div>
+					<p class="text-surface-600-400 mt-3 text-xs">
+						Upload images here to save them directly into the library, then reuse them in future
+						posts.
+					</p>
+				</div>
+				{#if filteredLibraryItems.length === 0}
+					<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4 text-sm">
+						No content found for this filter. Save AI-generated drafts from the composer to build
+						your library.
+					</div>
+				{:else}
+					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						{#each filteredLibraryItems as item}
+							<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-3">
+								{#if postPrimaryImageUrl(item)}
+									<img
+										src={postPrimaryImageUrl(item)}
+										alt="Library content preview"
+										class="h-36 w-full rounded-lg object-cover"
+										loading="lazy"
+									/>
+								{/if}
+								<p class="mt-2 line-clamp-3 text-sm">{captionPreview(item.caption, 150)}</p>
+								<div class="text-surface-600-400 mt-2 text-xs">
+									Used {item?.usage?.usage_count || 0} time{item?.usage?.usage_count === 1 ? '' : 's'}
+								</div>
+								<div class="mt-3 flex items-center justify-between gap-2">
+									<span class={postTargetClass(item.post_target)}>{postTargetLabel(item.post_target)}</span>
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-secondary-500"
+										onclick={() => applyLibraryItemToComposer(item)}
+									>
+										Use in Composer
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
 
 			<!-- Enhanced Comments Section -->
 			<section class="comments-section space-y-5">
@@ -5364,8 +5602,9 @@
 
 	/* ─── Compact AI Settings Row ─── */
 	.ai-settings-row {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+		align-items: end;
 		gap: 0.75rem;
 		padding: 0.75rem;
 		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
@@ -5377,12 +5616,64 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-		min-width: 7rem;
+		min-width: 0;
+		width: 100%;
 	}
 
 	.ai-setting--grow {
-		flex: 1;
-		min-width: 10rem;
+		min-width: 0;
+	}
+
+	.ai-setting--switch {
+		justify-content: end;
+	}
+
+	.ai-switch {
+		display: inline-flex;
+		align-items: center;
+		width: fit-content;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.ai-switch input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.ai-switch__track {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		width: 3.5rem;
+		height: 1.9rem;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-700) 65%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		transition: all 0.18s ease;
+	}
+
+	.ai-switch__thumb {
+		position: absolute;
+		left: 0.2rem;
+		top: 0.2rem;
+		width: 1.45rem;
+		height: 1.45rem;
+		border-radius: 9999px;
+		background: var(--color-surface-100);
+		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+		transition: transform 0.18s ease, background 0.18s ease;
+	}
+
+	.ai-switch input:checked + .ai-switch__track {
+		background: color-mix(in oklab, var(--color-secondary-500) 35%, transparent);
+		border-color: color-mix(in oklab, var(--color-secondary-500) 60%, transparent);
+	}
+
+	.ai-switch input:checked + .ai-switch__track .ai-switch__thumb {
+		transform: translateX(1.55rem);
+		background: var(--color-secondary-100);
 	}
 
 	.ai-setting__label {
@@ -5394,6 +5685,7 @@
 	}
 
 	.ai-setting__select {
+		width: 100%;
 		padding: 0.5rem 0.75rem;
 		font-size: 0.8125rem;
 		color: var(--color-surface-100);
@@ -5428,6 +5720,7 @@
 
 	/* Model Toggle */
 	.ai-model-toggle {
+		width: 100%;
 		display: flex;
 		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
