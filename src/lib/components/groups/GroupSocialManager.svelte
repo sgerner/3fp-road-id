@@ -134,6 +134,7 @@
 	let replyPending = $state({});
 	let aiReplyPending = $state({});
 	let replyDrafts = $state({});
+	let activeReplyCommentId = $state(null);
 
 	let composerCaption = $state('');
 	let composerPostTarget = $state('page');
@@ -272,6 +273,29 @@
 	const hasConnectedAccounts = $derived.by(() =>
 		accounts.some((account) => account?.status === 'active')
 	);
+
+	const groupedComments = $derived.by(() => {
+		const groups = [];
+		const postMap = new Map();
+
+		for (const comment of comments) {
+			const post = comment.linked_post;
+			const postId = post?.id || 'unlinked';
+
+			if (!postMap.has(postId)) {
+				const group = {
+					post,
+					comments: []
+				};
+				postMap.set(postId, group);
+				groups.push(group);
+			}
+
+			postMap.get(postId).comments.push(comment);
+		}
+
+		return groups;
+	});
 
 	const commentsPageStart = $derived.by(() => (commentsTotal > 0 ? commentsOffset + 1 : 0));
 	const commentsPageEnd = $derived.by(() =>
@@ -1649,6 +1673,11 @@
 		replyDrafts = { ...replyDrafts, [commentId]: value };
 	}
 
+	function openInlineReply(comment) {
+		activeReplyCommentId = comment.id;
+		void generateReplyDraft(comment);
+	}
+
 	async function generateReplyDraft(comment) {
 		const commentId = comment?.id;
 		if (!slug || !commentId) return;
@@ -1707,6 +1736,7 @@
 				});
 			}
 			updateReplyDraft(commentId, '');
+			activeReplyCommentId = null;
 			actionNotice = 'Reply sent.';
 		} catch (error) {
 			showActionError(error?.message || 'Unable to send reply.');
@@ -3122,87 +3152,36 @@
 					</div>
 				{:else}
 					<!-- Comments List -->
-					<div class="comments-list">
-						{#each comments as comment, index (comment.id)}
-							{@const PlatformIcon = getPlatformIcon(comment.platform)}
-							{@const platformGradient = getPlatformColor(comment.platform)}
-							{@const relativeTime = formatRelativeTime(comment.commented_at)}
-
-							<article
-								class="comment-card"
-								style="--stagger: {index}"
-								in:fade={{ duration: 200, delay: index * 50 }}
-							>
-								<!-- Comment Header -->
-								<header class="comment-header">
-									<div class="comment-author">
-										<div class="author-avatar">
-											<span class="text-sm font-semibold">
-												{commentAuthorLabel(comment).charAt(0).toUpperCase()}
-											</span>
-										</div>
-										<div class="author-info">
-											<div class="flex flex-wrap items-center gap-2">
-												<span class="author-name">{commentAuthorLabel(comment)}</span>
-												<span class="platform-badge bg-gradient-to-r {platformGradient}">
-													<PlatformIcon class="h-3 w-3" />
-													<span>{platformLabel(comment.platform)}</span>
-												</span>
-											</div>
-											<div class="comment-meta">
-												{#if relativeTime}
-													<span class="meta-item" title={formatDateTime(comment.commented_at)}>
-														{relativeTime}
-													</span>
-												{/if}
-												<span class="meta-dot"></span>
-												<span class="meta-item">{formatDateTime(comment.commented_at)}</span>
-											</div>
-										</div>
-									</div>
-									{#if comment.can_reply}
-										<span class="reply-status reply-status--enabled">
-											<IconCheck class="h-3 w-3" />
-											<span>Can Reply</span>
-										</span>
-									{:else}
-										<span class="reply-status reply-status--disabled">
-											<span>Reply unavailable</span>
-										</span>
-									{/if}
-								</header>
-
-								<!-- Comment Body -->
-								<div class="comment-body">
-									<p>{comment.body}</p>
-								</div>
-
-								<!-- Linked Post Context -->
-								{#if comment.linked_post}
-									<div class="linked-post">
+					<div class="comments-list space-y-10">
+						{#each groupedComments as group}
+							<div class="post-group space-y-4">
+								{#if group.post}
+									<div class="post-group-header">
 										<div class="linked-post-label">
-											<IconCornerDownRight class="h-3.5 w-3.5" />
-											<span>On Post</span>
+											<IconMessageCircle class="h-3.5 w-3.5" />
+											<span>Discussion on Post</span>
 										</div>
 										<div class="linked-post-content">
-											{#if linkedPostImageUrl(comment)}
+											{#if group.post.image_url}
 												<img
-													src={linkedPostImageUrl(comment)}
+													src={group.post.image_url}
 													alt="Post thumbnail"
 													class="linked-post-thumb"
 												/>
 											{/if}
 											<div class="linked-post-details">
-												<p class="linked-post-caption">{linkedPostCaption(comment)}</p>
+												<p class="linked-post-caption">
+													{captionPreview(group.post.caption || '', 140)}
+												</p>
 												<div class="linked-post-meta">
 													<span class="meta-badge">
-														{comment.linked_post.origin === 'group_social_post'
+														{group.post.origin === 'group_social_post'
 															? '3FP Published'
 															: 'Platform'}
 													</span>
-													{#if comment.linked_post.permalink_url}
+													{#if group.post.permalink_url}
 														<a
-															href={comment.linked_post.permalink_url}
+															href={group.post.permalink_url}
 															target="_blank"
 															rel="noopener noreferrer"
 															class="permalink-link"
@@ -3217,92 +3196,182 @@
 									</div>
 								{/if}
 
-								<!-- Existing Replies -->
-								{#if Array.isArray(comment.replies) && comment.replies.length}
-									<div class="replies-section">
-										<div class="replies-header">
-											<IconReply class="h-3.5 w-3.5" />
-											<span
-												>{comment.replies.length}
-												{comment.replies.length === 1 ? 'Reply' : 'Replies'}</span
+								<div class="post-comments-wrap relative ml-4 border-l-2 border-surface-700/50 pl-4 sm:ml-8 sm:pl-8">
+									<div class="post-comments-list space-y-4">
+										{#each group.comments as comment, index (comment.id)}
+											{@const PlatformIcon = getPlatformIcon(comment.platform)}
+											{@const platformGradient = getPlatformColor(comment.platform)}
+											{@const relativeTime = formatRelativeTime(comment.commented_at)}
+
+											<article
+												class="comment-card"
+												style="--stagger: {index}"
+												in:fade={{ duration: 200, delay: index * 50 }}
 											>
-										</div>
-										<div class="replies-list">
-											{#each comment.replies as reply, replyIndex (reply.id)}
-												<div
-													class="reply-item"
-													in:slide={{ duration: 200, delay: replyIndex * 50 }}
-												>
-													<div class="reply-line" aria-hidden="true"></div>
-													<div class="reply-content">
-														<p class="reply-text">{reply.body}</p>
-														<div class="reply-footer">
-															<span class="reply-status-badge {getReplyStatusClass(reply.status)}">
-																{reply.status || 'sent'}
+												<!-- Comment Header -->
+												<header class="comment-header">
+													<div class="comment-author">
+														<div class="author-avatar">
+															<span class="text-sm font-semibold">
+																{commentAuthorLabel(comment).charAt(0).toUpperCase()}
 															</span>
-															<span class="reply-time">{formatDateTime(reply.created_at)}</span>
+														</div>
+														<div class="author-info">
+															<div class="flex flex-wrap items-center gap-2">
+																<span class="author-name">{commentAuthorLabel(comment)}</span>
+																<span class="platform-badge bg-gradient-to-r {platformGradient}">
+																	<PlatformIcon class="h-3 w-3" />
+																	<span>{platformLabel(comment.platform)}</span>
+																</span>
+															</div>
+															<div class="comment-meta flex items-center gap-3">
+																{#if relativeTime}
+																	<span class="meta-item" title={formatDateTime(comment.commented_at)}>
+																		{relativeTime}
+																	</span>
+																{/if}
+																<span class="meta-dot"></span>
+																<span class="meta-item">{formatDateTime(comment.commented_at)}</span>
+
+																{#if comment.can_reply && activeReplyCommentId !== comment.id}
+																	<button
+																		type="button"
+																		class="text-secondary-400 hover:text-secondary-300 flex items-center gap-1 text-xs font-semibold transition-colors"
+																		onclick={() => openInlineReply(comment)}
+																	>
+																		<IconReply class="h-3 w-3" />
+																		<span>Reply</span>
+																	</button>
+																{/if}
+															</div>
 														</div>
 													</div>
-												</div>
-											{/each}
-										</div>
-									</div>
-								{/if}
+													{#if comment.can_reply}
+														<span class="reply-status reply-status--enabled">
+															<IconCheck class="h-3 w-3" />
+															<span>Can Reply</span>
+														</span>
+													{:else}
+														<span class="reply-status reply-status--disabled">
+															<span>Reply unavailable</span>
+														</span>
+													{/if}
+												</header>
 
-								<!-- Reply Input -->
-								{#if comment.can_reply}
-									<div class="reply-composer">
-										<div class="reply-composer-line" aria-hidden="true"></div>
-										<div class="reply-composer-content">
-											<div class="reply-input-wrapper">
-												<textarea
-													class="reply-textarea"
-													placeholder="Write a reply..."
-													value={replyDrafts[comment.id] || ''}
-													oninput={(event) =>
-														updateReplyDraft(comment.id, event.currentTarget.value)}
-													rows="2"
-												></textarea>
-												<div class="reply-actions">
-													<button
-														type="button"
-														class="ai-reply-btn"
-														onclick={() => generateReplyDraft(comment)}
-														disabled={Boolean(aiReplyPending[comment.id])}
-													>
-														{#if aiReplyPending[comment.id]}
-															<IconLoader class="h-3.5 w-3.5 animate-spin" />
-															<span>Generating...</span>
-														{:else}
-															<IconSparkles class="h-3.5 w-3.5" />
-															<span>AI Reply</span>
-														{/if}
-													</button>
-													<button
-														type="button"
-														class="send-reply-btn"
-														onclick={() => sendReply(comment.id)}
-														disabled={!String(replyDrafts[comment.id] || '').trim() ||
-															Boolean(replyPending[comment.id]) ||
-															Boolean(aiReplyPending[comment.id])}
-													>
-														{#if replyPending[comment.id]}
-															<IconLoader class="h-4 w-4 animate-spin" />
-														{:else}
-															<IconSend class="h-4 w-4" />
-														{/if}
-														<span>{replyPending[comment.id] ? 'Sending...' : 'Send Reply'}</span>
-													</button>
+												<!-- Comment Body -->
+												<div class="comment-body">
+													<p>{comment.body}</p>
 												</div>
-											</div>
-										</div>
+
+												<!-- Existing Replies -->
+												{#if Array.isArray(comment.replies) && comment.replies.length}
+													<div class="replies-section">
+														<div class="replies-header">
+															<IconReply class="h-3.5 w-3.5" />
+															<span
+																>{comment.replies.length}
+																{comment.replies.length === 1 ? 'Reply' : 'Replies'}</span
+															>
+														</div>
+														<div class="replies-list">
+															{#each comment.replies as reply, replyIndex (reply.id)}
+																<div
+																	class="reply-item"
+																	in:slide={{ duration: 200, delay: replyIndex * 50 }}
+																>
+																	<div class="reply-line" aria-hidden="true"></div>
+																	<div class="reply-content">
+																		<p class="reply-text">{reply.body}</p>
+																		<div class="reply-footer">
+																			<span
+																				class="reply-status-badge {getReplyStatusClass(
+																					reply.status
+																				)}"
+																			>
+																				{reply.status || 'sent'}
+																			</span>
+																			<span class="reply-time"
+																				>{formatDateTime(reply.created_at)}</span
+																			>
+																		</div>
+																	</div>
+																</div>
+															{/each}
+														</div>
+													</div>
+												{/if}
+
+												<!-- Reply Input -->
+												{#if comment.can_reply && activeReplyCommentId === comment.id}
+													<div class="reply-composer mt-4" in:slide={{ duration: 200 }}>
+														<div class="reply-composer-line" aria-hidden="true"></div>
+														<div class="reply-composer-content">
+															<div class="reply-input-wrapper">
+																<textarea
+																	class="reply-textarea"
+																	placeholder="Write a reply..."
+																	value={replyDrafts[comment.id] || ''}
+																	oninput={(event) =>
+																		updateReplyDraft(comment.id, event.currentTarget.value)}
+																	rows="2"
+																></textarea>
+																<div class="reply-actions">
+																	<div class="flex items-center gap-2">
+																		<button
+																			type="button"
+																			class="ai-reply-btn"
+																			onclick={() => generateReplyDraft(comment)}
+																			disabled={Boolean(aiReplyPending[comment.id])}
+																		>
+																			{#if aiReplyPending[comment.id]}
+																				<IconLoader class="h-3.5 w-3.5 animate-spin" />
+																				<span>Generating...</span>
+																			{:else}
+																				<IconSparkles class="h-3.5 w-3.5" />
+																				<span>AI Reply</span>
+																			{/if}
+																		</button>
+																		<button
+																			type="button"
+																			class="btn btn-sm text-surface-400 hover:text-surface-100"
+																			onclick={() => (activeReplyCommentId = null)}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																	<button
+																		type="button"
+																		class="send-reply-btn"
+																		onclick={() => sendReply(comment.id)}
+																		disabled={!String(replyDrafts[comment.id] || '')
+																			.trim() ||
+																			Boolean(replyPending[comment.id]) ||
+																			Boolean(aiReplyPending[comment.id])}
+																	>
+																		{#if replyPending[comment.id]}
+																			<IconLoader class="h-4 w-4 animate-spin" />
+																		{:else}
+																			<IconSend class="h-4 w-4" />
+																		{/if}
+																		<span>{replyPending[comment.id] ? 'Sending...' : 'Send Reply'}</span
+																		>
+																	</button>
+																</div>
+															</div>
+														</div>
+													</div>
+												{/if}
+
+												{#if !comment.can_reply}
+													<div class="reply-disabled-notice mt-3">
+														<span>Reply not available for this comment</span>
+													</div>
+												{/if}
+											</article>
+										{/each}
 									</div>
-								{:else}
-									<div class="reply-disabled-notice">
-										<span>Reply not available for this comment</span>
-									</div>
-								{/if}
-							</article>
+								</div>
+							</div>
 						{/each}
 					</div>
 
@@ -4838,6 +4907,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	.post-group {
+		position: relative;
+	}
+
+	.post-group-header {
 	}
 
 	.comment-card {
