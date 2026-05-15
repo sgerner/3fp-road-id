@@ -2596,47 +2596,30 @@
 
 								<!-- AI Quick Draft Panel -->
 								<section class="ai-draft-panel" class:ai-draft-panel--active={generatingAi}>
-									<div class="ai-draft-panel__header">
-										<div class="ai-draft-panel__header-main">
-											<div class="ai-draft-panel__avatar">
-												<IconSparkles class="h-4 w-4" />
-											</div>
-											<div class="ai-draft-panel__header-copy">
-												<span class="ai-draft-panel__label">AI Assistant</span>
-												<p class="ai-draft-panel__subtitle">
-													{#if isComposerStoryTarget()}
-														Tell me what you want to post and I&apos;ll draft a story image with the
-														key text in-image.
-													{:else}
-														Tell me what you want to post and I&apos;ll draft the caption and image.
-													{/if}
-												</p>
-											</div>
-										</div>
-										<div class="ai-draft-panel__header-actions">
-											<span class="ai-draft-panel__hint"
-												>{composerAspectRatio()} image for Instagram &amp; Facebook</span
-											>
-											{#if aiConversation.length > 0 && !composerReadOnly}
-												<button
-													type="button"
-													class="ai-draft-panel__clear-btn"
-													onclick={resetAiConversation}
-													title="Clear conversation"
-												>
-													<IconRefreshCw class="h-4 w-4" />
-												</button>
-											{/if}
-										</div>
-									</div>
 									<div class="ai-draft-panel__body">
 										<div class="ai-draft-panel__thread">
 											{#if aiConversation.length === 0}
 												<div class="ai-draft-panel__welcome">
 													<div class="ai-draft-panel__bubble">
+														<div class="ai-draft-panel__bubble-header">
+															<div class="ai-draft-panel__bubble-avatar">
+																<IconSparkles class="h-3.5 w-3.5" />
+															</div>
+															<div class="ai-draft-panel__bubble-meta">
+																<span class="ai-draft-panel__bubble-label">AI Assistant</span>
+																<span class="ai-draft-panel__bubble-kicker">
+																	{composerAspectRatio()} image
+																</span>
+															</div>
+														</div>
 														<p class="ai-draft-panel__bubble-text">
-															Describe the post in plain language. Include the angle, emotional
-															energy, and what you want people to do next.
+															{#if isComposerStoryTarget()}
+																Describe the story in plain language. Include the angle, emotional
+																energy, and what text should live in the image.
+															{:else}
+																Describe the post in plain language. Include the angle, emotional
+																energy, and what you want people to do next.
+															{/if}
 														</p>
 													</div>
 												</div>
@@ -2678,6 +2661,19 @@
 												</div>
 											{/if}
 										</div>
+										{#if aiConversation.length > 0 && !composerReadOnly}
+											<div class="ai-draft-panel__thread-actions">
+												<button
+													type="button"
+													class="ai-draft-panel__clear-btn"
+													onclick={resetAiConversation}
+													title="Clear conversation"
+												>
+													<IconRefreshCw class="h-4 w-4" />
+													<span>Clear</span>
+												</button>
+											</div>
+										{/if}
 										<div class="ai-draft-panel__composer">
 											<textarea
 												class="composer-textarea ai-draft-panel__textarea"
@@ -2713,52 +2709,52 @@
 											</p>
 										{/if}
 										<!-- AI Settings Row -->
-										<div class="ai-settings-row">
-											<!-- Tone -->
-											<div class="ai-setting">
-												<label class="ai-setting__label" for="ai-tone">Tone</label>
-												<select
-													id="ai-tone"
-													class="ai-setting__select"
-													bind:value={aiToneId}
-													disabled={composerReadOnly}
-												>
-													{#each AI_TONE_OPTIONS as tone}
-														<option value={tone.id}>{tone.label}</option>
-													{/each}
-												</select>
-											</div>
+										<div class="ai-settings-panel">
+											<div class="ai-settings-row">
+												<!-- Tone -->
+												<div class="ai-setting">
+													<label class="ai-setting__label" for="ai-tone">Tone</label>
+													<select
+														id="ai-tone"
+														class="ai-setting__select"
+														bind:value={aiToneId}
+														disabled={composerReadOnly}
+													>
+														{#each AI_TONE_OPTIONS as tone}
+															<option value={tone.id}>{tone.label}</option>
+														{/each}
+													</select>
+												</div>
 
-											<!-- Style -->
-											<div class="ai-setting ai-setting--grow">
-												<label class="ai-setting__label" for="ai-style">Style</label>
-												<select
-													id="ai-style"
-													class="ai-setting__select"
-													bind:value={aiStyleId}
-													disabled={composerReadOnly}
-												>
-													{#each IMAGE_STYLE_PRESETS as style}
-														<option value={style.id}>{style.label}</option>
-													{/each}
-												</select>
-											</div>
-
+												<!-- Style -->
+												<div class="ai-setting ai-setting--grow">
+													<label class="ai-setting__label" for="ai-style">Style</label>
+													<select
+														id="ai-style"
+														class="ai-setting__select"
+														bind:value={aiStyleId}
+														disabled={composerReadOnly}
+													>
+														{#each IMAGE_STYLE_PRESETS as style}
+															<option value={style.id}>{style.label}</option>
+														{/each}
+													</select>
+												</div>
 											<!-- Model Toggle -->
-											<div class="ai-setting">
+											<div class="ai-setting ai-setting--model">
 												<span class="ai-setting__label">Model</span>
 												<div class="ai-model-toggle">
-													{#each SOCIAL_IMAGE_GENERATION_MODELS as option (option.id)}
-														<button
-															type="button"
-															class="ai-model-toggle__btn"
-															class:ai-model-toggle__btn--active={aiImageModelId === option.id}
-															onclick={() => (aiImageModelId = option.id)}
-															disabled={composerReadOnly}
-														>
-															{option.label}
-														</button>
-													{/each}
+														{#each SOCIAL_IMAGE_GENERATION_MODELS as option (option.id)}
+															<button
+																type="button"
+																class="ai-model-toggle__btn"
+																class:ai-model-toggle__btn--active={aiImageModelId === option.id}
+																onclick={() => (aiImageModelId = option.id)}
+																disabled={composerReadOnly}
+															>
+																{option.label}
+															</button>
+														{/each}
 												</div>
 											</div>
 											{#if !isComposerStoryTarget()}
@@ -2779,6 +2775,7 @@
 													</label>
 												</div>
 											{/if}
+										</div>
 										</div>
 
 										<!-- Optional: Tone description hint -->
@@ -3885,111 +3882,18 @@
 		}
 	}
 
-	.ai-draft-panel__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
-		color: var(--color-surface-100);
-	}
-
-	.ai-draft-panel__header-main {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		min-width: 0;
-	}
-
-	.ai-draft-panel__header-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-shrink: 0;
-	}
-
-	.ai-draft-panel__avatar {
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 0.5rem;
-		background: linear-gradient(
-			135deg,
-			var(--color-primary-500),
-			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
-		);
-		color: white;
-		box-shadow: 0 2px 8px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-	}
-
-	.ai-draft-panel__header-copy {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		min-width: 0;
-	}
-
-	.ai-draft-panel__label {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		line-height: 1.2;
-		letter-spacing: -0.01em;
-	}
-
-	.ai-draft-panel__subtitle {
-		font-size: 0.6875rem;
-		line-height: 1.2;
-		color: var(--color-surface-400);
-	}
-
-	.ai-draft-panel__hint {
-		font-size: 0.6875rem;
-		opacity: 0.55;
-		margin-left: auto;
-		display: none;
-		flex-shrink: 0;
-	}
-
-	.ai-draft-panel__clear-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 0.375rem;
-		background: transparent;
-		color: color-mix(in oklab, var(--color-surface-300) 70%, transparent);
-		transition: all 150ms ease;
-	}
-
-	.ai-draft-panel__clear-btn:hover {
-		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-		color: var(--color-surface-200);
-	}
-
-	@media (min-width: 480px) {
-		.ai-draft-panel__hint {
-			display: block;
-		}
-	}
-
 	.ai-draft-panel__body {
-		padding: 0.875rem;
+		padding: 0.75rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.625rem;
 	}
 
 	.ai-draft-panel__thread {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
-		max-height: 20rem;
+		gap: 0.625rem;
+		max-height: 18rem;
 		overflow-y: auto;
 		padding-right: 0.125rem;
 	}
@@ -4001,17 +3905,86 @@
 
 	.ai-draft-panel__bubble {
 		max-width: 34rem;
-		padding: 0.875rem 1rem;
+		padding: 0.7rem 0.85rem;
 		border-radius: 1rem;
 		border-top-left-radius: 0.25rem;
 		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
 	}
 
+	.ai-draft-panel__bubble-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.ai-draft-panel__bubble-avatar {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		border-radius: 9999px;
+		background: linear-gradient(
+			135deg,
+			var(--color-primary-500),
+			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
+		);
+		color: white;
+		box-shadow: 0 2px 8px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	}
+
+	.ai-draft-panel__bubble-meta {
+		display: flex;
+		align-items: baseline;
+		gap: 0.45rem;
+		min-width: 0;
+	}
+
+	.ai-draft-panel__bubble-label {
+		font-size: 0.75rem;
+		font-weight: 600;
+		line-height: 1.2;
+		letter-spacing: -0.01em;
+	}
+
+	.ai-draft-panel__bubble-kicker {
+		font-size: 0.625rem;
+		color: var(--color-surface-400);
+		white-space: nowrap;
+	}
+
 	.ai-draft-panel__bubble-text {
-		font-size: 0.8125rem;
-		line-height: 1.5;
+		font-size: 0.8rem;
+		line-height: 1.45;
 		color: var(--color-surface-100);
+	}
+
+	.ai-draft-panel__thread-actions {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.ai-draft-panel__clear-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.3rem 0.5rem;
+		border-radius: 9999px;
+		background: transparent;
+		color: color-mix(in oklab, var(--color-surface-300) 70%, transparent);
+		font-size: 0.65rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		transition: all 150ms ease;
+	}
+
+	.ai-draft-panel__clear-btn:hover {
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		color: var(--color-surface-200);
 	}
 
 	.ai-draft-panel__composer {
@@ -5600,32 +5573,58 @@
 		}
 	}
 
-	/* ─── Compact AI Settings Row ─── */
+	/* ─── Compact AI Settings Panel ─── */
+	.ai-settings-panel {
+		padding: 0.3rem;
+		background: color-mix(in oklab, var(--color-surface-800) 38%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 28%, transparent);
+		border-radius: 0.7rem;
+	}
+
 	.ai-settings-row {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+		display: flex;
+		flex-wrap: nowrap;
 		align-items: end;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-600) 40%, transparent);
-		border-radius: 0.75rem;
+		gap: 0.45rem;
+		padding: 0;
+		background: transparent;
+		border: none;
+		overflow-x: auto;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.ai-settings-row::-webkit-scrollbar {
+		display: none;
 	}
 
 	.ai-setting {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.18rem;
 		min-width: 0;
-		width: 100%;
+		width: auto;
+		flex: 0 0 auto;
 	}
 
 	.ai-setting--grow {
 		min-width: 0;
+		flex: 0 0 auto;
+	}
+
+	.ai-setting--model {
+		min-width: 0;
+		width: fit-content;
+		flex: 0 0 auto;
 	}
 
 	.ai-setting--switch {
-		justify-content: end;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-start;
+		flex: 0 0 auto;
+		width: fit-content;
 	}
 
 	.ai-switch {
@@ -5646,20 +5645,20 @@
 		position: relative;
 		display: inline-flex;
 		align-items: center;
-		width: 3.5rem;
-		height: 1.9rem;
+		width: 3rem;
+		height: 1.6rem;
 		border-radius: 9999px;
-		background: color-mix(in oklab, var(--color-surface-700) 65%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
+		background: color-mix(in oklab, var(--color-surface-700) 58%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-600) 42%, transparent);
 		transition: all 0.18s ease;
 	}
 
 	.ai-switch__thumb {
 		position: absolute;
-		left: 0.2rem;
-		top: 0.2rem;
-		width: 1.45rem;
-		height: 1.45rem;
+		left: 0.15rem;
+		top: 0.15rem;
+		width: 1.3rem;
+		height: 1.3rem;
 		border-radius: 9999px;
 		background: var(--color-surface-100);
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
@@ -5672,22 +5671,24 @@
 	}
 
 	.ai-switch input:checked + .ai-switch__track .ai-switch__thumb {
-		transform: translateX(1.55rem);
+		transform: translateX(1.35rem);
 		background: var(--color-secondary-100);
 	}
 
 	.ai-setting__label {
-		font-size: 0.6875rem;
+		font-size: 0.625rem;
 		font-weight: 600;
-		letter-spacing: 0.08em;
+		letter-spacing: 0.07em;
 		text-transform: uppercase;
 		color: var(--color-surface-400);
 	}
 
 	.ai-setting__select {
-		width: 100%;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8125rem;
+		width: max-content;
+		min-width: 0;
+		padding: 0.3rem 0.5rem;
+		font-size: 0.7rem;
+		line-height: 1.2;
 		color: var(--color-surface-100);
 		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
@@ -5698,9 +5699,9 @@
 		appearance: none;
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' /%3E%3C/svg%3E");
 		background-repeat: no-repeat;
-		background-position: right 0.5rem center;
-		background-size: 1rem;
-		padding-right: 1.75rem;
+		background-position: right 0.35rem center;
+		background-size: 0.85rem;
+		padding-right: 1.25rem;
 	}
 
 	.ai-setting__select:hover:not(:disabled) {
@@ -5720,7 +5721,7 @@
 
 	/* Model Toggle */
 	.ai-model-toggle {
-		width: 100%;
+		width: fit-content;
 		display: flex;
 		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
@@ -5729,8 +5730,9 @@
 	}
 
 	.ai-model-toggle__btn {
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8125rem;
+		padding: 0.3rem 0.5rem;
+		font-size: 0.7rem;
+		line-height: 1.2;
 		font-weight: 500;
 		color: var(--color-surface-400);
 		background: transparent;
@@ -5760,14 +5762,12 @@
 
 	/* Tone Hint */
 	.ai-tone-hint {
-		font-size: 0.75rem;
-		line-height: 1.4;
-		color: var(--color-surface-400);
+		font-size: 0.66rem;
+		line-height: 1.3;
+		color: color-mix(in oklab, var(--color-surface-400) 90%, white 10%);
 		margin-top: 0.25rem;
-		padding: 0.5rem 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-800) 40%, transparent);
-		border-radius: 0.5rem;
-		border-left: 2px solid color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+		padding-left: 0.4rem;
+		border-left: 1px solid color-mix(in oklab, var(--color-secondary-500) 16%, transparent);
 	}
 
 	/* Conditional Row */
