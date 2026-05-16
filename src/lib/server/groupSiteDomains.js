@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { sendEmail } from '$lib/services/email';
+import { autoProvisionEmailSenderForRegisteredDomain } from '$lib/server/groupEmailDomains';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
 import {
 	addDomainToMicrositeProject,
@@ -37,6 +38,14 @@ function toCents(value) {
 
 function digitsOnly(value) {
 	return cleanText(value).replace(/[^\d]/g, '');
+}
+
+function resolveDomainPaymentReturnPath(groupSlug, rawPath) {
+	const defaultPath = `/groups/${groupSlug}/manage/site?domain_payment=return`;
+	const requestedPath = cleanText(rawPath);
+	if (!requestedPath.startsWith('/')) return defaultPath;
+	if (!requestedPath.startsWith(`/groups/${groupSlug}/manage/`)) return defaultPath;
+	return requestedPath;
 }
 
 export function computeDomainFees({ basePurchasePriceCents, baseRenewalPriceCents }) {
@@ -531,7 +540,8 @@ export async function createDomainPaymentIntentForGroup({
 	});
 	const stripeConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase);
 	const stripe = getStripeClient();
-	const returnUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_payment=return`;
+	const returnPath = resolveDomainPaymentReturnPath(group.slug, payload?.returnPath);
+	const returnUrl = `${resolvePublicBaseUrl(url)}${returnPath}`;
 
 	const customer = await stripe.customers.create(
 		{
@@ -723,6 +733,31 @@ async function fulfillDomainOrderAfterPayment({
 				vercelOrderId: registration.orderId || null
 			}
 		});
+
+		const senderProvisionResult = await autoProvisionEmailSenderForRegisteredDomain({
+			serviceSupabase,
+			groupId: order.group_id,
+			domain,
+			createdByUserId: order.created_by_user_id || null
+		}).catch((error) => ({
+			ok: false,
+			error: error?.message || 'Unable to auto-provision sender domain.'
+		}));
+
+		if (senderProvisionResult?.ok !== true) {
+			await serviceSupabase.from('group_site_domain_events').insert({
+				group_id: order.group_id,
+				domain_id: domainRow?.id || null,
+				order_id: order.id,
+				provider: 'system',
+				event_type: 'domain_order_email_sender_provision_failed',
+				processing_status: 'failed',
+				error_message: senderProvisionResult?.error || 'Unable to auto-provision sender domain.',
+				payload: {
+					domain
+				}
+			});
+		}
 
 		if (cleanText(order.receipt_email)) {
 			await sendDomainReceiptEmail({

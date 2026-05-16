@@ -7,6 +7,7 @@
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+	import IconMail from '@lucide/svelte/icons/mail';
 
 	let { group = null, canManageSocial = false } = $props();
 
@@ -37,6 +38,12 @@
 			label: 'Membership',
 			icon: IconIdCard,
 			href: `/groups/${slug}/manage/membership`
+		},
+		{
+			id: 'email',
+			label: 'Email',
+			icon: IconMail,
+			href: `/groups/${slug}/manage/email`
 		},
 		{
 			id: 'assets',

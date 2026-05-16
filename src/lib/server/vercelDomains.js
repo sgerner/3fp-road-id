@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { shouldAutoUpdateExistingDnsRecord } from '$lib/server/emailDomainRules';
 import { Vercel } from '@vercel/sdk';
 
 function cleanText(value) {
@@ -76,6 +77,92 @@ function mapVerificationToDns(verification = []) {
 			reason: cleanText(item?.reason)
 		};
 	});
+}
+
+function normalizeDnsName(value) {
+	return cleanText(value).toLowerCase().replace(/\.$/, '');
+}
+
+function normalizeDnsValue(value) {
+	return cleanText(value).replace(/\.$/, '');
+}
+
+function toVercelRecordName(domain, fqdnName) {
+	const normalizedDomain = normalizeDnsName(domain);
+	const normalizedName = normalizeDnsName(fqdnName || normalizedDomain);
+	if (!normalizedName || normalizedName === normalizedDomain) return '@';
+	const suffix = `.${normalizedDomain}`;
+	if (normalizedName.endsWith(suffix)) {
+		const label = normalizedName.slice(0, -suffix.length);
+		return label || '@';
+	}
+	return normalizedName;
+}
+
+function parseMxValue(value) {
+	const raw = cleanText(value);
+	const match = raw.match(/^(\d+)\s+(.+)$/);
+	if (match) {
+		return {
+			mxPriority: Number.parseInt(match[1], 10),
+			value: normalizeDnsValue(match[2])
+		};
+	}
+	return {
+		mxPriority: 10,
+		value: normalizeDnsValue(raw)
+	};
+}
+
+function buildVercelDnsRequestBody(domain, record) {
+	const type = cleanText(record?.type).toUpperCase();
+	if (!['CNAME', 'TXT', 'MX'].includes(type)) return null;
+	const name = toVercelRecordName(domain, record?.name || domain);
+	if (type === 'MX') {
+		const parsed = parseMxValue(record?.value);
+		if (!parsed.value) return null;
+		return {
+			name,
+			type,
+			ttl: Number.isFinite(Number(record?.ttl)) ? Number(record.ttl) : 300,
+			value: parsed.value,
+			mxPriority: parsed.mxPriority
+		};
+	}
+	const value = normalizeDnsValue(record?.value);
+	if (!value) return null;
+	return {
+		name,
+		type,
+		ttl: Number.isFinite(Number(record?.ttl)) ? Number(record.ttl) : 300,
+		value
+	};
+}
+
+function sameDnsRecord(existing, next) {
+	const existingType = cleanText(existing?.type).toUpperCase();
+	const existingName = normalizeDnsName(existing?.name);
+	const existingValue = normalizeDnsValue(existing?.value);
+	const nextType = cleanText(next?.type).toUpperCase();
+	const nextName = normalizeDnsName(next?.name);
+	const nextValue = normalizeDnsValue(next?.value);
+	if (existingType !== nextType) return false;
+	if (existingName !== nextName) return false;
+	if (existingValue !== nextValue) return false;
+	if (nextType === 'MX') {
+		const existingPriority = Number(existing?.mxPriority ?? 10);
+		const nextPriority = Number(next?.mxPriority ?? 10);
+		return existingPriority === nextPriority;
+	}
+	return true;
+}
+
+function sameDnsRecordKey(existing, next) {
+	const existingType = cleanText(existing?.type).toUpperCase();
+	const existingName = normalizeDnsName(existing?.name);
+	const nextType = cleanText(next?.type).toUpperCase();
+	const nextName = normalizeDnsName(next?.name);
+	return existingType === nextType && existingName === nextName;
 }
 
 export async function addDomainToMicrositeProject(domain) {
@@ -280,6 +367,76 @@ export async function updateVercelDomainAutoRenew({ domain, autoRenew }) {
 	return {
 		domain: normalized,
 		autoRenew: autoRenew === true
+	};
+}
+
+export async function upsertDnsRecordsForVercelDomain({ domain, records = [] }) {
+	const vercel = getVercelClient();
+	const normalizedDomain = assertDomain(domain);
+	const desired = records
+		.map((record) => ({
+			record,
+			requestBody: buildVercelDnsRequestBody(normalizedDomain, record)
+		}))
+		.filter((entry) => entry.requestBody);
+	if (!desired.length) {
+		return {
+			ok: true,
+			domain: normalizedDomain,
+			created: 0,
+			updated: 0,
+			skipped: 0
+		};
+	}
+
+	const existingResponse = await vercel.dns.getRecords({
+		domain: normalizedDomain,
+		limit: '100',
+		...getTeamContext()
+	});
+	const existingRecords = Array.isArray(existingResponse?.records) ? existingResponse.records : [];
+
+	let created = 0;
+	let updated = 0;
+	let skipped = 0;
+
+	for (const entry of desired) {
+		const { record, requestBody } = entry;
+		const exactMatch = existingRecords.find((row) => sameDnsRecord(row, requestBody));
+		if (exactMatch) {
+			skipped += 1;
+			continue;
+		}
+
+		const keyMatch = existingRecords.find((row) => sameDnsRecordKey(row, requestBody));
+		if (keyMatch?.id) {
+			if (!shouldAutoUpdateExistingDnsRecord(record, keyMatch)) {
+				skipped += 1;
+				continue;
+			}
+			await vercel.dns.updateRecord({
+				recordId: keyMatch.id,
+				...getTeamContext(),
+				requestBody
+			});
+			updated += 1;
+			continue;
+		}
+
+		await vercel.dns.createRecord({
+			domain: normalizedDomain,
+			...getTeamContext(),
+			requestBody
+		});
+		created += 1;
+	}
+
+	return {
+		ok: true,
+		domain: normalizedDomain,
+		created,
+		updated,
+		skipped
 	};
 }
 

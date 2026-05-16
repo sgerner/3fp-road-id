@@ -10,6 +10,7 @@
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+	import IconMail from '@lucide/svelte/icons/mail';
 
 	let { data } = $props();
 
@@ -52,6 +53,16 @@
 				description: 'Customize your public website builder page',
 				icon: IconMonitorSmartphone,
 				href: `/groups/${slug}/manage/site`,
+				accent: 'primary',
+				badge: 'New',
+				badgeVariant: 'success'
+			},
+			{
+				id: 'email',
+				label: 'Email Studio',
+				description: 'Mailchimp-style campaigns with custom sender domains',
+				icon: IconMail,
+				href: `/groups/${slug}/manage/email`,
 				accent: 'primary',
 				badge: 'New',
 				badgeVariant: 'success'

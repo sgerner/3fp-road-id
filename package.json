@@ -7,6 +7,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"test": "node --test src/lib/server/emailDomainRules.test.js",
 		"prepare": "svelte-kit sync || echo ''",
 		"seed:rides": "node scripts/seed-rides.mjs",
 		"import:weeklyrides": "node scripts/import-weeklyrides.mjs",
@@ -49,6 +50,7 @@
 	"dependencies": {
 		"@aws-sdk/client-bedrock-runtime": "^3.1021.0",
 		"@aws-sdk/client-ses": "^3.1000.0",
+		"@aws-sdk/client-sesv2": "^3.1032.0",
 		"@google/genai": "^1.43.0",
 		"@lucide/svelte": "^0.575.0",
 		"@stripe/stripe-js": "^8.9.0",

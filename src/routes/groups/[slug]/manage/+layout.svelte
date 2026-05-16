@@ -14,6 +14,7 @@
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
+	import IconMail from '@lucide/svelte/icons/mail';
 
 	let { children, data } = $props();
 
@@ -48,6 +49,12 @@
 			label: 'Membership',
 			icon: IconIdCard,
 			href: `/groups/${slug}/manage/membership`
+		},
+		{
+			id: 'email',
+			label: 'Email',
+			icon: IconMail,
+			href: `/groups/${slug}/manage/email`
 		},
 		{
 			id: 'assets',
