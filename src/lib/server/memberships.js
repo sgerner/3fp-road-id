@@ -5,6 +5,7 @@ import {
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
+import { getGroupEmailSenderConfig, sendGroupManagedEmail } from '$lib/server/groupEmailDomains';
 import { PUBLIC_URL_BASE } from '$env/static/public';
 
 const MANAGER_ROLES = ['owner', 'admin'];
@@ -4267,6 +4268,25 @@ export async function createMembershipEmailCampaign({ cookies, groupSlug, payloa
 		payload?.audience_filters && typeof payload.audience_filters === 'object'
 			? payload.audience_filters
 			: {};
+	const senderDomainId = cleanNullableText(audienceFilters?.sender_domain_id, 64);
+	if (senderDomainId) {
+		const { data: senderDomainRow, error: senderDomainError } = await serviceSupabase
+			.from('group_email_sending_domains')
+			.select('id')
+			.eq('group_id', auth.group.id)
+			.eq('id', senderDomainId)
+			.maybeSingle();
+		if (senderDomainError) {
+			return { ok: false, status: 400, error: senderDomainError.message };
+		}
+		if (!senderDomainRow?.id) {
+			return {
+				ok: false,
+				status: 400,
+				error: 'Selected sender domain does not belong to this group.'
+			};
+		}
+	}
 
 	const now = toIsoNow();
 	const { data, error } = await serviceSupabase
@@ -4367,6 +4387,21 @@ async function sendMembershipCampaignNowInternal({
 	const volunteerBlock = renderVolunteerBlock(volunteerEvents, originBaseUrl);
 	const linksBlock = renderGroupLinksBlock(group, originBaseUrl);
 	const policyLink = buildPolicyLink(originBaseUrl, group.slug, program.policy_version);
+	const preferredSenderDomainId =
+		emailCampaign?.audience_filters &&
+		typeof emailCampaign.audience_filters === 'object' &&
+		emailCampaign.audience_filters.sender_domain_id
+			? String(emailCampaign.audience_filters.sender_domain_id)
+			: null;
+	const senderConfig = await getGroupEmailSenderConfig(serviceSupabase, group.id, {
+		preferredDomainId: preferredSenderDomainId
+	});
+	if (preferredSenderDomainId && senderConfig?.selectionStatus !== 'verified') {
+		if (senderConfig?.selectionStatus === 'unverified') {
+			throw new Error('Selected sender domain is not verified yet. Verify it before sending.');
+		}
+		throw new Error('Selected sender domain could not be found for this group.');
+	}
 
 	const queuedSendRows = recipients.map((recipient) => ({
 		email_id: emailCampaign.id,
@@ -4422,19 +4457,39 @@ async function sendMembershipCampaignNowInternal({
 		);
 
 		try {
-			await sendEmail(
-				{
+			if (senderConfig?.fromEmailAddress) {
+				await sendGroupManagedEmail({
 					to: recipient.email,
 					subject: subject || `${group.name} Membership Update`,
 					html: htmlBody,
 					text: textBody,
+					fromAddress: senderConfig.fromEmailAddress,
+					replyTo: senderConfig.replyToEmail || null,
+					originBaseUrl,
+					branding: {
+						category: 'membership',
+						recipientReason: `You are receiving this email because you are a member of ${group.name}.`
+					},
 					tags: [
 						{ Name: 'context', Value: 'membership-campaign-send' },
 						{ Name: 'membership_email_id', Value: String(emailCampaign.id) }
 					]
-				},
-				{ fetch: fetchImpl }
-			);
+				});
+			} else {
+				await sendEmail(
+					{
+						to: recipient.email,
+						subject: subject || `${group.name} Membership Update`,
+						html: htmlBody,
+						text: textBody,
+						tags: [
+							{ Name: 'context', Value: 'membership-campaign-send' },
+							{ Name: 'membership_email_id', Value: String(emailCampaign.id) }
+						]
+					},
+					{ fetch: fetchImpl }
+				);
+			}
 
 			sentCount += 1;
 			await serviceSupabase
@@ -4518,17 +4573,24 @@ export async function sendMembershipEmailCampaignNow({
 		.maybeSingle();
 	if (error) return { ok: false, status: 400, error: error.message };
 	if (!emailCampaign) return { ok: false, status: 404, error: 'Email campaign not found.' };
+	try {
+		const result = await sendMembershipCampaignNowInternal({
+			serviceSupabase,
+			group: auth.group,
+			emailCampaign,
+			actorUserId: auth.userId,
+			fetchImpl,
+			originBaseUrl
+		});
 
-	const result = await sendMembershipCampaignNowInternal({
-		serviceSupabase,
-		group: auth.group,
-		emailCampaign,
-		actorUserId: auth.userId,
-		fetchImpl,
-		originBaseUrl
-	});
-
-	return { ok: true, data: result };
+		return { ok: true, data: result };
+	} catch (sendError) {
+		return {
+			ok: false,
+			status: 400,
+			error: cleanText(sendError?.message || 'Unable to send campaign.', 500)
+		};
+	}
 }
 
 export async function listMembershipEmailHistory({ cookies, groupSlug }) {
@@ -4581,15 +4643,31 @@ export async function processScheduledMembershipEmails({
 			results.push({ email_id: campaign.id, skipped: true, reason: 'group_not_found' });
 			continue;
 		}
-		const sent = await sendMembershipCampaignNowInternal({
-			serviceSupabase,
-			group,
-			emailCampaign: campaign,
-			actorUserId: campaign.created_by,
-			fetchImpl,
-			originBaseUrl: baseUrl
-		});
-		results.push({ email_id: campaign.id, ...sent });
+		try {
+			const sent = await sendMembershipCampaignNowInternal({
+				serviceSupabase,
+				group,
+				emailCampaign: campaign,
+				actorUserId: campaign.created_by,
+				fetchImpl,
+				originBaseUrl: baseUrl
+			});
+			results.push({ email_id: campaign.id, ...sent });
+		} catch (sendError) {
+			const errorMessage = cleanText(sendError?.message || 'Unable to send scheduled campaign.', 500);
+			await serviceSupabase
+				.from('group_membership_emails')
+				.update({
+					status: 'failed',
+					updated_at: toIsoNow()
+				})
+				.eq('id', campaign.id);
+			results.push({
+				email_id: campaign.id,
+				status: 'failed',
+				error: errorMessage
+			});
+		}
 	}
 
 	return { processed: list.length, results };
