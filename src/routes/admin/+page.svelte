@@ -4,6 +4,7 @@
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconUsers from '@lucide/svelte/icons/users';
+	import IconPenTool from '@lucide/svelte/icons/pen-tool';
 
 	const sections = [
 		{
@@ -24,6 +25,21 @@
 					href: '/admin/groups/outreach',
 					description: 'Reach out to unclaimed groups and enrich profiles to find contact details.',
 					icon: IconSparkles,
+					accent: 'tertiary'
+				}
+			]
+		},
+		{
+			title: 'Branding',
+			description: 'Reusable assets for outbound communication.',
+			accent: 'tertiary',
+			tools: [
+				{
+					label: 'Email Signature Builder',
+					href: '/admin/signature',
+					description:
+						'Generate polished HTML signatures with optional contact rows and locked-in brand links.',
+					icon: IconPenTool,
 					accent: 'tertiary'
 				}
 			]
