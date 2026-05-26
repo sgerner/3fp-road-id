@@ -77,9 +77,10 @@
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
-	let turnstileEnabled = $derived(
+	const turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
 	);
+	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
 	const profileImageUrl = $derived(
@@ -747,27 +748,31 @@
 								Donate
 							</a>
 
-							<div class="flex w-full items-center justify-center gap-1 px-2 text-[0.65rem]">
-								<a
-									href="/privacy"
-									class="text-surface-700-300 hover:text-surface-600-400 transition"
-								>
-									Privacy
-								</a>
-								<span class="text-surface-700-300">|</span>
-								<a href="/terms" class="text-surface-700-300 hover:text-surface-600-400 transition">
-									Terms
-								</a>
+							<div class="flex w-full flex-col items-center justify-center gap-1 px-2 text-[0.65rem]">
+								<div class="flex items-center gap-1">
+									<a
+										href="/privacy"
+										class="text-surface-700-300 hover:text-surface-600-400 transition"
+									>
+										Privacy
+									</a>
+									<span class="text-surface-700-300">|</span>
+									<a
+										href="/terms"
+										class="text-surface-700-300 hover:text-surface-600-400 transition"
+									>
+										Terms
+									</a>
+								</div>
+								{#if isAdmin}
+									<a
+										href="/admin"
+										class="text-surface-700-300 hover:text-surface-600-400 transition"
+									>
+										Admin
+									</a>
+								{/if}
 							</div>
-
-							{#if data.isAdmin}
-								<a
-									href="/admin"
-									class="text-surface-700-300 hover:text-surface-600-400 w-full px-2 py-1 text-center text-[0.65rem] transition"
-								>
-									Admin
-								</a>
-							{/if}
 						</div>
 					</nav>
 				</div>
@@ -879,7 +884,7 @@
 							>
 								Terms
 							</a>
-							{#if data.isAdmin}
+							{#if isAdmin}
 								<a
 									href="/admin"
 									class="text-surface-700-300 hover:text-surface-600-400 transition"

@@ -63,6 +63,7 @@ function normalizeProfileShape(profileRow) {
 		bio: profileRow.bio ?? null,
 		email: profileRow.email ?? null,
 		phone: profileRow.phone ?? null,
+		admin: profileRow.admin === true,
 		metadata: normalizeMetadataObject(profileRow.metadata),
 		updated_at: profileRow.updated_at ?? null,
 		created_at: profileRow.created_at ?? null
@@ -77,7 +78,7 @@ export async function GET({ cookies }) {
 
 	const { data, error } = await supabase
 		.from('profiles')
-		.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
+		.select('id,user_id,full_name,avatar_url,bio,email,phone,admin,metadata,updated_at,created_at')
 		.eq('user_id', user.id)
 		.maybeSingle();
 
@@ -152,7 +153,7 @@ export async function PUT({ cookies, request }) {
 	const { data, error } = await supabase
 		.from('profiles')
 		.upsert(payload, { onConflict: 'user_id' })
-		.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
+		.select('id,user_id,full_name,avatar_url,bio,email,phone,admin,metadata,updated_at,created_at')
 		.single();
 
 	if (error) {
