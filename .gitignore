@@ -7,6 +7,9 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+.codex/
+.gemini/
+.opencode/
 
 # OS
 .DS_Store
