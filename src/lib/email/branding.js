@@ -1,6 +1,6 @@
 const BRAND = {
 	name: '3 Feet Please',
-	logoPath: '/3fp.png',
+	logoPath: '/3fp.png?v=2',
 	background: '#020617',
 	surface: '#0f172a',
 	border: 'rgba(148,163,184,0.28)',

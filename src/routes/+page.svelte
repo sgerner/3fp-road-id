@@ -22,7 +22,7 @@
 			160
 		)
 	);
-	const seoImage = $derived(siteOrigin ? buildAbsoluteUrl(siteOrigin, '/3fp.png') : '/3fp.png');
+	const seoImage = $derived(siteOrigin ? buildAbsoluteUrl(siteOrigin, '/3fp.png?v=2') : '/3fp.png?v=2');
 	const seoStructuredData = $derived.by(() =>
 		JSON.stringify({
 			'@context': 'https://schema.org',
@@ -30,7 +30,7 @@
 			name: seoTitle,
 			url: canonicalUrl,
 			description: seoDescription,
-			logo: siteOrigin ? buildAbsoluteUrl(siteOrigin, '/logo.png') : '/logo.png',
+			logo: siteOrigin ? buildAbsoluteUrl(siteOrigin, '/logo.png?v=2') : '/logo.png?v=2',
 			sameAs: ['https://3feetplease.org']
 		})
 	);

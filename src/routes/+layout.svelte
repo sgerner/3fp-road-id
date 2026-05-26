@@ -453,7 +453,7 @@
 						<IconMenu class="h-5 w-5" />
 					</button>
 					<a href="/" class="text-surface-950-50 flex items-center gap-3">
-						<img src="/3fp.png" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
+						<img src="/3fp.png?v=2" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
 						<div>
 							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
 						</div>
