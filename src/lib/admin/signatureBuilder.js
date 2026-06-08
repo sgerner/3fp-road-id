@@ -29,12 +29,51 @@ const BRAND_ACCENTS = {
 	}
 };
 
+export const LOGO_OPTIONS = [
+	{
+		key: 'classic',
+		label: 'Classic',
+		url: 'https://3fp.org/3fp.png?v=2'
+	},
+	{
+		key: 'blackOutline',
+		label: 'Black Outline',
+		url: 'https://3fp.org/logos/3FeetPlease_BlackOutline.png'
+	},
+	{
+		key: 'blackOutlineTagline',
+		label: 'Black Outline + Tagline',
+		url: 'https://3fp.org/logos/3FeetPlease_BlackOutline_Tagline.png'
+	},
+	{
+		key: 'solidBlackRoad',
+		label: 'Solid Black Road',
+		url: 'https://3fp.org/logos/3FeetPlease_SolidBlackRoad.png'
+	},
+	{
+		key: 'solidBlackRoadTagline',
+		label: 'Solid Black Road + Tagline',
+		url: 'https://3fp.org/logos/3FeetPlease_SolidBlackRoad_Tagline.png'
+	},
+	{
+		key: 'whiteOutline',
+		label: 'White Outline',
+		url: 'https://3fp.org/logos/3FeetPlease_WhiteOutline.png'
+	},
+	{
+		key: 'whiteOutlineTagline',
+		label: 'White Outline + Tagline',
+		url: 'https://3fp.org/logos/3FeetPlease_WhiteOutline_Tagline.png'
+	}
+];
+
 export const DEFAULT_SIGNATURE_FORM = {
 	title: 'Volunteer',
 	phone: '',
 	showPhone: false,
 	showAddress: false,
-	accent: 'primary'
+	accent: 'primary',
+	logo: 'classic'
 };
 
 function escapeHtml(value = '') {
@@ -78,14 +117,16 @@ function oklchToHex([l, c, h]) {
 
 	const srgb = [r, g, bl].map((channel) => {
 		const clamped = Math.min(1, Math.max(0, channel));
-		return clamped <= 0.0031308
-			? clamped * 12.92
-			: 1.055 * clamped ** (1 / 2.4) - 0.055;
+		return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
 	});
 
 	return `#${srgb
-		.map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0'))
-	.join('')}`;
+		.map((channel) =>
+			Math.round(channel * 255)
+				.toString(16)
+				.padStart(2, '0')
+		)
+		.join('')}`;
 }
 
 function getAccentTone(accent) {
@@ -121,9 +162,9 @@ function globeIconSvg() {
 	].join('');
 }
 
-function socialButton(label, href, svg, background, color = '#ffffff', border = 'rgba(15,23,42,0.10)') {
+function socialButton(label, href, svg, background, color = '#ffffff') {
 	return `
-		<a href="${escapeHtml(href)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-right:8px;border-radius:999px;background:${background};color:${color};text-decoration:none;vertical-align:middle;border:1px solid ${border};box-shadow:0 1px 1px rgba(15,23,42,0.04);">
+		<a href="${escapeHtml(href)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:8px;border-radius:999px;background:${background};color:${color};text-decoration:none;vertical-align:middle;box-shadow:0 1px 2px rgba(15,23,42,0.06);">
 			${svg}
 		</a>
 	`;
@@ -137,6 +178,10 @@ export function getAccentOptions() {
 	}));
 }
 
+export function getLogoOptions() {
+	return LOGO_OPTIONS;
+}
+
 export function buildSignatureHtml({
 	fullName,
 	email,
@@ -144,7 +189,8 @@ export function buildSignatureHtml({
 	phone = '',
 	showPhone = false,
 	showAddress = false,
-	accent = 'primary'
+	accent = 'primary',
+	logo = 'classic'
 } = {}) {
 	const safeName = String(fullName || 'Your Name').trim();
 	const safeEmail = String(email || 'your@email.com').trim();
@@ -155,51 +201,68 @@ export function buildSignatureHtml({
 	const accentWash = accentTone.wash || '#f8fafc';
 	const accentBand = getAccentBand(accent);
 	const phoneHref = safePhone ? telHref(safePhone) : '';
-	const websiteIcon = iconSvg(globeIconSvg(), {
-		size: 15,
-		color: '#ffffff'
-	});
-	const facebookIcon = iconSvg(
-		siFacebook.svg,
-		{ size: 15, color: `#${siFacebook.hex}` }
-	);
-	const instagramIcon = iconSvg(
-		siInstagram.svg,
-		{ size: 15, color: `#${siInstagram.hex}` }
-	);
+	const logoItem = LOGO_OPTIONS.find((o) => o.key === logo) || LOGO_OPTIONS[0];
+	const logoUrl = logoItem.url;
+	const logoAlt = logoItem.label;
 
-	const rows = [
-		`<tr><td style="padding:0 0 2px;font-size:23px;line-height:1.08;font-weight:900;color:#0f172a;letter-spacing:-0.03em;">${escapeHtml(safeName)}</td></tr>`,
-		safeTitle
-			? `<tr><td style="padding:0 0 8px;font-size:12px;line-height:1.45;font-weight:800;color:${accentInk};text-transform:uppercase;letter-spacing:0.14em;">${escapeHtml(safeTitle)}</td></tr>`
-			: '',
-		`<tr><td style="padding:0 0 4px;font-size:14px;line-height:1.5;"><a href="mailto:${escapeHtml(safeEmail)}" style="color:#111827;text-decoration:none;font-weight:700;">${escapeHtml(safeEmail)}</a></td></tr>`,
+	const websiteIcon = iconSvg(globeIconSvg(), { size: 13, color: '#ffffff' });
+	const facebookIcon = iconSvg(siFacebook.svg, { size: 13, color: '#ffffff' });
+	const instagramIcon = iconSvg(siInstagram.svg, { size: 13, color: '#ffffff' });
+
+	const contactRows = [
+		`<tr>
+			<td style="padding:4px 0 2px 0;font-size:13px;line-height:1.4;color:#334155;">
+				<a href="mailto:${escapeHtml(safeEmail)}" style="color:#334155;text-decoration:none;font-weight:600;">${escapeHtml(safeEmail)}</a>
+			</td>
+		</tr>`,
 		showPhone && safePhone
-			? `<tr><td style="padding:0 0 4px;font-size:14px;line-height:1.5;color:#334155;"><a href="${escapeHtml(phoneHref)}" style="color:#334155;text-decoration:none;font-weight:600;">${escapeHtml(safePhone)}</a></td></tr>`
+			? `<tr>
+				<td style="padding:2px 0;font-size:13px;line-height:1.4;color:#334155;">
+					<a href="${escapeHtml(phoneHref)}" style="color:#334155;text-decoration:none;font-weight:600;">${escapeHtml(safePhone)}</a>
+				</td>
+			</tr>`
 			: '',
 		showAddress
-			? `<tr><td style="padding:0 0 10px;font-size:13px;line-height:1.45;color:#475569;">${escapeHtml(PROFILE_ADDRESS)}</td></tr>`
-			: '',
-		`<tr><td style="padding-top:10px;">${socialButton('Website', BRAND_URLS.website, websiteIcon, accentInk, '#ffffff', accentInk)}${socialButton('Facebook', BRAND_URLS.facebook, facebookIcon, '#1877f2', '#ffffff', '#1877f2')}${socialButton('Instagram', BRAND_URLS.instagram, instagramIcon, '#ff0180', '#ffffff', '#ff0180')}</td></tr>`
-	]
-		.filter(Boolean)
-		.join('');
+			? `<tr>
+				<td style="padding:2px 0 0 0;font-size:12px;line-height:1.4;color:#64748b;">
+					${escapeHtml(PROFILE_ADDRESS)}
+				</td>
+			</tr>`
+			: ''
+	].filter(Boolean);
+
+	const hasContactRows = contactRows.length > 0;
 
 	return `
-<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;font-family:Arial,'Segoe UI',Tahoma,sans-serif;color:#0f172a;">
+<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
 	<tr>
 		<td style="padding:0;">
-			<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid rgba(15,23,42,0.10);border-left:6px solid ${accentInk};border-radius:22px;background:linear-gradient(180deg, ${accentWash} 0%, #ffffff 26%);overflow:hidden;">
+			<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;border:1px solid #f1f5f9;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.05);">
 				<tr>
-					<td colspan="2" style="padding:0;">
-						<div style="height:8px;background:${accentBand};"></div>
-					</td>
+					<td colspan="3" style="padding:0;height:6px;background:${accentBand};font-size:0;line-height:0;">&nbsp;</td>
 				</tr>
 				<tr>
-					<td style="padding:20px 18px 18px 20px;vertical-align:top;width:126px;background:linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 100%);">
-						<img src="https://3fp.org/3fp.png?v=2" alt="3 Feet Please" width="96" height="96" style="display:block;width:96px;height:96px;border:none;border-radius:24px;object-fit:contain;" />
+					<td style="padding:24px 16px 24px 24px;vertical-align:middle;background:${accentWash};width:160px;">
+						<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:160px;height:160px;border-radius:50%;background:${accentBand};overflow:hidden;">
+							<tr><td style="padding:5px;vertical-align:middle;text-align:center;">
+								<img src="${logoUrl}" alt="${escapeHtml(logoAlt)}" width="150" height="150" style="display:inline-block;width:150px;height:150px;border:none;border-radius:50%;object-fit:contain;vertical-align:middle;" />
+							</td></tr>
+						</table>
 					</td>
-					<td style="padding:20px 20px 18px 0;vertical-align:top;">${rows}</td>
+					<td style="padding:0;width:1px;background:${accentInk}15;">&nbsp;</td>
+					<td style="padding:24px 24px 24px 20px;vertical-align:middle;">
+						<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+							<tr><td style="padding:0 0 2px;font-size:22px;line-height:1.15;font-weight:800;color:#0f172a;letter-spacing:-0.02em;">${escapeHtml(safeName)}</td></tr>
+							${
+								safeTitle
+									? `<tr><td style="padding:0 0 14px;font-size:11px;line-height:1.4;font-weight:700;color:${accentInk};text-transform:uppercase;letter-spacing:0.18em;">${escapeHtml(safeTitle)}</td></tr>`
+									: '<tr><td style="padding:0 0 14px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+							}
+							<tr><td style="padding:0;height:3px;background:${accentBand};font-size:0;line-height:0;border-radius:2px;">&nbsp;</td></tr>
+							${hasContactRows ? contactRows.join('') : ''}
+							<tr><td style="padding:14px 0 0;">${socialButton('Website', BRAND_URLS.website, websiteIcon, accentBand, '#ffffff')}${socialButton('Facebook', BRAND_URLS.facebook, facebookIcon, accentBand, '#ffffff')}${socialButton('Instagram', BRAND_URLS.instagram, instagramIcon, accentBand, '#ffffff')}</td></tr>
+						</table>
+					</td>
 				</tr>
 			</table>
 		</td>

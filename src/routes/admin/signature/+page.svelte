@@ -7,7 +7,8 @@
 	import {
 		DEFAULT_SIGNATURE_FORM,
 		buildSignatureHtml,
-		getAccentOptions
+		getAccentOptions,
+		getLogoOptions
 	} from '$lib/admin/signatureBuilder';
 
 let { data } = $props();
@@ -30,6 +31,7 @@ function getProfileDefaults() {
 
 let form = $state({ ...DEFAULT_SIGNATURE_FORM });
 const accentOptions = getAccentOptions();
+const logoOptions = getLogoOptions();
 const generatedHtml = $derived.by(() => buildSignatureHtml(form));
 
 $effect(() => {
@@ -146,6 +148,33 @@ function handlePhoneInput(event) {
 							<div class="text-sm font-semibold text-surface-100">Address</div>
 							<Toggle bind:checked={form.showAddress} />
 						</div>
+					</div>
+				</div>
+
+				<div class="card preset-tonal-surface border-white/10 p-5">
+					<span class="mb-3 block text-xs font-bold tracking-wide uppercase text-surface-400">Logo</span>
+					<div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
+						{#each logoOptions as option}
+							{@const isActive = form.logo === option.key}
+							<button
+								class={
+									'relative overflow-hidden rounded-xl border transition ' +
+									(isActive
+										? 'border-primary-500/60 ring-1 ring-primary-500/40'
+										: 'border-white/10 hover:border-white/30')
+								}
+								type="button"
+								aria-label={option.label}
+								title={option.label}
+								onclick={() => (form.logo = option.key)}
+							>
+								<img
+									src={option.url}
+									alt={option.label}
+									class="h-12 w-12 object-contain"
+								/>
+							</button>
+						{/each}
 					</div>
 				</div>
 
