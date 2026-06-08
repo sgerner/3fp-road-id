@@ -5,6 +5,7 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconPenTool from '@lucide/svelte/icons/pen-tool';
+	import IconUserCog from '@lucide/svelte/icons/user-cog';
 
 	const sections = [
 		{
@@ -30,8 +31,8 @@
 			]
 		},
 		{
-			title: 'Branding',
-			description: 'Reusable assets for outbound communication.',
+			title: 'Branding & Workspace',
+			description: 'Email identity and Google Workspace account lifecycle tools.',
 			accent: 'tertiary',
 			tools: [
 				{
@@ -41,6 +42,14 @@
 						'Generate polished HTML signatures with optional contact rows and locked-in brand links.',
 					icon: IconPenTool,
 					accent: 'tertiary'
+				},
+				{
+					label: 'Email User Admin',
+					href: '/admin/workspace',
+					description:
+						'Create, update, suspend, reset passwords, and manage aliases for Workspace users.',
+					icon: IconUserCog,
+					accent: 'secondary'
 				}
 			]
 		},

@@ -7,7 +7,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"test": "node --test src/lib/server/emailDomainRules.test.js",
+		"test": "node --test src/lib/server/*.test.js",
 		"prepare": "svelte-kit sync || echo ''",
 		"seed:rides": "node scripts/seed-rides.mjs",
 		"import:weeklyrides": "node scripts/import-weeklyrides.mjs",
