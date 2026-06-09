@@ -26,3 +26,20 @@ export function confirmationMatches(value, action, target) {
 export function sameEmail(left, right) {
 	return cleanText(left).toLowerCase() === cleanText(right).toLowerCase();
 }
+
+export function describeWorkspaceAuthError(error, clientId = '') {
+	const message = cleanText(error?.message || error);
+	if (!message) return 'Google authentication failed.';
+
+	if (message.includes('unauthorized_client')) {
+		return clientId
+			? `Google rejected domain-wide delegation for service account client ID ${clientId}. In Google Admin console, authorize that client ID under Security > API controls > Domain-wide delegation and add the required Workspace Directory scopes.`
+			: 'Google rejected domain-wide delegation. Authorize the service account client ID under Security > API controls > Domain-wide delegation and add the required Workspace Directory scopes.';
+	}
+
+	if (message.includes('invalid_grant')) {
+		return 'Google rejected the JWT/private key exchange. Verify the service account JSON, private key, delegated admin email, and server clock.';
+	}
+
+	return message;
+}

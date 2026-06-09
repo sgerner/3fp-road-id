@@ -1,6 +1,6 @@
 import { createSign } from 'node:crypto';
 import { env } from '$env/dynamic/private';
-import { cleanText, exactText } from './googleWorkspaceRules.js';
+import { cleanText, describeWorkspaceAuthError, exactText } from './googleWorkspaceRules.js';
 
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DIRECTORY_API_BASE_URL = 'https://admin.googleapis.com/admin/directory/v1';
@@ -24,6 +24,9 @@ function buildWorkspaceConfig() {
 	const clientEmail = cleanText(
 		env.GOOGLE_WORKSPACE_SERVICE_ACCOUNT_EMAIL || parsedJson?.client_email
 	);
+	const clientId = cleanText(
+		env.GOOGLE_WORKSPACE_SERVICE_ACCOUNT_CLIENT_ID || parsedJson?.client_id
+	);
 	const privateKeyRaw = cleanText(
 		env.GOOGLE_WORKSPACE_SERVICE_ACCOUNT_PRIVATE_KEY || parsedJson?.private_key
 	);
@@ -37,7 +40,7 @@ function buildWorkspaceConfig() {
 		return null;
 	}
 
-	return { clientEmail, privateKey, delegatedAdminEmail, customer };
+	return { clientEmail, clientId, privateKey, delegatedAdminEmail, customer };
 }
 
 function createSignedJwt({ clientEmail, privateKey, delegatedAdminEmail, scopes }) {
@@ -107,7 +110,12 @@ async function callDirectoryApi(
 		delegatedAdminEmail: config.delegatedAdminEmail,
 		scopes
 	});
-	const accessToken = await exchangeJwtForToken(jwt);
+	let accessToken;
+	try {
+		accessToken = await exchangeJwtForToken(jwt);
+	} catch (error) {
+		throw new Error(describeWorkspaceAuthError(error, config.clientId));
+	}
 	const url = new URL(`${DIRECTORY_API_BASE_URL}${pathname}`);
 	if (query) {
 		for (const [key, value] of Object.entries(query)) {

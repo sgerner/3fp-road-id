@@ -36,24 +36,38 @@
 	</header>
 
 	{#if !data.configured}
-		<div class="card border-error-500/40 bg-error-50 p-4 text-sm">
+		<div
+			class="card border-error-500/40 bg-error-950/70 text-error-50 p-4 text-sm shadow-lg shadow-black/20"
+		>
 			Workspace management is not configured. Set `GOOGLE_WORKSPACE_ADMIN_EMAIL` and service account
 			credentials in server env vars.
 		</div>
 	{:else}
 		{#if form?.error}
-			<div class="card border-error-500/40 bg-error-50 p-4 text-sm">{form.error}</div>
+			<div
+				class="card border-error-500/40 bg-error-950/70 text-error-50 p-4 text-sm shadow-lg shadow-black/20"
+			>
+				{form.error}
+			</div>
 		{/if}
 		{#if form?.success}
-			<div class="card border-success-500/40 bg-success-50 p-4 text-sm">
+			<div
+				class="card border-success-500/40 bg-success-950/65 text-success-50 p-4 text-sm shadow-lg shadow-black/20"
+			>
 				{form.message || 'Action completed.'}
 			</div>
 		{/if}
 		{#if data.loadError}
-			<div class="card border-error-500/40 bg-error-50 p-4 text-sm">{data.loadError}</div>
+			<div
+				class="card border-error-500/40 bg-error-950/70 text-error-50 p-4 text-sm shadow-lg shadow-black/20"
+			>
+				{data.loadError}
+			</div>
 		{/if}
 		{#if data.orgUnitsError}
-			<div class="card border-warning-500/40 bg-warning-50 p-4 text-sm">
+			<div
+				class="card border-warning-500/40 bg-warning-950/70 text-warning-50 p-4 text-sm shadow-lg shadow-black/20"
+			>
 				{data.orgUnitsError} User management remains available; new users will default to the root org
 				unit.
 			</div>

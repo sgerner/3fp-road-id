@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	confirmationMatches,
+	describeWorkspaceAuthError,
 	exactText,
 	normalizeWorkspaceAliases,
 	sameEmail
@@ -25,4 +26,11 @@ test('confirmation must match the requested action and target', () => {
 
 test('email comparison is case insensitive', () => {
 	assert.equal(sameEmail('Admin@3FP.org', 'admin@3fp.org'), true);
+});
+
+test('describes unauthorized client errors clearly', () => {
+	assert.match(
+		describeWorkspaceAuthError(new Error('unauthorized_client'), '1234567890'),
+		/client ID 1234567890/
+	);
 });
