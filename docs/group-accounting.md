@@ -132,10 +132,13 @@ Cron endpoint:
 
 `POST /api/cron/group-accounting-sync`
 
-Authorization follows the app's existing cron pattern:
+Authorization follows the shared Supabase cron-secret pattern:
 
 - `Authorization: Bearer $CRON_SECRET`, or
 - `x-vercel-cron-secret: $CRON_SECRET`
+
+The production job is scheduled in Supabase as `group-accounting-sync-hourly` and uses the
+`private.cron_secrets.group_accounting_sync` secret.
 
 The cron attempts, per group:
 

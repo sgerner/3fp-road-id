@@ -25,7 +25,7 @@ alter table public.group_accounting_receipts
 
 alter table public.group_accounting_public_reports
 	add column if not exists slug text,
-	add column if not exists share_token text not null default encode(gen_random_bytes(12), 'hex');
+	add column if not exists share_token text not null default encode(extensions.gen_random_bytes(12), 'hex');
 
 create unique index if not exists group_accounting_public_reports_group_slug_unique
 	on public.group_accounting_public_reports (group_id, slug)

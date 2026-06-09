@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { getCronSecretVerifier } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import {
 	autoMatchFeedItems,
@@ -8,20 +8,14 @@ import {
 	syncStripeTransactions
 } from '$lib/server/groupAccounting';
 
-function cleanText(value) {
-	if (value === null || value === undefined) return '';
-	return String(value).trim();
-}
-
-function isAuthorized(request) {
-	const expected =
-		cleanText(env.CRON_SECRET) ||
-		cleanText(env.CRON_AUTH_TOKEN) ||
-		cleanText(env.VERCEL_CRON_SECRET);
-	if (!expected) return false;
-	const authHeader = cleanText(request.headers.get('authorization')).replace(/^Bearer\s+/i, '');
-	const cronHeader = cleanText(request.headers.get('x-vercel-cron-secret'));
-	return authHeader === expected || cronHeader === expected;
+async function isAuthorized(request) {
+	const providedSecret =
+		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+		request.headers.get('x-cron-secret') ||
+		request.headers.get('x-vercel-cron-secret') ||
+		'';
+	if (!providedSecret) return false;
+	return getCronSecretVerifier('group_accounting_sync', providedSecret);
 }
 
 async function syncGroup(serviceSupabase, group) {
@@ -62,7 +56,7 @@ async function syncGroup(serviceSupabase, group) {
 }
 
 export async function POST({ request }) {
-	if (!isAuthorized(request)) return json({ error: 'Unauthorized' }, { status: 401 });
+	if (!(await isAuthorized(request))) return json({ error: 'Unauthorized' }, { status: 401 });
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) return json({ error: 'Service role is not configured.' }, { status: 500 });
 
