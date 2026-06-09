@@ -16,6 +16,7 @@ import {
 	resolvePublicBaseUrl,
 	verifySignedConnectState
 } from '$lib/server/stripe';
+import { postDonationToGroupAccounting } from '$lib/server/groupAccounting';
 
 function normalizeEmail(value) {
 	if (!value || typeof value !== 'string') return '';
@@ -807,6 +808,16 @@ export async function finalizeDonationBySessionId(sessionId, fetchImpl) {
 	}
 
 	await sendDonationNotifications(supabase, current, fetchImpl);
+	if (current.recipient_type === 'group' && current.recipient_group_id) {
+		await postDonationToGroupAccounting({
+			supabase,
+			groupId: current.recipient_group_id,
+			donation: current,
+			source: 'donation'
+		}).catch((error) => {
+			console.warn('Failed to post donation to group accounting', error);
+		});
+	}
 
 	const { data: reloadedDonation } = await supabase
 		.from('donations')
@@ -898,6 +909,16 @@ export async function finalizeDonationByPaymentIntentId(paymentIntentId, fetchIm
 	}
 
 	await sendDonationNotifications(supabase, current, fetchImpl);
+	if (current.recipient_type === 'group' && current.recipient_group_id) {
+		await postDonationToGroupAccounting({
+			supabase,
+			groupId: current.recipient_group_id,
+			donation: current,
+			source: 'donation'
+		}).catch((error) => {
+			console.warn('Failed to post donation to group accounting', error);
+		});
+	}
 
 	const { data: reloadedDonation } = await supabase
 		.from('donations')

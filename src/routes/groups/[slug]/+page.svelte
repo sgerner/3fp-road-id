@@ -16,6 +16,8 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
+	import IconBadgeDollarSign from '@lucide/svelte/icons/badge-dollar-sign';
+	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import GroupAssetShowcase from '$lib/components/groups/GroupAssetShowcase.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
@@ -41,13 +43,6 @@
 	// UI state
 	let showSticky = $state(false);
 	let heroSentinel = $state(null);
-
-	// Section collapse states (default: all expanded)
-	let postsExpanded = $state(true);
-	let eventsExpanded = $state(true);
-	let detailsExpanded = $state(true);
-	let resourcesExpanded = $state(true);
-	let newsExpanded = $state(true);
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -92,9 +87,9 @@
 		setTimeout(() => initMap(), 500);
 	});
 
-	// Re-init map when details section is expanded
+	// Re-init map when map element is ready
 	$effect(() => {
-		if (detailsExpanded && mapEl && !map && L) {
+		if (mapEl && !map && L) {
 			requestAnimationFrame(() => initMap());
 		}
 	});
@@ -237,6 +232,10 @@
 	const groupNewsPosts = $derived(
 		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
 	);
+	const accountingReports = $derived(
+		Array.isArray(data.accounting_public_reports) ? data.accounting_public_reports.slice(0, 3) : []
+	);
+	const latestAccountingReport = $derived(accountingReports[0] ?? null);
 	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
 	const connectedInstagramLabel = $derived(
 		connectedInstagram?.username
@@ -574,6 +573,29 @@
 			year: 'numeric'
 		}).format(date);
 	}
+
+	function formatAccountingCents(cents, currency = 'usd') {
+		const amount = Number(cents || 0) / 100;
+		try {
+			return new Intl.NumberFormat('en-US', {
+				style: 'currency',
+				currency: String(currency || 'usd').toUpperCase()
+			}).format(amount);
+		} catch {
+			return `$${amount.toFixed(2)}`;
+		}
+	}
+
+	function accountingSnapshotDate(value) {
+		if (!value) return '';
+		const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+		if (Number.isNaN(date.getTime())) return '';
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(date);
+	}
 </script>
 
 <svelte:head>
@@ -604,7 +626,7 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-<div class="group-detail mx-auto w-full max-w-4xl space-y-5 pb-10">
+<div class="mx-auto w-full max-w-6xl space-y-6 px-4 pb-12">
 	<GroupHeroCard
 		group={data.group}
 		canEdit={data.can_edit}
@@ -616,9 +638,9 @@
 	<!-- Auth notice -->
 	{#if authFlag === 'required' || authFlag === 'forbidden'}
 		<section
-			class="auth-notice rounded-2xl border p-4 {authFlag === 'required'
-				? 'border-warning-400-600/40 bg-warning-500/8'
-				: 'border-error-400-600/40 bg-error-500/8'}"
+			class="card border-surface-200-800/40 border p-4 {authFlag === 'required'
+				? 'preset-tonal-warning'
+				: 'preset-tonal-error'}"
 			in:fade={{ duration: 180 }}
 		>
 			<div class="flex items-start gap-3">
@@ -629,20 +651,18 @@
 				/>
 				<div class="text-sm">
 					{#if authFlag === 'required'}
-						<strong>Please log in to edit this group.</strong>
-						<div class="text-surface-700-300 mt-0.5">
+						<strong class="font-bold">Please log in to edit this group.</strong>
+						<div class="mt-0.5 opacity-80">
 							Use the "Log in / Register" button in the header, then try again.
 						</div>
 					{:else}
-						<strong>You don't have permission to edit this group.</strong>
+						<strong class="font-bold">You don't have permission to edit this group.</strong>
 						{#if (data.owners_count ?? 0) === 0}
-							<div class="text-surface-700-300 mt-0.5">
+							<div class="mt-0.5 opacity-80">
 								If you represent this group, claim it below to become an owner.
 							</div>
 						{:else}
-							<div class="text-surface-700-300 mt-0.5">
-								Ask an existing owner to add you as an owner.
-							</div>
+							<div class="mt-0.5 opacity-80">Ask an existing owner to add you as an owner.</div>
 						{/if}
 					{/if}
 				</div>
@@ -652,25 +672,25 @@
 
 	{#if followFlag === 'success'}
 		<section
-			class="auth-notice border-success-400-600/40 bg-success-500/8 rounded-2xl border p-4"
+			class="card preset-tonal-success border-surface-200-800/40 border p-4"
 			in:fade={{ duration: 180 }}
 		>
 			<div class="flex items-start gap-3">
 				<IconInfo class="text-success-500 mt-0.5 h-5 w-5 shrink-0" />
 				<div class="text-sm">
-					<strong>You're now following this group.</strong>
+					<strong class="font-bold">You're now following this group.</strong>
 				</div>
 			</div>
 		</section>
 	{:else if followFlag === 'error'}
 		<section
-			class="auth-notice border-error-400-600/40 bg-error-500/8 rounded-2xl border p-4"
+			class="card preset-tonal-error border-surface-200-800/40 border p-4"
 			in:fade={{ duration: 180 }}
 		>
 			<div class="flex items-start gap-3">
 				<IconInfo class="text-error-500 mt-0.5 h-5 w-5 shrink-0" />
 				<div class="text-sm">
-					<strong>{followMessage || 'Unable to complete follow.'}</strong>
+					<strong class="font-bold">{followMessage || 'Unable to complete follow.'}</strong>
 				</div>
 			</div>
 		</section>
@@ -679,34 +699,31 @@
 	<!-- Claim banner -->
 	{#if !hasOwner}
 		<section
-			class="claim-panel relative overflow-hidden rounded-2xl p-5"
+			class="card preset-tonal-warning border-surface-200-800/40 flex flex-col gap-4 border p-6 md:flex-row md:items-center md:justify-between"
 			in:fade={{ duration: 200 }}
 		>
-			<div class="claim-glow" aria-hidden="true"></div>
-			<div class="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-				<div class="flex items-start gap-3">
-					<div
-						class="claim-icon-ring mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-					>
-						<IconFlag class="text-warning-400 h-5 w-5" />
-					</div>
-					<div class="min-w-0">
-						<div class="font-semibold">This group hasn't been claimed yet</div>
-						<p class="text-surface-700-300 mt-0.5 text-sm">
-							If you represent this group, claim it to manage details, photos, and more.
-						</p>
-					</div>
+			<div class="flex items-start gap-4">
+				<div class="preset-filled-warning-500 rounded-xl p-3 text-white">
+					<IconFlag class="h-6 w-6" />
 				</div>
+				<div>
+					<h3 class="text-lg font-bold">This group hasn't been claimed yet</h3>
+					<p class="mt-1 text-sm opacity-80">
+						If you represent this group, claim it to manage details, photos, and more.
+					</p>
+				</div>
+			</div>
+			<div class="flex w-full shrink-0 flex-col gap-2 md:w-auto">
 				{#if data.user}
 					<button
-						class="btn preset-filled-warning-500 shrink-0 font-bold shadow-lg"
+						class="btn preset-filled-warning-500 w-full font-bold shadow-md md:w-auto"
 						onclick={claimGroup}
 					>
 						Claim Group
 					</button>
 				{:else}
 					<button
-						class="btn preset-filled-warning-500 shrink-0 font-bold shadow-lg"
+						class="btn preset-filled-warning-500 w-full font-bold shadow-md md:w-auto"
 						onclick={() => (claimOpen = true)}
 					>
 						Claim Group
@@ -716,9 +733,9 @@
 
 			<!-- Email form for unauthenticated claim -->
 			{#if claimOpen && !data.user}
-				<div class="relative z-10 mt-4" in:slide={{ duration: 180 }}>
+				<div class="mt-4 w-full" in:slide={{ duration: 180 }}>
 					<form
-						class="border-surface-300-700/50 bg-surface-100-900/50 rounded-xl border p-4 backdrop-blur-sm"
+						class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-4 border p-5"
 						onsubmit={sendClaimLogin}
 					>
 						<div
@@ -736,29 +753,31 @@
 							aria-hidden="true"
 							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 						/>
-						<label
-							for="claim-email"
-							class="text-surface-700-300 mb-1.5 block text-xs font-medium tracking-wide uppercase"
-						>
-							Log in / Register to continue
-						</label>
-						<input
-							id="claim-email"
-							type="email"
-							bind:value={claimEmail}
-							placeholder="you@example.com"
-							class="input w-full"
-							required
-						/>
+						<div>
+							<label
+								for="claim-email"
+								class="mb-1.5 block text-xs font-semibold tracking-wider uppercase opacity-75"
+							>
+								Log in / Register to continue
+							</label>
+							<input
+								id="claim-email"
+								type="email"
+								bind:value={claimEmail}
+								placeholder="you@example.com"
+								class="input"
+								required
+							/>
+						</div>
 						{#if claimError}
-							<div class="text-error-600-400 mt-2 text-xs">{claimError}</div>
+							<div class="text-error-500 text-xs font-medium">{claimError}</div>
 						{/if}
 						{#if claimSuccess}
-							<div class="text-success-600-400 mt-2 text-xs">{claimSuccess}</div>
+							<div class="text-success-500 text-xs font-medium">{claimSuccess}</div>
 						{/if}
 						<button
 							type="submit"
-							class="btn preset-filled-primary-500 mt-3 w-full {claimLoading
+							class="btn preset-filled-primary-500 w-full font-bold {claimLoading
 								? 'animate-pulse'
 								: ''} {!claimEmailValid || claimLoading ? 'cursor-not-allowed opacity-50' : ''}"
 							disabled={!claimEmailValid || claimLoading}>Send Magic Link</button
@@ -769,73 +788,13 @@
 		</section>
 	{/if}
 
-	{#if followModalOpen}
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-			role="button"
-			tabindex="0"
-			onclick={(event) => {
-				if (event.target === event.currentTarget) followModalOpen = false;
-			}}
-			onkeydown={(event) => {
-				if (event.key === 'Escape') followModalOpen = false;
-			}}
-		>
-			<form
-				class="card border-surface-300-700 bg-surface-100-900/95 w-full max-w-md space-y-3 rounded-2xl border p-5"
-				onsubmit={sendFollowMagicLink}
-			>
-				<div>
-					<h3 class="text-lg font-semibold">Follow {data.group?.name}</h3>
-					<p class="text-surface-700-300 mt-1 text-sm">
-						Enter your email to log in or create an account. We'll add you as a follower right after
-						you open the magic link.
-					</p>
-				</div>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium">Email address</span>
-					<input
-						type="email"
-						class="input"
-						bind:value={followEmail}
-						placeholder="you@example.com"
-						required
-					/>
-				</label>
-				{#if followError}
-					<p class="text-error-600-400 text-sm">{followError}</p>
-				{/if}
-				{#if followSuccess}
-					<p class="text-success-600-400 text-sm">{followSuccess}</p>
-				{/if}
-				<div class="flex items-center justify-end gap-2">
-					<button
-						type="button"
-						class="btn preset-tonal-surface"
-						onclick={() => (followModalOpen = false)}
-						disabled={followLoading}
-					>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						class="btn preset-filled-primary-500"
-						disabled={followLoading || !followEmailValid}
-					>
-						{followLoading ? 'Sending…' : 'Email Me A Login Link'}
-					</button>
-				</div>
-			</form>
-		</div>
-	{/if}
-
 	<!-- Sticky subheader (appears after hero scrolls out) -->
 	{#if showSticky}
 		<div
-			class="border-surface-300-700/30 bg-surface-100-900/80 sticky top-0 z-40 border-b backdrop-blur-xl"
+			class="border-surface-200-800 bg-surface-100-900/90 animate-fade-in sticky top-0 z-40 border-b backdrop-blur-xl"
 			in:slide={{ duration: 180, axis: 'y' }}
 		>
-			<div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-3 py-2">
+			<div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
 				<div class="flex min-w-0 items-center gap-3">
 					{#if data.group?.logo_url}
 						<img
@@ -846,14 +805,17 @@
 					{/if}
 					<div class="min-w-0">
 						<div class="truncate text-sm font-semibold">{data.group?.name}</div>
-						<div class="text-surface-700-300 truncate text-xs">
+						<div class="truncate text-xs opacity-75">
 							{#if data.group?.city}{data.group.city},{/if}{data.group?.state_region} · {data.group
 								?.country}
 						</div>
 					</div>
 				</div>
 				{#if data.is_owner}
-					<a href={`/groups/${data.group.slug}/manage`} class="chip preset-filled-primary-500">
+					<a
+						href={`/groups/${data.group.slug}/manage`}
+						class="btn btn-sm preset-filled-primary-500 font-bold"
+					>
 						Manage Group
 					</a>
 				{:else if primaryCta}
@@ -863,11 +825,11 @@
 						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
 							? undefined
 							: 'noopener noreferrer'}
-						class="chip preset-filled-primary-500 flex items-center gap-2"
+						class="btn btn-sm preset-filled-primary-500 flex items-center gap-1.5 font-bold"
 					>
 						{#if primaryCta.key !== 'custom'}
 							{@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
-							<IconComp3 class="h-4 w-4" />
+							<IconComp3 class="h-3.5 w-3.5" />
 						{/if}
 						<span>{primaryCta.label}</span>
 					</a>
@@ -879,310 +841,521 @@
 	<!-- Sentinel for sticky observer -->
 	<div bind:this={heroSentinel}></div>
 
-	<!-- ── Identity / Overview Card ── -->
-	<section
-		class="identity-card relative overflow-hidden rounded-2xl p-5"
-		in:fade={{ duration: 240, delay: 60 }}
-	>
-		<!-- Gradient accent top bar -->
-		<div class="identity-accent-bar" aria-hidden="true"></div>
-
-		<!-- Top row: type chips + social links -->
-		<div class="flex items-start justify-between gap-3">
-			{#if types.length}
-				<div class="flex flex-wrap gap-2">
-					{#each types as t}
-						<span class={chipFilled(t)}>{t}</span>
-					{/each}
-				</div>
-			{/if}
-
-			<!-- Social contact icons -->
-			{#if contactLinks.length}
-				<div class="ml-auto flex shrink-0 items-center gap-1">
-					{#each contactLinks.slice(0, 6) as c}
-						{@const ContactIcon = contactIconByKey[c.key] || IconLink}
-						<a
-							href={c.href}
-							title={c.key}
-							target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
-							rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
-							class="contact-icon-btn rounded-lg p-2 transition-all"
-						>
-							<ContactIcon class="h-4 w-4" />
-						</a>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<!-- About / description -->
-		{#if data.group?.description}
-			<div class="mt-4">
-				<AutoLinkText
-					text={data.group.description}
-					className={'text-surface-800-200 text-sm leading-relaxed ' +
-						(aboutExpanded ? '' : 'line-clamp-5')}
-				/>
-				{#if data.group.description?.length > 220}
-					<button
-						type="button"
-						class="text-primary-700-300 hover:text-primary-600-400 mt-2 text-sm font-medium transition-colors"
-						onclick={() => (aboutExpanded = !aboutExpanded)}
-					>
-						{aboutExpanded ? 'Show less' : 'Read more'}
-					</button>
-				{/if}
-			</div>
-		{/if}
-
-		<!-- Audience + Discipline chip rows -->
-		{#if audiences.length || disciplines.length || skills.length}
-			<div class="mt-4 space-y-2.5">
-				{#if audiences.length}
-					<div class="flex items-center gap-3">
-						<div class="flex items-center gap-1.5">
-							<IconUsers class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
-							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Audience</span>
-						</div>
-						<div class="flex flex-wrap gap-1.5">
-							{#each audiences as a}
-								<span class="chip preset-tonal-secondary text-xs">{a}</span>
+	<!-- Layout Grid -->
+	<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+		<!-- Left / Main Column (spans 2 columns on desktop) -->
+		<div class="space-y-6 lg:col-span-2">
+			<!-- About Card -->
+			<section
+				class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+				in:fade={{ duration: 240, delay: 60 }}
+			>
+				<div
+					class="border-surface-200-800/40 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+				>
+					<h2 class="flex items-center gap-2 text-xl font-bold">
+						About {data.group?.name}
+					</h2>
+					<!-- Social contact icons -->
+					{#if contactLinks.length}
+						<div class="flex flex-wrap items-center gap-1">
+							{#each contactLinks.slice(0, 6) as c}
+								{@const ContactIcon = contactIconByKey[c.key] || IconLink}
+								<a
+									href={c.href}
+									title={c.key}
+									target={c.key === 'email' || c.key === 'phone' ? '_self' : '_blank'}
+									rel={c.key === 'email' || c.key === 'phone' ? undefined : 'noopener noreferrer'}
+									class="btn btn-sm btn-icon preset-tonal-surface hover:preset-tonal-primary transition-colors"
+								>
+									<ContactIcon class="h-4 w-4" />
+								</a>
 							{/each}
 						</div>
-					</div>
-				{/if}
-				{#if disciplines.length}
-					<div class="flex items-center gap-3">
-						<div class="flex items-center gap-1.5">
-							<IconRepeat class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
-							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Discipline</span>
-						</div>
-						<div class="flex flex-wrap gap-1.5">
-							{#each disciplines as d}
-								<span class={chipFilled(d)}>{d}</span>
-							{/each}
-						</div>
-					</div>
-				{/if}
-				{#if skills.length}
-					<div class="flex items-center gap-3">
-						<div class="flex items-center gap-1.5">
-							<IconDumbbell class="text-surface-500-400 h-3.5 w-3.5 shrink-0" />
-							<span class="text-surface-600-400 min-w-20 text-xs font-medium">Skill</span>
-						</div>
-						<div class="flex flex-wrap gap-1.5">
-							{#each skills as s}
-								<span class="chip preset-tonal-tertiary text-xs">{s}</span>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-	</section>
-
-	{#if canAcceptDonations || shouldShowDonationSetup}
-		<section
-			class="support-section relative overflow-hidden rounded-2xl"
-			in:fade={{ duration: 220 }}
-		>
-			<div class="support-accent-bar" aria-hidden="true"></div>
-			<div class="support-glow" aria-hidden="true"></div>
-
-			<div class="relative z-10 p-5">
-				<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-					<div class="flex items-start gap-3">
-						<div
-							class="support-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-						>
-							<IconHandHeart class="h-5 w-5 text-white" />
-						</div>
-						<div>
-							<h2 class="text-lg font-bold">Support {data.group?.name}</h2>
-							{#if shouldShowDonationSetup}
-								<p class="text-surface-600-400 text-sm">
-									Connect Stripe in the edit page to enable donations for this claimed group.
-								</p>
-							{/if}
-						</div>
-					</div>
-					{#if shouldShowDonationSetup}
-						<a
-							href={`/groups/${data.group?.slug}/manage/edit`}
-							class="btn preset-outlined-primary-500 shrink-0"
-						>
-							Connect Stripe
-						</a>
 					{/if}
 				</div>
 
-				{#if canAcceptDonations}
-					<form method="GET" action="/donate" class="mt-4">
-						<input type="hidden" name="group" value={data.group?.slug || ''} />
-						<div class="flex flex-wrap items-center gap-2">
-							{#each [10, 25, 50, 100] as preset}
-								<button
-									type="button"
-									class="btn px-4 py-2 {Number(donationStartAmount) === preset
-										? 'preset-filled-primary-500'
-										: 'preset-tonal-surface'} font-bold"
-									onclick={() => (donationStartAmount = preset)}
-								>
-									${preset}
-								</button>
-							{/each}
-							<div class="relative max-w-[140px] min-w-[120px] flex-1">
-								<span
-									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lg font-bold opacity-50"
-									>$</span
-								>
-								<input
-									type="number"
-									min="1"
-									max="25000"
-									step="1"
-									name="amount"
-									class="input w-full pl-7 font-bold"
-									bind:value={donationStartAmount}
-									required
-								/>
-							</div>
-							<button type="submit" class="btn preset-filled-primary-500 gap-1 font-bold">
-								Donate
-								<IconArrowRight class="h-4 w-4" />
+				<!-- About / description -->
+				{#if data.group?.description}
+					<div>
+						<AutoLinkText
+							text={data.group.description}
+							className={'text-surface-800-200 text-sm leading-relaxed ' +
+								(aboutExpanded ? '' : 'line-clamp-5')}
+						/>
+						{#if data.group.description?.length > 220}
+							<button
+								type="button"
+								class="text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 mt-2 text-sm font-semibold transition-colors"
+								onclick={() => (aboutExpanded = !aboutExpanded)}
+							>
+								{aboutExpanded ? 'Show less' : 'Read more'}
 							</button>
-						</div>
-					</form>
+						{/if}
+					</div>
 				{/if}
-			</div>
-		</section>
-	{/if}
 
-	{#if groupNewsPosts.length}
-		<section
-			class="news-section relative overflow-hidden rounded-2xl"
-			in:fade={{ duration: 240, delay: 70 }}
-		>
-			<div class="news-accent-bar" aria-hidden="true"></div>
-			<div class="news-glow" aria-hidden="true"></div>
+				<!-- Tags list -->
+				{#if types.length || audiences.length || disciplines.length || skills.length}
+					<div class="border-surface-200-800/40 space-y-4 border-t pt-4">
+						{#if types.length}
+							<div class="flex flex-wrap gap-1.5">
+								{#each types as t}
+									<span class={chipFilled(t)}>{t}</span>
+								{/each}
+							</div>
+						{/if}
 
-			<!-- Collapsible Header -->
-			<button
-				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-				onclick={() => (newsExpanded = !newsExpanded)}
-			>
-				<div class="flex min-w-0 items-center gap-3">
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							{#if audiences.length}
+								<div class="flex items-start gap-2.5">
+									<IconUsers class="text-surface-500 mt-0.5 h-4 w-4 shrink-0" />
+									<div>
+										<span class="text-surface-600 mb-1 block text-xs font-semibold">Audience</span>
+										<div class="flex flex-wrap gap-1.5">
+											{#each audiences as a}
+												<span class="chip preset-tonal-secondary text-xs">{a}</span>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+
+							{#if disciplines.length}
+								<div class="flex items-start gap-2.5">
+									<IconRepeat class="text-surface-500 mt-0.5 h-4 w-4 shrink-0" />
+									<div>
+										<span class="text-surface-600 mb-1 block text-xs font-semibold">Discipline</span
+										>
+										<div class="flex flex-wrap gap-1.5">
+											{#each disciplines as d}
+												<span class={chipFilled(d)}>{d}</span>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+
+							{#if skills.length}
+								<div class="flex items-start gap-2.5">
+									<IconDumbbell class="text-surface-500 mt-0.5 h-4 w-4 shrink-0" />
+									<div>
+										<span class="text-surface-600 mb-1 block text-xs font-semibold"
+											>Skill Levels</span
+										>
+										<div class="flex flex-wrap gap-1.5">
+											{#each skills as s}
+												<span class="chip preset-tonal-tertiary text-xs">{s}</span>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+			</section>
+
+			<!-- Financial Snapshot Card (Fixed public accounting snapshot section) -->
+			{#if latestAccountingReport}
+				{@const snapshot = latestAccountingReport.snapshot ?? {}}
+				{@const financialReport = snapshot.report ?? {}}
+				{@const visibility = latestAccountingReport.visibility ?? {}}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+					in:fade={{ duration: 220 }}
+				>
 					<div
-						class="news-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						class="border-surface-200-800/40 flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between"
 					>
-						<IconNewspaper class="h-5 w-5 text-white" />
+						<div class="flex items-center gap-3">
+							<div class="preset-filled-primary-500 rounded-xl p-2.5 text-white">
+								<IconWalletCards class="h-5 w-5" />
+							</div>
+							<div>
+								<h2 class="text-xl font-bold">Financial Snapshot</h2>
+								<p class="mt-0.5 text-xs opacity-75">
+									{latestAccountingReport.title} · {accountingSnapshotDate(
+										latestAccountingReport.report_period_start
+									)} to {accountingSnapshotDate(latestAccountingReport.report_period_end)}
+								</p>
+							</div>
+						</div>
+						<div class="badge preset-tonal-surface px-3 py-1 text-xs font-medium">
+							Published {accountingSnapshotDate(latestAccountingReport.published_at)}
+						</div>
 					</div>
-					<div class="min-w-0">
-						<h2 class="text-lg font-bold">Latest Updates</h2>
-						<p class="text-surface-600-400 text-sm">News from {data.group?.name}</p>
-					</div>
-				</div>
-				<div class="flex items-center gap-3">
-					<a
-						href={`/groups/${data.group.slug}/news`}
-						class="btn btn-sm preset-tonal-surface whitespace-nowrap"
-						onclick={(e) => e.stopPropagation()}
-					>
-						View All <IconArrowRight class="ml-1 h-3.5 w-3.5" />
-					</a>
-					<div class="section-chevron {newsExpanded ? 'expanded' : ''}">
-						<IconChevronDown class="h-5 w-5" />
-					</div>
-				</div>
-			</button>
 
-			{#if newsExpanded}
-				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
+					<div class="grid gap-4 md:grid-cols-3">
+						{#if visibility.cash !== false}
+							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">
+									Cash position
+								</p>
+								<p class="mt-1 text-2xl font-black">
+									{formatAccountingCents(
+										(financialReport.totals?.assets_cents || 0) -
+											(financialReport.totals?.liabilities_cents || 0)
+									)}
+								</p>
+							</div>
+						{/if}
+						{#if visibility.activity !== false}
+							<div class="card preset-tonal-success border-surface-200-800/40 border p-4">
+								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">Money in</p>
+								<p class="mt-1 text-2xl font-black">
+									{formatAccountingCents(financialReport.totals?.income_cents)}
+								</p>
+							</div>
+							<div class="card preset-tonal-error border-surface-200-800/40 border p-4">
+								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">Money out</p>
+								<p class="mt-1 text-2xl font-black">
+									{formatAccountingCents(financialReport.totals?.expense_cents)}
+								</p>
+							</div>
+						{/if}
+					</div>
+
+					{#if visibility.position !== false}
+						<div class="grid gap-4 md:grid-cols-2">
+							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+								<h3
+									class="border-surface-200-800/20 text-primary-500 mb-2.5 flex items-center gap-1.5 border-b pb-1.5 text-sm font-bold"
+								>
+									<span>What we have</span>
+								</h3>
+								<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
+									{#each (financialReport.assets ?? [])
+										.filter((account) => account.balance_cents !== 0)
+										.slice(0, 6) as account}
+										<div class="flex justify-between gap-3 pt-1.5 text-sm">
+											<span class="font-medium">{account.name}</span>
+											<span class="font-semibold"
+												>{formatAccountingCents(account.balance_cents)}</span
+											>
+										</div>
+									{/each}
+								</div>
+							</div>
+							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+								<h3
+									class="border-surface-200-800/20 text-error-500 mb-2.5 flex items-center gap-1.5 border-b pb-1.5 text-sm font-bold"
+								>
+									<span>Top spending categories</span>
+								</h3>
+								<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
+									{#each (financialReport.expenses ?? [])
+										.filter((account) => account.period_balance_cents > 0)
+										.slice(0, 6) as account}
+										<div class="flex justify-between gap-3 pt-1.5 text-sm">
+											<span class="font-medium">{account.name}</span>
+											<span class="font-semibold"
+												>{formatAccountingCents(account.period_balance_cents)}</span
+											>
+										</div>
+									{:else}
+										<p class="text-sm opacity-60 py-3 text-center">
+											No spending shown in this snapshot.
+										</p>
+									{/each}
+								</div>
+							</div>
+						</div>
+					{/if}
+
+					{#if visibility.notes !== false && latestAccountingReport.notes}
+						<div
+							class="card preset-tonal-surface border-surface-200-800/40 border p-4 text-sm leading-relaxed opacity-90"
+						>
+							<div class="mb-1 text-xs font-bold tracking-wider uppercase opacity-65">
+								Publisher's Notes
+							</div>
+							{latestAccountingReport.notes}
+						</div>
+					{/if}
+
+					{#if accountingReports.length > 1}
+						<div class="border-surface-200-800/40 border-t pt-3">
+							<span class="mb-2 block text-xs font-bold tracking-wider uppercase opacity-60"
+								>Past Reports</span
+							>
+							<div class="flex flex-wrap gap-2">
+								{#each accountingReports.slice(1) as report}
+									<span
+										class="badge preset-tonal-surface border-surface-200-800/30 flex items-center gap-1.5 border px-3 py-1"
+									>
+										<IconBadgeDollarSign class="h-3.5 w-3.5" />
+										{report.title}
+									</span>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</section>
+			{/if}
+
+			<!-- Upcoming Rides Section -->
+			{#await data.rides then rides}
+				{#if Array.isArray(rides) && rides.length > 0}
+					<section
+						class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+						in:fade={{ duration: 240, delay: 100 }}
+					>
+						<div class="border-surface-200-800/40 flex items-center justify-between border-b pb-3">
+							<div class="flex items-center gap-3">
+								<div class="preset-filled-secondary-500 rounded-xl p-2.5 text-white">
+									<IconCalendar class="h-5 w-5" />
+								</div>
+								<div>
+									<h2 class="text-xl font-bold">Upcoming Rides</h2>
+									<p class="mt-0.5 text-xs opacity-75">Join the group for their next rides</p>
+								</div>
+							</div>
+						</div>
+
+						<ul class="space-y-4">
+							{#each rides as event, i}
+								<li
+									class="card preset-tonal-surface hover:preset-tonal-secondary border-surface-200-800/30 border p-4 transition-all duration-200"
+								>
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
+											<a
+												href={`/ride/${event.slug}`}
+												class="text-secondary-650 hover:text-secondary-550 dark:text-secondary-400 dark:hover:text-secondary-300 block text-base leading-snug font-bold transition-colors"
+											>
+												{event.title}
+											</a>
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs">
+												<span class="flex items-center gap-1.5 opacity-80">
+													<IconCalendar class="h-4 w-4" />
+													{new Intl.DateTimeFormat(undefined, {
+														dateStyle: 'medium',
+														timeStyle: 'short'
+													}).format(new Date(event.nextOccurrenceStart))}
+												</span>
+												<span class="flex items-center gap-1.5 opacity-80">
+													<IconMapPin class="h-4 w-4" />
+													<AutoLinkText
+														text={event.startLocationName || event.startLocationAddress}
+													/>
+												</span>
+											</div>
+										</div>
+										<div class="mt-2 flex shrink-0 flex-wrap items-center gap-2 md:mt-0">
+											<a
+												href={`/ride/${event.slug}`}
+												class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 font-semibold"
+											>
+												View Details
+												<IconArrowRight class="h-3.5 w-3.5" />
+											</a>
+										</div>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+			{/await}
+
+			<!-- Volunteer Opportunities Section -->
+			{#await data.volunteer_events then volunteer_events}
+				{#if Array.isArray(volunteer_events) && volunteer_events.length > 0}
+					<section
+						class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+						in:fade={{ duration: 240, delay: 120 }}
+					>
+						<div
+							class="border-surface-200-800/40 flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div class="flex items-center gap-3">
+								<div class="preset-filled-tertiary-500 rounded-xl p-2.5 text-white">
+									<IconHandHeart class="h-5 w-5" />
+								</div>
+								<div>
+									<h2 class="text-xl font-bold">Volunteer Opportunities</h2>
+									<p class="mt-0.5 text-xs opacity-75">Support the group by lending a hand</p>
+								</div>
+							</div>
+							<a
+								href={`/volunteer/groups/${data.group.slug}`}
+								class="btn btn-sm preset-outlined-tertiary-500 self-start font-semibold sm:self-auto"
+							>
+								All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+							</a>
+						</div>
+
+						<ul class="space-y-4">
+							{#each volunteer_events as event, i}
+								<li
+									class="card preset-tonal-surface hover:preset-tonal-tertiary border-surface-200-800/30 border p-4 transition-all duration-200"
+								>
+									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+										<div class="space-y-2">
+											<a
+												href={`/volunteer/${event.slug}`}
+												class="text-tertiary-650 hover:text-tertiary-550 dark:text-tertiary-400 dark:hover:text-tertiary-300 block text-base leading-snug font-bold transition-colors"
+											>
+												{event.title}
+											</a>
+											{#if event.summary}
+												<AutoLinkText
+													text={event.summary}
+													className="text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
+												/>
+											{/if}
+											<div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs">
+												<span class="flex items-center gap-1.5 opacity-80">
+													<IconCalendar class="h-4 w-4" />
+													{volunteerEventDateRange(event)}
+												</span>
+												{#if volunteerEventTimeRange(event)}
+													<span class="flex items-center gap-1.5 opacity-80">
+														<IconClock class="h-4 w-4" />
+														{volunteerEventTimeRange(event)}
+													</span>
+												{/if}
+												<span class="flex items-center gap-1.5 opacity-80">
+													<IconMapPin class="h-4 w-4" />
+													<AutoLinkText text={volunteerEventLocation(event)} />
+												</span>
+											</div>
+										</div>
+										<div class="mt-2 flex shrink-0 flex-wrap items-center gap-2 md:mt-0">
+											{#if event.can_manage}
+												<a
+													href={`/volunteer/${event.slug}/edit`}
+													class="btn btn-sm preset-outlined-secondary-500 font-semibold"
+												>
+													Edit
+												</a>
+												<a
+													href={`/volunteer/${event.slug}/manage`}
+													class="btn btn-sm preset-tonal-tertiary font-semibold"
+												>
+													Manage
+												</a>
+											{:else}
+												<a
+													href={`/volunteer/${event.slug}`}
+													class="btn btn-sm preset-filled-tertiary-500 flex items-center gap-1.5 font-bold shadow"
+												>
+													Volunteer
+													<IconArrowRight class="h-3.5 w-3.5" />
+												</a>
+											{/if}
+										</div>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+			{/await}
+
+			<!-- Latest Updates (News) Section -->
+			{#if groupNewsPosts.length}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+					in:fade={{ duration: 240, delay: 70 }}
+				>
+					<div
+						class="border-surface-200-800/40 flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between"
+					>
+						<div class="flex items-center gap-3">
+							<div class="preset-filled-primary-500 rounded-xl p-2.5 text-white">
+								<IconNewspaper class="h-5 w-5" />
+							</div>
+							<div>
+								<h2 class="text-xl font-bold">Latest Updates</h2>
+								<p class="mt-0.5 text-xs opacity-75">News and announcements</p>
+							</div>
+						</div>
+						<a
+							href={`/groups/${data.group.slug}/news`}
+							class="btn btn-sm preset-tonal-surface self-start font-semibold sm:self-auto"
+						>
+							View All <IconArrowRight class="ml-1 h-3.5 w-3.5" />
+						</a>
+					</div>
+
 					<div class="grid gap-4 md:grid-cols-3">
 						{#each groupNewsPosts as post}
 							<a
-								class="news-card rounded-xl p-4"
+								class="card preset-tonal-surface hover:preset-tonal-secondary border-surface-200-800/30 flex flex-col justify-between border p-4 transition-all duration-200"
 								href={`/groups/${data.group.slug}/news?open=${post.slug}`}
 							>
-								<div class="text-xs uppercase opacity-60">{newsPostDate(post)}</div>
-								<h3 class="mt-2 text-base leading-snug font-semibold">{post.title}</h3>
-								{#if post.preview_text}
-									<p class="text-surface-600-400 mt-2 line-clamp-2 text-sm">{post.preview_text}</p>
-								{/if}
+								<div>
+									<div class="text-[10px] font-bold tracking-wider uppercase opacity-60">
+										{newsPostDate(post)}
+									</div>
+									<h3 class="mt-2 text-sm leading-snug font-bold">{post.title}</h3>
+									{#if post.preview_text}
+										<p class="text-surface-800-200 mt-2 line-clamp-2 text-xs leading-relaxed">
+											{post.preview_text}
+										</p>
+									{/if}
+								</div>
 								<div
-									class="text-secondary-500 hover:text-secondary-400 mt-3 flex items-center gap-1 text-sm font-medium transition-colors"
+									class="text-secondary-600 dark:text-secondary-400 mt-3.5 flex items-center gap-1 text-xs font-bold"
 								>
 									Read update
-									<IconArrowRight class="h-4 w-4" />
+									<IconArrowRight class="h-3.5 w-3.5" />
 								</div>
 							</a>
 						{/each}
 					</div>
-				</div>
+				</section>
 			{/if}
-		</section>
-	{/if}
 
-	<!-- ── Instagram Posts Section ── -->
-	{#if hasPosts}
-		<section
-			class="instagram-section relative overflow-hidden rounded-2xl"
-			in:fade={{ duration: 240, delay: 80 }}
-		>
-			<!-- Gradient accent bar -->
-			<div class="instagram-accent-bar" aria-hidden="true"></div>
-			<!-- Subtle glow effect -->
-			<div class="instagram-glow" aria-hidden="true"></div>
-
-			<!-- Collapsible Header -->
-			<button
-				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-				onclick={() => (postsExpanded = !postsExpanded)}
-			>
-				<div class="flex min-w-0 items-center gap-3">
+			<!-- Instagram Posts Section -->
+			{#if hasPosts}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+					in:fade={{ duration: 240, delay: 80 }}
+				>
 					<div
-						class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						class="border-surface-200-800/40 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
 					>
-							<BrandInstagram class="h-5 w-5 text-white" />
-					</div>
-					<div class="min-w-0">
-						<h2 class="text-lg font-bold">Latest Posts</h2>
-						{#if connectedInstagramLabel}
-							<p class="text-surface-600-400 text-sm">{connectedInstagramLabel}</p>
-						{:else}
-							<p class="text-surface-600-400 text-sm">Instagram</p>
+						<div class="flex items-center gap-3">
+							<div class="preset-filled-secondary-500 rounded-xl p-2.5 text-white">
+								<BrandInstagram class="h-5 w-5 text-white" />
+							</div>
+							<div>
+								<h2 class="text-xl font-bold">Latest Posts</h2>
+								{#if connectedInstagramLabel}
+									<p class="mt-0.5 text-xs opacity-75">{connectedInstagramLabel}</p>
+								{:else}
+									<p class="mt-0.5 text-xs opacity-75">Instagram posts</p>
+								{/if}
+							</div>
+						</div>
+						{#if instagramPostsSource === 'public_profile'}
+							<span class="badge preset-tonal-secondary text-xs">Public profile</span>
+						{:else if instagramPostsSource === 'manual'}
+							<span class="badge preset-tonal-secondary text-xs">Manual embeds</span>
 						{/if}
 					</div>
-				</div>
-				<div class="flex items-center gap-3">
-					{#if instagramPostsSource === 'public_profile'}
-						<span class="chip preset-tonal-secondary text-xs">Public profile</span>
-					{:else if instagramPostsSource === 'manual'}
-						<span class="chip preset-tonal-secondary text-xs">Manual embeds</span>
-					{/if}
-					<div class="section-chevron {postsExpanded ? 'expanded' : ''}">
-						<IconChevronDown class="h-5 w-5" />
-					</div>
-				</div>
-			</button>
 
-			{#if postsExpanded}
-				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
 					{#if instagramPosts.length > 0}
-						<!-- Posts Grid -->
-						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
 							{#each instagramPosts as post, i (post.id)}
 								<article
-									class="instagram-post-card group overflow-hidden rounded-xl"
-									style="--stagger: {i}"
+									class="card preset-tonal-surface hover:preset-tonal-primary border-surface-200-800/30 group flex flex-col overflow-hidden border transition-all duration-200"
 								>
 									<!-- Media Container -->
 									<a
 										href={post.permalink}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="instagram-media-container relative block aspect-square w-full overflow-hidden"
+										class="Scrim relative block aspect-square w-full overflow-hidden bg-black"
 									>
 										{#if instagramHasInlineMedia(post)}
 											<img
@@ -1203,36 +1376,35 @@
 										{/if}
 										<!-- Hover overlay -->
 										<div
-											class="instagram-media-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+											class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
 										>
 											<span
-												class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
+												class="bg-secondary-500 flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow"
 											>
-							<BrandInstagram class="h-4 w-4" />
+												<BrandInstagram class="h-3.5 w-3.5" />
 												View on Instagram
 											</span>
 										</div>
 									</a>
 
 									<!-- Caption & Meta -->
-									<div class="instagram-post-content p-3.5">
-										<p
-											class="instagram-caption text-surface-800-200 line-clamp-2 text-sm leading-relaxed"
-										>
+									<div class="flex flex-1 flex-col justify-between p-3.5">
+										<p class="text-surface-800-200 line-clamp-2 text-xs leading-relaxed">
 											{instagramPostCaption(post)}
 										</p>
-										<div class="mt-2.5 flex items-center justify-between">
-											<time class="text-surface-600-400 text-xs font-medium">
+										<div
+											class="border-surface-200-800/10 mt-3 flex items-center justify-between border-t pt-2 text-[10px]"
+										>
+											<time class="font-semibold opacity-75">
 												{instagramPostDate(post)}
 											</time>
 											<a
 												href={post.permalink}
 												target="_blank"
 												rel="noopener noreferrer"
-												class="instagram-open-link text-secondary-500 hover:text-secondary-400 flex items-center gap-1 text-xs font-semibold transition-colors"
+												class="text-secondary-655 dark:text-secondary-400 flex items-center gap-0.5 font-bold hover:underline"
 											>
-												Open
-												<IconArrowRight class="h-3 w-3" />
+												Open <IconArrowRight class="h-3 w-3" />
 											</a>
 										</div>
 									</div>
@@ -1240,931 +1412,315 @@
 							{/each}
 						</div>
 					{:else}
-						<!-- Empty state -->
-						<div class="flex flex-col items-center justify-center py-8 text-center">
-							<p class="text-surface-500 text-sm">No recent posts available yet</p>
+						<div class="card preset-tonal-surface p-8 text-center text-sm opacity-60">
+							No recent posts available yet
 						</div>
 					{/if}
 
-					<!-- View Profile Link -->
 					{#if instagramProfileUrl}
-						<div class="mt-4 flex justify-center">
+						<div class="flex justify-center pt-2">
 							<a
 								href={instagramProfileUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="btn preset-filled-secondary-500 gap-1.5"
+								class="btn preset-filled-secondary-500 gap-1.5 font-bold"
 							>
 							<BrandInstagram class="h-4 w-4" />
 								View Profile
 							</a>
 						</div>
 					{/if}
-				</div>
+				</section>
 			{/if}
-		</section>
-	{/if}
 
-	<!-- ── Events Section ── -->
-	{#await data.rides then rides}
-		{#if Array.isArray(rides) && rides.length > 0}
-			{@const hasEvents = true}
-			<section
-				class="events-section relative overflow-hidden rounded-2xl"
-				in:fade={{ duration: 240, delay: 100 }}
-			>
-				<div class="events-accent-bar" aria-hidden="true"></div>
-				<div class="events-glow" aria-hidden="true"></div>
-
-				<!-- Collapsible Header -->
-				<button
-					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-					onclick={() => (eventsExpanded = !eventsExpanded)}
+			<!-- Resources Bucket Section -->
+			{#if (data.asset_buckets ?? []).length > 0}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
+					in:fade={{ duration: 240, delay: 160 }}
 				>
-					<div class="flex min-w-0 items-center gap-3">
-						<div
-							class="events-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-						>
-							<IconCalendar class="h-5 w-5 text-white" />
+					<div class="border-surface-200-800/40 flex items-center gap-3 border-b pb-3">
+						<div class="preset-filled-primary-500 rounded-xl p-2.5 text-white">
+							<IconFolderOpen class="h-5 w-5" />
 						</div>
-						<div class="min-w-0">
-							<h2 class="text-lg font-bold">Upcoming Rides</h2>
-							<p class="text-surface-600-400 text-sm">
-								Join {data.group?.name} for their upcoming group rides
-							</p>
+						<div>
+							<h2 class="text-xl font-bold">Resources</h2>
+							<p class="mt-0.5 text-xs opacity-75">Photos, documents, and useful links</p>
 						</div>
 					</div>
-					<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
-						<IconChevronDown class="h-5 w-5" />
-					</div>
-				</button>
+					<GroupAssetShowcase slug={data.group?.slug} buckets={data.asset_buckets ?? []} />
+				</section>
+			{/if}
+		</div>
 
-				{#if eventsExpanded}
-					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
-						<!-- Event list -->
-						<ul class="space-y-3">
-							{#each rides as event, i}
-								<li class="event-card rounded-xl p-4" style="--stagger: {i}">
-									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-										<div class="space-y-2">
-											<a
-												href={`/ride/${event.slug}`}
-												class="text-secondary-300 hover:text-secondary-200 text-base leading-snug font-semibold transition-colors"
-											>
-												{event.title}
-											</a>
-											{#if event.summary}
-												<AutoLinkText
-													text={event.summary}
-													className="text-surface-600-400 line-clamp-2 text-sm"
-												/>
-											{/if}
-											<div class="flex flex-wrap items-center gap-3 text-xs">
-												<span class="text-surface-700-300 flex items-center gap-1">
-													<IconCalendar class="h-3.5 w-3.5" />
-													{new Intl.DateTimeFormat(undefined, {
-														dateStyle: 'medium',
-														timeStyle: 'short'
-													}).format(new Date(event.nextOccurrenceStart))}
-												</span>
-												<span class="text-surface-700-300 flex items-center gap-1">
-													<IconMapPin class="h-3.5 w-3.5" />
-													<AutoLinkText
-														text={event.startLocationName || event.startLocationAddress}
-													/>
-												</span>
-											</div>
-										</div>
-										<div class="flex shrink-0 flex-wrap items-center gap-2">
-											<a
-												href={`/ride/${event.slug}`}
-												class="btn btn-sm preset-outlined-secondary-500 flex items-center gap-1.5 whitespace-nowrap"
-											>
-												View Details
-												<IconArrowRight class="h-3.5 w-3.5" />
-											</a>
-										</div>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
-			</section>
-		{/if}
-	{/await}
-
-	<!-- ── Volunteer Events Section ── -->
-	{#await data.volunteer_events then volunteer_events}
-		{#if Array.isArray(volunteer_events) && volunteer_events.length > 0}
-			<section
-				class="volunteer-section relative overflow-hidden rounded-2xl"
-				in:fade={{ duration: 240, delay: 120 }}
-			>
-				<div class="volunteer-accent-bar" aria-hidden="true"></div>
-				<div class="volunteer-glow" aria-hidden="true"></div>
-
-				<!-- Collapsible Header -->
-				<button
-					class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-					onclick={() => (eventsExpanded = !eventsExpanded)}
+		<!-- Right / Sidebar Column -->
+		<div class="space-y-6">
+			<!-- Support / Donation Setup Card -->
+			{#if canAcceptDonations || shouldShowDonationSetup}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-4 border p-6"
+					in:fade={{ duration: 220 }}
 				>
-					<div class="flex min-w-0 items-center gap-3">
-						<div
-							class="volunteer-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-						>
-							<IconHandHeart class="h-5 w-5 text-white" />
+					<div class="border-surface-200-800/40 flex items-center gap-3 border-b pb-3">
+						<div class="preset-filled-warning-500 rounded-xl p-2.5 text-white">
+							<IconHandHeart class="h-5 w-5" />
 						</div>
-						<div class="min-w-0">
-							<h2 class="text-lg font-bold">Volunteer Opportunities</h2>
-							<p class="text-surface-600-400 text-sm">
-								Support {data.group?.name} by lending a hand
+						<div>
+							<h2 class="text-xl font-bold">Support {data.group?.name}</h2>
+							<p class="mt-0.5 text-xs opacity-75">Lend a hand or make a contribution</p>
+						</div>
+					</div>
+
+					{#if shouldShowDonationSetup}
+						<div class="space-y-3">
+							<p class="text-sm leading-relaxed opacity-80">
+								Connect Stripe in the edit page to enable donations for this claimed group.
 							</p>
+							<a
+								href={`/groups/${data.group?.slug}/manage/edit`}
+								class="btn preset-outlined-primary-500 w-full font-bold"
+							>
+								Connect Stripe
+							</a>
 						</div>
-					</div>
-					<div class="flex items-center gap-3">
-						<a
-							href={`/volunteer/groups/${data.group.slug}`}
-							class="btn btn-sm preset-outlined-tertiary-500 whitespace-nowrap"
-							onclick={(e) => e.stopPropagation()}
-						>
-							All Events <IconArrowRight class="ml-1 h-3.5 w-3.5" />
-						</a>
-						<div class="section-chevron {eventsExpanded ? 'expanded' : ''}">
-							<IconChevronDown class="h-5 w-5" />
-						</div>
-					</div>
-				</button>
+					{/if}
 
-				{#if eventsExpanded}
-					<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
-						<!-- Event list -->
-						<ul class="space-y-3">
-							{#each volunteer_events as event, i}
-								<li class="volunteer-event-card rounded-xl p-4" style="--stagger: {i}">
-									<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-										<div class="space-y-2">
-											<a
-												href={`/volunteer/${event.slug}`}
-												class="text-tertiary-300 hover:text-tertiary-200 text-base leading-snug font-semibold transition-colors"
-											>
-												{event.title}
-											</a>
-											{#if event.summary}
-												<AutoLinkText
-													text={event.summary}
-													className="text-surface-600-400 line-clamp-2 text-sm"
-												/>
-											{/if}
-											<div class="flex flex-wrap items-center gap-3 text-xs">
-												<span class="text-surface-700-300 flex items-center gap-1">
-													<IconCalendar class="h-3.5 w-3.5" />
-													{volunteerEventDateRange(event)}
-												</span>
-												{#if volunteerEventTimeRange(event)}
-													<span class="text-surface-700-300 flex items-center gap-1">
-														<IconClock class="h-3.5 w-3.5" />
-														{volunteerEventTimeRange(event)}
-													</span>
-												{/if}
-												<span class="text-surface-700-300 flex items-center gap-1">
-													<IconMapPin class="h-3.5 w-3.5" />
-													<AutoLinkText text={volunteerEventLocation(event)} />
-												</span>
-											</div>
-										</div>
-										<div class="flex shrink-0 flex-wrap items-center gap-2">
-											{#if event.can_manage}
-												<a
-													href={`/volunteer/${event.slug}/edit`}
-													class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-												>
-													Edit
-												</a>
-												<a
-													href={`/volunteer/${event.slug}/manage`}
-													class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-												>
-													Manage
-												</a>
-											{:else}
-												<a
-													href={`/volunteer/${event.slug}`}
-													class="btn btn-sm preset-filled-tertiary-500 flex items-center gap-1.5 whitespace-nowrap"
-												>
-													Volunteer
-													<IconArrowRight class="h-3.5 w-3.5" />
-												</a>
-											{/if}
-										</div>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
-			</section>
-		{/if}
-	{/await}
+					{#if canAcceptDonations}
+						<form method="GET" action="/donate" class="space-y-4">
+							<input type="hidden" name="group" value={data.group?.slug || ''} />
 
-	<!-- ── Details Section ── -->
-	{#if hasDetails}
-		<section
-			class="details-section relative overflow-hidden rounded-2xl"
-			in:fade={{ duration: 240, delay: 140 }}
-		>
-			<div class="details-accent-bar" aria-hidden="true"></div>
-			<div class="details-glow" aria-hidden="true"></div>
-
-			<!-- Collapsible Header -->
-			<button
-				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-				onclick={() => (detailsExpanded = !detailsExpanded)}
-			>
-				<div class="flex min-w-0 items-center gap-3">
-					<div
-						class="details-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-					>
-						<IconInfo class="h-5 w-5 text-white" />
-					</div>
-					<div class="min-w-0">
-						<h2 class="text-lg font-bold">Details & Location</h2>
-						<p class="text-surface-600-400 text-sm">
-							Membership info, meeting points, and service area
-						</p>
-					</div>
-				</div>
-				<div class="section-chevron {detailsExpanded ? 'expanded' : ''}">
-					<IconChevronDown class="h-5 w-5" />
-				</div>
-			</button>
-
-			{#if detailsExpanded}
-				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#if data.group?.how_to_join_instructions}
-							<div class="detail-item">
-								<div class="detail-label">How to Join</div>
-								<AutoLinkText
-									text={data.group.how_to_join_instructions}
-									className="text-surface-800-200 text-sm whitespace-pre-wrap"
-								/>
+							<!-- Preset Amount Buttons -->
+							<div class="grid grid-cols-4 gap-1.5">
+								{#each [10, 25, 50, 100] as preset}
+									<button
+										type="button"
+										class="btn btn-sm font-bold {Number(donationStartAmount) === preset
+											? 'preset-filled-primary-500'
+											: 'preset-tonal-surface'}"
+										onclick={() => (donationStartAmount = preset)}
+									>
+										${preset}
+									</button>
+								{/each}
 							</div>
-						{/if}
-						{#if data.group?.preferred_contact_method_instructions}
-							<div class="detail-item">
-								<div class="detail-label">Preferred Contact Method</div>
-								<AutoLinkText
-									text={data.group.preferred_contact_method_instructions}
-									className="text-surface-800-200 text-sm"
-								/>
-							</div>
-						{/if}
-						{#if data.group?.membership_info}
-							<div class="detail-item">
-								<div class="detail-label">Membership Info</div>
-								<AutoLinkText
-									text={data.group.membership_info}
-									className="text-surface-800-200 text-sm whitespace-pre-wrap"
-								/>
-							</div>
-						{/if}
-						{#if data.group?.zip_code}
-							<div class="detail-item">
-								<div class="detail-label">ZIP / Postal Code</div>
-								<p class="text-surface-800-200 text-sm">{data.group.zip_code}</p>
-							</div>
-						{/if}
-					</div>
 
-					{#if data.group?.activity_frequency || data.group?.typical_activity_day_time || data.group?.specific_meeting_point_address}
-						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-							{#if data.group?.activity_frequency}
-								<div class="detail-item">
-									<div class="detail-label flex items-center gap-1.5">
-										<IconRepeat class="h-3.5 w-3.5" />
-										Activity Frequency
-									</div>
-									<AutoLinkText
-										text={data.group.activity_frequency}
-										className="text-surface-800-200 text-sm"
+							<!-- Custom input + submit -->
+							<div class="flex items-center gap-2">
+								<div class="relative flex-1">
+									<span
+										class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-bold opacity-50"
+										>$</span
+									>
+									<input
+										type="number"
+										min="1"
+										max="25000"
+										step="1"
+										name="amount"
+										class="input w-full pl-7 text-center font-bold"
+										bind:value={donationStartAmount}
+										required
 									/>
 								</div>
-							{/if}
-							{#if data.group?.typical_activity_day_time}
-								<div class="detail-item">
-									<div class="detail-label flex items-center gap-1.5">
-										<IconClock class="h-3.5 w-3.5" />
-										Typical Day / Time
-									</div>
-									<AutoLinkText
-										text={data.group.typical_activity_day_time}
-										className="text-surface-800-200 text-sm"
-									/>
+								<button
+									type="submit"
+									class="btn preset-filled-primary-500 gap-1.5 font-bold shadow-md"
+								>
+									Donate
+									<IconArrowRight class="h-4 w-4" />
+								</button>
+							</div>
+						</form>
+					{/if}
+				</section>
+			{/if}
+
+			<!-- Details & Location Card -->
+			{#if hasDetails}
+				<section
+					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-4 border p-6"
+					in:fade={{ duration: 240, delay: 140 }}
+				>
+					<div class="border-surface-200-800/40 flex items-center gap-3 border-b pb-3">
+						<div class="preset-filled-primary-500 rounded-xl p-2.5 text-white">
+							<IconMapPin class="h-5 w-5" />
+						</div>
+						<div>
+							<h2 class="text-xl font-bold">Details & Location</h2>
+							<p class="mt-0.5 text-xs opacity-75">When, where, and how to meet</p>
+						</div>
+					</div>
+
+					<div class="space-y-4 leading-relaxed">
+						{#if data.group?.typical_activity_day_time}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Ride Schedule</span
+								>
+								<div class="flex items-start gap-2 text-sm font-semibold">
+									<IconClock class="text-primary-500 mt-0.5 h-4 w-4 shrink-0" />
+									<span>{data.group.typical_activity_day_time}</span>
 								</div>
-							{/if}
-							{#if data.group?.specific_meeting_point_address}
-								<div class="detail-item">
-									<div class="detail-label flex items-center gap-1.5">
-										<IconMapPin class="h-3.5 w-3.5" />
-										Meeting Point
-									</div>
+							</div>
+						{/if}
+
+						{#if data.group?.activity_frequency}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Frequency</span
+								>
+								<div class="flex items-start gap-2 text-sm font-semibold">
+									<IconRepeat class="text-secondary-500 mt-0.5 h-4 w-4 shrink-0" />
+									<span>{data.group.activity_frequency}</span>
+								</div>
+							</div>
+						{/if}
+
+						{#if data.group?.specific_meeting_point_address}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Meeting Point</span
+								>
+								<div class="flex items-start gap-2 text-sm">
+									<IconMapPin class="text-secondary-500 mt-0.5 h-4 w-4 shrink-0" />
 									<AutoLinkText
 										text={data.group.specific_meeting_point_address}
-										className="text-surface-800-200 text-sm"
+										className="font-semibold"
 									/>
 								</div>
-							{/if}
-						</div>
-					{/if}
-
-					{#if data.group?.service_area_description || hasCoords}
-						<div class="detail-item mt-4">
-							<div class="detail-label flex items-center gap-1.5">
-								<IconMapPin class="h-3.5 w-3.5" />
-								Service Area
 							</div>
-							{#if data.group?.service_area_description}
+						{/if}
+
+						{#if data.group?.how_to_join_instructions}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1.5 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>How to Join</span
+								>
+								<AutoLinkText
+									text={data.group.how_to_join_instructions}
+									className="text-sm whitespace-pre-wrap leading-relaxed block text-surface-800-200"
+								/>
+							</div>
+						{/if}
+
+						{#if data.group?.preferred_contact_method_instructions}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Preferred Contact</span
+								>
+								<AutoLinkText
+									text={data.group.preferred_contact_method_instructions}
+									className="text-sm text-surface-800-200 block"
+								/>
+							</div>
+						{/if}
+
+						{#if data.group?.membership_info}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1.5 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Membership Details</span
+								>
+								<AutoLinkText
+									text={data.group.membership_info}
+									className="text-sm whitespace-pre-wrap leading-relaxed block text-surface-800-200"
+								/>
+							</div>
+						{/if}
+
+						{#if data.group?.zip_code}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>ZIP / Postal Code</span
+								>
+								<p class="text-surface-800-200 font-mono text-sm font-bold">
+									{data.group.zip_code}
+								</p>
+							</div>
+						{/if}
+
+						{#if data.group?.service_area_description}
+							<div class="card preset-tonal-surface border-surface-200-800/30 border p-3.5">
+								<span class="mb-1.5 block text-[10px] font-bold tracking-wider uppercase opacity-60"
+									>Service Area</span
+								>
 								<AutoLinkText
 									text={data.group.service_area_description}
-									className="text-surface-800-200 text-sm whitespace-pre-wrap"
+									className="text-sm whitespace-pre-wrap leading-relaxed block text-surface-800-200"
 								/>
-							{/if}
-							{#if hasCoords}
-								<div class="map-container mt-3">
-									<div bind:this={mapEl} class="h-64 w-full rounded-xl"></div>
-								</div>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</section>
-	{/if}
+							</div>
+						{/if}
 
-	<!-- ── Resources Section ── -->
-	{#if (data.asset_buckets ?? []).length > 0}
-		<section
-			class="resources-section relative overflow-hidden rounded-2xl"
-			in:fade={{ duration: 240, delay: 160 }}
-		>
-			<div class="resources-accent-bar" aria-hidden="true"></div>
-			<div class="resources-glow" aria-hidden="true"></div>
-
-			<!-- Collapsible Header -->
-			<button
-				class="section-header relative z-10 flex w-full items-center justify-between p-5 text-left"
-				onclick={() => (resourcesExpanded = !resourcesExpanded)}
-			>
-				<div class="flex min-w-0 items-center gap-3">
-					<div
-						class="resources-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-					>
-						<IconFolderOpen class="h-5 w-5 text-white" />
+						{#if hasCoords}
+							<div class="border-surface-200-800/40 overflow-hidden rounded-xl border shadow-inner">
+								<div bind:this={mapEl} class="z-10 h-56 w-full"></div>
+							</div>
+						{/if}
 					</div>
-					<div class="min-w-0">
-						<h2 class="text-lg font-bold">Resources</h2>
-						<p class="text-surface-600-400 text-sm">Photos, files, and links</p>
-					</div>
-				</div>
-				<div class="section-chevron {resourcesExpanded ? 'expanded' : ''}">
-					<IconChevronDown class="h-5 w-5" />
-				</div>
-			</button>
-
-			{#if resourcesExpanded}
-				<div class="relative z-10 px-5 pb-5" in:slide={{ duration: 200 }}>
-					<GroupAssetShowcase slug={data.group?.slug} buckets={data.asset_buckets ?? []} />
-				</div>
+				</section>
 			{/if}
-		</section>
-	{/if}
+		</div>
+	</div>
 </div>
 
+{#if followModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+		role="button"
+		tabindex="0"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) followModalOpen = false;
+		}}
+		onkeydown={(event) => {
+			if (event.key === 'Escape') followModalOpen = false;
+		}}
+	>
+		<form
+			class="card preset-filled-surface-100-900 border-surface-300-700 w-full max-w-md space-y-4 rounded-2xl border p-6 shadow-2xl"
+			onsubmit={sendFollowMagicLink}
+		>
+			<div>
+				<h3 class="text-lg font-bold">Follow {data.group?.name}</h3>
+				<p class="mt-1 text-xs leading-relaxed opacity-75">
+					Enter your email to log in or create an account. We'll add you as a follower right after
+					you open the magic link.
+				</p>
+			</div>
+			<label class="flex flex-col gap-1.5">
+				<span class="text-xs font-semibold uppercase opacity-75">Email address</span>
+				<input
+					type="email"
+					class="input"
+					bind:value={followEmail}
+					placeholder="you@example.com"
+					required
+				/>
+			</label>
+			{#if followError}
+				<p class="text-error-500 text-xs font-medium">{followError}</p>
+			{/if}
+			{#if followSuccess}
+				<p class="text-success-500 text-xs font-medium">{followSuccess}</p>
+			{/if}
+			<div class="flex items-center justify-end gap-2 pt-2">
+				<button
+					type="button"
+					class="btn preset-tonal-surface font-semibold"
+					onclick={() => (followModalOpen = false)}
+					disabled={followLoading}
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					class="btn preset-filled-primary-500 font-bold"
+					disabled={followLoading || !followEmailValid}
+				>
+					{followLoading ? 'Sending…' : 'Email Me A Login Link'}
+				</button>
+			</div>
+		</form>
+	</div>
+{/if}
+
 <style>
-	/* ── Identity card ── */
-	.identity-card {
-		background: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
-		animation: card-in 380ms ease both;
-	}
-
-	.identity-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.news-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 70ms;
-	}
-
-	.news-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.news-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 90% 0%,
-			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.news-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
-			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-	}
-
-	.news-card {
-		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		transition:
-			transform 180ms ease,
-			box-shadow 180ms ease;
-	}
-
-	.news-card:hover {
-		transform: translateX(3px);
-		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-	}
-
-	.updates-cta-panel {
-		background:
-			linear-gradient(135deg, rgb(14 165 233 / 0.1), rgb(15 23 42 / 0.72)), rgb(2 6 23 / 0.92);
-		border: 1px solid rgb(56 189 248 / 0.18);
-		box-shadow: 0 20px 48px rgb(15 23 42 / 0.18);
-	}
-
-	.contact-icon-btn {
-		color: color-mix(in oklab, var(--color-surface-900) 30%, var(--color-surface-100) 70%);
-	}
-	.contact-icon-btn:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		color: var(--color-primary-400);
-	}
-	:global(.dark) .contact-icon-btn {
-		color: color-mix(in oklab, var(--color-surface-200) 80%, transparent);
-	}
-
-	/* ── Claim panel ── */
-	.claim-panel {
-		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-900) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 30%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 40ms;
-	}
-
-	.claim-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 80% 60% at 100% 0%,
-			color-mix(in oklab, var(--color-warning-500) 20%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.claim-icon-ring {
-		background: color-mix(in oklab, var(--color-warning-500) 18%, var(--color-surface-800) 82%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 35%, transparent);
-	}
-
-	/* ── Instagram section ── */
-	.instagram-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 80ms;
-	}
-
-	.instagram-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(
-			90deg,
-			var(--color-secondary-500),
-			var(--color-primary-500),
-			var(--color-secondary-500)
-		);
-		background-size: 200% 100%;
-		animation: gradient-shift 8s ease infinite;
-		opacity: 0.8;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.instagram-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 20% 0%,
-			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.instagram-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-primary-500) 20%),
-			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-secondary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-	}
-
-	.instagram-post-card {
-		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-		animation: card-in 400ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 80ms);
-	}
-
-	.instagram-post-card:hover {
-		transform: translateY(-3px);
-		box-shadow: 0 12px 28px -8px color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
-	}
-
-	.instagram-media-container {
-		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
-	}
-
-	.instagram-media-overlay {
-		background: linear-gradient(
-			to top,
-			color-mix(in oklab, var(--color-surface-950) 80%, transparent) 0%,
-			color-mix(in oklab, var(--color-surface-950) 40%, transparent) 40%,
-			transparent 100%
-		);
-	}
-
-	.instagram-view-btn {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 90%, white 10%),
-			color-mix(in oklab, var(--color-primary-500) 80%, white 20%)
-		);
-		box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--color-surface-950) 60%, transparent);
-		transform: translateY(8px);
-		transition: transform 200ms ease;
-	}
-
-	.group:hover .instagram-view-btn {
-		transform: translateY(0);
-	}
-
-	.instagram-post-content {
-		background: color-mix(in oklab, var(--color-surface-800) 95%, var(--color-secondary-500) 2%);
-	}
-
-	.instagram-caption {
-		display: -webkit-box;
-		line-clamp: 2;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	.instagram-open-link {
-		opacity: 0.8;
-	}
-
-	.instagram-open-link:hover {
-		opacity: 1;
-	}
-
-	/* ── Events section ── */
-	.events-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-secondary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 100ms;
-	}
-
-	.events-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.events-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 80% 0%,
-			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.events-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-secondary-500) 80%, var(--color-tertiary-500) 20%),
-			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-secondary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-secondary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-	}
-
-	.event-card {
-		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-secondary-500) 3%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		transition:
-			transform 180ms ease,
-			box-shadow 180ms ease;
-		animation: card-in 400ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 60ms);
-	}
-
-	.event-card:hover {
-		transform: translateX(3px);
-		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-	}
-
-	/* ── Volunteer section ── */
-	.volunteer-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-tertiary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 120ms;
-	}
-
-	.volunteer-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.volunteer-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 20% 100%,
-			color-mix(in oklab, var(--color-tertiary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.volunteer-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-tertiary-500) 80%, var(--color-primary-500) 20%),
-			color-mix(in oklab, var(--color-primary-500) 70%, var(--color-tertiary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-tertiary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-tertiary-500) 30%, transparent);
-	}
-
-	.volunteer-event-card {
-		background: color-mix(in oklab, var(--color-surface-800) 85%, var(--color-tertiary-500) 3%);
-		border: 1px solid color-mix(in oklab, var(--color-tertiary-500) 12%, transparent);
-		transition:
-			transform 180ms ease,
-			box-shadow 180ms ease;
-		animation: card-in 400ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 60ms);
-	}
-
-	.volunteer-event-card:hover {
-		transform: translateX(3px);
-		box-shadow: 0 4px 20px -4px color-mix(in oklab, var(--color-tertiary-500) 20%, transparent);
-	}
-
-	/* ── Details section ── */
-	.details-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 140ms;
-	}
-
-	.details-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-success-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.details-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 50% 100%,
-			color-mix(in oklab, var(--color-primary-500) 8%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.details-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-success-500) 20%),
-			color-mix(in oklab, var(--color-success-500) 70%, var(--color-primary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-	}
-
-	.detail-item {
-		padding: 0.875rem;
-		border-radius: 0.875rem;
-		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	.detail-label {
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		opacity: 0.55;
-		margin-bottom: 0.375rem;
-	}
-
-	.map-container {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 0.875rem;
-		overflow: hidden;
-	}
-
-	/* ── Support section ── */
-	.support-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 30ms;
-	}
-
-	.support-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-warning-500), var(--color-success-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.support-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 20% 0%,
-			color-mix(in oklab, var(--color-warning-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.support-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-warning-500) 80%, var(--color-success-500) 20%),
-			color-mix(in oklab, var(--color-success-500) 70%, var(--color-warning-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-warning-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-warning-500) 30%, transparent);
-	}
-
-	/* ── Resources section ── */
-	.resources-section {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
-		animation: card-in 380ms ease both;
-		animation-delay: 160ms;
-	}
-
-	.resources-accent-bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-tertiary-500));
-		opacity: 0.7;
-		border-radius: 2rem 2rem 0 0;
-	}
-
-	.resources-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 50% at 80% 0%,
-			color-mix(in oklab, var(--color-primary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.resources-icon-ring {
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-primary-500) 80%, var(--color-tertiary-500) 20%),
-			color-mix(in oklab, var(--color-tertiary-500) 70%, var(--color-primary-500) 30%)
-		);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--color-primary-500) 40%, transparent),
-			0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-	}
-
-	/* ── Section header (collapsible) ── */
-	.section-header {
-		transition: background-color 150ms ease;
-	}
-
-	.section-header:hover {
-		background: color-mix(in oklab, var(--color-surface-50) 3%, transparent);
-	}
-
-	.section-chevron {
-		transition: transform 200ms ease;
-		color: color-mix(in oklab, var(--color-surface-50) 50%, transparent);
-	}
-
-	.section-chevron.expanded {
-		transform: rotate(180deg);
-	}
-
-	/* ── Auth notice ── */
-	.auth-notice {
-		animation: card-in 320ms ease both;
-	}
-
-	/* ── Card entrance ── */
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(14px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes gradient-shift {
-		0%,
-		100% {
-			background-position: 0% 50%;
-		}
-		50% {
-			background-position: 100% 50%;
-		}
-	}
 </style>

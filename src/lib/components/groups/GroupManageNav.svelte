@@ -8,6 +8,7 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import IconMail from '@lucide/svelte/icons/mail';
+	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 
 	let { group = null, canManageSocial = false } = $props();
 
@@ -38,6 +39,12 @@
 			label: 'Membership',
 			icon: IconIdCard,
 			href: `/groups/${slug}/manage/membership`
+		},
+		{
+			id: 'accounting',
+			label: 'Accounting',
+			icon: IconWalletCards,
+			href: `/groups/${slug}/manage/accounting`
 		},
 		{
 			id: 'email',

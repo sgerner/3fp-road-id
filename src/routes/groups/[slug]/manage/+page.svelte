@@ -11,6 +11,7 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import IconMail from '@lucide/svelte/icons/mail';
+	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 
 	let { data } = $props();
 
@@ -76,6 +77,16 @@
 				accent: 'primary',
 				badge: null
 			},
+			{
+				id: 'accounting',
+				label: 'Accounting',
+				description: 'Income, expenses, budgets, reports',
+				icon: IconWalletCards,
+				href: `/groups/${slug}/manage/accounting`,
+				accent: 'secondary',
+				badge: 'New',
+				badgeVariant: 'success'
+			},
 			...(data.can_manage_social
 				? [
 						{
@@ -121,95 +132,107 @@
 	});
 
 	const accentStyles = {
-		primary: 'bg-primary-500/10 text-primary-500',
-		secondary: 'bg-secondary-500/10 text-secondary-500',
-		tertiary: 'bg-tertiary-500/10 text-tertiary-500'
+		primary: 'preset-tonal-primary text-primary-500',
+		secondary: 'preset-tonal-secondary text-secondary-500',
+		tertiary: 'preset-tonal-tertiary text-tertiary-500'
 	};
 
 	const badgeStyles = {
-		success: 'bg-success-500/15 text-success-600',
-		warning: 'bg-warning-500/15 text-warning-600',
-		error: 'bg-error-500/15 text-error-600',
-		surface: 'bg-surface-200-800 text-surface-700-300'
+		success: 'badge preset-filled-success-500',
+		warning: 'badge preset-filled-warning-500',
+		error: 'badge preset-filled-error-500',
+		surface: 'badge preset-tonal-surface'
 	};
 </script>
 
-<div class="manage-overview space-y-3 pb-6">
+<div class="manage-overview space-y-4 pb-6">
 	<!-- Profile completion reminder -->
 	{#if completionStats() < 100}
 		<a
 			href="/groups/{slug}/manage/edit"
-			class="card bg-surface-50-950 border-warning-500/30 flex items-center gap-3 border p-3"
+			class="card preset-tonal-warning border-warning-500/20 hover:border-warning-500/40 flex items-center gap-4 border p-4 transition-colors"
 		>
-			<div class="bg-warning-500/15 flex h-9 w-9 items-center justify-center rounded-full">
-				<IconSparkles class="text-warning-500 h-4 w-4" />
+			<div
+				class="preset-filled-warning-500 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
+			>
+				<IconSparkles class="h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
-				<div class="flex items-center gap-2">
-					<span class="text-sm font-medium">Profile {completionStats()}% complete</span>
+				<div class="flex items-center justify-between">
+					<span class="text-sm font-bold">Complete your group profile</span>
+					<span class="text-xs font-semibold opacity-80">{completionStats()}% Complete</span>
 				</div>
-				<div
-					class="bg-surface-200-800 mt-1.5 h-1.5 w-full max-w-[140px] overflow-hidden rounded-full"
-				>
+				<div class="bg-warning-500/20 mt-2 h-2 w-full overflow-hidden rounded-full">
 					<div
-						class="bg-warning-500 h-full rounded-full transition-all duration-500"
+						class="preset-filled-warning-500 h-full rounded-full transition-all duration-500"
 						style="width: {completionStats()}%"
 					></div>
 				</div>
 			</div>
-			<IconChevronRight class="h-5 w-5 opacity-40" />
+			<IconChevronRight class="h-5 w-5 opacity-60" />
 		</a>
 	{/if}
 
 	<!-- Action cards -->
-	<section class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+	<section class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 		{#each manageActions() as action}
 			{@const Icon = action.icon}
 			<a
 				href={action.href}
-				class="group card bg-surface-50-950 border-surface-200-800 hover:border-surface-400-600 flex items-center gap-3 border p-3 transition-all"
+				class="group card preset-filled-surface-100-900 border-surface-200-800 flex items-center gap-4 border p-4 transition-all hover:scale-[1.02] hover:shadow-md"
 			>
 				<div
-					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {accentStyles[
+					class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-sm {accentStyles[
 						action.accent
 					]}"
 				>
-					<Icon class="h-5 w-5" />
+					<Icon class="h-6 w-6" />
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-2">
-						<span class="text-sm font-medium">{action.label}</span>
+						<span class="text-surface-900 dark:text-surface-50 text-sm font-semibold"
+							>{action.label}</span
+						>
 						{#if action.badge}
-							<span
-								class="rounded-full px-2 py-0.5 text-xs font-medium {badgeStyles[
-									action.badgeVariant
-								]}"
-							>
+							<span class={badgeStyles[action.badgeVariant]}>
 								{action.badge}
 							</span>
 						{:else}
-							<IconArrowRight class="h-4 w-4 opacity-0 transition-all group-hover:opacity-50" />
+							<IconArrowRight
+								class="h-4 w-4 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-80"
+							/>
 						{/if}
 					</div>
-					<p class="mt-0.5 text-xs opacity-60">{action.description}</p>
+					<p class="text-surface-600 dark:text-surface-400 mt-1 text-xs leading-relaxed">
+						{action.description}
+					</p>
 				</div>
 			</a>
 		{/each}
 	</section>
 
 	<!-- Help -->
-	<section class="card bg-surface-50-950 border-surface-200-800 border p-4">
-		<div class="flex items-center gap-3">
-			<div
-				class="bg-secondary-500/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+	<section class="card preset-filled-surface-100-900 border-surface-200-800 border p-4">
+		<div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
+			<div class="flex w-full items-center gap-3">
+				<div
+					class="preset-tonal-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+				>
+					<IconAlertCircle class="text-secondary-500 h-5 w-5" />
+				</div>
+				<div class="min-w-0 flex-1">
+					<h3 class="text-surface-900 dark:text-surface-50 text-sm font-bold">Need help?</h3>
+					<p class="text-surface-600 dark:text-surface-400 text-xs">
+						Contact our team for assistance
+					</p>
+				</div>
+			</div>
+			<a
+				href="mailto:hi@3fp.org"
+				class="btn btn-sm preset-outlined-primary-500 w-full font-semibold sm:w-auto"
 			>
-				<IconAlertCircle class="text-secondary-500 h-4 w-4" />
-			</div>
-			<div class="min-w-0 flex-1">
-				<h3 class="text-sm font-medium">Need help?</h3>
-				<p class="text-xs opacity-60">Contact our team for assistance</p>
-			</div>
-			<a href="mailto:hi@3fp.org" class="btn btn-sm preset-outlined-surface-500"> Contact </a>
+				Contact
+			</a>
 		</div>
 	</section>
 </div>

@@ -672,6 +672,29 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		groupNewsPosts = [];
 	}
 
+	let accountingPublicReports = [];
+	try {
+		if (serviceSupabase) {
+			const { data: reportRows, error: reportError } = await serviceSupabase
+				.from('group_accounting_public_reports')
+				.select(
+					'id,title,report_period_start,report_period_end,visibility,snapshot,notes,published_at'
+				)
+				.eq('group_id', group.id)
+				.eq('published', true)
+				.order('published_at', { ascending: false })
+				.limit(3);
+			if (reportError) {
+				console.warn('Failed to load public accounting snapshots for group page', reportError);
+			} else {
+				accountingPublicReports = reportRows ?? [];
+			}
+		}
+	} catch (err) {
+		console.warn('Failed to load public accounting snapshots for group page', err);
+		accountingPublicReports = [];
+	}
+
 	async function loadVolunteerEvents() {
 		try {
 			const eventRows = await fetchList(fetch, 'volunteer-events', {
@@ -790,6 +813,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		membership_form_fields: membershipFormFields,
 		my_memberships: myMemberships,
 		group_news_posts: groupNewsPosts,
+		accounting_public_reports: accountingPublicReports,
 		volunteer_events: volunteerEvents,
 		rides
 	};
