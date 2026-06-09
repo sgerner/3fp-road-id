@@ -100,7 +100,7 @@
 		{#if !data.configured}
 			<div class="card preset-tonal-error p-4 text-sm">
 				<div class="flex gap-2">
-					<IconShieldAlert class="h-5 w-5 shrink-0 text-error-500" />
+					<IconShieldAlert class="h-5 w-5 shrink-0" />
 					<div>
 						<p class="font-bold">Not Configured</p>
 						<p>
@@ -115,7 +115,7 @@
 		{#if form?.error}
 			<div class="card preset-tonal-error p-4 text-sm">
 				<div class="flex gap-2">
-					<IconAlertCircle class="h-5 w-5 shrink-0 text-error-500" />
+					<IconAlertCircle class="h-5 w-5 shrink-0" />
 					<div>
 						<p class="font-bold">Action Failed</p>
 						<p>{form.error}</p>
@@ -127,7 +127,7 @@
 		{#if form?.success}
 			<div class="card preset-tonal-success p-4 text-sm">
 				<div class="flex gap-2">
-					<IconCheck class="h-5 w-5 shrink-0 text-success-500" />
+					<IconCheck class="h-5 w-5 shrink-0" />
 					<div>
 						<p class="font-bold">Success</p>
 						<p>{form.message || 'Action completed successfully.'}</p>
@@ -139,7 +139,7 @@
 		{#if data.loadError}
 			<div class="card preset-tonal-error p-4 text-sm">
 				<div class="flex gap-2">
-					<IconAlertCircle class="h-5 w-5 shrink-0 text-error-500" />
+					<IconAlertCircle class="h-5 w-5 shrink-0" />
 					<div>
 						<p class="font-bold">Failed to Load Users</p>
 						<p>{data.loadError}</p>
@@ -151,7 +151,7 @@
 		{#if data.orgUnitsError}
 			<div class="card preset-tonal-warning p-4 text-sm">
 				<div class="flex gap-2">
-					<IconInfo class="h-5 w-5 shrink-0 text-warning-500" />
+					<IconInfo class="h-5 w-5 shrink-0" />
 					<div>
 						<p class="font-bold">Organizational Units Unavailable</p>
 						<p>
@@ -192,7 +192,7 @@
 						<!-- Search bar -->
 						<form class="flex gap-2" method="GET">
 							<div class="relative flex-1">
-								<span class="absolute start-3 top-1/2 -translate-y-1/2 text-surface-400">
+								<span class="absolute start-3 top-1/2 -translate-y-1/2 opacity-40">
 									<IconSearch class="h-4 w-4" />
 								</span>
 								<input
@@ -212,7 +212,7 @@
 					<!-- Scrollable Users List -->
 					<div class="space-y-2 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
 						{#if !data.users.length}
-							<div class="text-surface-600 text-center py-12 text-sm">No users found.</div>
+							<div class="text-center py-12 text-sm opacity-60">No users found.</div>
 						{:else}
 							{#each data.users as user}
 								<button
@@ -222,30 +222,30 @@
 										showCreateForm = false;
 										activeTab = 'profile';
 									}}
-									class="w-full text-left flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer
-										{selectedUserId === user.id
-											? 'preset-filled-primary-500 border-primary-600 shadow-md'
-											: 'preset-tonal-surface hover:preset-tonal-secondary border-surface-500/10'}"
+									class="w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer
+									{selectedUserId === user.id
+										? 'preset-tonal-primary shadow-md'
+										: 'preset-tonal-surface hover:preset-tonal-secondary'}"
 								>
 									<!-- Initials / Avatar Circle -->
 									<div
-										class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-sm shadow-inner
-										{selectedUserId === user.id
-											? 'bg-primary-900/40 text-primary-50'
-											: user.suspended
-												? 'preset-tonal-error text-error-500'
-												: 'preset-tonal-secondary text-secondary-500'}"
+										class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-sm
+									{selectedUserId === user.id
+										? 'preset-filled-primary-500'
+										: user.suspended
+											? 'preset-tonal-error'
+											: 'preset-tonal-secondary'}"
 									>
 										{getInitials(user)}
 
 										<!-- Status dot -->
 										{#if user.suspended}
 											<span
-												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-error-500 ring-2 ring-surface-900"
+												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-error-500 ring-2"
 											></span>
 										{:else}
 											<span
-												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-success-500 ring-2 ring-surface-900"
+												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-success-500 ring-2"
 											></span>
 										{/if}
 									</div>
@@ -253,30 +253,24 @@
 									<!-- User Metadata -->
 									<div class="min-w-0 flex-1">
 										<p
-											class="font-bold text-sm truncate {selectedUserId === user.id
-												? 'text-primary-50'
-												: 'text-surface-900'}"
+											class="font-bold text-sm truncate"
 										>
 											{displayName(user)}
 										</p>
 										<p
-											class="text-xs truncate {selectedUserId === user.id
-												? 'text-primary-200'
-												: 'text-surface-600'}"
+											class="text-xs truncate opacity-80"
 										>
 											{user.primaryEmail}
 										</p>
 										<p
-											class="text-[10px] mt-0.5 truncate {selectedUserId === user.id
-												? 'text-primary-300'
-												: 'text-surface-600'}"
+											class="text-[10px] mt-0.5 truncate opacity-60"
 										>
 											{user.orgUnitPath || '/'}
 										</p>
 									</div>
 
 									{#if selectedUserId !== user.id}
-										<IconChevronRight class="h-4 w-4 shrink-0 text-surface-400 opacity-60" />
+										<IconChevronRight class="h-4 w-4 shrink-0 opacity-40" />
 									{/if}
 								</button>
 							{/each}
@@ -313,10 +307,10 @@
 						<div class="flex items-center justify-between pb-4 border-b border-surface-500/10">
 							<div class="space-y-1">
 								<h2 class="h4 font-bold flex items-center gap-2">
-									<IconUserPlus class="text-primary-500 h-5 w-5" />
+									<IconUserPlus class="h-5 w-5" />
 									<span>Create New User</span>
 								</h2>
-								<p class="text-xs text-surface-600">Provision a new account in Google Workspace.</p>
+								<p class="text-xs opacity-60">Provision a new account in Google Workspace.</p>
 							</div>
 							<button
 								type="button"
@@ -335,7 +329,7 @@
 						>
 							<div class="grid gap-4 sm:grid-cols-2">
 								<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-									<span class="font-semibold text-surface-700-300">Primary Email Address</span>
+									<span class="font-semibold">Primary Email Address</span>
 									<input
 										class="input"
 										type="email"
@@ -346,7 +340,7 @@
 								</label>
 
 								<label class="flex flex-col gap-1 text-sm">
-									<span class="font-semibold text-surface-700-300">First Name</span>
+									<span class="font-semibold">First Name</span>
 									<input
 										class="input"
 										type="text"
@@ -357,7 +351,7 @@
 								</label>
 
 								<label class="flex flex-col gap-1 text-sm">
-									<span class="font-semibold text-surface-700-300">Last Name</span>
+									<span class="font-semibold">Last Name</span>
 									<input
 										class="input"
 										type="text"
@@ -368,7 +362,7 @@
 								</label>
 
 								<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-									<span class="font-semibold text-surface-700-300">Temporary Password</span>
+									<span class="font-semibold">Temporary Password</span>
 									<input
 										class="input"
 										type="password"
@@ -379,7 +373,7 @@
 								</label>
 
 								<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-									<span class="font-semibold text-surface-700-300">Organizational Unit</span>
+									<span class="font-semibold">Organizational Unit</span>
 									<select class="input" name="orgUnitPath">
 										{#each data.orgUnits as unit}
 											<option value={unit.orgUnitPath}>
@@ -398,7 +392,7 @@
 											class="checkbox"
 											checked
 										/>
-										<span class="text-surface-700-300">Force password change at next login</span>
+										<span>Force password change at next login</span>
 									</label>
 								</div>
 							</div>
@@ -427,10 +421,10 @@
 								<div class="flex items-center gap-4">
 									<!-- Initials Avatar Circle -->
 									<div
-										class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full font-bold text-lg shadow-md
-										{selectedUser.suspended
-											? 'preset-tonal-error text-error-500'
-											: 'preset-tonal-primary text-primary-500'}"
+										class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full font-bold text-lg
+									{selectedUser.suspended
+										? 'preset-tonal-error'
+										: 'preset-tonal-primary'}"
 									>
 										{getInitials(selectedUser)}
 									</div>
@@ -438,7 +432,7 @@
 										<h2 class="h4 font-bold leading-tight truncate">
 											{displayName(selectedUser)}
 										</h2>
-										<p class="text-sm text-surface-600 truncate">{selectedUser.primaryEmail}</p>
+										<p class="text-sm opacity-70 truncate">{selectedUser.primaryEmail}</p>
 										<div class="flex flex-wrap gap-2 mt-2">
 											<span class="badge preset-tonal-surface text-[10px] font-medium py-0.5 px-2">
 												Org: {selectedUser.orgUnitPath || '/'}
@@ -474,9 +468,9 @@
 								<button
 									type="button"
 									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
-										{activeTab === 'profile'
-											? 'border-primary-500 text-primary-500'
-											: 'border-transparent text-surface-600 hover:text-surface-900'}"
+									{activeTab === 'profile'
+										? 'preset-tonal-primary border-primary-500'
+										: 'border-transparent opacity-50 hover:opacity-80'}"
 									onclick={() => (activeTab = 'profile')}
 								>
 									<IconUser class="h-4 w-4" /> Profile
@@ -484,9 +478,9 @@
 								<button
 									type="button"
 									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
-										{activeTab === 'security'
-											? 'border-primary-500 text-primary-500'
-											: 'border-transparent text-surface-600 hover:text-surface-900'}"
+									{activeTab === 'security'
+										? 'preset-tonal-primary border-primary-500'
+										: 'border-transparent opacity-50 hover:opacity-80'}"
 									onclick={() => (activeTab = 'security')}
 								>
 									<IconLock class="h-4 w-4" /> Security
@@ -494,9 +488,9 @@
 								<button
 									type="button"
 									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
-										{activeTab === 'aliases'
-											? 'border-primary-500 text-primary-500'
-											: 'border-transparent text-surface-600 hover:text-surface-900'}"
+									{activeTab === 'aliases'
+										? 'preset-tonal-primary border-primary-500'
+										: 'border-transparent opacity-50 hover:opacity-80'}"
 									onclick={() => (activeTab = 'aliases')}
 								>
 									<IconMail class="h-4 w-4" /> Aliases
@@ -507,7 +501,7 @@
 							{#if activeTab === 'profile'}
 								<!-- TAB: PROFILE DETAILS -->
 								<div class="space-y-4">
-									<h3 class="font-semibold text-xs uppercase tracking-wide text-surface-600">
+									<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
 										Update Profile Details
 									</h3>
 
@@ -516,7 +510,7 @@
 
 										<div class="grid gap-4 sm:grid-cols-2">
 											<label class="flex flex-col gap-1 text-sm">
-												<span class="font-medium text-surface-700-300">First Name</span>
+												<span class="font-medium">First Name</span>
 												<input
 													class="input"
 													type="text"
@@ -527,7 +521,7 @@
 											</label>
 
 											<label class="flex flex-col gap-1 text-sm">
-												<span class="font-medium text-surface-700-300">Last Name</span>
+												<span class="font-medium">Last Name</span>
 												<input
 													class="input"
 													type="text"
@@ -538,7 +532,7 @@
 											</label>
 
 											<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-												<span class="font-medium text-surface-700-300">Primary Email Address</span>
+												<span class="font-medium">Primary Email Address</span>
 												<input
 													class="input"
 													type="email"
@@ -549,7 +543,7 @@
 											</label>
 
 											<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-												<span class="font-medium text-surface-700-300">Organizational Unit</span>
+												<span class="font-medium">Organizational Unit</span>
 												<select
 													class="input"
 													name="orgUnitPath"
@@ -580,7 +574,7 @@
 									<div class="space-y-6">
 										<!-- Password Reset Section -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide text-surface-600">
+											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
 												Reset Password
 											</h3>
 
@@ -588,7 +582,7 @@
 												<input type="hidden" name="userKey" value={selectedUser.id} />
 
 												<label class="flex flex-col gap-1 text-sm">
-													<span class="font-medium text-surface-700-300">New Password</span>
+													<span class="font-medium">New Password</span>
 													<input
 														class="input"
 														type="password"
@@ -605,7 +599,7 @@
 														class="checkbox"
 														checked
 													/>
-													<span class="text-surface-700-300">Force password change at next login</span>
+													<span>Force password change at next login</span>
 												</label>
 
 												<button type="submit" class="btn w-full preset-tonal-warning font-semibold">
@@ -618,7 +612,7 @@
 
 										<!-- Quick Actions / Danger Zone -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide text-error-500">
+											<h3 class="font-semibold text-xs uppercase tracking-wide">
 												Quick Actions &amp; Danger Zone
 											</h3>
 
@@ -700,7 +694,7 @@
 									<div class="space-y-6">
 										<!-- Add Alias Section -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide text-surface-600">
+											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
 												Add Email Alias
 											</h3>
 
@@ -708,7 +702,7 @@
 												<input type="hidden" name="userKey" value={selectedUser.id} />
 												<div class="relative flex-1">
 													<span
-														class="absolute start-3 top-1/2 -translate-y-1/2 text-surface-400"
+														class="absolute start-3 top-1/2 -translate-y-1/2 opacity-40"
 													>
 														<IconMail class="h-4 w-4" />
 													</span>
@@ -733,12 +727,12 @@
 
 										<!-- Existing Aliases List -->
 										<div class="space-y-3">
-											<h3 class="font-semibold text-xs uppercase tracking-wide text-surface-600">
+											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
 												Active Email Aliases
 											</h3>
 
 											{#if !selectedUser.aliases?.length}
-												<p class="text-sm text-surface-600 py-2">
+												<p class="text-sm opacity-60 py-2">
 													No email aliases configured for this user.
 												</p>
 											{:else}
@@ -748,7 +742,7 @@
 													{#each selectedUser.aliases as alias}
 														<div class="flex items-center justify-between p-3 gap-2">
 															<div class="flex items-center gap-2 text-sm font-medium min-w-0">
-																<IconMail class="h-4 w-4 text-surface-400 shrink-0" />
+																<IconMail class="h-4 w-4 shrink-0 opacity-50" />
 																<span class="truncate">{alias}</span>
 															</div>
 
@@ -780,13 +774,13 @@
 							class="card preset-tonal-surface border border-surface-500/10 p-12 text-center flex flex-col items-center justify-center min-h-[30rem] space-y-4 shadow-sm"
 						>
 							<div
-								class="preset-tonal-secondary h-16 w-16 rounded-full flex items-center justify-center text-secondary-500 shadow-inner"
+								class="preset-tonal-secondary h-16 w-16 rounded-full flex items-center justify-center"
 							>
 								<IconUser class="h-8 w-8" />
 							</div>
 							<div class="space-y-1 max-w-md">
 								<h3 class="text-lg font-bold">No User Selected</h3>
-								<p class="text-sm text-surface-600">
+								<p class="text-sm opacity-70">
 									Select a Google Workspace user from the list on the left to view profile details,
 									reset passwords, manage email aliases, or suspend/delete their account.
 								</p>
