@@ -1,25 +1,10 @@
-import path from 'node:path';
 import { json } from '@sveltejs/kit';
+import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 6;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
-function slugifySegment(value) {
-	return String(value || '')
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-}
-
-function buildObjectPath(userId, fileName) {
-	const extension = path.extname(fileName || '').toLowerCase();
-	const baseName =
-		slugifySegment(path.basename(fileName || 'ride-image', extension)) || 'ride-image';
-	return `${userId}/${Date.now()}-${baseName}${extension}`;
-}
 
 export async function POST({ request, cookies }) {
 	const { user } = getActivityClient(cookies);
@@ -54,21 +39,24 @@ export async function POST({ request, cookies }) {
 			return json({ error: `${file.name} exceeds the 10 MB upload limit.` }, { status: 400 });
 		}
 
-		const objectPath = buildObjectPath(user.id, file.name);
-		const arrayBuffer = await file.arrayBuffer();
-		const uploadResult = await supabase.storage.from('ride-media').upload(objectPath, arrayBuffer, {
+		const uploadedAsset = await uploadCanonicalMediaAsset({
+			supabase,
+			bucketId: 'ride-media',
 			contentType: file.type,
-			upsert: false
+			buffer: await file.arrayBuffer(),
+			fileName: file.name,
+			sizeBytes: file.size
 		});
 
-		if (uploadResult.error) {
-			return json({ error: uploadResult.error.message }, { status: 500 });
-		}
-
-		const { data: publicUrlData } = supabase.storage.from('ride-media').getPublicUrl(objectPath);
 		uploaded.push({
-			url: publicUrlData?.publicUrl || null,
-			fileName: file.name
+			url: uploadedAsset.url,
+			fileName: file.name,
+			file_name: uploadedAsset.file_name || file.name,
+			mime_type: uploadedAsset.mime_type || file.type,
+			size_bytes: uploadedAsset.size_bytes ?? file.size,
+			object_path: uploadedAsset.object_path || null,
+			bucket: 'ride-media',
+			content_hash: uploadedAsset.content_hash || null
 		});
 	}
 

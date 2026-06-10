@@ -1440,13 +1440,10 @@
 		}
 	}
 
-	async function uploadGeneratedImageToSocial(imageUrl, fileName) {
-		const response = await fetch(imageUrl);
-		if (!response.ok) {
-			throw new Error('Unable to fetch generated image for upload.');
-		}
-		const imageBlob = await response.blob();
-		const mimeType = imageBlob.type || 'image/png';
+	function normalizeGeneratedSocialImage(generated, fallbackFileName) {
+		const imageUrl = String(generated?.url || '').trim();
+		if (!imageUrl) return null;
+		const mimeType = String(generated?.mime_type || 'image/png').trim() || 'image/png';
 		const extension = mimeType.includes('webp')
 			? 'webp'
 			: mimeType.includes('jpeg') || mimeType.includes('jpg')
@@ -1454,14 +1451,15 @@
 				: mimeType.includes('gif')
 					? 'gif'
 					: 'png';
-
-		const formData = new FormData();
-		formData.append('files', imageBlob, `${fileName}.${extension}`);
-		const uploadPayload = await requestJson(`/api/groups/${slug}/social/assets`, {
-			method: 'POST',
-			body: formData
-		});
-		return Array.isArray(uploadPayload?.data) ? uploadPayload.data[0] : null;
+		return {
+			url: imageUrl,
+			file_name: generated?.file_name || `${fallbackFileName}.${extension}`,
+			mime_type: mimeType,
+			size_bytes: Number(generated?.size_bytes || 0) || 0,
+			bucket: generated?.bucket || 'group-social-media',
+			object_path: generated?.object_path || null,
+			content_hash: generated?.content_hash || null
+		};
 	}
 
 	async function generateAiAssistedContent() {
@@ -1528,6 +1526,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					target: 'group',
+					storageBucket: 'group-social-media',
 					modelId: aiImageModelId,
 					aspectRatio: composerAspectRatio(),
 					styleId: aiStyleId,
@@ -1560,20 +1559,14 @@
 				})
 			});
 
-			const generatedUrl = generated?.url || '';
-			if (generatedUrl) {
-				const uploaded = await uploadGeneratedImageToSocial(
-					generatedUrl,
-					`ai-social-4x5-${Date.now()}`
-				);
-				if (uploaded?.url) {
-					const imageEntry = {
-						...uploaded,
-						aspect_ratio: composerAspectRatio(),
-						platform: 'instagram,facebook'
-					};
-					rememberGeneratedImage(imageEntry);
-				}
+			const uploaded = normalizeGeneratedSocialImage(generated, `ai-social-4x5-${Date.now()}`);
+			if (uploaded?.url) {
+				const imageEntry = {
+					...uploaded,
+					aspect_ratio: composerAspectRatio(),
+					platform: 'instagram,facebook'
+				};
+				rememberGeneratedImage(imageEntry);
 			}
 
 			if (!composerScheduledFor) {
@@ -2364,7 +2357,7 @@
 														</div>
 													{/if}
 
-													<!-- Target badge overlay -->\t
+													<!-- Target badge overlay -->	
 													<div class="absolute right-1 bottom-1">
 														<span
 															class="bg-surface-900/80 text-surface-100 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"

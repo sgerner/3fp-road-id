@@ -11,6 +11,7 @@ import {
 } from '$lib/ai/imageGenerationModels';
 import { getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
 import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
+import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
@@ -258,7 +259,7 @@ Output requirements:
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 
-function getStorageConfig(target, userId, articleId, context, extension = 'png') {
+function getStorageConfig(target, userId, articleId, context, extension = 'png', storageBucket = '') {
 	const baseName =
 		slugifySegment(context?.title || context?.name || context?.slug || `${target}-image`) ||
 		`${target}-image`;
@@ -267,7 +268,7 @@ function getStorageConfig(target, userId, articleId, context, extension = 'png')
 	if (target === 'ride') {
 		return {
 			bucket: 'ride-media',
-			objectPath: `${userId}/${Date.now()}-${baseName}.${safeExt}`
+			fileName: `${baseName}.${safeExt}`
 		};
 	}
 
@@ -275,13 +276,18 @@ function getStorageConfig(target, userId, articleId, context, extension = 'png')
 		return {
 			bucket: 'learn-media',
 			objectPath: `${userId}/${Date.now()}-${baseName}.${safeExt}`,
+			fileName: `${baseName}.${safeExt}`,
 			articleId: safeTrim(articleId) || null
 		};
 	}
 
 	return {
-		bucket: 'storage',
-		objectPath: `groups/generated/${userId}/${Date.now()}-${baseName}.${safeExt}`
+		bucket: storageBucket === 'group-social-media' ? 'group-social-media' : 'storage',
+		objectPath:
+			storageBucket === 'group-social-media'
+				? ''
+				: `groups/generated/${userId}/${Date.now()}-${baseName}.${safeExt}`,
+		fileName: `${baseName}.${safeExt}`
 	};
 }
 
@@ -379,6 +385,7 @@ export async function POST({ request, cookies }) {
 		? payload.thinking
 		: 'low';
 	const context = payload?.context && typeof payload.context === 'object' ? payload.context : {};
+	const storageBucket = safeTrim(payload?.storageBucket);
 	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
 	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
 	if (stylePreset.id === STATE_MASCOT_STYLE_ID && !selectedStateCode) {
@@ -424,28 +431,42 @@ export async function POST({ request, cookies }) {
 
 		const mimeType = generated?.mimeType || 'image/png';
 		const extension = mimeType.split('/')[1] || 'png';
-		const storage = getStorageConfig(target, user.id, payload?.articleId, context, extension);
+		const storage = getStorageConfig(target, user.id, payload?.articleId, context, extension, storageBucket);
 		const buffer = Buffer.from(imageBytes, 'base64');
-		const uploadResult = await supabase.storage
-			.from(storage.bucket)
-			.upload(storage.objectPath, buffer, {
+		let asset = null;
+		let url = null;
+
+		if (target === 'ride' || storage.bucket === 'group-social-media') {
+			asset = await uploadCanonicalMediaAsset({
+				supabase,
+				bucketId: storage.bucket,
+				objectPath: storage.objectPath,
+				contentType: mimeType,
+				buffer,
+				fileName: storage.fileName,
+				sizeBytes: buffer.byteLength
+			});
+			url = asset.url;
+		} else {
+			const uploadResult = await supabase.storage.from(storage.bucket).upload(storage.objectPath, buffer, {
 				contentType: mimeType,
 				upsert: false
 			});
 
-		if (uploadResult.error) {
-			return json({ error: uploadResult.error.message }, { status: 500 });
+			if (uploadResult.error) {
+				return json({ error: uploadResult.error.message }, { status: 500 });
+			}
+
+			const { data: publicUrlData } = supabase.storage
+				.from(storage.bucket)
+				.getPublicUrl(storage.objectPath);
+			url = publicUrlData?.publicUrl || null;
 		}
 
-		const { data: publicUrlData } = supabase.storage
-			.from(storage.bucket)
-			.getPublicUrl(storage.objectPath);
-		const url = publicUrlData?.publicUrl || null;
 		if (!url) {
 			return json({ error: 'Unable to resolve public image URL.' }, { status: 500 });
 		}
 
-		let asset = null;
 		if (target === 'learn') {
 			asset = await persistLearnAsset({
 				supabase,
@@ -453,7 +474,7 @@ export async function POST({ request, cookies }) {
 				articleId: storage.articleId,
 				objectPath: storage.objectPath,
 				publicUrl: url,
-				fileName: path.basename(storage.objectPath),
+				fileName: storage.fileName || path.basename(storage.objectPath),
 				sizeBytes: buffer.byteLength,
 				styleId: stylePreset.id,
 				modelId: model.id
@@ -466,7 +487,13 @@ export async function POST({ request, cookies }) {
 			aspectRatio,
 			styleId: stylePreset.id,
 			model: model.id,
-			asset
+			asset,
+			bucket: storage.bucket,
+			object_path: asset?.object_path || storage.objectPath || null,
+			file_name: asset?.file_name || storage.fileName || path.basename(storage.objectPath || ''),
+			mime_type: asset?.mime_type || mimeType,
+			size_bytes: asset?.size_bytes || buffer.byteLength,
+			content_hash: asset?.content_hash || null
 		});
 	} catch (routeError) {
 		return json(

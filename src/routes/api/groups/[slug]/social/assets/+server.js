@@ -1,26 +1,11 @@
-import path from 'node:path';
 import { json } from '@sveltejs/kit';
+import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_FILES = 8;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
-function slugifySegment(value) {
-	return String(value || '')
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-}
-
-function buildObjectPath({ groupId, userId, fileName }) {
-	const extension = path.extname(fileName || '').toLowerCase();
-	const baseName =
-		slugifySegment(path.basename(fileName || 'social-media', extension)) || 'social-media';
-	return `groups/${groupId}/social/${userId}/${Date.now()}-${baseName}${extension}`;
-}
 
 export async function POST({ cookies, params, request }) {
 	try {
@@ -47,30 +32,23 @@ export async function POST({ cookies, params, request }) {
 				return json({ error: `${file.name} exceeds the 15 MB upload limit.` }, { status: 400 });
 			}
 
-			const objectPath = buildObjectPath({
-				groupId: auth.group.id,
-				userId: auth.userId,
-				fileName: file.name
+			const uploadedAsset = await uploadCanonicalMediaAsset({
+				supabase: auth.serviceSupabase,
+				bucketId: BUCKET_NAME,
+				contentType: file.type,
+				buffer: await file.arrayBuffer(),
+				fileName: file.name,
+				sizeBytes: file.size
 			});
-			const arrayBuffer = await file.arrayBuffer();
-			const uploadResult = await auth.serviceSupabase.storage
-				.from(BUCKET_NAME)
-				.upload(objectPath, arrayBuffer, {
-					contentType: file.type,
-					upsert: false
-				});
-			if (uploadResult.error) {
-				return json({ error: uploadResult.error.message }, { status: 500 });
-			}
 
-			const { data } = auth.serviceSupabase.storage.from(BUCKET_NAME).getPublicUrl(objectPath);
 			uploaded.push({
-				url: data?.publicUrl || null,
-				file_name: file.name,
-				mime_type: file.type,
-				size_bytes: file.size,
-				object_path: objectPath,
-				bucket: BUCKET_NAME
+				url: uploadedAsset.url,
+				file_name: uploadedAsset.file_name || file.name,
+				mime_type: uploadedAsset.mime_type || file.type,
+				size_bytes: uploadedAsset.size_bytes ?? file.size,
+				object_path: uploadedAsset.object_path || null,
+				bucket: BUCKET_NAME,
+				content_hash: uploadedAsset.content_hash || null
 			});
 		}
 

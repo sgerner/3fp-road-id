@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 
 export const DEFAULT_CREATED_BY_USER_ID = '9f78db1a-27b6-488a-8288-fbd38e85c815';
 const DEFAULT_TIMEZONE = 'America/Phoenix';
@@ -631,21 +632,6 @@ async function ensureUniqueSlug(supabase, baseSlug) {
 	return `${baseSlug}-${Date.now()}`;
 }
 
-function buildStoragePath(eventId, url, contentType) {
-	const pathname = new URL(url).pathname;
-	const extensionFromUrl = path.extname(pathname).toLowerCase();
-	const extensionFromType =
-		contentType === 'image/png'
-			? '.png'
-			: contentType === 'image/webp'
-				? '.webp'
-				: contentType === 'image/gif'
-					? '.gif'
-					: '.jpg';
-	const extension = extensionFromUrl || extensionFromType;
-	return `starter-rides/${eventId}/cover${extension}`;
-}
-
 function normalizeImageContentType(url, contentType) {
 	const normalized = safeTrim(contentType).toLowerCase();
 	if (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(normalized)) {
@@ -669,14 +655,15 @@ async function uploadEventImage(supabase, event) {
 	}
 	const contentType = normalizeImageContentType(imageUrl, response.headers.get('content-type'));
 	const arrayBuffer = await response.arrayBuffer();
-	const objectPath = buildStoragePath(event.id, imageUrl, contentType);
-	const uploadResult = await supabase.storage.from('ride-media').upload(objectPath, arrayBuffer, {
+	const uploadedAsset = await uploadCanonicalMediaAsset({
+		supabase,
+		bucketId: 'ride-media',
 		contentType,
-		upsert: true
+		buffer: arrayBuffer,
+		fileName: path.basename(new URL(imageUrl).pathname) || `ride-${event.id}.jpg`,
+		sizeBytes: arrayBuffer.byteLength
 	});
-	if (uploadResult.error) throw uploadResult.error;
-	const { data } = supabase.storage.from('ride-media').getPublicUrl(objectPath);
-	return data?.publicUrl ? [data.publicUrl] : [];
+	return uploadedAsset.url ? [uploadedAsset.url] : [];
 }
 
 async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeocoding }) {
