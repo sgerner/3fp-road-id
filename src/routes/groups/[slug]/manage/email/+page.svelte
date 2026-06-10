@@ -1,5 +1,6 @@
 <script>
 	import { untrack } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
@@ -12,6 +13,10 @@
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconCheck from '@lucide/svelte/icons/check';
+	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconSettings from '@lucide/svelte/icons/settings';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconLayout from '@lucide/svelte/icons/layout-template';
 	import DomainPurchasePanel from '$lib/components/groups/DomainPurchasePanel.svelte';
 	import {
 		createDefaultEmailDraft,
@@ -38,36 +43,15 @@
 
 	function blockFactory(type) {
 		if (type === 'paragraph') {
-			return {
-				id: makeId('paragraph'),
-				type,
-				title: 'New section',
-				body: 'Write a concise, skimmable block of copy.'
-			};
+			return { id: makeId('paragraph'), type, title: 'New section', body: 'Write your copy here.' };
 		}
 		if (type === 'button') {
-			return {
-				id: makeId('button'),
-				type,
-				title: 'Primary action',
-				buttonLabel: 'Open link',
-				buttonUrl: ''
-			};
+			return { id: makeId('button'), type, title: 'Primary action', buttonLabel: 'Open link', buttonUrl: '' };
 		}
 		if (type === 'quote') {
-			return {
-				id: makeId('quote'),
-				type,
-				title: 'Member voice',
-				body: 'Add a quote, organizer perspective, or short testimonial.'
-			};
+			return { id: makeId('quote'), type, title: 'Member voice', body: 'Add a quote or testimonial.' };
 		}
-		return {
-			id: makeId('paragraph'),
-			type: 'paragraph',
-			title: '',
-			body: ''
-		};
+		return { id: makeId('paragraph'), type: 'paragraph', title: '', body: '' };
 	}
 
 	function hydrateEditorFromCampaign(campaign) {
@@ -110,10 +94,7 @@
 
 	async function api(path, options = {}) {
 		const response = await fetch(path, {
-			headers: {
-				'Content-Type': 'application/json',
-				...(options.headers || {})
-			},
+			headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
 			...options
 		});
 		const payload = await response.json().catch(() => ({}));
@@ -133,6 +114,7 @@
 		}
 	}
 
+	// ── State ──────────────────────────────────────────────────────
 	let draft = $state(untrack(() => createDraft()));
 	let senderDomains = $state(untrack(() => clone(data.senderDomains || [])));
 	let emailHistory = $state(untrack(() => clone(data.emailHistory || [])));
@@ -146,6 +128,9 @@
 	let senderNotice = $state('');
 	let senderError = $state('');
 	let copiedDns = $state('');
+	let activeTab = $state('compose'); // 'compose' | 'preview' | 'history'
+	let domainPanelOpen = $state(false);
+	let showAdvanced = $state(false);
 	let senderForm = $state(
 		untrack(() => ({
 			domain: '',
@@ -156,12 +141,9 @@
 		}))
 	);
 
+	// ── Derived ───────────────────────────────────────────────────
 	const previewHtml = $derived(
-		renderCampaignHtml({
-			draft,
-			group,
-			audienceCount: audienceCount(draft.audienceStatuses, data.audienceSummary)
-		})
+		renderCampaignHtml({ draft, group, audienceCount: audienceCount(draft.audienceStatuses, data.audienceSummary) })
 	);
 	const previewText = $derived(renderCampaignText({ draft }));
 	const selectedPreset = $derived(
@@ -175,49 +157,28 @@
 				}))
 			: []
 	);
-	const selectedAudienceCount = $derived(
-		audienceCount(draft.audienceStatuses, data.audienceSummary || {})
-	);
-	const explicitlySelectedSender = $derived(
-		senderDomains.find((row) => row.id === draft.senderDomainId) || null
-	);
-	const selectedSender = $derived(
-		explicitlySelectedSender ||
-			senderDomains.find((row) => row.is_default) ||
-			null
-	);
+	const selectedAudienceCount = $derived(audienceCount(draft.audienceStatuses, data.audienceSummary || {}));
+	const explicitlySelectedSender = $derived(senderDomains.find((row) => row.id === draft.senderDomainId) || null);
+	const selectedSender = $derived(explicitlySelectedSender || senderDomains.find((row) => row.is_default) || null);
 	const senderSelectionNeedsVerification = $derived(
-		Boolean(
-			draft.senderDomainId &&
-				(!explicitlySelectedSender || explicitlySelectedSender.ses_verified_for_sending !== true)
-		)
+		Boolean(draft.senderDomainId && (!explicitlySelectedSender || explicitlySelectedSender.ses_verified_for_sending !== true))
 	);
+	const verifiedSenderCount = $derived(senderDomains.filter((row) => row.ses_verified_for_sending).length);
+	/** True if there's at least one verified sender ready to use */
+	const hasSenderReady = $derived(verifiedSenderCount > 0);
 
-	function setComposerMessage(nextNotice = '', nextError = '') {
-		notice = nextNotice;
-		error = nextError;
-	}
+	// ── Helpers ───────────────────────────────────────────────────
+	function setComposerMessage(nextNotice = '', nextError = '') { notice = nextNotice; error = nextError; }
+	function setSenderMessage(nextNotice = '', nextError = '') { senderNotice = nextNotice; senderError = nextError; }
 
-	function setSenderMessage(nextNotice = '', nextError = '') {
-		senderNotice = nextNotice;
-		senderError = nextError;
-	}
-
-	function resetDraft() {
-		draft = createDraft();
-	}
-
-	function addBlock(type) {
-		draft.blocks = [...draft.blocks, blockFactory(type)];
-	}
-
-	function removeBlock(blockId) {
-		draft.blocks = draft.blocks.filter((block) => block.id !== blockId);
-	}
+	function resetDraft() { draft = createDraft(); setComposerMessage('', ''); }
+	function addBlock(type) { draft.blocks = [...draft.blocks, blockFactory(type)]; }
+	function removeBlock(blockId) { draft.blocks = draft.blocks.filter((b) => b.id !== blockId); }
 
 	function duplicateCampaign(campaign) {
 		draft = hydrateEditorFromCampaign(campaign);
-		setComposerMessage('Loaded campaign into the composer.', '');
+		activeTab = 'compose';
+		setComposerMessage('Campaign loaded into the composer.', '');
 	}
 
 	function applySelectedSiteDomain() {
@@ -234,145 +195,85 @@
 			audience_filters: {
 				statuses: draft.audienceStatuses,
 				sender_domain_id: draft.senderDomainId || null,
-				editor: {
-					...clone(draft),
-					rendered_text: previewText
-				}
+				editor: { ...clone(draft), rendered_text: previewText }
 			}
 		};
-		return api(`/api/groups/${group.slug}/membership/emails`, {
-			method: 'POST',
-			body: JSON.stringify(payload)
-		});
+		return api(`/api/groups/${group.slug}/membership/emails`, { method: 'POST', body: JSON.stringify(payload) });
 	}
 
 	async function saveDraft() {
 		try {
-			composerBusy = true;
-			setComposerMessage('', '');
-			await createCampaignRecord();
-			await refreshHistory();
-			setComposerMessage('Draft saved to campaign history.', '');
-		} catch (saveError) {
-			setComposerMessage('', saveError?.message || 'Unable to save draft.');
-		} finally {
-			composerBusy = false;
-		}
+			composerBusy = true; setComposerMessage('', '');
+			await createCampaignRecord(); await refreshHistory();
+			setComposerMessage('Draft saved.', '');
+		} catch (e) { setComposerMessage('', e?.message || 'Unable to save draft.'); }
+		finally { composerBusy = false; }
 	}
 
 	async function sendNow() {
-		if (senderSelectionNeedsVerification) {
-			setComposerMessage('', 'Verify the selected sender domain before sending.');
-			return;
-		}
+		if (senderSelectionNeedsVerification) { setComposerMessage('', 'Verify the selected sender domain first.'); return; }
 		try {
-			composerBusy = true;
-			setComposerMessage('', '');
+			composerBusy = true; setComposerMessage('', '');
 			const campaign = await createCampaignRecord();
-			await api(`/api/groups/${group.slug}/membership/emails/${campaign.id}/send-now`, {
-				method: 'POST'
-			});
+			await api(`/api/groups/${group.slug}/membership/emails/${campaign.id}/send-now`, { method: 'POST' });
 			await refreshHistory();
-			setComposerMessage('Campaign sent.', '');
-		} catch (sendError) {
-			setComposerMessage('', sendError?.message || 'Unable to send campaign.');
-		} finally {
-			composerBusy = false;
-		}
+			setComposerMessage('Campaign sent successfully.', '');
+		} catch (e) { setComposerMessage('', e?.message || 'Unable to send campaign.'); }
+		finally { composerBusy = false; }
 	}
 
 	async function scheduleSend() {
-		if (!scheduleAt) {
-			setComposerMessage('', 'Choose a send time first.');
-			return;
-		}
-		if (senderSelectionNeedsVerification) {
-			setComposerMessage('', 'Verify the selected sender domain before scheduling.');
-			return;
-		}
+		if (!scheduleAt) { setComposerMessage('', 'Choose a send time first.'); return; }
+		if (senderSelectionNeedsVerification) { setComposerMessage('', 'Verify the selected sender domain first.'); return; }
 		try {
-			composerBusy = true;
-			setComposerMessage('', '');
+			composerBusy = true; setComposerMessage('', '');
 			const campaign = await createCampaignRecord();
 			await api(`/api/groups/${group.slug}/membership/emails/${campaign.id}/schedule`, {
-				method: 'POST',
-				body: JSON.stringify({ scheduled_at: new Date(scheduleAt).toISOString() })
+				method: 'POST', body: JSON.stringify({ scheduled_at: new Date(scheduleAt).toISOString() })
 			});
-			await refreshHistory();
-			setComposerMessage('Campaign scheduled.', '');
-		} catch (scheduleError) {
-			setComposerMessage('', scheduleError?.message || 'Unable to schedule campaign.');
-		} finally {
-			composerBusy = false;
-		}
+			await refreshHistory(); setComposerMessage('Campaign scheduled.', '');
+		} catch (e) { setComposerMessage('', e?.message || 'Unable to schedule campaign.'); }
+		finally { composerBusy = false; }
 	}
 
 	async function sendExistingCampaign(campaignId) {
 		try {
-			composerBusy = true;
-			setComposerMessage('', '');
-			await api(`/api/groups/${group.slug}/membership/emails/${campaignId}/send-now`, {
-				method: 'POST'
-			});
-			await refreshHistory();
-			setComposerMessage('Campaign sent.', '');
-		} catch (sendError) {
-			setComposerMessage('', sendError?.message || 'Unable to send campaign.');
-		} finally {
-			composerBusy = false;
-		}
+			composerBusy = true; setComposerMessage('', '');
+			await api(`/api/groups/${group.slug}/membership/emails/${campaignId}/send-now`, { method: 'POST' });
+			await refreshHistory(); setComposerMessage('Campaign sent.', '');
+		} catch (e) { setComposerMessage('', e?.message || 'Unable to send campaign.'); }
+		finally { composerBusy = false; }
 	}
 
 	async function verifySenderDomain(senderId) {
 		try {
-			verifyingSenderId = senderId;
-			setSenderMessage('', '');
-			await api(`/api/groups/${group.slug}/email/domains/${senderId}/verify`, {
-				method: 'POST'
-			});
+			verifyingSenderId = senderId; setSenderMessage('', '');
+			await api(`/api/groups/${group.slug}/email/domains/${senderId}/verify`, { method: 'POST' });
 			await refreshSenderDomains();
-			setSenderMessage('Sender domain verified against AWS and refreshed.', '');
-		} catch (verifyError) {
-			setSenderMessage('', verifyError?.message || 'Unable to verify sender domain.');
-		} finally {
-			verifyingSenderId = '';
-		}
+			setSenderMessage('Sender domain verified.', '');
+		} catch (e) { setSenderMessage('', e?.message || 'Unable to verify.'); }
+		finally { verifyingSenderId = ''; }
 	}
 
 	async function saveSenderDomain() {
 		try {
-			senderBusy = true;
-			setSenderMessage('', '');
-			await api(`/api/groups/${group.slug}/email/domains`, {
-				method: 'POST',
-				body: JSON.stringify(senderForm)
-			});
+			senderBusy = true; setSenderMessage('', '');
+			await api(`/api/groups/${group.slug}/email/domains`, { method: 'POST', body: JSON.stringify(senderForm) });
 			await refreshSenderDomains();
-			senderForm = {
-				domain: '',
-				from_name: group.name || '',
-				from_local_part: 'hello',
-				reply_to_email: '',
-				is_default: false
-			};
+			senderForm = { domain: '', from_name: group.name || '', from_local_part: 'hello', reply_to_email: '', is_default: false };
 			setSenderMessage('Sender domain synced with AWS.', '');
-		} catch (saveError) {
-			setSenderMessage('', saveError?.message || 'Unable to save sender domain.');
-		} finally {
-			senderBusy = false;
-		}
+			// Auto-close the panel if this was the first domain and it's now configured
+			if (hasSenderReady) domainPanelOpen = false;
+		} catch (e) { setSenderMessage('', e?.message || 'Unable to save sender domain.'); }
+		finally { senderBusy = false; }
 	}
 
 	async function copyDnsValue(value, key) {
 		try {
 			await navigator.clipboard.writeText(value);
 			copiedDns = key;
-			setTimeout(() => {
-				if (copiedDns === key) copiedDns = '';
-			}, 1200);
-		} catch {
-			setSenderMessage('', 'Unable to copy DNS value.');
-		}
+			setTimeout(() => { if (copiedDns === key) copiedDns = ''; }, 1200);
+		} catch { setSenderMessage('', 'Unable to copy DNS value.'); }
 	}
 </script>
 
@@ -380,974 +281,555 @@
 	<title>Email | {group.name}</title>
 </svelte:head>
 
-<div class="space-y-6 pb-10">
-	<section class="email-hero">
-		<div class="email-hero-copy">
-			<div class="eyebrow">
-				<IconMail class="h-4 w-4" />
-				<span>Email Studio</span>
-			</div>
-			<h1>Build polished member campaigns with a block editor and live preview.</h1>
-			<p>
-				Compose the message, send from a verified custom domain, and reuse campaign history without
-				leaving group management.
-			</p>
-		</div>
-		<div class="hero-metrics">
-			<div class="hero-metric">
-				<span>Audience</span>
-				<strong>{data.audienceSummary.total}</strong>
-				<small>members in included statuses</small>
-			</div>
-			<div class="hero-metric">
-				<span>Verified senders</span>
-				<strong>{senderDomains.filter((row) => row.ses_verified_for_sending).length}</strong>
-				<small>ready in AWS SES</small>
-			</div>
-			<div class="hero-metric">
-				<span>Campaign history</span>
-				<strong>{emailHistory.length}</strong>
-				<small>saved drafts and sends</small>
-			</div>
-		</div>
-	</section>
+<div class="space-y-3 pb-10">
 
-	<div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-		<section class="studio-panel space-y-5">
-			<div class="panel-header">
+	<!-- ══ STUDIO CARD ══════════════════════════════════════════════ -->
+	<div class="card bg-surface-50-950 border-surface-200-800 overflow-hidden border">
+
+		<!-- Studio header -->
+		<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b px-4 py-3">
+			<div class="flex items-center gap-3">
+				<div class="bg-primary-500/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+					<IconMail class="text-primary-400 h-4 w-4" />
+				</div>
 				<div>
-					<h2>Composer</h2>
-					<p>Design the email first, then save a draft, send immediately, or schedule it.</p>
-				</div>
-				<button class="chip-button" type="button" onclick={resetDraft}>
-					<IconSparkles class="h-4 w-4" />
-					New draft
-				</button>
-			</div>
-
-			{#if notice}
-				<div class="banner success"><IconCheck class="h-4 w-4" /> {notice}</div>
-			{/if}
-			{#if error}
-				<div class="banner error"><IconTriangleAlert class="h-4 w-4" /> {error}</div>
-			{/if}
-
-			<div class="grid gap-4 lg:grid-cols-2">
-				<label class="field">
-					<span>Campaign name</span>
-					<input bind:value={draft.campaignName} maxlength="120" />
-				</label>
-				<label class="field">
-					<span>Subject line</span>
-					<input bind:value={draft.subject} maxlength="300" />
-				</label>
-			</div>
-
-			<div class="grid gap-4 lg:grid-cols-[1fr_1fr_1fr]">
-				<label class="field">
-					<span>Template</span>
-					<select bind:value={draft.templateId}>
-						{#each EMAIL_TEMPLATE_PRESETS as preset}
-							<option value={preset.id}>{preset.label}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="field">
-					<span>Sender domain</span>
-					<select bind:value={draft.senderDomainId}>
-						<option value="">Default SES sender</option>
-						{#each senderDomains as sender}
-							<option value={sender.id} disabled={!sender.ses_verified_for_sending}>
-								{sender.domain}
-								{sender.ses_verified_for_sending ? '• verified' : '• pending'}
-							</option>
-						{/each}
-					</select>
-				</label>
-				<label class="field">
-					<span>Preheader</span>
-					<input bind:value={draft.preheader} maxlength="180" />
-				</label>
-			</div>
-
-			<div class="field">
-				<span>Audience</span>
-				<div class="audience-grid">
-					{#each ['active', 'past_due', 'cancelled'] as status}
-						<label class="audience-chip">
-							<input
-								type="checkbox"
-								checked={draft.audienceStatuses.includes(status)}
-								onchange={(event) => {
-									if (event.currentTarget.checked) {
-										draft.audienceStatuses = [...new Set([...draft.audienceStatuses, status])];
-									} else {
-										draft.audienceStatuses = draft.audienceStatuses.filter(
-											(item) => item !== status
-										);
-									}
-								}}
-							/>
-							<span>{status.replace('_', ' ')}</span>
-							<strong>{data.audienceSummary?.[status] || 0}</strong>
-						</label>
-					{/each}
-				</div>
-				<small>{selectedAudienceCount} recipients match the current audience filters.</small>
-			</div>
-
-			{#if senderSelectionNeedsVerification}
-				<div class="banner error">
-					<IconTriangleAlert class="h-4 w-4" />
-					The selected sender domain is not verified yet. Verify it in Sender domains before
-					sending.
-				</div>
-			{/if}
-
-			<div class="preset-callout">
-				<div>
-					<strong>{selectedPreset.label}</strong>
-					<p>{selectedPreset.description}</p>
-				</div>
-				<div class="preset-swatches">
-					<span style={`background:${selectedPreset.colors.accent}`}></span>
-					<span style={`background:${selectedPreset.colors.accentSoft}`}></span>
-					<span style={`background:${selectedPreset.colors.ink}`}></span>
-				</div>
-			</div>
-
-			<div class="blocks-header">
-				<div>
-					<h3>Blocks</h3>
-					<p>Stack sections in the order readers should experience them.</p>
-				</div>
-				<div class="block-actions">
-					<button type="button" class="chip-button" onclick={() => addBlock('paragraph')}>
-						<IconPlus class="h-4 w-4" />
-						Text
-					</button>
-					<button type="button" class="chip-button" onclick={() => addBlock('button')}>
-						<IconPlus class="h-4 w-4" />
-						CTA
-					</button>
-					<button type="button" class="chip-button" onclick={() => addBlock('quote')}>
-						<IconPlus class="h-4 w-4" />
-						Quote
-					</button>
-				</div>
-			</div>
-
-			<div class="space-y-4">
-				{#each draft.blocks as block, index (block.id)}
-					<div class="block-card">
-						<div class="block-card-header">
-							<div>
-								<strong>{index + 1}. {block.type}</strong>
-								<small>{block.id}</small>
-							</div>
-							<button type="button" class="icon-button" onclick={() => removeBlock(block.id)}>
-								Remove
-							</button>
-						</div>
-
-						{#if block.type === 'hero'}
-							<div class="grid gap-3 lg:grid-cols-2">
-								<label class="field">
-									<span>Eyebrow</span>
-									<input bind:value={block.eyebrow} />
-								</label>
-								<label class="field">
-									<span>Headline</span>
-									<input bind:value={block.title} />
-								</label>
-							</div>
-							<label class="field">
-								<span>Body</span>
-								<textarea bind:value={block.body} rows="4"></textarea>
-							</label>
-							<div class="grid gap-3 lg:grid-cols-2">
-								<label class="field">
-									<span>Button label</span>
-									<input bind:value={block.buttonLabel} />
-								</label>
-								<label class="field">
-									<span>Button URL</span>
-									<input bind:value={block.buttonUrl} />
-								</label>
-							</div>
-						{:else if block.type === 'metrics'}
-							<div class="grid gap-3 lg:grid-cols-3">
-								{#each block.items as item}
-									<div class="metric-editor">
-										<label class="field">
-											<span>Label</span>
-											<input bind:value={item.label} />
-										</label>
-										<label class="field">
-											<span>Value</span>
-											<input bind:value={item.value} />
-										</label>
-									</div>
-								{/each}
-							</div>
-						{:else if block.type === 'button'}
-							<label class="field">
-								<span>Section title</span>
-								<input bind:value={block.title} />
-							</label>
-							<div class="grid gap-3 lg:grid-cols-2">
-								<label class="field">
-									<span>Button label</span>
-									<input bind:value={block.buttonLabel} />
-								</label>
-								<label class="field">
-									<span>Button URL</span>
-									<input bind:value={block.buttonUrl} />
-								</label>
-							</div>
-						{:else}
-							<label class="field">
-								<span>Title</span>
-								<input bind:value={block.title} />
-							</label>
-							<label class="field">
-								<span>Body</span>
-								<textarea bind:value={block.body} rows="5"></textarea>
-							</label>
-						{/if}
-					</div>
-				{/each}
-			</div>
-
-			<div class="composer-actions">
-				<button class="btn-secondary" type="button" disabled={composerBusy} onclick={saveDraft}>
-					<IconSquarePen class="h-4 w-4" />
-					Save draft
-				</button>
-				<div class="schedule-bar">
-					<input type="datetime-local" bind:value={scheduleAt} />
-					<button
-						class="btn-secondary"
-						type="button"
-						disabled={composerBusy}
-						onclick={scheduleSend}
-					>
-						<IconClock3 class="h-4 w-4" />
-						Schedule
-					</button>
-				</div>
-				<button class="btn-primary" type="button" disabled={composerBusy} onclick={sendNow}>
-					<IconSend class="h-4 w-4" />
-					Send now
-				</button>
-			</div>
-		</section>
-
-		<section class="space-y-6">
-			<div class="studio-panel">
-				<div class="panel-header">
-					<div>
-						<h2>Live preview</h2>
-						<p>Rendered HTML from the current block layout.</p>
-					</div>
-					<div class="preview-meta">
-						<span>{selectedAudienceCount} recipients</span>
+					<h2 class="text-sm font-semibold">Email Studio</h2>
+					<p class="text-surface-400-600 text-xs">
 						{#if selectedSender}
-							<span>{selectedSender.from_email_address}</span>
+							Sending from <span class="text-primary-400 font-medium">{selectedSender.from_email_address}</span>
+							· {selectedAudienceCount} recipients
+						{:else if senderDomains.length > 0}
+							No verified sender · {selectedAudienceCount} recipients
 						{:else}
-							<span>Default SES sender</span>
+							Set up a sender domain to start sending
 						{/if}
-					</div>
-				</div>
-				<div class="preview-shell">
-					<iframe title="Email preview" srcdoc={previewHtml}></iframe>
+					</p>
 				</div>
 			</div>
 
-			<div class="studio-panel">
-				<div class="panel-header">
+			<div class="flex items-center gap-2">
+				<!-- Sender domain status indicator -->
+				{#if verifiedSenderCount > 0}
+					<span class="chip preset-tonal-success text-xs">
+						<IconBadgeCheck class="h-3 w-3" />
+						{verifiedSenderCount} sender{verifiedSenderCount > 1 ? 's' : ''} ready
+					</span>
+				{:else if senderDomains.length > 0}
+					<span class="chip preset-tonal-warning text-xs">
+						<IconTriangleAlert class="h-3 w-3" />
+						Verification pending
+					</span>
+				{/if}
+
+				<!-- Settings / domain config button -->
+				<button
+					type="button"
+					class="btn btn-sm
+						{domainPanelOpen ? 'preset-filled-surface-500' : 'preset-tonal-surface'}
+						{!hasSenderReady && senderDomains.length === 0 ? 'preset-filled-primary-500' : ''}"
+					onclick={() => (domainPanelOpen = !domainPanelOpen)}
+					title="Sender domain settings"
+				>
+					<IconSettings class="h-4 w-4 {domainPanelOpen ? 'rotate-45' : ''} transition-transform duration-200" />
+					{#if !hasSenderReady && senderDomains.length === 0}
+						Setup sender
+					{/if}
+				</button>
+			</div>
+		</div>
+
+		<!-- ── DOMAIN CONFIG PANEL (slide-down) ──────────────────── -->
+		{#if domainPanelOpen}
+			<div class="border-surface-200-800 border-b" transition:slide={{ duration: 200 }}>
+				<div class="space-y-5 p-4 sm:p-5">
+
+					<!-- Intro if no domains yet -->
+					{#if senderDomains.length === 0}
+						<div class="bg-primary-500/5 border-primary-500/20 rounded-lg border p-4">
+							<p class="text-sm font-medium">Add a sender domain to start sending campaigns</p>
+							<p class="text-surface-400-600 mt-1 text-xs">
+								AWS SES requires a verified domain. Once set up, recipients will see your domain name
+								as the sender instead of a generic address.
+							</p>
+						</div>
+					{/if}
+
+					{#if senderNotice}
+						<div class="preset-tonal-success flex items-center gap-2 rounded-lg p-3 text-sm">
+							<IconCheck class="h-4 w-4 shrink-0" /> {senderNotice}
+						</div>
+					{/if}
+					{#if senderError}
+						<div class="preset-tonal-error flex items-center gap-2 rounded-lg p-3 text-sm">
+							<IconTriangleAlert class="h-4 w-4 shrink-0" /> {senderError}
+						</div>
+					{/if}
+
+					<!-- Add domain form -->
 					<div>
-						<h2>Sender domains</h2>
-						<p>
-							Create SES identities, copy required DNS records, and verify sending status. Domains
-							registered through your microsite flow sync records to Vercel automatically.
+						<p class="text-surface-600-400 mb-3 text-xs font-semibold uppercase tracking-wide">
+							{senderDomains.length > 0 ? 'Add another domain' : 'Configure sender domain'}
 						</p>
-					</div>
-					<button class="chip-button" type="button" onclick={refreshSenderDomains}>
-						<IconRefreshCw class="h-4 w-4" />
-						Refresh
-					</button>
-				</div>
 
-				{#if senderNotice}
-					<div class="banner success"><IconCheck class="h-4 w-4" /> {senderNotice}</div>
-				{/if}
-				{#if senderError}
-					<div class="banner error"><IconTriangleAlert class="h-4 w-4" /> {senderError}</div>
-				{/if}
-
-				<div class="grid gap-3 lg:grid-cols-2">
-					{#if registeredSiteDomains.length}
-						<label class="field lg:col-span-2">
-							<span>Use a site domain</span>
-							<div class="registered-domain-picker">
-								<select bind:value={selectedSiteDomain}>
-									<option value="">Select a domain already attached to this group</option>
+						{#if registeredSiteDomains.length}
+							<div class="mb-3 flex gap-2">
+								<select class="select flex-1 text-sm" bind:value={selectedSiteDomain}>
+									<option value="">Quick-fill from a site domain…</option>
 									{#each registeredSiteDomains as domainRow}
 										<option value={domainRow.domain}>{domainRow.label}</option>
 									{/each}
 								</select>
-								<button
-									class="btn-secondary"
-									type="button"
-									disabled={!selectedSiteDomain}
-									onclick={applySelectedSiteDomain}
-								>
-									Use domain
+								<button class="btn preset-tonal-primary btn-sm" type="button" disabled={!selectedSiteDomain} onclick={applySelectedSiteDomain}>
+									Use
 								</button>
 							</div>
-						</label>
-					{/if}
-					<label class="field">
-						<span>Domain</span>
-						<input
-							bind:value={senderForm.domain}
-							placeholder="mail.yourgroup.org or yourgroup.org"
+						{/if}
+
+						<div class="grid gap-3 sm:grid-cols-2">
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Domain</span>
+								<input class="input w-full text-sm" bind:value={senderForm.domain} placeholder="mail.yourgroup.org" />
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">From name</span>
+								<input class="input w-full text-sm" bind:value={senderForm.from_name} placeholder={group.name} />
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Local part (before @)</span>
+								<input class="input w-full text-sm" bind:value={senderForm.from_local_part} placeholder="hello" />
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Reply-to</span>
+								<input class="input w-full text-sm" bind:value={senderForm.reply_to_email} placeholder="organizers@yourgroup.org" />
+							</label>
+						</div>
+						<div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+							<label class="flex cursor-pointer items-center gap-2 text-sm">
+								<input type="checkbox" class="checkbox" bind:checked={senderForm.is_default} />
+								Make default sender
+							</label>
+							<button class="btn preset-filled-primary-500" type="button" disabled={senderBusy} onclick={saveSenderDomain}>
+								<IconGlobe class="h-4 w-4" />
+								Sync with AWS
+							</button>
+						</div>
+					</div>
+
+					<!-- Buy domain -->
+					<div class="border-surface-200-800 border-t pt-4">
+						<DomainPurchasePanel
+							groupSlug={group.slug}
+							initialSearchQuery={group.slug || ''}
+							defaultContact={{
+								email: group.public_contact_email || group.contact_email || '',
+								city: group.city || '',
+								state: group.state_region || '',
+								country: 'US'
+							}}
+							returnPath={`/groups/${group.slug}/manage/email?domain_payment=return`}
+							title="Buy New Domain"
 						/>
-					</label>
-					<label class="field">
-						<span>From name</span>
-						<input bind:value={senderForm.from_name} placeholder={group.name} />
-					</label>
-					<label class="field">
-						<span>From address local part</span>
-						<input bind:value={senderForm.from_local_part} placeholder="hello" />
-					</label>
-					<label class="field">
-						<span>Reply-to email</span>
-						<input bind:value={senderForm.reply_to_email} placeholder="organizers@yourgroup.org" />
-					</label>
-				</div>
-				<label class="audience-chip max-w-max">
-					<input type="checkbox" bind:checked={senderForm.is_default} />
-					<span>Make this the default sender</span>
-				</label>
-				<button
-					class="btn-primary mt-3"
-					type="button"
-					disabled={senderBusy}
-					onclick={saveSenderDomain}
-				>
-					<IconGlobe class="h-4 w-4" />
-					Sync with AWS
-				</button>
+					</div>
 
-				<div class="mt-4">
-					<DomainPurchasePanel
-						groupSlug={group.slug}
-						initialSearchQuery={group.slug || ''}
-						defaultContact={{
-							email: group.public_contact_email || group.contact_email || '',
-							city: group.city || '',
-							state: group.state_region || '',
-							country: 'US'
-						}}
-						returnPath={`/groups/${group.slug}/manage/email?domain_payment=return`}
-						title="Buy New Domain"
-					/>
-				</div>
-
-				<div class="space-y-4 pt-5">
-					{#if senderDomains.length === 0}
-						<div class="empty-card">No sender domains configured yet.</div>
-					{:else}
-						{#each senderDomains as sender}
-							<div class="sender-card">
-								<div class="sender-card-header">
-									<div>
-										<div class="sender-title">
-											<strong>{sender.domain}</strong>
-											{#if sender.is_default}
-												<span class="status-pill neutral">Default</span>
-											{/if}
-											<span
-												class={`status-pill ${sender.ses_verified_for_sending ? 'success' : sender.status === 'failed' ? 'error' : 'warning'}`}
-											>
-												{sender.ses_verified_for_sending ? 'Verified' : sender.status}
-											</span>
-										</div>
-										<p>{sender.from_email_address}</p>
-									</div>
-									<button
-										class="chip-button"
-										type="button"
-										disabled={verifyingSenderId === sender.id}
-										onclick={() => verifySenderDomain(sender.id)}
-									>
-										<IconRefreshCw
-											class={`h-4 w-4 ${verifyingSenderId === sender.id ? 'spin' : ''}`}
-										/>
-										Verify
-									</button>
-								</div>
-
-								<div class="sender-meta">
-									<div>
-										<span>DKIM</span>
-										<strong>{sender.ses_dkim_status || 'pending'}</strong>
-									</div>
-									<div>
-										<span>MAIL FROM</span>
-										<strong>{sender.ses_mail_from_status || 'pending'}</strong>
-									</div>
-									<div>
-										<span>Vercel DNS</span>
-										<strong>
-											{#if sender?.verification_details?.vercel_dns?.registered_via_vercel}
-												{#if sender?.verification_details?.vercel_dns?.status === 'synced'}
-													synced
-												{:else if sender?.verification_details?.vercel_dns?.status === 'failed'}
-													failed
-												{:else}
-													pending
-												{/if}
-											{:else}
-												manual
-											{/if}
-										</strong>
-									</div>
-								</div>
-								{#if sender?.verification_details?.vercel_dns?.status === 'failed' && sender?.verification_details?.vercel_dns?.error}
-									<div class="banner error mt-2">
-										<IconTriangleAlert class="h-4 w-4" />
-										{sender.verification_details.vercel_dns.error}
-									</div>
-								{/if}
-
-								<div class="dns-table">
-									<div class="dns-header">
-										<span>Type</span>
-										<span>Name</span>
-										<span>Value</span>
-										<span></span>
-									</div>
-									{#each sender.dns_records || [] as record}
-										<div class="dns-row">
-											<span>{record.type}</span>
-											<span>{record.name}</span>
-											<span class="dns-value">{record.value}</span>
-											<button
-												type="button"
-												class="icon-button"
-												onclick={() => copyDnsValue(record.value, `${sender.id}-${record.id}`)}
-											>
-												<IconCopy class="h-4 w-4" />
-												{copiedDns === `${sender.id}-${record.id}` ? 'Copied' : 'Copy'}
-											</button>
-										</div>
-									{/each}
-								</div>
+					<!-- Existing domains list -->
+					{#if senderDomains.length > 0}
+						<div class="border-surface-200-800 space-y-3 border-t pt-4">
+							<div class="flex items-center justify-between">
+								<p class="text-surface-600-400 text-xs font-semibold uppercase tracking-wide">Configured domains</p>
+								<button class="btn preset-tonal-surface btn-sm" type="button" onclick={refreshSenderDomains}>
+									<IconRefreshCw class="h-3.5 w-3.5" /> Refresh
+								</button>
 							</div>
-						{/each}
+							{#each senderDomains as sender}
+								<div class="bg-surface-100-900 border-surface-200-800 rounded-lg border p-3">
+									<div class="mb-2 flex flex-wrap items-start justify-between gap-2">
+										<div>
+											<div class="flex flex-wrap items-center gap-1.5">
+												<span class="text-sm font-semibold">{sender.domain}</span>
+												{#if sender.is_default}<span class="chip preset-tonal-surface text-xs">Default</span>{/if}
+												<span class="chip text-xs {sender.ses_verified_for_sending ? 'preset-tonal-success' : sender.status === 'failed' ? 'preset-tonal-error' : 'preset-tonal-warning'}">
+													{#if sender.ses_verified_for_sending}<IconBadgeCheck class="h-3 w-3" />{/if}
+													{sender.ses_verified_for_sending ? 'Verified' : sender.status || 'Pending'}
+												</span>
+											</div>
+											<p class="text-surface-400-600 mt-0.5 text-xs">{sender.from_email_address}</p>
+										</div>
+										<button class="btn preset-tonal-surface btn-sm" type="button" disabled={verifyingSenderId === sender.id} onclick={() => verifySenderDomain(sender.id)}>
+											<IconRefreshCw class="h-3.5 w-3.5 {verifyingSenderId === sender.id ? 'animate-spin' : ''}" /> Verify
+										</button>
+									</div>
+
+									<!-- DNS badges -->
+									<div class="mb-2 flex flex-wrap gap-1.5 text-xs">
+										<span class="bg-surface-200-800 rounded px-2 py-0.5">DKIM: <strong>{sender.ses_dkim_status || 'pending'}</strong></span>
+										<span class="bg-surface-200-800 rounded px-2 py-0.5">MAIL FROM: <strong>{sender.ses_mail_from_status || 'pending'}</strong></span>
+										<span class="bg-surface-200-800 rounded px-2 py-0.5">
+											Vercel DNS: <strong>{sender?.verification_details?.vercel_dns?.registered_via_vercel ? (sender?.verification_details?.vercel_dns?.status ?? 'pending') : 'manual'}</strong>
+										</span>
+									</div>
+
+									{#if sender?.verification_details?.vercel_dns?.status === 'failed' && sender?.verification_details?.vercel_dns?.error}
+										<div class="preset-tonal-error mb-2 flex items-center gap-2 rounded p-2 text-xs">
+											<IconTriangleAlert class="h-3.5 w-3.5 shrink-0" /> {sender.verification_details.vercel_dns.error}
+										</div>
+									{/if}
+
+									{#if sender.dns_records?.length}
+										<div class="overflow-x-auto">
+											<table class="w-full text-xs">
+												<thead>
+													<tr class="text-surface-400-600 border-surface-200-800 border-b">
+														<th class="pb-1 pr-3 text-left font-semibold uppercase tracking-wide">Type</th>
+														<th class="pb-1 pr-3 text-left font-semibold uppercase tracking-wide">Name</th>
+														<th class="pb-1 pr-3 text-left font-semibold uppercase tracking-wide">Value</th>
+														<th class="pb-1"></th>
+													</tr>
+												</thead>
+												<tbody>
+													{#each sender.dns_records as record}
+														<tr class="border-surface-200-800 border-b last:border-0">
+															<td class="py-1.5 pr-3 font-mono">{record.type}</td>
+															<td class="py-1.5 pr-3 font-mono opacity-80">{record.name}</td>
+															<td class="max-w-[160px] break-all py-1.5 pr-3 font-mono opacity-60">{record.value}</td>
+															<td class="py-1.5">
+																<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => copyDnsValue(record.value, `${sender.id}-${record.id}`)}>
+																	{#if copiedDns === `${sender.id}-${record.id}`}
+																		<IconCheck class="h-3.5 w-3.5" /> Copied
+																	{:else}
+																		<IconCopy class="h-3.5 w-3.5" /> Copy
+																	{/if}
+																</button>
+															</td>
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
 					{/if}
 				</div>
 			</div>
+		{/if}
 
-			<div class="studio-panel">
-				<div class="panel-header">
-					<div>
-						<h2>Campaign history</h2>
-						<p>Duplicate drafts, reuse layouts, or manually send saved campaigns.</p>
+		<!-- ── TABS (only shown once sender domain exists or can be bypassed) ── -->
+		{#if hasSenderReady || senderDomains.length > 0 || !domainPanelOpen}
+			<nav class="border-surface-200-800 flex overflow-x-auto border-b" style="scrollbar-width: none;">
+				{#each [{ id: 'compose', label: 'Compose', icon: IconSquarePen }, { id: 'preview', label: 'Preview', icon: IconLayout }, { id: 'history', label: `History${emailHistory.length ? ` (${emailHistory.length})` : ''}`, icon: IconClock3 }] as tab}
+					{@const Icon = tab.icon}
+					{@const isActive = activeTab === tab.id}
+					<button
+						type="button"
+						class="flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-all
+							{isActive ? 'border-primary-500 text-primary-400' : 'border-transparent text-surface-400-600 hover:text-surface-900-50'}"
+						onclick={() => (activeTab = tab.id)}
+					>
+						<Icon class="h-4 w-4" />
+						{tab.label}
+					</button>
+				{/each}
+			</nav>
+		{/if}
+
+		<!-- ══ COMPOSE ══════════════════════════════════════════════ -->
+		{#if activeTab === 'compose'}
+			<div class="space-y-4 p-4 sm:p-5">
+
+				<!-- Banners -->
+				{#if notice}
+					<div class="preset-tonal-success flex items-center gap-2 rounded-lg p-3 text-sm">
+						<IconCheck class="h-4 w-4 shrink-0" /> {notice}
 					</div>
-					<button class="chip-button" type="button" onclick={refreshHistory}>
-						<IconRefreshCw class="h-4 w-4" />
-						Refresh
+				{/if}
+				{#if error}
+					<div class="preset-tonal-error flex items-center gap-2 rounded-lg p-3 text-sm">
+						<IconTriangleAlert class="h-4 w-4 shrink-0" /> {error}
+					</div>
+				{/if}
+				{#if senderSelectionNeedsVerification}
+					<div class="preset-tonal-warning flex items-center gap-2 rounded-lg p-3 text-sm">
+						<IconTriangleAlert class="h-4 w-4 shrink-0" />
+						The selected sender isn't verified yet.
+						<button type="button" class="underline" onclick={() => (domainPanelOpen = true)}>Open settings →</button>
+					</div>
+				{/if}
+
+				<!-- Subject line — the most important field, first and prominent -->
+				<label class="space-y-1.5">
+					<span class="text-sm font-semibold">Subject line</span>
+					<input class="input w-full text-base" bind:value={draft.subject} maxlength="300" placeholder="What's this email about?" />
+				</label>
+
+				<!-- Audience chips -->
+				<div class="space-y-2">
+					<span class="text-surface-600-400 text-xs font-semibold uppercase tracking-wide">Send to</span>
+					<div class="flex flex-wrap gap-2">
+						{#each ['active', 'past_due', 'cancelled'] as status}
+							<label
+								class="flex cursor-pointer select-none items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all
+									{draft.audienceStatuses.includes(status)
+										? 'border-primary-500/50 bg-primary-500/10 text-primary-300'
+										: 'border-surface-200-800 bg-surface-100-900 text-surface-600-400'}"
+							>
+								<input type="checkbox" class="hidden" checked={draft.audienceStatuses.includes(status)}
+									onchange={(e) => {
+										if (e.currentTarget.checked) draft.audienceStatuses = [...new Set([...draft.audienceStatuses, status])];
+										else draft.audienceStatuses = draft.audienceStatuses.filter((s) => s !== status);
+									}}
+								/>
+								{#if draft.audienceStatuses.includes(status)}<IconCheck class="h-3.5 w-3.5" />{/if}
+								<span class="capitalize">{status.replace('_', ' ')}</span>
+								<span class="font-bold">{data.audienceSummary?.[status] || 0}</span>
+							</label>
+						{/each}
+					</div>
+					<p class="text-surface-400-600 text-xs">{selectedAudienceCount} recipients</p>
+				</div>
+
+				<!-- Content blocks -->
+				<div class="space-y-2">
+					<div class="flex items-center justify-between gap-3">
+						<span class="text-sm font-semibold">Content</span>
+						<div class="flex gap-2">
+							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('paragraph')}>
+								<IconPlus class="h-3.5 w-3.5" /> Text
+							</button>
+							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('button')}>
+								<IconPlus class="h-3.5 w-3.5" /> CTA
+							</button>
+							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('quote')}>
+								<IconPlus class="h-3.5 w-3.5" /> Quote
+							</button>
+						</div>
+					</div>
+
+					{#if draft.blocks.length === 0}
+						<div class="border-surface-200-800 flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
+							<div class="bg-surface-100-900 flex h-10 w-10 items-center justify-center rounded-full">
+								<IconMail class="text-surface-400-600 h-5 w-5" />
+							</div>
+							<div>
+								<p class="text-sm font-medium">No content yet</p>
+								<p class="text-surface-400-600 text-xs">Add a Text, CTA, or Quote block above to start building.</p>
+							</div>
+						</div>
+					{:else}
+						<div class="space-y-2">
+							{#each draft.blocks as block, index (block.id)}
+								<div class="bg-surface-100-900 border-surface-200-800 rounded-xl border p-3">
+									<div class="mb-2.5 flex items-center justify-between">
+										<span class="text-surface-400-600 text-xs font-semibold uppercase tracking-wide">{index + 1} · {block.type}</span>
+										<button type="button" class="btn preset-tonal-error btn-sm py-1" onclick={() => removeBlock(block.id)}>
+											<IconTrash class="h-3.5 w-3.5" />
+										</button>
+									</div>
+
+									{#if block.type === 'hero'}
+										<div class="grid gap-2 sm:grid-cols-2">
+											<input class="input text-sm" bind:value={block.eyebrow} placeholder="Eyebrow label" />
+											<input class="input text-sm" bind:value={block.title} placeholder="Headline" />
+										</div>
+										<textarea class="textarea mt-2 w-full text-sm" bind:value={block.body} rows="3" placeholder="Body copy…"></textarea>
+										<div class="mt-2 grid gap-2 sm:grid-cols-2">
+											<input class="input text-sm" bind:value={block.buttonLabel} placeholder="Button label" />
+											<input class="input text-sm" bind:value={block.buttonUrl} placeholder="https://…" />
+										</div>
+									{:else if block.type === 'metrics'}
+										<div class="grid gap-2 sm:grid-cols-3">
+											{#each block.items as item}
+												<div class="bg-surface-50-950 border-surface-200-800 rounded-lg border p-2">
+													<input class="input mb-1 w-full text-xs" bind:value={item.label} placeholder="Label" />
+													<input class="input w-full text-xs" bind:value={item.value} placeholder="Value" />
+												</div>
+											{/each}
+										</div>
+									{:else if block.type === 'button'}
+										<input class="input mb-2 w-full text-sm" bind:value={block.title} placeholder="Section title (optional)" />
+										<div class="grid gap-2 sm:grid-cols-2">
+											<input class="input text-sm" bind:value={block.buttonLabel} placeholder="Button label" />
+											<input class="input text-sm" bind:value={block.buttonUrl} placeholder="https://…" />
+										</div>
+									{:else}
+										<input class="input mb-2 w-full text-sm" bind:value={block.title} placeholder="Section heading" />
+										<textarea class="textarea w-full text-sm" bind:value={block.body} rows="4" placeholder="Body copy…"></textarea>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				<!-- Advanced settings (campaign name, template, sender, preheader) -->
+				<div class="border-surface-200-800 overflow-hidden rounded-xl border">
+					<button
+						type="button"
+						class="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-white/5"
+						onclick={() => (showAdvanced = !showAdvanced)}
+					>
+						<span>Advanced settings</span>
+						<IconChevronDown class="h-4 w-4 opacity-50 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}" />
+					</button>
+					{#if showAdvanced}
+						<div class="border-surface-200-800 grid gap-3 border-t p-4 sm:grid-cols-2" transition:slide={{ duration: 150 }}>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Campaign name</span>
+								<input class="input w-full text-sm" bind:value={draft.campaignName} maxlength="120" placeholder="e.g. June newsletter" />
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Preheader</span>
+								<input class="input w-full text-sm" bind:value={draft.preheader} maxlength="180" placeholder="Preview text in inbox" />
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Template</span>
+								<select class="select w-full text-sm" bind:value={draft.templateId}>
+									{#each EMAIL_TEMPLATE_PRESETS as preset}
+										<option value={preset.id}>{preset.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label class="space-y-1">
+								<span class="text-surface-600-400 text-xs font-medium">Sender domain</span>
+								<select class="select w-full text-sm" bind:value={draft.senderDomainId}>
+									<option value="">Default SES sender</option>
+									{#each senderDomains as sender}
+										<option value={sender.id} disabled={!sender.ses_verified_for_sending}>
+											{sender.domain} {sender.ses_verified_for_sending ? '· verified' : '· pending'}
+										</option>
+									{/each}
+								</select>
+							</label>
+							{#if selectedPreset}
+								<div class="border-surface-200-800 col-span-full flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+									<div>
+										<p class="text-sm font-medium">{selectedPreset.label}</p>
+										<p class="text-surface-400-600 text-xs">{selectedPreset.description}</p>
+									</div>
+									<div class="flex gap-1.5">
+										<span class="h-4 w-4 rounded-full" style="background:{selectedPreset.colors.accent}"></span>
+										<span class="h-4 w-4 rounded-full" style="background:{selectedPreset.colors.accentSoft}"></span>
+										<span class="h-4 w-4 rounded-full" style="background:{selectedPreset.colors.ink}"></span>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<!-- Action bar -->
+				<div class="border-surface-200-800 flex flex-wrap items-center gap-2 border-t pt-4">
+					<button class="btn preset-tonal-surface btn-sm" type="button" disabled={composerBusy} onclick={resetDraft}>
+						<IconSparkles class="h-4 w-4" /> New draft
+					</button>
+					<button class="btn preset-tonal-surface" type="button" disabled={composerBusy} onclick={saveDraft}>
+						<IconSquarePen class="h-4 w-4" /> Save draft
+					</button>
+					<div class="ml-auto flex flex-wrap items-center gap-2">
+						<div class="flex items-center gap-1.5">
+							<input type="datetime-local" class="input text-sm" bind:value={scheduleAt} />
+							<button class="btn preset-tonal-surface" type="button" disabled={composerBusy} onclick={scheduleSend}>
+								<IconClock3 class="h-4 w-4" /> Schedule
+							</button>
+						</div>
+						<button class="btn preset-filled-primary-500" type="button" disabled={composerBusy} onclick={sendNow}>
+							<IconSend class="h-4 w-4" /> Send now
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- ══ PREVIEW ══════════════════════════════════════════════ -->
+		{#if activeTab === 'preview'}
+			<div class="p-4 sm:p-5">
+				<div class="border-surface-200-800 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs">
+					<div class="flex flex-wrap gap-2">
+						<span class="text-surface-400-600">Subject:</span>
+						<span class="font-medium">{draft.subject || '(no subject)'}</span>
+					</div>
+					<div class="flex flex-wrap gap-3 text-surface-400-600">
+						<span>{selectedAudienceCount} recipients</span>
+						{#if selectedSender}
+							<span>from {selectedSender.from_email_address}</span>
+						{:else}
+							<span>default SES sender</span>
+						{/if}
+					</div>
+				</div>
+				<div class="border-surface-200-800 overflow-hidden rounded-xl border bg-white">
+					<iframe title="Email preview" srcdoc={previewHtml} class="w-full" style="min-height:560px;border:0;background:white;"></iframe>
+				</div>
+			</div>
+		{/if}
+
+		<!-- ══ HISTORY ══════════════════════════════════════════════ -->
+		{#if activeTab === 'history'}
+			<div class="p-4 sm:p-5">
+				<div class="mb-4 flex items-center justify-between">
+					<p class="text-surface-400-600 text-sm">Duplicate any campaign to load it back into the composer.</p>
+					<button class="btn preset-tonal-surface btn-sm" type="button" onclick={refreshHistory}>
+						<IconRefreshCw class="h-3.5 w-3.5" /> Refresh
 					</button>
 				</div>
 
-				<div class="space-y-3">
-					{#if emailHistory.length === 0}
-						<div class="empty-card">No campaigns yet.</div>
-					{:else}
+				{#if notice}
+					<div class="preset-tonal-success mb-4 flex items-center gap-2 rounded-lg p-3 text-sm">
+						<IconCheck class="h-4 w-4 shrink-0" /> {notice}
+					</div>
+				{/if}
+
+				{#if emailHistory.length === 0}
+					<div class="border-surface-200-800 flex flex-col items-center gap-3 rounded-xl border border-dashed py-12 text-center">
+						<div class="bg-surface-100-900 flex h-10 w-10 items-center justify-center rounded-full">
+							<IconClock3 class="text-surface-400-600 h-5 w-5" />
+						</div>
+						<div>
+							<p class="text-sm font-medium">No campaigns yet</p>
+							<p class="text-surface-400-600 mt-0.5 text-xs">Save or send a draft to see it here.</p>
+						</div>
+						<button class="btn preset-tonal-primary btn-sm" type="button" onclick={() => (activeTab = 'compose')}>
+							Start composing
+						</button>
+					</div>
+				{:else}
+					<div class="space-y-2">
 						{#each emailHistory as campaign}
-							<div class="history-card">
-								<div class="history-main">
-									<div>
-										<strong>{campaign.campaign_name}</strong>
-										<p>{campaign.subject_template}</p>
+							<div class="bg-surface-100-900 border-surface-200-800 rounded-xl border p-3">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											<span class="text-sm font-medium">{campaign.campaign_name || campaign.subject_template}</span>
+											<span class="chip text-xs
+												{campaign.status === 'sent' ? 'preset-tonal-success' : campaign.status === 'failed' ? 'preset-tonal-error' : campaign.status === 'scheduled' ? 'preset-tonal-warning' : 'preset-tonal-surface'}">
+												{campaign.status}
+											</span>
+										</div>
+										{#if campaign.campaign_name}
+											<p class="text-surface-400-600 mt-0.5 text-xs">{campaign.subject_template}</p>
+										{/if}
+										<div class="text-surface-400-600 mt-1.5 flex flex-wrap gap-3 text-xs">
+											<span>{formatDate(campaign.created_at)}</span>
+											<span>{campaign.sent_count || 0} sent</span>
+											{#if campaign.scheduled_at}<span>Scheduled {formatDate(campaign.scheduled_at)}</span>{/if}
+										</div>
 									</div>
-									<span
-										class={`status-pill ${campaign.status === 'sent' ? 'success' : campaign.status === 'failed' ? 'error' : 'neutral'}`}
-									>
-										{campaign.status}
-									</span>
-								</div>
-								<div class="history-meta">
-									<span>Created {formatDate(campaign.created_at)}</span>
-									<span>{campaign.sent_count || 0} sent</span>
-									{#if campaign.scheduled_at}
-										<span>Scheduled {formatDate(campaign.scheduled_at)}</span>
-									{/if}
-								</div>
-								<div class="history-actions">
-									<button
-										class="chip-button"
-										type="button"
-										onclick={() => duplicateCampaign(campaign)}
-									>
-										<IconCopy class="h-4 w-4" />
-										Duplicate
-									</button>
-									{#if campaign.status === 'draft' || campaign.status === 'failed' || campaign.status === 'scheduled'}
-										<button
-											class="chip-button"
-											type="button"
-											onclick={() => sendExistingCampaign(campaign.id)}
-										>
-											<IconSend class="h-4 w-4" />
-											Send now
+									<div class="flex shrink-0 gap-2">
+										<button class="btn preset-tonal-surface btn-sm" type="button" onclick={() => duplicateCampaign(campaign)}>
+											<IconCopy class="h-3.5 w-3.5" /> Duplicate
 										</button>
-									{/if}
+										{#if campaign.status === 'draft' || campaign.status === 'failed' || campaign.status === 'scheduled'}
+											<button class="btn preset-filled-primary-500 btn-sm" type="button" disabled={composerBusy} onclick={() => sendExistingCampaign(campaign.id)}>
+												<IconSend class="h-3.5 w-3.5" /> Send
+											</button>
+										{/if}
+									</div>
 								</div>
 							</div>
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
-		</section>
+		{/if}
 	</div>
 </div>
-
-<style>
-	.email-hero {
-		display: grid;
-		gap: 1.5rem;
-		padding: 1.75rem;
-		border-radius: 32px;
-		background:
-			radial-gradient(circle at top left, rgba(255, 202, 133, 0.35), transparent 28%),
-			radial-gradient(circle at bottom right, rgba(43, 109, 246, 0.2), transparent 26%),
-			linear-gradient(135deg, rgba(10, 20, 37, 0.98), rgba(23, 41, 70, 0.94));
-		color: white;
-	}
-
-	.email-hero-copy h1 {
-		margin: 0.5rem 0 0.75rem;
-		font-size: clamp(2rem, 3vw, 3rem);
-		line-height: 1;
-	}
-
-	.email-hero-copy p {
-		max-width: 52rem;
-		margin: 0;
-		font-size: 1rem;
-		line-height: 1.7;
-		color: rgba(255, 255, 255, 0.74);
-	}
-
-	.eyebrow {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.45rem 0.8rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.1);
-		font-size: 0.78rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.hero-metrics {
-		display: grid;
-		gap: 0.9rem;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	}
-
-	.hero-metric {
-		padding: 1rem;
-		border-radius: 22px;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-	}
-
-	.hero-metric span,
-	.hero-metric small {
-		display: block;
-		color: rgba(255, 255, 255, 0.66);
-	}
-
-	.hero-metric strong {
-		display: block;
-		margin: 0.25rem 0;
-		font-size: 2rem;
-		line-height: 1;
-	}
-
-	.studio-panel {
-		padding: 1.35rem;
-		border-radius: 28px;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
-		border: 1px solid rgba(148, 163, 184, 0.22);
-		box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-	}
-
-	.panel-header,
-	.blocks-header,
-	.sender-card-header,
-	.history-main,
-	.composer-actions {
-		display: flex;
-		justify-content: space-between;
-		gap: 1rem;
-		align-items: center;
-	}
-
-	.panel-header h2,
-	.blocks-header h3 {
-		margin: 0;
-		font-size: 1.1rem;
-	}
-
-	.panel-header p,
-	.blocks-header p,
-	.sender-card-header p,
-	.history-main p {
-		margin: 0.25rem 0 0;
-		color: #64748b;
-		font-size: 0.92rem;
-	}
-
-	.field {
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.field span {
-		font-size: 0.83rem;
-		font-weight: 700;
-		color: #334155;
-	}
-
-	.field small {
-		color: #64748b;
-		font-size: 0.82rem;
-	}
-
-	.field input,
-	.field select,
-	.field textarea {
-		width: 100%;
-		padding: 0.8rem 0.9rem;
-		border-radius: 16px;
-		border: 1px solid #d8dee8;
-		background: rgba(255, 255, 255, 0.94);
-		color: #0f172a;
-	}
-
-	.field textarea {
-		resize: vertical;
-		min-height: 120px;
-	}
-
-	.registered-domain-picker {
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.registered-domain-picker select {
-		flex: 1 1 auto;
-	}
-
-	.banner {
-		display: flex;
-		align-items: center;
-		gap: 0.65rem;
-		padding: 0.85rem 1rem;
-		border-radius: 16px;
-		font-size: 0.93rem;
-		font-weight: 600;
-	}
-
-	.banner.success {
-		background: #ecfdf3;
-		color: #166534;
-	}
-
-	.banner.error {
-		background: #fff1f2;
-		color: #be123c;
-	}
-
-	.chip-button,
-	.icon-button,
-	.btn-primary,
-	.btn-secondary {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		border-radius: 999px;
-		border: 1px solid transparent;
-		font-weight: 700;
-	}
-
-	.chip-button,
-	.icon-button,
-	.btn-secondary {
-		background: #eef2ff;
-		color: #243b6b;
-		border-color: rgba(99, 102, 241, 0.12);
-	}
-
-	.btn-primary {
-		background: #0f172a;
-		color: white;
-	}
-
-	.audience-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.7rem;
-	}
-
-	.audience-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55rem;
-		padding: 0.8rem 1rem;
-		border-radius: 999px;
-		background: #f8fafc;
-		border: 1px solid #d8dee8;
-	}
-
-	.audience-chip strong {
-		font-size: 0.9rem;
-	}
-
-	.preset-callout {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem 1.1rem;
-		border-radius: 22px;
-		background: #f8fafc;
-		border: 1px solid #e2e8f0;
-	}
-
-	.preset-callout strong {
-		display: block;
-		margin-bottom: 0.2rem;
-	}
-
-	.preset-callout p {
-		margin: 0;
-		color: #64748b;
-		font-size: 0.9rem;
-	}
-
-	.preset-swatches {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.preset-swatches span {
-		width: 1rem;
-		height: 1rem;
-		border-radius: 999px;
-	}
-
-	.block-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-	}
-
-	.block-card,
-	.sender-card,
-	.history-card,
-	.empty-card {
-		padding: 1rem;
-		border-radius: 22px;
-		background: #f8fafc;
-		border: 1px solid #e2e8f0;
-	}
-
-	.block-card-header,
-	.history-actions,
-	.sender-title,
-	.sender-meta,
-	.history-meta,
-	.preview-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.block-card-header small,
-	.sender-meta span,
-	.history-meta,
-	.preview-meta {
-		color: #64748b;
-		font-size: 0.82rem;
-	}
-
-	.metric-editor {
-		padding: 0.8rem;
-		border-radius: 18px;
-		background: white;
-		border: 1px solid #e2e8f0;
-	}
-
-	.schedule-bar {
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.schedule-bar input {
-		padding: 0.75rem 0.9rem;
-		border-radius: 999px;
-		border: 1px solid #d8dee8;
-	}
-
-	.preview-shell {
-		min-height: 540px;
-		margin-top: 1rem;
-		border-radius: 24px;
-		overflow: hidden;
-		border: 1px solid #d8dee8;
-		background: white;
-	}
-
-	.preview-shell iframe {
-		width: 100%;
-		min-height: 540px;
-		border: 0;
-		background: white;
-	}
-
-	.status-pill {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.34rem 0.7rem;
-		border-radius: 999px;
-		font-size: 0.75rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.status-pill.success {
-		background: #dcfce7;
-		color: #166534;
-	}
-
-	.status-pill.warning {
-		background: #fff7ed;
-		color: #b45309;
-	}
-
-	.status-pill.error {
-		background: #ffe4e6;
-		color: #be123c;
-	}
-
-	.status-pill.neutral {
-		background: #e2e8f0;
-		color: #334155;
-	}
-
-	.sender-meta {
-		padding: 0.8rem 0 0.3rem;
-	}
-
-	.sender-meta div {
-		min-width: 120px;
-	}
-
-	.sender-meta strong {
-		display: block;
-		font-size: 0.92rem;
-		color: #0f172a;
-	}
-
-	.dns-table {
-		margin-top: 1rem;
-		display: grid;
-		gap: 0.55rem;
-	}
-
-	.dns-header,
-	.dns-row {
-		display: grid;
-		grid-template-columns: 80px minmax(0, 1.3fr) minmax(0, 1.3fr) auto;
-		gap: 0.8rem;
-		align-items: center;
-	}
-
-	.dns-header {
-		font-size: 0.76rem;
-		font-weight: 800;
-		color: #475569;
-		text-transform: uppercase;
-	}
-
-	.dns-row {
-		padding: 0.75rem;
-		border-radius: 16px;
-		background: white;
-		border: 1px solid #e2e8f0;
-		font-size: 0.86rem;
-	}
-
-	.dns-value {
-		overflow-wrap: anywhere;
-		color: #334155;
-	}
-
-	.history-meta {
-		margin-top: 0.6rem;
-	}
-
-	.history-actions {
-		margin-top: 0.85rem;
-	}
-
-	.spin {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	@media (max-width: 900px) {
-		.panel-header,
-		.blocks-header,
-		.composer-actions,
-		.sender-card-header {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.registered-domain-picker,
-		.schedule-bar {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.dns-header,
-		.dns-row {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

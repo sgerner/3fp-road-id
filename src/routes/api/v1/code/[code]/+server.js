@@ -1,8 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 
 export async function GET({ params }) {
 	const { code } = params;
+	const supabase = createServiceSupabaseClient();
+
+	if (!supabase) {
+		return json({ error: 'Service client is unavailable.' }, { status: 500 });
+	}
 
 	// Query the qr_codes table, joining the related profile and emergency contacts
 	const { data, error } = await supabase
