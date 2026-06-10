@@ -1,5 +1,5 @@
 <script>
-	import { siTiktok } from 'simple-icons/icons';
+	import { siTiktok } from 'simple-icons';
 	import BrandIcon from './BrandIcon.svelte';
 	export let className = '';
 </script>

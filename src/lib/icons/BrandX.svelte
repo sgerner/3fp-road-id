@@ -1,5 +1,5 @@
 <script>
-	import { siX } from 'simple-icons/icons';
+	import { siX } from 'simple-icons';
 	import BrandIcon from './BrandIcon.svelte';
 	export let className = '';
 </script>

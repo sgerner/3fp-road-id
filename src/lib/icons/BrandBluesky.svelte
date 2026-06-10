@@ -1,5 +1,5 @@
 <script>
-	import { siBluesky } from 'simple-icons/icons';
+	import { siBluesky } from 'simple-icons';
 	import BrandIcon from './BrandIcon.svelte';
 	export let className = '';
 </script>

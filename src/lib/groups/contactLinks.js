@@ -1,11 +1,10 @@
 import IconGlobe from '@lucide/svelte/icons/globe';
 import IconMail from '@lucide/svelte/icons/mail';
 import IconPhone from '@lucide/svelte/icons/phone';
-import IconInstagram from '@lucide/svelte/icons/instagram';
-import IconFacebook from '@lucide/svelte/icons/facebook';
+import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
+import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 import BrandX from '$lib/icons/BrandX.svelte';
-import IconYoutube from '@lucide/svelte/icons/youtube';
-import IconLinkedin from '@lucide/svelte/icons/linkedin';
+import BrandYoutube from '$lib/icons/BrandYoutube.svelte';
 import IconLink from '@lucide/svelte/icons/link';
 import BrandThreads from '$lib/icons/BrandThreads.svelte';
 import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
@@ -49,11 +48,11 @@ export function buildContactLinks(group) {
 	const socials = extractSocialLinks(g);
 
 	const socialIcons = {
-		instagram: IconInstagram,
-		facebook: IconFacebook,
+		instagram: BrandInstagram,
+		facebook: BrandFacebook,
 		x: BrandX,
-		youtube: IconYoutube,
-		linkedin: IconLinkedin,
+		youtube: BrandYoutube,
+		linkedin: IconLink,
 		threads: BrandThreads,
 		mastodon: BrandMastodon,
 		tiktok: BrandTikTok,
@@ -155,8 +154,8 @@ export const CTA_ICON_MAP = {
 	website: IconGlobe,
 	email: IconMail,
 	phone: IconPhone,
-	facebook: IconFacebook,
-	instagram: IconInstagram,
+		facebook: BrandFacebook,
+		instagram: BrandInstagram,
 	strava: BrandStrava,
 	x: BrandX,
 	tiktok: BrandTikTok,
@@ -168,11 +167,11 @@ export const CONTACT_ICON_MAP = {
 	website: IconGlobe,
 	email: IconMail,
 	phone: IconPhone,
-	instagram: IconInstagram,
-	facebook: IconFacebook,
+	instagram: BrandInstagram,
+	facebook: BrandFacebook,
 	x: BrandX,
-	youtube: IconYoutube,
-	linkedin: IconLinkedin,
+	youtube: BrandYoutube,
+	linkedin: IconLink,
 	threads: BrandThreads,
 	tiktok: BrandTikTok,
 	strava: BrandStrava,

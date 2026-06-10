@@ -17,8 +17,8 @@
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import IconFacebook from '@lucide/svelte/icons/facebook';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
@@ -741,7 +741,7 @@
 	}
 
 	function getPlatformIcon(platform) {
-		return platform === 'instagram' ? IconInstagram : IconFacebook;
+	return platform === 'instagram' ? BrandInstagram : BrandFacebook;
 	}
 
 	function getPlatformColor(platform) {
@@ -2392,9 +2392,9 @@
 																			class="bg-surface-200-800 flex h-5 w-5 items-center justify-center rounded"
 																		>
 																			{#if platform === 'instagram'}
-																				<IconInstagram class="h-3 w-3 text-pink-500" />
+									<BrandInstagram class="h-3 w-3 text-pink-500" />
 																			{:else}
-																				<IconFacebook class="h-3 w-3 text-blue-500" />
+									<BrandFacebook class="h-3 w-3 text-blue-500" />
 																			{/if}
 																		</div>
 																	{/each}

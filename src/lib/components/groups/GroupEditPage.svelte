@@ -14,8 +14,8 @@
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
-	import IconFacebook from '@lucide/svelte/icons/facebook';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import BrandX from '$lib/icons/BrandX.svelte';
 	import BrandStrava from '$lib/icons/BrandStrava.svelte';
 	import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
@@ -1259,8 +1259,8 @@
 		{ key: 'website', label: 'Website', icon: IconGlobe },
 		{ key: 'email', label: 'Email', icon: IconMail },
 		{ key: 'phone', label: 'Phone', icon: IconPhone },
-		{ key: 'facebook', label: 'Facebook', icon: IconFacebook },
-		{ key: 'instagram', label: 'Instagram', icon: IconInstagram },
+		{ key: 'facebook', label: 'Facebook', icon: BrandFacebook },
+		{ key: 'instagram', label: 'Instagram', icon: BrandInstagram },
 		{ key: 'strava', label: 'Strava', icon: BrandStrava },
 		{ key: 'x', label: 'X', icon: BrandX },
 		{ key: 'tiktok', label: 'TikTok', icon: BrandTikTok },
@@ -1795,8 +1795,8 @@
 										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
 										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
 										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-										{:else if cp.key === 'facebook'}<IconFacebook class="h-4 w-4" />
-										{:else if cp.key === 'instagram'}<IconInstagram class="h-4 w-4" />
+										{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
+										{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
 										{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
 										{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
 										{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />

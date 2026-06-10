@@ -1,5 +1,5 @@
 <script>
-	import { siStrava } from 'simple-icons/icons';
+	import { siStrava } from 'simple-icons';
 	import BrandIcon from './BrandIcon.svelte';
 	export let className = '';
 </script>

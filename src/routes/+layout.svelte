@@ -21,8 +21,8 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	// Branding / social icons
 	import IconHeart from '@lucide/svelte/icons/heart';
-	import IconFacebook from '@lucide/svelte/icons/facebook';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import GlobalAssistant from '$lib/components/ai/GlobalAssistant.svelte';
 
@@ -716,7 +716,7 @@
 									aria-label="3 Feet Please on Facebook"
 									class="rail-social-btn"
 								>
-									<IconFacebook class="h-3.5 w-3.5" />
+							<BrandFacebook class="h-3.5 w-3.5" />
 								</a>
 								<a
 									href="https://www.instagram.com/3feetplease"
@@ -726,7 +726,7 @@
 									aria-label="3 Feet Please on Instagram"
 									class="rail-social-btn"
 								>
-									<IconInstagram class="h-3.5 w-3.5" />
+							<BrandInstagram class="h-3.5 w-3.5" />
 								</a>
 								<a
 									href="mailto:hi@3fp.org"
@@ -846,7 +846,7 @@
 								aria-label="Facebook"
 								class="mob-social-btn"
 							>
-								<IconFacebook class="h-4 w-4" />
+							<BrandFacebook class="h-4 w-4" />
 							</a>
 							<a
 								href="https://www.instagram.com/3feetplease"
@@ -855,7 +855,7 @@
 								aria-label="Instagram"
 								class="mob-social-btn"
 							>
-								<IconInstagram class="h-4 w-4" />
+							<BrandInstagram class="h-4 w-4" />
 							</a>
 							<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
 								<IconMail class="h-4 w-4" />

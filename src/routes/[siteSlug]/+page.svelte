@@ -5,7 +5,7 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -915,7 +915,7 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 									{#if post.media_url}
 										<img src={post.media_url} alt="Instagram post" loading="lazy" />
 										<div class="instagram-preview-overlay">
-											<IconInstagram class="h-4 w-4 text-white" />
+							<BrandInstagram class="h-4 w-4 text-white" />
 										</div>
 									{/if}
 								</a>

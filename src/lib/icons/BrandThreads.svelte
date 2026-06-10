@@ -1,5 +1,5 @@
 <script>
-	import { siThreads } from 'simple-icons/icons';
+	import { siThreads } from 'simple-icons';
 	import BrandIcon from './BrandIcon.svelte';
 	export let className = '';
 </script>

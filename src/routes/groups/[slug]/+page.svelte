@@ -12,7 +12,7 @@
 	import IconInfo from '@lucide/svelte/icons/info';
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import IconInstagram from '@lucide/svelte/icons/instagram';
+	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
@@ -1144,7 +1144,7 @@
 					<div
 						class="instagram-icon-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
 					>
-						<IconInstagram class="h-5 w-5 text-white" />
+							<BrandInstagram class="h-5 w-5 text-white" />
 					</div>
 					<div class="min-w-0">
 						<h2 class="text-lg font-bold">Latest Posts</h2>
@@ -1208,7 +1208,7 @@
 											<span
 												class="instagram-view-btn flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white"
 											>
-												<IconInstagram class="h-4 w-4" />
+							<BrandInstagram class="h-4 w-4" />
 												View on Instagram
 											</span>
 										</div>
@@ -1255,7 +1255,7 @@
 								rel="noopener noreferrer"
 								class="btn preset-filled-secondary-500 gap-1.5"
 							>
-								<IconInstagram class="h-4 w-4" />
+							<BrandInstagram class="h-4 w-4" />
 								View Profile
 							</a>
 						</div>
