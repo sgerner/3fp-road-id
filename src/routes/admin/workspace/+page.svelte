@@ -21,9 +21,27 @@
 	let selectedUserId = $state(null);
 	let showCreateForm = $state(false);
 	let activeTab = $state('profile'); // 'profile', 'security', 'aliases'
+	let createPassword = $state('');
+	let resetPassword = $state('');
 
 	// Reactively find the selected user from the list
 	const selectedUser = $derived(data.users.find((u) => u.id === selectedUserId) || null);
+	const createPasswordStrength = $derived(assessPassword(createPassword));
+	const resetPasswordStrength = $derived(assessPassword(resetPassword));
+
+	const PASSWORD_GROUPS = {
+		lower: 'abcdefghijkmnopqrstuvwxyz',
+		upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+		digits: '23456789',
+		symbols: '!@#$%^&*()-_=+[]{}:,.?'
+	};
+	const PASSWORD_CHARSET =
+		PASSWORD_GROUPS.lower +
+		PASSWORD_GROUPS.upper +
+		PASSWORD_GROUPS.digits +
+		PASSWORD_GROUPS.symbols;
+	const PASSWORD_LENGTH = 20;
+	const PASSWORD_HINT = 'Google accepts 8-100 ASCII characters. 16+ random characters is safer.';
 
 	function displayName(user) {
 		const given = user?.name?.givenName || '';
@@ -40,6 +58,101 @@
 			.join('')
 			.slice(0, 2)
 			.toUpperCase();
+	}
+
+	function generatePassword(length = PASSWORD_LENGTH) {
+		const targetLength = Math.max(16, Number(length) || PASSWORD_LENGTH);
+		const characters = [
+			pickRandomChar(PASSWORD_GROUPS.lower),
+			pickRandomChar(PASSWORD_GROUPS.upper),
+			pickRandomChar(PASSWORD_GROUPS.digits),
+			pickRandomChar(PASSWORD_GROUPS.symbols)
+		];
+
+		while (characters.length < targetLength) {
+			characters.push(pickRandomChar(PASSWORD_CHARSET));
+		}
+
+		shuffleCharacters(characters);
+		return characters.join('');
+	}
+
+	function pickRandomChar(charset) {
+		const source = String(charset || PASSWORD_CHARSET);
+		const bytes = new Uint32Array(1);
+		if (globalThis.crypto?.getRandomValues) {
+			globalThis.crypto.getRandomValues(bytes);
+			return source[bytes[0] % source.length];
+		}
+		return source[Math.floor(Math.random() * source.length)];
+	}
+
+	function shuffleCharacters(characters) {
+		for (let index = characters.length - 1; index > 0; index -= 1) {
+			const randomValue = new Uint32Array(1);
+			const swapIndex = globalThis.crypto?.getRandomValues
+				? (globalThis.crypto.getRandomValues(randomValue), randomValue[0] % (index + 1))
+				: Math.floor(Math.random() * (index + 1));
+			[characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+		}
+	}
+
+	function assessPassword(password) {
+		const value = String(password || '');
+		if (!value) {
+			return {
+				label: 'Ready for a generated password',
+				detail: PASSWORD_HINT,
+				percent: 0,
+				barClass: 'bg-surface-500/20',
+				labelClass: 'opacity-70'
+			};
+		}
+
+		const length = value.length;
+		const groups = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].reduce(
+			(count, pattern) => count + (pattern.test(value) ? 1 : 0),
+			0
+		);
+		const hasWhitespace = /\s/.test(value);
+
+		if (length < 8) {
+			return {
+				label: 'Too short',
+				detail: 'Google requires at least 8 characters.',
+				percent: 24,
+				barClass: 'bg-red-500',
+				labelClass: 'text-red-600 dark:text-red-400'
+			};
+		}
+
+		if (length < 12) {
+			return {
+				label: 'Fair',
+				detail: `${length} chars, ${groups}/4 character groups. Use 16+ for a temporary password.`,
+				percent: 48,
+				barClass: 'bg-amber-500',
+				labelClass: 'text-amber-600 dark:text-amber-400'
+			};
+		}
+
+		if (length < 16 || groups < 3 || hasWhitespace) {
+			return {
+				label: 'Good',
+				detail: `${length} chars, ${groups}/4 character groups. ${PASSWORD_HINT}`,
+				percent: 72,
+				barClass: 'bg-sky-500',
+				labelClass: 'text-sky-600 dark:text-sky-400'
+			};
+		}
+
+		return {
+			label: 'Strong',
+			detail: `${length} chars, ${groups}/4 character groups. ${PASSWORD_HINT}`,
+			percent: 100,
+			barClass: 'bg-emerald-500',
+			labelClass: 'text-emerald-600 dark:text-emerald-400'
+		};
 	}
 
 	function requirePhrase(event, phrase, actionLabel) {
@@ -59,7 +172,17 @@
 		return async ({ result, update }) => {
 			await update();
 			if (result.type === 'success') {
+				createPassword = '';
 				showCreateForm = false;
+			}
+		};
+	}
+
+	function handleResetPassword() {
+		return async ({ result, update }) => {
+			await update();
+			if (result.type === 'success') {
+				resetPassword = '';
 			}
 		};
 	}
@@ -155,8 +278,8 @@
 					<div>
 						<p class="font-bold">Organizational Units Unavailable</p>
 						<p>
-							{data.orgUnitsError} User management remains available; new users will default to the
-							root org unit.
+							{data.orgUnitsError} User management remains available; new users will default to the root
+							org unit.
 						</p>
 					</div>
 				</div>
@@ -182,6 +305,8 @@
 								class="btn btn-sm preset-filled-primary-500 font-semibold"
 								onclick={() => {
 									selectedUserId = null;
+									resetPassword = '';
+									createPassword = '';
 									showCreateForm = true;
 								}}
 							>
@@ -218,6 +343,8 @@
 								<button
 									type="button"
 									onclick={() => {
+										createPassword = '';
+										resetPassword = '';
 										selectedUserId = user.id;
 										showCreateForm = false;
 										activeTab = 'profile';
@@ -231,10 +358,10 @@
 									<div
 										class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-sm
 									{selectedUserId === user.id
-										? 'preset-filled-primary-500'
-										: user.suspended
-											? 'preset-tonal-error'
-											: 'preset-tonal-secondary'}"
+											? 'preset-filled-primary-500'
+											: user.suspended
+												? 'preset-tonal-error'
+												: 'preset-tonal-secondary'}"
 									>
 										{getInitials(user)}
 
@@ -252,19 +379,13 @@
 
 									<!-- User Metadata -->
 									<div class="min-w-0 flex-1">
-										<p
-											class="font-bold text-sm truncate"
-										>
+										<p class="font-bold text-sm truncate">
 											{displayName(user)}
 										</p>
-										<p
-											class="text-xs truncate opacity-80"
-										>
+										<p class="text-xs truncate opacity-80">
 											{user.primaryEmail}
 										</p>
-										<p
-											class="text-[10px] mt-0.5 truncate opacity-60"
-										>
+										<p class="text-[10px] mt-0.5 truncate opacity-60">
 											{user.orgUnitPath || '/'}
 										</p>
 									</div>
@@ -302,7 +423,9 @@
 			>
 				{#if showCreateForm}
 					<!-- ================= CREATE USER PANEL ================= -->
-					<div class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm">
+					<div
+						class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm"
+					>
 						<!-- Header & Back Button for Mobile -->
 						<div class="flex items-center justify-between pb-4 border-b border-surface-500/10">
 							<div class="space-y-1">
@@ -315,7 +438,10 @@
 							<button
 								type="button"
 								class="btn btn-sm preset-outlined-surface-500 font-semibold md:hidden"
-								onclick={() => (showCreateForm = false)}
+								onclick={() => {
+									createPassword = '';
+									showCreateForm = false;
+								}}
 							>
 								<IconChevronLeft class="mr-1 h-4 w-4" /> Back
 							</button>
@@ -361,16 +487,47 @@
 									/>
 								</label>
 
-								<label class="flex flex-col gap-1 text-sm sm:col-span-2">
-									<span class="font-semibold">Temporary Password</span>
-									<input
-										class="input"
-										type="password"
-										name="password"
-										placeholder="Temporary password"
-										required
-									/>
-								</label>
+								<div class="space-y-2 sm:col-span-2">
+									<label class="flex flex-col gap-1 text-sm">
+										<span class="font-semibold">Temporary Password</span>
+										<input
+											class="input"
+											type="password"
+											name="password"
+											bind:value={createPassword}
+											placeholder="Temporary password"
+											autocomplete="new-password"
+											minlength="8"
+											maxlength="100"
+											required
+										/>
+									</label>
+
+									<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+										<button
+											type="button"
+											class="btn btn-sm preset-outlined-warning font-semibold"
+											onclick={() => {
+												createPassword = generatePassword();
+											}}
+										>
+											Generate secure password
+										</button>
+										<div class="space-y-1 text-xs sm:text-right">
+											<p class={`font-semibold ${createPasswordStrength.labelClass}`}>
+												{createPasswordStrength.label}
+											</p>
+											<p class="opacity-60">{createPasswordStrength.detail}</p>
+										</div>
+									</div>
+
+									<div class="h-1.5 overflow-hidden rounded-full bg-surface-500/10">
+										<div
+											class={`h-full rounded-full transition-all ${createPasswordStrength.barClass}`}
+											style={`width: ${createPasswordStrength.percent}%`}
+										></div>
+									</div>
+								</div>
 
 								<label class="flex flex-col gap-1 text-sm sm:col-span-2">
 									<span class="font-semibold">Organizational Unit</span>
@@ -401,7 +558,10 @@
 								<button
 									type="button"
 									class="btn flex-1 preset-outlined-surface-500 font-semibold"
-									onclick={() => (showCreateForm = false)}
+									onclick={() => {
+										createPassword = '';
+										showCreateForm = false;
+									}}
 								>
 									Cancel
 								</button>
@@ -415,16 +575,16 @@
 					<!-- ================= DETAILS OR EMPTY STATE PANEL ================= -->
 					{#if selectedUser}
 						<!-- ================= EDIT/MANAGE USER PANEL ================= -->
-						<div class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm">
+						<div
+							class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm"
+						>
 							<!-- Header: User details summary & Back Button for Mobile -->
 							<div class="flex items-start justify-between pb-4 border-b border-surface-500/10">
 								<div class="flex items-center gap-4">
 									<!-- Initials Avatar Circle -->
 									<div
 										class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full font-bold text-lg
-									{selectedUser.suspended
-										? 'preset-tonal-error'
-										: 'preset-tonal-primary'}"
+									{selectedUser.suspended ? 'preset-tonal-error' : 'preset-tonal-primary'}"
 									>
 										{getInitials(selectedUser)}
 									</div>
@@ -457,7 +617,10 @@
 								<button
 									type="button"
 									class="btn btn-sm preset-outlined-surface-500 font-semibold md:hidden"
-									onclick={() => (selectedUserId = null)}
+									onclick={() => {
+										selectedUserId = null;
+										resetPassword = '';
+									}}
 								>
 									<IconChevronLeft class="mr-1 h-4 w-4" /> Back
 								</button>
@@ -578,19 +741,57 @@
 												Reset Password
 											</h3>
 
-											<form method="POST" action="?/resetPassword" use:enhance class="space-y-4">
+											<form
+												method="POST"
+												action="?/resetPassword"
+												use:enhance={handleResetPassword}
+												class="space-y-4"
+											>
 												<input type="hidden" name="userKey" value={selectedUser.id} />
 
-												<label class="flex flex-col gap-1 text-sm">
-													<span class="font-medium">New Password</span>
-													<input
-														class="input"
-														type="password"
-														name="password"
-														placeholder="Enter new password"
-														required
-													/>
-												</label>
+												<div class="space-y-2">
+													<label class="flex flex-col gap-1 text-sm">
+														<span class="font-medium">New Password</span>
+														<input
+															class="input"
+															type="password"
+															name="password"
+															bind:value={resetPassword}
+															placeholder="Enter new password"
+															autocomplete="new-password"
+															minlength="8"
+															maxlength="100"
+															required
+														/>
+													</label>
+
+													<div
+														class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+													>
+														<button
+															type="button"
+															class="btn btn-sm preset-outlined-warning font-semibold"
+															onclick={() => {
+																resetPassword = generatePassword();
+															}}
+														>
+															Generate secure password
+														</button>
+														<div class="space-y-1 text-xs sm:text-right">
+															<p class={`font-semibold ${resetPasswordStrength.labelClass}`}>
+																{resetPasswordStrength.label}
+															</p>
+															<p class="opacity-60">{resetPasswordStrength.detail}</p>
+														</div>
+													</div>
+
+													<div class="h-1.5 overflow-hidden rounded-full bg-surface-500/10">
+														<div
+															class={`h-full rounded-full transition-all ${resetPasswordStrength.barClass}`}
+															style={`width: ${resetPasswordStrength.percent}%`}
+														></div>
+													</div>
+												</div>
 
 												<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
 													<input
@@ -701,9 +902,7 @@
 											<form method="POST" action="?/addAlias" use:enhance class="flex gap-2">
 												<input type="hidden" name="userKey" value={selectedUser.id} />
 												<div class="relative flex-1">
-													<span
-														class="absolute start-3 top-1/2 -translate-y-1/2 opacity-40"
-													>
+													<span class="absolute start-3 top-1/2 -translate-y-1/2 opacity-40">
 														<IconMail class="h-4 w-4" />
 													</span>
 													<input
@@ -754,7 +953,11 @@
 																	class="btn btn-sm preset-tonal-error text-xs font-semibold py-1 px-2.5 whitespace-nowrap"
 																	type="submit"
 																	onclick={(event) =>
-																		requirePhrase(event, `REMOVE ${alias}`, `remove alias ${alias}`)}
+																		requirePhrase(
+																			event,
+																			`REMOVE ${alias}`,
+																			`remove alias ${alias}`
+																		)}
 																>
 																	Remove
 																</button>
@@ -790,6 +993,8 @@
 								class="btn preset-filled-primary-500 font-semibold"
 								onclick={() => {
 									selectedUserId = null;
+									resetPassword = '';
+									createPassword = '';
 									showCreateForm = true;
 								}}
 							>

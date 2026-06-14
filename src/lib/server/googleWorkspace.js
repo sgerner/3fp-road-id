@@ -1,6 +1,11 @@
 import { createSign } from 'node:crypto';
 import { env } from '$env/dynamic/private';
-import { cleanText, describeWorkspaceAuthError, exactText } from './googleWorkspaceRules.js';
+import {
+	cleanText,
+	describeWorkspaceAuthError,
+	exactText,
+	normalizeErrorMessage
+} from './googleWorkspaceRules.js';
 
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DIRECTORY_API_BASE_URL = 'https://admin.googleapis.com/admin/directory/v1';
@@ -136,7 +141,9 @@ async function callDirectoryApi(
 	const payload = await response.json().catch(() => null);
 	if (!response.ok) {
 		const apiError =
-			payload?.error?.message || payload?.message || 'Google Directory API request failed.';
+			normalizeErrorMessage(payload?.error?.message) ||
+			normalizeErrorMessage(payload?.message) ||
+			'Google Directory API request failed.';
 		throw new Error(apiError);
 	}
 	return payload;

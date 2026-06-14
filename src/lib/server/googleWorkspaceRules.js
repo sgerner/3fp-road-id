@@ -27,6 +27,38 @@ export function sameEmail(left, right) {
 	return cleanText(left).toLowerCase() === cleanText(right).toLowerCase();
 }
 
+export function normalizeErrorMessage(value, fallback = '') {
+	if (Array.isArray(value)) {
+		return (
+			value
+				.map((item) => normalizeErrorMessage(item, ''))
+				.filter(Boolean)
+				.join(' ')
+				.trim() || fallback
+		);
+	}
+
+	if (value && typeof value === 'object') {
+		if (typeof value.message === 'string' || Array.isArray(value.message)) {
+			return normalizeErrorMessage(value.message, fallback);
+		}
+		if (typeof value.reason === 'string' || Array.isArray(value.reason)) {
+			return normalizeErrorMessage(value.reason, fallback);
+		}
+		if (typeof value.error === 'string' || Array.isArray(value.error)) {
+			return normalizeErrorMessage(value.error, fallback);
+		}
+		return fallback;
+	}
+
+	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+		return fallback;
+	}
+
+	const message = cleanText(value);
+	return message || fallback;
+}
+
 export function describeWorkspaceAuthError(error, clientId = '') {
 	const message = cleanText(error?.message || error);
 	if (!message) return 'Google authentication failed.';
