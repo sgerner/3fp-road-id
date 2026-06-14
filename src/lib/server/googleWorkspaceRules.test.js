@@ -5,6 +5,7 @@ import {
 	describeWorkspaceAuthError,
 	exactText,
 	normalizeWorkspaceAliases,
+	normalizeErrorMessage,
 	sameEmail
 } from './googleWorkspaceRules.js';
 
@@ -33,4 +34,8 @@ test('describes unauthorized client errors clearly', () => {
 		describeWorkspaceAuthError(new Error('unauthorized_client'), '1234567890'),
 		/client ID 1234567890/
 	);
+});
+
+test('normalizes structured error messages', () => {
+	assert.equal(normalizeErrorMessage([{ error: 1 }, 'Invalid Password']), 'Invalid Password');
 });

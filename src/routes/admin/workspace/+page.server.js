@@ -21,11 +21,16 @@ import {
 	exactText,
 	expectedConfirmation,
 	normalizeWorkspaceAliases,
+	normalizeErrorMessage,
 	sameEmail
 } from '$lib/server/googleWorkspaceRules';
 
 function normalizeError(error, fallback) {
-	return error?.body?.message || error?.message || fallback;
+	const message = normalizeErrorMessage(error?.body?.message ?? error?.message ?? error, fallback);
+	if (message.toLowerCase() === 'invalid password') {
+		return 'Google rejected the password. Use a longer random ASCII password that matches your Workspace policy.';
+	}
+	return message;
 }
 
 async function assertNotIntegrationAdmin(userKey, operation) {
