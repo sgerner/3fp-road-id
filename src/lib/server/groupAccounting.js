@@ -10,6 +10,7 @@ import { decryptSocialToken, encryptSocialToken } from '$lib/server/social/crypt
 import { getStripeClient, getStripePublishableKey } from '$lib/server/stripe';
 import {
 	centsFromAmount,
+	centsFromAmountAndDirection,
 	centsFromSignedAmount,
 	cleanText,
 	parseCsvRows,
@@ -699,6 +700,53 @@ export async function createAccount(auth, formData) {
 	if (error) throw new Error(error.message);
 }
 
+export async function updateAccount(auth, formData) {
+	const accountId = cleanText(formData.get('accountId'));
+	const name = cleanText(formData.get('name'), 120);
+	const code = cleanText(formData.get('code'), 20);
+	const displayGroup = cleanText(formData.get('displayGroup'), 80);
+	if (!accountId) throw new Error('Account is required.');
+	if (!name || !code) throw new Error('Name and code are required.');
+
+	const { data: account, error: loadError } = await auth.serviceSupabase
+		.from('group_accounting_accounts')
+		.select('id')
+		.eq('group_id', auth.group.id)
+		.eq('id', accountId)
+		.maybeSingle();
+	if (loadError) throw new Error(loadError.message);
+	if (!account) throw new Error('Account not found.');
+
+	const { error } = await auth.serviceSupabase
+		.from('group_accounting_accounts')
+		.update({
+			name,
+			code,
+			...(displayGroup ? { display_group: displayGroup } : {})
+		})
+		.eq('group_id', auth.group.id)
+		.eq('id', accountId);
+	if (error) throw new Error(error.message);
+}
+
+export async function updateAccountGroup(auth, formData) {
+	const kind = cleanText(formData.get('kind'));
+	const currentDisplayGroup = cleanText(formData.get('currentDisplayGroup'), 80) || 'Other';
+	const displayGroup = cleanText(formData.get('displayGroup'), 80);
+	if (!['asset', 'liability', 'equity', 'income', 'expense'].includes(kind)) {
+		throw new Error('Choose a valid account type.');
+	}
+	if (!displayGroup) throw new Error('Group label is required.');
+
+	const { error } = await auth.serviceSupabase
+		.from('group_accounting_accounts')
+		.update({ display_group: displayGroup })
+		.eq('group_id', auth.group.id)
+		.eq('kind', kind)
+		.eq('display_group', currentDisplayGroup);
+	if (error) throw new Error(error.message);
+}
+
 export async function updateBudget(auth, formData) {
 	const year = Number(formData.get('year') || currentYear());
 	const accountId = cleanText(formData.get('accountId'));
@@ -778,11 +826,18 @@ export async function importBankCsv(auth, formData) {
 		throw new Error('CSV must include a header row and at least one transaction.');
 	const headers = rows[0].map((header) => cleanText(header).toLowerCase());
 	const findIndex = (...names) => headers.findIndex((header) => names.includes(header));
-	const dateIndex = findIndex('date', 'transaction date', 'posted date', 'post date');
+	const dateIndex = findIndex(
+		'date',
+		'processed date',
+		'transaction date',
+		'posted date',
+		'post date'
+	);
 	const descriptionIndex = findIndex('description', 'name', 'memo', 'payee');
 	const amountIndex = findIndex('amount', 'transaction amount');
 	const debitIndex = findIndex('debit', 'withdrawal', 'withdrawals');
 	const creditIndex = findIndex('credit', 'deposit', 'deposits');
+	const signIndex = findIndex('credit or debit', 'debit or credit', 'transaction type', 'type');
 	if (
 		dateIndex < 0 ||
 		descriptionIndex < 0 ||
@@ -793,10 +848,13 @@ export async function importBankCsv(auth, formData) {
 	const transactions = rows
 		.slice(1)
 		.map((row, index) => {
-			const amount =
-				amountIndex >= 0
-					? centsFromSignedAmount(row[amountIndex])
-					: (centsFromAmount(row[creditIndex]) || 0) - (centsFromAmount(row[debitIndex]) || 0);
+			let amount = null;
+			if (amountIndex >= 0) {
+				amount = centsFromAmountAndDirection(row[amountIndex], row[signIndex]);
+			} else {
+				amount =
+					(centsFromAmount(row[creditIndex]) || 0) - (centsFromAmount(row[debitIndex]) || 0);
+			}
 			const description = cleanText(row[descriptionIndex], 200);
 			const date = cleanText(row[dateIndex]);
 			if (!date || !description || amount === null || amount === 0) return null;

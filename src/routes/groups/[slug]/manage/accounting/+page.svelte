@@ -13,12 +13,18 @@
 	import IconLandmark from '@lucide/svelte/icons/landmark';
 	import IconListChecks from '@lucide/svelte/icons/list-checks';
 	import IconLockKeyhole from '@lucide/svelte/icons/lock-keyhole';
+	import IconPencil from '@lucide/svelte/icons/pencil';
+	import IconGripVertical from '@lucide/svelte/icons/grip-vertical';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconReceipt from '@lucide/svelte/icons/receipt';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconScale from '@lucide/svelte/icons/scale';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
+	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
+	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { loadStripe } from '@stripe/stripe-js';
 
 	let { data, form } = $props();
@@ -67,6 +73,11 @@
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
+	const accountKinds = ['asset', 'income', 'expense', 'liability', 'equity'];
+	let accountGroups = $state(groupAccountsByKind([]));
+	let editingGroupKey = $state('');
+	let editingGroupValue = $state('');
+	let groupLabelInput = $state(null);
 
 	const tabs = [
 		{ id: 'overview', label: 'Overview', icon: IconChartColumn },
@@ -107,6 +118,32 @@
 		});
 	}
 
+	function groupAccountsByKind(list) {
+		return accountKinds.reduce((result, kind) => {
+			const grouped = new Map();
+			for (const account of list.filter((candidate) => candidate.kind === kind)) {
+				const displayGroup = String(account.display_group || 'Other').trim() || 'Other';
+				if (!grouped.has(displayGroup)) grouped.set(displayGroup, []);
+				grouped.get(displayGroup).push(account);
+			}
+			result[kind] = Array.from(grouped, ([displayGroup, accounts]) => ({
+				displayGroup,
+				accounts
+			}));
+			return result;
+			}, {});
+	}
+
+	function groupKey(kind, displayGroup) {
+		return `${kind}::${displayGroup}`;
+	}
+
+	$effect(() => {
+		accountGroups = groupAccountsByKind(accounts);
+		editingGroupKey = '';
+		editingGroupValue = '';
+	});
+
 	function addJournalLine() {
 		journalLines = [...journalLines, { account_id: '', debit: '', credit: '', description: '' }];
 	}
@@ -120,6 +157,67 @@
 		journalLines = journalLines.map((line, rowIndex) =>
 			rowIndex === index ? { ...line, [key]: value } : line
 		);
+	}
+
+	function requestInlineSave(event) {
+		event.currentTarget.form?.requestSubmit();
+	}
+
+	function enhanceInlineAccount() {
+		return async ({ result, update }) => {
+			await update({ reset: false, invalidateAll: false });
+			if (result.type === 'success') {
+				await invalidateAll();
+			}
+		};
+	}
+
+	async function startGroupEdit(kind, displayGroup) {
+		editingGroupKey = groupKey(kind, displayGroup);
+		editingGroupValue = displayGroup;
+		await tick();
+		groupLabelInput?.focus?.();
+	}
+
+	function stopGroupEdit() {
+		editingGroupKey = '';
+		editingGroupValue = '';
+	}
+
+	function enhanceGroupEdit() {
+		return async ({ result, update }) => {
+			await update({ reset: false, invalidateAll: false });
+			if (result.type === 'success') {
+				stopGroupEdit();
+				await invalidateAll();
+			}
+		};
+	}
+
+	function updateAccountGroupZone(kind, displayGroup, items) {
+		accountGroups = {
+			...accountGroups,
+			[kind]: (accountGroups[kind] ?? []).map((group) =>
+				group.displayGroup === displayGroup ? { ...group, accounts: items } : group
+			)
+		};
+	}
+
+	function handleAccountConsider(kind, displayGroup, event) {
+		updateAccountGroupZone(kind, displayGroup, event.detail.items);
+	}
+
+	async function handleAccountFinalize(kind, displayGroup, event) {
+		const items = event.detail.items ?? [];
+		updateAccountGroupZone(kind, displayGroup, items);
+		const movedItems = items.filter((item) => item.display_group !== displayGroup);
+		if (!movedItems.length) return;
+		await tick();
+		for (const item of movedItems) {
+			document
+				.querySelector(`form[data-account-id="${CSS.escape(item.id)}"]`)
+				?.requestSubmit();
+		}
 	}
 
 	async function connectFinancialAccounts() {
@@ -155,9 +253,10 @@
 				throw new Error(completePayload.error || 'Unable to finish bank linking.');
 			}
 			financialConnectionsMessage = 'Bank accounts linked. Refreshing activity...';
-			window.location.reload();
+			await invalidateAll();
 		} catch (error) {
 			financialConnectionsMessage = error?.message || 'Unable to link bank accounts.';
+		} finally {
 			financialConnectionsBusy = false;
 		}
 	}
@@ -430,7 +529,7 @@
 					<div class="space-y-2">
 						{#each recentEntries.slice(0, 6) as entry}
 							<form
-								method="POST"
+								method="POST" use:enhance
 								action="?/voidEntry"
 								class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-all duration-150"
 							>
@@ -486,7 +585,7 @@
 		<section class="grid gap-6 lg:grid-cols-3">
 			<!-- Record Money Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/recordMoney"
 				enctype="multipart/form-data"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
@@ -622,7 +721,7 @@
 			<div class="space-y-6">
 				<!-- Move Money -->
 				<form
-					method="POST"
+					method="POST" use:enhance
 					action="?/transfer"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
@@ -683,7 +782,7 @@
 
 				<!-- Starting Balance -->
 				<form
-					method="POST"
+					method="POST" use:enhance
 					action="?/openingBalance"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
@@ -746,8 +845,8 @@
 				</div>
 
 				<div class="grid gap-4 sm:grid-cols-2">
-					{#each ['asset', 'income', 'expense', 'liability', 'equity'] as kind}
-						<div class="bg-surface-500/5 border-surface-500/5 space-y-3 rounded-2xl border p-4">
+					{#each accountKinds as kind}
+						<div class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-2xl border p-4">
 							<h3
 								class="text-surface-500 dark:text-surface-400 text-xs font-bold tracking-wider uppercase"
 							>
@@ -761,18 +860,111 @@
 												? '💸 What we owe (Liability)'
 												: '📈 Group balance (Equity)'}
 							</h3>
-							<div class="divide-surface-500/10 divide-y">
-								{#each accounts.filter((account) => account.kind === kind) as account}
-									<div
-										class="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0"
-									>
-										<span class="text-surface-900 dark:text-surface-100 font-medium"
-											>{account.name}</span
+							<div class="space-y-4">
+								{#each accountGroups[kind] ?? [] as group (groupKey(kind, group.displayGroup))}
+									{@const groupKeyValue = groupKey(kind, group.displayGroup)}
+									{@const isEditingGroup = editingGroupKey === groupKeyValue}
+									<div class="space-y-3">
+										<div class="flex items-center justify-between gap-3">
+											{#if isEditingGroup}
+												<form
+													method="POST"
+													action="?/updateAccountGroup"
+													use:enhance={enhanceGroupEdit}
+													class="flex min-w-0 flex-1 items-center gap-2"
+												>
+													<input type="hidden" name="kind" value={kind} />
+													<input type="hidden" name="currentDisplayGroup" value={group.displayGroup} />
+													<input
+														class="input preset-tonal-surface min-w-0 flex-1"
+														name="displayGroup"
+														value={editingGroupValue}
+														bind:this={groupLabelInput}
+														oninput={(event) => (editingGroupValue = event.currentTarget.value)}
+														onblur={requestInlineSave}
+														onkeydown={(event) => {
+															if (event.key === 'Escape') {
+																event.preventDefault();
+																stopGroupEdit();
+															}
+														}}
+													/>
+												</form>
+											{:else}
+												<div class="flex min-w-0 items-center gap-2">
+													<div class="min-w-0 text-surface-900 dark:text-surface-100 truncate text-sm font-bold">
+														{group.displayGroup}
+													</div>
+													<button
+														class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 shrink-0"
+														type="button"
+														onclick={() => startGroupEdit(kind, group.displayGroup)}
+														aria-label={`Edit ${group.displayGroup} label`}
+														title="Edit label"
+													>
+														<IconPencil class="h-3.5 w-3.5" />
+													</button>
+												</div>
+											{/if}
+											<span class="badge preset-tonal-surface text-xs font-semibold">
+												{group.accounts.length} subaccount{group.accounts.length === 1 ? '' : 's'}
+											</span>
+										</div>
+										<div
+											use:dragHandleZone={{
+												items: group.accounts,
+												flipDurationMs: 180,
+												type: `account-${kind}`
+											}}
+											onconsider={(event) => handleAccountConsider(kind, group.displayGroup, event)}
+											onfinalize={(event) => handleAccountFinalize(kind, group.displayGroup, event)}
+											aria-label={`${group.displayGroup} accounts`}
+											class="space-y-2"
 										>
-										<span
-											class="badge preset-outlined-surface-500 px-2 py-0.5 font-mono text-[10px] tracking-wider"
-											>{account.code}</span
-										>
+											{#each group.accounts as account (account.id)}
+												<form
+													method="POST"
+													action="?/updateAccount"
+													use:enhance={enhanceInlineAccount}
+													data-account-id={account.id}
+													class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid gap-2 rounded-xl border p-3 transition-colors md:grid-cols-[minmax(0,1fr)_140px_auto]"
+												>
+													<input type="hidden" name="accountId" value={account.id} />
+													<input type="hidden" name="displayGroup" value={group.displayGroup} />
+													<input
+														class="input preset-tonal-surface"
+														type="text"
+														name="name"
+														value={account.name}
+														onchange={requestInlineSave}
+														autocomplete="off"
+														spellcheck="false"
+														aria-label="Account name"
+														title="Account name"
+													/>
+													<input
+														class="input preset-tonal-surface font-mono"
+														type="text"
+														name="code"
+														value={account.code}
+														onchange={requestInlineSave}
+														autocomplete="off"
+														spellcheck="false"
+														aria-label="Account number"
+														title="Account number"
+													/>
+													<button
+														class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 flex items-center justify-center rounded-lg border border-dashed border-transparent px-2"
+														type="button"
+														use:dragHandle
+														aria-label={`Drag ${account.name} to another label group`}
+														title="Drag to another group"
+													>
+														<IconGripVertical class="h-4 w-4" />
+													</button>
+												</form>
+											{/each}
+										</div>
 									</div>
 								{/each}
 							</div>
@@ -783,7 +975,7 @@
 
 			<!-- Add Bucket Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/createAccount"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
@@ -844,7 +1036,7 @@
 		<section class="grid gap-6 lg:grid-cols-[360px_1fr]">
 			<!-- Set Budget Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/updateBudget"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
@@ -1098,7 +1290,7 @@
 
 			<!-- Publish Snapshot Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/publishSnapshot"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
 			>
@@ -1223,7 +1415,7 @@
 			<div class="space-y-6">
 				<!-- Connections -->
 				<form
-					method="POST"
+					method="POST" use:enhance
 					action="?/saveConnections"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
@@ -1290,7 +1482,7 @@
 						{/if}
 
 						<div class="grid grid-cols-2 gap-2">
-							<form method="POST" action="?/syncStripe" class="w-full">
+							<form method="POST" use:enhance action="?/syncStripe" class="w-full">
 								<button
 									class="btn btn-sm preset-outlined-surface-500 w-full font-semibold"
 									type="submit"
@@ -1298,7 +1490,7 @@
 									Sync Stripe
 								</button>
 							</form>
-							<form method="POST" action="?/syncMercury" class="w-full">
+							<form method="POST" use:enhance action="?/syncMercury" class="w-full">
 								<button
 									class="btn btn-sm preset-outlined-surface-500 w-full font-semibold"
 									type="submit"
@@ -1308,7 +1500,7 @@
 							</form>
 						</div>
 
-						<form method="POST" action="?/syncLinkedAccounts">
+						<form method="POST" use:enhance action="?/syncLinkedAccounts">
 							<button
 								class="btn btn-sm preset-outlined-primary-500 flex w-full items-center justify-center gap-2 font-semibold"
 								type="submit"
@@ -1318,7 +1510,7 @@
 							</button>
 						</form>
 
-						<form method="POST" action="?/autoMatch">
+						<form method="POST" use:enhance action="?/autoMatch">
 							<button
 								class="btn preset-filled-secondary-500 flex w-full items-center justify-center gap-2 font-bold"
 								type="submit"
@@ -1367,7 +1559,7 @@
 
 				<!-- Manual Bank Item -->
 				<form
-					method="POST"
+					method="POST" use:enhance
 					action="?/addManualFeedItem"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
@@ -1420,7 +1612,7 @@
 
 				<!-- Import CSV -->
 				<form
-					method="POST"
+					method="POST" use:enhance
 					action="?/importBankCsv"
 					enctype="multipart/form-data"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
@@ -1476,7 +1668,7 @@
 				<div class="space-y-4">
 					{#each needsReview as item}
 						<form
-							method="POST"
+							method="POST" use:enhance
 							action="?/postFeedItem"
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/10 space-y-4 rounded-2xl border p-4 transition-all duration-150"
 						>
@@ -1574,7 +1766,7 @@
 		<section class="grid gap-6 lg:grid-cols-[1fr_360px]">
 			<!-- Advanced Journal Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/journal"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
@@ -1738,7 +1930,7 @@
 
 			<!-- Reconcile Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/completeReconciliation"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
@@ -1820,7 +2012,7 @@
 		<section class="grid gap-6 lg:grid-cols-2">
 			<!-- Public Defaults Form -->
 			<form
-				method="POST"
+				method="POST" use:enhance
 				action="?/saveSettings"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
@@ -1930,7 +2122,7 @@
 				<div class="space-y-3">
 					{#each data.public_reports as snapshot}
 						<form
-							method="POST"
+							method="POST" use:enhance
 							action="?/unpublishSnapshot"
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-4 rounded-xl border p-4 text-sm transition-all duration-150"
 						>
@@ -2006,7 +2198,7 @@
 				<div class="space-y-3">
 					{#each receipts.slice(0, 5) as receipt}
 						<form
-							method="POST"
+							method="POST" use:enhance
 							action="?/reclassifyReceipt"
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-3 rounded-xl border p-4 transition-colors duration-150"
 						>

@@ -24,6 +24,8 @@ import {
 	unpublishSnapshot,
 	updateBudget,
 	updateEntryByReplacement,
+	updateAccount,
+	updateAccountGroup,
 	voidEntry,
 	reclassifyReceipt
 } from '$lib/server/groupAccounting';
@@ -32,8 +34,8 @@ async function withAccountingAuth(cookies, params, handler) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);
 	if (!auth.ok) return fail(auth.status, { accounting_error: auth.error });
 	try {
-		await handler(auth);
-		return { accounting_success: true };
+		const result = await handler(auth);
+		return result ?? { accounting_success: true };
 	} catch (error) {
 		return actionFailure(error);
 	}
@@ -79,6 +81,16 @@ export const actions = {
 	createAccount: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await createAccount(auth, await request.formData());
+		}),
+	updateAccount: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await updateAccount(auth, await request.formData());
+			return { account_updated: true };
+		}),
+	updateAccountGroup: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await updateAccountGroup(auth, await request.formData());
+			return { account_group_updated: true };
 		}),
 	updateBudget: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
