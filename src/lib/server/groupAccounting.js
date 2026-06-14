@@ -369,7 +369,7 @@ export async function requireGroupAccountingManager(cookies, groupSlug) {
 }
 
 export async function ensureGroupAccountingSetup(supabase, group, userId = null) {
-	const { data: settings, error: settingsError } = await supabase
+	const { error: settingsError } = await supabase
 		.from('group_accounting_settings')
 		.upsert(
 			{
@@ -378,10 +378,16 @@ export async function ensureGroupAccountingSetup(supabase, group, userId = null)
 				currency: 'usd'
 			},
 			{ onConflict: 'group_id', ignoreDuplicates: true }
-		)
-		.select('*')
-		.single();
+		);
 	if (settingsError) throw new Error(settingsError.message);
+
+	const { data: settings, error: settingsLoadError } = await supabase
+		.from('group_accounting_settings')
+		.select('*')
+		.eq('group_id', group.id)
+		.maybeSingle();
+	if (settingsLoadError) throw new Error(settingsLoadError.message);
+	if (!settings) throw new Error('Failed to load group accounting settings.');
 
 	const rows = DEFAULT_ACCOUNTS.map(
 		([

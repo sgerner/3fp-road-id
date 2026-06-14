@@ -99,8 +99,8 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="preset-filled-surface-50-950 min-h-screen w-full">
-	<main class="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6">
+<div class="min-h-screen w-full">
+	<main class="mx-auto space-y-6 px-4 py-6 md:px-6">
 		<section
 			class="card preset-tonal-primary border-primary-500/20 overflow-hidden rounded-2xl border shadow-sm md:rounded-3xl"
 			in:fade={{ duration: 300 }}
@@ -142,9 +142,7 @@
 						>
 							{groupName}
 						</h1>
-						<p
-							class="text-surface-600 dark:text-surface-400 flex items-center gap-1.5 text-xs sm:text-sm"
-						>
+						<p class="text-surface-900-100 flex items-center gap-1.5 text-xs sm:text-sm">
 							<IconMapPin class="h-3.5 w-3.5" />
 							{locationLabel}
 						</p>
@@ -177,8 +175,8 @@
 							data-sveltekit-preload-data="hover"
 							class="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150
 								{active
-								? 'preset-filled-primary-500 text-white shadow-sm'
-								: 'text-surface-600 dark:text-surface-400 hover:bg-primary-500/10 hover:text-primary-800 dark:hover:text-primary-200'}"
+								? 'preset-filled-primary-500 shadow-sm'
+								: 'text-surface-900-100 hover:bg-primary-500/10 hover:text-primary-800 dark:hover:text-primary-200'}"
 							aria-current={active ? 'page' : undefined}
 						>
 							<Icon class="h-4 w-4 flex-shrink-0" />
