@@ -1,11 +1,11 @@
 <script>
+	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconGlobe from '@lucide/svelte/icons/globe';
@@ -13,10 +13,12 @@
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconCheck from '@lucide/svelte/icons/check';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
 	import IconSettings from '@lucide/svelte/icons/settings';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconLayout from '@lucide/svelte/icons/layout-template';
+	import IconMegaphone from '@lucide/svelte/icons/megaphone';
+	import IconMousePointerClick from '@lucide/svelte/icons/mouse-pointer-click';
+	import IconBarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import DomainPurchasePanel from '$lib/components/groups/DomainPurchasePanel.svelte';
 	import {
 		createDefaultEmailDraft,
@@ -37,23 +39,6 @@
 		return JSON.parse(JSON.stringify(value));
 	}
 
-	function makeId(prefix) {
-		return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
-	}
-
-	function blockFactory(type) {
-		if (type === 'paragraph') {
-			return { id: makeId('paragraph'), type, title: 'New section', body: 'Write your copy here.' };
-		}
-		if (type === 'button') {
-			return { id: makeId('button'), type, title: 'Primary action', buttonLabel: 'Open link', buttonUrl: '' };
-		}
-		if (type === 'quote') {
-			return { id: makeId('quote'), type, title: 'Member voice', body: 'Add a quote or testimonial.' };
-		}
-		return { id: makeId('paragraph'), type: 'paragraph', title: '', body: '' };
-	}
-
 	function hydrateEditorFromCampaign(campaign) {
 		const editorState =
 			campaign?.audience_filters &&
@@ -62,7 +47,7 @@
 			typeof campaign.audience_filters.editor === 'object'
 				? clone(campaign.audience_filters.editor)
 				: null;
-		if (editorState?.blocks?.length) {
+		if (editorState?.blocks?.length || editorState?.visualDesign || editorState?.visualHtml) {
 			return {
 				...createDraft(),
 				...editorState,
@@ -91,6 +76,198 @@
 		const selected = Array.isArray(statuses) && statuses.length ? statuses : ['active'];
 		return selected.reduce((total, status) => total + Number(summary?.[status] || 0), 0);
 	}
+
+	const VISUAL_THEMES = [
+		{
+			id: '3fp',
+			label: '3FP',
+			background: '#15161b',
+			panel: '#ffffff',
+			ink: '#13151a',
+			muted: '#606775',
+			accent: '#e7f86a',
+			accentDark: '#2f3a16',
+			accentSoft: '#f4ffc2',
+			border: '#d8ea72'
+		},
+		{
+			id: 'sunrise',
+			label: 'Sunrise',
+			background: '#fff7ed',
+			panel: '#ffffff',
+			ink: '#172033',
+			muted: '#667085',
+			accent: '#f97316',
+			accentDark: '#c2410c',
+			accentSoft: '#ffedd5',
+			border: '#fed7aa'
+		},
+		{
+			id: 'cobalt',
+			label: 'Cobalt',
+			background: '#eff6ff',
+			panel: '#ffffff',
+			ink: '#0f172a',
+			muted: '#475569',
+			accent: '#2563eb',
+			accentDark: '#1e40af',
+			accentSoft: '#dbeafe',
+			border: '#bfdbfe'
+		},
+		{
+			id: 'grove',
+			label: 'Grove',
+			background: '#f0fdf4',
+			panel: '#ffffff',
+			ink: '#13251a',
+			muted: '#4b6353',
+			accent: '#16a34a',
+			accentDark: '#166534',
+			accentSoft: '#dcfce7',
+			border: '#bbf7d0'
+		},
+		{
+			id: 'noir',
+			label: 'Noir',
+			background: '#f8f5ef',
+			panel: '#ffffff',
+			ink: '#111827',
+			muted: '#5b6472',
+			accent: '#d97706',
+			accentDark: '#111827',
+			accentSoft: '#fef3c7',
+			border: '#f3d99b'
+		},
+		{
+			id: 'mint',
+			label: 'Mint',
+			background: '#ecfdf5',
+			panel: '#ffffff',
+			ink: '#052e2b',
+			muted: '#55706b',
+			accent: '#10b981',
+			accentDark: '#047857',
+			accentSoft: '#ccfbf1',
+			border: '#99f6e4'
+		},
+		{
+			id: 'cerberus',
+			label: 'Cerberus',
+			background: '#111827',
+			panel: '#f9fafb',
+			ink: '#111827',
+			muted: '#4b5563',
+			accent: '#f43f5e',
+			accentDark: '#1f2937',
+			accentSoft: '#ffe4e6',
+			border: '#fecdd3'
+		},
+		{
+			id: 'catppuccin',
+			label: 'Catppuccin',
+			background: '#f5e0dc',
+			panel: '#fffaf8',
+			ink: '#1e1e2e',
+			muted: '#6c7086',
+			accent: '#8839ef',
+			accentDark: '#4c1d95',
+			accentSoft: '#f5e0ff',
+			border: '#cba6f7'
+		},
+		{
+			id: 'nouveau',
+			label: 'Nouveau',
+			background: '#faf5ff',
+			panel: '#ffffff',
+			ink: '#2e1065',
+			muted: '#6b5f7f',
+			accent: '#a855f7',
+			accentDark: '#6b21a8',
+			accentSoft: '#f3e8ff',
+			border: '#d8b4fe'
+		},
+		{
+			id: 'rose',
+			label: 'Rose',
+			background: '#fff1f2',
+			panel: '#ffffff',
+			ink: '#4c0519',
+			muted: '#7f5360',
+			accent: '#e11d48',
+			accentDark: '#9f1239',
+			accentSoft: '#ffe4e6',
+			border: '#fecdd3'
+		},
+		{
+			id: 'sahara',
+			label: 'Sahara',
+			background: '#fffbeb',
+			panel: '#ffffff',
+			ink: '#3d2a0a',
+			muted: '#7c6a4e',
+			accent: '#d97706',
+			accentDark: '#92400e',
+			accentSoft: '#fef3c7',
+			border: '#fde68a'
+		},
+		{
+			id: 'seafoam',
+			label: 'Seafoam',
+			background: '#ecfeff',
+			panel: '#ffffff',
+			ink: '#083344',
+			muted: '#52707a',
+			accent: '#0891b2',
+			accentDark: '#155e75',
+			accentSoft: '#cffafe',
+			border: '#a5f3fc'
+		},
+		{
+			id: 'wintry',
+			label: 'Wintry',
+			background: '#f8fafc',
+			panel: '#ffffff',
+			ink: '#0f172a',
+			muted: '#64748b',
+			accent: '#38bdf8',
+			accentDark: '#0369a1',
+			accentSoft: '#e0f2fe',
+			border: '#bae6fd'
+		}
+	];
+
+	const VISUAL_TEMPLATES = [
+		{
+			id: 'newsletter',
+			label: 'Monthly Newsletter',
+			description: 'Hero story, three highlights, quote, and closing CTA.',
+			icon: IconMegaphone
+		},
+		{
+			id: 'event',
+			label: 'Event Invite',
+			description: 'Big date callout, schedule details, and RSVP button.',
+			icon: IconClock3
+		},
+		{
+			id: 'fundraiser',
+			label: 'Fundraiser',
+			description: 'Impact-led appeal with donation tiers and urgency.',
+			icon: IconBarChart3
+		},
+		{
+			id: 'renewal',
+			label: 'Membership Renewal',
+			description: 'Personal renewal reminder with benefit blocks.',
+			icon: IconBadgeCheck
+		},
+		{
+			id: 'announcement',
+			label: 'Quick Announcement',
+			description: 'Short, bold message with one clear action.',
+			icon: IconMousePointerClick
+		}
+	];
 
 	async function api(path, options = {}) {
 		const response = await fetch(path, {
@@ -129,13 +306,20 @@
 	let senderError = $state('');
 	let copiedDns = $state('');
 	let activeTab = $state('compose'); // 'compose' | 'preview' | 'history'
-	let domainPanelOpen = $state(false);
+	let isDomainPanelUserOpen = $state(false);
 	let showAdvanced = $state(false);
+	let visualEditorReady = $state(false);
+	let visualEditorLoading = $state(false);
+	let visualEditorError = $state('');
+	let selectedVisualTemplate = $state('newsletter');
+	let selectedVisualTheme = $state('3fp');
+	let visualEditorInstance = null;
 	let senderForm = $state(
 		untrack(() => ({
 			domain: '',
 			from_name: data.group?.name || '',
 			from_local_part: 'hello',
+			sender_email: '',
 			reply_to_email: '',
 			is_default: (data.senderDomains || []).length === 0
 		}))
@@ -143,7 +327,8 @@
 
 	// ── Derived ───────────────────────────────────────────────────
 	const previewHtml = $derived(
-		renderCampaignHtml({ draft, group, audienceCount: audienceCount(draft.audienceStatuses, data.audienceSummary) })
+		draft.visualHtml ||
+			renderCampaignHtml({ draft, group, audienceCount: audienceCount(draft.audienceStatuses, data.audienceSummary) })
 	);
 	const previewText = $derived(renderCampaignText({ draft }));
 	const selectedPreset = $derived(
@@ -166,28 +351,354 @@
 	const verifiedSenderCount = $derived(senderDomains.filter((row) => row.ses_verified_for_sending).length);
 	/** True if there's at least one verified sender ready to use */
 	const hasSenderReady = $derived(verifiedSenderCount > 0);
+	const domainPanelOpen = $derived(senderDomains.length === 0 || isDomainPanelUserOpen);
 
 	// ── Helpers ───────────────────────────────────────────────────
 	function setComposerMessage(nextNotice = '', nextError = '') { notice = nextNotice; error = nextError; }
 	function setSenderMessage(nextNotice = '', nextError = '') { senderNotice = nextNotice; senderError = nextError; }
 
-	function resetDraft() { draft = createDraft(); setComposerMessage('', ''); }
-	function addBlock(type) { draft.blocks = [...draft.blocks, blockFactory(type)]; }
-	function removeBlock(blockId) { draft.blocks = draft.blocks.filter((b) => b.id !== blockId); }
+	function loadDraftIntoVisualEditor(nextDraft) {
+		if (!visualEditorInstance || !visualEditorReady) return;
+		visualEditorInstance.loadDesign(
+			nextDraft.visualDesign || buildVisualDesign(nextDraft, nextDraft.visualTemplateId, nextDraft.visualThemeId)
+		);
+	}
+
+	function loadDesignIntoVisualEditor(design) {
+		if (!visualEditorInstance || !visualEditorReady) return;
+		visualEditorInstance.loadDesign(clone(design));
+	}
+
+	function resetDraft() {
+		draft = createDraft();
+		draft.visualTemplateId = selectedVisualTemplate;
+		draft.visualThemeId = selectedVisualTheme;
+		loadDraftIntoVisualEditor(draft);
+		setComposerMessage('', '');
+	}
+
+	function applyVisualPreset({ templateId = selectedVisualTemplate, themeId = selectedVisualTheme } = {}) {
+		selectedVisualTemplate = templateId;
+		selectedVisualTheme = themeId;
+		draft.visualTemplateId = templateId;
+		draft.visualThemeId = themeId;
+		draft.visualDesign = buildVisualDesign(draft, templateId, themeId);
+		draft.visualHtml = '';
+		loadDesignIntoVisualEditor(draft.visualDesign);
+		setComposerMessage('Template applied. Review the design before sending.', '');
+	}
+
+	function loadUnlayerScript() {
+		if (typeof window === 'undefined') return Promise.reject(new Error('Visual editor unavailable.'));
+		if (window.unlayer) return Promise.resolve();
+		return new Promise((resolve, reject) => {
+			const existing = document.querySelector('script[data-unlayer-editor]');
+			if (existing) {
+				existing.addEventListener('load', resolve, { once: true });
+				existing.addEventListener('error', () => reject(new Error('Unable to load visual editor.')), { once: true });
+				return;
+			}
+			const script = document.createElement('script');
+			script.src = 'https://editor.unlayer.com/embed.js';
+			script.async = true;
+			script.dataset.unlayerEditor = 'true';
+			script.onload = resolve;
+			script.onerror = () => reject(new Error('Unable to load visual editor.'));
+			document.head.appendChild(script);
+		});
+	}
+
+	function textContent(html, color, size = 16, extra = {}) {
+		return {
+			type: 'text',
+			values: {
+				text: html,
+				color,
+				fontSize: `${size}px`,
+				lineHeight: '170%',
+				textAlign: 'left',
+				...extra
+			}
+		};
+	}
+
+	function headingContent(text, color, size = 34, extra = {}) {
+		return {
+			type: 'heading',
+			values: {
+				text,
+				color,
+				size,
+				lineHeight: '115%',
+				textAlign: 'left',
+				...extra
+			}
+		};
+	}
+
+	function buttonContent(text, href, theme, extra = {}) {
+		return {
+			type: 'button',
+			values: {
+				text,
+				href: { name: 'web', values: { href: href || group.website_url || '' } },
+				buttonColors: { color: '#ffffff', backgroundColor: theme.accent },
+				borderRadius: '999px',
+				padding: '14px 24px',
+				textAlign: 'left',
+				...extra
+			}
+		};
+	}
+
+	function dividerContent(theme) {
+		return {
+			type: 'divider',
+			values: {
+				border: { borderTopWidth: '1px', borderTopStyle: 'solid', borderTopColor: theme.border },
+				padding: '18px 0'
+			}
+		};
+	}
+
+	function row(contents, theme, values = {}) {
+		return {
+			cells: [1],
+			columns: [{ contents }],
+			values: {
+				padding: '28px 34px',
+				backgroundColor: theme.panel,
+				borderRadius: '24px',
+				...values
+			}
+		};
+	}
+
+	function twoColumnRow(leftContents, rightContents, theme, values = {}) {
+		return {
+			cells: [1, 1],
+			columns: [{ contents: leftContents }, { contents: rightContents }],
+			values: {
+				padding: '26px 30px',
+				backgroundColor: theme.panel,
+				borderRadius: '24px',
+				...values
+			}
+		};
+	}
+
+	function buildTemplateRows(templateId, sourceDraft, theme) {
+		const groupName = group.name || 'Your group';
+		const siteUrl = group.website_url || '';
+		const subject = sourceDraft.subject || `${groupName} update for {{first_name}}`;
+		const preheader = sourceDraft.preheader || 'A polished update for your members.';
+		const hero = row(
+			[
+				textContent(
+					`<p style="letter-spacing:0.18em;text-transform:uppercase;font-weight:800;margin:0;">${groupName}</p>`,
+					theme.accent,
+					12
+				),
+				headingContent(subject, theme.ink, 42),
+				textContent(`<p>${preheader}</p>`, theme.muted, 17),
+				buttonContent('Take the next step', siteUrl, theme)
+			],
+			theme,
+			{
+				padding: '42px 44px',
+				backgroundColor: theme.id === 'noir' ? theme.accentDark : theme.accentSoft
+			}
+		);
+
+		if (templateId === 'event') {
+			return [
+				hero,
+				twoColumnRow(
+					[
+						textContent('<p style="margin:0;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">When</p>', theme.accent, 12),
+						headingContent('Saturday, 8:00 AM', theme.ink, 30),
+						textContent('<p>Meet at the usual rollout spot. Bring lights, water, and a friend who has been meaning to join.</p>', theme.muted)
+					],
+					[
+						textContent('<p style="margin:0;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">What to expect</p>', theme.accent, 12),
+						textContent('<p><strong>Route:</strong> 32 miles<br><strong>Pace:</strong> Conversational<br><strong>After:</strong> Coffee and member check-in</p>', theme.muted)
+					],
+					theme
+				),
+				row([headingContent('RSVP so organizers can plan', theme.ink, 28), textContent('<p>Reply yes, update your availability, or share this invite with someone who should be there.</p>', theme.muted), buttonContent('RSVP now', siteUrl, theme)], theme)
+			];
+		}
+
+		if (templateId === 'fundraiser') {
+			return [
+				hero,
+				row([headingContent('Your support turns into real community capacity', theme.ink, 30), textContent('<p>Every contribution helps cover safer routes, volunteer supplies, rider support, and the small details that make the group feel welcoming.</p>', theme.muted)], theme),
+				twoColumnRow(
+					[headingContent('$25', theme.accent, 34), textContent('<p>Covers ride snacks and hydration for new riders.</p>', theme.muted)],
+					[headingContent('$100', theme.accent, 34), textContent('<p>Funds tools, signage, and safety supplies for a full event.</p>', theme.muted)],
+					theme,
+					{ backgroundColor: theme.accentSoft }
+				),
+				row([headingContent('Help keep momentum going', theme.ink, 28), buttonContent('Donate today', siteUrl, theme)], theme)
+			];
+		}
+
+		if (templateId === 'renewal') {
+			return [
+				hero,
+				row([headingContent('{{first_name}}, your membership keeps this rolling', theme.ink, 30), textContent('<p>Your renewal helps sustain events, volunteer coordination, member communications, and the shared infrastructure behind every gathering.</p>', theme.muted)], theme),
+				twoColumnRow(
+					[textContent('<p style="font-size:28px;margin:0;">✓</p>', theme.accent), headingContent('Stay connected', theme.ink, 24), textContent('<p>Keep member updates, perks, and invitations coming.</p>', theme.muted)],
+					[textContent('<p style="font-size:28px;margin:0;">✓</p>', theme.accent), headingContent('Support the work', theme.ink, 24), textContent('<p>Fund the organizers, hosts, and tools behind the scenes.</p>', theme.muted)],
+					theme
+				),
+				row([buttonContent('Renew membership', siteUrl, theme)], theme, { backgroundColor: theme.accentDark })
+			];
+		}
+
+		if (templateId === 'announcement') {
+			return [
+				hero,
+				row([headingContent('The short version', theme.ink, 30), textContent('<p>Use this section for the one thing members need to know. Keep it direct, useful, and easy to act on.</p>', theme.muted), dividerContent(theme), buttonContent('Read the update', siteUrl, theme)], theme)
+			];
+		}
+
+		return [
+			hero,
+			twoColumnRow(
+				[headingContent('{{audience_count}}', theme.accent, 34), textContent('<p>Members receiving this update.</p>', theme.muted)],
+				[headingContent('{{upcoming_ride_count}}', theme.accent, 34), textContent('<p>Upcoming rides and programs to highlight.</p>', theme.muted)],
+				theme
+			),
+			row([headingContent('What members should know', theme.ink, 30), textContent('<p>Lead with the story, deadline, or opportunity. Use merge tags like {{first_name}}, {{membership_tier}}, and {{renewal_date}} to make it personal.</p>', theme.muted)], theme),
+			row([textContent('<p style="font-size:22px;line-height:1.55;margin:0;">“Add a member quote, organizer note, or short testimonial to make the update feel human.”</p>', theme.ink, 22), textContent('<p><strong>Organizer note</strong></p>', theme.muted, 14)], theme, { borderLeft: `6px solid ${theme.accent}` }),
+			row([headingContent('One clear next step', theme.ink, 28), textContent('<p>Close with the action you want members to take after reading.</p>', theme.muted), buttonContent('Open the full update', siteUrl, theme)], theme)
+		];
+	}
+
+	function buildVisualDesign(sourceDraft = draft, templateId = selectedVisualTemplate, themeId = selectedVisualTheme) {
+		const theme = VISUAL_THEMES.find((item) => item.id === themeId) || VISUAL_THEMES[0];
+		return {
+			body: {
+				rows: buildTemplateRows(templateId, sourceDraft, theme),
+				values: {
+					backgroundColor: theme.background,
+					contentWidth: '720px',
+					fontFamily: { label: 'Helvetica', value: 'helvetica,sans-serif' }
+				}
+			},
+			counters: {},
+			schemaVersion: 21
+		};
+	}
+
+	async function initVisualEditor() {
+		if (visualEditorReady || visualEditorLoading || typeof window === 'undefined') return;
+		try {
+			visualEditorLoading = true;
+			visualEditorError = '';
+			await loadUnlayerScript();
+			window.unlayer.init({
+				id: 'group-email-visual-editor',
+				displayMode: 'email',
+				devices: ['desktop', 'mobile'],
+				defaultDevice: 'desktop',
+				appearance: { theme: 'modern_light' },
+				features: {
+					preview: {
+						enabled: true,
+						deviceResolutions: { showDefaultResolutions: true }
+					}
+				},
+				tools: {
+					menu: { enabled: false },
+					social: { enabled: false }
+				}
+			});
+			visualEditorInstance = window.unlayer;
+			draft.visualTemplateId ||= selectedVisualTemplate;
+			draft.visualThemeId ||= selectedVisualTheme;
+			visualEditorInstance.loadDesign(
+				draft.visualDesign || buildVisualDesign(draft, draft.visualTemplateId, draft.visualThemeId)
+			);
+			visualEditorReady = true;
+		} catch (e) {
+			visualEditorError = e?.message || 'Unable to load visual editor.';
+		} finally {
+			visualEditorLoading = false;
+		}
+	}
+
+	function exportVisualEmail() {
+		if (!visualEditorInstance || !visualEditorReady) return Promise.resolve();
+		return new Promise((resolve, reject) => {
+			visualEditorInstance.exportHtml((output) => {
+				if (!output?.html) {
+					reject(new Error('Visual editor did not return email HTML.'));
+					return;
+				}
+				draft.visualDesign = output.design;
+				draft.visualHtml = output.html;
+				draft.visualTemplateId = selectedVisualTemplate;
+				draft.visualThemeId = selectedVisualTheme;
+				draft.blocks = [];
+				resolve(output);
+			});
+		});
+	}
+
+	async function selectTab(tabId) {
+		if (tabId === 'preview') {
+			try {
+				await exportVisualEmail();
+			} catch (e) {
+				setComposerMessage('', e?.message || 'Unable to update preview.');
+				return;
+			}
+		}
+		activeTab = tabId;
+	}
+
+	onMount(() => {
+		initVisualEditor();
+	});
 
 	function duplicateCampaign(campaign) {
 		draft = hydrateEditorFromCampaign(campaign);
+		selectedVisualTemplate = draft.visualTemplateId || selectedVisualTemplate;
+		selectedVisualTheme = draft.visualThemeId || selectedVisualTheme;
+		loadDraftIntoVisualEditor(draft);
 		activeTab = 'compose';
 		setComposerMessage('Campaign loaded into the composer.', '');
 	}
 
 	function applySelectedSiteDomain() {
 		if (!selectedSiteDomain) return;
-		senderForm.domain = selectedSiteDomain;
+		const currentEmail = String(senderForm.sender_email || '').trim();
+		const localPart = currentEmail.includes('@') ? currentEmail.slice(0, currentEmail.lastIndexOf('@')) : currentEmail || 'hello';
+		senderForm.sender_email = `${localPart}@${selectedSiteDomain}`;
 		setSenderMessage('', '');
 	}
 
+	function buildSenderDomainPayload() {
+		const senderEmail = String(senderForm.sender_email || '').trim().toLowerCase();
+		const atIndex = senderEmail.lastIndexOf('@');
+		if (!senderEmail || atIndex <= 0 || atIndex === senderEmail.length - 1) {
+			throw new Error('Enter a complete sender email address.');
+		}
+		const fromLocalPart = senderEmail.slice(0, atIndex);
+		const emailDomain = senderEmail.slice(atIndex + 1);
+		const { sender_email, ...payload } = senderForm;
+		return {
+			...payload,
+			domain: emailDomain,
+			from_local_part: fromLocalPart,
+			reply_to_email: senderEmail
+		};
+	}
+
 	async function createCampaignRecord() {
+		await exportVisualEmail();
 		const payload = {
 			campaign_name: draft.campaignName,
 			subject_template: draft.subject,
@@ -258,12 +769,13 @@
 	async function saveSenderDomain() {
 		try {
 			senderBusy = true; setSenderMessage('', '');
-			await api(`/api/groups/${group.slug}/email/domains`, { method: 'POST', body: JSON.stringify(senderForm) });
+			await api(`/api/groups/${group.slug}/email/domains`, { method: 'POST', body: JSON.stringify(buildSenderDomainPayload()) });
+			if (senderDomains.length === 0) {
+				isDomainPanelUserOpen = true;
+			}
 			await refreshSenderDomains();
-			senderForm = { domain: '', from_name: group.name || '', from_local_part: 'hello', reply_to_email: '', is_default: false };
+			senderForm = { domain: '', from_name: group.name || '', from_local_part: 'hello', sender_email: '', reply_to_email: '', is_default: false };
 			setSenderMessage('Sender domain synced with AWS.', '');
-			// Auto-close the panel if this was the first domain and it's now configured
-			if (hasSenderReady) domainPanelOpen = false;
 		} catch (e) { setSenderMessage('', e?.message || 'Unable to save sender domain.'); }
 		finally { senderBusy = false; }
 	}
@@ -322,19 +834,16 @@
 				{/if}
 
 				<!-- Settings / domain config button -->
-				<button
-					type="button"
-					class="btn btn-sm
-						{domainPanelOpen ? 'preset-filled-surface-500' : 'preset-tonal-surface'}
-						{!hasSenderReady && senderDomains.length === 0 ? 'preset-filled-primary-500' : ''}"
-					onclick={() => (domainPanelOpen = !domainPanelOpen)}
-					title="Sender domain settings"
-				>
-					<IconSettings class="h-4 w-4 {domainPanelOpen ? 'rotate-45' : ''} transition-transform duration-200" />
-					{#if !hasSenderReady && senderDomains.length === 0}
-						Setup sender
-					{/if}
-				</button>
+				{#if senderDomains.length > 0}
+					<button
+						type="button"
+						class="btn btn-sm {isDomainPanelUserOpen ? 'preset-filled-surface-500' : 'preset-tonal-surface'}"
+						onclick={() => (isDomainPanelUserOpen = !isDomainPanelUserOpen)}
+						title="Sender domain settings"
+					>
+						<IconSettings class="h-4 w-4 {isDomainPanelUserOpen ? 'rotate-45' : ''} transition-transform duration-200" />
+					</button>
+				{/if}
 			</div>
 		</div>
 
@@ -387,20 +896,15 @@
 
 						<div class="grid gap-3 sm:grid-cols-2">
 							<label class="space-y-1">
-								<span class="text-surface-600-400 text-xs font-medium">Domain</span>
-								<input class="input w-full text-sm" bind:value={senderForm.domain} placeholder="mail.yourgroup.org" />
-							</label>
-							<label class="space-y-1">
 								<span class="text-surface-600-400 text-xs font-medium">From name</span>
 								<input class="input w-full text-sm" bind:value={senderForm.from_name} placeholder={group.name} />
 							</label>
 							<label class="space-y-1">
-								<span class="text-surface-600-400 text-xs font-medium">Local part (before @)</span>
-								<input class="input w-full text-sm" bind:value={senderForm.from_local_part} placeholder="hello" />
-							</label>
-							<label class="space-y-1">
-								<span class="text-surface-600-400 text-xs font-medium">Reply-to</span>
-								<input class="input w-full text-sm" bind:value={senderForm.reply_to_email} placeholder="organizers@yourgroup.org" />
+								<span class="text-surface-600-400 text-xs font-medium">From and reply-to address</span>
+								<input class="input w-full text-sm" bind:value={senderForm.sender_email} placeholder="organizers@yourgroup.org" />
+								<span class="text-surface-400-600 block text-xs">
+									Recipients see this as the From address, and replies go to the same inbox.
+								</span>
 							</label>
 						</div>
 						<div class="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -475,6 +979,12 @@
 									{/if}
 
 									{#if sender.dns_records?.length}
+										<div class="preset-tonal-warning mb-2 flex items-start gap-2 rounded-lg p-3 text-xs">
+											<IconTriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+											<span>
+												Manual DNS setup required: add each record below at your DNS provider, then click Verify. If Vercel DNS shows connected, these may already be managed for you.
+											</span>
+										</div>
 										<div class="overflow-x-auto">
 											<table class="w-full text-xs">
 												<thead>
@@ -514,8 +1024,8 @@
 			</div>
 		{/if}
 
-		<!-- ── TABS (only shown once sender domain exists or can be bypassed) ── -->
-		{#if hasSenderReady || senderDomains.length > 0 || !domainPanelOpen}
+		<!-- ── TABS AND CONTENT (only shown once sender domain exists) ── -->
+		{#if senderDomains.length > 0}
 			<nav class="border-surface-200-800 flex overflow-x-auto border-b" style="scrollbar-width: none;">
 				{#each [{ id: 'compose', label: 'Compose', icon: IconSquarePen }, { id: 'preview', label: 'Preview', icon: IconLayout }, { id: 'history', label: `History${emailHistory.length ? ` (${emailHistory.length})` : ''}`, icon: IconClock3 }] as tab}
 					{@const Icon = tab.icon}
@@ -524,18 +1034,17 @@
 						type="button"
 						class="flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-all
 							{isActive ? 'border-primary-500 text-primary-400' : 'border-transparent text-surface-400-600 hover:text-surface-900-50'}"
-						onclick={() => (activeTab = tab.id)}
+						onclick={() => selectTab(tab.id)}
 					>
 						<Icon class="h-4 w-4" />
 						{tab.label}
 					</button>
 				{/each}
 			</nav>
-		{/if}
 
-		<!-- ══ COMPOSE ══════════════════════════════════════════════ -->
-		{#if activeTab === 'compose'}
-			<div class="space-y-4 p-4 sm:p-5">
+			<!-- ══ COMPOSE ══════════════════════════════════════════════ -->
+			{#if activeTab === 'compose'}
+			<div class="space-y-4 bg-surface-100-900/40 p-4 sm:p-5">
 
 				<!-- Banners -->
 				{#if notice}
@@ -552,15 +1061,42 @@
 					<div class="preset-tonal-warning flex items-center gap-2 rounded-lg p-3 text-sm">
 						<IconTriangleAlert class="h-4 w-4 shrink-0" />
 						The selected sender isn't verified yet.
-						<button type="button" class="underline" onclick={() => (domainPanelOpen = true)}>Open settings →</button>
+						<button type="button" class="underline" onclick={() => (isDomainPanelUserOpen = true)}>Open settings →</button>
 					</div>
 				{/if}
 
-				<!-- Subject line — the most important field, first and prominent -->
-				<label class="space-y-1.5">
-					<span class="text-sm font-semibold">Subject line</span>
-					<input class="input w-full text-base" bind:value={draft.subject} maxlength="300" placeholder="What's this email about?" />
-				</label>
+				<div class="border-surface-200-800 overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-surface-950">
+					<div class="border-surface-200-800 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+						<div class="flex items-center gap-3">
+							<div class="bg-primary-500/10 flex h-10 w-10 items-center justify-center rounded-full">
+								<IconMail class="h-5 w-5 text-primary-500" />
+							</div>
+							<div>
+								<p class="text-xs font-semibold uppercase tracking-wide text-surface-500">Compose message</p>
+								<p class="text-sm font-medium">
+									{#if selectedSender}
+										From {selectedSender.from_email_address}
+									{:else}
+										Choose a sender before sending
+									{/if}
+								</p>
+							</div>
+						</div>
+						<button class="btn preset-tonal-surface btn-sm" type="button" onclick={() => selectTab('preview')}>
+							<IconLayout class="h-4 w-4" /> Preview
+						</button>
+					</div>
+
+					<label class="grid gap-2 px-4 py-3 sm:grid-cols-[5rem_1fr] sm:items-center">
+						<span class="text-xs font-semibold uppercase tracking-wide text-surface-500">Subject</span>
+						<input
+							class="w-full border-0 bg-transparent text-base font-medium outline-none placeholder:text-surface-400"
+							bind:value={draft.subject}
+							maxlength="300"
+							placeholder="What's this email about?"
+						/>
+					</label>
+				</div>
 
 				<!-- Audience chips -->
 				<div class="space-y-2">
@@ -588,77 +1124,93 @@
 					<p class="text-surface-400-600 text-xs">{selectedAudienceCount} recipients</p>
 				</div>
 
-				<!-- Content blocks -->
-				<div class="space-y-2">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-sm font-semibold">Content</span>
-						<div class="flex gap-2">
-							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('paragraph')}>
-								<IconPlus class="h-3.5 w-3.5" /> Text
-							</button>
-							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('button')}>
-								<IconPlus class="h-3.5 w-3.5" /> CTA
-							</button>
-							<button type="button" class="btn preset-tonal-surface btn-sm" onclick={() => addBlock('quote')}>
-								<IconPlus class="h-3.5 w-3.5" /> Quote
-							</button>
+				<div class="border-surface-200-800 overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-surface-950">
+					<div class="border-surface-200-800 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+						<div>
+							<p class="text-sm font-semibold">Visual email builder</p>
+							<p class="text-surface-400-600 text-xs">
+								Drag in content blocks, edit the design, then save, schedule, or send.
+							</p>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							{#if visualEditorReady}
+								<span class="chip preset-tonal-success text-xs">
+									<IconBadgeCheck class="h-3 w-3" /> Builder ready
+								</span>
+							{:else if visualEditorLoading}
+								<span class="chip preset-tonal-warning text-xs">
+									<IconRefreshCw class="h-3 w-3 animate-spin" /> Loading builder
+								</span>
+							{/if}
 						</div>
 					</div>
-
-					{#if draft.blocks.length === 0}
-						<div class="border-surface-200-800 flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
-							<div class="bg-surface-100-900 flex h-10 w-10 items-center justify-center rounded-full">
-								<IconMail class="text-surface-400-600 h-5 w-5" />
+					<div class="border-surface-200-800 grid gap-4 border-b bg-surface-50-950 p-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]">
+						<div>
+							<div class="mb-3 flex items-center justify-between gap-3">
+								<div>
+									<p class="text-sm font-semibold">Start from a template</p>
+									<p class="text-surface-400-600 text-xs">Choose the email shape first, then customize in the builder.</p>
+								</div>
 							</div>
-							<div>
-								<p class="text-sm font-medium">No content yet</p>
-								<p class="text-surface-400-600 text-xs">Add a Text, CTA, or Quote block above to start building.</p>
+							<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+								{#each VISUAL_TEMPLATES as template}
+									{@const TemplateIcon = template.icon}
+									<button
+										type="button"
+										class="border-surface-200-800 hover:border-primary-500/40 hover:bg-primary-500/5 cursor-pointer rounded-xl border bg-white p-3 text-left transition-colors dark:bg-surface-900
+											{selectedVisualTemplate === template.id ? 'border-primary-500/60 ring-primary-500/20 ring-2' : ''}"
+										onclick={() => applyVisualPreset({ templateId: template.id })}
+									>
+										<span class="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
+											<TemplateIcon class="h-4 w-4" />
+										</span>
+										<span class="block text-sm font-semibold">{template.label}</span>
+										<span class="text-surface-400-600 block text-xs">{template.description}</span>
+									</button>
+								{/each}
 							</div>
 						</div>
-					{:else}
-						<div class="space-y-2">
-							{#each draft.blocks as block, index (block.id)}
-								<div class="bg-surface-100-900 border-surface-200-800 rounded-xl border p-3">
-									<div class="mb-2.5 flex items-center justify-between">
-										<span class="text-surface-400-600 text-xs font-semibold uppercase tracking-wide">{index + 1} · {block.type}</span>
-										<button type="button" class="btn preset-tonal-error btn-sm py-1" onclick={() => removeBlock(block.id)}>
-											<IconTrash class="h-3.5 w-3.5" />
-										</button>
-									</div>
 
-									{#if block.type === 'hero'}
-										<div class="grid gap-2 sm:grid-cols-2">
-											<input class="input text-sm" bind:value={block.eyebrow} placeholder="Eyebrow label" />
-											<input class="input text-sm" bind:value={block.title} placeholder="Headline" />
-										</div>
-										<textarea class="textarea mt-2 w-full text-sm" bind:value={block.body} rows="3" placeholder="Body copy…"></textarea>
-										<div class="mt-2 grid gap-2 sm:grid-cols-2">
-											<input class="input text-sm" bind:value={block.buttonLabel} placeholder="Button label" />
-											<input class="input text-sm" bind:value={block.buttonUrl} placeholder="https://…" />
-										</div>
-									{:else if block.type === 'metrics'}
-										<div class="grid gap-2 sm:grid-cols-3">
-											{#each block.items as item}
-												<div class="bg-surface-50-950 border-surface-200-800 rounded-lg border p-2">
-													<input class="input mb-1 w-full text-xs" bind:value={item.label} placeholder="Label" />
-													<input class="input w-full text-xs" bind:value={item.value} placeholder="Value" />
-												</div>
-											{/each}
-										</div>
-									{:else if block.type === 'button'}
-										<input class="input mb-2 w-full text-sm" bind:value={block.title} placeholder="Section title (optional)" />
-										<div class="grid gap-2 sm:grid-cols-2">
-											<input class="input text-sm" bind:value={block.buttonLabel} placeholder="Button label" />
-											<input class="input text-sm" bind:value={block.buttonUrl} placeholder="https://…" />
-										</div>
-									{:else}
-										<input class="input mb-2 w-full text-sm" bind:value={block.title} placeholder="Section heading" />
-										<textarea class="textarea w-full text-sm" bind:value={block.body} rows="4" placeholder="Body copy…"></textarea>
-									{/if}
-								</div>
-							{/each}
+						<div>
+							<p class="mb-3 text-sm font-semibold">Theme style</p>
+							<div class="flex flex-wrap gap-2">
+								{#each VISUAL_THEMES as theme}
+									<button
+										type="button"
+										class="border-surface-200-800 hover:border-primary-500/40 cursor-pointer rounded-xl border bg-white p-2 text-left transition-colors dark:bg-surface-900
+											{selectedVisualTheme === theme.id ? 'border-primary-500/60 ring-primary-500/20 ring-2' : ''}"
+										onclick={() => applyVisualPreset({ themeId: theme.id })}
+										title={theme.label}
+									>
+										<span class="flex overflow-hidden rounded-lg border border-black/10">
+											<span class="h-8 w-8" style="background:{theme.background}"></span>
+											<span class="h-8 w-8" style="background:{theme.accent}"></span>
+											<span class="h-8 w-8" style="background:{theme.ink}"></span>
+										</span>
+										<span class="mt-1 block text-center text-[11px] font-semibold">{theme.label}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+					</div>
+					{#if visualEditorError}
+						<div class="preset-tonal-error m-4 flex items-center justify-between gap-3 rounded-lg p-3 text-sm">
+							<span class="flex items-center gap-2">
+								<IconTriangleAlert class="h-4 w-4 shrink-0" /> {visualEditorError}
+							</span>
+							<button class="btn preset-tonal-surface btn-sm" type="button" onclick={initVisualEditor}>
+								Retry
+							</button>
 						</div>
 					{/if}
+					<div class="relative overflow-hidden bg-white">
+						{#if visualEditorLoading}
+							<div class="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm text-surface-500">
+								<IconRefreshCw class="mr-2 h-4 w-4 animate-spin" /> Loading visual editor...
+							</div>
+						{/if}
+						<div id="group-email-visual-editor" class="h-[78vh] min-h-[760px] w-full"></div>
+					</div>
 				</div>
 
 				<!-- Advanced settings (campaign name, template, sender, preheader) -->
@@ -830,6 +1382,7 @@
 					</div>
 				{/if}
 			</div>
+		{/if}
 		{/if}
 	</div>
 </div>
