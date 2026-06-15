@@ -75,8 +75,10 @@ Stripe balance transaction sync is separate from Financial Connections. It impor
 CSV import turns common bank CSV columns into reviewable feed items. Supported header names include:
 
 - `date`, `transaction date`, `posted date`, `post date`
+- `processed date`
 - `description`, `name`, `memo`, `payee`
 - `amount`, or `debit`/`credit`
+- `credit or debit`, `debit or credit`, `transaction type`, `type`
 
 CSV export is available at:
 

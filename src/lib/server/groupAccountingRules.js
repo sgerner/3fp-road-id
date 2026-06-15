@@ -22,6 +22,22 @@ export function centsFromSignedAmount(value) {
 	return Math.round(numeric * 100);
 }
 
+export function centsFromAmountAndDirection(amountValue, directionValue) {
+	const signedAmount = centsFromSignedAmount(amountValue);
+	const positiveAmount = centsFromAmount(amountValue);
+	const amount = signedAmount ?? positiveAmount;
+	if (amount === null) return null;
+
+	const direction = cleanText(directionValue).toLowerCase();
+	if (direction === 'debit' || direction === 'withdrawal' || direction === 'withdrawals') {
+		return -Math.abs(amount);
+	}
+	if (direction === 'credit' || direction === 'deposit' || direction === 'deposits') {
+		return Math.abs(amount);
+	}
+	return amount;
+}
+
 export function slugify(value) {
 	return cleanText(value)
 		.toLowerCase()

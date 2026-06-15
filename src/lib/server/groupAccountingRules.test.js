@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	centsFromAmount,
+	centsFromAmountAndDirection,
 	centsFromSignedAmount,
 	parseCsvRows,
 	slugify,
@@ -14,6 +15,10 @@ test('money parsers accept common bank export formats', () => {
 	assert.equal(centsFromSignedAmount('($42.10)'), -4210);
 	assert.equal(centsFromSignedAmount(' $1,000.05 '), 100005);
 	assert.equal(centsFromSignedAmount('not money'), null);
+	assert.equal(centsFromAmountAndDirection('10.13', 'Debit'), -1013);
+	assert.equal(centsFromAmountAndDirection('10.13', 'Credit'), 1013);
+	assert.equal(centsFromAmountAndDirection('($42.10)', 'Debit'), -4210);
+	assert.equal(centsFromAmountAndDirection('not money', 'Debit'), null);
 });
 
 test('parseCsvRows handles quoted commas, escaped quotes, and blank rows', () => {

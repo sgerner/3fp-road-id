@@ -26,6 +26,7 @@
 import { enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { tick } from 'svelte';
+import { slide } from 'svelte/transition';
 import { loadStripe } from '@stripe/stripe-js';
 import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
@@ -139,6 +140,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				data.settings?.mercury_connected_at
 		)
 	);
+	
+	let showBankConfig = $state(false);
+	$effect(() => {
+		if (!mercuryConnected && bankFeedAccounts.length === 0) {
+			showBankConfig = true;
+		}
+	});
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const transactionAccountOptions = $derived(accounts.filter((account) => !account.is_archived));
 	const transactionSourceOptions = $derived(
@@ -427,7 +435,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	function getReviewCategoryOptions(item, query = '') {
 		const sourceAccounts = item.amount_cents >= 0 ? incomeAccounts : expenseAccounts;
 		const normalized = query.trim().toLowerCase();
-		if (!normalized) return [];
+		if (!normalized) return sourceAccounts;
 		return sourceAccounts.filter((account) => {
 			const haystack = `${account.code} ${account.name} ${account.display_group || ''}`
 				.toLowerCase();
@@ -444,14 +452,17 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	}
 
 	function updateReviewCategoryQuery(itemId, amountCents, query) {
-		const matches = getReviewCategoryOptions(
-			{ amount_cents: amountCents },
-			query
-		);
+		const normalized = query.trim();
+		const matches = getReviewCategoryOptions({ amount_cents: amountCents }, query);
 		activeReviewCategoryItemId = itemId;
 		setReviewSelection(itemId, {
 			categoryQuery: query,
-			categoryAccountId: matches.length === 1 ? matches[0].id : reviewSelections[itemId]?.categoryAccountId
+			// Clear selection when query is empty; auto-select only on exact single match
+			categoryAccountId: !normalized
+				? ''
+				: matches.length === 1
+					? matches[0].id
+					: reviewSelections[itemId]?.categoryAccountId
 		});
 	}
 
@@ -2324,338 +2335,276 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	{/if}
 
 	{#if activeTab === 'banking'}
-		<section class="space-y-6">
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-					<div class="flex items-center gap-2">
-						<IconLockKeyhole class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Connections
-						</h2>
-						{#if mercuryConnected}
-							<span class="badge preset-filled-success-500 px-2 py-0.5 text-[10px] font-bold uppercase">
-								Mercury connected
-							</span>
-						{/if}
-					</div>
+		<section class="space-y-4">
+			<!-- Header -->
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div class="flex items-center gap-3">
+					<h2 class="text-2xl font-bold tracking-tight">Bank Review</h2>
+					<span class="badge {needsReview.length > 0 ? 'preset-filled-warning-500' : 'preset-tonal-success'} font-bold">
+						{needsReview.length}
+					</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						class="btn btn-sm preset-tonal-surface font-semibold"
+						onclick={() => showBankConfig = !showBankConfig}
+					>
+						<IconCog class="h-4 w-4" />
+						<span class="hidden sm:inline">{showBankConfig ? 'Hide Settings' : 'Settings'}</span>
+					</button>
 					<form method="POST" use:enhance={enhanceSyncAll} action="?/syncAll">
 						<button
-							class="btn btn-sm preset-outlined-primary-500 flex items-center gap-2 font-semibold"
+							class="btn btn-sm preset-filled-primary-500 font-bold"
 							type="submit"
 							disabled={syncAllBusy}
 						>
 							<IconRefreshCw class="h-4 w-4 {syncAllBusy ? 'animate-spin' : ''}" />
-							<span>{syncAllBusy ? 'Syncing...' : 'Sync all'}</span>
+							<span>{syncAllBusy ? 'Syncing…' : 'Sync All'}</span>
 						</button>
 					</form>
 				</div>
+			</div>
 
-				<div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-					<div class="space-y-4">
-						{#if mercuryConnected && !mercuryEditMode}
-							<div class="bg-success-500/10 border-success-500/20 rounded-2xl border p-4">
-								<div class="flex flex-wrap items-start justify-between gap-3">
-									<div class="space-y-1">
-										<p class="text-success-700 dark:text-success-300 text-sm font-bold">Mercury connected</p>
-										<p class="text-surface-500 text-xs">
-											API key ending in {data.settings?.mercury_api_key_hint || '••••'}
-											{#if mercuryConnection?.last_synced_at}
-												· Last synced {formatDate(mercuryConnection.last_synced_at)}
-											{/if}
-										</p>
+			<!-- Settings Panel -->
+			{#if showBankConfig}
+				<div transition:slide={{ duration: 180 }} class="card preset-tonal-surface p-5">
+					<div class="grid gap-6 md:grid-cols-2">
+						<!-- Connected Accounts -->
+						<div class="space-y-3">
+							<p class="text-xs font-bold uppercase tracking-wider opacity-60">Connected Accounts</p>
+
+							{#if mercuryConnected && !mercuryEditMode}
+								<div class="card preset-tonal-success flex items-center justify-between gap-3 p-3">
+									<div>
+										<p class="text-sm font-semibold">Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}</p>
+										{#if mercuryConnection?.last_synced_at}
+											<p class="text-xs opacity-70">Synced {formatDate(mercuryConnection.last_synced_at)}</p>
+										{/if}
 									</div>
 									<button
-										class="btn btn-sm preset-outlined-surface-500 font-semibold"
+										class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
 										type="button"
 										onclick={() => (mercuryEditMode = true)}
 									>
 										<IconPencil class="h-3.5 w-3.5" />
-										<span>Edit Mercury</span>
 									</button>
 								</div>
-							</div>
-						{:else}
-							<form
-								method="POST"
-								use:enhance={enhanceSaveConnections}
-								action="?/saveConnections"
-								class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4"
-							>
-								<label class="label">
-									<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
-										Mercury API key
-									</span>
+							{:else}
+								<form
+									method="POST"
+									use:enhance={enhanceSaveConnections}
+									action="?/saveConnections"
+									class="flex gap-2"
+								>
 									<input
-										class="input preset-tonal-surface"
+										class="input preset-tonal-surface flex-1 text-sm"
 										type="password"
 										name="mercuryApiKey"
-										placeholder={mercuryConnected ? 'Replace the existing key' : 'Enter a Mercury API key'}
+										placeholder={mercuryConnected ? 'Replace Mercury API key…' : 'Mercury API key…'}
 										autocomplete="off"
 										required={!mercuryConnected || mercuryEditMode}
 									/>
-								</label>
-								<div class="flex flex-wrap gap-2">
-									<button class="btn preset-filled-primary-500 font-bold" type="submit">
-										<IconLockKeyhole class="h-4 w-4" />
-										<span>{mercuryConnected ? 'Update Mercury' : 'Save Mercury'}</span>
+									<button class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold" type="submit">
+										{mercuryConnected ? 'Update' : 'Save'}
 									</button>
 									{#if mercuryConnected}
 										<button
-											class="btn btn-sm preset-outlined-surface-500 font-semibold"
+											class="btn btn-sm preset-tonal-surface shrink-0"
 											type="button"
 											onclick={() => (mercuryEditMode = false)}
-										>
-											Cancel
-										</button>
+										>Cancel</button>
 									{/if}
-								</div>
-							</form>
-						{/if}
+								</form>
+							{/if}
 
-						<div class="bg-surface-500/5 border-surface-500/10 rounded-2xl border p-4">
-							<div class="mb-3 flex items-center gap-2">
-								<IconLandmark class="text-primary-500 h-4 w-4" />
-								<h3 class="text-surface-900 dark:text-surface-100 text-sm font-bold">
-									Connected bank feeds
-								</h3>
-							</div>
-							<div class="space-y-2">
-								{#each bankFeedAccounts as providerAccount}
-									<div class="bg-surface-500/5 border-surface-500/5 rounded-xl border p-3.5 text-sm">
-										<div class="flex items-start justify-between gap-3">
-											<div class="min-w-0">
-												<p class="text-surface-900 dark:text-surface-100 truncate font-bold">
-													{bankFeedLabel(providerAccount)}
-												</p>
-												<p class="text-surface-500 mt-1 text-xs">
-													{providerAccount.account_subtype || providerAccount.account_type || 'Account'}
-												</p>
-											</div>
+							{#if bankFeedAccounts.length > 0}
+								<div class="space-y-1.5">
+									{#each bankFeedAccounts as providerAccount}
+										<div class="card preset-tonal-surface flex items-center justify-between gap-3 p-3 text-sm">
+											<span class="truncate font-semibold">{bankFeedLabel(providerAccount)}</span>
 											<span class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase">
 												{providerAccount.provider}
 											</span>
 										</div>
-									</div>
-								{:else}
-									<p class="text-surface-500 py-2 text-center text-xs italic">
-										No bank feeds connected yet.
-									</p>
-								{/each}
-							</div>
-						</div>
-					</div>
+									{/each}
+								</div>
+							{/if}
 
-					<div class="space-y-4">
-						<form
-							method="POST"
-							use:enhance
-							action="?/importBankCsv"
-							enctype="multipart/form-data"
-							class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4"
-						>
-							<div class="flex items-center gap-2">
-								<IconUpload class="text-secondary-500 h-4 w-4" />
-								<h3 class="text-surface-900 dark:text-surface-100 text-sm font-bold">Import CSV</h3>
-							</div>
-							<label class="label">
-								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
-									Bank CSV
-								</span>
+							<button
+								class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+								type="button"
+								disabled={financialConnectionsBusy}
+								onclick={connectFinancialAccounts}
+							>
+								<IconLandmark class="h-4 w-4" />
+								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span>
+							</button>
+							{#if financialConnectionsMessage}
+								<p class="card preset-tonal-primary p-2 text-xs font-semibold">{financialConnectionsMessage}</p>
+							{/if}
+						</div>
+
+						<!-- Manual Import -->
+						<div class="space-y-3">
+							<p class="text-xs font-bold uppercase tracking-wider opacity-60">Import CSV</p>
+							<form
+								method="POST"
+								use:enhance
+								action="?/importBankCsv"
+								enctype="multipart/form-data"
+								class="space-y-3"
+							>
 								<input
-									class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
+									class="input preset-tonal-surface text-sm"
 									type="file"
 									name="csvFile"
 									accept=".csv,text/csv"
 									required
 								/>
-							</label>
-							<label class="label">
-								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
-									Associate with account
-								</span>
-							<select
-								class="select preset-tonal-surface"
-								name="accountId"
-								bind:value={csvImportAccountId}
-								disabled={!cashAccounts.length}
-								required
-							>
-								<option value="">
-									{cashAccounts.length ? 'Choose a bank account' : 'No bank accounts available'}
-								</option>
-								{#each cashAccounts as account}
-									<option value={account.id}>{accountLabel(account)}</option>
-								{/each}
-							</select>
-						</label>
-						<button
-							class="btn preset-outlined-primary-500 w-full font-bold"
-							type="submit"
-							disabled={!cashAccounts.length}
-						>
-							<IconUpload class="h-4 w-4" />
-							<span>Import CSV</span>
-						</button>
-						</form>
-
-						<button
-							class="btn preset-filled-primary-500 flex w-full items-center justify-center gap-2 font-bold"
-							type="button"
-							disabled={financialConnectionsBusy}
-							onclick={connectFinancialAccounts}
-						>
-							<IconLandmark class="h-4 w-4" />
-							<span>{financialConnectionsBusy ? 'Opening Stripe...' : 'Connect Account'}</span>
-						</button>
-
-						{#if financialConnectionsMessage}
-							<p
-								class="text-primary-500 bg-primary-500/10 border-primary-500/10 rounded-lg border p-3 text-xs font-semibold"
-							>
-								{financialConnectionsMessage}
-							</p>
-						{/if}
-					</div>
-				</div>
-			</div>
-
-			<!-- Review Bank Activity workspace -->
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
-					<div class="flex items-center gap-2">
-						<IconListChecks class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Review Bank Activity
-						</h2>
-					</div>
-					<span class="badge {needsReview.length > 0 ? 'preset-filled-warning-500' : 'preset-tonal-success'} font-bold">
-						{needsReview.length} items
-					</span>
-				</div>
-
-				<div class="space-y-5">
-					{#if bankReviewGroups.length > 0}
-						{#each bankReviewGroups as group}
-							<section class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4 transition-all duration-150 {group.items.some((item) => isPostingFeedItem(item.id)) ? 'opacity-80 ring-1 ring-primary-500/20' : ''}">
-								<div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-500/10 pb-3">
-									<div class="flex min-w-0 items-center gap-2">
-										<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
-										<h3 class="text-surface-900 dark:text-surface-100 truncate text-base font-bold">
-											{group.account ? accountLabel(group.account) : 'Unassigned'}
-										</h3>
-										<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
-											{group.items.length} transactions
-										</span>
-									</div>
-									<select
-										class="select preset-tonal-surface min-w-[260px] py-1.5 text-sm"
-										value={group.accountId}
-										aria-label="Posted account"
-										disabled={!bankFeedAccounts.length}
-										onchange={(event) => {
-											const nextAccountId = event.currentTarget.value;
-											for (const item of group.items) setReviewSelection(item.id, { accountId: nextAccountId });
-										}}
-									>
-										<option value="">{bankFeedAccounts.length ? 'Select a bank feed' : 'No bank feeds connected'}</option>
-										{#each bankFeedAccounts as account}
-											<option value={account.account_id}>{bankFeedLabel(account)}</option>
-										{/each}
-									</select>
-								</div>
-
-								<div class="space-y-4">
-									{#each group.items as item}
-										{@const selection = getReviewSelection(item)}
-										{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
-										<form
-											method="POST"
-											use:enhance={enhancePostFeedItem(item.id)}
-											action="?/postFeedItem"
-											class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-xl border p-4 transition-all duration-150 {isPostingFeedItem(item.id) ? 'opacity-70' : ''}"
-										>
-											<input type="hidden" name="feedItemId" value={item.id} />
-											<input type="hidden" name="accountId" value={selection.accountId} />
-											<input type="hidden" name="categoryAccountId" value={selection.categoryAccountId} />
-											<div class="flex flex-wrap items-center justify-between gap-3">
-												<div class="min-w-0 space-y-0.5">
-													<p class="text-surface-900 dark:text-surface-100 truncate text-base font-bold">
-														{item.description}
-													</p>
-													<div class="text-surface-500 flex items-center gap-2 text-xs">
-														<span>{formatDate(item.transaction_date)}</span>
-														<span class="opacity-30">•</span>
-														<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
-															{item.provider}
-														</span>
-													</div>
-												</div>
-												<span class="text-lg font-bold tabular-nums {item.amount_cents >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}">
-													{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
-												</span>
-											</div>
-
-											<div class="grid gap-3 lg:grid-cols-[1fr_auto]">
-												<label class="label space-y-1">
-													<span class="text-surface-500 text-[10px] font-bold tracking-wider uppercase">
-														Categorize as
-													</span>
-													<SearchableSelect
-														items={categoryOptions}
-														query={selection.categoryQuery}
-														placeholder="Search categories"
-														emptyMessage="No matching categories."
-														itemLabel={accountLabel}
-														itemMeta={(account) => account.display_group || 'Other'}
-														onQueryChange={(value) =>
-															updateReviewCategoryQuery(item.id, item.amount_cents, value)}
-														onSelect={(account) => selectReviewCategory(item.id, account)}
-													/>
-												</label>
-
-												<div class="flex w-full items-end gap-2 pt-2 lg:w-auto lg:pt-0">
-													<button
-														class="btn btn-sm preset-filled-primary-500 flex min-w-[110px] flex-1 items-center justify-center gap-2 px-5 py-2 font-bold lg:flex-initial"
-														type="submit"
-														disabled={isPostingFeedItem(item.id)}
-													>
-														{#if isPostingFeedItem(item.id)}
-															<IconRefreshCw class="h-4 w-4 animate-spin" />
-															<span>Posting...</span>
-														{:else}
-															<span>Post</span>
-														{/if}
-													</button>
-													<button
-														class="btn btn-sm preset-tonal-error px-3 py-2 font-medium"
-														formaction="?/ignoreFeedItem"
-														type="submit"
-														disabled={isPostingFeedItem(item.id)}
-													>
-														Ignore
-													</button>
-												</div>
-											</div>
-										</form>
+								<select
+									class="select preset-tonal-surface text-sm"
+									name="accountId"
+									bind:value={csvImportAccountId}
+									disabled={!cashAccounts.length}
+									required
+								>
+									<option value="">{cashAccounts.length ? 'Select target account…' : 'No bank accounts available'}</option>
+									{#each cashAccounts as account}
+										<option value={account.id}>{accountLabel(account)}</option>
 									{/each}
-								</div>
-							</section>
-						{/each}
-					{:else}
-						<div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-12 text-center">
-							<div class="bg-success-500/10 text-success-500 mb-3 rounded-full p-3">
-								<IconCheckCircle2 class="h-10 w-10 animate-pulse" />
-							</div>
-							<h3 class="text-surface-900 dark:text-surface-100 text-base font-bold">All caught up!</h3>
-							<p class="text-surface-500 mt-1 max-w-sm text-sm">
-								No bank transactions need review. Connect card/bank feeds or import CSV to fetch latest records.
-							</p>
+								</select>
+								<button
+									class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+									type="submit"
+									disabled={!cashAccounts.length}
+								>
+									<IconUpload class="h-4 w-4" />
+									<span>Import CSV</span>
+								</button>
+							</form>
 						</div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Transaction Review -->
+			{#if bankReviewGroups.length > 0}
+				<div class="space-y-3">
+					{#each bankReviewGroups as group}
+						<div class="card preset-tonal-surface transition-opacity duration-150 {group.items.some((item) => isPostingFeedItem(item.id)) ? 'opacity-75' : ''}">
+							<!-- Group header -->
+							<div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-500/15 px-4 py-3 rounded-t-xl">
+								<div class="flex items-center gap-2 min-w-0">
+									<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
+									<span class="truncate font-bold">{group.account ? accountLabel(group.account) : 'Unassigned'}</span>
+									<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold">{group.items.length}</span>
+								</div>
+								<select
+									class="select preset-tonal-surface max-w-[220px] py-1 text-xs"
+									value={group.accountId}
+									aria-label="Bank feed source"
+									disabled={!bankFeedAccounts.length}
+									onchange={(event) => {
+										const nextAccountId = event.currentTarget.value;
+										for (const item of group.items) setReviewSelection(item.id, { accountId: nextAccountId });
+									}}
+								>
+									<option value="">{bankFeedAccounts.length ? 'Select source…' : 'No feeds connected'}</option>
+									{#each bankFeedAccounts as account}
+										<option value={account.account_id}>{bankFeedLabel(account)}</option>
+									{/each}
+								</select>
+							</div>
+
+							<!-- Transactions -->
+							<div class="divide-y divide-surface-500/10">
+								{#each group.items as item}
+									{@const selection = getReviewSelection(item)}
+									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
+									<form
+										method="POST"
+										use:enhance={enhancePostFeedItem(item.id)}
+										action="?/postFeedItem"
+										class="px-4 py-3 transition-opacity duration-100 {isPostingFeedItem(item.id) ? 'opacity-60' : ''}"
+									>
+										<input type="hidden" name="feedItemId" value={item.id} />
+										<input type="hidden" name="accountId" value={selection.accountId} />
+										<input type="hidden" name="categoryAccountId" value={selection.categoryAccountId} />
+
+										<!-- Line 1: description + amount -->
+										<div class="flex items-baseline gap-3 mb-2">
+											<p class="truncate text-sm font-semibold capitalize leading-snug">{item.description.toLowerCase()}</p>
+											<span class="shrink-0 text-sm font-bold tabular-nums {item.amount_cents >= 0 ? 'text-success-500' : 'text-error-500'}">
+												{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
+											</span>
+											<span class="shrink-0 text-xs opacity-40">{formatDate(item.transaction_date)} · {item.provider}</span>
+										</div>
+
+										<!-- Line 2: category + actions -->
+										<div class="flex items-center gap-2 max-w-xl">
+											<div class="min-w-0 flex-1">
+												<SearchableSelect
+													items={categoryOptions}
+													query={selection.categoryQuery}
+													placeholder="Category…"
+													emptyMessage="No matches."
+													itemLabel={accountLabel}
+													itemMeta={(account) => account.display_group || 'Other'}
+													onQueryChange={(value) => updateReviewCategoryQuery(item.id, item.amount_cents, value)}
+													onSelect={(account) => selectReviewCategory(item.id, account)}
+												/>
+											</div>
+											<button
+												class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
+												type="submit"
+												disabled={isPostingFeedItem(item.id)}
+											>
+												{#if isPostingFeedItem(item.id)}
+													<IconRefreshCw class="h-3.5 w-3.5 animate-spin" />
+												{:else}
+													Post
+												{/if}
+											</button>
+											<button
+												class="btn btn-sm preset-tonal-error shrink-0 font-medium"
+												formaction="?/ignoreFeedItem"
+												type="submit"
+												disabled={isPostingFeedItem(item.id)}
+											>
+												Ignore
+											</button>
+										</div>
+									</form>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="card preset-tonal-surface flex flex-col items-center justify-center p-16 text-center">
+					<div class="preset-tonal-success mb-4 rounded-full p-4">
+						<IconCheckCircle2 class="h-10 w-10 text-success-500" />
+					</div>
+					<h3 class="text-lg font-bold">All caught up!</h3>
+					<p class="mt-1 max-w-xs text-sm opacity-60">
+						No transactions need review. Sync your bank feeds or import a CSV to get started.
+					</p>
+					{#if !showBankConfig}
+						<button
+							class="btn btn-sm preset-tonal-surface mt-4 font-semibold"
+							onclick={() => showBankConfig = true}
+						>
+							<IconCog class="h-4 w-4" />
+							<span>Manage Connections</span>
+						</button>
 					{/if}
 				</div>
-			</div>
-			</section>
-			<section class="grid gap-6 lg:grid-cols-[1fr_360px]">
+			{/if}
+		</section>
+	{/if}
+
+	{#if activeTab === 'advanced'}
+		<section class="max-w-4xl space-y-6">
 			<!-- Advanced Journal Form -->
 			<form
 				method="POST" use:enhance
@@ -2817,84 +2766,6 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							>Debits and credits must balance.</span
 						>
 					{/if}
-				</div>
-			</form>
-
-			<!-- Reconcile Form -->
-			<form
-				method="POST" use:enhance
-				action="?/completeReconciliation"
-				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
-			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconRefreshCw class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Reconcile
-					</h2>
-				</div>
-
-				<div class="space-y-4">
-					<input
-						type="hidden"
-						name="checkedFeedItemIds"
-						value={matchedItems.map((item) => item.id).join(',')}
-					/>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Account</span
-						>
-						<select class="select preset-tonal-surface" name="accountId" required>
-							{#each cashAccounts as account}
-								<option value={account.id}>{account.name}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Statement ending date</span
-						>
-						<input
-							class="input preset-tonal-surface"
-							type="date"
-							name="statementEndingDate"
-							value={today}
-							required
-						/>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Statement ending balance</span
-						>
-						<div class="relative">
-							<span
-								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
-								>$</span
-							>
-							<input
-								class="input preset-tonal-surface pl-7"
-								type="number"
-								step="0.01"
-								name="statementEndingBalance"
-								placeholder="0.00"
-								required
-							/>
-						</div>
-					</label>
-
-					<button
-						class="btn preset-filled-primary-500 flex w-full items-center justify-center gap-2 font-bold"
-						type="submit"
-					>
-						<IconRefreshCw class="h-4 w-4" />
-						<span>Save Reconciliation</span>
-					</button>
-
-					<p
-						class="text-surface-500 bg-surface-500/5 border-surface-500/5 rounded-lg border p-3 text-xs leading-relaxed"
-					>
-						Uses <span class="text-surface-950 dark:text-surface-50 font-bold"
-							>{matchedItems.length}</span
-						> auto-matched bank items as checked activity.
-					</p>
 				</div>
 			</form>
 		</section>
