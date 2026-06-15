@@ -16,39 +16,34 @@
 	import IconPencil from '@lucide/svelte/icons/pencil';
 	import IconGripVertical from '@lucide/svelte/icons/grip-vertical';
 	import IconPlus from '@lucide/svelte/icons/plus';
+	import IconPrinter from '@lucide/svelte/icons/printer';
 	import IconReceipt from '@lucide/svelte/icons/receipt';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconScale from '@lucide/svelte/icons/scale';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
-	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
-	import { tick } from 'svelte';
-	import { loadStripe } from '@stripe/stripe-js';
+import { enhance } from '$app/forms';
+import { goto, invalidateAll } from '$app/navigation';
+import { tick } from 'svelte';
+import { loadStripe } from '@stripe/stripe-js';
+import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 	let { data, form } = $props();
-	let activeTab = $state('overview');
+	let activeTab = $state(data.report_filter_active ? 'reports' : 'overview');
 	let moneyFlow = $state('expense');
 	let financialConnectionsBusy = $state(false);
 	let financialConnectionsMessage = $state('');
+	let reportPeriodKey = $state(data.report_period_key ?? 'this_year');
+	let reportFrom = $state(data.report_from ?? '');
+	let reportTo = $state(data.report_to ?? '');
+	let reportSyncSignature = $state('');
 	let journalLines = $state([
 		{ account_id: '', debit: '', credit: '', description: '' },
 		{ account_id: '', debit: '', credit: '', description: '' }
 	]);
 
 	const accounts = $derived(Array.isArray(data.accounts) ? data.accounts : []);
-	const report = $derived(
-		data.report ?? {
-			totals: {},
-			monthly: [],
-			income: [],
-			expenses: [],
-			assets: [],
-			liabilities: [],
-			equity: []
-		}
-	);
 	const currency = $derived(data.settings?.currency || 'usd');
 	const cashAccounts = $derived(
 		accounts.filter(
@@ -70,14 +65,100 @@
 	const providerAccounts = $derived(
 		Array.isArray(data.provider_accounts) ? data.provider_accounts : []
 	);
+	const bankFeedAccounts = $derived(
+		providerAccounts.filter((account) => account.account_id && account.is_enabled !== false)
+	);
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
+	const mercuryInitialConnected = $derived(Boolean(data.settings?.mercury_api_key_ciphertext));
+	let reviewSelections = $state({});
+	let activeReviewCategoryItemId = $state('');
+	let postingFeedItemIds = $state({});
+	let syncAllBusy = $state(false);
+	let mercuryEditMode = $state(false);
+	let transactionSearch = $state('');
+	let transactionViewMode = $state('recent');
+	let transactionPeriodKey = $state('all');
+	let transactionFrom = $state('');
+	let transactionTo = $state('');
+	let transactionAccountId = $state('all');
+	let transactionSource = $state('all');
+	let csvImportAccountId = $state('');
+	let editingTransactionId = $state('');
+	let savingTransactionIds = $state({});
+	let editingTransactionDraft = $state({
+		entryDate: '',
+		description: '',
+		memo: '',
+		lineAccounts: []
+	});
+	const report = $derived(
+		data.report ?? {
+			from: reportFrom,
+			to: reportTo,
+			totals: {},
+			monthly: [],
+			income: [],
+			expenses: [],
+			assets: [],
+			liabilities: [],
+			equity: []
+		}
+	);
 	const accountKinds = ['asset', 'income', 'expense', 'liability', 'equity'];
 	let accountGroups = $state(groupAccountsByKind([]));
 	let editingGroupKey = $state('');
 	let editingGroupValue = $state('');
 	let groupLabelInput = $state(null);
+	const reportPeriodOptions = [
+		{ value: 'all', label: 'All time' },
+		{ value: 'this_month', label: 'This month' },
+		{ value: 'last_month', label: 'Last month' },
+		{ value: 'this_quarter', label: 'This quarter' },
+		{ value: 'last_quarter', label: 'Last quarter' },
+		{ value: 'this_year', label: 'This year' },
+		{ value: 'last_year', label: 'Last year' },
+		{ value: 'custom', label: 'Custom range' }
+	];
+	const reportPeriodLabel = $derived(
+		data.report_period_label ??
+			reportPeriodOptions.find((option) => option.value === reportPeriodKey)?.label ??
+			'Reporting period'
+	);
+	const transactionPeriodOptions = reportPeriodOptions;
+	const mercuryConnection = $derived(
+		(Array.isArray(data.connections) ? data.connections : []).find(
+			(connection) => connection.provider === 'mercury'
+		)
+	);
+	const mercuryConnected = $derived(
+		Boolean(
+			data.settings?.mercury_api_key_ciphertext ||
+				data.settings?.mercury_api_key_hint ||
+				data.settings?.mercury_connected_at
+		)
+	);
+	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
+	const transactionAccountOptions = $derived(accounts.filter((account) => !account.is_archived));
+	const transactionSourceOptions = $derived(
+		[...new Set(transactionEntries.map((entry) => String(entry.source || entry.entry_type || 'manual')))].sort()
+	);
+	const transactionDefaultEntries = $derived(transactionEntries.slice(0, 20));
+	const transactionPeriodLabel = $derived(
+		transactionPeriodOptions.find((option) => option.value === transactionPeriodKey)?.label ??
+			'Transactions'
+	);
+	const filteredTransactions = $derived(
+		transactionEntries
+			.filter((entry) => transactionPeriodMatches(entry))
+			.filter((entry) => transactionAccountMatches(entry, transactionAccountId))
+			.filter((entry) => transactionSourceMatches(entry, transactionSource))
+			.filter((entry) => matchesTransaction(entry, transactionSearch))
+	);
+	const transactionDisplayEntries = $derived(
+		transactionViewMode === 'recent' ? transactionDefaultEntries : filteredTransactions
+	);
 
 	const tabs = [
 		{ id: 'overview', label: 'Overview', icon: IconChartColumn },
@@ -85,6 +166,7 @@
 		{ id: 'accounts', label: 'Buckets', icon: IconWalletCards },
 		{ id: 'budgets', label: 'Budgets', icon: IconBadgeDollarSign },
 		{ id: 'reports', label: 'Reports', icon: IconFileText },
+		{ id: 'transactions', label: 'Transactions', icon: IconArrowRightLeft },
 		{ id: 'banking', label: 'Bank Review', icon: IconLandmark },
 		{ id: 'advanced', label: 'Advanced', icon: IconBookOpen },
 		{ id: 'settings', label: 'Settings', icon: IconCog }
@@ -116,6 +198,147 @@
 			month: 'short',
 			year: 'numeric'
 		});
+	}
+
+	function startOfLocalDay(value) {
+		if (!value) return null;
+		return new Date(`${String(value).slice(0, 10)}T00:00:00`);
+	}
+
+	function endOfLocalDay(value) {
+		if (!value) return null;
+		return new Date(`${String(value).slice(0, 10)}T23:59:59.999`);
+	}
+
+	function resolveTransactionPeriodBounds() {
+		if (transactionPeriodKey === 'all') return { from: null, to: null };
+		const todayDate = new Date();
+		const currentYear = todayDate.getFullYear();
+		const currentMonth = todayDate.getMonth();
+		const currentQuarter = Math.floor(currentMonth / 3);
+		const now = new Date(todayDate);
+		const start = new Date(todayDate);
+		switch (transactionPeriodKey) {
+			case 'last_month':
+				start.setMonth(currentMonth - 1, 1);
+				now.setMonth(currentMonth, 0);
+				break;
+			case 'this_quarter':
+				start.setMonth(currentQuarter * 3, 1);
+				break;
+			case 'last_quarter':
+				start.setMonth((currentQuarter - 1) * 3, 1);
+				now.setMonth(currentQuarter * 3, 0);
+				break;
+			case 'this_year':
+				start.setMonth(0, 1);
+				break;
+			case 'last_year':
+				start.setFullYear(currentYear - 1, 0, 1);
+				now.setFullYear(currentYear - 1, 11, 31);
+				break;
+			case 'custom':
+				return {
+					from: startOfLocalDay(transactionFrom),
+					to: endOfLocalDay(transactionTo)
+				};
+			default:
+				start.setMonth(currentMonth, 1);
+				break;
+		}
+		return {
+			from: new Date(start.setHours(0, 0, 0, 0)),
+			to: new Date(now.setHours(23, 59, 59, 999))
+		};
+	}
+
+	function transactionSearchAmount(query) {
+		const normalized = String(query || '').trim().replace(/[$,]/g, '');
+		if (!normalized) return null;
+		const parsed = Number(normalized);
+		if (!Number.isFinite(parsed)) return null;
+		return Math.round(parsed * 100);
+	}
+
+	function transactionTextIndex(entry) {
+		const lineText = (entry.lines ?? [])
+			.map((line) => `${line.account?.code || ''} ${line.account?.name || ''} ${line.description || ''}`)
+			.join(' ');
+		const receiptText = (entry.receipts ?? []).map((receipt) => receipt.file_name).join(' ');
+		return `${entry.description || ''} ${entry.memo || ''} ${entry.entry_type || ''} ${entry.source || ''} ${lineText} ${receiptText} ${formatCents(
+			Math.abs(entry.amount_cents || 0)
+		)}`
+			.toLowerCase();
+	}
+
+	function transactionAccountMatches(entry, accountId) {
+		if (accountId === 'all') return true;
+		return (entry.lines ?? []).some((line) => line.account_id === accountId);
+	}
+
+	function getTransactionAccountOptions(query = '') {
+		const normalized = String(query || '').trim().toLowerCase();
+		if (!normalized) return transactionAccountOptions;
+		return transactionAccountOptions.filter((account) => {
+			const haystack = `${account.code} ${account.name} ${account.display_group || ''}`.toLowerCase();
+			return haystack.includes(normalized);
+		});
+	}
+
+	function transactionAmountPresentation(entry) {
+		const cashLines = (entry.lines ?? []).filter((line) =>
+			['asset', 'liability'].includes(line.account?.kind)
+		);
+		if (!cashLines.length) {
+			return {
+				sign: '',
+				className: 'text-surface-500 dark:text-surface-400'
+			};
+		}
+		const sourceLine =
+			cashLines.find((line) => Number(line.credit_cents || 0) > 0) ??
+			cashLines.find((line) => Number(line.debit_cents || 0) > 0) ??
+			null;
+		if (!sourceLine) {
+			return {
+				sign: '',
+				className: 'text-surface-500 dark:text-surface-400'
+			};
+		}
+		if (Number(sourceLine.credit_cents || 0) > 0) {
+			return {
+				sign: '-',
+				className: 'text-warning-600 dark:text-warning-400'
+			};
+		}
+		return {
+			sign: '+',
+			className: 'text-success-600 dark:text-success-400'
+		};
+	}
+
+	function transactionSourceMatches(entry, source) {
+		if (source === 'all') return true;
+		return String(entry.source || entry.entry_type || '').toLowerCase() === source;
+	}
+
+	function transactionPeriodMatches(entry) {
+		const bounds = resolveTransactionPeriodBounds();
+		const entryDate = startOfLocalDay(entry.entry_date);
+		if (!entryDate) return true;
+		if (bounds.from && entryDate < bounds.from) return false;
+		if (bounds.to && entryDate > bounds.to) return false;
+		return true;
+	}
+
+	function matchesTransaction(entry, query) {
+		const normalized = String(query || '').trim().toLowerCase();
+		if (!normalized) return true;
+		const amountMatch = transactionSearchAmount(normalized);
+		if (amountMatch !== null && Math.abs(Number(entry.amount_cents || 0)) === Math.abs(amountMatch)) {
+			return true;
+		}
+		return transactionTextIndex(entry).includes(normalized);
 	}
 
 	function groupAccountsByKind(list) {
@@ -163,6 +386,210 @@
 		event.currentTarget.form?.requestSubmit();
 	}
 
+	function accountLabel(account) {
+		return `${account.code} · ${account.name}`;
+	}
+
+	function bankFeedLabel(account) {
+		const mappedAccount = accounts.find((candidate) => candidate.id === account.account_id);
+		const suffix = mappedAccount ? ` · ${accountLabel(mappedAccount)}` : '';
+		const mask = account.mask ? ` · •••• ${account.mask}` : '';
+		return `${account.display_name || 'Bank feed'}${suffix}${mask}`;
+	}
+
+	function getReviewSelection(item) {
+		const state = reviewSelections[item.id] ?? {};
+		const accountId = state.accountId || item.account_id || bankFeedAccounts[0]?.account_id || '';
+		const fallbackCategory =
+			item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id;
+		const categoryAccountId = state.categoryAccountId || item.suggested_account_id || fallbackCategory || '';
+		const categoryAccount = accounts.find((account) => account.id === categoryAccountId);
+		const categoryQuery =
+			state.categoryQuery || (categoryAccount ? accountLabel(categoryAccount) : '');
+		return {
+			accountId,
+			categoryAccountId,
+			categoryQuery,
+			categoryOpen: activeReviewCategoryItemId === item.id
+		};
+	}
+
+	function setReviewSelection(itemId, patch) {
+		reviewSelections = {
+			...reviewSelections,
+			[itemId]: {
+				...(reviewSelections[itemId] ?? {}),
+				...patch
+			}
+		};
+	}
+
+	function getReviewCategoryOptions(item, query = '') {
+		const sourceAccounts = item.amount_cents >= 0 ? incomeAccounts : expenseAccounts;
+		const normalized = query.trim().toLowerCase();
+		if (!normalized) return [];
+		return sourceAccounts.filter((account) => {
+			const haystack = `${account.code} ${account.name} ${account.display_group || ''}`
+				.toLowerCase();
+			return haystack.includes(normalized);
+		});
+	}
+
+	function selectReviewCategory(itemId, account) {
+		activeReviewCategoryItemId = '';
+		setReviewSelection(itemId, {
+			categoryAccountId: account.id,
+			categoryQuery: accountLabel(account)
+		});
+	}
+
+	function updateReviewCategoryQuery(itemId, amountCents, query) {
+		const matches = getReviewCategoryOptions(
+			{ amount_cents: amountCents },
+			query
+		);
+		activeReviewCategoryItemId = itemId;
+		setReviewSelection(itemId, {
+			categoryQuery: query,
+			categoryAccountId: matches.length === 1 ? matches[0].id : reviewSelections[itemId]?.categoryAccountId
+		});
+	}
+
+	function startTransactionFiltering() {
+		transactionViewMode = 'filtered';
+	}
+
+	function startTransactionEdit(entry) {
+		transactionViewMode = 'filtered';
+		editingTransactionId = entry.id;
+		editingTransactionDraft = {
+			entryDate: entry.entry_date || '',
+			description: entry.description || '',
+			memo: entry.memo || '',
+			lineAccounts: (entry.lines ?? []).map((line) => ({
+				lineId: line.id,
+				accountId: line.account_id || '',
+				query: line.account ? accountLabel(line.account) : ''
+			}))
+		};
+	}
+
+	function stopTransactionEdit() {
+		editingTransactionId = '';
+		editingTransactionDraft = {
+			entryDate: '',
+			description: '',
+			memo: '',
+			lineAccounts: []
+		};
+	}
+
+	function updateTransactionLineAccount(lineId, accountId, query = '') {
+		editingTransactionDraft = {
+			...editingTransactionDraft,
+			lineAccounts: (editingTransactionDraft.lineAccounts ?? []).map((line) =>
+				line.lineId === lineId ? { ...line, accountId, query } : line
+			)
+		};
+	}
+
+	function updateTransactionLineAccountQuery(lineId, query) {
+		editingTransactionDraft = {
+			...editingTransactionDraft,
+			lineAccounts: (editingTransactionDraft.lineAccounts ?? []).map((line) =>
+				line.lineId === lineId ? { ...line, query } : line
+			)
+		};
+	}
+
+	function getEditingTransactionLine(lineId) {
+		return (editingTransactionDraft.lineAccounts ?? []).find((line) => line.lineId === lineId) ?? null;
+	}
+
+	function isSavingTransaction(entryId) {
+		return Boolean(savingTransactionIds[entryId]);
+	}
+
+	function setSavingTransaction(entryId, value) {
+		savingTransactionIds = {
+			...savingTransactionIds,
+			[entryId]: value
+		};
+	}
+
+	function enhanceTransactionEdit(entryId) {
+		return () => {
+			setSavingTransaction(entryId, true);
+			return async ({ result, update }) => {
+				try {
+					if (typeof update === 'function') {
+						await update({ reset: false, invalidateAll: false });
+					}
+					if (result?.type === 'success') {
+						stopTransactionEdit();
+						await invalidateAll();
+					}
+				} finally {
+					setSavingTransaction(entryId, false);
+				}
+			};
+		};
+	}
+
+	function groupBankReviewItems(items) {
+		const grouped = new Map();
+		for (const item of items) {
+			const selection = getReviewSelection(item);
+			const account = accounts.find((candidate) => candidate.id === selection.accountId);
+			const key = selection.accountId || '__unassigned__';
+			if (!grouped.has(key)) {
+				grouped.set(key, {
+					accountId: selection.accountId,
+					account,
+					items: []
+				});
+			}
+			grouped.get(key).items.push(item);
+		}
+		return Array.from(grouped.values()).sort((left, right) => {
+			const leftIndex = bankFeedAccounts.findIndex((account) => account.account_id === left.accountId);
+			const rightIndex = bankFeedAccounts.findIndex((account) => account.account_id === right.accountId);
+			if (leftIndex === rightIndex) return String(left.accountId).localeCompare(String(right.accountId));
+			if (leftIndex === -1) return 1;
+			if (rightIndex === -1) return -1;
+			return leftIndex - rightIndex;
+		});
+	}
+
+	function isPostingFeedItem(feedItemId) {
+		return Boolean(postingFeedItemIds[feedItemId]);
+	}
+
+	function setPostingFeedItem(feedItemId, value) {
+		postingFeedItemIds = {
+			...postingFeedItemIds,
+			[feedItemId]: value
+		};
+	}
+
+	const bankReviewGroups = $derived(groupBankReviewItems(needsReview));
+
+	function enhancePostFeedItem(feedItemId) {
+		return () => {
+			setPostingFeedItem(feedItemId, true);
+			return async ({ result, update }) => {
+				try {
+					await update({ reset: false, invalidateAll: false });
+					if (result.type === 'success') {
+						await invalidateAll();
+					}
+				} finally {
+					setPostingFeedItem(feedItemId, false);
+				}
+			};
+		};
+	}
+
 	function enhanceInlineAccount() {
 		return async ({ result, update }) => {
 			await update({ reset: false, invalidateAll: false });
@@ -192,6 +619,101 @@
 				await invalidateAll();
 			}
 		};
+	}
+
+	function enhanceSaveConnections() {
+		return async ({ result, update }) => {
+			await update({ reset: false, invalidateAll: false });
+			if (result.type === 'success') {
+				mercuryEditMode = false;
+				await invalidateAll();
+			}
+		};
+	}
+
+	function enhanceSyncAll() {
+		syncAllBusy = true;
+		return async ({ result, update }) => {
+			try {
+				await update({ reset: false, invalidateAll: false });
+				if (result.type === 'success') {
+					await invalidateAll();
+				}
+			} finally {
+				syncAllBusy = false;
+			}
+		};
+	}
+
+	$effect(() => {
+		if (!mercuryConnected) mercuryEditMode = true;
+	});
+
+	$effect(() => {
+		if (!Object.keys(reviewSelections).length && bankFeedAccounts.length) {
+			reviewSelections = Object.fromEntries(
+				needsReview.map((item) => {
+					const categoryAccount = accounts.find((account) => account.id === item.suggested_account_id);
+					return [
+						item.id,
+						{
+							accountId: bankFeedAccounts[0]?.account_id || '',
+							categoryAccountId:
+								item.suggested_account_id ||
+								(item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id) ||
+								'',
+							categoryQuery: categoryAccount ? accountLabel(categoryAccount) : ''
+						}
+					];
+				})
+			);
+		}
+	});
+
+	$effect(() => {
+		if (!csvImportAccountId && cashAccounts.length) {
+			csvImportAccountId = cashAccounts[0]?.id || '';
+			return;
+		}
+		if (csvImportAccountId && !cashAccounts.some((account) => account.id === csvImportAccountId)) {
+			csvImportAccountId = cashAccounts[0]?.id || '';
+		}
+	});
+
+	$effect(() => {
+		const signature = `${data.report_period_key ?? 'this_year'}|${data.report_from ?? ''}|${data.report_to ?? ''}`;
+		if (signature === reportSyncSignature) return;
+		reportSyncSignature = signature;
+		reportPeriodKey = data.report_period_key ?? 'this_year';
+		reportFrom = data.report_from ?? '';
+		reportTo = data.report_to ?? '';
+		if (data.report_filter_active) activeTab = 'reports';
+	});
+
+	function reportExportHref(format) {
+		const params = new URLSearchParams();
+		params.set('period', reportPeriodKey);
+		if (reportPeriodKey === 'custom') {
+			if (reportFrom) params.set('from', reportFrom);
+			if (reportTo) params.set('to', reportTo);
+		}
+		return `/api/groups/${encodeURIComponent(data.group?.slug)}/accounting/export/report.${format}?${params.toString()}`;
+	}
+
+	async function applyReportFilters(nextPeriod = reportPeriodKey) {
+		if (typeof window === 'undefined') return;
+		const url = new URL(window.location.href);
+		url.searchParams.set('tab', 'reports');
+		url.searchParams.set('period', nextPeriod);
+		if (nextPeriod === 'custom') {
+			url.searchParams.set('from', reportFrom);
+			url.searchParams.set('to', reportTo);
+		} else {
+			url.searchParams.delete('from');
+			url.searchParams.delete('to');
+		}
+		activeTab = 'reports';
+		await goto(url.toString(), { keepfocus: true, noScroll: true, replaceState: true });
 	}
 
 	function updateAccountGroupZone(kind, displayGroup, items) {
@@ -1158,31 +1680,117 @@
 
 	{#if activeTab === 'reports'}
 		<section class="grid gap-6 lg:grid-cols-2">
-			<!-- Activity Report -->
+			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2">
+				<div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+					<div class="space-y-2">
+						<div class="inline-flex items-center gap-2 rounded-full border border-surface-500/10 bg-surface-500/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-surface-500">
+							<IconFileText class="h-3.5 w-3.5" />
+							Reports
+						</div>
+						<div class="space-y-1">
+							<h2 class="text-surface-900 dark:text-surface-100 text-2xl font-bold tracking-tight">
+								Reporting period
+							</h2>
+							<p class="text-surface-600 dark:text-surface-400 text-sm">
+								{reportPeriodLabel}
+								<span class="text-surface-500">· {formatDate(report.from)} to {formatDate(report.to)}</span>
+							</p>
+						</div>
+					</div>
+
+					<div class="grid gap-3 sm:grid-cols-2 lg:min-w-[460px]">
+						<label class="label space-y-1">
+							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Period</span>
+							<select
+								class="select preset-tonal-surface"
+								bind:value={reportPeriodKey}
+								onchange={(event) => {
+									const nextPeriod = event.currentTarget.value;
+									reportPeriodKey = nextPeriod;
+									if (nextPeriod !== 'custom') void applyReportFilters(nextPeriod);
+								}}
+							>
+								{#each reportPeriodOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</label>
+
+						{#if reportPeriodKey === 'custom'}
+							<label class="label space-y-1">
+								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
+								<input class="input preset-tonal-surface" type="date" bind:value={reportFrom} />
+							</label>
+							<label class="label space-y-1">
+								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
+								<input class="input preset-tonal-surface" type="date" bind:value={reportTo} />
+							</label>
+							<div class="sm:col-span-2 flex flex-wrap gap-3">
+								<button
+									class="btn preset-filled-primary-500 flex items-center gap-2 font-bold"
+									type="button"
+									onclick={() => void applyReportFilters('custom')}
+								>
+									<IconCheckCircle2 class="h-4 w-4" />
+									Apply range
+								</button>
+								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('pdf')}>
+									<IconPrinter class="h-4 w-4" />
+									Download PDF
+								</a>
+								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('csv')}>
+									<IconFileText class="h-4 w-4" />
+									Download CSV
+								</a>
+							</div>
+						{:else}
+							<div class="sm:col-span-2 flex flex-wrap gap-3">
+								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('pdf')}>
+									<IconPrinter class="h-4 w-4" />
+									Download PDF
+								</a>
+								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('csv')}>
+									<IconFileText class="h-4 w-4" />
+									Download CSV
+								</a>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
+				<div class="border-surface-500/10 flex items-center gap-3 border-b pb-3">
 					<IconFileText class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Activity Report
-					</h2>
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-2">
+							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+								Profit & Loss
+							</h2>
+							<span class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase">
+								P&L
+							</span>
+						</div>
+						<p class="text-surface-500 text-xs font-medium">
+							{reportPeriodLabel} · {formatDate(report.from)} to {formatDate(report.to)}
+						</p>
+					</div>
 				</div>
 
 				<div class="space-y-4">
 					<div>
-						<h3
-							class="text-success-600 dark:text-success-400 mb-2 text-xs font-bold tracking-wider uppercase"
-						>
+						<h3 class="text-success-600 dark:text-success-400 mb-2 text-xs font-bold tracking-wider uppercase">
 							📥 Money in
 						</h3>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.income as account}
 								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium"
-										>{account.name}</span
-									>
-									<span class="text-success-600 dark:text-success-400 font-semibold tabular-nums"
-										>{formatCents(account.period_balance_cents)}</span
-									>
+									<span class="text-surface-700 dark:text-surface-300 font-medium">
+										{account.code} · {account.name}
+									</span>
+									<span class="text-success-600 dark:text-success-400 font-semibold tabular-nums">
+										{formatCents(account.period_balance_cents)}
+									</span>
 								</div>
 							{:else}
 								<p class="text-xs text-surface-500 py-2 italic">No income recorded.</p>
@@ -1191,20 +1799,18 @@
 					</div>
 
 					<div>
-						<h3
-							class="text-warning-600 dark:text-warning-400 mb-2 text-xs font-bold tracking-wider uppercase"
-						>
+						<h3 class="text-warning-600 dark:text-warning-400 mb-2 text-xs font-bold tracking-wider uppercase">
 							📤 Money out
 						</h3>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.expenses as account}
 								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium"
-										>{account.name}</span
-									>
-									<span class="text-warning-600 dark:text-warning-400 font-semibold tabular-nums"
-										>{formatCents(account.period_balance_cents)}</span
-									>
+									<span class="text-surface-700 dark:text-surface-300 font-medium">
+										{account.code} · {account.name}
+									</span>
+									<span class="text-warning-600 dark:text-warning-400 font-semibold tabular-nums">
+										{formatCents(account.period_balance_cents)}
+									</span>
 								</div>
 							{:else}
 								<p class="text-xs text-surface-500 py-2 italic">No expenses recorded.</p>
@@ -1212,28 +1818,31 @@
 						</div>
 					</div>
 
-					<div
-						class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold"
-					>
+					<div class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold">
 						<span class="text-surface-900 dark:text-surface-100">Net Activity</span>
-						<span
-							class="tabular-nums {report.totals?.net_cents >= 0
-								? 'text-success-600 dark:text-success-400'
-								: 'text-error-600 dark:text-error-400'}"
-						>
+						<span class="tabular-nums {report.totals?.net_cents >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}">
 							{formatCents(report.totals?.net_cents)}
 						</span>
 					</div>
 				</div>
 			</div>
 
-			<!-- Balance Sheet / Position -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
+				<div class="border-surface-500/10 flex items-center gap-3 border-b pb-3">
 					<IconLandmark class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						What We Have / Owe
-					</h2>
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-2">
+							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+								What We Have / Owe
+							</h2>
+							<span class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase">
+								Balance Sheet
+							</span>
+						</div>
+						<p class="text-surface-500 text-xs font-medium">
+							{reportPeriodLabel} · {formatDate(report.from)} to {formatDate(report.to)}
+						</p>
+					</div>
 				</div>
 
 				<div class="space-y-4">
@@ -1244,12 +1853,12 @@
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.assets as account}
 								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium"
-										>{account.name}</span
-									>
-									<span class="text-surface-900 dark:text-surface-100 font-semibold tabular-nums"
-										>{formatCents(account.balance_cents)}</span
-									>
+									<span class="text-surface-700 dark:text-surface-300 font-medium">
+										{account.code} · {account.name}
+									</span>
+									<span class="text-surface-900 dark:text-surface-100 font-semibold tabular-nums">
+										{formatCents(account.balance_cents)}
+									</span>
 								</div>
 							{:else}
 								<p class="text-xs text-surface-500 py-2 italic">No assets recorded.</p>
@@ -1264,12 +1873,12 @@
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.liabilities as account}
 								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium"
-										>{account.name}</span
-									>
-									<span class="text-error-600 dark:text-error-400 font-semibold tabular-nums"
-										>{formatCents(account.balance_cents)}</span
-									>
+									<span class="text-surface-700 dark:text-surface-300 font-medium">
+										{account.code} · {account.name}
+									</span>
+									<span class="text-error-600 dark:text-error-400 font-semibold tabular-nums">
+										{formatCents(account.balance_cents)}
+									</span>
 								</div>
 							{:else}
 								<p class="text-xs text-surface-500 py-2 italic">No liabilities recorded.</p>
@@ -1277,9 +1886,7 @@
 						</div>
 					</div>
 
-					<div
-						class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold"
-					>
+					<div class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold">
 						<span class="text-surface-900 dark:text-surface-100">Net Position</span>
 						<span class="text-surface-900 dark:text-surface-100 tabular-nums">
 							{formatCents(report.totals?.assets_cents - report.totals?.liabilities_cents)}
@@ -1287,8 +1894,9 @@
 					</div>
 				</div>
 			</div>
+		</section>
 
-			<!-- Publish Snapshot Form -->
+		<!-- Publish Snapshot Form -->
 			<form
 				method="POST" use:enhance
 				action="?/publishSnapshot"
@@ -1406,56 +2014,490 @@
 					<span>Publish Snapshot</span>
 				</button>
 			</form>
+	{/if}
+
+	{#if activeTab === 'transactions'}
+		<section class="space-y-6">
+			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
+				<div class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+					<div class="flex items-center gap-2">
+						<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
+						<div class="min-w-0">
+							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+								Transactions
+							</h2>
+				<p class="text-surface-500 text-xs font-medium">
+					{transactionViewMode === 'recent'
+						? `Most recent ${transactionDisplayEntries.length} of ${transactionEntries.length} records`
+						: `${transactionDisplayEntries.length} of ${transactionEntries.length} records`}
+					· {transactionPeriodLabel}
+				</p>
+						</div>
+					</div>
+					<form method="POST" use:enhance action="?/autoMatch">
+						<button
+							class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold"
+							type="submit"
+						>
+							<IconListChecks class="h-4 w-4" />
+							<span>Auto-match activity</span>
+						</button>
+					</form>
+				</div>
+
+				<div class="grid gap-3 lg:grid-cols-4">
+					<label class="label">
+						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Search</span>
+						<input
+							class="input preset-tonal-surface"
+							type="search"
+							placeholder="Search descriptions, accounts, amounts..."
+							value={transactionSearch}
+							oninput={(event) => {
+								transactionSearch = event.currentTarget.value;
+								startTransactionFiltering();
+							}}
+						/>
+					</label>
+					<label class="label">
+						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Account</span>
+						<select
+							class="select preset-tonal-surface"
+							value={transactionAccountId}
+							onchange={(event) => {
+								transactionAccountId = event.currentTarget.value;
+								startTransactionFiltering();
+							}}
+						>
+							<option value="all">All accounts</option>
+							{#each transactionAccountOptions as account}
+								<option value={account.id}>{accountLabel(account)}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="label">
+						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Source</span>
+						<select
+							class="select preset-tonal-surface"
+							value={transactionSource}
+							onchange={(event) => {
+								transactionSource = event.currentTarget.value;
+								startTransactionFiltering();
+							}}
+						>
+							<option value="all">All sources</option>
+							{#each transactionSourceOptions as source}
+								<option value={source}>{source.replaceAll('_', ' ')}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="label">
+						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Date range</span>
+						<select
+							class="select preset-tonal-surface"
+							value={transactionPeriodKey}
+							onchange={(event) => {
+								transactionPeriodKey = event.currentTarget.value;
+								startTransactionFiltering();
+							}}
+						>
+							{#each transactionPeriodOptions as option}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
+
+				{#if transactionPeriodKey === 'custom'}
+					<div class="grid gap-3 lg:grid-cols-2">
+						<label class="label">
+							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
+							<input
+								class="input preset-tonal-surface"
+								type="date"
+								value={transactionFrom}
+								onchange={(event) => {
+									transactionFrom = event.currentTarget.value;
+									startTransactionFiltering();
+								}}
+							/>
+						</label>
+						<label class="label">
+							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
+							<input
+								class="input preset-tonal-surface"
+								type="date"
+								value={transactionTo}
+								onchange={(event) => {
+									transactionTo = event.currentTarget.value;
+									startTransactionFiltering();
+								}}
+							/>
+						</label>
+					</div>
+				{/if}
+
+				<div class="space-y-3">
+					{#each transactionDisplayEntries as entry}
+						<form
+							method="POST"
+							use:enhance={enhanceTransactionEdit(entry.id)}
+							action="?/updateTransaction"
+							class="bg-surface-500/5 border-surface-500/5 rounded-2xl border p-4"
+						>
+							<input type="hidden" name="entryId" value={entry.id} />
+							<input
+								type="hidden"
+								name="lineAccountsJson"
+								value={JSON.stringify(editingTransactionDraft.lineAccounts ?? [])}
+							/>
+							<div class="flex flex-wrap items-start justify-between gap-3">
+								{#if editingTransactionId === entry.id}
+									<div class="grid flex-1 gap-3 lg:grid-cols-[140px_1fr]">
+										<label class="label">
+											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
+												Date
+											</span>
+											<input
+												class="input preset-tonal-surface"
+												type="date"
+												name="entryDate"
+												value={editingTransactionDraft.entryDate}
+												oninput={(event) =>
+													editingTransactionDraft = {
+														...editingTransactionDraft,
+														entryDate: event.currentTarget.value
+													}}
+												required
+											/>
+										</label>
+										<label class="label">
+											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
+												Description
+											</span>
+											<input
+												class="input preset-tonal-surface"
+												type="text"
+												name="description"
+												value={editingTransactionDraft.description}
+												oninput={(event) =>
+													editingTransactionDraft = {
+														...editingTransactionDraft,
+														description: event.currentTarget.value
+													}}
+												required
+											/>
+										</label>
+										<label class="label lg:col-span-2">
+											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
+												Memo
+											</span>
+											<textarea
+												class="textarea preset-tonal-surface"
+												name="memo"
+												rows="2"
+												value={editingTransactionDraft.memo}
+												oninput={(event) =>
+													editingTransactionDraft = {
+														...editingTransactionDraft,
+														memo: event.currentTarget.value
+													}}
+												placeholder="Optional memo"
+											></textarea>
+										</label>
+										<div class="lg:col-span-2">
+											<div class="grid gap-3 sm:grid-cols-2">
+										{#each entry.lines ?? [] as line, index}
+											{@const lineDraft = getEditingTransactionLine(line.id)}
+											{@const lineLabel =
+												index === 0 ? 'Where did it come from?' : index === 1 ? 'Category' : `Account ${index + 1}`}
+											<label class="label space-y-1">
+												<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
+													{lineLabel}
+												</span>
+												<SearchableSelect
+													items={getTransactionAccountOptions(lineDraft?.query ?? '')}
+													query={lineDraft?.query ?? (line.account ? accountLabel(line.account) : '')}
+													placeholder="Search accounts"
+													emptyMessage="No matching accounts."
+													itemLabel={accountLabel}
+													itemMeta={(account) => account.display_group || 'Other'}
+													onQueryChange={(value) => updateTransactionLineAccountQuery(line.id, value)}
+													onSelect={(account) =>
+														updateTransactionLineAccount(line.id, account.id, accountLabel(account))}
+												/>
+											</label>
+										{/each}
+									</div>
+								</div>
+									</div>
+								{:else}
+									<div class="min-w-0 space-y-1">
+										<div class="flex flex-wrap items-center gap-2">
+											<p class="text-surface-900 dark:text-surface-100 truncate text-sm font-bold">
+												{entry.description}
+											</p>
+											<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
+												{entry.entry_type}
+											</span>
+										</div>
+										<p class="text-surface-500 text-xs">
+											{formatDate(entry.entry_date)}
+											{#if entry.memo}
+												· {entry.memo}
+											{/if}
+										</p>
+									</div>
+							{/if}
+							<div class="flex shrink-0 items-start gap-2">
+								<div class="text-right">
+									<p
+										class="text-lg font-bold tabular-nums {transactionAmountPresentation(entry).className}"
+									>
+										{transactionAmountPresentation(entry).sign}
+										{formatCents(Math.abs(Number(entry.amount_cents || 0)))}
+									</p>
+									{#if editingTransactionId !== entry.id}
+										<p class="text-surface-500 text-xs">{entry.source || 'manual'}</p>
+									{/if}
+								</div>
+									{#if editingTransactionId !== entry.id}
+										<button
+											class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 shrink-0"
+											type="button"
+											onclick={() => startTransactionEdit(entry)}
+											aria-label={`Edit transaction ${entry.description}`}
+											title="Edit transaction"
+										>
+											<IconPencil class="h-4 w-4" />
+										</button>
+									{/if}
+								</div>
+							</div>
+							{#if editingTransactionId !== entry.id}
+								<div class="mt-3 flex flex-wrap gap-2">
+									{#each entry.lines ?? [] as line}
+										<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold uppercase">
+											{line.account?.code || '—'} · {line.account?.name || 'Unknown'}
+										</span>
+									{/each}
+									{#if (entry.receipts ?? []).length}
+										<span class="badge preset-outlined-primary-500 px-2 py-0.5 text-[10px] font-semibold uppercase">
+											{entry.receipts.length} receipt{entry.receipts.length === 1 ? '' : 's'}
+										</span>
+									{/if}
+								</div>
+							{/if}
+							{#if editingTransactionId === entry.id}
+								<div class="mt-4 flex flex-wrap items-center gap-2">
+									<button
+										class="btn btn-sm preset-filled-primary-500 flex items-center gap-2 font-bold"
+										type="submit"
+										disabled={isSavingTransaction(entry.id)}
+									>
+										{#if isSavingTransaction(entry.id)}
+											<IconRefreshCw class="h-4 w-4 animate-spin" />
+											<span>Saving...</span>
+										{:else}
+											<span>Save transaction</span>
+										{/if}
+									</button>
+									<button
+										class="btn btn-sm preset-outlined-surface-500 font-semibold"
+										type="button"
+										onclick={stopTransactionEdit}
+										disabled={isSavingTransaction(entry.id)}
+									>
+										Cancel
+									</button>
+								</div>
+							{/if}
+						</form>
+					{:else}
+						<div class="rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-10 text-center">
+							<p class="text-surface-500 text-sm font-medium">No transactions match the current filters.</p>
+						</div>
+					{/each}
+				</div>
+			</div>
 		</section>
 	{/if}
 
 	{#if activeTab === 'banking'}
-		<section class="grid gap-6 lg:grid-cols-[380px_1fr]">
-			<!-- Sidebar Controls (Sync, Manual CSV, Accounts) -->
-			<div class="space-y-6">
-				<!-- Connections -->
-				<form
-					method="POST" use:enhance
-					action="?/saveConnections"
-					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
-				>
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
+		<section class="space-y-6">
+			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
+				<div class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+					<div class="flex items-center gap-2">
 						<IconLockKeyhole class="text-primary-500 h-5 w-5" />
 						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
 							Connections
 						</h2>
+						{#if mercuryConnected}
+							<span class="badge preset-filled-success-500 px-2 py-0.5 text-[10px] font-bold uppercase">
+								Mercury connected
+							</span>
+						{/if}
 					</div>
+					<form method="POST" use:enhance={enhanceSyncAll} action="?/syncAll">
+						<button
+							class="btn btn-sm preset-outlined-primary-500 flex items-center gap-2 font-semibold"
+							type="submit"
+							disabled={syncAllBusy}
+						>
+							<IconRefreshCw class="h-4 w-4 {syncAllBusy ? 'animate-spin' : ''}" />
+							<span>{syncAllBusy ? 'Syncing...' : 'Sync all'}</span>
+						</button>
+					</form>
+				</div>
+
+				<div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
 					<div class="space-y-4">
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Mercury API key</span
+						{#if mercuryConnected && !mercuryEditMode}
+							<div class="bg-success-500/10 border-success-500/20 rounded-2xl border p-4">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div class="space-y-1">
+										<p class="text-success-700 dark:text-success-300 text-sm font-bold">Mercury connected</p>
+										<p class="text-surface-500 text-xs">
+											API key ending in {data.settings?.mercury_api_key_hint || '••••'}
+											{#if mercuryConnection?.last_synced_at}
+												· Last synced {formatDate(mercuryConnection.last_synced_at)}
+											{/if}
+										</p>
+									</div>
+									<button
+										class="btn btn-sm preset-outlined-surface-500 font-semibold"
+										type="button"
+										onclick={() => (mercuryEditMode = true)}
+									>
+										<IconPencil class="h-3.5 w-3.5" />
+										<span>Edit Mercury</span>
+									</button>
+								</div>
+							</div>
+						{:else}
+							<form
+								method="POST"
+								use:enhance={enhanceSaveConnections}
+								action="?/saveConnections"
+								class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4"
 							>
-							<input
-								class="input preset-tonal-surface"
-								type="password"
-								name="mercuryApiKey"
-								placeholder="Stored for this group"
-							/>
+								<label class="label">
+									<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
+										Mercury API key
+									</span>
+									<input
+										class="input preset-tonal-surface"
+										type="password"
+										name="mercuryApiKey"
+										placeholder={mercuryConnected ? 'Replace the existing key' : 'Enter a Mercury API key'}
+										autocomplete="off"
+										required={!mercuryConnected || mercuryEditMode}
+									/>
+								</label>
+								<div class="flex flex-wrap gap-2">
+									<button class="btn preset-filled-primary-500 font-bold" type="submit">
+										<IconLockKeyhole class="h-4 w-4" />
+										<span>{mercuryConnected ? 'Update Mercury' : 'Save Mercury'}</span>
+									</button>
+									{#if mercuryConnected}
+										<button
+											class="btn btn-sm preset-outlined-surface-500 font-semibold"
+											type="button"
+											onclick={() => (mercuryEditMode = false)}
+										>
+											Cancel
+										</button>
+									{/if}
+								</div>
+							</form>
+						{/if}
+
+						<div class="bg-surface-500/5 border-surface-500/10 rounded-2xl border p-4">
+							<div class="mb-3 flex items-center gap-2">
+								<IconLandmark class="text-primary-500 h-4 w-4" />
+								<h3 class="text-surface-900 dark:text-surface-100 text-sm font-bold">
+									Connected bank feeds
+								</h3>
+							</div>
+							<div class="space-y-2">
+								{#each bankFeedAccounts as providerAccount}
+									<div class="bg-surface-500/5 border-surface-500/5 rounded-xl border p-3.5 text-sm">
+										<div class="flex items-start justify-between gap-3">
+											<div class="min-w-0">
+												<p class="text-surface-900 dark:text-surface-100 truncate font-bold">
+													{bankFeedLabel(providerAccount)}
+												</p>
+												<p class="text-surface-500 mt-1 text-xs">
+													{providerAccount.account_subtype || providerAccount.account_type || 'Account'}
+												</p>
+											</div>
+											<span class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+												{providerAccount.provider}
+											</span>
+										</div>
+									</div>
+								{:else}
+									<p class="text-surface-500 py-2 text-center text-xs italic">
+										No bank feeds connected yet.
+									</p>
+								{/each}
+							</div>
+						</div>
+					</div>
+
+					<div class="space-y-4">
+						<form
+							method="POST"
+							use:enhance
+							action="?/importBankCsv"
+							enctype="multipart/form-data"
+							class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4"
+						>
+							<div class="flex items-center gap-2">
+								<IconUpload class="text-secondary-500 h-4 w-4" />
+								<h3 class="text-surface-900 dark:text-surface-100 text-sm font-bold">Import CSV</h3>
+							</div>
+							<label class="label">
+								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
+									Bank CSV
+								</span>
+								<input
+									class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
+									type="file"
+									name="csvFile"
+									accept=".csv,text/csv"
+									required
+								/>
+							</label>
+							<label class="label">
+								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">
+									Associate with account
+								</span>
+							<select
+								class="select preset-tonal-surface"
+								name="accountId"
+								bind:value={csvImportAccountId}
+								disabled={!cashAccounts.length}
+								required
+							>
+								<option value="">
+									{cashAccounts.length ? 'Choose a bank account' : 'No bank accounts available'}
+								</option>
+								{#each cashAccounts as account}
+									<option value={account.id}>{accountLabel(account)}</option>
+								{/each}
+							</select>
 						</label>
 						<button
-							class="btn preset-filled-primary-500 flex w-full items-center justify-center gap-2 font-bold"
+							class="btn preset-outlined-primary-500 w-full font-bold"
 							type="submit"
+							disabled={!cashAccounts.length}
 						>
-							<IconLockKeyhole class="h-4 w-4" />
-							<span>Save Connections</span>
+							<IconUpload class="h-4 w-4" />
+							<span>Import CSV</span>
 						</button>
-					</div>
-				</form>
+						</form>
 
-				<!-- Sync Feeds -->
-				<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconRefreshCw class="text-secondary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Sync Feeds
-						</h2>
-					</div>
-					<div class="space-y-3">
 						<button
 							class="btn preset-filled-primary-500 flex w-full items-center justify-center gap-2 font-bold"
 							type="button"
@@ -1463,188 +2505,18 @@
 							onclick={connectFinancialAccounts}
 						>
 							<IconLandmark class="h-4 w-4" />
-							<span>{financialConnectionsBusy ? 'Opening Stripe...' : 'Connect bank or card'}</span>
+							<span>{financialConnectionsBusy ? 'Opening Stripe...' : 'Connect Account'}</span>
 						</button>
-
-						<p
-							class="text-surface-500 bg-surface-500/5 border-surface-500/5 rounded-lg border p-3 text-xs leading-relaxed"
-						>
-							Uses Stripe Financial Connections. Transaction access costs $0.30/month per linked
-							institution account holder.
-						</p>
 
 						{#if financialConnectionsMessage}
 							<p
-								class="text-primary-500 bg-primary-500/10 border-primary-500/10 animate-fade rounded-lg border p-3 text-xs font-semibold"
+								class="text-primary-500 bg-primary-500/10 border-primary-500/10 rounded-lg border p-3 text-xs font-semibold"
 							>
 								{financialConnectionsMessage}
 							</p>
 						{/if}
-
-						<div class="grid grid-cols-2 gap-2">
-							<form method="POST" use:enhance action="?/syncStripe" class="w-full">
-								<button
-									class="btn btn-sm preset-outlined-surface-500 w-full font-semibold"
-									type="submit"
-								>
-									Sync Stripe
-								</button>
-							</form>
-							<form method="POST" use:enhance action="?/syncMercury" class="w-full">
-								<button
-									class="btn btn-sm preset-outlined-surface-500 w-full font-semibold"
-									type="submit"
-								>
-									Sync Mercury
-								</button>
-							</form>
-						</div>
-
-						<form method="POST" use:enhance action="?/syncLinkedAccounts">
-							<button
-								class="btn btn-sm preset-outlined-primary-500 flex w-full items-center justify-center gap-2 font-semibold"
-								type="submit"
-							>
-								<IconRefreshCw class="h-3.5 w-3.5" />
-								<span>Sync linked accounts</span>
-							</button>
-						</form>
-
-						<form method="POST" use:enhance action="?/autoMatch">
-							<button
-								class="btn preset-filled-secondary-500 flex w-full items-center justify-center gap-2 font-bold"
-								type="submit"
-							>
-								<IconListChecks class="h-4 w-4" />
-								<span>Auto-match activity</span>
-							</button>
-						</form>
 					</div>
 				</div>
-
-				<!-- Connected Accounts List -->
-				<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconLandmark class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Connected Accounts
-						</h2>
-					</div>
-					<div class="space-y-2">
-						{#each providerAccounts as providerAccount}
-							<div
-								class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 rounded-xl border p-3.5 text-sm transition-colors duration-150"
-							>
-								<div class="flex items-start justify-between gap-2">
-									<span class="text-surface-900 dark:text-surface-100 leading-tight font-bold"
-										>{providerAccount.display_name}</span
-									>
-									<span
-										class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase"
-										>{providerAccount.provider}</span
-									>
-								</div>
-								<p class="text-surface-500 mt-1 text-xs">
-									{providerAccount.account_subtype || providerAccount.account_type || 'Account'}
-									{providerAccount.mask ? ` · •••• ${providerAccount.mask}` : ''}
-								</p>
-							</div>
-						{:else}
-							<p class="text-xs text-surface-500 italic py-2 text-center">
-								No provider accounts synced yet.
-							</p>
-						{/each}
-					</div>
-				</div>
-
-				<!-- Manual Bank Item -->
-				<form
-					method="POST" use:enhance
-					action="?/addManualFeedItem"
-					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
-				>
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconPlus class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Manual Bank Item
-						</h2>
-					</div>
-					<div class="space-y-4">
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Date</span>
-							<input
-								class="input preset-tonal-surface"
-								type="date"
-								name="transactionDate"
-								value={today}
-								required
-							/>
-						</label>
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Amount</span
-							>
-							<input
-								class="input preset-tonal-surface"
-								type="number"
-								step="0.01"
-								name="amount"
-								placeholder="-25.00 or 100.00"
-								required
-							/>
-						</label>
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Description</span
-							>
-							<input
-								class="input preset-tonal-surface"
-								name="description"
-								placeholder="Description of feed item"
-								required
-							/>
-						</label>
-						<button class="btn preset-outlined-primary-500 w-full font-semibold" type="submit">
-							Add review item
-						</button>
-					</div>
-				</form>
-
-				<!-- Import CSV -->
-				<form
-					method="POST" use:enhance
-					action="?/importBankCsv"
-					enctype="multipart/form-data"
-					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
-				>
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconUpload class="text-secondary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Import CSV
-						</h2>
-					</div>
-					<div class="space-y-4">
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Bank CSV</span
-							>
-							<input
-								class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
-								type="file"
-								name="csvFile"
-								accept=".csv,text/csv"
-								required
-							/>
-						</label>
-						<button
-							class="btn preset-outlined-primary-500 flex w-full items-center justify-center gap-2 font-bold"
-							type="submit"
-						>
-							<IconUpload class="h-4 w-4" />
-							<span>Import for Review</span>
-						</button>
-					</div>
-				</form>
 			</div>
 
 			<!-- Review Bank Activity workspace -->
@@ -1656,114 +2528,134 @@
 							Review Bank Activity
 						</h2>
 					</div>
-					<span
-						class="badge {needsReview.length > 0
-							? 'preset-filled-warning-500'
-							: 'preset-tonal-success'} font-bold"
-					>
+					<span class="badge {needsReview.length > 0 ? 'preset-filled-warning-500' : 'preset-tonal-success'} font-bold">
 						{needsReview.length} items
 					</span>
 				</div>
 
-				<div class="space-y-4">
-					{#each needsReview as item}
-						<form
-							method="POST" use:enhance
-							action="?/postFeedItem"
-							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/10 space-y-4 rounded-2xl border p-4 transition-all duration-150"
-						>
-							<input type="hidden" name="feedItemId" value={item.id} />
-							<div
-								class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
-							>
-								<div class="min-w-0 space-y-0.5">
-									<p class="text-surface-900 dark:text-surface-100 truncate text-base font-bold">
-										{item.description}
-									</p>
-									<div class="text-surface-500 flex items-center gap-2 text-xs">
-										<span>{formatDate(item.transaction_date)}</span>
-										<span>•</span>
-										<span class="text-[10px] font-semibold tracking-wider uppercase"
-											>{item.provider}</span
-										>
+				<div class="space-y-5">
+					{#if bankReviewGroups.length > 0}
+						{#each bankReviewGroups as group}
+							<section class="bg-surface-500/5 border-surface-500/10 space-y-4 rounded-2xl border p-4 transition-all duration-150 {group.items.some((item) => isPostingFeedItem(item.id)) ? 'opacity-80 ring-1 ring-primary-500/20' : ''}">
+								<div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-500/10 pb-3">
+									<div class="flex min-w-0 items-center gap-2">
+										<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
+										<h3 class="text-surface-900 dark:text-surface-100 truncate text-base font-bold">
+											{group.account ? accountLabel(group.account) : 'Unassigned'}
+										</h3>
+										<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
+											{group.items.length} transactions
+										</span>
 									</div>
+									<select
+										class="select preset-tonal-surface min-w-[260px] py-1.5 text-sm"
+										value={group.accountId}
+										aria-label="Posted account"
+										disabled={!bankFeedAccounts.length}
+										onchange={(event) => {
+											const nextAccountId = event.currentTarget.value;
+											for (const item of group.items) setReviewSelection(item.id, { accountId: nextAccountId });
+										}}
+									>
+										<option value="">{bankFeedAccounts.length ? 'Select a bank feed' : 'No bank feeds connected'}</option>
+										{#each bankFeedAccounts as account}
+											<option value={account.account_id}>{bankFeedLabel(account)}</option>
+										{/each}
+									</select>
 								</div>
-								<span
-									class="text-lg font-bold tabular-nums {item.amount_cents >= 0
-										? 'text-success-600 dark:text-success-400'
-										: 'text-warning-600 dark:text-warning-400'}"
-								>
-									{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
-								</span>
-							</div>
 
-							<div class="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-								<label class="label">
-									<span class="text-surface-500 text-[10px] font-bold tracking-wider uppercase"
-										>Post to Account</span
-									>
-									<select
-										class="select preset-tonal-surface py-1.5 text-sm"
-										name="accountId"
-										required
-									>
-										{#each cashAccounts as account}
-											<option value={account.id}>{account.name}</option>
-										{/each}
-									</select>
-								</label>
-								<label class="label">
-									<span class="text-surface-500 text-[10px] font-bold tracking-wider uppercase"
-										>Categorize As</span
-									>
-									<select
-										class="select preset-tonal-surface py-1.5 text-sm"
-										name="categoryAccountId"
-										required
-									>
-										{#each item.amount_cents >= 0 ? incomeAccounts : expenseAccounts as account}
-											<option value={account.id}>{account.name}</option>
-										{/each}
-									</select>
-								</label>
-								<div class="flex w-full items-end gap-2 pt-2 sm:w-auto sm:pt-0">
-									<button
-										class="btn btn-sm preset-filled-primary-500 flex-1 px-5 py-2 font-bold sm:flex-initial"
-										type="submit"
-									>
-										Post
-									</button>
-									<button
-										class="btn btn-sm preset-tonal-error px-3 py-2 font-medium"
-										formaction="?/ignoreFeedItem"
-										type="submit"
-									>
-										Ignore
-									</button>
+								<div class="space-y-4">
+									{#each group.items as item}
+										{@const selection = getReviewSelection(item)}
+										{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
+										<form
+											method="POST"
+											use:enhance={enhancePostFeedItem(item.id)}
+											action="?/postFeedItem"
+											class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-xl border p-4 transition-all duration-150 {isPostingFeedItem(item.id) ? 'opacity-70' : ''}"
+										>
+											<input type="hidden" name="feedItemId" value={item.id} />
+											<input type="hidden" name="accountId" value={selection.accountId} />
+											<input type="hidden" name="categoryAccountId" value={selection.categoryAccountId} />
+											<div class="flex flex-wrap items-center justify-between gap-3">
+												<div class="min-w-0 space-y-0.5">
+													<p class="text-surface-900 dark:text-surface-100 truncate text-base font-bold">
+														{item.description}
+													</p>
+													<div class="text-surface-500 flex items-center gap-2 text-xs">
+														<span>{formatDate(item.transaction_date)}</span>
+														<span class="opacity-30">•</span>
+														<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
+															{item.provider}
+														</span>
+													</div>
+												</div>
+												<span class="text-lg font-bold tabular-nums {item.amount_cents >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}">
+													{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
+												</span>
+											</div>
+
+											<div class="grid gap-3 lg:grid-cols-[1fr_auto]">
+												<label class="label space-y-1">
+													<span class="text-surface-500 text-[10px] font-bold tracking-wider uppercase">
+														Categorize as
+													</span>
+													<SearchableSelect
+														items={categoryOptions}
+														query={selection.categoryQuery}
+														placeholder="Search categories"
+														emptyMessage="No matching categories."
+														itemLabel={accountLabel}
+														itemMeta={(account) => account.display_group || 'Other'}
+														onQueryChange={(value) =>
+															updateReviewCategoryQuery(item.id, item.amount_cents, value)}
+														onSelect={(account) => selectReviewCategory(item.id, account)}
+													/>
+												</label>
+
+												<div class="flex w-full items-end gap-2 pt-2 lg:w-auto lg:pt-0">
+													<button
+														class="btn btn-sm preset-filled-primary-500 flex min-w-[110px] flex-1 items-center justify-center gap-2 px-5 py-2 font-bold lg:flex-initial"
+														type="submit"
+														disabled={isPostingFeedItem(item.id)}
+													>
+														{#if isPostingFeedItem(item.id)}
+															<IconRefreshCw class="h-4 w-4 animate-spin" />
+															<span>Posting...</span>
+														{:else}
+															<span>Post</span>
+														{/if}
+													</button>
+													<button
+														class="btn btn-sm preset-tonal-error px-3 py-2 font-medium"
+														formaction="?/ignoreFeedItem"
+														type="submit"
+														disabled={isPostingFeedItem(item.id)}
+													>
+														Ignore
+													</button>
+												</div>
+											</div>
+										</form>
+									{/each}
 								</div>
-							</div>
-						</form>
+							</section>
+						{/each}
 					{:else}
-						<div
-							class="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-surface-500/20 rounded-2xl bg-surface-500/5"
-						>
-							<IconCheckCircle2 class="h-10 w-10 text-success-500 mb-3" />
-							<h3 class="text-base font-bold text-surface-900 dark:text-surface-100">
-								All caught up!
-							</h3>
-							<p class="text-sm text-surface-500 mt-1 max-w-sm">
-								No bank transactions need review. Connect card/bank feeds or import CSV to fetch
-								latest records.
+						<div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-12 text-center">
+							<div class="bg-success-500/10 text-success-500 mb-3 rounded-full p-3">
+								<IconCheckCircle2 class="h-10 w-10 animate-pulse" />
+							</div>
+							<h3 class="text-surface-900 dark:text-surface-100 text-base font-bold">All caught up!</h3>
+							<p class="text-surface-500 mt-1 max-w-sm text-sm">
+								No bank transactions need review. Connect card/bank feeds or import CSV to fetch latest records.
 							</p>
 						</div>
-					{/each}
+					{/if}
 				</div>
 			</div>
-		</section>
-	{/if}
-
-	{#if activeTab === 'advanced'}
-		<section class="grid gap-6 lg:grid-cols-[1fr_360px]">
+			</section>
+			<section class="grid gap-6 lg:grid-cols-[1fr_360px]">
 			<!-- Advanced Journal Form -->
 			<form
 				method="POST" use:enhance

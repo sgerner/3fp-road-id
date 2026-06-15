@@ -18,12 +18,14 @@ import {
 	requireGroupAccountingManager,
 	saveConnections,
 	saveSettings,
+	syncAllBankTransactions,
 	syncMercuryTransactions,
 	syncStripeFinancialConnectionsTransactions,
 	syncStripeTransactions,
 	unpublishSnapshot,
 	updateBudget,
 	updateEntryByReplacement,
+	updateTransaction,
 	updateAccount,
 	updateAccountGroup,
 	voidEntry,
@@ -55,7 +57,12 @@ export const load = async ({ cookies, params, url }) => {
 			connections: [],
 			reconciliations: [],
 			public_reports: [],
-			year: new Date().getFullYear()
+			year: new Date().getFullYear(),
+			report_period_key: 'this_year',
+			report_period_label: 'This year',
+			report_from: `${new Date().getFullYear()}-01-01`,
+			report_to: new Date().toISOString().slice(0, 10),
+			report_filter_active: false
 		};
 	}
 	return loadAccountingDashboard(auth, url);
@@ -136,6 +143,10 @@ export const actions = {
 		withAccountingAuth(cookies, params, async (auth) => {
 			await syncStripeFinancialConnectionsTransactions(auth);
 		}),
+	syncAll: async ({ cookies, params }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await syncAllBankTransactions(auth);
+		}),
 	syncMercury: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await syncMercuryTransactions(auth);
@@ -151,6 +162,11 @@ export const actions = {
 	updateEntry: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await updateEntryByReplacement(auth, await request.formData());
+		}),
+	updateTransaction: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await updateTransaction(auth, await request.formData());
+			return { transaction_updated: true };
 		}),
 	reclassifyReceipt: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {

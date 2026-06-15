@@ -209,6 +209,120 @@ function monthKey(value) {
 	return date.slice(0, 7);
 }
 
+function isoDateFromParts(year, monthIndex, day) {
+	return `${String(year).padStart(4, '0')}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function isoDateFromDate(date) {
+	return isoDateFromParts(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfMonthIso(date) {
+	return isoDateFromParts(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonthIso(date) {
+	return isoDateFromDate(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+}
+
+function startOfQuarterIso(date) {
+	const quarterStartMonth = Math.floor(date.getMonth() / 3) * 3;
+	return isoDateFromParts(date.getFullYear(), quarterStartMonth, 1);
+}
+
+function endOfQuarterIso(date) {
+	const quarterStartMonth = Math.floor(date.getMonth() / 3) * 3;
+	return isoDateFromDate(new Date(date.getFullYear(), quarterStartMonth + 3, 0));
+}
+
+function startOfYearIso(date) {
+	return isoDateFromParts(date.getFullYear(), 0, 1);
+}
+
+function endOfYearIso(date) {
+	return isoDateFromParts(date.getFullYear(), 11, 31);
+}
+
+const ACCOUNTING_REPORT_PERIOD_LABELS = {
+	this_month: 'This month',
+	last_month: 'Last month',
+	this_quarter: 'This quarter',
+	last_quarter: 'Last quarter',
+	this_year: 'This year',
+	last_year: 'Last year',
+	custom: 'Custom range'
+};
+
+export function resolveAccountingReportWindow(url, now = new Date()) {
+	const period = cleanText(url?.searchParams?.get('period'), 40) || 'this_year';
+	const today = isoDateFromDate(now);
+	const currentDate = new Date(`${today}T12:00:00`);
+	const currentYear = currentDate.getFullYear();
+	const currentMonth = currentDate.getMonth();
+
+	switch (period) {
+		case 'this_month':
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from: startOfMonthIso(currentDate),
+				to: today
+			};
+		case 'last_month': {
+			const lastMonth = new Date(currentYear, currentMonth, 0);
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from: startOfMonthIso(lastMonth),
+				to: endOfMonthIso(lastMonth)
+			};
+		}
+		case 'this_quarter':
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from: startOfQuarterIso(currentDate),
+				to: today
+			};
+		case 'last_quarter': {
+			const lastQuarterAnchor = new Date(currentYear, currentMonth - 3, 1);
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from: startOfQuarterIso(lastQuarterAnchor),
+				to: endOfQuarterIso(lastQuarterAnchor)
+			};
+		}
+		case 'last_year': {
+			const lastYear = new Date(currentYear - 1, 0, 1);
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from: startOfYearIso(lastYear),
+				to: endOfYearIso(lastYear)
+			};
+		}
+		case 'custom': {
+			const from = dateOnly(url?.searchParams?.get('from')) || startOfYearIso(currentDate);
+			const to = dateOnly(url?.searchParams?.get('to')) || today;
+			return {
+				period,
+				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
+				from,
+				to
+			};
+		}
+		case 'this_year':
+		default:
+			return {
+				period: 'this_year',
+				label: ACCOUNTING_REPORT_PERIOD_LABELS.this_year,
+				from: startOfYearIso(currentDate),
+				to: today
+			};
+	}
+}
+
 function normalizeCurrency(value) {
 	return cleanText(value || 'usd', 3).toLowerCase() || 'usd';
 }
@@ -818,6 +932,14 @@ export async function addManualFeedItem(auth, formData) {
 }
 
 export async function importBankCsv(auth, formData) {
+	const { accounts } = await ensureGroupAccountingSetup(auth.serviceSupabase, auth.group, auth.userId);
+	const accountId = cleanText(formData.get('accountId'));
+	const selectedAccount = accounts.find(
+		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
+	);
+	if (!selectedAccount) {
+		throw new Error('Choose a bank account to associate with this upload.');
+	}
 	const file = formData.get('csvFile');
 	if (!(file instanceof File) || file.size <= 0) throw new Error('Choose a CSV file.');
 	const textValue = await file.text();
@@ -883,7 +1005,9 @@ export async function importBankCsv(auth, formData) {
 		.select('*')
 		.single();
 	if (error) throw new Error(error.message);
-	const inserted = await upsertFeedItems(auth, connection, 'manual', transactions);
+	const inserted = await upsertFeedItems(auth, connection, 'manual', transactions, {
+		defaultAccountId: selectedAccount.id
+	});
 	await autoMatchFeedItems(auth);
 	await auditEvent(auth, 'import_csv', 'bank_feed_item', null, null, null, {
 		file_name: file.name,
@@ -1196,10 +1320,12 @@ export async function loadAccountingDashboard(auth, url) {
 		auth.group,
 		auth.userId
 	);
+	const reportWindow = resolveAccountingReportWindow(url);
 	const year = Number(url?.searchParams?.get('year') || currentYear());
-	const from = url?.searchParams?.get('from') || `${year}-01-01`;
-	const to = url?.searchParams?.get('to') || `${year}-12-31`;
-	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, { from, to });
+	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, {
+		from: reportWindow.from,
+		to: reportWindow.to
+	});
 
 	const [
 		{ data: entries },
@@ -1214,11 +1340,13 @@ export async function loadAccountingDashboard(auth, url) {
 	] = await Promise.all([
 		auth.serviceSupabase
 			.from('group_accounting_entries')
-			.select('*, receipts:group_accounting_receipts(id,file_name)')
+			.select(
+				'*, receipts:group_accounting_receipts(id,file_name), lines:group_accounting_lines(*, account:group_accounting_accounts(id,code,name,kind))'
+			)
 			.eq('group_id', auth.group.id)
 			.order('entry_date', { ascending: false })
 			.order('created_at', { ascending: false })
-			.limit(50),
+			.limit(500),
 		auth.serviceSupabase
 			.from('group_accounting_budgets')
 			.select('*, account:group_accounting_accounts(*)')
@@ -1293,7 +1421,16 @@ export async function loadAccountingDashboard(auth, url) {
 		audit_events: auditEvents ?? [],
 		reconciliations: reconciliations ?? [],
 		public_reports: snapshots ?? [],
-		year
+		year,
+		report_period_key: reportWindow.period,
+		report_period_label: reportWindow.label,
+		report_from: reportWindow.from,
+		report_to: reportWindow.to,
+		report_filter_active: Boolean(
+			url?.searchParams?.get('period') ||
+				url?.searchParams?.get('from') ||
+				url?.searchParams?.get('to')
+		)
 	};
 }
 
@@ -1417,6 +1554,118 @@ export async function updateEntryByReplacement(auth, formData) {
 	voidForm.set('entryDate', formData.get('entryDate') || new Date().toISOString());
 	await voidEntry(auth, voidForm);
 	return postSimpleEntry(auth, formData);
+}
+
+export async function updateTransaction(auth, formData) {
+	const { accounts } = await ensureGroupAccountingSetup(auth.serviceSupabase, auth.group, auth.userId);
+	const accountsById = new Map((accounts ?? []).map((account) => [account.id, account]));
+	const entryId = cleanText(formData.get('entryId'));
+	const entryDate = dateOnly(formData.get('entryDate'));
+	const description = cleanText(formData.get('description'), 200);
+	const memo = cleanText(formData.get('memo'), 1000) || null;
+	const rawLineAccounts = String(formData.get('lineAccountsJson') || '').trim();
+	if (!entryId) throw new Error('Entry id is required.');
+	if (!entryDate) throw new Error('Choose a valid date.');
+	if (!description) throw new Error('Add a description.');
+	let lineAccounts = [];
+	if (rawLineAccounts) {
+		try {
+			const parsedLineAccounts = JSON.parse(rawLineAccounts);
+			if (!Array.isArray(parsedLineAccounts)) {
+				throw new Error('Invalid transaction account data.');
+			}
+			lineAccounts = parsedLineAccounts
+				.map((line) => ({
+					lineId: cleanText(line?.lineId),
+					accountId: cleanText(line?.accountId)
+				}))
+				.filter((line) => line.lineId);
+		} catch {
+			throw new Error('Invalid transaction account data.');
+		}
+	}
+	const { data: entry, error } = await auth.serviceSupabase
+		.from('group_accounting_entries')
+		.select('*')
+		.eq('group_id', auth.group.id)
+		.eq('id', entryId)
+		.maybeSingle();
+	if (error) throw new Error(error.message);
+	if (!entry) throw new Error('Entry not found.');
+	if (entry.status === 'void') throw new Error('This transaction has been voided.');
+	if (entry.locked_at) throw new Error('This transaction is locked by reconciliation.');
+
+	const { data: lines, error: linesError } = await auth.serviceSupabase
+		.from('group_accounting_lines')
+		.select('id,account_id')
+		.eq('group_id', auth.group.id)
+		.eq('entry_id', entry.id);
+	if (linesError) throw new Error(linesError.message);
+	const linesById = new Map((lines ?? []).map((line) => [line.id, line]));
+	const selectedLineIds = new Set(lineAccounts.map((line) => line.lineId));
+	if (lineAccounts.length && (lineAccounts.length !== linesById.size || selectedLineIds.size !== linesById.size)) {
+		throw new Error('Transaction account data is incomplete.');
+	}
+	const lineAccountUpdates = [];
+	for (const line of lineAccounts) {
+		const existingLine = linesById.get(line.lineId);
+		if (!existingLine) throw new Error('Transaction line not found.');
+		const selectedAccount = accountsById.get(line.accountId);
+		if (!selectedAccount || selectedAccount.is_archived) {
+			throw new Error('Choose a valid account.');
+		}
+		lineAccountUpdates.push({
+			lineId: existingLine.id,
+			accountId: selectedAccount.id,
+			accountKind: selectedAccount.kind
+		});
+	}
+
+	const { error: updateError } = await auth.serviceSupabase
+		.from('group_accounting_entries')
+		.update({
+			entry_date: entryDate,
+			description,
+			memo
+		})
+		.eq('group_id', auth.group.id)
+		.eq('id', entry.id);
+	if (updateError) throw new Error(updateError.message);
+
+	for (const line of lineAccountUpdates) {
+		const { error: lineUpdateError } = await auth.serviceSupabase
+			.from('group_accounting_lines')
+			.update({ account_id: line.accountId })
+			.eq('group_id', auth.group.id)
+			.eq('id', line.lineId);
+		if (lineUpdateError) throw new Error(lineUpdateError.message);
+	}
+
+	if (entry.source === 'bank_feed' && entry.source_id) {
+		const bankAccountLine = lineAccountUpdates.find((line) =>
+			['asset', 'liability'].includes(line.accountKind)
+		);
+		await auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.update({
+				transaction_date: entryDate,
+				description,
+				...(bankAccountLine ? { account_id: bankAccountLine.accountId } : {})
+			})
+			.eq('group_id', auth.group.id)
+			.eq('id', entry.source_id);
+	}
+
+	await auditEvent(auth, 'update', 'entry', entry.id, entry, {
+		...entry,
+		entry_date: entryDate,
+		description,
+		memo,
+		line_accounts: lineAccountUpdates.map((line) => ({
+			line_id: line.lineId,
+			account_id: line.accountId
+		}))
+	});
 }
 
 export async function autoMatchFeedItems(auth) {
@@ -1582,7 +1831,8 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 	}
 }
 
-async function upsertFeedItems(auth, connection, provider, transactions = []) {
+async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
+	const { defaultAccountId = null } = options;
 	const rows = transactions
 		.map((transaction) => {
 			const amount = Number(transaction.amount ?? transaction.amount_cents ?? 0);
@@ -1597,6 +1847,7 @@ async function upsertFeedItems(auth, connection, provider, transactions = []) {
 				transaction_date: dateOnly(
 					transaction.date || transaction.posted_at || transaction.created
 				),
+				account_id: cleanText(transaction.account_id || defaultAccountId) || null,
 				description: cleanText(
 					transaction.name || transaction.description || transaction.memo || 'Imported activity',
 					200
@@ -1715,7 +1966,12 @@ export async function completeStripeFinancialConnectionsSession(auth, sessionId)
 	return connection;
 }
 
-export async function syncStripeFinancialConnectionsTransactions(auth, connection = null) {
+export async function syncStripeFinancialConnectionsTransactions(
+	auth,
+	connection = null,
+	options = {}
+) {
+	const { runAutoMatch = true } = options;
 	const stripe = getStripeClient();
 	const resolved =
 		connection ??
@@ -1759,11 +2015,12 @@ export async function syncStripeFinancialConnectionsTransactions(auth, connectio
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
 		.eq('id', resolved.id);
-	await autoMatchFeedItems(auth);
+	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return { inserted };
 }
 
-export async function syncMercuryTransactions(auth) {
+export async function syncMercuryTransactions(auth, options = {}) {
+	const { runAutoMatch = true } = options;
 	const { data: connection } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.select('*')
@@ -1817,11 +2074,12 @@ export async function syncMercuryTransactions(auth) {
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
 		.eq('id', resolved.id);
-	await autoMatchFeedItems(auth);
+	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return { inserted: insertedCount };
 }
 
-export async function syncStripeTransactions(auth) {
+export async function syncStripeTransactions(auth, options = {}) {
+	const { runAutoMatch = true } = options;
 	const [{ getStripeClient }, { data: donationAccount }] = await Promise.all([
 		import('$lib/server/stripe'),
 		auth.serviceSupabase
@@ -1870,8 +2128,51 @@ export async function syncStripeTransactions(auth) {
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected' })
 		.eq('id', connection.id);
-	await autoMatchFeedItems(auth);
+	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return { inserted };
+}
+
+export async function syncAllBankTransactions(auth) {
+	const { data: connections } = await auth.serviceSupabase
+		.from('group_accounting_bank_connections')
+		.select('provider,status')
+		.eq('group_id', auth.group.id);
+	const providers = new Set((connections ?? []).map((connection) => connection.provider));
+	let inserted = 0;
+	const errors = [];
+
+	if (providers.has('mercury')) {
+		try {
+			const result = await syncMercuryTransactions(auth, { runAutoMatch: false });
+			inserted += Number(result?.inserted || 0);
+		} catch (error) {
+			errors.push(error?.message || 'Mercury sync failed.');
+		}
+	}
+
+	if (providers.has('stripe_financial_connections')) {
+		try {
+			const result = await syncStripeFinancialConnectionsTransactions(auth, null, {
+				runAutoMatch: false
+			});
+			inserted += Number(result?.inserted || 0);
+		} catch (error) {
+			errors.push(error?.message || 'Linked account sync failed.');
+		}
+	}
+
+	if (providers.has('stripe')) {
+		try {
+			const result = await syncStripeTransactions(auth, { runAutoMatch: false });
+			inserted += Number(result?.inserted || 0);
+		} catch (error) {
+			errors.push(error?.message || 'Stripe sync failed.');
+		}
+	}
+
+	await autoMatchFeedItems(auth);
+	if (!inserted && errors.length) throw new Error(errors[0]);
+	return { inserted, errors };
 }
 
 export async function reclassifyReceipt(auth, formData) {
@@ -1932,6 +2233,100 @@ export async function buildEntriesCsv(auth) {
 			].join(',')
 		)
 	].join('\n');
+}
+
+export async function buildAccountingReportCsv(auth, options = {}) {
+	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, options);
+	const rows = [];
+	rows.push(
+		[
+			'report_period',
+			csvEscape(options.label || options.period || 'custom'),
+			csvEscape(report.from),
+			csvEscape(report.to)
+		].join(',')
+	);
+	rows.push(['section', 'kind', 'code', 'name', 'display_group', 'period_cents', 'balance_cents'].join(','));
+
+	const pushAccountRows = (section, accounts, usePeriodBalance = false) => {
+		for (const account of accounts) {
+			rows.push(
+				[
+					csvEscape(section),
+					csvEscape(account.kind),
+					csvEscape(account.code),
+					csvEscape(account.name),
+					csvEscape(account.display_group),
+					usePeriodBalance ? Number(account.period_balance_cents || 0) : Number(account.balance_cents || 0),
+					Number(account.balance_cents || 0)
+				].join(',')
+			);
+		}
+	};
+
+	rows.push(
+		[
+			csvEscape('summary'),
+			csvEscape('income'),
+			'',
+			csvEscape('Total income'),
+			'',
+			Number(report.totals?.income_cents || 0),
+			''
+		].join(',')
+	);
+	rows.push(
+		[
+			csvEscape('summary'),
+			csvEscape('expense'),
+			'',
+			csvEscape('Total expenses'),
+			'',
+			Number(report.totals?.expense_cents || 0),
+			''
+		].join(',')
+	);
+	rows.push(
+		[
+			csvEscape('summary'),
+			csvEscape('net'),
+			'',
+			csvEscape('Net activity'),
+			'',
+			Number(report.totals?.net_cents || 0),
+			''
+		].join(',')
+	);
+	rows.push(
+		[
+			csvEscape('summary'),
+			csvEscape('position'),
+			'',
+			csvEscape('Cash on hand'),
+			'',
+			Number((report.totals?.assets_cents || 0) - (report.totals?.liabilities_cents || 0)),
+			''
+		].join(',')
+	);
+
+	pushAccountRows('income', report.income, true);
+	pushAccountRows('expense', report.expenses, true);
+	pushAccountRows('asset', report.assets, false);
+	pushAccountRows('liability', report.liabilities, false);
+	pushAccountRows('equity', report.equity, false);
+
+	await auth.serviceSupabase.from('group_accounting_exports').insert({
+		group_id: auth.group.id,
+		created_by_user_id: auth.userId,
+		export_type: 'report_csv',
+		filter_json: {
+			period: options.period || 'custom',
+			from: report.from,
+			to: report.to
+		}
+	});
+
+	return rows.join('\n');
 }
 
 export async function postDonationToGroupAccounting({
