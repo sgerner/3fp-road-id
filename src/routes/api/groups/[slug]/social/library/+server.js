@@ -75,10 +75,12 @@ async function uploadMediaFiles(auth, files = []) {
 			fileName: file.name
 		});
 		const arrayBuffer = await file.arrayBuffer();
-		const uploadResult = await auth.serviceSupabase.storage.from(BUCKET_NAME).upload(objectPath, arrayBuffer, {
-			contentType: file.type,
-			upsert: false
-		});
+		const uploadResult = await auth.serviceSupabase.storage
+			.from(BUCKET_NAME)
+			.upload(objectPath, arrayBuffer, {
+				contentType: file.type,
+				upsert: false
+			});
 		if (uploadResult.error) {
 			throw new Error(uploadResult.error.message);
 		}
@@ -207,6 +209,9 @@ export async function POST({ cookies, params, request }) {
 		return json({ data: serializeSocialLibraryItem(created) });
 	} catch (error) {
 		console.error('Unable to save social content library entry', error);
-		return json({ error: error?.message || 'Unable to save content library entry.' }, { status: 500 });
+		return json(
+			{ error: error?.message || 'Unable to save content library entry.' },
+			{ status: 500 }
+		);
 	}
 }

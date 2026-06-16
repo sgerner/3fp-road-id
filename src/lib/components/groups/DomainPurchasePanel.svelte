@@ -94,14 +94,11 @@
 		setMessage('', '');
 		domainSearchBusy = true;
 		try {
-			const response = await fetch(
-				`/api/groups/${encodeURIComponent(groupSlug)}/domains/search`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ query: domainSearchQuery })
-				}
-			);
+			const response = await fetch(`/api/groups/${encodeURIComponent(groupSlug)}/domains/search`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ query: domainSearchQuery })
+			});
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				throw new Error(payload?.error || 'Unable to search domains.');
@@ -259,7 +256,9 @@
 			city: asText(defaultContact?.city),
 			state: asText(defaultContact?.state),
 			zip: asText(defaultContact?.zip),
-			country: asText(defaultContact?.country || 'US').toUpperCase().slice(0, 2),
+			country: asText(defaultContact?.country || 'US')
+				.toUpperCase()
+				.slice(0, 2),
 			companyName: asText(defaultContact?.companyName)
 		};
 	});

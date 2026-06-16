@@ -43,7 +43,8 @@ export async function GET({ cookies, params, url }) {
 		csv = filteredLines.join('\n');
 	}
 
-	const filenamePrefix = type === 'pl' ? 'profit-and-loss' : type === 'bs' ? 'balance-sheet' : 'report';
+	const filenamePrefix =
+		type === 'pl' ? 'profit-and-loss' : type === 'bs' ? 'balance-sheet' : 'report';
 
 	return text(csv, {
 		headers: {

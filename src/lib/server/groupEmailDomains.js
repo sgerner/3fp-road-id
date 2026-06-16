@@ -1,10 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { PUBLIC_URL_BASE } from '$env/static/public';
 import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
-import {
-	domainMatchesManagedZone,
-	resolveSenderSelection
-} from '$lib/server/emailDomainRules';
+import { domainMatchesManagedZone, resolveSenderSelection } from '$lib/server/emailDomainRules';
 import { resolveSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
@@ -302,11 +299,7 @@ async function findRegisteredVercelManagedDomain(serviceSupabase, groupId, domai
 }
 
 async function syncSesRecordsToVercelWhenManaged({ serviceSupabase, groupId, domain, dnsRecords }) {
-	const managedDomain = await findRegisteredVercelManagedDomain(
-		serviceSupabase,
-		groupId,
-		domain
-	);
+	const managedDomain = await findRegisteredVercelManagedDomain(serviceSupabase, groupId, domain);
 	if (!managedDomain?.domain) {
 		return {
 			status: 'manual_dns',

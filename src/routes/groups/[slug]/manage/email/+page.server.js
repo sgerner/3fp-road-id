@@ -35,18 +35,20 @@ async function loadAudienceSummary(serviceSupabase, groupId) {
 export const load = async ({ parent, cookies }) => {
 	const parentData = await parent();
 	const serviceSupabase = createServiceSupabaseClient();
-	const [senderDomainsResult, emailHistoryResult, audienceSummary, siteDomains] = await Promise.all([
-		listGroupEmailSendingDomains({
-			cookies,
-			groupSlug: parentData.group.slug
-		}),
-		listMembershipEmailHistory({
-			cookies,
-			groupSlug: parentData.group.slug
-		}),
-		loadAudienceSummary(serviceSupabase, parentData.group.id),
-		serviceSupabase ? listGroupSiteDomains(serviceSupabase, parentData.group.id) : []
-	]);
+	const [senderDomainsResult, emailHistoryResult, audienceSummary, siteDomains] = await Promise.all(
+		[
+			listGroupEmailSendingDomains({
+				cookies,
+				groupSlug: parentData.group.slug
+			}),
+			listMembershipEmailHistory({
+				cookies,
+				groupSlug: parentData.group.slug
+			}),
+			loadAudienceSummary(serviceSupabase, parentData.group.id),
+			serviceSupabase ? listGroupSiteDomains(serviceSupabase, parentData.group.id) : []
+		]
+	);
 
 	return {
 		group: parentData.group,

@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { resolveSession } from '$lib/server/session';
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 
 export async function POST({ request, cookies }) {
 	const { accessToken, user } = resolveSession(cookies);
@@ -24,7 +27,10 @@ export async function POST({ request, cookies }) {
 	const serviceSupabase = createServiceSupabaseClient();
 	const client = serviceSupabase ?? requestSupabase;
 
-	const { data, error } = await client.from('emergency_contacts').insert([{ ...body, profile_id: user.id }]).select();
+	const { data, error } = await client
+		.from('emergency_contacts')
+		.insert([{ ...body, profile_id: user.id }])
+		.select();
 
 	if (error) {
 		return json({ error: error.message }, { status: 400 });

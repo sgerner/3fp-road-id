@@ -4654,7 +4654,10 @@ export async function processScheduledMembershipEmails({
 			});
 			results.push({ email_id: campaign.id, ...sent });
 		} catch (sendError) {
-			const errorMessage = cleanText(sendError?.message || 'Unable to send scheduled campaign.', 500);
+			const errorMessage = cleanText(
+				sendError?.message || 'Unable to send scheduled campaign.',
+				500
+			);
 			await serviceSupabase
 				.from('group_membership_emails')
 				.update({

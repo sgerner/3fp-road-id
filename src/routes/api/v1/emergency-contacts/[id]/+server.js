@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { resolveSession } from '$lib/server/session';
-import { createRequestSupabaseClient, createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 
 /**
  * Update an existing emergency contact.
@@ -62,7 +65,12 @@ export async function DELETE({ request, cookies, params }) {
 	const serviceSupabase = createServiceSupabaseClient();
 	const client = serviceSupabase ?? requestSupabase;
 
-	const { data, error } = await client.from('emergency_contacts').delete().eq('id', id).eq('profile_id', user.id).select();
+	const { data, error } = await client
+		.from('emergency_contacts')
+		.delete()
+		.eq('id', id)
+		.eq('profile_id', user.id)
+		.select();
 
 	if (error) {
 		return json({ error: error.message }, { status: 400 });

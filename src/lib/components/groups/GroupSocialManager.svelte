@@ -320,7 +320,9 @@
 			const usage = item?.usage || {};
 			if (contentLibraryFilter === 'posted') return usage.posted === true;
 			if (contentLibraryFilter === 'scheduled') return usage.scheduled === true;
-			return usage.posted !== true && usage.scheduled !== true && Number(usage.usage_count || 0) === 0;
+			return (
+				usage.posted !== true && usage.scheduled !== true && Number(usage.usage_count || 0) === 0
+			);
 		});
 	});
 
@@ -741,7 +743,7 @@
 	}
 
 	function getPlatformIcon(platform) {
-	return platform === 'instagram' ? BrandInstagram : BrandFacebook;
+		return platform === 'instagram' ? BrandInstagram : BrandFacebook;
 	}
 
 	function getPlatformColor(platform) {
@@ -1403,7 +1405,8 @@
 				platforms: composerPlatforms,
 				media: composerMedia,
 				ai_prompt: composerAiPrompt,
-				ai_add_page_text: normalizePostTarget(composerPostTarget) === 'page' && composerAiAddPageText,
+				ai_add_page_text:
+					normalizePostTarget(composerPostTarget) === 'page' && composerAiAddPageText,
 				content_library_item_id: composerContentLibraryItemId || null
 			};
 			if (intent === 'schedule') {
@@ -1547,7 +1550,11 @@
 					},
 					prompt: userMessage,
 					allowTextInImage: storyTarget || composerAiAddPageText,
-					textOverlay: storyTarget ? userMessage : composerAiAddPageText ? caption || composerCaption || userMessage : '',
+					textOverlay: storyTarget
+						? userMessage
+						: composerAiAddPageText
+							? caption || composerCaption || userMessage
+							: '',
 					context: {
 						description: storyTarget ? userMessage : composerCaption || userMessage,
 						ridingDisciplines: selectedPlatforms.join(', '),
@@ -2357,7 +2364,7 @@
 														</div>
 													{/if}
 
-													<!-- Target badge overlay -->	
+													<!-- Target badge overlay -->
 													<div class="absolute right-1 bottom-1">
 														<span
 															class="bg-surface-900/80 text-surface-100 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"
@@ -2392,9 +2399,9 @@
 																			class="bg-surface-200-800 flex h-5 w-5 items-center justify-center rounded"
 																		>
 																			{#if platform === 'instagram'}
-									<BrandInstagram class="h-3 w-3 text-pink-500" />
+																				<BrandInstagram class="h-3 w-3 text-pink-500" />
 																			{:else}
-									<BrandFacebook class="h-3 w-3 text-blue-500" />
+																				<BrandFacebook class="h-3 w-3 text-blue-500" />
 																			{/if}
 																		</div>
 																	{/each}
@@ -2733,10 +2740,10 @@
 														{/each}
 													</select>
 												</div>
-											<!-- Model Toggle -->
-											<div class="ai-setting ai-setting--model">
-												<span class="ai-setting__label">Model</span>
-												<div class="ai-model-toggle">
+												<!-- Model Toggle -->
+												<div class="ai-setting ai-setting--model">
+													<span class="ai-setting__label">Model</span>
+													<div class="ai-model-toggle">
 														{#each SOCIAL_IMAGE_GENERATION_MODELS as option (option.id)}
 															<button
 																type="button"
@@ -2748,27 +2755,27 @@
 																{option.label}
 															</button>
 														{/each}
+													</div>
 												</div>
+												{#if !isComposerStoryTarget()}
+													<div class="ai-setting ai-setting--switch">
+														<label class="ai-setting__label" for="composer-ai-add-page-text">
+															Image Text
+														</label>
+														<label class="ai-switch">
+															<input
+																id="composer-ai-add-page-text"
+																type="checkbox"
+																bind:checked={composerAiAddPageText}
+																disabled={composerReadOnly}
+															/>
+															<span class="ai-switch__track" aria-hidden="true">
+																<span class="ai-switch__thumb"></span>
+															</span>
+														</label>
+													</div>
+												{/if}
 											</div>
-											{#if !isComposerStoryTarget()}
-												<div class="ai-setting ai-setting--switch">
-													<label class="ai-setting__label" for="composer-ai-add-page-text">
-														Image Text
-													</label>
-													<label class="ai-switch">
-														<input
-															id="composer-ai-add-page-text"
-															type="checkbox"
-															bind:checked={composerAiAddPageText}
-															disabled={composerReadOnly}
-														/>
-														<span class="ai-switch__track" aria-hidden="true">
-															<span class="ai-switch__thumb"></span>
-														</span>
-													</label>
-												</div>
-											{/if}
-										</div>
 										</div>
 
 										<!-- Optional: Tone description hint -->
@@ -3243,7 +3250,9 @@
 					</p>
 				</div>
 				{#if filteredLibraryItems.length === 0}
-					<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4 text-sm">
+					<div
+						class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4 text-sm"
+					>
 						No content found for this filter. Save AI-generated drafts from the composer to build
 						your library.
 					</div>
@@ -3261,10 +3270,14 @@
 								{/if}
 								<p class="mt-2 line-clamp-3 text-sm">{captionPreview(item.caption, 150)}</p>
 								<div class="text-surface-600-400 mt-2 text-xs">
-									Used {item?.usage?.usage_count || 0} time{item?.usage?.usage_count === 1 ? '' : 's'}
+									Used {item?.usage?.usage_count || 0} time{item?.usage?.usage_count === 1
+										? ''
+										: 's'}
 								</div>
 								<div class="mt-3 flex items-center justify-between gap-2">
-									<span class={postTargetClass(item.post_target)}>{postTargetLabel(item.post_target)}</span>
+									<span class={postTargetClass(item.post_target)}
+										>{postTargetLabel(item.post_target)}</span
+									>
 									<button
 										type="button"
 										class="btn btn-sm preset-filled-secondary-500"
@@ -3424,7 +3437,9 @@
 									</div>
 								{/if}
 
-								<div class="post-comments-wrap relative ml-4 border-l-2 border-surface-700/50 pl-4 sm:ml-8 sm:pl-8">
+								<div
+									class="post-comments-wrap relative ml-4 border-l-2 border-surface-700/50 pl-4 sm:ml-8 sm:pl-8"
+								>
 									<div class="post-comments-list space-y-4">
 										{#each group.comments as comment, index (comment.id)}
 											{@const PlatformIcon = getPlatformIcon(comment.platform)}
@@ -3454,12 +3469,16 @@
 															</div>
 															<div class="comment-meta flex items-center gap-3">
 																{#if relativeTime}
-																	<span class="meta-item" title={formatDateTime(comment.commented_at)}>
+																	<span
+																		class="meta-item"
+																		title={formatDateTime(comment.commented_at)}
+																	>
 																		{relativeTime}
 																	</span>
 																{/if}
 																<span class="meta-dot"></span>
-																<span class="meta-item">{formatDateTime(comment.commented_at)}</span>
+																<span class="meta-item">{formatDateTime(comment.commented_at)}</span
+																>
 
 																{#if comment.can_reply && activeReplyCommentId !== comment.id}
 																	<button
@@ -3571,8 +3590,7 @@
 																		type="button"
 																		class="send-reply-btn"
 																		onclick={() => sendReply(comment.id)}
-																		disabled={!String(replyDrafts[comment.id] || '')
-																			.trim() ||
+																		disabled={!String(replyDrafts[comment.id] || '').trim() ||
 																			Boolean(replyPending[comment.id]) ||
 																			Boolean(aiReplyPending[comment.id])}
 																	>
@@ -3581,7 +3599,10 @@
 																		{:else}
 																			<IconSend class="h-4 w-4" />
 																		{/if}
-																		<span>{replyPending[comment.id] ? 'Sending...' : 'Send Reply'}</span
+																		<span
+																			>{replyPending[comment.id]
+																				? 'Sending...'
+																				: 'Send Reply'}</span
 																		>
 																	</button>
 																</div>
@@ -5117,9 +5138,6 @@
 		position: relative;
 	}
 
-	.post-group-header {
-	}
-
 	.comment-card {
 		position: relative;
 		padding: 1.25rem;
@@ -5655,7 +5673,9 @@
 		border-radius: 9999px;
 		background: var(--color-surface-100);
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
-		transition: transform 0.18s ease, background 0.18s ease;
+		transition:
+			transform 0.18s ease,
+			background 0.18s ease;
 	}
 
 	.ai-switch input:checked + .ai-switch__track {

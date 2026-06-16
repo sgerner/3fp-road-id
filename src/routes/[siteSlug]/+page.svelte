@@ -915,7 +915,7 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 									{#if post.media_url}
 										<img src={post.media_url} alt="Instagram post" loading="lazy" />
 										<div class="instagram-preview-overlay">
-							<BrandInstagram class="h-4 w-4 text-white" />
+											<BrandInstagram class="h-4 w-4 text-white" />
 										</div>
 									{/if}
 								</a>

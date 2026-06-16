@@ -1425,7 +1425,7 @@
 								rel="noopener noreferrer"
 								class="btn preset-filled-secondary-500 gap-1.5 font-bold"
 							>
-							<BrandInstagram class="h-4 w-4" />
+								<BrandInstagram class="h-4 w-4" />
 								View Profile
 							</a>
 						</div>

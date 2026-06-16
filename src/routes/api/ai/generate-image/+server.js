@@ -259,7 +259,14 @@ Output requirements:
 - Preserve the wholesome, slightly ridiculous comic-book energy.`;
 }
 
-function getStorageConfig(target, userId, articleId, context, extension = 'png', storageBucket = '') {
+function getStorageConfig(
+	target,
+	userId,
+	articleId,
+	context,
+	extension = 'png',
+	storageBucket = ''
+) {
 	const baseName =
 		slugifySegment(context?.title || context?.name || context?.slug || `${target}-image`) ||
 		`${target}-image`;
@@ -431,7 +438,14 @@ export async function POST({ request, cookies }) {
 
 		const mimeType = generated?.mimeType || 'image/png';
 		const extension = mimeType.split('/')[1] || 'png';
-		const storage = getStorageConfig(target, user.id, payload?.articleId, context, extension, storageBucket);
+		const storage = getStorageConfig(
+			target,
+			user.id,
+			payload?.articleId,
+			context,
+			extension,
+			storageBucket
+		);
 		const buffer = Buffer.from(imageBytes, 'base64');
 		let asset = null;
 		let url = null;
@@ -448,10 +462,12 @@ export async function POST({ request, cookies }) {
 			});
 			url = asset.url;
 		} else {
-			const uploadResult = await supabase.storage.from(storage.bucket).upload(storage.objectPath, buffer, {
-				contentType: mimeType,
-				upsert: false
-			});
+			const uploadResult = await supabase.storage
+				.from(storage.bucket)
+				.upload(storage.objectPath, buffer, {
+					contentType: mimeType,
+					upsert: false
+				});
 
 			if (uploadResult.error) {
 				return json({ error: uploadResult.error.message }, { status: 500 });

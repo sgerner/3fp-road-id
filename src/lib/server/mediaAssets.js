@@ -58,7 +58,12 @@ async function sha256Hex(value) {
 	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export function buildCanonicalMediaObjectPath(bucketId, contentHash, mimeType, fallbackFileName = '') {
+export function buildCanonicalMediaObjectPath(
+	bucketId,
+	contentHash,
+	mimeType,
+	fallbackFileName = ''
+) {
 	const bucket = normalizeBucketId(bucketId);
 	const extension = extensionForMimeType(mimeType, fallbackFileName);
 	const prefix = bucket === 'ride-media' ? 'canonical/rides' : 'canonical/social';
@@ -86,7 +91,8 @@ export async function uploadCanonicalMediaAsset({
 	const normalizedBuffer = toArrayBuffer(buffer);
 	const contentHash = await sha256Hex(normalizedBuffer);
 	const canonicalObjectPath =
-		cleanText(objectPath) || buildCanonicalMediaObjectPath(normalizedBucket, contentHash, normalizedMimeType, fileName);
+		cleanText(objectPath) ||
+		buildCanonicalMediaObjectPath(normalizedBucket, contentHash, normalizedMimeType, fileName);
 	const now = new Date().toISOString();
 
 	const { data: existingRow, error: existingError } = await supabase
@@ -134,17 +140,22 @@ export async function uploadCanonicalMediaAsset({
 		};
 	}
 
-	const uploadResult = await supabase.storage.from(normalizedBucket).upload(canonicalObjectPath, normalizedBuffer, {
-		contentType: normalizedMimeType,
-		upsert: true
-	});
+	const uploadResult = await supabase.storage
+		.from(normalizedBucket)
+		.upload(canonicalObjectPath, normalizedBuffer, {
+			contentType: normalizedMimeType,
+			upsert: true
+		});
 
 	if (uploadResult.error) {
 		throw uploadResult.error;
 	}
 
-	const { data: publicUrlData } = supabase.storage.from(normalizedBucket).getPublicUrl(canonicalObjectPath);
-	const publicUrl = publicUrlData?.publicUrl || buildPublicUrl(normalizedBucket, canonicalObjectPath);
+	const { data: publicUrlData } = supabase.storage
+		.from(normalizedBucket)
+		.getPublicUrl(canonicalObjectPath);
+	const publicUrl =
+		publicUrlData?.publicUrl || buildPublicUrl(normalizedBucket, canonicalObjectPath);
 	const rowPayload = {
 		bucket_id: normalizedBucket,
 		object_path: canonicalObjectPath,

@@ -33,13 +33,13 @@
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 	let { data, form } = $props();
-	let activeTab = $state(data.report_filter_active ? 'reports' : 'overview');
+	let activeTab = $state('overview');
 	let moneyFlow = $state('expense');
 	let financialConnectionsBusy = $state(false);
 	let financialConnectionsMessage = $state('');
-	let reportPeriodKey = $state(data.report_period_key ?? 'this_year');
-	let reportFrom = $state(data.report_from ?? '');
-	let reportTo = $state(data.report_to ?? '');
+	let reportPeriodKey = $state('this_year');
+	let reportFrom = $state('');
+	let reportTo = $state('');
 	let reportSyncSignature = $state('');
 	let journalLines = $state([
 		{ account_id: '', debit: '', credit: '', description: '' },
@@ -487,8 +487,9 @@
 			: item.account_id || bankFeedAccounts[0]?.account_id || '';
 		const fallbackCategory =
 			item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id;
-		const categoryAccountId =
-			hasCategoryAccountId ? state.categoryAccountId : item.suggested_account_id || fallbackCategory || '';
+		const categoryAccountId = hasCategoryAccountId
+			? state.categoryAccountId
+			: item.suggested_account_id || fallbackCategory || '';
 		const categoryAccount = accounts.find((account) => account.id === categoryAccountId);
 		const categoryQuery = hasCategoryQuery
 			? state.categoryQuery
@@ -517,7 +518,9 @@
 		const sourceAccounts = [
 			...(item.amount_cents >= 0 ? incomeAccounts : expenseAccounts),
 			...cashAccounts
-		].filter((account, index, list) => list.findIndex((candidate) => candidate.id === account.id) === index);
+		].filter(
+			(account, index, list) => list.findIndex((candidate) => candidate.id === account.id) === index
+		);
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return sourceAccounts;
 		return sourceAccounts.filter((account) => {
@@ -1071,7 +1074,7 @@
 					window.onload = function() {
 						window.print();
 					};
-				<\/script>
+				</scr${'ipt'}>
 			</body>
 			</html>
 		`;

@@ -716,7 +716,7 @@
 									aria-label="3 Feet Please on Facebook"
 									class="rail-social-btn"
 								>
-							<BrandFacebook class="h-3.5 w-3.5" />
+									<BrandFacebook class="h-3.5 w-3.5" />
 								</a>
 								<a
 									href="https://www.instagram.com/3feetplease"
@@ -726,7 +726,7 @@
 									aria-label="3 Feet Please on Instagram"
 									class="rail-social-btn"
 								>
-							<BrandInstagram class="h-3.5 w-3.5" />
+									<BrandInstagram class="h-3.5 w-3.5" />
 								</a>
 								<a
 									href="mailto:hi@3fp.org"
@@ -748,7 +748,9 @@
 								Donate
 							</a>
 
-							<div class="flex w-full flex-col items-center justify-center gap-1 px-2 text-[0.65rem]">
+							<div
+								class="flex w-full flex-col items-center justify-center gap-1 px-2 text-[0.65rem]"
+							>
 								<div class="flex items-center gap-1">
 									<a
 										href="/privacy"
@@ -846,7 +848,7 @@
 								aria-label="Facebook"
 								class="mob-social-btn"
 							>
-							<BrandFacebook class="h-4 w-4" />
+								<BrandFacebook class="h-4 w-4" />
 							</a>
 							<a
 								href="https://www.instagram.com/3feetplease"
@@ -855,7 +857,7 @@
 								aria-label="Instagram"
 								class="mob-social-btn"
 							>
-							<BrandInstagram class="h-4 w-4" />
+								<BrandInstagram class="h-4 w-4" />
 							</a>
 							<a href="mailto:hi@3fp.org" aria-label="Email" class="mob-social-btn">
 								<IconMail class="h-4 w-4" />

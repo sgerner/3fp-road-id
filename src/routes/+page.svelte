@@ -22,7 +22,9 @@
 			160
 		)
 	);
-	const seoImage = $derived(siteOrigin ? buildAbsoluteUrl(siteOrigin, '/3fp.png?v=2') : '/3fp.png?v=2');
+	const seoImage = $derived(
+		siteOrigin ? buildAbsoluteUrl(siteOrigin, '/3fp.png?v=2') : '/3fp.png?v=2'
+	);
 	const seoStructuredData = $derived.by(() =>
 		JSON.stringify({
 			'@context': 'https://schema.org',

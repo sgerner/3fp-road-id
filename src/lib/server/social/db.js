@@ -219,7 +219,8 @@ export async function updateGroupSocialPost(supabase, groupId, postId, patch = {
 	if (patch.title !== undefined) payload.title = safeTitle(patch.title);
 	if (patch.caption !== undefined) payload.caption = safeCaption(patch.caption);
 	if (patch.ai_prompt !== undefined) payload.ai_prompt = safePrompt(patch.ai_prompt);
-	if (patch.ai_add_page_text !== undefined) payload.ai_add_page_text = patch.ai_add_page_text === true;
+	if (patch.ai_add_page_text !== undefined)
+		payload.ai_add_page_text = patch.ai_add_page_text === true;
 	if (patch.content_library_item_id !== undefined) {
 		payload.content_library_item_id = patch.content_library_item_id || null;
 	}
