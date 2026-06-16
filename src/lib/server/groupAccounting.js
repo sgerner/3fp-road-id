@@ -19,6 +19,7 @@ import {
 	slugify,
 	uniquePublicReportSlug
 } from './groupAccountingRules.js';
+import { loadGroupStripeConnection } from './groupStripeConnection.js';
 
 export const GROUP_ACCOUNTING_RECEIPT_BUCKET = 'group-accounting-receipts';
 
@@ -1489,7 +1490,8 @@ export async function loadAccountingDashboard(auth, url) {
 		{ data: providerAccounts },
 		{ data: receipts },
 		{ data: auditEvents },
-		{ data: matchedFeedItems }
+		{ data: matchedFeedItems },
+		stripeConnection
 	] = await Promise.all([
 		auth.serviceSupabase
 			.from('group_accounting_entries')
@@ -1552,7 +1554,8 @@ export async function loadAccountingDashboard(auth, url) {
 			.select('matched_entry_id')
 			.eq('group_id', auth.group.id)
 			.not('matched_entry_id', 'is', null)
-			.in('status', ['matched', 'posted'])
+			.in('status', ['matched', 'posted']),
+		loadGroupStripeConnection(auth)
 	]);
 
 	const budgetRows = (budgets ?? []).map((budget) => {
@@ -1590,6 +1593,7 @@ export async function loadAccountingDashboard(auth, url) {
 		audit_events: auditEvents ?? [],
 		reconciliations: reconciliations ?? [],
 		public_reports: snapshots ?? [],
+		stripe_connection: stripeConnection,
 		year,
 		report_period_key: reportWindow.period,
 		report_period_label: reportWindow.label,
@@ -2121,15 +2125,11 @@ export async function updateProviderAccountMapping(auth, formData) {
 }
 
 async function getGroupConnectedStripeAccount(auth) {
-	const { data: donationAccount } = await auth.serviceSupabase
-		.from('donation_accounts')
-		.select('stripe_account_id')
-		.eq('group_id', auth.group.id)
-		.maybeSingle();
-	if (!donationAccount?.stripe_account_id) {
+	const stripeConnection = await loadGroupStripeConnection(auth);
+	if (!stripeConnection.connected || !stripeConnection.stripe_account_id) {
 		throw new Error('Connect Stripe for this group before linking bank accounts.');
 	}
-	return donationAccount.stripe_account_id;
+	return stripeConnection.stripe_account_id;
 }
 
 export async function createStripeFinancialConnectionsSession(auth) {

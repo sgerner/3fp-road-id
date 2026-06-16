@@ -7,6 +7,7 @@
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconChartColumn from '@lucide/svelte/icons/chart-column';
 	import IconCheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconCog from '@lucide/svelte/icons/cog';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconFileText from '@lucide/svelte/icons/file-text';
@@ -47,6 +48,7 @@
 	]);
 
 	const accounts = $derived(Array.isArray(data.accounts) ? data.accounts : []);
+	const groupSlug = $derived(data.group?.slug || '');
 	const currency = $derived(data.settings?.currency || 'usd');
 	const cashAccounts = $derived(
 		accounts.filter(
@@ -94,6 +96,13 @@
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
 	const mercuryInitialConnected = $derived(Boolean(data.settings?.mercury_api_key_ciphertext));
+	const stripeConnection = $derived(data.stripe_connection || null);
+	const stripeConnected = $derived(Boolean(stripeConnection?.connected));
+	const stripeConnectUrl = $derived(
+		groupSlug
+			? `/api/donations/connect/start?recipient=group&group=${encodeURIComponent(groupSlug)}`
+			: '#'
+	);
 	let reviewSelections = $state({});
 	let activeReviewCategoryItemId = $state('');
 	let postingFeedItemIds = $state({});
@@ -3038,16 +3047,37 @@
 									</div>
 								{/if}
 
-							<button
-								class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
-								type="button"
-								disabled={financialConnectionsBusy}
-								onclick={connectFinancialAccounts}
-							>
-								<IconLandmark class="h-4 w-4" />
-								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span
+							{#if stripeConnected}
+								<button
+									class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+									type="button"
+									disabled={financialConnectionsBusy}
+									onclick={connectFinancialAccounts}
 								>
-							</button>
+									<IconLandmark class="h-4 w-4" />
+									<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span>
+								</button>
+							{:else}
+								<div class="rounded-xl border border-warning-500/20 bg-warning-500/10 p-3">
+									<div class="flex items-start gap-3">
+										<IconCreditCard class="text-warning-500 mt-0.5 h-4 w-4 shrink-0" />
+										<div class="min-w-0 space-y-1">
+											<p class="text-sm font-semibold">Connect Stripe to link bank accounts</p>
+											<p class="text-surface-700-300 text-xs leading-relaxed">
+												Link this group to Stripe first. Stripe Financial Connections costs $0.30 per linked
+												bank each month.
+											</p>
+										</div>
+									</div>
+									<a
+										class="btn btn-sm preset-filled-primary-500 mt-3 w-full font-bold"
+										href={stripeConnectUrl}
+									>
+										<IconCreditCard class="h-4 w-4" />
+										<span>Connect Stripe</span>
+									</a>
+								</div>
+							{/if}
 							{#if financialConnectionsMessage}
 								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
 									{financialConnectionsMessage}
