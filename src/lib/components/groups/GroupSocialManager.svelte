@@ -876,7 +876,7 @@
 			return 'bg-surface-500/10 text-surface-700-300 opacity-70';
 		}
 		if (status === 'failed') {
-			return 'bg-error-500/10 text-error-700-300';
+			return 'border-l-4 border-error-500 bg-error-500/10 text-error-700-300';
 		}
 		if (status === 'publishing') {
 			return 'bg-warning-500/10 text-warning-700-300';
