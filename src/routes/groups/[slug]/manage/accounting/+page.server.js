@@ -28,6 +28,7 @@ import {
 	updateTransaction,
 	updateAccount,
 	updateAccountGroup,
+	updateProviderAccountMapping,
 	voidEntry,
 	reclassifyReceipt
 } from '$lib/server/groupAccounting';
@@ -150,6 +151,11 @@ export const actions = {
 	syncMercury: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await syncMercuryTransactions(auth);
+		}),
+	updateProviderAccountMapping: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await updateProviderAccountMapping(auth, await request.formData());
+			return { provider_account_updated: true };
 		}),
 	syncStripe: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {

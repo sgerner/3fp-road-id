@@ -1,0 +1,3 @@
+drop index if exists public.idx_public_emergency_contacts_profile_id_fk_7998ef1;
+drop index if exists public.idx_public_qr_codes_profile_id_fk_e740af0;
+drop index if exists public.idx_public_volunteer_event_hosts_user_id_fk_ea96daa;

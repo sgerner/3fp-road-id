@@ -83,7 +83,10 @@
 		Array.isArray(data.provider_accounts) ? data.provider_accounts : []
 	);
 	const bankFeedAccounts = $derived(
-		providerAccounts.filter((account) => account.account_id && account.is_enabled !== false)
+		providerAccounts.filter((account) => account.is_enabled !== false)
+	);
+	const mappedBankFeedAccounts = $derived(
+		bankFeedAccounts.filter((account) => account.account_id)
 	);
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
@@ -484,7 +487,7 @@
 		const hasCategoryQuery = Object.hasOwn(state, 'categoryQuery');
 		const accountId = hasAccountId
 			? state.accountId
-			: item.account_id || bankFeedAccounts[0]?.account_id || '';
+			: item.account_id || mappedBankFeedAccounts[0]?.account_id || '';
 		const fallbackCategory =
 			item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id;
 		const categoryAccountId = hasCategoryAccountId
@@ -652,10 +655,10 @@
 			grouped.get(key).items.push(item);
 		}
 		return Array.from(grouped.values()).sort((left, right) => {
-			const leftIndex = bankFeedAccounts.findIndex(
+			const leftIndex = mappedBankFeedAccounts.findIndex(
 				(account) => account.account_id === left.accountId
 			);
-			const rightIndex = bankFeedAccounts.findIndex(
+			const rightIndex = mappedBankFeedAccounts.findIndex(
 				(account) => account.account_id === right.accountId
 			);
 			if (leftIndex === rightIndex)
@@ -2976,22 +2979,46 @@
 								</form>
 							{/if}
 
-							{#if bankFeedAccounts.length > 0}
-								<div class="space-y-1.5">
-									{#each bankFeedAccounts as providerAccount}
-										<div
-											class="card preset-tonal-surface flex items-center justify-between gap-3 p-3 text-sm"
-										>
-											<span class="truncate font-semibold">{bankFeedLabel(providerAccount)}</span>
-											<span
-												class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+								{#if bankFeedAccounts.length > 0}
+									<div class="space-y-1.5">
+										{#each bankFeedAccounts as providerAccount}
+											<form
+												method="POST"
+												use:enhance
+												action="?/updateProviderAccountMapping"
+												class="card preset-tonal-surface flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
 											>
-												{providerAccount.provider}
-											</span>
-										</div>
-									{/each}
-								</div>
-							{/if}
+												<input type="hidden" name="providerAccountId" value={providerAccount.id} />
+												<div class="min-w-0">
+													<div class="flex min-w-0 items-center gap-2">
+														<span class="truncate font-semibold">{bankFeedLabel(providerAccount)}</span>
+														<span
+															class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+														>
+															{providerAccount.provider}
+														</span>
+													</div>
+													{#if !providerAccount.account_id}
+														<p class="text-warning-700-300 mt-1 text-xs font-semibold">
+															Map this feed before reviewing its transactions.
+														</p>
+													{/if}
+												</div>
+												<select
+													class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
+													name="accountId"
+													value={providerAccount.account_id || ''}
+													onchange={requestInlineSave}
+												>
+													<option value="">Unmapped</option>
+													{#each cashAccounts as account}
+														<option value={account.id}>{accountLabel(account)}</option>
+													{/each}
+												</select>
+											</form>
+										{/each}
+									</div>
+								{/if}
 
 							<button
 								class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
@@ -3081,24 +3108,24 @@
 										>{group.items.length}</span
 									>
 								</div>
-								<select
-									class="select preset-tonal-surface max-w-[220px] py-1 text-xs"
-									value={group.accountId}
-									aria-label="Bank feed source"
-									disabled={!bankFeedAccounts.length}
+									<select
+										class="select preset-tonal-surface max-w-[220px] py-1 text-xs"
+										value={group.accountId}
+										aria-label="Bank feed source"
+										disabled={!mappedBankFeedAccounts.length}
 									onchange={(event) => {
 										const nextAccountId = event.currentTarget.value;
 										for (const item of group.items)
 											setReviewSelection(item.id, { accountId: nextAccountId });
 									}}
-								>
-									<option value=""
-										>{bankFeedAccounts.length ? 'Select source…' : 'No feeds connected'}</option
 									>
-									{#each bankFeedAccounts as account}
-										<option value={account.account_id}>{bankFeedLabel(account)}</option>
-									{/each}
-								</select>
+										<option value=""
+											>{mappedBankFeedAccounts.length ? 'Select source…' : 'No mapped feeds'}</option
+										>
+										{#each mappedBankFeedAccounts as account}
+											<option value={account.account_id}>{bankFeedLabel(account)}</option>
+										{/each}
+									</select>
 							</div>
 
 							<!-- Transactions -->

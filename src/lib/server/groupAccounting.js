@@ -1902,7 +1902,7 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 			group_id: auth.group.id,
 			connection_id: connection.id,
 			provider,
-			external_account_id: cleanText(account.account_id || account.id || account.number),
+			external_account_id: providerExternalAccountId(account),
 			display_name: cleanText(
 				account.name || account.official_name || account.nickname || 'Bank account'
 			),
@@ -1927,14 +1927,40 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 	}
 }
 
+function providerExternalAccountId(account = {}) {
+	return cleanText(
+		account.account_id || account.accountId || account.id || account.uuid || account.number
+	);
+}
+
+async function loadProviderAccountMap(auth, provider) {
+	const { data, error } = await auth.serviceSupabase
+		.from('group_accounting_provider_accounts')
+		.select('external_account_id, account_id')
+		.eq('group_id', auth.group.id)
+		.eq('provider', provider)
+		.eq('is_enabled', true);
+	if (error) throw new Error(error.message);
+	return new Map(
+		(data ?? [])
+			.filter((account) => account.external_account_id && account.account_id)
+			.map((account) => [account.external_account_id, account.account_id])
+	);
+}
+
+function feedItemAmountCents(provider, transaction) {
+	if (Number.isInteger(transaction.amount_cents)) return transaction.amount_cents;
+	const amount = Number(transaction.amount ?? 0);
+	if (provider === 'mercury') return Math.round(amount * 100);
+	return Math.round(amount * -100);
+}
+
 async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
-	const { defaultAccountId = null } = options;
+	const { defaultAccountId = null, accountMap = new Map() } = options;
 	const rows = transactions
 		.map((transaction) => {
-			const amount = Number(transaction.amount ?? transaction.amount_cents ?? 0);
-			const cents = Number.isInteger(transaction.amount_cents)
-				? transaction.amount_cents
-				: Math.round(amount * -100);
+			const externalAccountId = providerExternalAccountId(transaction);
+			const accountId = accountMap.get(externalAccountId) || defaultAccountId || null;
 			return {
 				group_id: auth.group.id,
 				connection_id: connection.id,
@@ -1943,15 +1969,18 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 				transaction_date: dateOnly(
 					transaction.date || transaction.posted_at || transaction.created
 				),
-				account_id: cleanText(transaction.account_id || defaultAccountId) || null,
+				account_id: accountId,
 				description: cleanText(
 					transaction.name || transaction.description || transaction.memo || 'Imported activity',
 					200
 				),
-				amount_cents: cents,
+				amount_cents: feedItemAmountCents(provider, transaction),
 				currency: normalizeCurrency(transaction.iso_currency_code || transaction.currency || 'usd'),
 				status: 'needs_review',
-				raw: transaction.raw ?? transaction
+				raw: {
+					...(transaction.raw ?? transaction),
+					external_account_id: externalAccountId || null
+				}
 			};
 		})
 		.filter((row) => row.source_transaction_id);
@@ -1965,6 +1994,47 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 		if (error) throw new Error(error.message);
 	}
 	return rows.length;
+}
+
+export async function updateProviderAccountMapping(auth, formData) {
+	const providerAccountId = cleanText(formData.get('providerAccountId'));
+	const accountId = cleanText(formData.get('accountId'));
+	const { accounts } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
+	const selectedAccount = accounts.find(
+		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
+	);
+	if (accountId && !selectedAccount) throw new Error('Choose a cash account.');
+	const { data: providerAccount, error: loadError } = await auth.serviceSupabase
+		.from('group_accounting_provider_accounts')
+		.select('id, provider, external_account_id')
+		.eq('group_id', auth.group.id)
+		.eq('id', providerAccountId)
+		.maybeSingle();
+	if (loadError) throw new Error(loadError.message);
+	if (!providerAccount) throw new Error('Bank feed account not found.');
+	const { error } = await auth.serviceSupabase
+		.from('group_accounting_provider_accounts')
+		.update({ account_id: accountId || null })
+		.eq('group_id', auth.group.id)
+		.eq('id', providerAccountId);
+	if (error) throw new Error(error.message);
+	if (accountId) {
+		const rawAccountKeys = ['external_account_id', 'account_id', 'accountId'];
+		for (const rawKey of rawAccountKeys) {
+			const { error: feedUpdateError } = await auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.update({ account_id: accountId })
+				.eq('group_id', auth.group.id)
+				.eq('provider', providerAccount.provider)
+				.is('account_id', null)
+				.contains('raw', { [rawKey]: providerAccount.external_account_id });
+			if (feedUpdateError) throw new Error(feedUpdateError.message);
+		}
+	}
 }
 
 async function getGroupConnectedStripeAccount(auth) {
@@ -2158,16 +2228,26 @@ export async function syncMercuryTransactions(auth, options = {}) {
 	});
 	const accounts = accountsPayload.accounts ?? [];
 	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
+	const accountMap = await loadProviderAccountMap(auth, 'mercury');
 	let insertedCount = 0;
 	for (const account of accounts) {
-		const accountId = account.id || account.number;
+		const accountId = providerExternalAccountId(account);
 		if (!accountId) continue;
 		const txPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
 			method: 'GET',
-			path: '/api/v1/transactions',
-			query: { accountId, limit: 1000, order: 'desc' }
+			path: `/api/v1/account/${encodeURIComponent(accountId)}/transactions`,
+			query: { limit: 1000, order: 'desc' }
 		});
-		insertedCount += await upsertFeedItems(auth, resolved, 'mercury', txPayload.transactions ?? []);
+		insertedCount += await upsertFeedItems(
+			auth,
+			resolved,
+			'mercury',
+			(txPayload.transactions ?? []).map((transaction) => ({
+				...transaction,
+				account_id: providerExternalAccountId(transaction) || accountId
+			})),
+			{ accountMap }
+		);
 	}
 	await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
