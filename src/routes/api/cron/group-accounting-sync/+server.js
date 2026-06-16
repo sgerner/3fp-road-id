@@ -3,7 +3,6 @@ import { getCronSecretVerifier } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import {
 	autoMatchFeedItems,
-	syncMercuryTransactions,
 	syncStripeFinancialConnectionsTransactions,
 	syncStripeTransactions
 } from '$lib/server/groupAccounting';
@@ -35,7 +34,6 @@ async function syncGroup(serviceSupabase, group) {
 
 	for (const task of [
 		['stripe_financial_connections', syncStripeFinancialConnectionsTransactions],
-		['mercury', syncMercuryTransactions],
 		['stripe', syncStripeTransactions]
 	]) {
 		const [key, fn] = task;

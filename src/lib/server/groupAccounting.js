@@ -2281,11 +2281,10 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		.select('mercury_api_key_ciphertext')
 		.eq('group_id', auth.group.id)
 		.maybeSingle();
-	const apiKey = decryptSocialToken(
-		connection?.access_token_ciphertext || settings?.mercury_api_key_ciphertext
-	);
-	const resolvedApiKey = apiKey || env.MERCURY_API_TOKEN;
-	if (!resolvedApiKey) throw new Error('Mercury API key is not configured.');
+	const resolvedApiKey = decryptSocialToken(settings?.mercury_api_key_ciphertext);
+	if (!resolvedApiKey) {
+		throw new Error('Mercury API key is not configured for this group.');
+	}
 	let resolved = connection;
 	if (!resolved?.id) {
 		const { data: inserted, error } = await auth.serviceSupabase
