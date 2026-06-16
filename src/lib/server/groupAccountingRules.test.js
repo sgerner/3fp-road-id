@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+	buildFeedItemsWithMatchCandidates,
 	centsFromAmount,
 	centsFromAmountAndDirection,
 	centsFromSignedAmount,
@@ -65,5 +66,99 @@ test('uniquePublicReportSlug increments existing group report slugs', async () =
 	assert.equal(
 		await uniquePublicReportSlug(supabase, 'group_1', 'Monthly Report'),
 		'monthly-report-3'
+	);
+});
+
+test('bank feed match candidates rank exact amount matches and exclude already matched entries', () => {
+	const [item] = buildFeedItemsWithMatchCandidates(
+		[
+			{
+				id: 'feed_1',
+				transaction_date: '2026-06-10',
+				description: 'Coffee ride deposit',
+				amount_cents: 2500,
+				account_id: 'cash_1'
+			}
+		],
+		[
+			{
+				id: 'entry_far',
+				status: 'posted',
+				entry_date: '2026-06-01',
+				description: 'Coffee ride deposit',
+				amount_cents: 2500,
+				lines: [{ account_id: 'cash_1' }]
+			},
+			{
+				id: 'entry_best',
+				status: 'posted',
+				entry_date: '2026-06-10',
+				description: 'Coffee ride deposit',
+				amount_cents: 2500,
+				lines: [{ account_id: 'cash_1' }]
+			},
+			{
+				id: 'entry_wrong_amount',
+				status: 'posted',
+				entry_date: '2026-06-10',
+				description: 'Coffee ride deposit',
+				amount_cents: 2600,
+				lines: [{ account_id: 'cash_1' }]
+			},
+			{
+				id: 'entry_already_used',
+				status: 'posted',
+				entry_date: '2026-06-10',
+				description: 'Coffee ride deposit',
+				amount_cents: 2500,
+				lines: [{ account_id: 'cash_1' }]
+			}
+		],
+		['entry_already_used']
+	);
+
+	assert.equal(item.match_candidates[0].id, 'entry_best');
+	assert.deepEqual(
+		item.match_candidates.map((candidate) => candidate.id),
+		['entry_best', 'entry_far']
+	);
+});
+
+test('bank feed match candidates keep the current matched entry selectable', () => {
+	const [item] = buildFeedItemsWithMatchCandidates(
+		[
+			{
+				id: 'feed_1',
+				transaction_date: '2026-06-10',
+				description: 'Permit fee',
+				amount_cents: -4200,
+				account_id: 'cash_1',
+				matched_entry_id: 'entry_current'
+			}
+		],
+		[
+			{
+				id: 'entry_current',
+				status: 'posted',
+				entry_date: '2026-06-12',
+				description: 'Permit fee',
+				amount_cents: 4200,
+				lines: [{ account_id: 'cash_1' }]
+			},
+			{
+				id: 'entry_used_elsewhere',
+				status: 'posted',
+				entry_date: '2026-06-10',
+				description: 'Permit fee',
+				amount_cents: 4200,
+				lines: [{ account_id: 'cash_1' }]
+			}
+		],
+		['entry_current', 'entry_used_elsewhere']
+	);
+
+	assert.deepEqual(
+		item.match_candidates.map((candidate) => candidate.id),
+		['entry_current']
 	);
 });

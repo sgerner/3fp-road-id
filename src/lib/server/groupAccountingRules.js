@@ -95,3 +95,70 @@ export async function uniquePublicReportSlug(supabase, groupId, baseValue) {
 	}
 	return `${base}-${randomUUID().slice(0, 8)}`;
 }
+
+export function dateDeltaDays(left, right) {
+	const leftTime = new Date(`${String(left).slice(0, 10)}T12:00:00Z`).getTime();
+	const rightTime = new Date(`${String(right).slice(0, 10)}T12:00:00Z`).getTime();
+	if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return Number.POSITIVE_INFINITY;
+	return Math.abs(leftTime - rightTime) / (24 * 60 * 60 * 1000);
+}
+
+export function normalizedMatchText(value) {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, ' ')
+		.trim();
+}
+
+export function entryUsesAccount(entry, accountId) {
+	if (!accountId) return false;
+	return (entry.lines ?? []).some((line) => line.account_id === accountId);
+}
+
+export function buildFeedItemsWithMatchCandidates(feedItems, entries, matchedEntryIds = []) {
+	const usedEntryIds = new Set(matchedEntryIds.filter(Boolean));
+	return feedItems.map((item) => {
+		const itemAmount = Math.abs(Number(item.amount_cents || 0));
+		const itemText = normalizedMatchText(item.description);
+		const candidates = entries
+			.filter((entry) => {
+				if (usedEntryIds.has(entry.id) && entry.id !== item.matched_entry_id) return false;
+				if (entry.status !== 'posted') return false;
+				return Math.abs(Number(entry.amount_cents || 0)) === itemAmount;
+			})
+			.map((entry) => {
+				const days = dateDeltaDays(entry.entry_date, item.transaction_date);
+				const sameAccount = entryUsesAccount(entry, item.account_id);
+				const entryText = normalizedMatchText(entry.description);
+				const textOverlap =
+					itemText && entryText && (itemText.includes(entryText) || entryText.includes(itemText));
+				const score =
+					(days === 0 ? 0.45 : days <= 3 ? 0.3 : days <= 7 ? 0.15 : 0) +
+					(sameAccount ? 0.35 : 0) +
+					(textOverlap ? 0.2 : 0);
+				return {
+					id: entry.id,
+					entry_date: entry.entry_date,
+					description: entry.description,
+					amount_cents: entry.amount_cents,
+					source: entry.source,
+					score,
+					reason: [
+						days === 0 ? 'same date' : days <= 7 ? `within ${Math.round(days)} days` : '',
+						sameAccount ? 'same account' : '',
+						textOverlap ? 'similar description' : ''
+					]
+						.filter(Boolean)
+						.join(', ')
+				};
+			})
+			.filter((candidate) => candidate.id === item.matched_entry_id || candidate.score > 0)
+			.sort((left, right) => {
+				if (left.id === item.matched_entry_id) return -1;
+				if (right.id === item.matched_entry_id) return 1;
+				return right.score - left.score;
+			})
+			.slice(0, 5);
+		return { ...item, match_candidates: candidates };
+	});
+}
