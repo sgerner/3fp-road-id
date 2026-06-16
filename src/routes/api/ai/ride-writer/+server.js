@@ -5,7 +5,7 @@ import {
 	requireAiModel
 } from '$lib/server/ai/models';
 
-export const config = { runtime: 'nodejs20.x', maxDuration: 60 };
+export const config = { maxDuration: 60 };
 
 let schemaUnsupported = false;
 
