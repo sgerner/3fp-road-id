@@ -3072,9 +3072,9 @@
 								<IconLandmark class="h-4 w-4" />
 								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
 							</button>
-							<p class="text-xs font-medium leading-snug opacity-60">
+							<p class="text-surface-700-300 text-xs font-medium leading-snug">
 								Each linked bank costs $0.30 per month to import transactions, deducted from the group's
-								Stripe balance.
+								Stripe balance. Mercury bank accounts are always free.
 							</p>
 							{#if financialConnectionsMessage}
 								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
