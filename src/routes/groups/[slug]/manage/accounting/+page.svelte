@@ -3047,37 +3047,35 @@
 									</div>
 								{/if}
 
-							{#if stripeConnected}
-								<button
-									class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
-									type="button"
-									disabled={financialConnectionsBusy}
-									onclick={connectFinancialAccounts}
-								>
-									<IconLandmark class="h-4 w-4" />
-									<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span>
-								</button>
-							{:else}
+							{#if !stripeConnected}
 								<div class="rounded-xl border border-warning-500/20 bg-warning-500/10 p-3">
-									<div class="flex items-start gap-3">
-										<IconCreditCard class="text-warning-500 mt-0.5 h-4 w-4 shrink-0" />
-										<div class="min-w-0 space-y-1">
-											<p class="text-sm font-semibold">Connect Stripe to link bank accounts</p>
-											<p class="text-surface-700-300 text-xs leading-relaxed">
-												Link this group to Stripe first. Stripe Financial Connections costs $0.30 per linked
-												bank each month.
-											</p>
-										</div>
+									<div class="flex items-center justify-between gap-3">
+										<p class="min-w-0 truncate text-sm font-semibold leading-tight">
+											Connect Stripe to link bank accounts
+										</p>
+										<a
+											class="btn btn-sm preset-filled-primary-500 shrink-0 whitespace-nowrap font-bold"
+											href={stripeConnectUrl}
+										>
+											<IconCreditCard class="h-4 w-4" />
+											<span>Connect Stripe</span>
+										</a>
 									</div>
-									<a
-										class="btn btn-sm preset-filled-primary-500 mt-3 w-full font-bold"
-										href={stripeConnectUrl}
-									>
-										<IconCreditCard class="h-4 w-4" />
-										<span>Connect Stripe</span>
-									</a>
 								</div>
 							{/if}
+							<button
+								class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+								type="button"
+								disabled={!stripeConnected || financialConnectionsBusy}
+								onclick={connectFinancialAccounts}
+							>
+								<IconLandmark class="h-4 w-4" />
+								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
+							</button>
+							<p class="text-xs font-medium leading-snug opacity-60">
+								Each linked bank costs $0.30 per month to import transactions, deducted from the group's
+								Stripe balance.
+							</p>
 							{#if financialConnectionsMessage}
 								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
 									{financialConnectionsMessage}
