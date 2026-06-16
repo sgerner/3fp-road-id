@@ -38,6 +38,10 @@ Existing required app variables still apply:
 - `STRIPE_CONNECT_STATE_SECRET` or `STRIPE_SECRET_KEY`
 - `SOCIAL_TOKEN_ENCRYPTION_KEY`
 - `CRON_SECRET` or `CRON_AUTH_TOKEN` or `VERCEL_CRON_SECRET`
+- `MERCURY_RELAY_URL`
+- `MERCURY_RELAY_SHARED_SECRET`
+- `MERCURY_RELAY_ENCRYPTION_KEY_B64`
+- `MERCURY_API_TOKEN` if the group has not saved a Mercury key in accounting settings
 
 `SOCIAL_TOKEN_ENCRYPTION_KEY` is used for encrypted Mercury/Financial Connections metadata compatibility and must resolve to 32 bytes. The existing social token helper accepts a 64-character hex key, a base64 32-byte key, or hashes an arbitrary secret into a 32-byte key.
 
@@ -59,6 +63,8 @@ The group must already have a Stripe connected account through the existing dona
 ## Mercury
 
 Each group can store its own Mercury API key from the accounting settings panel. The key is encrypted before storage.
+Mercury sync requests are sent through the Mercury relay configured by `MERCURY_RELAY_URL`; the app signs relay requests with `MERCURY_RELAY_SHARED_SECRET` and encrypts the per-group Mercury key with `MERCURY_RELAY_ENCRYPTION_KEY_B64`.
+If no per-group Mercury key is saved, sync falls back to `MERCURY_API_TOKEN`.
 
 Sync imports:
 

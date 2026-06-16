@@ -1,6 +1,7 @@
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { fail } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -387,6 +388,53 @@ async function fetchJson(url, options = {}) {
 	return payload;
 }
 
+function encryptMercuryRelayKey(apiKey) {
+	const key = Buffer.from(env.MERCURY_RELAY_ENCRYPTION_KEY_B64 || '', 'base64');
+	if (key.length !== 32) {
+		throw new Error('MERCURY_RELAY_ENCRYPTION_KEY_B64 must be a base64 encoded 32-byte key.');
+	}
+	const iv = randomBytes(16);
+	const cipher = createCipheriv('aes-256-gcm', key, iv);
+	let encrypted = cipher.update(apiKey, 'utf8', 'base64');
+	encrypted += cipher.final('base64');
+	return Buffer.from(
+		JSON.stringify({
+			iv: iv.toString('base64'),
+			authTag: cipher.getAuthTag().toString('base64'),
+			data: encrypted
+		})
+	).toString('base64');
+}
+
+async function mercuryRelayRequest(auth, connection, apiKey, mercury) {
+	const relayUrl = cleanText(env.MERCURY_RELAY_URL, 500);
+	const sharedSecret = env.MERCURY_RELAY_SHARED_SECRET;
+	if (!relayUrl) throw new Error('MERCURY_RELAY_URL is not configured.');
+	if (!sharedSecret) throw new Error('MERCURY_RELAY_SHARED_SECRET is not configured.');
+
+	const url = new URL(relayUrl);
+	const timestamp = String(Date.now());
+	const nonce = randomBytes(16).toString('hex');
+	const body = JSON.stringify({
+		company_id: auth.group.id,
+		connection_id: connection?.id ?? null,
+		encrypted_key: encryptMercuryRelayKey(apiKey),
+		mercury
+	});
+	const signaturePayload = `${timestamp}.${nonce}.POST.${url.pathname}.${body}`;
+	const signature = createHmac('sha256', sharedSecret).update(signaturePayload).digest('hex');
+
+	return fetchJson(url.toString(), {
+		method: 'POST',
+		headers: {
+			'x-relay-timestamp': timestamp,
+			'x-relay-nonce': nonce,
+			'x-relay-signature': signature
+		},
+		body
+	});
+}
+
 function classifyReceipt(fileName = '', mimeType = '') {
 	const name = fileName.toLowerCase();
 	const classification = {
@@ -484,16 +532,14 @@ export async function requireGroupAccountingManager(cookies, groupSlug) {
 }
 
 export async function ensureGroupAccountingSetup(supabase, group, userId = null) {
-	const { error: settingsError } = await supabase
-		.from('group_accounting_settings')
-		.upsert(
-			{
-				group_id: group.id,
-				enabled: true,
-				currency: 'usd'
-			},
-			{ onConflict: 'group_id', ignoreDuplicates: true }
-		);
+	const { error: settingsError } = await supabase.from('group_accounting_settings').upsert(
+		{
+			group_id: group.id,
+			enabled: true,
+			currency: 'usd'
+		},
+		{ onConflict: 'group_id', ignoreDuplicates: true }
+	);
 	if (settingsError) throw new Error(settingsError.message);
 
 	const { data: settings, error: settingsLoadError } = await supabase
@@ -932,7 +978,11 @@ export async function addManualFeedItem(auth, formData) {
 }
 
 export async function importBankCsv(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(auth.serviceSupabase, auth.group, auth.userId);
+	const { accounts } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
 	const accountId = cleanText(formData.get('accountId'));
 	const selectedAccount = accounts.find(
 		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
@@ -974,8 +1024,7 @@ export async function importBankCsv(auth, formData) {
 			if (amountIndex >= 0) {
 				amount = centsFromAmountAndDirection(row[amountIndex], row[signIndex]);
 			} else {
-				amount =
-					(centsFromAmount(row[creditIndex]) || 0) - (centsFromAmount(row[debitIndex]) || 0);
+				amount = (centsFromAmount(row[creditIndex]) || 0) - (centsFromAmount(row[debitIndex]) || 0);
 			}
 			const description = cleanText(row[descriptionIndex], 200);
 			const date = cleanText(row[dateIndex]);
@@ -1354,7 +1403,8 @@ export async function loadAccountingDashboard(auth, url) {
 		.select('id', { count: 'exact', head: true })
 		.eq('group_id', auth.group.id)
 		.eq('status', 'needs_review');
-	const bankReviewTotalPages = bankReviewTotal > 0 ? Math.ceil(bankReviewTotal / bankReviewPageSize) : 0;
+	const bankReviewTotalPages =
+		bankReviewTotal > 0 ? Math.ceil(bankReviewTotal / bankReviewPageSize) : 0;
 	const bankReviewPage = bankReviewTotalPages
 		? Math.min(requestedBankReviewPage, bankReviewTotalPages)
 		: 1;
@@ -1467,8 +1517,8 @@ export async function loadAccountingDashboard(auth, url) {
 		report_to: reportWindow.to,
 		report_filter_active: Boolean(
 			url?.searchParams?.get('period') ||
-				url?.searchParams?.get('from') ||
-				url?.searchParams?.get('to')
+			url?.searchParams?.get('from') ||
+			url?.searchParams?.get('to')
 		)
 	};
 }
@@ -1596,7 +1646,11 @@ export async function updateEntryByReplacement(auth, formData) {
 }
 
 export async function updateTransaction(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(auth.serviceSupabase, auth.group, auth.userId);
+	const { accounts } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
 	const accountsById = new Map((accounts ?? []).map((account) => [account.id, account]));
 	const entryId = cleanText(formData.get('entryId'));
 	const entryDate = dateOnly(formData.get('entryDate'));
@@ -1642,7 +1696,10 @@ export async function updateTransaction(auth, formData) {
 	if (linesError) throw new Error(linesError.message);
 	const linesById = new Map((lines ?? []).map((line) => [line.id, line]));
 	const selectedLineIds = new Set(lineAccounts.map((line) => line.lineId));
-	if (lineAccounts.length && (lineAccounts.length !== linesById.size || selectedLineIds.size !== linesById.size)) {
+	if (
+		lineAccounts.length &&
+		(lineAccounts.length !== linesById.size || selectedLineIds.size !== linesById.size)
+	) {
 		throw new Error('Transaction account data is incomplete.');
 	}
 	const lineAccountUpdates = [];
@@ -2074,7 +2131,8 @@ export async function syncMercuryTransactions(auth, options = {}) {
 	const apiKey = decryptSocialToken(
 		connection?.access_token_ciphertext || settings?.mercury_api_key_ciphertext
 	);
-	if (!apiKey) throw new Error('Mercury API key is not configured.');
+	const resolvedApiKey = apiKey || env.MERCURY_API_TOKEN;
+	if (!resolvedApiKey) throw new Error('Mercury API key is not configured.');
 	let resolved = connection;
 	if (!resolved?.id) {
 		const { data: inserted, error } = await auth.serviceSupabase
@@ -2085,7 +2143,7 @@ export async function syncMercuryTransactions(auth, options = {}) {
 					provider: 'mercury',
 					display_name: 'Mercury',
 					status: 'connected',
-					access_token_ciphertext: encryptSocialToken(apiKey)
+					access_token_ciphertext: encryptSocialToken(resolvedApiKey)
 				},
 				{ onConflict: 'group_id,provider' }
 			)
@@ -2094,8 +2152,9 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		if (error) throw new Error(error.message);
 		resolved = inserted;
 	}
-	const accountsPayload = await fetchJson('https://api.mercury.com/api/v1/accounts', {
-		headers: { authorization: `Bearer ${apiKey}` }
+	const accountsPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
+		method: 'GET',
+		path: '/api/v1/accounts'
 	});
 	const accounts = accountsPayload.accounts ?? [];
 	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
@@ -2103,10 +2162,11 @@ export async function syncMercuryTransactions(auth, options = {}) {
 	for (const account of accounts) {
 		const accountId = account.id || account.number;
 		if (!accountId) continue;
-		const txPayload = await fetchJson(
-			`https://api.mercury.com/api/v1/account/${encodeURIComponent(accountId)}/transactions`,
-			{ headers: { authorization: `Bearer ${apiKey}` } }
-		);
+		const txPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
+			method: 'GET',
+			path: '/api/v1/transactions',
+			query: { accountId, limit: 1000, order: 'desc' }
+		});
 		insertedCount += await upsertFeedItems(auth, resolved, 'mercury', txPayload.transactions ?? []);
 	}
 	await auth.serviceSupabase
@@ -2285,7 +2345,9 @@ export async function buildAccountingReportCsv(auth, options = {}) {
 			csvEscape(report.to)
 		].join(',')
 	);
-	rows.push(['section', 'kind', 'code', 'name', 'display_group', 'period_cents', 'balance_cents'].join(','));
+	rows.push(
+		['section', 'kind', 'code', 'name', 'display_group', 'period_cents', 'balance_cents'].join(',')
+	);
 
 	const pushAccountRows = (section, accounts, usePeriodBalance = false) => {
 		for (const account of accounts) {
@@ -2296,7 +2358,9 @@ export async function buildAccountingReportCsv(auth, options = {}) {
 					csvEscape(account.code),
 					csvEscape(account.name),
 					csvEscape(account.display_group),
-					usePeriodBalance ? Number(account.period_balance_cents || 0) : Number(account.balance_cents || 0),
+					usePeriodBalance
+						? Number(account.period_balance_cents || 0)
+						: Number(account.balance_cents || 0),
 					Number(account.balance_cents || 0)
 				].join(',')
 			);
