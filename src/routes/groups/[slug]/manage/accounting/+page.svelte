@@ -26,6 +26,7 @@
 	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
@@ -63,6 +64,20 @@
 	const recentEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const feedItems = $derived(Array.isArray(data.feed_items) ? data.feed_items : []);
 	const needsReview = $derived(feedItems.filter((item) => item.status === 'needs_review'));
+	const bankReviewTotal = $derived(Number(data.bank_review_total ?? needsReview.length));
+	const bankReviewPage = $derived(Number(data.bank_review_page ?? 1));
+	const bankReviewPageSize = $derived(Number(data.bank_review_page_size ?? 50));
+	const bankReviewTotalPages = $derived(Number(data.bank_review_total_pages ?? 0));
+	const bankReviewRangeStart = $derived(
+		bankReviewTotal > 0 ? (bankReviewPage - 1) * bankReviewPageSize + 1 : 0
+	);
+	const bankReviewRangeEnd = $derived(
+		bankReviewTotal > 0
+			? Math.min(bankReviewRangeStart + needsReview.length - 1, bankReviewTotal)
+			: 0
+	);
+	const bankReviewHasPrev = $derived(bankReviewPage > 1);
+	const bankReviewHasNext = $derived(bankReviewPage < bankReviewTotalPages);
 	const matchedItems = $derived(feedItems.filter((item) => item.status === 'matched'));
 	const providerAccounts = $derived(
 		Array.isArray(data.provider_accounts) ? data.provider_accounts : []
@@ -77,6 +92,7 @@
 	let reviewSelections = $state({});
 	let activeReviewCategoryItemId = $state('');
 	let postingFeedItemIds = $state({});
+	let syncedTabUrl = $state('');
 	let syncAllBusy = $state(false);
 	let mercuryEditMode = $state(false);
 	let transactionSearch = $state('');
@@ -184,6 +200,45 @@
 		{ id: 'advanced', label: 'Advanced', icon: IconBookOpen },
 		{ id: 'settings', label: 'Settings', icon: IconCog }
 	];
+	const tabIds = new Set(tabs.map((tab) => tab.id));
+
+	function setActiveTab(tabId, { replaceState = false } = {}) {
+		if (!tabIds.has(tabId)) return;
+		activeTab = tabId;
+		const url = new URL(page.url);
+		if (tabId === 'overview') {
+			url.searchParams.delete('tab');
+		} else {
+			url.searchParams.set('tab', tabId);
+		}
+		goto(`${url.pathname}${url.search}`, {
+			replaceState,
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
+	function setBankReviewPage(pageNumber) {
+		const nextPage = Math.max(1, Number.parseInt(String(pageNumber), 10) || 1);
+		const url = new URL(page.url);
+		if (nextPage === 1) {
+			url.searchParams.delete('bankReviewPage');
+		} else {
+			url.searchParams.set('bankReviewPage', String(nextPage));
+		}
+		goto(`${url.pathname}${url.search}`, {
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
+	$effect(() => {
+		const href = page.url.href;
+		if (href === syncedTabUrl) return;
+		syncedTabUrl = href;
+		const tab = page.url.searchParams.get('tab');
+		activeTab = tab && tabIds.has(tab) ? tab : data.report_filter_active ? 'reports' : 'overview';
+	});
 
 	function formatCents(cents) {
 		const amount = Number(cents || 0) / 100;
@@ -424,14 +479,22 @@
 
 	function getReviewSelection(item) {
 		const state = reviewSelections[item.id] ?? {};
-		const accountId = state.accountId || item.account_id || bankFeedAccounts[0]?.account_id || '';
+		const hasAccountId = Object.hasOwn(state, 'accountId');
+		const hasCategoryAccountId = Object.hasOwn(state, 'categoryAccountId');
+		const hasCategoryQuery = Object.hasOwn(state, 'categoryQuery');
+		const accountId = hasAccountId
+			? state.accountId
+			: item.account_id || bankFeedAccounts[0]?.account_id || '';
 		const fallbackCategory =
 			item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id;
 		const categoryAccountId =
-			state.categoryAccountId || item.suggested_account_id || fallbackCategory || '';
+			hasCategoryAccountId ? state.categoryAccountId : item.suggested_account_id || fallbackCategory || '';
 		const categoryAccount = accounts.find((account) => account.id === categoryAccountId);
-		const categoryQuery =
-			state.categoryQuery || (categoryAccount ? accountLabel(categoryAccount) : '');
+		const categoryQuery = hasCategoryQuery
+			? state.categoryQuery
+			: categoryAccount
+				? accountLabel(categoryAccount)
+				: '';
 		return {
 			accountId,
 			categoryAccountId,
@@ -686,25 +749,27 @@
 	});
 
 	$effect(() => {
-		if (!Object.keys(reviewSelections).length && bankFeedAccounts.length) {
-			reviewSelections = Object.fromEntries(
-				needsReview.map((item) => {
-					const categoryAccount = accounts.find(
-						(account) => account.id === item.suggested_account_id
-					);
-					return [
-						item.id,
-						{
-							accountId: bankFeedAccounts[0]?.account_id || '',
-							categoryAccountId:
-								item.suggested_account_id ||
-								(item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id) ||
-								'',
-							categoryQuery: categoryAccount ? accountLabel(categoryAccount) : ''
-						}
-					];
-				})
-			);
+		if (!bankFeedAccounts.length || !needsReview.length) return;
+		let nextSelections = reviewSelections;
+		let didChange = false;
+		for (const item of needsReview) {
+			if (Object.hasOwn(nextSelections, item.id)) continue;
+			const categoryAccount = accounts.find((account) => account.id === item.suggested_account_id);
+			nextSelections = {
+				...nextSelections,
+				[item.id]: {
+					accountId: bankFeedAccounts[0]?.account_id || '',
+					categoryAccountId:
+						item.suggested_account_id ||
+						(item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id) ||
+						'',
+					categoryQuery: categoryAccount ? accountLabel(categoryAccount) : ''
+				}
+			};
+			didChange = true;
+		}
+		if (didChange) {
+			reviewSelections = nextSelections;
 		}
 	});
 
@@ -725,7 +790,7 @@
 		reportPeriodKey = data.report_period_key ?? 'this_year';
 		reportFrom = data.report_from ?? '';
 		reportTo = data.report_to ?? '';
-		if (data.report_filter_active) activeTab = 'reports';
+		if (data.report_filter_active) setActiveTab('reports', { replaceState: true });
 	});
 
 	function reportExportHref(format, type) {
@@ -1028,7 +1093,7 @@
 			url.searchParams.delete('to');
 		}
 		activeTab = 'reports';
-		await goto(url.toString(), { keepfocus: true, noScroll: true, replaceState: true });
+		await goto(url.toString(), { keepFocus: true, noScroll: true, replaceState: true });
 	}
 
 	function updateAccountGroupZone(kind, displayGroup, items) {
@@ -1228,7 +1293,7 @@
 				tab.id
 					? 'preset-filled-primary-500 shadow-sm'
 					: 'text-surface-700-300 hover:bg-surface-500/10'}"
-				onclick={() => (activeTab = tab.id)}
+				onclick={() => setActiveTab(tab.id)}
 			>
 				<Icon class="h-4 w-4" />
 				<span>{tab.label}</span>
@@ -1321,7 +1386,7 @@
 						<button
 							class="btn btn-sm preset-filled-warning-500 flex w-full items-center justify-center gap-2 font-bold"
 							type="button"
-							onclick={() => (activeTab = 'banking')}
+							onclick={() => setActiveTab('banking')}
 						>
 							<IconListChecks class="h-4 w-4" />
 							<span>Review Transactions</span>
@@ -1390,7 +1455,7 @@
 								<button
 									class="btn btn-xs preset-filled-primary-500 mt-3"
 									type="button"
-									onclick={() => (activeTab = 'enter')}
+									onclick={() => setActiveTab('enter')}
 								>
 									Add Balance or Entry
 								</button>
@@ -2785,11 +2850,11 @@
 				<div class="flex items-center gap-3">
 					<h2 class="text-2xl font-bold tracking-tight">Bank Review</h2>
 					<span
-						class="badge {needsReview.length > 0
+						class="badge {bankReviewTotal > 0
 							? 'preset-filled-warning-500'
 							: 'preset-tonal-success'} font-bold"
 					>
-						{needsReview.length}
+						{bankReviewTotal}
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
@@ -2812,6 +2877,37 @@
 					</form>
 				</div>
 			</div>
+
+			{#if bankReviewTotalPages > 1}
+				<div
+					class="border-surface-500/10 bg-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+				>
+					<p class="text-sm font-semibold">
+						Showing {bankReviewRangeStart}-{bankReviewRangeEnd} of {bankReviewTotal}
+					</p>
+					<div class="flex items-center gap-2">
+						<button
+							class="btn btn-sm preset-tonal-surface font-semibold"
+							type="button"
+							disabled={!bankReviewHasPrev}
+							onclick={() => setBankReviewPage(bankReviewPage - 1)}
+						>
+							Previous
+						</button>
+						<span class="text-surface-500 text-xs font-semibold uppercase tracking-wider">
+							Page {bankReviewPage} of {bankReviewTotalPages}
+						</span>
+						<button
+							class="btn btn-sm preset-tonal-surface font-semibold"
+							type="button"
+							disabled={!bankReviewHasNext}
+							onclick={() => setBankReviewPage(bankReviewPage + 1)}
+						>
+							Next
+						</button>
+					</div>
+				</div>
+			{/if}
 
 			<!-- Settings Panel -->
 			{#if showBankConfig}
@@ -2958,7 +3054,7 @@
 			<!-- Transaction Review -->
 			{#if bankReviewGroups.length > 0}
 				<div class="space-y-3">
-					{#each bankReviewGroups as group}
+					{#each bankReviewGroups as group (group.accountId)}
 						<div
 							class="card preset-tonal-surface transition-opacity duration-150 {group.items.some(
 								(item) => isPostingFeedItem(item.id)
@@ -3001,7 +3097,7 @@
 
 							<!-- Transactions -->
 							<div class="divide-surface-500/10 divide-y">
-								{#each group.items as item}
+								{#each group.items as item (item.id)}
 									{@const selection = getReviewSelection(item)}
 									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
 									<form

@@ -1322,10 +1322,26 @@ export async function loadAccountingDashboard(auth, url) {
 	);
 	const reportWindow = resolveAccountingReportWindow(url);
 	const year = Number(url?.searchParams?.get('year') || currentYear());
+	const bankReviewPageSize = 50;
+	const requestedBankReviewPage = Math.max(
+		1,
+		Number.parseInt(url?.searchParams?.get('bankReviewPage') || '1', 10) || 1
+	);
 	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, {
 		from: reportWindow.from,
 		to: reportWindow.to
 	});
+
+	const { count: bankReviewTotal = 0 } = await auth.serviceSupabase
+		.from('group_accounting_bank_feed_items')
+		.select('id', { count: 'exact', head: true })
+		.eq('group_id', auth.group.id)
+		.eq('status', 'needs_review');
+	const bankReviewTotalPages = bankReviewTotal > 0 ? Math.ceil(bankReviewTotal / bankReviewPageSize) : 0;
+	const bankReviewPage = bankReviewTotalPages
+		? Math.min(requestedBankReviewPage, bankReviewTotalPages)
+		: 1;
+	const bankReviewOffset = (bankReviewPage - 1) * bankReviewPageSize;
 
 	const [
 		{ data: entries },
@@ -1356,8 +1372,10 @@ export async function loadAccountingDashboard(auth, url) {
 			.from('group_accounting_bank_feed_items')
 			.select('*')
 			.eq('group_id', auth.group.id)
+			.eq('status', 'needs_review')
 			.order('transaction_date', { ascending: false })
-			.limit(50),
+			.order('created_at', { ascending: false })
+			.range(bankReviewOffset, bankReviewOffset + bankReviewPageSize - 1),
 		auth.serviceSupabase
 			.from('group_accounting_bank_connections')
 			.select('*')
@@ -1415,6 +1433,10 @@ export async function loadAccountingDashboard(auth, url) {
 		entries: entries ?? [],
 		budgets: budgetRows,
 		feed_items: feedItems ?? [],
+		bank_review_page: bankReviewPage,
+		bank_review_page_size: bankReviewPageSize,
+		bank_review_total: bankReviewTotal,
+		bank_review_total_pages: bankReviewTotalPages,
 		connections: connections ?? [],
 		provider_accounts: providerAccounts ?? [],
 		receipts: receipts ?? [],
