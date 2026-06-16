@@ -20,15 +20,16 @@
 	import IconReceipt from '@lucide/svelte/icons/receipt';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconScale from '@lucide/svelte/icons/scale';
+	import IconSearch from '@lucide/svelte/icons/search';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
-import { enhance } from '$app/forms';
-import { goto, invalidateAll } from '$app/navigation';
-import { tick } from 'svelte';
-import { slide } from 'svelte/transition';
-import { loadStripe } from '@stripe/stripe-js';
-import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
+	import { enhance } from '$app/forms';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import { loadStripe } from '@stripe/stripe-js';
+	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 	let { data, form } = $props();
 	let activeTab = $state(data.report_filter_active ? 'reports' : 'overview');
@@ -136,11 +137,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	const mercuryConnected = $derived(
 		Boolean(
 			data.settings?.mercury_api_key_ciphertext ||
-				data.settings?.mercury_api_key_hint ||
-				data.settings?.mercury_connected_at
+			data.settings?.mercury_api_key_hint ||
+			data.settings?.mercury_connected_at
 		)
 	);
-	
+
 	let showBankConfig = $state(false);
 	$effect(() => {
 		if (!mercuryConnected && bankFeedAccounts.length === 0) {
@@ -150,7 +151,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const transactionAccountOptions = $derived(accounts.filter((account) => !account.is_archived));
 	const transactionSourceOptions = $derived(
-		[...new Set(transactionEntries.map((entry) => String(entry.source || entry.entry_type || 'manual')))].sort()
+		[
+			...new Set(
+				transactionEntries.map((entry) => String(entry.source || entry.entry_type || 'manual'))
+			)
+		].sort()
 	);
 	const transactionDefaultEntries = $derived(transactionEntries.slice(0, 20));
 	const transactionPeriodLabel = $derived(
@@ -261,7 +266,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	}
 
 	function transactionSearchAmount(query) {
-		const normalized = String(query || '').trim().replace(/[$,]/g, '');
+		const normalized = String(query || '')
+			.trim()
+			.replace(/[$,]/g, '');
 		if (!normalized) return null;
 		const parsed = Number(normalized);
 		if (!Number.isFinite(parsed)) return null;
@@ -270,13 +277,15 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 	function transactionTextIndex(entry) {
 		const lineText = (entry.lines ?? [])
-			.map((line) => `${line.account?.code || ''} ${line.account?.name || ''} ${line.description || ''}`)
+			.map(
+				(line) =>
+					`${line.account?.code || ''} ${line.account?.name || ''} ${line.description || ''}`
+			)
 			.join(' ');
 		const receiptText = (entry.receipts ?? []).map((receipt) => receipt.file_name).join(' ');
 		return `${entry.description || ''} ${entry.memo || ''} ${entry.entry_type || ''} ${entry.source || ''} ${lineText} ${receiptText} ${formatCents(
 			Math.abs(entry.amount_cents || 0)
-		)}`
-			.toLowerCase();
+		)}`.toLowerCase();
 	}
 
 	function transactionAccountMatches(entry, accountId) {
@@ -285,10 +294,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	}
 
 	function getTransactionAccountOptions(query = '') {
-		const normalized = String(query || '').trim().toLowerCase();
+		const normalized = String(query || '')
+			.trim()
+			.toLowerCase();
 		if (!normalized) return transactionAccountOptions;
 		return transactionAccountOptions.filter((account) => {
-			const haystack = `${account.code} ${account.name} ${account.display_group || ''}`.toLowerCase();
+			const haystack =
+				`${account.code} ${account.name} ${account.display_group || ''}`.toLowerCase();
 			return haystack.includes(normalized);
 		});
 	}
@@ -300,7 +312,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		if (!cashLines.length) {
 			return {
 				sign: '',
-				className: 'text-surface-500 dark:text-surface-400'
+				className: 'text-surface-700-300'
 			};
 		}
 		const sourceLine =
@@ -310,18 +322,18 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		if (!sourceLine) {
 			return {
 				sign: '',
-				className: 'text-surface-500 dark:text-surface-400'
+				className: 'text-surface-700-300'
 			};
 		}
 		if (Number(sourceLine.credit_cents || 0) > 0) {
 			return {
 				sign: '-',
-				className: 'text-warning-600 dark:text-warning-400'
+				className: 'text-warning-700-300'
 			};
 		}
 		return {
 			sign: '+',
-			className: 'text-success-600 dark:text-success-400'
+			className: 'text-success-700-300'
 		};
 	}
 
@@ -340,10 +352,15 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	}
 
 	function matchesTransaction(entry, query) {
-		const normalized = String(query || '').trim().toLowerCase();
+		const normalized = String(query || '')
+			.trim()
+			.toLowerCase();
 		if (!normalized) return true;
 		const amountMatch = transactionSearchAmount(normalized);
-		if (amountMatch !== null && Math.abs(Number(entry.amount_cents || 0)) === Math.abs(amountMatch)) {
+		if (
+			amountMatch !== null &&
+			Math.abs(Number(entry.amount_cents || 0)) === Math.abs(amountMatch)
+		) {
 			return true;
 		}
 		return transactionTextIndex(entry).includes(normalized);
@@ -362,7 +379,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				accounts
 			}));
 			return result;
-			}, {});
+		}, {});
 	}
 
 	function groupKey(kind, displayGroup) {
@@ -410,7 +427,8 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		const accountId = state.accountId || item.account_id || bankFeedAccounts[0]?.account_id || '';
 		const fallbackCategory =
 			item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id;
-		const categoryAccountId = state.categoryAccountId || item.suggested_account_id || fallbackCategory || '';
+		const categoryAccountId =
+			state.categoryAccountId || item.suggested_account_id || fallbackCategory || '';
 		const categoryAccount = accounts.find((account) => account.id === categoryAccountId);
 		const categoryQuery =
 			state.categoryQuery || (categoryAccount ? accountLabel(categoryAccount) : '');
@@ -437,8 +455,8 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return sourceAccounts;
 		return sourceAccounts.filter((account) => {
-			const haystack = `${account.code} ${account.name} ${account.display_group || ''}`
-				.toLowerCase();
+			const haystack =
+				`${account.code} ${account.name} ${account.display_group || ''}`.toLowerCase();
 			return haystack.includes(normalized);
 		});
 	}
@@ -514,7 +532,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	}
 
 	function getEditingTransactionLine(lineId) {
-		return (editingTransactionDraft.lineAccounts ?? []).find((line) => line.lineId === lineId) ?? null;
+		return (
+			(editingTransactionDraft.lineAccounts ?? []).find((line) => line.lineId === lineId) ?? null
+		);
 	}
 
 	function isSavingTransaction(entryId) {
@@ -563,9 +583,14 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			grouped.get(key).items.push(item);
 		}
 		return Array.from(grouped.values()).sort((left, right) => {
-			const leftIndex = bankFeedAccounts.findIndex((account) => account.account_id === left.accountId);
-			const rightIndex = bankFeedAccounts.findIndex((account) => account.account_id === right.accountId);
-			if (leftIndex === rightIndex) return String(left.accountId).localeCompare(String(right.accountId));
+			const leftIndex = bankFeedAccounts.findIndex(
+				(account) => account.account_id === left.accountId
+			);
+			const rightIndex = bankFeedAccounts.findIndex(
+				(account) => account.account_id === right.accountId
+			);
+			if (leftIndex === rightIndex)
+				return String(left.accountId).localeCompare(String(right.accountId));
 			if (leftIndex === -1) return 1;
 			if (rightIndex === -1) return -1;
 			return leftIndex - rightIndex;
@@ -664,7 +689,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		if (!Object.keys(reviewSelections).length && bankFeedAccounts.length) {
 			reviewSelections = Object.fromEntries(
 				needsReview.map((item) => {
-					const categoryAccount = accounts.find((account) => account.id === item.suggested_account_id);
+					const categoryAccount = accounts.find(
+						(account) => account.id === item.suggested_account_id
+					);
 					return [
 						item.id,
 						{
@@ -701,14 +728,291 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		if (data.report_filter_active) activeTab = 'reports';
 	});
 
-	function reportExportHref(format) {
+	function reportExportHref(format, type) {
 		const params = new URLSearchParams();
 		params.set('period', reportPeriodKey);
 		if (reportPeriodKey === 'custom') {
 			if (reportFrom) params.set('from', reportFrom);
 			if (reportTo) params.set('to', reportTo);
 		}
+		if (type) {
+			params.set('type', type);
+		}
 		return `/api/groups/${encodeURIComponent(data.group?.slug)}/accounting/export/report.${format}?${params.toString()}`;
+	}
+
+	function printReport(type) {
+		const isPL = type === 'pl';
+		const reportTitle = isPL ? 'Profit & Loss Statement' : 'Balance Sheet';
+		const groupName = data.group?.name || 'Organization';
+		const periodStr =
+			report.from && report.to
+				? `${formatDate(report.from)} – ${formatDate(report.to)}`
+				: reportPeriodLabel;
+
+		let sectionsHtml = '';
+
+		if (isPL) {
+			const incomeRows =
+				report.income
+					.map(
+						(acc) => `
+				<tr>
+					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
+					<td class="amount positive">${formatCents(acc.period_balance_cents)}</td>
+				</tr>
+			`
+					)
+					.join('') || `<tr><td colspan="2" class="empty">No income recorded.</td></tr>`;
+
+			const expenseRows =
+				report.expenses
+					.map(
+						(acc) => `
+				<tr>
+					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
+					<td class="amount negative">${formatCents(acc.period_balance_cents)}</td>
+				</tr>
+			`
+					)
+					.join('') || `<tr><td colspan="2" class="empty">No expenses recorded.</td></tr>`;
+
+			sectionsHtml = `
+				<div class="section">
+					<div class="section-header">
+						<span>Money In</span>
+						<span class="total">${formatCents(report.totals?.income_cents)}</span>
+					</div>
+					<table>
+						<tbody>
+							${incomeRows}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="section">
+					<div class="section-header">
+						<span>Money Out</span>
+						<span class="total">${formatCents(report.totals?.expense_cents)}</span>
+					</div>
+					<table>
+						<tbody>
+							${expenseRows}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="grand-total-row">
+					<span>Net Activity</span>
+					<span class="${(report.totals?.net_cents ?? 0) >= 0 ? 'positive' : 'negative'}">
+						${formatCents(report.totals?.net_cents)}
+					</span>
+				</div>
+			`;
+		} else {
+			const assetRows =
+				report.assets
+					.map(
+						(acc) => `
+				<tr>
+					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
+					<td class="amount">${formatCents(acc.balance_cents)}</td>
+				</tr>
+			`
+					)
+					.join('') || `<tr><td colspan="2" class="empty">No assets recorded.</td></tr>`;
+
+			const liabilityRows =
+				report.liabilities
+					.map(
+						(acc) => `
+				<tr>
+					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
+					<td class="amount negative">${formatCents(acc.balance_cents)}</td>
+				</tr>
+			`
+					)
+					.join('') || `<tr><td colspan="2" class="empty">No liabilities recorded.</td></tr>`;
+
+			const netPosition =
+				(report.totals?.assets_cents || 0) - (report.totals?.liabilities_cents || 0);
+
+			sectionsHtml = `
+				<div class="section">
+					<div class="section-header">
+						<span>What We Have (Assets)</span>
+						<span class="total">${formatCents(report.totals?.assets_cents)}</span>
+					</div>
+					<table>
+						<tbody>
+							${assetRows}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="section">
+					<div class="section-header">
+						<span>What We Owe (Liabilities)</span>
+						<span class="total">${formatCents(report.totals?.liabilities_cents)}</span>
+					</div>
+					<table>
+						<tbody>
+							${liabilityRows}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="grand-total-row">
+					<span>Net Position</span>
+					<span class="${netPosition >= 0 ? 'positive' : 'negative'}">
+						${formatCents(netPosition)}
+					</span>
+				</div>
+			`;
+		}
+
+		const html = `
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<title>\${groupName} - \${reportTitle}</title>
+				<style>
+					@page {
+						size: letter;
+						margin: 1in;
+					}
+					body {
+						font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+						color: #1e293b;
+						margin: 0;
+						padding: 40px;
+						line-height: 1.5;
+					}
+					.header {
+						border-bottom: 2px solid #e2e8f0;
+						padding-bottom: 20px;
+						margin-bottom: 30px;
+					}
+					.org-name {
+						font-size: 14px;
+						font-weight: 600;
+						text-transform: uppercase;
+						letter-spacing: 0.1em;
+						color: #64748b;
+						margin-bottom: 4px;
+					}
+					.report-title {
+						font-size: 28px;
+						font-weight: 800;
+						color: #0f172a;
+						margin: 0 0 8px 0;
+					}
+					.period {
+						font-size: 14px;
+						color: #475569;
+						font-weight: 500;
+					}
+					.section {
+						margin-bottom: 30px;
+						page-break-inside: avoid;
+					}
+					.section-header {
+						display: flex;
+						justify-content: space-between;
+						align-items: baseline;
+						border-bottom: 1.5px solid #cbd5e1;
+						padding-bottom: 6px;
+						margin-bottom: 10px;
+						font-weight: 700;
+						font-size: 15px;
+						color: #334155;
+						text-transform: uppercase;
+						letter-spacing: 0.05em;
+					}
+					.section-header .total {
+						font-size: 16px;
+						font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+					}
+					table {
+						width: 100%;
+						border-collapse: collapse;
+					}
+					td {
+						padding: 8px 0;
+						border-bottom: 1px dashed #e2e8f0;
+						font-size: 14px;
+					}
+					tr:last-child td {
+						border-bottom: none;
+					}
+					.code-name {
+						color: #475569;
+					}
+					.amount {
+						text-align: right;
+						font-weight: 500;
+						font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+					}
+					.empty {
+						color: #94a3b8;
+						font-style: italic;
+						padding: 12px 0;
+					}
+					.positive {
+						color: #15803d;
+					}
+					.negative {
+						color: #b91c1c;
+					}
+					.grand-total-row {
+						display: flex;
+						justify-content: space-between;
+						align-items: center;
+						border-top: 2.5px double #cbd5e1;
+						border-bottom: 2.5px double #cbd5e1;
+						padding: 12px 0;
+						margin-top: 40px;
+						font-weight: 800;
+						font-size: 18px;
+						color: #0f172a;
+						page-break-inside: avoid;
+					}
+					.grand-total-row span:last-child {
+						font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+					}
+					@media print {
+						body {
+							padding: 0;
+							font-size: 12pt;
+						}
+					}
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<div class="header">
+						<div class="org-name">\${groupName}</div>
+						<h1 class="report-title">\${reportTitle}</h1>
+						<div class="period">\${reportPeriodLabel} &middot; \${periodStr}</div>
+					</div>
+
+					\${sectionsHtml}
+				</div>
+				<script>
+					window.onload = function() {
+						window.print();
+					};
+				<\/script>
+			</body>
+			</html>
+		`;
+
+		const printWindow = window.open('', '_blank');
+		if (printWindow) {
+			printWindow.document.write(html);
+			printWindow.document.close();
+		}
 	}
 
 	async function applyReportFilters(nextPeriod = reportPeriodKey) {
@@ -747,9 +1051,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		if (!movedItems.length) return;
 		await tick();
 		for (const item of movedItems) {
-			document
-				.querySelector(`form[data-account-id="${CSS.escape(item.id)}"]`)
-				?.requestSubmit();
+			document.querySelector(`form[data-account-id="${CSS.escape(item.id)}"]`)?.requestSubmit();
 		}
 	}
 
@@ -834,9 +1136,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		>
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
-					<p
-						class="text-surface-600 dark:text-surface-400 text-xs font-semibold tracking-wider uppercase"
-					>
+					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Cash on hand
 					</p>
 					<p class="text-2xl font-bold tracking-tight">
@@ -856,12 +1156,10 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		>
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
-					<p
-						class="text-surface-600 dark:text-surface-400 text-xs font-semibold tracking-wider uppercase"
-					>
+					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Money in
 					</p>
-					<p class="text-success-600 dark:text-success-400 text-2xl font-bold tracking-tight">
+					<p class="text-success-700-300 text-2xl font-bold tracking-tight">
 						{formatCents(report.totals?.income_cents)}
 					</p>
 				</div>
@@ -878,12 +1176,10 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		>
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
-					<p
-						class="text-surface-600 dark:text-surface-400 text-xs font-semibold tracking-wider uppercase"
-					>
+					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Money out
 					</p>
-					<p class="text-warning-600 dark:text-warning-400 text-2xl font-bold tracking-tight">
+					<p class="text-warning-700-300 text-2xl font-bold tracking-tight">
 						{formatCents(report.totals?.expense_cents)}
 					</p>
 				</div>
@@ -900,15 +1196,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		>
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
-					<p
-						class="text-surface-600 dark:text-surface-400 text-xs font-semibold tracking-wider uppercase"
-					>
+					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Net this year
 					</p>
 					<p
 						class="text-2xl font-bold tracking-tight {report.totals?.net_cents >= 0
-							? 'text-secondary-600 dark:text-secondary-400'
-							: 'text-error-600 dark:text-error-400'}"
+							? 'text-secondary-700-300'
+							: 'text-error-700-300'}"
 					>
 						{formatCents(report.totals?.net_cents)}
 					</p>
@@ -933,7 +1227,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				class="btn btn-sm flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 font-semibold tracking-wide transition-all {activeTab ===
 				tab.id
 					? 'preset-filled-primary-500 shadow-sm'
-					: 'text-surface-600 dark:text-surface-400 hover:bg-surface-500/10'}"
+					: 'text-surface-700-300 hover:bg-surface-500/10'}"
 				onclick={() => (activeTab = tab.id)}
 			>
 				<Icon class="h-4 w-4" />
@@ -950,7 +1244,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
 					<div class="flex items-center gap-2">
 						<IconChartColumn class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
 							Monthly Performance
 						</h2>
 					</div>
@@ -960,11 +1254,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				<div class="space-y-2">
 					{#if report.monthly.length > 0}
 						<div
-							class="text-surface-500 dark:text-surface-400 grid grid-cols-[minmax(80px,1.2fr)_1fr_1fr_1fr] gap-3 px-4 pb-1 text-xs font-bold tracking-wider uppercase"
+							class="text-surface-700-300 grid grid-cols-[minmax(80px,1.2fr)_1fr_1fr_1fr] gap-3 px-4 pb-1 text-xs font-bold tracking-wider uppercase"
 						>
 							<div>Month</div>
-							<div class="text-success-600 dark:text-success-400">Income</div>
-							<div class="text-warning-600 dark:text-warning-400">Expenses</div>
+							<div class="text-success-700-300">Income</div>
+							<div class="text-warning-700-300">Expenses</div>
 							<div class="text-right">Net</div>
 						</div>
 					{/if}
@@ -973,19 +1267,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						<div
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid grid-cols-[minmax(80px,1.2fr)_1fr_1fr_1fr] items-center gap-3 rounded-xl border p-4 text-sm font-medium transition-colors duration-150"
 						>
-							<div class="text-surface-900 dark:text-surface-100 font-semibold">
+							<div class="text-surface-900-100 font-semibold">
 								{monthLabel(month.month)}
 							</div>
-							<div class="text-success-600 dark:text-success-400">
+							<div class="text-success-700-300">
 								{formatCents(month.income_cents)}
 							</div>
-							<div class="text-warning-600 dark:text-warning-400">
+							<div class="text-warning-700-300">
 								{formatCents(month.expense_cents)}
 							</div>
 							<div
 								class="text-right font-bold {month.net_cents >= 0
-									? 'text-surface-900 dark:text-surface-100'
-									: 'text-error-600 dark:text-error-400'}"
+									? 'text-surface-900-100'
+									: 'text-error-700-300'}"
 							>
 								{formatCents(month.net_cents)}
 							</div>
@@ -1008,9 +1302,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
 						<div class="flex items-center gap-2">
 							<IconListChecks class="text-warning-500 h-5 w-5" />
-							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-								Needs Review
-							</h2>
+							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Needs Review</h2>
 						</div>
 						<span
 							class="badge {needsReview.length > 0
@@ -1022,10 +1314,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					</div>
 
 					{#if needsReview.length > 0}
-						<p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">
-							You have <span class="text-warning-600 dark:text-warning-400 font-semibold"
-								>{needsReview.length}</span
-							> imported bank transactions that need to be categorized.
+						<p class="text-surface-700-300 text-sm leading-relaxed">
+							You have <span class="text-warning-700-300 font-semibold">{needsReview.length}</span> imported
+							bank transactions that need to be categorized.
 						</p>
 						<button
 							class="btn btn-sm preset-filled-warning-500 flex w-full items-center justify-center gap-2 font-bold"
@@ -1040,9 +1331,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							<div class="bg-success-500/10 text-success-500 mb-2 rounded-full p-3">
 								<IconCheckCircle2 class="h-6 w-6" />
 							</div>
-							<p class="text-success-600 dark:text-success-400 text-sm font-semibold">
-								All caught up!
-							</p>
+							<p class="text-success-700-300 text-sm font-semibold">All caught up!</p>
 							<p class="text-surface-500 mt-1 text-xs">No transaction items need review.</p>
 						</div>
 					{/if}
@@ -1053,23 +1342,22 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
 						<div class="flex items-center gap-2">
 							<IconReceipt class="text-secondary-500 h-5 w-5" />
-							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-								Recent Activity
-							</h2>
+							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Recent Activity</h2>
 						</div>
 					</div>
 
 					<div class="space-y-2">
 						{#each recentEntries.slice(0, 6) as entry}
 							<form
-								method="POST" use:enhance
+								method="POST"
+								use:enhance
 								action="?/voidEntry"
 								class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-all duration-150"
 							>
 								<input type="hidden" name="entryId" value={entry.id} />
 								<input type="hidden" name="reason" value="Voided from dashboard" />
 								<div class="min-w-0 space-y-1">
-									<p class="text-surface-900 dark:text-surface-100 truncate font-semibold">
+									<p class="text-surface-900-100 truncate font-semibold">
 										{entry.description}
 									</p>
 									<div class="text-surface-500 flex flex-wrap items-center gap-2 text-xs">
@@ -1082,7 +1370,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 									</div>
 								</div>
 								<div class="flex shrink-0 items-center gap-2">
-									<span class="text-surface-900 dark:text-surface-100 font-bold tabular-nums"
+									<span class="text-surface-900-100 font-bold tabular-nums"
 										>{formatCents(entry.amount_cents)}</span
 									>
 									{#if entry.status !== 'void' && !entry.locked_at}
@@ -1118,7 +1406,8 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		<section class="grid gap-6 lg:grid-cols-3">
 			<!-- Record Money Form -->
 			<form
-				method="POST" use:enhance
+				method="POST"
+				use:enhance
 				action="?/recordMoney"
 				enctype="multipart/form-data"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
@@ -1128,9 +1417,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				>
 					<div class="flex items-center gap-2">
 						<IconPlus class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Record Money
-						</h2>
+						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Record Money</h2>
 					</div>
 
 					<!-- Segmented selector -->
@@ -1140,7 +1427,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'income'
 								? 'preset-filled-success-500 text-white shadow-sm'
-								: 'text-surface-600 dark:text-surface-400'}"
+								: 'text-surface-700-300'}"
 							onclick={() => (moneyFlow = 'income')}
 						>
 							Money in
@@ -1150,7 +1437,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'expense'
 								? 'preset-filled-warning-500 text-white shadow-sm'
-								: 'text-surface-600 dark:text-surface-400'}"
+								: 'text-surface-700-300'}"
 							onclick={() => (moneyFlow = 'expense')}
 						>
 							Money out
@@ -1162,7 +1449,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 				<div class="grid gap-4 sm:grid-cols-2">
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Date</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Date</span>
 						<input
 							class="input preset-tonal-surface"
 							type="date"
@@ -1172,7 +1459,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						/>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Amount</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Amount</span>
 						<div class="relative">
 							<span
 								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
@@ -1190,7 +1477,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</div>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
+						<span class="text-surface-700-300 text-xs font-semibold"
 							>{moneyFlow === 'income' ? 'Where did it land?' : 'Where did it come from?'}</span
 						>
 						<select class="select preset-tonal-surface" name="cashAccountId" required>
@@ -1200,9 +1487,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</select>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Category</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Category</span>
 						<select class="select preset-tonal-surface" name="categoryAccountId" required>
 							{#each currentCategories as account}
 								<option value={account.id}>{account.name}</option>
@@ -1210,9 +1495,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</select>
 					</label>
 					<label class="label sm:col-span-2">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Description</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Description</span>
 						<input
 							class="input preset-tonal-surface"
 							name="description"
@@ -1221,7 +1504,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						/>
 					</label>
 					<label class="label sm:col-span-2">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Note</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Note</span>
 						<textarea
 							class="textarea preset-tonal-surface"
 							name="memo"
@@ -1230,8 +1513,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						></textarea>
 					</label>
 					<label class="label sm:col-span-2">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Receipt</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Receipt</span>
 						<input
 							class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
 							type="file"
@@ -1254,20 +1536,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="space-y-6">
 				<!-- Move Money -->
 				<form
-					method="POST" use:enhance
+					method="POST"
+					use:enhance
 					action="?/transfer"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
 					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 						<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Move Money
-						</h2>
+						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Move Money</h2>
 					</div>
 					<div class="space-y-4">
 						<input type="hidden" name="entryDate" value={today} />
 						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
+							<span class="text-surface-700-300 text-xs font-semibold">From</span>
 							<select class="select preset-tonal-surface" name="fromAccountId">
 								{#each cashAccounts as account}
 									<option value={account.id}>{account.name}</option>
@@ -1275,7 +1556,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							</select>
 						</label>
 						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
+							<span class="text-surface-700-300 text-xs font-semibold">To</span>
 							<select class="select preset-tonal-surface" name="toAccountId">
 								{#each cashAccounts as account}
 									<option value={account.id}>{account.name}</option>
@@ -1283,9 +1564,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							</select>
 						</label>
 						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Amount</span
-							>
+							<span class="text-surface-700-300 text-xs font-semibold">Amount</span>
 							<div class="relative">
 								<span
 									class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
@@ -1315,22 +1594,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 				<!-- Starting Balance -->
 				<form
-					method="POST" use:enhance
+					method="POST"
+					use:enhance
 					action="?/openingBalance"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
 					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 						<IconBanknote class="text-secondary-500 h-5 w-5" />
-						<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-							Starting Balance
-						</h2>
+						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Starting Balance</h2>
 					</div>
 					<div class="space-y-4">
 						<input type="hidden" name="entryDate" value={today} />
 						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Account</span
-							>
+							<span class="text-surface-700-300 text-xs font-semibold">Account</span>
 							<select class="select preset-tonal-surface" name="accountId">
 								{#each cashAccounts.filter((account) => account.kind === 'asset') as account}
 									<option value={account.id}>{account.name}</option>
@@ -1338,9 +1614,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							</select>
 						</label>
 						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-								>Amount</span
-							>
+							<span class="text-surface-700-300 text-xs font-semibold">Amount</span>
 							<div class="relative">
 								<span
 									class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
@@ -1372,7 +1646,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconWalletCards class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
 						Buckets & Categories
 					</h2>
 				</div>
@@ -1380,9 +1654,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each accountKinds as kind}
 						<div class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-2xl border p-4">
-							<h3
-								class="text-surface-500 dark:text-surface-400 text-xs font-bold tracking-wider uppercase"
-							>
+							<h3 class="text-surface-700-300 text-xs font-bold tracking-wider uppercase">
 								{kind === 'asset'
 									? '💼 Where money lives (Assets)'
 									: kind === 'income'
@@ -1407,7 +1679,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 													class="flex min-w-0 flex-1 items-center gap-2"
 												>
 													<input type="hidden" name="kind" value={kind} />
-													<input type="hidden" name="currentDisplayGroup" value={group.displayGroup} />
+													<input
+														type="hidden"
+														name="currentDisplayGroup"
+														value={group.displayGroup}
+													/>
 													<input
 														class="input preset-tonal-surface min-w-0 flex-1"
 														name="displayGroup"
@@ -1425,11 +1701,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 												</form>
 											{:else}
 												<div class="flex min-w-0 items-center gap-2">
-													<div class="min-w-0 text-surface-900 dark:text-surface-100 truncate text-sm font-bold">
+													<div class="text-surface-900-100 min-w-0 truncate text-sm font-bold">
 														{group.displayGroup}
 													</div>
 													<button
-														class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 shrink-0"
+														class="text-surface-500 hover:text-surface-900-100 shrink-0"
 														type="button"
 														onclick={() => startGroupEdit(kind, group.displayGroup)}
 														aria-label={`Edit ${group.displayGroup} label`}
@@ -1487,7 +1763,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 														title="Account number"
 													/>
 													<button
-														class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 flex items-center justify-center rounded-lg border border-dashed border-transparent px-2"
+														class="text-surface-500 hover:text-surface-900-100 flex items-center justify-center rounded-lg border border-dashed border-transparent px-2"
 														type="button"
 														use:dragHandle
 														aria-label={`Drag ${account.name} to another label group`}
@@ -1508,19 +1784,18 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 
 			<!-- Add Bucket Form -->
 			<form
-				method="POST" use:enhance
+				method="POST"
+				use:enhance
 				action="?/createAccount"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconPlus class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Add Bucket
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Add Bucket</h2>
 				</div>
 				<div class="space-y-4">
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Name</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Name</span>
 						<input
 							class="input preset-tonal-surface"
 							name="name"
@@ -1529,7 +1804,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						/>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Code</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Code</span>
 						<input
 							class="input preset-tonal-surface"
 							name="code"
@@ -1538,7 +1813,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						/>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Type</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Type</span>
 						<select class="select preset-tonal-surface" name="kind">
 							<option value="expense">Money out (Expense)</option>
 							<option value="income">Money in (Income)</option>
@@ -1548,9 +1823,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</select>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Label group</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Label group</span>
 						<input
 							class="input preset-tonal-surface"
 							name="displayGroup"
@@ -1569,22 +1842,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		<section class="grid gap-6 lg:grid-cols-[360px_1fr]">
 			<!-- Set Budget Form -->
 			<form
-				method="POST" use:enhance
+				method="POST"
+				use:enhance
 				action="?/updateBudget"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconBadgeDollarSign class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Set Budget
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Set Budget</h2>
 				</div>
 				<div class="space-y-4">
 					<input type="hidden" name="year" value={data.year} />
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Category</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Category</span>
 						<select class="select preset-tonal-surface" name="accountId">
 							{#each budgetAccounts as account}
 								<option value={account.id}>{account.name}</option>
@@ -1592,9 +1862,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</select>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Annual amount</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Annual amount</span>
 						<div class="relative">
 							<span
 								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
@@ -1612,7 +1880,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						</div>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Notes</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Notes</span>
 						<textarea
 							class="textarea preset-tonal-surface"
 							name="notes"
@@ -1630,9 +1898,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconChartColumn class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Budget vs Actual
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Budget vs Actual</h2>
 				</div>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -1648,8 +1914,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						<div class="bg-surface-500/5 border-surface-500/5 space-y-2 rounded-xl border p-4">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0 space-y-0.5">
-									<span
-										class="text-surface-900 dark:text-surface-100 block truncate text-sm font-bold"
+									<span class="text-surface-900-100 block truncate text-sm font-bold"
 										>{budget.account?.name}</span
 									>
 									{#if budget.notes}
@@ -1690,388 +1955,451 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	{/if}
 
 	{#if activeTab === 'reports'}
-		<section class="grid gap-6 lg:grid-cols-2">
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2">
-				<div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-					<div class="space-y-2">
-						<div class="inline-flex items-center gap-2 rounded-full border border-surface-500/10 bg-surface-500/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-surface-500">
-							<IconFileText class="h-3.5 w-3.5" />
-							Reports
-						</div>
-						<div class="space-y-1">
-							<h2 class="text-surface-900 dark:text-surface-100 text-2xl font-bold tracking-tight">
-								Reporting period
-							</h2>
-							<p class="text-surface-600 dark:text-surface-400 text-sm">
-								{reportPeriodLabel}
-								<span class="text-surface-500">· {formatDate(report.from)} to {formatDate(report.to)}</span>
-							</p>
-						</div>
-					</div>
-
-					<div class="grid gap-3 sm:grid-cols-2 lg:min-w-[460px]">
-						<label class="label space-y-1">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Period</span>
-							<select
-								class="select preset-tonal-surface"
-								bind:value={reportPeriodKey}
-								onchange={(event) => {
-									const nextPeriod = event.currentTarget.value;
-									reportPeriodKey = nextPeriod;
-									if (nextPeriod !== 'custom') void applyReportFilters(nextPeriod);
-								}}
-							>
-								{#each reportPeriodOptions as option}
-									<option value={option.value}>{option.label}</option>
-								{/each}
-							</select>
-						</label>
-
-						{#if reportPeriodKey === 'custom'}
-							<label class="label space-y-1">
-								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
-								<input class="input preset-tonal-surface" type="date" bind:value={reportFrom} />
-							</label>
-							<label class="label space-y-1">
-								<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
-								<input class="input preset-tonal-surface" type="date" bind:value={reportTo} />
-							</label>
-							<div class="sm:col-span-2 flex flex-wrap gap-3">
-								<button
-									class="btn preset-filled-primary-500 flex items-center gap-2 font-bold"
-									type="button"
-									onclick={() => void applyReportFilters('custom')}
-								>
-									<IconCheckCircle2 class="h-4 w-4" />
-									Apply range
-								</button>
-								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('pdf')}>
-									<IconPrinter class="h-4 w-4" />
-									Download PDF
-								</a>
-								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('csv')}>
-									<IconFileText class="h-4 w-4" />
-									Download CSV
-								</a>
-							</div>
-						{:else}
-							<div class="sm:col-span-2 flex flex-wrap gap-3">
-								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('pdf')}>
-									<IconPrinter class="h-4 w-4" />
-									Download PDF
-								</a>
-								<a class="btn preset-outlined-primary-500 flex items-center gap-2 font-bold" href={reportExportHref('csv')}>
-									<IconFileText class="h-4 w-4" />
-									Download CSV
-								</a>
-							</div>
-						{/if}
-					</div>
+		<!-- Reports toolbar -->
+		<div
+			class="card preset-tonal-surface border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 shadow-sm"
+		>
+			<!-- Left: title + period badge -->
+			<div class="flex min-w-0 items-center gap-3">
+				<IconFileText class="text-primary-500 h-4 w-4 shrink-0" />
+				<div class="min-w-0">
+					<span class="text-surface-900-100 text-sm font-bold">Financial Reports</span>
+					<span class="text-surface-500 mx-1.5 text-sm">·</span>
+					<span class="text-surface-500 text-xs font-medium">{reportPeriodLabel}</span>
+					{#if report.from && report.to}
+						<span class="text-surface-400 mx-1 text-xs"
+							>{formatDate(report.from)} – {formatDate(report.to)}</span
+						>
+					{/if}
 				</div>
 			</div>
+			<!-- Right: controls -->
+			<div class="flex flex-wrap items-center gap-2">
+				<select
+					class="select preset-tonal-surface h-9 text-sm"
+					bind:value={reportPeriodKey}
+					onchange={(event) => {
+						const nextPeriod = event.currentTarget.value;
+						reportPeriodKey = nextPeriod;
+						if (nextPeriod !== 'custom') void applyReportFilters(nextPeriod);
+					}}
+				>
+					{#each reportPeriodOptions as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+				{#if reportPeriodKey === 'custom'}
+					<input
+						class="input preset-tonal-surface h-9 w-32 text-sm"
+						type="date"
+						bind:value={reportFrom}
+					/>
+					<input
+						class="input preset-tonal-surface h-9 w-32 text-sm"
+						type="date"
+						bind:value={reportTo}
+					/>
+					<button
+						class="btn btn-sm preset-filled-primary-500 h-9 items-center gap-1.5 font-bold"
+						type="button"
+						onclick={() => void applyReportFilters('custom')}
+					>
+						<IconCheckCircle2 class="h-3.5 w-3.5" />
+						Apply
+					</button>
+				{/if}
+			</div>
+		</div>
 
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-3 border-b pb-3">
-					<IconFileText class="text-primary-500 h-5 w-5" />
-					<div class="min-w-0">
+		<!-- Report cards: P&L + Balance Sheet side by side -->
+		<section class="grid gap-6 lg:grid-cols-2">
+			<!-- Profit & Loss -->
+			<div class="card preset-tonal-surface border-surface-500/10 flex flex-col border shadow-sm">
+				<div class="border-surface-500/10 flex items-center justify-between border-b px-5 py-3">
+					<div class="flex items-center gap-3">
+						<div class="bg-primary-500/10 text-primary-500 shrink-0 rounded-lg p-2">
+							<IconFileText class="h-4 w-4" />
+						</div>
 						<div class="flex flex-wrap items-center gap-2">
-							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-								Profit & Loss
+							<h2 class="text-surface-900-100 text-base font-bold tracking-tight">
+								Profit &amp; Loss
 							</h2>
-							<span class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase">
-								P&L
+							<span
+								class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
+							>
+								P&amp;L
 							</span>
 						</div>
-						<p class="text-surface-500 text-xs font-medium">
-							{reportPeriodLabel} · {formatDate(report.from)} to {formatDate(report.to)}
-						</p>
+					</div>
+					<div class="flex items-center gap-1.5">
+						<button
+							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
+							type="button"
+							onclick={() => printReport('pl')}
+						>
+							<IconPrinter class="h-3 w-3" />
+							PDF
+						</button>
+						<a
+							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
+							href={reportExportHref('csv', 'pl')}
+						>
+							<IconFileText class="h-3 w-3" />
+							CSV
+						</a>
 					</div>
 				</div>
-
-				<div class="space-y-4">
-					<div>
-						<h3 class="text-success-600 dark:text-success-400 mb-2 text-xs font-bold tracking-wider uppercase">
-							📥 Money in
-						</h3>
+				<div class="divide-surface-500/10 flex-1 divide-y">
+					<div class="p-5">
+						<div class="mb-3 flex items-center justify-between">
+							<h3
+								class="text-success-700-300 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
+							>
+								<IconArrowDownLeft class="h-3.5 w-3.5" />
+								Money In
+							</h3>
+							<span class="text-success-700-300 text-xs font-bold tabular-nums">
+								{formatCents(report.totals?.income_cents)}
+							</span>
+						</div>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.income as account}
-								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium">
-										{account.code} · {account.name}
-									</span>
-									<span class="text-success-600 dark:text-success-400 font-semibold tabular-nums">
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4"
+										>{account.code} · {account.name}</span
+									>
+									<span class="text-success-700-300 shrink-0 font-semibold tabular-nums">
 										{formatCents(account.period_balance_cents)}
 									</span>
 								</div>
 							{:else}
-								<p class="text-xs text-surface-500 py-2 italic">No income recorded.</p>
+								<p class="text-surface-500 py-2 text-xs italic">No income recorded.</p>
 							{/each}
 						</div>
 					</div>
-
-					<div>
-						<h3 class="text-warning-600 dark:text-warning-400 mb-2 text-xs font-bold tracking-wider uppercase">
-							📤 Money out
-						</h3>
+					<div class="p-5">
+						<div class="mb-3 flex items-center justify-between">
+							<h3
+								class="text-warning-700-300 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
+							>
+								<IconArrowUpRight class="h-3.5 w-3.5" />
+								Money Out
+							</h3>
+							<span class="text-warning-700-300 text-xs font-bold tabular-nums">
+								{formatCents(report.totals?.expense_cents)}
+							</span>
+						</div>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.expenses as account}
-								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium">
-										{account.code} · {account.name}
-									</span>
-									<span class="text-warning-600 dark:text-warning-400 font-semibold tabular-nums">
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4"
+										>{account.code} · {account.name}</span
+									>
+									<span class="text-warning-700-300 shrink-0 font-semibold tabular-nums">
 										{formatCents(account.period_balance_cents)}
 									</span>
 								</div>
 							{:else}
-								<p class="text-xs text-surface-500 py-2 italic">No expenses recorded.</p>
+								<p class="text-surface-500 py-2 text-xs italic">No expenses recorded.</p>
 							{/each}
 						</div>
 					</div>
-
-					<div class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold">
-						<span class="text-surface-900 dark:text-surface-100">Net Activity</span>
-						<span class="tabular-nums {report.totals?.net_cents >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}">
-							{formatCents(report.totals?.net_cents)}
-						</span>
-					</div>
+				</div>
+				<div
+					class="border-surface-500/20 bg-surface-500/5 flex items-center justify-between border-t px-5 py-3.5"
+				>
+					<span class="text-surface-900-100 text-sm font-bold">Net Activity</span>
+					<span
+						class="text-sm font-bold tabular-nums {report.totals?.net_cents >= 0
+							? 'text-success-700-300'
+							: 'text-error-700-300'}"
+					>
+						{formatCents(report.totals?.net_cents)}
+					</span>
 				</div>
 			</div>
 
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-3 border-b pb-3">
-					<IconLandmark class="text-secondary-500 h-5 w-5" />
-					<div class="min-w-0">
+			<!-- Balance Sheet -->
+			<div class="card preset-tonal-surface border-surface-500/10 flex flex-col border shadow-sm">
+				<div class="border-surface-500/10 flex items-center justify-between border-b px-5 py-3">
+					<div class="flex items-center gap-3">
+						<div class="bg-secondary-500/10 text-secondary-500 shrink-0 rounded-lg p-2">
+							<IconLandmark class="h-4 w-4" />
+						</div>
 						<div class="flex flex-wrap items-center gap-2">
-							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+							<h2 class="text-surface-900-100 text-base font-bold tracking-tight">
 								What We Have / Owe
 							</h2>
-							<span class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase">
+							<span
+								class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
+							>
 								Balance Sheet
 							</span>
 						</div>
-						<p class="text-surface-500 text-xs font-medium">
-							{reportPeriodLabel} · {formatDate(report.from)} to {formatDate(report.to)}
-						</p>
+					</div>
+					<div class="flex items-center gap-1.5">
+						<button
+							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
+							type="button"
+							onclick={() => printReport('bs')}
+						>
+							<IconPrinter class="h-3 w-3" />
+							PDF
+						</button>
+						<a
+							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
+							href={reportExportHref('csv', 'bs')}
+						>
+							<IconFileText class="h-3 w-3" />
+							CSV
+						</a>
 					</div>
 				</div>
-
-				<div class="space-y-4">
-					<div>
-						<h3 class="text-surface-500 mb-2 text-xs font-bold tracking-wider uppercase">
-							💼 What we have (Assets)
-						</h3>
+				<div class="divide-surface-500/10 flex-1 divide-y">
+					<div class="p-5">
+						<div class="mb-3 flex items-center justify-between">
+							<h3
+								class="text-surface-700-300 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
+							>
+								<IconBanknote class="h-3.5 w-3.5" />
+								What We Have (Assets)
+							</h3>
+							<span class="text-surface-700 dark:text-surface-300 text-xs font-bold tabular-nums">
+								{formatCents(report.totals?.assets_cents)}
+							</span>
+						</div>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.assets as account}
-								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium">
-										{account.code} · {account.name}
-									</span>
-									<span class="text-surface-900 dark:text-surface-100 font-semibold tabular-nums">
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4"
+										>{account.code} · {account.name}</span
+									>
+									<span class="text-surface-900-100 shrink-0 font-semibold tabular-nums">
 										{formatCents(account.balance_cents)}
 									</span>
 								</div>
 							{:else}
-								<p class="text-xs text-surface-500 py-2 italic">No assets recorded.</p>
+								<p class="text-surface-500 py-2 text-xs italic">No assets recorded.</p>
 							{/each}
 						</div>
 					</div>
-
-					<div>
-						<h3 class="text-surface-500 mb-2 text-xs font-bold tracking-wider uppercase">
-							💸 What we owe (Liabilities)
-						</h3>
+					<div class="p-5">
+						<div class="mb-3 flex items-center justify-between">
+							<h3
+								class="text-error-700-300 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
+							>
+								<IconScale class="h-3.5 w-3.5" />
+								What We Owe (Liabilities)
+							</h3>
+							<span class="text-error-700-300 text-xs font-bold tabular-nums">
+								{formatCents(report.totals?.liabilities_cents)}
+							</span>
+						</div>
 						<div class="divide-surface-500/10 divide-y">
 							{#each report.liabilities as account}
-								<div class="flex items-center justify-between py-2.5 text-sm">
-									<span class="text-surface-700 dark:text-surface-300 font-medium">
-										{account.code} · {account.name}
-									</span>
-									<span class="text-error-600 dark:text-error-400 font-semibold tabular-nums">
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4"
+										>{account.code} · {account.name}</span
+									>
+									<span class="text-error-700-300 shrink-0 font-semibold tabular-nums">
 										{formatCents(account.balance_cents)}
 									</span>
 								</div>
 							{:else}
-								<p class="text-xs text-surface-500 py-2 italic">No liabilities recorded.</p>
+								<p class="text-surface-500 py-2 text-xs italic">No liabilities recorded.</p>
 							{/each}
 						</div>
 					</div>
-
-					<div class="border-surface-500/20 flex items-center justify-between border-t pt-3 text-base font-bold">
-						<span class="text-surface-900 dark:text-surface-100">Net Position</span>
-						<span class="text-surface-900 dark:text-surface-100 tabular-nums">
-							{formatCents(report.totals?.assets_cents - report.totals?.liabilities_cents)}
-						</span>
-					</div>
+				</div>
+				<div
+					class="border-surface-500/20 bg-surface-500/5 flex items-center justify-between border-t px-5 py-3.5"
+				>
+					<span class="text-surface-900-100 text-sm font-bold">Net Position</span>
+					<span class="text-surface-900-100 text-sm font-bold tabular-nums">
+						{formatCents(report.totals?.assets_cents - report.totals?.liabilities_cents)}
+					</span>
 				</div>
 			</div>
 		</section>
 
 		<!-- Publish Snapshot Form -->
-			<form
-				method="POST" use:enhance
-				action="?/publishSnapshot"
-				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
-			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconUpload class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Publish Fixed Snapshot
-					</h2>
-				</div>
-
-				<div class="grid gap-4 md:grid-cols-3">
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Title</span>
-						<input
-							class="input preset-tonal-surface"
-							name="title"
-							value="Financial snapshot {data.year}"
-							required
-						/>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
-						<input
-							class="input preset-tonal-surface"
-							type="date"
-							name="from"
-							value={yearStart}
-							required
-						/>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
-						<input
-							class="input preset-tonal-surface"
-							type="date"
-							name="to"
-							value={today < yearEnd ? today : yearEnd}
-							required
-						/>
-					</label>
-				</div>
-
-				<div class="space-y-2">
-					<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-						>Snapshot Visibility Settings</span
-					>
-					<div
-						class="bg-surface-500/5 border-surface-500/5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border p-4"
-					>
-						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-							<input
-								class="checkbox"
-								type="checkbox"
-								name="showActivity"
-								checked={visibility.activity !== false}
-							/>
-							<span>Activity</span>
-						</label>
-						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-							<input
-								class="checkbox"
-								type="checkbox"
-								name="showPosition"
-								checked={visibility.position !== false}
-							/>
-							<span>Position</span>
-						</label>
-						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-							<input
-								class="checkbox"
-								type="checkbox"
-								name="showBudgets"
-								checked={visibility.budgets === true}
-							/>
-							<span>Budgets</span>
-						</label>
-						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-							<input
-								class="checkbox"
-								type="checkbox"
-								name="showCash"
-								checked={visibility.cash !== false}
-							/>
-							<span>Cash totals</span>
-						</label>
-						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-							<input
-								class="checkbox"
-								type="checkbox"
-								name="showNotes"
-								checked={visibility.notes !== false}
-							/>
-							<span>Notes</span>
-						</label>
-					</div>
-				</div>
-
+		<form
+			method="POST"
+			use:enhance
+			action="?/publishSnapshot"
+			class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
+		>
+			<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
+				<IconUpload class="text-primary-500 h-5 w-5" />
+				<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
+					Publish Fixed Snapshot
+				</h2>
+			</div>
+			<div class="grid gap-4 md:grid-cols-3">
 				<label class="label">
-					<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Notes</span>
-					<textarea
-						class="textarea preset-tonal-surface"
-						name="notes"
-						rows="2"
-						placeholder="Add optional details for this snapshot..."
-					></textarea>
+					<span class="text-surface-700-300 text-xs font-semibold">Title</span>
+					<input
+						class="input preset-tonal-surface"
+						name="title"
+						value="Financial snapshot {data.year}"
+						required
+					/>
 				</label>
-
-				<button
-					class="btn preset-filled-primary-500 mt-2 flex w-full items-center justify-center gap-2 font-bold sm:w-auto"
-					type="submit"
+				<label class="label">
+					<span class="text-surface-700-300 text-xs font-semibold">From</span>
+					<input
+						class="input preset-tonal-surface"
+						type="date"
+						name="from"
+						value={yearStart}
+						required
+					/>
+				</label>
+				<label class="label">
+					<span class="text-surface-700-300 text-xs font-semibold">To</span>
+					<input
+						class="input preset-tonal-surface"
+						type="date"
+						name="to"
+						value={today < yearEnd ? today : yearEnd}
+						required
+					/>
+				</label>
+			</div>
+			<div class="space-y-2">
+				<span class="text-surface-700-300 text-xs font-semibold">Snapshot Visibility Settings</span>
+				<div
+					class="bg-surface-500/5 border-surface-500/5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border p-4"
 				>
-					<IconUpload class="h-4 w-4" />
-					<span>Publish Snapshot</span>
-				</button>
-			</form>
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							class="checkbox"
+							type="checkbox"
+							name="showActivity"
+							checked={visibility.activity !== false}
+						/>
+						<span>Activity</span>
+					</label>
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							class="checkbox"
+							type="checkbox"
+							name="showPosition"
+							checked={visibility.position !== false}
+						/>
+						<span>Position</span>
+					</label>
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							class="checkbox"
+							type="checkbox"
+							name="showBudgets"
+							checked={visibility.budgets === true}
+						/>
+						<span>Budgets</span>
+					</label>
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							class="checkbox"
+							type="checkbox"
+							name="showCash"
+							checked={visibility.cash !== false}
+						/>
+						<span>Cash totals</span>
+					</label>
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							class="checkbox"
+							type="checkbox"
+							name="showNotes"
+							checked={visibility.notes !== false}
+						/>
+						<span>Notes</span>
+					</label>
+				</div>
+			</div>
+			<label class="label">
+				<span class="text-surface-700-300 text-xs font-semibold">Notes</span>
+				<textarea
+					class="textarea preset-tonal-surface"
+					name="notes"
+					rows="2"
+					placeholder="Add optional details for this snapshot..."
+				></textarea>
+			</label>
+			<button
+				class="btn preset-filled-primary-500 mt-2 flex w-full items-center justify-center gap-2 font-bold sm:w-auto"
+				type="submit"
+			>
+				<IconUpload class="h-4 w-4" />
+				<span>Publish Snapshot</span>
+			</button>
+		</form>
 	{/if}
 
 	{#if activeTab === 'transactions'}
 		<section class="space-y-6">
-			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-					<div class="flex items-center gap-2">
-						<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
+			<div class="card preset-tonal-surface border-surface-500/10 space-y-6 border p-6 shadow-sm">
+				<!-- Header section -->
+				<div
+					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-4 border-b pb-4"
+				>
+					<div class="flex items-center gap-3">
+						<div
+							class="bg-surface-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+						>
+							<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
+						</div>
 						<div class="min-w-0">
-							<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-								Transactions
+							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
+								Transactions Ledger
 							</h2>
-				<p class="text-surface-500 text-xs font-medium">
-					{transactionViewMode === 'recent'
-						? `Most recent ${transactionDisplayEntries.length} of ${transactionEntries.length} records`
-						: `${transactionDisplayEntries.length} of ${transactionEntries.length} records`}
-					· {transactionPeriodLabel}
-				</p>
+							<p class="text-surface-500 text-xs font-semibold">
+								{transactionViewMode === 'recent'
+									? `Showing ${transactionDisplayEntries.length} most recent of ${transactionEntries.length} records`
+									: `Found ${transactionDisplayEntries.length} of ${transactionEntries.length} records`}
+								· {transactionPeriodLabel}
+							</p>
 						</div>
 					</div>
 					<form method="POST" use:enhance action="?/autoMatch">
 						<button
-							class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold"
+							class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold shadow-sm transition-all hover:scale-[1.02]"
 							type="submit"
 						>
 							<IconListChecks class="h-4 w-4" />
-							<span>Auto-match activity</span>
+							<span>Auto-Match Activity</span>
 						</button>
 					</form>
 				</div>
 
-				<div class="grid gap-3 lg:grid-cols-4">
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Search</span>
-						<input
-							class="input preset-tonal-surface"
-							type="search"
-							placeholder="Search descriptions, accounts, amounts..."
-							value={transactionSearch}
-							oninput={(event) => {
-								transactionSearch = event.currentTarget.value;
-								startTransactionFiltering();
-							}}
-						/>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Account</span>
+				<!-- Filters section -->
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+					<!-- Search -->
+					<div class="flex flex-col gap-1.5">
+						<span class="text-surface-700-300 text-xs font-semibold">Search</span>
+						<div class="relative">
+							<span
+								class="text-surface-500 pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"
+							>
+								<IconSearch class="h-4 w-4" />
+							</span>
+							<input
+								class="input preset-tonal-surface pl-9"
+								type="search"
+								placeholder="Descriptions, accounts, amounts..."
+								value={transactionSearch}
+								oninput={(event) => {
+									transactionSearch = event.currentTarget.value;
+									startTransactionFiltering();
+								}}
+							/>
+						</div>
+					</div>
+
+					<!-- Account Filter -->
+					<div class="flex flex-col gap-1.5">
+						<span class="text-surface-700-300 text-xs font-semibold">Account</span>
 						<select
 							class="select preset-tonal-surface"
 							value={transactionAccountId}
@@ -2085,9 +2413,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 								<option value={account.id}>{accountLabel(account)}</option>
 							{/each}
 						</select>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Source</span>
+					</div>
+
+					<!-- Source Filter -->
+					<div class="flex flex-col gap-1.5">
+						<span class="text-surface-700-300 text-xs font-semibold">Source</span>
 						<select
 							class="select preset-tonal-surface"
 							value={transactionSource}
@@ -2101,9 +2431,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 								<option value={source}>{source.replaceAll('_', ' ')}</option>
 							{/each}
 						</select>
-					</label>
-					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Date range</span>
+					</div>
+
+					<!-- Date Range Filter -->
+					<div class="flex flex-col gap-1.5">
+						<span class="text-surface-700-300 text-xs font-semibold">Date range</span>
 						<select
 							class="select preset-tonal-surface"
 							value={transactionPeriodKey}
@@ -2116,13 +2448,17 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 								<option value={option.value}>{option.label}</option>
 							{/each}
 						</select>
-					</label>
+					</div>
 				</div>
 
+				<!-- Custom Date selectors -->
 				{#if transactionPeriodKey === 'custom'}
-					<div class="grid gap-3 lg:grid-cols-2">
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">From</span>
+					<div
+						class="border-surface-500/10 grid gap-4 border-t pt-4 sm:grid-cols-2"
+						transition:slide={{ duration: 150 }}
+					>
+						<div class="flex flex-col gap-1.5">
+							<span class="text-surface-700-300 text-xs font-semibold">From</span>
 							<input
 								class="input preset-tonal-surface"
 								type="date"
@@ -2132,9 +2468,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 									startTransactionFiltering();
 								}}
 							/>
-						</label>
-						<label class="label">
-							<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">To</span>
+						</div>
+						<div class="flex flex-col gap-1.5">
+							<span class="text-surface-700-300 text-xs font-semibold">To</span>
 							<input
 								class="input preset-tonal-surface"
 								type="date"
@@ -2144,17 +2480,18 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 									startTransactionFiltering();
 								}}
 							/>
-						</label>
+						</div>
 					</div>
 				{/if}
 
-				<div class="space-y-3">
+				<!-- Ledger Entries -->
+				<div class="space-y-4">
 					{#each transactionDisplayEntries as entry}
 						<form
 							method="POST"
 							use:enhance={enhanceTransactionEdit(entry.id)}
 							action="?/updateTransaction"
-							class="bg-surface-500/5 border-surface-500/5 rounded-2xl border p-4"
+							class="block w-full text-left"
 						>
 							<input type="hidden" name="entryId" value={entry.id} />
 							<input
@@ -2162,171 +2499,278 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 								name="lineAccountsJson"
 								value={JSON.stringify(editingTransactionDraft.lineAccounts ?? [])}
 							/>
-							<div class="flex flex-wrap items-start justify-between gap-3">
-								{#if editingTransactionId === entry.id}
-									<div class="grid flex-1 gap-3 lg:grid-cols-[140px_1fr]">
+
+							{#if editingTransactionId === entry.id}
+								<!-- Edit Mode Layout -->
+								<div
+									class="card preset-tonal-surface border-surface-500/15 border-l-secondary-500 space-y-5 rounded-2xl border border-l-4 p-5 shadow-md sm:p-6"
+								>
+									<!-- Header info -->
+									<div
+										class="border-surface-500/10 flex items-center justify-between gap-3 border-b pb-3"
+									>
+										<div class="flex min-w-0 items-center gap-2.5">
+											<div
+												class="bg-secondary-500/15 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+											>
+												<IconPencil class="text-secondary-400 h-3.5 w-3.5" />
+											</div>
+											<div class="min-w-0">
+												<h3 class="text-surface-900-100 text-sm font-bold">Edit Transaction</h3>
+												<p class="text-surface-500 text-xs">
+													{entry.entry_type} · {entry.source || 'manual'}
+												</p>
+											</div>
+										</div>
+										<span
+											class="badge preset-tonal-secondary text-[10px] font-bold tracking-wider uppercase"
+										>
+											Editing
+										</span>
+									</div>
+
+									<!-- Edit Grid fields -->
+									<div class="grid gap-4 sm:grid-cols-[160px_1fr]">
 										<label class="label">
-											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
-												Date
-											</span>
+											<span class="text-surface-700-300 text-xs font-semibold"> Date </span>
 											<input
 												class="input preset-tonal-surface"
 												type="date"
 												name="entryDate"
 												value={editingTransactionDraft.entryDate}
 												oninput={(event) =>
-													editingTransactionDraft = {
+													(editingTransactionDraft = {
 														...editingTransactionDraft,
 														entryDate: event.currentTarget.value
-													}}
+													})}
 												required
 											/>
 										</label>
 										<label class="label">
-											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
-												Description
-											</span>
+											<span class="text-surface-700-300 text-xs font-semibold"> Description </span>
 											<input
 												class="input preset-tonal-surface"
 												type="text"
 												name="description"
 												value={editingTransactionDraft.description}
 												oninput={(event) =>
-													editingTransactionDraft = {
+													(editingTransactionDraft = {
 														...editingTransactionDraft,
 														description: event.currentTarget.value
-													}}
+													})}
 												required
 											/>
 										</label>
-										<label class="label lg:col-span-2">
-											<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
-												Memo
-											</span>
-											<textarea
-												class="textarea preset-tonal-surface"
-												name="memo"
-												rows="2"
-												value={editingTransactionDraft.memo}
-												oninput={(event) =>
-													editingTransactionDraft = {
-														...editingTransactionDraft,
-														memo: event.currentTarget.value
-													}}
-												placeholder="Optional memo"
-											></textarea>
-										</label>
-										<div class="lg:col-span-2">
-											<div class="grid gap-3 sm:grid-cols-2">
-										{#each entry.lines ?? [] as line, index}
-											{@const lineDraft = getEditingTransactionLine(line.id)}
-											{@const lineLabel =
-												index === 0 ? 'Where did it come from?' : index === 1 ? 'Category' : `Account ${index + 1}`}
-											<label class="label space-y-1">
-												<span class="text-surface-600 dark:text-surface-400 text-[10px] font-semibold uppercase">
-													{lineLabel}
-												</span>
-												<SearchableSelect
-													items={getTransactionAccountOptions(lineDraft?.query ?? '')}
-													query={lineDraft?.query ?? (line.account ? accountLabel(line.account) : '')}
-													placeholder="Search accounts"
-													emptyMessage="No matching accounts."
-													itemLabel={accountLabel}
-													itemMeta={(account) => account.display_group || 'Other'}
-													onQueryChange={(value) => updateTransactionLineAccountQuery(line.id, value)}
-													onSelect={(account) =>
-														updateTransactionLineAccount(line.id, account.id, accountLabel(account))}
-												/>
-											</label>
-										{/each}
 									</div>
-								</div>
-									</div>
-								{:else}
-									<div class="min-w-0 space-y-1">
-										<div class="flex flex-wrap items-center gap-2">
-											<p class="text-surface-900 dark:text-surface-100 truncate text-sm font-bold">
-												{entry.description}
-											</p>
-											<span class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase">
-												{entry.entry_type}
-											</span>
-										</div>
-										<p class="text-surface-500 text-xs">
-											{formatDate(entry.entry_date)}
-											{#if entry.memo}
-												· {entry.memo}
-											{/if}
-										</p>
-									</div>
-							{/if}
-							<div class="flex shrink-0 items-start gap-2">
-								<div class="text-right">
-									<p
-										class="text-lg font-bold tabular-nums {transactionAmountPresentation(entry).className}"
-									>
-										{transactionAmountPresentation(entry).sign}
-										{formatCents(Math.abs(Number(entry.amount_cents || 0)))}
-									</p>
-									{#if editingTransactionId !== entry.id}
-										<p class="text-surface-500 text-xs">{entry.source || 'manual'}</p>
-									{/if}
-								</div>
-									{#if editingTransactionId !== entry.id}
-										<button
-											class="text-surface-500 hover:text-surface-900 dark:hover:text-surface-100 shrink-0"
-											type="button"
-											onclick={() => startTransactionEdit(entry)}
-											aria-label={`Edit transaction ${entry.description}`}
-											title="Edit transaction"
+
+									<label class="label">
+										<span class="text-surface-700-300 text-xs font-semibold">
+											Memo (Optional)
+										</span>
+										<textarea
+											class="textarea preset-tonal-surface"
+											name="memo"
+											rows="2"
+											value={editingTransactionDraft.memo}
+											oninput={(event) =>
+												(editingTransactionDraft = {
+													...editingTransactionDraft,
+													memo: event.currentTarget.value
+												})}
+											placeholder="Optional internal memo"
+										></textarea>
+									</label>
+
+									<!-- Line accounts allocation -->
+									<div class="border-surface-500/10 space-y-3 border-t pt-4">
+										<h4
+											class="text-surface-700-300 text-[10px] font-bold tracking-widest uppercase"
 										>
-											<IconPencil class="h-4 w-4" />
+											Account Allocations
+										</h4>
+										<div class="grid gap-4 sm:grid-cols-2">
+											{#each entry.lines ?? [] as line, index}
+												{@const lineDraft = getEditingTransactionLine(line.id)}
+												{@const lineLabel =
+													index === 0
+														? 'Where did it come from?'
+														: index === 1
+															? 'Category'
+															: `Account ${index + 1}`}
+												<div class="flex flex-col gap-1.5">
+													<span class="text-surface-700-300 text-xs font-semibold">
+														{lineLabel}
+													</span>
+													<SearchableSelect
+														items={getTransactionAccountOptions(lineDraft?.query ?? '')}
+														query={lineDraft?.query ??
+															(line.account ? accountLabel(line.account) : '')}
+														placeholder="Search accounts"
+														emptyMessage="No matching accounts."
+														itemLabel={accountLabel}
+														itemMeta={(account) => account.display_group || 'Other'}
+														onQueryChange={(value) =>
+															updateTransactionLineAccountQuery(line.id, value)}
+														onSelect={(account) =>
+															updateTransactionLineAccount(
+																line.id,
+																account.id,
+																accountLabel(account)
+															)}
+													/>
+												</div>
+											{/each}
+										</div>
+									</div>
+
+									<!-- Actions -->
+									<div
+										class="border-surface-500/10 flex items-center justify-end gap-2 border-t pt-4"
+									>
+										<button
+											class="btn btn-sm preset-outlined-surface-500 font-semibold"
+											type="button"
+											onclick={stopTransactionEdit}
+											disabled={isSavingTransaction(entry.id)}
+										>
+											Cancel
 										</button>
-									{/if}
+										<button
+											class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold"
+											type="submit"
+											disabled={isSavingTransaction(entry.id)}
+										>
+											{#if isSavingTransaction(entry.id)}
+												<IconRefreshCw class="h-4 w-4 animate-spin" />
+												<span>Saving...</span>
+											{:else}
+												<span>Save Changes</span>
+											{/if}
+										</button>
+									</div>
 								</div>
-							</div>
-							{#if editingTransactionId !== entry.id}
-								<div class="mt-3 flex flex-wrap gap-2">
-									{#each entry.lines ?? [] as line}
-										<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold uppercase">
-											{line.account?.code || '—'} · {line.account?.name || 'Unknown'}
-										</span>
-									{/each}
-									{#if (entry.receipts ?? []).length}
-										<span class="badge preset-outlined-primary-500 px-2 py-0.5 text-[10px] font-semibold uppercase">
-											{entry.receipts.length} receipt{entry.receipts.length === 1 ? '' : 's'}
-										</span>
-									{/if}
-								</div>
-							{/if}
-							{#if editingTransactionId === entry.id}
-								<div class="mt-4 flex flex-wrap items-center gap-2">
-									<button
-										class="btn btn-sm preset-filled-primary-500 flex items-center gap-2 font-bold"
-										type="submit"
-										disabled={isSavingTransaction(entry.id)}
+							{:else}
+								<!-- View Mode Layout -->
+								{@const presentation = transactionAmountPresentation(entry)}
+								{@const isDebit = presentation.sign === '+'}
+								{@const isCredit = presentation.sign === '-'}
+								{@const entryDateObj = entry.entry_date
+									? new Date(String(entry.entry_date).slice(0, 10) + 'T12:00:00')
+									: null}
+								<div
+									class="group bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/10 flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-all duration-150 sm:flex-row sm:items-center"
+								>
+									<!-- Left side: Date Badge & Desc/Memo & Lines -->
+									<div class="flex min-w-0 flex-1 items-start gap-3">
+										<!-- Transaction Icon / Date Indicator -->
+										<div
+											class="bg-surface-500/10 flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-lg text-center"
+										>
+											{#if entryDateObj}
+												<span
+													class="text-surface-500 text-[10px] leading-tight font-extrabold tracking-wider uppercase"
+												>
+													{entryDateObj.toLocaleString(undefined, { month: 'short' })}
+												</span>
+												<span class="text-surface-900-100 text-lg leading-none font-extrabold">
+													{entryDateObj.getDate()}
+												</span>
+											{:else}
+												<span class="text-surface-500">—</span>
+											{/if}
+										</div>
+
+										<!-- Details -->
+										<div class="min-w-0 flex-1 space-y-1">
+											<div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+												<h3
+													class="text-surface-900-100 min-w-0 truncate text-sm leading-snug font-semibold"
+												>
+													{entry.description}
+												</h3>
+												<div class="flex shrink-0 items-center gap-1">
+													<span
+														class="badge preset-tonal-surface px-1.5 py-0.5 text-[9px] font-semibold capitalize"
+													>
+														{entry.entry_type.replaceAll('_', ' ')}
+													</span>
+													{#if (entry.receipts ?? []).length}
+														<span
+															class="badge preset-tonal-surface flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold"
+															title="{(entry.receipts ?? []).length} Receipt(s)"
+														>
+															<IconReceipt class="h-2.5 w-2.5" />
+															<span>{entry.receipts.length}</span>
+														</span>
+													{/if}
+												</div>
+											</div>
+
+											<!-- Accounts & Memo -->
+											<div class="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
+												<div class="flex flex-wrap gap-1">
+													{#each entry.lines ?? [] as line}
+														<span
+															class="bg-surface-500/10 text-surface-700-300 rounded px-1.5 py-0.5 font-mono text-xs font-medium"
+														>
+															{line.account?.code} · {line.account?.name || 'Unknown'}
+														</span>
+													{/each}
+												</div>
+												{#if entry.memo}
+													<span class="text-surface-500 text-xs opacity-60">•</span>
+													<span
+														class="text-surface-500 max-w-full truncate text-xs italic sm:max-w-[200px] md:max-w-[300px]"
+														title={entry.memo}
+													>
+														"{entry.memo}"
+													</span>
+												{/if}
+											</div>
+										</div>
+									</div>
+
+									<!-- Right side: Amount & Source & Actions -->
+									<div
+										class="border-surface-500/10 flex shrink-0 items-center justify-between gap-3 border-t pt-2.5 sm:justify-end sm:border-t-0 sm:pt-0"
 									>
-										{#if isSavingTransaction(entry.id)}
-											<IconRefreshCw class="h-4 w-4 animate-spin" />
-											<span>Saving...</span>
-										{:else}
-											<span>Save transaction</span>
-										{/if}
-									</button>
-									<button
-										class="btn btn-sm preset-outlined-surface-500 font-semibold"
-										type="button"
-										onclick={stopTransactionEdit}
-										disabled={isSavingTransaction(entry.id)}
-									>
-										Cancel
-									</button>
+										<!-- Source Badge for Mobile -->
+										<span
+											class="text-surface-500 text-[9px] font-bold tracking-wider uppercase sm:hidden"
+										>
+											{entry.source || 'manual'}
+										</span>
+
+										<div class="flex items-center gap-2.5">
+											<div class="text-right">
+												<p class="text-base font-bold tabular-nums {presentation.className}">
+													{presentation.sign}{formatCents(
+														Math.abs(Number(entry.amount_cents || 0))
+													)}
+												</p>
+											</div>
+
+											<button
+												class="text-surface-400 hover:text-surface-900-100"
+												type="button"
+												onclick={() => startTransactionEdit(entry)}
+												aria-label={`Edit transaction ${entry.description}`}
+												title="Edit transaction"
+											>
+												<IconPencil class="h-3.5 w-3.5" />
+											</button>
+										</div>
+									</div>
 								</div>
 							{/if}
 						</form>
 					{:else}
-						<div class="rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-10 text-center">
-							<p class="text-surface-500 text-sm font-medium">No transactions match the current filters.</p>
+						<div
+							class="rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-10 text-center"
+						>
+							<p class="text-surface-500 text-sm font-medium">
+								No transactions match the current filters.
+							</p>
 						</div>
 					{/each}
 				</div>
@@ -2340,14 +2784,18 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div class="flex items-center gap-3">
 					<h2 class="text-2xl font-bold tracking-tight">Bank Review</h2>
-					<span class="badge {needsReview.length > 0 ? 'preset-filled-warning-500' : 'preset-tonal-success'} font-bold">
+					<span
+						class="badge {needsReview.length > 0
+							? 'preset-filled-warning-500'
+							: 'preset-tonal-success'} font-bold"
+					>
 						{needsReview.length}
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
 					<button
 						class="btn btn-sm preset-tonal-surface font-semibold"
-						onclick={() => showBankConfig = !showBankConfig}
+						onclick={() => (showBankConfig = !showBankConfig)}
 					>
 						<IconCog class="h-4 w-4" />
 						<span class="hidden sm:inline">{showBankConfig ? 'Hide Settings' : 'Settings'}</span>
@@ -2371,14 +2819,20 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					<div class="grid gap-6 md:grid-cols-2">
 						<!-- Connected Accounts -->
 						<div class="space-y-3">
-							<p class="text-xs font-bold uppercase tracking-wider opacity-60">Connected Accounts</p>
+							<p class="text-xs font-bold tracking-wider uppercase opacity-60">
+								Connected Accounts
+							</p>
 
 							{#if mercuryConnected && !mercuryEditMode}
 								<div class="card preset-tonal-success flex items-center justify-between gap-3 p-3">
 									<div>
-										<p class="text-sm font-semibold">Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}</p>
+										<p class="text-sm font-semibold">
+											Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}
+										</p>
 										{#if mercuryConnection?.last_synced_at}
-											<p class="text-xs opacity-70">Synced {formatDate(mercuryConnection.last_synced_at)}</p>
+											<p class="text-xs opacity-70">
+												Synced {formatDate(mercuryConnection.last_synced_at)}
+											</p>
 										{/if}
 									</div>
 									<button
@@ -2404,15 +2858,18 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 										autocomplete="off"
 										required={!mercuryConnected || mercuryEditMode}
 									/>
-									<button class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold" type="submit">
+									<button
+										class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
+										type="submit"
+									>
 										{mercuryConnected ? 'Update' : 'Save'}
 									</button>
 									{#if mercuryConnected}
 										<button
 											class="btn btn-sm preset-tonal-surface shrink-0"
 											type="button"
-											onclick={() => (mercuryEditMode = false)}
-										>Cancel</button>
+											onclick={() => (mercuryEditMode = false)}>Cancel</button
+										>
 									{/if}
 								</form>
 							{/if}
@@ -2420,9 +2877,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							{#if bankFeedAccounts.length > 0}
 								<div class="space-y-1.5">
 									{#each bankFeedAccounts as providerAccount}
-										<div class="card preset-tonal-surface flex items-center justify-between gap-3 p-3 text-sm">
+										<div
+											class="card preset-tonal-surface flex items-center justify-between gap-3 p-3 text-sm"
+										>
 											<span class="truncate font-semibold">{bankFeedLabel(providerAccount)}</span>
-											<span class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+											<span
+												class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+											>
 												{providerAccount.provider}
 											</span>
 										</div>
@@ -2437,16 +2898,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 								onclick={connectFinancialAccounts}
 							>
 								<IconLandmark class="h-4 w-4" />
-								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span>
+								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Link New Bank Account'}</span
+								>
 							</button>
 							{#if financialConnectionsMessage}
-								<p class="card preset-tonal-primary p-2 text-xs font-semibold">{financialConnectionsMessage}</p>
+								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
+									{financialConnectionsMessage}
+								</p>
 							{/if}
 						</div>
 
 						<!-- Manual Import -->
 						<div class="space-y-3">
-							<p class="text-xs font-bold uppercase tracking-wider opacity-60">Import CSV</p>
+							<p class="text-xs font-bold tracking-wider uppercase opacity-60">Import CSV</p>
 							<form
 								method="POST"
 								use:enhance
@@ -2468,7 +2932,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 									disabled={!cashAccounts.length}
 									required
 								>
-									<option value="">{cashAccounts.length ? 'Select target account…' : 'No bank accounts available'}</option>
+									<option value=""
+										>{cashAccounts.length
+											? 'Select target account…'
+											: 'No bank accounts available'}</option
+									>
 									{#each cashAccounts as account}
 										<option value={account.id}>{accountLabel(account)}</option>
 									{/each}
@@ -2491,13 +2959,25 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			{#if bankReviewGroups.length > 0}
 				<div class="space-y-3">
 					{#each bankReviewGroups as group}
-						<div class="card preset-tonal-surface transition-opacity duration-150 {group.items.some((item) => isPostingFeedItem(item.id)) ? 'opacity-75' : ''}">
+						<div
+							class="card preset-tonal-surface transition-opacity duration-150 {group.items.some(
+								(item) => isPostingFeedItem(item.id)
+							)
+								? 'opacity-75'
+								: ''}"
+						>
 							<!-- Group header -->
-							<div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-500/15 px-4 py-3 rounded-t-xl">
-								<div class="flex items-center gap-2 min-w-0">
+							<div
+								class="border-surface-500/15 flex flex-wrap items-center justify-between gap-2 rounded-t-xl border-b px-4 py-3"
+							>
+								<div class="flex min-w-0 items-center gap-2">
 									<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
-									<span class="truncate font-bold">{group.account ? accountLabel(group.account) : 'Unassigned'}</span>
-									<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold">{group.items.length}</span>
+									<span class="truncate font-bold"
+										>{group.account ? accountLabel(group.account) : 'Unassigned'}</span
+									>
+									<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold"
+										>{group.items.length}</span
+									>
 								</div>
 								<select
 									class="select preset-tonal-surface max-w-[220px] py-1 text-xs"
@@ -2506,10 +2986,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 									disabled={!bankFeedAccounts.length}
 									onchange={(event) => {
 										const nextAccountId = event.currentTarget.value;
-										for (const item of group.items) setReviewSelection(item.id, { accountId: nextAccountId });
+										for (const item of group.items)
+											setReviewSelection(item.id, { accountId: nextAccountId });
 									}}
 								>
-									<option value="">{bankFeedAccounts.length ? 'Select source…' : 'No feeds connected'}</option>
+									<option value=""
+										>{bankFeedAccounts.length ? 'Select source…' : 'No feeds connected'}</option
+									>
 									{#each bankFeedAccounts as account}
 										<option value={account.account_id}>{bankFeedLabel(account)}</option>
 									{/each}
@@ -2517,7 +3000,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							</div>
 
 							<!-- Transactions -->
-							<div class="divide-y divide-surface-500/10">
+							<div class="divide-surface-500/10 divide-y">
 								{#each group.items as item}
 									{@const selection = getReviewSelection(item)}
 									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
@@ -2525,23 +3008,37 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 										method="POST"
 										use:enhance={enhancePostFeedItem(item.id)}
 										action="?/postFeedItem"
-										class="px-4 py-3 transition-opacity duration-100 {isPostingFeedItem(item.id) ? 'opacity-60' : ''}"
+										class="px-4 py-3 transition-opacity duration-100 {isPostingFeedItem(item.id)
+											? 'opacity-60'
+											: ''}"
 									>
 										<input type="hidden" name="feedItemId" value={item.id} />
 										<input type="hidden" name="accountId" value={selection.accountId} />
-										<input type="hidden" name="categoryAccountId" value={selection.categoryAccountId} />
+										<input
+											type="hidden"
+											name="categoryAccountId"
+											value={selection.categoryAccountId}
+										/>
 
 										<!-- Line 1: description + amount -->
-										<div class="flex items-baseline gap-3 mb-2">
-											<p class="truncate text-sm font-semibold capitalize leading-snug">{item.description.toLowerCase()}</p>
-											<span class="shrink-0 text-sm font-bold tabular-nums {item.amount_cents >= 0 ? 'text-success-500' : 'text-error-500'}">
+										<div class="mb-2 flex items-baseline gap-3">
+											<p class="truncate text-sm leading-snug font-semibold capitalize">
+												{item.description.toLowerCase()}
+											</p>
+											<span
+												class="shrink-0 text-sm font-bold tabular-nums {item.amount_cents >= 0
+													? 'text-success-500'
+													: 'text-error-500'}"
+											>
 												{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
 											</span>
-											<span class="shrink-0 text-xs opacity-40">{formatDate(item.transaction_date)} · {item.provider}</span>
+											<span class="shrink-0 text-xs opacity-40"
+												>{formatDate(item.transaction_date)} · {item.provider}</span
+											>
 										</div>
 
 										<!-- Line 2: category + actions -->
-										<div class="flex items-center gap-2 max-w-xl">
+										<div class="flex max-w-xl items-center gap-2">
 											<div class="min-w-0 flex-1">
 												<SearchableSelect
 													items={categoryOptions}
@@ -2550,7 +3047,8 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 													emptyMessage="No matches."
 													itemLabel={accountLabel}
 													itemMeta={(account) => account.display_group || 'Other'}
-													onQueryChange={(value) => updateReviewCategoryQuery(item.id, item.amount_cents, value)}
+													onQueryChange={(value) =>
+														updateReviewCategoryQuery(item.id, item.amount_cents, value)}
 													onSelect={(account) => selectReviewCategory(item.id, account)}
 												/>
 											</div>
@@ -2581,9 +3079,11 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					{/each}
 				</div>
 			{:else}
-				<div class="card preset-tonal-surface flex flex-col items-center justify-center p-16 text-center">
+				<div
+					class="card preset-tonal-surface flex flex-col items-center justify-center p-16 text-center"
+				>
 					<div class="preset-tonal-success mb-4 rounded-full p-4">
-						<IconCheckCircle2 class="h-10 w-10 text-success-500" />
+						<IconCheckCircle2 class="text-success-500 h-10 w-10" />
 					</div>
 					<h3 class="text-lg font-bold">All caught up!</h3>
 					<p class="mt-1 max-w-xs text-sm opacity-60">
@@ -2592,7 +3092,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					{#if !showBankConfig}
 						<button
 							class="btn btn-sm preset-tonal-surface mt-4 font-semibold"
-							onclick={() => showBankConfig = true}
+							onclick={() => (showBankConfig = true)}
 						>
 							<IconCog class="h-4 w-4" />
 							<span>Manage Connections</span>
@@ -2607,21 +3107,20 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		<section class="max-w-4xl space-y-6">
 			<!-- Advanced Journal Form -->
 			<form
-				method="POST" use:enhance
+				method="POST"
+				use:enhance
 				action="?/journal"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconBookOpen class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Advanced Journal
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Advanced Journal</h2>
 				</div>
 				<input type="hidden" name="linesJson" value={journalJson} />
 
 				<div class="grid gap-4 sm:grid-cols-2">
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold">Date</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Date</span>
 						<input
 							class="input preset-tonal-surface"
 							type="date"
@@ -2631,9 +3130,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 						/>
 					</label>
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
-							>Description</span
-						>
+						<span class="text-surface-700-300 text-xs font-semibold">Description</span>
 						<input
 							class="input preset-tonal-surface"
 							name="description"
@@ -2732,12 +3229,12 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 				>
 					<div class="flex gap-4">
 						<div>
-							Debits: <span class="text-success-600 dark:text-success-400 font-bold"
+							Debits: <span class="text-success-700-300 font-bold"
 								>{formatCents(journalDebitTotal)}</span
 							>
 						</div>
 						<div>
-							Credits: <span class="text-secondary-600 dark:text-secondary-400 font-bold"
+							Credits: <span class="text-secondary-700-300 font-bold"
 								>{formatCents(journalCreditTotal)}</span
 							>
 						</div>
@@ -2775,13 +3272,14 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 		<section class="grid gap-6 lg:grid-cols-2">
 			<!-- Public Defaults Form -->
 			<form
-				method="POST" use:enhance
+				method="POST"
+				use:enhance
 				action="?/saveSettings"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconCog class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
 						Public Reporting Defaults
 					</h2>
 				</div>
@@ -2798,7 +3296,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					</label>
 
 					<label class="label">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
+						<span class="text-surface-700-300 text-xs font-semibold"
 							>Fiscal year starts (Month #)</span
 						>
 						<input
@@ -2813,7 +3311,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 					</label>
 
 					<div class="mt-2 space-y-2">
-						<span class="text-surface-600 dark:text-surface-400 text-xs font-semibold"
+						<span class="text-surface-700-300 text-xs font-semibold"
 							>Visible Reports by Default</span
 						>
 						<div
@@ -2878,20 +3376,19 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconFileText class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Published Snapshots
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Published Snapshots</h2>
 				</div>
 				<div class="space-y-3">
 					{#each data.public_reports as snapshot}
 						<form
-							method="POST" use:enhance
+							method="POST"
+							use:enhance
 							action="?/unpublishSnapshot"
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-4 rounded-xl border p-4 text-sm transition-all duration-150"
 						>
 							<input type="hidden" name="reportId" value={snapshot.id} />
 							<div class="min-w-0 space-y-1">
-								<p class="text-surface-900 dark:text-surface-100 truncate font-bold">
+								<p class="text-surface-900-100 truncate font-bold">
 									{snapshot.title}
 								</p>
 								<p class="text-surface-500 text-xs">
@@ -2933,11 +3430,9 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconFileText class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Exports
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Exports</h2>
 				</div>
-				<p class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">
+				<p class="text-surface-700-300 text-sm leading-relaxed">
 					Download the complete general ledger history for this group in CSV format for local backup
 					or importing into other tools.
 				</p>
@@ -2954,14 +3449,13 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconReceipt class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Receipt Review
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Receipt Review</h2>
 				</div>
 				<div class="space-y-3">
 					{#each receipts.slice(0, 5) as receipt}
 						<form
-							method="POST" use:enhance
+							method="POST"
+							use:enhance
 							action="?/reclassifyReceipt"
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-3 rounded-xl border p-4 transition-colors duration-150"
 						>
@@ -2969,7 +3463,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							<div
 								class="border-surface-500/10 flex items-start justify-between gap-2 border-b pb-2"
 							>
-								<span class="text-surface-900 dark:text-surface-100 truncate text-sm font-bold"
+								<span class="text-surface-900-100 truncate text-sm font-bold"
 									>{receipt.file_name}</span
 								>
 								<span
@@ -3018,9 +3512,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconCog class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900 dark:text-surface-100 text-lg font-bold tracking-tight">
-						Audit Trail
-					</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Audit Trail</h2>
 				</div>
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 					{#each auditEvents.slice(0, 8) as event}
@@ -3028,9 +3520,7 @@ import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-1 rounded-xl border p-4 transition-colors duration-150"
 						>
 							<div class="flex items-start justify-between gap-2">
-								<span class="text-surface-900 dark:text-surface-100 text-xs font-bold"
-									>{event.event_type}</span
-								>
+								<span class="text-surface-900-100 text-xs font-bold">{event.event_type}</span>
 								<span class="text-surface-500 text-[9px] font-medium"
 									>{formatDate(event.created_at)}</span
 								>
