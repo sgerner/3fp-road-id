@@ -63,7 +63,9 @@
 	const currentCategories = $derived(moneyFlow === 'income' ? incomeAccounts : expenseAccounts);
 	const recentEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const feedItems = $derived(Array.isArray(data.feed_items) ? data.feed_items : []);
-	const needsReview = $derived(feedItems.filter((item) => item.status === 'needs_review'));
+	const needsReview = $derived(
+		feedItems.filter((item) => ['needs_review', 'matched'].includes(item.status))
+	);
 	const bankReviewTotal = $derived(Number(data.bank_review_total ?? needsReview.length));
 	const bankReviewPage = $derived(Number(data.bank_review_page ?? 1));
 	const bankReviewPageSize = $derived(Number(data.bank_review_page_size ?? 50));
@@ -262,6 +264,22 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function matchCandidateLabel(candidate) {
+		return `${formatDate(candidate.entry_date)} · ${candidate.description} · ${formatCents(
+			candidate.amount_cents
+		)}`;
+	}
+
+	function selectedMatchCandidate(item) {
+		const candidates = item.match_candidates ?? [];
+		if (!candidates.length) return null;
+		return (
+			candidates.find((candidate) => candidate.id === item.matched_entry_id) ??
+			candidates[0] ??
+			null
+		);
 	}
 
 	function monthLabel(value) {
@@ -3130,10 +3148,11 @@
 
 							<!-- Transactions -->
 							<div class="divide-surface-500/10 divide-y">
-								{#each group.items as item (item.id)}
-									{@const selection = getReviewSelection(item)}
-									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
-									<form
+									{#each group.items as item (item.id)}
+										{@const selection = getReviewSelection(item)}
+										{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
+										{@const selectedMatch = selectedMatchCandidate(item)}
+										<form
 										method="POST"
 										use:enhance={enhancePostFeedItem(item.id)}
 										action="?/postFeedItem"
@@ -3143,11 +3162,11 @@
 									>
 										<input type="hidden" name="feedItemId" value={item.id} />
 										<input type="hidden" name="accountId" value={selection.accountId} />
-										<input
-											type="hidden"
-											name="categoryAccountId"
-											value={selection.categoryAccountId}
-										/>
+											<input
+												type="hidden"
+												name="categoryAccountId"
+												value={selection.categoryAccountId}
+											/>
 
 										<!-- Line 1: description + amount -->
 										<div class="mb-2 flex items-baseline gap-3">
@@ -3161,12 +3180,46 @@
 											>
 												{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
 											</span>
-											<span class="shrink-0 text-xs opacity-40"
-												>{formatDate(item.transaction_date)} · {item.provider}</span
-											>
-										</div>
+												<span class="shrink-0 text-xs opacity-40"
+													>{formatDate(item.transaction_date)} · {item.provider}</span
+												>
+												{#if item.status === 'matched'}
+													<span
+														class="badge preset-tonal-success shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+														>Match found</span
+													>
+												{/if}
+											</div>
 
-										<!-- Line 2: category + actions -->
+											{#if (item.match_candidates ?? []).length > 0}
+												<div
+													class="bg-surface-500/5 border-surface-500/10 mb-2 flex max-w-3xl flex-col gap-2 rounded-lg border p-2 sm:flex-row sm:items-center"
+												>
+													<select
+														class="select preset-tonal-surface min-w-0 flex-1 py-1 text-xs"
+														name="entryId"
+														value={selectedMatch?.id || ''}
+														aria-label="Existing transaction match"
+													>
+														{#each item.match_candidates as candidate}
+															<option value={candidate.id}>
+																{matchCandidateLabel(candidate)}
+																{candidate.reason ? ` (${candidate.reason})` : ''}
+															</option>
+														{/each}
+													</select>
+													<button
+														class="btn btn-sm preset-outlined-primary-500 shrink-0 font-bold"
+														formaction="?/matchFeedItem"
+														type="submit"
+														disabled={isPostingFeedItem(item.id)}
+													>
+														Match
+													</button>
+												</div>
+											{/if}
+
+											<!-- Line 2: category + actions -->
 										<div class="flex max-w-xl items-center gap-2">
 											<div class="min-w-0 flex-1">
 												<SearchableSelect

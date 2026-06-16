@@ -1192,6 +1192,62 @@ export async function postFeedItem(auth, formData) {
 	if (updateError) throw new Error(updateError.message);
 }
 
+export async function matchFeedItemToEntry(auth, formData) {
+	const feedItemId = cleanText(formData.get('feedItemId'));
+	const entryId = cleanText(formData.get('entryId'));
+	const accountId = cleanText(formData.get('accountId'));
+	if (!feedItemId || !entryId) throw new Error('Choose a transaction to match.');
+	const [{ data: item, error: itemError }, { data: entry, error: entryError }] = await Promise.all([
+		auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select('*')
+			.eq('group_id', auth.group.id)
+			.eq('id', feedItemId)
+			.maybeSingle(),
+		auth.serviceSupabase
+			.from('group_accounting_entries')
+			.select('id, entry_date, amount_cents, status')
+			.eq('group_id', auth.group.id)
+			.eq('id', entryId)
+			.maybeSingle()
+	]);
+	if (itemError) throw new Error(itemError.message);
+	if (entryError) throw new Error(entryError.message);
+	if (!item) throw new Error('Bank activity not found.');
+	if (!entry) throw new Error('Transaction not found.');
+	if (!['needs_review', 'matched'].includes(item.status)) {
+		throw new Error('This bank activity has already been handled.');
+	}
+	if (entry.status !== 'posted') throw new Error('Only posted transactions can be matched.');
+	if (Math.abs(Number(entry.amount_cents || 0)) !== Math.abs(Number(item.amount_cents || 0))) {
+		throw new Error('Matched transactions must have the same amount.');
+	}
+	const { data: existingMatch, error: existingMatchError } = await auth.serviceSupabase
+		.from('group_accounting_bank_feed_items')
+		.select('id')
+		.eq('group_id', auth.group.id)
+		.eq('matched_entry_id', entry.id)
+		.neq('id', item.id)
+		.in('status', ['matched', 'posted'])
+		.maybeSingle();
+	if (existingMatchError) throw new Error(existingMatchError.message);
+	if (existingMatch) throw new Error('That transaction is already matched to another bank import.');
+	const { error } = await auth.serviceSupabase
+		.from('group_accounting_bank_feed_items')
+		.update({
+			status: 'posted',
+			matched_entry_id: entry.id,
+			account_id: accountId || item.account_id,
+			match_confidence: 1,
+			match_reason: 'Matched manually during bank review'
+		})
+		.eq('group_id', auth.group.id)
+		.eq('id', item.id)
+		.in('status', ['needs_review', 'matched']);
+	if (error) throw new Error(error.message);
+	await auditEvent(auth, 'match', 'bank_feed_item', item.id, item, { matched_entry_id: entry.id });
+}
+
 export async function ignoreFeedItem(auth, formData) {
 	const feedItemId = cleanText(formData.get('feedItemId'));
 	const { error } = await auth.serviceSupabase
@@ -1380,6 +1436,77 @@ export async function buildAccountingReport(supabase, groupId, options = {}) {
 	};
 }
 
+function dateDeltaDays(left, right) {
+	const leftTime = new Date(`${String(left).slice(0, 10)}T12:00:00Z`).getTime();
+	const rightTime = new Date(`${String(right).slice(0, 10)}T12:00:00Z`).getTime();
+	if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return Number.POSITIVE_INFINITY;
+	return Math.abs(leftTime - rightTime) / (24 * 60 * 60 * 1000);
+}
+
+function normalizedMatchText(value) {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, ' ')
+		.trim();
+}
+
+function entryUsesAccount(entry, accountId) {
+	if (!accountId) return false;
+	return (entry.lines ?? []).some((line) => line.account_id === accountId);
+}
+
+function buildFeedItemsWithMatchCandidates(feedItems, entries) {
+	const usedEntryIds = new Set(
+		feedItems
+			.filter((item) => item.matched_entry_id && item.status === 'posted')
+			.map((item) => item.matched_entry_id)
+	);
+	return feedItems.map((item) => {
+		const itemAmount = Math.abs(Number(item.amount_cents || 0));
+		const itemText = normalizedMatchText(item.description);
+		const candidates = entries
+			.filter((entry) => {
+				if (usedEntryIds.has(entry.id) && entry.id !== item.matched_entry_id) return false;
+				if (entry.status !== 'posted') return false;
+				return Math.abs(Number(entry.amount_cents || 0)) === itemAmount;
+			})
+			.map((entry) => {
+				const days = dateDeltaDays(entry.entry_date, item.transaction_date);
+				const sameAccount = entryUsesAccount(entry, item.account_id);
+				const entryText = normalizedMatchText(entry.description);
+				const textOverlap =
+					itemText && entryText && (itemText.includes(entryText) || entryText.includes(itemText));
+				const score =
+					(days === 0 ? 0.45 : days <= 3 ? 0.3 : days <= 7 ? 0.15 : 0) +
+					(sameAccount ? 0.35 : 0) +
+					(textOverlap ? 0.2 : 0);
+				return {
+					id: entry.id,
+					entry_date: entry.entry_date,
+					description: entry.description,
+					amount_cents: entry.amount_cents,
+					source: entry.source,
+					score,
+					reason: [
+						days === 0 ? 'same date' : days <= 7 ? `within ${Math.round(days)} days` : '',
+						sameAccount ? 'same account' : '',
+						textOverlap ? 'similar description' : ''
+					]
+						.filter(Boolean)
+						.join(', ')
+				};
+			})
+			.filter((candidate) => candidate.id === item.matched_entry_id || candidate.score > 0)
+			.sort((left, right) => {
+				if (left.id === item.matched_entry_id) return -1;
+				if (right.id === item.matched_entry_id) return 1;
+				return right.score - left.score;
+			})
+			.slice(0, 5);
+		return { ...item, match_candidates: candidates };
+	});
+}
+
 export async function loadAccountingDashboard(auth, url) {
 	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
@@ -1402,7 +1529,7 @@ export async function loadAccountingDashboard(auth, url) {
 		.from('group_accounting_bank_feed_items')
 		.select('id', { count: 'exact', head: true })
 		.eq('group_id', auth.group.id)
-		.eq('status', 'needs_review');
+		.in('status', ['needs_review', 'matched']);
 	const bankReviewTotalPages =
 		bankReviewTotal > 0 ? Math.ceil(bankReviewTotal / bankReviewPageSize) : 0;
 	const bankReviewPage = bankReviewTotalPages
@@ -1439,7 +1566,7 @@ export async function loadAccountingDashboard(auth, url) {
 			.from('group_accounting_bank_feed_items')
 			.select('*')
 			.eq('group_id', auth.group.id)
-			.eq('status', 'needs_review')
+			.in('status', ['needs_review', 'matched'])
 			.order('transaction_date', { ascending: false })
 			.order('created_at', { ascending: false })
 			.range(bankReviewOffset, bankReviewOffset + bankReviewPageSize - 1),
@@ -1499,7 +1626,7 @@ export async function loadAccountingDashboard(auth, url) {
 		report,
 		entries: entries ?? [],
 		budgets: budgetRows,
-		feed_items: feedItems ?? [],
+		feed_items: buildFeedItemsWithMatchCandidates(feedItems ?? [], entries ?? []),
 		bank_review_page: bankReviewPage,
 		bank_review_page_size: bankReviewPageSize,
 		bank_review_total: bankReviewTotal,

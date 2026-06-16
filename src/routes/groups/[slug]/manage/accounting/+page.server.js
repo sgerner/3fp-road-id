@@ -9,6 +9,7 @@ import {
 	ignoreFeedItem,
 	importBankCsv,
 	loadAccountingDashboard,
+	matchFeedItemToEntry,
 	postFeedItem,
 	postJournal,
 	postOpeningBalance,
@@ -123,6 +124,10 @@ export const actions = {
 	postFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await postFeedItem(auth, await request.formData());
+		}),
+	matchFeedItem: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await matchFeedItemToEntry(auth, await request.formData());
 		}),
 	ignoreFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
