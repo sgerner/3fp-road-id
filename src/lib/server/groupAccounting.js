@@ -1057,11 +1057,17 @@ export async function postFeedItem(auth, formData) {
 		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
 	);
 	const categoryAccount = accounts.find(
-		(account) => account.id === categoryAccountId && account.kind === flow
+		(account) =>
+			account.id === categoryAccountId &&
+			(account.kind === flow || ['asset', 'liability'].includes(account.kind))
 	);
 	if (!cashAccount) throw new Error('Choose where the money moved.');
 	if (!categoryAccount) throw new Error('Choose a category.');
 	const amountCents = Math.abs(amount);
+	const isTransferAccount = ['asset', 'liability'].includes(categoryAccount.kind);
+	if (isTransferAccount && categoryAccount.id === cashAccount.id) {
+		throw new Error('Choose two different accounts.');
+	}
 	const { data: existingEntry, error: existingEntryError } = await auth.serviceSupabase
 		.from('group_accounting_entries')
 		.select('id')
@@ -1089,7 +1095,7 @@ export async function postFeedItem(auth, formData) {
 		auth.group.id,
 		{
 			entry_date: dateOnly(item.transaction_date),
-			entry_type: 'bank_feed',
+			entry_type: isTransferAccount ? 'transfer' : 'bank_feed',
 			source: 'bank_feed',
 			source_id: item.id,
 			description: item.description,
@@ -1099,18 +1105,29 @@ export async function postFeedItem(auth, formData) {
 			created_by_user_id: auth.userId,
 			metadata: {
 				provider: item.provider,
-				source_transaction_id: item.source_transaction_id
+				source_transaction_id: item.source_transaction_id,
+				...(isTransferAccount ? { transfer_account_id: categoryAccount.id } : {})
 			}
 		},
-		flow === 'income'
-			? [
-					{ account_id: cashAccount.id, debit_cents: amountCents },
-					{ account_id: categoryAccount.id, credit_cents: amountCents }
-				]
-			: [
-					{ account_id: categoryAccount.id, debit_cents: amountCents },
-					{ account_id: cashAccount.id, credit_cents: amountCents }
-				]
+		isTransferAccount
+			? amount >= 0
+				? [
+						{ account_id: cashAccount.id, debit_cents: amountCents },
+						{ account_id: categoryAccount.id, credit_cents: amountCents }
+					]
+				: [
+						{ account_id: categoryAccount.id, debit_cents: amountCents },
+						{ account_id: cashAccount.id, credit_cents: amountCents }
+					]
+			: flow === 'income'
+				? [
+						{ account_id: cashAccount.id, debit_cents: amountCents },
+						{ account_id: categoryAccount.id, credit_cents: amountCents }
+					]
+				: [
+						{ account_id: categoryAccount.id, debit_cents: amountCents },
+						{ account_id: cashAccount.id, credit_cents: amountCents }
+					]
 	);
 	const { error: updateError } = await auth.serviceSupabase
 		.from('group_accounting_bank_feed_items')

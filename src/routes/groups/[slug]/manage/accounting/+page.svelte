@@ -514,7 +514,10 @@
 	}
 
 	function getReviewCategoryOptions(item, query = '') {
-		const sourceAccounts = item.amount_cents >= 0 ? incomeAccounts : expenseAccounts;
+		const sourceAccounts = [
+			...(item.amount_cents >= 0 ? incomeAccounts : expenseAccounts),
+			...cashAccounts
+		].filter((account, index, list) => list.findIndex((candidate) => candidate.id === account.id) === index);
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return sourceAccounts;
 		return sourceAccounts.filter((account) => {
@@ -3139,10 +3142,13 @@
 												<SearchableSelect
 													items={categoryOptions}
 													query={selection.categoryQuery}
-													placeholder="Category…"
+													placeholder="Category or transfer account…"
 													emptyMessage="No matches."
 													itemLabel={accountLabel}
-													itemMeta={(account) => account.display_group || 'Other'}
+													itemMeta={(account) =>
+														['asset', 'liability'].includes(account.kind)
+															? 'Transfer'
+															: account.display_group || 'Other'}
 													onQueryChange={(value) =>
 														updateReviewCategoryQuery(item.id, item.amount_cents, value)}
 													onSelect={(account) => selectReviewCategory(item.id, account)}
