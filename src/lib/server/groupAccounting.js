@@ -2016,8 +2016,92 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 
 function providerExternalAccountId(account = {}) {
 	return cleanText(
-		account.account_id || account.accountId || account.id || account.uuid || account.number
+		account.account_id ||
+			account.accountId ||
+			account.bankAccountId ||
+			account.creditAccountId ||
+			account.debitAccountId ||
+			account.cardAccountId ||
+			account.cardId ||
+			account.account?.id ||
+			account.account?.uuid ||
+			account.id ||
+			account.uuid ||
+			account.number
 	);
+}
+
+function firstCleanText(values = [], limit = 200) {
+	for (const value of values) {
+		const cleaned = cleanText(value, limit);
+		if (cleaned) return cleaned;
+	}
+	return '';
+}
+
+function mercuryTransactionDescription(transaction = {}) {
+	return (
+		firstCleanText(
+			[
+				transaction.counterpartyName,
+				transaction.counterparty_name,
+				transaction.merchantName,
+				transaction.merchant_name,
+				transaction.bankDescription,
+				transaction.bank_description,
+				transaction.externalMemo,
+				transaction.external_memo,
+				transaction.note,
+				transaction.memo,
+				transaction.description,
+				transaction.name
+			],
+			200
+		) || 'Mercury activity'
+	);
+}
+
+function mercuryProviderAccountsFromTransactions(transactions = []) {
+	const accounts = new Map();
+	for (const transaction of transactions) {
+		const externalAccountId = providerExternalAccountId(transaction);
+		if (!externalAccountId || accounts.has(externalAccountId)) continue;
+		const account = transaction.account ?? {};
+		const displayName =
+			firstCleanText([
+				account.name,
+				account.nickname,
+				transaction.accountName,
+				transaction.account_name,
+				transaction.cardName,
+				transaction.card_name,
+				transaction.creditAccountName,
+				transaction.credit_account_name
+			]) || 'Mercury account';
+		const accountType = firstCleanText([
+			account.type,
+			transaction.accountType,
+			transaction.account_type,
+			transaction.kind
+		]);
+		const accountSubtype =
+			firstCleanText([
+				account.subtype,
+				transaction.accountSubtype,
+				transaction.account_subtype,
+				transaction.cardId || transaction.cardAccountId ? 'credit_card' : ''
+			]) || null;
+		accounts.set(externalAccountId, {
+			...account,
+			id: externalAccountId,
+			name: displayName,
+			type: accountType || 'mercury',
+			subtype: accountSubtype,
+			mask: account.mask || transaction.mask || transaction.lastFour || transaction.last_four,
+			currency: account.currency || transaction.currency
+		});
+	}
+	return Array.from(accounts.values());
 }
 
 async function loadProviderAccountMap(auth, provider) {
@@ -2042,6 +2126,11 @@ function feedItemAmountCents(provider, transaction) {
 	return Math.round(amount * -100);
 }
 
+function feedItemDescription(provider, transaction) {
+	if (provider === 'mercury') return mercuryTransactionDescription(transaction);
+	return cleanText(transaction.name || transaction.description || transaction.memo || 'Imported activity', 200);
+}
+
 async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
 	const { defaultAccountId = null, accountMap = new Map() } = options;
 	const rows = transactions
@@ -2057,10 +2146,7 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 					transaction.date || transaction.posted_at || transaction.created
 				),
 				account_id: accountId,
-				description: cleanText(
-					transaction.name || transaction.description || transaction.memo || 'Imported activity',
-					200
-				),
+				description: feedItemDescription(provider, transaction),
 				amount_cents: feedItemAmountCents(provider, transaction),
 				currency: normalizeCurrency(transaction.iso_currency_code || transaction.currency || 'usd'),
 				status: 'needs_review',
@@ -2308,19 +2394,26 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		method: 'GET',
 		path: '/api/v1/accounts'
 	});
-	const accounts = accountsPayload.accounts ?? [];
-	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
-	const accountMap = await loadProviderAccountMap(auth, 'mercury');
 	const txPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
 		method: 'GET',
 		path: '/api/v1/transactions',
 		query: { limit: 1000, order: 'desc' }
 	});
+	const transactions = txPayload.transactions ?? [];
+	const accounts = [
+		...(accountsPayload.accounts ?? []),
+		...(accountsPayload.creditAccounts ?? []),
+		...(accountsPayload.credit_accounts ?? []),
+		...(accountsPayload.cards ?? []),
+		...mercuryProviderAccountsFromTransactions(transactions)
+	];
+	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
+	const accountMap = await loadProviderAccountMap(auth, 'mercury');
 	const insertedCount = await upsertFeedItems(
 		auth,
 		resolved,
 		'mercury',
-		(txPayload.transactions ?? []).map((transaction) => ({
+		transactions.map((transaction) => ({
 			...transaction,
 			account_id: providerExternalAccountId(transaction)
 		})),

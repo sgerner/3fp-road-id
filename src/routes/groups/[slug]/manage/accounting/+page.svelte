@@ -507,6 +507,56 @@
 		return `${account.display_name || 'Bank feed'}${suffix}${mask}`;
 	}
 
+	function firstFeedValue(values = []) {
+		for (const value of values) {
+			const cleaned = String(value ?? '').trim();
+			if (cleaned) return cleaned;
+		}
+		return '';
+	}
+
+	function mercuryFeedDetails(item) {
+		if (item.provider !== 'mercury') return [];
+		const raw = item.raw ?? {};
+		return [
+			{
+				label: 'To/From',
+				value: firstFeedValue([
+					raw.counterpartyName,
+					raw.counterparty_name,
+					raw.merchantName,
+					raw.merchant_name
+				])
+			},
+			{
+				label: 'Method',
+				value: firstFeedValue([raw.method, raw.kind, raw.transactionType, raw.transaction_type])
+			},
+			{
+				label: 'Memo',
+				value: firstFeedValue([
+					raw.externalMemo,
+					raw.external_memo,
+					raw.bankDescription,
+					raw.bank_description,
+					raw.note,
+					raw.memo
+				])
+			},
+			{
+				label: 'Account',
+				value: firstFeedValue([
+					raw.account?.name,
+					raw.accountName,
+					raw.account_name,
+					raw.cardName,
+					raw.card_name,
+					raw.external_account_id
+				])
+			}
+		].filter((detail) => detail.value);
+	}
+
 	function getReviewSelection(item) {
 		const state = reviewSelections[item.id] ?? {};
 		const hasAccountId = Object.hasOwn(state, 'accountId');
@@ -3161,6 +3211,7 @@
 										{@const selection = getReviewSelection(item)}
 										{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
 										{@const selectedMatch = selectedMatchCandidate(item)}
+										{@const mercuryDetails = mercuryFeedDetails(item)}
 										<form
 										method="POST"
 										use:enhance={enhancePostFeedItem(item.id)}
@@ -3225,6 +3276,19 @@
 													>
 														Match
 													</button>
+												</div>
+											{/if}
+
+											{#if mercuryDetails.length > 0}
+												<div class="mb-2 flex flex-wrap gap-1.5">
+													{#each mercuryDetails as detail}
+														<span
+															class="badge preset-tonal-surface max-w-full px-2 py-1 text-[10px] font-semibold normal-case"
+														>
+															<span class="opacity-50">{detail.label}:</span>
+															<span class="ml-1 truncate">{detail.value}</span>
+														</span>
+													{/each}
 												</div>
 											{/if}
 
