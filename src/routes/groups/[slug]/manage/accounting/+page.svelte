@@ -210,7 +210,7 @@
 		{ id: 'budgets', label: 'Budgets', icon: IconBadgeDollarSign },
 		{ id: 'reports', label: 'Reports', icon: IconFileText },
 		{ id: 'transactions', label: 'Transactions', icon: IconArrowRightLeft },
-		{ id: 'banking', label: 'Bank Review', icon: IconLandmark },
+		{ id: 'banking', label: 'Bank Feeds', icon: IconLandmark },
 		{ id: 'advanced', label: 'Advanced', icon: IconBookOpen },
 		{ id: 'settings', label: 'Settings', icon: IconCog }
 	];
@@ -669,12 +669,12 @@
 	function groupBankReviewItems(items) {
 		const grouped = new Map();
 		for (const item of items) {
-			const selection = getReviewSelection(item);
-			const account = accounts.find((candidate) => candidate.id === selection.accountId);
-			const key = selection.accountId || '__unassigned__';
+			const accountId = item.account_id || '';
+			const account = accounts.find((candidate) => candidate.id === accountId);
+			const key = accountId || '__unassigned__';
 			if (!grouped.has(key)) {
 				grouped.set(key, {
-					accountId: selection.accountId,
+					accountId,
 					account,
 					items: []
 				});
@@ -794,7 +794,6 @@
 			nextSelections = {
 				...nextSelections,
 				[item.id]: {
-					accountId: bankFeedAccounts[0]?.account_id || '',
 					categoryAccountId:
 						item.suggested_account_id ||
 						(item.amount_cents >= 0 ? incomeAccounts[0]?.id : expenseAccounts[0]?.id) ||
@@ -1211,7 +1210,7 @@
 </script>
 
 <svelte:head>
-	<title>Accounting | {data.group?.name ?? 'Group'}</title>
+	<title>{page.url.searchParams.get('tab') === 'banking' ? 'Bank Feeds' : 'Accounting'} | {data.group?.name ?? 'Group'}</title>
 </svelte:head>
 
 <div class="space-y-6 pb-8">
@@ -2884,7 +2883,7 @@
 			<!-- Header -->
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div class="flex items-center gap-3">
-					<h2 class="text-2xl font-bold tracking-tight">Bank Review</h2>
+				<h2 class="text-2xl font-bold tracking-tight">Bank Feeds</h2>
 					<span
 						class="badge {bankReviewTotal > 0
 							? 'preset-filled-warning-500'
@@ -3147,31 +3146,13 @@
 							>
 								<div class="flex min-w-0 items-center gap-2">
 									<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
-									<span class="truncate font-bold"
-										>{group.account ? accountLabel(group.account) : 'Unassigned'}</span
-									>
+									<span class="truncate font-bold">
+										{group.account ? accountLabel(group.account) : 'Unassigned'}
+									</span>
 									<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold"
 										>{group.items.length}</span
 									>
 								</div>
-									<select
-										class="select preset-tonal-surface max-w-[220px] py-1 text-xs"
-										value={group.accountId}
-										aria-label="Bank feed source"
-										disabled={!mappedBankFeedAccounts.length}
-									onchange={(event) => {
-										const nextAccountId = event.currentTarget.value;
-										for (const item of group.items)
-											setReviewSelection(item.id, { accountId: nextAccountId });
-									}}
-									>
-										<option value=""
-											>{mappedBankFeedAccounts.length ? 'Select source…' : 'No mapped feeds'}</option
-										>
-										{#each mappedBankFeedAccounts as account}
-											<option value={account.account_id}>{bankFeedLabel(account)}</option>
-										{/each}
-									</select>
 							</div>
 
 							<!-- Transactions -->
@@ -3189,7 +3170,7 @@
 											: ''}"
 									>
 										<input type="hidden" name="feedItemId" value={item.id} />
-										<input type="hidden" name="accountId" value={selection.accountId} />
+										<input type="hidden" name="accountId" value={group.accountId || selection.accountId} />
 											<input
 												type="hidden"
 												name="categoryAccountId"
@@ -3300,7 +3281,7 @@
 					</div>
 					<h3 class="text-lg font-bold">All caught up!</h3>
 					<p class="mt-1 max-w-xs text-sm opacity-60">
-						No transactions need review. Sync your bank feeds or import a CSV to get started.
+						No bank feeds need review. Sync your bank feeds or import a CSV to get started.
 					</p>
 					{#if !showBankConfig}
 						<button
