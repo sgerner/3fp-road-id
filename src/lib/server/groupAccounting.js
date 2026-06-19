@@ -1984,7 +1984,8 @@ export async function completeAutomatedReconciliation(auth, formData) {
 }
 
 async function upsertProviderAccounts(auth, connection, provider, accounts = []) {
-	const rows = accounts
+	const rows = dedupeRowsByKey(
+		accounts
 		.map((account) => ({
 			group_id: auth.group.id,
 			connection_id: connection.id,
@@ -2005,7 +2006,9 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 			currency: normalizeCurrency(account.balances?.iso_currency_code || account.currency || 'usd'),
 			raw: account
 		}))
-		.filter((row) => row.external_account_id);
+		.filter((row) => row.external_account_id),
+		'external_account_id'
+	);
 	if (rows.length) {
 		const { error } = await auth.serviceSupabase
 			.from('group_accounting_provider_accounts')
@@ -2025,10 +2028,20 @@ function providerExternalAccountId(account = {}) {
 			account.cardId ||
 			account.account?.id ||
 			account.account?.uuid ||
-			account.id ||
-			account.uuid ||
-			account.number
+		account.id ||
+		account.uuid ||
+		account.number
 	);
+}
+
+function dedupeRowsByKey(rows = [], key) {
+	const deduped = new Map();
+	for (const row of rows) {
+		const value = row?.[key];
+		if (!value) continue;
+		deduped.set(value, row);
+	}
+	return Array.from(deduped.values());
 }
 
 function firstCleanText(values = [], limit = 200) {
@@ -2133,7 +2146,8 @@ function feedItemDescription(provider, transaction) {
 
 async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
 	const { defaultAccountId = null, accountMap = new Map() } = options;
-	const rows = transactions
+	const rows = dedupeRowsByKey(
+		transactions
 		.map((transaction) => {
 			const externalAccountId = providerExternalAccountId(transaction);
 			const accountId = accountMap.get(externalAccountId) || defaultAccountId || null;
@@ -2156,7 +2170,9 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 				}
 			};
 		})
-		.filter((row) => row.source_transaction_id);
+		.filter((row) => row.source_transaction_id),
+		'source_transaction_id'
+	);
 	if (rows.length) {
 		const { error } = await auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
@@ -2409,14 +2425,21 @@ export async function syncMercuryTransactions(auth, options = {}) {
 	];
 	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
 	const accountMap = await loadProviderAccountMap(auth, 'mercury');
-	const insertedCount = await upsertFeedItems(
-		auth,
-		resolved,
-		'mercury',
+	const normalizedTransactions = dedupeRowsByKey(
 		transactions.map((transaction) => ({
 			...transaction,
 			account_id: providerExternalAccountId(transaction)
 		})),
+		'transaction_id'
+	).map((transaction) => ({
+		...transaction,
+		source_transaction_id: cleanText(transaction.transaction_id || transaction.id)
+	}));
+	const insertedCount = await upsertFeedItems(
+		auth,
+		resolved,
+		'mercury',
+		normalizedTransactions,
 		{ accountMap }
 	);
 	await auth.serviceSupabase
