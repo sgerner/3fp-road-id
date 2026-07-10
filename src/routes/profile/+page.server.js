@@ -65,6 +65,7 @@ function extractContext(metadata) {
 	const source = normalizeMetadataObject(metadata?.recommendation_context);
 	return {
 		location: safeText(source.location, 120),
+		home_location: normalizeMetadataObject(source.home_location),
 		interests: normalizeStringArray(source.interests),
 		recommendation_focus: normalizeFocus(source.recommendation_focus)
 	};
@@ -77,7 +78,7 @@ export const load = async ({ cookies }) => {
 		return {
 			currentUser: null,
 			profile: null,
-			context: { location: '', interests: [], recommendation_focus: [] },
+			context: { location: '', home_location: {}, interests: [], recommendation_focus: [] },
 			interestSuggestions: INTEREST_SUGGESTIONS,
 			recommendationOptions: RECOMMENDATION_OPTIONS
 		};

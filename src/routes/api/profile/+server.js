@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '$lib/server/activities';
+import { searchGeocode } from '$lib/server/geocoding';
 
 const MAX_FULL_NAME_LENGTH = 120;
 const MAX_BIO_LENGTH = 600;
@@ -44,10 +45,22 @@ function normalizeMetadataObject(value) {
 	return value;
 }
 
+function normalizeHomeLocation(value) {
+	const source = normalizeMetadataObject(value);
+	const latitude = Number(source.latitude);
+	const longitude = Number(source.longitude);
+	return {
+		label: safeText(source.label, MAX_LOCATION_LENGTH),
+		latitude: Number.isFinite(latitude) ? latitude : null,
+		longitude: Number.isFinite(longitude) ? longitude : null
+	};
+}
+
 function extractRecommendationContext(metadata) {
 	const contextRaw = normalizeMetadataObject(metadata?.recommendation_context);
 	return {
 		location: safeText(contextRaw.location, MAX_LOCATION_LENGTH),
+		home_location: normalizeHomeLocation(contextRaw.home_location),
 		interests: normalizeStringArray(contextRaw.interests),
 		recommendation_focus: normalizeFocus(contextRaw.recommendation_focus)
 	};
@@ -93,7 +106,7 @@ export async function GET({ cookies }) {
 	});
 }
 
-export async function PUT({ cookies, request }) {
+export async function PUT({ cookies, fetch, request }) {
 	const { user, supabase } = getActivityClient(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
@@ -129,8 +142,19 @@ export async function PUT({ cookies, request }) {
 	}
 
 	const existingMetadata = normalizeMetadataObject(existingResult.data?.metadata);
+	const geocoded = location
+		? await searchGeocode(location, { limit: 1, fetchImpl: fetch }).catch(() => [])
+		: [];
+	const match = geocoded[0] ?? null;
 	const recommendationContext = {
 		location,
+		home_location: location
+			? {
+					label: match?.label || location,
+					latitude: Number.isFinite(match?.latitude) ? match.latitude : null,
+					longitude: Number.isFinite(match?.longitude) ? match.longitude : null
+				}
+			: null,
 		interests,
 		recommendation_focus: recommendationFocus,
 		updated_at: new Date().toISOString()

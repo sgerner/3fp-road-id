@@ -37,6 +37,7 @@
 	let saving = $state(false);
 	let saveError = $state('');
 	let saveSuccess = $state('');
+	let locationConfirmation = $state(existingContext?.home_location?.label ?? '');
 	let uploadingAvatar = $state(false);
 	let avatarError = $state('');
 	let fileInputEl = $state(null);
@@ -176,6 +177,7 @@
 			avatarUrl = savedProfile?.avatar_url ?? avatarUrl;
 			bio = savedProfile?.bio ?? bio;
 			location = payload?.context?.location ?? location;
+			locationConfirmation = payload?.context?.home_location?.label ?? location;
 			interests = Array.isArray(payload?.context?.interests)
 				? payload.context.interests
 				: interests;
@@ -349,7 +351,13 @@
 						maxlength="120"
 						placeholder="City, State (example: Phoenix, AZ)"
 					/>
-					<p class="text-xs opacity-60">Use a broad location. A city/state combo is perfect.</p>
+					<p class="text-xs opacity-60">
+						Use a city or neighborhood—we’ll resolve it to a map point for nearby suggestions. No
+						street address needed.
+					</p>
+					{#if locationConfirmation}
+						<p class="text-success-600-400 text-xs">Saved area: {locationConfirmation}</p>
+					{/if}
 				</label>
 
 				<label class="flex flex-col gap-2">
