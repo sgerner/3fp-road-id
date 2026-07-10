@@ -151,9 +151,7 @@ export const load = async ({ cookies, fetch, request, setHeaders, url }) => {
 	const groups = (Array.isArray(groupsPayload?.data) ? groupsPayload.data : []).filter(
 		(group) => group.logo_url || group.cover_photo_url
 	);
-	const rides = (Array.isArray(ridesPayload?.data) ? ridesPayload.data : []).filter((ride) =>
-		(ride.imageUrls ?? []).some(Boolean)
-	);
+	const rides = Array.isArray(ridesPayload?.data) ? ridesPayload.data : [];
 
 	const localGroups = sortByLocation(groups, location, {
 		city: (group) => group.city,

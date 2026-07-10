@@ -1,4 +1,5 @@
 <script>
+	import { getRideImages } from '$lib/rides/media';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -24,7 +25,7 @@
 	const ride = $derived.by(() => data?.ride ?? null);
 	const activity = $derived.by(() => ride?.activity ?? null);
 	const rideDetails = $derived.by(() => ride?.rideDetails ?? {});
-	const rideImages = $derived.by(() => rideDetails?.image_urls ?? []);
+	const rideImages = $derived.by(() => getRideImages(rideDetails));
 	const leadRideImage = $derived.by(() => rideImages[0] ?? null);
 	const occurrences = $derived.by(() => ride?.occurrences ?? []);
 	let rsvpLoadingId = $state('');

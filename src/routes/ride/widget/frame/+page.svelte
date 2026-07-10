@@ -1,4 +1,5 @@
 <script>
+	import { getRideImage } from '$lib/rides/media';
 	import { browser } from '$app/environment';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
@@ -564,7 +565,7 @@
 							href={`/ride/${ride.slug}`}
 							target="_blank"
 							rel="noopener noreferrer"
-							class={`ride-card ${ride.imageUrls?.[0] ? 'has-image' : 'no-image'}`}
+							class="ride-card has-image"
 							style={config.difficultyColors ? `--diff-color:${color}` : ''}
 						>
 							<div
@@ -575,9 +576,7 @@
 								<span>{dt.day}</span>
 								<small>{dt.time}</small>
 							</div>
-							{#if ride.imageUrls?.[0]}
-								<img src={ride.imageUrls[0]} alt={ride.title} class="ride-image" loading="lazy" />
-							{/if}
+							<img src={getRideImage(ride)} alt={ride.title} class="ride-image" loading="lazy" />
 							<div class="ride-main">
 								<div class="ride-card-head">
 									<h2>{rideTitle(ride)}</h2>

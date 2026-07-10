@@ -1,5 +1,6 @@
 <script>
 	import { buildAbsoluteUrl, limitSeoText } from '$lib/seo';
+	import { getRideImage } from '$lib/rides/media';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarDays from '@lucide/svelte/icons/calendar-days';
@@ -274,7 +275,7 @@
 		>
 			{#if nextRide}
 				<img
-					src={nextRide.imageUrls[0]}
+					src={getRideImage(nextRide)}
 					alt=""
 					class="absolute inset-0 h-full w-full object-cover"
 				/>

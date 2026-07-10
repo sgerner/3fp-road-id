@@ -1,5 +1,7 @@
 <script>
 	import { browser } from '$app/environment';
+	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
 	import { tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -7,8 +9,6 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconMap from '@lucide/svelte/icons/map';
-	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import { slide, fade } from 'svelte/transition';
 
@@ -434,180 +434,92 @@
 	});
 </script>
 
-<section class="volunteer-hub-page mx-auto w-full max-w-7xl flex-col gap-10 space-y-7 pb-10">
-	<!-- ═══════════════════════════════════════════════
-	     HERO
-	═══════════════════════════════════════════════ -->
-	<div class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
+<section class="volunteer-hub-page mx-auto flex w-full max-w-7xl flex-col gap-12 pb-10 sm:gap-16">
+	<CinematicHero
+		eyebrow="Show up for safer streets"
+		title={title === 'Volunteer' ? 'A little time can move a whole community.' : title}
+		{description}
+		icon={IconHeartHandshake}
+		stats={[
+			{ value: totalUpcoming, label: 'Upcoming events' },
+			{ value: hostGroups.length, label: 'Host groups' },
+			{ value: opportunities.length, label: 'Open roles' }
+		]}
+	>
+		{#snippet actions()}
+			<a class="btn preset-filled-primary-500 gap-2" href="#volunteer-directory"
+				>Find an opportunity</a
+			>
+			{#if showCreateButton}
+				<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href={createButtonHref}
+					><IconPlus class="h-4 w-4" /> Create an event</a
+				>
+			{/if}
+		{/snippet}
+	</CinematicHero>
 
-		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
-		>
-			<!-- Left: headline + chips + stats -->
-			<div class="flex flex-col gap-7">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
-						<IconHeartHandshake class="h-3.5 w-3.5" />
-						Volunteer
-					</span>
-					<span class="chip preset-tonal-secondary">Give Back</span>
-					<span class="chip preset-tonal-tertiary">Community</span>
-				</div>
-
-				<div class="space-y-4">
-					<h1
-						class="volunteer-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
-					>
-						{title || 'Find your people.'}<br />
-						<span class="volunteer-headline-accent">Uplift your people.</span>
-					</h1>
-					{#if description}
-						<p class="max-w-xl text-base leading-relaxed opacity-75">
-							{description}
-						</p>
-					{/if}
-				</div>
-
-				<!-- Stat cards -->
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-primary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconCalendar class="h-4 w-4" />
-							Upcoming Events
-						</div>
-						<div class="text-3xl font-black tabular-nums">{totalUpcoming}</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-secondary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							Host Groups
-						</div>
-						<div class="text-3xl font-black tabular-nums">{hostGroups.length}</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-tertiary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconHeartHandshake class="h-4 w-4" />
-							Open Roles
-						</div>
-						<div class="text-3xl font-black tabular-nums">{opportunities.length}</div>
-					</div>
-				</div>
+	<DiscoveryToolbar
+		eyebrow="Opportunity finder"
+		title="Search by host, type, or location"
+		description="Use only the filters that help; every upcoming opportunity remains easy to browse."
+		icon={IconSearch}
+	>
+		<div class="grid gap-4">
+			<div class="input-group grid-cols-[1fr_auto]">
+				<input
+					type="search"
+					class="ig-input"
+					bind:value={searchInput}
+					placeholder="Find by title, host, or description"
+					onkeydown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							applySearchAndScroll();
+						}
+					}}
+				/>
+				<button
+					type="button"
+					class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
+					onclick={applySearchAndScroll}
+					aria-label="Search volunteer events"
+					title="Search"
+				>
+					<IconSearch class="h-4 w-4" />
+				</button>
 			</div>
 
-			<!-- Right: search + actions -->
-			<div
-				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
-			>
-				<div class="space-y-1">
-					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
-					>
-						<IconSparkles class="h-4 w-4" />
-						Explore opportunities
-					</div>
-					<h2 class="text-xl font-bold">Search by host, type, or location</h2>
+			<div class="grid gap-3 sm:grid-cols-3">
+				<div class="relative">
+					<IconMapPin
+						class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
+					/>
+					<input
+						type="search"
+						class="input pl-9 text-sm"
+						bind:value={locationQ}
+						placeholder="City and/or state"
+					/>
 				</div>
 
-				<div class="flex flex-col gap-3">
-					<div class="input-group grid-cols-[1fr_auto]">
-						<input
-							type="search"
-							class="ig-input bg-surface-950-50/5"
-							bind:value={searchInput}
-							placeholder="Find by title, host, or description"
-							onkeydown={(event) => {
-								if (event.key === 'Enter') {
-									event.preventDefault();
-									applySearchAndScroll();
-								}
-							}}
-						/>
-						<button
-							type="button"
-							class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
-							onclick={applySearchAndScroll}
-							aria-label="Search volunteer events"
-							title="Search"
-						>
-							<IconSearch class="h-4 w-4" />
-						</button>
-					</div>
-
-					<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-						<div class="relative">
-							<IconMapPin
-								class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-							/>
-							<input
-								type="search"
-								class="input bg-surface-950-50/5 pl-9 text-sm"
-								bind:value={locationQ}
-								placeholder="City and/or state"
-							/>
-						</div>
-
-						<select class="select bg-surface-950-50/5 text-sm" bind:value={hostGroupId}>
-							<option value="">All groups</option>
-							{#each hostGroups as host (host.id)}
-								<option value={host.id}>{host.name}</option>
-							{/each}
-						</select>
-					</div>
-
-					<div class="space-y-2">
-						<div
-							class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
-						>
-							Event type
-						</div>
-						<select class="select bg-surface-950-50/5 text-sm" bind:value={eventType}>
-							<option value="">All types</option>
-							{#each eventTypes as option (option.slug)}
-								<option value={option.slug}>{option.event_type}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-
-				{#if showCreateButton}
-					<div class="mt-auto grid pt-2">
-						<a class="btn preset-outlined-primary-500 gap-2" href={createButtonHref}>
-							<IconPlus class="h-4 w-4" />
-							Create Event
-						</a>
-					</div>
-				{/if}
+				<select class="select text-sm" bind:value={hostGroupId}>
+					<option value="">All groups</option>
+					{#each hostGroups as host (host.id)}
+						<option value={host.id}>{host.name}</option>
+					{/each}
+				</select>
+				<select class="select text-sm" bind:value={eventType}>
+					<option value="">All types</option>
+					{#each eventTypes as option (option.slug)}
+						<option value={option.slug}>{option.event_type}</option>
+					{/each}
+				</select>
 			</div>
 		</div>
-	</div>
+	</DiscoveryToolbar>
 
 	<!-- ═══════════════════════════════ RESULTS + DIRECTORY ═════════════════════════════ -->
-	<div class="space-y-5 pt-4" bind:this={directoryTopEl}>
+	<div id="volunteer-directory" class="space-y-5 pt-4" bind:this={directoryTopEl}>
 		<!-- Results toolbar -->
 		<div class="flex items-center justify-between gap-2">
 			<div>
@@ -693,7 +605,7 @@
 						{#each filteredEvents as event, i (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
 							<li
-								class="event-card border-surface-400-600/50 bg-surface-50-950/60 hover:border-primary-500/40 hover:shadow-primary-500/10 rounded-xl border p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+								class="event-card preset-tonal-surface p-5 transition duration-300 hover:-translate-y-1"
 								style="--stagger: {i % 10}"
 							>
 								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

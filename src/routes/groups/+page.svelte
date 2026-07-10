@@ -1,5 +1,7 @@
 <script>
 	let { data } = $props();
+	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -12,7 +14,6 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
 	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
-	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
@@ -23,6 +24,7 @@
 		return data.filters ?? {};
 	}
 	const initialFilters = getInitialFilters();
+	const heroGroup = $derived((data.groups ?? []).find((group) => group.cover_photo_url) ?? null);
 	let q = $state(initialFilters.q || '');
 	let country = $state(initialFilters.country || '');
 	let state_region = $state(initialFilters.state_region || '');
@@ -418,332 +420,268 @@
 	});
 </script>
 
-<div class="groups-page mx-auto flex w-full max-w-7xl flex-col gap-10">
+<div class="groups-page mx-auto flex w-full max-w-7xl flex-col gap-12 sm:gap-16">
 	<!-- ═══════════════════════════════════════════════
 	     HERO
 	═══════════════════════════════════════════════ -->
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
-		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
-		>
-			<!-- Left: headline + chips + stats -->
-			<div class="flex flex-col gap-7">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
-						<IconUsers class="h-3.5 w-3.5" />
-						Groups
-					</span>
-					<span class="chip preset-tonal-secondary">Community</span>
-					<span class="chip preset-tonal-tertiary">Clubs & Teams</span>
-				</div>
-
-				<div class="space-y-4">
-					<h1
-						class="groups-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
-					>
-						Find your people.<br />
-						<span class="groups-headline-accent">Ride together.</span>
-					</h1>
-					<p class="max-w-xl text-base leading-relaxed opacity-75">
-						Discover local clubs, teams, and advocacy organizations near you. Join a community that
-						matches your vibe and riding style.
-					</p>
-				</div>
-
-				<!-- Stat cards -->
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-primary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							Total Groups
-						</div>
-						<div class="text-3xl font-black tabular-nums">{data.totalGroups || 0}</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-secondary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconMapPin class="h-4 w-4" />
-							Active Regions
-						</div>
-						<div class="text-3xl font-black tabular-nums">
-							{new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0}
-						</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-tertiary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconMap class="h-4 w-4" />
-							Group Types
-						</div>
-						<div class="text-3xl font-black tabular-nums">{data.group_types?.length || 0}</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Right: search + actions -->
-			<div
-				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
+	<CinematicHero
+		eyebrow="Cycling communities"
+		title="Find the people who make riding better."
+		description="Discover clubs, teams, and advocacy organizations that match where—and how—you ride."
+		icon={IconUsers}
+		imageUrl={heroGroup?.cover_photo_url}
+		imageAlt={heroGroup ? heroGroup.name : ''}
+		stats={[
+			{ value: data.totalGroups || 0, label: 'Groups' },
+			{
+				value: new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0,
+				label: 'Regions'
+			},
+			{ value: data.group_types?.length || 0, label: 'Community types' }
+		]}
+	>
+		{#snippet actions()}
+			<a class="btn preset-filled-primary-500 gap-2" href="#group-list"
+				>Explore groups <IconArrowRight class="h-4 w-4" /></a
 			>
-				<div class="space-y-1">
-					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
-					>
-						<IconSparkles class="h-4 w-4" />
-						Explore groups
-					</div>
-					<h2 class="text-xl font-bold">Search by type, location, or name</h2>
-				</div>
+			<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href="/groups/new"
+				><IconPlus class="h-4 w-4" /> Start a group</a
+			>
+		{/snippet}
+	</CinematicHero>
 
-				<div class="flex flex-col gap-3">
-					<div class="input-group grid-cols-[1fr_auto]">
-						<input
-							class="ig-input bg-surface-950-50/5"
-							bind:value={q}
-							placeholder="Name, city, description…"
-							oninput={handleSearchInput}
-						/>
-						<button
-							type="button"
-							class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
-							onclick={handleSearchButtonClick}
-							aria-label="Search groups"
-							title="Search"
-						>
-							<IconSearch class="h-4 w-4" />
-						</button>
-					</div>
-
-					<div class="grid grid-cols-2 gap-2">
-						<select
-							class="select bg-surface-950-50/5 text-sm"
-							bind:value={country}
-							onchange={scheduleApply}
-						>
-							<option value="">Any Country</option>
-							<option value="US">United States</option>
-							<option value="CA">Canada</option>
-							<option value="MX">Mexico</option>
-							<option value="GB">United Kingdom</option>
-							<option value="AU">Australia</option>
-							<option value="NZ">New Zealand</option>
-							<option value="OTHER">Other</option>
-						</select>
-
-						{#if hasStateList}
-							<select
-								class="select bg-surface-950-50/5 text-sm"
-								bind:value={state_region}
-								onchange={scheduleApply}
-							>
-								<option value="">Any Region</option>
-								{#each statesByCountry[country] as st}
-									<option value={st}>{st}</option>
-								{/each}
-							</select>
-						{:else}
-							<input
-								class="input bg-surface-950-50/5 text-sm"
-								bind:value={state_region}
-								oninput={scheduleApply}
-								placeholder="State/Region"
-							/>
-						{/if}
-					</div>
-				</div>
-
-				<div class="space-y-2">
-					<div
-						class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
-					>
-						<IconSlidersHorizontal class="h-3.5 w-3.5" />
-						Group Type
-					</div>
-					<div class="flex flex-wrap gap-2">
-						<button
-							type="button"
-							class={`chip ${group_type_ids.length === 0 ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-							onclick={() => {
-								group_type_ids = [];
-								scheduleApply();
-							}}
-						>
-							All
-						</button>
-						{#each (data.group_types || []).slice(0, 6) as t}
-							<button
-								type="button"
-								class={`chip ${group_type_ids.includes(t.id) ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
-								onclick={() => toggleType(t.id)}
-							>
-								{t.name}
-							</button>
-						{/each}
-					</div>
-				</div>
-
-				<!-- Advanced Settings Accordion -->
-				<div class="mt-2 text-sm">
+	<DiscoveryToolbar
+		eyebrow="Directory filters"
+		title="Search by name, place, or riding style"
+		description="The essentials stay visible; deeper filters are one tap away."
+		icon={IconSearch}
+	>
+		<div class="grid gap-5">
+			<div class="flex flex-col gap-3">
+				<div class="input-group grid-cols-[1fr_auto]">
+					<input
+						class="ig-input bg-surface-950-50/5"
+						bind:value={q}
+						placeholder="Name, city, description…"
+						oninput={handleSearchInput}
+					/>
 					<button
 						type="button"
-						class="flex w-full items-center justify-between py-2 text-left font-medium opacity-80 hover:opacity-100"
-						onclick={() => (showAdvanced = !showAdvanced)}
-						aria-expanded={showAdvanced}
+						class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
+						onclick={handleSearchButtonClick}
+						aria-label="Search groups"
+						title="Search"
 					>
-						<span class="flex items-center gap-2">
-							More Filters
-							{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length + Math.max(0, group_type_ids.length - 6) > 0}
-								<span
-									class="bg-primary-500 text-surface-50 ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-								>
-									{skill_level_ids.length +
-										audience_focus_ids.length +
-										riding_discipline_ids.length +
-										Math.max(0, group_type_ids.length - 6)}
-								</span>
-							{/if}
-						</span>
-						<IconChevronDown
-							class="h-4 w-4 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
-						/>
+						<IconSearch class="h-4 w-4" />
 					</button>
-
-					{#if showAdvanced}
-						<div
-							class="border-surface-500/10 mt-2 space-y-4 border-t pt-3"
-							in:slide={{ duration: 180 }}
-							out:fade={{ duration: 120 }}
-						>
-							{#if (data.group_types || []).length > 6}
-								<div>
-									<div class="mb-1.5 text-xs font-semibold opacity-60">More Types</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each (data.group_types || []).slice(6) as t}
-											<button
-												type="button"
-												class={group_type_ids.includes(t.id)
-													? chipFilled(t.name)
-													: chipOutlined(t.name)}
-												onclick={() => toggleType(t.id)}>{t.name}</button
-											>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<div>
-								<div class="mb-1.5 text-xs font-semibold opacity-60">Skill Levels</div>
-								<div class="flex flex-wrap gap-1.5">
-									{#each data.skill_levels || [] as t}
-										<button
-											type="button"
-											class={skill_level_ids.includes(t.id)
-												? chipFilled(t.name)
-												: chipOutlined(t.name)}
-											onclick={() => toggleSkill(t.id)}>{t.name}</button
-										>
-									{/each}
-								</div>
-							</div>
-
-							<div>
-								<div class="mb-1.5 text-xs font-semibold opacity-60">Audience Focus</div>
-								<div class="flex flex-wrap gap-1.5">
-									{#each data.audience_focuses || [] as t}
-										<button
-											type="button"
-											class={audience_focus_ids.includes(t.id)
-												? chipFilled(t.name)
-												: chipOutlined(t.name)}
-											onclick={() => toggleAudience(t.id)}>{t.name}</button
-										>
-									{/each}
-								</div>
-							</div>
-
-							<div>
-								<div class="mb-1.5 text-xs font-semibold opacity-60">Riding Disciplines</div>
-								<div class="flex flex-wrap gap-1.5">
-									{#each data.riding_disciplines || [] as t}
-										<button
-											type="button"
-											class={riding_discipline_ids.includes(t.id)
-												? chipFilled(t.name)
-												: chipOutlined(t.name)}
-											onclick={() => toggleDiscipline(t.id)}>{t.name}</button
-										>
-									{/each}
-								</div>
-							</div>
-						</div>
-					{/if}
 				</div>
 
-				<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
-					{#if activeFilterCount > 0}
-						<button
-							type="button"
-							class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
-							onclick={clearAll}
-							in:fade={{ duration: 120 }}
-						>
-							Clear filters
-						</button>
-					{:else}
-						<a
-							class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
-							href="#group-list"
-						>
-							Browse all
-						</a>
-					{/if}
-
-					<a
-						class="btn preset-outlined-primary-500 gap-2 {activeFilterCount > 0
-							? 'col-span-1 sm:col-span-1'
-							: 'col-span-1 sm:col-span-1'}"
-						href="/groups/new"
+				<div class="grid grid-cols-2 gap-2">
+					<select
+						class="select bg-surface-950-50/5 text-sm"
+						bind:value={country}
+						onchange={scheduleApply}
 					>
-						<IconPlus class="h-4 w-4" />
-						Create group
-					</a>
+						<option value="">Any Country</option>
+						<option value="US">United States</option>
+						<option value="CA">Canada</option>
+						<option value="MX">Mexico</option>
+						<option value="GB">United Kingdom</option>
+						<option value="AU">Australia</option>
+						<option value="NZ">New Zealand</option>
+						<option value="OTHER">Other</option>
+					</select>
 
-					{#if activeFilterCount > 0}
-						<button
-							type="button"
-							class="btn preset-outlined-error-500 col-span-1 flex sm:hidden"
-							onclick={clearAll}
+					{#if hasStateList}
+						<select
+							class="select bg-surface-950-50/5 text-sm"
+							bind:value={state_region}
+							onchange={scheduleApply}
 						>
-							Clear filters
-						</button>
+							<option value="">Any Region</option>
+							{#each statesByCountry[country] as st}
+								<option value={st}>{st}</option>
+							{/each}
+						</select>
+					{:else}
+						<input
+							class="input bg-surface-950-50/5 text-sm"
+							bind:value={state_region}
+							oninput={scheduleApply}
+							placeholder="State/Region"
+						/>
 					{/if}
 				</div>
 			</div>
+
+			<div class="space-y-2">
+				<div
+					class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
+				>
+					<IconSlidersHorizontal class="h-3.5 w-3.5" />
+					Group Type
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class={`chip ${group_type_ids.length === 0 ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
+						onclick={() => {
+							group_type_ids = [];
+							scheduleApply();
+						}}
+					>
+						All
+					</button>
+					{#each (data.group_types || []).slice(0, 6) as t}
+						<button
+							type="button"
+							class={`chip ${group_type_ids.includes(t.id) ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
+							onclick={() => toggleType(t.id)}
+						>
+							{t.name}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Advanced Settings Accordion -->
+			<div class="mt-2 text-sm">
+				<button
+					type="button"
+					class="flex w-full items-center justify-between py-2 text-left font-medium opacity-80 hover:opacity-100"
+					onclick={() => (showAdvanced = !showAdvanced)}
+					aria-expanded={showAdvanced}
+				>
+					<span class="flex items-center gap-2">
+						More Filters
+						{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length + Math.max(0, group_type_ids.length - 6) > 0}
+							<span
+								class="bg-primary-500 text-surface-50 ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+							>
+								{skill_level_ids.length +
+									audience_focus_ids.length +
+									riding_discipline_ids.length +
+									Math.max(0, group_type_ids.length - 6)}
+							</span>
+						{/if}
+					</span>
+					<IconChevronDown
+						class="h-4 w-4 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
+					/>
+				</button>
+
+				{#if showAdvanced}
+					<div
+						class="border-surface-500/10 mt-2 space-y-4 border-t pt-3"
+						in:slide={{ duration: 180 }}
+						out:fade={{ duration: 120 }}
+					>
+						{#if (data.group_types || []).length > 6}
+							<div>
+								<div class="mb-1.5 text-xs font-semibold opacity-60">More Types</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each (data.group_types || []).slice(6) as t}
+										<button
+											type="button"
+											class={group_type_ids.includes(t.id)
+												? chipFilled(t.name)
+												: chipOutlined(t.name)}
+											onclick={() => toggleType(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<div>
+							<div class="mb-1.5 text-xs font-semibold opacity-60">Skill Levels</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each data.skill_levels || [] as t}
+									<button
+										type="button"
+										class={skill_level_ids.includes(t.id)
+											? chipFilled(t.name)
+											: chipOutlined(t.name)}
+										onclick={() => toggleSkill(t.id)}>{t.name}</button
+									>
+								{/each}
+							</div>
+						</div>
+
+						<div>
+							<div class="mb-1.5 text-xs font-semibold opacity-60">Audience Focus</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each data.audience_focuses || [] as t}
+									<button
+										type="button"
+										class={audience_focus_ids.includes(t.id)
+											? chipFilled(t.name)
+											: chipOutlined(t.name)}
+										onclick={() => toggleAudience(t.id)}>{t.name}</button
+									>
+								{/each}
+							</div>
+						</div>
+
+						<div>
+							<div class="mb-1.5 text-xs font-semibold opacity-60">Riding Disciplines</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each data.riding_disciplines || [] as t}
+									<button
+										type="button"
+										class={riding_discipline_ids.includes(t.id)
+											? chipFilled(t.name)
+											: chipOutlined(t.name)}
+										onclick={() => toggleDiscipline(t.id)}>{t.name}</button
+									>
+								{/each}
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
+				{#if activeFilterCount > 0}
+					<button
+						type="button"
+						class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
+						onclick={clearAll}
+						in:fade={{ duration: 120 }}
+					>
+						Clear filters
+					</button>
+				{:else}
+					<a
+						class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
+						href="#group-list"
+					>
+						Browse all
+					</a>
+				{/if}
+
+				<a
+					class="btn preset-outlined-primary-500 gap-2 {activeFilterCount > 0
+						? 'col-span-1 sm:col-span-1'
+						: 'col-span-1 sm:col-span-1'}"
+					href="/groups/new"
+				>
+					<IconPlus class="h-4 w-4" />
+					Create group
+				</a>
+
+				{#if activeFilterCount > 0}
+					<button
+						type="button"
+						class="btn preset-outlined-error-500 col-span-1 flex sm:hidden"
+						onclick={clearAll}
+					>
+						Clear filters
+					</button>
+				{/if}
+			</div>
 		</div>
-	</section>
+	</DiscoveryToolbar>
 
 	<!-- ═══════════════════════════════ RESULTS + MAP ═════════════════════════════ -->
 	<section id="group-list" class="space-y-5">
@@ -859,7 +797,7 @@
 					{#each data.groups as g (g.id)}
 						<a
 							href={`/groups/${g.slug}`}
-							class="group border-surface-500/15 bg-surface-100-900/60 hover:border-primary-500/40 hover:shadow-primary-500/10 block overflow-hidden rounded-2xl border shadow-md backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+							class="card preset-tonal-surface group block overflow-hidden transition duration-300 hover:-translate-y-1"
 						>
 							<!-- Cover image area -->
 							<div
@@ -975,55 +913,6 @@
 </div>
 
 <style>
-	/* ── Hero ── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	/* ── Headline accent ── */
-	.groups-headline {
-		color: var(--color-primary-50);
-		text-align: left;
-	}
-
-	.groups-headline-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-primary-300),
-			var(--color-secondary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Stat cards ── */
-	.stat-card {
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-	}
-
-	.stat-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.stat-card-glow {
-		position: absolute;
-		inset: 0;
-		opacity: 0.06;
-		pointer-events: none;
-	}
-
-	/* ── Search panel ── */
-	.search-panel {
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
 	.map-canvas {
 		height: 380px;
 		width: 100%;

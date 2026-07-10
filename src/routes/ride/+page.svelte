@@ -1,14 +1,13 @@
 <script>
 	import { browser } from '$app/environment';
+	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
+	import { getRideImage } from '$lib/rides/media';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
-	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
-	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
-	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import IconFilter from '@lucide/svelte/icons/sliders-horizontal';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconRepeat from '@lucide/svelte/icons/repeat-2';
 	import IconFlag from '@lucide/svelte/icons/flag';
@@ -73,6 +72,7 @@
 	);
 
 	const featuredRides = $derived(filteredRides.slice(0, 3));
+	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
 	const claimableRides = $derived(
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
 	);
@@ -242,11 +242,11 @@
 	}
 
 	function leadImage(ride) {
-		return ride?.imageUrls?.[0] ?? null;
+		return getRideImage(ride);
 	}
 
 	function heroImage(ride) {
-		return ride?.imageUrls?.[0] ?? null;
+		return getRideImage(ride);
 	}
 
 	// Discipline → accent color map
@@ -379,146 +379,76 @@
 	/>
 </svelte:head>
 
-<div class="ride-page mx-auto flex w-full max-w-7xl flex-col gap-10">
-	<!-- ═══════════════════════════════════════════════
-	     HERO
-	═══════════════════════════════════════════════ -->
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
-		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:p-10"
-		>
-			<!-- Left: headline + chips + stats -->
-			<div class="flex flex-col gap-7">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
-						<IconBike class="h-3.5 w-3.5" />
-						Ride
-					</span>
-					<span class="chip preset-tonal-secondary">Public listings</span>
-					<span class="chip preset-tonal-tertiary">
-						<IconRepeat class="h-3 w-3" />
-						Recurring series
-					</span>
-				</div>
-
-				<div class="space-y-4">
-					<h1
-						class="ride-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
-					>
-						Find your ride.<br />
-						<span class="ride-headline-accent">Share rides you love.</span>
-					</h1>
-					<p class="max-w-xl text-base leading-relaxed opacity-75">
-						Browse community rides, recurring series, and group-hosted events in one place. If a
-						ride is public but unclaimed, someone local can adopt it and keep the details current.
-					</p>
-				</div>
-
-				<!-- Stat cards -->
-				<div class="grid gap-3 sm:grid-cols-3">
-					{#each [{ icon: IconCalendarRange, label: 'Upcoming rides', value: formatStatNumber(rides.length), accent: 'var(--color-primary-500)' }, { icon: IconRepeat, label: 'Recurring series', value: formatStatNumber(recurringRides.length), accent: 'var(--color-secondary-500)' }, { icon: IconShieldQuestion, label: 'Claimable', value: formatStatNumber(claimableRides.length), accent: 'var(--color-tertiary-500)' }] as stat}
-						<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-							<div
-								class="stat-card-glow"
-								style="background: {stat.accent};"
-								aria-hidden="true"
-							></div>
-							<div
-								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-							>
-								<stat.icon class="h-4 w-4" />
-								{stat.label}
-							</div>
-							<div class="text-3xl font-black tabular-nums">{stat.value}</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Right: search + actions -->
-			<div
-				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
+<div class="ride-page mx-auto flex w-full max-w-7xl flex-col gap-12 sm:gap-16">
+	<CinematicHero
+		eyebrow="Community rides"
+		title="Find a ride worth showing up for."
+		description="Discover public rides, recurring series, and group-hosted events—then help keep the rides your community loves accurate and welcoming."
+		icon={IconBike}
+		imageUrl={heroRide ? heroImage(heroRide) : ''}
+		imageAlt={heroRide ? heroRide.title : ''}
+		stats={[
+			{ value: formatStatNumber(rides.length), label: 'Upcoming' },
+			{ value: formatStatNumber(recurringRides.length), label: 'Recurring' },
+			{ value: formatStatNumber(claimableRides.length), label: 'Need a host' }
+		]}
+	>
+		{#snippet actions()}
+			<a class="btn preset-filled-primary-500 gap-2" href="#ride-list"
+				>Browse rides <IconArrowRight class="h-4 w-4" /></a
 			>
-				<div class="space-y-1">
-					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
-					>
-						<IconSparkles class="h-4 w-4" />
-						Explore rides
-					</div>
-					<h2 class="text-xl font-bold">Search by vibe, route, or neighborhood</h2>
-				</div>
+			<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href="/ride/new"
+				><IconPlus class="h-4 w-4" /> Share a ride</a
+			>
+		{/snippet}
+	</CinematicHero>
 
-				<div class="input-group grid-cols-[1fr_auto]">
-					<input
-						class="ig-input bg-surface-950-50/5"
-						bind:value={searchInput}
-						placeholder="Title, location, pace, discipline…"
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								applySearchAndScroll();
-							}
-						}}
-					/>
+	<DiscoveryToolbar
+		eyebrow="Find your fit"
+		title="Search by route, neighborhood, or pace"
+		description="Start broad, then narrow by difficulty when you need to."
+		icon={IconSearch}
+	>
+		<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+			<div class="input-group grid-cols-[1fr_auto]">
+				<input
+					class="ig-input"
+					bind:value={searchInput}
+					placeholder="Title, location, pace, discipline…"
+					onkeydown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							applySearchAndScroll();
+						}
+					}}
+				/>
+				<button
+					type="button"
+					class="ig-cell btn-icon preset-filled-primary-500"
+					onclick={applySearchAndScroll}
+					aria-label="Search rides"
+				>
+					<IconSearch class="h-4 w-4" />
+				</button>
+			</div>
+			{#if difficultyOptions.length}
+				<div class="flex flex-wrap gap-2">
 					<button
 						type="button"
-						class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
-						onclick={applySearchAndScroll}
-						aria-label="Search rides"
-						title="Search"
+						class={`chip ${selectedDifficulty === 'all' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
+						onclick={() => (selectedDifficulty = 'all')}>All levels</button
 					>
-						<IconSearch class="h-4 w-4" />
-					</button>
-				</div>
-
-				{#if difficultyOptions.length}
-					<div class="space-y-2">
-						<div
-							class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
+					{#each difficultyOptions as option}
+						<button
+							type="button"
+							class={`chip ${selectedDifficulty === option ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
+							onclick={() => (selectedDifficulty = option)}>{option}</button
 						>
-							<IconFilter class="h-3.5 w-3.5" />
-							Difficulty
-						</div>
-						<div class="flex flex-wrap gap-2">
-							<button
-								type="button"
-								class={`chip ${selectedDifficulty === 'all' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-								onclick={() => (selectedDifficulty = 'all')}
-							>
-								All
-							</button>
-							{#each difficultyOptions as option}
-								<button
-									type="button"
-									class={`chip ${selectedDifficulty === option ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
-									onclick={() => (selectedDifficulty = option)}
-								>
-									{option}
-								</button>
-							{/each}
-						</div>
-					</div>
-				{/if}
-
-				<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
-					<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
-						<IconPlus class="h-4 w-4" />
-						Create ride
-					</a>
-					<a class="btn preset-outlined-surface-950-50 gap-2" href="#ride-list">
-						Browse listings
-						<IconArrowRight class="h-4 w-4" />
-					</a>
+					{/each}
 				</div>
-			</div>
+			{/if}
 		</div>
-	</section>
+	</DiscoveryToolbar>
 
 	<!-- ═══════════════════════════════════════════════
 	     FEATURED + CLAIMABLE (shown only when rides exist)
@@ -526,7 +456,7 @@
 	{#if featuredRides.length}
 		<section class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(290px,0.8fr)]">
 			<!-- Featured rides -->
-			<div class="card preset-tonal-surface p-6">
+			<div>
 				<div class="mb-5 flex items-center justify-between gap-3">
 					<div>
 						<p class="label opacity-60">Featured</p>
@@ -599,9 +529,8 @@
 			</div>
 
 			<!-- Claimable rides callout -->
-			<div class="claim-panel card relative overflow-hidden p-6">
-				<div class="claim-glow" aria-hidden="true"></div>
-				<div class="relative z-10 mb-5 space-y-2">
+			<div class="preset-tonal-warning p-6">
+				<div class="mb-5 space-y-2">
 					<div class="flex items-center gap-2">
 						<IconFlag class="text-warning-400-600 h-5 w-5" />
 						<p class="label opacity-70">Claim a series</p>
@@ -612,10 +541,10 @@
 						or organization, someone local can claim it and manage reminders, RSVPs, and updates.
 					</p>
 				</div>
-				<div class="relative z-10 space-y-3">
+				<div class="divide-surface-500/20 divide-y">
 					{#each claimableRides.slice(0, 3) as ride}
 						<a
-							class="claim-item card preset-tonal-surface flex items-start justify-between gap-3 p-4"
+							class="group flex items-start justify-between gap-3 py-4"
 							href={`/ride/${ride.slug}`}
 						>
 							<div class="min-w-0">
@@ -628,7 +557,7 @@
 						</a>
 					{/each}
 					{#if !claimableRides.length}
-						<div class="card preset-tonal-surface p-4 text-center text-sm opacity-70">
+						<div class="py-4 text-center text-sm opacity-70">
 							All rides currently have a host. Check back soon!
 						</div>
 					{/if}
@@ -975,55 +904,6 @@
 </div>
 
 <style>
-	/* ── Hero ── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	/* ── Headline accent ── */
-	.ride-headline {
-		color: var(--color-primary-50);
-		text-align: left;
-	}
-
-	.ride-headline-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-primary-300),
-			var(--color-secondary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Stat cards ── */
-	.stat-card {
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-	}
-
-	.stat-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.stat-card-glow {
-		position: absolute;
-		inset: 0;
-		opacity: 0.06;
-		pointer-events: none;
-	}
-
-	/* ── Search panel ── */
-	.search-panel {
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
 	/* ── Featured cards ── */
 	.featured-card {
 		transition:
@@ -1065,33 +945,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.375rem;
-	}
-
-	/* ── Claim panel ── */
-	.claim-panel {
-		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-900) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
-	}
-
-	.claim-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 80% 60% at 100% 0%,
-			color-mix(in oklab, var(--color-warning-500) 18%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.claim-item {
-		transition:
-			transform 150ms ease,
-			background-color 150ms ease;
-	}
-
-	.claim-item:hover {
-		transform: translateX(3px);
 	}
 
 	/* ── Ride cards ── */
