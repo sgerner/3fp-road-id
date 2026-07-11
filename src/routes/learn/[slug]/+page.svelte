@@ -236,7 +236,6 @@
 	<div class="progress-bar-fill" style="width: {scrollProgress * 100}%"></div>
 </div>
 
-<div class="article-page-root">
 	<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
 		<a class="hover:opacity-100" href="/learn">Learn</a>
 		<span aria-hidden="true">/</span>
@@ -246,6 +245,8 @@
 		<span aria-hidden="true">/</span>
 		<span class="text-surface-600-400">{seoTitle}</span>
 	</nav>
+
+<div class="article-page-root">
 
 	<!-- ═══ MAIN ARTICLE COLUMN ══════════════════════════════════════════ -->
 	<div class="article-main">
