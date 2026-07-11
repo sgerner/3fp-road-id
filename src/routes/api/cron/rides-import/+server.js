@@ -65,6 +65,14 @@ async function handleCron(event) {
 	const dryRun = parseBoolean(query.get('dry_run') ?? query.get('dryRun'), false);
 	const onlyNew = parseBoolean(query.get('only_new') ?? query.get('onlyNew'), true);
 	const publish = parseBoolean(query.get('publish'), true);
+	const skipImageUpload = parseBoolean(
+		query.get('skip_image_upload') ?? query.get('skipImageUpload'),
+		false
+	);
+	const reconcileMissingImages = parseBoolean(
+		query.get('reconcile_missing_images') ?? query.get('reconcileMissingImages'),
+		true
+	);
 	const meetupGroupLimit = parseInteger(
 		query.get('meetup_group_limit') ?? query.get('meetupGroupLimit')
 	);
@@ -88,7 +96,9 @@ async function handleCron(event) {
 				result.weeklyrides = await importWeeklyRidesFeed(supabase, {
 					dryRun,
 					onlyNew,
-					publish
+					publish,
+					skipImageUpload,
+					reconcileMissingImages
 				});
 			} catch (error) {
 				errors.push({
@@ -103,7 +113,9 @@ async function handleCron(event) {
 				result.btwphx = await importBtwPhxCalendar(supabase, {
 					dryRun,
 					onlyNew,
-					publish
+					publish,
+					skipImageUpload,
+					reconcileMissingImages
 				});
 			} catch (error) {
 				errors.push({
@@ -119,6 +131,8 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					skipImageUpload,
+					reconcileMissingImages,
 					groupLimit: meetupGroupLimit
 				});
 			} catch (error) {
@@ -139,6 +153,8 @@ async function handleCron(event) {
 						dryRun,
 						onlyNew,
 						publish,
+						skipImageUpload,
+						reconcileMissingImages,
 						sources
 					}
 				},
@@ -152,6 +168,8 @@ async function handleCron(event) {
 				dryRun,
 				onlyNew,
 				publish,
+				skipImageUpload,
+				reconcileMissingImages,
 				sources
 			}
 		});

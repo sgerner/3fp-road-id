@@ -22,6 +22,7 @@
 	let search = $state('');
 	let selectedDifficulty = $state('all');
 	let view = $state('list');
+	let currentPage = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
 	let rideListEl = $state(null);
 
@@ -78,6 +79,11 @@
 	);
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
 	const totalUpcoming = $derived(filteredRides.length);
+	const ridesPerPage = 24;
+	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / ridesPerPage)));
+	const paginatedRides = $derived(
+		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
+	);
 
 	const datedRides = $derived(
 		filteredRides
@@ -131,6 +137,17 @@
 
 	function applySearchAndScroll() {
 		search = searchInput;
+		currentPage = 1;
+		scrollToRideCards();
+	}
+
+	function selectDifficulty(difficulty) {
+		selectedDifficulty = difficulty;
+		currentPage = 1;
+	}
+
+	function changeRidePage(nextPage) {
+		currentPage = Math.min(Math.max(nextPage, 1), totalPages);
 		scrollToRideCards();
 	}
 
@@ -354,6 +371,10 @@
 	});
 
 	$effect(() => {
+		if (currentPage > totalPages) currentPage = totalPages;
+	});
+
+	$effect(() => {
 		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
 			const currentMonthHasRide = calendarMatrix.some((week) =>
 				week.some((day) => day.rides.length)
@@ -436,13 +457,13 @@
 					<button
 						type="button"
 						class={`chip ${selectedDifficulty === 'all' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-						onclick={() => (selectedDifficulty = 'all')}>All levels</button
+						onclick={() => selectDifficulty('all')}>All levels</button
 					>
 					{#each difficultyOptions as option}
 						<button
 							type="button"
 							class={`chip ${selectedDifficulty === option ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
-							onclick={() => (selectedDifficulty = option)}>{option}</button
+							onclick={() => selectDifficulty(option)}>{option}</button
 						>
 					{/each}
 				</div>
@@ -608,7 +629,7 @@
 		{#if view === 'list'}
 			{#if filteredRides.length}
 				<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" transition:slide={{ duration: 220 }}>
-					{#each filteredRides as ride, i}
+					{#each paginatedRides as ride, i}
 						<a
 							class="ride-card card preset-tonal-surface group flex h-full flex-col overflow-hidden no-underline"
 							style="--stagger: {i % 9}"
@@ -712,6 +733,41 @@
 						</a>
 					{/each}
 				</div>
+				{#if totalPages > 1}
+					<nav
+						class="flex flex-col items-center justify-between gap-3 sm:flex-row"
+						aria-label="Ride pages"
+					>
+						<p class="text-sm tabular-nums opacity-65">
+							Showing {(currentPage - 1) * ridesPerPage + 1}–{Math.min(
+								currentPage * ridesPerPage,
+								totalUpcoming
+							)} of {totalUpcoming}
+						</p>
+						<div class="join" aria-label="Pagination controls">
+							<button
+								class="btn preset-outlined-surface-950-50 join-item"
+								onclick={() => changeRidePage(currentPage - 1)}
+								disabled={currentPage === 1}
+							>
+								Previous
+							</button>
+							<span
+								class="btn preset-tonal-surface join-item pointer-events-none"
+								aria-current="page"
+							>
+								Page {currentPage} of {totalPages}
+							</span>
+							<button
+								class="btn preset-outlined-surface-950-50 join-item"
+								onclick={() => changeRidePage(currentPage + 1)}
+								disabled={currentPage === totalPages}
+							>
+								Next
+							</button>
+						</div>
+					</nav>
+				{/if}
 			{:else}
 				<!-- Empty state -->
 				<div
@@ -732,7 +788,7 @@
 						<div class="flex flex-wrap justify-center gap-3 pt-2">
 							<button
 								class="btn preset-outlined-surface-950-50"
-								onclick={() => ((search = ''), (selectedDifficulty = 'all'))}
+								onclick={() => ((search = ''), (selectedDifficulty = 'all'), (currentPage = 1))}
 							>
 								Clear filters
 							</button>

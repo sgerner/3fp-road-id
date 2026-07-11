@@ -136,7 +136,9 @@ export async function importBtwPhxCalendar(
 		slugPrefix = '',
 		requireGeocoding = false,
 		skipGeocoding = false,
-		skipImageUpload = true
+		skipImageUpload = false,
+		reconcileMissingImages = false,
+		existingOnly = false
 	} = {}
 ) {
 	const requestBody = new URLSearchParams({
@@ -183,7 +185,7 @@ export async function importBtwPhxCalendar(
 
 	let candidateEvents = parsedData.events;
 	let preSkippedExisting = [];
-	if (onlyNew) {
+	if (onlyNew && !reconcileMissingImages) {
 		const existingBySourceId = await fetchExistingEventsBySourceId(
 			supabase,
 			parsedData.events.map((event) => event.id)
@@ -221,7 +223,9 @@ export async function importBtwPhxCalendar(
 			slugPrefix,
 			requireGeocoding,
 			skipGeocoding: effectiveSkipGeocoding,
-			skipImageUpload
+			skipImageUpload,
+			reconcileMissingImages,
+			existingOnly
 		}
 	);
 

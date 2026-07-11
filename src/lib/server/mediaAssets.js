@@ -1,5 +1,3 @@
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-
 export const CANONICAL_MEDIA_BUCKETS = new Set(['ride-media', 'group-social-media']);
 
 const MIME_TYPE_TO_EXTENSION = new Map([
@@ -71,7 +69,9 @@ export function buildCanonicalMediaObjectPath(
 }
 
 function buildPublicUrl(bucketId, objectPath) {
-	return `${PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucketId}/${objectPath
+	const supabaseUrl = cleanText(process.env.PUBLIC_SUPABASE_URL).replace(/\/$/, '');
+	if (!supabaseUrl) return '';
+	return `${supabaseUrl}/storage/v1/object/public/${bucketId}/${objectPath
 		.split('/')
 		.map((segment) => encodeURIComponent(segment))
 		.join('/')}`;

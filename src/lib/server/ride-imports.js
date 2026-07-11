@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
+import { uploadCanonicalMediaAsset } from './mediaAssets.js';
 
 export const DEFAULT_CREATED_BY_USER_ID = '9f78db1a-27b6-488a-8288-fbd38e85c815';
 const DEFAULT_TIMEZONE = 'America/Phoenix';
@@ -847,14 +847,50 @@ async function insertRide(supabase, mapped, createdByUserId) {
 }
 
 async function findExistingBySourceEventId(supabase, sourceEventId) {
-	if (!sourceEventId) return null;
-	const { data, error } = await supabase
+	const sourceEventIds = getSourceEventIdAliases(sourceEventId);
+	if (!sourceEventIds.length) return null;
+	const query = supabase
 		.from('activity_events')
-		.select('id,slug,title')
-		.eq('source_event_id', sourceEventId)
-		.maybeSingle();
+		.select('id,slug,title,source_event_id,ride_details(image_urls)');
+	const { data, error } = await (
+		sourceEventIds.length === 1
+			? query.eq('source_event_id', sourceEventIds[0])
+			: query.in('source_event_id', sourceEventIds)
+	).maybeSingle();
 	if (error) throw error;
 	return data ?? null;
+}
+
+function getSourceEventIdAliases(sourceEventId) {
+	const source = safeTrim(sourceEventId);
+	if (!source) return [];
+	if (!source.includes('weeklyrides.com')) return [source];
+	return uniq([
+		source,
+		source.replace('/index.php/rides-events/', '/index.php/rides/rides-events-card-view/'),
+		source.replace('/index.php/rides/rides-events-card-view/', '/index.php/rides-events/')
+	]);
+}
+
+function getRideImageUrls(row) {
+	const rideDetails = Array.isArray(row?.ride_details)
+		? row.ride_details[0] || null
+		: row?.ride_details || null;
+	return Array.isArray(rideDetails?.image_urls)
+		? rideDetails.image_urls.map((url) => safeTrim(url)).filter(Boolean)
+		: [];
+}
+
+async function reconcileExistingRideImage(supabase, existing, event) {
+	if (getRideImageUrls(existing).length || !safeTrim(event.image?.url)) return [];
+	const imageUrls = await uploadEventImage(supabase, event);
+	if (!imageUrls.length) return [];
+	const { error } = await supabase
+		.from('ride_details')
+		.update({ image_urls: imageUrls, updated_at: new Date().toISOString() })
+		.eq('activity_event_id', existing.id);
+	if (error) throw error;
+	return imageUrls;
 }
 
 function toTimeOfDayKey(iso) {
@@ -1024,7 +1060,9 @@ export async function importRideSeedData(
 		dryRun = false,
 		requireGeocoding = true,
 		skipGeocoding = false,
-		skipImageUpload = false
+		skipImageUpload = false,
+		reconcileMissingImages = false,
+		existingOnly = false
 	} = {}
 ) {
 	let events = Array.isArray(source.events) ? source.events : [];
@@ -1064,6 +1102,9 @@ export async function importRideSeedData(
 			skippedGeocoding,
 			skippedInvalid,
 			skippedEquivalent: [],
+			skippedNotExisting: [],
+			reconciledImages: [],
+			imageFailures: [],
 			reason: 'No valid events remained after mapping.'
 		};
 	}
@@ -1073,12 +1114,18 @@ export async function importRideSeedData(
 			skipped: events.length - mapped.length,
 			skippedGeocoding,
 			skippedInvalid,
-			skippedEquivalent: []
+			skippedEquivalent: [],
+			skippedNotExisting: [],
+			reconciledImages: [],
+			imageFailures: []
 		};
 	}
 	const results = [];
 	const skippedExisting = [];
 	const skippedEquivalent = [];
+	const skippedNotExisting = [];
+	const reconciledImages = [];
+	const imageFailures = [];
 	const sourceSignatureMap = new Map();
 	const dbSignatureMap = new Map();
 	for (const { event, mapped: record } of mapped) {
@@ -1095,6 +1142,25 @@ export async function importRideSeedData(
 		if (signature) sourceSignatureMap.set(signature, record.sourceEventId);
 		const existing = await findExistingBySourceEventId(supabase, record.sourceEventId);
 		if (existing) {
+			if (reconcileMissingImages && !skipImageUpload) {
+				try {
+					const imageUrls = await reconcileExistingRideImage(supabase, existing, event);
+					if (imageUrls.length) {
+						reconciledImages.push({
+							sourceEventId: record.sourceEventId,
+							activityId: existing.id,
+							title: existing.title,
+							imageCount: imageUrls.length
+						});
+					}
+				} catch (error) {
+					imageFailures.push({
+						sourceEventId: record.sourceEventId,
+						title: record.activity.title,
+						message: error?.message || 'Unable to import source image.'
+					});
+				}
+			}
 			skippedExisting.push({
 				sourceEventId: record.sourceEventId,
 				activityId: existing.id,
@@ -1102,6 +1168,13 @@ export async function importRideSeedData(
 				title: existing.title
 			});
 			if (signature) dbSignatureMap.set(signature, summarizeExistingRow(existing));
+			continue;
+		}
+		if (existingOnly) {
+			skippedNotExisting.push({
+				sourceEventId: record.sourceEventId,
+				title: record.activity.title
+			});
 			continue;
 		}
 		const equivalentExisting =
@@ -1117,7 +1190,17 @@ export async function importRideSeedData(
 			if (signature) dbSignatureMap.set(signature, equivalentExisting);
 			continue;
 		}
-		record.ride.image_urls = skipImageUpload ? [] : await uploadEventImage(supabase, event);
+		if (!skipImageUpload) {
+			try {
+				record.ride.image_urls = await uploadEventImage(supabase, event);
+			} catch (error) {
+				imageFailures.push({
+					sourceEventId: record.sourceEventId,
+					title: record.activity.title,
+					message: error?.message || 'Unable to import source image.'
+				});
+			}
+		}
 		const inserted = await insertRide(supabase, record, createdByUserId);
 		results.push({
 			sourceEventId: record.sourceEventId,
@@ -1142,6 +1225,9 @@ export async function importRideSeedData(
 		skippedExisting,
 		skippedGeocoding,
 		skippedInvalid,
-		skippedEquivalent
+		skippedEquivalent,
+		skippedNotExisting,
+		reconciledImages,
+		imageFailures
 	};
 }

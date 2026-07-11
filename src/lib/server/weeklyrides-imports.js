@@ -2,7 +2,7 @@ import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.j
 
 const WEEKLYRIDES_BASE_URL = 'https://www.weeklyrides.com';
 const WEEKLYRIDES_FEED_URL =
-	'https://www.weeklyrides.com/index.php/rides/rides-events-card-view?format=feed&type=rss';
+	'https://www.weeklyrides.com/index.php/rides-events?format=feed&type=rss';
 const WEEKLYRIDES_TIMEZONE = 'America/New_York';
 const DEFAULT_EVENT_DURATION_MINUTES = 120;
 
@@ -466,7 +466,9 @@ export async function importWeeklyRidesFeed(
 		slugPrefix = 'weeklyrides-',
 		requireGeocoding = true,
 		skipGeocoding = false,
-		skipImageUpload = true
+		skipImageUpload = false,
+		reconcileMissingImages = false,
+		existingOnly = false
 	} = {}
 ) {
 	const effectiveSkipGeocoding = requireGeocoding ? false : skipGeocoding;
@@ -498,7 +500,7 @@ export async function importWeeklyRidesFeed(
 
 	let candidateEvents = parsedFeed.events;
 	let preSkippedExisting = [];
-	if (onlyNew) {
+	if (onlyNew && !reconcileMissingImages) {
 		const existingBySourceId = await fetchExistingEventsBySourceId(
 			supabase,
 			parsedFeed.events.map((event) => event.id)
@@ -535,7 +537,9 @@ export async function importWeeklyRidesFeed(
 			slugPrefix,
 			requireGeocoding,
 			skipGeocoding: effectiveSkipGeocoding,
-			skipImageUpload
+			skipImageUpload,
+			reconcileMissingImages,
+			existingOnly
 		}
 	);
 

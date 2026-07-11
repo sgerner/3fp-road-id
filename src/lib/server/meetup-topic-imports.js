@@ -433,7 +433,9 @@ export async function importMeetupRoadCyclingTopic(
 		slugPrefix = 'meetup-',
 		requireGeocoding = false,
 		skipGeocoding = false,
-		skipImageUpload = true,
+		skipImageUpload = false,
+		reconcileMissingImages = false,
+		existingOnly = false,
 		groupLimit = null,
 		groupFetchConcurrency = 10,
 		eventsPerGroup = 20,
@@ -515,7 +517,7 @@ export async function importMeetupRoadCyclingTopic(
 
 	let candidateEvents = sourceEvents;
 	let preSkippedExisting = [];
-	if (onlyNew) {
+	if (onlyNew && !reconcileMissingImages) {
 		const existingBySourceId = await fetchExistingEventsBySourceId(
 			supabase,
 			sourceEvents.map((event) => event.id)
@@ -555,7 +557,9 @@ export async function importMeetupRoadCyclingTopic(
 			slugPrefix,
 			requireGeocoding,
 			skipGeocoding: effectiveSkipGeocoding,
-			skipImageUpload
+			skipImageUpload,
+			reconcileMissingImages,
+			existingOnly
 		}
 	);
 
