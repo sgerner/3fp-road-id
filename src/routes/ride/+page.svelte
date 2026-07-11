@@ -488,7 +488,7 @@
 				<div class="grid gap-4 lg:grid-cols-3">
 					{#each featuredRides as ride, i}
 						<a
-							class="featured-card card preset-tonal-primary flex h-full flex-col gap-4 p-5"
+							class="featured-card card preset-filled-surface-100-900 flex h-full flex-col gap-4 p-5"
 							href={`/ride/${ride.slug}`}
 							style="--stagger: {i}"
 						>
@@ -511,24 +511,26 @@
 								</div>
 							{/if}
 							<div class="flex flex-wrap gap-2">
-								<span class="featured-time-chip chip preset-tonal-surface text-xs">
+								<span class="featured-time-chip chip preset-filled-surface-200-800 text-xs">
 									{formatFeaturedNext(ride)}
 								</span>
 							</div>
 							<div class="space-y-1.5">
 								<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
 								{#if ride.summary}
-									<p class="line-clamp-2 text-sm leading-relaxed opacity-75">{ride.summary}</p>
+									<p class="line-clamp-2 text-sm leading-relaxed text-surface-700-200">
+										{ride.summary}
+									</p>
 								{/if}
 							</div>
 							<div class="mt-auto space-y-3">
-								<div class="flex items-center gap-2 text-sm opacity-70">
+								<div class="flex items-center gap-2 text-sm text-surface-700-200">
 									<IconMapPin class="h-3.5 w-3.5 shrink-0" />
 									<span class="truncate">{ride.startLocationName || 'Location coming soon'}</span>
 								</div>
 								<div class="flex flex-wrap gap-1.5">
 									{#each rideMeta(ride) as meta}
-										<span class="chip preset-tonal-tertiary gap-1 text-xs">
+										<span class="chip preset-tonal-surface gap-1 text-xs">
 											<meta.icon class="h-3 w-3" />
 											{meta.label}
 										</span>
@@ -539,7 +541,9 @@
 										</span>
 									{/each}
 								</div>
-								<span class="inline-flex items-center gap-1.5 text-sm font-semibold">
+								<span
+									class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700-300"
+								>
 									Open ride
 									<IconArrowRight class="h-3.5 w-3.5" />
 								</span>
@@ -550,19 +554,19 @@
 			</div>
 
 			<!-- Claimable rides callout -->
-			<div class="preset-tonal-warning p-6">
+			<div class="card preset-filled-surface-50-950 border border-warning-600-400/40 p-6 shadow-xl">
 				<div class="mb-5 space-y-2">
 					<div class="flex items-center gap-2">
-						<IconFlag class="text-warning-400-600 h-5 w-5" />
-						<p class="label opacity-70">Claim a series</p>
+						<IconFlag class="text-warning-600-400 h-5 w-5" />
+						<p class="label text-warning-700-300">Claim a series</p>
 					</div>
 					<h2 class="text-xl font-bold">See a public ride with no host attached?</h2>
-					<p class="text-sm leading-relaxed opacity-75">
+					<p class="text-surface-700-200 text-sm leading-relaxed">
 						Logged-in users can post rides even when they are not the host. If a listing has no host
 						or organization, someone local can claim it and manage reminders, RSVPs, and updates.
 					</p>
 				</div>
-				<div class="divide-surface-500/20 divide-y">
+				<div class="divide-surface-300-700/30 divide-y">
 					{#each claimableRides.slice(0, 3) as ride}
 						<a
 							class="group flex items-start justify-between gap-3 py-4"
@@ -570,7 +574,7 @@
 						>
 							<div class="min-w-0">
 								<div class="truncate text-sm font-semibold">{ride.title}</div>
-								<div class="mt-0.5 text-xs opacity-60">{formatNext(ride)}</div>
+								<div class="text-surface-600-300 mt-0.5 text-xs">{formatNext(ride)}</div>
 							</div>
 							<span class="chip preset-filled-warning-500 shrink-0 text-xs font-semibold">
 								{ride.recurrenceEnabled ? 'Claim series' : 'Claim'}
@@ -578,7 +582,7 @@
 						</a>
 					{/each}
 					{#if !claimableRides.length}
-						<div class="py-4 text-center text-sm opacity-70">
+						<div class="text-surface-700-200 py-4 text-center text-sm">
 							All rides currently have a host. Check back soon!
 						</div>
 					{/if}
@@ -967,12 +971,12 @@
 			box-shadow 220ms ease;
 		animation: card-in 420ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 80ms);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-50-950) 18%, transparent);
 	}
 
 	.featured-card:hover {
 		transform: translateY(-4px);
-		box-shadow: 0 12px 32px -6px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+		box-shadow: 0 14px 36px -10px color-mix(in oklab, var(--color-warning-500) 16%, transparent);
 	}
 
 	.featured-time-chip {
@@ -984,13 +988,15 @@
 
 	.featured-card-image {
 		display: block;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-primary-500) 18%, transparent);
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50-950) 18%, transparent);
 	}
 
 	.featured-card-image-overlay {
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(to top, rgba(6, 6, 14, 0.72) 0%, transparent 55%);
+		background:
+			linear-gradient(to top, rgba(6, 6, 14, 0.82) 0%, transparent 58%),
+			linear-gradient(to right, rgba(6, 6, 14, 0.18) 0%, transparent 35%);
 		pointer-events: none;
 	}
 
