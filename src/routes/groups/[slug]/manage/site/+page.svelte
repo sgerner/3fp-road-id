@@ -24,6 +24,7 @@
 	import GroupSitePreview from '$lib/components/groups/GroupSitePreview.svelte';
 	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '$lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '$lib/microsites/blocks';
+	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '$lib/microsites/templates';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -74,6 +75,7 @@
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
 	let sponsorFileNames = $state({});
+	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	const initialWidget = untrack(() => baseConfig.ride_widget_config || {});
 	let rideFilterMode = $state(
@@ -340,7 +342,7 @@
 		}
 	}
 	function applyAiConfig(nextConfig, source) {
-		siteConfig = mergeGroupSiteEditorConfig(siteConfig, nextConfig);
+		siteConfig = mergeGroupSiteEditorConfig(clone(siteConfig), clone(nextConfig));
 		pageBlocks = clone(siteConfig.page_blocks || pageBlocks);
 		const visibility = deriveLegacySiteVisibility(pageBlocks, siteConfig.sections);
 		siteConfig = {
@@ -380,8 +382,19 @@
 		localNotice =
 			source === 'ai'
 				? 'AI proposal applied. Review it, then publish when ready.'
-				: 'Generated proposal applied. Review it, then publish when ready.';
+				: source === 'template'
+					? 'Template applied as a draft. Review it, then publish when ready.'
+					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
+	}
+	function applySiteTemplate(template) {
+		const confirmed = window.confirm(
+			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
+		);
+		if (!confirmed) return;
+
+		applyAiConfig(buildGroupSiteTemplate(template.id, { group: data.group }), 'template');
+		localNotice = `${template.label} applied as a draft. Personalize the sections, then publish when ready.`;
 	}
 
 	function updatePageBlocks(nextBlocks) {
@@ -622,6 +635,55 @@
 			aria-labelledby={`site-view-${activeView}`}
 		>
 			{#if activeView === 'builder'}
+				<section class="card preset-tonal-surface grid gap-4 p-4 sm:p-5">
+					<div class="flex flex-wrap items-start gap-3">
+						<div class="mr-auto max-w-3xl">
+							<p class="eyebrow">A faster starting point</p>
+							<h2 class="h3">Choose the kind of group you’re building for</h2>
+							<p class="mt-1 text-sm opacity-65">
+								Each template gives you useful starter sections, calls to action, wording, and a
+								coordinated website style. Applying one only changes this draft.
+							</p>
+						</div>
+						<span class="badge preset-tonal-primary">Your existing address stays</span>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+						{#each GROUP_SITE_TEMPLATES as template}
+							<article
+								class="card preset-tonal-surface grid content-between gap-4 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+							>
+								<div class="grid gap-3">
+									<div class="flex items-center justify-between gap-2">
+										<div class="flex gap-1" aria-label={`${template.label} color palette`}>
+											{#each Object.values(template.design.colors) as color}
+												<span class="h-5 w-5" style:background-color={color}></span>
+											{/each}
+										</div>
+										{#if template.id === recommendedTemplateId}
+											<span class="badge preset-filled-primary-500">Recommended</span>
+										{/if}
+									</div>
+									<div>
+										<h3 class="font-semibold">{template.label}</h3>
+										<p class="mt-1 text-sm opacity-70">{template.description}</p>
+									</div>
+									<p class="text-xs opacity-60">
+										<span class="font-semibold">Best for:</span>
+										{template.bestFor}
+									</p>
+									<p class="text-sm font-semibold">Primary action: {template.primaryAction}</p>
+								</div>
+								<button
+									class="btn btn-sm preset-tonal-primary w-full"
+									type="button"
+									onclick={() => applySiteTemplate(template)}
+								>
+									Use this template
+								</button>
+							</article>
+						{/each}
+					</div>
+				</section>
 				<div class="card preset-tonal-primary flex flex-wrap items-center gap-3 p-4">
 					<div class="mr-auto">
 						<p class="font-semibold">Drag sections to arrange your homepage</p>

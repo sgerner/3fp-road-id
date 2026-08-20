@@ -12,6 +12,7 @@ import {
 	normalizeMicrositeSlug
 } from '$lib/microsites/host';
 import { buildDefaultGroupSiteConfig, parseGroupSiteFormData } from '$lib/microsites/config';
+import { recommendGroupSiteTemplate } from '$lib/microsites/templates';
 import { getGroupSiteConfig, upsertGroupSiteConfig } from '$lib/server/groupSites';
 
 const SPONSOR_LOGO_BUCKET = 'group-assets';
@@ -251,15 +252,28 @@ export const load = async ({ parent, url, cookies }) => {
 	const { accessToken } = resolveSession(cookies);
 	const supabase = createRequestSupabaseClient(accessToken);
 
-	const [siteConfig, groupsResponse] = await Promise.all([
-		getGroupSiteConfig(group.id, { group }),
-		supabase
-			.from('groups')
-			.select('id,slug,name,city,state_region')
-			.order('name', { ascending: true })
-			.limit(500)
-	]);
+	const [siteConfig, groupsResponse, selectedTypesResponse, groupTypesResponse] = await Promise.all(
+		[
+			getGroupSiteConfig(group.id, { group }),
+			supabase
+				.from('groups')
+				.select('id,slug,name,city,state_region')
+				.order('name', { ascending: true })
+				.limit(500),
+			supabase.from('group_x_group_types').select('group_type_id').eq('group_id', group.id),
+			supabase.from('group_types').select('id,name')
+		]
+	);
 	const availableGroups = Array.isArray(groupsResponse?.data) ? groupsResponse.data : [];
+	const selectedTypeIds = new Set(
+		(Array.isArray(selectedTypesResponse?.data) ? selectedTypesResponse.data : []).map(
+			(item) => item.group_type_id
+		)
+	);
+	const groupTypeNames = (Array.isArray(groupTypesResponse?.data) ? groupTypesResponse.data : [])
+		.filter((item) => selectedTypeIds.has(item.id))
+		.map((item) => item.name)
+		.filter(Boolean);
 	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
 	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
 	const liveUrl = buildMicrositeUrl(micrositeSlug, url);
@@ -268,6 +282,8 @@ export const load = async ({ parent, url, cookies }) => {
 		group,
 		micrositeSlug,
 		availableGroups,
+		groupTypeNames,
+		recommendedSiteTemplateId: recommendGroupSiteTemplate({ group, groupTypeNames }),
 		siteConfig,
 		defaultSiteConfig: buildDefaultGroupSiteConfig(group),
 		previewPath,
