@@ -1,4 +1,5 @@
-import { normalizeRideWidgetConfig } from '$lib/rides/widgetConfig';
+import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
+import { buildDefaultGroupSiteBlocks, normalizeGroupSiteBlocks } from './blocks.js';
 
 export const GROUP_SITE_THEME_OPTIONS = [
 	{ value: '3fp', label: '3FP' },
@@ -245,6 +246,7 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 		ride_widget_config: normalizeRideWidgetConfig({}),
 		announcement_expires_at: null,
 		sections: { ...DEFAULT_SITE_SECTIONS },
+		page_blocks: buildDefaultGroupSiteBlocks({ sections: DEFAULT_SITE_SECTIONS }),
 		ai_prompt: '',
 		published: true
 	};
@@ -260,14 +262,16 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		.map((item) => normalizeUrlish(item.url))
 		.filter(Boolean)
 		.slice(0, MAX_SPONSOR_ITEMS);
+	const sections = normalizeSections(source.sections);
+	const rideWidgetEnabled = normalizeBoolean(source.ride_widget_enabled, base.ride_widget_enabled);
 
 	return {
 		site_title: clampText(source.site_title || base.site_title, 120) || base.site_title,
-		site_tagline: clampText(source.site_tagline || base.site_tagline, 180),
-		home_intro: clampText(source.home_intro || base.home_intro, 1400),
-		featured_quote: clampText(source.featured_quote || base.featured_quote, 260),
-		footer_blurb: clampText(source.footer_blurb || base.footer_blurb, 180),
-		seo_description: clampText(source.seo_description || base.seo_description, 180),
+		site_tagline: clampText(source.site_tagline ?? base.site_tagline, 180),
+		home_intro: clampText(source.home_intro ?? base.home_intro, 1400),
+		featured_quote: clampText(source.featured_quote ?? base.featured_quote, 260),
+		footer_blurb: clampText(source.footer_blurb ?? base.footer_blurb, 180),
+		seo_description: clampText(source.seo_description ?? base.seo_description, 180),
 		hero_style: normalizeChoice(source.hero_style, GROUP_SITE_HERO_STYLES, base.hero_style),
 		background_style: normalizeChoice(
 			source.background_style,
@@ -297,7 +301,7 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		safety_note: clampText(source.safety_note || '', 360),
 		sponsor_links: sponsorLinks,
 		sponsor_items: sponsorItems,
-		ride_widget_enabled: normalizeBoolean(source.ride_widget_enabled, base.ride_widget_enabled),
+		ride_widget_enabled: rideWidgetEnabled,
 		ride_widget_title: clampText(source.ride_widget_title || base.ride_widget_title, 120),
 		ride_widget_host_scope: normalizeChoice(
 			source.ride_widget_host_scope,
@@ -315,7 +319,11 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		).slice(0, 48),
 		ride_widget_config: normalizeRideWidgetConfig(source.ride_widget_config || {}),
 		announcement_expires_at: normalizeIsoDateTime(source.announcement_expires_at),
-		sections: normalizeSections(source.sections),
+		sections,
+		page_blocks: normalizeGroupSiteBlocks(source.page_blocks, {
+			sections,
+			rideWidgetEnabled
+		}),
 		ai_prompt: clampText(source.ai_prompt || '', 2000),
 		published: normalizeBoolean(source.published, true)
 	};
@@ -358,6 +366,7 @@ export function serializeGroupSiteConfig(config) {
 		ride_widget_config: normalized.ride_widget_config,
 		announcement_expires_at: normalized.announcement_expires_at || null,
 		sections: normalized.sections,
+		page_blocks: normalized.page_blocks,
 		ai_prompt: normalized.ai_prompt || null,
 		published: normalized.published
 	};
@@ -461,6 +470,7 @@ export function parseGroupSiteFormData(formData, { group = null } = {}) {
 			},
 			announcement_expires_at: formData.get('announcement_expires_at'),
 			sections,
+			page_blocks: formData.get('page_blocks_json'),
 			ai_prompt: formData.get('ai_prompt'),
 			published: formData.get('published') !== 'off'
 		},
@@ -482,7 +492,8 @@ export function mergeGroupSiteConfig(...values) {
 			sections: {
 				...(merged.sections || {}),
 				...(value.sections || {})
-			}
+			},
+			page_blocks: Array.isArray(value.page_blocks) ? value.page_blocks : merged.page_blocks
 		};
 	}
 	return normalizeGroupSiteConfig(merged);

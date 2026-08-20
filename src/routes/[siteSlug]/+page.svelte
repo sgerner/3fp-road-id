@@ -20,6 +20,7 @@
 	const site = $derived(data.site);
 	const group = $derived(site.group);
 	const config = $derived(site.siteConfig);
+	const pageBlocks = $derived(config?.page_blocks || []);
 	const heroStyle = $derived(config?.hero_style || 'immersive');
 	const panelStyle = $derived(config?.panel_style || 'glass');
 	const panelTone = $derived(config?.panel_tone || 'surface');
@@ -39,6 +40,42 @@
 	});
 	const donateAmountPresets = [10, 25, 50, 100];
 	let donateAmount = $state(25);
+	let signupFirstName = $state('');
+	let signupEmail = $state('');
+	let signupConsent = $state(false);
+	let signupState = $state('idle');
+	let signupMessage = $state('');
+	let signupCompany = $state('');
+	async function subscribeToGroupEmails(event) {
+		event.preventDefault();
+		if (signupState === 'submitting') return;
+		signupState = 'submitting';
+		signupMessage = '';
+		try {
+			const response = await fetch(
+				`/api/groups/${encodeURIComponent(group.slug)}/email/subscribe`,
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						first_name: signupFirstName,
+						email: signupEmail,
+						consent: signupConsent,
+						company: signupCompany
+					})
+				}
+			);
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(payload.error || 'Unable to sign up.');
+			signupState = 'success';
+			signupMessage = payload.message || "You're signed up.";
+			signupEmail = '';
+			signupConsent = false;
+		} catch (error) {
+			signupState = 'error';
+			signupMessage = error?.message || 'Unable to sign up. Please try again.';
+		}
+	}
 	// Lightbox state
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
@@ -136,6 +173,28 @@
 	const hasRides = $derived(site.rides?.length > 0);
 	const hasVolunteer = $derived(site.volunteerEvents?.length > 0);
 	const hasNews = $derived(site.newsPosts?.length > 0);
+	const actionBlockTypes = [
+		'call_to_action',
+		'email_signup',
+		'membership',
+		'volunteer',
+		'updates',
+		'resources'
+	];
+	function siteChildHref(path) {
+		return basePath ? `${basePath}${path}` : path;
+	}
+	function blockActionHref(block) {
+		const configured = String(block?.button_url || '').trim();
+		if (['/join', '/updates', '/assets'].includes(configured)) return siteChildHref(configured);
+		if (configured) return configured;
+		if (block?.type === 'volunteer') return `/volunteer/groups/${group.slug}`;
+		if (block?.type === 'updates') return siteChildHref('/updates');
+		if (block?.type === 'resources') return siteChildHref('/assets');
+		if (block?.type === 'membership' || block?.type === 'email_signup')
+			return siteChildHref('/join');
+		return '';
+	}
 	function formatDate(value) {
 		if (!value) return 'Soon';
 		const date = new Date(value);
@@ -219,839 +278,955 @@
 			</div>
 		</section>
 	{/if}
-	<!-- ═══════════════════════════════════
+	{#each pageBlocks as block (block.id)}
+		{#if block.type === 'hero'}
+			<!-- ═══════════════════════════════════
 HERO — cinematic cover with integrated CTAs
 ═══════════════════════════════════ -->
-	<section class="relative">
-		{#if heroStyle === 'bold'}
-			<!-- ════════════════════════════════════════════════════════
+			<section class="relative" data-site-block-id={block.id} data-site-block-type="hero">
+				{#if heroStyle === 'bold'}
+					<!-- ════════════════════════════════════════════════════════
 	HERO BOLD — Magazine-style diagonal split with oversized typography
 	════════════════════════════════════════════════════════ -->
-			<div
-				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
-			>
-				<!-- Left diagonal panel with solid theme color -->
-				<div
-					class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-primary-500)_8%,var(--color-surface-950))_0%,color-mix(in_oklab,var(--color-surface-950)_95%,transparent)_55%)] [clip-path:polygon(0_0,60%_0,45%_100%,0_100%)] max-md:[clip-path:polygon(0_0,70%_0,55%_100%,0_100%)]"
-				></div>
-				<div
-					class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-secondary-500)_15%,transparent)_0%,transparent_50%)] [clip-path:polygon(0_0,62%_0,47%_100%,0_100%)] max-md:[clip-path:polygon(0_0,72%_0,57%_100%,0_100%)]"
-				></div>
-				<!-- Image on right side -->
-				<div
-					class="absolute inset-0 [clip-path:polygon(55%_0,100%_0,100%_100%,40%_100%)] max-md:[clip-path:polygon(65%_0,100%_0,100%_100%,50%_100%)]"
-				>
-					{#if group.cover_photo_url}
-						<img
-							src={group.cover_photo_url}
-							alt={`${group.name}`}
-							class="h-full w-full object-cover"
-						/>
-					{:else}
-						<div
-							class="from-secondary-500/30 via-tertiary-500/25 to-primary-500/30 h-full w-full bg-gradient-to-br"
-						></div>
-					{/if}
-				</div>
-				<!-- Content overlay -->
-				<div
-					class="relative z-10 flex h-full items-end p-6 pb-[clamp(1.5rem,5vw,3rem)] pl-[clamp(1.5rem,5vw,3rem)] md:p-10 md:pb-[clamp(1.5rem,5vw,3rem)] md:pl-[clamp(1.5rem,5vw,3rem)]"
-				>
 					<div
-						class="max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
+						class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
 					>
-						<!-- Location badge -->
-						{#if location}
-							<div
-								class="text-primary-200 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold tracking-[0.1em] uppercase [background:color-mix(in_oklab,var(--color-primary-500)_20%,transparent)]"
-							>
-								<IconMapPin class="h-3.5 w-3.5" />
-								<span>{location}</span>
-							</div>
-						{:else}
-							<div class="skeleton mb-3 h-4 w-32 rounded-full"></div>
-						{/if}
-						<!-- Logo + Title row -->
-						<div class="mt-4 flex items-start gap-4 md:gap-6">
-							{#if group.logo_url}
-								<img
-									src={group.logo_url}
-									alt={`${group.name} logo`}
-									class="h-14 w-14 rounded-xl object-cover shadow-xl ring-2 ring-[color-mix(in_oklab,var(--color-surface-50)_20%,transparent)] md:h-20 md:w-20"
-								/>
-							{:else}
-								<div class="skeleton h-14 w-14 rounded-xl md:h-20 md:w-20"></div>
-							{/if}
-							<div class="min-w-0 flex-1">
-								{#if config.site_title}
-									<h1
-										class="text-primary-500 text-4xl leading-[0.92] font-black tracking-tight break-words [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] max-md:leading-[0.95] md:text-6xl lg:text-7xl"
-									>
-										{config.site_title}
-									</h1>
-								{:else}
-									<div class="skeleton mb-2 h-10 w-full rounded md:h-14"></div>
-									<div class="skeleton h-10 w-2/3 rounded md:h-14"></div>
-								{/if}
-							</div>
-						</div>
-						<!-- Tagline -->
-						{#if config.site_tagline}
-							<AutoLinkText
-								text={config.site_tagline}
-								className="!text-white block mt-4 max-w-xl text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
-								linkClass="!text-white underline underline-offset-2"
-							/>
-						{:else}
-							<div class="skeleton mt-4 h-4 w-full max-w-xl rounded"></div>
-						{/if}
-						<!-- CTAs -->
-						{#if site.actions.length}
-							<div class="mt-6 flex flex-wrap items-center gap-3">
-								{#each site.actions as action, i}
-									<a
-										href={action.href}
-										target={action.external ? '_blank' : undefined}
-										rel={action.external ? 'noopener noreferrer' : undefined}
-										class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 max-md:px-4 max-md:py-2.5 {i ===
-										0
-											? 'bg-primary-500 text-primary-contrast-500 shadow-lg [box-shadow:0_4px_20px_-4px_color-mix(in_oklab,var(--color-primary-500)_50%,transparent)] hover:-translate-y-0.5 hover:[box-shadow:0_8px_28px_-4px_color-mix(in_oklab,var(--color-primary-500)_60%,transparent)]'
-											: 'text-surface-100 border [border-color:color-mix(in_oklab,var(--color-surface-50)_15%,transparent)] [background:color-mix(in_oklab,var(--color-surface-50)_10%,transparent)] hover:[background:color-mix(in_oklab,var(--color-surface-50)_18%,transparent)]'}"
-									>
-										<span>{action.label}</span>
-										<IconArrowRight class="h-4 w-4" />
-									</a>
-								{/each}
-							</div>
-						{:else}
-							<div class="mt-6 flex gap-3">
-								<div class="skeleton h-12 w-32 rounded-full"></div>
-								<div class="skeleton h-12 w-32 rounded-full"></div>
-							</div>
-						{/if}
-					</div>
-				</div>
-			</div>
-		{:else if heroStyle === 'orbit'}
-			<!-- ════════════════════════════════════════════════════════
-	HERO ORBIT — Modern floating glass card with ambient glow
-	════════════════════════════════════════════════════════ -->
-			<div
-				class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
-			>
-				{#if group.cover_photo_url}
-					<img
-						src={group.cover_photo_url}
-						alt={`${group.name}`}
-						class="absolute inset-0 h-full w-full object-cover"
-					/>
-				{:else}
-					<div
-						class="from-primary-500/25 via-surface-500/10 to-secondary-500/25 absolute inset-0 bg-gradient-to-br"
-					></div>
-				{/if}
-				<!-- Vignette overlay -->
-				<div
-					class="from-surface-950/80 via-surface-950/50 to-surface-950/70 absolute inset-0 bg-gradient-to-b"
-				></div>
-				<!-- Subtle dot pattern -->
-				<div
-					class="absolute inset-0 opacity-30"
-					style="background-image: radial-gradient(circle at center, color-mix(in oklab, var(--color-surface-50) 6%, transparent) 0%, transparent 1px); background-size: 32px 32px;"
-				></div>
-				<!-- Content -->
-				<div class="relative z-10 flex h-full items-center justify-center p-5 md:p-8">
-					<div class="relative w-full max-w-xl">
-						<!-- Ambient glow behind card -->
+						<!-- Left diagonal panel with solid theme color -->
 						<div
-							class="from-primary-500/40 via-secondary-500/30 to-tertiary-500/40 absolute -inset-1 rounded-[1.75rem] bg-gradient-to-br opacity-60 blur-xl"
+							class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-primary-500)_8%,var(--color-surface-950))_0%,color-mix(in_oklab,var(--color-surface-950)_95%,transparent)_55%)] [clip-path:polygon(0_0,60%_0,45%_100%,0_100%)] max-md:[clip-path:polygon(0_0,70%_0,55%_100%,0_100%)]"
 						></div>
-						<!-- Glass card -->
 						<div
-							class="border-surface-50/10 bg-surface-950/70 relative rounded-3xl border px-6 py-8 shadow-2xl shadow-black/50 backdrop-blur-xl max-md:px-4 max-md:py-6"
+							class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-secondary-500)_15%,transparent)_0%,transparent_50%)] [clip-path:polygon(0_0,62%_0,47%_100%,0_100%)] max-md:[clip-path:polygon(0_0,72%_0,57%_100%,0_100%)]"
+						></div>
+						<!-- Image on right side -->
+						<div
+							class="absolute inset-0 [clip-path:polygon(55%_0,100%_0,100%_100%,40%_100%)] max-md:[clip-path:polygon(65%_0,100%_0,100%_100%,50%_100%)]"
 						>
-							<div class="flex flex-col items-center text-center">
-								{#if group.logo_url}
-									<img
-										src={group.logo_url}
-										alt={`${group.name} logo`}
-										class="ring-surface-50/30 h-16 w-16 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
-									/>
-								{:else}
-									<div class="skeleton h-16 w-16 rounded-2xl md:h-20 md:w-20"></div>
-								{/if}
-								{#if location}
-									<p
-										class="text-surface-50/60 mt-4 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.3em] uppercase"
-									>
-										<IconMapPin class="h-3 w-3" />{location}
-									</p>
-								{:else}
-									<div class="skeleton mt-4 h-3 w-24 rounded"></div>
-								{/if}
-								{#if config.site_title}
-									<h1
-										class="text-primary-500 mt-3 text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
-									>
-										{config.site_title}
-									</h1>
-								{:else}
-									<div class="skeleton mt-3 h-10 w-48 rounded"></div>
-								{/if}
-								{#if config.site_tagline}
-									<AutoLinkText
-										text={config.site_tagline}
-										className="mt-3 block max-w-md text-base leading-relaxed text-surface-50/80"
-										linkClass="text-surface-50 underline underline-offset-2"
-									/>
-								{:else}
-									<div class="skeleton mt-3 h-4 w-64 rounded"></div>
-								{/if}
-							</div>
-							{#if site.actions.length}
-								<div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:mt-8">
-									{#each site.actions as action, i}
-										<a
-											href={action.href}
-											target={action.external ? '_blank' : undefined}
-											rel={action.external ? 'noopener noreferrer' : undefined}
-											class="btn {i === 0
-												? 'preset-filled-primary-500 shadow-primary-500/25 shadow-lg'
-												: 'preset-tonal-secondary border-surface-50/20 border'} gap-2 px-5 py-2.5 text-sm font-bold"
-										>
-											{action.label}
-											<IconArrowRight class="h-4 w-4" />
-										</a>
-									{/each}
-								</div>
-							{:else}
-								<div class="mt-8 flex justify-center gap-3">
-									<div class="skeleton h-10 w-24 rounded-full"></div>
-									<div class="skeleton h-10 w-24 rounded-full"></div>
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-		{:else}
-			<div
-				class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-auto"
-			>
-				{#if group.cover_photo_url}
-					<img
-						src={group.cover_photo_url}
-						alt={`${group.name}`}
-						class="absolute inset-0 h-full w-full object-cover motion-safe:[animation:ken-burns_25s_ease-in-out_infinite_alternate]"
-					/>
-				{:else}
-					<div
-						class="from-primary-500/30 via-secondary-500/20 to-tertiary-500/30 absolute inset-0 bg-gradient-to-br"
-					></div>
-				{/if}
-				<div
-					class="absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
-				></div>
-				<div
-					class="absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
-				></div>
-				<div class="relative z-10 flex h-full flex-col justify-end p-5 md:p-8">
-					<div class="flex flex-col gap-6">
-						<div class="flex items-start gap-4 md:items-end">
-							{#if group.logo_url}
+							{#if group.cover_photo_url}
 								<img
-									src={group.logo_url}
-									alt={`${group.name} logo`}
-									class="ring-surface-50/20 h-16 w-16 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+									src={group.cover_photo_url}
+									alt={`${group.name}`}
+									class="h-full w-full object-cover"
 								/>
 							{:else}
 								<div
-									class="from-primary-500 to-secondary-500 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-2xl md:h-20 md:w-20"
-								>
-									<IconUsers class="h-7 w-7 text-white/80" />
-								</div>
+									class="from-secondary-500/30 via-tertiary-500/25 to-primary-500/30 h-full w-full bg-gradient-to-br"
+								></div>
 							{/if}
-							<div class="min-w-0 pb-0.5">
+						</div>
+						<!-- Content overlay -->
+						<div
+							class="relative z-10 flex h-full items-end p-6 pb-[clamp(1.5rem,5vw,3rem)] pl-[clamp(1.5rem,5vw,3rem)] md:p-10 md:pb-[clamp(1.5rem,5vw,3rem)] md:pl-[clamp(1.5rem,5vw,3rem)]"
+						>
+							<div
+								class="max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
+							>
+								<!-- Location badge -->
 								{#if location}
-									<p
-										class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.3em] text-white/70 uppercase"
+									<div
+										class="text-primary-200 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold tracking-[0.1em] uppercase [background:color-mix(in_oklab,var(--color-primary-500)_20%,transparent)]"
 									>
-										<IconMapPin class="h-3 w-3" />{location}
-									</p>
+										<IconMapPin class="h-3.5 w-3.5" />
+										<span>{location}</span>
+									</div>
+								{:else}
+									<div class="skeleton mb-3 h-4 w-32 rounded-full"></div>
 								{/if}
-								<h1
-									class="text-primary-500 text-3xl leading-tight font-black tracking-tight break-words md:text-4xl lg:text-5xl"
-								>
-									{config.site_title}
-								</h1>
+								<!-- Logo + Title row -->
+								<div class="mt-4 flex items-start gap-4 md:gap-6">
+									{#if group.logo_url}
+										<img
+											src={group.logo_url}
+											alt={`${group.name} logo`}
+											class="h-14 w-14 rounded-xl object-cover shadow-xl ring-2 ring-[color-mix(in_oklab,var(--color-surface-50)_20%,transparent)] md:h-20 md:w-20"
+										/>
+									{:else}
+										<div class="skeleton h-14 w-14 rounded-xl md:h-20 md:w-20"></div>
+									{/if}
+									<div class="min-w-0 flex-1">
+										{#if config.site_title}
+											<h1
+												class="text-primary-500 text-4xl leading-[0.92] font-black tracking-tight break-words [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] max-md:leading-[0.95] md:text-6xl lg:text-7xl"
+											>
+												{config.site_title}
+											</h1>
+										{:else}
+											<div class="skeleton mb-2 h-10 w-full rounded md:h-14"></div>
+											<div class="skeleton h-10 w-2/3 rounded md:h-14"></div>
+										{/if}
+									</div>
+								</div>
+								<!-- Tagline -->
+								{#if config.site_tagline}
+									<AutoLinkText
+										text={config.site_tagline}
+										className="!text-white block mt-4 max-w-xl text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
+										linkClass="!text-white underline underline-offset-2"
+									/>
+								{:else}
+									<div class="skeleton mt-4 h-4 w-full max-w-xl rounded"></div>
+								{/if}
+								<!-- CTAs -->
+								{#if site.actions.length}
+									<div class="mt-6 flex flex-wrap items-center gap-3">
+										{#each site.actions as action, i}
+											<a
+												href={action.href}
+												target={action.external ? '_blank' : undefined}
+												rel={action.external ? 'noopener noreferrer' : undefined}
+												class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 max-md:px-4 max-md:py-2.5 {i ===
+												0
+													? 'bg-primary-500 text-primary-contrast-500 shadow-lg [box-shadow:0_4px_20px_-4px_color-mix(in_oklab,var(--color-primary-500)_50%,transparent)] hover:-translate-y-0.5 hover:[box-shadow:0_8px_28px_-4px_color-mix(in_oklab,var(--color-primary-500)_60%,transparent)]'
+													: 'text-surface-100 border [border-color:color-mix(in_oklab,var(--color-surface-50)_15%,transparent)] [background:color-mix(in_oklab,var(--color-surface-50)_10%,transparent)] hover:[background:color-mix(in_oklab,var(--color-surface-50)_18%,transparent)]'}"
+											>
+												<span>{action.label}</span>
+												<IconArrowRight class="h-4 w-4" />
+											</a>
+										{/each}
+									</div>
+								{:else}
+									<div class="mt-6 flex gap-3">
+										<div class="skeleton h-12 w-32 rounded-full"></div>
+										<div class="skeleton h-12 w-32 rounded-full"></div>
+									</div>
+								{/if}
 							</div>
 						</div>
-						<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-							{#if config.site_tagline}
-								<AutoLinkText
-									text={config.site_tagline}
-									className="block max-w-xl text-lg leading-relaxed font-medium text-white/90 md:text-xl"
-									linkClass="text-white underline underline-offset-2"
-								/>
-							{/if}
-							{#if site.actions.length}
-								<div class="flex flex-wrap items-center gap-2 md:gap-3">
-									{#each site.actions as action, i}
-										<a
-											href={action.href}
-											target={action.external ? '_blank' : undefined}
-											rel={action.external ? 'noopener noreferrer' : undefined}
-											class="btn btn-sm md:btn-base {i === 0
-												? 'preset-filled-primary-500'
-												: 'preset-tonal-tertiary'} gap-2"
-										>
-											{action.label}
-											<IconArrowRight class="h-4 w-4" />
-										</a>
-									{/each}
+					</div>
+				{:else if heroStyle === 'orbit'}
+					<!-- ════════════════════════════════════════════════════════
+	HERO ORBIT — Modern floating glass card with ambient glow
+	════════════════════════════════════════════════════════ -->
+					<div
+						class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
+					>
+						{#if group.cover_photo_url}
+							<img
+								src={group.cover_photo_url}
+								alt={`${group.name}`}
+								class="absolute inset-0 h-full w-full object-cover"
+							/>
+						{:else}
+							<div
+								class="from-primary-500/25 via-surface-500/10 to-secondary-500/25 absolute inset-0 bg-gradient-to-br"
+							></div>
+						{/if}
+						<!-- Vignette overlay -->
+						<div
+							class="from-surface-950/80 via-surface-950/50 to-surface-950/70 absolute inset-0 bg-gradient-to-b"
+						></div>
+						<!-- Subtle dot pattern -->
+						<div
+							class="absolute inset-0 opacity-30"
+							style="background-image: radial-gradient(circle at center, color-mix(in oklab, var(--color-surface-50) 6%, transparent) 0%, transparent 1px); background-size: 32px 32px;"
+						></div>
+						<!-- Content -->
+						<div class="relative z-10 flex h-full items-center justify-center p-5 md:p-8">
+							<div class="relative w-full max-w-xl">
+								<!-- Ambient glow behind card -->
+								<div
+									class="from-primary-500/40 via-secondary-500/30 to-tertiary-500/40 absolute -inset-1 rounded-[1.75rem] bg-gradient-to-br opacity-60 blur-xl"
+								></div>
+								<!-- Glass card -->
+								<div
+									class="border-surface-50/10 bg-surface-950/70 relative rounded-3xl border px-6 py-8 shadow-2xl shadow-black/50 backdrop-blur-xl max-md:px-4 max-md:py-6"
+								>
+									<div class="flex flex-col items-center text-center">
+										{#if group.logo_url}
+											<img
+												src={group.logo_url}
+												alt={`${group.name} logo`}
+												class="ring-surface-50/30 h-16 w-16 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+											/>
+										{:else}
+											<div class="skeleton h-16 w-16 rounded-2xl md:h-20 md:w-20"></div>
+										{/if}
+										{#if location}
+											<p
+												class="text-surface-50/60 mt-4 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.3em] uppercase"
+											>
+												<IconMapPin class="h-3 w-3" />{location}
+											</p>
+										{:else}
+											<div class="skeleton mt-4 h-3 w-24 rounded"></div>
+										{/if}
+										{#if config.site_title}
+											<h1
+												class="text-primary-500 mt-3 text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
+											>
+												{config.site_title}
+											</h1>
+										{:else}
+											<div class="skeleton mt-3 h-10 w-48 rounded"></div>
+										{/if}
+										{#if config.site_tagline}
+											<AutoLinkText
+												text={config.site_tagline}
+												className="mt-3 block max-w-md text-base leading-relaxed text-surface-50/80"
+												linkClass="text-surface-50 underline underline-offset-2"
+											/>
+										{:else}
+											<div class="skeleton mt-3 h-4 w-64 rounded"></div>
+										{/if}
+									</div>
+									{#if site.actions.length}
+										<div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:mt-8">
+											{#each site.actions as action, i}
+												<a
+													href={action.href}
+													target={action.external ? '_blank' : undefined}
+													rel={action.external ? 'noopener noreferrer' : undefined}
+													class="btn {i === 0
+														? 'preset-filled-primary-500 shadow-primary-500/25 shadow-lg'
+														: 'preset-tonal-secondary border-surface-50/20 border'} gap-2 px-5 py-2.5 text-sm font-bold"
+												>
+													{action.label}
+													<IconArrowRight class="h-4 w-4" />
+												</a>
+											{/each}
+										</div>
+									{:else}
+										<div class="mt-8 flex justify-center gap-3">
+											<div class="skeleton h-10 w-24 rounded-full"></div>
+											<div class="skeleton h-10 w-24 rounded-full"></div>
+										</div>
+									{/if}
 								</div>
-							{/if}
+							</div>
 						</div>
 					</div>
-				</div>
-			</div>
-		{/if}
-	</section>
-	<!-- ═══════════════════════════════════════════════════════════
+				{:else}
+					<div
+						class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-auto"
+					>
+						{#if group.cover_photo_url}
+							<img
+								src={group.cover_photo_url}
+								alt={`${group.name}`}
+								class="absolute inset-0 h-full w-full object-cover motion-safe:[animation:ken-burns_25s_ease-in-out_infinite_alternate]"
+							/>
+						{:else}
+							<div
+								class="from-primary-500/30 via-secondary-500/20 to-tertiary-500/30 absolute inset-0 bg-gradient-to-br"
+							></div>
+						{/if}
+						<div
+							class="absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
+						></div>
+						<div
+							class="absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
+						></div>
+						<div class="relative z-10 flex h-full flex-col justify-end p-5 md:p-8">
+							<div class="flex flex-col gap-6">
+								<div class="flex items-start gap-4 md:items-end">
+									{#if group.logo_url}
+										<img
+											src={group.logo_url}
+											alt={`${group.name} logo`}
+											class="ring-surface-50/20 h-16 w-16 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+										/>
+									{:else}
+										<div
+											class="from-primary-500 to-secondary-500 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-2xl md:h-20 md:w-20"
+										>
+											<IconUsers class="h-7 w-7 text-white/80" />
+										</div>
+									{/if}
+									<div class="min-w-0 pb-0.5">
+										{#if location}
+											<p
+												class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.3em] text-white/70 uppercase"
+											>
+												<IconMapPin class="h-3 w-3" />{location}
+											</p>
+										{/if}
+										<h1
+											class="text-primary-500 text-3xl leading-tight font-black tracking-tight break-words md:text-4xl lg:text-5xl"
+										>
+											{config.site_title}
+										</h1>
+									</div>
+								</div>
+								<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+									{#if config.site_tagline}
+										<AutoLinkText
+											text={config.site_tagline}
+											className="block max-w-xl text-lg leading-relaxed font-medium text-white/90 md:text-xl"
+											linkClass="text-white underline underline-offset-2"
+										/>
+									{/if}
+									{#if site.actions.length}
+										<div class="flex flex-wrap items-center gap-2 md:gap-3">
+											{#each site.actions as action, i}
+												<a
+													href={action.href}
+													target={action.external ? '_blank' : undefined}
+													rel={action.external ? 'noopener noreferrer' : undefined}
+													class="btn btn-sm md:btn-base {i === 0
+														? 'preset-filled-primary-500'
+														: 'preset-tonal-tertiary'} gap-2"
+												>
+													{action.label}
+													<IconArrowRight class="h-4 w-4" />
+												</a>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
 	     DONATE — Quick donation widget (optional)
      ═══════════════════════════════════════════════════════════ -->
-	{#if site.donationEnabled}
-		<section class="donate-section">
-			<div class="donate-card">
-				<form method="GET" action="/donate">
-					<input type="hidden" name="group" value={group.slug} />
-					<div class="donate-header">
-						<div class="flex items-center gap-3">
-							<div class="donate-icon">
-								<IconHeart class="h-5 w-5 text-white" />
+		{:else if block.type === 'donation' && site.donationEnabled}
+			<section class="donate-section" data-site-block-id={block.id} data-site-block-type="donation">
+				<div class="donate-card">
+					<form method="GET" action="/donate">
+						<input type="hidden" name="group" value={group.slug} />
+						<div class="donate-header">
+							<div class="flex items-center gap-3">
+								<div class="donate-icon">
+									<IconHeart class="h-5 w-5 text-white" />
+								</div>
+								<h2 class="donate-title">{block.title || 'Support our work'}</h2>
 							</div>
-							<h2 class="donate-title">Support our work</h2>
+							<div class="donate-presets">
+								{#each donateAmountPresets as preset}
+									<button
+										type="button"
+										class="donate-preset {donateAmount === preset ? 'active' : ''}"
+										onclick={() => (donateAmount = preset)}
+									>
+										${preset}
+									</button>
+								{/each}
+							</div>
 						</div>
-						<div class="donate-presets">
-							{#each donateAmountPresets as preset}
-								<button
-									type="button"
-									class="donate-preset {donateAmount === preset ? 'active' : ''}"
-									onclick={() => (donateAmount = preset)}
-								>
-									${preset}
-								</button>
-							{/each}
+						<div class="donate-input-row">
+							<div class="donate-input-wrap">
+								<span class="donate-currency">$</span>
+								<input
+									type="number"
+									min="1"
+									max="25000"
+									step="1"
+									name="amount"
+									bind:value={donateAmount}
+									class="donate-input"
+									placeholder="Other"
+								/>
+							</div>
+							<button type="submit" class="donate-btn">
+								Donate
+								<IconArrowRight class="h-3.5 w-3.5" />
+							</button>
 						</div>
-					</div>
-					<div class="donate-input-row">
-						<div class="donate-input-wrap">
-							<span class="donate-currency">$</span>
-							<input
-								type="number"
-								min="1"
-								max="25000"
-								step="1"
-								name="amount"
-								bind:value={donateAmount}
-								class="donate-input"
-								placeholder="Other"
-							/>
-						</div>
-						<button type="submit" class="donate-btn">
-							Donate
-							<IconArrowRight class="h-3.5 w-3.5" />
-						</button>
-					</div>
-				</form>
-			</div>
-		</section>
-	{/if}
-	<!-- ═══════════════════════════════════════════════════════════
+					</form>
+				</div>
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
 ABOUT — Comprehensive group profile
 ═══════════════════════════════════════════════════════════ -->
-	{#if config.sections.story && site.storyParagraphs.length}
-		<section class="about-section" id="about">
-			<div class="about-card">
-				<div class="about-header">
-					<div class="about-icon"><IconUsers class="h-5 w-5" /></div>
-					<div>
-						<p class="about-label">About us</p>
-						<h2 class="about-title">Who we are</h2>
+		{:else if block.type === 'story' && site.storyParagraphs.length}
+			<section
+				class="about-section"
+				id="about"
+				data-site-block-id={block.id}
+				data-site-block-type="story"
+			>
+				<div class="about-card">
+					<div class="about-header">
+						<div class="about-icon"><IconUsers class="h-5 w-5" /></div>
+						<div>
+							<p class="about-label">{block.eyebrow || 'About us'}</p>
+							<h2 class="about-title">{block.title || 'Who we are'}</h2>
+						</div>
 					</div>
-				</div>
-				<div class="about-content">
-					{#each site.storyParagraphs.slice(0, 2) as paragraph}
-						<AutoLinkText text={paragraph} className="about-paragraph" linkClass="about-link" />
-					{/each}
+					<div class="about-content">
+						{#each site.storyParagraphs.slice(0, 2) as paragraph}
+							<AutoLinkText text={paragraph} className="about-paragraph" linkClass="about-link" />
+						{/each}
 
-					<!-- New rider note -->
-					{#if hasNewRiderNote}
-						<div class="new-rider-note about-new-rider-note">
-							<p class="note-label">New Riders</p>
-							<AutoLinkText
-								text={config.new_rider_note}
-								className="note-text"
-								linkClass="note-link"
-							/>
-						</div>
-					{/if}
-				</div>
+						<!-- New rider note -->
+						{#if hasNewRiderNote}
+							<div class="new-rider-note about-new-rider-note">
+								<p class="note-label">New Riders</p>
+								<AutoLinkText
+									text={config.new_rider_note}
+									className="note-text"
+									linkClass="note-link"
+								/>
+							</div>
+						{/if}
+					</div>
 
-				<!-- Quick facts grid -->
-				<div class="about-facts-grid">
-					{#if group?.activity_frequency}
-						<div class="about-fact">
-							<p class="about-fact-label">When we ride</p>
-							<p class="about-fact-value">{group.activity_frequency}</p>
-						</div>
-					{/if}
+					<!-- Quick facts grid -->
+					<div class="about-facts-grid">
+						{#if group?.activity_frequency}
+							<div class="about-fact">
+								<p class="about-fact-label">When we ride</p>
+								<p class="about-fact-value">{group.activity_frequency}</p>
+							</div>
+						{/if}
 
-					{#if location || group?.specific_meeting_point_address}
-						<div class="about-fact">
-							<p class="about-fact-label">Where we meet</p>
-							{#if mapsHref && (group?.specific_meeting_point_address || location)}
+						{#if location || group?.specific_meeting_point_address}
+							<div class="about-fact">
+								<p class="about-fact-label">Where we meet</p>
+								{#if mapsHref && (group?.specific_meeting_point_address || location)}
+									<a
+										href={mapsHref}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="about-fact-link"
+									>
+										{group?.specific_meeting_point_address || location}
+										<IconArrowRight class="h-3.5 w-3.5" />
+									</a>
+								{:else}
+									<p class="about-fact-value">{location || 'Shared in ride details'}</p>
+								{/if}
+							</div>
+						{/if}
+
+						{#if taxonomy?.audiences?.length || group?.audience_focus}
+							<div class="about-fact">
+								<p class="about-fact-label">Who can join</p>
+								<p class="about-fact-value">
+									{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
+								</p>
+							</div>
+						{/if}
+
+						{#if group?.how_to_join_instructions || group?.membership_info}
+							<div class="about-fact">
+								<p class="about-fact-label">How to join</p>
+								<p class="about-fact-value">
+									{group?.how_to_join_instructions || group?.membership_info}
+								</p>
+							</div>
+						{/if}
+
+						{#if group?.typical_activity_day_time}
+							<div class="about-fact">
+								<p class="about-fact-label">Typical schedule</p>
+								<p class="about-fact-value">{group.typical_activity_day_time}</p>
+							</div>
+						{/if}
+
+						{#if group?.primary_discipline}
+							<div class="about-fact">
+								<p class="about-fact-label">Primary discipline</p>
+								<p class="about-fact-value">{group.primary_discipline}</p>
+							</div>
+						{/if}
+
+						{#if group?.typical_skill_level}
+							<div class="about-fact">
+								<p class="about-fact-label">Typical skill level</p>
+								<p class="about-fact-value">{group.typical_skill_level}</p>
+							</div>
+						{/if}
+
+						{#if group?.zip_code}
+							<div class="about-fact">
+								<p class="about-fact-label">ZIP code</p>
+								<p class="about-fact-value">{group.zip_code}</p>
+							</div>
+						{/if}
+
+						{#if group?.website_url}
+							<div class="about-fact">
+								<p class="about-fact-label">Website</p>
 								<a
-									href={mapsHref}
+									href={group.website_url}
 									target="_blank"
 									rel="noopener noreferrer"
 									class="about-fact-link"
 								>
-									{group?.specific_meeting_point_address || location}
+									{group.website_url.replace(/^https?:\/\//, '')}
 									<IconArrowRight class="h-3.5 w-3.5" />
 								</a>
-							{:else}
-								<p class="about-fact-value">{location || 'Shared in ride details'}</p>
-							{/if}
-						</div>
-					{/if}
-
-					{#if taxonomy?.audiences?.length || group?.audience_focus}
-						<div class="about-fact">
-							<p class="about-fact-label">Who can join</p>
-							<p class="about-fact-value">
-								{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
-							</p>
-						</div>
-					{/if}
-
-					{#if group?.how_to_join_instructions || group?.membership_info}
-						<div class="about-fact">
-							<p class="about-fact-label">How to join</p>
-							<p class="about-fact-value">
-								{group?.how_to_join_instructions || group?.membership_info}
-							</p>
-						</div>
-					{/if}
-
-					{#if group?.typical_activity_day_time}
-						<div class="about-fact">
-							<p class="about-fact-label">Typical schedule</p>
-							<p class="about-fact-value">{group.typical_activity_day_time}</p>
-						</div>
-					{/if}
-
-					{#if group?.primary_discipline}
-						<div class="about-fact">
-							<p class="about-fact-label">Primary discipline</p>
-							<p class="about-fact-value">{group.primary_discipline}</p>
-						</div>
-					{/if}
-
-					{#if group?.typical_skill_level}
-						<div class="about-fact">
-							<p class="about-fact-label">Typical skill level</p>
-							<p class="about-fact-value">{group.typical_skill_level}</p>
-						</div>
-					{/if}
-
-					{#if group?.zip_code}
-						<div class="about-fact">
-							<p class="about-fact-label">ZIP code</p>
-							<p class="about-fact-value">{group.zip_code}</p>
-						</div>
-					{/if}
-
-					{#if group?.website_url}
-						<div class="about-fact">
-							<p class="about-fact-label">Website</p>
-							<a
-								href={group.website_url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="about-fact-link"
-							>
-								{group.website_url.replace(/^https?:\/\//, '')}
-								<IconArrowRight class="h-3.5 w-3.5" />
-							</a>
-						</div>
-					{/if}
-
-					{#if group?.public_contact_email}
-						<div class="about-fact">
-							<p class="about-fact-label">Email</p>
-							<a href="mailto:{group.public_contact_email}" class="about-fact-link">
-								{group.public_contact_email}
-								<IconArrowRight class="h-3.5 w-3.5" />
-							</a>
-						</div>
-					{/if}
-
-					{#if group?.public_phone_number}
-						<div class="about-fact">
-							<p class="about-fact-label">Phone</p>
-							<a href="tel:{group.public_phone_number}" class="about-fact-link">
-								{group.public_phone_number}
-								<IconArrowRight class="h-3.5 w-3.5" />
-							</a>
-						</div>
-					{/if}
-
-					{#if group?.preferred_contact_method_instructions}
-						<div class="about-fact">
-							<p class="about-fact-label">Best way to reach us</p>
-							<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
-						</div>
-					{/if}
-				</div>
-
-				<!-- FAQ within About -->
-				{#if config.faq_1_q || config.faq_1_a || config.faq_2_q || config.faq_2_a}
-					<div class="about-faq">
-						<p class="about-faq-label">FAQ</p>
-						<div class="faq-list">
-							{#if config.faq_1_q}
-								<div class="faq-item">
-									<button
-										type="button"
-										class="faq-question"
-										onclick={() => toggleFaq(1)}
-										aria-expanded={faqOpen === 1}
-									>
-										<span>{config.faq_1_q}</span>
-										<IconChevronDown class="faq-chevron {faqOpen === 1 ? 'open' : ''}" />
-									</button>
-									{#if faqOpen === 1}
-										<div class="faq-answer" transition:slide={{ duration: 200 }}>
-											<p>{config.faq_1_a}</p>
-										</div>
-									{/if}
-								</div>
-							{/if}
-							{#if config.faq_2_q}
-								<div class="faq-item">
-									<button
-										type="button"
-										class="faq-question"
-										onclick={() => toggleFaq(2)}
-										aria-expanded={faqOpen === 2}
-									>
-										<span>{config.faq_2_q}</span>
-										<IconChevronDown class="faq-chevron {faqOpen === 2 ? 'open' : ''}" />
-									</button>
-									{#if faqOpen === 2}
-										<div class="faq-answer" transition:slide={{ duration: 200 }}>
-											<p>{config.faq_2_a}</p>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				{#if group.group_type || group.audience_focus || taxonomy.audiences?.length}
-					<div class="about-tags">
-						{#if group.group_type}
-							<span class="tag tag-primary">{group.group_type}</span>
-						{/if}
-						{#if group.audience_focus}
-							<span class="tag tag-secondary">{group.audience_focus}</span>
-						{/if}
-						{#each taxonomy.audiences.slice(0, 3) as item}
-							<span class="tag tag-tonal">{item}</span>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</section>
-	{/if}
-	<!-- ═══════════════════════════════════════════════════════════
-	     UPCOMING EVENTS — Unified section for rides/volunteer/news
-     ═══════════════════════════════════════════════════════════ -->
-	{#if hasEvents}
-		<section class="events-section" id="events">
-			<div class="events-card">
-				<div class="events-header">
-					<div class="events-header-main">
-						<div class="events-icon"><IconNewspaper class="h-5 w-5" /></div>
-						<div>
-							<p class="events-label">Coming up</p>
-							<h2 class="events-title">What's happening</h2>
-						</div>
-					</div>
-					{#if hasNews}
-						<a
-							href="/groups/{group.slug}/news"
-							class="btn btn-sm preset-tonal-secondary events-header-cta gap-1"
-						>
-							All updates
-							<IconArrowRight class="h-4 w-4" />
-						</a>
-					{/if}
-				</div>
-				<div class="events-grid">
-					{#each upcomingEvents as event}
-						{@const eventDate =
-							event.nextOccurrenceStart ||
-							event.event_start ||
-							event.published_at ||
-							event.created_at}
-						{@const eventHref =
-							event.type === 'ride'
-								? `/ride/${event.slug}`
-								: event.type === 'volunteer'
-									? `/volunteer/${event.slug}`
-									: `/groups/${group.slug}/news?open=${event.slug}`}
-						{@const eventColor =
-							event.type === 'ride'
-								? 'primary'
-								: event.type === 'volunteer'
-									? 'tertiary'
-									: 'secondary'}
-						{@const eventLabel =
-							event.type === 'ride' ? 'Ride' : event.type === 'volunteer' ? 'Volunteer' : 'Update'}
-						<a href={eventHref} class="event-card event-{event.type}">
-							<div class="event-date">
-								<span class="event-month"
-									>{eventDate
-										? new Date(eventDate).toLocaleDateString('en-US', { month: 'short' })
-										: 'TBD'}</span
-								>
-								<span class="event-day">{eventDate ? new Date(eventDate).getDate() : '--'}</span>
 							</div>
-							<div class="event-content">
-								<span class="event-type-badge badge-{eventColor}">{eventLabel}</span>
-								<h3 class="event-title">{event.title}</h3>
-								{#if event.summary || event.preview_text}
-									<p class="event-summary">{event.summary || event.preview_text}</p>
+						{/if}
+
+						{#if group?.public_contact_email}
+							<div class="about-fact">
+								<p class="about-fact-label">Email</p>
+								<a href="mailto:{group.public_contact_email}" class="about-fact-link">
+									{group.public_contact_email}
+									<IconArrowRight class="h-3.5 w-3.5" />
+								</a>
+							</div>
+						{/if}
+
+						{#if group?.public_phone_number}
+							<div class="about-fact">
+								<p class="about-fact-label">Phone</p>
+								<a href="tel:{group.public_phone_number}" class="about-fact-link">
+									{group.public_phone_number}
+									<IconArrowRight class="h-3.5 w-3.5" />
+								</a>
+							</div>
+						{/if}
+
+						{#if group?.preferred_contact_method_instructions}
+							<div class="about-fact">
+								<p class="about-fact-label">Best way to reach us</p>
+								<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
+							</div>
+						{/if}
+					</div>
+
+					<!-- FAQ within About -->
+					{#if config.faq_1_q || config.faq_1_a || config.faq_2_q || config.faq_2_a}
+						<div class="about-faq">
+							<p class="about-faq-label">FAQ</p>
+							<div class="faq-list">
+								{#if config.faq_1_q}
+									<div class="faq-item">
+										<button
+											type="button"
+											class="faq-question"
+											onclick={() => toggleFaq(1)}
+											aria-expanded={faqOpen === 1}
+										>
+											<span>{config.faq_1_q}</span>
+											<IconChevronDown class="faq-chevron {faqOpen === 1 ? 'open' : ''}" />
+										</button>
+										{#if faqOpen === 1}
+											<div class="faq-answer" transition:slide={{ duration: 200 }}>
+												<p>{config.faq_1_a}</p>
+											</div>
+										{/if}
+									</div>
+								{/if}
+								{#if config.faq_2_q}
+									<div class="faq-item">
+										<button
+											type="button"
+											class="faq-question"
+											onclick={() => toggleFaq(2)}
+											aria-expanded={faqOpen === 2}
+										>
+											<span>{config.faq_2_q}</span>
+											<IconChevronDown class="faq-chevron {faqOpen === 2 ? 'open' : ''}" />
+										</button>
+										{#if faqOpen === 2}
+											<div class="faq-answer" transition:slide={{ duration: 200 }}>
+												<p>{config.faq_2_a}</p>
+											</div>
+										{/if}
+									</div>
 								{/if}
 							</div>
-						</a>
-					{/each}
-				</div>
-				{#if hasRides || hasVolunteer}
-					<div class="border-surface-500/20 mt-5 flex flex-wrap gap-4 border-t pt-5">
-						{#if hasRides}
-							<a
-								href={groupPageHref}
-								class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
-								>View all rides →</a
-							>
-						{/if}
-						{#if hasVolunteer}
-							<a
-								href="/volunteer/groups/{group.slug}"
-								class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
-								>Volunteer opportunities →</a
-							>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		</section>
-	{/if}
-	<!-- ═══════════════════════════════════════════════════════════
-GALLERY PREVIEW — Link to full gallery page with Instagram
-═══════════════════════════════════════════════════════════ -->
-	{#if config.sections.gallery && (galleryImages.length || hasInstagramPosts)}
-		<section class="gallery-section" id="gallery">
-			<div class="gallery-card">
-				<div class="gallery-header">
-					<div class="gallery-header-main">
-						<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
-						<div>
-							<p class="gallery-label">Gallery</p>
-							<h2 class="gallery-title">Scenes from our rides</h2>
 						</div>
-					</div>
-					{#if galleryImages.length}
-						<a
-							href={galleryHref}
-							class="btn btn-sm preset-tonal-secondary gallery-header-cta gap-1"
-						>
-							View full gallery
-							<IconArrowRight class="h-4 w-4" />
-						</a>
+					{/if}
+
+					{#if group.group_type || group.audience_focus || taxonomy.audiences?.length}
+						<div class="about-tags">
+							{#if group.group_type}
+								<span class="tag tag-primary">{group.group_type}</span>
+							{/if}
+							{#if group.audience_focus}
+								<span class="tag tag-secondary">{group.audience_focus}</span>
+							{/if}
+							{#each taxonomy.audiences.slice(0, 3) as item}
+								<span class="tag tag-tonal">{item}</span>
+							{/each}
+						</div>
 					{/if}
 				</div>
-
-				<!-- Gallery Images -->
-				{#if galleryImages.length}
-					<div class="gallery-grid">
-						{#each galleryImages as image}
-							<a href={galleryHref} class="gallery-item">
-								<img src={image.href} alt={image.title} loading="lazy" />
-								<div class="gallery-overlay">
-									<span class="gallery-view">View</span>
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
+	     UPCOMING EVENTS — Unified section for rides/volunteer/news
+     ═══════════════════════════════════════════════════════════ -->
+		{:else if block.type === 'events' && hasEvents}
+			<section
+				class="events-section"
+				id="events"
+				data-site-block-id={block.id}
+				data-site-block-type="events"
+			>
+				<div class="events-card">
+					<div class="events-header">
+						<div class="events-header-main">
+							<div class="events-icon"><IconNewspaper class="h-5 w-5" /></div>
+							<div>
+								<p class="events-label">{block.eyebrow || 'Coming up'}</p>
+								<h2 class="events-title">{block.title || "What's happening"}</h2>
+							</div>
+						</div>
+						{#if hasNews}
+							<a
+								href="/groups/{group.slug}/news"
+								class="btn btn-sm preset-tonal-secondary events-header-cta gap-1"
+							>
+								All updates
+								<IconArrowRight class="h-4 w-4" />
+							</a>
+						{/if}
+					</div>
+					<div class="events-grid">
+						{#each upcomingEvents as event}
+							{@const eventDate =
+								event.nextOccurrenceStart ||
+								event.event_start ||
+								event.published_at ||
+								event.created_at}
+							{@const eventHref =
+								event.type === 'ride'
+									? `/ride/${event.slug}`
+									: event.type === 'volunteer'
+										? `/volunteer/${event.slug}`
+										: `/groups/${group.slug}/news?open=${event.slug}`}
+							{@const eventColor =
+								event.type === 'ride'
+									? 'primary'
+									: event.type === 'volunteer'
+										? 'tertiary'
+										: 'secondary'}
+							{@const eventLabel =
+								event.type === 'ride'
+									? 'Ride'
+									: event.type === 'volunteer'
+										? 'Volunteer'
+										: 'Update'}
+							<a href={eventHref} class="event-card event-{event.type}">
+								<div class="event-date">
+									<span class="event-month"
+										>{eventDate
+											? new Date(eventDate).toLocaleDateString('en-US', { month: 'short' })
+											: 'TBD'}</span
+									>
+									<span class="event-day">{eventDate ? new Date(eventDate).getDate() : '--'}</span>
+								</div>
+								<div class="event-content">
+									<span class="event-type-badge badge-{eventColor}">{eventLabel}</span>
+									<h3 class="event-title">{event.title}</h3>
+									{#if event.summary || event.preview_text}
+										<p class="event-summary">{event.summary || event.preview_text}</p>
+									{/if}
 								</div>
 							</a>
 						{/each}
 					</div>
-				{/if}
-
-				<!-- Instagram Posts -->
-				{#if hasInstagramPosts}
-					<div class="instagram-preview-section">
-						<p class="instagram-preview-label">Recent on Instagram</p>
-						<div class="instagram-grid">
-							{#each instagramPosts as post}
+					{#if hasRides || hasVolunteer}
+						<div class="border-surface-500/20 mt-5 flex flex-wrap gap-4 border-t pt-5">
+							{#if hasRides}
 								<a
-									href={post.permalink}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="instagram-preview-item"
+									href={groupPageHref}
+									class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
+									>View all rides →</a
 								>
-									{#if post.media_url}
-										<img src={post.media_url} alt="Instagram post" loading="lazy" />
-										<div class="instagram-preview-overlay">
-											<BrandInstagram class="h-4 w-4 text-white" />
-										</div>
-									{/if}
+							{/if}
+							{#if hasVolunteer}
+								<a
+									href="/volunteer/groups/{group.slug}"
+									class="text-surface-700-300 hover:text-primary-500 text-sm font-semibold transition-colors"
+									>Volunteer opportunities →</a
+								>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
+GALLERY PREVIEW — Link to full gallery page with Instagram
+═══════════════════════════════════════════════════════════ -->
+		{:else if block.type === 'gallery' && (galleryImages.length || hasInstagramPosts)}
+			<section
+				class="gallery-section"
+				id="gallery"
+				data-site-block-id={block.id}
+				data-site-block-type="gallery"
+			>
+				<div class="gallery-card">
+					<div class="gallery-header">
+						<div class="gallery-header-main">
+							<div class="gallery-icon"><IconImage class="h-5 w-5" /></div>
+							<div>
+								<p class="gallery-label">{block.eyebrow || 'Gallery'}</p>
+								<h2 class="gallery-title">{block.title || 'Scenes from our rides'}</h2>
+							</div>
+						</div>
+						{#if galleryImages.length}
+							<a
+								href={galleryHref}
+								class="btn btn-sm preset-tonal-secondary gallery-header-cta gap-1"
+							>
+								View full gallery
+								<IconArrowRight class="h-4 w-4" />
+							</a>
+						{/if}
+					</div>
+
+					<!-- Gallery Images -->
+					{#if galleryImages.length}
+						<div class="gallery-grid">
+							{#each galleryImages as image}
+								<a href={galleryHref} class="gallery-item">
+									<img src={image.href} alt={image.title} loading="lazy" />
+									<div class="gallery-overlay">
+										<span class="gallery-view">View</span>
+									</div>
 								</a>
 							{/each}
 						</div>
-					</div>
-				{/if}
-			</div>
-		</section>
-	{/if}
-	<!-- ═══════════════════════════════════════════════════════════
+					{/if}
+
+					<!-- Instagram Posts -->
+					{#if hasInstagramPosts}
+						<div class="instagram-preview-section">
+							<p class="instagram-preview-label">Recent on Instagram</p>
+							<div class="instagram-grid">
+								{#each instagramPosts as post}
+									<a
+										href={post.permalink}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="instagram-preview-item"
+									>
+										{#if post.media_url}
+											<img src={post.media_url} alt="Instagram post" loading="lazy" />
+											<div class="instagram-preview-overlay">
+												<BrandInstagram class="h-4 w-4 text-white" />
+											</div>
+										{/if}
+									</a>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
 DONATE — Quick donation widget (optional)
 ═══════════════════════════════════════════════════════════ -->
-	{#if config.ride_widget_enabled}
-		<section class="rides-widget-section" id="rides-widget">
-			<iframe
-				src={rideWidgetFramePath}
-				title={config.ride_widget_title || 'Upcoming rides'}
-				class="rides-widget-iframe"
-				loading="lazy"
-			></iframe>
-		</section>
-	{/if}
+		{:else if block.type === 'ride_calendar' && config.ride_widget_enabled}
+			<section
+				class="rides-widget-section"
+				id="rides-widget"
+				data-site-block-id={block.id}
+				data-site-block-type="ride_calendar"
+			>
+				<iframe
+					src={rideWidgetFramePath}
+					title={config.ride_widget_title || 'Upcoming rides'}
+					class="rides-widget-iframe"
+					loading="lazy"
+				></iframe>
+			</section>
 
-	<!-- ═══════════════════════════════════════════════════════════
+			<!-- ═══════════════════════════════════════════════════════════
 NEW RIDER NOTE — Helpful for newcomers (optional)
 ═══════════════════════════════════════════════════════════ -->
-	{#if config.sections.contact && site.contactLinks.length}
-		<section class="contact-section" id="contact">
-			<div class="contact-card">
-				<div class="contact-header">
-					<div class="contact-icon"><IconHeartHandshake class="h-5 w-5" /></div>
-					<div>
-						<p class="contact-label-section">Get in touch</p>
-						<h2 class="contact-title">Connect with us</h2>
+		{:else if block.type === 'contact' && site.contactLinks.length}
+			<section
+				class="contact-section"
+				id="contact"
+				data-site-block-id={block.id}
+				data-site-block-type="contact"
+			>
+				<div class="contact-card">
+					<div class="contact-header">
+						<div class="contact-icon"><IconHeartHandshake class="h-5 w-5" /></div>
+						<div>
+							<p class="contact-label-section">{block.eyebrow || 'Get in touch'}</p>
+							<h2 class="contact-title">{block.title || 'Connect with us'}</h2>
+						</div>
+					</div>
+					<div class="contact-links">
+						{#each site.contactLinks as link}
+							{@const ContactIcon = CONTACT_ICON_MAP[link.key] || IconMapPin}
+							<a
+								href={link.href}
+								target={/^https?:\/\//i.test(link.href) ? '_blank' : undefined}
+								rel={/^https?:\/\//i.test(link.href) ? 'noopener noreferrer' : undefined}
+								class="contact-link"
+							>
+								<div class="contact-link-icon"><ContactIcon class="h-4 w-4" /></div>
+								<div class="contact-link-text">
+									<span class="contact-link-label">{contactLabel(link)}</span>
+									<span class="contact-link-value"
+										>{link.href.replace(/^mailto:/, '').replace(/^tel:/, '')}</span
+									>
+								</div>
+								<IconArrowRight class="contact-link-arrow" />
+							</a>
+						{/each}
 					</div>
 				</div>
-				<div class="contact-links">
-					{#each site.contactLinks as link}
-						{@const ContactIcon = CONTACT_ICON_MAP[link.key] || IconMapPin}
-						<a
-							href={link.href}
-							target={/^https?:\/\//i.test(link.href) ? '_blank' : undefined}
-							rel={/^https?:\/\//i.test(link.href) ? 'noopener noreferrer' : undefined}
-							class="contact-link"
-						>
-							<div class="contact-link-icon"><ContactIcon class="h-4 w-4" /></div>
-							<div class="contact-link-text">
-								<span class="contact-link-label">{contactLabel(link)}</span>
-								<span class="contact-link-value"
-									>{link.href.replace(/^mailto:/, '').replace(/^tel:/, '')}</span
-								>
-							</div>
-							<IconArrowRight class="contact-link-arrow" />
-						</a>
-					{/each}
-				</div>
-			</div>
-		</section>
-	{/if}
-	<!-- ═══════════════════════════════════════════════════════════
+			</section>
+			<!-- ═══════════════════════════════════════════════════════════
 SPONSORS — Community partners showcase
 ═══════════════════════════════════════════════════════════ -->
-	{#if sponsorItems.length}
-		<section class="sponsor-section" id="sponsors">
-			<div class="sponsor-card">
-				<div class="sponsor-header">
-					<div class="sponsor-header-text">
-						<p class="sponsor-label">Community partners</p>
-						<h2 class="sponsor-title">Thanks to our partners</h2>
+		{:else if block.type === 'sponsors' && sponsorItems.length}
+			<section
+				class="sponsor-section"
+				id="sponsors"
+				data-site-block-id={block.id}
+				data-site-block-type="sponsors"
+			>
+				<div class="sponsor-card">
+					<div class="sponsor-header">
+						<div class="sponsor-header-text">
+							<p class="sponsor-label">{block.eyebrow || 'Community partners'}</p>
+							<h2 class="sponsor-title">{block.title || 'Thanks to our partners'}</h2>
+						</div>
+					</div>
+					<div class="sponsor-grid">
+						{#each sponsorItems as sponsor, sponsorIndex}
+							{#if sponsor.url}
+								<a
+									href={sponsor.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="sponsor-item-link"
+								>
+									{#if sponsor.logo}
+										<div
+											class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
+												? 'logo-bg-dark'
+												: sponsorLogoFrameMode[sponsorIndex] === 'light'
+													? 'logo-bg-light'
+													: 'logo-bg-auto'}"
+										>
+											<img
+												src={sponsor.logo}
+												alt={(sponsor.name || 'Sponsor') + ' logo'}
+												crossorigin="anonymous"
+												onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
+											/>
+										</div>
+									{/if}
+									<div class="sponsor-content">
+										<h3 class="sponsor-name">{sponsor.name || sponsor.url || 'Sponsor'}</h3>
+										{#if sponsor.text}
+											<p class="sponsor-text">{sponsor.text}</p>
+										{/if}
+									</div>
+									<IconArrowRight class="sponsor-arrow" />
+								</a>
+							{:else}
+								<div class="sponsor-item">
+									{#if sponsor.logo}
+										<div
+											class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
+												? 'logo-bg-dark'
+												: sponsorLogoFrameMode[sponsorIndex] === 'light'
+													? 'logo-bg-light'
+													: 'logo-bg-auto'}"
+										>
+											<img
+												src={sponsor.logo}
+												alt={(sponsor.name || 'Sponsor') + ' logo'}
+												crossorigin="anonymous"
+												onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
+											/>
+										</div>
+									{/if}
+									<div class="sponsor-content">
+										<h3 class="sponsor-name">{sponsor.name || 'Sponsor'}</h3>
+										{#if sponsor.text}
+											<p class="sponsor-text">{sponsor.text}</p>
+										{/if}
+									</div>
+								</div>
+							{/if}
+						{/each}
 					</div>
 				</div>
-				<div class="sponsor-grid">
-					{#each sponsorItems as sponsor, sponsorIndex}
-						{#if sponsor.url}
-							<a
-								href={sponsor.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="sponsor-item-link"
+			</section>
+		{:else if block.type === 'text' || actionBlockTypes.includes(block.type)}
+			<section
+				class="custom-content-section {actionBlockTypes.includes(block.type)
+					? 'custom-callout-section'
+					: ''}"
+				data-site-block-id={block.id}
+				data-site-block-type={block.type}
+			>
+				<div class="custom-content-card">
+					{#if block.eyebrow}<p class="custom-content-label">{block.eyebrow}</p>{/if}
+					<h2 class="custom-content-title">{block.title}</h2>
+					{#if block.body}
+						<AutoLinkText
+							text={block.body}
+							className="custom-content-body"
+							linkClass="custom-content-link"
+						/>
+					{/if}
+					{#if block.type === 'email_signup'}
+						<form
+							class="mt-6 grid w-full max-w-2xl gap-3 text-left sm:grid-cols-2"
+							onsubmit={subscribeToGroupEmails}
+						>
+							<label class="grid gap-1 text-sm"
+								><span>First name <span class="opacity-60">optional</span></span><input
+									class="input"
+									autocomplete="given-name"
+									maxlength="120"
+									bind:value={signupFirstName}
+								/></label
 							>
-								{#if sponsor.logo}
-									<div
-										class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
-											? 'logo-bg-dark'
-											: sponsorLogoFrameMode[sponsorIndex] === 'light'
-												? 'logo-bg-light'
-												: 'logo-bg-auto'}"
-									>
-										<img
-											src={sponsor.logo}
-											alt={(sponsor.name || 'Sponsor') + ' logo'}
-											crossorigin="anonymous"
-											onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
-										/>
-									</div>
-								{/if}
-								<div class="sponsor-content">
-									<h3 class="sponsor-name">{sponsor.name || sponsor.url || 'Sponsor'}</h3>
-									{#if sponsor.text}
-										<p class="sponsor-text">{sponsor.text}</p>
-									{/if}
-								</div>
-								<IconArrowRight class="sponsor-arrow" />
-							</a>
-						{:else}
-							<div class="sponsor-item">
-								{#if sponsor.logo}
-									<div
-										class="sponsor-logo-frame {sponsorLogoFrameMode[sponsorIndex] === 'dark'
-											? 'logo-bg-dark'
-											: sponsorLogoFrameMode[sponsorIndex] === 'light'
-												? 'logo-bg-light'
-												: 'logo-bg-auto'}"
-									>
-										<img
-											src={sponsor.logo}
-											alt={(sponsor.name || 'Sponsor') + ' logo'}
-											crossorigin="anonymous"
-											onload={(event) => detectSponsorLogoTone(event, sponsorIndex)}
-										/>
-									</div>
-								{/if}
-								<div class="sponsor-content">
-									<h3 class="sponsor-name">{sponsor.name || 'Sponsor'}</h3>
-									{#if sponsor.text}
-										<p class="sponsor-text">{sponsor.text}</p>
-									{/if}
-								</div>
-							</div>
-						{/if}
-					{/each}
+							<label class="grid gap-1 text-sm"
+								><span>Email address</span><input
+									class="input"
+									type="email"
+									autocomplete="email"
+									required
+									maxlength="320"
+									bind:value={signupEmail}
+								/></label
+							>
+							<label class="sr-only" aria-hidden="true"
+								>Company<input tabindex="-1" autocomplete="off" bind:value={signupCompany} /></label
+							>
+							<label class="flex items-start gap-2 text-sm sm:col-span-2"
+								><input
+									class="checkbox mt-0.5"
+									type="checkbox"
+									required
+									bind:checked={signupConsent}
+								/><span
+									>I agree to receive emails from {group.name}. I can unsubscribe at any time.</span
+								></label
+							>
+							<button
+								class="btn preset-filled-primary-500 w-fit sm:col-span-2"
+								type="submit"
+								disabled={signupState === 'submitting'}
+								>{signupState === 'submitting'
+									? 'Signing you up…'
+									: block.button_label || 'Sign up for updates'}<IconArrowRight
+									class="h-4 w-4"
+								/></button
+							>
+							{#if signupMessage}<p
+									class="sm:col-span-2 {signupState === 'error' ? 'text-error-500' : ''}"
+									role={signupState === 'error' ? 'alert' : 'status'}
+								>
+									{signupMessage}
+								</p>{/if}
+						</form>
+					{:else if actionBlockTypes.includes(block.type) && block.button_label && blockActionHref(block)}
+						{@const actionHref = blockActionHref(block)}
+						<a
+							href={actionHref}
+							target={/^https?:\/\//i.test(actionHref) ? '_blank' : undefined}
+							rel={/^https?:\/\//i.test(actionHref) ? 'noopener noreferrer' : undefined}
+							class="btn preset-filled-primary-500 custom-content-button"
+						>
+							{block.button_label}
+							<IconArrowRight class="h-4 w-4" />
+						</a>
+					{/if}
 				</div>
-			</div>
-		</section>
-	{/if}
+			</section>
+		{/if}
+	{/each}
 	<!-- ═══════════════════════════════════════════════════════════
 FOOTER — Simple, clean
 ═══════════════════════════════════════════════════════════ -->
@@ -2523,6 +2698,52 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 	:global([data-color-mode='dark']) .contact-link:hover .contact-link-arrow {
 		color: var(--color-primary-300);
+	}
+	.custom-content-section {
+		padding: 0;
+	}
+	.custom-content-card {
+		background: var(--panel-bg);
+		border: 1px solid var(--panel-border);
+		border-radius: 1.25rem;
+		padding: clamp(1.5rem, 4vw, 3rem);
+		backdrop-filter: blur(var(--panel-blur));
+	}
+	:global([data-color-mode='dark']) .custom-content-card {
+		background: var(--panel-bg-dark);
+	}
+	.custom-callout-section .custom-content-card {
+		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--panel-bg));
+		text-align: center;
+	}
+	.custom-content-label {
+		color: var(--color-primary-600);
+		font-size: 0.75rem;
+		font-weight: 750;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+	.custom-content-title {
+		font-size: clamp(1.5rem, 4vw, 2.5rem);
+		font-weight: 800;
+		letter-spacing: -0.03em;
+		margin-top: 0.35rem;
+	}
+	.custom-content-body {
+		line-height: 1.75;
+		margin: 0.9rem auto 0;
+		max-width: 52rem;
+		opacity: 0.78;
+		white-space: pre-line;
+	}
+	.custom-content-link {
+		color: var(--color-primary-600);
+		font-weight: 650;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	.custom-content-button {
+		margin-top: 1.25rem;
 	}
 	/* ═══════════════════════════════════════════════════════════
    FOOTER

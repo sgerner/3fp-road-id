@@ -6,7 +6,19 @@ import {
 } from '$lib/server/supabaseClient';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
 import { getGroupEmailSenderConfig, sendGroupManagedEmail } from '$lib/server/groupEmailDomains';
+import {
+	createSafeEmailHtmlContext,
+	escapeEmailHtmlValue,
+	safeEmailHref
+} from '$lib/server/emailTemplate';
+import {
+	claimEmailCampaign,
+	recoverStaleEmailCampaignClaims,
+	renewEmailCampaignClaim,
+	resolveEmailCampaignFinalStatus
+} from '$lib/server/emailCampaignState';
 import { PUBLIC_URL_BASE } from '$env/static/public';
+import { MAX_EMAIL_HTML_LENGTH } from '$lib/groups/emailEditor';
 
 const MANAGER_ROLES = ['owner', 'admin'];
 const DEFAULT_POLICY_MARKDOWN = `By joining, you agree to this membership policy.
@@ -1434,19 +1446,32 @@ async function resolveEmailAudience({ serviceSupabase, groupId, audienceFilters 
 		? audienceFilters.tier_ids.map((value) => cleanText(value, 64)).filter(Boolean)
 		: [];
 
-	let query = serviceSupabase
-		.from('group_memberships')
-		.select('*')
-		.eq('group_id', groupId)
-		.in('status', statuses.length ? statuses : ['active'])
-		.order('created_at', { ascending: false })
-		.limit(2000);
-	if (tierIds.length) query = query.in('tier_id', tierIds);
+	let memberships = [];
+	if (statuses.length) {
+		let query = serviceSupabase
+			.from('group_memberships')
+			.select('*')
+			.eq('group_id', groupId)
+			.in('status', statuses)
+			.order('created_at', { ascending: false })
+			.limit(2001);
+		if (tierIds.length) query = query.in('tier_id', tierIds);
+		const result = await query;
+		if (result.error) throw new Error(result.error.message);
+		memberships = result.data || [];
+	}
+	if ((memberships || []).length > 2000) {
+		throw new Error(
+			'This audience has more than 2,000 members. Narrow the audience before sending.'
+		);
+	}
 
-	const { data: memberships, error } = await query;
-	if (error) throw new Error(error.message);
-
-	const memberRows = memberships || [];
+	const seenUserIds = new Set();
+	const memberRows = (memberships || []).filter((row) => {
+		if (!row.user_id || seenUserIds.has(row.user_id)) return false;
+		seenUserIds.add(row.user_id);
+		return true;
+	});
 	const profileMap = await resolveProfileMapByUserIds(
 		serviceSupabase,
 		memberRows.map((row) => row.user_id)
@@ -1462,12 +1487,13 @@ async function resolveEmailAudience({ serviceSupabase, groupId, audienceFilters 
 		tierMap = new Map((tiers || []).map((tier) => [tier.id, tier]));
 	}
 
-	return memberRows
+	const recipients = memberRows
 		.map((membership) => {
 			const profile = profileMap.get(membership.user_id) || null;
 			const recipientEmail = sanitizeEmail(profile?.email);
 			if (!recipientEmail) return null;
 			return {
+				kind: 'membership',
 				membership,
 				profile,
 				tier: tierMap.get(membership.tier_id) || null,
@@ -1475,6 +1501,36 @@ async function resolveEmailAudience({ serviceSupabase, groupId, audienceFilters 
 			};
 		})
 		.filter(Boolean);
+
+	if (audienceFilters.subscribers === true) {
+		const { data: subscribers, error: subscriberError } = await serviceSupabase
+			.from('group_email_subscribers')
+			.select('*')
+			.eq('group_id', groupId)
+			.eq('status', 'subscribed')
+			.order('created_at', { ascending: false })
+			.limit(2001);
+		if (subscriberError) throw new Error(subscriberError.message);
+		const seenEmails = new Set(recipients.map((recipient) => recipient.email.toLowerCase()));
+		for (const subscriber of subscribers || []) {
+			const email = sanitizeEmail(subscriber.email);
+			if (!email || seenEmails.has(email.toLowerCase())) continue;
+			seenEmails.add(email.toLowerCase());
+			recipients.push({
+				kind: 'subscriber',
+				subscriber,
+				membership: null,
+				profile: { first_name: subscriber.first_name || '', email },
+				tier: null,
+				email
+			});
+		}
+	}
+
+	if (recipients.length > 2000) {
+		throw new Error('This audience has more than 2,000 people. Narrow it before sending.');
+	}
+	return recipients;
 }
 
 async function loadUpcomingRideRows(serviceSupabase, groupId) {
@@ -1509,12 +1565,14 @@ function renderRidesBlock(rides, baseUrl) {
 	const htmlItems = rides
 		.map((ride) => {
 			const when = formatDate(ride.next_occurrence_start);
-			const href = baseUrl
-				? `${baseUrl}/ride/${encodeURIComponent(ride.slug)}`
-				: `/ride/${ride.slug}`;
+			const href = safeEmailHref(
+				baseUrl
+					? `${baseUrl}/ride/${encodeURIComponent(ride.slug)}`
+					: `/ride/${encodeURIComponent(ride.slug)}`
+			);
 			const location = cleanText(ride.start_location_name || ride.start_location_address, 200);
-			return `<li><a href="${href}">${ride.title}</a>${when ? ` - ${when}` : ''}${
-				location ? ` (${location})` : ''
+			return `<li><a href="${escapeEmailHtmlValue(href)}">${escapeEmailHtmlValue(ride.title)}</a>${when ? ` - ${escapeEmailHtmlValue(when)}` : ''}${
+				location ? ` (${escapeEmailHtmlValue(location)})` : ''
 			}</li>`;
 		})
 		.join('');
@@ -1537,12 +1595,14 @@ function renderVolunteerBlock(events, baseUrl) {
 	const htmlItems = events
 		.map((event) => {
 			const when = formatDate(event.event_start);
-			const href = baseUrl
-				? `${baseUrl}/volunteer/${encodeURIComponent(event.slug)}`
-				: `/volunteer/${event.slug}`;
+			const href = safeEmailHref(
+				baseUrl
+					? `${baseUrl}/volunteer/${encodeURIComponent(event.slug)}`
+					: `/volunteer/${encodeURIComponent(event.slug)}`
+			);
 			const location = cleanText(event.location_name || event.location_address, 200);
-			return `<li><a href="${href}">${event.title}</a>${when ? ` - ${when}` : ''}${
-				location ? ` (${location})` : ''
+			return `<li><a href="${escapeEmailHtmlValue(href)}">${escapeEmailHtmlValue(event.title)}</a>${when ? ` - ${escapeEmailHtmlValue(when)}` : ''}${
+				location ? ` (${escapeEmailHtmlValue(location)})` : ''
 			}</li>`;
 		})
 		.join('');
@@ -1590,14 +1650,19 @@ function renderGroupLinksBlock(group, baseUrl) {
 			}));
 	}
 
-	const merged = [...links, ...socials];
+	const merged = [...links, ...socials]
+		.map((entry) => ({ ...entry, href: safeEmailHref(entry.href) }))
+		.filter((entry) => entry.href);
 	if (!merged.length) {
 		return { html: '<p>No group links configured yet.</p>', text: 'No group links configured.' };
 	}
 
 	return {
 		html: `<h3>Group Links</h3><ul>${merged
-			.map((entry) => `<li><a href="${entry.href}">${entry.label}</a></li>`)
+			.map(
+				(entry) =>
+					`<li><a href="${escapeEmailHtmlValue(entry.href)}">${escapeEmailHtmlValue(entry.label)}</a></li>`
+			)
 			.join('')}</ul>`,
 		text: `Group Links\n${merged.map((entry) => `- ${entry.label}: ${entry.href}`).join('\n')}`
 	};
@@ -4248,14 +4313,10 @@ export async function updateMembershipStatus({ cookies, groupSlug, membershipId,
 	return { ok: true, data };
 }
 
-export async function createMembershipEmailCampaign({ cookies, groupSlug, payload }) {
-	const auth = await requireMembershipManager(cookies, groupSlug);
-	if (!auth.ok) return auth;
-	const serviceSupabase = auth.serviceSupabase;
-
+function normalizeMembershipEmailCampaignPayload(payload) {
 	const campaignName = cleanText(payload?.campaign_name || '', 120);
 	const subjectTemplate = cleanText(payload?.subject_template || '', 300);
-	const bodyTemplate = cleanText(payload?.body_template || '', 50000);
+	const bodyTemplate = String(payload?.body_template || '').trim();
 	if (!campaignName || !subjectTemplate || !bodyTemplate) {
 		return {
 			ok: false,
@@ -4263,30 +4324,74 @@ export async function createMembershipEmailCampaign({ cookies, groupSlug, payloa
 			error: 'campaign_name, subject_template, and body_template are required.'
 		};
 	}
-
+	if (bodyTemplate.length > MAX_EMAIL_HTML_LENGTH) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'Email content is too large. Shorten the message before saving.'
+		};
+	}
 	const audienceFilters =
 		payload?.audience_filters && typeof payload.audience_filters === 'object'
 			? payload.audience_filters
 			: {};
-	const senderDomainId = cleanNullableText(audienceFilters?.sender_domain_id, 64);
-	if (senderDomainId) {
-		const { data: senderDomainRow, error: senderDomainError } = await serviceSupabase
-			.from('group_email_sending_domains')
-			.select('id')
-			.eq('group_id', auth.group.id)
-			.eq('id', senderDomainId)
-			.maybeSingle();
-		if (senderDomainError) {
-			return { ok: false, status: 400, error: senderDomainError.message };
+	return {
+		ok: true,
+		data: {
+			campaignName,
+			subjectTemplate,
+			bodyTemplate,
+			audienceFilters,
+			senderDomainId: cleanNullableText(audienceFilters?.sender_domain_id, 64)
 		}
-		if (!senderDomainRow?.id) {
-			return {
-				ok: false,
-				status: 400,
-				error: 'Selected sender domain does not belong to this group.'
-			};
-		}
+	};
+}
+
+async function validateMembershipEmailSender({
+	serviceSupabase,
+	groupId,
+	senderDomainId,
+	requireVerified = false
+}) {
+	if (!senderDomainId) {
+		return requireVerified
+			? { ok: false, status: 400, error: 'Choose a verified sender before sending.' }
+			: { ok: true, data: null };
 	}
+	const { data, error } = await serviceSupabase
+		.from('group_email_sending_domains')
+		.select('id,ses_verified_for_sending')
+		.eq('group_id', groupId)
+		.eq('id', senderDomainId)
+		.maybeSingle();
+	if (error) return { ok: false, status: 400, error: error.message };
+	if (!data?.id) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'Selected sender domain does not belong to this group.'
+		};
+	}
+	if (requireVerified && data.ses_verified_for_sending !== true) {
+		return { ok: false, status: 400, error: 'Selected sender domain is not verified yet.' };
+	}
+	return { ok: true, data };
+}
+
+export async function createMembershipEmailCampaign({ cookies, groupSlug, payload }) {
+	const auth = await requireMembershipManager(cookies, groupSlug);
+	if (!auth.ok) return auth;
+	const serviceSupabase = auth.serviceSupabase;
+	const normalized = normalizeMembershipEmailCampaignPayload(payload);
+	if (!normalized.ok) return normalized;
+	const { campaignName, subjectTemplate, bodyTemplate, audienceFilters, senderDomainId } =
+		normalized.data;
+	const senderValidation = await validateMembershipEmailSender({
+		serviceSupabase,
+		groupId: auth.group.id,
+		senderDomainId
+	});
+	if (!senderValidation.ok) return senderValidation;
 
 	const now = toIsoNow();
 	const { data, error } = await serviceSupabase
@@ -4314,7 +4419,62 @@ export async function createMembershipEmailCampaign({ cookies, groupSlug, payloa
 		entity_id: data.id,
 		after_snapshot: data
 	});
+	return { ok: true, data };
+}
 
+export async function updateMembershipEmailCampaign({ cookies, groupSlug, emailId, payload }) {
+	const auth = await requireMembershipManager(cookies, groupSlug);
+	if (!auth.ok) return auth;
+	const serviceSupabase = auth.serviceSupabase;
+	const { data: before, error: beforeError } = await serviceSupabase
+		.from('group_membership_emails')
+		.select('*')
+		.eq('id', emailId)
+		.eq('group_id', auth.group.id)
+		.maybeSingle();
+	if (beforeError) return { ok: false, status: 400, error: beforeError.message };
+	if (!before) return { ok: false, status: 404, error: 'Email campaign not found.' };
+	if (before.status !== 'draft') {
+		return { ok: false, status: 409, error: 'Only draft campaigns can be edited.' };
+	}
+
+	const normalized = normalizeMembershipEmailCampaignPayload(payload);
+	if (!normalized.ok) return normalized;
+	const { campaignName, subjectTemplate, bodyTemplate, audienceFilters, senderDomainId } =
+		normalized.data;
+	const senderValidation = await validateMembershipEmailSender({
+		serviceSupabase,
+		groupId: auth.group.id,
+		senderDomainId
+	});
+	if (!senderValidation.ok) return senderValidation;
+
+	const { data, error } = await serviceSupabase
+		.from('group_membership_emails')
+		.update({
+			campaign_name: campaignName,
+			audience_filters: audienceFilters,
+			subject_template: subjectTemplate,
+			body_template: bodyTemplate,
+			updated_at: toIsoNow()
+		})
+		.eq('id', emailId)
+		.eq('group_id', auth.group.id)
+		.eq('status', 'draft')
+		.select('*')
+		.maybeSingle();
+	if (error) return { ok: false, status: 400, error: error.message };
+	if (!data) return { ok: false, status: 409, error: 'This campaign is no longer editable.' };
+
+	await writeAuditLog(serviceSupabase, {
+		group_id: auth.group.id,
+		actor_user_id: auth.userId,
+		action: 'email_campaign.updated',
+		entity_type: 'group_membership_email',
+		entity_id: emailId,
+		before_snapshot: before,
+		after_snapshot: data
+	});
 	return { ok: true, data };
 }
 
@@ -4331,9 +4491,46 @@ export async function scheduleMembershipEmailCampaign({ cookies, groupSlug, emai
 		.maybeSingle();
 	if (beforeError) return { ok: false, status: 400, error: beforeError.message };
 	if (!before) return { ok: false, status: 404, error: 'Email campaign not found.' };
+	if (before.status !== 'draft') {
+		return { ok: false, status: 409, error: 'Only draft campaigns can be scheduled.' };
+	}
 
 	const scheduledAt = normalizeTimestamp(payload?.scheduled_at, null);
 	if (!scheduledAt) return { ok: false, status: 400, error: 'scheduled_at is required.' };
+	if (new Date(scheduledAt).getTime() <= Date.now() + 30_000) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'scheduled_at must be at least 30 seconds in the future.'
+		};
+	}
+	const senderValidation = await validateMembershipEmailSender({
+		serviceSupabase,
+		groupId: auth.group.id,
+		senderDomainId: cleanNullableText(before?.audience_filters?.sender_domain_id, 64),
+		requireVerified: true
+	});
+	if (!senderValidation.ok) return senderValidation;
+	try {
+		const recipients = await resolveEmailAudience({
+			serviceSupabase,
+			groupId: auth.group.id,
+			audienceFilters: before.audience_filters || {}
+		});
+		if (!recipients.length) {
+			return {
+				ok: false,
+				status: 400,
+				error: 'Choose an audience with at least one deliverable email.'
+			};
+		}
+	} catch (audienceError) {
+		return {
+			ok: false,
+			status: 400,
+			error: audienceError?.message || 'Unable to validate the audience.'
+		};
+	}
 
 	const { data, error } = await serviceSupabase
 		.from('group_membership_emails')
@@ -4343,9 +4540,12 @@ export async function scheduleMembershipEmailCampaign({ cookies, groupSlug, emai
 			updated_at: toIsoNow()
 		})
 		.eq('id', emailId)
+		.eq('group_id', auth.group.id)
+		.eq('status', 'draft')
 		.select('*')
-		.single();
+		.maybeSingle();
 	if (error) return { ok: false, status: 400, error: error.message };
+	if (!data) return { ok: false, status: 409, error: 'This campaign is no longer schedulable.' };
 
 	await writeAuditLog(serviceSupabase, {
 		group_id: auth.group.id,
@@ -4368,190 +4568,275 @@ async function sendMembershipCampaignNowInternal({
 	fetchImpl,
 	originBaseUrl = null
 }) {
-	const now = toIsoNow();
-	await serviceSupabase
-		.from('group_membership_emails')
-		.update({ status: 'sending', updated_at: now })
-		.eq('id', emailCampaign.id);
-
-	const recipients = await resolveEmailAudience({
-		serviceSupabase,
-		groupId: group.id,
-		audienceFilters: emailCampaign.audience_filters || {}
-	});
-
-	const program = await ensureProgram(serviceSupabase, group.id);
-	const rides = await loadUpcomingRideRows(serviceSupabase, group.id);
-	const volunteerEvents = await loadUpcomingVolunteerRows(serviceSupabase, group.id);
-	const ridesBlock = renderRidesBlock(rides, originBaseUrl);
-	const volunteerBlock = renderVolunteerBlock(volunteerEvents, originBaseUrl);
-	const linksBlock = renderGroupLinksBlock(group, originBaseUrl);
-	const policyLink = buildPolicyLink(originBaseUrl, group.slug, program.policy_version);
-	const preferredSenderDomainId =
-		emailCampaign?.audience_filters &&
-		typeof emailCampaign.audience_filters === 'object' &&
-		emailCampaign.audience_filters.sender_domain_id
-			? String(emailCampaign.audience_filters.sender_domain_id)
-			: null;
-	const senderConfig = await getGroupEmailSenderConfig(serviceSupabase, group.id, {
-		preferredDomainId: preferredSenderDomainId
-	});
-	if (preferredSenderDomainId && senderConfig?.selectionStatus !== 'verified') {
-		if (senderConfig?.selectionStatus === 'unverified') {
-			throw new Error('Selected sender domain is not verified yet. Verify it before sending.');
-		}
-		throw new Error('Selected sender domain could not be found for this group.');
-	}
-
-	const queuedSendRows = recipients.map((recipient) => ({
-		email_id: emailCampaign.id,
-		membership_id: recipient.membership.id,
-		recipient_user_id: recipient.membership.user_id,
-		recipient_email: recipient.email,
-		send_state: 'pending',
-		created_at: now,
-		updated_at: now
-	}));
-	if (queuedSendRows.length) {
-		await serviceSupabase
-			.from('group_membership_email_sends')
-			.upsert(queuedSendRows, { onConflict: 'email_id,recipient_user_id' });
-	}
-
-	let sentCount = 0;
-	let failedCount = 0;
-
-	for (const recipient of recipients) {
-		const tierName = recipient.tier?.name || 'Member';
-		const context = {
-			first_name: firstNameFromProfile(recipient.profile),
-			membership_tier: tierName,
-			renewal_date: formatDate(recipient.membership.renews_at),
-			group_name: group.name,
-			policy_link: policyLink,
-			'block.upcoming_rides': ridesBlock.html,
-			'block.upcoming_volunteer_events': volunteerBlock.html,
-			'block.group_links': linksBlock.html,
-			'block_text.upcoming_rides': ridesBlock.text,
-			'block_text.upcoming_volunteer_events': volunteerBlock.text,
-			'block_text.group_links': linksBlock.text
-		};
-
-		const subject = renderTemplate(emailCampaign.subject_template, context);
-		let htmlBody = renderTemplate(emailCampaign.body_template, context);
-		htmlBody = renderTemplate(htmlBody, {
-			upcoming_rides_block: ridesBlock.html,
-			upcoming_volunteer_events_block: volunteerBlock.html,
-			group_links_block: linksBlock.html
+	let campaignClaimed = false;
+	try {
+		const now = toIsoNow();
+		const recipients = await resolveEmailAudience({
+			serviceSupabase,
+			groupId: group.id,
+			audienceFilters: emailCampaign.audience_filters || {}
 		});
 
-		const textBody = stripHtml(
-			renderTemplate(
-				renderTemplate(emailCampaign.body_template, {
-					upcoming_rides_block: ridesBlock.text,
-					upcoming_volunteer_events_block: volunteerBlock.text,
-					group_links_block: linksBlock.text
-				}),
-				context
-			)
-		);
+		const program = await ensureProgram(serviceSupabase, group.id);
+		const rides = await loadUpcomingRideRows(serviceSupabase, group.id);
+		const volunteerEvents = await loadUpcomingVolunteerRows(serviceSupabase, group.id);
+		const ridesBlock = renderRidesBlock(rides, originBaseUrl);
+		const volunteerBlock = renderVolunteerBlock(volunteerEvents, originBaseUrl);
+		const linksBlock = renderGroupLinksBlock(group, originBaseUrl);
+		const policyLink = buildPolicyLink(originBaseUrl, group.slug, program.policy_version);
+		const preferredSenderDomainId =
+			emailCampaign?.audience_filters &&
+			typeof emailCampaign.audience_filters === 'object' &&
+			emailCampaign.audience_filters.sender_domain_id
+				? String(emailCampaign.audience_filters.sender_domain_id)
+				: null;
+		const senderConfig = await getGroupEmailSenderConfig(serviceSupabase, group.id, {
+			preferredDomainId: preferredSenderDomainId
+		});
+		if (preferredSenderDomainId && senderConfig?.selectionStatus !== 'verified') {
+			if (senderConfig?.selectionStatus === 'unverified') {
+				throw new Error('Selected sender domain is not verified yet. Verify it before sending.');
+			}
+			throw new Error('Selected sender domain could not be found for this group.');
+		}
+		if (!preferredSenderDomainId || !senderConfig?.fromEmailAddress) {
+			throw new Error('Choose a verified sender before sending.');
+		}
+		if (!recipients.length) {
+			throw new Error('The selected audience has no deliverable recipients.');
+		}
 
-		try {
-			if (senderConfig?.fromEmailAddress) {
-				await sendGroupManagedEmail({
-					to: recipient.email,
-					subject: subject || `${group.name} Membership Update`,
-					html: htmlBody,
-					text: textBody,
-					fromAddress: senderConfig.fromEmailAddress,
-					replyTo: senderConfig.replyToEmail || null,
-					originBaseUrl,
-					branding: {
-						category: 'membership',
-						recipientReason: `You are receiving this email because you are a member of ${group.name}.`
-					},
-					tags: [
-						{ Name: 'context', Value: 'membership-campaign-send' },
-						{ Name: 'membership_email_id', Value: String(emailCampaign.id) }
-					]
+		await claimEmailCampaign({
+			serviceSupabase,
+			campaignId: emailCampaign.id,
+			groupId: group.id,
+			expectedStatus: emailCampaign.status,
+			updatedAt: now
+		});
+		campaignClaimed = true;
+
+		const queuedMemberRows = recipients
+			.filter((recipient) => recipient.kind === 'membership')
+			.map((recipient) => ({
+				email_id: emailCampaign.id,
+				membership_id: recipient.membership.id,
+				recipient_user_id: recipient.membership.user_id,
+				recipient_email: recipient.email,
+				send_state: 'pending',
+				created_at: now,
+				updated_at: now
+			}));
+		if (queuedMemberRows.length) {
+			const { error: queueError } = await serviceSupabase
+				.from('group_membership_email_sends')
+				.upsert(queuedMemberRows, { onConflict: 'email_id,recipient_user_id' });
+			if (queueError) throw new Error(queueError.message);
+		}
+		const queuedSubscriberRows = recipients
+			.filter((recipient) => recipient.kind === 'subscriber')
+			.map((recipient) => ({
+				email_id: emailCampaign.id,
+				subscriber_id: recipient.subscriber.id,
+				recipient_email: recipient.email,
+				send_state: 'pending',
+				created_at: now,
+				updated_at: now
+			}));
+		if (queuedSubscriberRows.length) {
+			const { error: queueError } = await serviceSupabase
+				.from('group_membership_email_sends')
+				.upsert(queuedSubscriberRows, { onConflict: 'email_id,subscriber_id' });
+			if (queueError) throw new Error(queueError.message);
+		}
+
+		let sentCount = 0;
+		let failedCount = 0;
+		let lastClaimRenewal = Date.now();
+
+		for (const recipient of recipients) {
+			if (Date.now() - lastClaimRenewal >= 60_000) {
+				await renewEmailCampaignClaim({
+					serviceSupabase,
+					campaignId: emailCampaign.id,
+					groupId: group.id,
+					updatedAt: toIsoNow()
 				});
-			} else {
-				await sendEmail(
-					{
+				lastClaimRenewal = Date.now();
+			}
+			const tierName =
+				recipient.tier?.name || (recipient.kind === 'subscriber' ? 'Subscriber' : 'Member');
+			const context = {
+				first_name: firstNameFromProfile(recipient.profile),
+				membership_tier: tierName,
+				renewal_date: formatDate(recipient.membership?.renews_at),
+				group_name: group.name,
+				policy_link: policyLink,
+				'block.upcoming_rides': ridesBlock.html,
+				'block.upcoming_volunteer_events': volunteerBlock.html,
+				'block.group_links': linksBlock.html,
+				'block_text.upcoming_rides': ridesBlock.text,
+				'block_text.upcoming_volunteer_events': volunteerBlock.text,
+				'block_text.group_links': linksBlock.text
+			};
+			const htmlContext = createSafeEmailHtmlContext(context, {
+				trustedHtmlPrefixes: ['block.']
+			});
+
+			const subject = renderTemplate(emailCampaign.subject_template, context);
+			let htmlBody = renderTemplate(emailCampaign.body_template, htmlContext);
+			htmlBody = renderTemplate(htmlBody, {
+				upcoming_rides_block: ridesBlock.html,
+				upcoming_volunteer_events_block: volunteerBlock.html,
+				group_links_block: linksBlock.html
+			});
+
+			let textBody = stripHtml(
+				renderTemplate(
+					renderTemplate(emailCampaign.body_template, {
+						upcoming_rides_block: ridesBlock.text,
+						upcoming_volunteer_events_block: volunteerBlock.text,
+						group_links_block: linksBlock.text
+					}),
+					context
+				)
+			);
+			if (recipient.kind === 'subscriber') {
+				const unsubscribePath = `/api/groups/${encodeURIComponent(group.slug)}/email/unsubscribe/${recipient.subscriber.unsubscribe_token}`;
+				const unsubscribeUrl = originBaseUrl
+					? `${originBaseUrl}${unsubscribePath}`
+					: unsubscribePath;
+				htmlBody += `<p style="margin-top:24px;font-size:12px"><a href="${escapeEmailHtmlValue(unsubscribeUrl)}">Unsubscribe from ${escapeEmailHtmlValue(group.name)} emails</a></p>`;
+				textBody += `\n\nUnsubscribe: ${unsubscribeUrl}`;
+			}
+
+			let deliveryError = null;
+			try {
+				if (senderConfig?.fromEmailAddress) {
+					await sendGroupManagedEmail({
 						to: recipient.email,
 						subject: subject || `${group.name} Membership Update`,
 						html: htmlBody,
 						text: textBody,
+						fromAddress: senderConfig.fromEmailAddress,
+						replyTo: senderConfig.replyToEmail || null,
+						originBaseUrl,
+						branding: {
+							wrap: false,
+							category: 'membership',
+							recipientReason:
+								recipient.kind === 'subscriber'
+									? `You signed up for email updates from ${group.name}.`
+									: `You are receiving this email because you are a member of ${group.name}.`
+						},
 						tags: [
 							{ Name: 'context', Value: 'membership-campaign-send' },
 							{ Name: 'membership_email_id', Value: String(emailCampaign.id) }
 						]
-					},
-					{ fetch: fetchImpl }
-				);
+					});
+				} else {
+					await sendEmail(
+						{
+							to: recipient.email,
+							subject: subject || `${group.name} Membership Update`,
+							html: htmlBody,
+							text: textBody,
+							tags: [
+								{ Name: 'context', Value: 'membership-campaign-send' },
+								{ Name: 'membership_email_id', Value: String(emailCampaign.id) }
+							]
+						},
+						{ fetch: fetchImpl }
+					);
+				}
+			} catch (error) {
+				deliveryError = error;
 			}
 
-			sentCount += 1;
-			await serviceSupabase
-				.from('group_membership_email_sends')
-				.update({
-					send_state: 'sent',
-					sent_at: toIsoNow(),
-					updated_at: toIsoNow(),
-					error_text: null
-				})
-				.eq('email_id', emailCampaign.id)
-				.eq('recipient_user_id', recipient.membership.user_id);
-		} catch (error) {
+			if (!deliveryError) {
+				let trackingQuery = serviceSupabase
+					.from('group_membership_email_sends')
+					.update({
+						send_state: 'sent',
+						sent_at: toIsoNow(),
+						updated_at: toIsoNow(),
+						error_text: null
+					})
+					.eq('email_id', emailCampaign.id);
+				trackingQuery =
+					recipient.kind === 'subscriber'
+						? trackingQuery.eq('subscriber_id', recipient.subscriber.id)
+						: trackingQuery.eq('recipient_user_id', recipient.membership.user_id);
+				const { error: trackingError } = await trackingQuery;
+				if (trackingError) {
+					throw new Error(`Email was delivered but tracking failed: ${trackingError.message}`);
+				}
+				sentCount += 1;
+				continue;
+			}
+
 			failedCount += 1;
-			await serviceSupabase
+			let trackingQuery = serviceSupabase
 				.from('group_membership_email_sends')
 				.update({
 					send_state: 'failed',
-					error_text: cleanText(error?.message || 'Unable to send email', 2000),
+					error_text: cleanText(deliveryError?.message || 'Unable to send email', 2000),
 					updated_at: toIsoNow()
 				})
-				.eq('email_id', emailCampaign.id)
-				.eq('recipient_user_id', recipient.membership.user_id);
+				.eq('email_id', emailCampaign.id);
+			trackingQuery =
+				recipient.kind === 'subscriber'
+					? trackingQuery.eq('subscriber_id', recipient.subscriber.id)
+					: trackingQuery.eq('recipient_user_id', recipient.membership.user_id);
+			const { error: trackingError } = await trackingQuery;
+			if (trackingError) {
+				throw new Error(`Email delivery failed and tracking failed: ${trackingError.message}`);
+			}
 		}
-	}
 
-	const finalStatus = failedCount > 0 && sentCount === 0 ? 'failed' : 'sent';
-	const { data: updatedEmail } = await serviceSupabase
-		.from('group_membership_emails')
-		.update({
-			status: finalStatus,
-			sent_at: toIsoNow(),
-			sent_count: sentCount,
-			failed_count: failedCount,
-			updated_at: toIsoNow()
-		})
-		.eq('id', emailCampaign.id)
-		.select('*')
-		.single();
-
-	if (actorUserId) {
-		await writeAuditLog(serviceSupabase, {
-			group_id: group.id,
-			actor_user_id: actorUserId,
-			action: 'email_campaign.sent',
-			entity_type: 'group_membership_email',
-			entity_id: emailCampaign.id,
-			after_snapshot: {
+		const finalStatus = resolveEmailCampaignFinalStatus({ sentCount, failedCount });
+		const { data: updatedEmail, error: finalUpdateError } = await serviceSupabase
+			.from('group_membership_emails')
+			.update({
+				status: finalStatus,
+				sent_at: sentCount > 0 ? toIsoNow() : null,
 				sent_count: sentCount,
 				failed_count: failedCount,
-				status: finalStatus
-			}
-		});
-	}
+				updated_at: toIsoNow()
+			})
+			.eq('id', emailCampaign.id)
+			.eq('group_id', group.id)
+			.eq('status', 'sending')
+			.select('*')
+			.maybeSingle();
+		if (finalUpdateError) throw new Error(finalUpdateError.message);
+		if (!updatedEmail) throw new Error('Campaign delivery status could not be finalized.');
 
-	return {
-		email: updatedEmail || emailCampaign,
-		sent_count: sentCount,
-		failed_count: failedCount,
-		recipient_count: recipients.length,
-		status: finalStatus
-	};
+		if (actorUserId) {
+			await writeAuditLog(serviceSupabase, {
+				group_id: group.id,
+				actor_user_id: actorUserId,
+				action: 'email_campaign.sent',
+				entity_type: 'group_membership_email',
+				entity_id: emailCampaign.id,
+				after_snapshot: {
+					sent_count: sentCount,
+					failed_count: failedCount,
+					status: finalStatus
+				}
+			});
+		}
+
+		return {
+			email: updatedEmail,
+			sent_count: sentCount,
+			failed_count: failedCount,
+			recipient_count: recipients.length,
+			status: finalStatus
+		};
+	} catch (error) {
+		error.campaignClaimed = campaignClaimed;
+		throw error;
+	}
 }
 
 export async function sendMembershipEmailCampaignNow({
@@ -4573,6 +4858,16 @@ export async function sendMembershipEmailCampaignNow({
 		.maybeSingle();
 	if (error) return { ok: false, status: 400, error: error.message };
 	if (!emailCampaign) return { ok: false, status: 404, error: 'Email campaign not found.' };
+	if (emailCampaign.status !== 'draft') {
+		return { ok: false, status: 409, error: 'Only draft campaigns can be sent immediately.' };
+	}
+	const senderValidation = await validateMembershipEmailSender({
+		serviceSupabase,
+		groupId: auth.group.id,
+		senderDomainId: cleanNullableText(emailCampaign?.audience_filters?.sender_domain_id, 64),
+		requireVerified: true
+	});
+	if (!senderValidation.ok) return senderValidation;
 	try {
 		const result = await sendMembershipCampaignNowInternal({
 			serviceSupabase,
@@ -4585,9 +4880,16 @@ export async function sendMembershipEmailCampaignNow({
 
 		return { ok: true, data: result };
 	} catch (sendError) {
+		if (!sendError?.campaignNotClaimed) {
+			await serviceSupabase
+				.from('group_membership_emails')
+				.update({ status: 'failed', updated_at: toIsoNow() })
+				.eq('id', emailCampaign.id)
+				.eq('status', 'sending');
+		}
 		return {
 			ok: false,
-			status: 400,
+			status: sendError?.campaignNotClaimed ? 409 : 400,
 			error: cleanText(sendError?.message || 'Unable to send campaign.', 500)
 		};
 	}
@@ -4615,6 +4917,7 @@ export async function processScheduledMembershipEmails({
 }) {
 	const serviceSupabase = await getServiceSupabase();
 	const nowIso = now.toISOString();
+	const recoveredClaims = await recoverStaleEmailCampaignClaims({ serviceSupabase, now });
 	const { data: campaigns, error } = await serviceSupabase
 		.from('group_membership_emails')
 		.select('*')
@@ -4654,17 +4957,28 @@ export async function processScheduledMembershipEmails({
 			});
 			results.push({ email_id: campaign.id, ...sent });
 		} catch (sendError) {
+			if (sendError?.campaignNotClaimed) {
+				results.push({
+					email_id: campaign.id,
+					skipped: true,
+					reason: 'already_processing'
+				});
+				continue;
+			}
 			const errorMessage = cleanText(
 				sendError?.message || 'Unable to send scheduled campaign.',
 				500
 			);
-			await serviceSupabase
-				.from('group_membership_emails')
-				.update({
-					status: 'failed',
-					updated_at: toIsoNow()
-				})
-				.eq('id', campaign.id);
+			if (!sendError?.campaignNotClaimed) {
+				await serviceSupabase
+					.from('group_membership_emails')
+					.update({
+						status: 'failed',
+						updated_at: toIsoNow()
+					})
+					.eq('id', campaign.id)
+					.eq('status', sendError?.campaignClaimed ? 'sending' : 'scheduled');
+			}
 			results.push({
 				email_id: campaign.id,
 				status: 'failed',
@@ -4673,7 +4987,7 @@ export async function processScheduledMembershipEmails({
 		}
 	}
 
-	return { processed: list.length, results };
+	return { processed: list.length, recovered: recoveredClaims.length, results };
 }
 
 async function activateMembershipFromMetadata({

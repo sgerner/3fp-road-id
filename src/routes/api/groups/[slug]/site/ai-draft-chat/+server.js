@@ -8,6 +8,7 @@ import {
 } from '$lib/server/ai/models';
 import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
 import { getGroupSiteConfig } from '$lib/server/groupSites';
+import { mergeGroupSiteConfig } from '$lib/microsites/config';
 
 const MAX_MESSAGES = 20;
 const RESPONSE_SCHEMA = {
@@ -231,7 +232,14 @@ export async function POST({ params, request, cookies }) {
 	const userMessageCount = messages.filter((entry) => entry.role === 'user').length;
 	const assistantQuestionCount = countAssistantQuestions(messages);
 
-	const currentConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
+	const persistedConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
+	const localConfig =
+		payload?.currentConfig &&
+		typeof payload.currentConfig === 'object' &&
+		!Array.isArray(payload.currentConfig)
+			? payload.currentConfig
+			: {};
+	const currentConfig = mergeGroupSiteConfig(persistedConfig, localConfig);
 
 	if (!isAiModelConfigured('structured_text')) {
 		const fallbackPrompt =

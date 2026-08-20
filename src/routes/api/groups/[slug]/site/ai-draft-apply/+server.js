@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import { mergeGroupSiteConfig } from '$lib/microsites/config';
-import { getGroupSiteConfig, upsertGroupSiteConfig } from '$lib/server/groupSites';
+import { getGroupSiteConfig } from '$lib/server/groupSites';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -60,11 +60,10 @@ export async function POST({ params, request, cookies }) {
 	const nextConfig = mergeGroupSiteConfig(currentConfig, proposedConfig, {
 		ai_prompt: generationPrompt || currentConfig.ai_prompt || ''
 	});
-	await upsertGroupSiteConfig(auth.group.id, nextConfig);
-
 	return json({
 		ok: true,
 		source,
-		config: nextConfig
+		config: nextConfig,
+		persisted: false
 	});
 }

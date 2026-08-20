@@ -662,25 +662,30 @@ export async function sendGroupManagedEmail({
 
 	const client = ensureSesClient();
 	const brandingOrigin = cleanText(originBaseUrl || PUBLIC_URL_BASE, 2000) || undefined;
+	const shouldWrapWithBranding = branding?.wrap !== false;
 	const brandedHtml = html
-		? wrapHtmlWithBranding(html, {
-				origin: brandingOrigin,
-				category: cleanNullableText(branding?.category, 80),
-				subjectLine: normalizedSubject,
-				recipientReason: cleanNullableText(branding?.recipientReason, 280),
-				portalUrl: cleanNullableText(branding?.actionUrl, 2000),
-				actionLabel: cleanNullableText(branding?.actionLabel, 80)
-			})
+		? shouldWrapWithBranding
+			? wrapHtmlWithBranding(html, {
+					origin: brandingOrigin,
+					category: cleanNullableText(branding?.category, 80),
+					subjectLine: normalizedSubject,
+					recipientReason: cleanNullableText(branding?.recipientReason, 280),
+					portalUrl: cleanNullableText(branding?.actionUrl, 2000),
+					actionLabel: cleanNullableText(branding?.actionLabel, 80)
+				})
+			: String(html).trim()
 		: '';
 	const brandedText = text
-		? wrapTextWithBranding(text, {
-				origin: brandingOrigin,
-				category: cleanNullableText(branding?.category, 80),
-				subjectLine: normalizedSubject,
-				recipientReason: cleanNullableText(branding?.recipientReason, 280),
-				portalUrl: cleanNullableText(branding?.actionUrl, 2000),
-				actionLabel: cleanNullableText(branding?.actionLabel, 80)
-			})
+		? shouldWrapWithBranding
+			? wrapTextWithBranding(text, {
+					origin: brandingOrigin,
+					category: cleanNullableText(branding?.category, 80),
+					subjectLine: normalizedSubject,
+					recipientReason: cleanNullableText(branding?.recipientReason, 280),
+					portalUrl: cleanNullableText(branding?.actionUrl, 2000),
+					actionLabel: cleanNullableText(branding?.actionLabel, 80)
+				})
+			: String(text).trim()
 		: '';
 
 	const response = await client.send(

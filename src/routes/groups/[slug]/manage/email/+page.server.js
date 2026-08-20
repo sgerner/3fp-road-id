@@ -9,6 +9,7 @@ async function loadAudienceSummary(serviceSupabase, groupId) {
 			active: 0,
 			past_due: 0,
 			cancelled: 0,
+			newsletter: 0,
 			total: 0
 		};
 	}
@@ -26,13 +27,23 @@ async function loadAudienceSummary(serviceSupabase, groupId) {
 	);
 
 	const summary = Object.fromEntries(entries);
+	const { count: newsletterSubscribers } = await serviceSupabase
+		.from('group_email_subscribers')
+		.select('id', { count: 'exact', head: true })
+		.eq('group_id', groupId)
+		.eq('status', 'subscribed');
 	return {
 		...summary,
-		total: (summary.active || 0) + (summary.past_due || 0) + (summary.cancelled || 0)
+		newsletter: newsletterSubscribers ?? 0,
+		total:
+			(summary.active || 0) +
+			(summary.past_due || 0) +
+			(summary.cancelled || 0) +
+			(newsletterSubscribers ?? 0)
 	};
 }
 
-export const load = async ({ parent, cookies }) => {
+export const load = async ({ parent, cookies, url }) => {
 	const parentData = await parent();
 	const serviceSupabase = createServiceSupabaseClient();
 	const [senderDomainsResult, emailHistoryResult, audienceSummary, siteDomains] = await Promise.all(
@@ -52,6 +63,10 @@ export const load = async ({ parent, cookies }) => {
 
 	return {
 		group: parentData.group,
+		defaultActionUrl: new URL(
+			`/groups/${encodeURIComponent(parentData.group.slug)}`,
+			url.origin
+		).toString(),
 		senderDomains: senderDomainsResult?.ok ? senderDomainsResult.data : [],
 		emailHistory: emailHistoryResult?.ok ? emailHistoryResult.data : [],
 		siteDomains,
