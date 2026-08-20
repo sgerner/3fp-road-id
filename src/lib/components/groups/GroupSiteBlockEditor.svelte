@@ -22,7 +22,8 @@
 	import {
 		createGroupSiteBlock,
 		GROUP_SITE_BLOCK_LIMIT,
-		GROUP_SITE_BLOCK_TYPES
+		GROUP_SITE_BLOCK_TYPES,
+		getGroupSiteBlockTone
 	} from '$lib/microsites/blocks';
 
 	let {
@@ -48,6 +49,13 @@
 	let editorRoot;
 	let editorVisible = $state(false);
 	let sequence = 0;
+
+	function previewToneClass(block, index) {
+		const tone = getGroupSiteBlockTone(block.type, index);
+		return tone === 'surface'
+			? 'preset-tonal-surface'
+			: `preset-tonal-surface preset-outlined-${tone}-500`;
+	}
 
 	const selectedBlock = $derived(
 		blocks.find((block) => block.id === selectedId) || blocks[0] || null
@@ -689,7 +697,7 @@
 							{:else}
 								<div
 									class="grid gap-3 p-5 sm:p-8 {actionBlockTypes.includes(block.type)
-										? 'preset-tonal-primary text-center sm:justify-items-center'
+										? `${previewToneClass(block, index)} text-center sm:justify-items-center`
 										: ''}"
 								>
 									<p class="text-xs font-semibold tracking-wider uppercase opacity-55">

@@ -14,6 +14,7 @@
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import { CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
+	import { getGroupSiteBlockTone } from '$lib/microsites/blocks';
 	import { fade, scale } from 'svelte/transition';
 	import { slide } from 'svelte/transition';
 	let { data } = $props();
@@ -278,7 +279,7 @@
 			</div>
 		</section>
 	{/if}
-	{#each pageBlocks as block (block.id)}
+	{#each pageBlocks as block, blockIndex (block.id)}
 		{#if block.type === 'hero'}
 			<!-- ═══════════════════════════════════
 HERO — cinematic cover with integrated CTAs
@@ -1143,7 +1144,7 @@ SPONSORS — Community partners showcase
 		{:else if block.type === 'text' || actionBlockTypes.includes(block.type)}
 			<section
 				class="custom-content-section {actionBlockTypes.includes(block.type)
-					? 'custom-callout-section'
+					? `custom-callout-section callout-tone-${getGroupSiteBlockTone(block.type, blockIndex)}`
 					: ''}"
 				data-site-block-id={block.id}
 				data-site-block-type={block.type}
@@ -2713,8 +2714,42 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		background: var(--panel-bg-dark);
 	}
 	.custom-callout-section .custom-content-card {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--panel-bg));
 		text-align: center;
+	}
+	.custom-callout-section.callout-tone-surface .custom-content-card {
+		background: var(--panel-bg);
+	}
+	.custom-callout-section.callout-tone-primary .custom-content-card {
+		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--panel-bg));
+		border-color: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
+	}
+	.custom-callout-section.callout-tone-secondary .custom-content-card {
+		background: color-mix(in oklab, var(--color-secondary-500) 10%, var(--panel-bg));
+		border-color: color-mix(in oklab, var(--color-secondary-500) 24%, transparent);
+	}
+	.custom-callout-section.callout-tone-tertiary .custom-content-card {
+		background: color-mix(in oklab, var(--color-tertiary-500) 10%, var(--panel-bg));
+		border-color: color-mix(in oklab, var(--color-tertiary-500) 24%, transparent);
+	}
+	:global([data-color-mode='dark'])
+		.custom-callout-section.callout-tone-surface
+		.custom-content-card {
+		background: var(--panel-bg-dark);
+	}
+	:global([data-color-mode='dark'])
+		.custom-callout-section.callout-tone-primary
+		.custom-content-card {
+		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--panel-bg-dark));
+	}
+	:global([data-color-mode='dark'])
+		.custom-callout-section.callout-tone-secondary
+		.custom-content-card {
+		background: color-mix(in oklab, var(--color-secondary-500) 10%, var(--panel-bg-dark));
+	}
+	:global([data-color-mode='dark'])
+		.custom-callout-section.callout-tone-tertiary
+		.custom-content-card {
+		background: color-mix(in oklab, var(--color-tertiary-500) 10%, var(--panel-bg-dark));
 	}
 	.custom-content-label {
 		color: var(--color-primary-600);

@@ -1,5 +1,22 @@
 export const GROUP_SITE_BLOCK_LIMIT = 20;
 
+const GROUP_SITE_ACCENTED_BLOCK_TYPES = new Set([
+	'call_to_action',
+	'updates',
+	'volunteer',
+	'email_signup',
+	'resources',
+	'membership',
+	'donation'
+]);
+
+const GROUP_SITE_CALLOUT_TONES = Object.freeze(['surface', 'secondary', 'tertiary']);
+
+export function getGroupSiteBlockTone(type, index = 0) {
+	if (!GROUP_SITE_ACCENTED_BLOCK_TYPES.has(type)) return 'surface';
+	return GROUP_SITE_CALLOUT_TONES[Math.abs(Number(index) || 0) % GROUP_SITE_CALLOUT_TONES.length];
+}
+
 export const GROUP_SITE_BLOCK_TYPES = Object.freeze({
 	hero: {
 		label: 'Hero',

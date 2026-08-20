@@ -6,6 +6,7 @@ import {
 	deriveLegacySiteVisibility,
 	GROUP_SITE_BLOCK_LIMIT,
 	groupSiteBlockOrder,
+	getGroupSiteBlockTone,
 	hasGroupSiteBlock,
 	normalizeGroupSiteBlocks
 } from '../microsites/blocks.js';
@@ -14,6 +15,21 @@ import {
 	parseGroupSiteFormData,
 	serializeGroupSiteConfig
 } from '../microsites/config.js';
+
+test('action blocks receive a varied, deterministic visual rhythm', () => {
+	const actionTypes = [
+		'call_to_action',
+		'updates',
+		'volunteer',
+		'email_signup',
+		'resources',
+		'membership'
+	];
+	const tones = actionTypes.map((type, index) => getGroupSiteBlockTone(type, index));
+	assert.deepEqual(tones, ['surface', 'secondary', 'tertiary', 'surface', 'secondary', 'tertiary']);
+	assert.equal(new Set(tones).size, 3);
+	assert.equal(getGroupSiteBlockTone('story', 1), 'surface');
+});
 
 test('legacy section visibility becomes a stable default block order', () => {
 	const blocks = buildDefaultGroupSiteBlocks({
