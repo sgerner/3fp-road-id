@@ -146,9 +146,25 @@ test('config serialization and form parsing preserve block copy and order', () =
 			{ type: 'hero' },
 			{ type: 'call_to_action', id: 'join-us', title: 'Join us' },
 			{ type: 'story', title: 'Our story' }
+		],
+		site_pages: [
+			{
+				title: 'Home',
+				is_home: true,
+				blocks: [
+					{ type: 'hero' },
+					{ type: 'call_to_action', id: 'join-us', title: 'Join us' },
+					{ type: 'story', title: 'Our story' }
+				]
+			},
+			{ title: 'Safety', slug: 'safety', blocks: [{ type: 'hero' }, { type: 'text' }] }
 		]
 	});
 	const serialized = serializeGroupSiteConfig(config);
+	assert.deepEqual(
+		serialized.site_pages.map((page) => page.slug),
+		['', 'safety']
+	);
 	assert.deepEqual(
 		serialized.page_blocks.map((block) => [block.type, block.title]),
 		[

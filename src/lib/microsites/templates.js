@@ -1,4 +1,5 @@
 import { createGroupSiteBlock, deriveLegacySiteVisibility } from './blocks.js';
+import { createGroupSitePage, normalizeGroupSitePages } from './pages.js';
 
 function clean(value) {
 	return String(value ?? '').trim();
@@ -18,6 +19,20 @@ function templateConfig(template, group) {
 	const context = groupContext(group);
 	const pageBlocks = template.buildBlocks(context).filter(Boolean);
 	const visibility = deriveLegacySiteVisibility(pageBlocks, {});
+	const sitePages = normalizeGroupSitePages(
+		[
+			createGroupSitePage({
+				id: 'home',
+				title: 'Home',
+				is_home: true,
+				description: template.copy.tagline(context),
+				seo_description: template.copy.seo(context),
+				blocks: pageBlocks
+			}),
+			...(template.buildPages?.(context) || [])
+		],
+		{ homeBlocks: pageBlocks }
+	);
 	return {
 		site_tagline: template.copy.tagline(context),
 		home_intro: template.copy.intro(context),
@@ -37,6 +52,7 @@ function templateConfig(template, group) {
 		simple_mode: template.design.simpleMode,
 		sections: visibility.sections,
 		page_blocks: pageBlocks,
+		site_pages: sitePages,
 		ride_widget_enabled: visibility.ride_widget_enabled,
 		ride_widget_title: template.rideWidgetTitle || 'Ride calendar'
 	};
@@ -92,6 +108,20 @@ export const GROUP_SITE_TEMPLATES = Object.freeze([
 			block('email_signup'),
 			block('gallery'),
 			block('contact')
+		],
+		buildPages: () => [
+			createGroupSitePage({
+				title: 'Rides',
+				slug: 'rides',
+				description: 'Find upcoming rides and everything you need to feel welcome.',
+				blocks: [block('hero'), block('ride_calendar'), block('membership'), block('contact')]
+			}),
+			createGroupSitePage({
+				title: 'About',
+				slug: 'about',
+				description: 'Meet the community and learn how we ride together.',
+				blocks: [block('hero'), block('story'), block('gallery'), block('contact')]
+			})
 		],
 		rideWidgetTitle: 'Find your next ride'
 	},
@@ -150,6 +180,20 @@ export const GROUP_SITE_TEMPLATES = Object.freeze([
 			}),
 			block('email_signup'),
 			block('contact')
+		],
+		buildPages: () => [
+			createGroupSitePage({
+				title: 'Ride Calendar',
+				slug: 'ride-calendar',
+				description: 'Routes, pace groups, and the complete club schedule.',
+				blocks: [block('hero'), block('ride_calendar'), block('resources'), block('contact')]
+			}),
+			createGroupSitePage({
+				title: 'Membership',
+				slug: 'membership',
+				description: 'Club expectations, benefits, and how to join.',
+				blocks: [block('hero'), block('story'), block('membership'), block('contact')]
+			})
 		],
 		rideWidgetTitle: 'Club ride calendar'
 	},
@@ -216,6 +260,20 @@ export const GROUP_SITE_TEMPLATES = Object.freeze([
 				body: 'Hear about races, results, recruitment, and ways to support the team.'
 			}),
 			block('contact')
+		],
+		buildPages: () => [
+			createGroupSitePage({
+				title: 'Team',
+				slug: 'team',
+				description: 'Meet the program, expectations, and team partners.',
+				blocks: [block('hero'), block('story'), block('sponsors'), block('contact')]
+			}),
+			createGroupSitePage({
+				title: 'Race Calendar',
+				slug: 'race-calendar',
+				description: 'Upcoming training, races, and team results.',
+				blocks: [block('hero'), block('events'), block('updates'), block('contact')]
+			})
 		]
 	},
 	{
@@ -279,6 +337,26 @@ export const GROUP_SITE_TEMPLATES = Object.freeze([
 			}),
 			block('sponsors', { eyebrow: 'Community support', title: 'Partners in the work' }),
 			block('contact')
+		],
+		buildPages: () => [
+			createGroupSitePage({
+				title: 'Learn',
+				slug: 'learn',
+				description: 'Understand the issue and share practical safety education.',
+				blocks: [block('hero'), block('text'), block('resources'), block('email_signup')]
+			}),
+			createGroupSitePage({
+				title: 'Take Action',
+				slug: 'take-action',
+				description: 'Volunteer, donate, and help move the mission forward.',
+				blocks: [block('hero'), block('volunteer'), block('donation'), block('contact')]
+			}),
+			createGroupSitePage({
+				title: 'About',
+				slug: 'about',
+				description: 'Our mission, approach, and community partners.',
+				blocks: [block('hero'), block('story'), block('sponsors'), block('contact')]
+			})
 		]
 	},
 	{
@@ -340,6 +418,20 @@ export const GROUP_SITE_TEMPLATES = Object.freeze([
 			}),
 			block('gallery', { eyebrow: 'From the trail', title: 'Recent rides and work days' }),
 			block('contact')
+		],
+		buildPages: () => [
+			createGroupSitePage({
+				title: 'Trails',
+				slug: 'trails',
+				description: 'Trail conditions, access information, and route resources.',
+				blocks: [block('hero'), block('resources'), block('ride_calendar'), block('contact')]
+			}),
+			createGroupSitePage({
+				title: 'Stewardship',
+				slug: 'stewardship',
+				description: 'Work days, volunteer roles, and how we care for the land.',
+				blocks: [block('hero'), block('volunteer'), block('events'), block('donation')]
+			})
 		],
 		rideWidgetTitle: 'Upcoming trail rides'
 	}

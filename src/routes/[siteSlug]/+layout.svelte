@@ -9,6 +9,7 @@
 		normalizePathname
 	} from '$lib/seo';
 	import IconMenu from '@lucide/svelte/icons/menu';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconMoonStar from '@lucide/svelte/icons/moon-star';
 	import IconSun from '@lucide/svelte/icons/sun';
 	import IconX from '@lucide/svelte/icons/x';
@@ -37,6 +38,11 @@
 		const relative = getRelativePathname(currentPathname, homePathname);
 		return relative.split('/')[0] || '';
 	});
+	const customPage = $derived(
+		(site?.siteConfig?.site_pages || []).find(
+			(candidate) => !candidate.is_home && candidate.slug === seoSection
+		) || null
+	);
 	const isHomePage = $derived(currentPathname === homePathname);
 	const seoTitle = $derived(
 		(site?.siteConfig?.site_title || group?.name || 'Cycling Group').trim()
@@ -49,7 +55,7 @@
 			join: membershipCtaLabel || 'Join',
 			assets: 'Resources'
 		};
-		const sectionTitle = sectionTitles[seoSection];
+		const sectionTitle = customPage?.title || sectionTitles[seoSection];
 		return sectionTitle ? `${sectionTitle} — ${seoTitle}` : seoTitle;
 	});
 	const seoOgImage = $derived(
@@ -57,6 +63,9 @@
 	);
 
 	const seoDescription = $derived.by(() => {
+		if (customPage?.seo_description || customPage?.description) {
+			return limitSeoText(customPage.seo_description || customPage.description, 165);
+		}
 		const sectionDescriptions = {
 			updates: limitSeoText(
 				`${seoTitle} updates, announcements, route changes, volunteer asks, and public notes.`,
@@ -145,24 +154,41 @@
 	});
 
 	const navItems = $derived.by(() => {
-		const items = [{ label: 'Home', href: homeHref }];
+		const available = new Map();
+		for (const page of site?.siteConfig?.site_pages || []) {
+			available.set(`page:${page.id}`, {
+				label: page.nav_label || page.title,
+				href: page.is_home ? homeHref : basePath ? `${basePath}/${page.slug}` : `/${page.slug}`
+			});
+		}
 		if (site?.siteConfig?.sections?.news && (site?.newsPosts?.length || 0) > 0) {
-			items.push({ label: 'Updates', href: updatesHref });
+			available.set('special:updates', { label: 'Updates', href: updatesHref });
 		}
 		if (site?.siteConfig?.sections?.join) {
-			items.push({ label: membershipCtaLabel, href: joinHref });
+			available.set('special:join', { label: membershipCtaLabel, href: joinHref });
 		}
 		if (site?.siteConfig?.sections?.gallery && site?.photoBucket?.asset_count) {
-			items.push({ label: 'Gallery', href: galleryHref });
+			available.set('special:gallery', { label: 'Gallery', href: galleryHref });
 		}
 		if (site?.assetBuckets?.some((b) => b.asset_count > 0 && b.slug !== 'photos')) {
-			items.push({ label: 'Resources', href: assetsHref });
+			available.set('special:resources', { label: 'Resources', href: assetsHref });
 		}
 		if (site?.siteConfig?.sections?.contact) {
-			items.push({ label: 'Contact', href: contactHref });
+			available.set('special:contact', { label: 'Contact', href: contactHref });
 		}
-		return items;
+		const navigation = site?.siteConfig?.site_pages?.[0]?.navigation?.items || [];
+		return navigation
+			.map((item) => {
+				const destination = available.get(item.id);
+				return destination
+					? { ...destination, label: item.label || destination.label, placement: item.placement }
+					: null;
+			})
+			.filter(Boolean);
 	});
+	const primaryNavItems = $derived(navItems.filter((item) => item.placement === 'primary'));
+	const moreNavItems = $derived(navItems.filter((item) => item.placement === 'more'));
+	const mobileNavItems = $derived(navItems.filter((item) => item.placement !== 'hidden'));
 
 	let mobileMenuOpen = $state(false);
 	let colorMode = $state('light');
@@ -260,7 +286,7 @@
 			<div
 				class="microsite-nav microsite-nav--floating mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
 			>
-				<a href={homeHref} class="microsite-mark flex min-w-0 items-center gap-3">
+				<a href={homeHref} class="microsite-mark flex min-w-0 shrink-0 items-center gap-3">
 					{#if group?.logo_url}
 						<img
 							src={group.logo_url}
@@ -281,12 +307,31 @@
 					</p>
 				</a>
 
-				<nav class="hidden items-center gap-1 md:flex">
-					{#each navItems as item}
+				<nav class="hidden min-w-0 items-center gap-1 lg:flex">
+					{#each primaryNavItems as item}
 						<a href={item.href} class="microsite-nav-link {isActive(item.href) ? 'is-active' : ''}">
 							{item.label}
 						</a>
 					{/each}
+					{#if moreNavItems.length}
+						<details class="microsite-more-menu relative">
+							<summary class="microsite-nav-link flex cursor-pointer items-center gap-1">
+								More <IconChevronDown class="h-3.5 w-3.5" />
+							</summary>
+							<div class="microsite-more-popover">
+								{#each moreNavItems as item}
+									<a
+										href={item.href}
+										class="microsite-mobile-link {isActive(item.href) ? 'is-active' : ''}"
+										onclick={(event) =>
+											event.currentTarget.closest('details')?.removeAttribute('open')}
+									>
+										{item.label}
+									</a>
+								{/each}
+							</div>
+						</details>
+					{/if}
 				</nav>
 
 				<div class="flex items-center gap-2">
@@ -306,7 +351,7 @@
 					</button>
 					<button
 						type="button"
-						class="microsite-menu-btn md:hidden"
+						class="microsite-menu-btn lg:hidden"
 						onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
 						aria-label="Toggle site menu"
 					>
@@ -320,9 +365,9 @@
 			</div>
 
 			{#if mobileMenuOpen}
-				<div class="mx-auto max-w-7xl px-4 pb-4 md:hidden">
+				<div class="mx-auto max-w-7xl px-4 pb-4 lg:hidden">
 					<div class="microsite-mobile-menu space-y-1 rounded-2xl p-2.5">
-						{#each navItems as item}
+						{#each mobileNavItems as item}
 							<a
 								href={item.href}
 								class="microsite-mobile-link {isActive(item.href) ? 'is-active' : ''}"
@@ -733,6 +778,39 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	.microsite-nav-link.is-active {
 		color: var(--ms-nav-link-active-fg);
 		background: var(--ms-nav-link-active-bg);
+	}
+
+	.microsite-more-menu > summary {
+		list-style: none;
+	}
+
+	.microsite-more-menu > summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.microsite-more-menu[open] > summary {
+		color: var(--ms-nav-link-active-fg);
+		background: var(--ms-nav-link-active-bg);
+	}
+
+	.microsite-more-popover {
+		position: absolute;
+		top: calc(100% + 0.65rem);
+		right: 0;
+		display: grid;
+		min-width: 12rem;
+		gap: 0.2rem;
+		padding: 0.55rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+		border-radius: 1rem;
+		background: color-mix(in oklab, var(--color-surface-950) 92%, transparent);
+		box-shadow: 0 18px 45px -18px color-mix(in oklab, black 60%, transparent);
+		backdrop-filter: blur(20px);
+	}
+
+	.microsite-shell[data-color-mode='light'] .microsite-more-popover {
+		border-color: color-mix(in oklab, var(--color-surface-950) 14%, transparent);
+		background: color-mix(in oklab, white 92%, var(--color-primary-50) 8%);
 	}
 
 	.microsite-theme-btn,

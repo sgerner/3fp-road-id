@@ -2,6 +2,8 @@
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
+	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBrush from '@lucide/svelte/icons/brush';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconCheck from '@lucide/svelte/icons/check';
@@ -10,6 +12,7 @@
 	import IconEye from '@lucide/svelte/icons/eye';
 	import IconGlobe from '@lucide/svelte/icons/globe-2';
 	import IconLayout from '@lucide/svelte/icons/layout-grid';
+	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconRefresh from '@lucide/svelte/icons/refresh-ccw';
 	import IconSave from '@lucide/svelte/icons/save';
@@ -25,6 +28,16 @@
 	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '$lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '$lib/microsites/blocks';
 	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '$lib/microsites/templates';
+	import {
+		createGroupSitePage,
+		GROUP_SITE_NAV_PLACEMENTS,
+		GROUP_SITE_PRIMARY_NAV_LIMIT,
+		GROUP_SITE_SPECIAL_NAV_ITEMS,
+		normalizeGroupSiteNavigation,
+		normalizeGroupSitePages,
+		normalizeGroupSitePageSlug,
+		pageBlock
+	} from '$lib/microsites/pages';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -43,6 +56,8 @@
 	);
 	let siteConfig = $state(baseConfig);
 	let pageBlocks = $state(untrack(() => clone(baseConfig.page_blocks || [])));
+	let sitePages = $state(untrack(() => clone(baseConfig.site_pages || [])));
+	let selectedPageId = $state(untrack(() => baseConfig.site_pages?.[0]?.id || 'home'));
 	let sponsorSequence = 0;
 	let sponsorItems = $state(
 		untrack(() => {
@@ -108,10 +123,18 @@
 			Array.isArray(baseConfig.ride_widget_group_ids) ? [...baseConfig.ride_widget_group_ids] : []
 		)
 	);
+	const selectedSitePage = $derived(
+		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
+	);
+	const navigationItems = $derived(sitePages[0]?.navigation?.items || []);
+	const primaryNavigationCount = $derived(
+		navigationItems.filter((item) => item.placement === 'primary').length
+	);
 	const announcementExpiresIso = $derived(toIsoDateTimeValue(siteConfig.announcement_expires_at));
 	const aiCurrentConfig = $derived({
 		...siteConfig,
-		page_blocks: pageBlocks,
+		page_blocks: sitePages[0]?.blocks || pageBlocks,
+		site_pages: sitePages,
 		announcement_expires_at: announcementExpiresIso,
 		sponsor_items: sponsorItems.map(({ name, text, logo, url }) => ({ name, text, logo, url })),
 		faq_1_q: faqItems[0]?.question || '',
@@ -147,6 +170,12 @@
 			hint: 'Announcements and helpful information',
 			icon: IconType
 		},
+		{
+			id: 'navigation',
+			label: 'Navigation',
+			hint: 'Choose what appears in the header and More menu',
+			icon: IconMenu
+		},
 		{ id: 'appearance', label: 'Design', hint: 'Website colors and style', icon: IconBrush },
 		{ id: 'rides', label: 'Rides', hint: 'Calendar and ride filters', icon: IconCalendar },
 		{
@@ -179,6 +208,11 @@
 		primary: 'Brand color',
 		secondary: 'Supporting color',
 		tertiary: 'Accent color'
+	};
+	const navigationPlacementLabels = {
+		primary: 'Primary header',
+		more: 'More menu',
+		hidden: 'Hidden'
 	};
 	const sitePalettes = [
 		{
@@ -218,6 +252,7 @@
 	function snapshot() {
 		return JSON.stringify({
 			siteConfig,
+			sitePages,
 			pageBlocks,
 			sponsorItems,
 			faqItems,
@@ -343,7 +378,9 @@
 	}
 	function applyAiConfig(nextConfig, source) {
 		siteConfig = mergeGroupSiteEditorConfig(clone(siteConfig), clone(nextConfig));
-		pageBlocks = clone(siteConfig.page_blocks || pageBlocks);
+		sitePages = clone(siteConfig.site_pages || sitePages);
+		selectedPageId = sitePages[0]?.id || 'home';
+		pageBlocks = clone(sitePages[0]?.blocks || siteConfig.page_blocks || pageBlocks);
 		const visibility = deriveLegacySiteVisibility(pageBlocks, siteConfig.sections);
 		siteConfig = {
 			...siteConfig,
@@ -399,17 +436,167 @@
 
 	function updatePageBlocks(nextBlocks) {
 		pageBlocks = clone(nextBlocks);
-		const legacy = deriveLegacySiteVisibility(pageBlocks, siteConfig.sections);
+		sitePages = sitePages.map((page) =>
+			page.id === selectedPageId ? { ...page, blocks: clone(pageBlocks) } : page
+		);
+		const homeBlocks = sitePages[0]?.blocks || pageBlocks;
+		const legacy = deriveLegacySiteVisibility(homeBlocks, siteConfig.sections);
 		siteConfig = {
 			...siteConfig,
-			page_blocks: pageBlocks,
+			page_blocks: homeBlocks,
+			site_pages: sitePages,
 			sections: legacy.sections,
 			ride_widget_enabled: legacy.ride_widget_enabled
 		};
 	}
 
 	function updateSiteConfig(patch) {
-		siteConfig = { ...siteConfig, ...patch, page_blocks: pageBlocks };
+		siteConfig = {
+			...siteConfig,
+			...patch,
+			page_blocks: sitePages[0]?.blocks || pageBlocks,
+			site_pages: sitePages
+		};
+	}
+
+	function selectSitePage(pageId) {
+		const page = sitePages.find((candidate) => candidate.id === pageId);
+		if (!page) return;
+		selectedPageId = page.id;
+		pageBlocks = clone(page.blocks || []);
+	}
+
+	function addSitePage() {
+		if (sitePages.length >= 12) return;
+		const number = sitePages.length + 1;
+		const page = createGroupSitePage({
+			id: `page-${Date.now()}`,
+			title: `New page ${number}`,
+			slug: `new-page-${number}`,
+			description: 'Add a short introduction for this page.',
+			blocks: [
+				pageBlock('hero'),
+				pageBlock('text', {
+					eyebrow: 'Start here',
+					title: 'Tell visitors what this page is for',
+					body: 'Add the most useful information first, then drag in another section when you need it.'
+				})
+			]
+		});
+		sitePages = normalizeGroupSitePages([...sitePages, page], {
+			homeBlocks: sitePages[0]?.blocks || pageBlocks
+		});
+		selectSitePage(page.id);
+		localNotice = 'New page added as a draft.';
+	}
+
+	function updateSelectedPage(patch) {
+		sitePages = normalizeGroupSitePages(
+			sitePages.map((page) => {
+				if (page.id !== selectedPageId) return page;
+				const next = { ...page, ...patch };
+				if ('slug' in patch && !page.is_home) next.slug = normalizeGroupSitePageSlug(patch.slug);
+				return next;
+			}),
+			{ homeBlocks: sitePages[0]?.blocks || pageBlocks }
+		);
+		siteConfig = {
+			...siteConfig,
+			site_pages: sitePages,
+			page_blocks: sitePages[0]?.blocks || pageBlocks
+		};
+	}
+
+	function moveSelectedPage(offset) {
+		const index = sitePages.findIndex((page) => page.id === selectedPageId);
+		const target = index + offset;
+		if (index <= 0 || target <= 0 || target >= sitePages.length) return;
+		const next = [...sitePages];
+		[next[index], next[target]] = [next[target], next[index]];
+		sitePages = next;
+		siteConfig = { ...siteConfig, site_pages: sitePages, page_blocks: sitePages[0]?.blocks || [] };
+	}
+
+	function removeSelectedPage() {
+		const page = sitePages.find((candidate) => candidate.id === selectedPageId);
+		if (!page || page.is_home || !confirm(`Remove the ${page.title} page from this draft?`)) return;
+		sitePages = normalizeGroupSitePages(
+			sitePages.filter((candidate) => candidate.id !== page.id),
+			{ homeBlocks: sitePages[0]?.blocks || pageBlocks }
+		);
+		selectSitePage(sitePages[0]?.id || 'home');
+		localNotice = `${page.title} removed from the draft.`;
+	}
+
+	function navigationItemMeta(item) {
+		if (item.id.startsWith('page:')) {
+			const pageId = item.id.slice(5);
+			const page = sitePages.find((candidate) => candidate.id === pageId);
+			return {
+				kind: page?.is_home ? 'Homepage' : 'Website page',
+				detail: page?.is_home ? '/' : `/${page?.slug || ''}`,
+				locked: Boolean(page?.is_home)
+			};
+		}
+		const special = GROUP_SITE_SPECIAL_NAV_ITEMS.find((candidate) => candidate.id === item.id);
+		return {
+			kind: 'Connected feature',
+			detail: special?.label || 'Automatic destination',
+			locked: false
+		};
+	}
+
+	function setNavigationItems(nextItems) {
+		const pagesWithVisibility = sitePages.map((page) => {
+			if (page.is_home) return page;
+			const navItem = nextItems.find((item) => item.id === `page:${page.id}`);
+			return navItem ? { ...page, show_in_nav: navItem.placement !== 'hidden' } : page;
+		});
+		const navigation = normalizeGroupSiteNavigation(
+			{ items: nextItems },
+			{
+				pages: pagesWithVisibility
+			}
+		);
+		sitePages = pagesWithVisibility.map((page) => (page.is_home ? { ...page, navigation } : page));
+		siteConfig = {
+			...siteConfig,
+			site_pages: sitePages,
+			page_blocks: sitePages[0]?.blocks || pageBlocks
+		};
+	}
+
+	function updateNavigationItem(itemId, patch) {
+		setNavigationItems(
+			navigationItems.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
+		);
+	}
+
+	function setSelectedPageNavigationVisible(visible) {
+		const itemId = `page:${selectedPageId}`;
+		setNavigationItems(
+			navigationItems.map((item) =>
+				item.id === itemId
+					? {
+							...item,
+							placement: visible
+								? item.placement === 'hidden'
+									? 'more'
+									: item.placement
+								: 'hidden'
+						}
+					: item
+			)
+		);
+	}
+
+	function moveNavigationItem(itemId, offset) {
+		const index = navigationItems.findIndex((item) => item.id === itemId);
+		const target = index + offset;
+		if (index < 0 || target < 0 || target >= navigationItems.length) return;
+		const next = [...navigationItems];
+		[next[index], next[target]] = [next[target], next[index]];
+		setNavigationItems(next);
 	}
 
 	beforeNavigate(({ cancel }) => {
@@ -444,7 +631,12 @@
 >
 	<input type="hidden" name="microsite_slug" value={slugInput} />
 	<input type="hidden" name="return_view" value={activeView} />
-	<input type="hidden" name="page_blocks_json" value={JSON.stringify(pageBlocks)} />
+	<input
+		type="hidden"
+		name="page_blocks_json"
+		value={JSON.stringify(sitePages[0]?.blocks || pageBlocks)}
+	/>
+	<input type="hidden" name="site_pages_json" value={JSON.stringify(sitePages)} />
 	<input type="hidden" name="site_title" value={siteConfig.site_title || ''} />
 	<input type="hidden" name="site_tagline" value={siteConfig.site_tagline || ''} />
 	<input type="hidden" name="home_intro" value={siteConfig.home_intro || ''} />
@@ -603,7 +795,7 @@
 		class="card preset-outlined-surface-200-800 sticky top-2 z-30 p-1.5 shadow-lg"
 		aria-label="Website workspace"
 	>
-		<div class="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-6" role="tablist">
+		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-7" role="tablist">
 			{#each views as view, index}{@const ViewIcon = view.icon}<button
 					class="btn btn-sm min-h-12 justify-center {activeView === view.id
 						? 'preset-filled-primary-500'
@@ -635,6 +827,121 @@
 			aria-labelledby={`site-view-${activeView}`}
 		>
 			{#if activeView === 'builder'}
+				<section class="card preset-tonal-surface grid gap-4 p-4 sm:p-5">
+					<div class="flex flex-wrap items-center gap-3">
+						<div class="mr-auto">
+							<p class="eyebrow">Website pages</p>
+							<h2 class="h3">Build a complete website</h2>
+							<p class="mt-1 text-sm opacity-65">Choose a page, then arrange its sections below.</p>
+						</div>
+						<button
+							class="btn btn-sm preset-filled-primary-500"
+							type="button"
+							onclick={addSitePage}
+							disabled={sitePages.length >= 12}
+						>
+							<IconPlus class="h-4 w-4" /> Add page
+						</button>
+					</div>
+					<div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Website pages">
+						{#each sitePages as page}
+							<button
+								class="btn btn-sm shrink-0 {selectedPageId === page.id
+									? 'preset-filled-primary-500'
+									: 'preset-tonal-surface'}"
+								type="button"
+								role="tab"
+								aria-selected={selectedPageId === page.id}
+								onclick={() => selectSitePage(page.id)}
+							>
+								{page.nav_label || page.title}{page.is_home ? ' · Home' : ''}
+							</button>
+						{/each}
+					</div>
+					{#if selectedSitePage}
+						<div class="preset-divider-top grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-4">
+							<label class="label"
+								><span>Page title</span><input
+									class="input"
+									value={selectedSitePage.title}
+									oninput={(event) => updateSelectedPage({ title: event.currentTarget.value })}
+									maxlength="120"
+								/></label
+							>
+							<label class="label"
+								><span>Menu label</span><input
+									class="input"
+									value={selectedSitePage.nav_label}
+									oninput={(event) => updateSelectedPage({ nav_label: event.currentTarget.value })}
+									maxlength="40"
+								/></label
+							>
+							<label class="label"
+								><span>Page address</span>
+								<div class="input flex items-center gap-1">
+									<span class="opacity-45">/</span><input
+										class="min-w-0 grow bg-transparent outline-none"
+										value={selectedSitePage.slug}
+										oninput={(event) => updateSelectedPage({ slug: event.currentTarget.value })}
+										disabled={selectedSitePage.is_home}
+										placeholder={selectedSitePage.is_home ? 'home' : 'about'}
+									/>
+								</div></label
+							>
+							<label class="label md:col-span-2 xl:col-span-1"
+								><span>Page introduction</span><input
+									class="input"
+									value={selectedSitePage.description}
+									oninput={(event) =>
+										updateSelectedPage({ description: event.currentTarget.value })}
+									maxlength="360"
+								/></label
+							>
+							<label class="label md:col-span-2"
+								><span>Search description</span><input
+									class="input"
+									value={selectedSitePage.seo_description}
+									oninput={(event) =>
+										updateSelectedPage({ seo_description: event.currentTarget.value })}
+									maxlength="180"
+								/></label
+							>
+							<label class="flex items-center gap-2 text-sm md:col-span-2"
+								><input
+									class="checkbox"
+									type="checkbox"
+									checked={selectedSitePage.show_in_nav}
+									disabled={selectedSitePage.is_home}
+									onchange={(event) =>
+										setSelectedPageNavigationVisible(event.currentTarget.checked)}
+								/> Show in website menu</label
+							>
+							{#if !selectedSitePage.is_home}
+								<div class="flex flex-wrap gap-2 md:col-span-2">
+									<button
+										class="btn btn-sm preset-tonal-surface"
+										type="button"
+										onclick={() => moveSelectedPage(-1)}
+										disabled={sitePages.findIndex((page) => page.id === selectedPageId) <= 1}
+										><IconArrowLeft class="h-4 w-4" /> Earlier</button
+									>
+									<button
+										class="btn btn-sm preset-tonal-surface"
+										type="button"
+										onclick={() => moveSelectedPage(1)}
+										disabled={sitePages.findIndex((page) => page.id === selectedPageId) >=
+											sitePages.length - 1}>Later <IconArrowRight class="h-4 w-4" /></button
+									>
+									<button
+										class="btn btn-sm preset-tonal-error md:ml-auto"
+										type="button"
+										onclick={removeSelectedPage}><IconTrash class="h-4 w-4" /> Remove page</button
+									>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</section>
 				<section class="card preset-tonal-surface grid gap-4 p-4 sm:p-5">
 					<div class="flex flex-wrap items-start gap-3">
 						<div class="mr-auto max-w-3xl">
@@ -697,9 +1004,115 @@
 					blocks={pageBlocks}
 					config={siteConfig}
 					group={data.group}
+					page={selectedSitePage}
 					onchange={updatePageBlocks}
 					onconfigchange={updateSiteConfig}
+					onpagechange={updateSelectedPage}
 				/>
+			{:else if activeView === 'navigation'}
+				<section class="card preset-tonal-surface grid gap-5 p-4 sm:p-5">
+					<div class="flex flex-wrap items-start gap-3">
+						<div class="mr-auto max-w-3xl">
+							<p class="eyebrow">Navigation editor</p>
+							<h2 class="h3">Keep the header short and useful</h2>
+							<p class="mt-1 text-sm opacity-65">
+								Choose up to {GROUP_SITE_PRIMARY_NAV_LIMIT} important links for the header. Put everything
+								else in More, or hide it completely.
+							</p>
+						</div>
+						<span
+							class="badge {primaryNavigationCount >= GROUP_SITE_PRIMARY_NAV_LIMIT
+								? 'preset-tonal-warning'
+								: 'preset-tonal-success'}"
+						>
+							{primaryNavigationCount} of {GROUP_SITE_PRIMARY_NAV_LIMIT} primary links
+						</span>
+					</div>
+
+					<div class="grid gap-3 lg:grid-cols-2">
+						<div class="card preset-tonal-primary p-4">
+							<p class="text-xs font-semibold tracking-[0.14em] uppercase opacity-60">
+								Primary header
+							</p>
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#each navigationItems.filter((item) => item.placement === 'primary') as item}
+									<span class="badge preset-tonal-surface">{item.label}</span>
+								{/each}
+							</div>
+						</div>
+						<div class="card preset-tonal-secondary p-4">
+							<p class="text-xs font-semibold tracking-[0.14em] uppercase opacity-60">More menu</p>
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#each navigationItems.filter((item) => item.placement === 'more') as item}
+									<span class="badge preset-tonal-surface">{item.label}</span>
+								{:else}
+									<span class="text-sm opacity-55">No extra links</span>
+								{/each}
+							</div>
+						</div>
+					</div>
+
+					<div class="grid gap-2">
+						{#each navigationItems as item, index}
+							{@const meta = navigationItemMeta(item)}
+							<div
+								class="card preset-outlined-surface-200-800 grid gap-3 p-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(10rem,0.55fr)] sm:items-center"
+							>
+								<div class="flex gap-1">
+									<button
+										class="btn btn-sm preset-tonal-surface"
+										type="button"
+										aria-label={`Move ${item.label} earlier`}
+										onclick={() => moveNavigationItem(item.id, -1)}
+										disabled={meta.locked || index <= 1}><IconArrowLeft class="h-4 w-4" /></button
+									><button
+										class="btn btn-sm preset-tonal-surface"
+										type="button"
+										aria-label={`Move ${item.label} later`}
+										onclick={() => moveNavigationItem(item.id, 1)}
+										disabled={meta.locked || index >= navigationItems.length - 1}
+										><IconArrowRight class="h-4 w-4" /></button
+									>
+								</div>
+								<label class="label min-w-0"
+									><span>{meta.kind} · <span class="opacity-55">{meta.detail}</span></span><input
+										class="input"
+										value={item.label}
+										maxlength="40"
+										oninput={(event) =>
+											updateNavigationItem(item.id, { label: event.currentTarget.value })}
+									/></label
+								>
+								<label class="label"
+									><span>Show this link in</span><select
+										class="select"
+										value={item.placement}
+										disabled={meta.locked}
+										onchange={(event) =>
+											updateNavigationItem(item.id, {
+												placement: event.currentTarget.value
+											})}
+									>
+										{#each GROUP_SITE_NAV_PLACEMENTS as placement}
+											<option
+												value={placement}
+												disabled={placement === 'primary' &&
+													item.placement !== 'primary' &&
+													primaryNavigationCount >= GROUP_SITE_PRIMARY_NAV_LIMIT}
+												>{navigationPlacementLabels[placement]}</option
+											>
+										{/each}
+									</select></label
+								>
+							</div>
+						{/each}
+					</div>
+
+					<p class="card preset-tonal-surface p-3 text-sm opacity-70">
+						On phones, Primary and More links appear together inside the menu. Hidden links remain
+						available by their direct address.
+					</p>
+				</section>
 			{:else if activeView === 'quick'}
 				<details class="card preset-tonal-secondary">
 					<summary class="flex cursor-pointer items-center gap-3 p-4 sm:p-5"

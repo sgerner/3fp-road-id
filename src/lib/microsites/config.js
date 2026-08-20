@@ -1,5 +1,6 @@
 import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
 import { buildDefaultGroupSiteBlocks, normalizeGroupSiteBlocks } from './blocks.js';
+import { normalizeGroupSitePages } from './pages.js';
 
 export const GROUP_SITE_THEME_OPTIONS = [
 	{ value: '3fp', label: '3FP' },
@@ -188,6 +189,7 @@ function normalizeSections(value) {
 }
 
 export function buildDefaultGroupSiteConfig(group = {}) {
+	const pageBlocks = buildDefaultGroupSiteBlocks({ sections: DEFAULT_SITE_SECTIONS });
 	const name = clampText(group?.name, 120) || 'Community Cycling Group';
 	const location = [cleanText(group?.city), cleanText(group?.state_region)]
 		.filter(Boolean)
@@ -246,7 +248,8 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 		ride_widget_config: normalizeRideWidgetConfig({}),
 		announcement_expires_at: null,
 		sections: { ...DEFAULT_SITE_SECTIONS },
-		page_blocks: buildDefaultGroupSiteBlocks({ sections: DEFAULT_SITE_SECTIONS }),
+		page_blocks: pageBlocks,
+		site_pages: normalizeGroupSitePages([], { homeBlocks: pageBlocks }),
 		ai_prompt: '',
 		published: true
 	};
@@ -264,6 +267,13 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		.slice(0, MAX_SPONSOR_ITEMS);
 	const sections = normalizeSections(source.sections);
 	const rideWidgetEnabled = normalizeBoolean(source.ride_widget_enabled, base.ride_widget_enabled);
+
+	const pageBlocks = normalizeGroupSiteBlocks(source.page_blocks, {
+		sections,
+		rideWidgetEnabled
+	});
+	const sitePages = normalizeGroupSitePages(source.site_pages, { homeBlocks: pageBlocks });
+	const homePageBlocks = sitePages[0]?.blocks || pageBlocks;
 
 	return {
 		site_title: clampText(source.site_title || base.site_title, 120) || base.site_title,
@@ -320,10 +330,8 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		ride_widget_config: normalizeRideWidgetConfig(source.ride_widget_config || {}),
 		announcement_expires_at: normalizeIsoDateTime(source.announcement_expires_at),
 		sections,
-		page_blocks: normalizeGroupSiteBlocks(source.page_blocks, {
-			sections,
-			rideWidgetEnabled
-		}),
+		page_blocks: homePageBlocks,
+		site_pages: sitePages,
 		ai_prompt: clampText(source.ai_prompt || '', 2000),
 		published: normalizeBoolean(source.published, true)
 	};
@@ -367,6 +375,7 @@ export function serializeGroupSiteConfig(config) {
 		announcement_expires_at: normalized.announcement_expires_at || null,
 		sections: normalized.sections,
 		page_blocks: normalized.page_blocks,
+		site_pages: normalized.site_pages,
 		ai_prompt: normalized.ai_prompt || null,
 		published: normalized.published
 	};
@@ -471,6 +480,7 @@ export function parseGroupSiteFormData(formData, { group = null } = {}) {
 			announcement_expires_at: formData.get('announcement_expires_at'),
 			sections,
 			page_blocks: formData.get('page_blocks_json'),
+			site_pages: formData.get('site_pages_json'),
 			ai_prompt: formData.get('ai_prompt'),
 			published: formData.get('published') !== 'off'
 		},
@@ -493,7 +503,8 @@ export function mergeGroupSiteConfig(...values) {
 				...(merged.sections || {}),
 				...(value.sections || {})
 			},
-			page_blocks: Array.isArray(value.page_blocks) ? value.page_blocks : merged.page_blocks
+			page_blocks: Array.isArray(value.page_blocks) ? value.page_blocks : merged.page_blocks,
+			site_pages: Array.isArray(value.site_pages) ? value.site_pages : merged.site_pages
 		};
 	}
 	return normalizeGroupSiteConfig(merged);

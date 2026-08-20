@@ -30,8 +30,10 @@
 		blocks = [],
 		config = {},
 		group = {},
+		page = null,
 		onchange = () => {},
-		onconfigchange = () => {}
+		onconfigchange = () => {},
+		onpagechange = () => {}
 	} = $props();
 
 	const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -546,7 +548,7 @@
 									></div>
 									<div class="relative z-10 max-w-3xl">
 										<span class="badge preset-tonal-surface mb-4 w-fit"
-											>{group.city || 'Local'} community</span
+											>{page?.is_home ? `${group.city || 'Local'} community` : 'Website page'}</span
 										>
 										<div class="flex items-center gap-4">
 											{#if group.logo_url}<img
@@ -555,11 +557,13 @@
 													alt=""
 												/>{/if}
 											<h2 class="text-3xl font-black tracking-tight sm:text-6xl">
-												{blockHeading(block)}
+												{page?.is_home ? blockHeading(block) : page?.title || blockHeading(block)}
 											</h2>
 										</div>
 										<p class="mt-4 max-w-2xl text-base opacity-85 sm:text-lg">
-											{config.site_tagline || 'A welcoming cycling community.'}
+											{page?.is_home
+												? config.site_tagline || 'A welcoming cycling community.'
+												: page?.description || 'Add a short introduction for this page.'}
 										</p>
 										<div class="mt-6 flex flex-wrap gap-2">
 											<span class="btn preset-filled-primary-500">Explore the group</span><span
@@ -783,19 +787,26 @@
 			<div class="preset-divider-top grid gap-3 pt-4">
 				{#if selectedBlock.type === 'hero'}
 					<label class="label"
-						><span>Website title</span><input
+						><span>{page?.is_home === false ? 'Page title' : 'Website title'}</span><input
 							class="input"
-							value={config.site_title || ''}
+							value={page?.is_home === false ? page.title || '' : config.site_title || ''}
 							maxlength="120"
-							oninput={(event) => updateConfig('site_title', event.currentTarget.value)}
+							oninput={(event) =>
+								page?.is_home === false
+									? onpagechange({ title: event.currentTarget.value })
+									: updateConfig('site_title', event.currentTarget.value)}
 						/></label
 					><label class="label"
-						><span>One-line promise</span><textarea
+						><span>{page?.is_home === false ? 'Page introduction' : 'One-line promise'}</span
+						><textarea
 							class="textarea"
 							rows="3"
-							maxlength="180"
-							value={config.site_tagline || ''}
-							oninput={(event) => updateConfig('site_tagline', event.currentTarget.value)}
+							maxlength={page?.is_home === false ? 360 : 180}
+							value={page?.is_home === false ? page.description || '' : config.site_tagline || ''}
+							oninput={(event) =>
+								page?.is_home === false
+									? onpagechange({ description: event.currentTarget.value })
+									: updateConfig('site_tagline', event.currentTarget.value)}
 						></textarea></label
 					>
 					<p class="card preset-tonal-surface p-3 text-xs opacity-65">

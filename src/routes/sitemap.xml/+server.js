@@ -64,7 +64,7 @@ async function loadPublishedGroupRows() {
 
 	const { data: configs } = await db
 		.from('group_site_configs')
-		.select('group_id,published,updated_at')
+		.select('group_id,published,updated_at,site_pages')
 		.in('group_id', groupIds);
 	const configByGroupId = new Map(
 		(Array.isArray(configs) ? configs : []).map((config) => [config.group_id, config])
@@ -190,6 +190,13 @@ function buildMicrositeEntries(site, origin) {
 	const homeLastmod = site?.group?.updated_at || site?.siteConfig?.updated_at || null;
 
 	entries.push({ loc: homeUrl, lastmod: homeLastmod });
+	for (const page of site?.siteConfig?.site_pages || []) {
+		if (page?.is_home || !page?.slug) continue;
+		entries.push({
+			loc: toAbsoluteUrl(origin, joinPathname(homePath, page.slug)),
+			lastmod: homeLastmod
+		});
+	}
 
 	if (site?.siteConfig?.sections?.news && (site?.newsPosts?.length || 0) > 0) {
 		const latestNews =
@@ -273,9 +280,26 @@ export const GET = async ({ fetch, url }) => {
 		for (const { group, config } of publishedSites) {
 			const groupSlug = normalizeMicrositeSlug(group?.slug || '');
 			if (groupSlug) {
+				const groupPath = `/groups/${groupSlug}`;
 				addSitemapEntry(
 					entryMap,
-					toAbsoluteUrl(url.origin, `/groups/${groupSlug}`),
+					toAbsoluteUrl(url.origin, groupPath),
+					config?.updated_at || group?.updated_at || null
+				);
+			}
+			const siteSlug = normalizeMicrositeSlug(group?.microsite_slug || group?.slug || '');
+			if (!siteSlug) continue;
+			const sitePath = `/${siteSlug}`;
+			addSitemapEntry(
+				entryMap,
+				toAbsoluteUrl(url.origin, sitePath),
+				config?.updated_at || group?.updated_at || null
+			);
+			for (const page of config?.site_pages || []) {
+				if (page?.is_home || !page?.slug) continue;
+				addSitemapEntry(
+					entryMap,
+					toAbsoluteUrl(url.origin, joinPathname(sitePath, page.slug)),
 					config?.updated_at || group?.updated_at || null
 				);
 			}

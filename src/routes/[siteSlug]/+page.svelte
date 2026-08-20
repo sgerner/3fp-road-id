@@ -21,7 +21,17 @@
 	const site = $derived(data.site);
 	const group = $derived(site.group);
 	const config = $derived(site.siteConfig);
-	const pageBlocks = $derived(config?.page_blocks || []);
+	const currentPage = $derived(
+		data.currentPage || config?.site_pages?.find((page) => page.is_home) || config?.site_pages?.[0]
+	);
+	const pageBlocks = $derived(currentPage?.blocks || config?.page_blocks || []);
+	const heroTitle = $derived(
+		currentPage?.is_home ? config?.site_title : currentPage?.title || config?.site_title
+	);
+	const heroTagline = $derived(
+		currentPage?.is_home ? config?.site_tagline : currentPage?.description || config?.site_tagline
+	);
+	const heroBlock = $derived(pageBlocks.find((block) => block.type === 'hero') || null);
 	const heroStyle = $derived(config?.hero_style || 'immersive');
 	const panelStyle = $derived(config?.panel_style || 'glass');
 	const panelTone = $derived(config?.panel_tone || 'surface');
@@ -188,6 +198,11 @@
 	function blockActionHref(block) {
 		const configured = String(block?.button_url || '').trim();
 		if (['/join', '/updates', '/assets'].includes(configured)) return siteChildHref(configured);
+		if (
+			configured.startsWith('/') &&
+			config?.site_pages?.some((page) => page.slug && configured === `/${page.slug}`)
+		)
+			return siteChildHref(configured);
 		if (configured) return configured;
 		if (block?.type === 'volunteer') return `/volunteer/groups/${group.slug}`;
 		if (block?.type === 'updates') return siteChildHref('/updates');
@@ -196,6 +211,15 @@
 			return siteChildHref('/join');
 		return '';
 	}
+	const heroActions = $derived.by(() => {
+		if (heroBlock?.button_label && heroBlock?.button_url) {
+			const href = blockActionHref(heroBlock);
+			return href
+				? [{ label: heroBlock.button_label, href, external: /^https?:\/\//i.test(href) }]
+				: [];
+		}
+		return currentPage?.is_home ? site.actions : [];
+	});
 	function formatDate(value) {
 		if (!value) return 'Soon';
 		const date = new Date(value);
@@ -251,7 +275,11 @@
 
 <svelte:window onkeydown={handleKeydown} />
 <svelte:head>
-	<title>{config.site_title}</title>
+	<title
+		>{currentPage?.is_home
+			? config.site_title
+			: `${currentPage?.title} — ${config.site_title}`}</title
+	>
 </svelte:head>
 <div class="microsite-page max-w-7xl {pageStyleClass}">
 	<!-- ═══════════════════════════════════════════════════════════
@@ -345,11 +373,11 @@ HERO — cinematic cover with integrated CTAs
 										<div class="skeleton h-14 w-14 rounded-xl md:h-20 md:w-20"></div>
 									{/if}
 									<div class="min-w-0 flex-1">
-										{#if config.site_title}
+										{#if heroTitle}
 											<h1
 												class="text-primary-500 text-4xl leading-[0.92] font-black tracking-tight break-words [text-shadow:0_2px_20px_color-mix(in_oklab,black_40%,transparent)] max-md:text-[2rem] max-md:leading-[0.95] md:text-6xl lg:text-7xl"
 											>
-												{config.site_title}
+												{heroTitle}
 											</h1>
 										{:else}
 											<div class="skeleton mb-2 h-10 w-full rounded md:h-14"></div>
@@ -358,9 +386,9 @@ HERO — cinematic cover with integrated CTAs
 									</div>
 								</div>
 								<!-- Tagline -->
-								{#if config.site_tagline}
+								{#if heroTagline}
 									<AutoLinkText
-										text={config.site_tagline}
+										text={heroTagline}
 										className="!text-white block mt-4 max-w-xl text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
 										linkClass="!text-white underline underline-offset-2"
 									/>
@@ -368,9 +396,9 @@ HERO — cinematic cover with integrated CTAs
 									<div class="skeleton mt-4 h-4 w-full max-w-xl rounded"></div>
 								{/if}
 								<!-- CTAs -->
-								{#if site.actions.length}
+								{#if heroActions.length}
 									<div class="mt-6 flex flex-wrap items-center gap-3">
-										{#each site.actions as action, i}
+										{#each heroActions as action, i}
 											<a
 												href={action.href}
 												target={action.external ? '_blank' : undefined}
@@ -451,18 +479,18 @@ HERO — cinematic cover with integrated CTAs
 										{:else}
 											<div class="skeleton mt-4 h-3 w-24 rounded"></div>
 										{/if}
-										{#if config.site_title}
+										{#if heroTitle}
 											<h1
 												class="text-primary-500 mt-3 text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
 											>
-												{config.site_title}
+												{heroTitle}
 											</h1>
 										{:else}
 											<div class="skeleton mt-3 h-10 w-48 rounded"></div>
 										{/if}
-										{#if config.site_tagline}
+										{#if heroTagline}
 											<AutoLinkText
-												text={config.site_tagline}
+												text={heroTagline}
 												className="mt-3 block max-w-md text-base leading-relaxed text-surface-50/80"
 												linkClass="text-surface-50 underline underline-offset-2"
 											/>
@@ -470,9 +498,9 @@ HERO — cinematic cover with integrated CTAs
 											<div class="skeleton mt-3 h-4 w-64 rounded"></div>
 										{/if}
 									</div>
-									{#if site.actions.length}
+									{#if heroActions.length}
 										<div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:mt-8">
-											{#each site.actions as action, i}
+											{#each heroActions as action, i}
 												<a
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
@@ -544,21 +572,21 @@ HERO — cinematic cover with integrated CTAs
 										<h1
 											class="text-primary-500 text-3xl leading-tight font-black tracking-tight break-words md:text-4xl lg:text-5xl"
 										>
-											{config.site_title}
+											{heroTitle}
 										</h1>
 									</div>
 								</div>
 								<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-									{#if config.site_tagline}
+									{#if heroTagline}
 										<AutoLinkText
-											text={config.site_tagline}
+											text={heroTagline}
 											className="block max-w-xl text-lg leading-relaxed font-medium text-white/90 md:text-xl"
 											linkClass="text-white underline underline-offset-2"
 										/>
 									{/if}
-									{#if site.actions.length}
+									{#if heroActions.length}
 										<div class="flex flex-wrap items-center gap-2 md:gap-3">
-											{#each site.actions as action, i}
+											{#each heroActions as action, i}
 												<a
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
@@ -2761,17 +2789,20 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.custom-content-title {
 		font-size: clamp(1.5rem, 4vw, 2.5rem);
 		font-weight: 800;
+		line-height: 1.08;
 		letter-spacing: -0.03em;
 		margin-top: 0.35rem;
+		overflow-wrap: anywhere;
 	}
-	.custom-content-body {
+	:global(.custom-content-body) {
+		display: block;
 		line-height: 1.75;
 		margin: 0.9rem auto 0;
 		max-width: 52rem;
 		opacity: 0.78;
 		white-space: pre-line;
 	}
-	.custom-content-link {
+	:global(.custom-content-link) {
 		color: var(--color-primary-600);
 		font-weight: 650;
 		text-decoration: underline;
