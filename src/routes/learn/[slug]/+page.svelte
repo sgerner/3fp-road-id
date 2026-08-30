@@ -2,6 +2,7 @@
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHistory from '@lucide/svelte/icons/history';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
@@ -128,6 +129,9 @@
 			return image;
 		}
 	});
+	const optimizedArticleImage = $derived(
+		optimizedImageUrl(data.article.cover_image_url, { width: 1200, height: 400, quality: 68 })
+	);
 	const seoStructuredData = $derived.by(() => {
 		const categoryUrl = buildAbsoluteUrl(
 			$page.url.origin,
@@ -236,18 +240,17 @@
 	<div class="progress-bar-fill" style="width: {scrollProgress * 100}%"></div>
 </div>
 
-	<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
-		<a class="hover:opacity-100" href="/learn">Learn</a>
-		<span aria-hidden="true">/</span>
-		<a class="hover:opacity-100" href={`/learn/category/${data.article.category_slug}`}>
-			{data.article.category_name}
-		</a>
-		<span aria-hidden="true">/</span>
-		<span class="text-surface-600-400">{seoTitle}</span>
-	</nav>
+<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
+	<a class="hover:opacity-100" href="/learn">Learn</a>
+	<span aria-hidden="true">/</span>
+	<a class="hover:opacity-100" href={`/learn/category/${data.article.category_slug}`}>
+		{data.article.category_name}
+	</a>
+	<span aria-hidden="true">/</span>
+	<span class="text-surface-600-400">{seoTitle}</span>
+</nav>
 
 <div class="article-page-root">
-
 	<!-- ═══ MAIN ARTICLE COLUMN ══════════════════════════════════════════ -->
 	<div class="article-main">
 		<section
@@ -258,8 +261,11 @@
 				<div class="aspect-[18/6] overflow-hidden">
 					<img
 						class="h-full w-full object-cover"
-						src={data.article.cover_image_url}
+						src={optimizedArticleImage}
 						alt={data.article.title}
+						width="1200"
+						height="400"
+						decoding="async"
 					/>
 				</div>
 			{/if}

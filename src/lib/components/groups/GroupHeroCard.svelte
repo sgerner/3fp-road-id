@@ -2,11 +2,18 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import { CTA_ICON_MAP } from '$lib/groups/contactLinks.js';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 
 	let { group, canEdit, primaryCta, membershipCta = null } = $props();
 
 	const ctaIcons = CTA_ICON_MAP;
 	const IconComp = $derived(primaryCta ? ctaIcons[primaryCta.key] || IconLink : IconLink);
+	const coverImage = $derived(
+		optimizedImageUrl(group?.cover_photo_url, { width: 1200, height: 576, quality: 68 })
+	);
+	const logoImage = $derived(
+		optimizedImageUrl(group?.logo_url, { width: 96, height: 96, quality: 64 })
+	);
 </script>
 
 <section class="group-hero-card relative overflow-hidden rounded-2xl">
@@ -18,9 +25,13 @@
 	<div class="relative aspect-[16/9] w-full overflow-hidden md:aspect-[21/9]">
 		{#if group?.cover_photo_url}
 			<img
-				src={group.cover_photo_url}
+				src={coverImage}
 				alt="{group.name} cover"
-				loading="lazy"
+				loading="eager"
+				fetchpriority="high"
+				width="1200"
+				height="576"
+				decoding="async"
 				class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
 			/>
 		{:else}
@@ -38,10 +49,13 @@
 				{#if group?.logo_url}
 					<div class="logo-ring shrink-0">
 						<img
-							src={group.logo_url}
+							src={logoImage}
 							alt="{group.name} logo"
 							loading="lazy"
 							class="h-14 w-14 rounded-xl object-cover md:h-20 md:w-20"
+							width="96"
+							height="96"
+							decoding="async"
 						/>
 					</div>
 				{/if}

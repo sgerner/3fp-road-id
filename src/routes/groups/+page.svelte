@@ -4,7 +4,6 @@
 	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import '$lib/map/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMap from '@lucide/svelte/icons/map';
@@ -20,6 +19,7 @@
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
 	import { navigating } from '$app/stores';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 
 	function getInitialFilters() {
 		return data.filters ?? {};
@@ -42,7 +42,7 @@
 	function isMobileViewport() {
 		return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 	}
-	let showMap = $state(!isMobileViewport());
+	let showMap = $state(false);
 	let showMapLightbox = $state(false);
 	let groupCardsEl = $state();
 	let scrollToCardsAfterSearch = $state(false);
@@ -269,24 +269,35 @@
 		return Number.isFinite(g?.latitude) && Number.isFinite(g?.longitude);
 	}
 
-	onMount(async () => {
-		if (isMobileViewport()) showMap = false;
-		try {
-			const mod = await import('leaflet');
-			await import('leaflet.markercluster');
-			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet or clustering', e);
-			return;
+	let mapLoadPromise;
+	async function ensureMapLibrary() {
+		if (L) return L;
+		if (!mapLoadPromise) {
+			mapLoadPromise = Promise.all([
+				import('$lib/map/leaflet.css'),
+				import('leaflet'),
+				import('leaflet.markercluster')
+			]).then(([, mod]) => {
+				L = mod.default || mod;
+				return L;
+			});
 		}
+		return mapLoadPromise;
+	}
+
+	onMount(() => {
 		return () => {
 			try {
 				map?.remove();
 				mapLightbox?.remove();
 			} catch {}
 		};
+	});
+
+	$effect(() => {
+		if (showMap && !L) {
+			ensureMapLibrary().catch((error) => console.error('Failed to load map', error));
+		}
 	});
 
 	function createMap(targetEl) {
@@ -806,10 +817,17 @@
 							>
 								{#if g.cover_photo_url}
 									<img
-										src={g.cover_photo_url}
+										src={optimizedImageUrl(g.cover_photo_url, {
+											width: 768,
+											height: 576,
+											quality: 64
+										})}
 										alt="{g.name} cover"
 										loading="lazy"
 										class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+										width="768"
+										height="576"
+										decoding="async"
 									/>
 								{/if}
 
@@ -835,10 +853,17 @@
 										<!-- Logo -->
 										{#if g.logo_url}
 											<img
-												src={g.logo_url}
+												src={optimizedImageUrl(g.logo_url, {
+													width: 96,
+													height: 96,
+													quality: 64
+												})}
 												alt="{g.name} logo"
 												loading="lazy"
 												class="ring-surface-950-50/20 h-12 w-12 shrink-0 rounded-xl object-cover shadow-lg ring-2"
+												width="96"
+												height="96"
+												decoding="async"
 											/>
 										{:else}
 											<div

@@ -1,4 +1,6 @@
 <script>
+	import { optimizedImageUrl } from '$lib/media/optimized';
+
 	let {
 		eyebrow,
 		title,
@@ -9,6 +11,9 @@
 		stats = [],
 		actions
 	} = $props();
+	const optimizedHeroImage = $derived(
+		optimizedImageUrl(imageUrl, { width: 1200, height: 576, quality: 68 })
+	);
 </script>
 
 <section
@@ -16,9 +21,14 @@
 >
 	{#if imageUrl}
 		<img
-			src={imageUrl}
+			src={optimizedHeroImage}
 			alt={imageAlt}
 			class="absolute inset-0 h-full w-full object-cover saturate-125 contrast-[1.04]"
+			width="1200"
+			height="576"
+			loading="eager"
+			fetchpriority="high"
+			decoding="async"
 		/>
 		<div
 			class="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/88 to-surface-950/50"

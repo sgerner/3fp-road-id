@@ -3,6 +3,7 @@
 	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
 	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
 	import { getRideImage } from '$lib/rides/media';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
@@ -259,7 +260,15 @@
 	}
 
 	function leadImage(ride) {
-		return getRideImage(ride);
+		return optimizedImageUrl(getRideImage(ride), {
+			width: 768,
+			height: 432,
+			quality: 64
+		});
+	}
+
+	function cardImage(ride) {
+		return leadImage(ride);
 	}
 
 	function heroImage(ride) {
@@ -282,15 +291,23 @@
 
 	import { onMount } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import 'leaflet/dist/leaflet.css';
+	let mapLoadPromise;
 
 	async function initMap() {
 		if (!mapEl || map) return;
 
 		try {
-			const mod = await import('leaflet');
-			await import('leaflet.markercluster');
-			L = mod.default || mod;
+			if (!mapLoadPromise) {
+				mapLoadPromise = Promise.all([
+					import('$lib/map/leaflet.css'),
+					import('leaflet'),
+					import('leaflet.markercluster')
+				]).then(([, mod]) => {
+					L = mod.default || mod;
+					return L;
+				});
+			}
+			await mapLoadPromise;
 			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
 			await ensureLeafletDefaultIcon(L);
 		} catch (e) {
@@ -641,13 +658,16 @@
 						>
 							<div class="ride-card-accent" aria-hidden="true"></div>
 
-							{#if heroImage(ride)}
+							{#if cardImage(ride)}
 								<div class="ride-card-media">
 									<img
-										src={heroImage(ride)}
+										src={cardImage(ride)}
 										alt={ride.title}
 										class="ride-card-image h-48 w-full object-cover"
 										loading="lazy"
+										width="768"
+										height="432"
+										decoding="async"
 									/>
 									<div class="ride-card-image-overlay" aria-hidden="true"></div>
 									<div class="ride-card-image-badges">
@@ -665,7 +685,7 @@
 
 							<div class="flex flex-1 flex-col gap-4 p-5">
 								<div class="flex flex-wrap items-center gap-2">
-									{#if !heroImage(ride)}
+									{#if !cardImage(ride)}
 										<span class="chip preset-tonal-primary text-xs font-medium">
 											{formatNext(ride)}
 										</span>

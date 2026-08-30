@@ -1,5 +1,6 @@
 <script>
 	import { getRideImages } from '$lib/rides/media';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -19,14 +20,20 @@
 		limitSeoText,
 		toJsonLd
 	} from '$lib/seo';
-	import 'leaflet/dist/leaflet.css';
 
 	const { data } = $props();
 	const ride = $derived.by(() => data?.ride ?? null);
 	const activity = $derived.by(() => ride?.activity ?? null);
 	const rideDetails = $derived.by(() => ride?.rideDetails ?? {});
-	const rideImages = $derived.by(() => getRideImages(rideDetails));
-	const leadRideImage = $derived.by(() => rideImages[0] ?? null);
+	const rideImageSources = $derived.by(() => getRideImages(rideDetails));
+	const rideImages = $derived.by(() =>
+		rideImageSources.map((image) =>
+			optimizedImageUrl(image, { width: 768, height: 512, quality: 64 })
+		)
+	);
+	const leadRideImage = $derived.by(
+		() => optimizedImageUrl(rideImageSources[0], { width: 1200, height: 576, quality: 68 }) || null
+	);
 	const occurrences = $derived.by(() => ride?.occurrences ?? []);
 	let rsvpLoadingId = $state('');
 	let rsvpError = $state('');
@@ -36,6 +43,7 @@
 	let mapEl = $state(null);
 	let map;
 	let marker;
+	let mapLoadPromise;
 
 	const canManage = $derived(Boolean(data?.canManage));
 	const currentUser = $derived(data?.currentUser ?? null);
@@ -266,7 +274,7 @@
 		}
 	}
 
-	onMount(async () => {
+	onMount(() => {
 		const latitude =
 			selectedOccurrence?.start_latitude ??
 			activity?.start_latitude ??
@@ -278,19 +286,36 @@
 			activity?.startLongitude ??
 			null;
 		if (!mapEl || latitude == null || longitude == null) return;
-		try {
-			const L = await import('leaflet');
-			await ensureLeafletDefaultIcon(L);
-			map = L.map(mapEl).setView([Number(latitude), Number(longitude)], 13);
-			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				attribution: '&copy; OpenStreetMap contributors'
-			}).addTo(map);
-			marker = L.marker([Number(latitude), Number(longitude)]).addTo(map);
-		} catch (error) {
-			console.warn('Unable to render ride map', error);
-		}
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (!entries[0]?.isIntersecting) return;
+				observer.disconnect();
+				void (async () => {
+					try {
+						if (!mapLoadPromise) {
+							mapLoadPromise = Promise.all([
+								import('$lib/map/leaflet.css'),
+								import('leaflet')
+							]).then(([, mod]) => mod.default || mod);
+						}
+						const L = await mapLoadPromise;
+						await ensureLeafletDefaultIcon(L);
+						map = L.map(mapEl).setView([Number(latitude), Number(longitude)], 13);
+						L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+							attribution: '&copy; OpenStreetMap contributors'
+						}).addTo(map);
+						marker = L.marker([Number(latitude), Number(longitude)]).addTo(map);
+					} catch (error) {
+						console.warn('Unable to render ride map', error);
+					}
+				})();
+			},
+			{ rootMargin: '200px' }
+		);
+		observer.observe(mapEl);
 
 		return () => {
+			observer.disconnect();
 			map?.remove?.();
 			map = null;
 			marker = null;
@@ -457,6 +482,9 @@
 						alt={`${activity?.title || 'Ride'} photo 2`}
 						class="h-full w-full object-cover"
 						loading="lazy"
+						width="768"
+						height="512"
+						decoding="async"
 					/>
 				</div>
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -467,6 +495,9 @@
 								alt={`${activity?.title || 'Ride'} photo ${index + 3}`}
 								class="h-56 w-full object-cover"
 								loading="lazy"
+								width="768"
+								height="512"
+								decoding="async"
 							/>
 						</div>
 					{/each}

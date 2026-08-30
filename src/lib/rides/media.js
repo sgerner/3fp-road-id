@@ -1,3 +1,5 @@
+import { optimizedImageUrl } from '$lib/media/optimized';
+
 export const DEFAULT_RIDE_IMAGE_URL = '/images/default-ride.webp';
 
 function cleanImageUrls(values) {
@@ -6,13 +8,14 @@ function cleanImageUrls(values) {
 		.filter(Boolean);
 }
 
-export function getRideImages(ride) {
+export function getRideImages(ride, options) {
 	const uploaded = cleanImageUrls(
 		ride?.imageUrls ?? ride?.image_urls ?? ride?.rideDetails?.image_urls
 	);
-	return uploaded.length ? uploaded : [DEFAULT_RIDE_IMAGE_URL];
+	const images = uploaded.length ? uploaded : [DEFAULT_RIDE_IMAGE_URL];
+	return options ? images.map((image) => optimizedImageUrl(image, options)) : images;
 }
 
-export function getRideImage(ride) {
-	return getRideImages(ride)[0];
+export function getRideImage(ride, options) {
+	return getRideImages(ride, options)[0];
 }

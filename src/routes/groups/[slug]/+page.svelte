@@ -28,7 +28,6 @@
 		CONTACT_ICON_MAP
 	} from '$lib/groups/contactLinks';
 	import { onMount } from 'svelte';
-	import 'leaflet/dist/leaflet.css';
 	import { page } from '$app/stores';
 	import { fade, slide } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
@@ -51,6 +50,7 @@
 	let map;
 	let marker;
 	let mapInitialized = $state(false);
+	let mapLoadPromise;
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
@@ -59,9 +59,24 @@
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
 	async function initMap() {
-		if (!L || !mapEl || map || mapInitialized) return;
+		if (!mapEl || map || mapInitialized) return;
 		// Small delay to ensure container is properly rendered
 		await new Promise((resolve) => setTimeout(resolve, 100));
+		try {
+			if (!mapLoadPromise) {
+				mapLoadPromise = Promise.all([import('$lib/map/leaflet.css'), import('leaflet')]).then(
+					([, mod]) => {
+						L = mod.default || mod;
+						return L;
+					}
+				);
+			}
+			await mapLoadPromise;
+			await ensureLeafletDefaultIcon(L);
+		} catch (error) {
+			console.error('Failed to load Leaflet', error);
+			return;
+		}
 		const z = 12;
 		map = L.map(mapEl).setView([lat, lng], z);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -72,20 +87,17 @@
 		mapInitialized = true;
 	}
 
-	onMount(async () => {
-		if (!hasCoords) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-			return;
-		}
-		// Try to init map immediately and also after a delay (for when details section is collapsed initially)
-		requestAnimationFrame(() => initMap());
-		setTimeout(() => initMap(), 500);
+	onMount(() => {
+		if (!hasCoords || !mapEl) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (!entries[0]?.isIntersecting) return;
+				observer.disconnect();
+				void initMap();
+			},
+			{ rootMargin: '200px' }
+		);
+		observer.observe(mapEl);
 	});
 
 	// Re-init map when map element is ready

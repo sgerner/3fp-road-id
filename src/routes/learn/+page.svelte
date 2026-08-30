@@ -7,6 +7,7 @@
 	import IconHistory from '@lucide/svelte/icons/history';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 
 	const { data } = $props();
 
@@ -18,6 +19,9 @@
 		Array.from(new Set(articles.map((article) => article.category_name).filter(Boolean))).sort()
 	);
 	const heroArticle = $derived(articles.find((article) => article.cover_image_url) ?? null);
+	const heroArticleImage = $derived(
+		optimizedImageUrl(heroArticle?.cover_image_url, { width: 1200, height: 576, quality: 68 })
+	);
 	const filteredArticles = $derived(
 		articles.filter((article) => {
 			const query = search.trim().toLowerCase();
@@ -53,7 +57,7 @@
 		title="Knowledge that makes every ride safer."
 		description="Practical crash guidance, organizing playbooks, and lessons from people building better streets. Read what works, improve what is weak, and share what your community learns."
 		icon={IconBookOpen}
-		imageUrl={heroArticle?.cover_image_url}
+		imageUrl={heroArticleImage}
 		imageAlt={heroArticle ? heroArticle.title : ''}
 		stats={[
 			{ value: articles.length, label: 'Articles' },
@@ -113,9 +117,16 @@
 						{#if article.cover_image_url}
 							<img
 								class="aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-								src={article.cover_image_url}
+								src={optimizedImageUrl(article.cover_image_url, {
+									width: 768,
+									height: 432,
+									quality: 64
+								})}
 								alt={article.title}
 								loading="lazy"
+								width="768"
+								height="432"
+								decoding="async"
 							/>
 						{/if}
 						<div class="flex flex-1 flex-col p-5">
