@@ -14,6 +14,7 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import { merchCart } from '$lib/merch/cart';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 
 	let { data } = $props();
 	let selectedVariantIdByProduct = $state({});
@@ -73,8 +74,8 @@
 
 	function productImages(product) {
 		const list = Array.isArray(product?.images) ? product.images : [];
-		if (list.length) return list;
-		return product?.image_url ? [product.image_url] : [];
+		const images = list.length ? list : product?.image_url ? [product.image_url] : [];
+		return images.map((image) => optimizedImageUrl(image, { width: 768, quality: 64 }));
 	}
 
 	function productFeaturedImage(product) {
@@ -264,6 +265,11 @@
 									src={productFeaturedImage(featured)}
 									alt={featured.name}
 									class="h-full w-full object-contain transition duration-500 hover:scale-[1.04]"
+									width="768"
+									height="768"
+									loading="eager"
+									fetchpriority="high"
+									decoding="async"
 								/>
 								<div class="cinema-overlay">
 									<IconExpand class="h-3.5 w-3.5" />
@@ -334,6 +340,10 @@
 													src={image}
 													alt={`${product.name} image ${index + 1}`}
 													class="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+													width="768"
+													height="768"
+													loading={index === 0 ? 'eager' : 'lazy'}
+													decoding="async"
 												/>
 												<div class="cinema-overlay">
 													<IconExpand class="h-3.5 w-3.5" />

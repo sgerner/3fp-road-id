@@ -7,7 +7,8 @@ const OPTIMIZABLE_HOSTS = [
 	(hostname) => hostname === 'smugmug.com' || hostname.endsWith('.smugmug.com'),
 	(hostname) => hostname === 'phoenixbikes.org' || hostname.endsWith('.phoenixbikes.org'),
 	(hostname) => hostname === 'wp.com' || hostname.endsWith('.wp.com'),
-	(hostname) => hostname === 'squarespace-cdn.com' || hostname.endsWith('.squarespace-cdn.com')
+	(hostname) => hostname === 'squarespace-cdn.com' || hostname.endsWith('.squarespace-cdn.com'),
+	(hostname) => hostname === 'files.cdn.printful.com' || hostname.endsWith('.cdn.printful.com')
 ];
 
 export function isOptimizableImageHost(source) {
