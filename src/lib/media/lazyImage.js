@@ -16,8 +16,14 @@ export function lazyImage(node) {
 	function load() {
 		if (loaded) return;
 		loaded = true;
+		const sourceSet = node.dataset.srcset;
+		const sizes = node.dataset.sizes;
+		if (sourceSet) node.srcset = sourceSet;
+		if (sizes) node.sizes = sizes;
 		node.src = source;
 		node.removeAttribute('data-src');
+		node.removeAttribute('data-srcset');
+		node.removeAttribute('data-sizes');
 		observer?.disconnect();
 	}
 
@@ -26,7 +32,7 @@ export function lazyImage(node) {
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) load();
 			},
-			{ rootMargin: '200px 0px' }
+			{ rootMargin: node.dataset.rootMargin || '200px 0px' }
 		);
 		observer.observe(node);
 	} else {

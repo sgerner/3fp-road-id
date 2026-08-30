@@ -15,9 +15,24 @@
 		`hero-mode-${site.siteConfig?.hero_style || 'immersive'} panel-${site.siteConfig?.panel_style || 'glass'} tone-${site.siteConfig?.panel_tone || 'surface'}`
 	);
 	const galleryImages = $derived(site.photoBucket?.image_assets || []);
+	const galleryImageSizes =
+		'(min-width: 1440px) 300px, (min-width: 1024px) 31vw, (min-width: 640px) 31vw, calc(50vw - 1.5rem)';
 	const photoCountLabel = $derived(
 		galleryImages.length === 1 ? '1 photo' : `${galleryImages.length} photos`
 	);
+
+	function galleryImageSrc(href) {
+		return optimizedImageUrl(href, { width: 800, quality: 66 });
+	}
+
+	function galleryImageSrcSet(href) {
+		return [480, 800, 1200]
+			.map(
+				(width) =>
+					`${optimizedImageUrl(href, { width, quality: width === 1200 ? 68 : 66 })} ${width}w`
+			)
+			.join(', ');
+	}
 
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
@@ -58,6 +73,16 @@
 		content="Photo gallery for {site.siteConfig?.site_title ||
 			group?.name}. See moments from rides and events."
 	/>
+	{#if galleryImages[0]?.href}
+		<link
+			rel="preload"
+			as="image"
+			href={galleryImageSrc(galleryImages[0].href)}
+			imagesrcset={galleryImageSrcSet(galleryImages[0].href)}
+			imagesizes={galleryImageSizes}
+			fetchpriority="high"
+		/>
+	{/if}
 </svelte:head>
 
 <div class="microsite-page mx-auto max-w-7xl {pageStyleClass} pb-14">
@@ -100,17 +125,34 @@
 						data-scroll-reveal="stagger"
 						style="--stagger: {i}"
 					>
-						<img
-							src={LAZY_IMAGE_PLACEHOLDER}
-							data-src={optimizedImageUrl(image.href, { width: 1200, quality: 70 })}
-							alt={image.title}
-							loading="lazy"
-							decoding="async"
-							use:lazyImage
-						/>
+						{#if i === 0}
+							<img
+								src={galleryImageSrc(image.href)}
+								srcset={galleryImageSrcSet(image.href)}
+								sizes={galleryImageSizes}
+								alt={image.title}
+								loading="eager"
+								fetchpriority="high"
+								decoding="async"
+							/>
+						{:else}
+							<img
+								src={LAZY_IMAGE_PLACEHOLDER}
+								data-src={galleryImageSrc(image.href)}
+								data-srcset={galleryImageSrcSet(image.href)}
+								data-sizes={galleryImageSizes}
+								data-root-margin="80px 0px"
+								alt={image.title}
+								loading="lazy"
+								decoding="async"
+								use:lazyImage
+							/>
+						{/if}
 						<noscript>
 							<img
-								src={optimizedImageUrl(image.href, { width: 1200, quality: 70 })}
+								src={galleryImageSrc(image.href)}
+								srcset={galleryImageSrcSet(image.href)}
+								sizes={galleryImageSizes}
 								alt={image.title}
 							/>
 						</noscript>

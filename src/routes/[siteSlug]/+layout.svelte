@@ -1155,6 +1155,8 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	.microsite-shell.site-advocacy {
 		background: #f4f6f3;
 		color: #12263a;
+		animation: none;
+		background-attachment: scroll;
 	}
 
 	.microsite-shell.site-advocacy::before,
