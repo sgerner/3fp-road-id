@@ -4,6 +4,7 @@
 	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import '$lib/map/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMap from '@lucide/svelte/icons/map';

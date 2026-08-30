@@ -3,11 +3,11 @@
 	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount } from 'svelte';
-	import { supabase } from '$lib/supabaseClient';
 	import { page } from '$app/stores';
 	import { toaster } from './toaster-svelte';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { loadThemeStyles } from '$lib/themeLoader';
+	import LazyGlobalAssistant from '$lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconHome from '@lucide/svelte/icons/home';
@@ -24,7 +24,6 @@
 	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
 	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
 	import IconMail from '@lucide/svelte/icons/mail';
-	import GlobalAssistant from '$lib/components/ai/GlobalAssistant.svelte';
 
 	const themeStorageKey = '3fp-theme';
 	const defaultTheme = '3fp';
@@ -76,6 +75,9 @@
 	let showMobileMenu = $state(false);
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
+	let supabaseClient = null;
+	let authSubscription = null;
+	let turnstileModule = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
@@ -147,21 +149,6 @@
 		return themeOptions.some((option) => option.value === value) ? value : defaultTheme;
 	}
 
-	function applyTheme(value, persist = true) {
-		const nextTheme = normalizeTheme(value);
-		theme = nextTheme;
-		if (typeof document !== 'undefined') {
-			document.documentElement.dataset.theme = nextTheme;
-		}
-		if (persist && typeof window !== 'undefined') {
-			try {
-				window.localStorage.setItem(themeStorageKey, nextTheme);
-			} catch {
-				// ignore
-			}
-		}
-	}
-
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
@@ -225,15 +212,55 @@
 		}
 	}
 
+	async function getSupabaseClient() {
+		if (!supabaseClient) {
+			supabaseClient = (await import('$lib/supabaseClient')).supabase;
+		}
+		return supabaseClient;
+	}
+
+	async function getTurnstileModule() {
+		if (!turnstileModule) turnstileModule = await import('$lib/security/turnstile');
+		return turnstileModule;
+	}
+
+	function syncSessionCookie(session) {
+		try {
+			if (session) {
+				const payload = JSON.stringify(session);
+				document.cookie = `sb_session=${encodeURIComponent(payload)}; Path=/; Max-Age=${60 * 24 * 60 * 60}; SameSite=Lax`;
+			} else {
+				document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	async function ensureAuthSubscription() {
+		const client = await getSupabaseClient();
+		if (authSubscription) return client;
+		const { data: subscriptionData } = client.auth.onAuthStateChange((_event, session) => {
+			user = session?.user || null;
+			showUserMenu = false;
+			syncSessionCookie(session);
+			void Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
+		});
+		authSubscription = subscriptionData?.subscription ?? null;
+		return client;
+	}
+
 	async function initSession() {
-		const { data } = await supabase.auth.getSession();
-		user = data.session?.user || null;
+		const client = await ensureAuthSubscription();
+		const { data: sessionData } = await client.auth.getSession();
+		user = sessionData.session?.user || null;
 		await Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
 	}
 
 	async function initTurnstile() {
 		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
 		try {
+			const { renderTurnstile } = await getTurnstileModule();
 			const widgetId = await renderTurnstile(turnstileEl, {
 				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
 				size: 'invisible'
@@ -244,13 +271,6 @@
 		}
 	}
 
-	$effect(() => {
-		if (isMicrositeRoute) return;
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
-
 	onMount(() => {
 		if (isMicrositeRoute) {
 			return;
@@ -258,31 +278,12 @@
 		try {
 			const storedTheme = window.localStorage.getItem(themeStorageKey);
 			const initialTheme = normalizeTheme(storedTheme || document.documentElement.dataset.theme);
-			applyTheme(initialTheme);
+			void applyTheme(initialTheme);
 		} catch {
-			applyTheme(defaultTheme, false);
+			void applyTheme(defaultTheme, false);
 		}
 
-		void initSession();
-
-		const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-			user = session?.user || null;
-			showUserMenu = false;
-			try {
-				if (session) {
-					const payload = JSON.stringify(session);
-					document.cookie = `sb_session=${encodeURIComponent(payload)}; Path=/; Max-Age=${60 * 24 * 60 * 60}; SameSite=Lax`;
-				} else {
-					document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
-				}
-			} catch {
-				// ignore
-			}
-			void Promise.all([
-				loadCurrentProfile(session?.user || null),
-				loadOwnedGroups(session?.user || null)
-			]);
-		});
+		if (initialUser) void initSession();
 		function onDocClick(e) {
 			if (!showLogin) return;
 			const t = e.target;
@@ -328,7 +329,8 @@
 		document.addEventListener('keydown', onKeyMenu);
 		window.addEventListener('profile-updated', onProfileUpdated);
 		return () => {
-			sub.subscription?.unsubscribe?.();
+			authSubscription?.unsubscribe?.();
+			authSubscription = null;
 			document.removeEventListener('click', onDocClick);
 			document.removeEventListener('keydown', onKey);
 			document.removeEventListener('click', onDocClickUserMenu);
@@ -345,6 +347,7 @@
 		success = '';
 		loading = true;
 		try {
+			void initSession();
 			if (honeypot.trim()) {
 				error = 'Invalid submission.';
 				return;
@@ -360,6 +363,7 @@
 					error = 'Verification failed. Please reload and try again.';
 					return;
 				}
+				const { executeTurnstile } = await getTurnstileModule();
 				turnstileToken = await executeTurnstile(turnstileWidgetId);
 				if (!turnstileToken) {
 					error = 'Verification failed. Please try again.';
@@ -392,13 +396,15 @@
 		} finally {
 			loading = false;
 			if (turnstileEnabled && turnstileWidgetId) {
+				const { resetTurnstile } = await getTurnstileModule();
 				resetTurnstile(turnstileWidgetId);
 			}
 		}
 	}
 
 	async function doLogout() {
-		await supabase.auth.signOut();
+		const client = await ensureAuthSubscription();
+		await client.auth.signOut();
 		showLogin = false;
 		showUserMenu = false;
 		email = '';
@@ -408,6 +414,27 @@
 			document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
 		} catch {
 			// ignore
+		}
+	}
+
+	function toggleLogin() {
+		showLogin = !showLogin;
+		if (showLogin) void initSession();
+	}
+
+	async function applyTheme(value, persist = true) {
+		const nextTheme = normalizeTheme(value);
+		await loadThemeStyles(nextTheme);
+		theme = nextTheme;
+		if (typeof document !== 'undefined') {
+			document.documentElement.dataset.theme = nextTheme;
+		}
+		if (persist && typeof window !== 'undefined') {
+			try {
+				window.localStorage.setItem(themeStorageKey, nextTheme);
+			} catch {
+				// ignore
+			}
 		}
 	}
 
@@ -454,7 +481,14 @@
 						<IconMenu class="h-5 w-5" />
 					</button>
 					<a href="/" class="text-surface-950-50 flex items-center gap-3">
-						<img src="/3fp.png?v=2" alt="3 Feet Please" class="h-9 w-9 rounded-md object-contain" />
+						<img
+							src="/3fp-64.webp"
+							alt="3 Feet Please"
+							class="h-9 w-9 rounded-md object-contain"
+							width="36"
+							height="36"
+							decoding="async"
+						/>
 						<div>
 							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
 						</div>
@@ -546,7 +580,7 @@
 							<button
 								class="chip preset-filled-primary-500"
 								bind:this={loginBtnEl}
-								onclick={() => (showLogin = !showLogin)}
+								onclick={toggleLogin}
 							>
 								Log in / Register
 							</button>
@@ -901,7 +935,7 @@
 			</div>
 		{/if}
 
-		<GlobalAssistant userId={user?.id ?? null} pathname={$page.url.pathname} />
+		<LazyGlobalAssistant userId={user?.id ?? null} pathname={$page.url.pathname} />
 	{/if}
 </div>
 

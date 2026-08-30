@@ -8,6 +8,7 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import '$lib/map/leaflet.css';
 	import { env } from '$env/dynamic/public';
 	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';

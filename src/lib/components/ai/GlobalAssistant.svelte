@@ -17,7 +17,7 @@
 		followUpQuestion: null
 	};
 
-	let { userId = null, pathname = '/' } = $props();
+	let { userId = null, pathname = '/', initialOpen = false } = $props();
 
 	let isOpen = $state(false);
 	let sending = $state(false);
@@ -37,6 +37,10 @@
 	const feedbackEndpoint = '/api/ai/article-feedback';
 	const feedbackSentKeys = new Set();
 	const messageShownAt = new Map();
+
+	$effect(() => {
+		if (initialOpen) isOpen = true;
+	});
 
 	function escapeHtml(value) {
 		return String(value)

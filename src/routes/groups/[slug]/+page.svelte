@@ -28,6 +28,7 @@
 		CONTACT_ICON_MAP
 	} from '$lib/groups/contactLinks';
 	import { onMount } from 'svelte';
+	import 'leaflet/dist/leaflet.css';
 	import { page } from '$app/stores';
 	import { fade, slide } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';

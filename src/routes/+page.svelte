@@ -1,6 +1,7 @@
 <script>
 	import { buildAbsoluteUrl, limitSeoText } from '$lib/seo';
 	import { getRideImage } from '$lib/rides/media';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarDays from '@lucide/svelte/icons/calendar-days';
@@ -33,6 +34,21 @@
 		) ?? null
 	);
 	const nextRide = $derived(data.localRides?.[0] ?? null);
+	const heroImageSmall = $derived(
+		heroGroup?.cover_photo_url
+			? optimizedImageUrl(heroGroup.cover_photo_url, { width: 768, height: 736, quality: 64 })
+			: ''
+	);
+	const heroImageLarge = $derived(
+		heroGroup?.cover_photo_url
+			? optimizedImageUrl(heroGroup.cover_photo_url, { width: 1200, height: 736, quality: 68 })
+			: ''
+	);
+	const nextRideImage = $derived(
+		nextRide
+			? optimizedImageUrl(getRideImage(nextRide), { width: 768, height: 768, quality: 64 })
+			: ''
+	);
 	const alertPrinciples = [
 		{
 			letter: 'A',
@@ -110,6 +126,16 @@
 		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
 	/>
 	<link rel="canonical" href={canonicalUrl} />
+	{#if heroImageLarge}
+		<link
+			rel="preload"
+			as="image"
+			href={heroImageLarge}
+			imagesrcset={`${heroImageSmall} 768w, ${heroImageLarge} 1200w`}
+			imagesizes="100vw"
+			fetchpriority="high"
+		/>
+	{/if}
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content={seoTitle} />
 	<meta property="og:title" content={`${seoTitle} | Find your cycling community`} />
@@ -131,9 +157,15 @@
 	>
 		{#if heroGroup?.cover_photo_url}
 			<img
-				src={heroGroup.cover_photo_url}
+				src={heroImageSmall}
+				srcset={`${heroImageSmall} 768w, ${heroImageLarge} 1200w`}
+				sizes="100vw"
 				alt="Cyclists from {heroGroup.name}"
 				class="absolute inset-0 h-full w-full object-cover object-center"
+				width="1200"
+				height="736"
+				fetchpriority="high"
+				decoding="async"
 			/>
 			<div
 				class="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/90 to-surface-950/15"
@@ -229,10 +261,17 @@
 						<a href={`/groups/${group.slug}`} class="group flex items-center gap-4 py-5 sm:gap-6">
 							<span class="text-sm font-black tabular-nums opacity-35">0{index + 1}</span>
 							<img
-								src={group.logo_url || group.cover_photo_url}
+								src={optimizedImageUrl(group.logo_url || group.cover_photo_url, {
+									width: 96,
+									height: 96,
+									quality: 68
+								})}
 								alt=""
 								class="h-12 w-12 shrink-0 rounded-full object-cover sm:h-14 sm:w-14"
+								width="56"
+								height="56"
 								loading="lazy"
+								decoding="async"
 							/>
 							<span class="min-w-0 flex-1">
 								<strong class="block text-lg leading-tight sm:text-xl">{group.name}</strong>
@@ -275,9 +314,13 @@
 		>
 			{#if nextRide}
 				<img
-					src={getRideImage(nextRide)}
+					src={nextRideImage}
 					alt=""
 					class="absolute inset-0 h-full w-full object-cover"
+					width="768"
+					height="768"
+					loading="lazy"
+					decoding="async"
 				/>
 				<div
 					class="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/75 to-surface-950/20"

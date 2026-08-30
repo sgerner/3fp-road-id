@@ -1,6 +1,7 @@
 <script>
 	let { data } = $props();
 	import { onMount } from 'svelte';
+	import 'leaflet/dist/leaflet.css';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabaseClient';

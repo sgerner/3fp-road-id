@@ -4,20 +4,7 @@
 @plugin '@tailwindcss/typography';
 
 @import '@skeletonlabs/skeleton';
-@import '@skeletonlabs/skeleton/themes/mint';
-@import '@skeletonlabs/skeleton/themes/cerberus';
-@import '@skeletonlabs/skeleton/themes/catppuccin';
-@import '@skeletonlabs/skeleton/themes/legacy';
-@import '@skeletonlabs/skeleton/themes/nouveau';
-@import '@skeletonlabs/skeleton/themes/rose';
-@import '@skeletonlabs/skeleton/themes/sahara';
-@import '@skeletonlabs/skeleton/themes/seafoam';
-@import '@skeletonlabs/skeleton/themes/wintry';
-@import '@toast-ui/editor/dist/toastui-editor.css';
 @import '../src/3fp.css';
-@import 'leaflet/dist/leaflet.css';
-@import 'leaflet.markercluster/dist/MarkerCluster.css';
-@import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 .app-shell h1,
 .app-shell h2,

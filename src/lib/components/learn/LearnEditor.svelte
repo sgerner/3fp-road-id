@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import '@toast-ui/editor/dist/toastui-editor.css';
 
 	let {
 		name = 'bodyMarkdown',
