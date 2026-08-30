@@ -5,12 +5,14 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 
 	const site = $derived(data.site);
 	const group = $derived(site.group);
+	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
 	const pageStyleClass = $derived(
 		`hero-mode-${site.siteConfig?.hero_style || 'immersive'} panel-${site.siteConfig?.panel_style || 'glass'} tone-${site.siteConfig?.panel_tone || 'surface'}`
 	);
@@ -76,9 +78,10 @@
 			<div class="flex items-start gap-4">
 				{#if group?.logo_url}
 					<img
-						src={group.logo_url}
+						src={logoImageHref}
 						alt="{group.name} logo"
 						class="ring-surface-50/10 h-14 w-14 flex-shrink-0 rounded-xl object-cover shadow-lg ring-2"
+						decoding="async"
 					/>
 				{:else}
 					<div
@@ -137,6 +140,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							class="resource-row link-row"
+							data-scroll-reveal="stagger"
 						>
 							<div class="min-w-0 flex-1">
 								<h3 class="resource-title">{asset.title}</h3>
@@ -171,6 +175,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							class="resource-row file-row"
+							data-scroll-reveal="stagger"
 						>
 							<div class="min-w-0 flex-1">
 								<h3 class="resource-title">{asset.title}</h3>

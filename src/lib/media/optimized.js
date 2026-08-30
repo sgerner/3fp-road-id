@@ -8,6 +8,7 @@ const OPTIMIZABLE_HOSTS = [
 	(hostname) => hostname === 'phoenixbikes.org' || hostname.endsWith('.phoenixbikes.org'),
 	(hostname) => hostname === 'wp.com' || hostname.endsWith('.wp.com'),
 	(hostname) => hostname === 'squarespace-cdn.com' || hostname.endsWith('.squarespace-cdn.com'),
+	(hostname) => hostname === 'cdninstagram.com' || hostname.endsWith('.cdninstagram.com'),
 	(hostname) => hostname === 'files.cdn.printful.com' || hostname.endsWith('.cdn.printful.com')
 ];
 

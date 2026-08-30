@@ -192,6 +192,18 @@ export const GROUP_SITE_BLOCK_TYPES = Object.freeze({
 			button_label: 'Browse resources',
 			button_url: '/assets'
 		}
+	},
+	law_directory: {
+		label: 'State law directory',
+		description: 'A searchable state-by-state safe-passing law reference.',
+		singleton: true,
+		defaults: {
+			eyebrow: 'State-by-state guide',
+			title: 'Find the law where you ride',
+			body: 'Search the reference directory by state, statute, or keyword.',
+			button_label: '',
+			button_url: ''
+		}
 	}
 });
 
@@ -208,6 +220,7 @@ export const GROUP_SITE_BLOCK_PALETTE = Object.freeze([
 	'volunteer',
 	'updates',
 	'resources',
+	'law_directory',
 	'text',
 	'call_to_action'
 ]);

@@ -13,11 +13,35 @@
 	import IconMoonStar from '@lucide/svelte/icons/moon-star';
 	import IconSun from '@lucide/svelte/icons/sun';
 	import IconX from '@lucide/svelte/icons/x';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
+	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { fade, fly } from 'svelte/transition';
+	import { scrollReveal } from '$lib/microsites/scrollReveal';
 
 	let { data, children } = $props();
 
 	const site = $derived(data.site);
 	const group = $derived(site?.group ?? null);
+	const heroImageHref = $derived(
+		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
+	);
+	const heroImageSrcSet = $derived(
+		group?.cover_photo_url
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 800, quality: 50 })} 800w, ${heroImageHref} 1600w`
+			: ''
+	);
+	const heroImageMobileHref = $derived(
+		optimizedImageUrl(group?.cover_photo_url, { width: 640, quality: 50 })
+	);
+	const heroImageMobileSrcSet = $derived(
+		group?.cover_photo_url
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${heroImageMobileHref} 640w`
+			: ''
+	);
+	const heroImageSmallHref = $derived(
+		optimizedImageUrl(group?.cover_photo_url, { width: 480, quality: 46 })
+	);
+	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
 	const taxonomy = $derived(site?.taxonomy || { audiences: [], disciplines: [], skills: [] });
 	const basePath = $derived(site?.basePath || '');
 	const homeHref = $derived(basePath || '/');
@@ -26,6 +50,7 @@
 	const galleryHref = $derived(basePath ? `${basePath}/gallery` : '/gallery');
 	const assetsHref = $derived(basePath ? `${basePath}/assets` : '/assets');
 	const contactHref = $derived(basePath ? `${basePath}#contact` : '/#contact');
+	const communityHref = 'https://3fp.org';
 	const membershipCtaLabel = $derived(
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
 	);
@@ -128,7 +153,7 @@
 		const payload = isHomePage
 			? {
 					'@context': 'https://schema.org',
-					'@type': 'SportsOrganization',
+					'@type': group?.slug === '3-feet-please' ? 'NGO' : 'SportsOrganization',
 					name: seoTitle,
 					description: seoDescription,
 					url: siteRootUrl,
@@ -192,6 +217,9 @@
 
 	let mobileMenuOpen = $state(false);
 	let colorMode = $state('light');
+	let prefersReducedMotion = $state(false);
+	let hasMounted = $state(false);
+	const routeTransitionKey = $derived(currentPathname);
 
 	function normalizeColorMode(value) {
 		return value === 'dark' ? 'dark' : 'light';
@@ -214,12 +242,30 @@
 	}
 
 	onMount(() => {
+		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const handleMotionPreferenceChange = () => (prefersReducedMotion = motionQuery.matches);
+		handleMotionPreferenceChange();
+		if (typeof motionQuery.addEventListener === 'function') {
+			motionQuery.addEventListener('change', handleMotionPreferenceChange);
+		} else {
+			motionQuery.addListener(handleMotionPreferenceChange);
+		}
+
 		try {
 			const stored = window.localStorage.getItem(micrositeColorModeStorageKey);
 			setColorMode(stored || 'light', false);
 		} catch {
 			setColorMode('light', false);
 		}
+		hasMounted = true;
+
+		return () => {
+			if (typeof motionQuery.removeEventListener === 'function') {
+				motionQuery.removeEventListener('change', handleMotionPreferenceChange);
+			} else {
+				motionQuery.removeListener(handleMotionPreferenceChange);
+			}
+		};
 	});
 
 	function isActive(href) {
@@ -263,6 +309,35 @@
 		<meta property="og:image" content={seoOgImage} />
 		<meta property="og:image:alt" content={`${seoTitle} cover image`} />
 	{/if}
+	{#if group?.cover_photo_url}
+		<link
+			rel="preload"
+			as="image"
+			href={heroImageSmallHref}
+			imagesrcset={heroImageSmallHref}
+			imagesizes="100vw"
+			media="(max-width: 480px)"
+			fetchpriority="high"
+		/>
+		<link
+			rel="preload"
+			as="image"
+			href={heroImageMobileHref}
+			imagesrcset={heroImageMobileSrcSet}
+			imagesizes="100vw"
+			media="(min-width: 481px) and (max-width: 767px)"
+			fetchpriority="high"
+		/>
+		<link
+			rel="preload"
+			as="image"
+			href={heroImageHref}
+			imagesrcset={heroImageSrcSet}
+			imagesizes="100vw"
+			media="(min-width: 768px)"
+			fetchpriority="high"
+		/>
+	{/if}
 
 	<meta name="twitter:card" content={seoOgImage ? 'summary_large_image' : 'summary'} />
 	<meta name="twitter:title" content={seoPageTitle} />
@@ -276,7 +351,10 @@
 
 <div
 	class="microsite-shell microsite-bg--{site?.siteConfig?.background_style ||
-		'cinematic'} min-h-dvh"
+		'cinematic'} min-h-dvh {group?.slug === '3-feet-please' ? 'site-advocacy' : ''} {group?.slug ===
+		'3-feet-please' && isHomePage
+		? 'site-advocacy-home'
+		: ''}"
 	data-theme={site?.theme?.dataTheme || '3fp'}
 	data-color-mode={colorMode}
 	style={site?.theme?.style || ''}
@@ -289,9 +367,10 @@
 				<a href={homeHref} class="microsite-mark flex min-w-0 shrink-0 items-center gap-3">
 					{#if group?.logo_url}
 						<img
-							src={group.logo_url}
+							src={logoImageHref}
 							alt={`${group.name} logo`}
 							class="ring-surface-50/10 h-10 w-10 flex-shrink-0 rounded-xl object-cover shadow ring-1"
+							decoding="async"
 						/>
 					{:else}
 						<div
@@ -335,6 +414,19 @@
 				</nav>
 
 				<div class="flex items-center gap-2">
+					{#if group?.slug === '3-feet-please'}
+						<a
+							href={communityHref}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="microsite-community-link"
+							aria-label="Visit the 3fp.org community"
+							title="Visit the 3fp.org community"
+						>
+							<span>3fp.org</span>
+							<IconExternalLink class="h-3.5 w-3.5" />
+						</a>
+					{/if}
 					<button
 						type="button"
 						class="microsite-theme-btn"
@@ -376,14 +468,36 @@
 								{item.label}
 							</a>
 						{/each}
+						{#if group?.slug === '3-feet-please'}
+							<a
+								href={communityHref}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="microsite-mobile-link microsite-mobile-community-link"
+							>
+								<span>Visit the 3fp.org community</span>
+								<IconExternalLink class="h-4 w-4" />
+							</a>
+						{/if}
 					</div>
 				</div>
 			{/if}
 		</header>
 		<div class="microsite-nav-offset" aria-hidden="true"></div>
 
-		<main class="relative flex-1">
-			{@render children()}
+		<main class="relative flex-1" use:scrollReveal>
+			{#key routeTransitionKey}
+				<div
+					class="microsite-route"
+					in:fly={{
+						y: hasMounted && !prefersReducedMotion ? 12 : 0,
+						duration: hasMounted && !prefersReducedMotion ? 360 : 0
+					}}
+					out:fade={{ duration: hasMounted && !prefersReducedMotion ? 180 : 0 }}
+				>
+					{@render children()}
+				</div>
+			{/key}
 		</main>
 	</div>
 </div>
@@ -830,6 +944,32 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		letter-spacing: 0.01em;
 	}
 
+	.microsite-community-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem;
+		height: 2.5rem;
+		padding: 0 0.75rem;
+		border: 1px solid var(--ms-toggle-border);
+		border-radius: 999px;
+		background: var(--ms-toggle-bg);
+		color: var(--ms-toggle-fg);
+		font-size: 0.78rem;
+		font-weight: 800;
+		letter-spacing: 0.01em;
+		text-decoration: none;
+		transition:
+			background-color 160ms ease,
+			border-color 160ms ease,
+			transform 160ms ease;
+	}
+
+	.microsite-community-link:hover {
+		transform: translateY(-1px);
+		filter: brightness(1.03);
+	}
+
 	.microsite-theme-btn:hover,
 	.microsite-menu-btn:hover {
 		filter: brightness(1.02);
@@ -867,12 +1007,51 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		background: var(--ms-nav-link-active-bg);
 	}
 
+	.microsite-mobile-community-link {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-top: 0.45rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		color: var(--color-primary-600);
+		font-weight: 800;
+	}
+
 	.microsite-footer-link {
 		color: var(--ms-footer);
 	}
 
 	.microsite-footer-link:hover {
 		color: var(--ms-footer-hover);
+	}
+
+	.microsite-route {
+		position: relative;
+	}
+
+	:global(.microsite-shell .microsite-scroll-reveal) {
+		opacity: 0;
+		transform: translate3d(0, 1rem, 0);
+		transition:
+			opacity 560ms cubic-bezier(0.22, 0.8, 0.24, 1) var(--microsite-reveal-delay, 0ms),
+			transform 560ms cubic-bezier(0.22, 0.8, 0.24, 1) var(--microsite-reveal-delay, 0ms);
+		will-change: opacity, transform;
+	}
+
+	:global(.microsite-shell .microsite-scroll-reveal.is-visible) {
+		opacity: 1;
+		transform: none;
+		will-change: auto;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(.microsite-shell .microsite-scroll-reveal),
+		:global(.microsite-shell .microsite-scroll-reveal.is-visible) {
+			opacity: 1;
+			transform: none;
+			transition: none;
+			will-change: auto;
+		}
 	}
 
 	@media (max-width: 767px) {
@@ -882,6 +1061,12 @@ BACKGROUND STYLES — Aurora, Prism, Void
 
 		.microsite-nav--floating {
 			border-radius: 1.25rem;
+		}
+	}
+
+	@media (max-width: 1023px) {
+		.microsite-community-link {
+			display: none;
 		}
 	}
 
@@ -963,5 +1148,196 @@ BACKGROUND STYLES — Aurora, Prism, Void
 
 	:global([data-color-mode='dark']) .microsite-shell::after {
 		opacity: 0.025;
+	}
+
+	/* 3 Feet Please uses a public-interest visual system: calm, legible, and
+	   grounded in the campaign colors instead of a decorative gradient. */
+	.microsite-shell.site-advocacy {
+		background: #f4f6f3;
+		color: #12263a;
+	}
+
+	.microsite-shell.site-advocacy::before,
+	.microsite-shell.site-advocacy::after {
+		display: none;
+	}
+
+	.microsite-shell.site-advocacy .microsite-nav-shell {
+		background: transparent;
+	}
+
+	.microsite-shell.site-advocacy .microsite-nav--floating {
+		border: 1px solid rgb(18 38 58 / 0.14);
+		background: #ffffff;
+		box-shadow: 0 12px 32px -22px rgb(18 38 58 / 0.45);
+		color: #12263a;
+		backdrop-filter: none;
+	}
+
+	.microsite-shell.site-advocacy .microsite-nav-link {
+		color: #365168;
+	}
+
+	.microsite-shell.site-advocacy .microsite-nav-link:hover,
+	.microsite-shell.site-advocacy .microsite-nav-link.is-active,
+	.microsite-shell.site-advocacy .microsite-more-menu[open] > summary {
+		background: #edf5a8;
+		color: #12263a;
+	}
+
+	.microsite-shell.site-advocacy .microsite-mark__text {
+		color: #12263a;
+	}
+
+	.microsite-shell.site-advocacy .microsite-theme-btn,
+	.microsite-shell.site-advocacy .microsite-menu-btn {
+		border-color: rgb(18 38 58 / 0.14);
+		background: #f8faf7;
+		color: #12263a;
+	}
+
+	.microsite-shell.site-advocacy .microsite-community-link {
+		border-color: rgb(23 50 77 / 0.18);
+		background: #edf5a8;
+		color: #10202e;
+	}
+
+	.microsite-shell.site-advocacy .microsite-more-popover {
+		border-color: rgb(18 38 58 / 0.14);
+		background: #ffffff;
+		box-shadow: 0 20px 42px -24px rgb(18 38 58 / 0.55);
+		backdrop-filter: none;
+	}
+
+	.microsite-shell.site-advocacy .microsite-mobile-menu {
+		border-color: rgb(18 38 58 / 0.14);
+		background: #ffffff;
+		backdrop-filter: none;
+	}
+
+	.microsite-shell.site-advocacy .microsite-mobile-link {
+		color: #365168;
+	}
+
+	.microsite-shell.site-advocacy .microsite-mobile-link:hover,
+	.microsite-shell.site-advocacy .microsite-mobile-link.is-active {
+		background: #edf5a8;
+		color: #12263a;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy {
+		background: #0d1b29;
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-nav--floating {
+		border-color: rgb(244 247 245 / 0.14);
+		background: #12263a;
+		box-shadow: 0 14px 36px -22px rgb(0 0 0 / 0.7);
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-nav-link,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-mark__text,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-theme-btn,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-menu-btn {
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-theme-btn,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-menu-btn {
+		border-color: rgb(244 247 245 / 0.16);
+		background: #18334b;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-more-popover,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-mobile-menu {
+		border-color: rgb(244 247 245 / 0.16);
+		background: #12263a;
+	}
+
+	/* The original campaign homepage treated the hero as the front door.
+	   Let its photo carry the first impression while keeping inner pages calm. */
+	.microsite-shell.site-advocacy-home .microsite-nav-shell {
+		position: absolute;
+		inset: 0 0 auto;
+		z-index: 30;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-nav-offset {
+		display: none;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-nav--floating {
+		border-color: transparent;
+		background: transparent;
+		box-shadow: none;
+		color: #ffffff;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-nav-link,
+	.microsite-shell.site-advocacy-home .microsite-mark__text {
+		color: #ffffff;
+		text-shadow: 0 1px 14px rgb(0 0 0 / 0.45);
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-nav-link:hover,
+	.microsite-shell.site-advocacy-home .microsite-nav-link.is-active,
+	.microsite-shell.site-advocacy-home .microsite-more-menu[open] > summary {
+		background: #d7f205;
+		color: #10202e;
+		text-shadow: none;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-theme-btn,
+	.microsite-shell.site-advocacy-home .microsite-menu-btn {
+		border-color: rgb(255 255 255 / 0.42);
+		background: rgb(16 32 46 / 0.2);
+		color: #ffffff;
+		backdrop-filter: blur(10px);
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-community-link {
+		border-color: rgb(215 242 5 / 0.7);
+		background: rgb(215 242 5 / 0.14);
+		color: #ffffff;
+		text-shadow: 0 1px 14px rgb(0 0 0 / 0.45);
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-community-link:hover {
+		background: #d7f205;
+		color: #10202e;
+		text-shadow: none;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-more-popover,
+	.microsite-shell.site-advocacy-home .microsite-mobile-menu {
+		border-color: rgb(16 32 46 / 0.14);
+		background: #ffffff;
+		box-shadow: 0 20px 42px -24px rgb(16 32 46 / 0.7);
+		color: #10202e;
+		backdrop-filter: none;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-mobile-link {
+		color: #365168;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-mobile-link:hover,
+	.microsite-shell.site-advocacy-home .microsite-mobile-link.is-active {
+		background: #edf5a8;
+		color: #10202e;
+	}
+
+	.microsite-shell.site-advocacy-home .microsite-mobile-community-link {
+		border-top-color: rgb(18 38 58 / 0.14);
+		color: #17324d;
+	}
+
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy-home .microsite-theme-btn,
+	:global([data-color-mode='dark']) .microsite-shell.site-advocacy-home .microsite-menu-btn {
+		border-color: rgb(255 255 255 / 0.42);
+		background: rgb(16 32 46 / 0.45);
+		color: #ffffff;
 	}
 </style>

@@ -22,53 +22,53 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 			description: 'Making roads safer for cyclists through education, advocacy, and action.',
 			blocks: [
 				block('hero', {
-					button_label: 'Start with safety tips',
+					eyebrow: 'The law: 3ft between cars & bikes',
+					title: 'Making roads safer for cyclists',
+					button_label: 'Explore safety resources',
 					button_url: '/safety-tips'
 				}),
-				block('text', {
-					eyebrow: 'Give cyclists room to ride',
-					title: 'Three feet is a small distance that makes a life-saving difference',
-					body: 'Safe-passing laws ask drivers to leave at least three feet—or the distance required in their state—when overtaking a person on a bicycle. That buffer reduces dangerous close passes and gives everyone more room to respond.'
-				}),
 				block('call_to_action', {
-					eyebrow: 'Know the law',
-					title: 'See safe-passing guidance for your state',
-					body: 'Learn what safe passing means, why the details vary, and where to verify the current law before you ride or drive.',
-					button_label: 'Explore state laws',
-					button_url: '/laws'
+					eyebrow: 'One road. Shared responsibility.',
+					title: 'More space. More awareness. Safer roads.',
+					body: 'Cycling is freedom—let’s make it safer for everyone. Drivers, riders, and communities all have a role to play. Start with practical habits, then find people, rides, and support on 3fp.org.',
+					button_label: 'Explore safety tips',
+					button_url: '/safety-tips'
 				}),
-				block('story', {
+				block('gallery', {
+					eyebrow: 'Brighten your ride',
+					title: 'Stand out, stay safe, stay connected.',
+					body: 'Visibility is one part of a safer ride—and a great way to start a conversation about sharing the road.'
+				}),
+				block('text', {
 					eyebrow: 'Our mission',
 					title: 'Education. Advocacy. Action.',
-					body: '3 Feet Please helps people understand safe passing, equips local advocates with practical resources, and makes the message visible on roads across the country. Merchandise proceeds support cycling-safety education and community programs.'
+					body: '3 Feet Please helps people understand safe passing, equips local advocates with practical resources, and makes the message visible on roads across the country. Through partnerships, merchandise, and grassroots efforts, we support safer cycling communities and educational programs for everyone who shares the road.'
 				}),
 				block('call_to_action', {
-					eyebrow: 'Brighten your ride',
-					title: 'Stand out and support safer streets',
-					body: 'Our high-visibility jerseys carry a simple message drivers can understand in an instant. Every purchase helps fund education and outreach.',
-					button_label: 'Shop 3 Feet Please jerseys',
+					eyebrow: 'Tools for the work',
+					title: 'Bring safer-streets resources to your community',
+					body: 'Find advocacy best practices, a starter kit, and practical ways to share accurate safety information with your club, school, workplace, or local campaign.',
+					button_label: 'Open the advocacy guide',
+					button_url: '/advocacy'
+				}),
+				block('call_to_action', {
+					eyebrow: 'Shop to support',
+					title: 'Wear the message. Fund the mission.',
+					body: 'Be bold, be bright, be visible. Our 3 Feet Please and 4 Feet Please gear helps start safer-road conversations, while every purchase supports cycling-safety education and community programs.',
+					button_label: 'Shop high-visibility jerseys',
 					button_url: SHOP_URL
 				}),
-				block('volunteer', {
-					eyebrow: 'Make a difference',
-					title: 'Help the safety message travel farther',
-					body: 'Join the volunteer social squad, share useful stories, or become a safety ambassador in your community.',
-					button_label: 'Ways to get involved'
-				}),
-				block('donation', {
-					eyebrow: 'Fuel the mission',
-					title: 'Help build safer roads for everyone',
-					body: 'Your tax-deductible gift supports cycling-safety education, public awareness, and community grants.'
+				block('call_to_action', {
+					eyebrow: 'The community hub',
+					title: 'Find your people, rides, and support.',
+					body: 'The day-to-day community lives on 3fp.org. Discover groups, browse upcoming rides, learn safer-road habits, and find practical ways to keep cycling moving forward.',
+					button_label: 'Explore 3fp.org',
+					button_url: 'https://3fp.org'
 				}),
 				block('email_signup', {
 					eyebrow: 'Stay in gear',
-					title: 'Get practical safety news in your inbox',
-					body: 'Subscribe for quarterly safety tips, program updates, and new ways to help make roads safer for cyclists.'
-				}),
-				block('contact', {
-					eyebrow: 'Questions or ideas?',
-					title: 'Connect with 3 Feet Please',
-					body: 'Reach out for educational resources, partnership ideas, or help getting a local safety effort started.'
+					title: 'Get quarterly safety and community updates',
+					body: 'Pedal into our newsletter for wheelie good news, safety tips, and new ways to help make roads safer for everyone.'
 				})
 			]
 		}),
@@ -88,26 +88,16 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 					title: 'A safe pass leaves room for real life',
 					body: 'People on bicycles may need to avoid debris, potholes, wind, opening doors, and other hazards. A safe-passing buffer gives the driver and cyclist room to handle the unexpected without a collision.'
 				}),
-				block('text', {
-					eyebrow: 'Laws vary by state',
-					title: 'Three feet is common—but it is not universal',
-					body: 'Many states name a three-foot minimum. Some require four feet, a full lane change, or a distance described as safe and reasonable. Local rules may add protections. Always verify the current statute and any local ordinance before relying on a summary.'
-				}),
-				block('text', {
-					eyebrow: 'For drivers',
-					title: 'Slow down, wait, and change lanes when safe',
-					body: 'Treat a bicyclist as the operator of a vehicle. Reduce speed, do not squeeze through a narrow gap, and move fully or partly into the next lane when the law and traffic conditions allow. Return to the lane only after you are safely clear.'
-				}),
-				block('text', {
-					eyebrow: 'For riders and advocates',
-					title: 'Use primary legal sources',
-					body: 'State statutes change. Check your legislature or transportation agency for the current text, effective date, exceptions, and penalties. This educational page is not legal advice. If you spot outdated information, tell us so we can investigate.'
+				block('law_directory', {
+					eyebrow: 'State-by-state guide',
+					title: 'Find the law where you ride',
+					body: 'Search the reference directory by state, statute, distance, or keyword. Open a state to see the rule, notable details, and source link.'
 				}),
 				block('call_to_action', {
-					eyebrow: 'Help improve this resource',
-					title: 'Share a law update or ask a question',
-					body: 'Send the state, statute number, and an official source. We welcome corrections and additions from local advocates.',
-					button_label: 'Email hi@3fp.org',
+					eyebrow: 'Read with care',
+					title: 'Use the linked source before you act',
+					body: 'This directory is an educational reference assembled from the 3FT Laws workbook and reflects a 2022 research snapshot. Laws and interpretations can change. Check your state legislature or transportation agency for the current text. This is not legal advice.',
+					button_label: 'Contact us with an update',
 					button_url: 'mailto:hi@3fp.org'
 				})
 			]
@@ -149,6 +139,11 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 					eyebrow: 'T · Telegraph',
 					title: 'Communicate before you move',
 					body: 'Scan, signal turns and lane changes, make eye contact when possible, and leave enough room around parked vehicles. In a group, call out hazards without creating more danger.'
+				}),
+				block('text', {
+					eyebrow: 'For drivers · S.M.A.R.T.',
+					title: 'Give every rider time, space, and your full attention.',
+					body: 'S · Space — leave a generous buffer when passing.\nM · Minimize distractions — put the phone away and keep your eyes up.\nA · Attention — scan for bikes before turning, merging, or opening a door.\nR · Reduce speed — slow down before a pass and wait when the space is not right.\nT · Turn carefully — check mirrors and blind spots before crossing a bike’s path.'
 				}),
 				block('call_to_action', {
 					eyebrow: 'Wear the message',
@@ -247,7 +242,7 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 			description: 'Meet the nonprofit and people behind the national safe-passing message.',
 			blocks: [
 				block('hero'),
-				block('story', {
+				block('text', {
 					eyebrow: 'Why we exist',
 					title: 'A simple message for a safer pass',
 					body: '3 Feet Please makes safe passing easier to see, remember, and discuss. We combine education, visible reminders, partnerships, and grassroots action to help motorists and cyclists share the road more safely.'
@@ -256,6 +251,13 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 					eyebrow: 'Our organization',
 					title: 'A program of CycleSafe Coalition',
 					body: 'CycleSafe Coalition owns the 3 Feet Please trademark and is a 501(c)(3) nonprofit organization. EIN 99-3658890. Donations are tax-deductible to the extent allowed by law.'
+				}),
+				block('call_to_action', {
+					eyebrow: 'Your community home',
+					title: 'Take the next step on 3fp.org.',
+					body: 'The day-to-day work lives on our community site: discover groups, browse upcoming rides, learn practical safety habits, and find ways to help.',
+					button_label: 'Explore the community',
+					button_url: 'https://3fp.org'
 				}),
 				block('text', {
 					eyebrow: 'Our board',
@@ -298,21 +300,36 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 		{
 			...currentConfig,
 			site_title: '3 Feet Please',
-			site_tagline: 'Making roads safer for cyclists through education, advocacy, and action.',
+			site_tagline: 'Cycling is freedom—let’s make it safer for everyone.',
 			home_intro:
-				'Cycling is freedom. Together, we can give every rider the room they need to return home safely.',
+				'3 Feet Please helps everyone share the road safely—and connects the cycling community with the people, rides, and tools to keep moving.',
 			footer_blurb:
 				'3 Feet Please is a program of CycleSafe Coalition, a 501(c)(3) nonprofit organization. EIN 99-3658890.',
 			seo_description:
-				'3 Feet Please promotes safe passing, cycling-safety education, and practical resources for riders, drivers, and local advocates.',
+				'3 Feet Please promotes safe passing and practical road-safety education, then connects cyclists with groups, rides, and community tools at 3fp.org.',
+			theme_mode: 'custom',
+			theme_name: '',
+			theme_colors: {
+				primary: '#D7F205',
+				secondary: '#17324D',
+				accent: '#F05A3C',
+				surface: '#10202E'
+			},
+			background_style: 'void',
+			panel_style: 'filled',
+			panel_tone: 'surface',
+			panel_density: 'comfortable',
+			font_pairing: 'friendly',
 			microsite_notice: '',
 			microsite_notice_href: '',
 			sections: {
 				...(currentConfig.sections || {}),
 				story: true,
-				volunteer: true,
+				rides: false,
+				gallery: true,
+				volunteer: false,
 				news: true,
-				contact: true
+				contact: false
 			},
 			page_blocks: pages[0].blocks,
 			site_pages: pages,

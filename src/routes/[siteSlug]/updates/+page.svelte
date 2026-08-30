@@ -82,7 +82,10 @@
 		{#if data.posts.length}
 			<div class="space-y-4">
 				{#each data.posts as post}
-					<article class="glass-card border-surface-500/15 card-interactive rounded-xl border p-5">
+					<article
+						class="glass-card border-surface-500/15 card-interactive rounded-xl border p-5"
+						data-scroll-reveal="stagger"
+					>
 						<button
 							type="button"
 							class="flex w-full flex-col gap-4 text-left md:flex-row md:items-start md:justify-between"
@@ -320,27 +323,5 @@
 
 	.prose-surface :global(h3) {
 		font-size: 1.125rem;
-	}
-
-	/* Section fade-in animation */
-	.microsite-updates-page > section {
-		animation: fade-in-up 0.6s ease-out forwards;
-		opacity: 0;
-		transform: translateY(20px);
-	}
-
-	.microsite-updates-page > section:nth-child(1) {
-		animation-delay: 0.1s;
-	}
-
-	.microsite-updates-page > section:nth-child(2) {
-		animation-delay: 0.2s;
-	}
-
-	@keyframes fade-in-up {
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
 	}
 </style>

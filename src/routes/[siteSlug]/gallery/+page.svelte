@@ -3,6 +3,8 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconImage from '@lucide/svelte/icons/image';
 	import IconX from '@lucide/svelte/icons/x';
+	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
+	import { optimizedImageUrl } from '$lib/media/optimized';
 	import { fade, scale } from 'svelte/transition';
 
 	let { data } = $props();
@@ -95,9 +97,23 @@
 						type="button"
 						onclick={() => openLightbox(i)}
 						class="gallery-item"
+						data-scroll-reveal="stagger"
 						style="--stagger: {i}"
 					>
-						<img src={image.href} alt={image.title} loading="lazy" />
+						<img
+							src={LAZY_IMAGE_PLACEHOLDER}
+							data-src={optimizedImageUrl(image.href, { width: 1200, quality: 70 })}
+							alt={image.title}
+							loading="lazy"
+							decoding="async"
+							use:lazyImage
+						/>
+						<noscript>
+							<img
+								src={optimizedImageUrl(image.href, { width: 1200, quality: 70 })}
+								alt={image.title}
+							/>
+						</noscript>
 						<div class="gallery-overlay">
 							<span class="gallery-view">View photo</span>
 						</div>
@@ -303,9 +319,6 @@
 		overflow: hidden;
 		cursor: pointer;
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
-		animation: fade-in-up 420ms ease-out forwards;
-		opacity: 0;
-		animation-delay: calc(var(--stagger, 0) * 0.03s);
 	}
 
 	.gallery-item img {
@@ -343,17 +356,6 @@
 		backdrop-filter: blur(4px);
 		padding: 0.42rem 0.95rem;
 		border-radius: 9999px;
-	}
-
-	@keyframes fade-in-up {
-		from {
-			opacity: 0;
-			transform: translateY(12px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
 	}
 
 	.lightbox-backdrop {

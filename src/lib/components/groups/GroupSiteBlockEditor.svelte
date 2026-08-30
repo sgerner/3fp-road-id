@@ -16,6 +16,7 @@
 	import IconPanelsTopLeft from '@lucide/svelte/icons/panels-top-left';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconRedo from '@lucide/svelte/icons/redo-2';
+	import IconSearch from '@lucide/svelte/icons/search';
 	import IconTrash from '@lucide/svelte/icons/trash-2';
 	import IconUndo from '@lucide/svelte/icons/undo-2';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -96,15 +97,19 @@
 		'updates',
 		'resources'
 	];
-	const paletteGroups = [
+	const isThreeFeetPlease = $derived(group?.slug === '3-feet-please');
+	const paletteGroups = $derived([
 		{
 			label: 'Grow your community',
 			types: ['email_signup', 'membership', 'volunteer', 'donation']
 		},
 		{ label: 'Keep people informed', types: ['events', 'ride_calendar', 'updates'] },
-		{ label: 'Tell your story', types: ['story', 'gallery', 'text'] },
+		{
+			label: 'Tell your story',
+			types: ['story', 'gallery', 'text', ...(isThreeFeetPlease ? ['law_directory'] : [])]
+		},
 		{ label: 'Useful next steps', types: ['contact', 'sponsors', 'resources', 'call_to_action'] }
-	];
+	]);
 	const automaticDestination = {
 		membership: 'your membership options',
 		volunteer: 'your volunteer opportunities',
@@ -697,6 +702,29 @@
 									<p class="card preset-tonal-warning p-3 text-sm">
 										This publishes after fundraising is enabled for the group.
 									</p>
+								</div>
+							{:else if block.type === 'law_directory'}
+								<div class="grid gap-4 p-5 sm:p-7">
+									<div class="flex items-start gap-3">
+										<span class="card preset-tonal-primary p-3"><IconSearch class="h-5 w-5" /></span
+										>
+										<div>
+											<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
+												{block.eyebrow}
+											</p>
+											<h2 class="text-2xl font-bold">{blockHeading(block)}</h2>
+											<p class="mt-1 text-sm opacity-65">{block.body}</p>
+										</div>
+									</div>
+									<div class="input flex items-center gap-2 opacity-75">
+										<IconSearch class="h-4 w-4" />
+										<span>Search by state or statute</span>
+									</div>
+									<div class="grid gap-2 sm:grid-cols-2">
+										{#each ['Arizona · 3 feet', 'Massachusetts · 4 feet', 'Texas · no specific law'] as item}
+											<div class="card preset-tonal-surface p-3 text-sm font-semibold">{item}</div>
+										{/each}
+									</div>
 								</div>
 							{:else}
 								<div

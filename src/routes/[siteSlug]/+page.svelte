@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -12,26 +13,61 @@
 	import IconImage from '@lucide/svelte/icons/image';
 	import IconHelpCircle from '@lucide/svelte/icons/circle-help';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
+	import IconSearch from '@lucide/svelte/icons/search';
+	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import { CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
+	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
 	import { getGroupSiteBlockTone } from '$lib/microsites/blocks';
+	import {
+		THREE_FEET_LAWS,
+		THREE_FEET_LAWS_LAST_REVIEWED,
+		THREE_FEET_LAWS_SOURCE_FILE,
+		THREE_FEET_LAW_STATUS_LABELS
+	} from '$lib/microsites/laws';
 	import { fade, scale } from 'svelte/transition';
 	import { slide } from 'svelte/transition';
 	let { data } = $props();
 	const site = $derived(data.site);
 	const group = $derived(site.group);
 	const config = $derived(site.siteConfig);
+	const heroImageHref = $derived(
+		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
+	);
+	const heroImageSrcSet = $derived(
+		group?.cover_photo_url
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 800, quality: 50 })} 800w, ${heroImageHref} 1600w`
+			: ''
+	);
+	const heroImageMobileSrcSet = $derived(
+		group?.cover_photo_url
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 640, quality: 50 })} 640w`
+			: ''
+	);
+	const heroImageSmallSrcSet = $derived(
+		group?.cover_photo_url
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w`
+			: ''
+	);
+	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
 	const currentPage = $derived(
 		data.currentPage || config?.site_pages?.find((page) => page.is_home) || config?.site_pages?.[0]
 	);
 	const pageBlocks = $derived(currentPage?.blocks || config?.page_blocks || []);
+	const heroBlock = $derived(pageBlocks.find((block) => block.type === 'hero') || null);
+	const isAdvocacySite = $derived(group?.slug === '3-feet-please');
 	const heroTitle = $derived(
-		currentPage?.is_home ? config?.site_title : currentPage?.title || config?.site_title
+		currentPage?.is_home && isAdvocacySite && heroBlock?.title
+			? heroBlock.title
+			: currentPage?.is_home
+				? config?.site_title
+				: currentPage?.title || config?.site_title
 	);
 	const heroTagline = $derived(
 		currentPage?.is_home ? config?.site_tagline : currentPage?.description || config?.site_tagline
 	);
-	const heroBlock = $derived(pageBlocks.find((block) => block.type === 'hero') || null);
 	const heroStyle = $derived(config?.hero_style || 'immersive');
 	const panelStyle = $derived(config?.panel_style || 'glass');
 	const panelTone = $derived(config?.panel_tone || 'surface');
@@ -94,8 +130,67 @@
 	// Gallery images (first 4 only)
 	const galleryImages = $derived(site.photoBucket?.image_assets?.slice(0, 3) || []);
 	// Instagram posts
-	const instagramPosts = $derived(site.instagramPosts?.slice(0, 3) || []);
+	let deferredInstagramPosts = $state([]);
+	const instagramPosts = $derived(
+		(site.instagramPosts?.length ? site.instagramPosts : deferredInstagramPosts).slice(0, 3)
+	);
 	const hasInstagramPosts = $derived(instagramPosts.length > 0);
+
+	onMount(() => {
+		if (site.instagramPosts?.length || !pageBlocks.some((block) => block.type === 'gallery')) {
+			return;
+		}
+
+		let cancelled = false;
+		let started = false;
+		let observer;
+		let idleHandle;
+		let timeoutHandle;
+		const loadDeferredInstagram = async () => {
+			if (started) return;
+			started = true;
+			try {
+				const response = await fetch(
+					`/api/groups/${encodeURIComponent(group.slug)}/site/instagram`
+				);
+				const payload = await response.json().catch(() => ({}));
+				if (!cancelled && response.ok) {
+					deferredInstagramPosts = payload.data?.instagramPosts || [];
+				}
+			} catch {
+				// Social content is optional; the page remains complete without it.
+			}
+		};
+
+		const startWhenGalleryIsNear = () => {
+			if ('requestIdleCallback' in window) {
+				idleHandle = window.requestIdleCallback(loadDeferredInstagram, { timeout: 1200 });
+			} else {
+				timeoutHandle = window.setTimeout(loadDeferredInstagram, 0);
+			}
+		};
+		const galleryTarget = document.querySelector('[data-site-block-type="gallery"]');
+		if ('IntersectionObserver' in window && galleryTarget) {
+			observer = new IntersectionObserver(
+				(entries) => {
+					if (!entries.some((entry) => entry.isIntersecting)) return;
+					observer?.disconnect();
+					startWhenGalleryIsNear();
+				},
+				{ rootMargin: '600px 0px' }
+			);
+			observer.observe(galleryTarget);
+		} else {
+			timeoutHandle = window.setTimeout(loadDeferredInstagram, 4000);
+		}
+
+		return () => {
+			cancelled = true;
+			observer?.disconnect();
+			if (idleHandle !== undefined) window.cancelIdleCallback?.(idleHandle);
+			if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+		};
+	});
 	// Sponsor items
 	const sponsorItems = $derived.by(() => {
 		if (Array.isArray(config?.sponsor_items) && config.sponsor_items.length) {
@@ -184,6 +279,31 @@
 	const hasRides = $derived(site.rides?.length > 0);
 	const hasVolunteer = $derived(site.volunteerEvents?.length > 0);
 	const hasNews = $derived(site.newsPosts?.length > 0);
+	let lawsQuery = $state('');
+	let lawsFilter = $state('all');
+	const filteredLaws = $derived.by(() => {
+		const query = lawsQuery.trim().toLowerCase();
+		return THREE_FEET_LAWS.filter((law) => {
+			const matchesFilter =
+				lawsFilter === 'all' ||
+				(lawsFilter === 'rule' && law.status !== 'no-specific-law') ||
+				(lawsFilter === 'no-specific-law' && law.status === 'no-specific-law');
+			if (!matchesFilter) return false;
+			if (!query) return true;
+			return [law.state, law.distance, law.statute, law.summary]
+				.join(' ')
+				.toLowerCase()
+				.includes(query);
+		});
+	});
+	const lawCounts = $derived.by(() => ({
+		all: THREE_FEET_LAWS.length,
+		rule: THREE_FEET_LAWS.filter((law) => law.status !== 'no-specific-law').length,
+		'no-specific-law': THREE_FEET_LAWS.filter((law) => law.status === 'no-specific-law').length
+	}));
+	function lawStatusLabel(status) {
+		return THREE_FEET_LAW_STATUS_LABELS[status] || 'Reference entry';
+	}
 	const actionBlockTypes = [
 		'call_to_action',
 		'email_signup',
@@ -214,9 +334,28 @@
 	const heroActions = $derived.by(() => {
 		if (heroBlock?.button_label && heroBlock?.button_url) {
 			const href = blockActionHref(heroBlock);
-			return href
-				? [{ label: heroBlock.button_label, href, external: /^https?:\/\//i.test(href) }]
-				: [];
+			if (!href) return [];
+			const actions = [
+				{
+					label: heroBlock.button_label,
+					href,
+					external: /^https?:\/\//i.test(href)
+				}
+			];
+			if (isAdvocacySite && currentPage?.is_home) {
+				actions.push({
+					label: 'Find your community',
+					href: 'https://3fp.org',
+					external: true
+				});
+			}
+			return actions;
+		}
+		if (isAdvocacySite && currentPage?.is_home) {
+			return [
+				{ label: 'Explore safety resources', href: siteChildHref('/safety-tips'), external: false },
+				{ label: 'Find your community', href: 'https://3fp.org', external: true }
+			];
 		}
 		return currentPage?.is_home ? site.actions : [];
 	});
@@ -281,7 +420,11 @@
 			: `${currentPage?.title} — ${config.site_title}`}</title
 	>
 </svelte:head>
-<div class="microsite-page max-w-7xl {pageStyleClass}">
+<div
+	class="microsite-page max-w-7xl {pageStyleClass} {isAdvocacySite
+		? 'site-advocacy'
+		: ''} {isAdvocacySite && currentPage?.is_home ? 'site-advocacy-home' : ''}"
+>
 	<!-- ═══════════════════════════════════════════════════════════
 	     HERO SECTION — Clean, focused, single-purpose
      ═══════════════════════════════════════════════════════════ -->
@@ -332,11 +475,23 @@ HERO — cinematic cover with integrated CTAs
 							class="absolute inset-0 [clip-path:polygon(55%_0,100%_0,100%_100%,40%_100%)] max-md:[clip-path:polygon(65%_0,100%_0,100%_100%,50%_100%)]"
 						>
 							{#if group.cover_photo_url}
-								<img
-									src={group.cover_photo_url}
-									alt={`${group.name}`}
-									class="h-full w-full object-cover"
-								/>
+								<picture class="absolute inset-0 block">
+									<source media="(max-width: 480px)" srcset={heroImageSmallSrcSet} sizes="100vw" />
+									<source
+										media="(min-width: 481px) and (max-width: 767px)"
+										srcset={heroImageMobileSrcSet}
+										sizes="100vw"
+									/>
+									<img
+										src={heroImageHref}
+										alt={`${group.name}`}
+										fetchpriority="high"
+										decoding="async"
+										srcset={heroImageSrcSet}
+										sizes="100vw"
+										class="h-full w-full object-cover"
+									/>
+								</picture>
 							{:else}
 								<div
 									class="from-secondary-500/30 via-tertiary-500/25 to-primary-500/30 h-full w-full bg-gradient-to-br"
@@ -348,26 +503,27 @@ HERO — cinematic cover with integrated CTAs
 							class="relative z-10 flex h-full items-end p-6 pb-[clamp(1.5rem,5vw,3rem)] pl-[clamp(1.5rem,5vw,3rem)] md:p-10 md:pb-[clamp(1.5rem,5vw,3rem)] md:pl-[clamp(1.5rem,5vw,3rem)]"
 						>
 							<div
-								class="max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
+								class="site-advocacy-hero-copy max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
 							>
 								<!-- Location badge -->
-								{#if location}
+								{#if location && !isAdvocacySite}
 									<div
 										class="text-primary-200 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold tracking-[0.1em] uppercase [background:color-mix(in_oklab,var(--color-primary-500)_20%,transparent)]"
 									>
 										<IconMapPin class="h-3.5 w-3.5" />
 										<span>{location}</span>
 									</div>
-								{:else}
+								{:else if !isAdvocacySite}
 									<div class="skeleton mb-3 h-4 w-32 rounded-full"></div>
 								{/if}
 								<!-- Logo + Title row -->
 								<div class="mt-4 flex items-start gap-4 md:gap-6">
 									{#if group.logo_url}
 										<img
-											src={group.logo_url}
+											src={logoImageHref}
 											alt={`${group.name} logo`}
 											class="h-14 w-14 rounded-xl object-cover shadow-xl ring-2 ring-[color-mix(in_oklab,var(--color-surface-50)_20%,transparent)] md:h-20 md:w-20"
+											decoding="async"
 										/>
 									{:else}
 										<div class="skeleton h-14 w-14 rounded-xl md:h-20 md:w-20"></div>
@@ -385,6 +541,9 @@ HERO — cinematic cover with integrated CTAs
 										{/if}
 									</div>
 								</div>
+								{#if isAdvocacySite && currentPage?.is_home && heroBlock?.eyebrow}
+									<div class="site-advocacy-hero-kicker">{heroBlock.eyebrow}</div>
+								{/if}
 								<!-- Tagline -->
 								{#if heroTagline}
 									<AutoLinkText
@@ -430,11 +589,23 @@ HERO — cinematic cover with integrated CTAs
 						class="bg-surface-950 relative aspect-[21/9] overflow-hidden rounded-3xl max-md:aspect-auto"
 					>
 						{#if group.cover_photo_url}
-							<img
-								src={group.cover_photo_url}
-								alt={`${group.name}`}
-								class="absolute inset-0 h-full w-full object-cover"
-							/>
+							<picture class="absolute inset-0 block">
+								<source media="(max-width: 480px)" srcset={heroImageSmallSrcSet} sizes="100vw" />
+								<source
+									media="(min-width: 481px) and (max-width: 767px)"
+									srcset={heroImageMobileSrcSet}
+									sizes="100vw"
+								/>
+								<img
+									src={heroImageHref}
+									alt={`${group.name}`}
+									fetchpriority="high"
+									decoding="async"
+									srcset={heroImageSrcSet}
+									sizes="100vw"
+									class="h-full w-full object-cover"
+								/>
+							</picture>
 						{:else}
 							<div
 								class="from-primary-500/25 via-surface-500/10 to-secondary-500/25 absolute inset-0 bg-gradient-to-br"
@@ -463,14 +634,15 @@ HERO — cinematic cover with integrated CTAs
 									<div class="flex flex-col items-center text-center">
 										{#if group.logo_url}
 											<img
-												src={group.logo_url}
+												src={logoImageHref}
 												alt={`${group.name} logo`}
 												class="ring-surface-50/30 h-16 w-16 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+												decoding="async"
 											/>
 										{:else}
 											<div class="skeleton h-16 w-16 rounded-2xl md:h-20 md:w-20"></div>
 										{/if}
-										{#if location}
+										{#if location && !isAdvocacySite}
 											<p
 												class="text-surface-50/60 mt-4 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.3em] uppercase"
 											>
@@ -529,30 +701,48 @@ HERO — cinematic cover with integrated CTAs
 						class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-auto"
 					>
 						{#if group.cover_photo_url}
-							<img
-								src={group.cover_photo_url}
-								alt={`${group.name}`}
-								class="absolute inset-0 h-full w-full object-cover motion-safe:[animation:ken-burns_25s_ease-in-out_infinite_alternate]"
-							/>
+							<picture class="site-advocacy-hero-image absolute inset-0 block">
+								<source media="(max-width: 480px)" srcset={heroImageSmallSrcSet} sizes="100vw" />
+								<source
+									media="(min-width: 481px) and (max-width: 767px)"
+									srcset={heroImageMobileSrcSet}
+									sizes="100vw"
+								/>
+								<img
+									src={heroImageHref}
+									alt={`${group.name}`}
+									fetchpriority="high"
+									decoding="async"
+									srcset={heroImageSrcSet}
+									sizes="100vw"
+									class="absolute inset-0 h-full w-full object-cover"
+								/>
+							</picture>
 						{:else}
 							<div
 								class="from-primary-500/30 via-secondary-500/20 to-tertiary-500/30 absolute inset-0 bg-gradient-to-br"
 							></div>
 						{/if}
 						<div
-							class="absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
+							class="site-advocacy-hero-vignette absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
 						></div>
 						<div
-							class="absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
+							class="site-advocacy-hero-wash absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
 						></div>
-						<div class="relative z-10 flex h-full flex-col justify-end p-5 md:p-8">
+						<div
+							class="site-advocacy-hero-content absolute inset-0 z-10 flex flex-col justify-end p-5 md:p-8"
+						>
 							<div class="flex flex-col gap-6">
+								{#if isAdvocacySite && currentPage?.is_home && heroBlock?.eyebrow}
+									<div class="site-advocacy-hero-kicker">{heroBlock.eyebrow}</div>
+								{/if}
 								<div class="flex items-start gap-4 md:items-end">
 									{#if group.logo_url}
 										<img
-											src={group.logo_url}
+											src={logoImageHref}
 											alt={`${group.name} logo`}
 											class="ring-surface-50/20 h-16 w-16 flex-shrink-0 rounded-2xl object-cover shadow-2xl ring-2 md:h-20 md:w-20"
+											decoding="async"
 										/>
 									{:else}
 										<div
@@ -562,7 +752,7 @@ HERO — cinematic cover with integrated CTAs
 										</div>
 									{/if}
 									<div class="min-w-0 pb-0.5">
-										{#if location}
+										{#if location && !isAdvocacySite}
 											<p
 												class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.3em] text-white/70 uppercase"
 											>
@@ -585,13 +775,13 @@ HERO — cinematic cover with integrated CTAs
 										/>
 									{/if}
 									{#if heroActions.length}
-										<div class="flex flex-wrap items-center gap-2 md:gap-3">
+										<div class="flex flex-wrap items-center gap-2 md:flex-nowrap md:gap-3">
 											{#each heroActions as action, i}
 												<a
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
 													rel={action.external ? 'noopener noreferrer' : undefined}
-													class="btn btn-sm md:btn-base {i === 0
+													class="btn btn-sm whitespace-nowrap md:btn-base {i === 0
 														? 'preset-filled-primary-500'
 														: 'preset-tonal-tertiary'} gap-2"
 												>
@@ -607,8 +797,152 @@ HERO — cinematic cover with integrated CTAs
 					</div>
 				{/if}
 			</section>
+		{:else if block.type === 'law_directory'}
+			<section
+				class="laws-directory-section"
+				id="state-laws"
+				data-site-block-id={block.id}
+				data-site-block-type="law_directory"
+			>
+				<div class="laws-directory-card">
+					<div class="laws-directory-heading">
+						<div class="laws-directory-heading-copy">
+							<div class="laws-directory-kicker">
+								<span class="laws-directory-icon"><IconSearch class="h-4 w-4" /></span>
+								<span>{block.eyebrow || 'State-by-state guide'}</span>
+							</div>
+							<h2 class="laws-directory-title">{block.title || 'Find the law where you ride'}</h2>
+							{#if block.body}
+								<p class="laws-directory-intro">{block.body}</p>
+							{/if}
+						</div>
+						<div class="laws-directory-trust">
+							<IconShieldCheck class="h-5 w-5" />
+							<div>
+								<strong>{THREE_FEET_LAWS_LAST_REVIEWED} reference</strong>
+								<span>Verify before relying on a rule</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="laws-directory-controls">
+						<label class="laws-directory-search">
+							<span class="sr-only">Search state laws</span>
+							<IconSearch class="h-4 w-4" />
+							<input
+								type="search"
+								placeholder="Search a state, statute, or keyword"
+								aria-label="Search a state, statute, or keyword"
+								bind:value={lawsQuery}
+							/>
+							{#if lawsQuery}
+								<button type="button" aria-label="Clear law search" onclick={() => (lawsQuery = '')}
+									>×</button
+								>
+							{/if}
+						</label>
+						<div class="laws-directory-filters" aria-label="Filter state laws">
+							<button
+								type="button"
+								class:active={lawsFilter === 'all'}
+								onclick={() => (lawsFilter = 'all')}
+							>
+								All <span>{lawCounts.all}</span>
+							</button>
+							<button
+								type="button"
+								class:active={lawsFilter === 'rule'}
+								onclick={() => (lawsFilter = 'rule')}
+							>
+								Passing rule <span>{lawCounts.rule}</span>
+							</button>
+							<button
+								type="button"
+								class:active={lawsFilter === 'no-specific-law'}
+								onclick={() => (lawsFilter = 'no-specific-law')}
+							>
+								No specific distance <span>{lawCounts['no-specific-law']}</span>
+							</button>
+						</div>
+					</div>
+
+					<div class="laws-directory-summary" aria-live="polite">
+						<span
+							>{filteredLaws.length}
+							{filteredLaws.length === 1 ? 'jurisdiction' : 'jurisdictions'}</span
+						>
+						<span>Source: {THREE_FEET_LAWS_SOURCE_FILE}</span>
+					</div>
+
+					{#if filteredLaws.length}
+						<div class="laws-directory-list">
+							{#each filteredLaws as law, index (law.state)}
+								<details class="law-entry" open={index === 0}>
+									<summary class="law-entry-summary">
+										<span class="law-entry-state">{law.state}</span>
+										<span class="law-entry-distance">{law.distance}</span>
+										<span class="law-entry-status">{lawStatusLabel(law.status)}</span>
+										<span class="law-entry-chevron" aria-hidden="true">⌄</span>
+									</summary>
+									<div class="law-entry-detail">
+										<p class="law-entry-summary-copy">{law.summary}</p>
+										<div class="law-entry-meta">
+											<div>
+												<span>Statute or search term</span>
+												<strong>{law.statute}</strong>
+											</div>
+											{#if law.passed}
+												<div>
+													<span>Listed as passed</span>
+													<strong>{law.passed}</strong>
+												</div>
+											{/if}
+											{#if law.ranking}
+												<div>
+													<span>Workbook ranking</span>
+													<strong>#{law.ranking}</strong>
+												</div>
+											{/if}
+										</div>
+										<a
+											href={law.sourceUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="law-entry-source"
+										>
+											<span>{law.sourceLabel}</span>
+											<IconExternalLink class="h-4 w-4" />
+										</a>
+									</div>
+								</details>
+							{/each}
+						</div>
+					{:else}
+						<div class="laws-directory-empty">
+							<IconSearch class="h-5 w-5" />
+							<p>No states match “{lawsQuery}”.</p>
+							<button
+								type="button"
+								class="btn preset-tonal-surface"
+								onclick={() => {
+									lawsQuery = '';
+									lawsFilter = 'all';
+								}}
+							>
+								Show all states
+							</button>
+						</div>
+					{/if}
+
+					<p class="laws-directory-disclaimer">
+						Reference compiled from {THREE_FEET_LAWS_SOURCE_FILE}. Traffic laws change and may be
+						interpreted differently by jurisdiction. Confirm the current statute with an official
+						source; this page is educational information, not legal advice.
+					</p>
+				</div>
+			</section>
 			<!-- ═══════════════════════════════════════════════════════════
-	     DONATE — Quick donation widget (optional)
+		     DONATE — Quick donation widget (optional)
      ═══════════════════════════════════════════════════════════ -->
 		{:else if block.type === 'donation' && site.donationEnabled}
 			<section class="donate-section" data-site-block-id={block.id} data-site-block-type="donation">
@@ -996,8 +1330,21 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 					{#if galleryImages.length}
 						<div class="gallery-grid">
 							{#each galleryImages as image}
-								<a href={galleryHref} class="gallery-item">
-									<img src={image.href} alt={image.title} loading="lazy" />
+								<a href={galleryHref} class="gallery-item" data-scroll-reveal="stagger">
+									<img
+										src={LAZY_IMAGE_PLACEHOLDER}
+										data-src={optimizedImageUrl(image.href, { width: 960, quality: 70 })}
+										alt={image.title}
+										loading="lazy"
+										decoding="async"
+										use:lazyImage
+									/>
+									<noscript>
+										<img
+											src={optimizedImageUrl(image.href, { width: 960, quality: 70 })}
+											alt={image.title}
+										/>
+									</noscript>
 									<div class="gallery-overlay">
 										<span class="gallery-view">View</span>
 									</div>
@@ -1019,7 +1366,20 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 										class="instagram-preview-item"
 									>
 										{#if post.media_url}
-											<img src={post.media_url} alt="Instagram post" loading="lazy" />
+											<img
+												src={LAZY_IMAGE_PLACEHOLDER}
+												data-src={optimizedImageUrl(post.media_url, { width: 640, quality: 60 })}
+												alt="Instagram post"
+												loading="lazy"
+												decoding="async"
+												use:lazyImage
+											/>
+											<noscript>
+												<img
+													src={optimizedImageUrl(post.media_url, { width: 640, quality: 60 })}
+													alt="Instagram post"
+												/>
+											</noscript>
 											<div class="instagram-preview-overlay">
 												<BrandInstagram class="h-4 w-4 text-white" />
 											</div>
@@ -1260,15 +1620,36 @@ SPONSORS — Community partners showcase
 FOOTER — Simple, clean
 ═══════════════════════════════════════════════════════════ -->
 	<footer class="site-footer">
+		{#if isAdvocacySite}
+			<div class="footer-community-bridge">
+				<div class="footer-community-copy">
+					<p class="footer-community-label">The community hub</p>
+					<h2>Find your people, rides, and practical support on 3fp.org.</h2>
+					<p>
+						The day-to-day community lives there: discover groups, browse rides, learn safer-road
+						habits, and find ways to help.
+					</p>
+				</div>
+				<a
+					href="https://3fp.org"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="footer-community-button"
+				>
+					Visit 3fp.org
+					<IconExternalLink class="h-4 w-4" />
+				</a>
+			</div>
+		{/if}
 		{#if config.footer_blurb}
 			<AutoLinkText text={config.footer_blurb} className="footer-blurb" linkClass="footer-link" />
 		{/if}
 		<p class="footer-powered">
-			Powered by <a
+			3 Feet Please is part of the 3fp.org community. <a
 				href="https://3fp.org"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="footer-brand">3fp.org</a
+				class="footer-brand">Explore the community</a
 			>
 		</p>
 	</footer>
@@ -2820,6 +3201,72 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		border-top: 1px solid var(--panel-border);
 		margin-top: 1rem;
 	}
+	.footer-community-bridge {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 2rem;
+		max-width: 72rem;
+		margin: 0 auto 2rem;
+		padding: clamp(1.25rem, 3vw, 2rem);
+		border: 1px solid rgb(215 242 5 / 0.3);
+		border-radius: 1.25rem;
+		background: #17324d;
+		color: #ffffff;
+		text-align: left;
+		box-shadow: 0 18px 42px -32px rgb(16 32 46 / 0.7);
+	}
+	.footer-community-copy {
+		max-width: 42rem;
+	}
+	.footer-community-label {
+		margin: 0 0 0.4rem;
+		color: #d7f205;
+		font-size: 0.72rem;
+		font-weight: 850;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+	}
+	.footer-community-copy h2 {
+		margin: 0;
+		font-size: clamp(1.35rem, 3vw, 2.2rem);
+		font-weight: 850;
+		line-height: 1.05;
+		letter-spacing: -0.04em;
+	}
+	.footer-community-copy > p:last-child {
+		max-width: 38rem;
+		margin: 0.7rem 0 0;
+		color: rgb(255 255 255 / 0.78);
+		font-size: 0.95rem;
+		line-height: 1.6;
+	}
+	.footer-community-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		gap: 0.5rem;
+		min-height: 2.75rem;
+		padding: 0.7rem 1rem;
+		border-radius: 0.45rem;
+		background: #d7f205;
+		color: #10202e;
+		font-size: 0.9rem;
+		font-weight: 850;
+		text-decoration: none;
+		transition:
+			background-color 160ms ease,
+			transform 160ms ease;
+	}
+	.footer-community-button:hover {
+		background: #e5ff22;
+		transform: translateY(-1px);
+	}
+	:global([data-color-mode='dark']) .footer-community-bridge {
+		border-color: rgb(215 242 5 / 0.34);
+		background: #18334b;
+	}
 	.footer-blurb {
 		font-size: 0.875rem;
 		color: var(--color-surface-600);
@@ -2827,10 +3274,25 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		margin: 0 auto 0.75rem;
 		line-height: 1.6;
 	}
+	:global(.footer-blurb) {
+		font-size: 0.875rem;
+		color: #526675;
+		max-width: 36rem;
+		margin: 0 auto 0.75rem;
+		line-height: 1.6;
+	}
 	:global([data-color-mode='dark']) .footer-blurb {
 		color: var(--color-surface-400);
 	}
+	:global([data-color-mode='dark']) :global(.footer-blurb) {
+		color: #b7c6ce;
+	}
 	.footer-link {
+		color: var(--color-primary-600);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	:global(.footer-link) {
 		color: var(--color-primary-600);
 		text-decoration: underline;
 		text-underline-offset: 2px;
@@ -2838,18 +3300,879 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	:global([data-color-mode='dark']) .footer-link {
 		color: var(--color-primary-400);
 	}
+	:global([data-color-mode='dark']) :global(.footer-link) {
+		color: var(--advocacy-lime);
+	}
 	.footer-powered {
 		font-size: 0.75rem;
 		color: var(--color-surface-500);
 		font-weight: 600;
 	}
 	:global([data-color-mode='dark']) .footer-powered {
-		color: var(--color-surface-500);
+		color: rgb(183 198 206 / 0.72);
 	}
 	.footer-brand {
 		color: var(--color-primary-600);
 		text-decoration: underline;
 		text-underline-offset: 2px;
+	}
+
+	@media (max-width: 640px) {
+		.footer-community-bridge {
+			align-items: stretch;
+			flex-direction: column;
+			gap: 1rem;
+		}
+
+		.footer-community-button {
+			align-self: flex-start;
+		}
+	}
+
+	/* Advocacy presentation: restrained surfaces, clear hierarchy, and one
+	   intentional accent per section. */
+	.site-advocacy {
+		--advocacy-ink: #10202e;
+		--advocacy-blue: #17324d;
+		--advocacy-lime: #d7f205;
+		--advocacy-coral: #f05a3c;
+		--advocacy-line: rgb(16 32 46 / 0.14);
+		--advocacy-muted: #526675;
+		gap: 1.5rem;
+		padding-top: 1.5rem;
+	}
+
+	.site-advocacy [data-site-block-type='hero'] > .card,
+	.site-advocacy [data-site-block-type='hero'] > .bg-surface-950 {
+		min-height: clamp(27rem, 46vw, 36rem);
+		aspect-ratio: auto;
+		border-radius: 1rem;
+		background: var(--advocacy-ink);
+		box-shadow: 0 20px 40px -28px rgb(16 32 46 / 0.7);
+	}
+
+	.site-advocacy [data-site-block-type='hero'] > .card > .site-advocacy-hero-image,
+	.site-advocacy [data-site-block-type='hero'] > .bg-surface-950 img {
+		opacity: 0.45;
+		filter: saturate(0.72) contrast(1.08);
+	}
+
+	.site-advocacy [data-site-block-type='hero'] h1 {
+		max-width: 12ch;
+		font-size: clamp(2.7rem, 7vw, 5.6rem);
+		line-height: 0.92;
+		letter-spacing: -0.055em;
+	}
+
+	.site-advocacy [data-site-block-type='hero'] .bg-primary-500 {
+		background: var(--advocacy-lime);
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy .custom-content-card {
+		border-color: var(--advocacy-line);
+		border-radius: 1rem;
+		background: #ffffff;
+		box-shadow: 0 14px 30px -28px rgb(16 32 46 / 0.55);
+		backdrop-filter: none;
+	}
+
+	.site-advocacy .custom-content-section:not(.custom-callout-section) .custom-content-card {
+		max-width: 62rem;
+		margin: 0 auto;
+	}
+
+	.site-advocacy .custom-content-label,
+	.site-advocacy .laws-directory-kicker {
+		color: var(--advocacy-blue);
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+	}
+
+	.site-advocacy .custom-content-title {
+		max-width: 22ch;
+		color: var(--advocacy-ink);
+		font-size: clamp(1.75rem, 4vw, 3rem);
+		line-height: 1;
+	}
+
+	.site-advocacy .custom-content-body {
+		max-width: 50rem;
+		color: var(--advocacy-muted);
+		font-size: 1.04rem;
+		line-height: 1.7;
+		opacity: 1;
+	}
+
+	.site-advocacy .custom-callout-section .custom-content-card {
+		border-left: 5px solid var(--advocacy-blue);
+		background: #eaf1f5;
+		text-align: left;
+	}
+
+	.site-advocacy .custom-callout-section.callout-tone-tertiary .custom-content-card {
+		border-left-color: var(--advocacy-coral);
+		background: #fff4ee;
+	}
+
+	.site-advocacy .custom-callout-section.callout-tone-surface .custom-content-card {
+		border-left-color: var(--advocacy-lime);
+		background: #ffffff;
+	}
+
+	.site-advocacy .custom-callout-section .custom-content-title {
+		max-width: 26ch;
+	}
+
+	.site-advocacy .custom-content-button {
+		background: var(--advocacy-ink);
+		color: #ffffff;
+		box-shadow: none;
+	}
+
+	.site-advocacy .custom-content-button:hover {
+		background: var(--advocacy-blue);
+	}
+
+	.site-advocacy .custom-content-card .input {
+		border-color: var(--advocacy-line);
+		background: #f8faf7;
+	}
+
+	.site-advocacy .laws-directory-section {
+		min-width: 0;
+	}
+
+	.site-advocacy .laws-directory-card {
+		border: 1px solid var(--advocacy-line);
+		border-radius: 1rem;
+		background: #ffffff;
+		box-shadow: 0 18px 34px -30px rgb(16 32 46 / 0.58);
+		overflow: hidden;
+	}
+
+	.site-advocacy .laws-directory-heading {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 2rem;
+		padding: clamp(1.25rem, 4vw, 2.5rem);
+		background: var(--advocacy-ink);
+		color: #ffffff;
+	}
+
+	.site-advocacy .laws-directory-heading-copy {
+		min-width: 0;
+	}
+
+	.site-advocacy .laws-directory-kicker {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		color: var(--advocacy-lime);
+	}
+
+	.site-advocacy .laws-directory-icon {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 0.55rem;
+		background: rgb(215 242 5 / 0.14);
+	}
+
+	.site-advocacy .laws-directory-title {
+		max-width: 15ch;
+		margin-top: 0.7rem;
+		font-size: clamp(2rem, 5vw, 3.8rem);
+		font-weight: 850;
+		line-height: 0.95;
+		letter-spacing: -0.055em;
+	}
+
+	.site-advocacy .laws-directory-intro {
+		max-width: 40rem;
+		margin-top: 1rem;
+		color: rgb(255 255 255 / 0.72);
+		font-size: 1rem;
+		line-height: 1.65;
+	}
+
+	.site-advocacy .laws-directory-trust {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: flex-start;
+		gap: 0.65rem;
+		max-width: 14rem;
+		padding: 0.8rem;
+		border: 1px solid rgb(255 255 255 / 0.16);
+		border-radius: 0.7rem;
+		color: var(--advocacy-lime);
+	}
+
+	.site-advocacy .laws-directory-trust strong,
+	.site-advocacy .laws-directory-trust span {
+		display: block;
+	}
+
+	.site-advocacy .laws-directory-trust strong {
+		font-size: 0.78rem;
+	}
+
+	.site-advocacy .laws-directory-trust span {
+		margin-top: 0.2rem;
+		color: rgb(255 255 255 / 0.62);
+		font-size: 0.7rem;
+		line-height: 1.35;
+	}
+
+	.site-advocacy .laws-directory-controls {
+		display: grid;
+		gap: 1rem;
+		padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
+		border-bottom: 1px solid var(--advocacy-line);
+		background: #f8faf7;
+	}
+
+	.site-advocacy .laws-directory-search {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		min-width: 0;
+		padding: 0 0.85rem;
+		border: 1px solid var(--advocacy-line);
+		border-radius: 0.65rem;
+		background: #ffffff;
+		color: var(--advocacy-blue);
+	}
+
+	.site-advocacy .laws-directory-search input {
+		min-width: 0;
+		width: 100%;
+		padding: 0.82rem 0;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: var(--advocacy-ink);
+		font-size: 0.95rem;
+	}
+
+	.site-advocacy .laws-directory-search input::placeholder {
+		color: #788b98;
+	}
+
+	.site-advocacy .laws-directory-search button {
+		width: 1.8rem;
+		height: 1.8rem;
+		border-radius: 999px;
+		color: var(--advocacy-muted);
+		font-size: 1.4rem;
+		line-height: 1;
+	}
+
+	.site-advocacy .laws-directory-search button:hover {
+		background: #edf5a8;
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy .laws-directory-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.site-advocacy .laws-directory-filters button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.48rem 0.7rem;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		color: var(--advocacy-muted);
+		font-size: 0.78rem;
+		font-weight: 700;
+		transition:
+			background 150ms ease,
+			color 150ms ease,
+			border-color 150ms ease;
+	}
+
+	.site-advocacy .laws-directory-filters button span {
+		display: grid;
+		place-items: center;
+		min-width: 1.35rem;
+		height: 1.35rem;
+		padding: 0 0.25rem;
+		border-radius: 999px;
+		background: #e7ece8;
+		font-size: 0.68rem;
+	}
+
+	.site-advocacy .laws-directory-filters button:hover,
+	.site-advocacy .laws-directory-filters button.active {
+		border-color: var(--advocacy-blue);
+		background: var(--advocacy-blue);
+		color: #ffffff;
+	}
+
+	.site-advocacy .laws-directory-filters button.active span {
+		background: rgb(255 255 255 / 0.18);
+	}
+
+	.site-advocacy .laws-directory-summary {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.85rem clamp(1.25rem, 4vw, 2.5rem);
+		color: var(--advocacy-muted);
+		font-size: 0.76rem;
+		font-weight: 650;
+	}
+
+	.site-advocacy .laws-directory-list {
+		padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+	}
+
+	.site-advocacy .law-entry {
+		border-top: 1px solid var(--advocacy-line);
+	}
+
+	.site-advocacy .law-entry-summary {
+		display: grid;
+		grid-template-columns: minmax(10rem, 1.1fr) minmax(12rem, 1.4fr) minmax(10rem, auto) auto;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem 0;
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.site-advocacy .law-entry-summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.site-advocacy .law-entry-state {
+		color: var(--advocacy-ink);
+		font-size: 1rem;
+		font-weight: 800;
+	}
+
+	.site-advocacy .law-entry-distance {
+		color: var(--advocacy-blue);
+		font-size: 0.85rem;
+		font-weight: 700;
+	}
+
+	.site-advocacy .law-entry-status {
+		justify-self: start;
+		padding: 0.32rem 0.55rem;
+		border-radius: 999px;
+		background: #edf5a8;
+		color: var(--advocacy-ink);
+		font-size: 0.68rem;
+		font-weight: 750;
+		white-space: nowrap;
+	}
+
+	.site-advocacy .law-entry-chevron {
+		color: var(--advocacy-blue);
+		font-size: 1.25rem;
+		transition: transform 150ms ease;
+	}
+
+	.site-advocacy .law-entry[open] .law-entry-chevron {
+		transform: rotate(180deg);
+	}
+
+	.site-advocacy .law-entry-detail {
+		display: grid;
+		gap: 1rem;
+		padding: 0 0 1.25rem;
+	}
+
+	.site-advocacy .law-entry-summary-copy {
+		max-width: 58rem;
+		color: var(--advocacy-muted);
+		font-size: 0.94rem;
+		line-height: 1.65;
+	}
+
+	.site-advocacy .law-entry-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem 2rem;
+		padding: 0.9rem;
+		border-radius: 0.65rem;
+		background: #f4f6f3;
+	}
+
+	.site-advocacy .law-entry-meta span,
+	.site-advocacy .law-entry-meta strong {
+		display: block;
+	}
+
+	.site-advocacy .law-entry-meta span {
+		margin-bottom: 0.25rem;
+		color: var(--advocacy-muted);
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	.site-advocacy .law-entry-meta strong {
+		color: var(--advocacy-ink);
+		font-size: 0.82rem;
+	}
+
+	.site-advocacy .law-entry-source {
+		display: inline-flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.6rem;
+		width: fit-content;
+		max-width: 100%;
+		padding: 0.6rem 0.75rem;
+		border-radius: 0.55rem;
+		background: var(--advocacy-ink);
+		color: #ffffff;
+		font-size: 0.78rem;
+		font-weight: 750;
+		text-decoration: none;
+	}
+
+	.site-advocacy .law-entry-source:hover {
+		background: var(--advocacy-blue);
+	}
+
+	.site-advocacy .laws-directory-empty {
+		display: grid;
+		place-items: center;
+		gap: 0.6rem;
+		padding: 3rem 1rem;
+		color: var(--advocacy-muted);
+		text-align: center;
+	}
+
+	.site-advocacy .laws-directory-disclaimer {
+		margin: 0 clamp(1.25rem, 4vw, 2.5rem) 1.35rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--advocacy-line);
+		color: var(--advocacy-muted);
+		font-size: 0.73rem;
+		line-height: 1.55;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy {
+		--advocacy-line: rgb(244 247 245 / 0.14);
+		--advocacy-muted: #b7c6ce;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .custom-content-card,
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-card,
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-search {
+		background: #12263a;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .custom-content-title,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-state,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-meta strong {
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .custom-content-label,
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-kicker,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-distance {
+		color: var(--advocacy-lime);
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .custom-content-body,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-summary-copy,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-meta span {
+		color: var(--advocacy-muted);
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy :global(.custom-content-body) {
+		color: var(--advocacy-muted);
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .custom-callout-section .custom-content-card {
+		background: #18334b;
+	}
+
+	:global([data-color-mode='dark'])
+		.site-advocacy
+		.custom-callout-section.callout-tone-tertiary
+		.custom-content-card {
+		background: #422d2c;
+	}
+
+	:global([data-color-mode='dark'])
+		.site-advocacy
+		.custom-callout-section.callout-tone-surface
+		.custom-content-card {
+		background: #12263a;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-controls,
+	:global([data-color-mode='dark']) .site-advocacy .law-entry-meta {
+		background: #0d1b29;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-summary,
+	:global([data-color-mode='dark']) .site-advocacy .laws-directory-disclaimer {
+		color: var(--advocacy-muted);
+	}
+
+	@media (max-width: 700px) {
+		.site-advocacy .laws-directory-heading {
+			flex-direction: column;
+			gap: 1.25rem;
+		}
+
+		.site-advocacy .laws-directory-trust {
+			max-width: none;
+			width: 100%;
+		}
+
+		.site-advocacy .law-entry-summary {
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 0.45rem 0.75rem;
+		}
+
+		.site-advocacy .law-entry-distance {
+			grid-column: 1;
+			grid-row: 2;
+		}
+
+		.site-advocacy .law-entry-status {
+			grid-column: 1;
+			grid-row: 3;
+			justify-self: start;
+		}
+
+		.site-advocacy .law-entry-chevron {
+			grid-column: 2;
+			grid-row: 1 / span 3;
+			align-self: center;
+		}
+
+		.site-advocacy .laws-directory-summary {
+			flex-direction: column;
+			gap: 0.25rem;
+		}
+	}
+
+	/* Homepage composition: full-bleed campaign hero, editorial rhythm, and
+	   action cards that read as invitations instead of a stack of panels. */
+	.site-advocacy.site-advocacy-home {
+		max-width: none;
+		gap: 0;
+		padding: 0 0 5rem;
+		background: #f4f6f3;
+	}
+
+	.site-advocacy-home > section:not([data-site-block-type='hero']) {
+		width: min(calc(100% - 2rem), 72rem);
+		margin: 1.5rem auto 0;
+	}
+
+	.site-advocacy-home > section[data-site-block-type='hero'] {
+		width: 100%;
+		margin: 0;
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] > .card {
+		min-height: min(84svh, 47rem);
+		border-radius: 0;
+		box-shadow: none;
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] > .card > .site-advocacy-hero-image {
+		opacity: 0.72;
+		filter: saturate(1.08) contrast(1.06);
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] > .card > .site-advocacy-hero-vignette {
+		opacity: 0.7;
+		background: linear-gradient(
+			to top,
+			rgb(9 19 27 / 0.94) 4%,
+			rgb(9 19 27 / 0.58) 46%,
+			rgb(9 19 27 / 0.12) 100%
+		);
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] > .card > .site-advocacy-hero-wash {
+		opacity: 0.3;
+		background: linear-gradient(110deg, rgb(9 19 27 / 0.58), transparent 62%);
+	}
+
+	.site-advocacy-home .site-advocacy-hero-copy {
+		max-width: 46rem;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		backdrop-filter: none;
+	}
+
+	.site-advocacy-home .site-advocacy-hero-kicker {
+		display: inline-flex;
+		align-self: flex-start;
+		margin-top: 0;
+		padding: 0.55rem 0.8rem;
+		background: var(--advocacy-lime);
+		color: var(--advocacy-ink);
+		font-size: clamp(0.68rem, 1.2vw, 0.82rem);
+		font-weight: 850;
+		font-style: italic;
+		letter-spacing: 0.055em;
+		line-height: 1;
+		text-transform: uppercase;
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] h1 {
+		max-width: 12ch;
+		color: #ffffff;
+		font-size: clamp(3.2rem, 8vw, 6.8rem);
+		line-height: 0.86;
+		letter-spacing: -0.065em;
+		text-shadow: 0 3px 24px rgb(0 0 0 / 0.4);
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] .btn,
+	.site-advocacy-home [data-site-block-type='hero'] a {
+		border-radius: 0.35rem;
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] a:first-child {
+		background: var(--advocacy-lime);
+		color: var(--advocacy-ink);
+		box-shadow: 0 10px 24px -12px rgb(215 242 5 / 0.9);
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] a:first-child:hover {
+		background: #e5ff22;
+	}
+
+	.site-advocacy-home [data-site-block-type='hero'] a:nth-child(2) {
+		border: 1px solid rgb(255 255 255 / 0.72);
+		background: rgb(9 19 27 / 0.18);
+		color: #ffffff;
+		backdrop-filter: blur(6px);
+	}
+
+	.site-advocacy-home .custom-content-section:not(.custom-callout-section) .custom-content-card {
+		padding: clamp(1.75rem, 5vw, 4rem);
+	}
+
+	.site-advocacy-home
+		.custom-callout-section:not([data-site-block-type='email_signup'])
+		.custom-content-card {
+		display: grid;
+		grid-template-columns: minmax(0, 1.08fr) minmax(15rem, 0.92fr);
+		column-gap: clamp(1.5rem, 5vw, 4.5rem);
+		align-items: end;
+	}
+
+	.site-advocacy-home
+		.custom-callout-section:not([data-site-block-type='email_signup'])
+		.custom-content-label {
+		grid-column: 1 / -1;
+	}
+
+	.site-advocacy-home
+		.custom-callout-section:not([data-site-block-type='email_signup'])
+		.custom-content-title {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.site-advocacy-home
+		.custom-callout-section:not([data-site-block-type='email_signup'])
+		.custom-content-body {
+		grid-column: 2;
+		grid-row: 2;
+		margin: 0;
+	}
+
+	.site-advocacy-home
+		.custom-callout-section:not([data-site-block-type='email_signup'])
+		.custom-content-button {
+		grid-column: 2;
+		grid-row: 3;
+		justify-self: start;
+	}
+
+	.site-advocacy-home .gallery-section {
+		padding: clamp(1.25rem, 4vw, 2.5rem);
+		border-color: var(--advocacy-line);
+		border-radius: 1rem;
+		background: #ffffff;
+		box-shadow: 0 18px 34px -30px rgb(16 32 46 / 0.58);
+		backdrop-filter: none;
+	}
+
+	.site-advocacy-home .gallery-header {
+		align-items: end;
+		margin-bottom: 1.4rem;
+	}
+
+	.site-advocacy-home .gallery-icon {
+		background: var(--advocacy-lime);
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy-home .gallery-label {
+		color: var(--advocacy-coral);
+	}
+
+	.site-advocacy-home .gallery-title {
+		color: var(--advocacy-ink);
+		font-size: clamp(1.5rem, 3vw, 2.35rem);
+		letter-spacing: -0.04em;
+	}
+
+	.site-advocacy-home .gallery-grid {
+		grid-template-columns: 1.25fr 0.88fr;
+		grid-template-rows: repeat(2, clamp(9rem, 18vw, 14rem));
+		gap: 0.8rem;
+	}
+
+	.site-advocacy-home .gallery-item:first-child {
+		grid-row: 1 / span 2;
+		aspect-ratio: auto;
+	}
+
+	.site-advocacy-home .gallery-item {
+		border-radius: 0.75rem;
+	}
+
+	.site-advocacy-home .gallery-header-cta {
+		border-color: var(--advocacy-line);
+		background: #f4f6f3;
+		color: var(--advocacy-blue);
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] .custom-content-card {
+		display: grid;
+		grid-template-columns: minmax(0, 0.9fr) minmax(19rem, 1.1fr);
+		column-gap: clamp(1.5rem, 5vw, 4.5rem);
+		align-items: center;
+		border-color: var(--advocacy-lime);
+		background: var(--advocacy-lime);
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] .custom-content-label,
+	.site-advocacy-home [data-site-block-type='email_signup'] .custom-content-title {
+		grid-column: 1;
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] :global(.custom-content-body) {
+		grid-column: 1;
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] form {
+		grid-column: 2;
+		grid-row: 1 / span 3;
+		max-width: none;
+		margin-top: 0;
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] .input {
+		border-color: rgb(16 32 46 / 0.18);
+		background: rgb(255 255 255 / 0.78);
+		color: var(--advocacy-ink);
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] .btn {
+		background: var(--advocacy-ink);
+		color: #ffffff;
+	}
+
+	.site-advocacy-home [data-site-block-type='email_signup'] .btn:hover {
+		background: var(--advocacy-blue);
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy.site-advocacy-home {
+		background: #0d1b29;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy-home .gallery-section {
+		background: #12263a;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy-home .gallery-title {
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark']) .site-advocacy-home .gallery-header-cta {
+		background: #18334b;
+		color: #f4f7f5;
+	}
+
+	:global([data-color-mode='dark'])
+		.site-advocacy-home
+		[data-site-block-type='email_signup']
+		.custom-content-card {
+		background: var(--advocacy-lime);
+		color: var(--advocacy-ink);
+	}
+
+	:global([data-color-mode='dark'])
+		.site-advocacy-home
+		[data-site-block-type='email_signup']
+		.custom-content-label,
+	:global([data-color-mode='dark'])
+		.site-advocacy-home
+		[data-site-block-type='email_signup']
+		.custom-content-title,
+	:global([data-color-mode='dark'])
+		.site-advocacy-home
+		[data-site-block-type='email_signup']
+		:global(.custom-content-body) {
+		color: var(--advocacy-ink);
+	}
+
+	@media (max-width: 700px) {
+		.site-advocacy-home [data-site-block-type='hero'] > .card {
+			min-height: min(88svh, 46rem);
+		}
+
+		.site-advocacy-home [data-site-block-type='hero'] h1 {
+			font-size: clamp(2.8rem, 14vw, 4.3rem);
+		}
+
+		.site-advocacy-home
+			.custom-callout-section:not([data-site-block-type='email_signup'])
+			.custom-content-card,
+		.site-advocacy-home [data-site-block-type='email_signup'] .custom-content-card {
+			display: block;
+		}
+
+		.site-advocacy-home
+			.custom-callout-section:not([data-site-block-type='email_signup'])
+			.custom-content-body {
+			margin-top: 0.9rem;
+		}
+
+		.site-advocacy-home
+			.custom-callout-section:not([data-site-block-type='email_signup'])
+			.custom-content-button {
+			margin-top: 1.25rem;
+		}
+
+		.site-advocacy-home [data-site-block-type='email_signup'] form {
+			margin-top: 1.5rem;
+		}
+
+		.site-advocacy-home .gallery-grid {
+			grid-template-rows: 12rem 8rem;
+		}
 	}
 	:global([data-color-mode='dark']) .footer-brand {
 		color: var(--color-primary-400);
@@ -3306,50 +4629,5 @@ SPONSORS SECTION
 	}
 	:global([data-color-mode='dark']) .sponsor-item-link:hover .sponsor-arrow {
 		color: var(--color-primary-300);
-	}
-	/* ═══════════════════════════════════════════════════════════
-ANIMATIONS
-═══════════════════════════════════════════════════════════ */
-	@keyframes fade-in-up {
-		from {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-	.microsite-page > section {
-		animation: fade-in-up 0.5s ease-out forwards;
-		opacity: 0;
-	}
-	.microsite-page > section:nth-child(1) {
-		animation-delay: 0.05s;
-	}
-	.microsite-page > section:nth-child(2) {
-		animation-delay: 0.1s;
-	}
-	.microsite-page > section:nth-child(3) {
-		animation-delay: 0.15s;
-	}
-	.microsite-page > section:nth-child(4) {
-		animation-delay: 0.2s;
-	}
-	.microsite-page > section:nth-child(5) {
-		animation-delay: 0.25s;
-	}
-	.microsite-page > section:nth-child(6) {
-		animation-delay: 0.3s;
-	}
-	.microsite-page > section:nth-child(7) {
-		animation-delay: 0.35s;
-	}
-	.microsite-page > section:nth-child(8) {
-		animation-delay: 0.4s;
-	}
-	.site-footer {
-		animation: fade-in-up 0.5s ease-out 0.45s forwards;
-		opacity: 0;
 	}
 </style>

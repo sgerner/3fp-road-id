@@ -23,6 +23,12 @@ import { filterRidesForWidget } from '$lib/rides/widgetConfig';
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const PALETTE_CACHE = new Map();
+const EMPTY_MEMBERSHIP = Object.freeze({ program: null, tiers: [], formFields: [] });
+const EMPTY_INSTAGRAM_FEED = Object.freeze({
+	connectedInstagram: null,
+	instagramPosts: [],
+	instagramPostsSource: 'none'
+});
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -360,6 +366,16 @@ async function loadInstagramPostsForGroup({ serviceSupabase, group }) {
 	}
 
 	return { connectedInstagram, instagramPosts, instagramPostsSource };
+}
+
+export async function loadMicrositeInstagram(siteSlug) {
+	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
+	if (!normalizedSiteSlug) return null;
+
+	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug, siteSlug);
+	if (!group) return null;
+
+	return loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group });
 }
 
 function splitTextIntoParagraphs(value) {
@@ -884,6 +900,49 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 
 	const storedConfig = await getGroupSiteConfig(group.id, { group });
 	const siteConfig = mergeGroupSiteConfig(buildDefaultGroupSiteConfig(group), storedConfig);
+	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
+	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
+	const pathname = cleanText(publicPathname || url?.pathname);
+	const basePath =
+		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`)
+			? previewPath
+			: '';
+	const siteUrl = `${new URL(url).origin}${basePath}`;
+	const routePath = basePath ? pathname.slice(basePath.length) || '/' : pathname || '/';
+	const routeSegment = routePath.split('/').filter(Boolean)[0]?.toLowerCase() || '';
+	const currentPage = routeSegment
+		? siteConfig.site_pages.find((page) => page.slug === routeSegment)
+		: siteConfig.site_pages.find((page) => page.is_home) || siteConfig.site_pages[0];
+	const currentBlockTypes = new Set(
+		(currentPage?.blocks || []).map((block) => block.type).filter(Boolean)
+	);
+	const visibleNavigationIds = new Set(
+		(siteConfig.site_pages[0]?.navigation?.items || [])
+			.filter((item) => item?.placement !== 'hidden')
+			.map((item) => item?.id)
+			.filter(Boolean)
+	);
+	const needsAssets =
+		routeSegment === 'gallery' ||
+		routeSegment === 'assets' ||
+		currentBlockTypes.has('gallery') ||
+		visibleNavigationIds.has('special:resources') ||
+		visibleNavigationIds.has('special:gallery');
+	const needsNews =
+		currentBlockTypes.has('events') ||
+		currentBlockTypes.has('updates') ||
+		(siteConfig.sections?.news !== false && visibleNavigationIds.has('special:updates'));
+	const needsRides = currentBlockTypes.has('events') || currentBlockTypes.has('ride_calendar');
+	const needsVolunteer = currentBlockTypes.has('events');
+	const needsAllRides = Boolean(siteConfig.ride_widget_enabled);
+	const needsMembership =
+		routeSegment === 'join' ||
+		currentBlockTypes.has('membership') ||
+		(siteConfig.sections?.join !== false && visibleNavigationIds.has('special:join'));
+	const needsDonation = routeSegment === 'join' || currentBlockTypes.has('donation');
+	const needsTaxonomy = currentBlockTypes.has('story');
+	const needsTrust = currentBlockTypes.has('trust');
+	const needsInstagram = currentBlockTypes.has('gallery') && !currentPage?.is_home;
 	const palette =
 		siteConfig.theme_mode === 'repo'
 			? null
@@ -909,20 +968,28 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 		ownerCount,
 		instagramFeed
 	] = await Promise.all([
-		listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => []),
-		listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => []),
-		loadRides(fetchImpl, group.id, 4),
-		loadAllPublishedRides(fetchImpl, 240),
-		loadVolunteerEvents(fetchImpl, group.id, 4),
-		loadMembershipSummary(fetchImpl, group.slug),
-		loadDonationEnabled(group.id).catch(() => false),
-		loadGroupTaxonomy(fetchImpl, group.id),
-		loadOwnerCount(group.id).catch(() => 0),
-		loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group }).catch(() => ({
-			connectedInstagram: null,
-			instagramPosts: [],
-			instagramPostsSource: 'none'
-		}))
+		needsAssets
+			? listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => [])
+			: Promise.resolve([]),
+		needsNews
+			? listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => [])
+			: Promise.resolve([]),
+		needsRides ? loadRides(fetchImpl, group.id, 4) : Promise.resolve([]),
+		needsAllRides ? loadAllPublishedRides(fetchImpl, 240) : Promise.resolve([]),
+		needsVolunteer ? loadVolunteerEvents(fetchImpl, group.id, 4) : Promise.resolve([]),
+		needsMembership
+			? loadMembershipSummary(fetchImpl, group.slug)
+			: Promise.resolve(EMPTY_MEMBERSHIP),
+		needsDonation ? loadDonationEnabled(group.id).catch(() => false) : Promise.resolve(false),
+		needsTaxonomy
+			? loadGroupTaxonomy(fetchImpl, group.id)
+			: Promise.resolve({ audiences: [], disciplines: [], skills: [] }),
+		needsTrust ? loadOwnerCount(group.id).catch(() => 0) : Promise.resolve(0),
+		needsInstagram
+			? loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group }).catch(
+					() => EMPTY_INSTAGRAM_FEED
+				)
+			: Promise.resolve(EMPTY_INSTAGRAM_FEED)
 	]);
 
 	const widgetRides = buildMicrositeRideWidgetRides({ allRides, group, siteConfig });
@@ -932,14 +999,6 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 	const rawPrimaryCta = selectPrimaryCta(group, rawContactLinks);
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
 	const primaryCta = serializePrimaryCta(rawPrimaryCta);
-	const micrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
-	const previewPath = `/${encodeURIComponent(micrositeSlug)}`;
-	const pathname = cleanText(publicPathname || url?.pathname);
-	const basePath =
-		pathname === `/${micrositeSlug}` || pathname.startsWith(`/${micrositeSlug}/`)
-			? previewPath
-			: '';
-	const siteUrl = `${new URL(url).origin}${basePath}`;
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
 		membershipProgram: membership.program

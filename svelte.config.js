@@ -8,7 +8,10 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		// Inline the small route stylesheets so the first paint does not wait on
+		// another request. The larger shared stylesheet stays cacheable.
+		inlineStyleThreshold: 100_000
 	}
 };
 

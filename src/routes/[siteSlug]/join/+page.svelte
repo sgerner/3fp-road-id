@@ -328,30 +328,4 @@
 		:global(.text-surface-950-50) {
 		color: rgb(248 250 252 / 0.98) !important;
 	}
-
-	/* Section fade-in animation */
-	.microsite-join-page > section {
-		animation: fade-in-up 0.6s ease-out forwards;
-		opacity: 0;
-		transform: translateY(20px);
-	}
-
-	.microsite-join-page > section:nth-child(1) {
-		animation-delay: 0.1s;
-	}
-
-	.microsite-join-page > section:nth-child(2) {
-		animation-delay: 0.2s;
-	}
-
-	.microsite-join-page > section:nth-child(3) {
-		animation-delay: 0.3s;
-	}
-
-	@keyframes fade-in-up {
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
 </style>
