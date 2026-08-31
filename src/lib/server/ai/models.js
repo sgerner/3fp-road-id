@@ -2,6 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { env } from '$env/dynamic/private';
 import { IMAGE_GENERATION_MODEL_IDS } from '$lib/ai/imageGenerationModels';
+import { createOpenAiTextProviderClient } from './openai.js';
+import { convertSchemaNode } from './schema.js';
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',
@@ -16,9 +18,13 @@ export const AI_CAPABILITIES = {
 
 const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
+	OPENAI_GPT_56_LUNA: 'openai/gpt-5.6-luna',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_37_FLASH: 'google/gemini-3.7-flash',
+	GEMINI_35_FLASH_LITE: 'google/gemini-3.5-flash-lite',
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
 	GEMINI_31_FLASH_LITE: 'google/gemini-3.1-flash-lite',
+	GEMINI_31_FLASH_IMAGE: IMAGE_GENERATION_MODEL_IDS.GEMINI_31_FLASH_IMAGE,
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview',
 	OPENAI_GPT_IMAGE_2: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_2,
 	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
@@ -36,11 +42,53 @@ const AI_MODELS = {
 			AI_CAPABILITIES.TOOL_USE
 		]
 	},
+	[MODEL_ID.OPENAI_GPT_56_LUNA]: {
+		id: MODEL_ID.OPENAI_GPT_56_LUNA,
+		provider: 'openai',
+		model: 'gpt-5.6-luna',
+		label: 'GPT-5.6 Luna',
+		reasoningEffort: 'xhigh',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE
+		]
+	},
 	[MODEL_ID.GEMINI_25_FLASH]: {
 		id: MODEL_ID.GEMINI_25_FLASH,
 		provider: 'google',
 		model: 'gemini-2.5-flash',
 		label: 'Gemini 2.5 Flash',
+		fallbackModel: 'gemini-3.5-flash-lite',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_37_FLASH]: {
+		id: MODEL_ID.GEMINI_37_FLASH,
+		provider: 'google',
+		model: 'gemini-3.7-flash',
+		label: 'Gemini 3.7 Flash',
+		fallbackModel: 'gemini-3.5-flash-lite',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_35_FLASH_LITE]: {
+		id: MODEL_ID.GEMINI_35_FLASH_LITE,
+		provider: 'google',
+		model: 'gemini-3.5-flash-lite',
+		label: 'Gemini 3.5 Flash Lite',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -55,7 +103,9 @@ const AI_MODELS = {
 		provider: 'google',
 		model: 'gemini-3-flash-preview',
 		label: 'Gemini 3 Flash Preview',
-		fallbackModel: 'gemini-2.5-flash',
+		fallbackModel: 'gemini-3.7-flash',
+		deprecated: true,
+		replacementModelId: MODEL_ID.GEMINI_37_FLASH,
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -70,7 +120,9 @@ const AI_MODELS = {
 		provider: 'google',
 		model: 'gemini-3.1-flash-lite',
 		label: 'Gemini 3.1 Flash Lite',
-		fallbackModel: 'gemini-2.5-flash',
+		fallbackModel: 'gemini-3.5-flash-lite',
+		deprecated: true,
+		replacementModelId: MODEL_ID.GEMINI_35_FLASH_LITE,
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -80,11 +132,26 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_INPUT
 		]
 	},
+	[MODEL_ID.GEMINI_31_FLASH_IMAGE]: {
+		id: MODEL_ID.GEMINI_31_FLASH_IMAGE,
+		provider: 'google',
+		model: 'gemini-3.1-flash-image',
+		label: 'Gemini',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.IMAGE_GENERATION,
+			AI_CAPABILITIES.MULTIMODAL_INPUT,
+			AI_CAPABILITIES.MULTIMODAL_OUTPUT
+		]
+	},
 	[MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW]: {
 		id: MODEL_ID.GEMINI_31_FLASH_IMAGE_PREVIEW,
 		provider: 'google',
 		model: 'gemini-3.1-flash-image-preview',
-		label: 'Gemini',
+		label: 'Gemini (legacy preview)',
+		fallbackModel: 'gemini-3.1-flash-image',
+		deprecated: true,
+		replacementModelId: MODEL_ID.GEMINI_31_FLASH_IMAGE,
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.IMAGE_GENERATION,
@@ -111,18 +178,18 @@ const AI_MODELS = {
 const AI_MODEL_PROFILES = {
 	structured_text: {
 		envVar: 'AI_MODEL_STRUCTURED_TEXT',
-		fallbackModelId: MODEL_ID.MERCURY_2,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_56_LUNA,
 		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
 	},
 	narrative_text_fast: {
 		envVar: 'AI_MODEL_NARRATIVE_FAST',
-		fallbackModelId: MODEL_ID.MERCURY_2,
+		fallbackModelId: MODEL_ID.GEMINI_35_FLASH_LITE,
 		ignoreDefaultModel: true,
 		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
 	},
 	tool_augmented_text: {
 		envVar: 'AI_MODEL_TOOL_AUGMENTED_TEXT',
-		fallbackModelId: MODEL_ID.MERCURY_2,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_56_LUNA,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -131,7 +198,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
-		fallbackModelId: MODEL_ID.GEMINI_31_FLASH_LITE,
+		fallbackModelId: MODEL_ID.GEMINI_37_FLASH,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -142,7 +209,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment_retry: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT_RETRY',
-		fallbackModelId: MODEL_ID.GEMINI_3_FLASH_PREVIEW,
+		fallbackModelId: MODEL_ID.GEMINI_35_FLASH_LITE,
 		ignoreDefaultModel: true,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
@@ -184,36 +251,6 @@ const OPENAI_IMAGE_SIZE_BY_ASPECT_RATIO = {
 	'16:9': '1024x576'
 };
 
-function convertSchemaNode(node) {
-	if (!node || typeof node !== 'object' || Array.isArray(node)) {
-		return node;
-	}
-
-	const converted = {};
-	for (const [key, value] of Object.entries(node)) {
-		if (key === 'nullable') continue;
-		if (Array.isArray(value)) {
-			converted[key] = value.map((item) => convertSchemaNode(item));
-		} else if (value && typeof value === 'object') {
-			converted[key] = convertSchemaNode(value);
-		} else {
-			converted[key] = value;
-		}
-	}
-
-	if (node.nullable) {
-		if (typeof converted.type === 'string') {
-			converted.type = [converted.type, 'null'];
-		} else if (Array.isArray(converted.type) && !converted.type.includes('null')) {
-			converted.type = [...converted.type, 'null'];
-		} else if (!converted.type) {
-			converted.anyOf = [...(converted.anyOf || []), { type: 'null' }];
-		}
-	}
-
-	return converted;
-}
-
 function buildInceptionMessages(contents) {
 	if (typeof contents === 'string') {
 		return [{ role: 'user', content: contents }];
@@ -234,31 +271,45 @@ function buildInceptionMessages(contents) {
 	return [{ role: 'user', content: String(contents ?? '') }];
 }
 
+function getGoogleFallbackModel(model) {
+	return Object.values(AI_MODELS).find(
+		(candidate) => candidate.provider === 'google' && candidate.model === model
+	)?.fallbackModel;
+}
+
 function createGoogleProviderClient(ai) {
 	return {
 		async generateContent({ model, contents, config }) {
 			try {
 				return await ai.models.generateContent({ model, contents, config });
 			} catch (error) {
-				const fallbackModel = Object.values(AI_MODELS).find(
-					(candidate) => candidate.provider === 'google' && candidate.model === model
-				)?.fallbackModel;
+				const fallbackModel = getGoogleFallbackModel(model);
 				if (!fallbackModel) throw error;
 				return ai.models.generateContent({ model: fallbackModel, contents, config });
 			}
 		},
 		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '1K' }) {
-			const response = await ai.models.generateContent({
-				model,
-				contents: prompt,
-				config: {
-					responseModalities: ['IMAGE'],
-					imageConfig: {
-						aspectRatio,
-						imageSize
+			const generateImage = (imageModel) =>
+				ai.models.generateContent({
+					model: imageModel,
+					contents: prompt,
+					config: {
+						responseModalities: ['IMAGE'],
+						imageConfig: {
+							aspectRatio,
+							imageSize
+						}
 					}
-				}
-			});
+				});
+
+			let response;
+			try {
+				response = await generateImage(model);
+			} catch (error) {
+				const fallbackModel = getGoogleFallbackModel(model);
+				if (!fallbackModel) throw error;
+				response = await generateImage(fallbackModel);
+			}
 
 			const inlinePart = response?.candidates
 				?.flatMap((candidate) => candidate?.content?.parts ?? [])
@@ -297,7 +348,10 @@ function mapOpenAiImageSize(aspectRatio = '16:9') {
 }
 
 function createOpenAiProviderClient(apiKey) {
+	const textClient = createOpenAiTextProviderClient(apiKey);
+
 	return {
+		...textClient,
 		async generateImage({ model, prompt, aspectRatio = '16:9' }) {
 			const body = {
 				model,
