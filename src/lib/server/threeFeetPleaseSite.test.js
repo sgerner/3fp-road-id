@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildThreeFeetPleaseSite } from '../microsites/threeFeetPlease.js';
+import {
+	buildThreeFeetPleaseSite,
+	THREE_FEET_PLEASE_COLORS
+} from '../microsites/threeFeetPlease.js';
 import { THREE_FEET_LAWS, THREE_FEET_LAWS_LAST_REVIEWED } from '../microsites/laws.js';
 
 test('3 Feet Please website preserves the core legacy routes and clear next steps', () => {
@@ -14,6 +17,7 @@ test('3 Feet Please website preserves the core legacy routes and clear next step
 	assert.ok(config.page_blocks.some((block) => block.button_url === '/advocacy'));
 	assert.ok(config.page_blocks.some((block) => block.button_url === 'https://3fp.org'));
 	assert.match(config.seo_description, /3fp\.org/);
+	assert.deepEqual(config.theme_colors, THREE_FEET_PLEASE_COLORS);
 	assert.ok(
 		config.site_pages
 			.find((page) => page.slug === 'safety-tips')

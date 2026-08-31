@@ -1,6 +1,9 @@
 import { createGroupSiteBlock, normalizeGroupSiteBlocks } from './blocks.js';
 
-export const GROUP_SITE_PAGE_LIMIT = 12;
+// Keep room for a useful resource library without making the primary
+// navigation noisy. Resource pages can stay hidden from the header while
+// remaining fully editable and linkable from the site.
+export const GROUP_SITE_PAGE_LIMIT = 24;
 export const GROUP_SITE_RESERVED_PAGE_SLUGS = new Set(['gallery', 'join', 'updates', 'assets']);
 export const GROUP_SITE_PRIMARY_NAV_LIMIT = 5;
 export const GROUP_SITE_NAV_PLACEMENTS = ['primary', 'more', 'hidden'];
@@ -109,6 +112,7 @@ export function createGroupSitePage({
 	nav_label = '',
 	description = '',
 	seo_description = '',
+	source_revision = '',
 	show_in_nav = true,
 	is_home = false,
 	blocks = [],
@@ -122,6 +126,7 @@ export function createGroupSitePage({
 		nav_label: clean(nav_label || pageTitle, 40),
 		description: clean(description, 360),
 		seo_description: clean(seo_description || description, 180),
+		...(clean(source_revision, 80) ? { source_revision: clean(source_revision, 80) } : {}),
 		show_in_nav: is_home ? true : show_in_nav !== false,
 		is_home: Boolean(is_home),
 		blocks: normalizeGroupSiteBlocks(blocks),

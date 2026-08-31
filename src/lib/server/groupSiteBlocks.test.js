@@ -66,6 +66,14 @@ test('normalization pins one hero first and rejects unknown or duplicate singlet
 	assert.equal(blocks[1].title, 'Photos');
 });
 
+test('source-specific gallery collections survive normalization and serialization', () => {
+	const blocks = normalizeGroupSiteBlocks([
+		{ type: 'hero', title: 'A page' },
+		{ type: 'gallery', gallery_source_page: 'bike-racks', title: 'Rack archive' }
+	]);
+	assert.equal(blocks.find((block) => block.type === 'gallery').gallery_source_page, 'bike-racks');
+});
+
 test('repeatable block IDs remain unique, deterministic, and capped', () => {
 	const input = Array.from({ length: GROUP_SITE_BLOCK_LIMIT + 8 }, (_, index) => ({
 		id: index < 2 ? 'duplicate' : '',

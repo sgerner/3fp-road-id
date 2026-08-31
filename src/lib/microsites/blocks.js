@@ -266,7 +266,7 @@ export function createGroupSiteBlock(type, { id = '', overrides = {} } = {}) {
 	const definition = GROUP_SITE_BLOCK_TYPES[type];
 	if (!definition) return null;
 	const defaults = blockDefaults(type);
-	return {
+	const block = {
 		id: cleanText(id, 80) || (definition.singleton ? canonicalBlockId(type) : ''),
 		type,
 		eyebrow: cleanText(overrides.eyebrow ?? defaults.eyebrow, 80),
@@ -275,6 +275,12 @@ export function createGroupSiteBlock(type, { id = '', overrides = {} } = {}) {
 		button_label: cleanText(overrides.button_label ?? defaults.button_label, 80),
 		button_url: normalizeUrl(overrides.button_url ?? defaults.button_url)
 	};
+	if (type === 'gallery') {
+		// Optional source collection used by imported pages. Empty means the
+		// normal site-wide gallery, which keeps the block useful for every group.
+		block.gallery_source_page = cleanText(overrides.gallery_source_page, 80);
+	}
+	return block;
 }
 
 export function buildDefaultGroupSiteBlocks({ sections = {}, rideWidgetEnabled = false } = {}) {

@@ -1,7 +1,19 @@
 <script>
 	let { text = '', className = '', linkClass = '' } = $props();
 
-	const URL_PATTERN = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+	const LINK_PATTERN =
+		/(?:\[([^\]]+)\]\(((?:https?:\/\/|mailto:|tel:|\/)[^)]+)\))|((?:https?:\/\/|www\.)[^\s<]+)/gi;
+
+	function safeHref(value) {
+		const href = String(value || '').trim();
+		if (
+			/^(?:https?:\/\/|mailto:|tel:)/i.test(href) ||
+			(href.startsWith('/') && !href.startsWith('//'))
+		) {
+			return href;
+		}
+		return '';
+	}
 
 	function parseSegments(value) {
 		const source = typeof value === 'string' ? value : String(value ?? '');
@@ -9,13 +21,25 @@
 
 		const segments = [];
 		let lastIndex = 0;
-		for (const match of source.matchAll(URL_PATTERN)) {
-			const matched = match[0] ?? '';
+		for (const match of source.matchAll(LINK_PATTERN)) {
+			const markdownLabel = match[1] ?? '';
+			const markdownHref = safeHref(match[2]);
+			const matched = match[3] ?? '';
 			const start = match.index ?? 0;
-			const end = start + matched.length;
+			const end = start + (match[0]?.length || 0);
 
 			if (start > lastIndex) {
 				segments.push({ type: 'text', text: source.slice(lastIndex, start) });
+			}
+
+			if (match[1] !== undefined) {
+				segments.push(
+					markdownHref
+						? { type: 'link', text: markdownLabel, href: markdownHref }
+						: { type: 'text', text: match[0] ?? '' }
+				);
+				lastIndex = end;
+				continue;
 			}
 
 			let linkText = matched;
@@ -54,8 +78,8 @@
 		{#if segment.type === 'link'}
 			<a
 				href={segment.href}
-				target="_blank"
-				rel="noopener noreferrer"
+				target={/^https?:\/\//i.test(segment.href) ? '_blank' : undefined}
+				rel={/^https?:\/\//i.test(segment.href) ? 'noopener noreferrer' : undefined}
 				class={linkClass ||
 					'text-primary-600-300 decoration-primary-500/60 underline underline-offset-2'}
 			>

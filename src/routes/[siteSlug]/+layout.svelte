@@ -22,6 +22,7 @@
 
 	const site = $derived(data.site);
 	const group = $derived(site?.group ?? null);
+	const isTbagSite = $derived(site?.siteConfig?.site_variant === 'tbag');
 	const heroImageHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
 	);
@@ -39,7 +40,7 @@
 			: ''
 	);
 	const heroImageSmallHref = $derived(
-		optimizedImageUrl(group?.cover_photo_url, { width: 480, quality: 46 })
+		optimizedImageUrl(group?.cover_photo_url, { width: 320, quality: 40 })
 	);
 	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
 	const taxonomy = $derived(site?.taxonomy || { audiences: [], disciplines: [], skills: [] });
@@ -135,9 +136,9 @@
 			'cycling group',
 			'community cycling',
 			'group rides',
-			'bike advocacy',
-			'3 Feet Please'
+			'bike advocacy'
 		]);
+		if (group?.slug === '3-feet-please' || isTbagSite) values.add('3 Feet Please');
 		if (seoSection) values.add(seoSection);
 		for (const item of taxonomy?.audiences || []) values.add(cleanSeoText(item));
 		for (const item of taxonomy?.disciplines || []) values.add(cleanSeoText(item));
@@ -153,7 +154,7 @@
 		const payload = isHomePage
 			? {
 					'@context': 'https://schema.org',
-					'@type': group?.slug === '3-feet-please' ? 'NGO' : 'SportsOrganization',
+					'@type': group?.slug === '3-feet-please' || isTbagSite ? 'NGO' : 'SportsOrganization',
 					name: seoTitle,
 					description: seoDescription,
 					url: siteRootUrl,
@@ -186,7 +187,10 @@
 				href: page.is_home ? homeHref : basePath ? `${basePath}/${page.slug}` : `/${page.slug}`
 			});
 		}
-		if (site?.siteConfig?.sections?.news && (site?.newsPosts?.length || 0) > 0) {
+		if (
+			site?.siteConfig?.sections?.news &&
+			((site?.newsPosts?.length || 0) > 0 || currentPathname === normalizePathname(updatesHref))
+		) {
 			available.set('special:updates', { label: 'Updates', href: updatesHref });
 		}
 		if (site?.siteConfig?.sections?.join) {
@@ -351,10 +355,9 @@
 
 <div
 	class="microsite-shell microsite-bg--{site?.siteConfig?.background_style ||
-		'cinematic'} min-h-dvh {group?.slug === '3-feet-please' ? 'site-advocacy' : ''} {group?.slug ===
-		'3-feet-please' && isHomePage
-		? 'site-advocacy-home'
-		: ''}"
+		'cinematic'} min-h-dvh {group?.slug === '3-feet-please' ? 'site-advocacy' : ''} {isTbagSite
+		? 'site-tbag'
+		: ''} {group?.slug === '3-feet-please' && isHomePage ? 'site-advocacy-home' : ''}"
 	data-theme={site?.theme?.dataTheme || '3fp'}
 	data-color-mode={colorMode}
 	style={site?.theme?.style || ''}
@@ -1029,6 +1032,14 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		position: relative;
 	}
 
+	/* Keep the first viewport light while preserving stable scroll geometry for long pages. */
+	:global(.microsite-shell .microsite-page > section:not([data-site-block-type='hero'])),
+	:global(.microsite-shell .microsite-page > footer),
+	:global(.microsite-shell .microsite-updates-page > section:not(:first-child)) {
+		content-visibility: auto;
+		contain-intrinsic-size: auto 520px;
+	}
+
 	:global(.microsite-shell .microsite-scroll-reveal) {
 		opacity: 0;
 		transform: translate3d(0, 1rem, 0);
@@ -1135,6 +1146,48 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		}
 	}
 
+	/* TBAG's atmosphere moves slowly enough to feel cinematic rather than
+	   distracting. The final gradient stop stays fixed so the page always has
+	   a reliable, readable surface underneath the color. */
+	@keyframes tbag-cinematic-wash {
+		0% {
+			background-position:
+				-4% -5%,
+				104% 5%,
+				58% 108%,
+				45% 28%,
+				0% 0%;
+		}
+		50% {
+			background-position:
+				10% 11%,
+				92% 19%,
+				48% 93%,
+				51% 39%,
+				0% 0%;
+		}
+		100% {
+			background-position:
+				1% -1%,
+				108% 2%,
+				64% 104%,
+				40% 24%,
+				0% 0%;
+		}
+	}
+
+	@keyframes tbag-cinematic-sweep {
+		0% {
+			transform: translate3d(-3%, -1%, 0) rotate(-3deg) scale(1);
+		}
+		50% {
+			transform: translate3d(3%, 2%, 0) rotate(1deg) scale(1.04);
+		}
+		100% {
+			transform: translate3d(-1%, 4%, 0) rotate(4deg) scale(1.08);
+		}
+	}
+
 	/* Noise texture overlay for cinematic grain */
 	.microsite-shell::after {
 		content: '';
@@ -1150,13 +1203,293 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		opacity: 0.025;
 	}
 
-	/* 3 Feet Please uses a public-interest visual system: calm, legible, and
-	   grounded in the campaign colors instead of a decorative gradient. */
-	.microsite-shell.site-advocacy {
-		background: #f4f6f3;
-		color: #12263a;
+	/* Tenant visual identity: an editorial, desert-sky atmosphere with enough
+	   motion and contrast to feel alive, while paper surfaces keep long-form
+	   content easy to scan. */
+	.microsite-shell.site-tbag,
+	.microsite-shell.site-tbag.microsite-bg--cinematic {
+		--tenant-ink: #11333d;
+		--tenant-primary: #155e75;
+		--tenant-secondary: #2f7a78;
+		--tenant-accent: #c96f52;
+		--tenant-paper: #f7faf8;
+		--tenant-paper-deep: #edf3f1;
+		background-color: #eef8f4;
+		background:
+			radial-gradient(58rem 34rem at -8% -10%, rgb(21 94 117 / 0.29), transparent 69%),
+			radial-gradient(48rem 32rem at 108% 4%, rgb(201 111 82 / 0.22), transparent 70%),
+			radial-gradient(68rem 40rem at 50% 112%, rgb(47 122 120 / 0.22), transparent 65%),
+			radial-gradient(36rem 24rem at 44% 28%, rgb(255 255 255 / 0.78), transparent 74%),
+			linear-gradient(118deg, #edf8f4 0%, #fbf7f0 48%, #f9efea 100%);
+		background-size:
+			120% 120%,
+			112% 118%,
+			126% 120%,
+			110% 115%,
+			100% 100%;
+		background-position:
+			-4% -5%,
+			104% 5%,
+			58% 108%,
+			45% 28%,
+			0% 0%;
+		color: var(--tenant-ink);
+		animation: tbag-cinematic-wash 32s ease-in-out infinite alternate;
+		background-attachment: fixed;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] {
+		--tenant-ink: #eef7f5;
+		--tenant-primary: #8bc9cf;
+		--tenant-secondary: #70b8a7;
+		--tenant-accent: #e0a084;
+		--tenant-paper: #102e3a;
+		--tenant-paper-deep: #0a222c;
+		background-color: #071b25;
+		background:
+			radial-gradient(62rem 38rem at -8% -4%, rgb(47 122 120 / 0.42), transparent 68%),
+			radial-gradient(52rem 32rem at 108% 12%, rgb(201 111 82 / 0.22), transparent 70%),
+			radial-gradient(74rem 42rem at 50% 110%, rgb(21 94 117 / 0.34), transparent 65%),
+			radial-gradient(36rem 24rem at 46% 30%, rgb(139 201 207 / 0.12), transparent 72%),
+			linear-gradient(118deg, #061821 0%, #0b2d3a 52%, #122b2c 100%);
+		background-size:
+			120% 120%,
+			112% 118%,
+			126% 120%,
+			110% 115%,
+			100% 100%;
+		background-position:
+			-4% -5%,
+			104% 5%,
+			58% 108%,
+			45% 28%,
+			0% 0%;
+		color: var(--tenant-ink);
+		animation: tbag-cinematic-wash 32s ease-in-out infinite alternate;
+	}
+
+	.microsite-shell.site-tbag::before,
+	.microsite-shell.site-tbag::after {
+		display: block;
+		content: '';
+		position: fixed;
+		inset: -18vh -12vw;
+		z-index: -1;
+		pointer-events: none;
+	}
+
+	/* A blurred diagonal reflection gives the page its “moving through the
+	   city at golden hour” feeling without introducing an extra asset. */
+	.microsite-shell.site-tbag::before {
+		background:
+			linear-gradient(116deg, transparent 21%, rgb(255 255 255 / 0.18) 35%, transparent 49%),
+			conic-gradient(
+				from 208deg at 46% 44%,
+				transparent 0deg 68deg,
+				rgb(45 155 145 / 0.12) 88deg,
+				transparent 122deg 238deg,
+				rgb(216 118 90 / 0.1) 258deg,
+				transparent 292deg 360deg
+			);
+		filter: blur(38px);
+		opacity: 0.9;
+		transform: translate3d(0, 0, 0);
+		animation: tbag-cinematic-sweep 38s ease-in-out infinite alternate;
+		will-change: transform;
+	}
+
+	/* Fine grain makes the gradients feel tactile without becoming a visible
+	   pattern at normal reading distance. */
+	.microsite-shell.site-tbag::after {
+		inset: 0;
+		background-image:
+			radial-gradient(circle at 17% 23%, rgb(17 51 61 / 0.2) 0 0.7px, transparent 1.4px),
+			radial-gradient(circle at 83% 71%, rgb(17 51 61 / 0.16) 0 0.6px, transparent 1.3px);
+		background-size:
+			6px 6px,
+			9px 9px;
+		mix-blend-mode: multiply;
+		opacity: 0.1;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark']::before {
+		opacity: 0.7;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark']::after {
+		background-image:
+			radial-gradient(circle at 17% 23%, rgb(207 241 237 / 0.16) 0 0.7px, transparent 1.4px),
+			radial-gradient(circle at 83% 71%, rgb(207 241 237 / 0.12) 0 0.6px, transparent 1.3px);
+		mix-blend-mode: screen;
+		opacity: 0.08;
+	}
+
+	.microsite-shell.site-tbag .microsite-nav--floating {
+		border-color: rgb(21 94 117 / 0.16);
+		background: rgb(247 250 248 / 0.92);
+		box-shadow: 0 16px 36px -26px rgb(17 51 61 / 0.48);
+		color: var(--tenant-ink);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+	}
+
+	.microsite-shell.site-tbag .microsite-nav-link {
+		color: #315661;
+	}
+
+	.microsite-shell.site-tbag .microsite-nav-link:hover,
+	.microsite-shell.site-tbag .microsite-nav-link.is-active,
+	.microsite-shell.site-tbag .microsite-more-menu[open] > summary {
+		background: #dcecef;
+		color: #11333d;
+	}
+
+	.microsite-shell.site-tbag .microsite-mark__text,
+	.microsite-shell.site-tbag .microsite-theme-btn,
+	.microsite-shell.site-tbag .microsite-menu-btn {
+		color: #11333d;
+	}
+
+	.microsite-shell.site-tbag .microsite-theme-btn,
+	.microsite-shell.site-tbag .microsite-menu-btn {
+		border-color: rgb(21 94 117 / 0.16);
+		background: #f3f8f6;
+	}
+
+	.microsite-shell.site-tbag .microsite-more-popover,
+	.microsite-shell.site-tbag .microsite-mobile-menu {
+		border-color: rgb(21 94 117 / 0.16);
+		background: rgb(247 250 248 / 0.98);
+		box-shadow: 0 22px 46px -26px rgb(17 51 61 / 0.55);
+		backdrop-filter: none;
+	}
+
+	.microsite-shell.site-tbag .microsite-mobile-link {
+		color: #315661;
+	}
+
+	.microsite-shell.site-tbag .microsite-mobile-link:hover,
+	.microsite-shell.site-tbag .microsite-mobile-link.is-active {
+		background: #dcecef;
+		color: #11333d;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-nav--floating {
+		border-color: rgb(139 201 207 / 0.2);
+		background: rgb(8 31 41 / 0.92);
+		box-shadow: 0 18px 40px -26px rgb(0 0 0 / 0.78);
+		color: #eef7f5;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-nav-link,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-mark__text,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-theme-btn,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-menu-btn {
+		color: #eef7f5;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-nav-link:hover,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-nav-link.is-active,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-more-menu[open] > summary,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-mobile-link:hover,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-mobile-link.is-active {
+		background: rgb(47 122 120 / 0.3);
+		color: #f5fbf9;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-theme-btn,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-menu-btn {
+		border-color: rgb(139 201 207 / 0.2);
+		background: #103541;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-more-popover,
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-mobile-menu {
+		border-color: rgb(139 201 207 / 0.2);
+		background: #102e3a;
+		box-shadow: 0 22px 46px -26px rgb(0 0 0 / 0.8);
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] .microsite-mobile-link {
+		color: #c5ddda;
+	}
+
+	.microsite-shell.site-tbag :global(:focus-visible) {
+		outline: 2px solid #2f7a78;
+		outline-offset: 3px;
+	}
+
+	.microsite-shell.site-tbag[data-color-mode='dark'] :global(:focus-visible) {
+		outline-color: #8bc9cf;
+	}
+
+	@media (max-width: 767px) {
+		.microsite-shell.site-tbag.microsite-bg--cinematic {
+			background-attachment: scroll;
+			background-size:
+				170% 130%,
+				150% 135%,
+				160% 130%,
+				135% 125%,
+				100% 100%;
+			animation-duration: 40s;
+		}
+
+		.microsite-shell.site-tbag::before,
+		.microsite-shell.site-tbag::after {
+			position: absolute;
+		}
+
+		.microsite-shell.site-tbag::before {
+			inset: -8rem -28%;
+			filter: blur(28px);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.microsite-shell.site-tbag.microsite-bg--cinematic,
+		.microsite-shell.site-tbag::before {
+			animation: none;
+		}
+
+		.microsite-shell.site-tbag::before {
+			transform: none;
+		}
+	}
+
+	/* 3 Feet Please keeps its citrus signal as an action color, then uses
+	   ocean ink, clay, and paper tones to make the organization feel credible. */
+	.microsite-shell.site-advocacy,
+	.microsite-shell.site-advocacy.microsite-bg--void,
+	.microsite-shell.site-advocacy.microsite-bg--cinematic,
+	.microsite-shell.site-advocacy.microsite-bg--aurora,
+	.microsite-shell.site-advocacy.microsite-bg--prism {
+		--advocacy-shell-ink: #0b2533;
+		--advocacy-shell-blue: #1d536b;
+		--advocacy-shell-citrus: #c4d32d;
+		--advocacy-shell-coral: #d8795d;
+		background:
+			radial-gradient(70rem 42rem at -8% -10%, rgb(29 83 107 / 0.18), transparent 66%),
+			radial-gradient(58rem 36rem at 108% 18%, rgb(196 211 45 / 0.17), transparent 66%),
+			radial-gradient(48rem 32rem at 58% 110%, rgb(216 121 93 / 0.12), transparent 68%),
+			radial-gradient(34rem 22rem at 48% 30%, rgb(255 255 255 / 0.68), transparent 72%),
+			linear-gradient(135deg, #f9fbf7 0%, #edf4ef 52%, #f2eee8 100%);
+		color: var(--advocacy-shell-ink);
 		animation: none;
 		background-attachment: scroll;
+	}
+
+	.microsite-shell.site-advocacy[data-color-mode='dark'] {
+		--advocacy-shell-ink: #f3f8f6;
+		--advocacy-shell-blue: #8fc5cf;
+		--advocacy-shell-citrus: #cbd77d;
+		--advocacy-shell-coral: #e09a82;
+		background:
+			radial-gradient(62rem 38rem at -8% -4%, rgb(29 83 107 / 0.46), transparent 68%),
+			radial-gradient(54rem 32rem at 108% 18%, rgb(196 211 45 / 0.16), transparent 72%),
+			radial-gradient(50rem 34rem at 54% 100%, rgb(216 121 93 / 0.16), transparent 70%),
+			linear-gradient(135deg, #061720 0%, #0b2b3a 52%, #142a27 100%);
+		color: var(--advocacy-shell-ink);
 	}
 
 	.microsite-shell.site-advocacy::before,
@@ -1169,101 +1502,123 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	}
 
 	.microsite-shell.site-advocacy .microsite-nav--floating {
-		border: 1px solid rgb(18 38 58 / 0.14);
-		background: #ffffff;
-		box-shadow: 0 12px 32px -22px rgb(18 38 58 / 0.45);
-		color: #12263a;
+		border-color: rgb(11 37 51 / 0.14);
+		background: rgb(247 249 246 / 0.92);
+		box-shadow: 0 14px 34px -24px rgb(11 37 51 / 0.48);
+		color: #0b2533;
 		backdrop-filter: none;
 	}
 
 	.microsite-shell.site-advocacy .microsite-nav-link {
-		color: #365168;
+		color: #3e5f6c;
 	}
 
 	.microsite-shell.site-advocacy .microsite-nav-link:hover,
 	.microsite-shell.site-advocacy .microsite-nav-link.is-active,
 	.microsite-shell.site-advocacy .microsite-more-menu[open] > summary {
-		background: #edf5a8;
-		color: #12263a;
+		background: #e5ebc1;
+		color: #0b2533;
 	}
 
-	.microsite-shell.site-advocacy .microsite-mark__text {
-		color: #12263a;
+	.microsite-shell.site-advocacy .microsite-mark__text,
+	.microsite-shell.site-advocacy .microsite-theme-btn,
+	.microsite-shell.site-advocacy .microsite-menu-btn {
+		color: #0b2533;
 	}
 
 	.microsite-shell.site-advocacy .microsite-theme-btn,
 	.microsite-shell.site-advocacy .microsite-menu-btn {
-		border-color: rgb(18 38 58 / 0.14);
-		background: #f8faf7;
-		color: #12263a;
+		border-color: rgb(11 37 51 / 0.14);
+		background: #f4f7f3;
 	}
 
 	.microsite-shell.site-advocacy .microsite-community-link {
-		border-color: rgb(23 50 77 / 0.18);
-		background: #edf5a8;
-		color: #10202e;
+		border-color: rgb(196 211 45 / 0.62);
+		background: rgb(196 211 45 / 0.16);
+		color: #0b2533;
 	}
 
-	.microsite-shell.site-advocacy .microsite-more-popover {
-		border-color: rgb(18 38 58 / 0.14);
-		background: #ffffff;
-		box-shadow: 0 20px 42px -24px rgb(18 38 58 / 0.55);
-		backdrop-filter: none;
-	}
-
+	.microsite-shell.site-advocacy .microsite-more-popover,
 	.microsite-shell.site-advocacy .microsite-mobile-menu {
-		border-color: rgb(18 38 58 / 0.14);
-		background: #ffffff;
+		border-color: rgb(11 37 51 / 0.14);
+		background: rgb(247 249 246 / 0.98);
+		box-shadow: 0 22px 46px -26px rgb(11 37 51 / 0.58);
 		backdrop-filter: none;
 	}
 
 	.microsite-shell.site-advocacy .microsite-mobile-link {
-		color: #365168;
+		color: #3e5f6c;
 	}
 
 	.microsite-shell.site-advocacy .microsite-mobile-link:hover,
 	.microsite-shell.site-advocacy .microsite-mobile-link.is-active {
-		background: #edf5a8;
-		color: #12263a;
+		background: #e5ebc1;
+		color: #0b2533;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy {
-		background: #0d1b29;
-		color: #f4f7f5;
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-nav--floating {
+		border-color: rgb(143 197 207 / 0.2);
+		background: rgb(8 28 40 / 0.92);
+		box-shadow: 0 18px 42px -26px rgb(0 0 0 / 0.78);
+		color: #f3f8f6;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-nav--floating {
-		border-color: rgb(244 247 245 / 0.14);
-		background: #12263a;
-		box-shadow: 0 14px 36px -22px rgb(0 0 0 / 0.7);
-		color: #f4f7f5;
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-nav-link,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-mark__text,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-theme-btn,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-menu-btn {
+		color: #f3f8f6;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-nav-link,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-mark__text,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-theme-btn,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-menu-btn {
-		color: #f4f7f5;
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-nav-link:hover,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-nav-link.is-active,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-more-menu[open] > summary,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-mobile-link:hover,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-mobile-link.is-active {
+		background: rgb(196 211 45 / 0.22);
+		color: #f6fbf8;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-theme-btn,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-menu-btn {
-		border-color: rgb(244 247 245 / 0.16);
-		background: #18334b;
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-theme-btn,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-menu-btn {
+		border-color: rgb(143 197 207 / 0.2);
+		background: #103341;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-more-popover,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy .microsite-mobile-menu {
-		border-color: rgb(244 247 245 / 0.16);
-		background: #12263a;
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-community-link {
+		border-color: rgb(203 215 125 / 0.5);
+		background: rgb(196 211 45 / 0.18);
+		color: #f6fbf8;
 	}
 
-	/* The original campaign homepage treated the hero as the front door.
-	   Let its photo carry the first impression while keeping inner pages calm. */
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-more-popover,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-mobile-menu {
+		border-color: rgb(143 197 207 / 0.2);
+		background: #102e3e;
+		box-shadow: 0 22px 46px -26px rgb(0 0 0 / 0.82);
+	}
+
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-mobile-link {
+		color: #c2d9da;
+	}
+
+	.microsite-shell.site-advocacy :global(:focus-visible) {
+		outline: 2px solid #1d536b;
+		outline-offset: 3px;
+	}
+
+	.microsite-shell.site-advocacy[data-color-mode='dark'] :global(:focus-visible) {
+		outline-color: #cbd77d;
+	}
+
+	/* The campaign homepage lets the photo carry the first impression. A
+	   restrained navy header wash keeps the overlaid navigation legible. */
 	.microsite-shell.site-advocacy-home .microsite-nav-shell {
 		position: absolute;
 		inset: 0 0 auto;
 		z-index: 30;
+		padding-bottom: 0.75rem;
+		background: linear-gradient(180deg, rgb(7 25 35 / 0.62), transparent);
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-nav-offset {
@@ -1286,60 +1641,64 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	.microsite-shell.site-advocacy-home .microsite-nav-link:hover,
 	.microsite-shell.site-advocacy-home .microsite-nav-link.is-active,
 	.microsite-shell.site-advocacy-home .microsite-more-menu[open] > summary {
-		background: #d7f205;
-		color: #10202e;
+		background: #c4d32d;
+		color: #0b2533;
 		text-shadow: none;
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-theme-btn,
 	.microsite-shell.site-advocacy-home .microsite-menu-btn {
 		border-color: rgb(255 255 255 / 0.42);
-		background: rgb(16 32 46 / 0.2);
+		background: rgb(7 25 35 / 0.24);
 		color: #ffffff;
 		backdrop-filter: blur(10px);
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-community-link {
-		border-color: rgb(215 242 5 / 0.7);
-		background: rgb(215 242 5 / 0.14);
+		border-color: rgb(196 211 45 / 0.72);
+		background: rgb(196 211 45 / 0.16);
 		color: #ffffff;
 		text-shadow: 0 1px 14px rgb(0 0 0 / 0.45);
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-community-link:hover {
-		background: #d7f205;
-		color: #10202e;
+		background: #c4d32d;
+		color: #0b2533;
 		text-shadow: none;
+	}
+
+	.microsite-shell.site-advocacy-home :global(:focus-visible) {
+		outline-color: #c4d32d;
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-more-popover,
 	.microsite-shell.site-advocacy-home .microsite-mobile-menu {
-		border-color: rgb(16 32 46 / 0.14);
-		background: #ffffff;
-		box-shadow: 0 20px 42px -24px rgb(16 32 46 / 0.7);
-		color: #10202e;
+		border-color: rgb(11 37 51 / 0.14);
+		background: #f7f9f6;
+		box-shadow: 0 22px 46px -26px rgb(11 37 51 / 0.7);
+		color: #0b2533;
 		backdrop-filter: none;
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-mobile-link {
-		color: #365168;
+		color: #3e5f6c;
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-mobile-link:hover,
 	.microsite-shell.site-advocacy-home .microsite-mobile-link.is-active {
-		background: #edf5a8;
-		color: #10202e;
+		background: #e5ebc1;
+		color: #0b2533;
 	}
 
 	.microsite-shell.site-advocacy-home .microsite-mobile-community-link {
-		border-top-color: rgb(18 38 58 / 0.14);
-		color: #17324d;
+		border-top-color: rgb(11 37 51 / 0.14);
+		color: #1d536b;
 	}
 
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy-home .microsite-theme-btn,
-	:global([data-color-mode='dark']) .microsite-shell.site-advocacy-home .microsite-menu-btn {
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-theme-btn,
+	.microsite-shell.site-advocacy[data-color-mode='dark'] .microsite-menu-btn {
 		border-color: rgb(255 255 255 / 0.42);
-		background: rgb(16 32 46 / 0.45);
+		background: rgb(7 25 35 / 0.45);
 		color: #ffffff;
 	}
 </style>

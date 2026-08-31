@@ -134,6 +134,11 @@ export function normalizeGroupAsset(asset) {
 
 export function sortGroupAssets(assets = []) {
 	return [...assets].sort((a, b) => {
+		const aOrder = Number(a?.sort_order ?? a?.sortOrder);
+		const bOrder = Number(b?.sort_order ?? b?.sortOrder);
+		if (Number.isFinite(aOrder) && Number.isFinite(bOrder) && aOrder !== bOrder) {
+			return aOrder - bOrder;
+		}
 		const aTime =
 			new Date(a?.updated_at || a?.updatedAt || a?.created_at || a?.createdAt || 0).getTime() || 0;
 		const bTime =

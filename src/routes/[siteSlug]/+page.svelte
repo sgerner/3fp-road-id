@@ -22,6 +22,11 @@
 	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
 	import { getGroupSiteBlockTone } from '$lib/microsites/blocks';
 	import {
+		inferTbagSourceMediaPage,
+		mapTbagLegacyUrl,
+		tbagSourceMediaKey
+	} from '$lib/microsites/tempeBicycleActionGroup';
+	import {
 		THREE_FEET_LAWS,
 		THREE_FEET_LAWS_LAST_REVIEWED,
 		THREE_FEET_LAWS_SOURCE_FILE,
@@ -48,7 +53,7 @@
 	);
 	const heroImageSmallSrcSet = $derived(
 		group?.cover_photo_url
-			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w`
+			? `${optimizedImageUrl(group.cover_photo_url, { width: 320, quality: 40 })} 320w`
 			: ''
 	);
 	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
@@ -58,12 +63,10 @@
 	const pageBlocks = $derived(currentPage?.blocks || config?.page_blocks || []);
 	const heroBlock = $derived(pageBlocks.find((block) => block.type === 'hero') || null);
 	const isAdvocacySite = $derived(group?.slug === '3-feet-please');
+	const isTbagSite = $derived(config?.site_variant === 'tbag');
 	const heroTitle = $derived(
-		currentPage?.is_home && isAdvocacySite && heroBlock?.title
-			? heroBlock.title
-			: currentPage?.is_home
-				? config?.site_title
-				: currentPage?.title || config?.site_title
+		heroBlock?.title ||
+			(currentPage?.is_home ? config?.site_title : currentPage?.title || config?.site_title)
 	);
 	const heroTagline = $derived(
 		currentPage?.is_home ? config?.site_tagline : currentPage?.description || config?.site_tagline
@@ -127,8 +130,32 @@
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
 	let lightboxItems = $state([]);
-	// Gallery images (first 4 only)
-	const galleryImages = $derived(site.photoBucket?.image_assets?.slice(0, 3) || []);
+	// The regular gallery remains a small site-wide preview. Imported resource
+	// pages can opt into their own source collection through gallery_source_page.
+	const galleryImages = $derived(site.photoBucket?.image_assets || []);
+	function galleryImagesForBlock(block) {
+		const sourcePage = String(block?.gallery_source_page || '')
+			.trim()
+			.toLowerCase();
+		const seen = new Set();
+		return galleryImages
+			.filter((asset) => {
+				const metadataPage = String(asset?.metadata?.source_page || '')
+					.trim()
+					.toLowerCase();
+				const matchesPage =
+					!sourcePage ||
+					metadataPage === sourcePage ||
+					inferTbagSourceMediaPage(asset?.metadata?.source_url || asset?.href) === sourcePage;
+				if (!matchesPage) return false;
+				const sourceKey = tbagSourceMediaKey(asset?.metadata?.source_url || asset?.href);
+				const key = sourceKey || asset?.id || asset?.href;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+			.slice(0, sourcePage ? 12 : 3);
+	}
 	// Instagram posts
 	let deferredInstagramPosts = $state([]);
 	const instagramPosts = $derived(
@@ -317,13 +344,20 @@
 	}
 	function blockActionHref(block) {
 		const configured = String(block?.button_url || '').trim();
-		if (['/join', '/updates', '/assets'].includes(configured)) return siteChildHref(configured);
+		const internalized = isTbagSite ? mapTbagLegacyUrl(configured) : configured;
+		const configuredPath = internalized.split('#', 1)[0];
+		if (['/join', '/updates', '/assets'].includes(configuredPath))
+			return siteChildHref(internalized);
 		if (
-			configured.startsWith('/') &&
-			config?.site_pages?.some((page) => page.slug && configured === `/${page.slug}`)
+			internalized.startsWith('/') &&
+			config?.site_pages?.some(
+				(page) =>
+					page.slug &&
+					(configuredPath === `/${page.slug}` || configuredPath.startsWith(`/${page.slug}/`))
+			)
 		)
-			return siteChildHref(configured);
-		if (configured) return configured;
+			return siteChildHref(internalized);
+		if (internalized) return internalized;
 		if (block?.type === 'volunteer') return `/volunteer/groups/${group.slug}`;
 		if (block?.type === 'updates') return siteChildHref('/updates');
 		if (block?.type === 'resources') return siteChildHref('/assets');
@@ -386,8 +420,8 @@
 			''
 		);
 	}
-	function openLightbox(index) {
-		lightboxItems = galleryImages;
+	function openLightbox(index, items = galleryImages) {
+		lightboxItems = items;
 		lightboxIndex = index;
 		lightboxOpen = true;
 	}
@@ -423,6 +457,8 @@
 <div
 	class="microsite-page max-w-7xl {pageStyleClass} {isAdvocacySite
 		? 'site-advocacy'
+		: ''} {isTbagSite ? 'site-tbag' : ''} {isTbagSite && !currentPage?.is_home
+		? 'site-tbag-inner'
 		: ''} {isAdvocacySite && currentPage?.is_home ? 'site-advocacy-home' : ''}"
 >
 	<!-- ═══════════════════════════════════════════════════════════
@@ -517,7 +553,7 @@ HERO — cinematic cover with integrated CTAs
 									<div class="skeleton mb-3 h-4 w-32 rounded-full"></div>
 								{/if}
 								<!-- Logo + Title row -->
-								<div class="mt-4 flex items-start gap-4 md:gap-6">
+								<div class="site-hero-title-row mt-4 flex items-start gap-4 md:gap-6">
 									{#if group.logo_url}
 										<img
 											src={logoImageHref}
@@ -571,11 +607,6 @@ HERO — cinematic cover with integrated CTAs
 												<IconArrowRight class="h-4 w-4" />
 											</a>
 										{/each}
-									</div>
-								{:else}
-									<div class="mt-6 flex gap-3">
-										<div class="skeleton h-12 w-32 rounded-full"></div>
-										<div class="skeleton h-12 w-32 rounded-full"></div>
 									</div>
 								{/if}
 							</div>
@@ -686,11 +717,6 @@ HERO — cinematic cover with integrated CTAs
 												</a>
 											{/each}
 										</div>
-									{:else}
-										<div class="mt-8 flex justify-center gap-3">
-											<div class="skeleton h-10 w-24 rounded-full"></div>
-											<div class="skeleton h-10 w-24 rounded-full"></div>
-										</div>
 									{/if}
 								</div>
 							</div>
@@ -724,10 +750,10 @@ HERO — cinematic cover with integrated CTAs
 							></div>
 						{/if}
 						<div
-							class="site-advocacy-hero-vignette absolute inset-0 bg-gradient-to-t from-[#0b0f14] via-[#0b0f14]/60 to-transparent opacity-90"
+							class="site-advocacy-hero-vignette absolute inset-0 bg-gradient-to-t from-[#071923] via-[#071923]/60 to-transparent opacity-90"
 						></div>
 						<div
-							class="site-advocacy-hero-wash absolute inset-0 bg-gradient-to-br from-[#0b0f14]/40 via-transparent to-[#0b0f14]/20 opacity-55"
+							class="site-advocacy-hero-wash absolute inset-0 bg-gradient-to-br from-[#071923]/40 via-transparent to-[#071923]/20 opacity-55"
 						></div>
 						<div
 							class="site-advocacy-hero-content absolute inset-0 z-10 flex flex-col justify-end p-5 md:p-8"
@@ -1027,121 +1053,145 @@ ABOUT — Comprehensive group profile
 					</div>
 
 					<!-- Quick facts grid -->
-					<div class="about-facts-grid">
-						{#if group?.activity_frequency}
+					{#if isTbagSite}
+						<div class="about-facts-grid about-facts-grid--tbag">
 							<div class="about-fact">
-								<p class="about-fact-label">When we ride</p>
-								<p class="about-fact-value">{group.activity_frequency}</p>
+								<p class="about-fact-label">Focus</p>
+								<p class="about-fact-value">Safer streets and better bicycling</p>
 							</div>
-						{/if}
-
-						{#if location || group?.specific_meeting_point_address}
 							<div class="about-fact">
-								<p class="about-fact-label">Where we meet</p>
-								{#if mapsHref && (group?.specific_meeting_point_address || location)}
+								<p class="about-fact-label">Based in</p>
+								<p class="about-fact-value">{location || 'Tempe, Arizona'}</p>
+							</div>
+							<div class="about-fact">
+								<p class="about-fact-label">Organization</p>
+								<p class="about-fact-value">Tempe-based 501(c)(3)</p>
+							</div>
+							<div class="about-fact">
+								<p class="about-fact-label">Get involved</p>
+								<a href="/take-action" class="about-fact-link">
+									Find your next step
+									<IconArrowRight class="h-3.5 w-3.5" />
+								</a>
+							</div>
+						</div>
+					{:else}
+						<div class="about-facts-grid">
+							{#if group?.activity_frequency}
+								<div class="about-fact">
+									<p class="about-fact-label">When we ride</p>
+									<p class="about-fact-value">{group.activity_frequency}</p>
+								</div>
+							{/if}
+
+							{#if location || group?.specific_meeting_point_address}
+								<div class="about-fact">
+									<p class="about-fact-label">Where we meet</p>
+									{#if mapsHref && (group?.specific_meeting_point_address || location)}
+										<a
+											href={mapsHref}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="about-fact-link"
+										>
+											{group?.specific_meeting_point_address || location}
+											<IconArrowRight class="h-3.5 w-3.5" />
+										</a>
+									{:else}
+										<p class="about-fact-value">{location || 'Shared in ride details'}</p>
+									{/if}
+								</div>
+							{/if}
+
+							{#if taxonomy?.audiences?.length || group?.audience_focus}
+								<div class="about-fact">
+									<p class="about-fact-label">Who can join</p>
+									<p class="about-fact-value">
+										{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
+									</p>
+								</div>
+							{/if}
+
+							{#if group?.how_to_join_instructions || group?.membership_info}
+								<div class="about-fact">
+									<p class="about-fact-label">How to join</p>
+									<p class="about-fact-value">
+										{group?.how_to_join_instructions || group?.membership_info}
+									</p>
+								</div>
+							{/if}
+
+							{#if group?.typical_activity_day_time}
+								<div class="about-fact">
+									<p class="about-fact-label">Typical schedule</p>
+									<p class="about-fact-value">{group.typical_activity_day_time}</p>
+								</div>
+							{/if}
+
+							{#if group?.primary_discipline}
+								<div class="about-fact">
+									<p class="about-fact-label">Primary discipline</p>
+									<p class="about-fact-value">{group.primary_discipline}</p>
+								</div>
+							{/if}
+
+							{#if group?.typical_skill_level}
+								<div class="about-fact">
+									<p class="about-fact-label">Typical skill level</p>
+									<p class="about-fact-value">{group.typical_skill_level}</p>
+								</div>
+							{/if}
+
+							{#if group?.zip_code}
+								<div class="about-fact">
+									<p class="about-fact-label">ZIP code</p>
+									<p class="about-fact-value">{group.zip_code}</p>
+								</div>
+							{/if}
+
+							{#if group?.website_url && !isTbagSite}
+								<div class="about-fact">
+									<p class="about-fact-label">Website</p>
 									<a
-										href={mapsHref}
+										href={group.website_url}
 										target="_blank"
 										rel="noopener noreferrer"
 										class="about-fact-link"
 									>
-										{group?.specific_meeting_point_address || location}
+										{group.website_url.replace(/^https?:\/\//, '')}
 										<IconArrowRight class="h-3.5 w-3.5" />
 									</a>
-								{:else}
-									<p class="about-fact-value">{location || 'Shared in ride details'}</p>
-								{/if}
-							</div>
-						{/if}
+								</div>
+							{/if}
 
-						{#if taxonomy?.audiences?.length || group?.audience_focus}
-							<div class="about-fact">
-								<p class="about-fact-label">Who can join</p>
-								<p class="about-fact-value">
-									{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
-								</p>
-							</div>
-						{/if}
+							{#if group?.public_contact_email}
+								<div class="about-fact">
+									<p class="about-fact-label">Email</p>
+									<a href="mailto:{group.public_contact_email}" class="about-fact-link">
+										{group.public_contact_email}
+										<IconArrowRight class="h-3.5 w-3.5" />
+									</a>
+								</div>
+							{/if}
 
-						{#if group?.how_to_join_instructions || group?.membership_info}
-							<div class="about-fact">
-								<p class="about-fact-label">How to join</p>
-								<p class="about-fact-value">
-									{group?.how_to_join_instructions || group?.membership_info}
-								</p>
-							</div>
-						{/if}
+							{#if group?.public_phone_number}
+								<div class="about-fact">
+									<p class="about-fact-label">Phone</p>
+									<a href="tel:{group.public_phone_number}" class="about-fact-link">
+										{group.public_phone_number}
+										<IconArrowRight class="h-3.5 w-3.5" />
+									</a>
+								</div>
+							{/if}
 
-						{#if group?.typical_activity_day_time}
-							<div class="about-fact">
-								<p class="about-fact-label">Typical schedule</p>
-								<p class="about-fact-value">{group.typical_activity_day_time}</p>
-							</div>
-						{/if}
-
-						{#if group?.primary_discipline}
-							<div class="about-fact">
-								<p class="about-fact-label">Primary discipline</p>
-								<p class="about-fact-value">{group.primary_discipline}</p>
-							</div>
-						{/if}
-
-						{#if group?.typical_skill_level}
-							<div class="about-fact">
-								<p class="about-fact-label">Typical skill level</p>
-								<p class="about-fact-value">{group.typical_skill_level}</p>
-							</div>
-						{/if}
-
-						{#if group?.zip_code}
-							<div class="about-fact">
-								<p class="about-fact-label">ZIP code</p>
-								<p class="about-fact-value">{group.zip_code}</p>
-							</div>
-						{/if}
-
-						{#if group?.website_url}
-							<div class="about-fact">
-								<p class="about-fact-label">Website</p>
-								<a
-									href={group.website_url}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="about-fact-link"
-								>
-									{group.website_url.replace(/^https?:\/\//, '')}
-									<IconArrowRight class="h-3.5 w-3.5" />
-								</a>
-							</div>
-						{/if}
-
-						{#if group?.public_contact_email}
-							<div class="about-fact">
-								<p class="about-fact-label">Email</p>
-								<a href="mailto:{group.public_contact_email}" class="about-fact-link">
-									{group.public_contact_email}
-									<IconArrowRight class="h-3.5 w-3.5" />
-								</a>
-							</div>
-						{/if}
-
-						{#if group?.public_phone_number}
-							<div class="about-fact">
-								<p class="about-fact-label">Phone</p>
-								<a href="tel:{group.public_phone_number}" class="about-fact-link">
-									{group.public_phone_number}
-									<IconArrowRight class="h-3.5 w-3.5" />
-								</a>
-							</div>
-						{/if}
-
-						{#if group?.preferred_contact_method_instructions}
-							<div class="about-fact">
-								<p class="about-fact-label">Best way to reach us</p>
-								<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
-							</div>
-						{/if}
-					</div>
+							{#if group?.preferred_contact_method_instructions}
+								<div class="about-fact">
+									<p class="about-fact-label">Best way to reach us</p>
+									<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
+								</div>
+							{/if}
+						</div>
+					{/if}
 
 					<!-- FAQ within About -->
 					{#if config.faq_1_q || config.faq_1_a || config.faq_2_q || config.faq_2_a}
@@ -1299,7 +1349,7 @@ ABOUT — Comprehensive group profile
 			<!-- ═══════════════════════════════════════════════════════════
 GALLERY PREVIEW — Link to full gallery page with Instagram
 ═══════════════════════════════════════════════════════════ -->
-		{:else if block.type === 'gallery' && (galleryImages.length || hasInstagramPosts)}
+		{:else if block.type === 'gallery' && (galleryImagesForBlock(block).length || hasInstagramPosts)}
 			<section
 				class="gallery-section"
 				id="gallery"
@@ -1315,7 +1365,7 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 								<h2 class="gallery-title">{block.title || 'Scenes from our rides'}</h2>
 							</div>
 						</div>
-						{#if galleryImages.length}
+						{#if galleryImagesForBlock(block).length}
 							<a
 								href={galleryHref}
 								class="btn btn-sm preset-tonal-secondary gallery-header-cta gap-1"
@@ -1327,10 +1377,19 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 					</div>
 
 					<!-- Gallery Images -->
-					{#if galleryImages.length}
+					{#if galleryImagesForBlock(block).length}
 						<div class="gallery-grid">
-							{#each galleryImages as image}
-								<a href={galleryHref} class="gallery-item" data-scroll-reveal="stagger">
+							{#each galleryImagesForBlock(block) as image, imageIndex}
+								<a
+									href={galleryHref}
+									class="gallery-item"
+									data-scroll-reveal="stagger"
+									onclick={(event) => {
+										event.preventDefault();
+										openLightbox(imageIndex, galleryImagesForBlock(block));
+									}}
+									aria-label="View {image.title}"
+								>
 									<img
 										src={LAZY_IMAGE_PLACEHOLDER}
 										data-src={optimizedImageUrl(image.href, { width: 960, quality: 70 })}
@@ -1346,7 +1405,7 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 										/>
 									</noscript>
 									<div class="gallery-overlay">
-										<span class="gallery-view">View</span>
+										<span class="gallery-view">View photo</span>
 									</div>
 								</a>
 							{/each}
@@ -1620,15 +1679,24 @@ SPONSORS — Community partners showcase
 FOOTER — Simple, clean
 ═══════════════════════════════════════════════════════════ -->
 	<footer class="site-footer">
-		{#if isAdvocacySite}
+		{#if isAdvocacySite || isTbagSite}
 			<div class="footer-community-bridge">
 				<div class="footer-community-copy">
-					<p class="footer-community-label">The community hub</p>
-					<h2>Find your people, rides, and practical support on 3fp.org.</h2>
-					<p>
-						The day-to-day community lives there: discover groups, browse rides, learn safer-road
-						habits, and find ways to help.
-					</p>
+					{#if isAdvocacySite}
+						<p class="footer-community-label">The community hub</p>
+						<h2>Find your people, rides, and practical support on 3fp.org.</h2>
+						<p>
+							The day-to-day community lives there: discover groups, browse rides, learn safer-road
+							habits, and find ways to help.
+						</p>
+					{:else}
+						<p class="footer-community-label">Part of a bigger movement</p>
+						<h2>Bring local action into the 3fp.org community.</h2>
+						<p>
+							Connect with groups, rides, resources, and practical support for safer, more welcoming
+							streets across the cycling community.
+						</p>
+					{/if}
 				</div>
 				<a
 					href="https://3fp.org"
@@ -1645,11 +1713,9 @@ FOOTER — Simple, clean
 			<AutoLinkText text={config.footer_blurb} className="footer-blurb" linkClass="footer-link" />
 		{/if}
 		<p class="footer-powered">
-			3 Feet Please is part of the 3fp.org community. <a
-				href="https://3fp.org"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="footer-brand">Explore the community</a
+			{site?.siteConfig?.site_title || group?.name || 'This organization'} is part of the 3fp.org community.
+			<a href="https://3fp.org" target="_blank" rel="noopener noreferrer" class="footer-brand"
+				>Explore the community</a
 			>
 		</p>
 	</footer>
@@ -1753,6 +1819,122 @@ FOOTER — Simple, clean
 		.microsite-page {
 			--ms-padding-x: 1.5rem;
 			--ms-gap: 1.5rem;
+		}
+	}
+	/* Keep long advocacy headlines confident and readable inside the split hero. */
+	.microsite-page.site-tbag {
+		--tbag-ink: #11333d;
+		--tbag-blue: #155e75;
+		--tbag-teal: #2f7a78;
+		--tbag-clay: #c96f52;
+		--tbag-paper: #f7faf8;
+		--tbag-night: #102e3a;
+		--tbag-line: rgb(21 94 117 / 0.16);
+	}
+
+	.microsite-page.site-tbag.hero-mode-bold h1 {
+		font-size: clamp(2.25rem, 4vw, 4.25rem);
+		line-height: 0.96;
+		color: #d7eef0 !important;
+	}
+	.microsite-page.site-tbag .site-advocacy-hero-copy {
+		border-color: rgb(139 201 207 / 0.22) !important;
+		background: rgb(8 31 41 / 0.9) !important;
+		box-shadow: 0 18px 38px -26px rgb(0 0 0 / 0.76);
+	}
+	.microsite-page.site-tbag .text-primary-500 {
+		color: #d7eef0 !important;
+	}
+	.microsite-page.site-tbag .custom-content-card {
+		border-color: var(--tbag-line);
+		background: rgb(247 250 248 / 0.88);
+		box-shadow: 0 16px 34px -30px rgb(17 51 61 / 0.52);
+		backdrop-filter: none;
+	}
+	.microsite-page.site-tbag .custom-content-title,
+	.microsite-page.site-tbag .sponsor-title,
+	.microsite-page.site-tbag .sponsor-name {
+		color: var(--tbag-ink);
+	}
+	.microsite-page.site-tbag :global(.custom-content-body),
+	.microsite-page.site-tbag .sponsor-text {
+		color: #496673;
+		opacity: 1;
+	}
+	.microsite-page.site-tbag .custom-content-label,
+	.microsite-page.site-tbag .sponsor-label {
+		color: var(--tbag-blue);
+	}
+	.microsite-page.site-tbag .custom-content-button,
+	.microsite-page.site-tbag .preset-filled-primary-500 {
+		background: var(--tbag-blue);
+		color: #ffffff;
+	}
+	.microsite-page.site-tbag .custom-content-button:hover,
+	.microsite-page.site-tbag .preset-filled-primary-500:hover {
+		background: var(--tbag-teal);
+	}
+	.microsite-page.site-tbag .gallery-section,
+	.microsite-page.site-tbag .contact-section,
+	.microsite-page.site-tbag .about-section,
+	.microsite-page.site-tbag .events-section,
+	.microsite-page.site-tbag .quick-info,
+	.microsite-page.site-tbag .new-rider-note,
+	.microsite-page.site-tbag .donate-section {
+		border-color: var(--tbag-line);
+		background: rgb(247 250 248 / 0.82);
+		box-shadow: 0 16px 34px -30px rgb(17 51 61 / 0.46);
+		backdrop-filter: none;
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag {
+		--tbag-ink: #eef7f5;
+		--tbag-blue: #8bc9cf;
+		--tbag-teal: #70b8a7;
+		--tbag-clay: #e0a084;
+		--tbag-paper: #102e3a;
+		--tbag-night: #0a222c;
+		--tbag-line: rgb(139 201 207 / 0.18);
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .custom-content-card,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .gallery-section,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .contact-section,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .about-section,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .events-section,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .quick-info,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .new-rider-note,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .donate-section {
+		background: rgb(16 46 58 / 0.9);
+		box-shadow: 0 18px 40px -30px rgb(0 0 0 / 0.7);
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag :global(.custom-content-body),
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .sponsor-text {
+		color: #b8d0d0;
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .custom-content-title,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .sponsor-title,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .sponsor-name {
+		color: var(--tbag-ink);
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .custom-content-label,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .sponsor-label {
+		color: var(--tbag-blue);
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .text-primary-500 {
+		color: #b8e1e1 !important;
+	}
+	@media (max-width: 767px) {
+		.microsite-page.site-tbag .site-advocacy-hero-copy {
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+		.microsite-page.site-tbag.hero-mode-bold h1 {
+			font-size: clamp(2.1rem, 9vw, 3rem);
+		}
+		.microsite-page.site-tbag-inner.hero-mode-bold .site-hero-title-row {
+			flex-direction: column;
+		}
+		.microsite-page.site-tbag-inner.hero-mode-bold h1 {
+			font-size: clamp(2rem, 8vw, 3rem);
 		}
 	}
 	/* Dark mode adjustments */
@@ -3209,9 +3391,9 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		max-width: 72rem;
 		margin: 0 auto 2rem;
 		padding: clamp(1.25rem, 3vw, 2rem);
-		border: 1px solid rgb(215 242 5 / 0.3);
+		border: 1px solid rgb(196 211 45 / 0.3);
 		border-radius: 1.25rem;
-		background: #17324d;
+		background: #1d536b;
 		color: #ffffff;
 		text-align: left;
 		box-shadow: 0 18px 42px -32px rgb(16 32 46 / 0.7);
@@ -3221,7 +3403,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 	.footer-community-label {
 		margin: 0 0 0.4rem;
-		color: #d7f205;
+		color: #c4d32d;
 		font-size: 0.72rem;
 		font-weight: 850;
 		letter-spacing: 0.14em;
@@ -3250,8 +3432,8 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		min-height: 2.75rem;
 		padding: 0.7rem 1rem;
 		border-radius: 0.45rem;
-		background: #d7f205;
-		color: #10202e;
+		background: #c4d32d;
+		color: #0b2533;
 		font-size: 0.9rem;
 		font-weight: 850;
 		text-decoration: none;
@@ -3260,12 +3442,12 @@ EVENTS SECTION (Unified rides/volunteer/news)
 			transform 160ms ease;
 	}
 	.footer-community-button:hover {
-		background: #e5ff22;
+		background: #d6df72;
 		transform: translateY(-1px);
 	}
 	:global([data-color-mode='dark']) .footer-community-bridge {
-		border-color: rgb(215 242 5 / 0.34);
-		background: #18334b;
+		border-color: rgb(196 211 45 / 0.34);
+		background: #103341;
 	}
 	.footer-blurb {
 		font-size: 0.875rem;
@@ -3332,12 +3514,12 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	/* Advocacy presentation: restrained surfaces, clear hierarchy, and one
 	   intentional accent per section. */
 	.site-advocacy {
-		--advocacy-ink: #10202e;
-		--advocacy-blue: #17324d;
-		--advocacy-lime: #d7f205;
-		--advocacy-coral: #f05a3c;
-		--advocacy-line: rgb(16 32 46 / 0.14);
-		--advocacy-muted: #526675;
+		--advocacy-ink: #0b2533;
+		--advocacy-blue: #1d536b;
+		--advocacy-lime: #c4d32d;
+		--advocacy-coral: #d8795d;
+		--advocacy-line: rgb(11 37 51 / 0.14);
+		--advocacy-muted: #496673;
 		gap: 1.5rem;
 		padding-top: 1.5rem;
 	}
@@ -3369,10 +3551,14 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		color: var(--advocacy-ink);
 	}
 
+	.site-advocacy [data-site-block-type='hero'] h1 {
+		color: #d3df91;
+	}
+
 	.site-advocacy .custom-content-card {
 		border-color: var(--advocacy-line);
 		border-radius: 1rem;
-		background: #ffffff;
+		background: #fbfcf9;
 		box-shadow: 0 14px 30px -28px rgb(16 32 46 / 0.55);
 		backdrop-filter: none;
 	}
@@ -3408,18 +3594,18 @@ EVENTS SECTION (Unified rides/volunteer/news)
 
 	.site-advocacy .custom-callout-section .custom-content-card {
 		border-left: 5px solid var(--advocacy-blue);
-		background: #eaf1f5;
+		background: #e5eff0;
 		text-align: left;
 	}
 
 	.site-advocacy .custom-callout-section.callout-tone-tertiary .custom-content-card {
 		border-left-color: var(--advocacy-coral);
-		background: #fff4ee;
+		background: #faeee9;
 	}
 
 	.site-advocacy .custom-callout-section.callout-tone-surface .custom-content-card {
 		border-left-color: var(--advocacy-lime);
-		background: #ffffff;
+		background: #fbfcf9;
 	}
 
 	.site-advocacy .custom-callout-section .custom-content-title {
@@ -3438,7 +3624,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 
 	.site-advocacy .custom-content-card .input {
 		border-color: var(--advocacy-line);
-		background: #f8faf7;
+		background: #f5f8f6;
 	}
 
 	.site-advocacy .laws-directory-section {
@@ -3448,7 +3634,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.site-advocacy .laws-directory-card {
 		border: 1px solid var(--advocacy-line);
 		border-radius: 1rem;
-		background: #ffffff;
+		background: #fbfcf9;
 		box-shadow: 0 18px 34px -30px rgb(16 32 46 / 0.58);
 		overflow: hidden;
 	}
@@ -3480,7 +3666,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		width: 2rem;
 		height: 2rem;
 		border-radius: 0.55rem;
-		background: rgb(215 242 5 / 0.14);
+		background: rgb(196 211 45 / 0.16);
 	}
 
 	.site-advocacy .laws-directory-title {
@@ -3533,7 +3719,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		gap: 1rem;
 		padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
 		border-bottom: 1px solid var(--advocacy-line);
-		background: #f8faf7;
+		background: #f5f8f6;
 	}
 
 	.site-advocacy .laws-directory-search {
@@ -3544,7 +3730,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		padding: 0 0.85rem;
 		border: 1px solid var(--advocacy-line);
 		border-radius: 0.65rem;
-		background: #ffffff;
+		background: #fbfcf9;
 		color: var(--advocacy-blue);
 	}
 
@@ -3573,7 +3759,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 
 	.site-advocacy .laws-directory-search button:hover {
-		background: #edf5a8;
+		background: #e5ebc1;
 		color: var(--advocacy-ink);
 	}
 
@@ -3606,7 +3792,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		height: 1.35rem;
 		padding: 0 0.25rem;
 		border-radius: 999px;
-		background: #e7ece8;
+		background: #e5ece8;
 		font-size: 0.68rem;
 	}
 
@@ -3669,7 +3855,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		justify-self: start;
 		padding: 0.32rem 0.55rem;
 		border-radius: 999px;
-		background: #edf5a8;
+		background: #e5ebc1;
 		color: var(--advocacy-ink);
 		font-size: 0.68rem;
 		font-weight: 750;
@@ -3705,7 +3891,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		gap: 1rem 2rem;
 		padding: 0.9rem;
 		border-radius: 0.65rem;
-		background: #f4f6f3;
+		background: #eef3f0;
 	}
 
 	.site-advocacy .law-entry-meta span,
@@ -3766,14 +3952,14 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy {
-		--advocacy-line: rgb(244 247 245 / 0.14);
-		--advocacy-muted: #b7c6ce;
+		--advocacy-line: rgb(243 248 246 / 0.14);
+		--advocacy-muted: #b8cdd0;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy .custom-content-card,
 	:global([data-color-mode='dark']) .site-advocacy .laws-directory-card,
 	:global([data-color-mode='dark']) .site-advocacy .laws-directory-search {
-		background: #12263a;
+		background: #102e3e;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy .custom-content-title,
@@ -3799,26 +3985,26 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy .custom-callout-section .custom-content-card {
-		background: #18334b;
+		background: #133d4d;
 	}
 
 	:global([data-color-mode='dark'])
 		.site-advocacy
 		.custom-callout-section.callout-tone-tertiary
 		.custom-content-card {
-		background: #422d2c;
+		background: #4a302d;
 	}
 
 	:global([data-color-mode='dark'])
 		.site-advocacy
 		.custom-callout-section.callout-tone-surface
 		.custom-content-card {
-		background: #12263a;
+		background: #102e3e;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy .laws-directory-controls,
 	:global([data-color-mode='dark']) .site-advocacy .law-entry-meta {
-		background: #0d1b29;
+		background: #081c28;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy .laws-directory-summary,
@@ -3871,7 +4057,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		max-width: none;
 		gap: 0;
 		padding: 0 0 5rem;
-		background: #f4f6f3;
+		background: linear-gradient(180deg, transparent 0%, rgb(29 83 107 / 0.035) 100%);
 	}
 
 	.site-advocacy-home > section:not([data-site-block-type='hero']) {
@@ -3899,15 +4085,15 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		opacity: 0.7;
 		background: linear-gradient(
 			to top,
-			rgb(9 19 27 / 0.94) 4%,
-			rgb(9 19 27 / 0.58) 46%,
-			rgb(9 19 27 / 0.12) 100%
+			rgb(7 25 35 / 0.94) 4%,
+			rgb(7 25 35 / 0.58) 46%,
+			rgb(7 25 35 / 0.12) 100%
 		);
 	}
 
 	.site-advocacy-home [data-site-block-type='hero'] > .card > .site-advocacy-hero-wash {
 		opacity: 0.3;
-		background: linear-gradient(110deg, rgb(9 19 27 / 0.58), transparent 62%);
+		background: linear-gradient(110deg, rgb(7 25 35 / 0.58), transparent 62%);
 	}
 
 	.site-advocacy-home .site-advocacy-hero-copy {
@@ -3950,16 +4136,16 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	.site-advocacy-home [data-site-block-type='hero'] a:first-child {
 		background: var(--advocacy-lime);
 		color: var(--advocacy-ink);
-		box-shadow: 0 10px 24px -12px rgb(215 242 5 / 0.9);
+		box-shadow: 0 10px 24px -12px rgb(196 211 45 / 0.82);
 	}
 
 	.site-advocacy-home [data-site-block-type='hero'] a:first-child:hover {
-		background: #e5ff22;
+		background: #d6df72;
 	}
 
 	.site-advocacy-home [data-site-block-type='hero'] a:nth-child(2) {
 		border: 1px solid rgb(255 255 255 / 0.72);
-		background: rgb(9 19 27 / 0.18);
+		background: rgb(7 25 35 / 0.18);
 		color: #ffffff;
 		backdrop-filter: blur(6px);
 	}
@@ -4010,7 +4196,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		padding: clamp(1.25rem, 4vw, 2.5rem);
 		border-color: var(--advocacy-line);
 		border-radius: 1rem;
-		background: #ffffff;
+		background: #fbfcf9;
 		box-shadow: 0 18px 34px -30px rgb(16 32 46 / 0.58);
 		backdrop-filter: none;
 	}
@@ -4052,7 +4238,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 
 	.site-advocacy-home .gallery-header-cta {
 		border-color: var(--advocacy-line);
-		background: #f4f6f3;
+		background: #eef3f0;
 		color: var(--advocacy-blue);
 	}
 
@@ -4061,8 +4247,8 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		grid-template-columns: minmax(0, 0.9fr) minmax(19rem, 1.1fr);
 		column-gap: clamp(1.5rem, 5vw, 4.5rem);
 		align-items: center;
-		border-color: var(--advocacy-lime);
-		background: var(--advocacy-lime);
+		border-color: rgb(29 83 107 / 0.24);
+		background: linear-gradient(135deg, #e4efeb 0%, #eef1cf 100%);
 	}
 
 	.site-advocacy-home [data-site-block-type='email_signup'] .custom-content-label,
@@ -4099,11 +4285,11 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy.site-advocacy-home {
-		background: #0d1b29;
+		background: transparent;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy-home .gallery-section {
-		background: #12263a;
+		background: #102e3e;
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy-home .gallery-title {
@@ -4111,7 +4297,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 	}
 
 	:global([data-color-mode='dark']) .site-advocacy-home .gallery-header-cta {
-		background: #18334b;
+		background: #133d4d;
 		color: #f4f7f5;
 	}
 
@@ -4119,8 +4305,8 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		.site-advocacy-home
 		[data-site-block-type='email_signup']
 		.custom-content-card {
-		background: var(--advocacy-lime);
-		color: var(--advocacy-ink);
+		background: linear-gradient(135deg, #123d4c 0%, #2f4938 100%);
+		color: #f3f8f6;
 	}
 
 	:global([data-color-mode='dark'])
@@ -4135,7 +4321,7 @@ EVENTS SECTION (Unified rides/volunteer/news)
 		.site-advocacy-home
 		[data-site-block-type='email_signup']
 		:global(.custom-content-body) {
-		color: var(--advocacy-ink);
+		color: #f3f8f6;
 	}
 
 	@media (max-width: 700px) {

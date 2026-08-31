@@ -1,6 +1,11 @@
 import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
 import { buildDefaultGroupSiteBlocks, normalizeGroupSiteBlocks } from './blocks.js';
 import { normalizeGroupSitePages } from './pages.js';
+import {
+	buildTempeBicycleActionGroupSite,
+	ensureTempeBicycleActionGroupPages,
+	isTempeBicycleActionGroup
+} from './tempeBicycleActionGroup.js';
 
 export const GROUP_SITE_THEME_OPTIONS = [
 	{ value: '3fp', label: '3FP' },
@@ -38,6 +43,7 @@ export const GROUP_SITE_SECTION_KEYS = [
 	'contact'
 ];
 export const GROUP_SITE_RIDE_WIDGET_HOST_SCOPES = ['all', 'group_only', 'selected_groups'];
+export const GROUP_SITE_VARIANTS = ['standard', 'tbag'];
 
 const DEFAULT_SITE_SECTIONS = Object.freeze({
 	story: true,
@@ -189,6 +195,10 @@ function normalizeSections(value) {
 }
 
 export function buildDefaultGroupSiteConfig(group = {}) {
+	if (isTempeBicycleActionGroup(group)) {
+		return buildTempeBicycleActionGroupSite(group);
+	}
+
 	const pageBlocks = buildDefaultGroupSiteBlocks({ sections: DEFAULT_SITE_SECTIONS });
 	const name = clampText(group?.name, 120) || 'Community Cycling Group';
 	const location = [cleanText(group?.city), cleanText(group?.state_region)]
@@ -251,7 +261,8 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 		page_blocks: pageBlocks,
 		site_pages: normalizeGroupSitePages([], { homeBlocks: pageBlocks }),
 		ai_prompt: '',
-		published: true
+		published: true,
+		site_variant: 'standard'
 	};
 }
 
@@ -272,7 +283,15 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		sections,
 		rideWidgetEnabled
 	});
-	const sitePages = normalizeGroupSitePages(source.site_pages, { homeBlocks: pageBlocks });
+	const isTbagGroup = isTempeBicycleActionGroup(group);
+	const rawSitePages =
+		isTbagGroup && (!Array.isArray(source.site_pages) || !source.site_pages.length)
+			? base.site_pages.map((page, index) => (index === 0 ? { ...page, blocks: pageBlocks } : page))
+			: source.site_pages;
+	let sitePages = normalizeGroupSitePages(rawSitePages, { homeBlocks: pageBlocks });
+	if (isTbagGroup) {
+		sitePages = ensureTempeBicycleActionGroupPages(sitePages, { group, homeBlocks: pageBlocks });
+	}
 	const homePageBlocks = sitePages[0]?.blocks || pageBlocks;
 
 	return {
@@ -296,6 +315,11 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 			base.panel_density
 		),
 		font_pairing: normalizeChoice(source.font_pairing, GROUP_SITE_FONT_PAIRINGS, base.font_pairing),
+		site_variant: normalizeChoice(
+			source.site_variant,
+			GROUP_SITE_VARIANTS,
+			base.site_variant || 'standard'
+		),
 		theme_mode: themeMode,
 		theme_name: themeMode === 'repo' ? themeName || '3fp' : themeName,
 		theme_colors: normalizeThemeColors(source.theme_colors),
@@ -352,6 +376,7 @@ export function serializeGroupSiteConfig(config) {
 		panel_tone: normalized.panel_tone,
 		panel_density: normalized.panel_density,
 		font_pairing: normalized.font_pairing,
+		site_variant: normalized.site_variant,
 		theme_mode: normalized.theme_mode,
 		theme_name: normalized.theme_name || null,
 		theme_colors: normalized.theme_colors,
@@ -408,6 +433,7 @@ export function parseGroupSiteFormData(formData, { group = null } = {}) {
 			panel_tone: formData.get('panel_tone'),
 			panel_density: formData.get('panel_density'),
 			font_pairing: formData.get('font_pairing'),
+			site_variant: formData.get('site_variant'),
 			theme_mode: formData.get('theme_mode'),
 			theme_name: formData.get('theme_name'),
 			theme_colors: {

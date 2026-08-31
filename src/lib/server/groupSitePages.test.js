@@ -93,7 +93,7 @@ test('site pages are bounded and every page has normalized blocks', () => {
 
 test('duplicate home declarations become regular pages without exceeding the page limit', () => {
 	const pages = normalizeGroupSitePages(
-		Array.from({ length: 20 }, (_, index) => ({
+		Array.from({ length: GROUP_SITE_PAGE_LIMIT + 5 }, (_, index) => ({
 			id: `page-${index}`,
 			title: index === 0 ? 'Home' : `Page ${index}`,
 			is_home: index < 2,

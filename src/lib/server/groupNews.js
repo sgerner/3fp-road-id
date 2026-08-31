@@ -2,6 +2,11 @@ import { error } from '@sveltejs/kit';
 import { renderLearnMarkdown } from '$lib/learn/markdown';
 import { estimateReadMinutes } from '$lib/learn/readingAid';
 import {
+	isTbagLegacyUrl,
+	mapTbagLegacyUrl,
+	TBAG_SOURCE_NAME
+} from '$lib/microsites/tempeBicycleActionGroup';
+import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
@@ -254,6 +259,70 @@ export async function listPublishedGroupNewsPosts(supabase, groupId, { limit = n
 	}));
 }
 
+const PUBLIC_GROUP_NEWS_SUMMARY_COLUMNS = [
+	'id',
+	'group_id',
+	'created_by_user_id',
+	'updated_by_user_id',
+	'title',
+	'slug',
+	'summary',
+	'published_at',
+	'created_at',
+	'updated_at',
+	'source_url',
+	'source_name',
+	'source_published_at',
+	'cover_image_url'
+].join(',');
+
+export function normalizeGroupNewsSearch(value) {
+	return safeTrim(value)
+		.replace(/[^a-z0-9]+/gi, ' ')
+		.trim()
+		.slice(0, 80);
+}
+
+export async function listPublishedGroupNewsSummaries(
+	supabase,
+	groupId,
+	{ page = 1, pageSize = 24, search = '' } = {}
+) {
+	const normalizedPage = Math.max(1, Number.parseInt(page, 10) || 1);
+	const normalizedPageSize = Math.min(48, Math.max(6, Number.parseInt(pageSize, 10) || 24));
+	const normalizedSearch = normalizeGroupNewsSearch(search);
+	const offset = (normalizedPage - 1) * normalizedPageSize;
+	let query = supabase
+		.from('group_news_posts')
+		.select(PUBLIC_GROUP_NEWS_SUMMARY_COLUMNS, { count: 'exact' })
+		.eq('group_id', groupId)
+		.not('published_at', 'is', null)
+		.eq('is_private', false)
+		.order('published_at', { ascending: false, nullsFirst: false })
+		.order('created_at', { ascending: false })
+		.range(offset, offset + normalizedPageSize - 1);
+
+	if (normalizedSearch) {
+		const pattern = `%${normalizedSearch}%`;
+		query = query.or(`title.ilike.${pattern},summary.ilike.${pattern},slug.ilike.${pattern}`);
+	}
+
+	const { data, count, error: queryError } = await query;
+	if (queryError) throw queryError;
+
+	return {
+		posts: (data ?? []).map((post) => ({
+			...post,
+			preview_text:
+				buildGroupNewsPreviewText(post) || 'Open to read the full update from the archive.'
+		})),
+		totalCount: Number(count || 0),
+		page: normalizedPage,
+		pageSize: normalizedPageSize,
+		search: normalizedSearch
+	};
+}
+
 export async function getGroupNewsPostBySlug(
 	supabase,
 	groupId,
@@ -321,11 +390,30 @@ export async function getGroupNewsProfilesMap(supabase, userIds) {
 	return new Map((data ?? []).map((profile) => [profile.user_id, profile]));
 }
 
+function internalizeTbagArchiveHtml(html) {
+	return String(html || '')
+		.replace(/<img\b[^>]*>/gi, (tag) => {
+			const source = tag.match(/\bsrc=(['"])(.*?)\1/i)?.[2] || '';
+			return source && isTbagLegacyUrl(source) ? '' : tag;
+		})
+		.replace(/href=(['"])(.*?)\1/gi, (match, quote, href) => {
+			const mapped = mapTbagLegacyUrl(href);
+			return mapped === href ? match : `href=${quote}${mapped}${quote}`;
+		});
+}
+
 export async function buildGroupNewsView(post, { profiles = new Map() } = {}) {
+	const isImportedTbagPost =
+		isTbagLegacyUrl(post?.source_url) || safeTrim(post?.source_name) === TBAG_SOURCE_NAME;
+	const bodyHtml = await renderLearnMarkdown(post?.body_markdown || '');
 	return {
 		...post,
 		is_published: isGroupNewsPublished(post),
-		bodyHtml: await renderLearnMarkdown(post?.body_markdown || ''),
+		cover_image_url:
+			isImportedTbagPost && isTbagLegacyUrl(post?.cover_image_url)
+				? null
+				: post?.cover_image_url || null,
+		bodyHtml: isImportedTbagPost ? internalizeTbagArchiveHtml(bodyHtml) : bodyHtml,
 		preview_text: buildGroupNewsPreviewText(post),
 		estimatedReadMinutes: estimateReadMinutes(post?.body_markdown || ''),
 		authorProfile: profiles.get(post?.created_by_user_id) ?? null,

@@ -4,6 +4,13 @@ import { createGroupSitePage, normalizeGroupSitePages } from './pages.js';
 
 const SHOP_URL = 'https://store.voler.com/collections/collection-3-feet-please';
 
+export const THREE_FEET_PLEASE_COLORS = Object.freeze({
+	primary: '#C4D32D',
+	secondary: '#1D536B',
+	accent: '#D8795D',
+	surface: '#0B2533'
+});
+
 function block(type, overrides = {}) {
 	return createGroupSiteBlock(type, { overrides });
 }
@@ -309,12 +316,7 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 				'3 Feet Please promotes safe passing and practical road-safety education, then connects cyclists with groups, rides, and community tools at 3fp.org.',
 			theme_mode: 'custom',
 			theme_name: '',
-			theme_colors: {
-				primary: '#D7F205',
-				secondary: '#17324D',
-				accent: '#F05A3C',
-				surface: '#10202E'
-			},
+			theme_colors: { ...THREE_FEET_PLEASE_COLORS },
 			background_style: 'void',
 			panel_style: 'filled',
 			panel_tone: 'surface',

@@ -177,7 +177,7 @@ export async function listGroupAssetBuckets(supabase, groupId, { includeEmpty = 
 	const { data: assets, error } = await supabase
 		.from('group_assets')
 		.select(
-			'id, group_id, section_id, asset_kind, title, description, file_url, bucket_id, object_path, file_name, mime_type, size_bytes, external_url, sort_order, created_at, updated_at'
+			'id, group_id, section_id, asset_kind, title, description, file_url, bucket_id, object_path, file_name, mime_type, size_bytes, external_url, metadata, sort_order, created_at, updated_at'
 		)
 		.eq('group_id', groupId)
 		.order('sort_order', { ascending: true })

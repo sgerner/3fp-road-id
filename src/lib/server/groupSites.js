@@ -4,6 +4,8 @@ import { listGroupAssetBuckets, getGroupAssetsReadClient } from '$lib/server/gro
 import {
 	buildGroupNewsView,
 	getGroupNewsProfilesMap,
+	getGroupNewsPostBySlug,
+	listPublishedGroupNewsSummaries,
 	listPublishedGroupNewsPosts
 } from '$lib/server/groupNews';
 import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
@@ -18,11 +20,19 @@ import {
 } from '$lib/microsites/config';
 import { normalizeMicrositeSlug } from '$lib/microsites/host';
 import { buildMicrositeThemeStyle, normalizePalette } from '$lib/microsites/theme';
+import { THREE_FEET_PLEASE_COLORS } from '$lib/microsites/threeFeetPlease';
+import {
+	isTbagLegacyUrl,
+	mapTbagLegacyUrl,
+	TBAG_COLORS
+} from '$lib/microsites/tempeBicycleActionGroup';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { filterRidesForWidget } from '$lib/rides/widgetConfig';
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const PALETTE_CACHE = new Map();
+const MICROSITE_PAGE_CACHE = new Map();
+const MICROSITE_PAGE_CACHE_TTL_MS = 30_000;
 const EMPTY_MEMBERSHIP = Object.freeze({ program: null, tiers: [], formFields: [] });
 const EMPTY_INSTAGRAM_FEED = Object.freeze({
 	connectedInstagram: null,
@@ -436,6 +446,9 @@ function toAbsoluteHref(group, href) {
 
 function buildGroupStoryParagraphs(group, siteConfig) {
 	const primary = cleanText(siteConfig.home_intro) || cleanText(group?.description);
+	if (siteConfig?.site_variant === 'tbag') {
+		return splitTextIntoParagraphs(primary).slice(0, 3);
+	}
 	const details = [
 		cleanText(group?.service_area_description),
 		cleanText(group?.activity_frequency),
@@ -592,6 +605,12 @@ async function extractPaletteFromImageUrl(imageUrl) {
 
 export async function deriveGroupSitePalette(group, siteConfig = null) {
 	const config = normalizeGroupSiteConfig(siteConfig || {}, { group });
+	if (group?.slug === '3-feet-please') {
+		return normalizePalette(THREE_FEET_PLEASE_COLORS);
+	}
+	if (config.site_variant === 'tbag') {
+		return normalizePalette(TBAG_COLORS);
+	}
 	if (config.theme_mode === 'custom') {
 		return normalizePalette(config.theme_colors, group?.slug || group?.name);
 	}
@@ -639,7 +658,21 @@ export async function upsertGroupSiteConfig(groupId, config) {
 		.select('*')
 		.single();
 	if (error) throw error;
+	invalidateMicrositePageCache(groupId);
 	return data;
+}
+
+function micrositePageCacheKey({ siteSlug, url, publicPathname }) {
+	const normalizedSlug = normalizeMicrositeSlug(siteSlug);
+	const pathname = cleanText(publicPathname || url?.pathname) || '/';
+	const origin = cleanText(url?.origin) || 'default-origin';
+	return `${origin}|${normalizedSlug}|${pathname}`;
+}
+
+function invalidateMicrositePageCache(groupId) {
+	for (const [key, entry] of MICROSITE_PAGE_CACHE) {
+		if (entry.groupId === groupId) MICROSITE_PAGE_CACHE.delete(key);
+	}
 }
 
 async function loadGroupByMicrositeSlug(normalizedSlug, rawSlug) {
@@ -879,6 +912,26 @@ function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
 	return actions.slice(0, 3);
 }
 
+function internalizeTbagAssetBuckets(assetBuckets = []) {
+	const mapAsset = (asset) => {
+		if (!asset?.isLink) return asset;
+		const sourceHref = cleanText(asset?.metadata?.source_url) || asset.href;
+		if (!isTbagLegacyUrl(sourceHref)) return asset;
+		const href = mapTbagLegacyUrl(sourceHref);
+		return { ...asset, href, external_url: href };
+	};
+	const mapAssets = (assets = []) => assets.map(mapAsset);
+
+	return assetBuckets.map((bucket) => ({
+		...bucket,
+		assets: mapAssets(bucket.assets),
+		image_assets: mapAssets(bucket.image_assets),
+		file_assets: mapAssets(bucket.file_assets),
+		document_assets: mapAssets(bucket.document_assets),
+		link_assets: mapAssets(bucket.link_assets)
+	}));
+}
+
 export async function loadMicrositeNewsViews(groupId) {
 	const db = pickGroupSiteClient();
 	const posts = await listPublishedGroupNewsPosts(db, groupId);
@@ -891,7 +944,57 @@ export async function loadMicrositeNewsViews(groupId) {
 	return Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
 }
 
-export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publicPathname }) {
+export async function loadMicrositeNewsArchive(
+	groupId,
+	{ page = 1, pageSize = 24, search = '', openSlug = '' } = {}
+) {
+	const db = pickGroupSiteClient();
+	const archive = await listPublishedGroupNewsSummaries(db, groupId, { page, pageSize, search });
+	let openPost = null;
+
+	if (openSlug) {
+		const post = await getGroupNewsPostBySlug(db, groupId, openSlug);
+		if (post) {
+			const profiles = await getGroupNewsProfilesMap(db, [
+				post.created_by_user_id,
+				post.updated_by_user_id
+			]);
+			openPost = await buildGroupNewsView(post, { profiles });
+		}
+	}
+
+	return { ...archive, openPost };
+}
+
+export async function loadGroupMicrosite(args) {
+	const key = micrositePageCacheKey(args);
+	const now = Date.now();
+	const cached = MICROSITE_PAGE_CACHE.get(key);
+	if (cached && cached.expiresAt > now) return cached.promise;
+	if (cached) MICROSITE_PAGE_CACHE.delete(key);
+
+	const entry = {
+		groupId: null,
+		expiresAt: now + MICROSITE_PAGE_CACHE_TTL_MS,
+		promise: null
+	};
+	entry.promise = loadGroupMicrositeUncached(args)
+		.then((site) => {
+			entry.groupId = site?.group?.id || null;
+			if (!site && MICROSITE_PAGE_CACHE.get(key) === entry) {
+				MICROSITE_PAGE_CACHE.delete(key);
+			}
+			return site;
+		})
+		.catch((loadError) => {
+			if (MICROSITE_PAGE_CACHE.get(key) === entry) MICROSITE_PAGE_CACHE.delete(key);
+			throw loadError;
+		});
+	MICROSITE_PAGE_CACHE.set(key, entry);
+	return entry.promise;
+}
+
+async function loadGroupMicrositeUncached({ siteSlug, fetch: fetchImpl, url, publicPathname }) {
 	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
 	if (!normalizedSiteSlug) return null;
 
@@ -913,6 +1016,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 	const currentPage = routeSegment
 		? siteConfig.site_pages.find((page) => page.slug === routeSegment)
 		: siteConfig.site_pages.find((page) => page.is_home) || siteConfig.site_pages[0];
+	const isTbagSite = siteConfig.site_variant === 'tbag';
 	const currentBlockTypes = new Set(
 		(currentPage?.blocks || []).map((block) => block.type).filter(Boolean)
 	);
@@ -928,10 +1032,12 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 		currentBlockTypes.has('gallery') ||
 		visibleNavigationIds.has('special:resources') ||
 		visibleNavigationIds.has('special:gallery');
+	const isUpdatesRoute = routeSegment === 'updates';
 	const needsNews =
-		currentBlockTypes.has('events') ||
-		currentBlockTypes.has('updates') ||
-		(siteConfig.sections?.news !== false && visibleNavigationIds.has('special:updates'));
+		!isUpdatesRoute &&
+		(currentBlockTypes.has('events') ||
+			currentBlockTypes.has('updates') ||
+			(siteConfig.sections?.news !== false && visibleNavigationIds.has('special:updates')));
 	const needsRides = currentBlockTypes.has('events') || currentBlockTypes.has('ride_calendar');
 	const needsVolunteer = currentBlockTypes.has('events');
 	const needsAllRides = Boolean(siteConfig.ride_widget_enabled);
@@ -940,7 +1046,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 		currentBlockTypes.has('membership') ||
 		(siteConfig.sections?.join !== false && visibleNavigationIds.has('special:join'));
 	const needsDonation = routeSegment === 'join' || currentBlockTypes.has('donation');
-	const needsTaxonomy = currentBlockTypes.has('story');
+	const needsTaxonomy = !isTbagSite && currentBlockTypes.has('story');
 	const needsTrust = currentBlockTypes.has('trust');
 	const needsInstagram = currentBlockTypes.has('gallery') && !currentPage?.is_home;
 	const palette =
@@ -957,7 +1063,7 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 				});
 
 	const [
-		assetBuckets,
+		rawAssetBuckets,
 		newsPosts,
 		rides,
 		allRides,
@@ -972,7 +1078,12 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 			? listGroupAssetBuckets(getGroupAssetsReadClient(), group.id).catch(() => [])
 			: Promise.resolve([]),
 		needsNews
-			? listPublishedGroupNewsPosts(pickGroupSiteClient(), group.id, { limit: 3 }).catch(() => [])
+			? listPublishedGroupNewsSummaries(pickGroupSiteClient(), group.id, {
+					page: 1,
+					pageSize: 3
+				})
+					.then((archive) => archive.posts)
+					.catch(() => [])
 			: Promise.resolve([]),
 		needsRides ? loadRides(fetchImpl, group.id, 4) : Promise.resolve([]),
 		needsAllRides ? loadAllPublishedRides(fetchImpl, 240) : Promise.resolve([]),
@@ -991,14 +1102,21 @@ export async function loadGroupMicrosite({ siteSlug, fetch: fetchImpl, url, publ
 				)
 			: Promise.resolve(EMPTY_INSTAGRAM_FEED)
 	]);
+	const assetBuckets = isTbagSite ? internalizeTbagAssetBuckets(rawAssetBuckets) : rawAssetBuckets;
 
 	const widgetRides = buildMicrositeRideWidgetRides({ allRides, group, siteConfig });
 
 	const photoBucket = assetBuckets.find((bucket) => bucket.slug === 'photos') || null;
-	const rawContactLinks = buildContactLinks(group);
+	const rawContactLinks = buildContactLinks(group).filter(
+		(link) => !(isTbagSite && link?.key === 'website')
+	);
 	const rawPrimaryCta = selectPrimaryCta(group, rawContactLinks);
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
-	const primaryCta = serializePrimaryCta(rawPrimaryCta);
+	const serializedPrimaryCta = serializePrimaryCta(rawPrimaryCta);
+	const primaryCta =
+		isTbagSite && serializedPrimaryCta
+			? { ...serializedPrimaryCta, href: mapTbagLegacyUrl(serializedPrimaryCta.href) }
+			: serializedPrimaryCta;
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
 		membershipProgram: membership.program

@@ -30,6 +30,7 @@
 	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '$lib/microsites/templates';
 	import {
 		createGroupSitePage,
+		GROUP_SITE_PAGE_LIMIT,
 		GROUP_SITE_NAV_PLACEMENTS,
 		GROUP_SITE_PRIMARY_NAV_LIMIT,
 		GROUP_SITE_SPECIAL_NAV_ITEMS,
@@ -467,7 +468,7 @@
 	}
 
 	function addSitePage() {
-		if (sitePages.length >= 12) return;
+		if (sitePages.length >= GROUP_SITE_PAGE_LIMIT) return;
 		const number = sitePages.length + 1;
 		const page = createGroupSitePage({
 			id: `page-${Date.now()}`,
@@ -649,6 +650,7 @@
 	<input type="hidden" name="panel_tone" value={siteConfig.panel_tone || 'surface'} />
 	<input type="hidden" name="panel_density" value={siteConfig.panel_density || 'comfortable'} />
 	<input type="hidden" name="font_pairing" value={siteConfig.font_pairing || 'poster'} />
+	<input type="hidden" name="site_variant" value={siteConfig.site_variant || 'standard'} />
 	<input type="hidden" name="theme_mode" value={siteConfig.theme_mode || 'derived'} />
 	<input type="hidden" name="theme_name" value={siteConfig.theme_name || ''} />
 	<input type="hidden" name="theme_primary" value={siteConfig.theme_colors?.primary || ''} />
