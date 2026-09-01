@@ -317,7 +317,7 @@ export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}
 			theme_mode: 'custom',
 			theme_name: '',
 			theme_colors: { ...THREE_FEET_PLEASE_COLORS },
-			background_style: 'void',
+			background_style: 'cinematic',
 			panel_style: 'filled',
 			panel_tone: 'surface',
 			panel_density: 'comfortable',

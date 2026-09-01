@@ -1146,10 +1146,10 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		}
 	}
 
-	/* TBAG's atmosphere moves slowly enough to feel cinematic rather than
-	   distracting. The final gradient stop stays fixed so the page always has
-	   a reliable, readable surface underneath the color. */
-	@keyframes tbag-cinematic-wash {
+	/* Tenant atmospheres move slowly enough to feel cinematic rather than
+	   distracting. The final gradient stop stays fixed so every page always
+	   has a reliable, readable surface underneath the color. */
+	@keyframes tenant-cinematic-wash {
 		0% {
 			background-position:
 				-4% -5%,
@@ -1176,7 +1176,7 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		}
 	}
 
-	@keyframes tbag-cinematic-sweep {
+	@keyframes tenant-cinematic-sweep {
 		0% {
 			transform: translate3d(-3%, -1%, 0) rotate(-3deg) scale(1);
 		}
@@ -1234,7 +1234,7 @@ BACKGROUND STYLES — Aurora, Prism, Void
 			45% 28%,
 			0% 0%;
 		color: var(--tenant-ink);
-		animation: tbag-cinematic-wash 32s ease-in-out infinite alternate;
+		animation: tenant-cinematic-wash 32s ease-in-out infinite alternate;
 		background-attachment: fixed;
 	}
 
@@ -1265,7 +1265,7 @@ BACKGROUND STYLES — Aurora, Prism, Void
 			45% 28%,
 			0% 0%;
 		color: var(--tenant-ink);
-		animation: tbag-cinematic-wash 32s ease-in-out infinite alternate;
+		animation: tenant-cinematic-wash 32s ease-in-out infinite alternate;
 	}
 
 	.microsite-shell.site-tbag::before,
@@ -1294,7 +1294,7 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		filter: blur(38px);
 		opacity: 0.9;
 		transform: translate3d(0, 0, 0);
-		animation: tbag-cinematic-sweep 38s ease-in-out infinite alternate;
+		animation: tenant-cinematic-sweep 38s ease-in-out infinite alternate;
 		will-change: transform;
 	}
 
@@ -1458,7 +1458,9 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	}
 
 	/* 3 Feet Please keeps its citrus signal as an action color, then uses
-	   ocean ink, clay, and paper tones to make the organization feel credible. */
+	   ocean ink, clay, and paper tones to make the organization feel credible.
+	   The animated wash adds campaign energy to the long page without
+	   competing with the hero photograph or the main action buttons. */
 	.microsite-shell.site-advocacy,
 	.microsite-shell.site-advocacy.microsite-bg--void,
 	.microsite-shell.site-advocacy.microsite-bg--cinematic,
@@ -1468,15 +1470,28 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		--advocacy-shell-blue: #1d536b;
 		--advocacy-shell-citrus: #c4d32d;
 		--advocacy-shell-coral: #d8795d;
+		background-color: #ebf8f2;
 		background:
-			radial-gradient(70rem 42rem at -8% -10%, rgb(29 83 107 / 0.18), transparent 66%),
-			radial-gradient(58rem 36rem at 108% 18%, rgb(196 211 45 / 0.17), transparent 66%),
-			radial-gradient(48rem 32rem at 58% 110%, rgb(216 121 93 / 0.12), transparent 68%),
-			radial-gradient(34rem 22rem at 48% 30%, rgb(255 255 255 / 0.68), transparent 72%),
-			linear-gradient(135deg, #f9fbf7 0%, #edf4ef 52%, #f2eee8 100%);
+			radial-gradient(60rem 38rem at -10% -12%, rgb(29 83 107 / 0.3), transparent 67%),
+			radial-gradient(50rem 34rem at 106% 12%, rgb(196 211 45 / 0.26), transparent 69%),
+			radial-gradient(56rem 36rem at 56% 108%, rgb(216 121 93 / 0.24), transparent 67%),
+			radial-gradient(36rem 25rem at 47% 30%, rgb(255 255 255 / 0.8), transparent 74%),
+			linear-gradient(118deg, #ebf8f2 0%, #fbf7e8 49%, #faeee6 100%);
+		background-size:
+			120% 120%,
+			112% 118%,
+			126% 120%,
+			110% 115%,
+			100% 100%;
+		background-position:
+			-4% -5%,
+			104% 5%,
+			58% 108%,
+			45% 28%,
+			0% 0%;
 		color: var(--advocacy-shell-ink);
-		animation: none;
-		background-attachment: scroll;
+		animation: tenant-cinematic-wash 34s ease-in-out infinite alternate;
+		background-attachment: fixed;
 	}
 
 	.microsite-shell.site-advocacy[data-color-mode='dark'] {
@@ -1484,17 +1499,119 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		--advocacy-shell-blue: #8fc5cf;
 		--advocacy-shell-citrus: #cbd77d;
 		--advocacy-shell-coral: #e09a82;
+		background-color: #061720;
 		background:
-			radial-gradient(62rem 38rem at -8% -4%, rgb(29 83 107 / 0.46), transparent 68%),
-			radial-gradient(54rem 32rem at 108% 18%, rgb(196 211 45 / 0.16), transparent 72%),
-			radial-gradient(50rem 34rem at 54% 100%, rgb(216 121 93 / 0.16), transparent 70%),
-			linear-gradient(135deg, #061720 0%, #0b2b3a 52%, #142a27 100%);
+			radial-gradient(62rem 38rem at -8% -4%, rgb(29 83 107 / 0.52), transparent 68%),
+			radial-gradient(54rem 34rem at 108% 18%, rgb(196 211 45 / 0.23), transparent 71%),
+			radial-gradient(56rem 36rem at 54% 104%, rgb(216 121 93 / 0.24), transparent 69%),
+			radial-gradient(36rem 24rem at 46% 30%, rgb(143 197 207 / 0.14), transparent 72%),
+			linear-gradient(118deg, #061720 0%, #0b2f3b 52%, #182b29 100%);
+		background-size:
+			120% 120%,
+			112% 118%,
+			126% 120%,
+			110% 115%,
+			100% 100%;
+		background-position:
+			-4% -5%,
+			104% 5%,
+			58% 108%,
+			45% 28%,
+			0% 0%;
 		color: var(--advocacy-shell-ink);
+		animation: tenant-cinematic-wash 34s ease-in-out infinite alternate;
 	}
 
 	.microsite-shell.site-advocacy::before,
 	.microsite-shell.site-advocacy::after {
-		display: none;
+		display: block;
+		content: '';
+		position: fixed;
+		inset: -18vh -12vw;
+		z-index: -1;
+		pointer-events: none;
+	}
+
+	.microsite-shell.site-advocacy::before {
+		background:
+			linear-gradient(116deg, transparent 19%, rgb(255 255 255 / 0.16) 34%, transparent 49%),
+			conic-gradient(
+				from 200deg at 48% 44%,
+				transparent 0deg 60deg,
+				rgb(196 211 45 / 0.13) 83deg,
+				transparent 112deg 228deg,
+				rgb(216 121 93 / 0.12) 255deg,
+				transparent 290deg 360deg
+			);
+		filter: blur(38px);
+		opacity: 0.9;
+		transform: translate3d(0, 0, 0);
+		animation: tenant-cinematic-sweep 38s ease-in-out infinite alternate;
+		will-change: transform;
+	}
+
+	.microsite-shell.site-advocacy::after {
+		inset: 0;
+		background-image:
+			radial-gradient(circle at 17% 23%, rgb(11 37 51 / 0.2) 0 0.7px, transparent 1.4px),
+			radial-gradient(circle at 83% 71%, rgb(11 37 51 / 0.16) 0 0.6px, transparent 1.3px);
+		background-size:
+			6px 6px,
+			9px 9px;
+		mix-blend-mode: multiply;
+		opacity: 0.1;
+	}
+
+	.microsite-shell.site-advocacy[data-color-mode='dark']::before {
+		opacity: 0.7;
+	}
+
+	.microsite-shell.site-advocacy[data-color-mode='dark']::after {
+		background-image:
+			radial-gradient(circle at 17% 23%, rgb(207 241 237 / 0.16) 0 0.7px, transparent 1.4px),
+			radial-gradient(circle at 83% 71%, rgb(207 241 237 / 0.12) 0 0.6px, transparent 1.3px);
+		mix-blend-mode: screen;
+		opacity: 0.08;
+	}
+
+	@media (max-width: 767px) {
+		.microsite-shell.site-advocacy.microsite-bg--void,
+		.microsite-shell.site-advocacy.microsite-bg--cinematic,
+		.microsite-shell.site-advocacy.microsite-bg--aurora,
+		.microsite-shell.site-advocacy.microsite-bg--prism {
+			background-attachment: scroll;
+			background-size:
+				170% 130%,
+				150% 135%,
+				160% 130%,
+				135% 125%,
+				100% 100%;
+			animation-duration: 42s;
+		}
+
+		.microsite-shell.site-advocacy::before,
+		.microsite-shell.site-advocacy::after {
+			position: absolute;
+		}
+
+		.microsite-shell.site-advocacy::before {
+			inset: -8rem -28%;
+			filter: blur(28px);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.microsite-shell.site-advocacy.microsite-bg--void,
+		.microsite-shell.site-advocacy.microsite-bg--cinematic,
+		.microsite-shell.site-advocacy.microsite-bg--aurora,
+		.microsite-shell.site-advocacy.microsite-bg--prism,
+		.microsite-shell.site-advocacy::before {
+			animation: none;
+		}
+
+		.microsite-shell.site-advocacy::before {
+			transform: none;
+		}
 	}
 
 	.microsite-shell.site-advocacy .microsite-nav-shell {

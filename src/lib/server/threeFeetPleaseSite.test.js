@@ -18,6 +18,7 @@ test('3 Feet Please website preserves the core legacy routes and clear next step
 	assert.ok(config.page_blocks.some((block) => block.button_url === 'https://3fp.org'));
 	assert.match(config.seo_description, /3fp\.org/);
 	assert.deepEqual(config.theme_colors, THREE_FEET_PLEASE_COLORS);
+	assert.equal(config.background_style, 'cinematic');
 	assert.ok(
 		config.site_pages
 			.find((page) => page.slug === 'safety-tips')
