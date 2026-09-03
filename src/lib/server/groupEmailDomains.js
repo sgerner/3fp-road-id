@@ -667,6 +667,7 @@ export async function sendGroupManagedEmail({
 		? shouldWrapWithBranding
 			? wrapHtmlWithBranding(html, {
 					origin: brandingOrigin,
+					brand: branding?.brand,
 					category: cleanNullableText(branding?.category, 80),
 					subjectLine: normalizedSubject,
 					recipientReason: cleanNullableText(branding?.recipientReason, 280),
@@ -679,6 +680,7 @@ export async function sendGroupManagedEmail({
 		? shouldWrapWithBranding
 			? wrapTextWithBranding(text, {
 					origin: brandingOrigin,
+					brand: branding?.brand,
 					category: cleanNullableText(branding?.category, 80),
 					subjectLine: normalizedSubject,
 					recipientReason: cleanNullableText(branding?.recipientReason, 280),

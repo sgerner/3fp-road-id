@@ -2,7 +2,11 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
 import { PUBLIC_URL_BASE } from '$env/static/public';
-import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
+import {
+	normalizeEmailBrand,
+	wrapHtmlWithBranding,
+	wrapTextWithBranding
+} from '$lib/email/branding';
 
 const MAX_RECIPIENTS = 10;
 const MAX_BODY_LENGTH = 5000;
@@ -699,6 +703,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		payload.branding && typeof payload.branding === 'object'
 			? (payload.branding as Record<string, unknown>)
 			: null;
+	const brandingBrand =
+		brandingPayload?.brand && typeof brandingPayload.brand === 'object'
+			? brandingPayload.brand
+			: {};
 	const brandingCategory = deriveBrandingCategory(
 		normalizedTags,
 		sanitizeBrandingValue(brandingPayload?.category, 80)
@@ -715,6 +723,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const brandingOptions = {
 		origin: brandingOrigin,
+		brand: normalizeEmailBrand(brandingBrand),
 		category: brandingCategory,
 		subjectLine: validation.subject,
 		recipientReason: sanitizeBrandingValue(brandingPayload?.recipientReason, 280),

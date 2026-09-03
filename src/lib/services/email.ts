@@ -11,6 +11,17 @@ export interface SendEmailRequestBody {
 	replyTo?: string;
 	tags?: SesEmailTag[];
 	branding?: {
+		brand?: {
+			name?: string;
+			logoPath?: string;
+			logoUrl?: string;
+			background?: string;
+			surface?: string;
+			border?: string;
+			text?: string;
+			muted?: string;
+			accent?: string;
+		};
 		category?: string;
 		recipientReason?: string;
 		actionUrl?: string;
