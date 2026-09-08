@@ -1,24 +1,25 @@
-import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
 
 const BUCKET_NAME = 'storage';
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-function slugifySegment(value) {
-	return String(value || '')
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
+function buildObjectPath(userId, extension) {
+	return `profiles/${userId}/avatar.${extension}`;
 }
 
-function buildObjectPath(userId, fileName) {
-	const extension = path.extname(fileName || '').toLowerCase();
-	const baseName =
-		slugifySegment(path.basename(fileName || 'avatar-image', extension)) || 'avatar-image';
-	return `profiles/${userId}/avatar-${Date.now()}-${baseName}${extension}`;
+function objectPathFromPublicUrl(value) {
+	try {
+		const parsed = new URL(value);
+		const marker = '/storage/v1/object/public/storage/';
+		const index = parsed.pathname.indexOf(marker);
+		if (index === -1) return null;
+		return decodeURIComponent(parsed.pathname.slice(index + marker.length));
+	} catch {
+		return null;
+	}
 }
 
 export async function POST({ request, cookies }) {
@@ -46,13 +47,23 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Avatar image exceeds the 5 MB upload limit.' }, { status: 400 });
 	}
 
-	const objectPath = buildObjectPath(user.id, fileEntry.name);
-	const arrayBuffer = await fileEntry.arrayBuffer();
+	const { data: currentProfile } = await storageClient
+		.from('profiles')
+		.select('avatar_url')
+		.eq('user_id', user.id)
+		.maybeSingle();
+	const optimized = await optimizeImageForStorage(Buffer.from(await fileEntry.arrayBuffer()), {
+		contentType: fileEntry.type,
+		maxWidth: 512,
+		maxHeight: 512,
+		quality: 80
+	});
+	const objectPath = buildObjectPath(user.id, optimized.extension);
 	const { error: uploadError } = await storageClient.storage
 		.from(BUCKET_NAME)
-		.upload(objectPath, arrayBuffer, {
-			contentType: fileEntry.type,
-			upsert: false
+		.upload(objectPath, optimized.buffer, {
+			contentType: optimized.contentType,
+			upsert: true
 		});
 
 	if (uploadError) {
@@ -67,5 +78,13 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Unable to resolve avatar URL.' }, { status: 500 });
 	}
 
-	return json({ url: publicUrlData.publicUrl });
+	const previousPath = objectPathFromPublicUrl(currentProfile?.avatar_url);
+	if (previousPath && previousPath !== objectPath) {
+		await storageClient.storage
+			.from(BUCKET_NAME)
+			.remove([previousPath])
+			.catch(() => null);
+	}
+
+	return json({ url: `${publicUrlData.publicUrl}?v=${Date.now()}` });
 }

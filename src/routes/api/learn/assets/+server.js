@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import { getLearnServiceClient, requireLearnUser, slugifyLearn } from '$lib/server/learn';
+import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -42,12 +43,21 @@ export async function POST({ request, cookies }) {
 				return json({ error: `${file.name} exceeds the 25 MB upload limit.` }, { status: 400 });
 			}
 
-			const objectPath = buildObjectPath(user.id, file.name);
-			const arrayBuffer = await file.arrayBuffer();
+			const sourceBuffer = Buffer.from(await file.arrayBuffer());
+			const optimized = await optimizeImageForStorage(sourceBuffer, {
+				contentType: file.type,
+				maxWidth: 2400,
+				maxHeight: 1800,
+				quality: 82
+			});
+			const storedFileName = optimized.optimized
+				? replaceFileExtension(file.name, optimized.extension)
+				: file.name;
+			const objectPath = buildObjectPath(user.id, storedFileName);
 			const uploadResult = await supabase.storage
 				.from('learn-media')
-				.upload(objectPath, arrayBuffer, {
-					contentType: file.type,
+				.upload(objectPath, optimized.buffer, {
+					contentType: optimized.contentType,
 					upsert: false
 				});
 
@@ -66,8 +76,8 @@ export async function POST({ request, cookies }) {
 					object_path: objectPath,
 					public_url: publicUrl,
 					file_name: file.name,
-					mime_type: file.type,
-					size_bytes: file.size,
+					mime_type: optimized.contentType,
+					size_bytes: optimized.optimizedBytes,
 					source_type: 'upload',
 					metadata: {}
 				})

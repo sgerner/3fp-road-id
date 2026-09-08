@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import path from 'node:path';
 import {
 	createGroupSocialLibraryItem,
 	listGroupSocialLibraryItems,
@@ -7,6 +6,7 @@ import {
 	serializeSocialLibraryItem
 } from '$lib/server/social/db';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
+import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -18,21 +18,6 @@ function cleanText(value, maxLength = 0) {
 	const cleaned = String(value).trim();
 	if (!maxLength) return cleaned;
 	return cleaned.slice(0, maxLength);
-}
-
-function slugifySegment(value) {
-	return String(value || '')
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-}
-
-function buildObjectPath({ groupId, userId, fileName }) {
-	const extension = path.extname(fileName || '').toLowerCase();
-	const baseName =
-		slugifySegment(path.basename(fileName || 'social-media', extension)) || 'social-media';
-	return `groups/${groupId}/social/${userId}/${Date.now()}-${baseName}${extension}`;
 }
 
 function normalizeMediaList(value) {
@@ -69,31 +54,23 @@ async function uploadMediaFiles(auth, files = []) {
 			throw new Error(`${file.name} exceeds the 15 MB upload limit.`);
 		}
 
-		const objectPath = buildObjectPath({
-			groupId: auth.group.id,
-			userId: auth.userId,
-			fileName: file.name
-		});
 		const arrayBuffer = await file.arrayBuffer();
-		const uploadResult = await auth.serviceSupabase.storage
-			.from(BUCKET_NAME)
-			.upload(objectPath, arrayBuffer, {
-				contentType: file.type,
-				upsert: false
-			});
-		if (uploadResult.error) {
-			throw new Error(uploadResult.error.message);
-		}
-
-		const { data } = auth.serviceSupabase.storage.from(BUCKET_NAME).getPublicUrl(objectPath);
-		const url = data?.publicUrl || null;
+		const asset = await uploadCanonicalMediaAsset({
+			supabase: auth.serviceSupabase,
+			bucketId: BUCKET_NAME,
+			contentType: file.type,
+			buffer: arrayBuffer,
+			fileName: file.name,
+			sizeBytes: file.size
+		});
+		const url = asset?.url || null;
 		if (url) {
 			uploaded.push({
 				url,
 				file_name: file.name,
-				mime_type: file.type,
-				size_bytes: file.size,
-				object_path: objectPath,
+				mime_type: asset.mime_type || file.type,
+				size_bytes: asset.size_bytes ?? file.size,
+				object_path: asset.object_path,
 				bucket: BUCKET_NAME
 			});
 		}

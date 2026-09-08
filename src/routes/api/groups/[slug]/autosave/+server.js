@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -37,7 +38,7 @@ export const POST = async ({ params, request }) => {
 
 	const { data: group, error: ge } = await supabase
 		.from('groups')
-		.select('id')
+		.select('id, logo_url, cover_photo_url')
 		.eq('slug', slug)
 		.single();
 	if (ge || !group) return json({ ok: false, error: 'Group not found' }, { status: 404 });
@@ -184,18 +185,18 @@ async function uploadDataUrlToStorage(dataUrl, destBasePath) {
 	const { mime, buffer } = parsed;
 	const ct = mime || 'image/jpeg';
 	if (!ct.startsWith('image/')) return null;
-	const ext = ct.includes('jpeg')
-		? 'jpg'
-		: ct.includes('png')
-			? 'png'
-			: ct.includes('webp')
-				? 'webp'
-				: 'img';
-	const path = `${destBasePath}-${Date.now()}.${ext}`;
-	const up = await supabase.storage
-		.from('storage')
-		.upload(path, buffer, { contentType: ct, upsert: true });
+	const optimized = await optimizeImageForStorage(buffer, {
+		contentType: ct,
+		maxWidth: 2400,
+		maxHeight: 1800,
+		quality: 82
+	});
+	const objectPath = `${destBasePath}.${optimized.extension}`;
+	const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+		contentType: optimized.contentType,
+		upsert: true
+	});
 	if (up.error) return null;
-	const { data } = supabase.storage.from('storage').getPublicUrl(path);
+	const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
 	return data?.publicUrl || null;
 }

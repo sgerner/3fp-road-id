@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { DomUtils, parseDocument } from 'htmlparser2';
 import { supabase } from '$lib/supabaseClient';
 import { searchGeocode } from '$lib/server/geocoding';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
@@ -767,21 +769,20 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 		if (!res || !res.ok) return null;
 		const ct = res.headers.get('content-type') || '';
 		if (!ct.startsWith('image/')) return null;
-		const ab = await res.arrayBuffer();
-		const ext = (() => {
-			const lower = ct.toLowerCase();
-			if (lower.includes('jpeg')) return 'jpg';
-			if (lower.includes('png')) return 'png';
-			if (lower.includes('webp')) return 'webp';
-			if (lower.includes('gif')) return 'gif';
-			return 'img';
-		})();
-		const path = `${destBasePath}.${ext}`;
-		const up = await supabase.storage
-			.from('storage')
-			.upload(path, ab, { contentType: ct, upsert: true });
+		const optimized = await optimizeImageForStorage(Buffer.from(await res.arrayBuffer()), {
+			contentType: ct,
+			maxWidth: 2400,
+			maxHeight: 1800,
+			quality: 82
+		});
+		const sourceKey = createHash('sha256').update(remoteUrl).digest('hex').slice(0, 32);
+		const objectPath = `${destBasePath}/${sourceKey}.${optimized.extension}`;
+		const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+			contentType: optimized.contentType,
+			upsert: true
+		});
 		if (up.error) return null;
-		const { data } = supabase.storage.from('storage').getPublicUrl(path);
+		const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
 		return data?.publicUrl || null;
 	} catch {
 		return null;
@@ -791,13 +792,12 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 async function mirrorImageFields(fields) {
 	if (!fields || typeof fields !== 'object') return;
 	try {
-		const now = Date.now();
 		if (fields.logo_url && /^https?:\/\//i.test(fields.logo_url)) {
-			const url = await mirrorRemoteImageToStorage(fields.logo_url, `enrich/${now}/logo`);
+			const url = await mirrorRemoteImageToStorage(fields.logo_url, 'enrich/logo');
 			if (url) fields.logo_url = url;
 		}
 		if (fields.cover_photo_url && /^https?:\/\//i.test(fields.cover_photo_url)) {
-			const url = await mirrorRemoteImageToStorage(fields.cover_photo_url, `enrich/${now}/cover`);
+			const url = await mirrorRemoteImageToStorage(fields.cover_photo_url, 'enrich/cover');
 			if (url) fields.cover_photo_url = url;
 		}
 	} catch {

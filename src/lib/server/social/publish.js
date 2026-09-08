@@ -130,17 +130,18 @@ function appendDebugTimelineEntry(timeline, stage, details = {}) {
 	}
 }
 
-async function createInstagramJpegDerivative(supabase, mediaUrl) {
+async function createJpegDerivative(supabase, mediaUrl, platform) {
+	const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
 	const reference = parseManagedStoragePath(mediaUrl);
 	if (!reference) {
-		throw new Error('Instagram requires JPEG media. Re-upload the image as JPEG.');
+		throw new Error(`${platformLabel} requires JPEG media. Re-upload the image as JPEG.`);
 	}
 
 	const response = await fetch(mediaUrl);
 	if (!response.ok) {
-		throw new Error('Unable to fetch media for Instagram JPEG conversion.');
+		throw new Error(`Unable to fetch media for ${platformLabel} JPEG conversion.`);
 	}
-	logSocialPublishDebug('social_publish_instagram_media_fetch', {
+	logSocialPublishDebug(`social_publish_${platform}_media_fetch`, {
 		media_url: mediaUrl,
 		status: response.status,
 		content_type: cleanText(response.headers.get('content-type'), 120) || null
@@ -150,24 +151,24 @@ async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	try {
 		convertedBuffer = await sharp(sourceBuffer).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
 	} catch {
-		throw new Error('Unable to convert media to JPEG for Instagram publishing.');
+		throw new Error(`Unable to convert media to JPEG for ${platformLabel} publishing.`);
 	}
 
 	const basePath = reference.objectPath.replace(/\.[a-z0-9]+$/i, '');
-	const objectPath = `${basePath}-ig.jpg`;
+	const objectPath = `${basePath}-${platform === 'facebook' ? 'fb' : 'ig'}.jpg`;
 	const upload = await supabase.storage.from(reference.bucket).upload(objectPath, convertedBuffer, {
 		contentType: 'image/jpeg',
 		upsert: true
 	});
 	if (upload.error) {
-		throw new Error(upload.error.message || 'Unable to upload Instagram JPEG derivative.');
+		throw new Error(upload.error.message || `Unable to upload ${platformLabel} JPEG derivative.`);
 	}
 	const { data } = supabase.storage.from(reference.bucket).getPublicUrl(objectPath);
 	const publicUrl = cleanText(data?.publicUrl, 2000);
 	if (!publicUrl) {
-		throw new Error('Unable to resolve public URL for Instagram JPEG derivative.');
+		throw new Error(`Unable to resolve public URL for ${platformLabel} JPEG derivative.`);
 	}
-	logSocialPublishDebug('social_publish_instagram_media_derivative', {
+	logSocialPublishDebug(`social_publish_${platform}_media_derivative`, {
 		source_media_url: mediaUrl,
 		derived_media_url: publicUrl,
 		source_bytes: sourceBuffer.length,
@@ -176,7 +177,8 @@ async function createInstagramJpegDerivative(supabase, mediaUrl) {
 	return publicUrl;
 }
 
-async function ensureInstagramCompatibleMedia({ supabase, media }) {
+async function ensureJpegCompatibleMedia({ supabase, media, platform }) {
+	const platformLabel = platform === 'facebook' ? 'Facebook' : 'Instagram';
 	const list = Array.isArray(media) ? [...media] : [];
 	if (!list.length) return { changed: false, media: list };
 	const first = list[0];
@@ -185,20 +187,20 @@ async function ensureInstagramCompatibleMedia({ supabase, media }) {
 		2000
 	);
 	if (!firstUrl) {
-		throw new Error('Instagram publishing requires at least one media URL.');
+		throw new Error(`${platformLabel} publishing requires at least one media URL.`);
 	}
 	const isAlreadyPrepared =
 		typeof first === 'object' &&
 		first !== null &&
-		first.derived_for === 'instagram' &&
+		first.derived_for === platform &&
 		isJpegUrl(firstUrl);
 	if (isAlreadyPrepared) {
-		logSocialPublishDebug('social_publish_instagram_media_already_prepared', {
+		logSocialPublishDebug(`social_publish_${platform}_media_already_prepared`, {
 			media_url: firstUrl
 		});
 		return { changed: false, media: list };
 	}
-	const jpegUrl = await createInstagramJpegDerivative(supabase, firstUrl);
+	const jpegUrl = await createJpegDerivative(supabase, firstUrl, platform);
 	if (typeof first === 'string') {
 		list[0] = jpegUrl;
 	} else {
@@ -207,10 +209,10 @@ async function ensureInstagramCompatibleMedia({ supabase, media }) {
 			url: jpegUrl,
 			mime_type: 'image/jpeg',
 			type: 'image',
-			derived_for: 'instagram'
+			derived_for: platform
 		};
 	}
-	logSocialPublishDebug('social_publish_instagram_media_prepared', {
+	logSocialPublishDebug(`social_publish_${platform}_media_prepared`, {
 		original_media_url: firstUrl,
 		prepared_media_url: jpegUrl
 	});
@@ -317,15 +319,21 @@ export async function publishSingleGroupSocialPost(
 	}
 
 	let preparedMedia = extractPostMedia(targetPost);
-	if (platforms.includes('instagram')) {
+	const jpegPlatform = platforms.includes('instagram')
+		? 'instagram'
+		: platforms.includes('facebook')
+			? 'facebook'
+			: null;
+	if (jpegPlatform) {
 		try {
-			logSocialPublishDebug('social_publish_instagram_prepare_start', {
+			logSocialPublishDebug(`social_publish_${jpegPlatform}_prepare_start`, {
 				post_id: targetPost.id,
 				media_count: preparedMedia.length
 			});
-			const prepared = await ensureInstagramCompatibleMedia({
+			const prepared = await ensureJpegCompatibleMedia({
 				supabase,
-				media: preparedMedia
+				media: preparedMedia,
+				platform: jpegPlatform
 			});
 			if (prepared.changed) {
 				preparedMedia = prepared.media;
@@ -333,7 +341,7 @@ export async function publishSingleGroupSocialPost(
 					media: preparedMedia,
 					updated_by: requestedBy || targetPost.updated_by || targetPost.created_by || null
 				});
-				logSocialPublishDebug('social_publish_instagram_prepare_saved', {
+				logSocialPublishDebug(`social_publish_${jpegPlatform}_prepare_saved`, {
 					post_id: targetPost.id,
 					prepared_media_url:
 						cleanText(
@@ -346,11 +354,11 @@ export async function publishSingleGroupSocialPost(
 			}
 		} catch (conversionError) {
 			const message =
-				cleanText(conversionError?.message, 1000) || 'Unable to prepare Instagram media.';
-			appendDebugTimelineEntry(debugTimeline, 'instagram_media_prepare_failed', {
+				cleanText(conversionError?.message, 1000) || `Unable to prepare ${jpegPlatform} media.`;
+			appendDebugTimelineEntry(debugTimeline, `${jpegPlatform}_media_prepare_failed`, {
 				error: message
 			});
-			console.error('social_publish_instagram_prepare_failed', {
+			console.error(`social_publish_${jpegPlatform}_prepare_failed`, {
 				post_id: targetPost.id,
 				group_id: groupId,
 				error: message

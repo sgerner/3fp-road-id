@@ -1,5 +1,6 @@
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -11,21 +12,19 @@ async function mirrorRemoteImageToStorage(supabase, remoteUrl, destBasePath) {
 		if (!res.ok) return null;
 		const ct = res.headers.get('content-type') || '';
 		if (!ct.startsWith('image/')) return null;
-		const ab = await res.arrayBuffer();
-		const ext = (() => {
-			if (ct.includes('jpeg')) return 'jpg';
-			if (ct.includes('png')) return 'png';
-			if (ct.includes('webp')) return 'webp';
-			if (ct.includes('gif')) return 'gif';
-			return 'img';
-		})();
-		const path = `${destBasePath}-${Date.now()}.${ext}`;
-		const up = await supabase.storage.from('storage').upload(path, ab, {
+		const optimized = await optimizeImageForStorage(Buffer.from(await res.arrayBuffer()), {
 			contentType: ct,
+			maxWidth: 2400,
+			maxHeight: 1800,
+			quality: 82
+		});
+		const objectPath = `${destBasePath}.${optimized.extension}`;
+		const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+			contentType: optimized.contentType,
 			upsert: true
 		});
 		if (up.error) return null;
-		const { data } = supabase.storage.from('storage').getPublicUrl(path);
+		const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
 		return data?.publicUrl || null;
 	} catch {
 		return null;
@@ -37,20 +36,19 @@ async function uploadLocalImageToStorage(supabase, file, destBasePath) {
 		if (!file || typeof file.arrayBuffer !== 'function') return null;
 		const ct = file.type || 'application/octet-stream';
 		if (!ct.startsWith('image/')) return null;
-		const ab = await file.arrayBuffer();
-		const ext = (() => {
-			if (ct.includes('jpeg')) return 'jpg';
-			if (ct.includes('png')) return 'png';
-			if (ct.includes('webp')) return 'webp';
-			if (ct.includes('gif')) return 'gif';
-			return 'img';
-		})();
-		const path = `${destBasePath}-${Date.now()}.${ext}`;
-		const up = await supabase.storage
-			.from('storage')
-			.upload(path, ab, { contentType: ct, upsert: true });
+		const optimized = await optimizeImageForStorage(Buffer.from(await file.arrayBuffer()), {
+			contentType: ct,
+			maxWidth: 2400,
+			maxHeight: 1800,
+			quality: 82
+		});
+		const objectPath = `${destBasePath}.${optimized.extension}`;
+		const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+			contentType: optimized.contentType,
+			upsert: true
+		});
 		if (up.error) return null;
-		const { data } = supabase.storage.from('storage').getPublicUrl(path);
+		const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
 		return data?.publicUrl || null;
 	} catch {
 		return null;
@@ -76,19 +74,19 @@ async function uploadDataUrlToStorage(supabase, dataUrl, destBasePath) {
 	const { mime, buffer } = parsed;
 	const ct = mime || 'image/jpeg';
 	if (!ct.startsWith('image/')) return null;
-	const ext = (() => {
-		if (ct.includes('jpeg')) return 'jpg';
-		if (ct.includes('png')) return 'png';
-		if (ct.includes('webp')) return 'webp';
-		if (ct.includes('gif')) return 'gif';
-		return 'img';
-	})();
-	const path = `${destBasePath}-${Date.now()}.${ext}`;
-	const up = await supabase.storage
-		.from('storage')
-		.upload(path, buffer, { contentType: ct, upsert: true });
+	const optimized = await optimizeImageForStorage(buffer, {
+		contentType: ct,
+		maxWidth: 2400,
+		maxHeight: 1800,
+		quality: 82
+	});
+	const objectPath = `${destBasePath}.${optimized.extension}`;
+	const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+		contentType: optimized.contentType,
+		upsert: true
+	});
 	if (up.error) return null;
-	const { data } = supabase.storage.from('storage').getPublicUrl(path);
+	const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
 	return data?.publicUrl || null;
 }
 

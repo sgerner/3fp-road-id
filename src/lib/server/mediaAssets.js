@@ -1,3 +1,5 @@
+import { optimizeImageForStorage } from './storageImages.js';
+
 export const CANONICAL_MEDIA_BUCKETS = new Set(['ride-media', 'group-social-media']);
 
 const MIME_TYPE_TO_EXTENSION = new Map([
@@ -87,8 +89,18 @@ export async function uploadCanonicalMediaAsset({
 	sizeBytes = null
 }) {
 	const normalizedBucket = normalizeBucketId(bucketId);
-	const normalizedMimeType = normalizeMimeType(contentType);
-	const normalizedBuffer = toArrayBuffer(buffer);
+	const sourceBuffer = toArrayBuffer(buffer);
+	const optimized = await optimizeImageForStorage(sourceBuffer, {
+		contentType,
+		maxWidth: normalizedBucket === 'ride-media' ? 2400 : 2400,
+		maxHeight: normalizedBucket === 'ride-media' ? 1800 : 2400,
+		quality: 82
+	});
+	const normalizedMimeType = normalizeMimeType(
+		optimized.contentType,
+		normalizeMimeType(contentType)
+	);
+	const normalizedBuffer = toArrayBuffer(optimized.buffer);
 	const contentHash = await sha256Hex(normalizedBuffer);
 	const canonicalObjectPath =
 		cleanText(objectPath) ||
@@ -135,7 +147,7 @@ export async function uploadCanonicalMediaAsset({
 			url: updatedRow.public_url || buildPublicUrl(normalizedBucket, updatedRow.object_path),
 			file_name: updatedRow.file_name || cleanText(fileName),
 			mime_type: updatedRow.mime_type || normalizedMimeType,
-			size_bytes: updatedRow.size_bytes ?? sizeBytes ?? null,
+			size_bytes: updatedRow.size_bytes ?? normalizedBuffer.byteLength,
 			deduped: true
 		};
 	}
@@ -163,7 +175,7 @@ export async function uploadCanonicalMediaAsset({
 		content_hash: contentHash,
 		file_name: cleanText(fileName) || canonicalObjectPath.split('/').pop() || '',
 		mime_type: normalizedMimeType,
-		size_bytes: sizeBytes ?? normalizedBuffer.byteLength,
+		size_bytes: normalizedBuffer.byteLength,
 		last_referenced_at: now,
 		updated_at: now
 	};
@@ -189,7 +201,7 @@ export async function uploadCanonicalMediaAsset({
 		url: storedRow.public_url || publicUrl,
 		file_name: storedRow.file_name || cleanText(fileName),
 		mime_type: storedRow.mime_type || normalizedMimeType,
-		size_bytes: storedRow.size_bytes ?? sizeBytes ?? normalizedBuffer.byteLength,
+		size_bytes: storedRow.size_bytes ?? normalizedBuffer.byteLength,
 		deduped: false
 	};
 }

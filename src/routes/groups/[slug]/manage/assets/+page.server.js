@@ -11,6 +11,7 @@ import {
 	sanitizeExternalUrl,
 	validateAssetUpload
 } from '$lib/server/groupAssets';
+import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
 
 async function loadManagedAsset(auth, assetId) {
 	const { data, error } = await auth.serviceSupabase
@@ -60,16 +61,25 @@ async function uploadBucketFiles(auth, files, bucket) {
 	const insertedAssetIds = [];
 
 	for (const file of files) {
+		const sourceBuffer = Buffer.from(await file.arrayBuffer());
+		const optimized = await optimizeImageForStorage(sourceBuffer, {
+			contentType: file.type,
+			maxWidth: 2400,
+			maxHeight: 1800,
+			quality: 82
+		});
+		const storedFileName = optimized.optimized
+			? replaceFileExtension(file.name, optimized.extension)
+			: file.name;
 		const objectPath = buildGroupAssetObjectPath({
 			groupId: auth.group.id,
 			bucket,
-			fileName: file.name
+			fileName: storedFileName
 		});
-		const arrayBuffer = await file.arrayBuffer();
 		const upload = await auth.serviceSupabase.storage
 			.from(GROUP_ASSET_BUCKET)
-			.upload(objectPath, arrayBuffer, {
-				contentType: file.type,
+			.upload(objectPath, optimized.buffer, {
+				contentType: optimized.contentType,
 				upsert: false
 			});
 
@@ -103,11 +113,13 @@ async function uploadBucketFiles(auth, files, bucket) {
 				bucket_id: GROUP_ASSET_BUCKET,
 				object_path: objectPath,
 				file_name: file.name,
-				mime_type: file.type,
-				size_bytes: file.size,
+				mime_type: optimized.contentType,
+				size_bytes: optimized.optimizedBytes,
 				metadata: {
 					extension: path.extname(file.name || '').toLowerCase(),
-					bucket
+					bucket,
+					original_size_bytes: file.size,
+					optimized: optimized.optimized
 				}
 			})
 			.select('id')

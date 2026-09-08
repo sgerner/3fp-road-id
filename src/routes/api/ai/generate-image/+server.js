@@ -12,6 +12,7 @@ import {
 import { getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
 import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
 import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import {
@@ -306,6 +307,7 @@ async function persistLearnAsset({
 	publicUrl,
 	fileName,
 	sizeBytes,
+	mimeType,
 	styleId,
 	modelId
 }) {
@@ -317,7 +319,7 @@ async function persistLearnAsset({
 			object_path: objectPath,
 			public_url: publicUrl,
 			file_name: fileName,
-			mime_type: 'image/png',
+			mime_type: mimeType || 'image/png',
 			size_bytes: sizeBytes,
 			source_type: 'upload',
 			metadata: {
@@ -438,15 +440,21 @@ export async function POST({ request, cookies }) {
 
 		const mimeType = generated?.mimeType || 'image/png';
 		const extension = mimeType.split('/')[1] || 'png';
+		const sourceBuffer = Buffer.from(imageBytes, 'base64');
+		const optimized = await optimizeImageForStorage(sourceBuffer, {
+			contentType: mimeType,
+			maxWidth: 2400,
+			maxHeight: 1800,
+			quality: 82
+		});
 		const storage = getStorageConfig(
 			target,
 			user.id,
 			payload?.articleId,
 			context,
-			extension,
+			optimized.extension || extension,
 			storageBucket
 		);
-		const buffer = Buffer.from(imageBytes, 'base64');
 		let asset = null;
 		let url = null;
 
@@ -456,16 +464,16 @@ export async function POST({ request, cookies }) {
 				bucketId: storage.bucket,
 				objectPath: storage.objectPath,
 				contentType: mimeType,
-				buffer,
+				buffer: sourceBuffer,
 				fileName: storage.fileName,
-				sizeBytes: buffer.byteLength
+				sizeBytes: sourceBuffer.byteLength
 			});
 			url = asset.url;
 		} else {
 			const uploadResult = await supabase.storage
 				.from(storage.bucket)
-				.upload(storage.objectPath, buffer, {
-					contentType: mimeType,
+				.upload(storage.objectPath, optimized.buffer, {
+					contentType: optimized.contentType,
 					upsert: false
 				});
 
@@ -491,7 +499,8 @@ export async function POST({ request, cookies }) {
 				objectPath: storage.objectPath,
 				publicUrl: url,
 				fileName: storage.fileName || path.basename(storage.objectPath),
-				sizeBytes: buffer.byteLength,
+				sizeBytes: optimized.optimizedBytes,
+				mimeType: optimized.contentType,
 				styleId: stylePreset.id,
 				modelId: model.id
 			});
@@ -507,8 +516,8 @@ export async function POST({ request, cookies }) {
 			bucket: storage.bucket,
 			object_path: asset?.object_path || storage.objectPath || null,
 			file_name: asset?.file_name || storage.fileName || path.basename(storage.objectPath || ''),
-			mime_type: asset?.mime_type || mimeType,
-			size_bytes: asset?.size_bytes || buffer.byteLength,
+			mime_type: asset?.mime_type || optimized.contentType,
+			size_bytes: asset?.size_bytes || optimized.optimizedBytes,
 			content_hash: asset?.content_hash || null
 		});
 	} catch (routeError) {

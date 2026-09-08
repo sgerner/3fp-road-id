@@ -25,8 +25,9 @@ async function handleCron(request) {
 		return json({ error: 'Supabase service role is not configured.' }, { status: 500 });
 	}
 
-	const { data, error } = await supabase.rpc('cleanup_storage_media_assets', {
-		retention_days: RETENTION_DAYS
+	const { data, error } = await supabase.rpc('cleanup_storage_unreferenced_objects', {
+		retention_days: RETENTION_DAYS,
+		dry_run: false
 	});
 
 	if (error) {
@@ -35,12 +36,12 @@ async function handleCron(request) {
 
 	return json({
 		data: data || {
-			refreshed: 0,
-			deleted: 0,
+			dry_run: false,
+			candidate_objects: 0,
+			deleted_objects: 0,
 			deleted_asset_rows: 0,
 			reclaimed_bytes: 0,
-			retention_days: RETENTION_DAYS,
-			buckets: ['ride-media', 'group-social-media']
+			retention_days: RETENTION_DAYS
 		}
 	});
 }
