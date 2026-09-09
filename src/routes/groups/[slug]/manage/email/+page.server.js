@@ -1,6 +1,7 @@
 import { listGroupSiteDomains } from '$lib/server/groupSiteDomains';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { listGroupEmailSendingDomains } from '$lib/server/groupEmailDomains';
+import { listGroupSubscriberWelcomeFailures } from '$lib/server/groupSubscriberWelcome';
 import { listMembershipEmailHistory } from '$lib/server/memberships';
 
 async function loadAudienceSummary(serviceSupabase, groupId) {
@@ -46,20 +47,28 @@ async function loadAudienceSummary(serviceSupabase, groupId) {
 export const load = async ({ parent, cookies, url }) => {
 	const parentData = await parent();
 	const serviceSupabase = createServiceSupabaseClient();
-	const [senderDomainsResult, emailHistoryResult, audienceSummary, siteDomains] = await Promise.all(
-		[
-			listGroupEmailSendingDomains({
-				cookies,
-				groupSlug: parentData.group.slug
-			}),
-			listMembershipEmailHistory({
-				cookies,
-				groupSlug: parentData.group.slug
-			}),
-			loadAudienceSummary(serviceSupabase, parentData.group.id),
-			serviceSupabase ? listGroupSiteDomains(serviceSupabase, parentData.group.id) : []
-		]
-	);
+	const [
+		senderDomainsResult,
+		emailHistoryResult,
+		audienceSummary,
+		siteDomains,
+		welcomeFailuresResult
+	] = await Promise.all([
+		listGroupEmailSendingDomains({
+			cookies,
+			groupSlug: parentData.group.slug
+		}),
+		listMembershipEmailHistory({
+			cookies,
+			groupSlug: parentData.group.slug
+		}),
+		loadAudienceSummary(serviceSupabase, parentData.group.id),
+		serviceSupabase ? listGroupSiteDomains(serviceSupabase, parentData.group.id) : [],
+		listGroupSubscriberWelcomeFailures({
+			cookies,
+			groupSlug: parentData.group.slug
+		})
+	]);
 
 	return {
 		group: parentData.group,
@@ -70,6 +79,7 @@ export const load = async ({ parent, cookies, url }) => {
 		senderDomains: senderDomainsResult?.ok ? senderDomainsResult.data : [],
 		emailHistory: emailHistoryResult?.ok ? emailHistoryResult.data : [],
 		siteDomains,
-		audienceSummary
+		audienceSummary,
+		welcomeFailures: welcomeFailuresResult?.ok ? welcomeFailuresResult.data : []
 	};
 };

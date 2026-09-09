@@ -4,6 +4,17 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const GROUP_SUBSCRIBER_WELCOME_CONTEXT = 'group-subscriber-welcome';
 
+export const GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES = Object.freeze({
+	PENDING: 'pending',
+	SENDING: 'sending',
+	SENT: 'sent',
+	FAILED: 'failed'
+});
+
+// A crashed request can leave a row in `sending`. Reclaim only after a
+// generous lease so a slow provider response is not raced by a retry.
+export const GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS = 10 * 60 * 1000;
+
 const WELCOME_TENANTS = Object.freeze({
 	tbag: {
 		key: 'tbag',
@@ -198,12 +209,45 @@ export function buildGroupMicrositeUrl({ group = {}, origin, siteUrl } = {}) {
 	return `${baseOrigin}/${encodeURIComponent(micrositeSlug)}`;
 }
 
-export function shouldSendGroupSubscriberWelcome(existingSubscriber) {
-	return (
-		!existingSubscriber ||
-		existingSubscriber.status === 'unsubscribed' ||
-		!existingSubscriber.welcome_email_sent_at
+function timestampMs(value) {
+	if (!value) return null;
+	const parsed = new Date(value).getTime();
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function isGroupSubscriberWelcomeSent(subscriber) {
+	return Boolean(
+		subscriber?.welcome_email_sent_at ||
+		subscriber?.welcome_email_status === GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENT
 	);
+}
+
+export function isGroupSubscriberWelcomeClaimable(
+	subscriber,
+	now = Date.now(),
+	claimTimeoutMs = GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS
+) {
+	if (!subscriber || subscriber.status !== 'subscribed') return false;
+	if (isGroupSubscriberWelcomeSent(subscriber)) return false;
+
+	const deliveryStatus =
+		subscriber.welcome_email_status || GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.PENDING;
+	if (
+		deliveryStatus === GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.PENDING ||
+		deliveryStatus === GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.FAILED
+	) {
+		return true;
+	}
+	if (deliveryStatus !== GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENDING) return false;
+
+	const claimedAt = timestampMs(subscriber.welcome_email_claimed_at);
+	return claimedAt === null || now - claimedAt >= claimTimeoutMs;
+}
+
+export function shouldSendGroupSubscriberWelcome(existingSubscriber, now = Date.now()) {
+	if (!existingSubscriber) return true;
+	if (existingSubscriber.status === 'unsubscribed') return true;
+	return isGroupSubscriberWelcomeClaimable(existingSubscriber, now);
 }
 
 export function buildGroupSubscriberWelcomeEmail({

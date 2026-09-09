@@ -110,7 +110,7 @@ function ensureSesClient() {
 	return cachedSesClient;
 }
 
-async function requireGroupEmailManager(cookies, groupSlug) {
+export async function requireGroupEmailManager(cookies, groupSlug) {
 	const { accessToken, user } = resolveSession(cookies);
 	if (!user?.id) {
 		return { ok: false, status: 401, error: 'Authentication required.' };

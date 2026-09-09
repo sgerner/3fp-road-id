@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	buildGroupSubscriberWelcomeEmail,
+	GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS,
+	GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES,
+	isGroupSubscriberWelcomeClaimable,
+	isGroupSubscriberWelcomeSent,
 	normalizeGroupEmailSignup,
 	resolveGroupEmailWelcomeTenant,
 	shouldSendGroupSubscriberWelcome
@@ -138,6 +142,91 @@ test('subscriber welcome is sent only for a new or re-subscribed address', () =>
 		shouldSendGroupSubscriberWelcome({
 			status: 'subscribed',
 			welcome_email_sent_at: '2026-09-02T00:00:00.000Z'
+		}),
+		false
+	);
+});
+
+test('subscriber welcome delivery state is retryable without duplicating sent welcomes', () => {
+	const now = Date.parse('2026-09-08T12:00:00.000Z');
+
+	assert.equal(
+		isGroupSubscriberWelcomeClaimable(
+			{
+				status: 'subscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.FAILED
+			},
+			now
+		),
+		true
+	);
+	assert.equal(
+		isGroupSubscriberWelcomeClaimable(
+			{
+				status: 'subscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENDING,
+				welcome_email_claimed_at: '2026-09-08T11:59:00.000Z'
+			},
+			now
+		),
+		false
+	);
+	assert.equal(
+		shouldSendGroupSubscriberWelcome(
+			{
+				status: 'subscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENDING,
+				welcome_email_claimed_at: '2026-09-08T11:59:00.000Z'
+			},
+			now
+		),
+		false
+	);
+	assert.equal(
+		isGroupSubscriberWelcomeClaimable(
+			{
+				status: 'subscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENDING,
+				welcome_email_claimed_at: new Date(
+					now - GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS - 1
+				).toISOString()
+			},
+			now
+		),
+		true
+	);
+	assert.equal(
+		isGroupSubscriberWelcomeClaimable(
+			{
+				status: 'subscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENT,
+				welcome_email_sent_at: '2026-09-08T11:00:00.000Z'
+			},
+			now
+		),
+		false
+	);
+	assert.equal(
+		isGroupSubscriberWelcomeClaimable(
+			{
+				status: 'unsubscribed',
+				welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.FAILED
+			},
+			now
+		),
+		false
+	);
+	assert.equal(
+		isGroupSubscriberWelcomeSent({
+			status: 'subscribed',
+			welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENT
+		}),
+		true
+	);
+	assert.equal(
+		shouldSendGroupSubscriberWelcome({
+			status: 'subscribed',
+			welcome_email_status: GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES.SENT
 		}),
 		false
 	);

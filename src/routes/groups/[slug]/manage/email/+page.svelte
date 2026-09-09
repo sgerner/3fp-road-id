@@ -87,6 +87,7 @@
 		{ id: 'compose', label: 'Compose', hint: 'Write and design', icon: IconMail },
 		{ id: 'review', label: 'Review & send', hint: 'Check every detail', icon: IconBadgeCheck },
 		{ id: 'campaigns', label: 'Campaigns', hint: 'Drafts and history', icon: IconHistory },
+		{ id: 'subscribers', label: 'Subscribers', hint: 'Welcome delivery', icon: IconUsers },
 		{ id: 'senders', label: 'Sender setup', hint: 'Domains and DNS', icon: IconSettings }
 	];
 	const audienceOptions = [
@@ -98,6 +99,7 @@
 	let draft = $state(untrack(() => createDraft()));
 	let senderDomains = $state(untrack(() => clone(data.senderDomains || [])));
 	let emailHistory = $state(untrack(() => clone(data.emailHistory || [])));
+	let welcomeFailures = $state(untrack(() => clone(data.welcomeFailures || [])));
 	let activeView = $state('compose');
 	let currentCampaignId = $state('');
 	let canvasKey = $state(0);
@@ -112,6 +114,9 @@
 	let senderNotice = $state('');
 	let senderError = $state('');
 	let copiedDns = $state('');
+	let retryingWelcomeId = $state('');
+	let welcomeNotice = $state('');
+	let welcomeError = $state('');
 	let senderForm = $state(
 		untrack(() => ({
 			from_name: data.group?.name || '',
@@ -226,6 +231,35 @@
 
 	async function refreshHistory() {
 		emailHistory = await api(`/api/groups/${group.slug}/membership/emails/history`);
+	}
+
+	async function refreshWelcomeFailures() {
+		welcomeFailures = await api(`/api/groups/${group.slug}/email/subscribers/welcome-failures`);
+	}
+
+	async function retryWelcome(subscriber) {
+		welcomeNotice = '';
+		welcomeError = '';
+		try {
+			retryingWelcomeId = subscriber.id;
+			const result = await api(
+				`/api/groups/${group.slug}/email/subscribers/${subscriber.id}/welcome/retry`,
+				{ method: 'POST' }
+			);
+			await refreshWelcomeFailures();
+			if (result?.status === 'sent') {
+				welcomeNotice = `Welcome email sent to ${subscriber.email}.`;
+			} else if (result?.status === 'failed') {
+				welcomeError = result.error || `The welcome email to ${subscriber.email} still failed.`;
+			} else {
+				welcomeNotice = `Welcome delivery for ${subscriber.email} is already in progress or complete.`;
+			}
+		} catch (cause) {
+			welcomeError = cause?.message || 'Unable to retry this welcome email.';
+			await refreshWelcomeFailures().catch(() => {});
+		} finally {
+			retryingWelcomeId = '';
+		}
 	}
 
 	async function refreshSenders() {
@@ -519,7 +553,7 @@
 		</div>{/if}
 
 	<nav class="card preset-outlined-surface-200-800 p-1.5" aria-label="Newsletter workspace">
-		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4" role="tablist">
+		<div class="grid grid-cols-2 gap-1 sm:grid-cols-5" role="tablist">
 			{#each views as view, index}
 				{@const ViewIcon = view.icon}
 				<button
@@ -863,6 +897,83 @@
 							</div>
 						</article>{/each}
 				</div>{/if}
+		</div>
+	{:else if activeView === 'subscribers'}
+		<div
+			class="grid gap-4"
+			id="email-panel-subscribers"
+			role="tabpanel"
+			aria-labelledby="email-view-subscribers"
+		>
+			<div class="card preset-tonal-surface grid gap-3 p-4 sm:p-5">
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<div>
+						<h2 class="h4">Subscriber welcome delivery</h2>
+						<p class="text-sm opacity-65">
+							Failed welcomes stay here without blocking signup. Retrying only sends to subscribers
+							who are still opted in, and a successful retry is marked sent.
+						</p>
+					</div>
+					<button class="btn preset-tonal-surface" type="button" onclick={refreshWelcomeFailures}>
+						<IconRefresh class="h-4 w-4" /> Refresh
+					</button>
+				</div>
+				{#if welcomeNotice}<div class="preset-tonal-success p-3 text-sm" role="status">
+						{welcomeNotice}
+					</div>{/if}
+				{#if welcomeError}<div class="preset-tonal-error p-3 text-sm" role="alert">
+						{welcomeError}
+					</div>{/if}
+			</div>
+
+			{#if welcomeFailures.length === 0}
+				<div class="card preset-tonal-surface grid min-h-48 place-items-center p-8 text-center">
+					<div>
+						<IconCheck class="mx-auto h-8 w-8 opacity-50" />
+						<p class="mt-3 font-semibold">No welcome deliveries need attention</p>
+						<p class="text-sm opacity-60">
+							New subscriber welcomes will appear here if delivery fails.
+						</p>
+					</div>
+				</div>
+			{:else}
+				<div class="grid gap-3 md:grid-cols-2">
+					{#each welcomeFailures as subscriber}
+						<article class="card preset-tonal-surface grid gap-3 p-4">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<p class="truncate font-semibold">{subscriber.email}</p>
+									{#if subscriber.first_name}<p class="text-sm opacity-65">
+											{subscriber.first_name}
+										</p>{/if}
+								</div>
+								<span
+									class="badge {subscriber.welcome_email_status === 'sending'
+										? 'preset-tonal-warning'
+										: 'preset-tonal-error'}"
+									>{subscriber.welcome_email_status === 'sending' ? 'sending' : 'failed'}</span
+								>
+							</div>
+							<div class="grid gap-1 text-xs opacity-65">
+								<span>Attempts: {subscriber.welcome_email_attempts || 0}</span>
+								<span>Last attempt: {formatDate(subscriber.welcome_email_last_attempt_at)}</span>
+							</div>
+							{#if subscriber.welcome_email_error}
+								<p class="text-sm text-error-600-300">{subscriber.welcome_email_error}</p>
+							{/if}
+							<button
+								class="btn preset-filled-primary-500"
+								type="button"
+								onclick={() => retryWelcome(subscriber)}
+								disabled={retryingWelcomeId === subscriber.id}
+							>
+								<IconRefresh class="h-4 w-4" />
+								{retryingWelcomeId === subscriber.id ? 'Retrying…' : 'Retry welcome'}
+							</button>
+						</article>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<div
