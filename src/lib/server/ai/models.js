@@ -26,7 +26,7 @@ const MODEL_ID = {
 	GEMINI_31_FLASH_LITE: 'google/gemini-3.1-flash-lite',
 	GEMINI_31_FLASH_IMAGE: IMAGE_GENERATION_MODEL_IDS.GEMINI_31_FLASH_IMAGE,
 	GEMINI_31_FLASH_IMAGE_PREVIEW: 'google/gemini-3.1-flash-image-preview',
-	OPENAI_GPT_IMAGE_2: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_2,
+	OPENAI_GPT_IMAGE_25_FLARE: IMAGE_GENERATION_MODEL_IDS.OPENAI_GPT_IMAGE_25_FLARE,
 	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
 };
 
@@ -159,10 +159,10 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_OUTPUT
 		]
 	},
-	[MODEL_ID.OPENAI_GPT_IMAGE_2]: {
-		id: MODEL_ID.OPENAI_GPT_IMAGE_2,
+	[MODEL_ID.OPENAI_GPT_IMAGE_25_FLARE]: {
+		id: MODEL_ID.OPENAI_GPT_IMAGE_25_FLARE,
 		provider: 'openai',
-		model: 'gpt-image-2',
+		model: 'gpt-image-2.5-flare',
 		label: 'ChatGPT',
 		capabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	},
@@ -221,7 +221,7 @@ const AI_MODEL_PROFILES = {
 	},
 	image_generation: {
 		envVar: 'AI_MODEL_IMAGE_GENERATION',
-		fallbackModelId: MODEL_ID.OPENAI_GPT_IMAGE_2,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_IMAGE_25_FLARE,
 		requiredCapabilities: [AI_CAPABILITIES.IMAGE_GENERATION]
 	}
 };
@@ -360,7 +360,7 @@ function createOpenAiProviderClient(apiKey) {
 				quality: 'low'
 			};
 
-			if (model !== 'gpt-image-2') {
+			if (model !== 'gpt-image-2.5-flare') {
 				body.response_format = 'b64_json';
 			}
 
