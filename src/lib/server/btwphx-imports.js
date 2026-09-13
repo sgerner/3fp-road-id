@@ -2,13 +2,14 @@ import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.j
 import { inferGeocodeCountryCodeFromLocation } from './weeklyrides-imports.js';
 
 const BTWPHX_PROJECT_ID = 'proj_W0ZyzxfO5LSngvzL903Xy';
+const BTWPHX_USER_ID = 'user_nzH4OBAFtFGvSeB5rBCCW';
 const BTWPHX_REFERRER = 'https://www.btwphx.com/';
 const BTWPHX_ORIGIN =
 	'https://www-btwphx-com.filesusr.com/html/016e89_91ab43d54ab2e399e745bd0b06c37753.html';
 const BTWPHX_PLATFORM = 'web';
 const BTWPHX_APP = 'calendar';
-const BTWPHX_DATA_URL =
-	'https://inffuse.eventscalendar.co/js/v0.1/calendar/data?id=proj_W0ZyzxfO5LSngvzL903Xy&_referrer=https://www.btwphx.com/&platform=web';
+const BTWPHX_DATA_URL = `https://inffuse.eventscalendar.co/api/v0.1/projects/${BTWPHX_PROJECT_ID}/data/public/events?user=${BTWPHX_USER_ID}&app=${BTWPHX_APP}`;
+const BTWPHX_LEGACY_DATA_URL = `https://inffuse.eventscalendar.co/js/v0.1/calendar/data?id=${BTWPHX_PROJECT_ID}&_referrer=${BTWPHX_REFERRER}&platform=${BTWPHX_PLATFORM}`;
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -84,7 +85,7 @@ function normalizeBtwPhxEvent(rawEvent) {
 }
 
 export function parseBtwPhxCalendarData(payload) {
-	const events = payload?.project?.data?.events;
+	const events = Array.isArray(payload?.value) ? payload.value : payload?.project?.data?.events;
 	if (!Array.isArray(events)) {
 		throw new Error('Invalid BTWPHX calendar response payload.');
 	}
@@ -94,6 +95,46 @@ export function parseBtwPhxCalendarData(payload) {
 		projectId: safeTrim(payload?.project?.id) || BTWPHX_PROJECT_ID,
 		events: normalized
 	};
+}
+
+function isLegacyDataUrl(dataUrl) {
+	try {
+		return new URL(dataUrl).pathname === '/js/v0.1/calendar/data';
+	} catch {
+		return false;
+	}
+}
+
+async function fetchCalendarPayload(dataUrl, { referrer, origin, projectId, platform, app }) {
+	const legacyRequest = isLegacyDataUrl(dataUrl);
+	const request = {
+		method: legacyRequest ? 'POST' : 'GET',
+		headers: {
+			accept: 'application/json, text/plain, */*',
+			...(legacyRequest
+				? {
+						'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+						origin: 'https://www.btwphx.com'
+					}
+				: {}),
+			referer: referrer
+		}
+	};
+	if (legacyRequest) {
+		request.body = new URLSearchParams({
+			id: projectId,
+			_referrer: referrer,
+			platform,
+			_origin: origin,
+			app
+		});
+	}
+
+	const response = await fetch(dataUrl, request);
+	if (!response.ok) {
+		throw new Error(`BTWPHX calendar request failed: ${response.status} ${response.statusText}`);
+	}
+	return response.json();
 }
 
 async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
@@ -141,35 +182,26 @@ export async function importBtwPhxCalendar(
 		existingOnly = false
 	} = {}
 ) {
-	const requestBody = new URLSearchParams({
-		id: projectId,
-		_referrer: referrer,
-		platform,
-		_origin: origin,
-		app
-	});
-
-	const response = await fetch(dataUrl, {
-		method: 'POST',
-		headers: {
-			accept: 'application/json, text/plain, */*',
-			'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-			origin: 'https://www.btwphx.com',
-			referer: referrer
-		},
-		body: requestBody
-	});
-
-	if (!response.ok) {
-		throw new Error(`BTWPHX calendar request failed: ${response.status} ${response.statusText}`);
+	let requestedDataUrl = dataUrl;
+	let payload;
+	try {
+		payload = await fetchCalendarPayload(dataUrl, { referrer, origin, projectId, platform, app });
+	} catch (error) {
+		if (dataUrl !== BTWPHX_DATA_URL) throw error;
+		requestedDataUrl = BTWPHX_LEGACY_DATA_URL;
+		payload = await fetchCalendarPayload(requestedDataUrl, {
+			referrer,
+			origin,
+			projectId,
+			platform,
+			app
+		});
 	}
-
-	const payload = await response.json();
 	const parsedData = parseBtwPhxCalendarData(payload);
 
 	if (!parsedData.events.length) {
 		return {
-			dataUrl,
+			dataUrl: requestedDataUrl,
 			projectId: parsedData.projectId,
 			feedEventCount: 0,
 			candidateEventCount: 0,
@@ -198,7 +230,7 @@ export async function importBtwPhxCalendar(
 
 	if (!candidateEvents.length) {
 		return {
-			dataUrl,
+			dataUrl: requestedDataUrl,
 			projectId: parsedData.projectId,
 			feedEventCount: parsedData.events.length,
 			candidateEventCount: 0,
@@ -234,7 +266,7 @@ export async function importBtwPhxCalendar(
 		: [];
 	return {
 		...importResult,
-		dataUrl,
+		dataUrl: requestedDataUrl,
 		projectId: parsedData.projectId,
 		feedEventCount: parsedData.events.length,
 		candidateEventCount: candidateEvents.length,
