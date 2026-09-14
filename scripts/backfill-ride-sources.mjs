@@ -114,8 +114,10 @@ async function runImportBatches(supabase, config, batchSize) {
 		);
 
 		if (!result.candidateEventCount) break;
-		if (!batchInserted && !batchEquivalent && !batchGeocoding) {
-			console.warn(`${config.label} import stopped because the batch made no progress.`);
+		if (!batchInserted) {
+			console.warn(
+				`${config.label} import stopped because the batch produced no new source records.`
+			);
 			break;
 		}
 	}
