@@ -49,13 +49,13 @@ function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 
 				if (table === 'ride_details') {
 					return {
-						update(payload) {
-							return {
-								eq(column, value) {
-									imageUpdates.push({ payload, column, value });
-									return Promise.resolve({ error: null });
-								}
-							};
+						upsert(payload) {
+							imageUpdates.push({
+								payload,
+								column: 'activity_event_id',
+								value: payload.activity_event_id
+							});
+							return Promise.resolve({ error: null });
 						}
 					};
 				}

@@ -897,10 +897,14 @@ async function reconcileExistingRideImage(supabase, existing, event) {
 	if (getRideImageUrls(existing).length || !safeTrim(event.image?.url)) return [];
 	const imageUrls = await uploadEventImage(supabase, event);
 	if (!imageUrls.length) return [];
-	const { error } = await supabase
-		.from('ride_details')
-		.update({ image_urls: imageUrls, updated_at: new Date().toISOString() })
-		.eq('activity_event_id', existing.id);
+	const { error } = await supabase.from('ride_details').upsert(
+		{
+			activity_event_id: existing.id,
+			image_urls: imageUrls,
+			updated_at: new Date().toISOString()
+		},
+		{ onConflict: 'activity_event_id' }
+	);
 	if (error) throw error;
 	return imageUrls;
 }
