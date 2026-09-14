@@ -16,6 +16,23 @@ function safeTrim(value) {
 	return String(value).trim();
 }
 
+function hasCoordinates(row) {
+	if (row?.start_latitude === null || row?.start_latitude === undefined) return false;
+	if (row?.start_longitude === null || row?.start_longitude === undefined) return false;
+	const latitude = Number(row?.start_latitude);
+	const longitude = Number(row?.start_longitude);
+	return (
+		Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0)
+	);
+}
+
+function hasImage(row) {
+	const rideDetails = Array.isArray(row?.ride_details)
+		? row.ride_details[0] || null
+		: row?.ride_details || null;
+	return Array.isArray(rideDetails?.image_urls) && rideDetails.image_urls.some(Boolean);
+}
+
 function uniq(values) {
 	return Array.from(new Set(values.filter((value) => value !== null && value !== undefined)));
 }
@@ -146,7 +163,9 @@ async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
 		const chunk = sourceIds.slice(index, index + chunkSize);
 		const { data, error } = await supabase
 			.from('activity_events')
-			.select('id,slug,title,source_event_id')
+			.select(
+				'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
+			)
 			.in('source_event_id', chunk);
 		if (error) throw error;
 		for (const row of data || []) {
@@ -154,7 +173,10 @@ async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
 				sourceEventId: safeTrim(row.source_event_id),
 				activityId: row.id,
 				slug: row.slug,
-				title: row.title
+				title: row.title,
+				start_latitude: row.start_latitude,
+				start_longitude: row.start_longitude,
+				hasImage: hasImage(row)
 			});
 		}
 	}
@@ -179,7 +201,9 @@ export async function importBtwPhxCalendar(
 		skipGeocoding = false,
 		skipImageUpload = false,
 		reconcileMissingImages = false,
-		existingOnly = false
+		existingOnly = false,
+		maintenance = null,
+		limit = null
 	} = {}
 ) {
 	let requestedDataUrl = dataUrl;
@@ -217,7 +241,18 @@ export async function importBtwPhxCalendar(
 
 	let candidateEvents = parsedData.events;
 	let preSkippedExisting = [];
-	if (onlyNew && !reconcileMissingImages) {
+	if (maintenance === 'images' || maintenance === 'geocoding') {
+		const existingBySourceId = await fetchExistingEventsBySourceId(
+			supabase,
+			parsedData.events.map((event) => event.id)
+		);
+		candidateEvents = parsedData.events.filter((event) => {
+			const existing = existingBySourceId.get(event.id);
+			if (!existing) return false;
+			if (maintenance === 'images') return !existing.hasImage && Boolean(event.image?.url);
+			return !hasCoordinates(existing);
+		});
+	} else if (onlyNew && !reconcileMissingImages) {
 		const existingBySourceId = await fetchExistingEventsBySourceId(
 			supabase,
 			parsedData.events.map((event) => event.id)
@@ -240,7 +275,11 @@ export async function importBtwPhxCalendar(
 			skippedGeocoding: [],
 			skippedInvalid: [],
 			skippedEquivalent: [],
-			reason: 'No new BTWPHX events to import.'
+			reason:
+				maintenance === 'images' || maintenance === 'geocoding'
+					? `No BTWPHX ${maintenance} maintenance work is pending.`
+					: 'No new BTWPHX events to import.',
+			maintenance
 		};
 	}
 
@@ -253,11 +292,14 @@ export async function importBtwPhxCalendar(
 			publish,
 			dryRun,
 			slugPrefix,
-			requireGeocoding,
-			skipGeocoding: effectiveSkipGeocoding,
-			skipImageUpload,
-			reconcileMissingImages,
-			existingOnly
+			limit,
+			requireGeocoding: maintenance === 'images' ? false : requireGeocoding,
+			skipGeocoding: maintenance === 'images' ? true : effectiveSkipGeocoding,
+			skipImageUpload:
+				maintenance === 'images' ? false : maintenance === 'geocoding' || skipImageUpload,
+			reconcileMissingImages: maintenance === 'images' ? true : reconcileMissingImages,
+			existingOnly: maintenance ? true : existingOnly,
+			updateExistingCoordinates: maintenance === 'geocoding'
 		}
 	);
 
@@ -270,6 +312,7 @@ export async function importBtwPhxCalendar(
 		projectId: parsedData.projectId,
 		feedEventCount: parsedData.events.length,
 		candidateEventCount: candidateEvents.length,
-		skippedExisting: [...preSkippedExisting, ...existingFromImport]
+		skippedExisting: [...preSkippedExisting, ...existingFromImport],
+		maintenance
 	};
 }

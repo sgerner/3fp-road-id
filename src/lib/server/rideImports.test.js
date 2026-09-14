@@ -4,6 +4,7 @@ import { importRideSeedData } from './ride-imports.js';
 
 function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 	const imageUpdates = [];
+	const coordinateUpdates = [];
 	const storedMedia = [];
 	const uploadedObjects = [];
 	const existingRide = {
@@ -16,6 +17,7 @@ function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 
 	return {
 		imageUpdates,
+		coordinateUpdates,
 		storedMedia,
 		uploadedObjects,
 		supabase: {
@@ -31,6 +33,14 @@ function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 											error: null
 										})
 									};
+								}
+							};
+						},
+						update(payload) {
+							return {
+								eq(column, value) {
+									coordinateUpdates.push({ payload, column, value });
+									return Promise.resolve({ error: null });
 								}
 							};
 						}
@@ -104,7 +114,7 @@ function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 	};
 }
 
-function sourceEvent() {
+function sourceEvent(overrides = {}) {
 	return {
 		id: 'source-1',
 		title: 'Sample Ride',
@@ -118,14 +128,15 @@ function sourceEvent() {
 		endHour: 10,
 		endMinutes: 0,
 		categories: {},
-		image: { url: 'https://images.example/source-1.jpg' }
+		image: { url: 'https://images.example/source-1.jpg' },
+		...overrides
 	};
 }
 
 async function importExistingRide(supabase) {
 	return importRideSeedData(
 		supabase,
-		{ events: [sourceEvent()] },
+		{ events: [sourceEvent({ startLatitude: 33.4484, startLongitude: -112.074 })] },
 		{
 			requireGeocoding: false,
 			skipGeocoding: true,
@@ -199,5 +210,27 @@ test('importRideSeedData existingOnly mode does not insert source rides', async 
 	assert.equal(imageUpdates.length, 0);
 	assert.deepEqual(result.skippedNotExisting, [
 		{ sourceEventId: 'source-1', title: 'Sample Ride' }
+	]);
+});
+
+test('importRideSeedData updates missing existing coordinates when requested', async () => {
+	const { supabase, coordinateUpdates } = createSupabase([], true);
+	const result = await importRideSeedData(
+		supabase,
+		{ events: [sourceEvent({ startLatitude: 33.4484, startLongitude: -112.074 })] },
+		{
+			requireGeocoding: false,
+			skipGeocoding: true,
+			skipImageUpload: true,
+			existingOnly: true,
+			updateExistingCoordinates: true
+		}
+	);
+
+	assert.equal(coordinateUpdates.length, 1);
+	assert.equal(coordinateUpdates[0].column, 'id');
+	assert.equal(coordinateUpdates[0].value, 'activity-1');
+	assert.deepEqual(result.coordinatesUpdated, [
+		{ sourceEventId: 'source-1', activityId: 'activity-1', title: 'Sample Ride' }
 	]);
 });

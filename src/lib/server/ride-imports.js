@@ -851,7 +851,9 @@ async function findExistingBySourceEventId(supabase, sourceEventId) {
 	if (!sourceEventIds.length) return null;
 	const query = supabase
 		.from('activity_events')
-		.select('id,slug,title,source_event_id,ride_details(image_urls)');
+		.select(
+			'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
+		);
 	const { data, error } = await (
 		sourceEventIds.length === 1
 			? query.eq('source_event_id', sourceEventIds[0])
@@ -859,6 +861,16 @@ async function findExistingBySourceEventId(supabase, sourceEventId) {
 	).maybeSingle();
 	if (error) throw error;
 	return data ?? null;
+}
+
+function hasCoordinates(row) {
+	if (row?.start_latitude === null || row?.start_latitude === undefined) return false;
+	if (row?.start_longitude === null || row?.start_longitude === undefined) return false;
+	const latitude = Number(row?.start_latitude);
+	const longitude = Number(row?.start_longitude);
+	return (
+		Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0)
+	);
 }
 
 function getSourceEventIdAliases(sourceEventId) {
@@ -1062,7 +1074,8 @@ export async function importRideSeedData(
 		skipGeocoding = false,
 		skipImageUpload = false,
 		reconcileMissingImages = false,
-		existingOnly = false
+		existingOnly = false,
+		updateExistingCoordinates = false
 	} = {}
 ) {
 	let events = Array.isArray(source.events) ? source.events : [];
@@ -1104,6 +1117,7 @@ export async function importRideSeedData(
 			skippedEquivalent: [],
 			skippedNotExisting: [],
 			reconciledImages: [],
+			coordinatesUpdated: [],
 			imageFailures: [],
 			reason: 'No valid events remained after mapping.'
 		};
@@ -1117,6 +1131,7 @@ export async function importRideSeedData(
 			skippedEquivalent: [],
 			skippedNotExisting: [],
 			reconciledImages: [],
+			coordinatesUpdated: [],
 			imageFailures: []
 		};
 	}
@@ -1125,6 +1140,7 @@ export async function importRideSeedData(
 	const skippedEquivalent = [];
 	const skippedNotExisting = [];
 	const reconciledImages = [];
+	const coordinatesUpdated = [];
 	const imageFailures = [];
 	const sourceSignatureMap = new Map();
 	const dbSignatureMap = new Map();
@@ -1142,6 +1158,26 @@ export async function importRideSeedData(
 		if (signature) sourceSignatureMap.set(signature, record.sourceEventId);
 		const existing = await findExistingBySourceEventId(supabase, record.sourceEventId);
 		if (existing) {
+			if (
+				updateExistingCoordinates &&
+				!hasCoordinates(existing) &&
+				hasCoordinates(record.activity)
+			) {
+				const { error } = await supabase
+					.from('activity_events')
+					.update({
+						start_latitude: record.activity.start_latitude,
+						start_longitude: record.activity.start_longitude,
+						updated_at: new Date().toISOString()
+					})
+					.eq('id', existing.id);
+				if (error) throw error;
+				coordinatesUpdated.push({
+					sourceEventId: record.sourceEventId,
+					activityId: existing.id,
+					title: record.activity.title
+				});
+			}
 			if (reconcileMissingImages && !skipImageUpload) {
 				try {
 					const imageUrls = await reconcileExistingRideImage(supabase, existing, event);
@@ -1228,6 +1264,7 @@ export async function importRideSeedData(
 		skippedEquivalent,
 		skippedNotExisting,
 		reconciledImages,
+		coordinatesUpdated,
 		imageFailures
 	};
 }
