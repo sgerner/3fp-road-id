@@ -32,11 +32,22 @@ function parsePositiveInteger(value, fallback) {
 	return Math.min(parsed, MAX_BATCH_SIZE);
 }
 
+function parseBoolean(value, fallback = false) {
+	const normalized = String(value || '')
+		.trim()
+		.toLowerCase();
+	if (!normalized) return fallback;
+	if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+	if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+	return fallback;
+}
+
 function parseRequest(query) {
 	const source = SOURCE_ALIASES.get((query.get('source') || '').trim().toLowerCase());
 	const maintenance = (query.get('task') || query.get('maintenance') || '').trim().toLowerCase();
 	const limit = parsePositiveInteger(query.get('limit'), DEFAULT_BATCH_SIZE);
-	return { source, maintenance, limit };
+	const dryRun = parseBoolean(query.get('dry_run') ?? query.get('dryRun'));
+	return { source, maintenance, limit, dryRun };
 }
 
 async function handleMaintenance(event) {
@@ -46,7 +57,7 @@ async function handleMaintenance(event) {
 	const supabase = createServiceSupabaseClient();
 	if (!supabase) return json({ error: 'Ride maintenance is not configured.' }, { status: 500 });
 
-	const { source, maintenance, limit } = parseRequest(event.url.searchParams);
+	const { source, maintenance, limit, dryRun } = parseRequest(event.url.searchParams);
 	if (!source || !['images', 'geocoding'].includes(maintenance)) {
 		return json(
 			{
@@ -64,7 +75,7 @@ async function handleMaintenance(event) {
 
 	try {
 		const options = {
-			dryRun: false,
+			dryRun,
 			onlyNew: false,
 			publish: true,
 			maintenance,
@@ -85,7 +96,7 @@ async function handleMaintenance(event) {
 
 		return json({
 			data: result,
-			meta: { source, maintenance, limit }
+			meta: { source, maintenance, limit, dryRun }
 		});
 	} catch (error) {
 		console.error('Unable to run ride maintenance', error);
