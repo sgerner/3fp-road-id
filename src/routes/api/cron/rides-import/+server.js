@@ -69,6 +69,10 @@ async function handleCron(event) {
 		query.get('skip_image_upload') ?? query.get('skipImageUpload'),
 		false
 	);
+	const skipGeocoding = parseBoolean(
+		query.get('skip_geocoding') ?? query.get('skipGeocoding'),
+		false
+	);
 	const reconcileMissingImages = parseBoolean(
 		query.get('reconcile_missing_images') ?? query.get('reconcileMissingImages'),
 		true
@@ -97,6 +101,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages
 				});
@@ -114,6 +119,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages
 				});
@@ -131,6 +137,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages,
 					groupLimit: meetupGroupLimit
@@ -154,6 +161,7 @@ async function handleCron(event) {
 						onlyNew,
 						publish,
 						skipImageUpload,
+						skipGeocoding,
 						reconcileMissingImages,
 						sources
 					}
@@ -169,6 +177,7 @@ async function handleCron(event) {
 				onlyNew,
 				publish,
 				skipImageUpload,
+				skipGeocoding,
 				reconcileMissingImages,
 				sources
 			}
