@@ -73,6 +73,10 @@ async function handleCron(event) {
 		query.get('skip_geocoding') ?? query.get('skipGeocoding'),
 		false
 	);
+	const allowMissingGeocode = parseBoolean(
+		query.get('allow_missing_geocode') ?? query.get('allowMissingGeocode'),
+		false
+	);
 	const reconcileMissingImages = parseBoolean(
 		query.get('reconcile_missing_images') ?? query.get('reconcileMissingImages'),
 		true
@@ -101,6 +105,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					requireGeocoding: allowMissingGeocode ? false : undefined,
 					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages
@@ -119,6 +124,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					requireGeocoding: allowMissingGeocode ? false : undefined,
 					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages
@@ -137,6 +143,7 @@ async function handleCron(event) {
 					dryRun,
 					onlyNew,
 					publish,
+					requireGeocoding: allowMissingGeocode ? false : undefined,
 					skipGeocoding,
 					skipImageUpload,
 					reconcileMissingImages,
@@ -162,6 +169,7 @@ async function handleCron(event) {
 						publish,
 						skipImageUpload,
 						skipGeocoding,
+						allowMissingGeocode,
 						reconcileMissingImages,
 						sources
 					}
@@ -178,6 +186,7 @@ async function handleCron(event) {
 				publish,
 				skipImageUpload,
 				skipGeocoding,
+				allowMissingGeocode,
 				reconcileMissingImages,
 				sources
 			}

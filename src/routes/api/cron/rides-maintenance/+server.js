@@ -66,9 +66,12 @@ async function handleMaintenance(event) {
 			{ status: 400 }
 		);
 	}
-	if (maintenance === 'geocoding' && source !== 'meetup-road-cycling') {
+	if (
+		maintenance === 'geocoding' &&
+		!['btwphx', 'weeklyrides', 'meetup-road-cycling'].includes(source)
+	) {
 		return json(
-			{ error: 'Geocoding maintenance is currently supported only for Meetup.' },
+			{ error: 'Geocoding maintenance is not supported for the requested source.' },
 			{ status: 400 }
 		);
 	}
@@ -79,7 +82,8 @@ async function handleMaintenance(event) {
 			onlyNew: false,
 			publish: true,
 			maintenance,
-			limit
+			limit,
+			requireGeocoding: maintenance === 'geocoding'
 		};
 		let result;
 		if (source === 'weeklyrides') {

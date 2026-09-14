@@ -70,7 +70,7 @@ function getSourceConfigs() {
 		weeklyrides: {
 			label: 'WeeklyRides',
 			importer: importWeeklyRidesFeed,
-			options: { requireGeocoding: true, skipGeocoding: false }
+			options: { requireGeocoding: false, skipGeocoding: false }
 		},
 		'meetup-road-cycling': {
 			label: 'Meetup Road Cycling',
@@ -188,10 +188,7 @@ async function main() {
 		const config = configs[sourceName];
 		const imported = await runImportBatches(supabase, config, options.batchSize);
 		const images = await runMaintenanceBatches(supabase, config, 'images', options.batchSize);
-		const geocoding =
-			sourceName === 'meetup-road-cycling'
-				? await runMaintenanceBatches(supabase, config, 'geocoding', options.batchSize)
-				: null;
+		const geocoding = await runMaintenanceBatches(supabase, config, 'geocoding', options.batchSize);
 		summary[sourceName] = { imported, images, geocoding };
 	}
 
