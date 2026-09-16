@@ -1,13 +1,15 @@
 import { json } from '@sveltejs/kit';
 import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 6;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-export async function POST({ request, cookies }) {
-	const { user } = getActivityClient(cookies);
+export async function POST(event) {
+	const { request, cookies } = event;
+	const { user } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
@@ -17,7 +19,22 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Ride uploads are not configured.' }, { status: 500 });
 	}
 
-	const formData = await request.formData();
+	const limited = enforceRateLimit(event, {
+		name: 'ride-image-upload',
+		key: user.id,
+		limit: 20,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return limited;
+	const ipLimited = enforceRateLimit(event, {
+		name: 'ride-image-upload-ip',
+		limit: 30,
+		windowMs: 60 * 60 * 1000
+	});
+	if (ipLimited) return ipLimited;
+	const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
+	if (!parsedForm.ok) return json({ error: parsedForm.error }, { status: parsedForm.status });
+	const formData = parsedForm.value;
 	const files = formData.getAll('files').filter((entry) => entry instanceof File);
 
 	if (!files.length) {

@@ -2,8 +2,10 @@ import { error, fail } from '@sveltejs/kit';
 import { requireAdmin } from '$lib/server/admin';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { requireAiModel } from '$lib/server/ai/models';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import { GROUP_ASSET_BUCKET } from '$lib/groups/assets';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { readFormData } from '$lib/server/security';
 
 const ALL_FIELD_KEYS = [
 	'name',
@@ -111,21 +113,20 @@ function parseDataUrl(dataUrl) {
 	return { mimeType, bytes };
 }
 
-function extForMime(mimeType) {
-	if (mimeType === 'image/png') return '.png';
-	if (mimeType === 'image/webp') return '.webp';
-	return '.jpg';
-}
-
 async function uploadCroppedImage(serviceSupabase, groupId, field, dataUrl) {
 	const parsed = parseDataUrl(dataUrl);
 	if (!parsed) return null;
-	const extension = extForMime(parsed.mimeType);
-	const objectPath = `groups/${groupId}/outreach/${field}/${Date.now()}${extension}`;
+	const optimized = await optimizeImageForStorage(parsed.bytes, {
+		contentType: parsed.mimeType,
+		maxWidth: 2400,
+		maxHeight: 1800,
+		quality: 82
+	});
+	const objectPath = `groups/${groupId}/outreach/${field}/${Date.now()}.${optimized.extension}`;
 	const { error: uploadError } = await serviceSupabase.storage
 		.from(GROUP_ASSET_BUCKET)
-		.upload(objectPath, parsed.bytes, {
-			contentType: parsed.mimeType,
+		.upload(objectPath, optimized.buffer, {
+			contentType: optimized.contentType,
 			upsert: false,
 			cacheControl: '3600'
 		});
@@ -472,7 +473,9 @@ Do not wrap in markdown or code fences.`;
 
 	updateAssets: async ({ request, cookies }) => {
 		await requireAdmin(cookies);
-		const formData = await request.formData();
+		const parsedForm = await readFormData(request, { maxBytes: 12 * 1024 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const formData = parsedForm.value;
 		const groupId = formData.get('group_id');
 		const hasLogoUrl = formData.has('logo_url');
 		const hasCoverUrl = formData.has('cover_photo_url');

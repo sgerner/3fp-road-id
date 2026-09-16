@@ -6,7 +6,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { decryptSocialToken, encryptSocialToken } from '$lib/server/social/crypto';
 import { getStripeClient, getStripePublishableKey } from '$lib/server/stripe';
 import {
@@ -20,6 +20,7 @@ import {
 	uniquePublicReportSlug
 } from './groupAccountingRules.js';
 import { loadGroupStripeConnection } from './groupStripeConnection.js';
+import { fetchPublicHttp } from './security.js';
 
 export const GROUP_ACCOUNTING_RECEIPT_BUCKET = 'group-accounting-receipts';
 
@@ -374,14 +375,31 @@ async function auditEvent(
 }
 
 async function fetchJson(url, options = {}) {
-	const response = await fetch(url, {
-		...options,
-		headers: {
-			'content-type': 'application/json',
-			...(options.headers ?? {})
+	const target = new URL(url);
+	const response = await fetchPublicHttp(
+		target.toString(),
+		{
+			...options,
+			headers: {
+				'content-type': 'application/json',
+				...(options.headers ?? {})
+			}
+		},
+		{
+			timeoutMs: 20_000,
+			maxRedirects: 0,
+			maxResponseBytes: 8 * 1024 * 1024,
+			allowedHosts: [target.hostname]
 		}
-	});
-	const payload = await response.json().catch(() => ({}));
+	);
+	if (!response) throw new Error('Mercury relay request was blocked or timed out.');
+	const raw = await response.text().catch(() => '');
+	let payload = {};
+	try {
+		payload = raw ? JSON.parse(raw) : {};
+	} catch {
+		payload = {};
+	}
 	if (!response.ok) {
 		throw new Error(
 			payload?.error_message || payload?.message || `Request failed (${response.status})`
@@ -415,6 +433,9 @@ async function mercuryRelayRequest(auth, connection, apiKey, mercury) {
 	if (!sharedSecret) throw new Error('MERCURY_RELAY_SHARED_SECRET is not configured.');
 
 	const url = new URL(relayUrl);
+	if (url.protocol !== 'https:' || url.username || url.password || url.hash) {
+		throw new Error('MERCURY_RELAY_URL must be a public HTTPS endpoint.');
+	}
 	const timestamp = String(Date.now());
 	const nonce = randomBytes(16).toString('hex');
 	const body = JSON.stringify({
@@ -485,7 +506,7 @@ export function formatCents(cents, currency = 'usd') {
 }
 
 export async function requireGroupAccountingManager(cookies, groupSlug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		return { ok: false, status: 401, error: 'Authentication required.' };
 	}
@@ -1986,27 +2007,29 @@ export async function completeAutomatedReconciliation(auth, formData) {
 async function upsertProviderAccounts(auth, connection, provider, accounts = []) {
 	const rows = dedupeRowsByKey(
 		accounts
-		.map((account) => ({
-			group_id: auth.group.id,
-			connection_id: connection.id,
-			provider,
-			external_account_id: providerExternalAccountId(account),
-			display_name: cleanText(
-				account.name || account.official_name || account.nickname || 'Bank account'
-			),
-			account_type: cleanText(account.type),
-			account_subtype: cleanText(account.subtype),
-			mask: cleanText(account.mask || account.lastFour),
-			current_balance_cents: Math.round(
-				Number(account.balances?.current ?? account.currentBalance ?? 0) * 100
-			),
-			available_balance_cents: Math.round(
-				Number(account.balances?.available ?? account.availableBalance ?? 0) * 100
-			),
-			currency: normalizeCurrency(account.balances?.iso_currency_code || account.currency || 'usd'),
-			raw: account
-		}))
-		.filter((row) => row.external_account_id),
+			.map((account) => ({
+				group_id: auth.group.id,
+				connection_id: connection.id,
+				provider,
+				external_account_id: providerExternalAccountId(account),
+				display_name: cleanText(
+					account.name || account.official_name || account.nickname || 'Bank account'
+				),
+				account_type: cleanText(account.type),
+				account_subtype: cleanText(account.subtype),
+				mask: cleanText(account.mask || account.lastFour),
+				current_balance_cents: Math.round(
+					Number(account.balances?.current ?? account.currentBalance ?? 0) * 100
+				),
+				available_balance_cents: Math.round(
+					Number(account.balances?.available ?? account.availableBalance ?? 0) * 100
+				),
+				currency: normalizeCurrency(
+					account.balances?.iso_currency_code || account.currency || 'usd'
+				),
+				raw: account
+			}))
+			.filter((row) => row.external_account_id),
 		'external_account_id'
 	);
 	if (rows.length) {
@@ -2028,9 +2051,9 @@ function providerExternalAccountId(account = {}) {
 			account.cardId ||
 			account.account?.id ||
 			account.account?.uuid ||
-		account.id ||
-		account.uuid ||
-		account.number
+			account.id ||
+			account.uuid ||
+			account.number
 	);
 }
 
@@ -2141,36 +2164,41 @@ function feedItemAmountCents(provider, transaction) {
 
 function feedItemDescription(provider, transaction) {
 	if (provider === 'mercury') return mercuryTransactionDescription(transaction);
-	return cleanText(transaction.name || transaction.description || transaction.memo || 'Imported activity', 200);
+	return cleanText(
+		transaction.name || transaction.description || transaction.memo || 'Imported activity',
+		200
+	);
 }
 
 async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
 	const { defaultAccountId = null, accountMap = new Map() } = options;
 	const rows = dedupeRowsByKey(
 		transactions
-		.map((transaction) => {
-			const externalAccountId = providerExternalAccountId(transaction);
-			const accountId = accountMap.get(externalAccountId) || defaultAccountId || null;
-			return {
-				group_id: auth.group.id,
-				connection_id: connection.id,
-				provider,
-				source_transaction_id: cleanText(transaction.transaction_id || transaction.id),
-				transaction_date: dateOnly(
-					transaction.date || transaction.posted_at || transaction.created
-				),
-				account_id: accountId,
-				description: feedItemDescription(provider, transaction),
-				amount_cents: feedItemAmountCents(provider, transaction),
-				currency: normalizeCurrency(transaction.iso_currency_code || transaction.currency || 'usd'),
-				status: 'needs_review',
-				raw: {
-					...(transaction.raw ?? transaction),
-					external_account_id: externalAccountId || null
-				}
-			};
-		})
-		.filter((row) => row.source_transaction_id),
+			.map((transaction) => {
+				const externalAccountId = providerExternalAccountId(transaction);
+				const accountId = accountMap.get(externalAccountId) || defaultAccountId || null;
+				return {
+					group_id: auth.group.id,
+					connection_id: connection.id,
+					provider,
+					source_transaction_id: cleanText(transaction.transaction_id || transaction.id),
+					transaction_date: dateOnly(
+						transaction.date || transaction.posted_at || transaction.created
+					),
+					account_id: accountId,
+					description: feedItemDescription(provider, transaction),
+					amount_cents: feedItemAmountCents(provider, transaction),
+					currency: normalizeCurrency(
+						transaction.iso_currency_code || transaction.currency || 'usd'
+					),
+					status: 'needs_review',
+					raw: {
+						...(transaction.raw ?? transaction),
+						external_account_id: externalAccountId || null
+					}
+				};
+			})
+			.filter((row) => row.source_transaction_id),
 		'source_transaction_id'
 	);
 	if (rows.length) {
@@ -2435,13 +2463,9 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		...transaction,
 		source_transaction_id: cleanText(transaction.transaction_id || transaction.id)
 	}));
-	const insertedCount = await upsertFeedItems(
-		auth,
-		resolved,
-		'mercury',
-		normalizedTransactions,
-		{ accountMap }
-	);
+	const insertedCount = await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
+		accountMap
+	});
 	await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
@@ -2751,7 +2775,7 @@ export async function postDonationToGroupAccounting({
 }
 
 export function actionFailure(error) {
-	return fail(400, {
+	return fail(error?.status === 413 ? 413 : 400, {
 		accounting_error: error?.message || 'Accounting action failed.'
 	});
 }

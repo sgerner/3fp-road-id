@@ -1,4 +1,4 @@
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import {
 	ANONYMITY_NOTICE,
 	GROUP_TAX_NOTICE,
@@ -9,7 +9,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createSignedConnectState,
 	getStripeClient,
@@ -17,6 +17,7 @@ import {
 	verifySignedConnectState
 } from '$lib/server/stripe';
 import { postDonationToGroupAccounting } from '$lib/server/groupAccounting';
+import { timingSafeStringEqual } from '$lib/server/security';
 
 function normalizeEmail(value) {
 	if (!value || typeof value !== 'string') return '';
@@ -71,7 +72,7 @@ export function buildGroupDonationAccountId(groupId) {
 }
 
 async function getAuthContext(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	const userId = user?.id ?? null;
 	if (!accessToken || !userId) return null;
 
@@ -510,6 +511,7 @@ export async function createDonationPaymentIntent({
 
 export async function updateDonationPaymentIntent({
 	paymentIntentId,
+	clientSecret,
 	amount,
 	donorName,
 	donorEmail,
@@ -545,6 +547,17 @@ export async function updateDonationPaymentIntent({
 
 	const stripe = getStripeClient();
 	try {
+		const paymentIntent = await stripe.paymentIntents.retrieve(
+			cleanedPaymentIntentId,
+			{},
+			{ stripeAccount: donationRow.connected_account_id }
+		);
+		if (
+			!paymentIntent?.client_secret ||
+			!timingSafeStringEqual(clientSecret, paymentIntent.client_secret)
+		) {
+			return { ok: false, status: 403, error: 'Payment authorization failed.' };
+		}
 		await stripe.paymentIntents.update(
 			cleanedPaymentIntentId,
 			{

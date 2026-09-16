@@ -8,7 +8,7 @@ import {
 } from '$lib/server/learn';
 
 export const load = async ({ params, url, cookies }) => {
-	const { user, supabase } = getLearnClient(cookies);
+	const { user, supabase } = await getLearnClient(cookies);
 	const article = await getLearnArticleBySlug(supabase, params.slug);
 
 	if (!article) {
@@ -97,7 +97,7 @@ export const load = async ({ params, url, cookies }) => {
 
 export const actions = {
 	comment: async ({ request, cookies, params }) => {
-		const { user, supabase } = getLearnClient(cookies);
+		const { user, supabase } = await getLearnClient(cookies);
 		if (!user?.id) {
 			return fail(401, { commentError: 'Sign in to leave a comment.' });
 		}

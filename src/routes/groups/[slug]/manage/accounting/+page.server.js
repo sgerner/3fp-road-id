@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { readFormData } from '$lib/server/security';
 import {
 	actionFailure,
 	addManualFeedItem,
@@ -33,6 +34,18 @@ import {
 	voidEntry,
 	reclassifyReceipt
 } from '$lib/server/groupAccounting';
+
+const MAX_ACCOUNTING_FORM_BYTES = 12 * 1024 * 1024;
+
+async function readAccountingFormData(request) {
+	const result = await readFormData(request, { maxBytes: MAX_ACCOUNTING_FORM_BYTES });
+	if (!result.ok) {
+		const error = new Error(result.error);
+		error.status = result.status;
+		throw error;
+	}
+	return result.value;
+}
 
 async function withAccountingAuth(cookies, params, handler) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);
@@ -73,73 +86,73 @@ export const load = async ({ cookies, params, url }) => {
 export const actions = {
 	recordMoney: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postSimpleEntry(auth, await request.formData());
+			await postSimpleEntry(auth, await readAccountingFormData(request));
 		}),
 	transfer: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postTransfer(auth, await request.formData());
+			await postTransfer(auth, await readAccountingFormData(request));
 		}),
 	journal: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postJournal(auth, await request.formData());
+			await postJournal(auth, await readAccountingFormData(request));
 		}),
 	openingBalance: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postOpeningBalance(auth, await request.formData());
+			await postOpeningBalance(auth, await readAccountingFormData(request));
 		}),
 	createAccount: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await createAccount(auth, await request.formData());
+			await createAccount(auth, await readAccountingFormData(request));
 		}),
 	updateAccount: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateAccount(auth, await request.formData());
+			await updateAccount(auth, await readAccountingFormData(request));
 			return { account_updated: true };
 		}),
 	updateAccountGroup: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateAccountGroup(auth, await request.formData());
+			await updateAccountGroup(auth, await readAccountingFormData(request));
 			return { account_group_updated: true };
 		}),
 	updateBudget: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateBudget(auth, await request.formData());
+			await updateBudget(auth, await readAccountingFormData(request));
 		}),
 	saveSettings: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await saveSettings(auth, await request.formData());
+			await saveSettings(auth, await readAccountingFormData(request));
 		}),
 	saveConnections: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await saveConnections(auth, await request.formData());
+			await saveConnections(auth, await readAccountingFormData(request));
 		}),
 	addManualFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await addManualFeedItem(auth, await request.formData());
+			await addManualFeedItem(auth, await readAccountingFormData(request));
 		}),
 	importBankCsv: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await importBankCsv(auth, await request.formData());
+			await importBankCsv(auth, await readAccountingFormData(request));
 		}),
 	postFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postFeedItem(auth, await request.formData());
+			await postFeedItem(auth, await readAccountingFormData(request));
 		}),
 	matchFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await matchFeedItemToEntry(auth, await request.formData());
+			await matchFeedItemToEntry(auth, await readAccountingFormData(request));
 		}),
 	ignoreFeedItem: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await ignoreFeedItem(auth, await request.formData());
+			await ignoreFeedItem(auth, await readAccountingFormData(request));
 		}),
 	reconcile: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await createReconciliation(auth, await request.formData());
+			await createReconciliation(auth, await readAccountingFormData(request));
 		}),
 	completeReconciliation: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await completeAutomatedReconciliation(auth, await request.formData());
+			await completeAutomatedReconciliation(auth, await readAccountingFormData(request));
 		}),
 	autoMatch: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
@@ -159,7 +172,7 @@ export const actions = {
 		}),
 	updateProviderAccountMapping: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateProviderAccountMapping(auth, await request.formData());
+			await updateProviderAccountMapping(auth, await readAccountingFormData(request));
 			return { provider_account_updated: true };
 		}),
 	syncStripe: async ({ cookies, params }) =>
@@ -168,27 +181,27 @@ export const actions = {
 		}),
 	voidEntry: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await voidEntry(auth, await request.formData());
+			await voidEntry(auth, await readAccountingFormData(request));
 		}),
 	updateEntry: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateEntryByReplacement(auth, await request.formData());
+			await updateEntryByReplacement(auth, await readAccountingFormData(request));
 		}),
 	updateTransaction: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await updateTransaction(auth, await request.formData());
+			await updateTransaction(auth, await readAccountingFormData(request));
 			return { transaction_updated: true };
 		}),
 	reclassifyReceipt: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await reclassifyReceipt(auth, await request.formData());
+			await reclassifyReceipt(auth, await readAccountingFormData(request));
 		}),
 	publishSnapshot: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await publishSnapshot(auth, await request.formData());
+			await publishSnapshot(auth, await readAccountingFormData(request));
 		}),
 	unpublishSnapshot: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await unpublishSnapshot(auth, await request.formData());
+			await unpublishSnapshot(auth, await readAccountingFormData(request));
 		})
 };

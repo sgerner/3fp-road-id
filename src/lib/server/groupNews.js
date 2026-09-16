@@ -10,7 +10,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -137,8 +137,8 @@ export function toGroupNewsFormValues(post = null) {
 	};
 }
 
-export function getGroupNewsClient(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+export async function getGroupNewsClient(cookies) {
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	return {
 		user,
 		supabase: createRequestSupabaseClient(accessToken)
@@ -183,7 +183,7 @@ export async function getGroupBySlug(supabase, slug) {
 }
 
 export async function requireGroupNewsManager(cookies, groupSlug) {
-	const { user, supabase } = getGroupNewsClient(cookies);
+	const { user, supabase } = await getGroupNewsClient(cookies);
 	if (!user?.id) {
 		throw error(401, 'Authentication required.');
 	}

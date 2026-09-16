@@ -2065,7 +2065,7 @@
 					{#key logoUploadKey}
 						<FileUpload
 							name="logo_file"
-							accept="image/*"
+							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
 							classes="w-full"
@@ -2107,7 +2107,7 @@
 					{#key coverUploadKey}
 						<FileUpload
 							name="cover_file"
-							accept="image/*"
+							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
 							classes="w-full"

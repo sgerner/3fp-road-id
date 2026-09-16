@@ -767,7 +767,8 @@
 						{draft.preheader || 'Your inbox preview will appear here.'}
 					</p>
 				</div>
-				<iframe class="min-h-[48rem] w-full" title="Email preview" srcdoc={previewHtml}></iframe>
+				<iframe class="min-h-[48rem] w-full" title="Email preview" sandbox="" srcdoc={previewHtml}
+				></iframe>
 			</div>
 			<aside class="grid content-start gap-4">
 				<div class="card preset-tonal-surface p-4">

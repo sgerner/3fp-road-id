@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import sharp from 'sharp';
 import { importRideSeedData } from './ride-imports.js';
 
 function createSupabase(existingImageUrls = [], hasExistingRide = true) {
@@ -133,33 +134,39 @@ function sourceEvent(overrides = {}) {
 	};
 }
 
-async function importExistingRide(supabase) {
+async function importExistingRide(supabase, fetchHttp) {
 	return importRideSeedData(
 		supabase,
 		{ events: [sourceEvent({ startLatitude: 33.4484, startLongitude: -112.074 })] },
 		{
 			requireGeocoding: false,
 			skipGeocoding: true,
-			reconcileMissingImages: true
+			reconcileMissingImages: true,
+			fetchHttp
 		}
 	);
 }
 
 test('importRideSeedData fills a missing image on an existing ride', async (t) => {
 	const originalFetch = globalThis.fetch;
+	const jpeg = await sharp({
+		create: { width: 8, height: 8, channels: 3, background: '#ff0000' }
+	})
+		.jpeg()
+		.toBuffer();
 	t.after(() => {
 		globalThis.fetch = originalFetch;
 	});
 	globalThis.fetch = async (url) => {
 		assert.equal(url, 'https://images.example/source-1.jpg');
-		return new Response(new Uint8Array([1, 2, 3]), {
+		return new Response(jpeg, {
 			status: 200,
 			headers: { 'content-type': 'image/jpeg' }
 		});
 	};
 
 	const { supabase, imageUpdates, storedMedia, uploadedObjects } = createSupabase();
-	const result = await importExistingRide(supabase);
+	const result = await importExistingRide(supabase, (url) => globalThis.fetch(url));
 
 	assert.equal(uploadedObjects.length, 1);
 	assert.equal(storedMedia.length, 1);

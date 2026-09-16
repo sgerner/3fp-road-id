@@ -12,6 +12,7 @@ import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
 import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
 import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
 import BrandStrava from '$lib/icons/BrandStrava.svelte';
+import { safeNavigationUrl } from '$lib/security/urls.js';
 
 export function extractSocialLinks(group) {
 	if (group?.social_links && typeof group.social_links === 'object') {
@@ -34,7 +35,8 @@ export function extractSocialLinks(group) {
 				.filter(
 					([key, value]) => allowedKeys.has(key) && typeof value === 'string' && Boolean(value)
 				)
-				.map(([key, value]) => ({ key, href: value }));
+				.map(([key, value]) => ({ key, href: safeNavigationUrl(value) }))
+				.filter((link) => link.href);
 		} catch (err) {
 			console.warn('Failed to parse group social links', err);
 		}
@@ -44,7 +46,8 @@ export function extractSocialLinks(group) {
 
 export function buildContactLinks(group) {
 	const g = group || {};
-	const website = g.website_url ? [{ key: 'website', href: g.website_url }] : [];
+	const websiteHref = safeNavigationUrl(g.website_url);
+	const website = websiteHref ? [{ key: 'website', href: websiteHref }] : [];
 	const socials = extractSocialLinks(g);
 
 	const socialIcons = {
@@ -68,22 +71,28 @@ export function buildContactLinks(group) {
 
 	const tail = [];
 	if (g.public_contact_email) {
-		tail.push({
-			key: 'email',
-			href: `mailto:${g.public_contact_email}`,
-			icon: IconMail,
-			label: g.public_contact_email,
-			showText: true
-		});
+		const href = safeNavigationUrl(`mailto:${g.public_contact_email}`);
+		if (href) {
+			tail.push({
+				key: 'email',
+				href,
+				icon: IconMail,
+				label: g.public_contact_email,
+				showText: true
+			});
+		}
 	}
 	if (g.public_phone_number) {
-		tail.push({
-			key: 'phone',
-			href: `tel:${g.public_phone_number}`,
-			icon: IconPhone,
-			label: g.public_phone_number,
-			showText: true
-		});
+		const href = safeNavigationUrl(`tel:${g.public_phone_number}`);
+		if (href) {
+			tail.push({
+				key: 'phone',
+				href,
+				icon: IconPhone,
+				label: g.public_phone_number,
+				showText: true
+			});
+		}
 	}
 
 	return [...website, ...socialLinks, ...tail];
@@ -98,7 +107,7 @@ export function selectPrimaryCta(group, contactLinks = []) {
 
 	if (kind === 'custom') {
 		const label = (g.preferred_cta_label || '').slice(0, 10);
-		const href = g.preferred_cta_url || '';
+		const href = safeNavigationUrl(g.preferred_cta_url);
 		if (label && href) return { key: 'custom', href, label };
 	}
 

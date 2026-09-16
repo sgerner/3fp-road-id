@@ -1,14 +1,28 @@
 import { json } from '@sveltejs/kit';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 import {
 	GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES,
 	normalizeGroupEmailSignup,
 	shouldSendGroupSubscriberWelcome
 } from '$lib/server/groupEmailSubscribers';
 import { attemptGroupSubscriberWelcome } from '$lib/server/groupSubscriberWelcome';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 
-export async function POST({ params, request, url, fetch: fetchImpl }) {
-	const payload = await request.json().catch(() => ({}));
+export async function POST(event) {
+	const { params, request, fetch: fetchImpl } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'group-email-subscribe',
+		limit: 10,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return limited;
+	const parsedBody = await readJsonBody(request, { maxBytes: 16 * 1024 });
+	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
+	const payload = parsedBody.value;
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
 	const signup = normalizeGroupEmailSignup(payload);
 	if (!signup.ok) return json({ error: signup.error }, { status: 400 });
 	if (signup.honeypot) return json({ ok: true });
@@ -84,7 +98,7 @@ export async function POST({ params, request, url, fetch: fetchImpl }) {
 				serviceSupabase,
 				group,
 				subscriberId: subscriber.id,
-				origin: url?.origin || new URL(request.url).origin,
+				origin: getConfiguredPublicOrigin(),
 				fetchImpl
 			});
 			if (!welcomeResult.ok || (welcomeResult.attempted && !welcomeResult.sent)) {

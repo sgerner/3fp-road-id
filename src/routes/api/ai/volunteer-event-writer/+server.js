@@ -4,6 +4,8 @@ import {
 	isAiModelConfigured,
 	requireAiModel
 } from '$lib/server/ai/models';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const config = { maxDuration: 60 };
 
@@ -183,15 +185,15 @@ function formatContext(context) {
 			lines.push(`${key}: ${value}`);
 		}
 	}
-	return lines.length ? `Known event details:\n${lines.join('\n')}` : '';
+	return lines.length ? `Known event details:\n${lines.join('\n')}`.slice(0, 24_000) : '';
 }
 
 function formatMessages(messages) {
 	if (!Array.isArray(messages)) return 'Conversation: (none yet)';
 	const parts = [];
-	for (const entry of messages) {
+	for (const entry of messages.slice(0, 16)) {
 		const role = entry?.role === 'assistant' ? DEFAULT_ASSISTANT_NAME : 'Host';
-		const content = (entry?.content ?? '').toString().trim();
+		const content = (entry?.content ?? '').toString().trim().slice(0, 1_200);
 		if (!content) continue;
 		parts.push(`${role}: ${content}`);
 	}
@@ -236,12 +238,31 @@ function normalizeAiPayload(parsed) {
 	return parsed;
 }
 
-export const POST = async ({ request }) => {
+export const POST = async (event) => {
+	const { request, cookies } = event;
+	const limitedByIp = enforceRateLimit(event, {
+		name: 'ai-volunteer-writer-ip',
+		limit: 60,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limitedByIp) return limitedByIp;
+	const { user } = await resolveVerifiedSession(cookies);
+	if (!user?.id) return json({ error: 'Authentication required.' }, { status: 401 });
+	const limited = enforceRateLimit(event, {
+		name: 'ai-volunteer-writer-user',
+		limit: 30,
+		windowMs: 10 * 60 * 1000,
+		key: user.id
+	});
+	if (limited) return limited;
+
 	if (!isAiModelConfigured('structured_text')) {
 		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
 	}
 
-	const payload = await request.json().catch(() => null);
+	const parsedBody = await readJsonBody(request, { maxBytes: 128 * 1024 });
+	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
+	const payload = parsedBody.value;
 	if (!payload || !Array.isArray(payload.messages)) {
 		return json({ error: 'messages array required' }, { status: 400 });
 	}
@@ -338,10 +359,12 @@ Default shift timezones to the event timezone when none is provided and mirror t
 
 				return json(parsed);
 			} catch (fallbackError) {
-				return json({ error: fallbackError?.message || 'AI request failed' }, { status: 500 });
+				console.error('Volunteer event writer fallback failed', fallbackError);
+				return json({ error: 'Unable to generate an event draft right now.' }, { status: 500 });
 			}
 		}
 
-		return json({ error: error?.message || 'AI request failed' }, { status: 500 });
+		console.error('Volunteer event writer failed', error);
+		return json({ error: 'Unable to generate an event draft right now.' }, { status: 500 });
 	}
 };

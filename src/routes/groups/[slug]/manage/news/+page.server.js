@@ -16,10 +16,11 @@ import {
 	requireGroupNewsManager,
 	toGroupNewsFormValues
 } from '$lib/server/groupNews';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 export const load = async ({ parent, cookies, url }) => {
 	const parentData = await parent();
-	const { supabase } = getGroupNewsClient(cookies);
+	const { supabase } = await getGroupNewsClient(cookies);
 	const serviceSupabase = getGroupNewsServiceClient();
 	const posts = await listGroupNewsPostsForManagement(supabase, parentData.group.id);
 	const editSlug = url.searchParams.get('edit') || '';
@@ -215,7 +216,7 @@ export const actions = {
 						group,
 						post: publishedPost,
 						requestedByUserId: user.id,
-						origin: url.origin,
+						origin: getConfiguredPublicOrigin(),
 						audienceStatuses: emailAudienceStatuses
 					});
 					if (!queued.queuedCount) {

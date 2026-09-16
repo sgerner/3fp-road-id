@@ -106,6 +106,7 @@ async function callMetaOauthEndpoint(provider, params) {
 		});
 		response = await fetch(INSTAGRAM_OAUTH_TOKEN_ENDPOINT, {
 			method: 'POST',
+			redirect: 'error',
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/x-www-form-urlencoded'
@@ -123,6 +124,7 @@ async function callMetaOauthEndpoint(provider, params) {
 			`https://graph.facebook.com/${resolveMetaOAuthVersion()}/oauth/access_token?${query.toString()}`,
 			{
 				method: 'GET',
+				redirect: 'error',
 				headers: { Accept: 'application/json' },
 				signal: AbortSignal.timeout(30_000)
 			}
@@ -182,6 +184,7 @@ export async function exchangeForLongLivedMetaToken(accessToken, { provider = 'f
 		});
 		const response = await fetch(`${INSTAGRAM_GRAPH_HOST}/access_token?${query.toString()}`, {
 			method: 'GET',
+			redirect: 'error',
 			headers: { Accept: 'application/json' },
 			signal: AbortSignal.timeout(30_000)
 		});
@@ -220,6 +223,7 @@ export async function refreshLongLivedInstagramToken(accessToken) {
 	});
 	const response = await fetch(`${INSTAGRAM_GRAPH_HOST}/refresh_access_token?${query.toString()}`, {
 		method: 'GET',
+		redirect: 'error',
 		headers: { Accept: 'application/json' },
 		signal: AbortSignal.timeout(30_000)
 	});

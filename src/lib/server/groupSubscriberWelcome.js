@@ -1,4 +1,4 @@
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import {
 	buildGroupSubscriberWelcomeEmail,
 	GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS,

@@ -36,14 +36,9 @@ test('parseBtwPhxCalendarData keeps accepting the legacy response envelope', () 
 	assert.equal(parsed.events.length, 1);
 });
 
-test('importBtwPhxCalendar requests the current Eventscalendar endpoint with GET', async (t) => {
-	const originalFetch = globalThis.fetch;
-	t.after(() => {
-		globalThis.fetch = originalFetch;
-	});
-
+test('importBtwPhxCalendar requests the current Eventscalendar endpoint with GET', async () => {
 	let request;
-	globalThis.fetch = async (url, options) => {
+	const fetchHttp = async (url, options) => {
 		request = { url, options };
 		return new Response(JSON.stringify({ result: true, value: [sourceEvent()] }), {
 			status: 200,
@@ -53,7 +48,13 @@ test('importBtwPhxCalendar requests the current Eventscalendar endpoint with GET
 
 	const result = await importBtwPhxCalendar(
 		{},
-		{ dryRun: true, onlyNew: false, skipGeocoding: true, skipImageUpload: true }
+		{
+			dryRun: true,
+			onlyNew: false,
+			skipGeocoding: true,
+			skipImageUpload: true,
+			fetchHttp
+		}
 	);
 
 	assert.equal(request.options.method, 'GET');

@@ -10,6 +10,7 @@ import {
 } from '$lib/server/groupNews';
 import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
 import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
+import { safeNavigationUrl } from '$lib/security/urls.js';
 import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import {
@@ -28,8 +29,12 @@ import {
 } from '$lib/microsites/tempeBicycleActionGroup';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { filterRidesForWidget } from '$lib/rides/widgetConfig';
+import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
+import { sniffRasterImageMimeType } from '$lib/server/storageImages';
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
+const MAX_PALETTE_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_PALETTE_IMAGE_PIXELS = 40_000_000;
 const PALETTE_CACHE = new Map();
 const MICROSITE_PAGE_CACHE = new Map();
 const MICROSITE_PAGE_CACHE_TTL_MS = 30_000;
@@ -206,15 +211,23 @@ function normalizeTimelineItem(item = null) {
 
 async function fetchInstagramPublicTimelinePostsByHandle(username) {
 	const timelineUrl = `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=${INSTAGRAM_POST_LIMIT}`;
-	const response = await fetch(timelineUrl, {
-		headers: {
-			...BROWSER_LIKE_HEADERS,
-			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
-			Referer: `https://www.instagram.com/${username}/`
+	const response = await fetchPublicHttp(
+		timelineUrl,
+		{
+			headers: {
+				...BROWSER_LIKE_HEADERS,
+				'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+				Referer: `https://www.instagram.com/${username}/`
+			}
 		},
-		redirect: 'follow',
-		signal: AbortSignal.timeout(12_000)
-	});
+		{
+			timeoutMs: 12_000,
+			maxRedirects: 2,
+			maxResponseBytes: 4 * 1024 * 1024,
+			allowedHosts: ['www.instagram.com', 'instagram.com']
+		}
+	);
+	if (!response) return [];
 	const rawBody = await response.text();
 	const payload = parseJsonSafe(rawBody);
 	if (!response.ok) return [];
@@ -232,15 +245,23 @@ async function fetchInstagramPublicPostsByHandle(handle) {
 	if (timelinePosts.length) return timelinePosts;
 
 	const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
-	const response = await fetch(apiUrl, {
-		headers: {
-			...BROWSER_LIKE_HEADERS,
-			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
-			Referer: `https://www.instagram.com/${username}/`
+	const response = await fetchPublicHttp(
+		apiUrl,
+		{
+			headers: {
+				...BROWSER_LIKE_HEADERS,
+				'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+				Referer: `https://www.instagram.com/${username}/`
+			}
 		},
-		redirect: 'follow',
-		signal: AbortSignal.timeout(10_000)
-	});
+		{
+			timeoutMs: 10_000,
+			maxRedirects: 2,
+			maxResponseBytes: 4 * 1024 * 1024,
+			allowedHosts: ['www.instagram.com', 'instagram.com']
+		}
+	);
+	if (!response) throw new Error('Instagram profile request was blocked or timed out.');
 	const rawBody = await response.text();
 	const payload = parseJsonSafe(rawBody);
 	if (!response.ok || !payload?.data?.user) return [];
@@ -397,7 +418,7 @@ function splitTextIntoParagraphs(value) {
 
 function serializeContactLink(link) {
 	const key = cleanText(link?.key);
-	const href = cleanText(link?.href);
+	const href = safeNavigationUrl(link?.href);
 	if (!key || !href) return null;
 
 	const serialized = {
@@ -415,7 +436,7 @@ function serializeContactLink(link) {
 function serializePrimaryCta(primaryCta) {
 	if (!primaryCta || typeof primaryCta !== 'object') return null;
 	const key = cleanText(primaryCta.key);
-	const href = cleanText(primaryCta.href);
+	const href = safeNavigationUrl(primaryCta.href);
 	const label = cleanText(primaryCta.label);
 	if (!href) return null;
 
@@ -430,18 +451,8 @@ function pickGroupSiteClient() {
 	return createServiceSupabaseClient() ?? supabase;
 }
 
-function toAbsoluteHref(group, href) {
-	const raw = cleanText(href);
-	if (!raw) return '';
-	try {
-		if (/^https?:\/\//i.test(raw) || /^mailto:/i.test(raw) || /^tel:/i.test(raw)) {
-			return raw;
-		}
-		if (raw.startsWith('/')) return raw;
-		return `https://${raw}`;
-	} catch {
-		return group?.website_url || '';
-	}
+function toAbsoluteHref(href) {
+	return safeNavigationUrl(href);
 }
 
 function buildGroupStoryParagraphs(group, siteConfig) {
@@ -535,12 +546,25 @@ async function extractPaletteFromImageUrl(imageUrl) {
 	if (PALETTE_CACHE.has(url)) return PALETTE_CACHE.get(url);
 
 	const promise = (async () => {
-		const response = await fetch(url, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
+		const response = await fetchPublicHttp(
+			url,
+			{ headers: { accept: 'image/*' } },
+			{ timeoutMs: IMAGE_FETCH_TIMEOUT_MS, maxRedirects: 3 }
+		);
+		if (!response) throw new Error('Image request was blocked or timed out');
 		if (!response.ok) throw new Error(`Image request failed (${response.status})`);
 		const contentType = cleanText(response.headers.get('content-type')).toLowerCase();
 		if (!contentType.startsWith('image/')) throw new Error('Not an image');
-		const buffer = Buffer.from(await response.arrayBuffer());
-		const { data, info } = await sharp(buffer)
+		const buffer = await readResponseBuffer(response, MAX_PALETTE_IMAGE_BYTES);
+		if (!buffer) throw new Error('Image response is too large');
+		if (!sniffRasterImageMimeType(buffer)) throw new Error('Unsupported image format');
+		const image = sharp(buffer, {
+			failOn: 'warning',
+			limitInputPixels: MAX_PALETTE_IMAGE_PIXELS
+		});
+		const metadata = await image.metadata();
+		if (!metadata.width || !metadata.height) throw new Error('Invalid image dimensions');
+		const { data, info } = await image
 			.resize(64, 64, { fit: 'inside' })
 			.removeAlpha()
 			.raw()
@@ -891,7 +915,7 @@ function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
 	if (primaryCta?.href) {
 		actions.push({
 			label: primaryCta.label || 'Connect',
-			href: toAbsoluteHref(group, primaryCta.href),
+			href: toAbsoluteHref(primaryCta.href),
 			external: /^https?:\/\//i.test(primaryCta.href)
 		});
 	}
@@ -905,7 +929,7 @@ function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
 	if (!actions.length && group?.website_url) {
 		actions.push({
 			label: 'Website',
-			href: toAbsoluteHref(group, group.website_url),
+			href: toAbsoluteHref(group.website_url),
 			external: true
 		});
 	}

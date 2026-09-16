@@ -1,5 +1,7 @@
 import path from 'node:path';
 import { uploadCanonicalMediaAsset } from './mediaAssets.js';
+import { fetchPublicHttp, readResponseBuffer } from './security.js';
+import { sniffRasterImageMimeType } from './storageImages.js';
 
 export const DEFAULT_CREATED_BY_USER_ID = '9f78db1a-27b6-488a-8288-fbd38e85c815';
 const DEFAULT_TIMEZONE = 'America/Phoenix';
@@ -644,24 +646,32 @@ function normalizeImageContentType(url, contentType) {
 	return 'image/jpeg';
 }
 
-async function uploadEventImage(supabase, event) {
+async function uploadEventImage(supabase, event, fetchHttp = fetchPublicHttp) {
 	const imageUrl = safeTrim(event.image?.url);
 	if (!imageUrl) return [];
-	const response = await fetch(imageUrl);
-	if (!response.ok) {
+	const response = await fetchHttp(
+		imageUrl,
+		{ headers: { accept: 'image/*' } },
+		{ timeoutMs: 10_000, maxRedirects: 2 }
+	);
+	if (!response || !response.ok) {
 		throw new Error(
-			`Unable to download source image for ${event.id}: ${response.status} ${response.statusText}`
+			`Unable to download source image for ${event.id}: ${response?.status || 'request failed'}`
 		);
 	}
+	const sourceBuffer = await readResponseBuffer(response, 12 * 1024 * 1024);
+	if (!sourceBuffer) {
+		throw new Error(`Source image for ${event.id} is unavailable or too large.`);
+	}
+	if (!sniffRasterImageMimeType(sourceBuffer)) return [];
 	const contentType = normalizeImageContentType(imageUrl, response.headers.get('content-type'));
-	const arrayBuffer = await response.arrayBuffer();
 	const uploadedAsset = await uploadCanonicalMediaAsset({
 		supabase,
 		bucketId: 'ride-media',
 		contentType,
-		buffer: arrayBuffer,
+		buffer: sourceBuffer,
 		fileName: path.basename(new URL(imageUrl).pathname) || `ride-${event.id}.jpg`,
-		sizeBytes: arrayBuffer.byteLength
+		sizeBytes: sourceBuffer.byteLength
 	});
 	return uploadedAsset.url ? [uploadedAsset.url] : [];
 }
@@ -893,9 +903,9 @@ function getRideImageUrls(row) {
 		: [];
 }
 
-async function reconcileExistingRideImage(supabase, existing, event) {
+async function reconcileExistingRideImage(supabase, existing, event, fetchHttp = fetchPublicHttp) {
 	if (getRideImageUrls(existing).length || !safeTrim(event.image?.url)) return [];
-	const imageUrls = await uploadEventImage(supabase, event);
+	const imageUrls = await uploadEventImage(supabase, event, fetchHttp);
 	if (!imageUrls.length) return [];
 	const { error } = await supabase.from('ride_details').upsert(
 		{
@@ -1078,6 +1088,7 @@ export async function importRideSeedData(
 		skipGeocoding = false,
 		skipImageUpload = false,
 		reconcileMissingImages = false,
+		fetchHttp = fetchPublicHttp,
 		existingOnly = false,
 		updateExistingCoordinates = false
 	} = {}
@@ -1184,7 +1195,7 @@ export async function importRideSeedData(
 			}
 			if (reconcileMissingImages && !skipImageUpload) {
 				try {
-					const imageUrls = await reconcileExistingRideImage(supabase, existing, event);
+					const imageUrls = await reconcileExistingRideImage(supabase, existing, event, fetchHttp);
 					if (imageUrls.length) {
 						reconciledImages.push({
 							sourceEventId: record.sourceEventId,
@@ -1232,7 +1243,7 @@ export async function importRideSeedData(
 		}
 		if (!skipImageUpload) {
 			try {
-				record.ride.image_urls = await uploadEventImage(supabase, event);
+				record.ride.image_urls = await uploadEventImage(supabase, event, fetchHttp);
 			} catch (error) {
 				imageFailures.push({
 					sourceEventId: record.sourceEventId,

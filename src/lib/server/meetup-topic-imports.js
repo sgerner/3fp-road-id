@@ -1,4 +1,5 @@
 import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.js';
+import { fetchPublicHttp, readResponseBuffer } from './security.js';
 
 const MEETUP_ORIGIN = 'https://www.meetup.com';
 const MEETUP_GQL2_URL = `${MEETUP_ORIGIN}/gql2`;
@@ -154,24 +155,36 @@ async function fetchMeetupGraphql({ operationName, query, variables, referer, at
 	let lastError = null;
 	for (let attempt = 1; attempt <= attempts; attempt += 1) {
 		try {
-			const response = await fetch(MEETUP_GQL2_URL, {
-				method: 'POST',
-				headers: {
-					accept: 'application/json, text/plain, */*',
-					'content-type': 'application/json',
-					origin: MEETUP_ORIGIN,
-					referer: safeTrim(referer) || MEETUP_ORIGIN
+			const response = await fetchPublicHttp(
+				MEETUP_GQL2_URL,
+				{
+					method: 'POST',
+					headers: {
+						accept: 'application/json, text/plain, */*',
+						'content-type': 'application/json',
+						origin: MEETUP_ORIGIN,
+						referer: safeTrim(referer) || MEETUP_ORIGIN
+					},
+					body: JSON.stringify({ operationName, query, variables })
 				},
-				body: JSON.stringify({ operationName, query, variables })
-			});
+				{
+					timeoutMs: 15_000,
+					maxRedirects: 0,
+					maxResponseBytes: 12 * 1024 * 1024,
+					allowedHosts: ['www.meetup.com']
+				}
+			);
 
+			if (!response) throw new Error(String(operationName) + ' request was blocked or timed out.');
 			if (!response.ok) {
 				throw new Error(
 					`${operationName} request failed (${response.status} ${response.statusText})`
 				);
 			}
 
-			const payload = await response.json();
+			const responseBuffer = await readResponseBuffer(response, 12 * 1024 * 1024);
+			if (!responseBuffer) throw new Error(String(operationName) + ' response was too large.');
+			const payload = JSON.parse(responseBuffer.toString('utf8'));
 			if (Array.isArray(payload?.errors) && payload.errors.length) {
 				throw new Error(
 					`${operationName} GraphQL error: ${safeTrim(payload.errors[0]?.message) || 'Unknown error'}`

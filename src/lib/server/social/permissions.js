@@ -1,4 +1,4 @@
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -22,7 +22,7 @@ async function resolveProfileAdminFlag(requestSupabase, userId) {
 }
 
 export async function getSocialAuthContext(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) return null;
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);

@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { buildIcsContent, eventLocation } from '$lib/calendar/links';
 import { getActivityServiceClient, loadRideBySlug } from '$lib/server/activities';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -54,7 +55,7 @@ export async function GET({ params, url }) {
 		occurrence?.start_location_name || ride.activity?.start_location_name,
 		occurrence?.start_location_address || ride.activity?.start_location_address
 	);
-	const rideUrl = `${url.origin}/ride/${encodeURIComponent(ride.activity.slug)}`;
+	const rideUrl = `${getConfiguredPublicOrigin()}/ride/${encodeURIComponent(ride.activity.slug)}`;
 	const description = [safeTrim(ride.activity?.summary), safeTrim(ride.activity?.description)]
 		.filter(Boolean)
 		.join('\n\n');

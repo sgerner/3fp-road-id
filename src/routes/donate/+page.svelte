@@ -30,6 +30,7 @@
 	let paymentElementHost = $state(null);
 	let preparedAmount = $state('');
 	let paymentIntentId = $state('');
+	let paymentIntentClientSecret = $state('');
 	let paymentReturnUrl = $state('');
 
 	const presetAmounts = [10, 25, 50, 100, 250];
@@ -112,6 +113,7 @@
 		stripe = null;
 		paymentFormReady = false;
 		paymentIntentId = '';
+		paymentIntentClientSecret = '';
 		paymentReturnUrl = '';
 	}
 
@@ -165,6 +167,7 @@
 			preparedSignature = buildPaymentSignature();
 			preparedAmount = formatAmount(amount);
 			paymentIntentId = payload.paymentIntentId || '';
+			paymentIntentClientSecret = payload.clientSecret;
 			paymentReturnUrl = payload.returnUrl;
 
 			await tick();
@@ -213,6 +216,7 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				paymentIntentId,
+				clientSecret: paymentIntentClientSecret,
 				amount: Number(amount),
 				donorName,
 				donorEmail,

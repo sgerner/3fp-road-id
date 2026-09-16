@@ -6,6 +6,8 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import { isSafeInternalPath } from '$lib/security/navigation';
+	import { safeHttpUrl } from '$lib/security/urls';
 
 	const DEFAULT_WELCOME = {
 		id: 'welcome',
@@ -54,9 +56,8 @@
 	function normalizeAssistantLink(raw) {
 		const candidate = String(raw || '').trim();
 		if (!candidate) return '';
-		if (/^https?:\/\//i.test(candidate)) return candidate;
-		if (candidate.startsWith('/')) return candidate;
-		return '';
+		if (isSafeInternalPath(candidate)) return candidate;
+		return safeHttpUrl(candidate);
 	}
 
 	function renderAssistantMessageHtml(content) {
@@ -108,7 +109,8 @@
 			.toLowerCase();
 		const articleId = item?.articleId ? String(item.articleId).trim() : null;
 		const id = item?.id ? String(item.id).trim() : articleId;
-		const url = String(item?.url || '').trim();
+		const rawUrl = String(item?.url || '').trim();
+		const url = isSafeInternalPath(rawUrl) ? rawUrl : safeHttpUrl(rawUrl);
 		return {
 			id: id || null,
 			type,
@@ -218,9 +220,13 @@
 				const content = String(entry.content || '').trim();
 				if (!role || !content) return null;
 				const recommendations = normalizeRecommendations(entry.recommendations);
-				const navigationTarget = entry.navigationTarget?.url
+				const rawNavigationUrl = String(entry.navigationTarget?.url || '').trim();
+				const navigationUrl = isSafeInternalPath(rawNavigationUrl)
+					? rawNavigationUrl
+					: safeHttpUrl(rawNavigationUrl);
+				const navigationTarget = navigationUrl
 					? {
-							url: String(entry.navigationTarget.url),
+							url: navigationUrl,
 							label: String(entry.navigationTarget.label || 'Open'),
 							reason: String(entry.navigationTarget.reason || '')
 						}

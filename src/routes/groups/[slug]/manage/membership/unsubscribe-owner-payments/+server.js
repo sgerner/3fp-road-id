@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 
 function normalizeMetadata(existing) {
@@ -8,7 +8,7 @@ function normalizeMetadata(existing) {
 }
 
 export async function GET({ params, cookies, url }) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		throw redirect(302, `/login?returnTo=${encodeURIComponent(url.pathname + (url.search || ''))}`);
 	}

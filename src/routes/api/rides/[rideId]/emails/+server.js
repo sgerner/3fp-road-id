@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import {
 	buildOccurrenceView,
 	canManageActivity,
@@ -30,7 +30,7 @@ async function runInBatches(items, batchSize, worker) {
 
 export async function POST(event) {
 	const { params, request, cookies, fetch } = event;
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
 		console.error('Unable to verify ride email permissions', error);

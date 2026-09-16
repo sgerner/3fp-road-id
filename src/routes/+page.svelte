@@ -1,5 +1,5 @@
 <script>
-	import { buildAbsoluteUrl, limitSeoText } from '$lib/seo';
+	import { buildAbsoluteUrl, limitSeoText, toJsonLd } from '$lib/seo';
 	import { getRideImage } from '$lib/rides/media';
 	import { optimizedImageUrl } from '$lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -79,7 +79,7 @@
 		}
 	];
 	const seoStructuredData = $derived.by(() =>
-		JSON.stringify({
+		toJsonLd({
 			'@context': 'https://schema.org',
 			'@type': 'Organization',
 			name: seoTitle,

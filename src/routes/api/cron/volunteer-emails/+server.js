@@ -7,7 +7,9 @@ import {
 	renderEmailBody,
 	renderSubject
 } from '$lib/volunteer/merge-tags';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { timingSafeStringEqual } from '$lib/server/security';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -16,14 +18,14 @@ const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 function enforceCronSecret(request) {
 	const secret =
 		env.CRON_SECRET || env.VOLUNTEER_EMAIL_CRON_SECRET || env.VERCEL_CRON_SECRET || null;
-	if (!secret) return null;
+	if (!secret) return json({ error: 'Cron authentication is not configured.' }, { status: 503 });
 
 	const headerSecret =
 		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
 		request.headers.get('x-cron-secret') ||
 		request.headers.get('x-vercel-secret');
 
-	if (headerSecret !== secret) {
+	if (!timingSafeStringEqual(headerSecret, secret)) {
 		return json({ error: 'Unauthorized cron request' }, { status: 401 });
 	}
 
@@ -399,7 +401,7 @@ async function handleCron(event) {
 		});
 	}
 
-	const origin = event.url.origin;
+	const origin = getConfiguredPublicOrigin();
 	const results = [];
 	for (const item of dueTemplates) {
 		try {

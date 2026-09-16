@@ -6,7 +6,7 @@ function invalid(message, status = 400) {
 }
 
 export async function GET({ params, cookies }) {
-	const { supabase } = getActivityClient(cookies);
+	const { supabase } = await getActivityClient(cookies);
 	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: false }).catch(
 		() => null
 	);
@@ -20,7 +20,7 @@ export async function GET({ params, cookies }) {
 }
 
 export async function POST({ params, request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
 		console.error('Unable to verify ride host permissions', error);
@@ -77,7 +77,7 @@ export async function POST({ params, request, cookies }) {
 }
 
 export async function DELETE({ params, request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
 		console.error('Unable to verify ride host permissions', error);

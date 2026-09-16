@@ -1,5 +1,5 @@
-import { sendEmail } from '$lib/services/email';
-import { resolveSession } from '$lib/server/session';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -350,7 +350,7 @@ async function getServiceSupabase() {
 }
 
 async function getAuthContext(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) return null;
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
@@ -378,7 +378,7 @@ async function getAuthContext(cookies) {
 }
 
 async function getViewerContext(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	const requestSupabase = createRequestSupabaseClient(accessToken || null);
 	let isAdmin = false;
 	if (accessToken && user?.id) {

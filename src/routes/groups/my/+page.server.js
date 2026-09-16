@@ -1,11 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 import { fetchList, loadOwnedGroups } from '$lib/server/sectionNavigation';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
 	const parentData = await parent().catch(() => ({}));
-	const currentUser =
-		parentData?.groupsNavUser ?? parentData?.user ?? resolveSession(cookies).user ?? null;
+	const { user: verifiedUser } = await resolveVerifiedSession(cookies);
+	const currentUser = parentData?.groupsNavUser ?? parentData?.user ?? verifiedUser ?? null;
 	const userId = currentUser?.id ?? null;
 
 	if (!userId) {

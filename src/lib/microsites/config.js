@@ -1,4 +1,6 @@
 import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
+import { isSafeInternalPath } from '../security/navigation.js';
+import { safeHttpUrl } from '../security/urls.js';
 import { buildDefaultGroupSiteBlocks, normalizeGroupSiteBlocks } from './blocks.js';
 import { normalizeGroupSitePages } from './pages.js';
 import {
@@ -125,9 +127,21 @@ function normalizeThemeColors(value) {
 function normalizeUrlish(value) {
 	const raw = cleanText(value);
 	if (!raw) return '';
-	if (/^https?:\/\//i.test(raw) || /^mailto:/i.test(raw) || /^tel:/i.test(raw)) return raw;
-	if (raw.startsWith('/')) return raw;
-	return `https://${raw}`;
+	if (isSafeInternalPath(raw)) return raw;
+	if (/^(?:mailto|tel):/i.test(raw)) {
+		const hasControlCharacter = [...raw].some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		});
+		if (raw.includes('\\') || hasControlCharacter) return '';
+		try {
+			const url = new URL(raw);
+			return ['mailto:', 'tel:'].includes(url.protocol) ? url.href : '';
+		} catch {
+			return '';
+		}
+	}
+	return safeHttpUrl(raw);
 }
 
 function normalizeSponsorLinks(value) {

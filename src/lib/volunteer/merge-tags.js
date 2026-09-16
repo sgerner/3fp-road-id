@@ -1,5 +1,6 @@
 import { escapeHtml, renderMarkdown } from '$lib/markdown';
 import { buildGoogleCalendarUrl } from '$lib/calendar/links';
+import { safeHttpUrl } from '$lib/security/urls';
 import {
 	VOLUNTEER_PORTAL_PATH,
 	wrapHtmlWithBranding,
@@ -229,7 +230,7 @@ function normalizeHost(hostLike = {}, event = {}) {
 			) || 'Your host',
 		email: safeString(hostLike.contactEmail ?? hostLike.email ?? event.contactEmail ?? ''),
 		phone: safeString(hostLike.contactPhone ?? hostLike.phone ?? event.contactPhone ?? ''),
-		website: safeString(hostLike.website ?? hostLike.websiteUrl ?? '')
+		website: safeHttpUrl(hostLike.website ?? hostLike.websiteUrl ?? '')
 	};
 }
 

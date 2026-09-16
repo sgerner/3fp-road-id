@@ -7,7 +7,7 @@ function invalid(message, status = 400) {
 }
 
 export async function POST({ params, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 
 	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch(

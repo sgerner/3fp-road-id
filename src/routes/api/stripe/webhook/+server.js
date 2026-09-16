@@ -15,6 +15,7 @@ import {
 import { handleMembershipStripeEvent } from '$lib/server/memberships';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient } from '$lib/server/stripe';
+import { enforceRateLimit, readRawBody } from '$lib/server/security';
 
 async function safelyFinalizeSession(sessionId, fetchImpl) {
 	let donationResult = null;
@@ -81,8 +82,16 @@ async function safelyFinalizePaymentIntent(paymentIntentId, fetchImpl) {
 	return { donationMatched, merchMatched, domainMatched };
 }
 
-export const POST = async ({ request, fetch }) => {
+export const POST = async (event) => {
+	const { request, fetch } = event;
 	try {
+		const limited = enforceRateLimit(event, {
+			name: 'stripe-webhook',
+			limit: 300,
+			windowMs: 60 * 1000
+		});
+		if (limited) return limited;
+
 		const webhookSecrets = [
 			env.STRIPE_WEBHOOK_SECRET || '',
 			env.STRIPE_CONNECT_WEBHOOK_SECRET || ''
@@ -99,7 +108,11 @@ export const POST = async ({ request, fetch }) => {
 			return json({ error: 'Missing Stripe signature header.' }, { status: 400 });
 		}
 
-		const rawBody = await request.text();
+		const rawBodyResult = await readRawBody(request, { maxBytes: 2 * 1024 * 1024 });
+		if (!rawBodyResult.ok) {
+			return json({ error: rawBodyResult.error }, { status: rawBodyResult.status });
+		}
+		const rawBody = rawBodyResult.value;
 		const stripe = getStripeClient();
 
 		let event = null;
@@ -224,6 +237,6 @@ export const POST = async ({ request, fetch }) => {
 		return json({ received: true });
 	} catch (error) {
 		console.error('Stripe webhook unhandled error', error);
-		return json({ error: error?.message || 'Unhandled webhook error.' }, { status: 500 });
+		return json({ error: 'Webhook processing failed.' }, { status: 500 });
 	}
 };

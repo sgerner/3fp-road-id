@@ -4,11 +4,11 @@ import {
 	loadManagedVolunteerEvents,
 	loadOwnedGroups
 } from '$lib/server/sectionNavigation';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
 	const parentData = await parent().catch(() => ({}));
-	const currentUser = parentData?.user ?? resolveSession(cookies).user ?? null;
+	const currentUser = parentData?.user ?? (await resolveVerifiedSession(cookies)).user ?? null;
 	const userId = currentUser?.id ?? null;
 
 	if (!userId) {

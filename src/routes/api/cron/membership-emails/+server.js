@@ -1,18 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { processScheduledMembershipEmails } from '$lib/server/memberships';
+import { timingSafeStringEqual } from '$lib/server/security';
 
 function enforceCronSecret(request) {
 	const secret =
 		env.CRON_SECRET || env.MEMBERSHIP_EMAIL_CRON_SECRET || env.VERCEL_CRON_SECRET || null;
-	if (!secret) return null;
+	if (!secret) return json({ error: 'Cron authentication is not configured.' }, { status: 503 });
 
 	const headerSecret =
 		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
 		request.headers.get('x-cron-secret') ||
 		request.headers.get('x-vercel-secret');
 
-	if (headerSecret !== secret) {
+	if (!timingSafeStringEqual(headerSecret, secret)) {
 		return json({ error: 'Unauthorized cron request' }, { status: 401 });
 	}
 

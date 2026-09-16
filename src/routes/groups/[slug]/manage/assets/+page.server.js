@@ -12,6 +12,9 @@ import {
 	validateAssetUpload
 } from '$lib/server/groupAssets';
 import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
+import { readFormData } from '$lib/server/security';
+
+const MAX_UPLOAD_FILES = 8;
 
 async function loadManagedAsset(auth, assetId) {
 	const { data, error } = await auth.serviceSupabase
@@ -39,6 +42,14 @@ async function nextSortOrderForSection(supabase, groupId, sectionId) {
 }
 
 async function uploadBucketFiles(auth, files, bucket) {
+	if (files.length > MAX_UPLOAD_FILES) {
+		return {
+			ok: false,
+			status: 400,
+			error: `You can upload up to ${MAX_UPLOAD_FILES} files at a time.`
+		};
+	}
+
 	const sections = await ensureCanonicalGroupAssetSections(
 		auth.serviceSupabase,
 		auth.group.id,
@@ -167,11 +178,16 @@ export const load = async ({ parent, cookies, params }) => {
 };
 
 export const actions = {
-	uploadPhotos: async ({ cookies, params, request }) => {
+	uploadPhotos: async (event) => {
+		const { cookies, params, request } = event;
 		const auth = await requireGroupAssetManager(cookies, params.slug);
 		if (!auth.ok) return fail(auth.status, { error: auth.error });
 
-		const formData = await request.formData();
+		const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
+		if (!parsedForm.ok) {
+			return fail(parsedForm.status, { error: parsedForm.error });
+		}
+		const formData = parsedForm.value;
 		const files = formData.getAll('files').filter((entry) => entry instanceof File);
 		if (!files.length) {
 			return fail(400, { error: 'Choose at least one photo to upload.' });

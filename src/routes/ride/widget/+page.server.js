@@ -18,7 +18,7 @@ function uniqOrganizations(rows = []) {
 }
 
 export const load = async ({ cookies, fetch, url }) => {
-	const { supabase } = getActivityClient(cookies);
+	const { supabase } = await getActivityClient(cookies);
 	let organizations = [];
 
 	const { data: groupRows, error: groupError } = await supabase

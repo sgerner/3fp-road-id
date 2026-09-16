@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { canManageActivity, getActivityClient, loadRideBySlug } from '$lib/server/activities';
 
 export const load = async ({ params, cookies }) => {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	const ride = await loadRideBySlug(supabase, params.slug, { includeTemplates: false }).catch(
 		(err) => {
 			console.error('Unable to load ride page', err);

@@ -1,20 +1,33 @@
 import { json } from '@sveltejs/kit';
 import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_FILES = 8;
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-export async function POST({ cookies, params, request }) {
+export async function POST(event) {
+	const { cookies, params, request } = event;
 	try {
 		const auth = await requireGroupSocialManager(cookies, params.slug || '');
 		if (!auth?.ok) {
 			return json({ error: auth?.error || 'Forbidden' }, { status: auth?.status || 403 });
 		}
 
-		const formData = await request.formData();
+		const limited = enforceRateLimit(event, {
+			name: 'group-social-asset-upload',
+			key: auth.userId,
+			limit: 30,
+			windowMs: 60 * 60 * 1000
+		});
+		if (limited) return limited;
+		const parsedForm = await readFormData(request, { maxBytes: 128 * 1024 * 1024 });
+		if (!parsedForm.ok) {
+			return json({ error: parsedForm.error }, { status: parsedForm.status });
+		}
+		const formData = parsedForm.value;
 		const files = formData.getAll('files').filter((entry) => entry instanceof File);
 		if (!files.length) {
 			return json({ error: 'No images were provided.' }, { status: 400 });

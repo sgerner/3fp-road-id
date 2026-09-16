@@ -5,7 +5,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	buildMicrositeUrl,
 	isReservedMicrositeSlug,
@@ -14,16 +14,12 @@ import {
 import { buildDefaultGroupSiteConfig, parseGroupSiteFormData } from '$lib/microsites/config';
 import { recommendGroupSiteTemplate } from '$lib/microsites/templates';
 import { getGroupSiteConfig, upsertGroupSiteConfig } from '$lib/server/groupSites';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { readFormData } from '$lib/server/security';
 
 const SPONSOR_LOGO_BUCKET = 'group-assets';
 const SPONSOR_LOGO_MAX_BYTES = 5 * 1024 * 1024;
-const SPONSOR_LOGO_MIME_TYPES = new Set([
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'image/svg+xml'
-]);
+const SPONSOR_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 function sanitizeSponsorItems(raw) {
 	if (!Array.isArray(raw)) return [];
@@ -74,12 +70,19 @@ async function uploadSponsorLogosAndRewriteJson({ formData, groupId }) {
 				throw new Error(`${file.name || 'Sponsor logo'} exceeds the 5 MB limit.`);
 			}
 
-			const objectPath = buildSponsorLogoObjectPath(groupId, file.name);
-			const buffer = Buffer.from(await file.arrayBuffer());
+			const sourceBuffer = Buffer.from(await file.arrayBuffer());
+			const optimized = await optimizeImageForStorage(sourceBuffer, {
+				contentType: file.type,
+				maxWidth: 1600,
+				maxHeight: 1200,
+				quality: 84
+			});
+			const baseName = path.basename(file.name, path.extname(file.name));
+			const objectPath = buildSponsorLogoObjectPath(groupId, `${baseName}.${optimized.extension}`);
 			const { error: uploadError } = await serviceSupabase.storage
 				.from(SPONSOR_LOGO_BUCKET)
-				.upload(objectPath, buffer, {
-					contentType: file.type || 'application/octet-stream',
+				.upload(objectPath, optimized.buffer, {
+					contentType: optimized.contentType,
 					upsert: false
 				});
 			if (uploadError) throw uploadError;
@@ -144,7 +147,7 @@ async function removeUnusedSponsorLogoObjects({ previousConfig, nextConfig, grou
 }
 
 async function requireSiteManager(cookies, slug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
 
 	const supabase = createRequestSupabaseClient(accessToken);
@@ -169,7 +172,14 @@ async function requireSiteManager(cookies, slug) {
 }
 
 async function prepareSiteSettingsForm({ auth, request }) {
-	const formData = await request.formData();
+	const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
+	if (!parsedForm.ok) {
+		return {
+			ok: false,
+			response: fail(parsedForm.status, { error: parsedForm.error })
+		};
+	}
+	const formData = parsedForm.value;
 	const requestedMicrositeSlug = normalizeMicrositeSlug(formData.get('microsite_slug'));
 	if (!requestedMicrositeSlug) {
 		return {
@@ -249,7 +259,7 @@ async function rollbackPreparedSiteSettings(auth, prepared) {
 export const load = async ({ parent, url, cookies }) => {
 	const parentData = await parent();
 	const group = parentData.group;
-	const { accessToken } = resolveSession(cookies);
+	const { accessToken } = await resolveVerifiedSession(cookies);
 	const supabase = createRequestSupabaseClient(accessToken);
 
 	const [siteConfig, groupsResponse, selectedTypesResponse, groupTypesResponse] = await Promise.all(

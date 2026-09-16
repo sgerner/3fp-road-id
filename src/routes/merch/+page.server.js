@@ -1,6 +1,6 @@
 import { getPublicMerchCatalog } from '$lib/server/merch';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ cookies }) => {
 	let catalog = null;
@@ -11,7 +11,7 @@ export const load = async ({ cookies }) => {
 		loadError = error?.message || 'Failed to load merch store.';
 	}
 
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	let isAdmin = false;
 	if (accessToken && user?.id) {
 		try {

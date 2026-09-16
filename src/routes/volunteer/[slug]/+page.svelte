@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabaseClient';
 	import { renderMarkdown } from '$lib/markdown';
+	import { safeNavigationUrl } from '$lib/security/urls.js';
 	import {
 		createVolunteerSignup,
 		updateVolunteerSignup,
@@ -209,13 +210,14 @@
 			? humanizeSlug(event.event_type_slug)
 			: '';
 
-	const hostWebsite = (hostGroup?.website_url || '').trim();
+	const hostWebsite = safeNavigationUrl(hostGroup?.website_url);
 	const hostSocialLinks = (() => {
 		const raw = hostGroup?.social_links;
 		if (!raw || typeof raw !== 'object') return [];
 		return Object.entries(raw)
 			.filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
-			.map(([key, value]) => ({ key, url: value.trim() }));
+			.map(([key, value]) => ({ key, url: safeNavigationUrl(value) }))
+			.filter((link) => link.url);
 	})();
 
 	const organizerEmail = (pageData.organizerEmail || '').trim();

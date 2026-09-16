@@ -1,9 +1,9 @@
 import { error, redirect } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 
 export async function requireAdmin(cookies, { redirectTo = null } = {}) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!user?.id || !accessToken) {
 		if (redirectTo) throw redirect(303, redirectTo);
 		throw error(401, 'Authentication required.');

@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { fail } from '@sveltejs/kit';
 import { TURNSTILE_SECRET_KEY } from '$env/static/private';
 import {
@@ -6,15 +7,20 @@ import {
 } from '$lib/server/supabaseClient';
 import { isTurnstileEnabled } from '$lib/server/turnstile';
 import { requireAdmin } from '$lib/server/admin';
-import { resolveSession } from '$lib/server/session';
-import { sendEmail } from '$lib/services/email';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 
 const emailPattern = /^\S+@\S+\.\S+$/;
 const hasTurnstileSecret = Boolean(TURNSTILE_SECRET_KEY);
-let warnedMissingTurnstileSecret = false;
+const MAX_OPPORTUNITIES_PER_SUBMISSION = 20;
+const MAX_NAME_LENGTH = 160;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PHONE_LENGTH = 80;
+const MAX_MESSAGE_LENGTH = 4_000;
 
-function normalizeField(value) {
-	return typeof value === 'string' ? value.trim() : '';
+function normalizeField(value, maxLength = MAX_MESSAGE_LENGTH) {
+	return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
 function uniqueNonEmpty(values) {
@@ -107,14 +113,11 @@ ${escapedMessage ? `<h3>Message</h3><p>${escapedMessage}</p>` : ''}
 	}
 }
 
-async function verifyTurnstile(request, token) {
+async function verifyTurnstile(token) {
 	if (!isTurnstileEnabled()) return true;
 	if (!hasTurnstileSecret) {
-		if (!warnedMissingTurnstileSecret) {
-			console.warn('TURNSTILE_SECRET_KEY is not configured; skipping verification.');
-			warnedMissingTurnstileSecret = true;
-		}
-		return true;
+		console.error('TURNSTILE_SECRET_KEY is not configured while Turnstile is enabled.');
+		return dev;
 	}
 
 	if (!token || typeof token !== 'string') return false;
@@ -123,16 +126,13 @@ async function verifyTurnstile(request, token) {
 		secret: TURNSTILE_SECRET_KEY,
 		response: token
 	});
-	const connectingIp =
-		request.headers.get('cf-connecting-ip') ||
-		(request.headers.get('x-forwarded-for') || '').split(',')[0]?.trim();
-	if (connectingIp) payload.append('remoteip', connectingIp);
-
 	const verificationResponse = await fetch(
 		'https://challenges.cloudflare.com/turnstile/v0/siteverify',
 		{
 			method: 'POST',
-			body: payload
+			redirect: 'error',
+			body: payload,
+			signal: AbortSignal.timeout(5000)
 		}
 	);
 
@@ -152,7 +152,7 @@ async function verifyTurnstile(request, token) {
 
 export const load = async ({ cookies, parent }) => {
 	const parentData = await parent().catch(() => ({}));
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	const supabase = createRequestSupabaseClient(accessToken);
 
 	const { data: opportunities, error: opportunitiesError } = await supabase
@@ -207,7 +207,11 @@ export const actions = {
 			return fail(403, { createOpportunityError: 'Admin access required.' });
 		}
 
-		const formData = await request.formData();
+		const parsedForm = await readFormData(request, { maxBytes: 32 * 1024 });
+		if (!parsedForm.ok) {
+			return fail(parsedForm.status, { createOpportunityError: parsedForm.error });
+		}
+		const formData = parsedForm.value;
 		const title = normalizeField(formData.get('title'));
 		const description = normalizeField(formData.get('description'));
 
@@ -243,17 +247,36 @@ export const actions = {
 		};
 	},
 
-	submitInterest: async ({ request, cookies, fetch }) => {
-		const { accessToken, user } = resolveSession(cookies);
+	submitInterest: async (event) => {
+		const { request, cookies, fetch } = event;
+		const { accessToken, user } = await resolveVerifiedSession(cookies);
+		const limited = enforceRateLimit(event, {
+			name: 'get-involved-interest',
+			limit: user?.id ? 20 : 5,
+			windowMs: 60 * 60 * 1000,
+			key: user?.id || ''
+		});
+		if (limited) {
+			return fail(429, {
+				interestError: 'Too many submissions. Please try again later.'
+			});
+		}
 		const supabase = createRequestSupabaseClient(accessToken);
-		const formData = await request.formData();
+		const parsedForm = await readFormData(request, { maxBytes: 32 * 1024 });
+		if (!parsedForm.ok) {
+			return fail(parsedForm.status, { interestError: parsedForm.error });
+		}
+		const formData = parsedForm.value;
 
-		const opportunityIds = uniqueNonEmpty(formData.getAll('opportunityIds'));
-		const fullName = normalizeField(formData.get('fullName'));
-		const email = normalizeField(formData.get('email'));
-		const phone = normalizeField(formData.get('phone'));
-		const message = normalizeField(formData.get('message'));
-		const turnstileToken = normalizeField(formData.get('turnstileToken'));
+		const opportunityIds = uniqueNonEmpty(formData.getAll('opportunityIds')).slice(
+			0,
+			MAX_OPPORTUNITIES_PER_SUBMISSION
+		);
+		const fullName = normalizeField(formData.get('fullName'), MAX_NAME_LENGTH);
+		const email = normalizeField(formData.get('email'), MAX_EMAIL_LENGTH).toLowerCase();
+		const phone = normalizeField(formData.get('phone'), MAX_PHONE_LENGTH);
+		const message = normalizeField(formData.get('message'), MAX_MESSAGE_LENGTH);
+		const turnstileToken = normalizeField(formData.get('turnstileToken'), 4_000);
 
 		const interestValues = {
 			opportunityIds,
@@ -283,7 +306,7 @@ export const actions = {
 		}
 
 		if (!user?.id) {
-			const verified = await verifyTurnstile(request, turnstileToken);
+			const verified = await verifyTurnstile(turnstileToken);
 			if (!verified) {
 				return fail(400, {
 					interestError: 'Verification failed. Please try again.',

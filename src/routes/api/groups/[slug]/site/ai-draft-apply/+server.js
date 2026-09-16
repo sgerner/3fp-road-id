@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { mergeGroupSiteConfig } from '$lib/microsites/config';
 import { getGroupSiteConfig } from '$lib/server/groupSites';
 
@@ -10,7 +10,7 @@ function cleanText(value) {
 }
 
 async function requireOwner(cookies, groupSlug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id)
 		return { ok: false, status: 401, error: 'Authentication required.' };
 

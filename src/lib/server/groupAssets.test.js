@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { sortGroupAssets } from '../groups/assets.js';
+import { groupGroupAssetsByBucket, sortGroupAssets } from '../groups/assets.js';
 
 test('group assets honor an explicit display order before recency', () => {
 	const sorted = sortGroupAssets([
@@ -11,5 +11,17 @@ test('group assets honor an explicit display order before recency', () => {
 	assert.deepEqual(
 		sorted.map((asset) => asset.title),
 		['First', 'Second']
+	);
+});
+
+test('public asset buckets exclude unsafe legacy URLs', () => {
+	const buckets = groupGroupAssetsByBucket([
+		{ id: 'unsafe', asset_kind: 'link', external_url: 'javascript:alert(1)' },
+		{ id: 'safe', asset_kind: 'link', external_url: 'https://example.org/resource' }
+	]);
+
+	assert.deepEqual(
+		buckets.find((bucket) => bucket.slug === 'links').assets.map((asset) => asset.href),
+		['https://example.org/resource']
 	);
 });

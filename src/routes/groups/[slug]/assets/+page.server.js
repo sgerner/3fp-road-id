@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { cleanGroupAssetBucket } from '$lib/groups/assets';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 
 export const load = async ({ params, cookies, url }) => {
@@ -27,7 +27,7 @@ export const load = async ({ params, cookies, url }) => {
 	const hasBucketParam = bucketsWithAssets.some((bucket) => bucket.slug === bucketParam);
 	const activeBucket = hasBucketParam ? bucketParam : bucketsWithAssets[0].slug;
 
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	let canEdit = false;
 	if (accessToken && user?.id) {
 		try {

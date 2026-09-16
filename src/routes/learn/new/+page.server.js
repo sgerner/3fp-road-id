@@ -14,7 +14,7 @@ import {
 } from '$lib/server/learnDiscovery';
 
 export const load = async ({ cookies, url }) => {
-	const { user, supabase } = getLearnClient(cookies);
+	const { user, supabase } = await getLearnClient(cookies);
 	if (!user) {
 		throw redirect(303, `/learn?auth=required&returnTo=${encodeURIComponent(url.pathname)}`);
 	}
@@ -45,7 +45,7 @@ export const load = async ({ cookies, url }) => {
 export const actions = {
 	default: async ({ request, cookies }) => {
 		try {
-			const { user, supabase } = requireLearnUser(cookies);
+			const { user, supabase } = await requireLearnUser(cookies);
 			const formData = await request.formData();
 			const payload = withLearnReadingAid(normalizeLearnPayload(formData));
 			const signals = inferLearnArticleSearchSignals({

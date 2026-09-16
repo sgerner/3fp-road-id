@@ -1,5 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { readFormData } from '$lib/server/security';
 import {
 	shiftActionsHelpers,
 	fetchList,
@@ -253,7 +254,7 @@ export const load = async ({ fetch, cookies, url }) => {
 
 	const feedback = formatFeedback(notice, errorMessage);
 
-	const { user } = resolveSession(cookies);
+	const { user } = await resolveVerifiedSession(cookies);
 	let sessionEmail = user?.email?.toLowerCase?.() ?? null;
 	if (user?.id && !sessionEmail) {
 		const profile = await fetchSingle(fetch, 'profiles', {
@@ -521,7 +522,9 @@ function buildRedirectParams(result, fallbackNotice) {
 
 export const actions = {
 	confirm: async (event) => {
-		const data = await event.request.formData();
+		const parsedForm = await readFormData(event.request, { maxBytes: 16 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const data = parsedForm.value;
 		const assignmentId = data.get('assignment_id');
 		if (!assignmentId) {
 			return fail(400, { error: 'Missing shift reference.' });
@@ -539,7 +542,9 @@ export const actions = {
 		});
 	},
 	cancel: async (event) => {
-		const data = await event.request.formData();
+		const parsedForm = await readFormData(event.request, { maxBytes: 16 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const data = parsedForm.value;
 		const assignmentId = data.get('assignment_id');
 		if (!assignmentId) {
 			return fail(400, { error: 'Missing shift reference.' });
@@ -557,7 +562,9 @@ export const actions = {
 		});
 	},
 	uncancel: async (event) => {
-		const data = await event.request.formData();
+		const parsedForm = await readFormData(event.request, { maxBytes: 16 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const data = parsedForm.value;
 		const assignmentId = data.get('assignment_id');
 		if (!assignmentId) {
 			return fail(400, { error: 'Missing shift reference.' });
@@ -575,7 +582,9 @@ export const actions = {
 		});
 	},
 	reschedule: async (event) => {
-		const data = await event.request.formData();
+		const parsedForm = await readFormData(event.request, { maxBytes: 16 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const data = parsedForm.value;
 		const assignmentId = data.get('assignment_id');
 		const newShiftId = data.get('new_shift_id');
 		if (!assignmentId || !newShiftId) {

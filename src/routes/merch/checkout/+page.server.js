@@ -1,5 +1,5 @@
 import { getPublicMerchCatalog } from '$lib/server/merch';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ cookies, url }) => {
 	let catalog = null;
@@ -10,7 +10,7 @@ export const load = async ({ cookies, url }) => {
 		loadError = error?.message || 'Failed to load checkout settings.';
 	}
 
-	const { user } = resolveSession(cookies);
+	const { user } = await resolveVerifiedSession(cookies);
 	return {
 		loadError,
 		canceled: url.searchParams.get('canceled') === '1',

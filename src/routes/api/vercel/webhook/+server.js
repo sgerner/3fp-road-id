@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { normalizeDomain } from '$lib/server/vercelDomains';
+import { enforceRateLimit, readRawBody, verifyWebhookRequest } from '$lib/server/security';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -23,10 +25,46 @@ function extractDomain(payload = {}) {
 	return '';
 }
 
-export async function POST({ request }) {
-	const body = await request.json().catch(() => ({}));
+export async function POST(event) {
+	const { request } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'vercel-webhook',
+		limit: 120,
+		windowMs: 60_000
+	});
+	if (limited) return limited;
+
+	const webhookSecret = cleanText(env.VERCEL_WEBHOOK_SECRET);
+	if (!webhookSecret) {
+		console.error('VERCEL_WEBHOOK_SECRET is not configured.');
+		return json({ error: 'Webhook authentication is not configured.' }, { status: 503 });
+	}
+
+	const rawResult = await readRawBody(request, { maxBytes: 256 * 1024 });
+	if (!rawResult.ok) {
+		return json({ error: rawResult.error }, { status: rawResult.status });
+	}
+	if (
+		!verifyWebhookRequest(request, rawResult.value, webhookSecret, {
+			directHeaders: ['x-vercel-webhook-secret'],
+			signatureHeaders: ['x-vercel-signature', 'x-webhook-signature']
+		})
+	) {
+		return json({ error: 'Unauthorized webhook request.' }, { status: 401 });
+	}
+
+	let body;
+	try {
+		body = rawResult.value ? JSON.parse(rawResult.value) : {};
+	} catch {
+		return json({ error: 'Invalid webhook payload.' }, { status: 400 });
+	}
+	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+		return json({ error: 'Invalid webhook payload.' }, { status: 400 });
+	}
+
 	const eventType = cleanText(body?.type || body?.event || body?.name || 'unknown');
-	const externalEventId = cleanText(body?.id || body?.eventId || body?.uid || '');
+	const externalEventId = cleanText(body?.id || body?.eventId || body?.uid || '').slice(0, 200);
 	const domain = extractDomain(body);
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) {
@@ -40,6 +78,10 @@ export async function POST({ request }) {
 			.select('*')
 			.eq('domain', domain)
 			.maybeSingle();
+		if (lookup.error) {
+			console.error('Unable to look up Vercel webhook domain', lookup.error);
+			return json({ error: 'Unable to process webhook.' }, { status: 500 });
+		}
 		domainRow = lookup.data || null;
 	}
 
@@ -53,7 +95,7 @@ export async function POST({ request }) {
 	})();
 
 	if (domainRow && nextStatus) {
-		await serviceSupabase
+		const update = await serviceSupabase
 			.from('group_site_domains')
 			.update({
 				status: nextStatus,
@@ -61,20 +103,25 @@ export async function POST({ request }) {
 				updated_at: new Date().toISOString()
 			})
 			.eq('id', domainRow.id);
+		if (update.error) {
+			console.error('Unable to update domain from Vercel webhook', update.error);
+			return json({ error: 'Unable to process webhook.' }, { status: 500 });
+		}
 	}
 
-	await serviceSupabase
-		.from('group_site_domain_events')
-		.insert({
-			group_id: domainRow?.group_id || null,
-			domain_id: domainRow?.id || null,
-			provider: 'vercel',
-			event_type: eventType || 'unknown',
-			external_event_id: externalEventId || null,
-			payload: body,
-			processing_status: 'processed'
-		})
-		.catch(() => null);
+	const insert = await serviceSupabase.from('group_site_domain_events').insert({
+		group_id: domainRow?.group_id || null,
+		domain_id: domainRow?.id || null,
+		provider: 'vercel',
+		event_type: eventType || 'unknown',
+		external_event_id: externalEventId || null,
+		payload: body,
+		processing_status: 'processed'
+	});
+	if (insert.error) {
+		console.error('Unable to record Vercel webhook event', insert.error);
+		return json({ error: 'Unable to process webhook.' }, { status: 500 });
+	}
 
 	return json({ ok: true });
 }

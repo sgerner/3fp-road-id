@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 
 export const POST = async ({ params, cookies, request }) => {
-	const { user: sessionUser } = resolveSession(cookies);
+	const { user: sessionUser } = await resolveVerifiedSession(cookies);
 	if (!sessionUser?.id) throw error(401, 'Authentication required');
 
 	const slug = params.slug;

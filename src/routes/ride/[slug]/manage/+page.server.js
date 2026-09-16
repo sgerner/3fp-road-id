@@ -15,7 +15,7 @@ async function loadHostGroups(supabase) {
 }
 
 export const load = async ({ params, cookies }) => {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) throw redirect(303, `/ride/${params.slug}`);
 
 	const ride = await loadRideBySlug(supabase, params.slug, {

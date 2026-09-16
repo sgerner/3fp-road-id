@@ -1,26 +1,11 @@
 import { supabase } from '$lib/supabaseClient';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
-
-async function resolveUserFromCookies(cookies) {
-	const sessionCookie = cookies.get('sb_session');
-	if (!sessionCookie) return null;
-	try {
-		const parsed = JSON.parse(sessionCookie);
-		const access_token = parsed?.access_token;
-		if (!access_token) return null;
-		const { data: userRes } = await supabase.auth.getUser(access_token);
-		return userRes?.user ?? null;
-	} catch {
-		return null;
-	}
-}
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ cookies, url }) => {
-	const currentUser = await resolveUserFromCookies(cookies);
+	const { accessToken, user: currentUser } = await resolveVerifiedSession(cookies);
 	const userId = currentUser?.id ?? null;
 
-	const { accessToken } = resolveSession(cookies);
 	const supabaseReq = createRequestSupabaseClient(accessToken);
 
 	const [

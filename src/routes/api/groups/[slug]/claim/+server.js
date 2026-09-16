@@ -1,47 +1,53 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { enforceRateLimit } from '$lib/server/security';
 
-export async function POST({ params, cookies }) {
+export async function POST(event) {
+	const limited = enforceRateLimit(event, {
+		name: 'group-claim',
+		limit: 10,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return limited;
+
 	try {
-		const slug = params.slug;
-		const sessionCookie = cookies.get('sb_session');
-		if (!sessionCookie) return json({ error: 'Not authenticated' }, { status: 401 });
-		let parsed;
-		try {
-			parsed = JSON.parse(sessionCookie);
-		} catch {
-			parsed = null;
-		}
-		const access_token = parsed?.access_token;
-		if (!access_token) return json({ error: 'Not authenticated' }, { status: 401 });
+		const { user } = await resolveVerifiedSession(event.cookies);
+		if (!user?.id) return json({ error: 'Not authenticated' }, { status: 401 });
+		const userLimited = enforceRateLimit(event, {
+			name: 'group-claim-user',
+			limit: 10,
+			windowMs: 60 * 60 * 1000,
+			key: user.id
+		});
+		if (userLimited) return userLimited;
 
-		// Validate user
-		const { data: userRes, error: userErr } = await supabase.auth.getUser(access_token);
-		if (userErr || !userRes?.user?.id) return json({ error: 'Invalid user' }, { status: 401 });
-		const user_id = userRes.user.id;
+		const serviceSupabase = createServiceSupabaseClient();
+		if (!serviceSupabase) {
+			return json({ error: 'Group claiming is temporarily unavailable.' }, { status: 503 });
+		}
+		const slug = String(event.params.slug || '').trim();
 
 		// Find group by slug
-		const { data: group, error: ge } = await supabase
+		const { data: group, error: ge } = await serviceSupabase
 			.from('groups')
 			.select('id, slug')
 			.eq('slug', slug)
-			.single();
+			.maybeSingle();
 		if (ge || !group) return json({ error: 'Group not found' }, { status: 404 });
 
-		// Check if already owned
-		const { data: owners, error: oe } = await supabase
-			.from('group_members')
-			.select('user_id')
-			.eq('group_id', group.id)
-			.eq('role', 'owner');
-		if (oe) return json({ error: oe.message }, { status: 400 });
-		if ((owners || []).length > 0) return json({ error: 'Group already claimed' }, { status: 409 });
-
-		// Claim
-		const { error: insErr } = await supabase
-			.from('group_members')
-			.insert([{ group_id: group.id, user_id, role: 'owner' }]);
-		if (insErr) return json({ error: insErr.message }, { status: 400 });
+		const { data: claimed, error: claimError } = await serviceSupabase.rpc(
+			'claim_unclaimed_group',
+			{
+				target_group_id: group.id,
+				claimant_user_id: user.id
+			}
+		);
+		if (claimError) {
+			console.error('Atomic group claim failed:', claimError);
+			return json({ error: 'Unable to claim group.' }, { status: 400 });
+		}
+		if (claimed !== true) return json({ error: 'Group already claimed' }, { status: 409 });
 
 		return json({ ok: true, slug: group.slug });
 	} catch (e) {

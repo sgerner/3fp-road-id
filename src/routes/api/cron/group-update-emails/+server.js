@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import { getCronSecretVerifier } from '$lib/server/activities';
 import { getGroupNewsServiceClient, renderGroupUpdateEmailContent } from '$lib/server/groupNews';
 

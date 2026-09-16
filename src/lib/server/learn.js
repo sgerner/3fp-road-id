@@ -3,7 +3,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	extractMarkdownHeadings,
 	renderLearnMarkdown,
@@ -35,8 +35,8 @@ export function normalizeLearnCategory(categoryName) {
 	};
 }
 
-export function getLearnClient(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+export async function getLearnClient(cookies) {
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	return {
 		user,
 		supabase: createRequestSupabaseClient(accessToken)
@@ -51,8 +51,8 @@ export function getLearnServiceClient() {
 	return service;
 }
 
-export function requireLearnUser(cookies) {
-	const { user, supabase } = getLearnClient(cookies);
+export async function requireLearnUser(cookies) {
+	const { user, supabase } = await getLearnClient(cookies);
 	if (!user?.id) {
 		throw error(401, 'Authentication required.');
 	}

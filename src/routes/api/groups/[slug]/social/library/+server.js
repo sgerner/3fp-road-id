@@ -7,6 +7,7 @@ import {
 } from '$lib/server/social/db';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
 import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
+import { enforceRateLimit, readFormData, readJsonBody } from '$lib/server/security';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -144,24 +145,40 @@ export async function GET({ cookies, params, url }) {
 	}
 }
 
-export async function POST({ cookies, params, request }) {
+export async function POST(event) {
+	const { cookies, params, request } = event;
 	try {
 		const auth = await requireGroupSocialManager(cookies, params.slug || '');
 		if (!auth?.ok) {
 			return json({ error: auth?.error || 'Forbidden' }, { status: auth?.status || 403 });
 		}
+		const limited = enforceRateLimit(event, {
+			name: 'group-social-library-upload',
+			key: auth.userId,
+			limit: 30,
+			windowMs: 60 * 60 * 1000
+		});
+		if (limited) return limited;
 
 		const contentType = cleanText(request.headers.get('content-type'), 200).toLowerCase();
 		let body = {};
 		let media = [];
 
 		if (contentType.includes('multipart/form-data')) {
-			const formData = await request.formData();
+			const parsedForm = await readFormData(request, { maxBytes: 128 * 1024 * 1024 });
+			if (!parsedForm.ok) {
+				return json({ error: parsedForm.error }, { status: parsedForm.status });
+			}
+			const formData = parsedForm.value;
 			const files = formData.getAll('files').filter((entry) => entry instanceof File);
 			media = await uploadMediaFiles(auth, files);
 			body = Object.fromEntries(formData.entries());
 		} else {
-			body = await request.json().catch(() => ({}));
+			const parsedBody = await readJsonBody(request, { maxBytes: 256 * 1024 });
+			if (!parsedBody.ok) {
+				return json({ error: parsedBody.error }, { status: parsedBody.status });
+			}
+			body = parsedBody.value && typeof parsedBody.value === 'object' ? parsedBody.value : {};
 			media = normalizeMediaList(body.media);
 		}
 

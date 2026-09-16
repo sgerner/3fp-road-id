@@ -44,9 +44,6 @@ create index if not exists group_accounting_exports_group_created_idx
 create index if not exists group_accounting_lines_entry_idx
 	on public.group_accounting_lines (entry_id);
 
-create index if not exists group_accounting_lines_account_idx
-	on public.group_accounting_lines (account_id);
-
 create index if not exists group_accounting_lines_reconciliation_idx
 	on public.group_accounting_lines (reconciliation_id);
 

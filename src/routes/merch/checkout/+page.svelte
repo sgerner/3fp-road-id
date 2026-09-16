@@ -35,6 +35,7 @@
 	let paymentFormReady = $state(false);
 	let paymentElementHost = $state(null);
 	let paymentIntentId = $state('');
+	let paymentIntentClientSecret = $state('');
 	let paymentReturnUrl = $state('');
 	let preparedSignature = $state('');
 	let quoteTimer = 0;
@@ -287,6 +288,7 @@
 		stripe = null;
 		paymentFormReady = false;
 		paymentIntentId = '';
+		paymentIntentClientSecret = '';
 		paymentReturnUrl = '';
 		preparedSignature = '';
 	}
@@ -375,6 +377,7 @@
 			}
 
 			paymentIntentId = payload.paymentIntentId || '';
+			paymentIntentClientSecret = payload.clientSecret;
 			paymentReturnUrl = payload.returnUrl;
 			preparedSignature = buildPaymentSignature();
 
@@ -422,6 +425,7 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				paymentIntentId,
+				clientSecret: paymentIntentClientSecret,
 				...buildCheckoutPayload()
 			})
 		});

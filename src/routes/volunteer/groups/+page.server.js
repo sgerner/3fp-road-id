@@ -1,4 +1,4 @@
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();
@@ -147,7 +147,7 @@ export const load = async ({ fetch, cookies }) => {
 
 	const grouped = Array.from(groupsById.values());
 
-	const { user: sessionUser } = resolveSession(cookies);
+	const { user: sessionUser } = await resolveVerifiedSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
 
 	let sessionIsAdmin = false;

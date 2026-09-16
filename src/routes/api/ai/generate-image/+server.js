@@ -14,7 +14,8 @@ import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
 import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
 import {
 	getAiModel,
 	getAiConfigurationError,
@@ -26,6 +27,7 @@ export const config = { maxDuration: 60 };
 
 const ALLOWED_TARGETS = new Set(['ride', 'learn', 'group']);
 const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '4:5', '9:16', '16:9']);
+const MAX_GENERATED_IMAGE_BYTES = 12 * 1024 * 1024;
 
 function safeTrim(value) {
 	if (value == null) return '';
@@ -352,18 +354,43 @@ async function persistLearnAsset({
 	return assetRow;
 }
 
-export async function POST({ request, cookies }) {
-	const { user } = resolveSession(cookies);
+export async function POST(event) {
+	const { request, cookies } = event;
+	const { user } = await resolveVerifiedSession(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
+	const ipLimited = enforceRateLimit(event, {
+		name: 'ai-image-ip',
+		limit: 10,
+		windowMs: 10 * 60 * 1000
+	});
+	if (ipLimited) return ipLimited;
+	const userLimited = enforceRateLimit(event, {
+		name: 'ai-image-user',
+		limit: 20,
+		windowMs: 60 * 60 * 1000,
+		key: user.id
+	});
+	if (userLimited) return userLimited;
 
 	const supabase = createServiceSupabaseClient();
 	if (!supabase) {
 		return json({ error: 'Supabase service role is not configured.' }, { status: 500 });
 	}
 
-	const payload = await request.json().catch(() => null);
+	const parsedBody = await readJsonBody(request, { maxBytes: 64 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	if (
+		!parsedBody.value ||
+		typeof parsedBody.value !== 'object' ||
+		Array.isArray(parsedBody.value)
+	) {
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+	const payload = parsedBody.value;
 	const requestedModelId = normalizeSocialImageGenerationModelId(payload?.modelId);
 	if (safeTrim(payload?.modelId) && !requestedModelId) {
 		return json({ error: 'Unsupported image generation model.' }, { status: 400 });
@@ -434,13 +461,19 @@ export async function POST({ request, cookies }) {
 		});
 
 		const imageBytes = generated?.imageBytes;
-		if (!imageBytes) {
+		if (typeof imageBytes !== 'string' || !imageBytes) {
 			return json({ error: 'Image generation returned no image data.' }, { status: 502 });
+		}
+		if (imageBytes.length > Math.ceil((MAX_GENERATED_IMAGE_BYTES * 4) / 3) + 16) {
+			return json({ error: 'Generated image is too large.' }, { status: 502 });
 		}
 
 		const mimeType = generated?.mimeType || 'image/png';
 		const extension = mimeType.split('/')[1] || 'png';
 		const sourceBuffer = Buffer.from(imageBytes, 'base64');
+		if (sourceBuffer.byteLength > MAX_GENERATED_IMAGE_BYTES) {
+			return json({ error: 'Generated image is too large.' }, { status: 502 });
+		}
 		const optimized = await optimizeImageForStorage(sourceBuffer, {
 			contentType: mimeType,
 			maxWidth: 2400,

@@ -1,5 +1,5 @@
 import { redirect, error } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	listVolunteerEvents,
 	listVolunteerOpportunities,
@@ -93,7 +93,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const slug = params.slug?.trim();
 	if (!slug) throw error(404, 'Volunteer event not found');
 
-	const { user: currentUser } = resolveSession(cookies);
+	const { user: currentUser } = await resolveVerifiedSession(cookies);
 	const userId = currentUser?.id ?? null;
 	if (!userId) throw redirect(303, `/volunteer/${slug}?auth=required`);
 

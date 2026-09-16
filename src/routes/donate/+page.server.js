@@ -1,7 +1,7 @@
 import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE, MAIN_ORG_TAX_NOTICE } from '$lib/donations/constants';
 import { getDonationRecipient } from '$lib/server/donations';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 function cleanSlug(value) {
 	return String(value || '')
@@ -40,7 +40,7 @@ export const load = async ({ url, cookies }) => {
 	const prefillEmail = (url.searchParams.get('email') || '').trim().slice(0, 254);
 
 	let isAdmin = false;
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (accessToken && user?.id) {
 		try {
 			const supabase = createRequestSupabaseClient(accessToken);

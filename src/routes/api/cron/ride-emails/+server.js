@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { DEFAULT_BRAND_ORIGIN } from '$lib/email/branding';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import {
 	buildRideReminderContext,
 	getActivityServiceClient,

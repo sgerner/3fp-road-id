@@ -1,4 +1,4 @@
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { fail } from '@sveltejs/kit';
 
 const CONFIRM_WINDOW_HOURS = 48;
@@ -143,7 +143,7 @@ function ownsSignup(identity, signup) {
 }
 
 async function getIdentity(fetchImpl, cookies) {
-	const { user } = resolveSession(cookies);
+	const { user } = await resolveVerifiedSession(cookies);
 	let profile = null;
 	let email = user?.email?.toLowerCase?.() ?? null;
 	if (user?.id && !email) {

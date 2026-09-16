@@ -4,6 +4,7 @@ import { env } from '$env/dynamic/private';
 import { IMAGE_GENERATION_MODEL_IDS } from '$lib/ai/imageGenerationModels';
 import { createOpenAiTextProviderClient } from './openai.js';
 import { convertSchemaNode } from './schema.js';
+import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',
@@ -366,6 +367,7 @@ function createOpenAiProviderClient(apiKey) {
 
 			const response = await fetch('https://api.openai.com/v1/images/generations', {
 				method: 'POST',
+				redirect: 'error',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${apiKey}`
@@ -385,14 +387,21 @@ function createOpenAiProviderClient(apiKey) {
 			let mimeType = 'image/png';
 
 			if (!imageBytes && data?.data?.[0]?.url) {
-				const imageResponse = await fetch(data.data[0].url);
-				if (!imageResponse.ok) {
-					throw new Error(`Failed to fetch generated image from URL: ${imageResponse.statusText}`);
+				const imageResponse = await fetchPublicHttp(
+					data.data[0].url,
+					{ headers: { accept: 'image/*' } },
+					{ timeoutMs: 15_000, maxRedirects: 2 }
+				);
+				if (!imageResponse || !imageResponse.ok) {
+					throw new Error(
+						`Failed to fetch generated image from URL: ${imageResponse?.statusText || 'request failed'}`
+					);
 				}
 				const contentType = imageResponse.headers.get('content-type');
 				if (contentType) mimeType = contentType;
-				const arrayBuffer = await imageResponse.arrayBuffer();
-				imageBytes = Buffer.from(arrayBuffer).toString('base64');
+				const imageBuffer = await readResponseBuffer(imageResponse, 16 * 1024 * 1024);
+				if (!imageBuffer) throw new Error('Generated image response was too large.');
+				imageBytes = imageBuffer.toString('base64');
 			}
 
 			if (!imageBytes) {
@@ -436,6 +445,7 @@ async function invokeBedrockJson(client, { modelId, payload, bearerToken = '', r
 		const endpoint = `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(modelId)}/invoke`;
 		const response = await fetch(endpoint, {
 			method: 'POST',
+			redirect: 'error',
 			headers: {
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
@@ -533,6 +543,7 @@ function createInceptionProviderClient(apiKey) {
 
 			const response = await fetch('https://api.inceptionlabs.ai/v1/chat/completions', {
 				method: 'POST',
+				redirect: 'error',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${apiKey}`

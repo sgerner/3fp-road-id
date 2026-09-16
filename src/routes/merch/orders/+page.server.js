@@ -1,6 +1,6 @@
 import { listMerchOrdersForUser } from '$lib/server/merch';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 function formatCurrency(cents, currency = 'usd') {
 	return new Intl.NumberFormat('en-US', {
@@ -10,7 +10,7 @@ function formatCurrency(cents, currency = 'usd') {
 }
 
 export const load = async ({ cookies }) => {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!user?.id || !accessToken) {
 		return { authRequired: true, isAdmin: false, orders: [] };
 	}

@@ -32,6 +32,7 @@
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
+	import { escapeHtml } from '$lib/markdown';
 
 	let { data, form } = $props();
 	let activeTab = $state('overview');
@@ -89,9 +90,7 @@
 	const bankFeedAccounts = $derived(
 		providerAccounts.filter((account) => account.is_enabled !== false)
 	);
-	const mappedBankFeedAccounts = $derived(
-		bankFeedAccounts.filter((account) => account.account_id)
-	);
+	const mappedBankFeedAccounts = $derived(bankFeedAccounts.filter((account) => account.account_id));
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
@@ -908,8 +907,8 @@
 					.map(
 						(acc) => `
 				<tr>
-					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
-					<td class="amount positive">${formatCents(acc.period_balance_cents)}</td>
+					<td class="code-name">${escapeHtml(acc.code)} &middot; ${escapeHtml(acc.name)}</td>
+					<td class="amount positive">${escapeHtml(formatCents(acc.period_balance_cents))}</td>
 				</tr>
 			`
 					)
@@ -920,8 +919,8 @@
 					.map(
 						(acc) => `
 				<tr>
-					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
-					<td class="amount negative">${formatCents(acc.period_balance_cents)}</td>
+					<td class="code-name">${escapeHtml(acc.code)} &middot; ${escapeHtml(acc.name)}</td>
+					<td class="amount negative">${escapeHtml(formatCents(acc.period_balance_cents))}</td>
 				</tr>
 			`
 					)
@@ -931,7 +930,7 @@
 				<div class="section">
 					<div class="section-header">
 						<span>Money In</span>
-						<span class="total">${formatCents(report.totals?.income_cents)}</span>
+						<span class="total">${escapeHtml(formatCents(report.totals?.income_cents))}</span>
 					</div>
 					<table>
 						<tbody>
@@ -943,7 +942,7 @@
 				<div class="section">
 					<div class="section-header">
 						<span>Money Out</span>
-						<span class="total">${formatCents(report.totals?.expense_cents)}</span>
+						<span class="total">${escapeHtml(formatCents(report.totals?.expense_cents))}</span>
 					</div>
 					<table>
 						<tbody>
@@ -955,7 +954,7 @@
 				<div class="grand-total-row">
 					<span>Net Activity</span>
 					<span class="${(report.totals?.net_cents ?? 0) >= 0 ? 'positive' : 'negative'}">
-						${formatCents(report.totals?.net_cents)}
+						${escapeHtml(formatCents(report.totals?.net_cents))}
 					</span>
 				</div>
 			`;
@@ -965,8 +964,8 @@
 					.map(
 						(acc) => `
 				<tr>
-					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
-					<td class="amount">${formatCents(acc.balance_cents)}</td>
+					<td class="code-name">${escapeHtml(acc.code)} &middot; ${escapeHtml(acc.name)}</td>
+					<td class="amount">${escapeHtml(formatCents(acc.balance_cents))}</td>
 				</tr>
 			`
 					)
@@ -977,8 +976,8 @@
 					.map(
 						(acc) => `
 				<tr>
-					<td class="code-name">${acc.code} &middot; ${acc.name}</td>
-					<td class="amount negative">${formatCents(acc.balance_cents)}</td>
+					<td class="code-name">${escapeHtml(acc.code)} &middot; ${escapeHtml(acc.name)}</td>
+					<td class="amount negative">${escapeHtml(formatCents(acc.balance_cents))}</td>
 				</tr>
 			`
 					)
@@ -991,7 +990,7 @@
 				<div class="section">
 					<div class="section-header">
 						<span>What We Have (Assets)</span>
-						<span class="total">${formatCents(report.totals?.assets_cents)}</span>
+						<span class="total">${escapeHtml(formatCents(report.totals?.assets_cents))}</span>
 					</div>
 					<table>
 						<tbody>
@@ -1003,7 +1002,7 @@
 				<div class="section">
 					<div class="section-header">
 						<span>What We Owe (Liabilities)</span>
-						<span class="total">${formatCents(report.totals?.liabilities_cents)}</span>
+						<span class="total">${escapeHtml(formatCents(report.totals?.liabilities_cents))}</span>
 					</div>
 					<table>
 						<tbody>
@@ -1015,7 +1014,7 @@
 				<div class="grand-total-row">
 					<span>Net Position</span>
 					<span class="${netPosition >= 0 ? 'positive' : 'negative'}">
-						${formatCents(netPosition)}
+						${escapeHtml(formatCents(netPosition))}
 					</span>
 				</div>
 			`;
@@ -1026,7 +1025,7 @@
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-				<title>\${groupName} - \${reportTitle}</title>
+				<title>${escapeHtml(groupName)} - ${escapeHtml(reportTitle)}</title>
 				<style>
 					@page {
 						size: letter;
@@ -1142,12 +1141,12 @@
 			<body>
 				<div class="container">
 					<div class="header">
-						<div class="org-name">\${groupName}</div>
-						<h1 class="report-title">\${reportTitle}</h1>
-						<div class="period">\${reportPeriodLabel} &middot; \${periodStr}</div>
+						<div class="org-name">${escapeHtml(groupName)}</div>
+						<h1 class="report-title">${escapeHtml(reportTitle)}</h1>
+						<div class="period">${escapeHtml(reportPeriodLabel)} &middot; ${escapeHtml(periodStr)}</div>
 					</div>
 
-					\${sectionsHtml}
+					${sectionsHtml}
 				</div>
 				<script>
 					window.onload = function() {
@@ -1260,7 +1259,10 @@
 </script>
 
 <svelte:head>
-	<title>{page.url.searchParams.get('tab') === 'banking' ? 'Bank Feeds' : 'Accounting'} | {data.group?.name ?? 'Group'}</title>
+	<title
+		>{page.url.searchParams.get('tab') === 'banking' ? 'Bank Feeds' : 'Accounting'} | {data.group
+			?.name ?? 'Group'}</title
+	>
 </svelte:head>
 
 <div class="space-y-6 pb-8">
@@ -2933,7 +2935,7 @@
 			<!-- Header -->
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div class="flex items-center gap-3">
-				<h2 class="text-2xl font-bold tracking-tight">Bank Feeds</h2>
+					<h2 class="text-2xl font-bold tracking-tight">Bank Feeds</h2>
 					<span
 						class="badge {bankReviewTotal > 0
 							? 'preset-filled-warning-500'
@@ -3055,46 +3057,48 @@
 								</form>
 							{/if}
 
-								{#if bankFeedAccounts.length > 0}
-									<div class="space-y-1.5">
-										{#each bankFeedAccounts as providerAccount}
-											<form
-												method="POST"
-												use:enhance
-												action="?/updateProviderAccountMapping"
-												class="card preset-tonal-surface flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-											>
-												<input type="hidden" name="providerAccountId" value={providerAccount.id} />
-												<div class="min-w-0">
-													<div class="flex min-w-0 items-center gap-2">
-														<span class="truncate font-semibold">{bankFeedLabel(providerAccount)}</span>
-														<span
-															class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
-														>
-															{providerAccount.provider}
-														</span>
-													</div>
-													{#if !providerAccount.account_id}
-														<p class="text-warning-700-300 mt-1 text-xs font-semibold">
-															Map this feed before reviewing its transactions.
-														</p>
-													{/if}
+							{#if bankFeedAccounts.length > 0}
+								<div class="space-y-1.5">
+									{#each bankFeedAccounts as providerAccount}
+										<form
+											method="POST"
+											use:enhance
+											action="?/updateProviderAccountMapping"
+											class="card preset-tonal-surface flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+										>
+											<input type="hidden" name="providerAccountId" value={providerAccount.id} />
+											<div class="min-w-0">
+												<div class="flex min-w-0 items-center gap-2">
+													<span class="truncate font-semibold"
+														>{bankFeedLabel(providerAccount)}</span
+													>
+													<span
+														class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+													>
+														{providerAccount.provider}
+													</span>
 												</div>
-												<select
-													class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
-													name="accountId"
-													value={providerAccount.account_id || ''}
-													onchange={requestInlineSave}
-												>
-													<option value="">Unmapped</option>
-													{#each cashAccounts as account}
-														<option value={account.id}>{accountLabel(account)}</option>
-													{/each}
-												</select>
-											</form>
-										{/each}
-									</div>
-								{/if}
+												{#if !providerAccount.account_id}
+													<p class="text-warning-700-300 mt-1 text-xs font-semibold">
+														Map this feed before reviewing its transactions.
+													</p>
+												{/if}
+											</div>
+											<select
+												class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
+												name="accountId"
+												value={providerAccount.account_id || ''}
+												onchange={requestInlineSave}
+											>
+												<option value="">Unmapped</option>
+												{#each cashAccounts as account}
+													<option value={account.id}>{accountLabel(account)}</option>
+												{/each}
+											</select>
+										</form>
+									{/each}
+								</div>
+							{/if}
 
 							{#if !stripeConnected}
 								<div class="rounded-xl border border-warning-500/20 bg-warning-500/10 p-3">
@@ -3122,8 +3126,8 @@
 								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
 							</button>
 							<p class="text-surface-700-300 text-xs font-medium leading-snug">
-								Each linked bank costs $0.30 per month to import transactions, deducted from the group's
-								Stripe balance. Mercury bank accounts are always free.
+								Each linked bank costs $0.30 per month to import transactions, deducted from the
+								group's Stripe balance. Mercury bank accounts are always free.
 							</p>
 							{#if financialConnectionsMessage}
 								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
@@ -3207,12 +3211,12 @@
 
 							<!-- Transactions -->
 							<div class="divide-surface-500/10 divide-y">
-									{#each group.items as item (item.id)}
-										{@const selection = getReviewSelection(item)}
-										{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
-										{@const selectedMatch = selectedMatchCandidate(item)}
-										{@const mercuryDetails = mercuryFeedDetails(item)}
-										<form
+								{#each group.items as item (item.id)}
+									{@const selection = getReviewSelection(item)}
+									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
+									{@const selectedMatch = selectedMatchCandidate(item)}
+									{@const mercuryDetails = mercuryFeedDetails(item)}
+									<form
 										method="POST"
 										use:enhance={enhancePostFeedItem(item.id)}
 										action="?/postFeedItem"
@@ -3221,12 +3225,16 @@
 											: ''}"
 									>
 										<input type="hidden" name="feedItemId" value={item.id} />
-										<input type="hidden" name="accountId" value={group.accountId || selection.accountId} />
-											<input
-												type="hidden"
-												name="categoryAccountId"
-												value={selection.categoryAccountId}
-											/>
+										<input
+											type="hidden"
+											name="accountId"
+											value={group.accountId || selection.accountId}
+										/>
+										<input
+											type="hidden"
+											name="categoryAccountId"
+											value={selection.categoryAccountId}
+										/>
 
 										<!-- Line 1: description + amount -->
 										<div class="mb-2 flex items-baseline gap-3">
@@ -3240,59 +3248,59 @@
 											>
 												{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
 											</span>
-												<span class="shrink-0 text-xs opacity-40"
-													>{formatDate(item.transaction_date)} · {item.provider}</span
+											<span class="shrink-0 text-xs opacity-40"
+												>{formatDate(item.transaction_date)} · {item.provider}</span
+											>
+											{#if item.status === 'matched'}
+												<span
+													class="badge preset-tonal-success shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+													>Match found</span
 												>
-												{#if item.status === 'matched'}
-													<span
-														class="badge preset-tonal-success shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
-														>Match found</span
-													>
-												{/if}
-											</div>
-
-											{#if (item.match_candidates ?? []).length > 0}
-												<div
-													class="bg-surface-500/5 border-surface-500/10 mb-2 flex max-w-3xl flex-col gap-2 rounded-lg border p-2 sm:flex-row sm:items-center"
-												>
-													<select
-														class="select preset-tonal-surface min-w-0 flex-1 py-1 text-xs"
-														name="entryId"
-														value={selectedMatch?.id || ''}
-														aria-label="Existing transaction match"
-													>
-														{#each item.match_candidates as candidate}
-															<option value={candidate.id}>
-																{matchCandidateLabel(candidate)}
-																{candidate.reason ? ` (${candidate.reason})` : ''}
-															</option>
-														{/each}
-													</select>
-													<button
-														class="btn btn-sm preset-outlined-primary-500 shrink-0 font-bold"
-														formaction="?/matchFeedItem"
-														type="submit"
-														disabled={isPostingFeedItem(item.id)}
-													>
-														Match
-													</button>
-												</div>
 											{/if}
+										</div>
 
-											{#if mercuryDetails.length > 0}
-												<div class="mb-2 flex flex-wrap gap-1.5">
-													{#each mercuryDetails as detail}
-														<span
-															class="badge preset-tonal-surface max-w-full px-2 py-1 text-[10px] font-semibold normal-case"
-														>
-															<span class="opacity-50">{detail.label}:</span>
-															<span class="ml-1 truncate">{detail.value}</span>
-														</span>
+										{#if (item.match_candidates ?? []).length > 0}
+											<div
+												class="bg-surface-500/5 border-surface-500/10 mb-2 flex max-w-3xl flex-col gap-2 rounded-lg border p-2 sm:flex-row sm:items-center"
+											>
+												<select
+													class="select preset-tonal-surface min-w-0 flex-1 py-1 text-xs"
+													name="entryId"
+													value={selectedMatch?.id || ''}
+													aria-label="Existing transaction match"
+												>
+													{#each item.match_candidates as candidate}
+														<option value={candidate.id}>
+															{matchCandidateLabel(candidate)}
+															{candidate.reason ? ` (${candidate.reason})` : ''}
+														</option>
 													{/each}
-												</div>
-											{/if}
+												</select>
+												<button
+													class="btn btn-sm preset-outlined-primary-500 shrink-0 font-bold"
+													formaction="?/matchFeedItem"
+													type="submit"
+													disabled={isPostingFeedItem(item.id)}
+												>
+													Match
+												</button>
+											</div>
+										{/if}
 
-											<!-- Line 2: category + actions -->
+										{#if mercuryDetails.length > 0}
+											<div class="mb-2 flex flex-wrap gap-1.5">
+												{#each mercuryDetails as detail}
+													<span
+														class="badge preset-tonal-surface max-w-full px-2 py-1 text-[10px] font-semibold normal-case"
+													>
+														<span class="opacity-50">{detail.label}:</span>
+														<span class="ml-1 truncate">{detail.value}</span>
+													</span>
+												{/each}
+											</div>
+										{/if}
+
+										<!-- Line 2: category + actions -->
 										<div class="flex max-w-xl items-center gap-2">
 											<div class="min-w-0 flex-1">
 												<SearchableSelect

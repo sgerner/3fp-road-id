@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { sendMembershipEmailCampaignNow } from '$lib/server/memberships';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {
@@ -8,13 +9,13 @@ function respond(result, successStatus = 200) {
 	return json({ data: result.data }, { status: successStatus });
 }
 
-export async function POST({ params, cookies, fetch, url }) {
+export async function POST({ params, cookies, fetch }) {
 	const result = await sendMembershipEmailCampaignNow({
 		cookies,
 		groupSlug: params.slug,
 		emailId: params.id,
 		fetchImpl: fetch,
-		originBaseUrl: url.origin || null
+		originBaseUrl: getConfiguredPublicOrigin()
 	});
 	return respond(result);
 }

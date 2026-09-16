@@ -6,7 +6,8 @@
 		cleanSeoText,
 		getRelativePathname,
 		limitSeoText,
-		normalizePathname
+		normalizePathname,
+		toJsonLd
 	} from '$lib/seo';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -176,7 +177,7 @@
 						url: siteRootUrl
 					}
 				};
-		return JSON.stringify(payload);
+		return toJsonLd(payload);
 	});
 
 	const navItems = $derived.by(() => {

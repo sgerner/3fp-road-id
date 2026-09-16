@@ -1,3 +1,5 @@
+import { safeNavigationUrl } from '../security/urls.js';
+
 export const GROUP_ASSET_BUCKET = 'group-assets';
 export const GROUP_ASSET_MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -81,7 +83,9 @@ export function deriveGroupAssetBucket(asset) {
 }
 
 export function getGroupAssetHref(asset) {
-	return cleanText(asset?.external_url || asset?.externalUrl || asset?.file_url || asset?.fileUrl);
+	return safeNavigationUrl(
+		asset?.external_url || asset?.externalUrl || asset?.file_url || asset?.fileUrl
+	);
 }
 
 export function getGroupAssetTitle(asset) {
@@ -148,7 +152,9 @@ export function sortGroupAssets(assets = []) {
 }
 
 export function normalizeGroupAssetBucket(bucket, assets = []) {
-	const normalizedAssets = sortGroupAssets(assets.map(normalizeGroupAsset));
+	const normalizedAssets = sortGroupAssets(
+		assets.map(normalizeGroupAsset).filter((asset) => asset.href)
+	);
 	const meta = getGroupAssetBucketMeta(bucket);
 	return {
 		slug: meta.slug,

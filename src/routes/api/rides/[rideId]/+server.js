@@ -28,7 +28,7 @@ async function loadManagedRide(supabase, rideId) {
 }
 
 export async function PUT({ params, request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 
 	const rideId = params.rideId;
@@ -176,7 +176,7 @@ export async function PUT({ params, request, cookies }) {
 }
 
 export async function DELETE({ params, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 
 	const rideId = params.rideId;

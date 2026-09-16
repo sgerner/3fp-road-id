@@ -2,7 +2,7 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { normalizeTimezone, resolveTimezoneFromCoordinates } from '$lib/server/timezones';
 
 const MAX_OCCURRENCE_MONTHS = 18;
@@ -161,8 +161,8 @@ function formatOccurrenceTitle(activity, occurrence) {
 	return safeTrim(occurrence?.title_override) || safeTrim(activity?.title) || 'Ride';
 }
 
-export function getActivityClient(cookies) {
-	const { accessToken, user } = resolveSession(cookies);
+export async function getActivityClient(cookies) {
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	return {
 		user,
 		supabase: createRequestSupabaseClient(accessToken)

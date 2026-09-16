@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
@@ -11,6 +11,7 @@ import {
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
 import { supabase } from '$lib/supabaseClient';
+import { fetchPublicHttp } from '$lib/server/security';
 
 const INSTAGRAM_POST_LIMIT = 3;
 const INSTAGRAM_WEB_APP_ID = '936619743392459';
@@ -246,15 +247,23 @@ function normalizeTimelineItem(item = null) {
 
 async function fetchInstagramPublicTimelinePostsByHandle(username) {
 	const timelineUrl = `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=${INSTAGRAM_POST_LIMIT}`;
-	const response = await fetch(timelineUrl, {
-		headers: {
-			...BROWSER_LIKE_HEADERS,
-			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
-			Referer: `https://www.instagram.com/${username}/`
+	const response = await fetchPublicHttp(
+		timelineUrl,
+		{
+			headers: {
+				...BROWSER_LIKE_HEADERS,
+				'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+				Referer: `https://www.instagram.com/${username}/`
+			}
 		},
-		redirect: 'follow',
-		signal: AbortSignal.timeout(12_000)
-	});
+		{
+			timeoutMs: 12_000,
+			maxRedirects: 2,
+			maxResponseBytes: 4 * 1024 * 1024,
+			allowedHosts: ['www.instagram.com', 'instagram.com']
+		}
+	);
+	if (!response) return [];
 	const rawBody = await response.text();
 	const payload = parseJsonSafe(rawBody);
 	if (!response.ok) {
@@ -275,15 +284,23 @@ async function fetchInstagramPublicPostsByHandle(handle) {
 	if (timelinePosts.length) return timelinePosts;
 
 	const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
-	const response = await fetch(apiUrl, {
-		headers: {
-			...BROWSER_LIKE_HEADERS,
-			'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
-			Referer: `https://www.instagram.com/${username}/`
+	const response = await fetchPublicHttp(
+		apiUrl,
+		{
+			headers: {
+				...BROWSER_LIKE_HEADERS,
+				'X-IG-App-ID': INSTAGRAM_WEB_APP_ID,
+				Referer: `https://www.instagram.com/${username}/`
+			}
 		},
-		redirect: 'follow',
-		signal: AbortSignal.timeout(10_000)
-	});
+		{
+			timeoutMs: 10_000,
+			maxRedirects: 2,
+			maxResponseBytes: 4 * 1024 * 1024,
+			allowedHosts: ['www.instagram.com', 'instagram.com']
+		}
+	);
+	if (!response) throw new Error('Instagram profile request was blocked or timed out.');
 	const rawBody = await response.text();
 	const payload = parseJsonSafe(rawBody);
 	if (!response.ok) {
@@ -406,7 +423,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		return { error: 'Group not found' };
 	}
 
-	const { user: sessionUser, accessToken } = resolveSession(cookies);
+	const { user: sessionUser, accessToken } = await resolveVerifiedSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
 	const requestSupabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();

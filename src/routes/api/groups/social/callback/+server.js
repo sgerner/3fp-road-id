@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { buildSocialReturnPath, consumeGroupSocialOauthState } from '$lib/server/social/auth';
+import { isSafeInternalPath } from '$lib/security/navigation.js';
 import {
 	createGroupSocialOauthPendingConnection,
 	purgeExpiredGroupSocialOauthPendingConnections,
@@ -169,7 +170,11 @@ export async function GET({ cookies, url }) {
 				})),
 				expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
 			});
-			const redirectPath = stateRecord.redirect_to || `/groups/${group.slug}`;
+			const requestedRedirectPath = stateRecord.redirect_to || '';
+			const fallbackRedirectPath = `/groups/${encodeURIComponent(group.slug)}`;
+			const redirectPath = isSafeInternalPath(requestedRedirectPath)
+				? requestedRedirectPath
+				: fallbackRedirectPath;
 			throw redirect(
 				303,
 				withQuery(redirectPath, {

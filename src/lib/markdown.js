@@ -1,10 +1,41 @@
 export function escapeHtml(value) {
-	return (value || '')
+	return String(value ?? '')
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')
 		.replaceAll('>', '&gt;')
 		.replaceAll('"', '&quot;')
 		.replaceAll("'", '&#39;');
+}
+
+function safeMarkdownHref(value) {
+	const raw = String(value || '').trim();
+	if (
+		!raw ||
+		raw.includes('\\') ||
+		[...raw].some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		return '';
+	}
+	const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+
+	try {
+		const url = hasScheme ? new URL(raw) : new URL(raw, 'https://3fp.invalid');
+
+		if (url.protocol === 'http:' || url.protocol === 'https:') {
+			if (url.username || url.password) return '';
+			if (!hasScheme) return url.origin === 'https://3fp.invalid' ? raw : '';
+			return url.href;
+		}
+
+		if (url.protocol === 'mailto:' || url.protocol === 'tel:') return url.href;
+	} catch {
+		return '';
+	}
+
+	return '';
 }
 
 export function renderInlineMarkdown(text) {
@@ -58,9 +89,11 @@ export function renderInlineMarkdown(text) {
 			const closeParen = openParen !== -1 ? input.indexOf(')', openParen) : -1;
 			if (closeBracket !== -1 && openParen === closeBracket + 1 && closeParen !== -1) {
 				const label = renderInlineMarkdown(input.slice(index + 1, closeBracket));
-				const href = escapeHtml(input.slice(openParen + 1, closeParen).trim());
+				const href = safeMarkdownHref(input.slice(openParen + 1, closeParen));
 				flushBuffer();
-				output += `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+				output += href
+					? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+					: label;
 				index = closeParen + 1;
 				continue;
 			}

@@ -8,7 +8,7 @@ import {
 	groupGroupAssetsByBucket,
 	slugifyGroupAssetSegment
 } from '$lib/groups/assets';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -19,7 +19,6 @@ export const GROUP_ASSET_ALLOWED_MIME_TYPES = [
 	'image/png',
 	'image/webp',
 	'image/gif',
-	'image/svg+xml',
 	'application/pdf',
 	'text/plain',
 	'text/csv',
@@ -51,7 +50,7 @@ export function requireGroupAssetsServiceClient() {
 }
 
 export async function requireGroupAssetManager(cookies, groupSlug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		return { ok: false, status: 401, error: 'Authentication required.' };
 	}

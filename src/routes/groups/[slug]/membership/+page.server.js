@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 
 async function safeJson(fetchPromise, fallback = null) {
@@ -29,7 +29,7 @@ export const load = async ({ params, fetch, cookies }) => {
 		null
 	);
 
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	let myApplications = [];
 	let myMemberships = [];
 	let myTierChangeRequests = [];

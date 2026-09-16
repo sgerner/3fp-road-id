@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { normalizeUsStateCode } from '$lib/geo/usStates';
+import { enforceRateLimit } from '$lib/server/security';
 
 const COUNTRY_HEADERS = ['x-vercel-ip-country', 'cf-ipcountry', 'x-country-code'];
 const REGION_HEADERS = ['x-vercel-ip-country-region', 'cf-region-code', 'x-region-code'];
@@ -12,16 +13,10 @@ function readHeader(request, keys = []) {
 	return '';
 }
 
-function firstForwardedIp(request) {
-	const forwarded = request.headers.get('x-forwarded-for') || '';
-	return forwarded
-		.split(',')
-		.map((entry) => entry.trim())
-		.find(Boolean);
-}
-
 async function lookupRegionByIp(ipAddress, fetchImpl) {
-	const url = new URL(ipAddress ? `https://ipapi.co/${ipAddress}/json/` : 'https://ipapi.co/json/');
+	const url = new URL(
+		ipAddress ? `https://ipapi.co/${encodeURIComponent(ipAddress)}/json/` : 'https://ipapi.co/json/'
+	);
 	const response = await fetchImpl(url, {
 		headers: { Accept: 'application/json' },
 		signal: AbortSignal.timeout(2500)
@@ -35,7 +30,15 @@ async function lookupRegionByIp(ipAddress, fetchImpl) {
 	};
 }
 
-export async function GET({ request, fetch }) {
+export async function GET(event) {
+	const { request, fetch } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'location-region',
+		limit: 30,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limited) return limited;
+
 	const headerCountry = readHeader(request, COUNTRY_HEADERS).toUpperCase();
 	const headerRegion = normalizeUsStateCode(readHeader(request, REGION_HEADERS));
 
@@ -44,7 +47,12 @@ export async function GET({ request, fetch }) {
 	}
 
 	try {
-		const ip = firstForwardedIp(request);
+		let ip = '';
+		try {
+			ip = event.getClientAddress?.() || '';
+		} catch {
+			ip = '';
+		}
 		const ipResult = await lookupRegionByIp(ip, fetch);
 		if (ipResult?.region && (!ipResult.country || ipResult.country === 'US')) {
 			return json({ stateCode: ipResult.region, source: 'ip_lookup' });

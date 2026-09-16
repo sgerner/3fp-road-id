@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from '$env/dynamic/private';
+import { readResponseBuffer } from '$lib/server/security';
 
 const PRINTFUL_API_BASE_URL = 'https://api.printful.com';
 const PRINTFUL_V2_BASE_URL = `${PRINTFUL_API_BASE_URL}/v2`;
@@ -176,6 +177,7 @@ async function sendPrintfulTokenRequest(params) {
 
 	const response = await fetch(`${PRINTFUL_OAUTH_BASE_URL}/oauth/token`, {
 		method: 'POST',
+		redirect: 'error',
 		headers: {
 			Accept: 'application/json',
 			'Content-Type': 'application/x-www-form-urlencoded'
@@ -185,7 +187,8 @@ async function sendPrintfulTokenRequest(params) {
 	});
 
 	let payload = {};
-	const raw = await response.text();
+	const rawBuffer = await readResponseBuffer(response, 256 * 1024);
+	const raw = rawBuffer ? rawBuffer.toString('utf8') : '';
 	if (raw) {
 		try {
 			payload = JSON.parse(raw);
@@ -287,15 +290,26 @@ export async function sendPrintfulRequest({
 	const targetPath = cleanText(path, 4000);
 	if (!targetPath) throw new Error('Printful path is required.');
 
-	const url = targetPath.startsWith('http')
-		? targetPath
-		: targetPath.startsWith('/v2/')
+	let url;
+	if (/^https?:\/\//i.test(targetPath)) {
+		try {
+			const parsed = new URL(targetPath);
+			if (parsed.origin !== PRINTFUL_API_BASE_URL || parsed.protocol !== 'https:') {
+				throw new Error('Printful URL is not allowed.');
+			}
+			url = parsed.toString();
+		} catch {
+			throw new Error('Printful URL is not allowed.');
+		}
+	} else {
+		url = targetPath.startsWith('/v2/')
 			? `${PRINTFUL_API_BASE_URL}${targetPath}`
 			: targetPath.startsWith('/v2')
 				? `${PRINTFUL_API_BASE_URL}${targetPath}`
 				: targetPath.startsWith('/')
 					? `${PRINTFUL_API_BASE_URL}${targetPath}`
 					: `${PRINTFUL_API_BASE_URL}/${targetPath}`;
+	}
 
 	const mergedHeaders = {
 		Authorization: `Bearer ${token}`,
@@ -317,6 +331,7 @@ export async function sendPrintfulRequest({
 		try {
 			const response = await fetch(url, {
 				method,
+				redirect: 'error',
 				headers: mergedHeaders,
 				body: body === undefined ? undefined : JSON.stringify(body),
 				signal: AbortSignal.timeout(timeout)
@@ -324,7 +339,8 @@ export async function sendPrintfulRequest({
 
 			let payload = {};
 			if (response.status !== 204) {
-				const raw = await response.text();
+				const rawBuffer = await readResponseBuffer(response, 8 * 1024 * 1024);
+				const raw = rawBuffer ? rawBuffer.toString('utf8') : '';
 				if (raw) {
 					try {
 						payload = JSON.parse(raw);

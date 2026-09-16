@@ -105,7 +105,7 @@ export const load = async ({ cookies, fetch, request, setHeaders, url }) => {
 		latitude: null,
 		longitude: null
 	};
-	const { user, supabase } = getActivityClient(cookies);
+	const { user, supabase } = await getActivityClient(cookies);
 	const profileResult = user?.id
 		? await supabase.from('profiles').select('metadata').eq('user_id', user.id).maybeSingle()
 		: { data: null };

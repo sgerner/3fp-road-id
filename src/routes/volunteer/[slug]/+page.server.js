@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 function buildQuery(params) {
 	const search = new URLSearchParams();
 	if (params && typeof params === 'object') {
@@ -90,7 +90,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 			eventStartDate < now)
 	);
 
-	const { user: sessionUser } = resolveSession(cookies);
+	const { user: sessionUser } = await resolveVerifiedSession(cookies);
 
 	const eventContactEmail =
 		event?.contact_email?.trim?.() ||

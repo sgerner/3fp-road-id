@@ -5,6 +5,7 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import { goto } from '$app/navigation';
+	import { safeNavigationUrl } from '$lib/security/urls.js';
 
 	let { data } = $props();
 	const openSlug = $derived(data.initialOpenSlug || '');
@@ -196,9 +197,9 @@
 									{#if detail.source_published_at}
 										<span>Originally published {formatDate(detail.source_published_at)}</span>
 									{/if}
-									{#if detail.source_url && !isTbagSite}
+									{#if safeNavigationUrl(detail.source_url) && !isTbagSite}
 										<a
-											href={detail.source_url}
+											href={safeNavigationUrl(detail.source_url)}
 											target="_blank"
 											rel="noopener noreferrer"
 											class="font-semibold underline underline-offset-2">View original</a

@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
 
 function parseSessionCookie(raw) {
 	if (!raw) return null;
@@ -97,6 +98,33 @@ export function resolveSession(cookies) {
 	const tokenPayload = decodeAccessToken(accessToken);
 	const user = extractSessionUser(parsedSession, tokenPayload);
 	return { session: parsedSession, accessToken, user, tokenPayload };
+}
+
+/**
+ * Resolve identity from Supabase instead of trusting the user object copied
+ * into the browser-writable session cookie. The access token is still taken
+ * from that cookie, but Supabase Auth is the authority for the user id and
+ * email used by server-side authorization checks.
+ */
+export async function resolveVerifiedSession(cookies) {
+	const resolved = resolveSession(cookies);
+	if (!resolved.accessToken) return { ...resolved, user: null, verified: false };
+
+	try {
+		const requestSupabase = createRequestSupabaseClient(resolved.accessToken);
+		const { data, error } = await requestSupabase.auth.getUser(resolved.accessToken);
+		if (error || !data?.user?.id) {
+			return { ...resolved, user: null, verified: false, verificationError: error || null };
+		}
+		return {
+			...resolved,
+			user: data.user,
+			verified: true,
+			verificationError: null
+		};
+	} catch (error) {
+		return { ...resolved, user: null, verified: false, verificationError: error };
+	}
 }
 
 export function getAccessToken(cookies) {

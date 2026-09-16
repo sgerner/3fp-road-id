@@ -41,6 +41,11 @@ export interface SendEmailResponse {
 
 type FetchLike = typeof fetch;
 
+type SendEmailOptions = {
+	fetch?: FetchLike;
+	internalSecret?: string;
+};
+
 function resolveFetch(fetchImpl?: FetchLike): FetchLike {
 	if (fetchImpl) return fetchImpl;
 	if (typeof fetch !== 'undefined') return fetch;
@@ -49,15 +54,17 @@ function resolveFetch(fetchImpl?: FetchLike): FetchLike {
 
 export async function sendEmail(
 	requestBody: SendEmailRequestBody,
-	{ fetch: fetchImpl }: { fetch?: FetchLike } = {}
+	{ fetch: fetchImpl, internalSecret }: SendEmailOptions = {}
 ) {
 	const fetchFn = resolveFetch(fetchImpl);
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json'
+	};
+	if (internalSecret) headers['x-internal-email-secret'] = internalSecret;
 
 	const response = await fetchFn('/api/v1/email', {
 		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
+		headers,
 		body: JSON.stringify(requestBody)
 	});
 

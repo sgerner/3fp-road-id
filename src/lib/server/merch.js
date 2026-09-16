@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import {
 	calculatePrintfulShippingRatesV2,
 	listPrintfulProductsWithVariantsV2,
@@ -9,6 +9,7 @@ import {
 } from '$lib/server/printful';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
+import { timingSafeStringEqual } from '$lib/server/security';
 
 const MAIN_STORE_SLUG = 'main';
 const MAX_CART_LINES = 30;
@@ -1895,6 +1896,7 @@ export async function createMerchPaymentIntent({
 
 export async function updateMerchPaymentIntent({
 	paymentIntentId,
+	clientSecret,
 	items,
 	manualFulfillmentMethodId,
 	printfulShippingOptionId,
@@ -1959,6 +1961,17 @@ export async function updateMerchPaymentIntent({
 
 	const stripe = getStripeClient();
 	try {
+		const paymentIntent = await stripe.paymentIntents.retrieve(
+			cleanedPaymentIntentId,
+			{},
+			{ stripeAccount: order.stripe_connected_account_id }
+		);
+		if (
+			!paymentIntent?.client_secret ||
+			!timingSafeStringEqual(clientSecret, paymentIntent.client_secret)
+		) {
+			return { ok: false, status: 403, error: 'Payment authorization failed.' };
+		}
 		await stripe.paymentIntents.update(
 			cleanedPaymentIntentId,
 			{

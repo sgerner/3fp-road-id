@@ -1,5 +1,5 @@
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export async function requireGroupSiteManager({ cookies, groupSlug }) {
 	const serviceSupabase = createServiceSupabaseClient();
@@ -7,7 +7,7 @@ export async function requireGroupSiteManager({ cookies, groupSlug }) {
 		return { ok: false, status: 500, error: 'SUPABASE_SERVICE_ROLE_KEY is not configured.' };
 	}
 
-	const { user } = resolveSession(cookies);
+	const { user } = await resolveVerifiedSession(cookies);
 	if (!user?.id) {
 		return { ok: false, status: 401, error: 'Authentication required.' };
 	}

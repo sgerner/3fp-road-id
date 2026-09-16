@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 
 const BUCKET_NAME = 'storage';
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -22,8 +23,9 @@ function objectPathFromPublicUrl(value) {
 	}
 }
 
-export async function POST({ request, cookies }) {
-	const { user, supabase } = getActivityClient(cookies);
+export async function POST(event) {
+	const { request, cookies } = event;
+	const { user, supabase } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
@@ -33,7 +35,22 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Avatar uploads are not configured.' }, { status: 500 });
 	}
 
-	const formData = await request.formData();
+	const limited = enforceRateLimit(event, {
+		name: 'profile-avatar-upload',
+		key: user.id,
+		limit: 12,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return limited;
+	const ipLimited = enforceRateLimit(event, {
+		name: 'profile-avatar-upload-ip',
+		limit: 24,
+		windowMs: 60 * 60 * 1000
+	});
+	if (ipLimited) return ipLimited;
+	const parsedForm = await readFormData(request, { maxBytes: 6 * 1024 * 1024 });
+	if (!parsedForm.ok) return json({ error: parsedForm.error }, { status: parsedForm.status });
+	const formData = parsedForm.value;
 	const fileEntry = formData.get('file');
 	if (!(fileEntry instanceof File)) {
 		return json({ error: 'No image file was provided.' }, { status: 400 });

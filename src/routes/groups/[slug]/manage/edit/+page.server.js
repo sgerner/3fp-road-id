@@ -2,8 +2,10 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
+import { readFormData } from '$lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -11,11 +13,18 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 async function mirrorRemoteImageToStorage(supabase, remoteUrl, destBasePath) {
 	try {
 		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
-		const res = await fetch(remoteUrl, { redirect: 'follow' });
+		const res = await fetchPublicHttp(
+			remoteUrl,
+			{ headers: { accept: 'image/*' } },
+			{ timeoutMs: 8_000, maxRedirects: 3 }
+		);
+		if (!res) return null;
 		if (!res.ok) return null;
 		const ct = res.headers.get('content-type') || '';
 		if (!ct.startsWith('image/')) return null;
-		const optimized = await optimizeImageForStorage(Buffer.from(await res.arrayBuffer()), {
+		const sourceBuffer = await readResponseBuffer(res, MAX_BYTES);
+		if (!sourceBuffer) return null;
+		const optimized = await optimizeImageForStorage(sourceBuffer, {
 			contentType: ct,
 			maxWidth: 2400,
 			maxHeight: 1800,
@@ -97,7 +106,7 @@ async function resolveGroupEditorContext({ params, cookies }) {
 	const slug = params.slug;
 
 	// Require authenticated user
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		return { ok: false, response: fail(401, { error: 'Authentication required.' }) };
 	}
@@ -146,7 +155,7 @@ export const load = async ({ params, cookies, url }) => {
 	const slug = params.slug;
 
 	// Require authenticated user
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
 
 	const supabase = createRequestSupabaseClient(accessToken);
@@ -262,7 +271,9 @@ export const actions = {
 		if (!auth.ok) return auth.response;
 		const { slug, group, group_id, supabase } = auth;
 
-		const form = await request.formData();
+		const parsedForm = await readFormData(request, { maxBytes: 24 * 1024 * 1024 });
+		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
+		const form = parsedForm.value;
 
 		const payload = {
 			city: form.get('city')?.toString().trim() ?? '',

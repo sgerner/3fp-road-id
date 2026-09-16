@@ -2,7 +2,7 @@ import { env } from '$env/dynamic/private';
 import { PUBLIC_URL_BASE } from '$env/static/public';
 import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
 import { domainMatchesManagedZone, resolveSenderSelection } from '$lib/server/emailDomainRules';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -111,7 +111,7 @@ function ensureSesClient() {
 }
 
 export async function requireGroupEmailManager(cookies, groupSlug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!user?.id) {
 		return { ok: false, status: 401, error: 'Authentication required.' };
 	}

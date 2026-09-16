@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getActivityClient } from '$lib/server/activities';
 import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
 import { buildHybridArticleCandidates, inferArticleIntent } from '$lib/server/learnRecommendations';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
 
 export const config = { maxDuration: 60 };
 
@@ -1267,8 +1268,27 @@ async function persistLearnedAssistantContext({
 	if (error) console.warn('assistant context upsert failed', error);
 }
 
-export async function POST({ request, cookies }) {
-	const payload = await request.json().catch(() => null);
+export async function POST(event) {
+	const { request, cookies } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'ai-assistant',
+		limit: 30,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limited) return limited;
+
+	const parsedBody = await readJsonBody(request, { maxBytes: 64 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	if (
+		!parsedBody.value ||
+		typeof parsedBody.value !== 'object' ||
+		Array.isArray(parsedBody.value)
+	) {
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+	const payload = parsedBody.value;
 	const messages = normalizeMessages(payload?.messages);
 	if (!messages.length) {
 		return json({ error: 'messages array required' }, { status: 400 });
@@ -1279,7 +1299,7 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'At least one user message is required.' }, { status: 400 });
 	}
 
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	const [userData, recommendationData] = await Promise.all([
 		loadUserData(supabase, user),
 		loadRecommendationsData(supabase)

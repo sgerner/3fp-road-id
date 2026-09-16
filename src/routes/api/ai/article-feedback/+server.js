@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '$lib/server/activities';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
 
 const ALLOWED_FEEDBACK_TYPES = new Set(['impression', 'click', 'dwell', 'save', 'hide']);
 const DEFAULT_WEIGHTS = {
@@ -78,11 +79,30 @@ function adjustWeights(currentWeights, feedbackType, dwellSeconds = 0) {
 	return normalizeWeights(next);
 }
 
-export async function POST({ request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
-	const payload = await request.json().catch(() => null);
+export async function POST(event) {
+	const { request, cookies } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'article-feedback',
+		limit: 120,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limited) return limited;
+
+	const { supabase, user } = await getActivityClient(cookies);
+	const parsedBody = await readJsonBody(request, { maxBytes: 16 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	if (
+		!parsedBody.value ||
+		typeof parsedBody.value !== 'object' ||
+		Array.isArray(parsedBody.value)
+	) {
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+	const payload = parsedBody.value;
 	const articleId = safeTrim(payload?.articleId);
-	const chunkId = safeTrim(payload?.chunkId) || null;
+	const chunkId = safeTrim(payload?.chunkId).slice(0, 120) || null;
 	const feedbackType = safeTrim(payload?.feedbackType).toLowerCase();
 	const sessionId = safeTrim(payload?.sessionId).slice(0, 120) || null;
 	const dwellSeconds = clamp(Math.round(toNumber(payload?.dwellSeconds, 0)), 0, 3600);
@@ -105,7 +125,7 @@ export async function POST({ request, cookies }) {
 
 	if (feedbackError) {
 		console.warn('Unable to insert learn article feedback event', feedbackError);
-		return json({ error: feedbackError.message || 'Unable to save feedback.' }, { status: 400 });
+		return json({ error: 'Unable to save feedback.' }, { status: 400 });
 	}
 
 	if (user?.id) {

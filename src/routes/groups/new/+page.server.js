@@ -1,27 +1,39 @@
 import { supabase } from '$lib/supabaseClient';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { optimizeImageForStorage } from '$lib/server/storageImages';
+import {
+	enforceRateLimit,
+	fetchPublicHttp,
+	readFormData,
+	readResponseBuffer
+} from '$lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
+
+const MAX_REMOTE_IMAGE_BYTES = 12 * 1024 * 1024;
 
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
 		const storageClient = createServiceSupabaseClient();
 		if (!storageClient) return null;
 		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
-		const res = await fetch(remoteUrl, { redirect: 'follow' });
+		const res = await fetchPublicHttp(
+			remoteUrl,
+			{ headers: { accept: 'image/*' } },
+			{ timeoutMs: 8_000, maxRedirects: 3 }
+		);
 		if (!res.ok) return null;
-		const ct = res.headers.get('content-type') || '';
+		const ct = (res.headers.get('content-type') || '').split(';', 1)[0].trim().toLowerCase();
 		if (!ct.startsWith('image/')) return null;
-		const ab = await res.arrayBuffer();
-		const ext = (() => {
-			if (ct.includes('jpeg')) return 'jpg';
-			if (ct.includes('png')) return 'png';
-			if (ct.includes('webp')) return 'webp';
-			if (ct.includes('gif')) return 'gif';
-			return 'img';
-		})();
-		const path = `${destBasePath}-${Date.now()}.${ext}`;
-		const up = await storageClient.storage.from('storage').upload(path, ab, {
-			contentType: ct,
+		const sourceBuffer = await readResponseBuffer(res, MAX_REMOTE_IMAGE_BYTES);
+		if (!sourceBuffer) return null;
+		const optimized = await optimizeImageForStorage(sourceBuffer, { contentType: ct });
+		const path = `${destBasePath}-${Date.now()}.${optimized.extension}`;
+		const up = await storageClient.storage.from('storage').upload(path, optimized.buffer, {
+			contentType: optimized.contentType,
 			upsert: true
 		});
 		if (up.error) return null;
@@ -155,20 +167,15 @@ function formDataToObject(formData) {
 	return out;
 }
 
-async function findPotentialDuplicateGroups({
-	name,
-	city,
-	state_region,
-	country,
-	website_url,
-	slug,
-	social_links
-}) {
+async function findPotentialDuplicateGroups(
+	supabaseClient,
+	{ name, city, state_region, country, website_url, slug, social_links }
+) {
 	const safeName = (name || '').trim();
 	if (!safeName || !country) return [];
 
 	const tokens = Array.from(toTokenSet(safeName)).slice(0, 4);
-	let query = supabase
+	let query = supabaseClient
 		.from('groups')
 		.select('id, slug, name, city, state_region, country, website_url, social_links')
 		.eq('country', country)
@@ -285,8 +292,45 @@ export const load = async () => {
 };
 
 export const actions = {
-	default: async ({ request }) => {
-		const form = await request.formData();
+	default: async (event) => {
+		const { request, cookies } = event;
+		if (
+			enforceRateLimit(event, {
+				name: 'group-create-ip',
+				limit: 10,
+				windowMs: 60 * 60 * 1000
+			})
+		) {
+			return fail(429, { error: 'Too many group creation attempts. Please try again later.' });
+		}
+
+		const parsedForm = await readFormData(request, { maxBytes: 256 * 1024 });
+		if (!parsedForm.ok) {
+			return fail(parsedForm.status, { error: parsedForm.error });
+		}
+
+		const { accessToken, user, verified } = await resolveVerifiedSession(cookies);
+		if (!verified || !accessToken || !user?.id) {
+			return fail(401, { error: 'Please sign in before creating a group.' });
+		}
+		if (
+			enforceRateLimit(event, {
+				name: 'group-create-user',
+				key: user.id,
+				limit: 5,
+				windowMs: 60 * 60 * 1000
+			})
+		) {
+			return fail(429, { error: 'Too many group creation attempts. Please try again later.' });
+		}
+
+		const requestSupabase = createRequestSupabaseClient(accessToken);
+		const serviceSupabase = createServiceSupabaseClient();
+		if (!serviceSupabase) {
+			return fail(503, { error: 'Group creation is temporarily unavailable.' });
+		}
+
+		const form = parsedForm.value;
 		const values = formDataToObject(form);
 		const name = form.get('name')?.toString().trim();
 		const city = form.get('city')?.toString().trim() ?? '';
@@ -346,7 +390,7 @@ export const actions = {
 		let slug = slugify(form.get('slug')?.toString() || name);
 		if (!slug) slug = slugify(name);
 
-		const duplicate_candidates = await findPotentialDuplicateGroups({
+		const duplicate_candidates = await findPotentialDuplicateGroups(requestSupabase, {
 			name,
 			city,
 			state_region,
@@ -389,23 +433,28 @@ export const actions = {
 			social_links
 		};
 
-		let { data: groupRes, error: groupErr } = await supabase
-			.from('groups')
-			.insert(insertPayload)
-			.select('id, slug')
-			.single();
+		const createGroup = async () => {
+			const { data, error } = await serviceSupabase.rpc('create_group_with_owner', {
+				group_data: insertPayload,
+				owner_user_id: user.id
+			});
+			return { data: Array.isArray(data) ? data[0] : data, error };
+		};
+
+		let { data: groupRes, error: groupErr } = await createGroup();
 
 		if (groupErr && groupErr.code === '23505') {
 			// unique_violation on slug; try once with suffix
 			const suffix = Math.random().toString(36).slice(2, 6);
 			insertPayload.slug = `${slug}-${suffix}`;
-			const retry = await supabase.from('groups').insert(insertPayload).select('id, slug').single();
+			const retry = await createGroup();
 			groupRes = retry.data;
 			groupErr = retry.error;
 		}
 
-		if (groupErr) {
-			return fail(500, { error: groupErr.message, values });
+		if (groupErr || !groupRes?.id) {
+			console.error('Unable to create group:', groupErr);
+			return fail(500, { error: 'Unable to create this group. Please try again.', values });
 		}
 
 		const group_id = groupRes.id;
@@ -427,7 +476,7 @@ export const actions = {
 			if (publicUrl) updates.cover_photo_url = publicUrl;
 		}
 		if (Object.keys(updates).length) {
-			await supabase.from('groups').update(updates).eq('id', group_id);
+			await requestSupabase.from('groups').update(updates).eq('id', group_id);
 		}
 
 		// Handle many-to-many selections
@@ -451,28 +500,28 @@ export const actions = {
 		const inserts = [];
 		if (gt_ids.length) {
 			inserts.push(
-				supabase
+				requestSupabase
 					.from('group_x_group_types')
 					.insert(gt_ids.map((group_type_id) => ({ group_id, group_type_id })))
 			);
 		}
 		if (af_ids.length) {
 			inserts.push(
-				supabase
+				requestSupabase
 					.from('group_x_audience_focuses')
 					.insert(af_ids.map((audience_focus_id) => ({ group_id, audience_focus_id })))
 			);
 		}
 		if (rd_ids.length) {
 			inserts.push(
-				supabase
+				requestSupabase
 					.from('group_x_riding_disciplines')
 					.insert(rd_ids.map((riding_discipline_id) => ({ group_id, riding_discipline_id })))
 			);
 		}
 		if (sl_ids.length) {
 			inserts.push(
-				supabase
+				requestSupabase
 					.from('group_x_skill_levels')
 					.insert(sl_ids.map((skill_level_id) => ({ group_id, skill_level_id })))
 			);
@@ -482,11 +531,11 @@ export const actions = {
 			const results = await Promise.all(inserts);
 			const joinError = results.find((r) => r.error)?.error;
 			if (joinError) {
-				// Not fatal to group creation; report but continue
+				console.error('Unable to link group categories:', joinError);
 				return {
 					success: true,
 					slug: groupRes.slug,
-					warning: `Group created, but linking failed: ${joinError.message}`
+					warning: 'Group created, but some selected details could not be saved.'
 				};
 			}
 		}

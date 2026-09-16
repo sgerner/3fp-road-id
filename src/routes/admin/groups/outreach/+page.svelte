@@ -1136,7 +1136,12 @@
 							: 'text-surface-500 hover:text-surface-900-100'}"
 					>
 						Upload
-						<input type="file" accept="image/*" class="hidden" onchange={onImageFileSelected} />
+						<input
+							type="file"
+							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+							class="hidden"
+							onchange={onImageFileSelected}
+						/>
 					</label>
 				</div>
 

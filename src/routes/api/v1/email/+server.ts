@@ -1,7 +1,14 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { PUBLIC_URL_BASE } from '$env/static/public';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { enforceRateLimit, readJsonBody, timingSafeStringEqual } from '$lib/server/security';
+import { sanitizeEmailHtml } from '$lib/server/emailHtml';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 import {
 	normalizeEmailBrand,
 	wrapHtmlWithBranding,
@@ -12,6 +19,7 @@ const MAX_RECIPIENTS = 10;
 const MAX_BODY_LENGTH = 5000;
 const MAX_URLS = 9;
 const MIN_SUBJECT_LENGTH = 3;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ALLOWED_HTML_TAGS = new Set([
 	'a',
@@ -229,8 +237,6 @@ const DISALLOWED_HTML_SNIPPETS = [
 
 type SesTag = { Name: string; Value: string };
 
-const PUBLIC_BRAND_BASE = (PUBLIC_URL_BASE || '').trim().replace(/\/+$/, '');
-
 let cachedClient: SESClient | null = null;
 
 function ensureSesClient(): SESClient {
@@ -255,42 +261,6 @@ function ensureSesClient(): SESClient {
 	});
 
 	return cachedClient;
-}
-
-function normalizeOrigin(value?: string | null): string {
-	if (!value) return '';
-	return value.trim().replace(/\/+$/, '');
-}
-
-function deriveRequestOrigin(request: Request): string {
-	const headers = request.headers;
-	const forwardedHost = headers.get('x-forwarded-host');
-	const forwardedProto = headers.get('x-forwarded-proto');
-
-	if (forwardedHost) {
-		const host = forwardedHost.split(',')[0]?.trim();
-		if (host) {
-			const proto = forwardedProto?.split(',')[0]?.trim().toLowerCase() || 'https';
-			return normalizeOrigin(`${proto}://${host}`);
-		}
-	}
-
-	const originHeader = headers.get('origin');
-	if (originHeader) {
-		return normalizeOrigin(originHeader);
-	}
-
-	const hostHeader = headers.get('host');
-	if (hostHeader) {
-		const url = new URL(request.url);
-		const protocol =
-			forwardedProto?.split(',')[0]?.trim().toLowerCase() ||
-			url.protocol.replace(':', '') ||
-			'https';
-		return normalizeOrigin(`${protocol}://${hostHeader.trim()}`);
-	}
-
-	return normalizeOrigin(PUBLIC_BRAND_BASE);
 }
 
 function deriveBrandingCategory(tags: SesTag[] | undefined, override?: string): string {
@@ -391,7 +361,7 @@ function sanitizeHtml(rawHtml: string): string {
 		sanitized = sanitized.replace(snippet, '');
 	}
 
-	return sanitized.replace(/<\s*\/?\s*([a-z0-9]+)([^>]*)>/gi, (match, tag, attrs) => {
+	sanitized = sanitized.replace(/<\s*\/?\s*([a-z0-9]+)([^>]*)>/gi, (match, tag, attrs) => {
 		const lowerTag = String(tag).toLowerCase();
 		const isClosing = /^<\s*\//.test(match);
 
@@ -499,6 +469,7 @@ function sanitizeHtml(rawHtml: string): string {
 
 		return `<${lowerTag}${attributeString}>`;
 	});
+	return sanitizeEmailHtml(sanitized);
 }
 
 const ANCHOR_PLACEHOLDER_PREFIX = '__ANCHOR_PLACEHOLDER__';
@@ -657,13 +628,203 @@ function validateRequestPayload(payload: Record<string, unknown>) {
 	};
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-	let payload: Record<string, unknown>;
+function getTagValue(payload: Record<string, unknown>, name: string): string {
+	if (!Array.isArray(payload.tags)) return '';
+	for (const candidate of payload.tags) {
+		if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+		const tagName = (candidate as { Name?: unknown }).Name;
+		const tagValue = (candidate as { Value?: unknown }).Value;
+		if (typeof tagName === 'string' && tagName.toLowerCase() === name.toLowerCase()) {
+			return typeof tagValue === 'string' ? tagValue.trim() : '';
+		}
+	}
+	return '';
+}
 
-	try {
-		payload = await request.json();
-	} catch (error) {
+function getInternalEmailSecret(): string {
+	return String(env.EMAIL_API_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+}
+
+function hasInternalEmailCapability(request: Request): boolean {
+	const configured = getInternalEmailSecret();
+	const supplied = request.headers.get('x-internal-email-secret') || '';
+	return Boolean(configured && supplied && timingSafeStringEqual(supplied, configured));
+}
+
+function normalizedEmails(values: unknown): string[] {
+	return normalizeRecipients(values).map((value) => value.toLowerCase());
+}
+
+async function loadEventRecipientEmails(
+	supabaseClient: ReturnType<typeof createServiceSupabaseClient>,
+	eventId: string
+) {
+	if (!supabaseClient) return [];
+	const { data: eventRecord, error: eventError } = await supabaseClient
+		.from('volunteer_events')
+		.select('id,status,contact_email,host_user_id,host_group_id')
+		.eq('id', eventId)
+		.maybeSingle();
+	if (eventError || !eventRecord) return [];
+
+	const userIds = new Set<string>();
+	if (eventRecord.host_user_id) userIds.add(String(eventRecord.host_user_id));
+	const [hostRows, ownerRows] = await Promise.all([
+		supabaseClient.from('volunteer_event_hosts').select('user_id').eq('event_id', eventId),
+		eventRecord.host_group_id
+			? supabaseClient
+					.from('group_members')
+					.select('user_id')
+					.eq('group_id', eventRecord.host_group_id)
+					.eq('role', 'owner')
+			: Promise.resolve({ data: [] as { user_id?: string }[] })
+	]);
+	for (const row of hostRows.data || []) {
+		if (row?.user_id) userIds.add(String(row.user_id));
+	}
+	for (const row of ownerRows.data || []) {
+		if (row?.user_id) userIds.add(String(row.user_id));
+	}
+
+	const profileEmails = userIds.size
+		? await supabaseClient
+				.from('profiles')
+				.select('user_id,email')
+				.in('user_id', [...userIds])
+		: { data: [] as { user_id?: string; email?: string }[] };
+
+	return [
+		eventRecord.contact_email,
+		...(profileEmails.data || []).map((profile: { email?: string }) => profile?.email)
+	]
+		.filter((value): value is string => typeof value === 'string' && isValidEmail(value))
+		.map((value) => value.toLowerCase());
+}
+
+async function authorizePublicVolunteerQuestion(
+	event: Parameters<RequestHandler>[0],
+	payload: Record<string, unknown>
+) {
+	const context = getTagValue(payload, 'context').toLowerCase();
+	const eventId = getTagValue(payload, 'volunteer_event_id');
+	if (context !== 'volunteer-question' || !UUID_PATTERN.test(eventId)) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+
+	const limited = enforceRateLimit(event, {
+		name: 'public-volunteer-question-email',
+		limit: 3,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return { ok: false, response: limited };
+
+	const serviceSupabase = createServiceSupabaseClient();
+	if (!serviceSupabase) {
+		return {
+			ok: false,
+			response: json({ error: 'Email service is unavailable.' }, { status: 503 })
+		};
+	}
+	const { data: eventRecord, error } = await serviceSupabase
+		.from('volunteer_events')
+		.select('id,status')
+		.eq('id', eventId)
+		.eq('status', 'published')
+		.maybeSingle();
+	if (error || !eventRecord) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+
+	const recipients = normalizedEmails(payload.to);
+	const allowedRecipients = new Set(
+		(await loadEventRecipientEmails(serviceSupabase, eventId)).map((value) => value.toLowerCase())
+	);
+	if (recipients.length !== 1 || !allowedRecipients.has(recipients[0])) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+	return { ok: true };
+}
+
+async function authorizeEmailRequest(
+	event: Parameters<RequestHandler>[0],
+	payload: Record<string, unknown>
+) {
+	if (hasInternalEmailCapability(event.request)) return { ok: true };
+
+	const { accessToken, user } = await resolveVerifiedSession(event.cookies);
+	if (!user?.id || !accessToken) {
+		return authorizePublicVolunteerQuestion(event, payload);
+	}
+
+	const context = getTagValue(payload, 'context').toLowerCase();
+	if (context === 'volunteer-question') {
+		return authorizePublicVolunteerQuestion(event, payload);
+	}
+
+	const eventId = getTagValue(payload, 'volunteer_event_id');
+	if (!UUID_PATTERN.test(eventId)) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+
+	const requestSupabase = createRequestSupabaseClient(accessToken);
+	const { data: eventRecord, error: eventError } = await requestSupabase
+		.from('volunteer_events')
+		.select('id')
+		.eq('id', eventId)
+		.maybeSingle();
+	if (eventError || !eventRecord) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+
+	const { data: signupRows, error: signupError } = await requestSupabase
+		.from('volunteer_signups')
+		.select('volunteer_email')
+		.eq('event_id', eventId)
+		.limit(500);
+	if (signupError) {
+		console.error('Unable to authorize email recipients', signupError);
+		return {
+			ok: false,
+			response: json({ error: 'Email service is unavailable.' }, { status: 503 })
+		};
+	}
+
+	const allowedRecipients = new Set(
+		normalizedEmails((signupRows || []).map((row) => row.volunteer_email))
+	);
+	const recipients = normalizedEmails(payload.to);
+	if (!recipients.length || recipients.some((recipient) => !allowedRecipients.has(recipient))) {
+		return { ok: false, response: json({ error: 'Email permission denied.' }, { status: 403 }) };
+	}
+	return { ok: true };
+}
+
+export const POST: RequestHandler = async (event) => {
+	const { request } = event;
+	if (!hasInternalEmailCapability(request)) {
+		const limited = enforceRateLimit(event, {
+			name: 'email-api',
+			limit: 60,
+			windowMs: 60 * 1000
+		});
+		if (limited) return limited;
+	}
+
+	const parsedBody = await readJsonBody(request, { maxBytes: 64 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	if (
+		!parsedBody.value ||
+		typeof parsedBody.value !== 'object' ||
+		Array.isArray(parsedBody.value)
+	) {
 		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+	const payload = parsedBody.value as Record<string, unknown>;
+	const authorization = await authorizeEmailRequest(event, payload);
+	if (!authorization.ok) {
+		return authorization.response || json({ error: 'Email permission denied.' }, { status: 403 });
 	}
 
 	const validation = validateRequestPayload(payload);
@@ -711,8 +872,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		normalizedTags,
 		sanitizeBrandingValue(brandingPayload?.category, 80)
 	);
-	const requestOrigin = deriveRequestOrigin(request);
-	const brandingOrigin = requestOrigin || (PUBLIC_BRAND_BASE ? PUBLIC_BRAND_BASE : undefined);
+	const requestOrigin = getConfiguredPublicOrigin();
+	const brandingOrigin = requestOrigin;
 
 	const sanitizedHtmlBody = validation.sanitizedHtml?.trim?.()
 		? validation.sanitizedHtml.trim()

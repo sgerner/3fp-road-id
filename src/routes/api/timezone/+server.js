@@ -14,7 +14,14 @@ export async function GET({ url }) {
 	const latitude = toFiniteNumber(url.searchParams.get('latitude'));
 	const longitude = toFiniteNumber(url.searchParams.get('longitude'));
 
-	if (latitude === null || longitude === null) {
+	if (
+		latitude === null ||
+		longitude === null ||
+		latitude < -90 ||
+		latitude > 90 ||
+		longitude < -180 ||
+		longitude > 180
+	) {
 		return json({ error: 'latitude and longitude are required.' }, { status: 400 });
 	}
 

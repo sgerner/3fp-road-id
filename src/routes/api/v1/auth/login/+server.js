@@ -1,8 +1,12 @@
+import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabaseClient';
+import { enforceRateLimit, isSafeInternalPath, readJsonBody } from '$lib/server/security';
 import { isTurnstileEnabled } from '$lib/server/turnstile';
-import { PUBLIC_URL_BASE } from '$env/static/public';
+import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
+import { createOwnerInviteState } from '$lib/server/groupOwnerInvites';
 import { TURNSTILE_SECRET_KEY } from '$env/static/private';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 // Expect a payload like:
 // {
@@ -11,13 +15,39 @@ import { TURNSTILE_SECRET_KEY } from '$env/static/private';
 //    createProfile: true   // if creating a new profile; false for normal login
 // }
 const hasTurnstileSecret = Boolean(TURNSTILE_SECRET_KEY);
-let missingSecretWarned = false;
 
-export async function POST({ request }) {
+export async function POST(event) {
+	const { request } = event;
+	const limited = enforceRateLimit(event, {
+		name: 'auth-login',
+		limit: 10,
+		windowMs: 15 * 60 * 1000
+	});
+	if (limited) return limited;
+
 	try {
-		const { code, email, createProfile, returnTo, honeypot, turnstileToken } = await request.json();
-		const requestUrl = request.url;
-		const requestOrigin = new URL(requestUrl).origin;
+		const parsedBody = await readJsonBody(request, { maxBytes: 16 * 1024 });
+		if (!parsedBody.ok) {
+			return json({ error: parsedBody.error }, { status: parsedBody.status });
+		}
+		const body = parsedBody.value;
+		if (!body || typeof body !== 'object' || Array.isArray(body)) {
+			return json({ error: 'Invalid request body.' }, { status: 400 });
+		}
+
+		const code = typeof body.code === 'string' ? body.code.trim().slice(0, 64) : '';
+		const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+		const createProfile =
+			body.createProfile === true ||
+			(typeof body.createProfile === 'string' &&
+				body.createProfile.trim().toLowerCase() === 'true');
+		const returnTo = typeof body.returnTo === 'string' ? body.returnTo : '';
+		const honeypot = body.honeypot;
+		const turnstileToken = body.turnstileToken;
+		if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			return json({ error: 'Enter a valid email address.' }, { status: 400 });
+		}
+		const requestOrigin = getConfiguredPublicOrigin();
 
 		if (typeof honeypot === 'string' && honeypot.trim().length > 0) {
 			return json({ error: 'Invalid submission.' }, { status: 400 });
@@ -33,15 +63,11 @@ export async function POST({ request }) {
 				secret: TURNSTILE_SECRET_KEY,
 				response: turnstileToken
 			});
-			const connectingIp =
-				request.headers.get('cf-connecting-ip') ||
-				(request.headers.get('x-forwarded-for') || '').split(',')[0]?.trim();
-			if (connectingIp) {
-				payload.append('remoteip', connectingIp);
-			}
 			const verify = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
 				method: 'POST',
-				body: payload
+				redirect: 'error',
+				body: payload,
+				signal: AbortSignal.timeout(5000)
 			});
 			if (!verify.ok) {
 				console.error('Turnstile verification failed to respond:', verify.status);
@@ -52,17 +78,60 @@ export async function POST({ request }) {
 				console.warn('Turnstile verification failure', verification);
 				return json({ error: 'Verification failed. Please try again.' }, { status: 400 });
 			}
-		} else if (turnstileEnabled && !missingSecretWarned) {
-			console.warn('TURNSTILE_SECRET_KEY is not configured; skipping verification.');
-			missingSecretWarned = true;
+		} else if (turnstileEnabled && !hasTurnstileSecret) {
+			console.error('TURNSTILE_SECRET_KEY is not configured while Turnstile is enabled.');
+			if (!dev) {
+				return json({ error: 'Verification is temporarily unavailable.' }, { status: 503 });
+			}
 		}
 
 		// Build confirm URL with return_to so users land back where they started.
-		const safeReturn = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/';
+		let safeReturn = isSafeInternalPath(returnTo) ? returnTo : '/';
+		let ownerInviteRequested = false;
+		let ownerInviteGroup = null;
+		let ownerInviteManager = null;
+		if (safeReturn !== '/') {
+			try {
+				const returnUrl = new URL(safeReturn, requestOrigin);
+				const ownerSlug = returnUrl.searchParams.get('auto_add_owner')?.trim() || '';
+				// Never allow a caller to carry a capability into a newly issued link.
+				returnUrl.searchParams.delete('owner_invite');
+				safeReturn = `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`;
+				if (ownerSlug) {
+					ownerInviteRequested = true;
+					const manager = await requireGroupSiteManager({
+						cookies: event.cookies,
+						groupSlug: ownerSlug
+					});
+					if (!manager.ok) {
+						return json({ error: manager.error }, { status: manager.status });
+					}
+					ownerInviteManager = manager;
+					ownerInviteGroup = manager.group;
+				}
+			} catch {
+				return json({ error: 'Invalid return path.' }, { status: 400 });
+			}
+		}
+		if (ownerInviteRequested) {
+			try {
+				const ownerInviteToken = createOwnerInviteState({
+					groupId: ownerInviteGroup.id,
+					groupSlug: ownerInviteGroup.slug,
+					invitedEmail: email,
+					inviterUserId: ownerInviteManager.userId
+				});
+				const returnUrl = new URL(safeReturn, requestOrigin);
+				returnUrl.searchParams.set('owner_invite', ownerInviteToken);
+				safeReturn = `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`;
+			} catch (inviteError) {
+				console.error('Unable to create owner invite capability:', inviteError);
+				return json({ error: 'Owner invitations are temporarily unavailable.' }, { status: 503 });
+			}
+		}
 		const params = new URLSearchParams({ return_to: safeReturn });
 		if (code) params.set('rid', code);
-		const configuredBase = (PUBLIC_URL_BASE || '').trim();
-		const baseUrl = configuredBase || requestOrigin;
+		const baseUrl = requestOrigin;
 		let redirectUrl;
 		try {
 			const confirmUrl = new URL('/auth/confirm', baseUrl);
@@ -83,7 +152,8 @@ export async function POST({ request }) {
 		});
 
 		if (authError) {
-			return json({ error: authError.message }, { status: 400 });
+			console.warn('Magic-link request rejected by auth provider', authError);
+			return json({ error: 'Unable to send login link. Please try again.' }, { status: 400 });
 		}
 
 		// If we are creating a new profile, insert it into the profiles table

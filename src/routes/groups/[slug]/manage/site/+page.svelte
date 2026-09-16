@@ -678,7 +678,7 @@
 			id={`sponsor-file-${sponsor._editorId}`}
 			type="file"
 			name={`sponsor_logo_file_${index}`}
-			accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+			accept="image/png,image/jpeg,image/webp,image/gif"
 			onchange={(event) => {
 				sponsorFileNames = {
 					...sponsorFileNames,

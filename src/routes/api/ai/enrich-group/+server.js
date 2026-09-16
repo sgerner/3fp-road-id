@@ -10,12 +10,21 @@ import {
 	getAiModel,
 	requireAiModel
 } from '$lib/server/ai/models';
+import {
+	enforceRateLimit,
+	readJsonBody,
+	readResponseBuffer,
+	fetchPublicHttp
+} from '$lib/server/security';
 
 // Give Vercel enough time for the AI call.
 export const config = { maxDuration: 60 };
 
 const DEFAULT_FETCH_TIMEOUT = 3000; // ms
 const JINA_READER_TIMEOUT = 9000;
+const MAX_REMOTE_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_READER_BYTES = 2 * 1024 * 1024;
+const MAX_HTML_BYTES = 4 * 1024 * 1024;
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
 const SITE_CRAWL_PAGE_LIMIT = 8;
 const SITE_CRAWL_BATCH_SIZE = 4;
@@ -320,7 +329,8 @@ async function fetchReaderMarkdown(url) {
 		JINA_READER_TIMEOUT
 	);
 	if (!res?.ok) return '';
-	const raw = await res.text().catch(() => '');
+	const rawBuffer = await readResponseBuffer(res, MAX_READER_BYTES);
+	const raw = rawBuffer?.toString('utf8') || '';
 	return cleanReaderMarkdown(raw);
 }
 
@@ -338,7 +348,8 @@ async function fetchAndExtract(url) {
 				DEFAULT_FETCH_TIMEOUT
 			);
 			if (res?.ok) {
-				html = await res.text().catch(() => '');
+				const htmlBuffer = await readResponseBuffer(res, MAX_HTML_BYTES);
+				html = htmlBuffer?.toString('utf8') || '';
 				if (html) {
 					structured = extractEmbeddedJson(html);
 					pageSignals = extractPageSignals(html);
@@ -398,7 +409,14 @@ function buildFacebookUrl(name) {
 	return `https://www.facebook.com/${encodeURIComponent(n)}`;
 }
 
-export const POST = async ({ request }) => {
+export const POST = async (event) => {
+	const limited = enforceRateLimit(event, {
+		name: 'ai-group-enrichment',
+		limit: 6,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limited) return limited;
+
 	if (!isAiModelConfigured('group_enrichment')) {
 		return json({ error: getAiConfigurationError('group_enrichment') }, { status: 503 });
 	}
@@ -412,8 +430,19 @@ export const POST = async ({ request }) => {
 		console.info(`[enrich-group:${requestId}] ${stage} in ${elapsed}ms${tail}`);
 	};
 
-	const body = await request.json().catch(() => ({}));
-	const { instagram, facebook, website, name, existing_profile, existing_categories } = body || {};
+	const parsedBody = await readJsonBody(event.request, { maxBytes: 128 * 1024 });
+	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
+	const body = parsedBody.value;
+	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+		return json({ error: 'Invalid request body.' }, { status: 400 });
+	}
+	const textInput = (value, maxLength) =>
+		typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+	const instagram = textInput(body.instagram, 320);
+	const facebook = textInput(body.facebook, 320);
+	const website = textInput(body.website, 2_000);
+	const name = textInput(body.name, 240);
+	const { existing_profile, existing_categories } = body;
 	const existingProfile = normalizeExistingProfileInput({
 		fields: existing_profile?.fields || existing_profile || {},
 		categories: existing_profile?.categories || existing_categories || body?.categories || {},
@@ -771,7 +800,9 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 		if (!res || !res.ok) return null;
 		const ct = res.headers.get('content-type') || '';
 		if (!ct.startsWith('image/')) return null;
-		const optimized = await optimizeImageForStorage(Buffer.from(await res.arrayBuffer()), {
+		const sourceBuffer = await readResponseBuffer(res, MAX_REMOTE_IMAGE_BYTES);
+		if (!sourceBuffer) return null;
+		const optimized = await optimizeImageForStorage(sourceBuffer, {
 			contentType: ct,
 			maxWidth: 2400,
 			maxHeight: 1800,
@@ -2831,17 +2862,7 @@ function clamp(value, min, max) {
 }
 
 async function fetchWithTimeout(url, options = {}, timeout = DEFAULT_FETCH_TIMEOUT) {
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeout);
-	try {
-		const res = await fetch(url, { ...options, signal: controller.signal });
-		return res;
-	} catch {
-		// Treat aborts/timeouts as a null response; other errors fall through as null as well.
-		return null;
-	} finally {
-		clearTimeout(timer);
-	}
+	return fetchPublicHttp(url, options, { timeoutMs: timeout, maxRedirects: 3 });
 }
 
 async function crawlImportantSitePages({

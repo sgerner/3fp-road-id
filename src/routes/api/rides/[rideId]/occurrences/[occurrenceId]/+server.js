@@ -10,7 +10,7 @@ function invalid(message, status = 400) {
 }
 
 export async function PUT({ params, request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
 	const canManage = await canManageActivity(supabase, params.rideId).catch((error) => {
 		console.error('Unable to verify ride occurrence permissions', error);

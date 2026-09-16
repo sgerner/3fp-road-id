@@ -1627,7 +1627,11 @@
 					subject: finalSubject,
 					html: htmlBody ?? undefined,
 					text: textBody ?? undefined,
-					replyTo: contactEmail || undefined
+					replyTo: contactEmail || undefined,
+					tags: [
+						{ Name: 'context', Value: 'volunteer-manager' },
+						event?.id ? { Name: 'volunteer_event_id', Value: String(event.id) } : null
+					].filter(Boolean)
 				});
 				sentCount += 1;
 			} catch (error) {

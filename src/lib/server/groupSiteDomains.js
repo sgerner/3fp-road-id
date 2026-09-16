@@ -1,5 +1,5 @@
 import { env } from '$env/dynamic/private';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import { autoProvisionEmailSenderForRegisteredDomain } from '$lib/server/groupEmailDomains';
 import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
 import {

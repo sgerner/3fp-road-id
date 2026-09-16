@@ -1,4 +1,5 @@
 import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.js';
+import { fetchPublicHttp, readResponseBuffer } from './security.js';
 import { inferGeocodeCountryCodeFromLocation } from './weeklyrides-imports.js';
 
 const BTWPHX_PROJECT_ID = 'proj_W0ZyzxfO5LSngvzL903Xy';
@@ -122,7 +123,11 @@ function isLegacyDataUrl(dataUrl) {
 	}
 }
 
-async function fetchCalendarPayload(dataUrl, { referrer, origin, projectId, platform, app }) {
+async function fetchCalendarPayload(
+	dataUrl,
+	{ referrer, origin, projectId, platform, app },
+	fetchHttp = fetchPublicHttp
+) {
 	const legacyRequest = isLegacyDataUrl(dataUrl);
 	const request = {
 		method: legacyRequest ? 'POST' : 'GET',
@@ -147,11 +152,19 @@ async function fetchCalendarPayload(dataUrl, { referrer, origin, projectId, plat
 		});
 	}
 
-	const response = await fetch(dataUrl, request);
+	const response = await fetchHttp(dataUrl, request, {
+		timeoutMs: 12_000,
+		maxRedirects: 2,
+		maxResponseBytes: 8 * 1024 * 1024,
+		allowedHosts: ['inffuse.eventscalendar.co']
+	});
+	if (!response) throw new Error('BTWPHX calendar request was blocked or timed out.');
 	if (!response.ok) {
 		throw new Error(`BTWPHX calendar request failed: ${response.status} ${response.statusText}`);
 	}
-	return response.json();
+	const responseBuffer = await readResponseBuffer(response, 8 * 1024 * 1024);
+	if (!responseBuffer) throw new Error('BTWPHX calendar response was too large.');
+	return JSON.parse(responseBuffer.toString('utf8'));
 }
 
 async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
@@ -192,6 +205,7 @@ export async function importBtwPhxCalendar(
 		origin = BTWPHX_ORIGIN,
 		platform = BTWPHX_PLATFORM,
 		app = BTWPHX_APP,
+		fetchHttp = fetchPublicHttp,
 		createdByUserId = DEFAULT_CREATED_BY_USER_ID,
 		publish = true,
 		dryRun = false,
@@ -209,17 +223,25 @@ export async function importBtwPhxCalendar(
 	let requestedDataUrl = dataUrl;
 	let payload;
 	try {
-		payload = await fetchCalendarPayload(dataUrl, { referrer, origin, projectId, platform, app });
+		payload = await fetchCalendarPayload(
+			dataUrl,
+			{ referrer, origin, projectId, platform, app },
+			fetchHttp
+		);
 	} catch (error) {
 		if (dataUrl !== BTWPHX_DATA_URL) throw error;
 		requestedDataUrl = BTWPHX_LEGACY_DATA_URL;
-		payload = await fetchCalendarPayload(requestedDataUrl, {
-			referrer,
-			origin,
-			projectId,
-			platform,
-			app
-		});
+		payload = await fetchCalendarPayload(
+			requestedDataUrl,
+			{
+				referrer,
+				origin,
+				projectId,
+				platform,
+				app
+			},
+			fetchHttp
+		);
 	}
 	const parsedData = parseBtwPhxCalendarData(payload);
 

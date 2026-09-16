@@ -6,6 +6,7 @@ import {
 } from '$lib/server/social/auth';
 import { requireGroupSocialManager } from '$lib/server/social/permissions';
 import { normalizePlatform } from '$lib/server/social/types';
+import { isSafeInternalPath } from '$lib/security/navigation.js';
 import {
 	buildMetaOAuthAuthorizeUrl,
 	resolveMetaOAuthRedirectUri
@@ -23,8 +24,10 @@ export async function GET({ cookies, params, url }) {
 			return json({ error: auth?.error || 'Forbidden' }, { status: auth?.status || 403 });
 		}
 
-		const redirectTo =
-			url.searchParams.get('redirect_to') || buildSocialReturnPath(auth.group.slug, 'connected');
+		const requestedRedirectTo = url.searchParams.get('redirect_to') || '';
+		const redirectTo = isSafeInternalPath(requestedRedirectTo)
+			? requestedRedirectTo
+			: buildSocialReturnPath(auth.group.slug, 'connected');
 		const redirectUri = resolveMetaOAuthRedirectUri(url, platform);
 		await purgeExpiredGroupSocialOauthStates(auth.serviceSupabase);
 		const stateRecord = await createGroupSocialOauthState(auth.serviceSupabase, {

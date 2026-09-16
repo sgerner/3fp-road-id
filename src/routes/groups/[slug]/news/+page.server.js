@@ -8,7 +8,7 @@ import {
 } from '$lib/server/groupNews';
 
 export const load = async ({ params, cookies, url }) => {
-	const { supabase } = getGroupNewsClient(cookies);
+	const { supabase } = await getGroupNewsClient(cookies);
 	const group = await getGroupBySlug(supabase, params.slug);
 
 	if (!group) {

@@ -4,6 +4,8 @@
 	import { supabase } from '$lib/supabaseClient';
 	import { goto } from '$app/navigation';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { isSafeInternalPath } from '$lib/security/navigation';
+	import { syncServerSession } from '$lib/security/session';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 
 	let error = $state('');
@@ -40,13 +42,6 @@
 			initTurnstile();
 		}
 	});
-
-	function setSessionCookie(session) {
-		try {
-			const payload = JSON.stringify(session);
-			document.cookie = `sb_session=${encodeURIComponent(payload)}; Path=/; Max-Age=${60 * 24 * 60 * 60}; SameSite=Lax`;
-		} catch {}
-	}
 
 	function normalizeParamsFromWeirdPath() {
 		try {
@@ -131,18 +126,27 @@
 
 			// Session persisted by supabase client; redirect appropriately
 			message = 'Logged in! Redirecting…';
-			if (session) setSessionCookie(session);
+			if (session && !(await syncServerSession(session))) {
+				error = 'Unable to establish your authenticated session. Please try again.';
+				return;
+			}
 
 			// Auto-claim group if requested
 			let dest = '/';
 			let autoClaimSlug = '';
 			let autoAddOwnerSlug = '';
-			if (returnTo && returnTo.startsWith('/')) {
+			let ownerInviteToken = '';
+			if (isSafeInternalPath(returnTo)) {
 				dest = returnTo;
 				try {
 					const rtUrl = new URL(returnTo, window.location.origin);
 					autoClaimSlug = rtUrl.searchParams.get('auto_claim_group') || '';
 					autoAddOwnerSlug = rtUrl.searchParams.get('auto_add_owner') || '';
+					ownerInviteToken = rtUrl.searchParams.get('owner_invite') || '';
+					rtUrl.searchParams.delete('auto_claim_group');
+					rtUrl.searchParams.delete('auto_add_owner');
+					rtUrl.searchParams.delete('owner_invite');
+					dest = `${rtUrl.pathname}${rtUrl.search}${rtUrl.hash}`;
 				} catch {}
 			} else if (rid) {
 				dest = `/roadid/${encodeURIComponent(rid)}`;
@@ -159,11 +163,15 @@
 				} catch {}
 			}
 
-			if (autoAddOwnerSlug) {
+			if (autoAddOwnerSlug && ownerInviteToken) {
 				try {
 					const ownerRes = await fetch(
 						`/api/groups/${encodeURIComponent(autoAddOwnerSlug)}/owners`,
-						{ method: 'POST' }
+						{
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ inviteToken: ownerInviteToken })
+						}
 					);
 					if (ownerRes.ok) {
 						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/manage/edit`;
@@ -210,12 +218,11 @@
 			const body = {
 				email: resendEmail,
 				createProfile: true,
-				returnTo:
-					returnToParam && returnToParam.startsWith('/')
-						? returnToParam
-						: ridParam
-							? `/roadid/${ridParam}`
-							: '/',
+				returnTo: isSafeInternalPath(returnToParam)
+					? returnToParam
+					: ridParam
+						? `/roadid/${ridParam}`
+						: '/',
 				honeypot: resendHoneypot,
 				turnstileToken
 			};

@@ -24,7 +24,7 @@ function normalizeOrderItemList(type, value) {
 }
 
 export const load = async ({ params, cookies }) => {
-	const { user, supabase } = getLearnClient(cookies);
+	const { user, supabase } = await getLearnClient(cookies);
 
 	const { data: category, error: categoryError } = await supabase
 		.from('learn_categories')
@@ -67,7 +67,7 @@ export const load = async ({ params, cookies }) => {
 
 export const actions = {
 	createSubcategory: async ({ request, cookies, params }) => {
-		const { user, supabase } = getLearnClient(cookies);
+		const { user, supabase } = await getLearnClient(cookies);
 		if (!user) return fail(401, { error: 'Authentication required' });
 
 		const formData = await request.formData();
@@ -89,7 +89,7 @@ export const actions = {
 		return { success: true };
 	},
 	updateOrder: async ({ request, cookies }) => {
-		const { user, supabase } = getLearnClient(cookies);
+		const { user, supabase } = await getLearnClient(cookies);
 		if (!user) return fail(401, { error: 'Authentication required' });
 
 		const formData = await request.formData();
@@ -114,7 +114,7 @@ export const actions = {
 		return { success: true };
 	},
 	deleteSubcategory: async ({ request, cookies }) => {
-		const { user, supabase } = getLearnClient(cookies);
+		const { user, supabase } = await getLearnClient(cookies);
 		if (!user) return fail(401, { error: 'Authentication required' });
 
 		const formData = await request.formData();

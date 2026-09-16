@@ -158,6 +158,14 @@
 
 	async function uploadFiles() {
 		if (!files.length) return;
+		if (files.length > 8) {
+			error = 'You can upload up to 8 files at a time.';
+			return;
+		}
+		if (files.reduce((total, file) => total + file.size, 0) > 64 * 1024 * 1024) {
+			error = 'Choose files totaling no more than 64 MB per upload.';
+			return;
+		}
 		error = '';
 		loading = true;
 
@@ -200,7 +208,7 @@
 	<input
 		type="file"
 		multiple
-		accept="image/*,application/pdf,text/csv"
+		accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,text/csv"
 		onchange={(event) => {
 			files = Array.from(event.currentTarget.files ?? []);
 		}}

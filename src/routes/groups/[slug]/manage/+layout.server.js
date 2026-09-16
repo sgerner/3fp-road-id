@@ -1,12 +1,12 @@
 import { redirect } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 export const load = async ({ params, cookies, fetch }) => {
 	const slug = params.slug;
 
 	// Resolve session
-	const { accessToken, user: sessionUser } = resolveSession(cookies);
+	const { accessToken, user: sessionUser } = await resolveVerifiedSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
 
 	if (!sessionUserId) {

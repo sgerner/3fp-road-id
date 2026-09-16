@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { getStripeClient } from '$lib/server/stripe';
+import { timingSafeStringEqual } from '$lib/server/security';
 import { renewDomainWithVercel, updateVercelDomainAutoRenew } from '$lib/server/vercelDomains';
 
 function cleanText(value) {
@@ -18,7 +19,7 @@ function isAuthorized(request) {
 	if (!expected) return false;
 	const authHeader = cleanText(request.headers.get('authorization')).replace(/^Bearer\s+/i, '');
 	const cronHeader = cleanText(request.headers.get('x-vercel-cron-secret'));
-	return authHeader === expected || cronHeader === expected;
+	return timingSafeStringEqual(authHeader, expected) || timingSafeStringEqual(cronHeader, expected);
 }
 
 function plusOneYearIso(value) {

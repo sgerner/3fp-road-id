@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { buildGoogleCalendarUrl, buildIcsContent, eventLocation } from '$lib/calendar/links';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -55,11 +56,12 @@ export async function GET({ params, url }) {
 	const { data: eventRow, error: eventError } = await supabase
 		.from('volunteer_events')
 		.select(
-			'id,slug,title,summary,description,event_start,event_end,timezone,location_name,location_address'
+			'id,slug,title,summary,description,event_start,event_end,timezone,location_name,location_address,status'
 		)
 		.eq('slug', slug)
+		.eq('status', 'published')
 		.maybeSingle();
-	if (eventError) throw error(500, eventError.message);
+	if (eventError) throw error(500, 'Unable to load volunteer event.');
 	if (!eventRow) throw error(404, 'Volunteer event not found.');
 
 	const shiftId = safeTrim(url.searchParams.get('shiftId'));
@@ -112,7 +114,7 @@ export async function GET({ params, url }) {
 	]
 		.filter(Boolean)
 		.join('\n\n');
-	const eventUrl = `${url.origin}/volunteer/${encodeURIComponent(eventRow.slug)}`;
+	const eventUrl = `${getConfiguredPublicOrigin()}/volunteer/${encodeURIComponent(eventRow.slug)}`;
 	const googleUrl = buildGoogleCalendarUrl({
 		title,
 		start,

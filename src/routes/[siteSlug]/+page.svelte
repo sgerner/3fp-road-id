@@ -18,6 +18,7 @@
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
 	import { CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
+	import { safeNavigationUrl } from '$lib/security/urls.js';
 	import { optimizedImageUrl } from '$lib/media/optimized';
 	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
 	import { getGroupSiteBlockTone } from '$lib/microsites/blocks';
@@ -37,6 +38,7 @@
 	let { data } = $props();
 	const site = $derived(data.site);
 	const group = $derived(site.group);
+	const groupWebsiteUrl = $derived(safeNavigationUrl(group?.website_url));
 	const config = $derived(site.siteConfig);
 	const heroImageHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
@@ -1149,16 +1151,16 @@ ABOUT — Comprehensive group profile
 								</div>
 							{/if}
 
-							{#if group?.website_url && !isTbagSite}
+							{#if groupWebsiteUrl && !isTbagSite}
 								<div class="about-fact">
 									<p class="about-fact-label">Website</p>
 									<a
-										href={group.website_url}
+										href={groupWebsiteUrl}
 										target="_blank"
 										rel="noopener noreferrer"
 										class="about-fact-link"
 									>
-										{group.website_url.replace(/^https?:\/\//, '')}
+										{groupWebsiteUrl.replace(/^https?:\/\//, '')}
 										<IconArrowRight class="h-3.5 w-3.5" />
 									</a>
 								</div>

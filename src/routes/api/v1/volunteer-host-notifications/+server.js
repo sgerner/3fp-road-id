@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { sendEmail } from '$lib/services/email';
+import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 import {
 	fetchList,
 	fetchSingle,
@@ -8,6 +11,7 @@ import {
 } from '../../../volunteer/shifts/shift-actions.server.js';
 
 const NOTIFICATION_TYPES = new Set(['register', 'cancel']);
+const MAX_ASSIGNMENTS_PER_REQUEST = 20;
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -20,6 +24,21 @@ function truthy(value) {
 	const normalized = safeTrim(value).toLowerCase();
 	if (!normalized) return false;
 	return normalized === 'true' || normalized === '1' || normalized === 'yes';
+}
+
+function ownsAssignment(user, signup) {
+	if (!user?.id || !signup) return false;
+	if (String(signup.volunteer_user_id || '') === String(user.id)) return true;
+	const userEmail = safeTrim(user.email).toLowerCase();
+	const signupEmail = safeTrim(signup.volunteer_email).toLowerCase();
+	return Boolean(userEmail && signupEmail && userEmail === signupEmail);
+}
+
+function matchesNotificationType(type, assignment) {
+	const cancelled =
+		Boolean(assignment?.cancelled_at) ||
+		['cancelled', 'no_show', 'declined'].includes(safeTrim(assignment?.status).toLowerCase());
+	return type === 'cancel' ? cancelled : !cancelled;
 }
 
 function escapeHtml(value) {
@@ -241,10 +260,22 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 }
 
 export const POST = async (event) => {
-	let body;
-	try {
-		body = await event.request.json();
-	} catch {
+	const { user } = await resolveVerifiedSession(event.cookies);
+	if (!user?.id) return json({ error: 'Authentication required.' }, { status: 401 });
+	const limited = enforceRateLimit(event, {
+		name: 'volunteer-host-notification',
+		limit: 30,
+		windowMs: 10 * 60 * 1000,
+		key: user.id
+	});
+	if (limited) return limited;
+
+	const parsedBody = await readJsonBody(event.request, { maxBytes: 16 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	const body = parsedBody.value;
+	if (!body || typeof body !== 'object' || Array.isArray(body)) {
 		return json({ error: 'Invalid request body.' }, { status: 400 });
 	}
 
@@ -255,12 +286,14 @@ export const POST = async (event) => {
 
 	const assignmentId = normalizeId(body?.assignment_id);
 	const assignmentIdsRaw = Array.isArray(body?.assignment_ids) ? body.assignment_ids : [];
-	let assignmentIds = [assignmentId, ...assignmentIdsRaw].map(normalizeId).filter(Boolean);
+	let assignmentIds = [assignmentId, ...assignmentIdsRaw]
+		.map(normalizeId)
+		.filter((id) => id !== null && String(id).length <= 100);
 
 	if (assignmentIds.length === 0) {
 		return json({ error: 'assignment_id or assignment_ids is required.' }, { status: 400 });
 	}
-	assignmentIds = [...new Set(assignmentIds)]; // Make unique
+	assignmentIds = [...new Set(assignmentIds)].slice(0, MAX_ASSIGNMENTS_PER_REQUEST); // Make unique
 
 	const contexts = await Promise.all(
 		assignmentIds.map((id) =>
@@ -269,7 +302,14 @@ export const POST = async (event) => {
 				return null;
 			})
 		)
-	).then((results) => results.filter(Boolean));
+	).then((results) =>
+		results.filter(
+			(context) =>
+				context &&
+				ownsAssignment(user, context.signup) &&
+				matchesNotificationType(typeRaw, context.assignment)
+		)
+	);
 
 	if (contexts.length === 0) {
 		return json({ error: 'No valid assignment contexts could be loaded.' }, { status: 404 });
@@ -312,7 +352,7 @@ export const POST = async (event) => {
 			type: typeRaw,
 			eventRecord,
 			contexts: eventContexts,
-			origin: event.url.origin
+			origin: getConfiguredPublicOrigin()
 		});
 
 		try {

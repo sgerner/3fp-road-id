@@ -73,6 +73,7 @@ function createSignedJwt({ clientEmail, privateKey, delegatedAdminEmail, scopes 
 async function exchangeJwtForToken(jwtAssertion) {
 	const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
 		method: 'POST',
+		redirect: 'error',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams({
 			grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
@@ -131,6 +132,7 @@ async function callDirectoryApi(
 
 	const response = await fetch(url.toString(), {
 		method,
+		redirect: 'error',
 		headers: {
 			Authorization: `Bearer ${accessToken}`,
 			...(body ? { 'Content-Type': 'application/json' } : {})

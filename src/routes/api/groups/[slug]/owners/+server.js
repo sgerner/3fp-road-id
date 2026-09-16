@@ -1,59 +1,79 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '$lib/server/session';
+import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { verifyOwnerInviteState } from '$lib/server/groupOwnerInvites';
 
-// Adds the current authenticated user as an owner of the group.
-// Used by invite links (magic link flow) after authentication.
-export async function POST({ params, cookies }) {
+// Redeems a short-lived capability issued to an existing group manager.
+export async function POST(event) {
+	const limited = enforceRateLimit(event, {
+		name: 'group-owner-invite-redeem',
+		limit: 5,
+		windowMs: 60 * 60 * 1000
+	});
+	if (limited) return limited;
+
 	try {
-		const slug = params.slug;
-		const sessionCookie = cookies.get('sb_session');
-		if (!sessionCookie) {
-			return json({ error: 'Not authenticated' }, { status: 401 });
+		const parsedBody = await readJsonBody(event.request, { maxBytes: 8 * 1024 });
+		if (!parsedBody.ok) {
+			return json({ error: parsedBody.error }, { status: parsedBody.status });
 		}
-		let parsed;
-		try {
-			parsed = JSON.parse(sessionCookie);
-		} catch {
-			parsed = null;
-		}
-		const access_token = parsed?.access_token;
-		if (!access_token) {
-			return json({ error: 'Not authenticated' }, { status: 401 });
+		const inviteToken =
+			parsedBody.value && typeof parsedBody.value === 'object' && !Array.isArray(parsedBody.value)
+				? parsedBody.value.inviteToken
+				: '';
+		if (typeof inviteToken !== 'string' || !inviteToken.trim()) {
+			return json({ error: 'Invitation is invalid or expired.' }, { status: 403 });
 		}
 
-		const { data: userRes, error: userErr } = await supabase.auth.getUser(access_token);
-		if (userErr || !userRes?.user?.id) {
-			return json({ error: 'Invalid user' }, { status: 401 });
+		const { user } = await resolveVerifiedSession(event.cookies);
+		if (!user?.id || !user.email) {
+			return json({ error: 'Not authenticated' }, { status: 401 });
 		}
-		const user_id = userRes.user.id;
+		const serviceSupabase = createServiceSupabaseClient();
+		if (!serviceSupabase) {
+			return json({ error: 'Owner invitations are temporarily unavailable.' }, { status: 503 });
+		}
+		const slug = String(event.params.slug || '').trim();
 
 		// Resolve group
-		const { data: group, error: ge } = await supabase
+		const { data: group, error: ge } = await serviceSupabase
 			.from('groups')
 			.select('id, slug')
 			.eq('slug', slug)
-			.single();
+			.maybeSingle();
 		if (ge || !group) {
 			return json({ error: 'Group not found' }, { status: 404 });
 		}
 
+		const invite = verifyOwnerInviteState(inviteToken.trim(), {
+			groupId: group.id,
+			groupSlug: group.slug,
+			userEmail: user.email
+		});
+		if (!invite.ok) {
+			return json({ error: 'Invitation is invalid or expired.' }, { status: 403 });
+		}
+
 		// Upsert owner membership
-		const { data: existing, error: exErr } = await supabase
+		const { data: existing, error: exErr } = await serviceSupabase
 			.from('group_members')
 			.select('user_id')
 			.eq('group_id', group.id)
-			.eq('user_id', user_id)
+			.eq('user_id', user.id)
 			.eq('role', 'owner');
 		if (exErr) {
-			return json({ error: exErr.message }, { status: 400 });
+			console.error('Owner membership lookup failed:', exErr);
+			return json({ error: 'Unable to accept invitation.' }, { status: 400 });
 		}
 
 		if (!existing || !existing.length) {
-			const { error: insErr } = await supabase
+			const { error: insErr } = await serviceSupabase
 				.from('group_members')
-				.insert([{ group_id: group.id, user_id, role: 'owner' }]);
+				.insert([{ group_id: group.id, user_id: user.id, role: 'owner' }]);
 			if (insErr) {
-				return json({ error: insErr.message }, { status: 400 });
+				console.error('Owner membership insert failed:', insErr);
+				return json({ error: 'Unable to accept invitation.' }, { status: 400 });
 			}
 		}
 

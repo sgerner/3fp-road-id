@@ -13,6 +13,7 @@ import {
 	normalizePostTarget,
 	SOCIAL_MAX_PUBLISH_ATTEMPTS
 } from '$lib/server/social/types';
+import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
@@ -31,7 +32,7 @@ function isManagedMediaUrl(value) {
 	try {
 		const parsed = new URL(mediaUrl);
 		const expected = new URL(PUBLIC_SUPABASE_URL);
-		if (parsed.host !== expected.host) return false;
+		if (parsed.origin !== expected.origin || parsed.username || parsed.password) return false;
 		return parsed.pathname.includes('/storage/v1/object/public/group-social-media/');
 	} catch {
 		return false;
@@ -58,7 +59,7 @@ function parseManagedStoragePath(value) {
 	try {
 		const parsed = new URL(mediaUrl);
 		const expected = new URL(PUBLIC_SUPABASE_URL);
-		if (parsed.host !== expected.host) return null;
+		if (parsed.origin !== expected.origin || parsed.username || parsed.password) return null;
 		const segments = parsed.pathname.split('/').filter(Boolean);
 		if (segments.length < 6) return null;
 		if (
@@ -71,7 +72,13 @@ function parseManagedStoragePath(value) {
 		}
 		const bucket = segments[4];
 		const objectPath = decodeURIComponent(segments.slice(5).join('/'));
-		if (!bucket || !objectPath) return null;
+		if (
+			bucket !== 'group-social-media' ||
+			!objectPath ||
+			objectPath.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+		) {
+			return null;
+		}
 		return { bucket, objectPath };
 	} catch {
 		return null;
@@ -137,8 +144,18 @@ async function createJpegDerivative(supabase, mediaUrl, platform) {
 		throw new Error(`${platformLabel} requires JPEG media. Re-upload the image as JPEG.`);
 	}
 
-	const response = await fetch(mediaUrl);
-	if (!response.ok) {
+	const mediaHost = new URL(PUBLIC_SUPABASE_URL).hostname;
+	const response = await fetchPublicHttp(
+		mediaUrl,
+		{},
+		{
+			allowedHosts: [mediaHost],
+			timeoutMs: 12_000,
+			maxRedirects: 0,
+			maxResponseBytes: 12 * 1024 * 1024
+		}
+	);
+	if (!response?.ok) {
 		throw new Error(`Unable to fetch media for ${platformLabel} JPEG conversion.`);
 	}
 	logSocialPublishDebug(`social_publish_${platform}_media_fetch`, {
@@ -146,7 +163,10 @@ async function createJpegDerivative(supabase, mediaUrl, platform) {
 		status: response.status,
 		content_type: cleanText(response.headers.get('content-type'), 120) || null
 	});
-	const sourceBuffer = Buffer.from(await response.arrayBuffer());
+	const sourceBuffer = await readResponseBuffer(response, 12 * 1024 * 1024);
+	if (!sourceBuffer) {
+		throw new Error(`Media for ${platformLabel} is unavailable or too large.`);
+	}
 	let convertedBuffer = null;
 	try {
 		convertedBuffer = await sharp(sourceBuffer).jpeg({ quality: 90, mozjpeg: true }).toBuffer();

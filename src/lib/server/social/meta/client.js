@@ -100,6 +100,7 @@ async function callGraphApi({
 	const url = `${baseUrl}${normalizedPath}?${params.toString()}`;
 	const response = await fetch(url, {
 		method,
+		redirect: 'error',
 		headers: {
 			Accept: 'application/json',
 			...(body ? { 'Content-Type': 'application/json' } : {})

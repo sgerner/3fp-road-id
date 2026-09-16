@@ -16,7 +16,7 @@ import {
 } from '$lib/server/learnDiscovery';
 
 export const load = async ({ params, url, cookies }) => {
-	const { user, supabase } = getLearnClient(cookies);
+	const { user, supabase } = await getLearnClient(cookies);
 	if (!user) {
 		throw redirect(
 			303,
@@ -79,7 +79,7 @@ export const load = async ({ params, url, cookies }) => {
 export const actions = {
 	default: async ({ request, cookies, params }) => {
 		try {
-			const { user, supabase } = requireLearnUser(cookies);
+			const { user, supabase } = await requireLearnUser(cookies);
 			const article = await getLearnArticleBySlug(supabase, params.slug);
 			if (!article) {
 				throw redirect(303, '/learn');

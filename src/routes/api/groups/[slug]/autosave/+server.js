@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -31,7 +31,7 @@ const UPDATABLE_FIELDS = new Set([
 ]);
 
 export const POST = async ({ params, request, cookies }) => {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		return json({ ok: false, error: 'Authentication required.' }, { status: 401 });
 	}

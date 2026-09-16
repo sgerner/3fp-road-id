@@ -1,7 +1,36 @@
 import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import { ALLOWED_API_TABLES, TABLE_PRIMARY_KEYS } from '$lib/apiConfig';
+import { readJsonBody } from '$lib/server/security';
+
+const MAX_RESULT_ROWS = 500;
+const MAX_OFFSET = 10_000;
+const MAX_SELECT_LENGTH = 4_000;
+const MAX_FILTER_LENGTH = 2_000;
+const WRITE_PROTECTED_TABLES = new Set(['group_members']);
+const INSERT_PROTECTED_TABLES = new Set(['group_members', 'groups']);
+
+const FILTER_METHODS = {
+	eq: 'eq',
+	neq: 'neq',
+	gt: 'gt',
+	gte: 'gte',
+	lt: 'lt',
+	lte: 'lte',
+	like: 'like',
+	ilike: 'ilike',
+	is: 'is',
+	in: 'in',
+	cs: 'contains',
+	cd: 'containedBy',
+	ov: 'overlaps'
+};
+
+function getErrorStatus(error, fallback = 400) {
+	const parsedCode = Number.parseInt(error?.code, 10);
+	return parsedCode >= 200 && parsedCode <= 599 ? parsedCode : fallback;
+}
 
 // Helper function to convert kebab-case to snake_case
 function kebabToSnake(str) {
@@ -9,8 +38,8 @@ function kebabToSnake(str) {
 }
 
 async function getSupabaseInstance(event) {
-	const { accessToken, tokenPayload } = resolveSession(event.cookies);
-	let validToken = accessToken;
+	const { accessToken, tokenPayload, verified } = await resolveVerifiedSession(event.cookies);
+	let validToken = verified ? accessToken : null;
 
 	if (accessToken && tokenPayload?.exp) {
 		const now = Math.floor(Date.now() / 1000);
@@ -44,6 +73,9 @@ export async function GET(event) {
 			{ status: 403 }
 		);
 	}
+	if (selectColumns.length > MAX_SELECT_LENGTH) {
+		return json({ error: 'The select expression is too long.' }, { status: 400 });
+	}
 
 	let query = sbInstance
 		.from(tableName)
@@ -75,6 +107,9 @@ export async function GET(event) {
 				if (orValue.startsWith('(') && orValue.endsWith(')')) {
 					orValue = orValue.substring(1, orValue.length - 1);
 				}
+				if (!orValue || orValue.length > MAX_FILTER_LENGTH) {
+					return json({ error: 'Invalid filter.' }, { status: 400 });
+				}
 				query = query.or(orValue);
 				continue;
 			}
@@ -86,19 +121,21 @@ export async function GET(event) {
 			if (dotIndex > 0) {
 				const operator = value.substring(0, dotIndex);
 				const filterValue = value.substring(dotIndex + 1);
+				if (value.length > MAX_FILTER_LENGTH) {
+					return json({ error: 'Filter value is too long.' }, { status: 400 });
+				}
 
 				if (operator === 'in') {
 					if (filterValue.startsWith('(') && filterValue.endsWith(')')) {
 						const inValuesRaw = filterValue.substring(1, filterValue.length - 1);
 						if (inValuesRaw) {
-							const inValues = inValuesRaw.split(',');
+							const inValues = inValuesRaw.split(',').slice(0, 100);
 							query = query.in(columnName, inValues);
 						}
 					}
-				} else if (typeof query[operator] === 'function') {
-					query = query[operator](columnName, filterValue);
+				} else if (FILTER_METHODS[operator]) {
+					query = query[FILTER_METHODS[operator]](columnName, filterValue);
 				} else {
-					console.warn(`Unsupported operator or format: ${operator} for key ${columnName}`);
 					query = query.eq(columnName, value);
 				}
 			} else {
@@ -109,6 +146,9 @@ export async function GET(event) {
 		const orderParams = url.searchParams.getAll('order');
 		for (const clause of orderParams) {
 			if (!clause) continue;
+			if (clause.length > MAX_FILTER_LENGTH) {
+				return json({ error: 'Invalid order expression.' }, { status: 400 });
+			}
 			const [column, ...modifiers] = clause.split('.');
 			if (!column) continue;
 			let ascending = true;
@@ -129,17 +169,22 @@ export async function GET(event) {
 
 		const limitParam = url.searchParams.get('limit');
 		const offsetParam = url.searchParams.get('offset');
-		const limitValue = limitParam ? parseInt(limitParam, 10) : undefined;
-		const offsetValue = offsetParam ? parseInt(offsetParam, 10) : undefined;
-		if (typeof limitValue === 'number' && !Number.isNaN(limitValue)) {
-			const safeLimit = Math.max(limitValue, 0);
-			const safeOffset =
-				typeof offsetValue === 'number' && !Number.isNaN(offsetValue)
-					? Math.max(offsetValue, 0)
-					: 0;
-			if (safeLimit > 0) {
-				query = query.range(safeOffset, safeOffset + safeLimit - 1);
-			}
+		const limitValue = limitParam ? Number.parseInt(limitParam, 10) : MAX_RESULT_ROWS;
+		const offsetValue = offsetParam ? Number.parseInt(offsetParam, 10) : 0;
+		if (
+			!Number.isInteger(limitValue) ||
+			!Number.isInteger(offsetValue) ||
+			limitValue < 0 ||
+			offsetValue < 0
+		) {
+			return json({ error: 'Invalid pagination.' }, { status: 400 });
+		}
+		const safeLimit = Math.min(limitValue, MAX_RESULT_ROWS);
+		const safeOffset = Math.min(offsetValue, MAX_OFFSET);
+		if (safeLimit > 0) {
+			query = query.range(safeOffset, safeOffset + safeLimit - 1);
+		} else {
+			query = query.limit(0);
 		}
 
 		if (singleParam === 'true') {
@@ -156,13 +201,8 @@ export async function GET(event) {
 		let statusCode = 400;
 		if (error.code === 'PGRST116') {
 			statusCode = 404;
-		} else if (error.code) {
-			const parsedCode = parseInt(error.code, 10);
-			if (parsedCode >= 200 && parsedCode <= 599) {
-				statusCode = parsedCode;
-			}
 		}
-		return json({ error: error.message }, { status: statusCode });
+		return json({ error: 'Unable to complete request.' }, { status: statusCode });
 	}
 	return json({ data, count });
 }
@@ -182,29 +222,32 @@ export async function POST(event) {
 			{ status: 403 }
 		);
 	}
+	if (INSERT_PROTECTED_TABLES.has(tableName)) {
+		return json(
+			{ error: 'This table must be changed through its dedicated workflow.' },
+			{ status: 403 }
+		);
+	}
 
-	// ... (rest of POST method body processing logic remains the same, assumes body keys are snake_case)
 	try {
-		const body = await request.json(); // Expects snake_case keys in the body
+		const parsedBody = await readJsonBody(request, { maxBytes: 256 * 1024 });
+		if (!parsedBody.ok) {
+			return json({ error: parsedBody.error }, { status: parsedBody.status });
+		}
+		const body = parsedBody.value; // Expects snake_case keys in the body
+		if (!body || (typeof body !== 'object' && !Array.isArray(body))) {
+			return json({ error: 'JSON object or array is required.' }, { status: 400 });
+		}
 		const { data, error } = await sbInstance.from(tableName).insert(body).select();
 
 		if (error) {
 			console.error('Supabase POST error:', error);
-			let statusCode = 400;
-			if (error.code) {
-				const parsedCode = parseInt(error.code, 10);
-				if (parsedCode >= 200 && parsedCode <= 599) {
-					statusCode = parsedCode;
-				}
-			}
-			return json({ error: error.message }, { status: statusCode });
+			return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
 		}
 		return json({ data: data?.[0] || data }, { status: 201 });
 	} catch (e) {
-		return json(
-			{ error: 'Invalid JSON body or server error.', details: e.message },
-			{ status: 400 }
-		);
+		console.error('Unexpected Supabase POST error:', e);
+		return json({ error: 'Unable to complete request.' }, { status: 400 });
 	}
 }
 
@@ -225,6 +268,12 @@ export async function PUT(event) {
 			{ status: 403 }
 		);
 	}
+	if (WRITE_PROTECTED_TABLES.has(tableName)) {
+		return json(
+			{ error: 'This table must be changed through its dedicated workflow.' },
+			{ status: 403 }
+		);
+	}
 
 	if (!recordId) {
 		return json(
@@ -233,7 +282,14 @@ export async function PUT(event) {
 		);
 	}
 	try {
-		const body = await request.json(); // Expects snake_case keys in the body
+		const parsedBody = await readJsonBody(request, { maxBytes: 256 * 1024 });
+		if (!parsedBody.ok) {
+			return json({ error: parsedBody.error }, { status: parsedBody.status });
+		}
+		const body = parsedBody.value; // Expects snake_case keys in the body
+		if (!body || typeof body !== 'object' || Array.isArray(body)) {
+			return json({ error: 'JSON object is required.' }, { status: 400 });
+		}
 		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
 		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		if (body[primaryKeyColumn]) {
@@ -248,24 +304,15 @@ export async function PUT(event) {
 
 		if (error) {
 			console.error('Supabase PUT error:', error);
-			let statusCode = 400;
-			if (error.code) {
-				const parsedCode = parseInt(error.code, 10);
-				if (parsedCode >= 200 && parsedCode <= 599) {
-					statusCode = parsedCode;
-				}
-			}
-			return json({ error: error.message }, { status: statusCode });
+			return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
 		}
 		if (!data || data.length === 0) {
 			return json({ error: 'Record not found or user lacks permission.' }, { status: 404 });
 		}
 		return json({ data: data[0] });
 	} catch (e) {
-		return json(
-			{ error: 'Invalid JSON body or server error.', details: e.message },
-			{ status: 400 }
-		);
+		console.error('Unexpected Supabase PUT error:', e);
+		return json({ error: 'Unable to complete request.' }, { status: 400 });
 	}
 }
 
@@ -283,6 +330,12 @@ export async function DELETE(event) {
 	if (!ALLOWED_API_TABLES.includes(tableName)) {
 		return json(
 			{ error: `Table '${tableName}' (from URL '${urlTableNameKebab}') not accessible.` },
+			{ status: 403 }
+		);
+	}
+	if (WRITE_PROTECTED_TABLES.has(tableName)) {
+		return json(
+			{ error: 'This table must be changed through its dedicated workflow.' },
 			{ status: 403 }
 		);
 	}
@@ -326,14 +379,7 @@ export async function DELETE(event) {
 
 	if (error) {
 		console.error('Supabase DELETE error:', error);
-		let statusCode = 400;
-		if (error.code) {
-			const parsedCode = parseInt(error.code, 10);
-			if (parsedCode >= 200 && parsedCode <= 599) {
-				statusCode = parsedCode;
-			}
-		}
-		return json({ error: error.message }, { status: statusCode });
+		return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
 	}
 	return json(
 		{ message: 'Delete successful or record not found/no permission.', deleted: data },

@@ -7,6 +7,7 @@
 	import { toaster } from './toaster-svelte';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import { loadThemeStyles } from '$lib/themeLoader';
+	import { syncServerSession } from '$lib/security/session';
 	import LazyGlobalAssistant from '$lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -224,16 +225,10 @@
 		return turnstileModule;
 	}
 
-	function syncSessionCookie(session) {
-		try {
-			if (session) {
-				const payload = JSON.stringify(session);
-				document.cookie = `sb_session=${encodeURIComponent(payload)}; Path=/; Max-Age=${60 * 24 * 60 * 60}; SameSite=Lax`;
-			} else {
-				document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
-			}
-		} catch {
-			// ignore
+	async function syncSessionCookie(session) {
+		const synced = await syncServerSession(session);
+		if (session && !synced) {
+			console.warn('Unable to sync authenticated session with the server.');
 		}
 	}
 
@@ -254,6 +249,7 @@
 		const client = await ensureAuthSubscription();
 		const { data: sessionData } = await client.auth.getSession();
 		user = sessionData.session?.user || null;
+		await syncSessionCookie(sessionData.session || null);
 		await Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
 	}
 
@@ -405,16 +401,12 @@
 	async function doLogout() {
 		const client = await ensureAuthSubscription();
 		await client.auth.signOut();
+		await syncSessionCookie(null);
 		showLogin = false;
 		showUserMenu = false;
 		email = '';
 		userProfile = null;
 		ownedGroups = [];
-		try {
-			document.cookie = 'sb_session=; Path=/; Max-Age=0; SameSite=Lax';
-		} catch {
-			// ignore
-		}
 	}
 
 	function toggleLogin() {

@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { supabase } from '$lib/supabaseClient';
+import { syncServerSession } from '$lib/security/session';
 
 const VOLUNTEER_TABLES = {
 	events: 'volunteer_events',
@@ -40,22 +41,11 @@ function buildQueryString(query) {
 	return params.toString();
 }
 
-const SESSION_COOKIE = 'sb_session';
-const SESSION_MAX_AGE = 60 * 24 * 60 * 60;
 let refreshPromise = null;
 
-function persistSession(session) {
-	if (!browser) return;
-	try {
-		if (session) {
-			const payload = JSON.stringify(session);
-			document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(payload)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax`;
-		} else {
-			document.cookie = `${SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
-		}
-	} catch {
-		// ignore cookie errors in non-browser environments
-	}
+async function persistSession(session) {
+	if (!browser) return false;
+	return syncServerSession(session);
 }
 
 async function refreshSessionIfNeeded() {
@@ -69,7 +59,7 @@ async function refreshSessionIfNeeded() {
 					return null;
 				}
 				const session = data?.session ?? null;
-				persistSession(session);
+				await persistSession(session);
 				return session;
 			} catch (error) {
 				console.warn('Unexpected error refreshing Supabase session', error);

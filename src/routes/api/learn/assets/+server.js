@@ -2,14 +2,16 @@ import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import { getLearnServiceClient, requireLearnUser, slugifyLearn } from '$lib/server/learn';
 import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 8;
+const MAX_FORM_BYTES = 64 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
 	'image/jpeg',
 	'image/png',
 	'image/webp',
 	'image/gif',
-	'image/svg+xml',
 	'application/pdf',
 	'text/csv'
 ]);
@@ -20,16 +22,37 @@ function buildObjectPath(userId, fileName) {
 	return `${userId}/${Date.now()}-${base}${extension}`;
 }
 
-export async function POST({ request, cookies }) {
+export async function POST(event) {
+	const { request, cookies } = event;
 	try {
-		const { user } = requireLearnUser(cookies);
+		const { user } = await requireLearnUser(cookies);
+		const limited = enforceRateLimit(event, {
+			name: 'learn-asset-upload',
+			key: user.id,
+			limit: 20,
+			windowMs: 60 * 60 * 1000
+		});
+		if (limited) return limited;
+		const ipLimited = enforceRateLimit(event, {
+			name: 'learn-asset-upload-ip',
+			limit: 30,
+			windowMs: 60 * 60 * 1000
+		});
+		if (ipLimited) return ipLimited;
+		const parsedForm = await readFormData(request, { maxBytes: MAX_FORM_BYTES });
+		if (!parsedForm.ok) {
+			return json({ error: parsedForm.error }, { status: parsedForm.status });
+		}
 		const supabase = getLearnServiceClient();
-		const formData = await request.formData();
+		const formData = parsedForm.value;
 		const articleId = String(formData.get('articleId') || '').trim() || null;
 		const files = formData.getAll('files').filter((entry) => entry instanceof File);
 
 		if (!files.length) {
 			return json({ error: 'No files were provided.' }, { status: 400 });
+		}
+		if (files.length > MAX_FILES) {
+			return json({ error: `You can upload up to ${MAX_FILES} files at a time.` }, { status: 400 });
 		}
 
 		const uploadedFiles = [];

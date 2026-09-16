@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -73,7 +73,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		throw error(404, 'Group not found.');
 	}
 
-	const { accessToken, user: sessionUser } = resolveSession(cookies);
+	const { accessToken, user: sessionUser } = await resolveVerifiedSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
 	const supabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();

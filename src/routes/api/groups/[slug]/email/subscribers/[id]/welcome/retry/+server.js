@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { retryGroupSubscriberWelcome } from '$lib/server/groupSubscriberWelcome';
+import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 
 function respond(result) {
 	if (!result?.ok) {
@@ -8,13 +9,13 @@ function respond(result) {
 	return json({ data: result.data });
 }
 
-export async function POST({ params, cookies, url, fetch: fetchImpl }) {
+export async function POST({ params, cookies, fetch: fetchImpl }) {
 	return respond(
 		await retryGroupSubscriberWelcome({
 			cookies,
 			groupSlug: params.slug,
 			subscriberId: params.id,
-			origin: url?.origin,
+			origin: getConfiguredPublicOrigin(),
 			fetchImpl
 		})
 	);

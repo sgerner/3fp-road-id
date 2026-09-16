@@ -19,6 +19,8 @@
 	// If there's no profile, create an empty one
 	const emptyProfile = {
 		user_id: user?.id,
+		claimed: Boolean(user?.id),
+		is_owner: Boolean(user?.id),
 		full_name: '',
 		phone: '',
 		blood_type: '',
@@ -130,7 +132,7 @@
 
 	// Update profile fields (excluding emergency_contacts).
 	const handleProfileUpdate = async () => {
-		const { emergency_contacts, ...profileUpdate } = profile;
+		const { emergency_contacts, claimed, is_owner, ...profileUpdate } = profile;
 
 		const res = await fetch('/api/v1/road-id-profile', {
 			method: 'PUT',
@@ -292,7 +294,7 @@
 							</a>.
 						</p>
 					</section>
-				{:else if !profile.user_id && !user}
+				{:else if !profile.claimed && !user}
 					<!-- Not logged in and no profile exists: show claim/login form -->
 					<section class="flex flex-col items-center justify-center">
 						{#if submissionSuccess}
@@ -352,7 +354,7 @@
 							</form>
 						{/if}
 					</section>
-				{:else if (!profile.user_id && user) || user?.id === profile.user_id}
+				{:else if (!profile.claimed && user) || profile.is_owner === true}
 					<!-- Signed-in user: show editable profile form -->
 					<section class="flex flex-col gap-4">
 						<h6 class="h6 !mb-0">Emergency Information</h6>

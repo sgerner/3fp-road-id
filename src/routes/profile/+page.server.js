@@ -72,7 +72,7 @@ function extractContext(metadata) {
 }
 
 export const load = async ({ cookies }) => {
-	const { user, supabase } = getActivityClient(cookies);
+	const { user, supabase } = await getActivityClient(cookies);
 
 	if (!user?.id) {
 		return {

@@ -2945,7 +2945,7 @@
 											id="composer-media-input"
 											type="file"
 											multiple
-											accept="image/*"
+											accept="image/jpeg,image/png,image/webp,image/gif"
 											class="sr-only"
 											onchange={queueMediaFiles}
 											disabled={composerReadOnly}
@@ -3233,7 +3233,7 @@
 							id="library-upload-input"
 							type="file"
 							multiple
-							accept="image/*"
+							accept="image/jpeg,image/png,image/webp,image/gif"
 							class="sr-only"
 							onchange={uploadLibraryFiles}
 							disabled={libraryUploading}

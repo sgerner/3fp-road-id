@@ -20,7 +20,7 @@ function invalid(message, status = 400) {
 }
 
 export async function GET({ url, cookies }) {
-	const { supabase } = getActivityClient(cookies);
+	const { supabase } = await getActivityClient(cookies);
 	const nowIso = new Date().toISOString();
 	const search = (url.searchParams.get('search') || '').trim().toLowerCase();
 	const hostGroupId = url.searchParams.get('host_group_id') || null;
@@ -136,7 +136,7 @@ export async function GET({ url, cookies }) {
 }
 
 export async function POST({ request, cookies }) {
-	const { supabase, user } = getActivityClient(cookies);
+	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return invalid('Authentication required.', 401);
 	}

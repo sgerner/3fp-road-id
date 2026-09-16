@@ -1,4 +1,5 @@
 import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.js';
+import { fetchPublicHttp, readResponseBuffer } from './security.js';
 
 const WEEKLYRIDES_BASE_URL = 'https://www.weeklyrides.com';
 const WEEKLYRIDES_FEED_URL =
@@ -516,15 +517,27 @@ export async function importWeeklyRidesFeed(
 	} = {}
 ) {
 	const effectiveSkipGeocoding = requireGeocoding ? false : skipGeocoding;
-	const response = await fetch(feedUrl, {
-		headers: {
-			accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5'
+	const response = await fetchPublicHttp(
+		feedUrl,
+		{
+			headers: {
+				accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5'
+			}
+		},
+		{
+			timeoutMs: 12_000,
+			maxRedirects: 3,
+			maxResponseBytes: 8 * 1024 * 1024,
+			allowedHosts: ['www.weeklyrides.com', 'weeklyrides.com']
 		}
-	});
+	);
+	if (!response) throw new Error('WeeklyRides feed request was blocked or timed out.');
 	if (!response.ok) {
 		throw new Error(`WeeklyRides feed request failed: ${response.status} ${response.statusText}`);
 	}
-	const xmlText = await response.text();
+	const feedBuffer = await readResponseBuffer(response, 8 * 1024 * 1024);
+	if (!feedBuffer) throw new Error('WeeklyRides feed response was too large.');
+	const xmlText = feedBuffer.toString('utf8');
 	const parsedFeed = parseWeeklyRidesRssFeed(xmlText);
 	if (!parsedFeed.events.length) {
 		return {

@@ -1,6 +1,10 @@
 const VIEW_OPTIONS = ['list', 'calendar', 'map'];
 const THEME_OPTIONS = ['light', 'dark', 'auto'];
 const DENSITY_OPTIONS = ['comfortable', 'compact'];
+const MAX_TEXT_LENGTH = 240;
+const MAX_ORGANIZATION_SLUG_LENGTH = 120;
+const MAX_EXCLUDED_RIDES = 50;
+const MAX_EXCLUDED_SLUG_LENGTH = 120;
 
 export const DEFAULT_RIDE_WIDGET_CONFIG = Object.freeze({
 	organizationSlug: '',
@@ -21,9 +25,9 @@ export const DEFAULT_RIDE_WIDGET_CONFIG = Object.freeze({
 	excludeRideSlugs: []
 });
 
-function safeTrim(value) {
+function safeTrim(value, maxLength = MAX_TEXT_LENGTH) {
 	if (value === null || value === undefined) return '';
-	return String(value).trim();
+	return String(value).trim().slice(0, maxLength);
 }
 
 function toFiniteNumber(value) {
@@ -51,8 +55,14 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 function normalizeSlugList(value) {
-	const source = Array.isArray(value) ? value : safeTrim(value).split(',');
-	return Array.from(new Set(source.map((entry) => safeTrim(entry).toLowerCase()).filter(Boolean)));
+	const source = Array.isArray(value)
+		? value.slice(0, MAX_EXCLUDED_RIDES)
+		: safeTrim(value, MAX_EXCLUDED_RIDES * (MAX_EXCLUDED_SLUG_LENGTH + 1)).split(',');
+	return Array.from(
+		new Set(
+			source.map((entry) => safeTrim(entry, MAX_EXCLUDED_SLUG_LENGTH).toLowerCase()).filter(Boolean)
+		)
+	).slice(0, MAX_EXCLUDED_RIDES);
 }
 
 function normalizeChoice(value, allowed, fallback) {
@@ -71,10 +81,10 @@ export function normalizeRideWidgetConfig(input = {}) {
 	const locationFallback = [safeTrim(input.city), safeTrim(input.state)].filter(Boolean).join(' ');
 
 	return {
-		organizationSlug: safeTrim(input.organizationSlug).toLowerCase(),
+		organizationSlug: safeTrim(input.organizationSlug, MAX_ORGANIZATION_SLUG_LENGTH).toLowerCase(),
 		location: safeTrim(input.location || locationFallback),
 		city: safeTrim(input.city),
-		state: safeTrim(input.state),
+		state: safeTrim(input.state, 80),
 		near: safeTrim(input.near),
 		radiusMiles:
 			radius === null || radius <= 0 ? null : clamp(Math.round(radius * 10) / 10, 1, 500),

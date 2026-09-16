@@ -58,8 +58,8 @@ function shouldSkipMicrositeRedirect(pathname) {
 
 function resolveRequestHostname(event) {
 	const headers = event.request.headers;
-	const forwardedHost = normalizeHostname(firstHeaderValue(headers.get('x-forwarded-host')));
-	if (forwardedHost) return forwardedHost;
+	const requestUrlHostname = normalizeHostname(event.url.hostname);
+	if (requestUrlHostname) return requestUrlHostname;
 
 	const hostHeader = normalizeHostname(firstHeaderValue(headers.get('host')));
 	if (hostHeader) return hostHeader;
@@ -70,7 +70,10 @@ function resolveRequestHostname(event) {
 export const handle = async ({ event, resolve }) => {
 	const path = event.url.pathname.slice(1); // remove leading slash
 	if (redirectCodes.has(path)) {
-		return Response.redirect(`${event.url.origin}/roadid/${path}`, 301);
+		return new Response(null, {
+			status: 301,
+			headers: { location: `/roadid/${path}` }
+		});
 	}
 
 	const pathname = event.url.pathname || '/';
@@ -87,5 +90,28 @@ export const handle = async ({ event, resolve }) => {
 		event.locals.micrositePublicPathname = pathname;
 	}
 
-	return resolve(event);
+	const response = await resolve(event);
+	const securityHeaders = {
+		'x-content-type-options': 'nosniff',
+		'referrer-policy': 'strict-origin-when-cross-origin',
+		'permissions-policy':
+			'camera=(), geolocation=(), microphone=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()',
+		'x-dns-prefetch-control': 'off',
+		'x-permitted-cross-domain-policies': 'none'
+	};
+	for (const [name, value] of Object.entries(securityHeaders)) {
+		if (!response.headers.has(name)) response.headers.set(name, value);
+	}
+	if (!pathname.startsWith('/ride/widget/frame')) {
+		if (!response.headers.has('x-frame-options')) {
+			response.headers.set('x-frame-options', 'SAMEORIGIN');
+		}
+		response.headers.append('content-security-policy', "frame-ancestors 'self'");
+	}
+
+	if (event.url.protocol === 'https:') {
+		response.headers.set('strict-transport-security', 'max-age=31536000');
+	}
+
+	return response;
 };

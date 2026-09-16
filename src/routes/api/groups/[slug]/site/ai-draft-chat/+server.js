@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '$lib/server/session';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
@@ -192,7 +192,7 @@ function summarizeSiteDiff(currentConfig, nextConfig) {
 }
 
 async function requireOwner(cookies, groupSlug) {
-	const { accessToken, user } = resolveSession(cookies);
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id)
 		return { ok: false, status: 401, error: 'Authentication required.' };
 

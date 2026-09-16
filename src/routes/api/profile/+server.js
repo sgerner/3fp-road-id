@@ -84,7 +84,7 @@ function normalizeProfileShape(profileRow) {
 }
 
 export async function GET({ cookies }) {
-	const { user, supabase } = getActivityClient(cookies);
+	const { user, supabase } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
@@ -107,7 +107,7 @@ export async function GET({ cookies }) {
 }
 
 export async function PUT({ cookies, fetch, request }) {
-	const { user, supabase } = getActivityClient(cookies);
+	const { user, supabase } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
