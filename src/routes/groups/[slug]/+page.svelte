@@ -130,7 +130,7 @@
 	const skills = $derived(pickNames(data.skill_levels, selected?.skill_level_ids));
 
 	// Claim group support
-	const hasOwner = $derived((data.owners_count ?? 0) > 0);
+	const hasOwner = $derived(Boolean(data?.is_claimed));
 	let claimOpen = $state(false);
 	let claimEmail = $state('');
 	let claimLoading = $state(false);
@@ -671,7 +671,7 @@
 						</div>
 					{:else}
 						<strong class="font-bold">You don't have permission to edit this group.</strong>
-						{#if (data.owners_count ?? 0) === 0}
+						{#if !data?.is_claimed}
 							<div class="mt-0.5 opacity-80">
 								If you represent this group, claim it below to become an owner.
 							</div>

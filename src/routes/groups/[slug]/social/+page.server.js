@@ -1,6 +1,10 @@
 import { error } from '@sveltejs/kit';
 import { resolveSession } from '$lib/server/session';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
+import { getGroupClaimStatus } from '$lib/server/groupClaimStatus';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();
@@ -72,15 +76,22 @@ export const load = async ({ params, cookies, fetch }) => {
 	const { accessToken, user: sessionUser } = resolveSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
 	const supabase = createRequestSupabaseClient(accessToken);
+	const serviceSupabase = createServiceSupabaseClient();
 
-	const ownerRows = await fetchList(fetch, 'group-members', {
-		select: 'user_id',
-		group_id: `eq.${group.id}`,
-		role: 'eq.owner'
-	}).catch((err) => {
-		console.warn('Failed to load group owners for social manager page', err);
-		return [];
-	});
+	const [ownerRows, serviceClaimStatus] = await Promise.all([
+		fetchList(fetch, 'group-members', {
+			select: 'user_id',
+			group_id: `eq.${group.id}`,
+			role: 'eq.owner'
+		}).catch((err) => {
+			console.warn('Failed to load group owners for social manager page', err);
+			return [];
+		}),
+		getGroupClaimStatus(serviceSupabase, group.id).catch((err) => {
+			console.warn('Failed to load public group claim status for social page', err);
+			return null;
+		})
+	]);
 
 	const managerRows = sessionUserId
 		? await fetchList(fetch, 'group-members', {
@@ -108,7 +119,7 @@ export const load = async ({ params, cookies, fetch }) => {
 		}
 	}
 
-	const is_claimed = ownerRows.length > 0;
+	const is_claimed = serviceClaimStatus ?? ownerRows.length > 0;
 	const is_social_manager = managerRows.length > 0 || isAdmin;
 	const can_manage_social = Boolean(sessionUserId && (is_social_manager || isAdmin));
 

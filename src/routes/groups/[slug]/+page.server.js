@@ -4,6 +4,7 @@ import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
 import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
 import { listPublishedGroupNewsPosts } from '$lib/server/groupNews';
+import { getGroupClaimStatus } from '$lib/server/groupClaimStatus';
 import { joinMembership } from '$lib/server/memberships';
 import {
 	createRequestSupabaseClient,
@@ -409,6 +410,10 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const sessionUserId = sessionUser?.id ?? null;
 	const requestSupabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();
+	const publicClaimStatus = getGroupClaimStatus(serviceSupabase, group.id).catch((err) => {
+		console.warn('Failed to load public group claim status', err);
+		return null;
+	});
 	let sessionIsAdmin = false;
 	if (sessionUserId) {
 		try {
@@ -434,7 +439,8 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		disciplineSelections,
 		skillSelections,
 		ownerRows,
-		managerRows
+		managerRows,
+		serviceClaimStatus
 	] = await Promise.all([
 		fetchList(fetch, 'group-types', { select: 'id,name', order: 'name.asc' }).catch((err) => {
 			console.warn('Failed to load group types', err);
@@ -497,7 +503,8 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		}).catch((err) => {
 			console.warn('Failed to load group social managers', err);
 			return [];
-		})
+		}),
+		publicClaimStatus
 	]);
 
 	const ownerIds = ownerRows.map((row) => row?.user_id).filter(Boolean);
@@ -505,7 +512,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const is_owner = sessionUserId ? ownerIds.includes(sessionUserId) : false;
 	const is_social_manager = sessionUserId ? managerIds.includes(sessionUserId) : false;
 	const can_edit = sessionIsAdmin || is_owner;
-	const is_claimed = ownerIds.length > 0;
+	const is_claimed = serviceClaimStatus ?? ownerIds.length > 0;
 	const can_manage_social = is_claimed && is_social_manager;
 
 	let donationEnabled = false;
