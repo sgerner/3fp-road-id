@@ -1708,12 +1708,10 @@
 			const eventStartIso = toIso(eventDetails.eventStart);
 			if (!eventStartIso) throw new Error('Event start is invalid.');
 			let eventEndIso = toIso(eventDetails.eventEnd);
-			if (
-				eventEndIso &&
-				Number.isFinite(Date.parse(eventEndIso)) &&
-				Date.parse(eventEndIso) <= Date.parse(eventStartIso)
-			) {
-				eventEndIso = null;
+			const eventStartMs = Date.parse(eventStartIso);
+			const eventEndMs = eventEndIso ? Date.parse(eventEndIso) : Number.NaN;
+			if (!Number.isFinite(eventEndMs) || eventEndMs <= eventStartMs) {
+				eventEndIso = new Date(eventStartMs + 60 * 60 * 1000).toISOString();
 			}
 
 			const eventPayload = {
