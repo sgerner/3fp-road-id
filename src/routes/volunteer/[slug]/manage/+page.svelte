@@ -1076,33 +1076,18 @@
 		}
 
 		if (!profile) {
-			try {
-				const response = await fetch('/api/v1/profiles', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						email,
-						full_name: name || null,
-						phone: phone || null,
-						emergency_contact_name: emergencyContactName || null,
-						emergency_contact_phone: emergencyContactPhone || null
-					})
-				});
-				const payload = await response.json();
-				if (!response.ok) {
-					throw new Error(payload?.error || 'Unable to create profile.');
-				}
-				profile = payload?.data ?? payload ?? null;
-				if (profile) {
-					profileRecords = [profile, ...profileRecords];
-				}
-			} catch (error) {
-				console.error('Failed to create volunteer profile', error);
-				return {
-					ok: false,
-					error: error?.message || 'Unable to create volunteer profile.'
-				};
-			}
+			// A host can add someone before that person has a Supabase auth account.
+			// profiles.user_id is required, so keep the contact details on the signup
+			// instead of creating an invalid profile-only placeholder.
+			profile = {
+				id: null,
+				user_id: null,
+				email,
+				full_name: name || null,
+				phone: phone || null,
+				emergency_contact_name: emergencyContactName || null,
+				emergency_contact_phone: emergencyContactPhone || null
+			};
 		} else if (!profileFromReferenceOnly && profile?.id) {
 			const updates = {};
 			if (name && name !== (profile.full_name ?? profile.name ?? '')) {
