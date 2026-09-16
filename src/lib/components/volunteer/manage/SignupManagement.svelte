@@ -18,6 +18,7 @@
 		shiftFilters = [],
 		shifts = [],
 		profiles = [],
+		eventId = null,
 		selectedStatus = 'all',
 		selectedActivity = 'all',
 		selectedShift = 'all',
@@ -239,15 +240,7 @@
 			return;
 		}
 		try {
-			let encodedTerm;
-			try {
-				encodedTerm = encodeURIComponent(term);
-			} catch (e) {
-				return;
-			}
-			const select =
-				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
-			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=ilike.%${encodedTerm}%&limit=5`;
+			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(eventId || '')}&lookup_email=${encodeURIComponent(term)}`;
 			const response = await fetch(url);
 			if (!response.ok) {
 				emailSuggestions = [];
@@ -293,9 +286,7 @@
 		profileLookupError = '';
 		const requestId = ++profileLookupRequestId;
 		try {
-			const select =
-				'id,user_id,email,full_name,phone,emergency_contact_name,emergency_contact_phone';
-			const url = `/api/v1/profiles?select=${encodeURIComponent(select)}&email=${encodeURIComponent(normalizedEmail)}&single=maybe`;
+			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(eventId || '')}&lookup_email=${encodeURIComponent(normalizedEmail)}`;
 			const response = await fetch(url);
 			if (requestId !== profileLookupRequestId) return;
 			if (!response.ok) {
@@ -303,7 +294,9 @@
 				throw new Error(errorData?.error || response.statusText || 'Failed to fetch profile');
 			}
 			const result = await response.json();
-			const profile = normalizeProfileRow(result.data);
+			const profile = normalizeProfileRow(
+				Array.isArray(result.data) ? result.data[0] : result.data
+			);
 			if (profile) {
 				applyProfileToForm(profile);
 			} else {

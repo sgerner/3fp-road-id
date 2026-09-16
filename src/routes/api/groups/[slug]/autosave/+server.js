@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveSession } from '$lib/server/session';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -29,7 +30,12 @@ const UPDATABLE_FIELDS = new Set([
 	'preferred_cta_url'
 ]);
 
-export const POST = async ({ params, request }) => {
+export const POST = async ({ params, request, cookies }) => {
+	const { accessToken, user } = resolveSession(cookies);
+	if (!accessToken || !user?.id) {
+		return json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+	}
+	const supabase = createRequestSupabaseClient(accessToken);
 	const slug = params.slug;
 	let payload = {};
 	try {
@@ -87,11 +93,16 @@ export const POST = async ({ params, request }) => {
 
 	// Handle cropped data URLs for logo / cover
 	if (payload.logo_file_cropped) {
-		const url = await uploadDataUrlToStorage(payload.logo_file_cropped, `groups/${group_id}/logo`);
+		const url = await uploadDataUrlToStorage(
+			supabase,
+			payload.logo_file_cropped,
+			`groups/${group_id}/logo`
+		);
 		if (url) updates.logo_url = url;
 	}
 	if (payload.cover_file_cropped) {
 		const url = await uploadDataUrlToStorage(
+			supabase,
 			payload.cover_file_cropped,
 			`groups/${group_id}/cover`
 		);
@@ -179,7 +190,7 @@ function parseDataUrl(dataUrl) {
 	}
 }
 
-async function uploadDataUrlToStorage(dataUrl, destBasePath) {
+async function uploadDataUrlToStorage(supabase, dataUrl, destBasePath) {
 	const parsed = parseDataUrl(dataUrl);
 	if (!parsed) return null;
 	const { mime, buffer } = parsed;

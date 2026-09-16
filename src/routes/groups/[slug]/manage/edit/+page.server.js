@@ -1,4 +1,7 @@
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { resolveSession } from '$lib/server/session';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
 import { fail, redirect } from '@sveltejs/kit';
@@ -147,6 +150,7 @@ export const load = async ({ params, cookies, url }) => {
 	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
 
 	const supabase = createRequestSupabaseClient(accessToken);
+	const privateSupabase = createServiceSupabaseClient() || supabase;
 	const { data: group, error: groupError } = await supabase
 		.from('groups')
 		.select('*')
@@ -194,7 +198,7 @@ export const load = async ({ params, cookies, url }) => {
 	const ownerIds = (allOwners ?? []).map((r) => r.user_id);
 	let ownerEmails = [];
 	if (ownerIds.length) {
-		const { data: emailsData } = await supabase
+		const { data: emailsData } = await privateSupabase
 			.from('profiles')
 			.select('user_id, email')
 			.in('user_id', ownerIds);
@@ -217,7 +221,7 @@ export const load = async ({ params, cookies, url }) => {
 
 	let donationAccount = null;
 	try {
-		const { data } = await supabase
+		const { data } = await privateSupabase
 			.from('donation_accounts')
 			.select(
 				'id,stripe_account_id,stripe_account_email,charges_enabled,payouts_enabled,connected_at'

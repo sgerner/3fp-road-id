@@ -1789,6 +1789,7 @@
 				shiftFilters={shiftFilterOptions}
 				shifts={shiftOptions}
 				profiles={profileRecords}
+				eventId={event?.id}
 				{selectedStatus}
 				selectedActivity={selectedActivityId}
 				selectedShift={selectedShiftId}

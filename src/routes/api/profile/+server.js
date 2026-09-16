@@ -167,7 +167,6 @@ export async function PUT({ cookies, fetch, request }) {
 
 	const payload = {
 		user_id: user.id,
-		email: existingResult.data?.email ?? user.email ?? null,
 		full_name: fullName || null,
 		avatar_url: avatarUrl || null,
 		bio: bio || null,

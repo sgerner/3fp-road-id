@@ -1,6 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { TURNSTILE_SECRET_KEY } from '$env/static/private';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '$lib/server/supabaseClient';
 import { isTurnstileEnabled } from '$lib/server/turnstile';
 import { requireAdmin } from '$lib/server/admin';
 import { resolveSession } from '$lib/server/session';
@@ -37,7 +40,8 @@ async function notifyAdminsOfInterestSubmission({
 	message,
 	userId
 }) {
-	const { data: admins, error: adminsError } = await supabase
+	const recipientSupabase = createServiceSupabaseClient() || supabase;
+	const { data: admins, error: adminsError } = await recipientSupabase
 		.from('profiles')
 		.select('email')
 		.eq('admin', true)

@@ -148,16 +148,6 @@
 				dest = `/roadid/${encodeURIComponent(rid)}`;
 			}
 
-			// Upsert email into profiles for display in owner lists
-			try {
-				const u = session?.user;
-				if (u?.id && u?.email) {
-					await supabase
-						.from('profiles')
-						.upsert({ user_id: u.id, email: u.email }, { onConflict: 'user_id' });
-				}
-			} catch {}
-
 			if (autoClaimSlug) {
 				try {
 					const claimRes = await fetch(`/api/groups/${encodeURIComponent(autoClaimSlug)}/claim`, {

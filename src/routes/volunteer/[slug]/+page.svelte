@@ -912,7 +912,6 @@
 
 		if (details.full_name !== undefined) assign('full_name', details.full_name);
 		if (details.phone !== undefined) assign('phone', details.phone);
-		if (details.email !== undefined) assign('email', details.email);
 		if (details.emergency_contact_name !== undefined)
 			assign('emergency_contact_name', details.emergency_contact_name);
 		if (details.emergency_contact_phone !== undefined)

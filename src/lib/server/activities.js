@@ -606,7 +606,11 @@ export async function loadRideLookups(supabase) {
 	};
 }
 
-async function loadActivityHosts(supabase, activityEventId) {
+async function loadActivityHosts(
+	supabase,
+	activityEventId,
+	{ includePrivateProfiles = false } = {}
+) {
 	const { data, error } = await supabase
 		.from('activity_hosts')
 		.select('activity_event_id,user_id,created_at')
@@ -619,8 +623,8 @@ async function loadActivityHosts(supabase, activityEventId) {
 	if (!userIds.length) return rows.map((row) => ({ ...row, profile: null }));
 
 	const { data: profiles, error: profileError } = await supabase
-		.from('profiles')
-		.select('user_id,full_name,email')
+		.from(includePrivateProfiles ? 'profiles' : 'public_profiles')
+		.select(includePrivateProfiles ? 'user_id,full_name,email' : 'user_id,full_name')
 		.in('user_id', userIds);
 	if (profileError) throw profileError;
 
@@ -631,15 +635,27 @@ async function loadActivityHosts(supabase, activityEventId) {
 	}));
 }
 
-async function loadGroupManagers(supabase, groupId) {
+async function loadGroupManagers(supabase, groupId, { includePrivateProfiles = false } = {}) {
 	if (!groupId) return [];
-	const { data, error } = await supabase
+	const { data: members, error } = await supabase
 		.from('group_members')
-		.select('user_id,role,profile:profiles(user_id,full_name,email)')
+		.select('user_id,role')
 		.eq('group_id', groupId)
 		.in('role', ['owner', 'admin']);
 	if (error) throw error;
-	return asArray(data);
+
+	const rows = asArray(members);
+	const userIds = uniq(rows.map((row) => row.user_id).filter(Boolean));
+	if (!userIds.length) return rows.map((row) => ({ ...row, profile: null }));
+
+	const { data: profiles, error: profileError } = await supabase
+		.from(includePrivateProfiles ? 'profiles' : 'public_profiles')
+		.select(includePrivateProfiles ? 'user_id,full_name,email' : 'user_id,full_name')
+		.in('user_id', userIds);
+	if (profileError) throw profileError;
+
+	const profileMap = new Map(asArray(profiles).map((profile) => [profile.user_id, profile]));
+	return rows.map((row) => ({ ...row, profile: profileMap.get(row.user_id) ?? null }));
 }
 
 function mapProfileSummary(profile) {
@@ -663,7 +679,11 @@ function buildRsvpSummary(rsvp) {
 	};
 }
 
-async function loadRideRecord(supabase, filters, { includeTemplates = false } = {}) {
+async function loadRideRecord(
+	supabase,
+	filters,
+	{ includeTemplates = false, includePrivateProfiles = false } = {}
+) {
 	let query = supabase.from('activity_events').select(ACTIVITY_SELECT).eq('activity_type', 'ride');
 	for (const [key, value] of Object.entries(filters)) {
 		query = query.eq(key, value);
@@ -713,8 +733,8 @@ async function loadRideRecord(supabase, filters, { includeTemplates = false } = 
 			.select('*')
 			.eq('activity_event_id', activity.id)
 			.order('created_at', { ascending: true }),
-		loadActivityHosts(supabase, activity.id),
-		loadGroupManagers(supabase, activity.host_group_id),
+		loadActivityHosts(supabase, activity.id, { includePrivateProfiles }),
+		loadGroupManagers(supabase, activity.host_group_id, { includePrivateProfiles }),
 		includeTemplates
 			? supabase
 					.from('activity_email_templates')

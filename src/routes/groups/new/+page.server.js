@@ -1,8 +1,11 @@
 import { supabase } from '$lib/supabaseClient';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import { fail, redirect } from '@sveltejs/kit';
 
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
+		const storageClient = createServiceSupabaseClient();
+		if (!storageClient) return null;
 		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
 		const res = await fetch(remoteUrl, { redirect: 'follow' });
 		if (!res.ok) return null;
@@ -17,12 +20,12 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 			return 'img';
 		})();
 		const path = `${destBasePath}-${Date.now()}.${ext}`;
-		const up = await supabase.storage.from('storage').upload(path, ab, {
+		const up = await storageClient.storage.from('storage').upload(path, ab, {
 			contentType: ct,
 			upsert: true
 		});
 		if (up.error) return null;
-		const { data } = supabase.storage.from('storage').getPublicUrl(path);
+		const { data } = storageClient.storage.from('storage').getPublicUrl(path);
 		return data?.publicUrl || null;
 	} catch {
 		return null;

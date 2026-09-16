@@ -382,8 +382,8 @@ export async function getGroupNewsProfilesMap(supabase, userIds) {
 	if (!uniqueIds.length) return new Map();
 
 	const { data, error: queryError } = await supabase
-		.from('profiles')
-		.select('user_id, full_name, email, avatar_url')
+		.from('public_profiles')
+		.select('user_id, full_name, avatar_url')
 		.in('user_id', uniqueIds);
 
 	if (queryError) throw queryError;

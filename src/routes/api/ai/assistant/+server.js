@@ -1260,7 +1260,6 @@ async function persistLearnedAssistantContext({
 	const { error } = await supabase.from('profiles').upsert(
 		{
 			user_id: user.id,
-			email: user.email || null,
 			metadata: nextMetadata
 		},
 		{ onConflict: 'user_id' }

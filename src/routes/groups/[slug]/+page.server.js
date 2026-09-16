@@ -511,11 +511,11 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	let donationEnabled = false;
 	try {
 		const { data } = await supabase
-			.from('donation_accounts')
-			.select('stripe_account_id,charges_enabled')
+			.from('donation_accounts_public')
+			.select('is_connected')
 			.eq('group_id', group.id)
 			.maybeSingle();
-		donationEnabled = Boolean(data?.stripe_account_id && data?.charges_enabled);
+		donationEnabled = Boolean(data?.is_connected);
 	} catch (err) {
 		console.warn('Failed to load donation account for group page', err);
 	}

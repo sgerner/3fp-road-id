@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { DomUtils, parseDocument } from 'htmlparser2';
-import { supabase } from '$lib/supabaseClient';
 import { searchGeocode } from '$lib/server/geocoding';
 import { optimizeImageForStorage } from '$lib/server/storageImages';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
@@ -760,6 +760,8 @@ async function withTimeout(promise, timeoutMs, message = 'Operation timed out') 
 
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
+		const storageClient = createServiceSupabaseClient();
+		if (!storageClient) return null;
 		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
 		const res = await fetchWithTimeout(
 			remoteUrl,
@@ -777,12 +779,12 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 		});
 		const sourceKey = createHash('sha256').update(remoteUrl).digest('hex').slice(0, 32);
 		const objectPath = `${destBasePath}/${sourceKey}.${optimized.extension}`;
-		const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
+		const up = await storageClient.storage.from('storage').upload(objectPath, optimized.buffer, {
 			contentType: optimized.contentType,
 			upsert: true
 		});
 		if (up.error) return null;
-		const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
+		const { data } = storageClient.storage.from('storage').getPublicUrl(objectPath);
 		return data?.publicUrl || null;
 	} catch {
 		return null;

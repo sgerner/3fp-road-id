@@ -29,13 +29,17 @@ export const load = async ({ cookies, url }) => {
 		ownerQuery,
 		profileQuery
 	] = await Promise.all([
-		supabase.from('groups').select('id, name').order('name'),
+		supabaseReq.from('groups').select('id, name').order('name'),
 		supabase
 			.from('volunteer_event_types')
 			.select('slug, event_type, description')
 			.order('event_type'),
 		userId
-			? supabase.from('group_members').select('group_id').eq('user_id', userId).eq('role', 'owner')
+			? supabaseReq
+					.from('group_members')
+					.select('group_id')
+					.eq('user_id', userId)
+					.eq('role', 'owner')
 			: Promise.resolve({ data: [], error: null }),
 		userId
 			? supabaseReq.from('profiles').select('admin').eq('user_id', userId).maybeSingle()

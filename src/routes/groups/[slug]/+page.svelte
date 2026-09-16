@@ -39,6 +39,7 @@
 		limitSeoText,
 		toJsonLd
 	} from '$lib/seo';
+	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 
 	// UI state
 	let showSticky = $state(false);
