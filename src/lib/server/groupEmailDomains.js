@@ -3,6 +3,7 @@ import { PUBLIC_URL_BASE } from '$env/static/public';
 import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
 import { domainMatchesManagedZone, resolveSenderSelection } from '$lib/server/emailDomainRules';
 import { resolveVerifiedSession } from '$lib/server/session';
+import { selectAwsSesCredentials } from '$lib/server/awsSesCredentials.js';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
@@ -17,16 +18,7 @@ import {
 } from '@aws-sdk/client-sesv2';
 
 const MANAGER_ROLES = ['owner', 'admin'];
-const AWS_CREDENTIALS = {
-	accessKeyId:
-		env.AWS_SES_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID || env.AWS_BEDROCK_ACCESS_KEY_ID || null,
-	secretAccessKey:
-		env.AWS_SES_SECRET_ACCESS_KEY ||
-		env.AWS_SECRET_ACCESS_KEY ||
-		env.AWS_BEDROCK_SECRET_ACCESS_KEY ||
-		null,
-	sessionToken: env.AWS_SESSION_TOKEN || env.AWS_BEDROCK_SESSION_TOKEN || null
-};
+const AWS_CREDENTIALS = selectAwsSesCredentials(env);
 
 let cachedSesV2Client = null;
 let cachedSesClient = null;
@@ -83,7 +75,7 @@ function requireAwsCredentials() {
 	if (!region) {
 		throw new Error('AWS_SES_REGION or AWS_REGION is not configured.');
 	}
-	if (!AWS_CREDENTIALS.accessKeyId || !AWS_CREDENTIALS.secretAccessKey) {
+	if (!AWS_CREDENTIALS) {
 		throw new Error('AWS credentials are not configured for SES automation.');
 	}
 	return {

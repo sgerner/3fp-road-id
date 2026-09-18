@@ -43,6 +43,7 @@ export async function POST(event) {
 	const processed = [];
 	for (const template of templates ?? []) {
 		if (template.send_offset_minutes == null) continue;
+		let templateSent = 0;
 
 		const ride = await loadRideById(supabase, template.activity_event_id, {
 			includeTemplates: false
@@ -117,10 +118,11 @@ export async function POST(event) {
 					console.error('Unable to store ride email delivery', deliveryInsertError);
 				}
 				sent += 1;
+				templateSent += 1;
 			}
 		}
 
-		if (sent > 0) {
+		if (templateSent > 0) {
 			await supabase
 				.from('activity_email_templates')
 				.update({ last_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })

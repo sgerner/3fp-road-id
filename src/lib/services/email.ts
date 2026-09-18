@@ -32,6 +32,8 @@ export interface SendEmailRequestBody {
 export interface SendEmailResponse {
 	message: string;
 	messageId?: string;
+	code?: string;
+	requestId?: string | null;
 	sanitized?: {
 		textBodyChanged: boolean;
 		htmlBodyChanged: boolean;
@@ -86,6 +88,15 @@ export async function sendEmail(
 		const error = new Error(message);
 		(error as Error & { status?: number }).status = response.status;
 		(error as Error & { payload?: unknown }).payload = payload;
+		if (typeof payload === 'object' && payload !== null) {
+			const errorPayload = payload as { code?: unknown; requestId?: unknown };
+			if (typeof errorPayload.code === 'string') {
+				(error as Error & { code?: string }).code = errorPayload.code;
+			}
+			if (typeof errorPayload.requestId === 'string' || errorPayload.requestId === null) {
+				(error as Error & { requestId?: string | null }).requestId = errorPayload.requestId;
+			}
+		}
 		throw error;
 	}
 

@@ -327,6 +327,7 @@ export const POST = async (event) => {
 	}, new Map());
 
 	let sentCount = 0;
+	const sendErrors = [];
 
 	for (const [eventId, eventContexts] of contextsByEvent.entries()) {
 		const firstContext = eventContexts[0];
@@ -376,11 +377,21 @@ export const POST = async (event) => {
 			sentCount += recipients.length;
 		} catch (error) {
 			console.error(`Failed to send bulk volunteer host notification for event ${eventId}`, error);
+			sendErrors.push({
+				eventId,
+				message: error?.message || 'Email send failed.'
+			});
 		}
 	}
 
-	return json({
-		success: true,
-		recipients: sentCount
-	});
+	return json(
+		{
+			success: sendErrors.length === 0,
+			error: sendErrors.length ? 'One or more host notification emails failed.' : undefined,
+			recipients: sentCount,
+			failedEvents: sendErrors.length,
+			errors: sendErrors
+		},
+		{ status: sendErrors.length ? 502 : 200 }
+	);
 };

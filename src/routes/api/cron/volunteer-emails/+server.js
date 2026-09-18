@@ -14,6 +14,7 @@ import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const DELIVERY_STALE_MS = 15 * 60 * 1000;
 
 function enforceCronSecret(request) {
 	const secret =
@@ -236,6 +237,78 @@ async function loadEventContext(supabase, eventRecord) {
 	return { opportunities, volunteers, hostGroup };
 }
 
+async function claimVolunteerEmailDelivery(
+	supabase,
+	templateId,
+	volunteerSignupId,
+	recipientEmail
+) {
+	const now = new Date();
+	const nowIso = now.toISOString();
+	const { data: inserted, error: insertError } = await supabase
+		.from('volunteer_event_email_deliveries')
+		.insert({
+			template_id: templateId,
+			volunteer_signup_id: volunteerSignupId,
+			recipient_email: recipientEmail,
+			send_state: 'sending',
+			updated_at: nowIso
+		})
+		.select('id')
+		.maybeSingle();
+
+	if (!insertError && inserted?.id) return { id: inserted.id, state: 'claimed' };
+	if (insertError?.code !== '23505') {
+		throw insertError || new Error('Unable to reserve volunteer email delivery.');
+	}
+
+	const { data: existing, error: existingError } = await supabase
+		.from('volunteer_event_email_deliveries')
+		.select('id,send_state,updated_at')
+		.eq('template_id', templateId)
+		.eq('volunteer_signup_id', volunteerSignupId)
+		.maybeSingle();
+	if (existingError) throw existingError;
+	if (!existing) return { id: null, state: 'pending' };
+	if (existing.send_state === 'sent') return { id: existing.id, state: 'sent' };
+	if (existing.send_state === 'sending') {
+		const updatedAt = parseTimestamp(existing.updated_at);
+		if (updatedAt !== null && now.getTime() - updatedAt < DELIVERY_STALE_MS) {
+			return { id: existing.id, state: 'pending' };
+		}
+	}
+
+	const reclaim = supabase
+		.from('volunteer_event_email_deliveries')
+		.update({
+			recipient_email: recipientEmail,
+			send_state: 'sending',
+			sent_at: null,
+			error_text: null,
+			updated_at: nowIso
+		})
+		.eq('id', existing.id);
+	const reclaimQuery =
+		existing.send_state === 'sending'
+			? reclaim
+					.eq('send_state', 'sending')
+					.lte('updated_at', new Date(now.getTime() - DELIVERY_STALE_MS).toISOString())
+			: reclaim.eq('send_state', 'failed');
+	const { data: reclaimed, error: reclaimError } = await reclaimQuery.select('id').maybeSingle();
+	if (reclaimError) throw reclaimError;
+	return reclaimed?.id
+		? { id: reclaimed.id, state: 'claimed' }
+		: { id: existing.id, state: 'pending' };
+}
+
+async function updateVolunteerEmailDelivery(supabase, deliveryId, updates) {
+	const { error } = await supabase
+		.from('volunteer_event_email_deliveries')
+		.update({ ...updates, updated_at: new Date().toISOString() })
+		.eq('id', deliveryId);
+	if (error) throw error;
+}
+
 async function processEmailTemplate({ supabase, template, eventRecord, origin, fetchFn, now }) {
 	const contextData = await loadEventContext(supabase, eventRecord);
 	if (!contextData) {
@@ -261,6 +334,8 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 	);
 
 	let sentCount = 0;
+	let eligibleCount = 0;
+	let pendingCount = 0;
 	const errors = [];
 	for (const volunteer of approvedVolunteers) {
 		const to = safeTrim(volunteer.email);
@@ -301,6 +376,26 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 		const calendarBlocks = buildShiftCalendarBlocks(mergeContext);
 		const htmlWithCalendar = [htmlBody, calendarBlocks.html].filter(Boolean).join('\n\n');
 		const textWithCalendar = [textBody, calendarBlocks.text].filter(Boolean).join('\n\n');
+		eligibleCount += 1;
+
+		let delivery;
+		try {
+			delivery = await claimVolunteerEmailDelivery(supabase, template.id, volunteer.id, to);
+		} catch (error) {
+			console.error('Unable to reserve scheduled volunteer email delivery', {
+				templateId: template.id,
+				volunteerId: volunteer.id,
+				error
+			});
+			errors.push({ volunteerId: volunteer.id, message: 'Unable to reserve email delivery.' });
+			continue;
+		}
+
+		if (delivery.state === 'sent') continue;
+		if (delivery.state === 'pending' || !delivery.id) {
+			pendingCount += 1;
+			continue;
+		}
 
 		try {
 			await sendEmail(
@@ -328,12 +423,45 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 			);
 			sentCount += 1;
 		} catch (error) {
+			try {
+				await updateVolunteerEmailDelivery(supabase, delivery.id, {
+					send_state: 'failed',
+					sent_at: null,
+					error_text: safeTrim(error?.message || 'send_failed').slice(0, 2000)
+				});
+			} catch (stateError) {
+				console.error('Unable to store failed volunteer email delivery', {
+					templateId: template.id,
+					volunteerId: volunteer.id,
+					error: stateError
+				});
+			}
 			errors.push({ volunteerId: volunteer.id, message: error?.message || 'send_failed' });
+			continue;
+		}
+
+		try {
+			await updateVolunteerEmailDelivery(supabase, delivery.id, {
+				send_state: 'sent',
+				sent_at: new Date().toISOString(),
+				error_text: null
+			});
+		} catch (stateError) {
+			console.error('Email accepted but volunteer delivery status could not be stored', {
+				templateId: template.id,
+				volunteerId: volunteer.id,
+				error: stateError
+			});
+			errors.push({
+				volunteerId: volunteer.id,
+				message: 'Email was accepted but its delivery status could not be recorded.'
+			});
 		}
 	}
 
 	const eventEndMs = parseTimestamp(eventRecord?.event_end ?? eventRecord?.eventEnd);
-	if (sentCount > 0 || (eventEndMs !== null && now.getTime() - eventEndMs > ONE_DAY_MS)) {
+	const deliveryRoundComplete = eligibleCount > 0 && errors.length === 0 && pendingCount === 0;
+	if (deliveryRoundComplete || (eventEndMs !== null && now.getTime() - eventEndMs > ONE_DAY_MS)) {
 		await supabase
 			.from('volunteer_event_emails')
 			.update({ last_sent_at: new Date().toISOString() })
@@ -344,6 +472,7 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 		templateId: template.id,
 		sent: sentCount,
 		recipients: approvedVolunteers.length,
+		pending: pendingCount,
 		errors
 	};
 }
@@ -352,6 +481,7 @@ function filterDueTemplates(records, now) {
 	const due = [];
 	for (const template of records ?? []) {
 		if (!template) continue;
+		if (template.is_active === false) continue;
 		if (!safeTrim(template.subject) || !safeTrim(template.body)) continue;
 		const eventRecord = template.event;
 		if (!eventRecord || !eventRecord.event_start) continue;
@@ -386,7 +516,7 @@ async function handleCron(event) {
 	const emailQuery = await supabase
 		.from('volunteer_event_emails')
 		.select(
-			`id,event_id,email_type,subject,body,send_offset_minutes,require_confirmation,last_sent_at,event:volunteer_events(id,title,slug,event_start,event_end,timezone,location_name,location_address,contact_email,contact_phone,host_group_id,status)`
+			`id,event_id,email_type,subject,body,send_offset_minutes,require_confirmation,last_sent_at,is_active,event:volunteer_events(id,title,slug,event_start,event_end,timezone,location_name,location_address,contact_email,contact_phone,host_group_id,status)`
 		);
 
 	if (emailQuery.error) {
@@ -423,7 +553,8 @@ async function handleCron(event) {
 		}
 	}
 
-	return json({ processed: results.length, results });
+	const hasDeliveryErrors = results.some((result) => result.errors?.length || result.error);
+	return json({ processed: results.length, results }, { status: hasDeliveryErrors ? 502 : 200 });
 }
 
 export const GET = handleCron;

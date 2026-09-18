@@ -8,6 +8,8 @@ import {
 import { resolveVerifiedSession } from '$lib/server/session';
 import { enforceRateLimit, readJsonBody, timingSafeStringEqual } from '$lib/server/security';
 import { sanitizeEmailHtml } from '$lib/server/emailHtml';
+import { selectAwsSesCredentials } from '$lib/server/awsSesCredentials.js';
+import { describeSesSendFailure } from '$lib/server/sesSendError.js';
 import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
 import {
 	normalizeEmailBrand,
@@ -245,19 +247,18 @@ function ensureSesClient(): SESClient {
 	}
 
 	const region = env.AWS_SES_REGION;
-	const accessKeyId = env.AWS_SES_ACCESS_KEY_ID;
-	const secretAccessKey = env.AWS_SES_SECRET_ACCESS_KEY;
+	const credentials = selectAwsSesCredentials(env);
 
 	if (!region) {
 		throw new Error('AWS_SES_REGION is not configured.');
 	}
-	if (!accessKeyId || !secretAccessKey) {
+	if (!credentials) {
 		throw new Error('AWS SES credentials are not configured.');
 	}
 
 	cachedClient = new SESClient({
 		region,
-		credentials: { accessKeyId, secretAccessKey }
+		credentials
 	});
 
 	return cachedClient;
@@ -949,7 +950,19 @@ export const POST: RequestHandler = async (event) => {
 			{ status: 202 }
 		);
 	} catch (error) {
-		console.error('Failed to send email via SES', error);
-		return json({ error: 'Failed to send email.' }, { status: 502 });
+		const failure = describeSesSendFailure(error);
+		const httpStatusCode =
+			typeof error === 'object' && error !== null
+				? ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode ?? null)
+				: null;
+		console.error('Failed to send email via SES', {
+			code: failure.code,
+			requestId: failure.requestId,
+			httpStatusCode
+		});
+		return json(
+			{ error: failure.message, code: failure.code, requestId: failure.requestId },
+			{ status: 502 }
+		);
 	}
 };
