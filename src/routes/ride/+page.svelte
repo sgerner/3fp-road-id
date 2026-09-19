@@ -298,14 +298,15 @@
 
 		try {
 			if (!mapLoadPromise) {
-				mapLoadPromise = Promise.all([
-					import('$lib/map/leaflet.css'),
-					import('leaflet'),
-					import('leaflet.markercluster')
-				]).then(([, mod]) => {
+				mapLoadPromise = (async () => {
+					await import('$lib/map/leaflet.css');
+					const mod = await import('leaflet');
 					L = mod.default || mod;
+					// markercluster is a legacy UMD bundle and reads Leaflet from the global scope.
+					globalThis.L = L;
+					await import('leaflet.markercluster');
 					return L;
-				});
+				})();
 			}
 			await mapLoadPromise;
 			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
