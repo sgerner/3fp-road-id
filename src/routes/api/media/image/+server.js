@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { isOptimizableImageHost } from '$lib/media/optimized';
 import { enforceRateLimit, fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
-import { sniffRasterImageMimeType } from '$lib/server/storageImages';
+import { sniffIcoImageMimeType, sniffRasterImageMimeType } from '$lib/server/storageImages';
 
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;
@@ -11,16 +11,6 @@ const REMOTE_IMAGE_HEADERS = Object.freeze({
 	'user-agent':
 		'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 });
-const ICON_CONTENT_TYPES = new Set(['image/x-icon', 'image/vnd.microsoft.icon']);
-
-function isIcoImage(value) {
-	if (!Buffer.isBuffer(value) || value.byteLength < 6) return false;
-	const reserved = value.readUInt16LE(0);
-	const type = value.readUInt16LE(2);
-	const imageCount = value.readUInt16LE(4);
-	return reserved === 0 && type === 1 && imageCount > 0 && value.byteLength >= 6 + imageCount * 16;
-}
-
 function numericParameter(url, name, fallback, min, max) {
 	const value = Number(url.searchParams.get(name));
 	if (!Number.isFinite(value)) return fallback;
@@ -75,7 +65,10 @@ export const GET = async (event) => {
 			// Some groups use a site's favicon as their imported logo. Sharp does
 			// not decode ICO files, but browsers do, so preserve a validated icon
 			// instead of turning an otherwise usable image into a broken <img>.
-			if (ICON_CONTENT_TYPES.has(contentType) && isIcoImage(sourceBuffer)) {
+			if (
+				(contentType === 'image/x-icon' || contentType === 'image/vnd.microsoft.icon') &&
+				sniffIcoImageMimeType(sourceBuffer)
+			) {
 				return new Response(sourceBuffer, {
 					headers: {
 						'cache-control': 'public, max-age=31536000, immutable',

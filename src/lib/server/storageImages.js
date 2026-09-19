@@ -8,6 +8,7 @@ const IMAGE_MIME_TYPES = Object.freeze({
 	heif: 'image/avif',
 	gif: 'image/gif'
 });
+const ICO_MIME_TYPES = new Set(['image/x-icon', 'image/vnd.microsoft.icon']);
 
 function normalizeMimeType(value) {
 	return String(value || '')
@@ -57,7 +58,32 @@ export function sniffRasterImageMimeType(value) {
 	return null;
 }
 
+export function sniffIcoImageMimeType(value) {
+	const source = normalizeBuffer(value);
+	if (source.byteLength < 6) return null;
+	const reserved = source.readUInt16LE(0);
+	const type = source.readUInt16LE(2);
+	const imageCount = source.readUInt16LE(4);
+	if (reserved !== 0 || type !== 1 || imageCount === 0 || imageCount > 256) return null;
+	const directoryEnd = 6 + imageCount * 16;
+	if (source.byteLength < directoryEnd) return null;
+	for (let index = 0; index < imageCount; index += 1) {
+		const entryOffset = 6 + index * 16;
+		const bytesInResource = source.readUInt32LE(entryOffset + 8);
+		const imageOffset = source.readUInt32LE(entryOffset + 12);
+		if (
+			bytesInResource === 0 ||
+			imageOffset < directoryEnd ||
+			imageOffset > source.byteLength - bytesInResource
+		) {
+			return null;
+		}
+	}
+	return 'image/x-icon';
+}
+
 function extensionForMimeType(mimeType) {
+	if (mimeType === 'image/x-icon' || mimeType === 'image/vnd.microsoft.icon') return 'ico';
 	return mimeType === IMAGE_MIME_TYPES.jpeg ? 'jpg' : mimeType.split('/')[1];
 }
 
@@ -78,6 +104,18 @@ export async function optimizeImageForStorage(
 			buffer: source,
 			contentType: mimeType || contentType || 'application/octet-stream',
 			extension: 'bin',
+			originalBytes: source.byteLength,
+			optimizedBytes: source.byteLength,
+			optimized: false
+		};
+	}
+
+	const icoMimeType = sniffIcoImageMimeType(source);
+	if (icoMimeType && (ICO_MIME_TYPES.has(mimeType) || mimeType === 'image/octet-stream')) {
+		return {
+			buffer: source,
+			contentType: icoMimeType,
+			extension: 'ico',
 			originalBytes: source.byteLength,
 			optimizedBytes: source.byteLength,
 			optimized: false

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
-import { optimizeImageForStorage, sniffRasterImageMimeType } from './storageImages.js';
+import {
+	optimizeImageForStorage,
+	sniffIcoImageMimeType,
+	sniffRasterImageMimeType
+} from './storageImages.js';
 
 test('unsafe vector and mislabeled active image content are not stored as-is', async () => {
 	const svg = Buffer.from(
@@ -33,4 +37,23 @@ test('malformed image data fails closed instead of being copied into public stor
 		}),
 		/Unsupported or unsafe image format/
 	);
+});
+
+test('validated ICO favicons can be preserved in storage', async () => {
+	const ico = Buffer.alloc(23);
+	ico.writeUInt16LE(0, 0);
+	ico.writeUInt16LE(1, 2);
+	ico.writeUInt16LE(1, 4);
+	ico[6] = 1;
+	ico[7] = 1;
+	ico.writeUInt16LE(1, 10);
+	ico.writeUInt16LE(32, 12);
+	ico.writeUInt32LE(1, 14);
+	ico.writeUInt32LE(22, 18);
+	assert.equal(sniffIcoImageMimeType(ico), 'image/x-icon');
+
+	const optimized = await optimizeImageForStorage(ico, { contentType: 'image/x-icon' });
+	assert.equal(optimized.contentType, 'image/x-icon');
+	assert.equal(optimized.extension, 'ico');
+	assert.deepEqual(optimized.buffer, ico);
 });

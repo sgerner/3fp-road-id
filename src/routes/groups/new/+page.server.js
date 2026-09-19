@@ -4,41 +4,15 @@ import {
 	createServiceSupabaseClient
 } from '$lib/server/supabaseClient';
 import { resolveVerifiedSession } from '$lib/server/session';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import {
-	enforceRateLimit,
-	fetchPublicHttp,
-	readFormData,
-	readResponseBuffer
-} from '$lib/server/security';
+import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '$lib/server/remoteImages';
+import { enforceRateLimit, readFormData } from '$lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
-
-const MAX_REMOTE_IMAGE_BYTES = 12 * 1024 * 1024;
 
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
 		const storageClient = createServiceSupabaseClient();
 		if (!storageClient) return null;
-		if (!remoteUrl || !/^https?:\/\//i.test(remoteUrl)) return null;
-		const res = await fetchPublicHttp(
-			remoteUrl,
-			{ headers: { accept: 'image/*' } },
-			{ timeoutMs: 8_000, maxRedirects: 3 }
-		);
-		if (!res.ok) return null;
-		const ct = (res.headers.get('content-type') || '').split(';', 1)[0].trim().toLowerCase();
-		if (!ct.startsWith('image/')) return null;
-		const sourceBuffer = await readResponseBuffer(res, MAX_REMOTE_IMAGE_BYTES);
-		if (!sourceBuffer) return null;
-		const optimized = await optimizeImageForStorage(sourceBuffer, { contentType: ct });
-		const path = `${destBasePath}-${Date.now()}.${optimized.extension}`;
-		const up = await storageClient.storage.from('storage').upload(path, optimized.buffer, {
-			contentType: optimized.contentType,
-			upsert: true
-		});
-		if (up.error) return null;
-		const { data } = storageClient.storage.from('storage').getPublicUrl(path);
-		return data?.publicUrl || null;
+		return await mirrorPreparedRemoteImage(storageClient, remoteUrl, destBasePath);
 	} catch {
 		return null;
 	}
