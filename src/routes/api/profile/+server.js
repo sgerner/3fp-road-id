@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '$lib/server/activities';
 import { searchGeocode } from '$lib/server/geocoding';
+import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { normalizeE164PhoneNumber } from '$lib/utils/phone';
 
 const MAX_FULL_NAME_LENGTH = 120;
 const MAX_BIO_LENGTH = 600;
@@ -111,6 +113,10 @@ export async function PUT({ cookies, fetch, request }) {
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
+	const profileWriteClient = createServiceSupabaseClient();
+	if (!profileWriteClient) {
+		return json({ error: 'Profile service is temporarily unavailable.' }, { status: 503 });
+	}
 
 	let body;
 	try {
@@ -127,10 +133,15 @@ export async function PUT({ cookies, fetch, request }) {
 	const recommendationFocus = normalizeFocus(
 		body?.recommendation_focus ?? body?.recommendationFocus
 	);
+	const hasPhoneInput = Object.prototype.hasOwnProperty.call(body || {}, 'phone');
+	const phone = hasPhoneInput ? normalizeE164PhoneNumber(body.phone) : null;
+	if (hasPhoneInput && body.phone && !phone) {
+		return json({ error: 'Enter a valid mobile number.' }, { status: 400 });
+	}
 
 	const existingResult = await supabase
 		.from('profiles')
-		.select('id,email,metadata')
+		.select('id,email,phone,metadata')
 		.eq('user_id', user.id)
 		.maybeSingle();
 
@@ -172,8 +183,9 @@ export async function PUT({ cookies, fetch, request }) {
 		bio: bio || null,
 		metadata
 	};
+	if (hasPhoneInput) payload.phone = phone || null;
 
-	const { data, error } = await supabase
+	const { data, error } = await profileWriteClient
 		.from('profiles')
 		.upsert(payload, { onConflict: 'user_id' })
 		.select('id,user_id,full_name,avatar_url,bio,email,phone,admin,metadata,updated_at,created_at')

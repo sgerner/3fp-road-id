@@ -1,4 +1,5 @@
 import { getActivityClient } from '$lib/server/activities';
+import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '$lib/server/sms';
 
 const INTEREST_SUGGESTIONS = [
 	'Road riding',
@@ -79,6 +80,9 @@ export const load = async ({ cookies }) => {
 			currentUser: null,
 			profile: null,
 			context: { location: '', home_location: {}, interests: [], recommendation_focus: [] },
+			smsPreferences: null,
+			smsConsentText: SMS_CONSENT_TEXT,
+			smsConsentVersion: SMS_CONSENT_VERSION,
 			interestSuggestions: INTEREST_SUGGESTIONS,
 			recommendationOptions: RECOMMENDATION_OPTIONS
 		};
@@ -86,7 +90,16 @@ export const load = async ({ cookies }) => {
 
 	const { data } = await supabase
 		.from('profiles')
-		.select('id,user_id,full_name,avatar_url,bio,email,metadata,updated_at,created_at')
+		.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
+		.eq('user_id', user.id)
+		.maybeSingle();
+
+	const { data: smsSubscription } = await supabase
+		.from('sms_subscriptions')
+		.select(
+			'phone_e164,status,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages,consent_version,opted_in_at,opted_out_at' +
+				',phone_verified_at,verification_expires_at'
+		)
 		.eq('user_id', user.id)
 		.maybeSingle();
 
@@ -98,6 +111,7 @@ export const load = async ({ cookies }) => {
 				avatar_url: data.avatar_url ?? null,
 				bio: data.bio ?? null,
 				email: data.email ?? null,
+				phone: data.phone ?? null,
 				metadata: normalizeMetadataObject(data.metadata),
 				updated_at: data.updated_at ?? null,
 				created_at: data.created_at ?? null
@@ -108,6 +122,37 @@ export const load = async ({ cookies }) => {
 		currentUser: user,
 		profile,
 		context: extractContext(profile?.metadata ?? {}),
+		smsPreferences: smsSubscription
+			? {
+					phone: data?.phone ?? smsSubscription.phone_e164 ?? '',
+					status: smsSubscription.status ?? 'paused',
+					ride_reminders: smsSubscription.ride_reminders === true,
+					volunteer_reminders: smsSubscription.volunteer_reminders === true,
+					admin_messages: smsSubscription.admin_messages === true,
+					bike_valet_messages: smsSubscription.bike_valet_messages === true,
+					consent_version: smsSubscription.consent_version ?? null,
+					opted_in_at: smsSubscription.opted_in_at ?? null,
+					opted_out_at: smsSubscription.opted_out_at ?? null,
+					verificationRequired:
+						smsSubscription.status === 'paused' &&
+						Boolean(smsSubscription.verification_expires_at) &&
+						Date.parse(smsSubscription.verification_expires_at) > Date.now() &&
+						!smsSubscription.phone_verified_at
+				}
+			: {
+					phone: data?.phone ?? '',
+					status: 'paused',
+					ride_reminders: false,
+					volunteer_reminders: false,
+					admin_messages: false,
+					bike_valet_messages: false,
+					consent_version: null,
+					opted_in_at: null,
+					opted_out_at: null,
+					verificationRequired: false
+				},
+		smsConsentText: SMS_CONSENT_TEXT,
+		smsConsentVersion: SMS_CONSENT_VERSION,
 		interestSuggestions: INTEREST_SUGGESTIONS,
 		recommendationOptions: RECOMMENDATION_OPTIONS
 	};

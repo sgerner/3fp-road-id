@@ -14,6 +14,7 @@
 	import IconHome from '@lucide/svelte/icons/home';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
@@ -560,6 +561,15 @@
 										>
 											<IconHandHeart class="h-4 w-4" />
 											Volunteer shifts
+										</a>
+										<a
+											href="/messages"
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => (showUserMenu = false)}
+										>
+											<IconMessageCircle class="h-4 w-4" />
+											SMS inbox
 										</a>
 										<button class="profile-menu-item w-full" onclick={doLogout} role="menuitem">
 											<IconLogOut class="h-4 w-4" />

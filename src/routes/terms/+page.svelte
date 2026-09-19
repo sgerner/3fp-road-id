@@ -7,7 +7,7 @@
 	<header class="space-y-2">
 		<p class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">Legal</p>
 		<h1 class="text-3xl font-bold">Terms of Service</h1>
-		<p class="text-surface-700-300 text-sm">Last updated: March 14, 2026</p>
+		<p class="text-surface-700-300 text-sm">Last updated: September 19, 2026</p>
 	</header>
 
 	<section
@@ -50,8 +50,20 @@
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Third-Party Services</h2>
 			<p class="text-sm leading-relaxed">
-				3FP integrates with third-party services such as Meta (Facebook and Instagram). Your use of
-				those services is also subject to their own terms and policies.
+				3FP integrates with third-party services such as Meta (Facebook and Instagram), Supabase,
+				and SignalWire. Your use of those services is also subject to their own terms and policies.
+			</p>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold">Optional SMS Messages</h2>
+			<p class="text-sm leading-relaxed">
+				If you separately opt in from your authenticated profile, 3FP may send recurring plain-text
+				SMS messages about selected ride reminders, volunteer shifts, event-admin replies, and bike
+				valet coordination. Message frequency varies and message and data rates may apply. Reply
+				STOP to opt out, START to rejoin, or HELP for help. Multimedia messages are not supported.
+				SMS is limited to lawful service communications; abuse, spam, automated bulk messaging, and
+				misuse of the reply feature are prohibited.
 			</p>
 		</div>
 

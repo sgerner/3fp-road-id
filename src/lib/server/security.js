@@ -220,6 +220,87 @@ export function verifyWebhookRequest(
 	return false;
 }
 
+function signalWireSignatureCandidates(digest) {
+	return [digest.toString('hex'), digest.toString('base64'), digest.toString('base64url')];
+}
+
+function signatureHeaderMatches(supplied, expectedValues) {
+	const candidates = normalizeSignatureCandidates(supplied).map((value) =>
+		value.replace(/^sha(?:1|256)=/i, '')
+	);
+	return candidates.some((candidate) =>
+		expectedValues.some((expected) => timingSafeStringEqual(candidate, expected))
+	);
+}
+
+/**
+ * Validate SignalWire platform callbacks with the project's signing key.
+ *
+ * SignalWire's native webhooks sign the full configured URL followed by the
+ * raw request body. Compatibility callbacks use the Twilio-compatible
+ * parameter signature. Keeping both forms here lets the application use the
+ * current Messaging API for sends while still accepting classic phone-number
+ * webhooks.
+ */
+export function verifySignalWireWebhookRequest(
+	request,
+	rawBody,
+	signingKey,
+	{ publicUrl = '', formPayload = null } = {}
+) {
+	const key = cleanText(signingKey);
+	if (!key) return false;
+
+	const url = cleanText(publicUrl) || cleanText(request?.url);
+	if (!url) return false;
+	const body = typeof rawBody === 'string' ? rawBody : String(rawBody ?? '');
+
+	const signalWireSignature = request?.headers?.get('x-signalwire-signature');
+	if (signalWireSignature) {
+		const signedValue = `${url}${body}`;
+		const sha1 = createHmac('sha1', key).update(signedValue).digest();
+		const sha256 = createHmac('sha256', key).update(signedValue).digest();
+		if (signatureHeaderMatches(signalWireSignature, signalWireSignatureCandidates(sha1))) {
+			return true;
+		}
+		if (
+			request?.headers?.get('x-signalwire-sha256-signature') &&
+			signatureHeaderMatches(
+				request.headers.get('x-signalwire-sha256-signature'),
+				signalWireSignatureCandidates(sha256)
+			)
+		) {
+			return true;
+		}
+	}
+
+	const sha256Signature = request?.headers?.get('x-signalwire-sha256-signature');
+	if (sha256Signature) {
+		const sha256 = createHmac('sha256', key).update(`${url}${body}`).digest();
+		if (signatureHeaderMatches(sha256Signature, signalWireSignatureCandidates(sha256))) {
+			return true;
+		}
+	}
+
+	const compatibilitySignature = request?.headers?.get('x-twilio-signature');
+	if (!compatibilitySignature) return false;
+	let params = formPayload;
+	if (!params) {
+		try {
+			params = Object.fromEntries(new URLSearchParams(body));
+		} catch {
+			params = null;
+		}
+	}
+	if (!params || typeof params !== 'object') return false;
+	const canonical = Object.keys(params)
+		.sort()
+		.map((name) => `${name}${Array.isArray(params[name]) ? params[name].join('') : params[name]}`)
+		.join('');
+	const expected = createHmac('sha1', key).update(`${url}${canonical}`).digest();
+	return signatureHeaderMatches(compatibilitySignature, signalWireSignatureCandidates(expected));
+}
+
 function isPrivateIpv4(address) {
 	const octets = address.split('.').map((value) => Number.parseInt(value, 10));
 	if (

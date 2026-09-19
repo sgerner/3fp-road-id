@@ -1,5 +1,5 @@
 create table if not exists public.volunteer_event_email_deliveries (
-    id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default extensions.uuid_generate_v4(),
     template_id uuid not null references public.volunteer_event_emails(id) on delete cascade,
     volunteer_signup_id uuid not null references public.volunteer_signups(id) on delete cascade,
     recipient_email text not null,

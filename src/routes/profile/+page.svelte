@@ -30,6 +30,12 @@
 	);
 	let avatarUrl = $state(existingProfile?.avatar_url ?? '');
 	let bio = $state(existingProfile?.bio ?? '');
+	let smsPhone = $state(pageData.smsPreferences?.phone ?? existingProfile?.phone ?? '');
+	let smsConsent = $state(pageData.smsPreferences?.status === 'active');
+	let smsRideReminders = $state(pageData.smsPreferences?.ride_reminders === true);
+	let smsVolunteerReminders = $state(pageData.smsPreferences?.volunteer_reminders === true);
+	let smsAdminMessages = $state(pageData.smsPreferences?.admin_messages === true);
+	let smsBikeValetMessages = $state(pageData.smsPreferences?.bike_valet_messages === true);
 	let location = $state(existingContext?.location ?? '');
 	let interests = $state([...(existingContext?.interests ?? [])]);
 	let recommendationFocus = $state([...(existingContext?.recommendation_focus ?? [])]);
@@ -41,6 +47,9 @@
 	let uploadingAvatar = $state(false);
 	let avatarError = $state('');
 	let fileInputEl = $state(null);
+	let smsVerificationRequired = $state(pageData.smsPreferences?.verificationRequired === true);
+	let smsVerificationCode = $state('');
+	let verifyingSms = $state(false);
 
 	const completionScore = $derived.by(() => {
 		let score = 0;
@@ -164,7 +173,8 @@
 					bio,
 					location,
 					interests,
-					recommendation_focus: recommendationFocus
+					recommendation_focus: recommendationFocus,
+					phone: smsPhone
 				})
 			});
 			const payload = await response.json().catch(() => ({}));
@@ -176,6 +186,7 @@
 			fullName = savedProfile?.full_name ?? fullName;
 			avatarUrl = savedProfile?.avatar_url ?? avatarUrl;
 			bio = savedProfile?.bio ?? bio;
+			smsPhone = savedProfile?.phone ?? smsPhone;
 			location = payload?.context?.location ?? location;
 			locationConfirmation = payload?.context?.home_location?.label ?? location;
 			interests = Array.isArray(payload?.context?.interests)
@@ -185,7 +196,36 @@
 				? payload.context.recommendation_focus
 				: recommendationFocus;
 
-			saveSuccess = 'Profile saved. Suggestions will now reflect these preferences.';
+			const smsResponse = await fetch('/api/sms/preferences', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					phone: smsPhone,
+					sms_consent: smsConsent,
+					ride_reminders: smsRideReminders,
+					volunteer_reminders: smsVolunteerReminders,
+					admin_messages: smsAdminMessages,
+					bike_valet_messages: smsBikeValetMessages
+				})
+			});
+			const smsPayload = await smsResponse.json().catch(() => ({}));
+			if (!smsResponse.ok) {
+				throw new Error(smsPayload?.error || 'Unable to save SMS preferences.');
+			}
+			const savedSms = smsPayload?.preferences ?? null;
+			smsVerificationRequired = smsPayload?.verificationRequired === true;
+			if (savedSms) {
+				smsPhone = savedSms.phone ?? smsPhone;
+				smsConsent = smsVerificationRequired ? true : savedSms.status === 'active';
+				smsRideReminders = savedSms.ride_reminders === true;
+				smsVolunteerReminders = savedSms.volunteer_reminders === true;
+				smsAdminMessages = savedSms.admin_messages === true;
+				smsBikeValetMessages = savedSms.bike_valet_messages === true;
+			}
+
+			saveSuccess = smsVerificationRequired
+				? 'We sent a six-digit verification code to your mobile number.'
+				: 'Profile and SMS preferences saved.';
 
 			if (typeof window !== 'undefined') {
 				window.dispatchEvent(
@@ -200,6 +240,38 @@
 			saveError = error?.message || 'Unable to save profile.';
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function verifySmsPhone() {
+		if (verifyingSms || !/^\d{6}$/.test(String(smsVerificationCode).trim())) return;
+		verifyingSms = true;
+		saveError = '';
+		saveSuccess = '';
+		try {
+			const response = await fetch('/api/sms/preferences/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: String(smsVerificationCode).trim() })
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(payload?.error || 'Unable to verify this phone number.');
+			const savedSms = payload?.preferences ?? null;
+			if (savedSms) {
+				smsPhone = savedSms.phone ?? smsPhone;
+				smsConsent = savedSms.status === 'active';
+				smsRideReminders = savedSms.ride_reminders === true;
+				smsVolunteerReminders = savedSms.volunteer_reminders === true;
+				smsAdminMessages = savedSms.admin_messages === true;
+				smsBikeValetMessages = savedSms.bike_valet_messages === true;
+			}
+			smsVerificationRequired = false;
+			smsVerificationCode = '';
+			saveSuccess = 'Your mobile number is verified and SMS updates are enabled.';
+		} catch (error) {
+			saveError = error?.message || 'Unable to verify this phone number.';
+		} finally {
+			verifyingSms = false;
 		}
 	}
 </script>
@@ -464,6 +536,110 @@
 			</div>
 		</section>
 
+		<section class="card preset-tonal-surface form-card space-y-5 p-6">
+			<div class="max-w-3xl">
+				<p class="label opacity-60">Optional notifications</p>
+				<h2 class="text-2xl font-bold">SMS updates</h2>
+				<p class="mt-2 text-sm leading-relaxed opacity-75">
+					Choose the kinds of 3 Feet Please messages you want to receive. Frequency varies with your
+					upcoming RSVPs, shifts, and conversations; messages are not marketing.
+				</p>
+			</div>
+
+			<label class="flex max-w-md flex-col gap-2">
+				<span class="label">Mobile number</span>
+				<input
+					class="input bg-surface-50-950/10"
+					bind:value={smsPhone}
+					type="tel"
+					autocomplete="tel"
+					maxlength="20"
+					placeholder="(480) 555-0123"
+				/>
+				<span class="text-xs opacity-60">US numbers are saved in E.164 format for delivery.</span>
+			</label>
+
+			<div class="grid gap-3 md:grid-cols-2">
+				<label class="sms-option">
+					<input type="checkbox" bind:checked={smsRideReminders} />
+					<span><strong>Ride reminders</strong><small>Upcoming rides you RSVP for.</small></span>
+				</label>
+				<label class="sms-option">
+					<input type="checkbox" bind:checked={smsVolunteerReminders} />
+					<span
+						><strong>Volunteer shift reminders</strong><small
+							>Upcoming shifts you are assigned to.</small
+						></span
+					>
+				</label>
+				<label class="sms-option">
+					<input type="checkbox" bind:checked={smsAdminMessages} />
+					<span
+						><strong>Ride and volunteer admin messages</strong><small
+							>Replies and updates from event admins.</small
+						></span
+					>
+				</label>
+				<label class="sms-option">
+					<input type="checkbox" bind:checked={smsBikeValetMessages} />
+					<span
+						><strong>Bike valet coordination</strong><small
+							>Claim, pickup, and service details when available.</small
+						></span
+					>
+				</label>
+			</div>
+
+			<label
+				class="border-primary-500/30 bg-primary-500/8 flex items-start gap-3 rounded-xl border p-4"
+			>
+				<input class="mt-1" type="checkbox" bind:checked={smsConsent} />
+				<span class="text-sm leading-relaxed">
+					{pageData.smsConsentText ??
+						'By checking this box, I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.'}
+				</span>
+			</label>
+			<p class="text-xs opacity-60">
+				SMS is optional. We send plain text only, do not support multimedia, and limit message
+				volume to control cost and abuse. You can change these choices here or reply STOP at any
+				time.
+			</p>
+			{#if smsVerificationRequired}
+				<form
+					class="border-primary-500/30 bg-primary-500/8 max-w-xl space-y-3 rounded-xl border p-4"
+					onsubmit={(event) => {
+						event.preventDefault();
+						verifySmsPhone();
+					}}
+				>
+					<div>
+						<strong>Verify your mobile number</strong>
+						<p class="mt-1 text-sm opacity-75">
+							Enter the six-digit code we texted to confirm you control this number. The code
+							expires in 10 minutes.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-3">
+						<input
+							class="input max-w-40 tracking-[0.35em]"
+							bind:value={smsVerificationCode}
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							maxlength="6"
+							placeholder="000000"
+						/>
+						<button
+							class="btn preset-filled-primary-500"
+							type="submit"
+							disabled={verifyingSms || !/^\d{6}$/.test(String(smsVerificationCode).trim())}
+						>
+							{verifyingSms ? 'Verifying…' : 'Verify number'}
+						</button>
+					</div>
+				</form>
+			{/if}
+		</section>
+
 		<section class="card preset-tonal-surface rounded-2xl p-4">
 			<div class="flex flex-wrap items-center gap-3">
 				<button
@@ -565,5 +741,25 @@
 	.focus-option.is-selected {
 		background: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
 		border-color: color-mix(in oklab, var(--color-primary-500) 45%, transparent);
+	}
+
+	.sms-option {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.7rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+		border-radius: 0.9rem;
+		padding: 0.8rem 0.9rem;
+	}
+
+	.sms-option span {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.sms-option small {
+		font-size: 0.75rem;
+		opacity: 0.68;
 	}
 </style>
