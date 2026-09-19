@@ -626,8 +626,7 @@
 						maxlength="500"
 						class="input w-full resize-none p-2"
 						disabled={sending}
-						onkeydown={handleInputKeydown}
-					></textarea>
+						onkeydown={handleInputKeydown}></textarea>
 					<button
 						type="submit"
 						class="btn btn-icon preset-filled-primary-500"

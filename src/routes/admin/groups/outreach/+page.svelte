@@ -479,9 +479,9 @@
 			{:else}
 				<div class="card preset-tonal-surface p-8 text-center">
 					<div
-						class="w-12 h-12 mx-auto rounded-full bg-surface-200-800 flex items-center justify-center mb-2"
+						class="bg-surface-200-800 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
 					>
-						<IconSparkles class="h-6 w-6 text-surface-500" />
+						<IconSparkles class="text-surface-500 h-6 w-6" />
 					</div>
 					<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
 				</div>
@@ -566,9 +566,9 @@
 		{:else}
 			<div class="card preset-tonal-surface p-8 text-center">
 				<div
-					class="w-12 h-12 mx-auto rounded-full bg-surface-200-800 flex items-center justify-center mb-2"
+					class="bg-surface-200-800 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
 				>
-					<IconSparkles class="h-6 w-6 text-surface-500" />
+					<IconSparkles class="text-surface-500 h-6 w-6" />
 				</div>
 				<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
 			</div>
@@ -719,8 +719,7 @@
 						class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
 						value={getMessage(group)}
 						oninput={(e) => setMessage(group.id, e.currentTarget.value)}
-						disabled={generating}
-					></textarea>
+						disabled={generating}></textarea>
 					{#if generating}
 						<div
 							class="bg-surface-100-900/82 absolute inset-0 flex items-center justify-center rounded-lg p-4 backdrop-blur-sm"
@@ -796,8 +795,7 @@
 					class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
 					value={getMessage(group)}
 					oninput={(e) => setMessage(group.id, e.currentTarget.value)}
-					disabled={generating}
-				></textarea>
+					disabled={generating}></textarea>
 				{#if generating}
 					<div
 						class="bg-surface-100-900/82 absolute inset-0 flex items-center justify-center rounded-lg p-4 backdrop-blur-sm"

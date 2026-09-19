@@ -1068,7 +1068,7 @@
 											>
 										</div>
 									{:else}
-										<p class="text-sm opacity-60 py-3 text-center">
+										<p class="py-3 text-center text-sm opacity-60">
 											No spending shown in this snapshot.
 										</p>
 									{/each}

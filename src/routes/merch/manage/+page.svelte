@@ -887,8 +887,7 @@
 												id="fulfillment_desc"
 												name="description"
 												class="textarea w-full"
-												rows="2"
-											></textarea>
+												rows="2"></textarea>
 										</div>
 										<div class="md:col-span-2">
 											<button class="btn preset-filled-primary-500" type="submit"
@@ -956,8 +955,7 @@
 										id="new_product_desc"
 										name="description"
 										class="textarea w-full"
-										rows="2"
-									></textarea>
+										rows="2"></textarea>
 								</div>
 								<div class="md:col-span-2">
 									<button class="btn preset-filled-primary-500" type="submit">Create Product</button

@@ -281,8 +281,7 @@
 				<textarea
 					class="textarea min-h-28"
 					bind:value={userPrompt}
-					placeholder="Add landmarks, rider details, mood, props, or scene ideas."
-				></textarea>
+					placeholder="Add landmarks, rider details, mood, props, or scene ideas."></textarea>
 			</label>
 
 			{#if helperText}

@@ -236,7 +236,7 @@ function isPrivateIpv4(address) {
 		first === 127 ||
 		(first === 169 && second === 254) ||
 		(first === 172 && second >= 16 && second <= 31) ||
-		(first === 192 && second === 0) ||
+		(first === 192 && second === 0 && octets[2] === 0) ||
 		(first === 192 && second === 168) ||
 		(first === 192 && second === 88 && octets[2] === 99) ||
 		(first === 198 && second >= 18 && second <= 19) ||

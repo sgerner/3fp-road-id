@@ -1172,15 +1172,13 @@
 								class="textarea"
 								rows="3"
 								bind:value={siteConfig.new_rider_note}
-								maxlength="600"
-							></textarea></label
+								maxlength="600"></textarea></label
 						><label class="label"
 							><span>Where and how do you meet?</span><textarea
 								class="textarea"
 								rows="3"
 								bind:value={siteConfig.meeting_instructions}
-								maxlength="600"
-							></textarea></label
+								maxlength="600"></textarea></label
 						>
 					</div>
 				</div>
@@ -1217,8 +1215,7 @@
 								rows="3"
 								bind:value={item.answer}
 								maxlength="320"
-								placeholder="No—new riders are welcome…"
-							></textarea>
+								placeholder="No—new riders are welcome…"></textarea>
 						</div>{/each}
 				</div>
 				<GroupSitePartnerEditor
@@ -1530,8 +1527,7 @@
 								class="textarea"
 								rows="4"
 								bind:value={siteConfig.seo_description}
-								maxlength="180"
-							></textarea><span class="text-xs opacity-55"
+								maxlength="180"></textarea><span class="text-xs opacity-55"
 								>Aim for one clear sentence, under 180 characters.</span
 							></label
 						><label class="label"
@@ -1539,15 +1535,13 @@
 								class="textarea"
 								rows="3"
 								bind:value={siteConfig.footer_blurb}
-								maxlength="180"
-							></textarea></label
+								maxlength="180"></textarea></label
 						><label class="label"
 							><span>Featured quote</span><textarea
 								class="textarea"
 								rows="3"
 								bind:value={siteConfig.featured_quote}
-								maxlength="260"
-							></textarea></label
+								maxlength="260"></textarea></label
 						>
 					</div>
 					<div class="card preset-tonal-surface grid content-start gap-4 p-4 sm:p-5">
@@ -1560,8 +1554,7 @@
 								class="textarea"
 								rows="4"
 								bind:value={siteConfig.safety_note}
-								maxlength="360"
-							></textarea></label
+								maxlength="360"></textarea></label
 						><label class="card preset-tonal-surface flex cursor-pointer items-start gap-3 p-3"
 							><input
 								class="checkbox mt-1"

@@ -976,8 +976,7 @@
 								class="policy-textarea"
 								bind:value={program.policy_markdown}
 								rows="8"
-								placeholder="Enter your membership policy..."
-							></textarea>
+								placeholder="Enter your membership policy..."></textarea>
 							<div class="section-actions">
 								<button class="btn preset-filled-primary-500" disabled={busy} onclick={savePolicy}>
 									<IconSave class="h-4 w-4" />
@@ -1196,8 +1195,7 @@
 										class="setting-input"
 										placeholder="Options (one per line)"
 										bind:value={newField.options_text}
-										rows="3"
-									></textarea>
+										rows="3"></textarea>
 								{/if}
 								<div class="field-actions-row">
 									<label class="checkbox-label">

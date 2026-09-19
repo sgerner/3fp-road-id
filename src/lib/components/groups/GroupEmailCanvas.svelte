@@ -280,7 +280,7 @@
 				</div>
 				{#each blocks as block, index (block.id)}
 					<button
-						class="block w-full cursor-grab px-6 py-3 text-left outline-none transition-all duration-200 active:cursor-grabbing sm:px-10 {selectedId ===
+						class="block w-full cursor-grab px-6 py-3 text-left transition-all duration-200 outline-none active:cursor-grabbing sm:px-10 {selectedId ===
 						block.id
 							? 'bg-primary-50/30 ring-primary-500 ring-2 ring-inset'
 							: 'hover:bg-primary-50/20 hover:ring-primary-500/40 hover:ring-2 hover:ring-inset'}"
@@ -351,7 +351,7 @@
 
 	{#if selectedBlock}
 		<aside
-			class="preset-tonal-surface preset-divider-top grid content-start gap-4 p-4 xl:col-span-2 2xl:preset-divider-top-0 2xl:preset-divider-left 2xl:col-span-1 2xl:overflow-y-auto"
+			class="preset-tonal-surface preset-divider-top 2xl:preset-divider-top-0 2xl:preset-divider-left grid content-start gap-4 p-4 xl:col-span-2 2xl:col-span-1 2xl:overflow-y-auto"
 			aria-live="polite"
 			aria-label={`Editing ${blockLabel(selectedBlock.type)} block ${selectedIndex + 1}`}
 		>
@@ -386,8 +386,7 @@
 						class="textarea min-h-44"
 						maxlength="12000"
 						value={selectedBlock.text ?? ''}
-						oninput={(event) => updateSelected({ text: event.currentTarget.value })}
-					></textarea>
+						oninput={(event) => updateSelected({ text: event.currentTarget.value })}></textarea>
 				</label>
 			{:else if selectedBlock.type === 'image'}
 				<label class="label">
@@ -474,7 +473,7 @@
 
 {#if mobilePaletteOpen}
 	<button
-		class="fixed inset-0 z-40 bg-surface-950/45 backdrop-blur-sm xl:hidden"
+		class="bg-surface-950/45 fixed inset-0 z-40 backdrop-blur-sm xl:hidden"
 		type="button"
 		aria-label="Close content library"
 		onclick={() => (mobilePaletteOpen = false)}

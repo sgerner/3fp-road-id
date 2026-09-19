@@ -881,8 +881,7 @@
 							class="preset-tonal-surface w-full resize-none rounded-lg"
 							rows="3"
 							bind:value={notes}
-							placeholder="Any special instructions or requests…"
-						></textarea>
+							placeholder="Any special instructions or requests…"></textarea>
 					</div>
 				</div>
 			</section>

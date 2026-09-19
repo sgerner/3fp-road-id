@@ -17,13 +17,13 @@
 </script>
 
 <section
-	class={`card preset-filled-surface-950 relative overflow-hidden text-surface-50 ${imageUrl ? 'min-h-[32rem] sm:min-h-[36rem]' : 'min-h-[27rem] sm:min-h-[30rem]'}`}
+	class={`card preset-filled-surface-950 text-surface-50 relative overflow-hidden ${imageUrl ? 'min-h-[32rem] sm:min-h-[36rem]' : 'min-h-[27rem] sm:min-h-[30rem]'}`}
 >
 	{#if imageUrl}
 		<img
 			src={optimizedHeroImage}
 			alt={imageAlt}
-			class="absolute inset-0 h-full w-full object-cover saturate-125 contrast-[1.04]"
+			class="absolute inset-0 h-full w-full object-cover contrast-[1.04] saturate-125"
 			width="1200"
 			height="576"
 			loading="eager"
@@ -31,10 +31,10 @@
 			decoding="async"
 		/>
 		<div
-			class="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/88 to-surface-950/50"
+			class="from-surface-950 via-surface-950/88 to-surface-950/50 absolute inset-0 bg-gradient-to-r"
 		></div>
 		<div
-			class="absolute inset-0 bg-gradient-to-t from-surface-950/85 via-transparent to-surface-950/25"
+			class="from-surface-950/85 to-surface-950/25 absolute inset-0 bg-gradient-to-t via-transparent"
 		></div>
 	{/if}
 

@@ -5,6 +5,21 @@ import { sniffRasterImageMimeType } from '$lib/server/storageImages';
 
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;
+const REMOTE_IMAGE_HEADERS = Object.freeze({
+	accept: 'image/avif,image/webp,image/*;q=0.8,*/*;q=0.5',
+	'accept-language': 'en-US,en;q=0.9',
+	'user-agent':
+		'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+});
+const ICON_CONTENT_TYPES = new Set(['image/x-icon', 'image/vnd.microsoft.icon']);
+
+function isIcoImage(value) {
+	if (!Buffer.isBuffer(value) || value.byteLength < 6) return false;
+	const reserved = value.readUInt16LE(0);
+	const type = value.readUInt16LE(2);
+	const imageCount = value.readUInt16LE(4);
+	return reserved === 0 && type === 1 && imageCount > 0 && value.byteLength >= 6 + imageCount * 16;
+}
 
 function numericParameter(url, name, fallback, min, max) {
 	const value = Number(url.searchParams.get(name));
@@ -33,7 +48,7 @@ export const GET = async (event) => {
 	try {
 		const upstream = await fetchPublicHttp(
 			source,
-			{ headers: { accept: 'image/avif,image/webp,image/*;q=0.8,*/*;q=0.5' } },
+			{ headers: REMOTE_IMAGE_HEADERS },
 			{ timeoutMs: 8_000, maxRedirects: 2 }
 		);
 		if (!upstream) return new Response('Unable to load image', { status: 502 });
@@ -57,6 +72,18 @@ export const GET = async (event) => {
 			return new Response('Image is too large', { status: 413 });
 		}
 		if (!sniffRasterImageMimeType(sourceBuffer)) {
+			// Some groups use a site's favicon as their imported logo. Sharp does
+			// not decode ICO files, but browsers do, so preserve a validated icon
+			// instead of turning an otherwise usable image into a broken <img>.
+			if (ICON_CONTENT_TYPES.has(contentType) && isIcoImage(sourceBuffer)) {
+				return new Response(sourceBuffer, {
+					headers: {
+						'cache-control': 'public, max-age=31536000, immutable',
+						'content-type': contentType,
+						'content-length': String(sourceBuffer.byteLength)
+					}
+				});
+			}
 			return new Response('Unsupported image response', { status: 415 });
 		}
 

@@ -600,8 +600,7 @@
 									value={question.helpText}
 									on:input={(e) =>
 										onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
-									placeholder="Give volunteers context, links, or clarifications."
-								></textarea>
+									placeholder="Give volunteers context, links, or clarifications."></textarea>
 							</label>
 							{#if supportsOptionField(question.fieldType)}
 								<div class="space-y-2 md:col-span-2">
@@ -869,8 +868,7 @@
 						on:blur={(event) => clearActiveEditor(event.currentTarget)}
 						on:keydown={resetImmediateFeedback}
 						placeholder="Share meetup adjustments, last-minute needs, or celebration notes."
-						disabled={immediateEmailSending}
-					></textarea>
+						disabled={immediateEmailSending}></textarea>
 					<div
 						class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 space-y-2 rounded-md border p-3 text-xs"
 					>
@@ -1100,8 +1098,7 @@
 							value={email.aiPrompt}
 							on:input={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
 							placeholder="Share the tone, reminders, or updates you'd like this email to cover."
-							disabled={email.aiLoading}
-						></textarea>
+							disabled={email.aiLoading}></textarea>
 						<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
 							<button
 								type="button"

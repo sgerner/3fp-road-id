@@ -536,13 +536,13 @@
 							<div class="space-y-1.5">
 								<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
 								{#if ride.summary}
-									<p class="line-clamp-2 text-sm leading-relaxed text-surface-700-200">
+									<p class="text-surface-700-200 line-clamp-2 text-sm leading-relaxed">
 										{ride.summary}
 									</p>
 								{/if}
 							</div>
 							<div class="mt-auto space-y-3">
-								<div class="flex items-center gap-2 text-sm text-surface-700-200">
+								<div class="text-surface-700-200 flex items-center gap-2 text-sm">
 									<IconMapPin class="h-3.5 w-3.5 shrink-0" />
 									<span class="truncate">{ride.startLocationName || 'Location coming soon'}</span>
 								</div>
@@ -560,7 +560,7 @@
 									{/each}
 								</div>
 								<span
-									class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700-300"
+									class="text-primary-700-300 inline-flex items-center gap-1.5 text-sm font-semibold"
 								>
 									Open ride
 									<IconArrowRight class="h-3.5 w-3.5" />
@@ -572,7 +572,7 @@
 			</div>
 
 			<!-- Claimable rides callout -->
-			<div class="card preset-filled-surface-50-950 border border-warning-600-400/40 p-6 shadow-xl">
+			<div class="card preset-filled-surface-50-950 border-warning-600-400/40 border p-6 shadow-xl">
 				<div class="mb-5 space-y-2">
 					<div class="flex items-center gap-2">
 						<IconFlag class="text-warning-600-400 h-5 w-5" />

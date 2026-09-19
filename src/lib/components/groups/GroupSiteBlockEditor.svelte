@@ -400,7 +400,7 @@
 	class="grid min-w-0 gap-4 lg:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[16rem_minmax(0,1fr)_20rem]"
 >
 	<aside
-		class="card preset-tonal-surface order-2 hidden content-start gap-3 p-3 lg:order-1 lg:sticky lg:top-3 lg:grid lg:max-h-[calc(100dvh-1.5rem)] lg:overflow-y-auto"
+		class="card preset-tonal-surface order-2 hidden content-start gap-3 p-3 lg:sticky lg:top-3 lg:order-1 lg:grid lg:max-h-[calc(100dvh-1.5rem)] lg:overflow-y-auto"
 		aria-label="Section library"
 	>
 		<div class="px-1">
@@ -541,7 +541,7 @@
 
 							{#if block.type === 'hero'}
 								<div
-									class="relative grid min-h-72 content-end overflow-hidden bg-surface-950 p-6 text-white sm:min-h-[26rem] sm:p-10"
+									class="bg-surface-950 relative grid min-h-72 content-end overflow-hidden p-6 text-white sm:min-h-[26rem] sm:p-10"
 								>
 									{#if group.cover_photo_url}<img
 											class="absolute inset-0 h-full w-full object-cover opacity-55 transition-transform duration-700 group-hover:scale-105"
@@ -549,7 +549,7 @@
 											alt=""
 										/>{/if}
 									<div
-										class="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/65 to-surface-950/10"
+										class="from-surface-950 via-surface-950/65 to-surface-950/10 absolute inset-0 bg-gradient-to-t"
 									></div>
 									<div class="relative z-10 max-w-3xl">
 										<span class="badge preset-tonal-surface mb-4 w-fit"
@@ -770,7 +770,7 @@
 	</section>
 
 	{#if mobileInspectorOpen}<button
-			class="fixed inset-0 z-[90] bg-surface-950/45 backdrop-blur-sm lg:hidden"
+			class="bg-surface-950/45 fixed inset-0 z-[90] backdrop-blur-sm lg:hidden"
 			type="button"
 			aria-label="Close section settings"
 			onclick={() => (mobileInspectorOpen = false)}
@@ -834,8 +834,7 @@
 							oninput={(event) =>
 								page?.is_home === false
 									? onpagechange({ description: event.currentTarget.value })
-									: updateConfig('site_tagline', event.currentTarget.value)}
-						></textarea></label
+									: updateConfig('site_tagline', event.currentTarget.value)}></textarea></label
 					>
 					<p class="card preset-tonal-surface p-3 text-xs opacity-65">
 						The hero stays first so every page has a clear introduction.
@@ -938,7 +937,7 @@
 
 {#if mobilePaletteOpen}
 	<button
-		class="fixed inset-0 z-[90] bg-surface-950/45 backdrop-blur-sm lg:hidden"
+		class="bg-surface-950/45 fixed inset-0 z-[90] backdrop-blur-sm lg:hidden"
 		type="button"
 		aria-label="Close section library"
 		onclick={() => (mobilePaletteOpen = false)}

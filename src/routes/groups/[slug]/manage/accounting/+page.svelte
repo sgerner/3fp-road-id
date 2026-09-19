@@ -1370,7 +1370,7 @@
 
 	<!-- Tabs Navigation Container -->
 	<div
-		class="card preset-tonal-surface scrollbar-none border-surface-500/10 flex gap-1.5 overflow-x-auto rounded-xl border p-1.5 shadow-sm"
+		class="card preset-tonal-surface border-surface-500/10 flex scrollbar-none gap-1.5 overflow-x-auto rounded-xl border p-1.5 shadow-sm"
 	>
 		{#each tabs as tab}
 			{@const Icon = tab.icon}
@@ -1438,10 +1438,10 @@
 						</div>
 					{:else}
 						<div
-							class="flex flex-col items-center justify-center p-8 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+							class="bg-surface-500/5 border-surface-500/20 flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center"
 						>
-							<IconChartColumn class="h-8 w-8 text-surface-400 mb-2 opacity-50" />
-							<p class="text-sm font-medium text-surface-500">No activity recorded yet.</p>
+							<IconChartColumn class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
+							<p class="text-surface-500 text-sm font-medium">No activity recorded yet.</p>
 						</div>
 					{/each}
 				</div>
@@ -1535,10 +1535,10 @@
 							</form>
 						{:else}
 							<div
-								class="flex flex-col items-center justify-center p-6 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+								class="bg-surface-500/5 border-surface-500/20 flex flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center"
 							>
-								<IconBanknote class="h-8 w-8 text-surface-400 mb-2 opacity-50" />
-								<p class="text-sm text-surface-500 font-medium">No activity recorded yet.</p>
+								<IconBanknote class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
+								<p class="text-surface-500 text-sm font-medium">No activity recorded yet.</p>
 								<button
 									class="btn btn-xs preset-filled-primary-500 mt-3"
 									type="button"
@@ -1661,8 +1661,7 @@
 							class="textarea preset-tonal-surface"
 							name="memo"
 							rows="2"
-							placeholder="Add custom memo or notes..."
-						></textarea>
+							placeholder="Add custom memo or notes..."></textarea>
 					</label>
 					<label class="label sm:col-span-2">
 						<span class="text-surface-700-300 text-xs font-semibold">Receipt</span>
@@ -2037,8 +2036,7 @@
 							class="textarea preset-tonal-surface"
 							name="notes"
 							rows="3"
-							placeholder="Optional details..."
-						></textarea>
+							placeholder="Optional details..."></textarea>
 					</label>
 					<button class="btn preset-filled-primary-500 mt-2 w-full font-bold" type="submit"
 						>Save Budget</button
@@ -2095,10 +2093,10 @@
 						</div>
 					{:else}
 						<div
-							class="sm:col-span-2 flex flex-col items-center justify-center p-8 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+							class="bg-surface-500/5 border-surface-500/20 flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center sm:col-span-2"
 						>
-							<IconBadgeDollarSign class="h-8 w-8 text-surface-400 mb-2 opacity-50" />
-							<p class="text-sm text-surface-500 font-medium">No budgets created yet.</p>
+							<IconBadgeDollarSign class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
+							<p class="text-surface-500 text-sm font-medium">No budgets created yet.</p>
 						</div>
 					{/each}
 				</div>
@@ -2476,8 +2474,7 @@
 					class="textarea preset-tonal-surface"
 					name="notes"
 					rows="2"
-					placeholder="Add optional details for this snapshot..."
-				></textarea>
+					placeholder="Add optional details for this snapshot..."></textarea>
 			</label>
 			<button
 				class="btn preset-filled-primary-500 mt-2 flex w-full items-center justify-center gap-2 font-bold sm:w-auto"
@@ -2729,8 +2726,7 @@
 													...editingTransactionDraft,
 													memo: event.currentTarget.value
 												})}
-											placeholder="Optional internal memo"
-										></textarea>
+											placeholder="Optional internal memo"></textarea>
 									</label>
 
 									<!-- Line accounts allocation -->
@@ -2918,7 +2914,7 @@
 						</form>
 					{:else}
 						<div
-							class="rounded-2xl border border-dashed border-surface-500/20 bg-surface-500/5 p-10 text-center"
+							class="border-surface-500/20 bg-surface-500/5 rounded-2xl border border-dashed p-10 text-center"
 						>
 							<p class="text-surface-500 text-sm font-medium">
 								No transactions match the current filters.
@@ -2981,7 +2977,7 @@
 						>
 							Previous
 						</button>
-						<span class="text-surface-500 text-xs font-semibold uppercase tracking-wider">
+						<span class="text-surface-500 text-xs font-semibold tracking-wider uppercase">
 							Page {bankReviewPage} of {bankReviewTotalPages}
 						</span>
 						<button
@@ -3101,13 +3097,13 @@
 							{/if}
 
 							{#if !stripeConnected}
-								<div class="rounded-xl border border-warning-500/20 bg-warning-500/10 p-3">
+								<div class="border-warning-500/20 bg-warning-500/10 rounded-xl border p-3">
 									<div class="flex items-center justify-between gap-3">
-										<p class="min-w-0 truncate text-sm font-semibold leading-tight">
+										<p class="min-w-0 truncate text-sm leading-tight font-semibold">
 											Connect Stripe to link bank accounts
 										</p>
 										<a
-											class="btn btn-sm preset-filled-primary-500 shrink-0 whitespace-nowrap font-bold"
+											class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold whitespace-nowrap"
 											href={stripeConnectUrl}
 										>
 											<IconCreditCard class="h-4 w-4" />
@@ -3125,7 +3121,7 @@
 								<IconLandmark class="h-4 w-4" />
 								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
 							</button>
-							<p class="text-surface-700-300 text-xs font-medium leading-snug">
+							<p class="text-surface-700-300 text-xs leading-snug font-medium">
 								Each linked bank costs $0.30 per month to import transactions, deducted from the
 								group's Stripe balance. Mercury bank accounts are always free.
 							</p>
@@ -3683,10 +3679,10 @@
 						</form>
 					{:else}
 						<div
-							class="flex flex-col items-center justify-center p-8 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+							class="bg-surface-500/5 border-surface-500/20 flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center"
 						>
-							<IconUpload class="h-8 w-8 text-surface-400 mb-2 opacity-50" />
-							<p class="text-sm text-surface-500 font-medium">No public snapshots published yet.</p>
+							<IconUpload class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
+							<p class="text-surface-500 text-sm font-medium">No public snapshots published yet.</p>
 						</div>
 					{/each}
 				</div>
@@ -3763,10 +3759,10 @@
 						</form>
 					{:else}
 						<div
-							class="flex flex-col items-center justify-center p-8 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+							class="bg-surface-500/5 border-surface-500/20 flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center"
 						>
-							<IconReceipt class="h-8 w-8 text-surface-400 mb-2 opacity-50" />
-							<p class="text-sm text-surface-500 font-medium">No receipts uploaded yet.</p>
+							<IconReceipt class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
+							<p class="text-surface-500 text-sm font-medium">No receipts uploaded yet.</p>
 						</div>
 					{/each}
 				</div>
@@ -3797,9 +3793,9 @@
 						</div>
 					{:else}
 						<div
-							class="col-span-full flex flex-col items-center justify-center p-8 text-center bg-surface-500/5 rounded-xl border border-dashed border-surface-500/20"
+							class="bg-surface-500/5 border-surface-500/20 col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center"
 						>
-							<p class="text-sm text-surface-500 font-medium">No audit events logged yet.</p>
+							<p class="text-surface-500 text-sm font-medium">No audit events logged yet.</p>
 						</div>
 					{/each}
 				</div>

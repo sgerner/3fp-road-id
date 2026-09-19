@@ -203,7 +203,7 @@
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:py-10">
 	<!-- Header -->
-	<header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-2">
+	<header class="flex flex-col gap-4 pb-2 sm:flex-row sm:items-center sm:justify-between">
 		<div class="space-y-1">
 			<h1 class="h2">Google Workspace Users</h1>
 			<p class="text-surface-700-300 text-sm">
@@ -295,7 +295,7 @@
 					? 'hidden md:block'
 					: 'block'}"
 			>
-				<div class="card preset-tonal-surface border border-surface-500/10 p-4 space-y-4 shadow-sm">
+				<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-4 shadow-sm">
 					<!-- List Header & Create Trigger -->
 					<div class="flex flex-col gap-3">
 						<div class="flex items-center justify-between">
@@ -335,9 +335,9 @@
 					</div>
 
 					<!-- Scrollable Users List -->
-					<div class="space-y-2 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
+					<div class="max-h-[calc(100vh-22rem)] space-y-2 overflow-y-auto pr-1">
 						{#if !data.users.length}
-							<div class="text-center py-12 text-sm opacity-60">No users found.</div>
+							<div class="py-12 text-center text-sm opacity-60">No users found.</div>
 						{:else}
 							{#each data.users as user}
 								<button
@@ -349,14 +349,14 @@
 										showCreateForm = false;
 										activeTab = 'profile';
 									}}
-									class="w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all duration-200 cursor-pointer
+									class="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 text-left transition-all duration-200
 									{selectedUserId === user.id
 										? 'preset-tonal-primary shadow-md'
 										: 'preset-tonal-surface hover:preset-tonal-secondary'}"
 								>
 									<!-- Initials / Avatar Circle -->
 									<div
-										class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-sm
+										class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold
 									{selectedUserId === user.id
 											? 'preset-filled-primary-500'
 											: user.suspended
@@ -368,24 +368,24 @@
 										<!-- Status dot -->
 										{#if user.suspended}
 											<span
-												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-error-500 ring-2"
+												class="bg-error-500 absolute right-0 bottom-0 block h-2.5 w-2.5 rounded-full ring-2"
 											></span>
 										{:else}
 											<span
-												class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-success-500 ring-2"
+												class="bg-success-500 absolute right-0 bottom-0 block h-2.5 w-2.5 rounded-full ring-2"
 											></span>
 										{/if}
 									</div>
 
 									<!-- User Metadata -->
 									<div class="min-w-0 flex-1">
-										<p class="font-bold text-sm truncate">
+										<p class="truncate text-sm font-bold">
 											{displayName(user)}
 										</p>
-										<p class="text-xs truncate opacity-80">
+										<p class="truncate text-xs opacity-80">
 											{user.primaryEmail}
 										</p>
-										<p class="text-[10px] mt-0.5 truncate opacity-60">
+										<p class="mt-0.5 truncate text-[10px] opacity-60">
 											{user.orgUnitPath || '/'}
 										</p>
 									</div>
@@ -400,10 +400,10 @@
 
 					<!-- Pagination / Next Page Button -->
 					{#if data.nextPageToken}
-						<form method="GET" class="pt-2 border-t border-surface-500/10">
+						<form method="GET" class="border-surface-500/10 border-t pt-2">
 							<input type="hidden" name="q" value={data.search || ''} />
 							<button
-								class="btn w-full btn-sm preset-outlined-primary-500 text-sm font-semibold"
+								class="btn btn-sm preset-outlined-primary-500 w-full text-sm font-semibold"
 								type="submit"
 								name="pageToken"
 								value={data.nextPageToken}
@@ -424,12 +424,12 @@
 				{#if showCreateForm}
 					<!-- ================= CREATE USER PANEL ================= -->
 					<div
-						class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm"
+						class="card preset-tonal-surface border-surface-500/10 space-y-6 border p-6 shadow-sm"
 					>
 						<!-- Header & Back Button for Mobile -->
-						<div class="flex items-center justify-between pb-4 border-b border-surface-500/10">
+						<div class="border-surface-500/10 flex items-center justify-between border-b pb-4">
 							<div class="space-y-1">
-								<h2 class="h4 font-bold flex items-center gap-2">
+								<h2 class="h4 flex items-center gap-2 font-bold">
 									<IconUserPlus class="h-5 w-5" />
 									<span>Create New User</span>
 								</h2>
@@ -521,7 +521,7 @@
 										</div>
 									</div>
 
-									<div class="h-1.5 overflow-hidden rounded-full bg-surface-500/10">
+									<div class="bg-surface-500/10 h-1.5 overflow-hidden rounded-full">
 										<div
 											class={`h-full rounded-full transition-all ${createPasswordStrength.barClass}`}
 											style={`width: ${createPasswordStrength.percent}%`}
@@ -541,8 +541,8 @@
 									</select>
 								</label>
 
-								<div class="sm:col-span-2 py-2">
-									<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+								<div class="py-2 sm:col-span-2">
+									<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
 										<input
 											type="checkbox"
 											name="changePasswordAtNextLogin"
@@ -554,10 +554,10 @@
 								</div>
 							</div>
 
-							<div class="flex gap-3 pt-4 border-t border-surface-500/10">
+							<div class="border-surface-500/10 flex gap-3 border-t pt-4">
 								<button
 									type="button"
-									class="btn flex-1 preset-outlined-surface-500 font-semibold"
+									class="btn preset-outlined-surface-500 flex-1 font-semibold"
 									onclick={() => {
 										createPassword = '';
 										showCreateForm = false;
@@ -565,7 +565,7 @@
 								>
 									Cancel
 								</button>
-								<button type="submit" class="btn flex-1 preset-filled-primary-500 font-semibold">
+								<button type="submit" class="btn preset-filled-primary-500 flex-1 font-semibold">
 									Create User
 								</button>
 							</div>
@@ -576,36 +576,36 @@
 					{#if selectedUser}
 						<!-- ================= EDIT/MANAGE USER PANEL ================= -->
 						<div
-							class="card preset-tonal-surface border border-surface-500/10 p-6 space-y-6 shadow-sm"
+							class="card preset-tonal-surface border-surface-500/10 space-y-6 border p-6 shadow-sm"
 						>
 							<!-- Header: User details summary & Back Button for Mobile -->
-							<div class="flex items-start justify-between pb-4 border-b border-surface-500/10">
+							<div class="border-surface-500/10 flex items-start justify-between border-b pb-4">
 								<div class="flex items-center gap-4">
 									<!-- Initials Avatar Circle -->
 									<div
-										class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full font-bold text-lg
+										class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-bold
 									{selectedUser.suspended ? 'preset-tonal-error' : 'preset-tonal-primary'}"
 									>
 										{getInitials(selectedUser)}
 									</div>
 									<div class="min-w-0">
-										<h2 class="h4 font-bold leading-tight truncate">
+										<h2 class="h4 truncate leading-tight font-bold">
 											{displayName(selectedUser)}
 										</h2>
-										<p class="text-sm opacity-70 truncate">{selectedUser.primaryEmail}</p>
-										<div class="flex flex-wrap gap-2 mt-2">
-											<span class="badge preset-tonal-surface text-[10px] font-medium py-0.5 px-2">
+										<p class="truncate text-sm opacity-70">{selectedUser.primaryEmail}</p>
+										<div class="mt-2 flex flex-wrap gap-2">
+											<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-medium">
 												Org: {selectedUser.orgUnitPath || '/'}
 											</span>
 											{#if selectedUser.suspended}
 												<span
-													class="badge preset-filled-error-500 text-[10px] font-bold py-0.5 px-2 uppercase"
+													class="badge preset-filled-error-500 px-2 py-0.5 text-[10px] font-bold uppercase"
 												>
 													Suspended
 												</span>
 											{:else}
 												<span
-													class="badge preset-filled-success-500 text-[10px] font-bold py-0.5 px-2 uppercase"
+													class="badge preset-filled-success-500 px-2 py-0.5 text-[10px] font-bold uppercase"
 												>
 													Active
 												</span>
@@ -627,10 +627,10 @@
 							</div>
 
 							<!-- Tabbed Navigation -->
-							<div class="flex border-b border-surface-500/10 gap-1 sm:gap-2">
+							<div class="border-surface-500/10 flex gap-1 border-b sm:gap-2">
 								<button
 									type="button"
-									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
+									class="flex flex-1 items-center justify-center gap-1.5 border-b-2 pb-3 text-center text-xs font-semibold transition-all duration-200 sm:text-sm
 									{activeTab === 'profile'
 										? 'preset-tonal-primary border-primary-500'
 										: 'border-transparent opacity-50 hover:opacity-80'}"
@@ -640,7 +640,7 @@
 								</button>
 								<button
 									type="button"
-									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
+									class="flex flex-1 items-center justify-center gap-1.5 border-b-2 pb-3 text-center text-xs font-semibold transition-all duration-200 sm:text-sm
 									{activeTab === 'security'
 										? 'preset-tonal-primary border-primary-500'
 										: 'border-transparent opacity-50 hover:opacity-80'}"
@@ -650,7 +650,7 @@
 								</button>
 								<button
 									type="button"
-									class="flex-1 pb-3 text-center text-xs sm:text-sm font-semibold transition-all duration-200 border-b-2 flex items-center justify-center gap-1.5
+									class="flex flex-1 items-center justify-center gap-1.5 border-b-2 pb-3 text-center text-xs font-semibold transition-all duration-200 sm:text-sm
 									{activeTab === 'aliases'
 										? 'preset-tonal-primary border-primary-500'
 										: 'border-transparent opacity-50 hover:opacity-80'}"
@@ -664,7 +664,7 @@
 							{#if activeTab === 'profile'}
 								<!-- TAB: PROFILE DETAILS -->
 								<div class="space-y-4">
-									<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
+									<h3 class="text-xs font-semibold tracking-wide uppercase opacity-60">
 										Update Profile Details
 									</h3>
 
@@ -725,7 +725,7 @@
 
 										<button
 											type="submit"
-											class="btn w-full preset-filled-primary-500 font-semibold mt-2"
+											class="btn preset-filled-primary-500 mt-2 w-full font-semibold"
 										>
 											Update Profile Details
 										</button>
@@ -737,7 +737,7 @@
 									<div class="space-y-6">
 										<!-- Password Reset Section -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
+											<h3 class="text-xs font-semibold tracking-wide uppercase opacity-60">
 												Reset Password
 											</h3>
 
@@ -785,7 +785,7 @@
 														</div>
 													</div>
 
-													<div class="h-1.5 overflow-hidden rounded-full bg-surface-500/10">
+													<div class="bg-surface-500/10 h-1.5 overflow-hidden rounded-full">
 														<div
 															class={`h-full rounded-full transition-all ${resetPasswordStrength.barClass}`}
 															style={`width: ${resetPasswordStrength.percent}%`}
@@ -793,7 +793,7 @@
 													</div>
 												</div>
 
-												<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+												<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
 													<input
 														type="checkbox"
 														name="changePasswordAtNextLogin"
@@ -803,7 +803,7 @@
 													<span>Force password change at next login</span>
 												</label>
 
-												<button type="submit" class="btn w-full preset-tonal-warning font-semibold">
+												<button type="submit" class="btn preset-tonal-warning w-full font-semibold">
 													Reset Password
 												</button>
 											</form>
@@ -813,7 +813,7 @@
 
 										<!-- Quick Actions / Danger Zone -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide">
+											<h3 class="text-xs font-semibold tracking-wide uppercase">
 												Quick Actions &amp; Danger Zone
 											</h3>
 
@@ -852,7 +852,7 @@
 													<input type="hidden" name="userKey" value={selectedUser.id} />
 													<input type="hidden" name="confirmText" value="" />
 													<button
-														class="btn w-full preset-tonal-primary font-semibold"
+														class="btn preset-tonal-primary w-full font-semibold"
 														type="submit"
 														onclick={(event) =>
 															requirePhrase(
@@ -875,7 +875,7 @@
 													<input type="hidden" name="userKey" value={selectedUser.id} />
 													<input type="hidden" name="confirmText" value="" />
 													<button
-														class="btn w-full preset-filled-error-500 font-semibold"
+														class="btn preset-filled-error-500 w-full font-semibold"
 														type="submit"
 														onclick={(event) =>
 															requirePhrase(
@@ -895,7 +895,7 @@
 									<div class="space-y-6">
 										<!-- Add Alias Section -->
 										<div class="space-y-4">
-											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
+											<h3 class="text-xs font-semibold tracking-wide uppercase opacity-60">
 												Add Email Alias
 											</h3>
 
@@ -926,21 +926,21 @@
 
 										<!-- Existing Aliases List -->
 										<div class="space-y-3">
-											<h3 class="font-semibold text-xs uppercase tracking-wide opacity-60">
+											<h3 class="text-xs font-semibold tracking-wide uppercase opacity-60">
 												Active Email Aliases
 											</h3>
 
 											{#if !selectedUser.aliases?.length}
-												<p class="text-sm opacity-60 py-2">
+												<p class="py-2 text-sm opacity-60">
 													No email aliases configured for this user.
 												</p>
 											{:else}
 												<div
-													class="divide-y divide-surface-500/10 border border-surface-500/15 rounded-lg overflow-hidden preset-tonal-surface"
+													class="divide-surface-500/10 border-surface-500/15 preset-tonal-surface divide-y overflow-hidden rounded-lg border"
 												>
 													{#each selectedUser.aliases as alias}
-														<div class="flex items-center justify-between p-3 gap-2">
-															<div class="flex items-center gap-2 text-sm font-medium min-w-0">
+														<div class="flex items-center justify-between gap-2 p-3">
+															<div class="flex min-w-0 items-center gap-2 text-sm font-medium">
 																<IconMail class="h-4 w-4 shrink-0 opacity-50" />
 																<span class="truncate">{alias}</span>
 															</div>
@@ -950,7 +950,7 @@
 																<input type="hidden" name="alias" value={alias} />
 																<input type="hidden" name="confirmText" value="" />
 																<button
-																	class="btn btn-sm preset-tonal-error text-xs font-semibold py-1 px-2.5 whitespace-nowrap"
+																	class="btn btn-sm preset-tonal-error px-2.5 py-1 text-xs font-semibold whitespace-nowrap"
 																	type="submit"
 																	onclick={(event) =>
 																		requirePhrase(
@@ -974,14 +974,14 @@
 					{:else}
 						<!-- ================= EMPTY STATE ================= -->
 						<div
-							class="card preset-tonal-surface border border-surface-500/10 p-12 text-center flex flex-col items-center justify-center min-h-[30rem] space-y-4 shadow-sm"
+							class="card preset-tonal-surface border-surface-500/10 flex min-h-[30rem] flex-col items-center justify-center space-y-4 border p-12 text-center shadow-sm"
 						>
 							<div
-								class="preset-tonal-secondary h-16 w-16 rounded-full flex items-center justify-center"
+								class="preset-tonal-secondary flex h-16 w-16 items-center justify-center rounded-full"
 							>
 								<IconUser class="h-8 w-8" />
 							</div>
-							<div class="space-y-1 max-w-md">
+							<div class="max-w-md space-y-1">
 								<h3 class="text-lg font-bold">No User Selected</h3>
 								<p class="text-sm opacity-70">
 									Select a Google Workspace user from the list on the left to view profile details,

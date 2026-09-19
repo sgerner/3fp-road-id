@@ -139,7 +139,7 @@
 		<div class="preset-divider-top grid gap-3 p-4">
 			<div class="grid min-w-0 gap-2 sm:flex sm:flex-wrap">
 				{#each prompts as prompt}<button
-						class="btn btn-sm preset-tonal-surface min-w-0 justify-start whitespace-normal text-left"
+						class="btn btn-sm preset-tonal-surface min-w-0 justify-start text-left whitespace-normal"
 						type="button"
 						onclick={() => sendMessage(prompt)}
 						disabled={sending}>{prompt}</button
@@ -157,8 +157,7 @@
 							event.preventDefault();
 							sendMessage();
 						}
-					}}
-				></textarea><button
+					}}></textarea><button
 					class="btn btn-icon preset-filled-secondary-500"
 					type="button"
 					onclick={() => sendMessage()}

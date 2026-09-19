@@ -536,8 +536,7 @@
 							placeholder={aiMessages.length
 								? 'Reply to refine the draft...'
 								: 'What do you want to announce?'}
-							rows="2"
-						></textarea>
+							rows="2"></textarea>
 						<button
 							class="ai-send-btn"
 							type="button"

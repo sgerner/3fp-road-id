@@ -196,7 +196,7 @@
 								>
 							</div>
 						{:else}
-							<p class="text-sm text-surface-600-400 py-6 text-center italic">
+							<p class="text-surface-600-400 py-6 text-center text-sm italic">
 								No active asset balances in this snapshot.
 							</p>
 						{/each}
@@ -223,7 +223,7 @@
 								>
 							</div>
 						{:else}
-							<p class="text-sm text-surface-600-400 py-6 text-center italic">
+							<p class="text-surface-600-400 py-6 text-center text-sm italic">
 								No spending recorded in this snapshot.
 							</p>
 						{/each}

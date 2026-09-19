@@ -252,8 +252,7 @@
 									value={shift.notes}
 									oninput={(e) =>
 										onUpdateShift(opportunity.id, shift.id, { notes: e.currentTarget.value })}
-									placeholder="Hand-offs, instructions..."
-								></textarea>
+									placeholder="Hand-offs, instructions..."></textarea>
 							</div>
 						</div>
 					{/each}

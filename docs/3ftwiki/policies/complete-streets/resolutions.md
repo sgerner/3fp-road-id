@@ -144,7 +144,7 @@ _ Universal design principles.
 **Section 5: Implementation.**
 
 (a) The [Designated Department, e.g., Department of Public Works, Transportation Department] shall be responsible for the overall implementation of the Policy.
-(b) A Complete Streets Committee, comprised of representatives from [list relevant departments/agencies, community stakeholders, and advocacy groups – *be generic here, e.g., "relevant municipal departments," "community stakeholders representing diverse interests," "advocacy groups for pedestrians, bicyclists, and transit users"*], shall be established to provide guidance and oversight on the implementation of the Policy.
+(b) A Complete Streets Committee, comprised of representatives from [list relevant departments/agencies, community stakeholders, and advocacy groups – _be generic here, e.g., "relevant municipal departments," "community stakeholders representing diverse interests," "advocacy groups for pedestrians, bicyclists, and transit users"_], shall be established to provide guidance and oversight on the implementation of the Policy.
 (c) [Municipality Name] shall develop a Complete Streets Implementation Plan within [ timeframe, e.g., one year] of the adoption of this resolution. The Implementation Plan shall include:
 _ Specific actions and timelines for implementing the Policy.
 _ A project prioritization process that considers safety, equity, connectivity, and community needs.

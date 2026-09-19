@@ -2687,8 +2687,7 @@
 														? 'Example: Make a story slide that says "3 feet is the law" with a bold rider-rights call to action.'
 														: 'Example: Write a rebellious caption about why the 3-foot passing law is legal and enforceable, and end with a rider-rights call to action.'}
 												rows="3"
-												disabled={composerReadOnly}
-											></textarea>
+												disabled={composerReadOnly}></textarea>
 											<button
 												type="button"
 												class="ai-draft-panel__send-btn"
@@ -2921,8 +2920,7 @@
 											bind:value={composerCaption}
 											placeholder="Share ride details, schedule, and call to action..."
 											rows="5"
-											disabled={composerReadOnly}
-										></textarea>
+											disabled={composerReadOnly}></textarea>
 									</div>
 								{/if}
 
@@ -3438,7 +3436,7 @@
 								{/if}
 
 								<div
-									class="post-comments-wrap relative ml-4 border-l-2 border-surface-700/50 pl-4 sm:ml-8 sm:pl-8"
+									class="post-comments-wrap border-surface-700/50 relative ml-4 border-l-2 pl-4 sm:ml-8 sm:pl-8"
 								>
 									<div class="post-comments-list space-y-4">
 										{#each group.comments as comment, index (comment.id)}
@@ -3560,8 +3558,7 @@
 																	value={replyDrafts[comment.id] || ''}
 																	oninput={(event) =>
 																		updateReplyDraft(comment.id, event.currentTarget.value)}
-																	rows="2"
-																></textarea>
+																	rows="2"></textarea>
 																<div class="reply-actions">
 																	<div class="flex items-center gap-2">
 																		<button

@@ -152,7 +152,7 @@
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-16 py-2 sm:gap-24 sm:py-6">
 	<section
-		class="card preset-filled-surface-950 relative min-h-[38rem] overflow-hidden text-surface-50 sm:min-h-[42rem] lg:min-h-[46rem]"
+		class="card preset-filled-surface-950 text-surface-50 relative min-h-[38rem] overflow-hidden sm:min-h-[42rem] lg:min-h-[46rem]"
 		aria-labelledby="welcome-heading"
 	>
 		{#if heroGroup?.cover_photo_url}
@@ -168,10 +168,10 @@
 				decoding="async"
 			/>
 			<div
-				class="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/90 to-surface-950/15"
+				class="from-surface-950 via-surface-950/90 to-surface-950/15 absolute inset-0 bg-gradient-to-r"
 			></div>
 			<div
-				class="absolute inset-0 bg-gradient-to-t from-surface-950/80 via-transparent to-transparent"
+				class="from-surface-950/80 absolute inset-0 bg-gradient-to-t via-transparent to-transparent"
 			></div>
 		{/if}
 
@@ -323,7 +323,7 @@
 					decoding="async"
 				/>
 				<div
-					class="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/75 to-surface-950/20"
+					class="from-surface-950 via-surface-950/75 to-surface-950/20 absolute inset-0 bg-gradient-to-t"
 				></div>
 			{/if}
 
@@ -414,7 +414,7 @@
 			</h2>
 		</div>
 
-		<div class="divide-surface-500/20 grid gap-8 md:grid-cols-2 md:divide-x md:gap-0">
+		<div class="divide-surface-500/20 grid gap-8 md:grid-cols-2 md:gap-0 md:divide-x">
 			<div class="md:pr-10">
 				<div class="mb-5 flex items-center gap-3">
 					<IconShieldCheck class="text-error-600-400 h-7 w-7" />

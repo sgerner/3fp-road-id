@@ -10,6 +10,8 @@ test('public HTTP validation blocks local, special-use, and nonstandard-port tar
 	assert.equal(await isPublicHttpUrl('https://[::1]/'), false);
 	assert.equal(await isPublicHttpUrl('https://[::ffff:7f00:1]/'), false);
 	assert.equal(await isPublicHttpUrl('https://[2001:db8::1]/'), false);
+	assert.equal(await isPublicHttpUrl('http://192.0.0.1/'), false);
+	assert.equal(await isPublicHttpUrl('http://192.0.77.2/'), true);
 	assert.equal(await isPublicHttpUrl('http://example.com:8080/'), false);
 	assert.equal(await isPublicHttpUrl('http://localhost/'), false);
 });

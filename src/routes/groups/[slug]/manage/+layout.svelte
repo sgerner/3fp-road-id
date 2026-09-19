@@ -164,7 +164,7 @@
 			<!-- Navigation tabs (horizontally scrollable on mobile) -->
 			<div class="border-primary-500/10 bg-surface-50/30 dark:bg-surface-950/30 border-t">
 				<nav
-					class="scrollbar-none flex items-stretch gap-1.5 overflow-x-auto p-2"
+					class="flex scrollbar-none items-stretch gap-1.5 overflow-x-auto p-2"
 					aria-label="Group management sections"
 				>
 					{#each allTabs as tab}

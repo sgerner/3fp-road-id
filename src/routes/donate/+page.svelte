@@ -693,8 +693,7 @@
 							rows="3"
 							maxlength="1000"
 							placeholder="Share what inspires you to give…"
-							bind:value={donorMessage}
-						></textarea>
+							bind:value={donorMessage}></textarea>
 					</div>
 
 					<!-- Anonymity checkbox -->

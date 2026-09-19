@@ -2201,8 +2201,7 @@
 											class="textarea bg-surface-50-950/10 border border-white/10"
 											required
 											rows="3"
-											bind:value={questionForm.message}
-										></textarea>
+											bind:value={questionForm.message}></textarea>
 										{#if questionErrors.message}
 											<span class="text-error-400 text-[11px] tracking-normal normal-case">
 												{questionErrors.message}

@@ -409,7 +409,7 @@
 									<span class="font-mono font-bold">{record.type}</span>
 									<div class="min-w-0">
 										<p class="font-mono">Name: {record.host}</p>
-										<p class="break-all font-mono opacity-65">Value: {record.value}</p>
+										<p class="font-mono break-all opacity-65">Value: {record.value}</p>
 										{#if record.reason}<p class="mt-1 opacity-55">{record.reason}</p>{/if}
 									</div>
 									<div class="flex gap-1">

@@ -94,8 +94,7 @@
 					id={questionInputId}
 					class="input bg-surface-50-950/40 min-h-[120px]"
 					value={getValue(question.id) ?? ''}
-					oninput={(event) => handleTextChange(question, event)}
-				></textarea>
+					oninput={(event) => handleTextChange(question, event)}></textarea>
 			{:else if question.field_type === 'select'}
 				<select
 					id={questionInputId}

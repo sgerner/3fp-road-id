@@ -84,10 +84,10 @@
 
 <div class="mx-auto w-full max-w-6xl px-4 py-6 md:py-8">
 	<div
-		class="overflow-hidden rounded-[2rem] border border-white/10 bg-surface-950/70 shadow-2xl shadow-black/20"
+		class="bg-surface-950/70 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl shadow-black/20"
 	>
 		<div
-			class="border-b border-white/10 bg-gradient-to-br from-surface-950 via-surface-900 to-primary-950/40 px-6 py-6 md:px-8"
+			class="from-surface-950 via-surface-900 to-primary-950/40 border-b border-white/10 bg-gradient-to-br px-6 py-6 md:px-8"
 		>
 			<div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 				<div class="space-y-2">
@@ -107,7 +107,7 @@
 			<section class="space-y-4">
 				<div class="card preset-tonal-surface border-white/10 p-5">
 					<label class="grid gap-2">
-						<span class="text-xs font-bold tracking-wide uppercase text-surface-400">Name</span>
+						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Name</span>
 						<input
 							class="input preset-tonal-surface"
 							placeholder="Your Name"
@@ -116,7 +116,7 @@
 					</label>
 
 					<label class="mt-4 grid gap-2">
-						<span class="text-xs font-bold tracking-wide uppercase text-surface-400">Email</span>
+						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Email</span>
 						<input
 							class="input preset-tonal-surface"
 							placeholder="you@example.com"
@@ -125,7 +125,7 @@
 					</label>
 
 					<label class="mt-4 grid gap-2">
-						<span class="text-xs font-bold tracking-wide uppercase text-surface-400">Title</span>
+						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Title</span>
 						<input
 							class="input preset-tonal-surface"
 							placeholder="Volunteer"
@@ -137,9 +137,9 @@
 				<div class="card preset-tonal-surface border-white/10 p-5">
 					<div class="space-y-3">
 						<div
-							class="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface-950/70 px-4 py-3"
+							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
 						>
-							<div class="text-sm font-semibold text-surface-100">Phone</div>
+							<div class="text-surface-100 text-sm font-semibold">Phone</div>
 							<Toggle bind:checked={form.showPhone} />
 						</div>
 
@@ -151,16 +151,16 @@
 						/>
 
 						<div
-							class="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface-950/70 px-4 py-3"
+							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
 						>
-							<div class="text-sm font-semibold text-surface-100">Address</div>
+							<div class="text-surface-100 text-sm font-semibold">Address</div>
 							<Toggle bind:checked={form.showAddress} />
 						</div>
 					</div>
 				</div>
 
 				<div class="card preset-tonal-surface border-white/10 p-5">
-					<span class="mb-3 block text-xs font-bold tracking-wide uppercase text-surface-400"
+					<span class="text-surface-400 mb-3 block text-xs font-bold tracking-wide uppercase"
 						>Logo</span
 					>
 					<div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
@@ -169,7 +169,7 @@
 							<button
 								class={'relative overflow-hidden rounded-xl border transition ' +
 									(isActive
-										? 'border-primary-500/60 ring-1 ring-primary-500/40'
+										? 'border-primary-500/60 ring-primary-500/40 ring-1'
 										: 'border-white/10 hover:border-white/30')}
 								type="button"
 								aria-label={option.label}
@@ -189,7 +189,7 @@
 							class={'flex h-11 w-11 items-center justify-center rounded-full border transition ' +
 								(isActive
 									? 'border-white/30 bg-white/10'
-									: 'border-white/10 bg-surface-950/70 hover:border-white/20')}
+									: 'bg-surface-950/70 border-white/10 hover:border-white/20')}
 							type="button"
 							aria-label={option.label}
 							title={option.label}

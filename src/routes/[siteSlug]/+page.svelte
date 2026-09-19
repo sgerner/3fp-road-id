@@ -809,7 +809,7 @@ HERO — cinematic cover with integrated CTAs
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
 													rel={action.external ? 'noopener noreferrer' : undefined}
-													class="btn btn-sm whitespace-nowrap md:btn-base {i === 0
+													class="btn btn-sm md:btn-base whitespace-nowrap {i === 0
 														? 'preset-filled-primary-500'
 														: 'preset-tonal-tertiary'} gap-2"
 												>

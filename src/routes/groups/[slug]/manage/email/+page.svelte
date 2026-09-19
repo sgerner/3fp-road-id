@@ -960,7 +960,7 @@
 								<span>Last attempt: {formatDate(subscriber.welcome_email_last_attempt_at)}</span>
 							</div>
 							{#if subscriber.welcome_email_error}
-								<p class="text-sm text-error-600-300">{subscriber.welcome_email_error}</p>
+								<p class="text-error-600-300 text-sm">{subscriber.welcome_email_error}</p>
 							{/if}
 							<button
 								class="btn preset-filled-primary-500"
@@ -1079,7 +1079,7 @@
 												<span class="font-mono font-bold">{record.type}</span>
 												<div class="min-w-0">
 													<p class="truncate font-mono">{record.name}</p>
-													<p class="break-all font-mono opacity-60">{record.value}</p>
+													<p class="font-mono break-all opacity-60">{record.value}</p>
 												</div>
 												<button
 													class="btn btn-sm preset-tonal-surface"
