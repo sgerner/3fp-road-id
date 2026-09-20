@@ -125,6 +125,7 @@ export async function POST(event) {
 		return response(twimlMessage('3FP: Invalid destination.'), 403);
 	}
 
+	let claimedEventId = null;
 	try {
 		const service = getSmsServiceClient();
 		if (!service)
@@ -135,12 +136,23 @@ export async function POST(event) {
 		const eventKey = `inbound:${providerId || createHash('sha256').update(rawBody).digest('hex')}`;
 		const existingEvent = await service
 			.from('sms_provider_events')
-			.select('id')
+			.select('id,payload,created_at')
 			.eq('provider', 'signalwire')
 			.eq('external_event_id', eventKey)
 			.maybeSingle();
 		if (existingEvent.error) throw existingEvent.error;
-		if (existingEvent.data) return response(twimlEmpty());
+		if (existingEvent.data) {
+			const processed = existingEvent.data.payload?._processed === true;
+			const createdAt = Date.parse(existingEvent.data.created_at || '');
+			const stale = Number.isFinite(createdAt) && createdAt < Date.now() - 5 * 60 * 1000;
+			if (processed || !stale) return response(twimlEmpty());
+			const staleDelete = await service
+				.from('sms_provider_events')
+				.delete()
+				.eq('id', existingEvent.data.id)
+				.eq('external_event_id', eventKey);
+			if (staleDelete.error) throw staleDelete.error;
+		}
 		const claim = await service
 			.from('sms_provider_events')
 			.insert({
@@ -155,18 +167,25 @@ export async function POST(event) {
 			if (claim.error.code === '23505') return response(twimlEmpty());
 			throw claim.error;
 		}
+		claimedEventId = claim.data?.id || null;
 
 		const result = await handleSignalWireInbound({ supabase: service, payload });
-		if (claim.data?.id) {
-			await service
+		if (claimedEventId) {
+			const processedUpdate = await service
 				.from('sms_provider_events')
 				.update({ payload: { ...payload, _processed: true } })
-				.eq('id', claim.data.id);
+				.eq('id', claimedEventId);
+			if (processedUpdate.error) throw processedUpdate.error;
 		}
 		const keyword = result.keyword;
 		const mediaCount =
 			Number(payload.NumMedia || payload.num_media || payload.media_count || 0) || 0;
-		if (!keyword && mediaCount === 0 && String(result.body || '').trim()) {
+		if (
+			result.managerReplyAllowed &&
+			!keyword &&
+			mediaCount === 0 &&
+			String(result.body || '').trim()
+		) {
 			try {
 				await notifyThreadMembers(event, result.thread, String(result.body).trim());
 			} catch (notificationError) {
@@ -175,6 +194,14 @@ export async function POST(event) {
 		}
 		return response(result.responseBody);
 	} catch (error) {
+		if (claimedEventId) {
+			const service = getSmsServiceClient();
+			if (service) {
+				const release = await service.from('sms_provider_events').delete().eq('id', claimedEventId);
+				if (release.error)
+					console.error('Unable to release failed SMS webhook claim', release.error);
+			}
+		}
 		console.error('Unable to process SignalWire inbound SMS', error);
 		return response(twimlMessage('3FP: We could not process your message. Please try again.'), 500);
 	}

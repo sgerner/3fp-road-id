@@ -455,12 +455,20 @@
 				</div>
 				{#if currentUser}
 					<div class="mt-4 max-w-xl">
-						<SmsContextOptIn
-							category="ride_reminders"
-							source="ride-rsvp"
-							title="Text me reminders for rides I RSVP for"
-							description="Get concise updates for upcoming rides you choose to attend. You can manage this preference from your Profile."
-						/>
+						<div class="space-y-3">
+							<SmsContextOptIn
+								category="ride_reminders"
+								source="ride-rsvp"
+								title="Text me reminders for rides I RSVP for"
+								description="Get concise reminders for upcoming rides you choose to attend. You can manage this preference from your Profile."
+							/>
+							<SmsContextOptIn
+								category="admin_messages"
+								source="ride-rsvp-admin-messages"
+								title="Let ride organizers text me about my RSVP"
+								description="Receive and reply to messages from organizers about rides you attend."
+							/>
+						</div>
 					</div>
 				{/if}
 			</div>

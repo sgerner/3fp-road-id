@@ -10,6 +10,15 @@ import {
 
 const ALLOWED_KINDS = new Set(['admin', 'bike_valet']);
 
+function publicValidationError(error) {
+	const message = String(error?.message || '');
+	return /^(SMS message cannot be empty|SMS messages are limited to|SMS messages may only include links to 3fp\.org|SMS messages contain an invalid link)/.test(
+		message
+	)
+		? message
+		: '';
+}
+
 export async function POST(event) {
 	const { cookies, params, request } = event;
 	const { user } = await getActivityClient(cookies);
@@ -75,6 +84,10 @@ export async function POST(event) {
 		);
 	} catch (error) {
 		console.error('Unable to queue SMS reply', error);
-		return json({ error: error?.message || 'Unable to queue SMS reply.' }, { status: 400 });
+		const validationError = publicValidationError(error);
+		return json(
+			{ error: validationError || 'Unable to queue SMS reply.' },
+			{ status: validationError ? 400 : 500 }
+		);
 	}
 }

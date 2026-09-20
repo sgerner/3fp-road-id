@@ -4,7 +4,8 @@ import {
 	getSignalWireConfig,
 	getSmsServiceClient,
 	recordSmsMessage,
-	sendSignalWireMessage
+	sendSignalWireMessage,
+	subscriptionAllowsSms
 } from '$lib/server/sms';
 
 const BATCH_LIMIT = 50;
@@ -35,16 +36,13 @@ async function stillEligible(supabase, row) {
 	if (!row?.subscription_id) return false;
 	const { data, error } = await supabase
 		.from('sms_subscriptions')
-		.select('status')
+		.select(
+			'status,phone_e164,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages'
+		)
 		.eq('id', row.subscription_id)
 		.maybeSingle();
 	if (error) throw error;
-	if (data?.status === 'active') return true;
-	return (
-		data?.status === 'paused' &&
-		row.kind === 'system' &&
-		row.metadata?.purpose === 'sms_verification'
-	);
+	return subscriptionAllowsSms(data, { kind: row.kind, phoneE164: row.phone_e164 });
 }
 
 export async function POST(event) {
@@ -76,7 +74,10 @@ export async function POST(event) {
 
 	let sent = 0;
 	let failed = 0;
+	let localErrors = 0;
 	for (const row of claimed) {
+		let providerAccepted = false;
+		let provider = null;
 		try {
 			if (!(await stillEligible(supabase, row))) {
 				await supabase
@@ -90,7 +91,23 @@ export async function POST(event) {
 					.eq('id', row.id);
 				continue;
 			}
-			const provider = await sendSignalWireMessage({ to: row.phone_e164, body: row.body });
+			provider = await sendSignalWireMessage({ to: row.phone_e164, body: row.body });
+			providerAccepted = true;
+			const acceptedAt = new Date().toISOString();
+			const acceptedUpdate = await supabase
+				.from('sms_outbox')
+				.update({
+					status: 'sent',
+					sent_at: acceptedAt,
+					provider_message_id: provider.providerMessageId,
+					provider_status: provider.providerStatus,
+					locked_at: null,
+					last_error: null,
+					updated_at: acceptedAt
+				})
+				.eq('id', row.id);
+			if (acceptedUpdate.error) throw acceptedUpdate.error;
+			sent += 1;
 			await recordSmsMessage(supabase, {
 				threadId: row.thread_id,
 				direction: 'outbound',
@@ -104,37 +121,36 @@ export async function POST(event) {
 				metadata: { outboxId: row.id, provider: 'signalwire' },
 				sentAt: new Date().toISOString()
 			});
-			const { error: updateError } = await supabase
-				.from('sms_outbox')
-				.update({
-					status: 'sent',
-					sent_at: new Date().toISOString(),
-					provider_message_id: provider.providerMessageId,
-					provider_status: provider.providerStatus,
-					locked_at: null,
-					last_error: null,
-					updated_at: new Date().toISOString()
-				})
-				.eq('id', row.id);
-			if (updateError) throw updateError;
-			sent += 1;
 		} catch (error) {
-			failed += 1;
+			if (providerAccepted) localErrors += 1;
+			else failed += 1;
 			const { error: updateError } = await supabase
 				.from('sms_outbox')
 				.update({
 					// Never automatically retry a provider call whose outcome is
 					// ambiguous; the request may already have been billed.
-					status: 'failed',
+					status: providerAccepted ? 'sent' : 'failed',
+					provider_message_id: providerAccepted ? provider?.providerMessageId || null : null,
+					provider_status: providerAccepted ? provider?.providerStatus || 'accepted' : null,
+					sent_at: providerAccepted ? new Date().toISOString() : null,
 					locked_at: null,
-					last_error: String(error?.message || 'SignalWire delivery failed').slice(0, 500),
+					last_error: String(
+						providerAccepted
+							? `Provider accepted the SMS, but local recording failed: ${error?.message || 'unknown error'}`
+							: error?.message || 'SignalWire delivery failed'
+					).slice(0, 500),
 					updated_at: new Date().toISOString()
 				})
 				.eq('id', row.id);
 			if (updateError) console.error('Unable to update failed SMS outbox row', updateError);
-			console.error('SignalWire SMS delivery failed', { id: row.id, error });
+			console.error(
+				providerAccepted
+					? 'SignalWire accepted SMS but local recording failed'
+					: 'SignalWire SMS delivery failed',
+				{ id: row.id, error }
+			);
 		}
 	}
 
-	return json({ data: { claimed: claimed.length, sent, failed } });
+	return json({ data: { claimed: claimed.length, sent, failed, localErrors } });
 }

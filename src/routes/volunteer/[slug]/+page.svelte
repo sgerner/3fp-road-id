@@ -2027,12 +2027,18 @@
 							<p class="text-surface-500 text-xs">Signed in as {user.email}</p>
 						</div>
 
-						<div class="mt-5">
+						<div class="mt-5 space-y-3">
 							<SmsContextOptIn
 								category="volunteer_reminders"
 								source="volunteer-signup"
 								title="Text me reminders for my volunteer shifts"
-								description="Get concise reminders and important updates for shifts you select at this event."
+								description="Get concise reminders for shifts you select at this event."
+							/>
+							<SmsContextOptIn
+								category="admin_messages"
+								source="volunteer-signup-admin-messages"
+								title="Let volunteer organizers text me about my shifts"
+								description="Receive and reply to messages from organizers about volunteer shifts you select."
 							/>
 						</div>
 

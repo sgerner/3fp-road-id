@@ -7,6 +7,7 @@ import {
 	SMS_CONSENT_VERSION,
 	cancelSmsOutboxForPhone,
 	cancelSmsVerificationOutboxForPhone,
+	closeSmsThreadsForPhone,
 	getSmsServiceClient,
 	enqueueSms,
 	normalizeSmsPhone
@@ -21,7 +22,9 @@ const CATEGORY_KEYS = [
 const CONSENT_SOURCES = new Set([
 	'profile',
 	'ride-rsvp',
+	'ride-rsvp-admin-messages',
 	'volunteer-signup',
+	'volunteer-signup-admin-messages',
 	'volunteer-management'
 ]);
 
@@ -31,9 +34,9 @@ function asBoolean(value, fallback = false) {
 	return fallback;
 }
 
-function preferenceShape(subscription, phone = '') {
+function preferenceShape(subscription, phone) {
 	return {
-		phone: phone || subscription?.phone_e164 || '',
+		phone: phone === undefined ? subscription?.phone_e164 || '' : phone,
 		status: subscription?.status || 'paused',
 		ride_reminders: subscription?.ride_reminders === true,
 		volunteer_reminders: subscription?.volunteer_reminders === true,
@@ -95,10 +98,14 @@ export async function PUT(event) {
 		const profileWriteClient = createServiceSupabaseClient();
 		if (!profileWriteClient)
 			return json({ error: 'Profile service is temporarily unavailable.' }, { status: 503 });
-		const submittedPhone =
-			body.phone === undefined
-				? normalizeSmsPhone(profile?.phone || existing?.phone_e164 || '')
-				: normalizeSmsPhone(body.phone);
+		const phoneProvided = body.phone !== undefined;
+		const submittedPhone = !phoneProvided
+			? normalizeSmsPhone(profile?.phone || existing?.phone_e164 || '')
+			: normalizeSmsPhone(body.phone);
+		const rawSubmittedPhone = phoneProvided ? String(body.phone ?? '').trim() : '';
+		if (rawSubmittedPhone && !submittedPhone) {
+			return json({ error: 'Enter a valid mobile number.' }, { status: 400 });
+		}
 		const hasCategory = CATEGORY_KEYS.some((key) => asBoolean(body[key], existing?.[key] === true));
 		const smsConsent = asBoolean(
 			body.sms_consent ?? body.smsConsent,
@@ -122,9 +129,62 @@ export async function PUT(event) {
 		const activeRequested = Boolean(
 			submittedPhone && smsConsent && Object.values(categories).some(Boolean)
 		);
+		if (phoneProvided && !rawSubmittedPhone && existing) {
+			const now = new Date().toISOString();
+			await cancelSmsOutboxForPhone(
+				service,
+				existing.phone_e164,
+				'Cancelled because the SMS phone number was removed.'
+			);
+			await closeSmsThreadsForPhone(service, user.id, existing.phone_e164);
+			const consentEvent = await service.from('sms_consent_events').insert({
+				subscription_id: existing.id,
+				user_id: user.id,
+				phone_e164: existing.phone_e164,
+				event_type: 'web_pause',
+				status: 'paused',
+				consent_version: existing.consent_version || SMS_CONSENT_VERSION,
+				consent_text: existing.consent_text || SMS_CONSENT_TEXT,
+				source: consentSource,
+				created_at: now
+			});
+			if (consentEvent.error) throw consentEvent.error;
+			const deletion = await service.from('sms_subscriptions').delete().eq('id', existing.id);
+			if (deletion.error) throw deletion.error;
+			const profileUpdate = await profileWriteClient
+				.from('profiles')
+				.update({ phone: null, updated_at: now })
+				.eq('user_id', user.id);
+			if (profileUpdate.error) throw profileUpdate.error;
+			return json({
+				preferences: preferenceShape(null, ''),
+				consentText: SMS_CONSENT_TEXT,
+				consentVersion: SMS_CONSENT_VERSION,
+				welcomeQueued: false,
+				verificationRequired: false,
+				verificationQueued: false,
+				verificationExpiresAt: null
+			});
+		}
 		const phoneForSubscription = submittedPhone || existing?.phone_e164 || '';
 
 		if (phoneForSubscription) {
+			if (submittedPhone) {
+				const phoneOwner = await service
+					.from('sms_subscriptions')
+					.select('user_id')
+					.eq('phone_e164', submittedPhone)
+					.neq('user_id', user.id)
+					.limit(1)
+					.maybeSingle();
+				if (phoneOwner.error) throw phoneOwner.error;
+				if (phoneOwner.data) {
+					return json(
+						{ error: 'That mobile number is already associated with another account.' },
+						{ status: 409 }
+					);
+				}
+			}
 			const now = new Date().toISOString();
 			const nextStatus =
 				existing?.status === 'blocked' ? 'blocked' : activeRequested ? 'active' : 'paused';
@@ -153,7 +213,7 @@ export async function PUT(event) {
 							? now
 							: existing.opted_in_at || now
 						: existing?.opted_in_at || null,
-				opted_out_at: activeRequested ? null : existing?.opted_out_at || null,
+				opted_out_at: activeRequested ? null : existing?.opted_out_at || now,
 				updated_at: now
 			};
 			const subscriptionResult = await service
@@ -183,6 +243,14 @@ export async function PUT(event) {
 
 			if (activeRequested) {
 				await cancelSmsVerificationOutboxForPhone(service, phoneForSubscription);
+			}
+			if (existing?.phone_e164 && existing.phone_e164 !== phoneForSubscription) {
+				await cancelSmsOutboxForPhone(
+					service,
+					existing.phone_e164,
+					'Cancelled because the SMS phone number changed.'
+				);
+				await closeSmsThreadsForPhone(service, user.id, existing.phone_e164);
 			}
 			if (!activeRequested) {
 				await cancelSmsOutboxForPhone(
@@ -219,7 +287,10 @@ export async function PUT(event) {
 			if (profileUpdate.error) throw profileUpdate.error;
 
 			return json({
-				preferences: preferenceShape(subscriptionResult.data, submittedPhone),
+				preferences: preferenceShape(
+					subscriptionResult.data,
+					phoneProvided ? submittedPhone : undefined
+				),
 				consentText: SMS_CONSENT_TEXT,
 				consentVersion: SMS_CONSENT_VERSION,
 				welcomeQueued,
@@ -242,6 +313,12 @@ export async function PUT(event) {
 		});
 	} catch (error) {
 		console.error('Unable to save SMS preferences', error);
-		return json({ error: error?.message || 'Unable to save SMS preferences.' }, { status: 500 });
+		if (error?.code === '23505') {
+			return json(
+				{ error: 'That mobile number is already associated with another account.' },
+				{ status: 409 }
+			);
+		}
+		return json({ error: 'Unable to save SMS preferences.' }, { status: 500 });
 	}
 }

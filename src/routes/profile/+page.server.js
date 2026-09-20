@@ -124,7 +124,7 @@ export const load = async ({ cookies }) => {
 		context: extractContext(profile?.metadata ?? {}),
 		smsPreferences: smsSubscription
 			? {
-					phone: data?.phone ?? smsSubscription.phone_e164 ?? '',
+					phone: data?.phone ?? '',
 					status: smsSubscription.status ?? 'paused',
 					ride_reminders: smsSubscription.ride_reminders === true,
 					volunteer_reminders: smsSubscription.volunteer_reminders === true,

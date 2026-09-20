@@ -1,6 +1,11 @@
 import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
-import { getSmsServiceClient } from '$lib/server/sms';
+import {
+	getSmsServiceClient,
+	shouldApplySmsStatus,
+	smsProviderMessageId,
+	smsProviderStatus
+} from '$lib/server/sms';
 import { readRawBody, verifySignalWireWebhookRequest } from '$lib/server/security';
 
 function parsePayload(raw, contentType) {
@@ -29,21 +34,15 @@ export async function POST(event) {
 
 	const payload = parsePayload(rawBody, event.request.headers.get('content-type'));
 	if (!payload) return json({ error: 'Invalid webhook payload.' }, { status: 400 });
-	const providerMessageId = String(
-		payload.MessageSid || payload.message_sid || payload.sid || ''
-	).trim();
-	const providerStatus = String(
-		payload.MessageStatus || payload.message_status || payload.status || ''
-	)
-		.trim()
-		.toLowerCase();
+	const providerMessageId = smsProviderMessageId(payload);
+	const providerStatus = smsProviderStatus(payload);
 	if (!providerMessageId) return json({ ok: true, ignored: true });
 
 	const supabase = getSmsServiceClient();
 	if (!supabase) return json({ error: 'Service client unavailable' }, { status: 503 });
 
 	try {
-		await supabase.from('sms_provider_events').upsert(
+		const providerEvent = await supabase.from('sms_provider_events').upsert(
 			{
 				provider: 'signalwire',
 				event_type: 'status',
@@ -52,6 +51,7 @@ export async function POST(event) {
 			},
 			{ onConflict: 'provider,external_event_id', ignoreDuplicates: true }
 		);
+		if (providerEvent.error) throw providerEvent.error;
 
 		const failed = ['failed', 'undelivered', 'canceled', 'cancelled'].includes(providerStatus);
 		const delivered = ['delivered', 'sent'].includes(providerStatus);
@@ -62,6 +62,7 @@ export async function POST(event) {
 						payload.ErrorMessage ||
 							payload.error_message ||
 							payload.ErrorCode ||
+							payload.error_code ||
 							'Provider delivery failed'
 					).slice(0, 500)
 				: null,
@@ -72,16 +73,45 @@ export async function POST(event) {
 			outboxUpdate.status = 'sent';
 			outboxUpdate.locked_at = null;
 		}
-		await supabase
-			.from('sms_outbox')
-			.update(outboxUpdate)
-			.eq('provider_message_id', providerMessageId);
-		await supabase
-			.from('sms_messages')
-			.update({ provider_status: providerStatus || null })
-			.eq('provider_message_id', providerMessageId);
+		const [outboxRow, messageRow] = await Promise.all([
+			supabase
+				.from('sms_outbox')
+				.select('id,provider_status')
+				.eq('provider_message_id', providerMessageId)
+				.limit(1)
+				.maybeSingle(),
+			supabase
+				.from('sms_messages')
+				.select('id,provider_status')
+				.eq('provider_message_id', providerMessageId)
+				.limit(1)
+				.maybeSingle()
+		]);
+		if (outboxRow.error) throw outboxRow.error;
+		if (messageRow.error) throw messageRow.error;
+		if (!outboxRow.data && !messageRow.data) {
+			return json(
+				{ error: 'Message record is not ready; retry the callback.' },
+				{ status: 503, headers: { 'retry-after': '2' } }
+			);
+		}
 
-		return json({ ok: true });
+		if (outboxRow.data && shouldApplySmsStatus(outboxRow.data.provider_status, providerStatus)) {
+			const result = await supabase
+				.from('sms_outbox')
+				.update(outboxUpdate)
+				.eq('id', outboxRow.data.id);
+			if (result.error) throw result.error;
+		}
+		if (messageRow.data && shouldApplySmsStatus(messageRow.data.provider_status, providerStatus)) {
+			const result = await supabase
+				.from('sms_messages')
+				.update({ provider_status: providerStatus || null })
+				.eq('id', messageRow.data.id);
+			if (result.error) throw result.error;
+		}
+
+		return json({ ok: true, matched: true });
 	} catch (error) {
 		console.error('Unable to process SignalWire SMS status webhook', error);
 		return json({ error: 'Unable to process webhook.' }, { status: 500 });

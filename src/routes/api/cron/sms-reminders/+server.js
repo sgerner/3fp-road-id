@@ -10,6 +10,8 @@ import {
 
 const HORIZON_MS = 14 * 24 * 60 * 60 * 1000;
 const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 1000;
+const MAX_SOURCE_ROWS = 10_000;
 
 function cronSecret(request) {
 	return (
@@ -64,6 +66,18 @@ async function loadActiveSubscriptions(supabase) {
 	);
 }
 
+async function loadPagedRows(buildQuery, label) {
+	const rows = [];
+	for (let offset = 0; offset < MAX_SOURCE_ROWS; offset += PAGE_SIZE) {
+		const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+		if (error) throw error;
+		const page = data || [];
+		rows.push(...page);
+		if (page.length < PAGE_SIZE) return rows;
+	}
+	throw new Error(`${label} exceeded the ${MAX_SOURCE_ROWS}-row SMS reminder safety limit.`);
+}
+
 export async function POST(event) {
 	const verified = await getCronSecretVerifier('sms_dispatch', cronSecret(event.request));
 	if (!verified) return json({ error: 'Unauthorized cron request' }, { status: 401 });
@@ -81,14 +95,17 @@ export async function POST(event) {
 		const rideManagers = new Map();
 		const volunteerManagers = new Map();
 
-		const { data: rideRsvps, error: rideError } = await supabase
-			.from('activity_rsvps')
-			.select(
-				'id,user_id,activity_event_id,activity_occurrence_id,status,activity:activity_events(id,title,slug,status,timezone,start_location_name),occurrence:activity_occurrences(id,starts_at,ends_at,status,title_override,start_location_name)'
-			)
-			.eq('status', 'going')
-			.limit(2000);
-		if (rideError) throw rideError;
+		const rideRsvps = await loadPagedRows(
+			() =>
+				supabase
+					.from('activity_rsvps')
+					.select(
+						'id,user_id,activity_event_id,activity_occurrence_id,status,activity:activity_events(id,title,slug,status,timezone,start_location_name),occurrence:activity_occurrences(id,starts_at,ends_at,status,title_override,start_location_name)'
+					)
+					.eq('status', 'going')
+					.order('id', { ascending: true }),
+			'Ride RSVPs'
+		);
 
 		for (const rsvp of rideRsvps || []) {
 			const activity = one(rsvp.activity);
@@ -134,14 +151,17 @@ export async function POST(event) {
 			}
 		}
 
-		const { data: volunteerAssignments, error: volunteerError } = await supabase
-			.from('volunteer_signup_shifts')
-			.select(
-				'id,signup_id,shift_id,status,signup:volunteer_signups(id,volunteer_user_id,event_id,volunteer_name),shift:volunteer_opportunity_shifts(id,starts_at,ends_at,timezone,location_name,location_address,opportunity:volunteer_opportunities(id,title,event_id,event:volunteer_events(id,title,slug,status,timezone,location_name,location_address))'
-			)
-			.in('status', ['registered', 'pending', 'approved', 'confirmed', 'checked_in'])
-			.limit(2000);
-		if (volunteerError) throw volunteerError;
+		const volunteerAssignments = await loadPagedRows(
+			() =>
+				supabase
+					.from('volunteer_signup_shifts')
+					.select(
+						'id,signup_id,shift_id,status,signup:volunteer_signups(id,volunteer_user_id,event_id,volunteer_name),shift:volunteer_opportunity_shifts(id,starts_at,ends_at,timezone,location_name,location_address,opportunity:volunteer_opportunities(id,title,event_id,event:volunteer_events(id,title,slug,status,timezone,location_name,location_address))'
+					)
+					.in('status', ['registered', 'pending', 'approved', 'confirmed', 'checked_in'])
+					.order('id', { ascending: true }),
+			'Volunteer assignments'
+		);
 
 		for (const assignment of volunteerAssignments || []) {
 			const signup = one(assignment.signup);

@@ -7,7 +7,11 @@ import {
 	SMS_MAX_SEGMENTS,
 	buildSmsContextKey,
 	classifySmsKeyword,
+	shouldApplySmsStatus,
 	smsSegmentCount,
+	smsProviderMessageId,
+	smsProviderStatus,
+	subscriptionAllowsSms,
 	validateSmsBody
 } from '$lib/utils/sms';
 
@@ -16,7 +20,11 @@ export {
 	SMS_MAX_SEGMENTS,
 	buildSmsContextKey,
 	classifySmsKeyword,
+	shouldApplySmsStatus,
 	smsSegmentCount,
+	smsProviderMessageId,
+	smsProviderStatus,
+	subscriptionAllowsSms,
 	validateSmsBody
 } from '$lib/utils/sms';
 
@@ -24,13 +32,6 @@ export const SMS_CONSENT_VERSION = '2026-09-19';
 export const SMS_CONSENT_TEXT =
 	'By checking this box, I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
 export const SMS_DAILY_LIMIT = 12;
-
-const CATEGORY_BY_KIND = {
-	ride_reminder: 'ride_reminders',
-	volunteer_reminder: 'volunteer_reminders',
-	admin: 'admin_messages',
-	bike_valet: 'bike_valet_messages'
-};
 
 const MANAGER_ROLES = ['owner', 'admin'];
 function cleanText(value, maxLength = 2000) {
@@ -174,9 +175,9 @@ export async function getSmsManagerIds(supabase, context = {}) {
 async function loadSubscription(supabase, { userId, phoneE164 } = {}) {
 	let query = supabase.from('sms_subscriptions').select('*');
 	if (userId) query = query.eq('user_id', userId);
-	else if (phoneE164)
+	if (phoneE164)
 		query = query.eq('phone_e164', phoneE164).order('updated_at', { ascending: false });
-	else return null;
+	if (!userId && !phoneE164) return null;
 	const { data, error } = await query.limit(1).maybeSingle();
 	if (error) throw error;
 	return data ?? null;
@@ -227,6 +228,24 @@ export async function cancelSmsVerificationOutboxForPhone(
 	return asArray(result.data).length;
 }
 
+export async function closeSmsThreadsForPhone(supabase, userId, phoneE164) {
+	const normalizedPhone = normalizeSmsPhone(phoneE164);
+	const id = asId(userId);
+	if (!normalizedPhone || !id) return 0;
+	const result = await supabase
+		.from('sms_threads')
+		.update({
+			status: 'closed',
+			updated_at: new Date().toISOString()
+		})
+		.eq('user_id', id)
+		.eq('phone_e164', normalizedPhone)
+		.eq('status', 'open')
+		.select('id');
+	if (result.error) throw result.error;
+	return asArray(result.data).length;
+}
+
 async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, managerUserIds = [] }) {
 	const normalizedPhone = normalizeSmsPhone(phoneE164);
 	if (!normalizedPhone) throw new Error('A valid SMS phone number is required.');
@@ -236,6 +255,7 @@ async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, mana
 		.select('*')
 		.eq('phone_e164', normalizedPhone)
 		.eq('context_key', payload.context_key)
+		.eq('status', 'open')
 		.maybeSingle();
 	if (error) throw error;
 
@@ -250,8 +270,20 @@ async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, mana
 			})
 			.select('*')
 			.single();
-		if (result.error) throw result.error;
-		thread = result.data;
+		if (result.error?.code === '23505') {
+			const existing = await supabase
+				.from('sms_threads')
+				.select('*')
+				.eq('phone_e164', normalizedPhone)
+				.eq('context_key', payload.context_key)
+				.eq('status', 'open')
+				.single();
+			if (existing.error) throw existing.error;
+			thread = existing.data;
+		} else {
+			if (result.error) throw result.error;
+			thread = result.data;
+		}
 	} else if (!thread.user_id && userId) {
 		const result = await supabase
 			.from('sms_threads')
@@ -296,11 +328,10 @@ export async function enqueueSms({
 		phoneE164: normalizedPhone
 	});
 	if (requireSubscription) {
-		const category = CATEGORY_BY_KIND[kind];
 		if (!subscription || subscription.status !== 'active') {
 			return { queued: false, reason: 'not_subscribed' };
 		}
-		if (category && subscription[category] !== true) {
+		if (!subscriptionAllowsSms(subscription, { kind, phoneE164: normalizedPhone })) {
 			return { queued: false, reason: 'category_disabled' };
 		}
 	}
@@ -309,20 +340,6 @@ export async function enqueueSms({
 		appendStopFooter: ['ride_reminder', 'volunteer_reminder', 'admin', 'bike_valet'].includes(kind)
 	});
 	if (!cleanText(dedupeKey, 240)) throw new Error('SMS dedupe key is required.');
-
-	const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-	if (!['opt_in', 'opt_out', 'help'].includes(kind)) {
-		const countResult = await supabase
-			.from('sms_outbox')
-			.select('id', { count: 'exact', head: true })
-			.eq('phone_e164', normalizedPhone)
-			.gte('created_at', sinceIso)
-			.in('status', ['queued', 'sending', 'sent']);
-		if (countResult.error) throw countResult.error;
-		if ((countResult.count ?? 0) >= SMS_DAILY_LIMIT) {
-			return { queued: false, reason: 'daily_limit' };
-		}
-	}
 
 	const resolvedManagers = managerUserIds.length
 		? uniqueIds(managerUserIds)
@@ -335,22 +352,23 @@ export async function enqueueSms({
 	});
 
 	const insert = await supabase
-		.from('sms_outbox')
-		.insert({
-			subscription_id: subscription?.id ?? null,
-			thread_id: thread.id,
-			user_id: asId(userId) || subscription?.user_id || null,
-			phone_e164: normalizedPhone,
-			kind,
-			body: safeBody,
-			dedupe_key: cleanText(dedupeKey, 240),
-			created_by_user_id: asId(createdByUserId),
-			metadata: { ...metadata, segments }
+		.rpc('enqueue_sms_outbox', {
+			p_subscription_id: subscription?.id ?? null,
+			p_thread_id: thread.id,
+			p_user_id: asId(userId) || subscription?.user_id || null,
+			p_phone_e164: normalizedPhone,
+			p_kind: kind,
+			p_body: safeBody,
+			p_dedupe_key: cleanText(dedupeKey, 240),
+			p_created_by_user_id: asId(createdByUserId),
+			p_metadata: { ...metadata, segments }
 		})
-		.select('*')
-		.maybeSingle();
+		.single();
 
 	if (insert.error) {
+		if (insert.error.message?.includes('sms_daily_limit')) {
+			return { queued: false, reason: 'daily_limit' };
+		}
 		if (insert.error.code === '23505') {
 			const existing = await supabase
 				.from('sms_outbox')
@@ -453,6 +471,15 @@ export async function recordSmsMessage(
 		})
 		.select('*')
 		.single();
+	if (result.error?.code === '23505' && providerMessageId) {
+		const existing = await supabase
+			.from('sms_messages')
+			.select('*')
+			.eq('provider_message_id', cleanText(providerMessageId, 240))
+			.single();
+		if (existing.error) throw existing.error;
+		return existing.data;
+	}
 	if (result.error) throw result.error;
 	await supabase
 		.from('sms_threads')
@@ -613,6 +640,12 @@ export async function handleSignalWireInbound({
 	}
 
 	const keyword = classifySmsKeyword(body);
+	const managerReplyAllowed = Boolean(
+		subscription?.status === 'active' &&
+		(thread.bike_valet_reference
+			? subscription.bike_valet_messages === true
+			: subscription.admin_messages === true)
+	);
 	let reply = '';
 	let kind = 'system';
 	if (keyword === 'stop') {
@@ -667,8 +700,8 @@ export async function handleSignalWireInbound({
 				.from('sms_subscriptions')
 				.update({
 					status: 'active',
-					phone_verified_at: subscription.phone_verified_at || new Date().toISOString(),
 					opted_in_at: new Date().toISOString(),
+					opted_out_at: null,
 					updated_at: new Date().toISOString()
 				})
 				.eq('id', subscription.id);
@@ -690,6 +723,9 @@ export async function handleSignalWireInbound({
 	} else if (!subscription || subscription.status !== 'active') {
 		reply =
 			'3FP: This number is not subscribed. Sign in at https://3fp.org/profile to opt in. Reply HELP for help.';
+	} else if (!managerReplyAllowed) {
+		reply =
+			'3FP: Message received, but admin SMS replies are not enabled. Sign in at https://3fp.org/profile to enable admin messages. Reply STOP to opt out.';
 	} else {
 		reply =
 			'3FP: Message received. A ride or volunteer admin will reply here. Reply STOP to opt out.';
@@ -715,6 +751,12 @@ export async function handleSignalWireInbound({
 		fromPhone,
 		toPhone,
 		body: mediaCount > 0 ? '[Multimedia message blocked]' : body || '[Empty message]',
+		providerMessageId:
+			cleanText(
+				payload.MessageSid || payload.message_sid || payload.id || payload.message_id,
+				240
+			) || null,
+		providerStatus: 'received',
 		mediaCount,
 		metadata: {
 			provider: 'signalwire',
@@ -725,19 +767,34 @@ export async function handleSignalWireInbound({
 
 	let autoReplySuppressed = false;
 	if (reply) {
-		const sinceIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-		const recentReplies = await supabase
-			.from('sms_messages')
-			.select('id', { count: 'exact', head: true })
-			.eq('thread_id', thread.id)
-			.eq('direction', 'outbound')
-			.eq('provider_status', 'auto_reply')
-			.gte('created_at', sinceIso);
-		if (recentReplies.error) throw recentReplies.error;
-		if ((recentReplies.count ?? 0) >= 5) {
-			autoReplySuppressed = true;
-			reply = '';
-		} else {
+		const complianceReply = ['stop', 'help', 'start'].includes(keyword);
+		if (!complianceReply) {
+			const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+			const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+			const [recentReplies, dailyReplies] = await Promise.all([
+				supabase
+					.from('sms_messages')
+					.select('id', { count: 'exact', head: true })
+					.eq('thread_id', thread.id)
+					.eq('direction', 'outbound')
+					.eq('provider_status', 'auto_reply')
+					.gte('created_at', hourAgo),
+				supabase
+					.from('sms_messages')
+					.select('id', { count: 'exact', head: true })
+					.eq('thread_id', thread.id)
+					.eq('direction', 'outbound')
+					.eq('provider_status', 'auto_reply')
+					.gte('created_at', dayAgo)
+			]);
+			if (recentReplies.error) throw recentReplies.error;
+			if (dailyReplies.error) throw dailyReplies.error;
+			if ((recentReplies.count ?? 0) >= 5 || (dailyReplies.count ?? 0) >= SMS_DAILY_LIMIT) {
+				autoReplySuppressed = true;
+				reply = '';
+			}
+		}
+		if (reply) {
 			await recordSmsMessage(supabase, {
 				threadId: thread.id,
 				direction: 'outbound',
@@ -759,41 +816,35 @@ export async function handleSignalWireInbound({
 		body,
 		fromPhone,
 		toPhone,
+		managerReplyAllowed,
 		autoReplySuppressed
 	};
 }
 
-export async function loadSmsThreadsForUser(supabase, userId) {
+export async function loadSmsThreadsForUser(
+	supabase,
+	userId,
+	{ managementOnly = false, managementClient = null } = {}
+) {
 	const id = asId(userId);
 	if (!id) return [];
-	const { data: profile, error: profileError } = await supabase
-		.from('profiles')
-		.select('admin')
-		.eq('user_id', id)
-		.maybeSingle();
-	if (profileError) throw profileError;
-
-	let query = supabase
+	// The authenticated client's RLS policy evaluates current ride/volunteer
+	// management permissions. Avoid narrowing by stale membership snapshots.
+	const query = supabase
 		.from('sms_threads')
 		.select('*')
 		.order('last_message_at', { ascending: false })
 		.limit(100);
-	if (profile?.admin !== true) {
-		const { data: memberships, error: membershipsError } = await supabase
-			.from('sms_thread_members')
-			.select('thread_id')
-			.eq('user_id', id);
-		if (membershipsError) throw membershipsError;
-		const threadIds = uniqueIds(asArray(memberships).map((row) => row.thread_id));
-		if (!threadIds.length) {
-			query = query.eq('user_id', id);
-		} else {
-			query = query.or(`user_id.eq.${id},id.in.(${threadIds.join(',')})`);
-		}
-	}
 	const { data: threads, error } = await query;
 	if (error) throw error;
-	const rows = asArray(threads);
+	let rows = asArray(threads);
+	if (managementOnly) {
+		if (!managementClient) throw new Error('SMS management client is unavailable.');
+		const access = await Promise.all(
+			rows.map((thread) => canManageSmsThread(managementClient, id, thread.id))
+		);
+		rows = rows.filter((_, index) => access[index]);
+	}
 	if (!rows.length) return [];
 	const { data: messages, error: messagesError } = await supabase
 		.from('sms_messages')
@@ -838,7 +889,16 @@ export async function canManageSmsThread(supabase, userId, threadId) {
 		volunteerSignupId: thread.volunteer_signup_id,
 		bikeValetReference: thread.bike_valet_reference
 	});
-	return managerIds.includes(id);
+	if (managerIds.includes(id)) return true;
+	if (thread.activity_event_id || thread.volunteer_event_id) return false;
+	const { data: membership, error: membershipError } = await supabase
+		.from('sms_thread_members')
+		.select('thread_id')
+		.eq('thread_id', threadId)
+		.eq('user_id', id)
+		.maybeSingle();
+	if (membershipError) throw membershipError;
+	return Boolean(membership);
 }
 
 export function formatSmsDateTime(value, timezone = 'UTC') {

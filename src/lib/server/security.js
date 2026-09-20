@@ -256,11 +256,13 @@ export function verifySignalWireWebhookRequest(
 	const body = typeof rawBody === 'string' ? rawBody : String(rawBody ?? '');
 
 	const signalWireSignature = request?.headers?.get('x-signalwire-signature');
-	if (signalWireSignature) {
+	const compatibilitySignature = request?.headers?.get('x-twilio-signature');
+	const rawBodySignature = signalWireSignature || compatibilitySignature;
+	if (rawBodySignature) {
 		const signedValue = `${url}${body}`;
 		const sha1 = createHmac('sha1', key).update(signedValue).digest();
 		const sha256 = createHmac('sha256', key).update(signedValue).digest();
-		if (signatureHeaderMatches(signalWireSignature, signalWireSignatureCandidates(sha1))) {
+		if (signatureHeaderMatches(rawBodySignature, signalWireSignatureCandidates(sha1))) {
 			return true;
 		}
 		if (
@@ -282,7 +284,6 @@ export function verifySignalWireWebhookRequest(
 		}
 	}
 
-	const compatibilitySignature = request?.headers?.get('x-twilio-signature');
 	if (!compatibilitySignature) return false;
 	let params = formPayload;
 	if (!params) {

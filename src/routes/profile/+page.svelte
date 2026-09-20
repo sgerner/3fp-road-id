@@ -170,8 +170,7 @@
 					bio,
 					location,
 					interests,
-					recommendation_focus: recommendationFocus,
-					phone: smsPhone
+					recommendation_focus: recommendationFocus
 				})
 			});
 			const payload = await response.json().catch(() => ({}));
@@ -183,7 +182,6 @@
 			fullName = savedProfile?.full_name ?? fullName;
 			avatarUrl = savedProfile?.avatar_url ?? avatarUrl;
 			bio = savedProfile?.bio ?? bio;
-			smsPhone = savedProfile?.phone ?? smsPhone;
 			location = payload?.context?.location ?? location;
 			locationConfirmation = payload?.context?.home_location?.label ?? location;
 			interests = Array.isArray(payload?.context?.interests)
