@@ -39,6 +39,7 @@
 	import VolunteerQuestionFields from '$lib/components/volunteer/VolunteerQuestionFields.svelte';
 	import VolunteerContactFields from '$lib/components/volunteer/VolunteerContactFields.svelte';
 	import VolunteerSelectedShifts from '$lib/components/volunteer/VolunteerSelectedShifts.svelte';
+	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
@@ -2024,6 +2025,15 @@
 						<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
 							<h2 class="text-secondary-100 text-2xl font-bold">Complete your volunteer signup</h2>
 							<p class="text-surface-500 text-xs">Signed in as {user.email}</p>
+						</div>
+
+						<div class="mt-5">
+							<SmsContextOptIn
+								category="volunteer_reminders"
+								source="volunteer-signup"
+								title="Text me reminders for my volunteer shifts"
+								description="Get concise reminders and important updates for shifts you select at this event."
+							/>
 						</div>
 
 						{#if selectedOpportunities.length}

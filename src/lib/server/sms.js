@@ -204,6 +204,29 @@ export async function cancelSmsOutboxForPhone(
 	return asArray(result.data).length;
 }
 
+export async function cancelSmsVerificationOutboxForPhone(
+	supabase,
+	phoneE164,
+	reason = 'SMS phone verification is no longer required.'
+) {
+	const normalizedPhone = normalizeSmsPhone(phoneE164);
+	if (!normalizedPhone) return 0;
+	const result = await supabase
+		.from('sms_outbox')
+		.update({
+			status: 'cancelled',
+			locked_at: null,
+			last_error: cleanText(reason, 500),
+			updated_at: new Date().toISOString()
+		})
+		.eq('phone_e164', normalizedPhone)
+		.in('status', ['queued', 'sending'])
+		.contains('metadata', { purpose: 'sms_verification' })
+		.select('id');
+	if (result.error) throw result.error;
+	return asArray(result.data).length;
+}
+
 async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, managerUserIds = [] }) {
 	const normalizedPhone = normalizeSmsPhone(phoneE164);
 	if (!normalizedPhone) throw new Error('A valid SMS phone number is required.');

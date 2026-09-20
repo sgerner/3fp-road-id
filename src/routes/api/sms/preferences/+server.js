@@ -1,4 +1,3 @@
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '$lib/server/activities';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
@@ -7,6 +6,7 @@ import {
 	SMS_CONSENT_TEXT,
 	SMS_CONSENT_VERSION,
 	cancelSmsOutboxForPhone,
+	cancelSmsVerificationOutboxForPhone,
 	getSmsServiceClient,
 	enqueueSms,
 	normalizeSmsPhone
@@ -18,8 +18,12 @@ const CATEGORY_KEYS = [
 	'admin_messages',
 	'bike_valet_messages'
 ];
-const VERIFICATION_TTL_MS = 10 * 60 * 1000;
-const VERIFICATION_RESEND_MS = 60 * 1000;
+const CONSENT_SOURCES = new Set([
+	'profile',
+	'ride-rsvp',
+	'volunteer-signup',
+	'volunteer-management'
+]);
 
 function asBoolean(value, fallback = false) {
 	if (typeof value === 'boolean') return value;
@@ -39,22 +43,6 @@ function preferenceShape(subscription, phone = '') {
 		opted_in_at: subscription?.opted_in_at || null,
 		opted_out_at: subscription?.opted_out_at || null
 	};
-}
-
-function hashVerificationCode(code) {
-	return createHash('sha256').update(String(code)).digest('hex');
-}
-
-function verificationCodeMatches(code, expectedHash) {
-	const actual = Buffer.from(hashVerificationCode(code), 'hex');
-	const expected = Buffer.from(String(expectedHash || ''), 'hex');
-	return (
-		actual.length === expected.length && actual.length > 0 && timingSafeEqual(actual, expected)
-	);
-}
-
-function newVerificationCode() {
-	return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
 async function loadProfileAndSubscription(supabase, userId) {
@@ -127,6 +115,10 @@ export async function PUT(event) {
 		const categories = Object.fromEntries(
 			CATEGORY_KEYS.map((key) => [key, asBoolean(body[key], existing?.[key] === true)])
 		);
+		const requestedSource = String(body.source || 'profile')
+			.trim()
+			.toLowerCase();
+		const consentSource = CONSENT_SOURCES.has(requestedSource) ? requestedSource : 'profile';
 		const activeRequested = Boolean(
 			submittedPhone && smsConsent && Object.values(categories).some(Boolean)
 		);
@@ -134,27 +126,8 @@ export async function PUT(event) {
 
 		if (phoneForSubscription) {
 			const now = new Date().toISOString();
-			const sameVerifiedPhone = Boolean(
-				existing?.phone_verified_at && existing.phone_e164 === phoneForSubscription
-			);
-			const verificationRequired = activeRequested && !sameVerifiedPhone;
-			const nextStatus = verificationRequired
-				? 'paused'
-				: activeRequested
-					? 'active'
-					: existing?.status === 'blocked'
-						? 'blocked'
-						: 'paused';
-			const shouldSendVerification =
-				verificationRequired &&
-				(!existing?.verification_last_sent_at ||
-					Date.parse(existing.verification_last_sent_at) < Date.now() - VERIFICATION_RESEND_MS);
-			const verificationCode = shouldSendVerification ? newVerificationCode() : '';
-			const verificationExpiresAt = verificationCode
-				? new Date(Date.now() + VERIFICATION_TTL_MS).toISOString()
-				: verificationRequired
-					? existing?.verification_expires_at || null
-					: null;
+			const nextStatus =
+				existing?.status === 'blocked' ? 'blocked' : activeRequested ? 'active' : 'paused';
 			const subscriptionPayload = {
 				user_id: user.id,
 				phone_e164: phoneForSubscription,
@@ -166,21 +139,19 @@ export async function PUT(event) {
 				consent_text: activeRequested
 					? SMS_CONSENT_TEXT
 					: existing?.consent_text || SMS_CONSENT_TEXT,
-				consent_source: activeRequested ? 'profile' : existing?.consent_source || 'profile',
-				phone_verified_at: sameVerifiedPhone ? existing.phone_verified_at : null,
-				verification_code_hash: verificationCode
-					? hashVerificationCode(verificationCode)
-					: verificationRequired
-						? existing?.verification_code_hash || null
-						: null,
-				verification_expires_at: verificationExpiresAt,
-				verification_attempts: verificationCode ? 0 : existing?.verification_attempts || 0,
-				verification_last_sent_at: verificationCode
-					? now
-					: existing?.verification_last_sent_at || null,
+				consent_source: activeRequested ? consentSource : existing?.consent_source || 'profile',
+				phone_verified_at: null,
+				verification_code_hash: null,
+				verification_expires_at: null,
+				verification_attempts: 0,
+				verification_last_sent_at: null,
 				opted_in_at:
-					activeRequested && !verificationRequired
-						? existing?.opted_in_at || now
+					activeRequested && nextStatus === 'active'
+						? !existing ||
+							existing.status !== 'active' ||
+							existing.phone_e164 !== phoneForSubscription
+							? now
+							: existing.opted_in_at || now
 						: existing?.opted_in_at || null,
 				opted_out_at: activeRequested ? null : existing?.opted_out_at || null,
 				updated_at: now
@@ -197,7 +168,7 @@ export async function PUT(event) {
 				existing.status !== nextStatus ||
 				existing.phone_e164 !== phoneForSubscription ||
 				CATEGORY_KEYS.some((key) => existing[key] !== categories[key]);
-			if (changed && !verificationRequired) {
+			if (changed) {
 				await service.from('sms_consent_events').insert({
 					subscription_id: subscriptionResult.data.id,
 					user_id: user.id,
@@ -206,8 +177,12 @@ export async function PUT(event) {
 					status: nextStatus,
 					consent_version: SMS_CONSENT_VERSION,
 					consent_text: SMS_CONSENT_TEXT,
-					source: 'profile'
+					source: activeRequested ? consentSource : existing?.consent_source || 'profile'
 				});
+			}
+
+			if (activeRequested) {
+				await cancelSmsVerificationOutboxForPhone(service, phoneForSubscription);
 			}
 			if (!activeRequested) {
 				await cancelSmsOutboxForPhone(
@@ -220,11 +195,11 @@ export async function PUT(event) {
 			let welcomeQueued = false;
 			if (
 				activeRequested &&
-				!verificationRequired &&
+				nextStatus === 'active' &&
 				(!existing || existing.status !== 'active' || existing.phone_e164 !== phoneForSubscription)
 			) {
 				const result = await enqueueSms({
-					supabase: getSmsServiceClient(),
+					supabase: service,
 					userId: user.id,
 					phoneE164: phoneForSubscription,
 					kind: 'opt_in',
@@ -235,23 +210,6 @@ export async function PUT(event) {
 					requireSubscription: true
 				});
 				welcomeQueued = result.queued === true;
-			}
-
-			let verificationQueued = false;
-			if (verificationCode) {
-				const result = await enqueueSms({
-					supabase: service,
-					userId: user.id,
-					phoneE164: phoneForSubscription,
-					kind: 'system',
-					body: `3FP: Your SMS verification code is ${verificationCode}. Msg & data rates may apply. Reply STOP to opt out.`,
-					dedupeKey: `sms-verification:${user.id}:${phoneForSubscription}:${verificationCode}`,
-					context: { subject: 'SMS phone verification' },
-					createdByUserId: user.id,
-					metadata: { purpose: 'sms_verification' },
-					requireSubscription: false
-				});
-				verificationQueued = result.queued === true;
 			}
 
 			const profileUpdate = await profileWriteClient
@@ -265,9 +223,9 @@ export async function PUT(event) {
 				consentText: SMS_CONSENT_TEXT,
 				consentVersion: SMS_CONSENT_VERSION,
 				welcomeQueued,
-				verificationRequired,
-				verificationQueued,
-				verificationExpiresAt
+				verificationRequired: false,
+				verificationQueued: false,
+				verificationExpiresAt: null
 			});
 		}
 

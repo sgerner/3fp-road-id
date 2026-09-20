@@ -67,11 +67,13 @@
 			<h2 class="text-lg font-semibold">Optional SMS Program</h2>
 			<p class="text-sm leading-relaxed">
 				SMS is optional and requires an authenticated user to enter a mobile number, select message
-				categories, and check a separate consent box. Message frequency varies based on your RSVPs,
-				volunteer assignments, and conversations. Message and data rates may apply. Reply STOP to
-				opt out, START to rejoin after opting out, or HELP for help. We send plain text only;
-				multimedia messages are not supported. You can also pause categories from your profile or
-				contact
+				categories, and provide explicit consent. You can do this from your Profile or from a ride
+				RSVP or volunteer signup when that option is shown. We do not require a separate
+				app-generated verification code; please enter only a number you control or are authorized to
+				use. Message frequency varies based on your RSVPs, volunteer assignments, and conversations.
+				Message and data rates may apply. Reply STOP to opt out, START to rejoin after opting out,
+				or HELP for help. We send plain text only; multimedia messages are not supported. You can
+				also pause categories from your profile or contact
 				<a href="mailto:hi@3fp.org" class="anchor">hi@3fp.org</a>.
 			</p>
 		</div>

@@ -133,11 +133,7 @@ export const load = async ({ cookies }) => {
 					consent_version: smsSubscription.consent_version ?? null,
 					opted_in_at: smsSubscription.opted_in_at ?? null,
 					opted_out_at: smsSubscription.opted_out_at ?? null,
-					verificationRequired:
-						smsSubscription.status === 'paused' &&
-						Boolean(smsSubscription.verification_expires_at) &&
-						Date.parse(smsSubscription.verification_expires_at) > Date.now() &&
-						!smsSubscription.phone_verified_at
+					verificationRequired: false
 				}
 			: {
 					phone: data?.phone ?? '',

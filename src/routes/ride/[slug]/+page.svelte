@@ -10,6 +10,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
+	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
 	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
 	import { escapeHtml } from '$lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
@@ -452,6 +453,16 @@
 						</a>
 					{/if}
 				</div>
+				{#if currentUser}
+					<div class="mt-4 max-w-xl">
+						<SmsContextOptIn
+							category="ride_reminders"
+							source="ride-rsvp"
+							title="Text me reminders for rides I RSVP for"
+							description="Get concise updates for upcoming rides you choose to attend. You can manage this preference from your Profile."
+						/>
+					</div>
+				{/if}
 			</div>
 		</div>
 		{#if rsvpError}

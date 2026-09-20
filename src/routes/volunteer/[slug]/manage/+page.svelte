@@ -5,6 +5,7 @@
 	import ApprovedRoster from '$lib/components/volunteer/manage/ApprovedRoster.svelte';
 	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
+	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { sendEmail } from '$lib/services/email';
 	import {
@@ -1753,6 +1754,14 @@
 			description={eventDescription}
 			counts={volunteerCounts}
 		/>
+		<div class="mt-4 max-w-2xl">
+			<SmsContextOptIn
+				category="admin_messages"
+				source="volunteer-management"
+				title="Text me volunteer admin messages"
+				description="Receive concise updates and replies related to this volunteer event."
+			/>
+		</div>
 
 		<!-- Tab navigation -->
 		<nav class="mt-3 -mb-px flex gap-0.5" aria-label="Management sections">

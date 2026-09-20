@@ -47,9 +47,6 @@
 	let uploadingAvatar = $state(false);
 	let avatarError = $state('');
 	let fileInputEl = $state(null);
-	let smsVerificationRequired = $state(pageData.smsPreferences?.verificationRequired === true);
-	let smsVerificationCode = $state('');
-	let verifyingSms = $state(false);
 
 	const completionScore = $derived.by(() => {
 		let score = 0;
@@ -213,19 +210,16 @@
 				throw new Error(smsPayload?.error || 'Unable to save SMS preferences.');
 			}
 			const savedSms = smsPayload?.preferences ?? null;
-			smsVerificationRequired = smsPayload?.verificationRequired === true;
 			if (savedSms) {
 				smsPhone = savedSms.phone ?? smsPhone;
-				smsConsent = smsVerificationRequired ? true : savedSms.status === 'active';
+				smsConsent = savedSms.status === 'active';
 				smsRideReminders = savedSms.ride_reminders === true;
 				smsVolunteerReminders = savedSms.volunteer_reminders === true;
 				smsAdminMessages = savedSms.admin_messages === true;
 				smsBikeValetMessages = savedSms.bike_valet_messages === true;
 			}
 
-			saveSuccess = smsVerificationRequired
-				? 'We sent a six-digit verification code to your mobile number.'
-				: 'Profile and SMS preferences saved.';
+			saveSuccess = 'Profile and SMS preferences saved.';
 
 			if (typeof window !== 'undefined') {
 				window.dispatchEvent(
@@ -240,38 +234,6 @@
 			saveError = error?.message || 'Unable to save profile.';
 		} finally {
 			saving = false;
-		}
-	}
-
-	async function verifySmsPhone() {
-		if (verifyingSms || !/^\d{6}$/.test(String(smsVerificationCode).trim())) return;
-		verifyingSms = true;
-		saveError = '';
-		saveSuccess = '';
-		try {
-			const response = await fetch('/api/sms/preferences/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: String(smsVerificationCode).trim() })
-			});
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) throw new Error(payload?.error || 'Unable to verify this phone number.');
-			const savedSms = payload?.preferences ?? null;
-			if (savedSms) {
-				smsPhone = savedSms.phone ?? smsPhone;
-				smsConsent = savedSms.status === 'active';
-				smsRideReminders = savedSms.ride_reminders === true;
-				smsVolunteerReminders = savedSms.volunteer_reminders === true;
-				smsAdminMessages = savedSms.admin_messages === true;
-				smsBikeValetMessages = savedSms.bike_valet_messages === true;
-			}
-			smsVerificationRequired = false;
-			smsVerificationCode = '';
-			saveSuccess = 'Your mobile number is verified and SMS updates are enabled.';
-		} catch (error) {
-			saveError = error?.message || 'Unable to verify this phone number.';
-		} finally {
-			verifyingSms = false;
 		}
 	}
 </script>
@@ -604,40 +566,6 @@
 				volume to control cost and abuse. You can change these choices here or reply STOP at any
 				time.
 			</p>
-			{#if smsVerificationRequired}
-				<form
-					class="border-primary-500/30 bg-primary-500/8 max-w-xl space-y-3 rounded-xl border p-4"
-					onsubmit={(event) => {
-						event.preventDefault();
-						verifySmsPhone();
-					}}
-				>
-					<div>
-						<strong>Verify your mobile number</strong>
-						<p class="mt-1 text-sm opacity-75">
-							Enter the six-digit code we texted to confirm you control this number. The code
-							expires in 10 minutes.
-						</p>
-					</div>
-					<div class="flex flex-wrap items-center gap-3">
-						<input
-							class="input max-w-40 tracking-[0.35em]"
-							bind:value={smsVerificationCode}
-							inputmode="numeric"
-							autocomplete="one-time-code"
-							maxlength="6"
-							placeholder="000000"
-						/>
-						<button
-							class="btn preset-filled-primary-500"
-							type="submit"
-							disabled={verifyingSms || !/^\d{6}$/.test(String(smsVerificationCode).trim())}
-						>
-							{verifyingSms ? 'Verifying…' : 'Verify number'}
-						</button>
-					</div>
-				</form>
-			{/if}
 		</section>
 
 		<section class="card preset-tonal-surface rounded-2xl p-4">
