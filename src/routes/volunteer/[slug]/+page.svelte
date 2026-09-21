@@ -921,15 +921,34 @@
 			assign('emergency_contact_phone', details.emergency_contact_phone);
 
 		if (!changed) return;
-		const { error: profileError, data: updated } = await supabase
+		// Keep the conflict key out of the UPDATE statement. The profiles grants
+		// intentionally protect user_id from client updates, while PostgREST
+		// includes every upsert payload column in its ON CONFLICT update clause.
+		const mutablePayload = { ...payload };
+		delete mutablePayload.user_id;
+
+		let profileResult = await supabase
 			.from('profiles')
-			.upsert(payload, { onConflict: 'user_id' })
+			.update(mutablePayload)
+			.eq('user_id', user.id)
 			.select()
-			.single();
+			.maybeSingle();
+
+		// Auth normally creates this row through the database trigger, but keep the
+		// signup flow self-healing if that row is missing for an older account.
+		if (!profileResult.error && !profileResult.data) {
+			profileResult = await supabase
+				.from('profiles')
+				.insert({ user_id: user.id, ...mutablePayload })
+				.select()
+				.single();
+		}
+
+		const { error: profileError, data: updated } = profileResult;
 		if (profileError) {
 			throw new Error(profileError.message || 'Unable to update profile');
 		}
-		profile = updated ?? { ...current, ...payload };
+		profile = updated ?? { ...current, user_id: user.id, ...mutablePayload };
 	}
 
 	async function sendVolunteerStatusUpdateEmail({ shifts, opportunity, status, volunteer }) {
