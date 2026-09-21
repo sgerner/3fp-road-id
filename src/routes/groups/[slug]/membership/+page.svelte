@@ -1209,7 +1209,7 @@
 
 			<!-- Right: Join Form -->
 			<div class="membership-column">
-				{#if currentUserId}
+				{#if currentUserId && tiers.length > 0}
 					{#if isPrivate && !canCompletePrivatePayment}
 						<!-- Application Form -->
 						<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
@@ -1594,6 +1594,18 @@
 							</div>
 						</section>
 					{/if}
+				{:else if currentUserId}
+					<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
+						<div class="card-accent-bar"></div>
+						<div class="card-glow"></div>
+						<div class="join-content">
+							<div class="empty-mini">
+								<IconInfo class="mb-2 h-8 w-8 opacity-50" />
+								<h2 class="section-title">Membership not available yet</h2>
+								<p>This group hasn't published a membership tier yet. Please check back later.</p>
+							</div>
+						</div>
+					</section>
 				{:else}
 					<!-- Logged Out -->
 					<section class="join-card login-card" in:fade={{ duration: 400, delay: 200 }}>
