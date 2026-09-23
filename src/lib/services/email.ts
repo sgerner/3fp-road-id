@@ -81,21 +81,40 @@ export async function sendEmail(
 	}
 
 	if (!response.ok) {
-		const message =
+		const serverMessage =
 			typeof payload === 'object' && payload !== null && 'error' in payload
 				? String((payload as { error: unknown }).error)
 				: 'Failed to send email.';
+		const errorDetails: { code?: unknown; requestId?: unknown } =
+			typeof payload === 'object' && payload !== null
+				? (payload as { code?: unknown; requestId?: unknown })
+				: {};
+		const diagnosticParts = [`HTTP ${response.status}`];
+		if (typeof errorDetails.code === 'string' && errorDetails.code.trim()) {
+			diagnosticParts.push(`code ${errorDetails.code.trim()}`);
+		}
+		if (
+			typeof errorDetails.requestId === 'string' &&
+			errorDetails.requestId.trim() &&
+			!serverMessage.includes(errorDetails.requestId.trim())
+		) {
+			diagnosticParts.push(`request ${errorDetails.requestId.trim()}`);
+		}
+		const message =
+			serverMessage.trim().toLowerCase() === 'failed to send email.'
+				? `Failed to send email (${diagnosticParts.join(', ')}).`
+				: serverMessage;
 		const error = new Error(message);
 		(error as Error & { status?: number }).status = response.status;
 		(error as Error & { payload?: unknown }).payload = payload;
-		if (typeof payload === 'object' && payload !== null) {
-			const errorPayload = payload as { code?: unknown; requestId?: unknown };
-			if (typeof errorPayload.code === 'string') {
-				(error as Error & { code?: string }).code = errorPayload.code;
-			}
-			if (typeof errorPayload.requestId === 'string' || errorPayload.requestId === null) {
-				(error as Error & { requestId?: string | null }).requestId = errorPayload.requestId;
-			}
+		if (typeof errorDetails.code === 'string') {
+			(error as Error & { code?: string }).code = errorDetails.code;
+		}
+		if (
+			typeof errorDetails.requestId === 'string' ||
+			errorDetails.requestId === null
+		) {
+			(error as Error & { requestId?: string | null }).requestId = errorDetails.requestId;
 		}
 		throw error;
 	}
