@@ -7,9 +7,24 @@ test('prefers a complete SES credential pair', () => {
 		selectAwsSesCredentials({
 			AWS_SES_ACCESS_KEY_ID: 'ses-access',
 			AWS_SES_SECRET_ACCESS_KEY: 'ses-secret',
-			AWS_SESSION_TOKEN: 'ses-session',
+			AWS_SESSION_TOKEN: 'vercel-system-token',
 			AWS_ACCESS_KEY_ID: 'shared-access',
 			AWS_SECRET_ACCESS_KEY: 'shared-secret'
+		}),
+		{
+			accessKeyId: 'ses-access',
+			secretAccessKey: 'ses-secret'
+		}
+	);
+});
+
+test('uses an SES-specific session token when temporary SES credentials are configured', () => {
+	assert.deepEqual(
+		selectAwsSesCredentials({
+			AWS_SES_ACCESS_KEY_ID: 'ses-access',
+			AWS_SES_SECRET_ACCESS_KEY: 'ses-secret',
+			AWS_SES_SESSION_TOKEN: 'ses-session',
+			AWS_SESSION_TOKEN: 'vercel-system-token'
 		}),
 		{
 			accessKeyId: 'ses-access',

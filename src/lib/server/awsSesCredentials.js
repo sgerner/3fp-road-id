@@ -2,7 +2,7 @@ const CREDENTIAL_SETS = [
 	{
 		accessKeyId: 'AWS_SES_ACCESS_KEY_ID',
 		secretAccessKey: 'AWS_SES_SECRET_ACCESS_KEY',
-		sessionToken: 'AWS_SESSION_TOKEN'
+		sessionToken: 'AWS_SES_SESSION_TOKEN'
 	},
 	{
 		accessKeyId: 'AWS_ACCESS_KEY_ID',
@@ -26,11 +26,13 @@ export function selectAwsSesCredentials(source) {
 		const secretAccessKey = cleanCredential(source?.[set.secretAccessKey]);
 		if (!accessKeyId || !secretAccessKey) continue;
 
-		return {
+		const credentials = {
 			accessKeyId,
-			secretAccessKey,
-			sessionToken: cleanCredential(source?.[set.sessionToken]) || undefined
+			secretAccessKey
 		};
+		const sessionToken = cleanCredential(source?.[set.sessionToken]);
+		if (sessionToken) credentials.sessionToken = sessionToken;
+		return credentials;
 	}
 
 	return null;
