@@ -28,9 +28,9 @@ export {
 	validateSmsBody
 } from '$lib/utils/sms';
 
-export const SMS_CONSENT_VERSION = '2026-09-19';
+export const SMS_CONSENT_VERSION = '2026-09-23';
 export const SMS_CONSENT_TEXT =
-	'By checking this box, I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
+	'By checking the SMS consent box or selecting “Agree & enable SMS,” I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
 export const SMS_DAILY_LIMIT = 12;
 
 const MANAGER_ROLES = ['owner', 'admin'];
@@ -375,6 +375,27 @@ export async function enqueueSms({
 				.select('*')
 				.eq('dedupe_key', cleanText(dedupeKey, 240))
 				.maybeSingle();
+			if (!existing.error && existing.data?.status === 'failed' && kind === 'opt_in') {
+				const retry = await supabase
+					.from('sms_outbox')
+					.update({
+						status: 'queued',
+						scheduled_at: new Date().toISOString(),
+						attempts: 0,
+						locked_at: null,
+						sent_at: null,
+						provider_message_id: null,
+						provider_status: null,
+						last_error: null,
+						updated_at: new Date().toISOString()
+					})
+					.eq('id', existing.data.id)
+					.eq('status', 'failed')
+					.select('*')
+					.maybeSingle();
+				if (retry.error) throw retry.error;
+				if (retry.data) return { queued: true, retry: true, outbox: retry.data, thread };
+			}
 			if (!existing.error && existing.data)
 				return { queued: false, duplicate: true, outbox: existing.data };
 		}

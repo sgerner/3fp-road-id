@@ -521,11 +521,21 @@
 
 			<div class="grid gap-3 md:grid-cols-2">
 				<label class="sms-option">
-					<input type="checkbox" bind:checked={smsRideReminders} />
+					<input
+						type="checkbox"
+						role="switch"
+						aria-checked={smsRideReminders}
+						bind:checked={smsRideReminders}
+					/>
 					<span><strong>Ride reminders</strong><small>Upcoming rides you RSVP for.</small></span>
 				</label>
 				<label class="sms-option">
-					<input type="checkbox" bind:checked={smsVolunteerReminders} />
+					<input
+						type="checkbox"
+						role="switch"
+						aria-checked={smsVolunteerReminders}
+						bind:checked={smsVolunteerReminders}
+					/>
 					<span
 						><strong>Volunteer shift reminders</strong><small
 							>Upcoming shifts you are assigned to.</small
@@ -533,7 +543,12 @@
 					>
 				</label>
 				<label class="sms-option">
-					<input type="checkbox" bind:checked={smsAdminMessages} />
+					<input
+						type="checkbox"
+						role="switch"
+						aria-checked={smsAdminMessages}
+						bind:checked={smsAdminMessages}
+					/>
 					<span
 						><strong>Ride and volunteer admin messages</strong><small
 							>Replies and updates from event admins.</small
@@ -541,7 +556,12 @@
 					>
 				</label>
 				<label class="sms-option">
-					<input type="checkbox" bind:checked={smsBikeValetMessages} />
+					<input
+						type="checkbox"
+						role="switch"
+						aria-checked={smsBikeValetMessages}
+						bind:checked={smsBikeValetMessages}
+					/>
 					<span
 						><strong>Bike valet coordination</strong><small
 							>Claim, pickup, and service details when available.</small
@@ -549,6 +569,7 @@
 					>
 				</label>
 			</div>
+			<p class="text-xs opacity-60">Category switches are saved with your profile below.</p>
 
 			<label
 				class="border-primary-500/30 bg-primary-500/8 flex items-start gap-3 rounded-xl border p-4"
@@ -562,7 +583,8 @@
 			<p class="text-xs opacity-60">
 				SMS is optional. We send plain text only, do not support multimedia, and limit message
 				volume to control cost and abuse. You can change these choices here or reply STOP at any
-				time.
+				time. See the <a class="underline" href="/terms">Terms</a> and
+				<a class="underline" href="/privacy">Privacy Policy</a>.
 			</p>
 		</section>
 
@@ -671,11 +693,13 @@
 
 	.sms-option {
 		display: flex;
-		align-items: flex-start;
-		gap: 0.7rem;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
 		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
 		border-radius: 0.9rem;
 		padding: 0.8rem 0.9rem;
+		cursor: pointer;
 	}
 
 	.sms-option span {
@@ -687,5 +711,38 @@
 	.sms-option small {
 		font-size: 0.75rem;
 		opacity: 0.68;
+	}
+
+	.sms-option input[role='switch'] {
+		appearance: none;
+		-webkit-appearance: none;
+		position: relative;
+		flex: 0 0 auto;
+		width: 2.75rem;
+		height: 1.55rem;
+		margin: 0;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 55%, transparent);
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-500) 28%, transparent);
+		background-image: radial-gradient(circle, white 0.5rem, transparent 0.53rem);
+		background-repeat: no-repeat;
+		background-position: 0.2rem center;
+		background-size: 1.05rem 1.05rem;
+		cursor: pointer;
+		transition:
+			background-color 150ms ease,
+			border-color 150ms ease,
+			background-position 150ms ease;
+	}
+
+	.sms-option input[role='switch']:checked {
+		border-color: var(--color-primary-500);
+		background-color: var(--color-primary-500);
+		background-position: 1.5rem center;
+	}
+
+	.sms-option input[role='switch']:focus-visible {
+		outline: 3px solid color-mix(in oklab, var(--color-primary-300) 75%, transparent);
+		outline-offset: 3px;
 	}
 </style>

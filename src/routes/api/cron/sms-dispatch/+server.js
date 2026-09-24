@@ -32,6 +32,16 @@ async function releaseRows(supabase, rows, errorMessage) {
 		.in('id', ids);
 }
 
+function smsFailureMessage(error, fallback = 'SignalWire delivery failed') {
+	const providerDetails = Array.isArray(error?.providerPayload?.errors)
+		? error.providerPayload.errors
+				.map((item) => [item?.code, item?.message].filter(Boolean).join(': '))
+				.filter(Boolean)
+				.join('; ')
+		: '';
+	return String(providerDetails || error?.message || fallback).slice(0, 500);
+}
+
 async function stillEligible(supabase, row) {
 	if (!row?.subscription_id) return false;
 	const { data, error } = await supabase
@@ -134,11 +144,9 @@ export async function POST(event) {
 					provider_status: providerAccepted ? provider?.providerStatus || 'accepted' : null,
 					sent_at: providerAccepted ? new Date().toISOString() : null,
 					locked_at: null,
-					last_error: String(
-						providerAccepted
-							? `Provider accepted the SMS, but local recording failed: ${error?.message || 'unknown error'}`
-							: error?.message || 'SignalWire delivery failed'
-					).slice(0, 500),
+					last_error: providerAccepted
+						? `Provider accepted the SMS, but local recording failed: ${smsFailureMessage(error, 'unknown error')}`
+						: smsFailureMessage(error),
 					updated_at: new Date().toISOString()
 				})
 				.eq('id', row.id);

@@ -10,7 +10,7 @@
 	<header class="space-y-2">
 		<p class="text-surface-700-300 text-xs font-semibold tracking-[0.2em] uppercase">Legal</p>
 		<h1 class="text-3xl font-bold">Privacy Policy</h1>
-		<p class="text-surface-700-300 text-sm">Last updated: September 19, 2026</p>
+		<p class="text-surface-700-300 text-sm">Last updated: September 23, 2026</p>
 	</header>
 
 	<section
@@ -66,14 +66,15 @@
 		<div class="space-y-2">
 			<h2 class="text-lg font-semibold">Optional SMS Program</h2>
 			<p class="text-sm leading-relaxed">
-				SMS is optional and requires an authenticated user to enter a mobile number, select message
-				categories, and provide explicit consent. You can do this from your Profile or from a ride
-				RSVP or volunteer signup when that option is shown. We do not require a separate
-				app-generated verification code; please enter only a number you control or are authorized to
-				use. Message frequency varies based on your RSVPs, volunteer assignments, and conversations.
-				Message and data rates may apply. Reply STOP to opt out, START to rejoin after opting out,
-				or HELP for help. We send plain text only; multimedia messages are not supported. You can
-				also pause categories from your profile or contact
+				SMS is optional and requires an authenticated user to provide a mobile number, choose a
+				message category, and provide explicit consent. You can manage categories from your Profile.
+				From a ride or volunteer page, you can also opt in for the relevant messages; if your
+				Profile has no mobile number, signup asks you to enter one and confirm consent. We do not
+				require a separate app-generated verification code; please enter only a number you control
+				or are authorized to use. Message frequency varies based on your RSVPs, volunteer
+				assignments, and conversations. Message and data rates may apply. Reply STOP to opt out,
+				START to rejoin after opting out, or HELP for help. We send plain text only; multimedia
+				messages are not supported. You can also pause categories from your profile or contact
 				<a href="mailto:hi@3fp.org" class="anchor">hi@3fp.org</a>.
 			</p>
 		</div>

@@ -52,7 +52,7 @@ function volunteerBody({ event, opportunity, shift }) {
 	const when = formatSmsDateTime(shift.starts_at, shift.timezone || event.timezone);
 	const location = safeText(shift.location_name || event.location_name, 100);
 	const locationLine = location ? ` Meet: ${location}.` : '';
-	return `3FP: Reminder for ${eventTitle} — ${opportunityTitle}, ${when}.${locationLine} Details: ${buildSmsUrl(`/volunteer/${event.slug}`)}`;
+	return `3FP: Reminder for ${eventTitle} - ${opportunityTitle}, ${when}.${locationLine} Details: ${buildSmsUrl(`/volunteer/${event.slug}`)}`;
 }
 
 async function loadActiveSubscriptions(supabase) {
@@ -156,7 +156,7 @@ export async function POST(event) {
 				supabase
 					.from('volunteer_signup_shifts')
 					.select(
-						'id,signup_id,shift_id,status,signup:volunteer_signups(id,volunteer_user_id,event_id,volunteer_name),shift:volunteer_opportunity_shifts(id,starts_at,ends_at,timezone,location_name,location_address,opportunity:volunteer_opportunities(id,title,event_id,event:volunteer_events(id,title,slug,status,timezone,location_name,location_address))'
+						'id,signup_id,shift_id,status,signup:volunteer_signups(id,volunteer_user_id,event_id,volunteer_name),shift:volunteer_opportunity_shifts(id,starts_at,ends_at,timezone,location_name,location_address,opportunity:volunteer_opportunities(id,title,event_id,event:volunteer_events(id,title,slug,status,timezone,location_name,location_address)))'
 					)
 					.in('status', ['registered', 'pending', 'approved', 'confirmed', 'checked_in'])
 					.order('id', { ascending: true }),
