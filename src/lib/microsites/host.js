@@ -33,6 +33,25 @@ export function normalizeHostname(value) {
 	return cleanText(value).toLowerCase().replace(/:\d+$/, '');
 }
 
+export function isCoreHostname(hostname) {
+	const normalized = normalizeHostname(hostname);
+	const isVercelProjectHostname =
+		normalized === '3fp-road-id.vercel.app' ||
+		(normalized.startsWith('3fp-road-') && normalized.endsWith('.vercel.app'));
+	return (
+		!normalized ||
+		normalized === '3fp.org' ||
+		normalized === 'www.3fp.org' ||
+		normalized === ROOT_DOMAIN ||
+		normalized === `www.${ROOT_DOMAIN}` ||
+		normalized === `api.${ROOT_DOMAIN}` ||
+		isVercelProjectHostname ||
+		normalized === 'localhost' ||
+		normalized === '127.0.0.1' ||
+		normalized.endsWith('.localhost')
+	);
+}
+
 export function extractMicrositeSlugFromHostname(hostname) {
 	const normalized = normalizeHostname(hostname);
 	if (!normalized) return '';

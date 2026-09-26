@@ -1,4 +1,8 @@
-import { extractMicrositeSlugFromHostname, normalizeHostname } from '$lib/microsites/host';
+import {
+	extractMicrositeSlugFromHostname,
+	isCoreHostname,
+	normalizeHostname
+} from '$lib/microsites/host';
 
 function shouldSkipMicrositeReroute(pathname) {
 	if (!pathname) return false;
@@ -27,7 +31,7 @@ export async function reroute({ url, fetch }) {
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
 	let micrositeSlug = slugFromSubdomain;
 
-	if (!micrositeSlug) {
+	if (!micrositeSlug && !isCoreHostname(normalizedHost)) {
 		const lookupUrl = new URL('/api/microsites/resolve', url);
 		lookupUrl.searchParams.set('host', normalizedHost);
 		const response = await fetch(lookupUrl).catch(() => null);

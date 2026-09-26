@@ -1,18 +1,12 @@
-import { normalizeHostname, normalizeMicrositeSlug } from '$lib/microsites/host';
+import {
+	isCoreHostname,
+	normalizeHostname,
+	normalizeMicrositeSlug
+} from '$lib/microsites/host';
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
 
 const CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS = 60_000;
 const customDomainSlugCache = new Map();
-
-function isCoreHostname(hostname) {
-	return (
-		!hostname ||
-		hostname === 'www.3fp.bike' ||
-		hostname === 'localhost' ||
-		hostname === '127.0.0.1' ||
-		hostname.endsWith('.localhost')
-	);
-}
 
 export async function lookupCustomDomainMicrositeSlug(hostname) {
 	const normalizedHost = normalizeHostname(hostname);
