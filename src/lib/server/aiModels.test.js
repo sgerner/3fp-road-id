@@ -5,7 +5,7 @@ import {
 	buildOpenAiResponseBody,
 	createOpenAiTextProviderClient,
 	extractOpenAiText,
-	OPENAI_GPT_56_LUNA_MODEL,
+	OPENAI_GPT_6_LUNA_MODEL,
 	OPENAI_RESPONSES_ENDPOINT
 } from './ai/openai.js';
 import {
@@ -15,7 +15,7 @@ import {
 
 test('OpenAI text requests use the Responses API and Luna xhigh reasoning', () => {
 	const body = buildOpenAiResponseBody({
-		model: OPENAI_GPT_56_LUNA_MODEL,
+		model: OPENAI_GPT_6_LUNA_MODEL,
 		contents: ['First instruction', { text: 'Second instruction' }],
 		config: {
 			responseMimeType: 'application/json',
@@ -29,7 +29,7 @@ test('OpenAI text requests use the Responses API and Luna xhigh reasoning', () =
 		}
 	});
 
-	assert.equal(body.model, OPENAI_GPT_56_LUNA_MODEL);
+	assert.equal(body.model, OPENAI_GPT_6_LUNA_MODEL);
 	assert.equal(body.input, 'First instruction\n\nSecond instruction');
 	assert.equal(body.store, false);
 	assert.deepEqual(body.reasoning, { effort: 'xhigh' });
@@ -67,7 +67,7 @@ test('OpenAI provider extracts Responses output and sends the expected request',
 	});
 
 	const response = await client.generateContent({
-		model: OPENAI_GPT_56_LUNA_MODEL,
+		model: OPENAI_GPT_6_LUNA_MODEL,
 		contents: 'Return JSON.',
 		config: { responseMimeType: 'application/json' }
 	});

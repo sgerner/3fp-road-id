@@ -1,7 +1,7 @@
 import { convertSchemaNode } from './schema.js';
 
 export const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
-export const OPENAI_GPT_56_LUNA_MODEL = 'gpt-5.6-luna';
+export const OPENAI_GPT_6_LUNA_MODEL = 'gpt-6-luna';
 
 function textFromInputItem(item) {
 	if (typeof item === 'string') return item.trim();
@@ -101,7 +101,7 @@ export function buildOpenAiResponseBody({ model, contents, config = {} }) {
 	};
 
 	const reasoningEffort =
-		config.reasoningEffort || (model === OPENAI_GPT_56_LUNA_MODEL ? 'xhigh' : null);
+		config.reasoningEffort || (model === OPENAI_GPT_6_LUNA_MODEL ? 'xhigh' : null);
 	if (reasoningEffort) {
 		body.reasoning = { effort: reasoningEffort };
 	}

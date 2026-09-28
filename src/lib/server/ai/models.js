@@ -19,7 +19,7 @@ export const AI_CAPABILITIES = {
 
 const MODEL_ID = {
 	MERCURY_2: 'inception/mercury-2',
-	OPENAI_GPT_56_LUNA: 'openai/gpt-5.6-luna',
+	OPENAI_GPT_6_LUNA: 'openai/gpt-6-luna',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
 	GEMINI_38_FLASH: 'google/gemini-3.8-flash',
 	GEMINI_35_FLASH_LITE: 'google/gemini-3.5-flash-lite',
@@ -43,11 +43,11 @@ const AI_MODELS = {
 			AI_CAPABILITIES.TOOL_USE
 		]
 	},
-	[MODEL_ID.OPENAI_GPT_56_LUNA]: {
-		id: MODEL_ID.OPENAI_GPT_56_LUNA,
+	[MODEL_ID.OPENAI_GPT_6_LUNA]: {
+		id: MODEL_ID.OPENAI_GPT_6_LUNA,
 		provider: 'openai',
-		model: 'gpt-5.6-luna',
-		label: 'GPT-5.6 Luna',
+		model: 'gpt-6-luna',
+		label: 'GPT-6 Luna',
 		reasoningEffort: 'xhigh',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
@@ -179,7 +179,7 @@ const AI_MODELS = {
 const AI_MODEL_PROFILES = {
 	structured_text: {
 		envVar: 'AI_MODEL_STRUCTURED_TEXT',
-		fallbackModelId: MODEL_ID.OPENAI_GPT_56_LUNA,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_6_LUNA,
 		requiredCapabilities: [AI_CAPABILITIES.TEXT_GENERATION, AI_CAPABILITIES.STRUCTURED_OUTPUT]
 	},
 	narrative_text_fast: {
@@ -190,7 +190,7 @@ const AI_MODEL_PROFILES = {
 	},
 	tool_augmented_text: {
 		envVar: 'AI_MODEL_TOOL_AUGMENTED_TEXT',
-		fallbackModelId: MODEL_ID.OPENAI_GPT_56_LUNA,
+		fallbackModelId: MODEL_ID.OPENAI_GPT_6_LUNA,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
