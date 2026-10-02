@@ -1,4 +1,5 @@
 <script>
+	import ShareButton from '$lib/components/ui/ShareButton.svelte';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHistory from '@lucide/svelte/icons/history';
@@ -307,6 +308,8 @@
 						</div>
 					</div>
 				</div>
+
+				<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="article" />
 
 				<!-- ── KEY TAKEAWAYS ───────────────────────────────────────────── -->
 				{#if data.article.keyTakeaways?.length}

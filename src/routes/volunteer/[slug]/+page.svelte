@@ -1,4 +1,5 @@
 <script>
+	import ShareButton from '$lib/components/ui/ShareButton.svelte';
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
@@ -1586,6 +1587,17 @@
 						</a>
 					{/if}
 				</div>
+
+				{#if event.status !== 'draft'}
+					<div class="mt-5">
+						<ShareButton
+							title={seoTitle}
+							text={seoDescription}
+							url={seoCanonical}
+							kind="volunteer event"
+						/>
+					</div>
+				{/if}
 
 				<!-- stat info grid -->
 				<div class="mt-7 grid gap-3 pb-6 sm:grid-cols-3 md:pb-8">

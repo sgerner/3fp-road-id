@@ -1,4 +1,5 @@
 <script>
+	import ShareButton from '$lib/components/ui/ShareButton.svelte';
 	import { getRideImages } from '$lib/rides/media';
 	import { optimizedImageUrl } from '$lib/media/optimized';
 	import { onMount } from 'svelte';
@@ -399,6 +400,7 @@
 					</p>
 				{/if}
 				<div class="flex flex-wrap gap-3 pt-1">
+					<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="ride" />
 					{#if canManage}
 						<a
 							class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
