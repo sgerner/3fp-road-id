@@ -56,9 +56,9 @@ external bank statement or a live bank balance.
 
 Deploy the application and these migrations as one coordinated release. On the current main-branch deployment flow, push starts the production app build; apply all three migrations immediately after the push, in this order:
 
-1. `20261002010000_harden_group_accounting_integrity.sql`
-2. `20261002020000_enforce_accounting_snapshot_visibility.sql`
-3. `20261002030000_atomic_accounting_workflows.sql`
+1. `20261002134250_harden_group_accounting_integrity_20261002.sql`
+2. `20261002134256_enforce_accounting_snapshot_visibility_20261002.sql`
+3. `20261002134257_atomic_accounting_workflows_20261002.sql`
 
 The application deliberately has no fallback to the old multi-request posting
 path, and the integrity triggers reject the old multi-request writes. Avoid
