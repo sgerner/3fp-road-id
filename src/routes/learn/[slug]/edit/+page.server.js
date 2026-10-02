@@ -7,8 +7,10 @@ import {
 	listLearnRecentAssets,
 	normalizeLearnPayload,
 	requireLearnUser,
-	withLearnReadingAid
+	learnFormDataValues
 } from '$lib/server/learn';
+import { withLearnAiReadingAid } from '$lib/server/learnAi';
+import { enforceRateLimit } from '$lib/server/security';
 import {
 	buildLearnArticleChunks,
 	inferLearnArticleSearchSignals,
@@ -77,7 +79,9 @@ export const load = async ({ params, url, cookies }) => {
 };
 
 export const actions = {
-	default: async ({ request, cookies, params }) => {
+	default: async (event) => {
+		const { request, cookies, params } = event;
+		let values = null;
 		try {
 			const { user, supabase } = await requireLearnUser(cookies);
 			const article = await getLearnArticleBySlug(supabase, params.slug);
@@ -86,7 +90,15 @@ export const actions = {
 			}
 
 			const formData = await request.formData();
-			const payload = withLearnReadingAid(normalizeLearnPayload(formData));
+			values = learnFormDataValues(formData);
+			const normalized = normalizeLearnPayload(formData);
+			const userLimited = enforceRateLimit(event, {
+				name: 'learn-ai-save-user',
+				key: user.id,
+				limit: 12,
+				windowMs: 60 * 60 * 1000
+			});
+			const payload = await withLearnAiReadingAid(normalized, { generateAi: !userLimited });
 			const signals = inferLearnArticleSearchSignals({
 				title: payload.title,
 				summary: payload.summary || '',
@@ -128,15 +140,7 @@ export const actions = {
 			if (updateError) {
 				return fail(400, {
 					error: updateError.message,
-					values: {
-						title: payload.title,
-						slug: payload.slug,
-						summary: payload.summary ?? '',
-						bodyMarkdown: payload.body_markdown,
-						editorMode: payload.editor_mode,
-						categoryName: payload.category_name,
-						coverImageUrl: payload.cover_image_url ?? ''
-					}
+					values
 				});
 			}
 
@@ -151,7 +155,8 @@ export const actions = {
 			if (actionError?.status === 303) throw actionError;
 
 			return fail(actionError?.status || 400, {
-				error: actionError?.body?.message || actionError?.message || 'Unable to update article.'
+				error: actionError?.body?.message || actionError?.message || 'Unable to update article.',
+				...(values ? { values } : {})
 			});
 		}
 	}

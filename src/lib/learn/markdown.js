@@ -80,12 +80,11 @@ export function extractMarkdownHeadings(markdown) {
 	const seen = new Map();
 	const headings = [];
 
-	for (const line of safeTrim(markdown).split(/\r?\n/)) {
-		const match = line.match(/^(#{1,6})\s+(.*)$/);
-		if (!match) continue;
-		const depth = match[1].length;
-		const text = stripMarkdown(match[2]);
-		if (!text) continue;
+	marked.walkTokens(marked.lexer(safeTrim(markdown)), (token) => {
+		if (token.type !== 'heading') return;
+		const depth = token.depth;
+		const text = stripMarkdown(token.text);
+		if (!text) return;
 		const baseId = slugifyHeading(text) || `section-${headings.length + 1}`;
 		const count = seen.get(baseId) ?? 0;
 		seen.set(baseId, count + 1);
@@ -94,7 +93,7 @@ export function extractMarkdownHeadings(markdown) {
 			text,
 			id: count ? `${baseId}-${count + 1}` : baseId
 		});
-	}
+	});
 
 	return headings;
 }

@@ -54,6 +54,8 @@ export const load = async ({ params, url, cookies }) => {
 	const articleForDisplay = requestedRevision
 		? {
 				...article,
+				reader_summary: null,
+				key_takeaways: [],
 				title: requestedRevision.title,
 				summary: requestedRevision.summary,
 				body_markdown: requestedRevision.body_markdown,

@@ -80,33 +80,39 @@
 		lastExternalValue = normalized;
 	});
 
-	onMount(async () => {
-		const mod = await import('@toast-ui/editor');
-		const Editor = mod.Editor;
+	onMount(() => {
+		let destroyed = false;
+		void (async () => {
+			const mod = await import('@toast-ui/editor');
+			if (destroyed) return;
+			const Editor = mod.Editor;
 
-		editor = new Editor({
-			el: editorEl,
-			height,
-			initialEditType: mode === 'markdown' ? 'markdown' : 'wysiwyg',
-			initialValue: value || '',
-			hideModeSwitch: true,
-			placeholder,
-			usageStatistics: false,
-			events: {
-				change: syncHiddenFields
-			}
-		});
+			editor = new Editor({
+				el: editorEl,
+				height,
+				initialEditType: mode === 'markdown' ? 'markdown' : 'wysiwyg',
+				initialValue: value || '',
+				hideModeSwitch: true,
+				placeholder,
+				usageStatistics: false,
+				events: {
+					change: syncHiddenFields
+				}
+			});
 
-		ready = true;
-		syncHiddenFields();
-		onReady?.({
-			insertSnippet,
-			setMarkdown,
-			focus: () => editor?.focus?.(),
-			getMarkdown: () => editor?.getMarkdown?.() ?? ''
-		});
+			ready = true;
+			syncHiddenFields();
+			onReady?.({
+				insertSnippet,
+				setMarkdown,
+				focus: () => editor?.focus?.(),
+				getMarkdown: () => editor?.getMarkdown?.() ?? ''
+			});
+		})();
 
 		return () => {
+			destroyed = true;
+			ready = false;
 			onReady?.(null);
 			editor?.destroy?.();
 			editor = null;
@@ -117,9 +123,14 @@
 <div class="learn-editor-shell space-y-3">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<p class="label">{label}</p>
-		<div class="border-surface-500/20 bg-surface-900/60 inline-flex rounded-full border p-1">
+		<div
+			class="border-surface-500/20 bg-surface-900/60 inline-flex rounded-full border p-1"
+			role="group"
+			aria-label="Editor format"
+		>
 			<button
 				type="button"
+				aria-pressed={currentMode !== 'markdown'}
 				class="btn btn-sm {currentMode !== 'markdown'
 					? 'preset-filled-primary-500'
 					: 'preset-tonal-surface'}"
@@ -129,6 +140,7 @@
 			</button>
 			<button
 				type="button"
+				aria-pressed={currentMode === 'markdown'}
 				class="btn btn-sm {currentMode === 'markdown'
 					? 'preset-filled-primary-500'
 					: 'preset-tonal-surface'}"
@@ -148,6 +160,12 @@
 </div>
 
 <style>
+	.learn-editor :global(.toastui-editor-contents),
+	.learn-editor :global(.toastui-editor-defaultUI .ProseMirror) {
+		font-size: 16px;
+		line-height: 1.75;
+	}
+
 	/* Toast UI Editor Customizations for Dark Theme */
 	:global(.toastui-editor-defaultUI) {
 		border: none !important;

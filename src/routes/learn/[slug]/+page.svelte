@@ -1,5 +1,7 @@
 <script>
+	import { tick } from 'svelte';
 	import ShareButton from '$lib/components/ui/ShareButton.svelte';
+	import ArticleAssistant from '$lib/components/learn/ArticleAssistant.svelte';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHistory from '@lucide/svelte/icons/history';
@@ -41,9 +43,7 @@
 	function setupScrollSpy() {
 		if (observer) observer.disconnect();
 		const headingEls = Array.from(
-			document.querySelectorAll(
-				'.learn-article-body h1, .learn-article-body h2, .learn-article-body h3'
-			)
+			document.querySelectorAll('.learn-article-body h1, .learn-article-body h2')
 		);
 		if (!headingEls.length) return;
 
@@ -105,13 +105,25 @@
 	});
 
 	$effect(() => {
-		setupScrollSpy();
-		return () => observer?.disconnect();
+		const content = data.article.bodyHtml;
+		let cancelled = false;
+		activeHeadingId = '';
+		void tick().then(() => {
+			if (!cancelled && content) {
+				setupScrollSpy();
+				onScroll();
+				updateTocPosition();
+			}
+		});
+		return () => {
+			cancelled = true;
+			observer?.disconnect();
+		};
 	});
 
-	// Filter: TOC shows h1+h2 on mobile accordion, h1+h2+h3 on desktop sidebar
-	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 3));
-	const tocHeadingsMobile = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
+	// Keep the TOC focused on the main sections across screen sizes.
+	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
+	const tocHeadingsMobile = $derived(tocHeadingsDesktop);
 	const seoTitle = $derived.by(() => cleanSeoText(data.article.title || 'Learn'));
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
@@ -254,10 +266,7 @@
 <div class="article-page-root">
 	<!-- ═══ MAIN ARTICLE COLUMN ══════════════════════════════════════════ -->
 	<div class="article-main">
-		<section
-			class="border-surface-500/20 bg-surface-950/55 article-card overflow-hidden rounded-[2rem] border shadow-2xl"
-			bind:this={articleEl}
-		>
+		<section class="article-card overflow-hidden rounded-[1.5rem] border" bind:this={articleEl}>
 			{#if data.article.cover_image_url}
 				<div class="aspect-[18/6] overflow-hidden">
 					<img
@@ -271,7 +280,7 @@
 				</div>
 			{/if}
 
-			<div class="space-y-6 p-6 lg:p-8">
+			<div class="space-y-8 p-5 sm:p-8 lg:p-10">
 				<!-- Header chips + title + meta -->
 				<div class="space-y-4">
 					<div class="flex flex-wrap items-center gap-2">
@@ -329,6 +338,10 @@
 					</div>
 				{/if}
 
+				{#if !data.viewingRevision}
+					<ArticleAssistant articleSlug={data.article.slug} />
+				{/if}
+
 				<!-- ── MOBILE-ONLY TOC ACCORDION ──────────────────────────────── -->
 				{#if tocHeadingsMobile.length}
 					<details class="toc-accordion xl:hidden">
@@ -371,44 +384,9 @@
 
 				<!-- ── ARTICLE BODY ────────────────────────────────────────────── -->
 				<div class="learn-article-body">
-					{#if data.article.hasStructuredSections}
-						<div class="learn-sections space-y-5">
-							{#if data.article.introHtml}
-								<div class="prose prose-invert learn-prose max-w-none">
-									{@html data.article.introHtml}
-								</div>
-							{/if}
-
-							{#each data.article.sections as section}
-								{#if section.isCollapsible}
-									<details
-										class="border-surface-500/20 bg-surface-900/35 rounded-[1.5rem] border p-5"
-									>
-										<summary class="cursor-pointer list-none">
-											<div class="flex items-center justify-between gap-3">
-												<div>
-													<p class="text-left text-xl font-bold">{section.title}</p>
-													<p class="mt-1 text-sm opacity-65">Expanded details for this section</p>
-												</div>
-												<span class="chip preset-tonal-surface">Long section</span>
-											</div>
-										</summary>
-										<div class="prose prose-invert learn-prose mt-5 max-w-none">
-											{@html section.html}
-										</div>
-									</details>
-								{:else}
-									<div class="prose prose-invert learn-prose max-w-none">
-										{@html section.html}
-									</div>
-								{/if}
-							{/each}
-						</div>
-					{:else}
-						<div class="prose prose-invert learn-prose max-w-none">
-							{@html data.article.bodyHtml}
-						</div>
-					{/if}
+					<div class="prose prose-invert learn-prose max-w-none">
+						{@html data.article.bodyHtml}
+					</div>
 				</div>
 			</div>
 		</section>
@@ -416,10 +394,14 @@
 		<!-- ── BELOW-ARTICLE SECTIONS ─────────────────────────────────── -->
 		<section class="space-y-6">
 			{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
-				<section
-					class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl"
-				>
-					<h2 class="text-left text-2xl font-bold">Attached media</h2>
+				<details class="reader-disclosure">
+					<summary>
+						<span>Attached media</span>
+						<span class="disclosure-meta">
+							{data.article.assets.filter((asset) => asset.usage_kind !== 'embedded').length} files
+							<IconChevronDown class="h-4 w-4" />
+						</span>
+					</summary>
 					<div class="mt-4 space-y-2">
 						{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
 							<a
@@ -433,7 +415,7 @@
 							</a>
 						{/each}
 					</div>
-				</section>
+				</details>
 			{/if}
 
 			{#if data.relatedArticles.length}
@@ -457,11 +439,16 @@
 				</section>
 			{/if}
 
-			<section class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl">
-				<div class="flex items-center gap-2">
-					<IconMessageSquareText class="h-5 w-5" />
-					<h2 class="text-left text-2xl font-bold">Discussion</h2>
-				</div>
+			<details class="reader-disclosure">
+				<summary>
+					<span class="flex items-center gap-2"
+						><IconMessageSquareText class="h-5 w-5" /> Discussion</span
+					>
+					<span class="disclosure-meta">
+						{data.article.comments.length} comments
+						<IconChevronDown class="h-4 w-4" />
+					</span>
+				</summary>
 
 				{#if data.currentUser}
 					<form class="preset-tonal-surface mt-5 space-y-3 p-2" method="POST" action="?/comment">
@@ -512,7 +499,7 @@
 						</div>
 					{/if}
 				</div>
-			</section>
+			</details>
 
 			<section class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl">
 				<button
@@ -613,7 +600,7 @@
 		grid-template-columns: minmax(0, 1fr);
 		gap: 2rem;
 		width: 100%;
-		max-width: 80rem; /* ~5xl */
+		max-width: 86rem;
 		margin: 0 auto;
 	}
 
@@ -630,7 +617,53 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 1.5rem;
+		gap: 2rem;
+	}
+
+	.article-card {
+		border-color: color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+		background: var(--color-surface-950);
+		box-shadow: 0 24px 80px -48px color-mix(in oklab, black 75%, transparent);
+	}
+
+	.reader-disclosure {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-radius: 1.25rem;
+		background: var(--color-surface-950);
+		padding: 1rem 1.25rem;
+	}
+
+	.reader-disclosure > summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		cursor: pointer;
+		list-style: none;
+		font-size: 1.05rem;
+		font-weight: 700;
+	}
+
+	.reader-disclosure > summary::-webkit-details-marker {
+		display: none;
+	}
+	.reader-disclosure[open] > summary {
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
+	}
+	.reader-disclosure[open] > summary .disclosure-meta :global(svg) {
+		transform: rotate(180deg);
+	}
+	.disclosure-meta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		font-size: 0.78rem;
+		font-weight: 500;
+		opacity: 0.6;
+	}
+	.disclosure-meta :global(svg) {
+		transition: transform 160ms ease;
 	}
 
 	/* ── Reading progress bar (fixed to viewport top) ── */
@@ -656,6 +689,8 @@
 	.learn-article-title {
 		font-family: 'Georgia', 'Times New Roman', serif;
 		text-wrap: balance;
+		line-height: 1.08;
+		letter-spacing: -0.035em;
 	}
 
 	/* ── Key Takeaways panel ── */
@@ -861,7 +896,70 @@
 		scroll-margin-top: 8rem;
 	}
 
+	.learn-prose {
+		font-size: clamp(1rem, 1.2vw, 1.125rem);
+		line-height: 1.85;
+	}
+
+	.learn-prose :global(p),
+	.learn-prose :global(ul),
+	.learn-prose :global(ol),
+	.learn-prose :global(blockquote) {
+		max-width: 72ch;
+	}
+
+	.learn-prose :global(h2) {
+		margin-top: 2.5em;
+		margin-bottom: 0.65em;
+		font-size: clamp(1.5rem, 2.2vw, 2rem);
+		line-height: 1.25;
+	}
+
+	.learn-prose :global(h3) {
+		margin-top: 2em;
+		margin-bottom: 0.5em;
+		font-size: clamp(1.2rem, 1.6vw, 1.45rem);
+	}
+
+	.learn-prose :global(li + li) {
+		margin-top: 0.45em;
+	}
+
+	.learn-prose :global(a) {
+		overflow-wrap: anywhere;
+	}
+
+	.learn-prose :global(pre),
+	.learn-prose :global(table) {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.learn-prose :global(table) {
+		display: block;
+		width: max-content;
+		border-collapse: collapse;
+	}
+
+	.learn-prose :global(th),
+	.learn-prose :global(td) {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 28%, transparent);
+	}
+
 	.learn-prose :global(img) {
 		border-radius: 1rem;
+		max-width: min(100%, 58rem);
+		margin-inline: auto;
+	}
+
+	@media (max-width: 639px) {
+		.article-card {
+			border-radius: 1.125rem;
+		}
+
+		.takeaways-panel {
+			padding: 0.9rem 1rem;
+		}
 	}
 </style>

@@ -115,6 +115,23 @@ export function normalizeLearnPayload(formData) {
 	};
 }
 
+export function learnFormDataValues(formData) {
+	const value = (key, limit = 80_000) => {
+		const raw = formData.get(key);
+		return typeof raw === 'string' ? raw.slice(0, limit) : '';
+	};
+	return {
+		title: value('title', 300),
+		slug: value('slug', 180),
+		summary: value('summary', 1000),
+		bodyMarkdown: value('bodyMarkdown'),
+		editorMode: value('editorMode', 30) || 'wysiwyg',
+		categoryName: value('categoryName', 120),
+		subcategorySlug: value('subcategorySlug', 180),
+		coverImageUrl: value('coverImageUrl', 2000)
+	};
+}
+
 export function withLearnReadingAid(payload) {
 	const readingAid = generateLearnReadingAid({
 		title: payload.title,

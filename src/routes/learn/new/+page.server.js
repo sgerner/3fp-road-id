@@ -5,8 +5,10 @@ import {
 	listLearnRecentAssets,
 	normalizeLearnPayload,
 	requireLearnUser,
-	withLearnReadingAid
+	learnFormDataValues
 } from '$lib/server/learn';
+import { withLearnAiReadingAid } from '$lib/server/learnAi';
+import { enforceRateLimit } from '$lib/server/security';
 import {
 	buildLearnArticleChunks,
 	inferLearnArticleSearchSignals,
@@ -43,11 +45,22 @@ export const load = async ({ cookies, url }) => {
 };
 
 export const actions = {
-	default: async ({ request, cookies }) => {
+	default: async (event) => {
+		const { request, cookies } = event;
+		let values = null;
 		try {
 			const { user, supabase } = await requireLearnUser(cookies);
 			const formData = await request.formData();
-			const payload = withLearnReadingAid(normalizeLearnPayload(formData));
+			values = learnFormDataValues(formData);
+			const normalized = normalizeLearnPayload(formData);
+			const userLimited = enforceRateLimit(event, {
+				name: 'learn-ai-save-user',
+				key: user.id,
+				limit: 12,
+				windowMs: 60 * 60 * 1000
+			});
+			const aiAllowed = !userLimited;
+			const payload = await withLearnAiReadingAid(normalized, { generateAi: aiAllowed });
 			const signals = inferLearnArticleSearchSignals({
 				title: payload.title,
 				summary: payload.summary || '',
@@ -90,15 +103,7 @@ export const actions = {
 			if (insertError) {
 				return fail(400, {
 					error: insertError.message,
-					values: {
-						title: payload.title,
-						slug: payload.slug,
-						summary: payload.summary ?? '',
-						bodyMarkdown: payload.body_markdown,
-						editorMode: payload.editor_mode,
-						categoryName: payload.category_name,
-						coverImageUrl: payload.cover_image_url ?? ''
-					}
+					values
 				});
 			}
 
@@ -113,7 +118,8 @@ export const actions = {
 			if (actionError?.status === 303) throw actionError;
 
 			return fail(actionError?.status || 400, {
-				error: actionError?.body?.message || actionError?.message || 'Unable to create article.'
+				error: actionError?.body?.message || actionError?.message || 'Unable to create article.',
+				...(values ? { values } : {})
 			});
 		}
 	}

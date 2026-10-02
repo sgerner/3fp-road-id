@@ -1,4 +1,5 @@
 <script>
+	import LearnNavigator from '$lib/components/learn/LearnNavigator.svelte';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -452,6 +453,7 @@
 							class="input pl-9"
 							type="search"
 							placeholder="Find an article…"
+							aria-label="Search this category"
 						/>
 					</div>
 					{#if searchQuery.trim()}
@@ -465,17 +467,19 @@
 		</div>
 	</section>
 
+	<LearnNavigator />
+
 	<!-- ═══════════════════════════════════════════════
 	     ADD SUBCATEGORY (admin only)
 	═══════════════════════════════════════════════ -->
 	{#if data.canEdit}
-		<section
+		<details
 			class="card preset-tonal-surface border-surface-500/20 overflow-hidden rounded-[2rem] border p-6"
 		>
-			<div class="flex items-center gap-2">
+			<summary class="flex cursor-pointer items-center gap-2">
 				<IconSparkles class="h-4 w-4 opacity-60" />
-				<h2 class="font-bold">Add subcategory</h2>
-			</div>
+				<span class="font-bold">Add subcategory</span>
+			</summary>
 			<form method="POST" action="?/createSubcategory" use:enhance class="mt-4 flex max-w-md gap-3">
 				<input
 					type="text"
@@ -492,7 +496,7 @@
 			{#if form?.error}
 				<p class="text-error-400 mt-2 text-sm">{form.error}</p>
 			{/if}
-		</section>
+		</details>
 	{/if}
 
 	<!-- ═══════════════════════════════════════════════
@@ -781,6 +785,18 @@
 </form>
 
 <style>
+	.cat-page {
+		background: var(--color-surface-950);
+		padding: clamp(1rem, 2.5vw, 2rem);
+		border-radius: 1.5rem;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cat-page :global(*) {
+			animation: none !important;
+			transition: none !important;
+		}
+	}
+
 	/* ── Hero ── */
 	.cat-hero {
 		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-950) 90%);

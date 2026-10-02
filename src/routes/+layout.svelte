@@ -584,7 +584,9 @@
 								bind:this={loginBtnEl}
 								onclick={toggleLogin}
 							>
-								Log in / Register
+								<span class="sm:hidden">Log in</span><span class="hidden sm:inline"
+									>Log in / Register</span
+								>
 							</button>
 							{#if showLogin}
 								<div
