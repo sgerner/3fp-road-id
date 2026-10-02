@@ -12,10 +12,49 @@
 	const report = $derived(data.report ?? null);
 	const snapshot = $derived(report?.snapshot ?? {});
 	const financial = $derived(snapshot.report ?? {});
+	const budgets = $derived(Array.isArray(snapshot.budgets) ? snapshot.budgets : []);
+	const retainedActivityCents = $derived(
+		Number(financial.totals?.equity_cents || 0) -
+			(financial.equity ?? []).reduce((sum, account) => sum + Number(account.balance_cents || 0), 0)
+	);
 	const visibility = $derived(report?.visibility ?? {});
+	const positionCards = $derived([
+		{
+			title: 'What We Have',
+			accounts: financial.assets ?? [],
+			total: financial.totals?.assets_cents
+		},
+		{
+			title: 'What We Owe',
+			accounts: financial.liabilities ?? [],
+			total: financial.totals?.liabilities_cents
+		},
+		{
+			title: 'Equity',
+			accounts: financial.equity ?? [],
+			total: financial.totals?.equity_cents
+		}
+	]);
+	const spendingAccounts = $derived(
+		(financial.expenses ?? [])
+			.filter((account) => Number(account.period_balance_cents) !== 0)
+			.sort((left, right) => Number(right.period_balance_cents) - Number(left.period_balance_cents))
+	);
+	const visibleSummaryCards = $derived(
+		(visibility.cash !== false ? 1 : 0) + (visibility.activity !== false ? 2 : 0)
+	);
+	const summaryColumns = $derived(
+		visibleSummaryCards >= 3
+			? 'md:grid-cols-3'
+			: visibleSummaryCards === 2
+				? 'md:grid-cols-2 max-w-2xl'
+				: 'max-w-xl'
+	);
 
-	function formatCents(cents, currency = 'usd') {
-		const amount = Number(cents || 0) / 100;
+	function formatCents(cents, currency = financial.currency || snapshot.currency || 'usd') {
+		const numericCents = Number(cents);
+		if (!Number.isFinite(numericCents)) return '—';
+		const amount = numericCents / 100;
 		try {
 			return new Intl.NumberFormat('en-US', {
 				style: 'currency',
@@ -93,141 +132,191 @@
 				<span
 					class="badge preset-filled-primary-500 px-3 py-1 text-xs font-bold tracking-wider uppercase"
 				>
-					Verified Snapshot
+					Published Snapshot
 				</span>
 				<span class="text-surface-600-400 text-xs font-medium">Public Financial Report</span>
 			</div>
 		</header>
 
-		<section
-			class="grid gap-4 {visibility.cash !== false && visibility.activity !== false
-				? 'md:grid-cols-3'
-				: visibility.cash !== false || visibility.activity !== false
-					? 'max-w-2xl sm:grid-cols-2'
-					: 'grid-cols-1'}"
-		>
-			{#if visibility.cash !== false}
-				<div
-					class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
-				>
-					<div class="flex items-start justify-between">
-						<div class="space-y-1">
-							<p class="text-surface-600-400 text-xs font-bold tracking-wider uppercase">
-								Cash position
-							</p>
-							<p class="text-primary-500 text-3xl font-black tracking-tight">
-								{formatCents(
-									(financial.totals?.assets_cents || 0) - (financial.totals?.liabilities_cents || 0)
-								)}
-							</p>
-						</div>
-						<div class="preset-tonal-primary rounded-lg p-2">
-							<IconWallet class="text-primary-500 h-5 w-5" />
-						</div>
-					</div>
-					<p class="text-surface-600-400 mt-2 text-xs leading-normal">
-						Total cash and assets currently held minus liabilities.
-					</p>
-				</div>
-			{/if}
-
-			{#if visibility.activity !== false}
-				<div
-					class="card preset-tonal-success border-success-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
-				>
-					<div class="flex items-start justify-between">
-						<div class="space-y-1">
-							<p class="text-success-600-400 text-xs font-bold tracking-wider uppercase">
-								Money in
-							</p>
-							<p class="text-success-500 text-3xl font-black tracking-tight">
-								{formatCents(financial.totals?.income_cents)}
-							</p>
-						</div>
-						<div class="preset-tonal-success rounded-lg p-2">
-							<IconTrendingUp class="text-success-500 h-5 w-5" />
-						</div>
-					</div>
-					<p class="text-surface-600-400 mt-2 text-xs leading-normal">
-						Total income received during this report period.
-					</p>
-				</div>
-
-				<div
-					class="card preset-tonal-error border-error-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
-				>
-					<div class="flex items-start justify-between">
-						<div class="space-y-1">
-							<p class="text-error-600-400 text-xs font-bold tracking-wider uppercase">Money out</p>
-							<p class="text-error-500 text-3xl font-black tracking-tight">
-								{formatCents(financial.totals?.expense_cents)}
-							</p>
-						</div>
-						<div class="preset-tonal-error rounded-lg p-2">
-							<IconTrendingDown class="text-error-500 h-5 w-5" />
-						</div>
-					</div>
-					<p class="text-surface-600-400 mt-2 text-xs leading-normal">
-						Total expenses and spending paid during this period.
-					</p>
-				</div>
-			{/if}
-		</section>
-
-		{#if visibility.position !== false}
-			<section class="grid gap-6 md:grid-cols-2">
-				<div
-					class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm"
-				>
-					<h2
-						class="border-surface-200-800/20 text-primary-500 mb-4 flex items-center gap-2 border-b pb-2 text-base font-bold"
+		{#if visibility.cash !== false || visibility.activity !== false}
+			<section class="grid gap-4 {summaryColumns}">
+				{#if visibility.cash !== false}
+					<div
+						class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
 					>
-						<IconWallet class="h-5 w-5" />
-						<span>What We Have</span>
-					</h2>
-					<div class="divide-surface-200-800/10 space-y-2 divide-y">
-						{#each (financial.assets ?? []).filter((account) => account.balance_cents !== 0) as account}
-							<div
-								class="hover:bg-surface-500/5 flex items-center justify-between gap-3 rounded px-2 py-1 pt-2 text-sm transition-colors duration-150"
-							>
-								<span class="text-surface-800-200 font-medium">{account.name}</span>
-								<span class="text-surface-950-50 font-bold"
-									>{formatCents(account.balance_cents)}</span
-								>
+						<div class="flex items-start justify-between">
+							<div class="space-y-1">
+								<p class="text-surface-600-400 text-xs font-bold tracking-wider uppercase">
+									Net position
+								</p>
+								<p class="text-primary-500 text-3xl font-black tracking-tight">
+									{formatCents(
+										(financial.totals?.assets_cents || 0) -
+											(financial.totals?.liabilities_cents || 0)
+									)}
+								</p>
 							</div>
-						{:else}
-							<p class="text-surface-600-400 py-6 text-center text-sm italic">
-								No active asset balances in this snapshot.
-							</p>
-						{/each}
+							<div class="preset-tonal-primary rounded-lg p-2">
+								<IconWallet class="text-primary-500 h-5 w-5" />
+							</div>
+						</div>
+						<p class="text-surface-600-400 mt-2 text-xs leading-normal">
+							Assets minus liabilities as of the end of this report period.
+						</p>
 					</div>
-				</div>
+				{/if}
 
-				<div
-					class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm"
-				>
-					<h2
-						class="border-surface-200-800/20 text-error-500 mb-4 flex items-center gap-2 border-b pb-2 text-base font-bold"
+				{#if visibility.activity !== false}
+					<div
+						class="card preset-tonal-success border-success-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
 					>
-						<IconTrendingDown class="h-5 w-5" />
-						<span>Activity / Spending</span>
-					</h2>
-					<div class="divide-surface-200-800/10 space-y-2 divide-y">
-						{#each (financial.expenses ?? []).filter((account) => account.period_balance_cents > 0) as account}
-							<div
-								class="hover:bg-surface-500/5 flex items-center justify-between gap-3 rounded px-2 py-1 pt-2 text-sm transition-colors duration-150"
-							>
-								<span class="text-surface-800-200 font-medium">{account.name}</span>
-								<span class="text-surface-950-50 font-bold"
-									>{formatCents(account.period_balance_cents)}</span
-								>
+						<div class="flex items-start justify-between">
+							<div class="space-y-1">
+								<p class="text-success-600-400 text-xs font-bold tracking-wider uppercase">
+									Money in
+								</p>
+								<p class="text-success-500 text-3xl font-black tracking-tight">
+									{formatCents(financial.totals?.income_cents)}
+								</p>
 							</div>
-						{:else}
-							<p class="text-surface-600-400 py-6 text-center text-sm italic">
-								No spending recorded in this snapshot.
-							</p>
-						{/each}
+							<div class="preset-tonal-success rounded-lg p-2">
+								<IconTrendingUp class="text-success-500 h-5 w-5" />
+							</div>
+						</div>
+						<p class="text-surface-600-400 mt-2 text-xs leading-normal">
+							Total income received during this report period.
+						</p>
 					</div>
+
+					<div
+						class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]"
+					>
+						<div class="flex items-start justify-between">
+							<div class="space-y-1">
+								<p class="text-error-500 text-xs font-bold tracking-wider uppercase">Money out</p>
+								<p class="text-error-500 text-3xl font-black tracking-tight">
+									{formatCents(financial.totals?.expense_cents)}
+								</p>
+							</div>
+							<div class="preset-tonal-surface rounded-lg p-2">
+								<IconTrendingDown class="text-error-500 h-5 w-5" />
+							</div>
+						</div>
+						<p class="text-surface-600-400 mt-2 text-xs leading-normal">
+							Total expenses and spending paid during this period.
+						</p>
+					</div>
+				{/if}
+			</section>
+		{/if}
+
+		{#if visibility.position !== false || visibility.activity !== false}
+			<section
+				class="grid gap-6 {visibility.position !== false && visibility.activity !== false
+					? 'md:grid-cols-2'
+					: visibility.position !== false
+						? 'md:grid-cols-3'
+						: 'max-w-2xl'}"
+			>
+				{#if visibility.position !== false}
+					{#each positionCards as card}
+						<div
+							class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm"
+						>
+							<h2
+								class="text-primary-500 border-surface-200-800/20 mb-4 flex items-center gap-2 border-b pb-2 text-base font-bold"
+							>
+								<IconWallet class="h-5 w-5" />
+								<span>{card.title}</span>
+							</h2>
+							<div class="divide-surface-200-800/10 space-y-2 divide-y">
+								{#each card.accounts.filter((account) => Number(account.balance_cents) !== 0) as account}
+									<div
+										class="hover:bg-surface-500/5 flex items-center justify-between gap-3 rounded px-2 py-1 pt-2 text-sm transition-colors duration-150"
+									>
+										<span class="text-surface-800-200 font-medium">{account.name}</span>
+										<span class="text-surface-950-50 font-bold"
+											>{formatCents(account.balance_cents)}</span
+										>
+									</div>
+								{:else}
+									<p class="text-surface-600-400 py-6 text-center text-sm italic">
+										No {card.title.toLowerCase()} balances in this snapshot.
+									</p>
+								{/each}
+								{#if card.title === 'Equity' && retainedActivityCents !== 0}
+									<div
+										class="flex items-center justify-between gap-3 rounded px-2 py-1 pt-2 text-sm"
+									>
+										<span class="text-surface-800-200 font-medium">Retained activity</span>
+										<span class="text-surface-950-50 font-bold"
+											>{formatCents(retainedActivityCents)}</span
+										>
+									</div>
+								{/if}
+							</div>
+							<div
+								class="border-surface-200-800/20 mt-3 flex items-center justify-between border-t pt-3 text-sm font-bold"
+							>
+								<span>Total</span>
+								<span>{formatCents(card.total)}</span>
+							</div>
+						</div>
+					{/each}
+				{/if}
+				{#if visibility.activity !== false}
+					<div
+						class="card preset-tonal-surface border-surface-200-800/40 rounded-xl border p-5 shadow-sm"
+					>
+						<h2
+							class="text-error-500 border-surface-200-800/20 mb-4 flex items-center gap-2 border-b pb-2 text-base font-bold"
+						>
+							<IconTrendingDown class="h-5 w-5" />
+							<span>Spending by Category</span>
+						</h2>
+						<div class="divide-surface-200-800/10 space-y-2 divide-y">
+							{#each spendingAccounts as account}
+								<div
+									class="hover:bg-surface-500/5 flex items-center justify-between gap-3 rounded px-2 py-1 pt-2 text-sm transition-colors duration-150"
+								>
+									<span class="text-surface-800-200 font-medium">{account.name}</span>
+									<span class="text-surface-950-50 font-bold"
+										>{formatCents(account.period_balance_cents)}</span
+									>
+								</div>
+							{:else}
+								<p class="text-surface-600-400 py-6 text-center text-sm italic">
+									No spending or refunds recorded in this snapshot.
+								</p>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</section>
+		{/if}
+
+		{#if visibility.budgets === true}
+			<section
+				class="card preset-tonal-surface border-surface-200-800/40 space-y-4 rounded-xl border p-5 shadow-sm"
+			>
+				<div
+					class="border-surface-200-800/20 flex items-center justify-between gap-3 border-b pb-2"
+				>
+					<h2 class="text-base font-bold">Published Budgets</h2>
+					<span class="text-surface-500 text-xs">Annual limits</span>
+				</div>
+				<div class="divide-surface-200-800/10 divide-y">
+					{#each budgets as budget}
+						<div class="flex items-center justify-between gap-3 py-2 text-sm">
+							<span class="min-w-0 truncate font-medium">{budget.account?.name ?? 'Budget'}</span>
+							<span class="shrink-0 font-bold tabular-nums">{formatCents(budget.amount_cents)}</span
+							>
+						</div>
+					{:else}
+						<p class="py-4 text-center text-sm opacity-60">
+							No budgets were included in this snapshot.
+						</p>
+					{/each}
 				</div>
 			</section>
 		{/if}

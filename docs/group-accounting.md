@@ -41,7 +41,6 @@ Existing required app variables still apply:
 - `MERCURY_RELAY_URL`
 - `MERCURY_RELAY_SHARED_SECRET`
 - `MERCURY_RELAY_ENCRYPTION_KEY_B64`
-- `MERCURY_API_TOKEN` if the group has not saved a Mercury key in accounting settings
 
 `SOCIAL_TOKEN_ENCRYPTION_KEY` is used for encrypted Mercury/Financial Connections metadata compatibility and must resolve to 32 bytes. The existing social token helper accepts a 64-character hex key, a base64 32-byte key, or hashes an arbitrary secret into a 32-byte key.
 
@@ -64,7 +63,7 @@ The group must already have a Stripe connected account through the existing dona
 
 Each group can store its own Mercury API key from the accounting settings panel. The key is encrypted before storage.
 Mercury sync requests are sent through the Mercury relay configured by `MERCURY_RELAY_URL`; the app signs relay requests with `MERCURY_RELAY_SHARED_SECRET` and encrypts the per-group Mercury key with `MERCURY_RELAY_ENCRYPTION_KEY_B64`.
-If no per-group Mercury key is saved, sync falls back to `MERCURY_API_TOKEN`.
+Each group must save its own Mercury API key in accounting settings. A shared Mercury token is never used as a fallback, which keeps one group's bank data from being imported into another group's books.
 
 Sync imports:
 
@@ -148,14 +147,15 @@ Authorization follows the shared Supabase cron-secret pattern:
 The production job is scheduled in Supabase as `group-accounting-sync-hourly` and uses the
 `private.cron_secrets.group_accounting_sync` secret.
 
-The cron attempts, per group:
+The cron paginates accounting-enabled groups and attempts, per group:
 
 - Stripe Financial Connections transaction sync
-- Mercury transaction sync
 - Stripe balance transaction sync
 - auto-match
 
-Provider errors are returned per group without failing the whole cron run.
+Mercury sync is initiated manually using the group-specific key; it is excluded from the global cron. Provider errors are returned per group without failing the whole cron run.
+
+See [the accounting audit](group-accounting-audit-2026-10-01.md) for the integrity migrations, coordinated deployment requirements, and remaining limitations.
 
 ## Feature Coverage
 

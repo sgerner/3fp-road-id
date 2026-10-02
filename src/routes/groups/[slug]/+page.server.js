@@ -12,6 +12,7 @@ import {
 } from '$lib/server/supabaseClient';
 import { supabase } from '$lib/supabaseClient';
 import { fetchPublicHttp } from '$lib/server/security';
+import { publicAccountingReport } from '$lib/server/groupAccountingPublic';
 
 const INSTAGRAM_POST_LIMIT = 3;
 const INSTAGRAM_WEB_APP_ID = '936619743392459';
@@ -702,7 +703,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			const { data: reportRows, error: reportError } = await serviceSupabase
 				.from('group_accounting_public_reports')
 				.select(
-					'id,title,report_period_start,report_period_end,visibility,snapshot,notes,published_at'
+					'id,slug,title,report_period_start,report_period_end,visibility,snapshot,notes,published_at'
 				)
 				.eq('group_id', group.id)
 				.eq('published', true)
@@ -711,7 +712,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			if (reportError) {
 				console.warn('Failed to load public accounting snapshots for group page', reportError);
 			} else {
-				accountingPublicReports = reportRows ?? [];
+				accountingPublicReports = (reportRows ?? []).map(publicAccountingReport);
 			}
 		}
 	} catch (err) {

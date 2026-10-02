@@ -28,7 +28,7 @@
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
@@ -66,10 +66,10 @@
 	const currentCategories = $derived(moneyFlow === 'income' ? incomeAccounts : expenseAccounts);
 	const recentEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const feedItems = $derived(Array.isArray(data.feed_items) ? data.feed_items : []);
-	const needsReview = $derived(
+	const reviewableFeedItems = $derived(
 		feedItems.filter((item) => ['needs_review', 'matched'].includes(item.status))
 	);
-	const bankReviewTotal = $derived(Number(data.bank_review_total ?? needsReview.length));
+	const bankReviewTotal = $derived(Number(data.bank_review_total ?? reviewableFeedItems.length));
 	const bankReviewPage = $derived(Number(data.bank_review_page ?? 1));
 	const bankReviewPageSize = $derived(Number(data.bank_review_page_size ?? 50));
 	const bankReviewTotalPages = $derived(Number(data.bank_review_total_pages ?? 0));
@@ -78,14 +78,16 @@
 	);
 	const bankReviewRangeEnd = $derived(
 		bankReviewTotal > 0
-			? Math.min(bankReviewRangeStart + needsReview.length - 1, bankReviewTotal)
+			? Math.min(bankReviewRangeStart + reviewableFeedItems.length - 1, bankReviewTotal)
 			: 0
 	);
 	const bankReviewHasPrev = $derived(bankReviewPage > 1);
 	const bankReviewHasNext = $derived(bankReviewPage < bankReviewTotalPages);
-	const matchedItems = $derived(feedItems.filter((item) => item.status === 'matched'));
 	const providerAccounts = $derived(
 		Array.isArray(data.provider_accounts) ? data.provider_accounts : []
+	);
+	const reconciliationFeedItems = $derived(
+		Array.isArray(data.reconciliation_feed_items) ? data.reconciliation_feed_items : []
 	);
 	const bankFeedAccounts = $derived(
 		providerAccounts.filter((account) => account.is_enabled !== false)
@@ -94,7 +96,6 @@
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
-	const mercuryInitialConnected = $derived(Boolean(data.settings?.mercury_api_key_ciphertext));
 	const stripeConnection = $derived(data.stripe_connection || null);
 	const stripeConnected = $derived(Boolean(stripeConnection?.connected));
 	const stripeConnectUrl = $derived(
@@ -115,6 +116,9 @@
 	let transactionTo = $state('');
 	let transactionAccountId = $state('all');
 	let transactionSource = $state('all');
+	let reconciliationAccountId = $state('');
+	let reconciliationDate = $state('');
+	let checkedReconciliationItemIds = $state([]);
 	let csvImportAccountId = $state('');
 	let editingTransactionId = $state('');
 	let savingTransactionIds = $state({});
@@ -157,19 +161,16 @@
 			reportPeriodOptions.find((option) => option.value === reportPeriodKey)?.label ??
 			'Reporting period'
 	);
+	const reportDateRangeInvalid = $derived(
+		reportPeriodKey === 'custom' && Boolean(reportFrom && reportTo) && reportFrom > reportTo
+	);
 	const transactionPeriodOptions = reportPeriodOptions;
 	const mercuryConnection = $derived(
 		(Array.isArray(data.connections) ? data.connections : []).find(
 			(connection) => connection.provider === 'mercury'
 		)
 	);
-	const mercuryConnected = $derived(
-		Boolean(
-			data.settings?.mercury_api_key_ciphertext ||
-			data.settings?.mercury_api_key_hint ||
-			data.settings?.mercury_connected_at
-		)
-	);
+	const mercuryConnected = $derived(Boolean(data.settings?.mercury_connected));
 
 	let showBankConfig = $state(false);
 	$effect(() => {
@@ -178,6 +179,9 @@
 		}
 	});
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
+	const receiptAttachableEntries = $derived(
+		transactionEntries.filter((entry) => entry.status === 'posted').slice(0, 100)
+	);
 	const transactionAccountOptions = $derived(accounts.filter((account) => !account.is_archived));
 	const transactionSourceOptions = $derived(
 		[
@@ -191,6 +195,11 @@
 		transactionPeriodOptions.find((option) => option.value === transactionPeriodKey)?.label ??
 			'Transactions'
 	);
+	const transactionDateRangeInvalid = $derived(
+		transactionPeriodKey === 'custom' &&
+			Boolean(transactionFrom && transactionTo) &&
+			transactionFrom > transactionTo
+	);
 	const filteredTransactions = $derived(
 		transactionEntries
 			.filter((entry) => transactionPeriodMatches(entry))
@@ -200,6 +209,21 @@
 	);
 	const transactionDisplayEntries = $derived(
 		transactionViewMode === 'recent' ? transactionDefaultEntries : filteredTransactions
+	);
+	const eligibleReconciliationItems = $derived(
+		reconciliationFeedItems
+			.filter((item) => item.account_id === reconciliationAccountId)
+			.filter((item) => !reconciliationDate || item.transaction_date <= reconciliationDate)
+			.filter((item) => !item.cleared_at)
+			.slice()
+			.sort((left, right) =>
+				String(right.transaction_date || '').localeCompare(String(left.transaction_date || ''))
+			)
+	);
+	const eligibleReconciliationItemIds = $derived(
+		checkedReconciliationItemIds.filter((id) =>
+			eligibleReconciliationItems.some((item) => item.id === id)
+		)
 	);
 
 	const tabs = [
@@ -254,20 +278,51 @@
 	});
 
 	function formatCents(cents) {
-		const amount = Number(cents || 0) / 100;
+		const numericCents = Number(cents);
+		if (!Number.isFinite(numericCents)) return '—';
+		const amount = numericCents / 100;
 		try {
 			return new Intl.NumberFormat('en-US', {
 				style: 'currency',
 				currency: currency.toUpperCase()
 			}).format(amount);
 		} catch {
-			return `$${amount.toFixed(2)}`;
+			return `${String(currency || 'USD').toUpperCase()} ${amount.toFixed(2)}`;
 		}
+	}
+
+	function currencySymbol(code = currency) {
+		try {
+			return (
+				new Intl.NumberFormat('en-US', {
+					style: 'currency',
+					currency: String(code || 'usd').toUpperCase(),
+					minimumFractionDigits: 0,
+					maximumFractionDigits: 0
+				})
+					.formatToParts(0)
+					.find((part) => part.type === 'currency')?.value || String(code || 'USD').toUpperCase()
+			);
+		} catch {
+			return String(code || 'USD').toUpperCase();
+		}
+	}
+
+	function retainedActivityCents(financialReport) {
+		return (
+			Number(financialReport?.totals?.equity_cents || 0) -
+			(financialReport?.equity ?? []).reduce(
+				(sum, account) => sum + Number(account.balance_cents || 0),
+				0
+			)
+		);
 	}
 
 	function formatDate(value) {
 		if (!value) return '';
-		return new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, {
+		const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+		if (Number.isNaN(date.getTime())) return '—';
+		return date.toLocaleDateString(undefined, {
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric'
@@ -291,7 +346,9 @@
 	}
 
 	function monthLabel(value) {
-		return new Date(`${value}-01T12:00:00`).toLocaleDateString(undefined, {
+		const date = new Date(`${value}-01T12:00:00`);
+		if (Number.isNaN(date.getTime())) return String(value || '');
+		return date.toLocaleDateString(undefined, {
 			month: 'short',
 			year: 'numeric'
 		});
@@ -429,7 +486,9 @@
 	function transactionPeriodMatches(entry) {
 		const bounds = resolveTransactionPeriodBounds();
 		const entryDate = startOfLocalDay(entry.entry_date);
-		if (!entryDate) return true;
+		if (!entryDate || Number.isNaN(entryDate.getTime())) {
+			return !bounds.from && !bounds.to;
+		}
 		if (bounds.from && entryDate < bounds.from) return false;
 		if (bounds.to && entryDate > bounds.to) return false;
 		return true;
@@ -468,6 +527,16 @@
 
 	function groupKey(kind, displayGroup) {
 		return `${kind}::${displayGroup}`;
+	}
+
+	function confirmVoid(event, description) {
+		if (
+			!confirm(
+				`Void “${description}”? This creates a reversal entry and preserves the audit trail.`
+			)
+		) {
+			event.preventDefault();
+		}
 	}
 
 	$effect(() => {
@@ -594,10 +663,7 @@
 	}
 
 	function getReviewCategoryOptions(item, query = '') {
-		const sourceAccounts = [
-			...(item.amount_cents >= 0 ? incomeAccounts : expenseAccounts),
-			...cashAccounts
-		].filter(
+		const sourceAccounts = [...incomeAccounts, ...expenseAccounts, ...cashAccounts].filter(
 			(account, index, list) => list.findIndex((candidate) => candidate.id === account.id) === index
 		);
 		const normalized = query.trim().toLowerCase();
@@ -607,6 +673,12 @@
 				`${account.code} ${account.name} ${account.display_group || ''}`.toLowerCase();
 			return haystack.includes(normalized);
 		});
+	}
+
+	function reviewCategoryMeta(account) {
+		if (['asset', 'liability'].includes(account.kind)) return 'Transfer';
+		const direction = account.kind === 'income' ? 'Money in' : 'Money out';
+		return `${direction} · ${account.display_group || 'Other'}`;
 	}
 
 	function selectReviewCategory(itemId, account) {
@@ -634,6 +706,16 @@
 
 	function startTransactionFiltering() {
 		transactionViewMode = 'filtered';
+	}
+
+	function showRecentTransactions() {
+		transactionSearch = '';
+		transactionAccountId = 'all';
+		transactionSource = 'all';
+		transactionPeriodKey = 'all';
+		transactionFrom = '';
+		transactionTo = '';
+		transactionViewMode = 'recent';
 	}
 
 	function startTransactionEdit(entry) {
@@ -756,7 +838,7 @@
 		};
 	}
 
-	const bankReviewGroups = $derived(groupBankReviewItems(needsReview));
+	const bankReviewGroups = $derived(groupBankReviewItems(reviewableFeedItems));
 
 	function enhancePostFeedItem(feedItemId) {
 		return () => {
@@ -834,10 +916,10 @@
 	});
 
 	$effect(() => {
-		if (!bankFeedAccounts.length || !needsReview.length) return;
+		if (!bankFeedAccounts.length || !reviewableFeedItems.length) return;
 		let nextSelections = reviewSelections;
 		let didChange = false;
-		for (const item of needsReview) {
+		for (const item of reviewableFeedItems) {
 			if (Object.hasOwn(nextSelections, item.id)) continue;
 			const categoryAccount = accounts.find((account) => account.id === item.suggested_account_id);
 			nextSelections = {
@@ -983,6 +1065,20 @@
 					)
 					.join('') || `<tr><td colspan="2" class="empty">No liabilities recorded.</td></tr>`;
 
+			const equityRows =
+				report.equity
+					.map(
+						(acc) => `
+				<tr>
+					<td class="code-name">${escapeHtml(acc.code)} &middot; ${escapeHtml(acc.name)}</td>
+					<td class="amount">${escapeHtml(formatCents(acc.balance_cents))}</td>
+				</tr>
+			`
+					)
+					.join('') || `<tr><td colspan="2" class="empty">No equity accounts recorded.</td></tr>`;
+
+			const retainedActivity = retainedActivityCents(report);
+
 			const netPosition =
 				(report.totals?.assets_cents || 0) - (report.totals?.liabilities_cents || 0);
 
@@ -1007,6 +1103,19 @@
 					<table>
 						<tbody>
 							${liabilityRows}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="section">
+					<div class="section-header">
+						<span>Equity</span>
+						<span class="total">${escapeHtml(formatCents(report.totals?.equity_cents))}</span>
+					</div>
+					<table>
+						<tbody>
+							${equityRows}
+							${retainedActivity !== 0 ? `<tr><td class="code-name">Retained activity</td><td class="amount">${escapeHtml(formatCents(retainedActivity))}</td></tr>` : ''}
 						</tbody>
 					</table>
 				</div>
@@ -1166,6 +1275,7 @@
 
 	async function applyReportFilters(nextPeriod = reportPeriodKey) {
 		if (typeof window === 'undefined') return;
+		if (nextPeriod === 'custom' && (!reportFrom || !reportTo || reportFrom > reportTo)) return;
 		const url = new URL(window.location.href);
 		url.searchParams.set('tab', 'reports');
 		url.searchParams.set('period', nextPeriod);
@@ -1252,7 +1362,18 @@
 	const journalCreditTotal = $derived(
 		journalLines.reduce((sum, line) => sum + Math.round(Number(line.credit || 0) * 100), 0)
 	);
-	const today = new Date().toISOString().slice(0, 10);
+	let today = $state('');
+	onMount(() => {
+		const date = new Date();
+		today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+		reconciliationDate = today;
+	});
+	$effect(() => {
+		if (!cashAccounts.some((account) => account.id === reconciliationAccountId)) {
+			reconciliationAccountId =
+				cashAccounts.find((account) => account.kind === 'asset')?.id || cashAccounts[0]?.id || '';
+		}
+	});
 	const selectedYear = $derived(data.year || new Date().getFullYear());
 	const yearStart = $derived(`${selectedYear}-01-01`);
 	const yearEnd = $derived(`${selectedYear}-12-31`);
@@ -1269,14 +1390,34 @@
 	{#if form?.accounting_error || data.accounting_error}
 		<div
 			class="card border-error-500/30 bg-error-500/10 text-error-700-300 rounded-xl p-4 text-sm font-semibold"
+			role="alert"
+			aria-live="assertive"
 		>
 			{form?.accounting_error || data.accounting_error}
 		</div>
 	{:else if form?.accounting_success}
 		<div
 			class="card border-success-500/30 bg-success-500/10 text-success-700-300 rounded-xl p-4 text-sm font-semibold"
+			role="status"
+			aria-live="polite"
 		>
-			Saved successfully.
+			<p>Saved successfully.</p>
+			{#if form.accounting_warning}
+				<p
+					class="card border-warning-500/30 bg-warning-500/10 text-warning-700-300 mt-3 p-3 text-sm font-semibold"
+					role="alert"
+					aria-live="assertive"
+				>
+					{form.accounting_warning}
+					<button
+						class="btn btn-sm preset-outlined-surface-500 mt-2 font-semibold"
+						type="button"
+						onclick={() => setActiveTab('settings')}
+					>
+						Attach receipt to saved transaction
+					</button>
+				</p>
+			{/if}
 		</div>
 	{/if}
 
@@ -1289,7 +1430,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
-						Cash on hand
+						Net position
 					</p>
 					<p class="text-2xl font-bold tracking-tight">
 						{formatCents(report.totals?.assets_cents - report.totals?.liabilities_cents)}
@@ -1309,7 +1450,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
-						Money in
+						Money in · {reportPeriodLabel}
 					</p>
 					<p class="text-success-700-300 text-2xl font-bold tracking-tight">
 						{formatCents(report.totals?.income_cents)}
@@ -1329,7 +1470,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
-						Money out
+						Money out · {reportPeriodLabel}
 					</p>
 					<p class="text-warning-700-300 text-2xl font-bold tracking-tight">
 						{formatCents(report.totals?.expense_cents)}
@@ -1349,7 +1490,7 @@
 			<div class="flex items-center justify-between gap-3">
 				<div class="space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
-						Net this year
+						Net · {reportPeriodLabel}
 					</p>
 					<p
 						class="text-2xl font-bold tracking-tight {report.totals?.net_cents >= 0
@@ -1370,12 +1511,15 @@
 
 	<!-- Tabs Navigation Container -->
 	<div
-		class="card preset-tonal-surface border-surface-500/10 flex scrollbar-none gap-1.5 overflow-x-auto rounded-xl border p-1.5 shadow-sm"
+		role="navigation"
+		aria-label="Accounting sections"
+		class="card preset-tonal-surface border-surface-500/10 flex flex-wrap justify-center gap-1.5 rounded-xl border p-1.5 shadow-sm sm:justify-start"
 	>
 		{#each tabs as tab}
 			{@const Icon = tab.icon}
 			<button
 				type="button"
+				aria-current={activeTab === tab.id ? 'page' : undefined}
 				class="btn btn-sm flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 font-semibold tracking-wide transition-all {activeTab ===
 				tab.id
 					? 'preset-filled-primary-500 shadow-sm'
@@ -1457,18 +1601,18 @@
 							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Needs Review</h2>
 						</div>
 						<span
-							class="badge {needsReview.length > 0
+							class="badge {bankReviewTotal > 0
 								? 'preset-filled-warning-500 animate-pulse'
 								: 'preset-tonal-success'} font-bold"
 						>
-							{needsReview.length}
+							{bankReviewTotal}
 						</span>
 					</div>
 
-					{#if needsReview.length > 0}
+					{#if bankReviewTotal > 0}
 						<p class="text-surface-700-300 text-sm leading-relaxed">
-							You have <span class="text-warning-700-300 font-semibold">{needsReview.length}</span> imported
-							bank transactions that need to be categorized.
+							You have <span class="text-warning-700-300 font-semibold">{bankReviewTotal}</span> imported
+							bank transactions awaiting review. Some may have a suggested match to confirm.
 						</p>
 						<button
 							class="btn btn-sm preset-filled-warning-500 flex w-full items-center justify-center gap-2 font-bold"
@@ -1500,6 +1644,7 @@
 
 					<div class="space-y-2">
 						{#each recentEntries.slice(0, 6) as entry}
+							{@const presentation = transactionAmountPresentation(entry)}
 							<form
 								method="POST"
 								use:enhance
@@ -1519,16 +1664,29 @@
 											class="badge preset-outlined-surface-500 px-1.5 py-0 text-[10px] font-medium uppercase"
 											>{entry.entry_type}</span
 										>
+										{#if entry.status === 'void'}
+											<span class="badge preset-tonal-error px-1.5 py-0 text-[10px] font-semibold"
+												>Voided · reversal recorded</span
+											>
+										{:else if entry.source === 'reversal'}
+											<span class="badge preset-tonal-warning px-1.5 py-0 text-[10px] font-semibold"
+												>Reversal</span
+											>
+										{/if}
 									</div>
 								</div>
 								<div class="flex shrink-0 items-center gap-2">
-									<span class="text-surface-900-100 font-bold tabular-nums"
-										>{formatCents(entry.amount_cents)}</span
+									<span class="font-bold tabular-nums {presentation.className}"
+										>{presentation.sign}{formatCents(
+											Math.abs(Number(entry.amount_cents || 0))
+										)}</span
 									>
 									{#if entry.status !== 'void' && !entry.locked_at}
 										<button
 											class="btn btn-sm preset-tonal-error px-2.5 py-1 text-xs font-medium"
-											type="submit">Void</button
+											type="submit"
+											aria-label="Void transaction {entry.description}"
+											onclick={(event) => confirmVoid(event, entry.description)}>Void</button
 										>
 									{/if}
 								</div>
@@ -1615,7 +1773,7 @@
 						<div class="relative">
 							<span
 								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
-								>$</span
+								>{currencySymbol()}</span
 							>
 							<input
 								class="input preset-tonal-surface pl-7"
@@ -1719,7 +1877,7 @@
 							<div class="relative">
 								<span
 									class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
-									>$</span
+									>{currencySymbol()}</span
 								>
 								<input
 									class="input preset-tonal-surface pl-7"
@@ -1769,7 +1927,7 @@
 							<div class="relative">
 								<span
 									class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
-									>$</span
+									>{currencySymbol()}</span
 								>
 								<input
 									class="input preset-tonal-surface pl-7"
@@ -2017,7 +2175,7 @@
 						<div class="relative">
 							<span
 								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
-								>$</span
+								>{currencySymbol()}</span
 							>
 							<input
 								class="input preset-tonal-surface pl-7"
@@ -2127,6 +2285,7 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<select
 					class="select preset-tonal-surface h-9 text-sm"
+					aria-label="Reporting period"
 					bind:value={reportPeriodKey}
 					onchange={(event) => {
 						const nextPeriod = event.currentTarget.value;
@@ -2139,24 +2298,38 @@
 					{/each}
 				</select>
 				{#if reportPeriodKey === 'custom'}
+					<label class="sr-only" for="report-period-from">From</label>
 					<input
+						id="report-period-from"
 						class="input preset-tonal-surface h-9 w-32 text-sm"
 						type="date"
+						aria-label="Report period start date"
 						bind:value={reportFrom}
+						required
 					/>
+					<label class="sr-only" for="report-period-to">To</label>
 					<input
+						id="report-period-to"
 						class="input preset-tonal-surface h-9 w-32 text-sm"
 						type="date"
+						aria-label="Report period end date"
 						bind:value={reportTo}
+						required
 					/>
 					<button
 						class="btn btn-sm preset-filled-primary-500 h-9 items-center gap-1.5 font-bold"
 						type="button"
+						disabled={!reportFrom || !reportTo || reportDateRangeInvalid}
 						onclick={() => void applyReportFilters('custom')}
 					>
 						<IconCheckCircle2 class="h-3.5 w-3.5" />
 						Apply
 					</button>
+					{#if reportDateRangeInvalid}
+						<p class="text-error-500 w-full text-xs font-semibold" role="status">
+							Start date must be on or before the end date.
+						</p>
+					{/if}
 				{/if}
 			</div>
 		</div>
@@ -2360,6 +2533,38 @@
 							{/each}
 						</div>
 					</div>
+					<div class="p-5">
+						<div class="mb-3 flex items-center justify-between">
+							<h3 class="text-secondary-700-300 text-xs font-bold tracking-wider uppercase">
+								Equity
+							</h3>
+							<span class="text-secondary-700-300 text-xs font-bold tabular-nums">
+								{formatCents(report.totals?.equity_cents)}
+							</span>
+						</div>
+						<div class="divide-surface-500/10 divide-y">
+							{#each report.equity as account}
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4"
+										>{account.code} · {account.name}</span
+									>
+									<span class="text-secondary-700-300 shrink-0 font-semibold tabular-nums">
+										{formatCents(account.balance_cents)}
+									</span>
+								</div>
+							{:else}
+								<p class="text-surface-500 py-2 text-xs italic">No equity accounts recorded.</p>
+							{/each}
+							{#if retainedActivityCents(report) !== 0}
+								<div class="flex items-center justify-between py-2 text-sm">
+									<span class="text-surface-700-300 truncate pr-4">Retained activity</span>
+									<span class="text-secondary-700-300 shrink-0 font-semibold tabular-nums">
+										{formatCents(retainedActivityCents(report))}
+									</span>
+								</div>
+							{/if}
+						</div>
+					</div>
 				</div>
 				<div
 					class="border-surface-500/20 bg-surface-500/5 flex items-center justify-between border-t px-5 py-3.5"
@@ -2373,117 +2578,136 @@
 		</section>
 
 		<!-- Publish Snapshot Form -->
-		<form
-			method="POST"
-			use:enhance
-			action="?/publishSnapshot"
-			class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
-		>
-			<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-				<IconUpload class="text-primary-500 h-5 w-5" />
-				<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-					Publish Fixed Snapshot
-				</h2>
-			</div>
-			<div class="grid gap-4 md:grid-cols-3">
-				<label class="label">
-					<span class="text-surface-700-300 text-xs font-semibold">Title</span>
-					<input
-						class="input preset-tonal-surface"
-						name="title"
-						value="Financial snapshot {data.year}"
-						required
-					/>
-				</label>
-				<label class="label">
-					<span class="text-surface-700-300 text-xs font-semibold">From</span>
-					<input
-						class="input preset-tonal-surface"
-						type="date"
-						name="from"
-						value={yearStart}
-						required
-					/>
-				</label>
-				<label class="label">
-					<span class="text-surface-700-300 text-xs font-semibold">To</span>
-					<input
-						class="input preset-tonal-surface"
-						type="date"
-						name="to"
-						value={today < yearEnd ? today : yearEnd}
-						required
-					/>
-				</label>
-			</div>
-			<div class="space-y-2">
-				<span class="text-surface-700-300 text-xs font-semibold">Snapshot Visibility Settings</span>
-				<div
-					class="bg-surface-500/5 border-surface-500/5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border p-4"
-				>
-					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+		{#if data.settings?.public_reports_enabled === true}
+			<form
+				method="POST"
+				use:enhance
+				action="?/publishSnapshot"
+				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
+			>
+				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
+					<IconUpload class="text-primary-500 h-5 w-5" />
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
+						Publish Fixed Snapshot
+					</h2>
+				</div>
+				<div class="grid gap-4 md:grid-cols-3">
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold">Title</span>
 						<input
-							class="checkbox"
-							type="checkbox"
-							name="showActivity"
-							checked={visibility.activity !== false}
+							class="input preset-tonal-surface"
+							name="title"
+							value="Financial snapshot {data.year}"
+							required
 						/>
-						<span>Activity</span>
 					</label>
-					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold">From</span>
 						<input
-							class="checkbox"
-							type="checkbox"
-							name="showPosition"
-							checked={visibility.position !== false}
+							class="input preset-tonal-surface"
+							type="date"
+							name="from"
+							value={yearStart}
+							required
 						/>
-						<span>Position</span>
 					</label>
-					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold">To</span>
 						<input
-							class="checkbox"
-							type="checkbox"
-							name="showBudgets"
-							checked={visibility.budgets === true}
+							class="input preset-tonal-surface"
+							type="date"
+							name="to"
+							value={today < yearEnd ? today : yearEnd}
+							required
 						/>
-						<span>Budgets</span>
-					</label>
-					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-						<input
-							class="checkbox"
-							type="checkbox"
-							name="showCash"
-							checked={visibility.cash !== false}
-						/>
-						<span>Cash totals</span>
-					</label>
-					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-						<input
-							class="checkbox"
-							type="checkbox"
-							name="showNotes"
-							checked={visibility.notes !== false}
-						/>
-						<span>Notes</span>
 					</label>
 				</div>
+				<div class="space-y-2">
+					<span class="text-surface-700-300 text-xs font-semibold"
+						>Snapshot Visibility Settings</span
+					>
+					<div
+						class="bg-surface-500/5 border-surface-500/5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border p-4"
+					>
+						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+							<input
+								class="checkbox"
+								type="checkbox"
+								name="showActivity"
+								checked={visibility.activity !== false}
+							/>
+							<span>Activity</span>
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+							<input
+								class="checkbox"
+								type="checkbox"
+								name="showPosition"
+								checked={visibility.position !== false}
+							/>
+							<span>Position</span>
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+							<input
+								class="checkbox"
+								type="checkbox"
+								name="showBudgets"
+								checked={visibility.budgets === true}
+							/>
+							<span>Budgets</span>
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+							<input
+								class="checkbox"
+								type="checkbox"
+								name="showCash"
+								checked={visibility.cash !== false}
+							/>
+							<span>Cash totals</span>
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+							<input
+								class="checkbox"
+								type="checkbox"
+								name="showNotes"
+								checked={visibility.notes !== false}
+							/>
+							<span>Notes</span>
+						</label>
+					</div>
+				</div>
+				<label class="label">
+					<span class="text-surface-700-300 text-xs font-semibold">Notes</span>
+					<textarea
+						class="textarea preset-tonal-surface"
+						name="notes"
+						rows="2"
+						placeholder="Add optional details for this snapshot..."></textarea>
+				</label>
+				<button
+					class="btn preset-filled-primary-500 mt-2 flex w-full items-center justify-center gap-2 font-bold sm:w-auto"
+					type="submit"
+				>
+					<IconUpload class="h-4 w-4" />
+					<span>Publish Snapshot</span>
+				</button>
+			</form>
+		{:else}
+			<div class="card preset-tonal-warning border-warning-500/20 space-y-3 rounded-xl border p-5">
+				<h2 class="text-base font-bold">Public snapshots are turned off</h2>
+				<p class="text-surface-700-300 text-sm leading-relaxed">
+					Enable public financial snapshots in Settings to publish a new report. Turning this off
+					does not remove existing public links; unpublish them from the Published Snapshots list.
+				</p>
+				<button
+					class="btn btn-sm preset-filled-primary-500 w-fit font-semibold"
+					type="button"
+					onclick={() => setActiveTab('settings')}
+				>
+					Open Settings
+				</button>
 			</div>
-			<label class="label">
-				<span class="text-surface-700-300 text-xs font-semibold">Notes</span>
-				<textarea
-					class="textarea preset-tonal-surface"
-					name="notes"
-					rows="2"
-					placeholder="Add optional details for this snapshot..."></textarea>
-			</label>
-			<button
-				class="btn preset-filled-primary-500 mt-2 flex w-full items-center justify-center gap-2 font-bold sm:w-auto"
-				type="submit"
-			>
-				<IconUpload class="h-4 w-4" />
-				<span>Publish Snapshot</span>
-			</button>
-		</form>
+		{/if}
 	{/if}
 
 	{#if activeTab === 'transactions'}
@@ -2525,7 +2749,7 @@
 				<!-- Filters section -->
 				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 					<!-- Search -->
-					<div class="flex flex-col gap-1.5">
+					<label class="label flex flex-col gap-1.5">
 						<span class="text-surface-700-300 text-xs font-semibold">Search</span>
 						<div class="relative">
 							<span
@@ -2536,6 +2760,7 @@
 							<input
 								class="input preset-tonal-surface pl-9"
 								type="search"
+								aria-label="Search transactions"
 								placeholder="Descriptions, accounts, amounts..."
 								value={transactionSearch}
 								oninput={(event) => {
@@ -2544,10 +2769,10 @@
 								}}
 							/>
 						</div>
-					</div>
+					</label>
 
 					<!-- Account Filter -->
-					<div class="flex flex-col gap-1.5">
+					<label class="label flex flex-col gap-1.5">
 						<span class="text-surface-700-300 text-xs font-semibold">Account</span>
 						<select
 							class="select preset-tonal-surface"
@@ -2562,10 +2787,10 @@
 								<option value={account.id}>{accountLabel(account)}</option>
 							{/each}
 						</select>
-					</div>
+					</label>
 
 					<!-- Source Filter -->
-					<div class="flex flex-col gap-1.5">
+					<label class="label flex flex-col gap-1.5">
 						<span class="text-surface-700-300 text-xs font-semibold">Source</span>
 						<select
 							class="select preset-tonal-surface"
@@ -2580,10 +2805,10 @@
 								<option value={source}>{source.replaceAll('_', ' ')}</option>
 							{/each}
 						</select>
-					</div>
+					</label>
 
 					<!-- Date Range Filter -->
-					<div class="flex flex-col gap-1.5">
+					<label class="label flex flex-col gap-1.5">
 						<span class="text-surface-700-300 text-xs font-semibold">Date range</span>
 						<select
 							class="select preset-tonal-surface"
@@ -2597,8 +2822,19 @@
 								<option value={option.value}>{option.label}</option>
 							{/each}
 						</select>
-					</div>
+					</label>
 				</div>
+				{#if transactionViewMode === 'filtered'}
+					<div class="flex justify-end">
+						<button
+							class="btn btn-sm preset-tonal-surface font-semibold"
+							type="button"
+							onclick={showRecentTransactions}
+						>
+							Show latest 20
+						</button>
+					</div>
+				{/if}
 
 				<!-- Custom Date selectors -->
 				{#if transactionPeriodKey === 'custom'}
@@ -2606,7 +2842,7 @@
 						class="border-surface-500/10 grid gap-4 border-t pt-4 sm:grid-cols-2"
 						transition:slide={{ duration: 150 }}
 					>
-						<div class="flex flex-col gap-1.5">
+						<label class="label flex flex-col gap-1.5">
 							<span class="text-surface-700-300 text-xs font-semibold">From</span>
 							<input
 								class="input preset-tonal-surface"
@@ -2617,8 +2853,8 @@
 									startTransactionFiltering();
 								}}
 							/>
-						</div>
-						<div class="flex flex-col gap-1.5">
+						</label>
+						<label class="label flex flex-col gap-1.5">
 							<span class="text-surface-700-300 text-xs font-semibold">To</span>
 							<input
 								class="input preset-tonal-surface"
@@ -2629,8 +2865,13 @@
 									startTransactionFiltering();
 								}}
 							/>
-						</div>
+						</label>
 					</div>
+				{/if}
+				{#if transactionDateRangeInvalid}
+					<p class="text-error-500 text-xs font-semibold" role="status">
+						Start date must be on or before the end date.
+					</p>
 				{/if}
 
 				<!-- Ledger Entries -->
@@ -2814,7 +3055,7 @@
 										<div
 											class="bg-surface-500/10 flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-lg text-center"
 										>
-											{#if entryDateObj}
+											{#if entryDateObj && !Number.isNaN(entryDateObj.getTime())}
 												<span
 													class="text-surface-500 text-[10px] leading-tight font-extrabold tracking-wider uppercase"
 												>
@@ -2842,6 +3083,23 @@
 													>
 														{entry.entry_type.replaceAll('_', ' ')}
 													</span>
+													{#if entry.status === 'void'}
+														<span
+															class="badge preset-tonal-error px-1.5 py-0.5 text-[9px] font-semibold"
+															>Voided</span
+														>
+													{:else if entry.source === 'reversal'}
+														<span
+															class="badge preset-tonal-warning px-1.5 py-0.5 text-[9px] font-semibold"
+															>Reversal</span
+														>
+													{/if}
+													{#if entry.locked_at}
+														<span
+															class="badge preset-tonal-surface px-1.5 py-0.5 text-[9px] font-semibold"
+															>Reconciled · locked</span
+														>
+													{/if}
 													{#if (entry.receipts ?? []).length}
 														<span
 															class="badge preset-tonal-surface flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold"
@@ -2898,15 +3156,26 @@
 												</p>
 											</div>
 
-											<button
-												class="text-surface-400 hover:text-surface-900-100"
-												type="button"
-												onclick={() => startTransactionEdit(entry)}
-												aria-label={`Edit transaction ${entry.description}`}
-												title="Edit transaction"
-											>
-												<IconPencil class="h-3.5 w-3.5" />
-											</button>
+											{#if entry.status !== 'void' && !entry.locked_at}
+												<button
+													class="text-surface-400 hover:text-surface-900-100"
+													type="button"
+													onclick={() => startTransactionEdit(entry)}
+													aria-label={`Edit transaction ${entry.description}`}
+													title="Edit transaction"
+												>
+													<IconPencil class="h-3.5 w-3.5" />
+												</button>
+												<button
+													class="btn btn-sm preset-tonal-error px-2 py-1 text-xs font-semibold"
+													type="submit"
+													formaction="?/voidEntry"
+													name="reason"
+													value="Voided from transaction ledger"
+													aria-label={`Void transaction ${entry.description}`}
+													onclick={(event) => confirmVoid(event, entry.description)}>Void</button
+												>
+											{/if}
 										</div>
 									</div>
 								</div>
@@ -2944,6 +3213,9 @@
 					<button
 						class="btn btn-sm preset-tonal-surface font-semibold"
 						onclick={() => (showBankConfig = !showBankConfig)}
+						aria-label={showBankConfig
+							? 'Hide bank connection settings'
+							: 'Show bank connection settings'}
 					>
 						<IconCog class="h-4 w-4" />
 						<span class="hidden sm:inline">{showBankConfig ? 'Hide Settings' : 'Settings'}</span>
@@ -2960,6 +3232,171 @@
 					</form>
 				</div>
 			</div>
+
+			<section class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+				<form
+					method="POST"
+					use:enhance
+					action="?/completeReconciliation"
+					class="card preset-tonal-surface border-surface-500/10 min-w-0 space-y-4 border p-4 sm:p-5"
+				>
+					<input
+						type="hidden"
+						name="checkedFeedItemIds"
+						value={eligibleReconciliationItemIds.join(',')}
+					/>
+					<div>
+						<h3 class="text-base font-bold">Reconcile a Statement</h3>
+						<p
+							class="text-surface-600-400 mt-1 min-w-0 pr-10 text-xs leading-relaxed break-words sm:pr-0"
+						>
+							Compare the statement ending balance with the posted ledger balance. A zero difference
+							completes the reconciliation and locks entries through that date.
+						</p>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-3">
+						<label class="label">
+							<span class="text-surface-700-300 text-xs font-semibold">Bank or card account</span>
+							<select
+								class="select preset-tonal-surface"
+								name="accountId"
+								bind:value={reconciliationAccountId}
+								required
+								disabled={!cashAccounts.length}
+							>
+								<option value="">Select account…</option>
+								{#each cashAccounts as account}
+									<option value={account.id}>{accountLabel(account)}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="label">
+							<span class="text-surface-700-300 text-xs font-semibold">Statement ending date</span>
+							<input
+								class="input preset-tonal-surface"
+								name="statementEndingDate"
+								type="date"
+								bind:value={reconciliationDate}
+								max={today || undefined}
+								required
+							/>
+						</label>
+						<label class="label">
+							<span class="text-surface-700-300 text-xs font-semibold"
+								>Statement ending balance</span
+							>
+							<input
+								class="input preset-tonal-surface"
+								name="statementEndingBalance"
+								type="number"
+								inputmode="decimal"
+								step="0.01"
+								placeholder="0.00"
+								required
+							/>
+						</label>
+					</div>
+					<div class="space-y-2">
+						<div class="flex flex-wrap items-baseline justify-between gap-2">
+							<p class="text-surface-700-300 text-xs font-semibold">
+								Activity included on this statement
+							</p>
+							<span class="text-surface-500 text-xs">
+								{eligibleReconciliationItemIds.length} selected
+							</span>
+						</div>
+						{#if eligibleReconciliationItems.length}
+							<div
+								class="border-surface-500/10 divide-surface-500/10 max-h-64 divide-y overflow-y-auto rounded-xl border"
+							>
+								{#each eligibleReconciliationItems as item (item.id)}
+									<label
+										class="hover:bg-surface-500/5 flex cursor-pointer items-center gap-3 p-3 text-sm"
+									>
+										<input
+											class="checkbox shrink-0"
+											type="checkbox"
+											name="selectedFeedItem"
+											value={item.id}
+											bind:group={checkedReconciliationItemIds}
+											aria-label="Include {item.description} from {formatDate(
+												item.transaction_date
+											)}"
+										/>
+										<span class="min-w-0 flex-1">
+											<span class="block truncate font-semibold">{item.description}</span>
+											<span class="text-surface-500 text-xs">
+												{formatDate(item.transaction_date)} · {item.provider} · {item.status}
+											</span>
+										</span>
+										<span class="shrink-0 font-semibold tabular-nums">
+											{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
+										</span>
+									</label>
+								{/each}
+							</div>
+						{:else}
+							<p
+								class="bg-surface-500/5 text-surface-600-400 rounded-xl p-3 text-xs leading-relaxed"
+							>
+								No uncleared posted or matched bank activity is available for this account through
+								the selected date. You can still compare the statement balance with the ledger.
+							</p>
+						{/if}
+					</div>
+					<button
+						class="btn preset-filled-primary-500 w-full font-bold sm:w-auto"
+						type="submit"
+						disabled={!cashAccounts.length || !reconciliationDate}
+					>
+						<IconCheckCircle2 class="h-4 w-4" />
+						<span>Compare and Reconcile</span>
+					</button>
+				</form>
+
+				<div class="card preset-tonal-surface border-surface-500/10 space-y-3 border p-4 sm:p-5">
+					<h3 class="text-base font-bold">Recent Reconciliations</h3>
+					{#if (data.reconciliations ?? []).length}
+						<div class="divide-surface-500/10 divide-y">
+							{#each data.reconciliations as reconciliation (reconciliation.id)}
+								<div class="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0">
+									<div class="min-w-0">
+										<p class="truncate text-sm font-semibold">
+											{reconciliation.account?.code
+												? `${reconciliation.account.code} · `
+												: ''}{reconciliation.account?.name || 'Account'}
+										</p>
+										<p class="text-surface-500 mt-0.5 text-xs">
+											Statement through {formatDate(reconciliation.statement_ending_date)}
+										</p>
+									</div>
+									<div class="text-right">
+										<span
+											class="badge {reconciliation.status === 'completed'
+												? 'preset-tonal-success'
+												: 'preset-tonal-warning'} px-2 py-0.5 text-[10px] font-bold uppercase"
+										>
+											{reconciliation.status === 'completed' ? 'Completed' : 'Draft'}
+										</span>
+										<p class="mt-1 text-xs tabular-nums">
+											Statement {formatCents(reconciliation.statement_ending_balance_cents)}
+											<span class="mx-1 opacity-40">·</span>
+											Ledger {formatCents(reconciliation.book_balance_cents)}
+										</p>
+										<p class="text-surface-500 mt-1 text-xs tabular-nums">
+											Difference {formatCents(reconciliation.difference_cents)}
+										</p>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-surface-600-400 rounded-xl border border-dashed p-6 text-center text-sm">
+							No statements reconciled yet.
+						</p>
+					{/if}
+				</div>
+			</section>
 
 			{#if bankReviewTotalPages > 1}
 				<div
@@ -3017,6 +3454,8 @@
 									<button
 										class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
 										type="button"
+										aria-label="Edit Mercury connection"
+										title="Edit Mercury connection"
 										onclick={() => (mercuryEditMode = true)}
 									>
 										<IconPencil class="h-3.5 w-3.5" />
@@ -3122,8 +3561,14 @@
 								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
 							</button>
 							<p class="text-surface-700-300 text-xs leading-snug font-medium">
-								Each linked bank costs $0.30 per month to import transactions, deducted from the
-								group's Stripe balance. Mercury bank accounts are always free.
+								Stripe lists $0.30 per institution per account holder per month for transaction
+								data.
+								<a
+									class="text-primary-500 underline underline-offset-2"
+									href="https://stripe.com/financial-connections"
+									target="_blank"
+									rel="noreferrer">View Stripe pricing</a
+								>. Mercury imports do not use Financial Connections.
 							</p>
 							{#if financialConnectionsMessage}
 								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
@@ -3235,7 +3680,7 @@
 										<!-- Line 1: description + amount -->
 										<div class="mb-2 flex items-baseline gap-3">
 											<p class="truncate text-sm leading-snug font-semibold capitalize">
-												{item.description.toLowerCase()}
+												{String(item.description || 'Bank activity').toLowerCase()}
 											</p>
 											<span
 												class="shrink-0 text-sm font-bold tabular-nums {item.amount_cents >= 0
@@ -3296,6 +3741,25 @@
 											</div>
 										{/if}
 
+										{#if !group.accountId}
+											<label class="label mb-2 max-w-xl">
+												<span class="text-surface-700-300 text-xs font-semibold"
+													>Bank or card account</span
+												>
+												<select
+													class="select preset-tonal-surface"
+													value={selection.accountId}
+													onchange={(event) =>
+														setReviewSelection(item.id, { accountId: event.currentTarget.value })}
+												>
+													<option value="">Select the account this activity came from…</option>
+													{#each cashAccounts as account}
+														<option value={account.id}>{accountLabel(account)}</option>
+													{/each}
+												</select>
+											</label>
+										{/if}
+
 										<!-- Line 2: category + actions -->
 										<div class="flex max-w-xl items-center gap-2">
 											<div class="min-w-0 flex-1">
@@ -3305,10 +3769,7 @@
 													placeholder="Category or transfer account…"
 													emptyMessage="No matches."
 													itemLabel={accountLabel}
-													itemMeta={(account) =>
-														['asset', 'liability'].includes(account.kind)
-															? 'Transfer'
-															: account.display_group || 'Other'}
+													itemMeta={(account) => reviewCategoryMeta(account)}
 													onQueryChange={(value) =>
 														updateReviewCategoryQuery(item.id, item.amount_cents, value)}
 													onSelect={(account) => selectReviewCategory(item.id, account)}
@@ -3317,7 +3778,8 @@
 											<button
 												class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
 												type="submit"
-												disabled={isPostingFeedItem(item.id)}
+												disabled={isPostingFeedItem(item.id) ||
+													(!group.accountId && !selection.accountId)}
 											>
 												{#if isPostingFeedItem(item.id)}
 													<IconRefreshCw class="h-3.5 w-3.5 animate-spin" />
@@ -3556,6 +4018,10 @@
 						/>
 						<span>Allow public financial snapshots</span>
 					</label>
+					<p class="text-surface-600-400 -mt-2 text-xs leading-relaxed">
+						This controls whether managers can publish new snapshots. Existing public links remain
+						available until you unpublish them below.
+					</p>
 
 					<label class="label">
 						<span class="text-surface-700-300 text-xs font-semibold"
@@ -3713,6 +4179,56 @@
 					<IconReceipt class="text-secondary-500 h-5 w-5" />
 					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Receipt Review</h2>
 				</div>
+				<form
+					method="POST"
+					use:enhance
+					action="?/attachReceipt"
+					enctype="multipart/form-data"
+					class="bg-surface-500/5 border-surface-500/10 space-y-3 rounded-xl border p-4"
+				>
+					<div>
+						<h3 class="text-sm font-bold">Attach a receipt to an existing transaction</h3>
+						<p class="text-surface-600-400 mt-1 text-xs leading-relaxed">
+							Use this if a transaction saved but its receipt upload failed. This adds evidence
+							without creating another transaction. Reconciled entries can still accept receipts.
+						</p>
+					</div>
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold">Posted transaction</span>
+						<select
+							class="select preset-tonal-surface"
+							name="entryId"
+							required
+							disabled={!receiptAttachableEntries.length}
+						>
+							<option value="">Select a transaction…</option>
+							{#each receiptAttachableEntries as entry (entry.id)}
+								<option value={entry.id}>
+									{formatDate(entry.entry_date)} · {entry.description} · {formatCents(
+										entry.amount_cents
+									)}{entry.locked_at ? ' · Reconciled' : ''}
+								</option>
+							{/each}
+						</select>
+					</label>
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold">Receipt file</span>
+						<input
+							class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
+							type="file"
+							name="receipt"
+							accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/csv,.txt,.csv"
+							required
+						/>
+					</label>
+					<button
+						class="btn preset-outlined-primary-500 w-full font-semibold sm:w-auto"
+						type="submit"
+						disabled={!receiptAttachableEntries.length}
+					>
+						Attach receipt
+					</button>
+				</form>
 				<div class="space-y-3">
 					{#each receipts.slice(0, 5) as receipt}
 						<form

@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { readFormData } from '$lib/server/security';
 import {
 	actionFailure,
+	attachReceiptToEntry,
 	addManualFeedItem,
 	autoMatchFeedItems,
 	completeAutomatedReconciliation,
@@ -26,7 +27,6 @@ import {
 	syncStripeTransactions,
 	unpublishSnapshot,
 	updateBudget,
-	updateEntryByReplacement,
 	updateTransaction,
 	updateAccount,
 	updateAccountGroup,
@@ -86,7 +86,8 @@ export const load = async ({ cookies, params, url }) => {
 export const actions = {
 	recordMoney: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await postSimpleEntry(auth, await readAccountingFormData(request));
+			const entry = await postSimpleEntry(auth, await readAccountingFormData(request));
+			return { accounting_success: true, accounting_warning: entry.receipt_warning || null };
 		}),
 	transfer: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
@@ -164,7 +165,13 @@ export const actions = {
 		}),
 	syncAll: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await syncAllBankTransactions(auth);
+			const result = await syncAllBankTransactions(auth);
+			if (result.errors?.length) {
+				return {
+					accounting_error: `Imported ${result.inserted} new items, but some connections failed: ${result.errors.join(' ')}`
+				};
+			}
+			return { accounting_success: true, imported_items: result.inserted };
 		}),
 	syncMercury: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
@@ -177,15 +184,17 @@ export const actions = {
 		}),
 	syncStripe: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
-			await syncStripeTransactions(auth);
+			const result = await syncStripeTransactions(auth);
+			if (result.skipped) {
+				return {
+					accounting_error: `Imported ${result.inserted} new items. ${result.skipped} Stripe transactions had incomplete or inconsistent data and need provider review.`
+				};
+			}
+			return { accounting_success: true, imported_items: result.inserted };
 		}),
 	voidEntry: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await voidEntry(auth, await readAccountingFormData(request));
-		}),
-	updateEntry: async ({ cookies, params, request }) =>
-		withAccountingAuth(cookies, params, async (auth) => {
-			await updateEntryByReplacement(auth, await readAccountingFormData(request));
 		}),
 	updateTransaction: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
@@ -195,6 +204,11 @@ export const actions = {
 	reclassifyReceipt: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await reclassifyReceipt(auth, await readAccountingFormData(request));
+		}),
+	attachReceipt: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await attachReceiptToEntry(auth, await readAccountingFormData(request));
+			return { accounting_success: true, receipt_attached: true };
 		}),
 	publishSnapshot: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {

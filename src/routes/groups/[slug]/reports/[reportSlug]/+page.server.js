@@ -1,4 +1,5 @@
 import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { publicAccountingReport } from '$lib/server/groupAccountingPublic';
 
 export const load = async ({ params }) => {
 	const supabase = createServiceSupabaseClient();
@@ -18,5 +19,5 @@ export const load = async ({ params }) => {
 		.maybeSingle();
 	if (error) return { error: error.message };
 	if (!report) return { error: 'Report not found.' };
-	return { group, report };
+	return { group, report: publicAccountingReport(report) };
 };

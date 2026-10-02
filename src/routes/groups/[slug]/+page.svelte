@@ -18,6 +18,7 @@
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconBadgeDollarSign from '@lucide/svelte/icons/badge-dollar-sign';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
 	import GroupAssetShowcase from '$lib/components/groups/GroupAssetShowcase.svelte';
 	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
@@ -589,7 +590,9 @@
 	}
 
 	function formatAccountingCents(cents, currency = 'usd') {
-		const amount = Number(cents || 0) / 100;
+		const numericCents = Number(cents);
+		if (!Number.isFinite(numericCents)) return '—';
+		const amount = numericCents / 100;
 		try {
 			return new Intl.NumberFormat('en-US', {
 				style: 'currency',
@@ -609,6 +612,19 @@
 			day: 'numeric',
 			year: 'numeric'
 		}).format(date);
+	}
+
+	function nonZeroSnapshotAccounts(accounts, centsField) {
+		return (Array.isArray(accounts) ? accounts : []).filter(
+			(account) => Number(account?.[centsField]) !== 0
+		);
+	}
+
+	function topSnapshotSpending(accounts) {
+		return nonZeroSnapshotAccounts(accounts, 'period_balance_cents')
+			.slice()
+			.sort((left, right) => Number(right.period_balance_cents) - Number(left.period_balance_cents))
+			.slice(0, 6);
 	}
 </script>
 
@@ -974,6 +990,14 @@
 			{#if latestAccountingReport}
 				{@const snapshot = latestAccountingReport.snapshot ?? {}}
 				{@const financialReport = snapshot.report ?? {}}
+				{@const snapshotCurrency =
+					snapshot.currency ?? financialReport.currency ?? data.accounting_currency ?? 'usd'}
+				{@const retainedActivityCents =
+					Number(financialReport.totals?.equity_cents || 0) -
+					(financialReport.equity ?? []).reduce(
+						(sum, account) => sum + Number(account.balance_cents || 0),
+						0
+					)}
 				{@const visibility = latestAccountingReport.visibility ?? {}}
 				<section
 					class="card preset-filled-surface-100-900 border-surface-200-800/40 space-y-5 border p-6"
@@ -995,21 +1019,39 @@
 								</p>
 							</div>
 						</div>
-						<div class="badge preset-tonal-surface px-3 py-1 text-xs font-medium">
-							Published {accountingSnapshotDate(latestAccountingReport.published_at)}
-						</div>
+						{#if latestAccountingReport.slug}
+							<a
+								class="badge preset-tonal-surface hover:border-primary-500 focus-visible:ring-primary-500 flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition focus-visible:ring-2 focus-visible:outline-none"
+								href="/groups/{data.group?.slug}/reports/{latestAccountingReport.slug}"
+							>
+								Published {accountingSnapshotDate(latestAccountingReport.published_at)}
+								<IconExternalLink class="h-3 w-3" />
+								<span class="sr-only">Open published financial snapshot</span>
+							</a>
+						{:else}
+							<div class="badge preset-tonal-surface px-3 py-1 text-xs font-medium">
+								Published {accountingSnapshotDate(latestAccountingReport.published_at)}
+							</div>
+						{/if}
 					</div>
 
-					<div class="grid gap-4 md:grid-cols-3">
+					<div
+						class="grid gap-4 {visibility.cash !== false && visibility.activity !== false
+							? 'md:grid-cols-3'
+							: visibility.cash !== false
+								? 'max-w-xl'
+								: 'max-w-2xl md:grid-cols-2'}"
+					>
 						{#if visibility.cash !== false}
 							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
 								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">
-									Cash position
+									Net position
 								</p>
 								<p class="mt-1 text-2xl font-black">
 									{formatAccountingCents(
 										(financialReport.totals?.assets_cents || 0) -
-											(financialReport.totals?.liabilities_cents || 0)
+											(financialReport.totals?.liabilities_cents || 0),
+										snapshotCurrency
 									)}
 								</p>
 							</div>
@@ -1018,20 +1060,26 @@
 							<div class="card preset-tonal-success border-surface-200-800/40 border p-4">
 								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">Money in</p>
 								<p class="mt-1 text-2xl font-black">
-									{formatAccountingCents(financialReport.totals?.income_cents)}
+									{formatAccountingCents(financialReport.totals?.income_cents, snapshotCurrency)}
 								</p>
 							</div>
-							<div class="card preset-tonal-error border-surface-200-800/40 border p-4">
-								<p class="text-[10px] font-bold tracking-wider uppercase opacity-60">Money out</p>
-								<p class="mt-1 text-2xl font-black">
-									{formatAccountingCents(financialReport.totals?.expense_cents)}
+							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+								<p class="text-error-500 text-[10px] font-bold tracking-wider uppercase">
+									Money out
+								</p>
+								<p class="text-error-500 mt-1 text-2xl font-black">
+									{formatAccountingCents(financialReport.totals?.expense_cents, snapshotCurrency)}
 								</p>
 							</div>
 						{/if}
 					</div>
 
 					{#if visibility.position !== false}
-						<div class="grid gap-4 md:grid-cols-2">
+						<div
+							class="grid gap-4 {visibility.activity !== false
+								? 'md:grid-cols-2'
+								: 'md:grid-cols-3'}"
+						>
 							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
 								<h3
 									class="border-surface-200-800/20 text-primary-500 mb-2.5 flex items-center gap-1.5 border-b pb-1.5 text-sm font-bold"
@@ -1039,40 +1087,114 @@
 									<span>What we have</span>
 								</h3>
 								<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
-									{#each (financialReport.assets ?? [])
-										.filter((account) => account.balance_cents !== 0)
-										.slice(0, 6) as account}
+									{#each nonZeroSnapshotAccounts(financialReport.assets, 'balance_cents').slice(0, 6) as account}
 										<div class="flex justify-between gap-3 pt-1.5 text-sm">
 											<span class="font-medium">{account.name}</span>
 											<span class="font-semibold"
-												>{formatAccountingCents(account.balance_cents)}</span
+												>{formatAccountingCents(account.balance_cents, snapshotCurrency)}</span
 											>
 										</div>
+									{:else}
+										<p class="py-3 text-center text-sm opacity-60">
+											No asset balances in this snapshot.
+										</p>
 									{/each}
 								</div>
 							</div>
 							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
 								<h3
-									class="border-surface-200-800/20 text-error-500 mb-2.5 flex items-center gap-1.5 border-b pb-1.5 text-sm font-bold"
+									class="border-surface-200-800/20 text-error-500 mb-2.5 border-b pb-1.5 text-sm font-bold"
 								>
-									<span>Top spending categories</span>
+									What we owe
 								</h3>
 								<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
-									{#each (financialReport.expenses ?? [])
-										.filter((account) => account.period_balance_cents > 0)
-										.slice(0, 6) as account}
+									{#each nonZeroSnapshotAccounts(financialReport.liabilities, 'balance_cents').slice(0, 6) as account}
 										<div class="flex justify-between gap-3 pt-1.5 text-sm">
 											<span class="font-medium">{account.name}</span>
 											<span class="font-semibold"
-												>{formatAccountingCents(account.period_balance_cents)}</span
+												>{formatAccountingCents(account.balance_cents, snapshotCurrency)}</span
 											>
 										</div>
 									{:else}
 										<p class="py-3 text-center text-sm opacity-60">
-											No spending shown in this snapshot.
+											No liabilities in this snapshot.
 										</p>
 									{/each}
 								</div>
+								<div
+									class="border-surface-200-800/20 mt-3 flex items-center justify-between border-t pt-2 text-sm font-bold"
+								>
+									<span>Total liabilities</span>
+									<span
+										>{formatAccountingCents(
+											financialReport.totals?.liabilities_cents,
+											snapshotCurrency
+										)}</span
+									>
+								</div>
+							</div>
+							<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+								<h3
+									class="border-surface-200-800/20 text-primary-500 mb-2.5 border-b pb-1.5 text-sm font-bold"
+								>
+									Equity
+								</h3>
+								<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
+									{#each nonZeroSnapshotAccounts(financialReport.equity, 'balance_cents').slice(0, 6) as account}
+										<div class="flex justify-between gap-3 pt-1.5 text-sm">
+											<span class="font-medium">{account.name}</span>
+											<span class="font-semibold"
+												>{formatAccountingCents(account.balance_cents, snapshotCurrency)}</span
+											>
+										</div>
+									{:else}
+										<p class="py-3 text-center text-sm opacity-60">
+											No equity accounts in this snapshot.
+										</p>
+									{/each}
+									{#if retainedActivityCents !== 0}
+										<div class="flex justify-between gap-3 pt-1.5 text-sm">
+											<span class="font-medium">Retained activity</span>
+											<span class="font-semibold"
+												>{formatAccountingCents(retainedActivityCents, snapshotCurrency)}</span
+											>
+										</div>
+									{/if}
+								</div>
+								<div
+									class="border-surface-200-800/20 mt-3 flex items-center justify-between border-t pt-2 text-sm font-bold"
+								>
+									<span>Total equity</span>
+									<span
+										>{formatAccountingCents(
+											financialReport.totals?.equity_cents,
+											snapshotCurrency
+										)}</span
+									>
+								</div>
+							</div>
+						</div>
+					{/if}
+					{#if visibility.activity !== false}
+						<div class="card preset-tonal-surface border-surface-200-800/40 border p-4">
+							<h3
+								class="border-surface-200-800/20 text-error-500 mb-2.5 flex items-center gap-1.5 border-b pb-1.5 text-sm font-bold"
+							>
+								<span>Top spending categories</span>
+							</h3>
+							<div class="divide-surface-200-800/10 space-y-1.5 divide-y">
+								{#each topSnapshotSpending(financialReport.expenses) as account}
+									<div class="flex justify-between gap-3 pt-1.5 text-sm">
+										<span class="font-medium">{account.name}</span>
+										<span class="font-semibold"
+											>{formatAccountingCents(account.period_balance_cents, snapshotCurrency)}</span
+										>
+									</div>
+								{:else}
+									<p class="py-3 text-center text-sm opacity-60">
+										No spending or refunds shown in this snapshot.
+									</p>
+								{/each}
 							</div>
 						</div>
 					{/if}
@@ -1095,12 +1217,21 @@
 							>
 							<div class="flex flex-wrap gap-2">
 								{#each accountingReports.slice(1) as report}
-									<span
-										class="badge preset-tonal-surface border-surface-200-800/30 flex items-center gap-1.5 border px-3 py-1"
-									>
-										<IconBadgeDollarSign class="h-3.5 w-3.5" />
-										{report.title}
-									</span>
+									{#if report.slug}
+										<a
+											class="badge preset-tonal-surface border-surface-200-800/30 hover:border-primary-500 focus-visible:ring-primary-500 flex items-center gap-1.5 border px-3 py-1 transition focus-visible:ring-2 focus-visible:outline-none"
+											href="/groups/{data.group?.slug}/reports/{report.slug}"
+											aria-label="Open financial snapshot: {report.title}"
+										>
+											<IconBadgeDollarSign class="h-3.5 w-3.5" />
+											{report.title}
+										</a>
+									{:else}
+										<span class="badge preset-tonal-surface flex items-center gap-1.5">
+											<IconBadgeDollarSign class="h-3.5 w-3.5" />
+											{report.title}
+										</span>
+									{/if}
 								{/each}
 							</div>
 						</div>

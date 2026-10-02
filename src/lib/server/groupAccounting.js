@@ -14,12 +14,44 @@ import {
 	centsFromAmountAndDirection,
 	centsFromSignedAmount,
 	cleanText,
+	csvEscape,
+	buildBankFeedEntryLines,
 	buildFeedItemsWithMatchCandidates,
+	buildAccountingReportFromRows,
+	budgetActualWindow,
+	buildCsvSourceIds,
+	dateDeltaDays,
+	fetchAllRows,
+	isValidAccountingDate,
+	normalizedMatchText,
+	normalizeBankDate,
 	parseCsvRows,
 	slugify,
 	uniquePublicReportSlug
 } from './groupAccountingRules.js';
 import { loadGroupStripeConnection } from './groupStripeConnection.js';
+import {
+	assertFinancialConnectionsSessionOwnership,
+	dedupeRowsByKey,
+	feedItemAmountCents,
+	feedItemDescription,
+	feedTransactionId,
+	forEachStripeListItem,
+	mercuryAccountPages,
+	mercuryProviderAccountsFromTransactions,
+	mercuryTransactionDate,
+	mercuryTransactionAccountId,
+	mercuryTransactionPages,
+	providerExternalAccountId,
+	providerTransactionDate,
+	redactMercurySensitiveFields,
+	shouldImportFinancialConnectionsTransaction,
+	shouldImportMercuryTransaction,
+	shouldSyncBankProvider,
+	stripeBalanceTransactionFeedRows,
+	stripeFinancialConnectionsBalance
+} from './groupAccountingProviders.js';
+import { buildPublicAccountingSnapshot } from './groupAccountingPublic.js';
 import { fetchPublicHttp } from './security.js';
 
 export const GROUP_ACCOUNTING_RECEIPT_BUCKET = 'group-accounting-receipts';
@@ -205,12 +237,14 @@ function currentYear() {
 function dateOnly(value) {
 	const raw = cleanText(value);
 	if (!raw) return new Date().toISOString().slice(0, 10);
-	return raw.slice(0, 10);
+	const date = raw.slice(0, 10);
+	if (!isValidAccountingDate(date)) throw new Error('Enter a valid date.');
+	return date;
 }
 
-function monthKey(value) {
-	const date = dateOnly(value);
-	return date.slice(0, 7);
+function requiredDateOnly(value, label) {
+	if (!cleanText(value)) throw new Error(`${label} is required.`);
+	return dateOnly(value);
 }
 
 function isoDateFromParts(year, monthIndex, day) {
@@ -307,8 +341,11 @@ export function resolveAccountingReportWindow(url, now = new Date()) {
 			};
 		}
 		case 'custom': {
-			const from = dateOnly(url?.searchParams?.get('from')) || startOfYearIso(currentDate);
-			const to = dateOnly(url?.searchParams?.get('to')) || today;
+			const fromValue = cleanText(url?.searchParams?.get('from'));
+			const toValue = cleanText(url?.searchParams?.get('to'));
+			const from = fromValue ? dateOnly(fromValue) : startOfYearIso(currentDate);
+			const to = toValue ? dateOnly(toValue) : today;
+			if (from > to) throw new Error('The report start date must be on or before the end date.');
 			return {
 				period,
 				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
@@ -328,13 +365,43 @@ export function resolveAccountingReportWindow(url, now = new Date()) {
 }
 
 function normalizeCurrency(value) {
-	return cleanText(value || 'usd', 3).toLowerCase() || 'usd';
+	return cleanText(value || 'usd').toLowerCase() || 'usd';
 }
 
-function accountBalanceCents(account, lines) {
-	const debits = lines.reduce((sum, line) => sum + Number(line.debit_cents || 0), 0);
-	const credits = lines.reduce((sum, line) => sum + Number(line.credit_cents || 0), 0);
-	return account.normal_side === 'credit' ? credits - debits : debits - credits;
+function requireGroupCurrency(value, groupCurrency) {
+	const currency = normalizeCurrency(value || groupCurrency);
+	const baseCurrency = normalizeCurrency(groupCurrency);
+	if (!/^[a-z]{3}$/.test(baseCurrency))
+		throw new Error('The group accounting currency is invalid.');
+	if (!/^[a-z]{3}$/.test(currency)) throw new Error('Choose a valid three-letter currency code.');
+	if (currency !== baseCurrency) {
+		throw new Error(
+			`This group's books use ${baseCurrency.toUpperCase()}; currency conversion is not supported.`
+		);
+	}
+	return baseCurrency;
+}
+
+function feedAccountForMatchedEntry(item, entry, accounts, requestedAccountId = '') {
+	const expectedAmount = Number(item.amount_cents);
+	const matchingLines = (entry.lines ?? []).filter((line) => {
+		const account = accounts.find((candidate) => candidate.id === line.account_id);
+		return (
+			account &&
+			['asset', 'liability'].includes(account.kind) &&
+			Number(line.debit_cents || 0) - Number(line.credit_cents || 0) === expectedAmount
+		);
+	});
+	const accountId = requestedAccountId || item.account_id;
+	if (accountId) {
+		if (!matchingLines.some((line) => line.account_id === accountId)) {
+			throw new Error('Choose the cash account that matches this bank activity.');
+		}
+		return accountId;
+	}
+	if (matchingLines.length !== 1)
+		throw new Error('Choose the cash account that matches this bank activity.');
+	return matchingLines[0].account_id;
 }
 
 function normalizeVisibility(value = {}) {
@@ -345,12 +412,6 @@ function normalizeVisibility(value = {}) {
 		cash: value.cash !== false,
 		notes: value.notes !== false
 	};
-}
-
-function csvEscape(value) {
-	const text = String(value ?? '');
-	if (!/[",\n]/.test(text)) return text;
-	return `"${text.replace(/"/g, '""')}"`;
 }
 
 async function auditEvent(
@@ -658,38 +719,42 @@ async function insertBalancedEntry(supabase, groupId, entry, lines) {
 	const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit_cents || 0), 0);
 	if (debitTotal !== creditTotal) throw new Error('This entry does not balance.');
 	if (debitTotal <= 0) throw new Error('Amount must be greater than zero.');
-
-	const { data: inserted, error } = await supabase
-		.from('group_accounting_entries')
-		.insert({
-			...entry,
-			group_id: groupId,
-			amount_cents: entry.amount_cents ?? debitTotal,
-			posted_at: entry.status === 'draft' ? null : new Date().toISOString()
-		})
-		.select('*')
-		.single();
-	if (error) throw new Error(error.message);
-
+	if (
+		lines.some(
+			(line) =>
+				!Number.isSafeInteger(Number(line.debit_cents || 0)) ||
+				!Number.isSafeInteger(Number(line.credit_cents || 0)) ||
+				Number(line.debit_cents || 0) < 0 ||
+				Number(line.credit_cents || 0) < 0
+		)
+	) {
+		throw new Error('Entry lines must use non-negative whole cents.');
+	}
+	if (debitTotal > 2_147_483_647) throw new Error('Entry total exceeds the supported amount.');
+	const entryRow = {
+		...entry,
+		amount_cents: entry.amount_cents ?? debitTotal,
+		posted_at: entry.status === 'draft' ? null : new Date().toISOString()
+	};
 	const lineRows = lines.map((line) => ({
-		entry_id: inserted.id,
-		group_id: groupId,
 		account_id: line.account_id,
 		description: line.description || entry.description,
 		debit_cents: Number(line.debit_cents || 0),
 		credit_cents: Number(line.credit_cents || 0)
 	}));
-
-	const { error: lineError } = await supabase.from('group_accounting_lines').insert(lineRows);
-	if (lineError) {
-		await supabase.from('group_accounting_entries').delete().eq('id', inserted.id);
-		throw new Error(lineError.message);
-	}
+	const { data, error } = await supabase.rpc('group_accounting_post_entry', {
+		p_group_id: groupId,
+		p_entry: entryRow,
+		p_lines: lineRows
+	});
+	if (error) throw new Error(error.message);
+	const inserted = Array.isArray(data) ? data[0] : data;
+	if (!inserted?.id) throw new Error('Accounting entry was not returned after posting.');
 	return inserted;
 }
 
 export async function postSimpleEntry(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
@@ -700,17 +765,22 @@ export async function postSimpleEntry(auth, formData) {
 	const categoryAccountId = cleanText(formData.get('categoryAccountId'));
 	const description = cleanText(formData.get('description'), 200);
 	const memo = cleanText(formData.get('memo'), 1000) || null;
-	const currency = normalizeCurrency(formData.get('currency'));
+	const currency = requireGroupCurrency(formData.get('currency'), settings.currency);
+	const receiptFile = formData.get('receipt');
+	validateReceiptFile(receiptFile);
 
 	if (!['income', 'expense'].includes(flow)) throw new Error('Choose money in or money out.');
 	if (!amountCents || amountCents <= 0) throw new Error('Enter an amount greater than zero.');
 	if (!description) throw new Error('Add a short description.');
 
 	const cashAccount = accounts.find(
-		(account) => account.id === cashAccountId && ['asset', 'liability'].includes(account.kind)
+		(account) =>
+			account.id === cashAccountId &&
+			!account.is_archived &&
+			['asset', 'liability'].includes(account.kind)
 	);
 	const categoryAccount = accounts.find(
-		(account) => account.id === categoryAccountId && account.kind === flow
+		(account) => account.id === categoryAccountId && !account.is_archived && account.kind === flow
 	);
 	if (!cashAccount) throw new Error('Choose where the money moved.');
 	if (!categoryAccount) throw new Error('Choose a category.');
@@ -740,12 +810,16 @@ export async function postSimpleEntry(auth, formData) {
 				]
 	);
 
-	await maybeStoreReceipt(auth, entry.id, formData.get('receipt'));
+	try {
+		await maybeStoreReceipt(auth, entry.id, receiptFile);
+	} catch (error) {
+		entry.receipt_warning = `Transaction saved, but the receipt upload failed. Do not record the transaction again. You can attach the receipt from the receipts section. (${error.message})`;
+	}
 	return entry;
 }
 
 export async function postTransfer(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
@@ -758,8 +832,18 @@ export async function postTransfer(auth, formData) {
 	if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
 		throw new Error('Choose two different accounts.');
 	}
-	const fromAccount = accounts.find((account) => account.id === fromAccountId);
-	const toAccount = accounts.find((account) => account.id === toAccountId);
+	const fromAccount = accounts.find(
+		(account) =>
+			account.id === fromAccountId &&
+			!account.is_archived &&
+			['asset', 'liability'].includes(account.kind)
+	);
+	const toAccount = accounts.find(
+		(account) =>
+			account.id === toAccountId &&
+			!account.is_archived &&
+			['asset', 'liability'].includes(account.kind)
+	);
 	if (!fromAccount || !toAccount) throw new Error('Account not found.');
 
 	return insertBalancedEntry(
@@ -772,7 +856,7 @@ export async function postTransfer(auth, formData) {
 			description,
 			memo: cleanText(formData.get('memo'), 1000) || null,
 			amount_cents: amountCents,
-			currency: normalizeCurrency(formData.get('currency')),
+			currency: requireGroupCurrency(formData.get('currency'), settings.currency),
 			created_by_user_id: auth.userId
 		},
 		[
@@ -783,29 +867,42 @@ export async function postTransfer(auth, formData) {
 }
 
 export async function postJournal(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
 	);
-	const rows = JSON.parse(cleanText(formData.get('linesJson')) || '[]');
+	let rows;
+	try {
+		rows = JSON.parse(cleanText(formData.get('linesJson')) || '[]');
+	} catch {
+		throw new Error('Invalid journal lines.');
+	}
 	const description = cleanText(formData.get('description'), 200);
 	if (!description) throw new Error('Add a journal description.');
 	if (!Array.isArray(rows) || rows.length < 2) throw new Error('Add at least two lines.');
 
-	const lines = rows
-		.map((row) => {
-			const account = accounts.find((candidate) => candidate.id === cleanText(row.account_id));
-			if (!account) return null;
-			return {
-				account_id: account.id,
-				description: cleanText(row.description, 200) || description,
-				debit_cents: centsFromAmount(row.debit || 0) || 0,
-				credit_cents: centsFromAmount(row.credit || 0) || 0
-			};
-		})
-		.filter(Boolean)
-		.filter((line) => line.debit_cents > 0 || line.credit_cents > 0);
+	const lines = rows.map((row) => {
+		const account = accounts.find(
+			(candidate) => candidate.id === cleanText(row.account_id) && !candidate.is_archived
+		);
+		if (!account) return null;
+		return {
+			account_id: account.id,
+			description: cleanText(row.description, 200) || description,
+			debit_cents: centsFromAmount(row.debit || 0) || 0,
+			credit_cents: centsFromAmount(row.credit || 0) || 0
+		};
+	});
+	if (lines.some((line) => !line))
+		throw new Error('Choose a valid account for every journal line.');
+	const validLines = lines.filter((line) => line.debit_cents > 0 || line.credit_cents > 0);
+	if (validLines.length !== rows.length) {
+		throw new Error('Every journal line must contain a valid amount.');
+	}
+	if (validLines.some((line) => line.debit_cents > 0 && line.credit_cents > 0)) {
+		throw new Error('Each journal line must be either a debit or a credit.');
+	}
 
 	return insertBalancedEntry(
 		auth.serviceSupabase,
@@ -816,16 +913,16 @@ export async function postJournal(auth, formData) {
 			source: 'manual',
 			description,
 			memo: cleanText(formData.get('memo'), 1000) || null,
-			currency: normalizeCurrency(formData.get('currency')),
+			currency: requireGroupCurrency(formData.get('currency'), settings.currency),
 			created_by_user_id: auth.userId,
 			metadata: { advanced: true }
 		},
-		lines
+		validLines
 	);
 }
 
 export async function postOpeningBalance(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
@@ -833,7 +930,7 @@ export async function postOpeningBalance(auth, formData) {
 	const amountCents = centsFromAmount(formData.get('amount'));
 	const accountId = cleanText(formData.get('accountId'));
 	const cashAccount = accounts.find(
-		(account) => account.id === accountId && account.kind === 'asset'
+		(account) => account.id === accountId && !account.is_archived && account.kind === 'asset'
 	);
 	const equity = accountByCode(accounts, '3000');
 	if (!amountCents || amountCents <= 0)
@@ -848,7 +945,7 @@ export async function postOpeningBalance(auth, formData) {
 			source: 'manual',
 			description: cleanText(formData.get('description'), 200) || 'Starting balance',
 			amount_cents: amountCents,
-			currency: normalizeCurrency(formData.get('currency')),
+			currency: requireGroupCurrency(formData.get('currency'), settings.currency),
 			created_by_user_id: auth.userId
 		},
 		[
@@ -863,9 +960,13 @@ export async function createAccount(auth, formData) {
 	const normalSide = ['asset', 'expense'].includes(kind) ? 'debit' : 'credit';
 	const name = cleanText(formData.get('name'), 120);
 	const code = cleanText(formData.get('code'), 20);
+	const sortOrderValue = cleanText(formData.get('sortOrder'));
+	const sortOrder = sortOrderValue ? Number(sortOrderValue) : 900;
 	if (!name || !code) throw new Error('Name and code are required.');
 	if (!['asset', 'liability', 'equity', 'income', 'expense'].includes(kind))
 		throw new Error('Choose a valid account type.');
+	if (!Number.isSafeInteger(sortOrder) || sortOrder < 0)
+		throw new Error('Sort order must be a non-negative whole number.');
 	const { error } = await auth.serviceSupabase.from('group_accounting_accounts').insert({
 		group_id: auth.group.id,
 		code,
@@ -878,7 +979,7 @@ export async function createAccount(auth, formData) {
 			(kind === 'income' ? 'Money in' : kind === 'expense' ? 'Money out' : 'Other'),
 		description: cleanText(formData.get('description'), 500) || null,
 		is_system: false,
-		sort_order: Number(formData.get('sortOrder') || 900)
+		sort_order: sortOrder
 	});
 	if (error) throw new Error(error.message);
 }
@@ -931,13 +1032,32 @@ export async function updateAccountGroup(auth, formData) {
 }
 
 export async function updateBudget(auth, formData) {
-	const year = Number(formData.get('year') || currentYear());
+	const yearText = cleanText(formData.get('year'));
+	const year = yearText ? Number(yearText) : currentYear();
 	const accountId = cleanText(formData.get('accountId'));
-	const amountCents = centsFromAmount(formData.get('amount')) ?? 0;
+	const amountValue = cleanText(formData.get('amount'));
+	const amountCents = amountValue ? centsFromAmount(amountValue) : 0;
+	if (!Number.isInteger(year) || year < 2000 || year > 2200)
+		throw new Error('Choose a valid budget year.');
+	if (!accountId) throw new Error('Choose a budget account.');
+	if (amountCents === null) throw new Error('Enter a valid budget amount.');
+	const { data: account, error: accountError } = await auth.serviceSupabase
+		.from('group_accounting_accounts')
+		.select('id,kind')
+		.eq('group_id', auth.group.id)
+		.eq('id', accountId)
+		.maybeSingle();
+	if (accountError) throw new Error(accountError.message);
+	if (!account || !['income', 'expense'].includes(account.kind)) {
+		throw new Error('Choose an income or expense account from this group.');
+	}
 	const monthly = {};
 	for (let i = 1; i <= 12; i += 1) {
-		const cents = centsFromAmount(formData.get(`month_${i}`));
-		if (cents !== null && cents > 0) monthly[String(i).padStart(2, '0')] = cents;
+		const value = cleanText(formData.get(`month_${i}`));
+		if (!value) continue;
+		const cents = centsFromAmount(value);
+		if (cents === null) throw new Error(`Enter a valid budget for month ${i}.`);
+		if (cents > 0) monthly[String(i).padStart(2, '0')] = cents;
 	}
 	const { error } = await auth.serviceSupabase.from('group_accounting_budgets').upsert(
 		{
@@ -983,9 +1103,16 @@ export async function saveConnections(auth, formData) {
 }
 
 export async function addManualFeedItem(auth, formData) {
+	const { settings } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
 	const amountCents = centsFromSignedAmount(formData.get('amount'));
 	const description = cleanText(formData.get('description'), 200);
 	if (!amountCents || !description) throw new Error('Amount and description are required.');
+	if (Math.abs(amountCents) > 2_147_483_647)
+		throw new Error('Bank activity exceeds the supported amount.');
 	const { error } = await auth.serviceSupabase.from('group_accounting_bank_feed_items').insert({
 		group_id: auth.group.id,
 		provider: 'manual',
@@ -993,7 +1120,7 @@ export async function addManualFeedItem(auth, formData) {
 		transaction_date: dateOnly(formData.get('transactionDate')),
 		description,
 		amount_cents: amountCents,
-		currency: normalizeCurrency(formData.get('currency')),
+		currency: requireGroupCurrency(formData.get('currency'), settings.currency),
 		status: 'needs_review',
 		raw: { entered_by: auth.userId }
 	});
@@ -1001,25 +1128,36 @@ export async function addManualFeedItem(auth, formData) {
 }
 
 export async function importBankCsv(auth, formData) {
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
 	);
 	const accountId = cleanText(formData.get('accountId'));
 	const selectedAccount = accounts.find(
-		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
+		(account) =>
+			account.id === accountId &&
+			!account.is_archived &&
+			['asset', 'liability'].includes(account.kind)
 	);
 	if (!selectedAccount) {
 		throw new Error('Choose a bank account to associate with this upload.');
 	}
+	const currency = requireGroupCurrency(formData.get('currency'), settings.currency);
 	const file = formData.get('csvFile');
 	if (!(file instanceof File) || file.size <= 0) throw new Error('Choose a CSV file.');
+	if (file.size > 20 * 1024 * 1024) throw new Error('CSV file must be smaller than 20 MB.');
 	const textValue = await file.text();
 	const rows = parseCsvRows(textValue);
 	if (rows.length < 2)
 		throw new Error('CSV must include a header row and at least one transaction.');
-	const headers = rows[0].map((header) => cleanText(header).toLowerCase());
+	const headers = rows[0].map((header) =>
+		cleanText(header)
+			.replace(/^\uFEFF/, '')
+			.toLowerCase()
+			.replace(/[_-]+/g, ' ')
+			.replace(/\s+/g, ' ')
+	);
 	const findIndex = (...names) => headers.findIndex((header) => names.includes(header));
 	const dateIndex = findIndex(
 		'date',
@@ -1033,6 +1171,14 @@ export async function importBankCsv(auth, formData) {
 	const debitIndex = findIndex('debit', 'withdrawal', 'withdrawals');
 	const creditIndex = findIndex('credit', 'deposit', 'deposits');
 	const signIndex = findIndex('credit or debit', 'debit or credit', 'transaction type', 'type');
+	const bankTransactionIdIndex = findIndex(
+		'transaction id',
+		'transaction identifier',
+		'bank transaction id',
+		'bank transaction identifier',
+		'fitid',
+		'transaction reference'
+	);
 	if (
 		dateIndex < 0 ||
 		descriptionIndex < 0 ||
@@ -1040,29 +1186,77 @@ export async function importBankCsv(auth, formData) {
 	) {
 		throw new Error('CSV needs date, description/name, and amount or debit/credit columns.');
 	}
-	const transactions = rows
-		.slice(1)
-		.map((row, index) => {
-			let amount = null;
-			if (amountIndex >= 0) {
-				amount = centsFromAmountAndDirection(row[amountIndex], row[signIndex]);
-			} else {
-				amount = (centsFromAmount(row[creditIndex]) || 0) - (centsFromAmount(row[debitIndex]) || 0);
+	const transactions = rows.slice(1).flatMap((row, index) => {
+		if (!row.some((cell) => cleanText(cell))) return [];
+		const description = cleanText(row[descriptionIndex], 200);
+		const dateValue = cleanText(row[dateIndex]);
+		if (!description || !dateValue) return [];
+		const date = normalizeBankDate(dateValue);
+		if (!date) throw new Error(`CSV row ${index + 2} has an invalid date.`);
+		let amount = null;
+		if (amountIndex >= 0) {
+			amount = centsFromAmountAndDirection(row[amountIndex], row[signIndex]);
+		} else {
+			const creditValue = cleanText(row[creditIndex]);
+			const debitValue = cleanText(row[debitIndex]);
+			const creditCents = creditValue ? centsFromAmount(creditValue) : 0;
+			const debitCents = debitValue ? centsFromAmount(debitValue) : 0;
+			if (creditCents === null || debitCents === null) {
+				throw new Error(`CSV row ${index + 2} has an invalid credit or debit amount.`);
 			}
-			const description = cleanText(row[descriptionIndex], 200);
-			const date = cleanText(row[dateIndex]);
-			if (!date || !description || amount === null || amount === 0) return null;
-			return {
-				id: `csv:${file.name}:${index}:${date}:${description}:${amount}`,
+			if (creditCents > 0 && debitCents > 0) {
+				throw new Error(`CSV row ${index + 2} has both a credit and a debit amount.`);
+			}
+			amount = creditCents - debitCents;
+			if (!Number.isSafeInteger(amount) || amount < -2_147_483_648 || amount > 2_147_483_647) {
+				throw new Error(`CSV row ${index + 2} exceeds the supported amount.`);
+			}
+		}
+		if (amount === null) throw new Error(`CSV row ${index + 2} has an invalid amount.`);
+		if (Math.abs(amount) > 2_147_483_647) {
+			throw new Error(`CSV row ${index + 2} exceeds the supported amount.`);
+		}
+		if (amount === 0) return [];
+		return [
+			{
+				bank_transaction_id:
+					bankTransactionIdIndex >= 0 ? cleanText(row[bankTransactionIdIndex]) || null : null,
 				date,
 				description,
 				amount_cents: amount,
-				currency: normalizeCurrency(formData.get('currency') || 'usd'),
-				raw: { row }
-			};
-		})
-		.filter(Boolean);
+				currency,
+				raw: { row, headers }
+			}
+		];
+	});
 	if (!transactions.length) throw new Error('CSV did not contain any valid transaction rows.');
+	const existingCsvRows = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select(
+				'source_transaction_id,account_id,transaction_date,description,amount_cents,currency,raw'
+			)
+			.eq('group_id', auth.group.id)
+			.eq('provider', 'manual')
+			.eq('account_id', selectedAccount.id)
+			.like('source_transaction_id', 'csv:%')
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
+	const identifiedTransactions = buildCsvSourceIds(
+		transactions,
+		existingCsvRows,
+		selectedAccount.id
+	);
+	if (!identifiedTransactions.length) {
+		await auditEvent(auth, 'import_csv', 'bank_feed_item', null, null, null, {
+			file_name: file.name,
+			rows: transactions.length,
+			inserted: 0,
+			duplicates: transactions.length
+		});
+		return 0;
+	}
 	const { data: connection, error } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.upsert(
@@ -1077,13 +1271,13 @@ export async function importBankCsv(auth, formData) {
 		.select('*')
 		.single();
 	if (error) throw new Error(error.message);
-	const inserted = await upsertFeedItems(auth, connection, 'manual', transactions, {
+	const inserted = await upsertFeedItems(auth, connection, 'manual', identifiedTransactions, {
 		defaultAccountId: selectedAccount.id
 	});
 	await autoMatchFeedItems(auth);
 	await auditEvent(auth, 'import_csv', 'bank_feed_item', null, null, null, {
 		file_name: file.name,
-		rows: transactions.length,
+		rows: identifiedTransactions.length,
 		inserted
 	});
 	return inserted;
@@ -1093,7 +1287,7 @@ export async function postFeedItem(auth, formData) {
 	const feedItemId = cleanText(formData.get('feedItemId'));
 	const accountId = cleanText(formData.get('accountId'));
 	const categoryAccountId = cleanText(formData.get('categoryAccountId'));
-	const { accounts } = await ensureGroupAccountingSetup(
+	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
 		auth.userId
@@ -1109,13 +1303,37 @@ export async function postFeedItem(auth, formData) {
 	if (!['needs_review', 'matched'].includes(item.status)) {
 		throw new Error('This bank activity has already been handled.');
 	}
+	requireGroupCurrency(item.currency, settings.currency);
 	if (item.matched_entry_id) {
+		const { data: matchedEntry, error: matchedEntryError } = await auth.serviceSupabase
+			.from('group_accounting_entries')
+			.select(
+				'id,entry_date,amount_cents,currency,status,lines:group_accounting_lines(account_id,debit_cents,credit_cents)'
+			)
+			.eq('group_id', auth.group.id)
+			.eq('id', item.matched_entry_id)
+			.maybeSingle();
+		if (matchedEntryError) throw new Error(matchedEntryError.message);
+		if (!matchedEntry || matchedEntry.status !== 'posted') {
+			throw new Error('The matched transaction is no longer available. Choose another match.');
+		}
+		if (Math.abs(Number(matchedEntry.amount_cents)) !== Math.abs(Number(item.amount_cents))) {
+			throw new Error('Matched transactions must have the same amount.');
+		}
+		if (normalizeCurrency(matchedEntry.currency) !== normalizeCurrency(item.currency)) {
+			throw new Error('Matched transactions must use the same currency.');
+		}
+		const matchedAccountId = feedAccountForMatchedEntry(item, matchedEntry, accounts, accountId);
+		const suggestedAccount = categoryAccountId || item.suggested_account_id;
+		if (suggestedAccount && !accounts.some((account) => account.id === suggestedAccount)) {
+			throw new Error('Choose a valid category.');
+		}
 		const { error: confirmError } = await auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
 			.update({
 				status: 'posted',
-				account_id: accountId || item.account_id,
-				suggested_account_id: categoryAccountId || item.suggested_account_id
+				account_id: matchedAccountId,
+				suggested_account_id: suggestedAccount
 			})
 			.eq('group_id', auth.group.id)
 			.eq('id', item.id)
@@ -1124,37 +1342,52 @@ export async function postFeedItem(auth, formData) {
 		return;
 	}
 	const amount = Number(item.amount_cents || 0);
-	const flow = amount >= 0 ? 'income' : 'expense';
+	if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > 2_147_483_647) {
+		throw new Error('Bank activity exceeds the supported amount.');
+	}
 	const cashAccount = accounts.find(
-		(account) => account.id === accountId && ['asset', 'liability'].includes(account.kind)
+		(account) =>
+			account.id === accountId &&
+			!account.is_archived &&
+			['asset', 'liability'].includes(account.kind)
 	);
 	const categoryAccount = accounts.find(
 		(account) =>
 			account.id === categoryAccountId &&
-			(account.kind === flow || ['asset', 'liability'].includes(account.kind))
+			!account.is_archived &&
+			['income', 'expense', 'asset', 'liability'].includes(account.kind)
 	);
 	if (!cashAccount) throw new Error('Choose where the money moved.');
-	if (!categoryAccount) throw new Error('Choose a category.');
+	if (!categoryAccount) throw new Error('Choose a category or transfer account.');
 	const amountCents = Math.abs(amount);
 	const isTransferAccount = ['asset', 'liability'].includes(categoryAccount.kind);
-	if (isTransferAccount && categoryAccount.id === cashAccount.id) {
-		throw new Error('Choose two different accounts.');
-	}
+	const entryLines = buildBankFeedEntryLines(amount, cashAccount.id, categoryAccount);
 	const { data: existingEntry, error: existingEntryError } = await auth.serviceSupabase
 		.from('group_accounting_entries')
-		.select('id')
+		.select(
+			'id,entry_date,amount_cents,currency,status,lines:group_accounting_lines(account_id,debit_cents,credit_cents)'
+		)
 		.eq('group_id', auth.group.id)
 		.eq('source', 'bank_feed')
 		.eq('source_id', item.id)
 		.maybeSingle();
 	if (existingEntryError) throw new Error(existingEntryError.message);
 	if (existingEntry) {
+		if (existingEntry.status !== 'posted')
+			throw new Error('The existing transaction is not posted.');
+		if (Math.abs(Number(existingEntry.amount_cents)) !== amountCents) {
+			throw new Error('The existing transaction has a different amount.');
+		}
+		if (normalizeCurrency(existingEntry.currency) !== normalizeCurrency(item.currency)) {
+			throw new Error('The existing transaction uses a different currency.');
+		}
+		const matchedAccountId = feedAccountForMatchedEntry(item, existingEntry, accounts, accountId);
 		const { error: existingUpdateError } = await auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
 			.update({
 				status: 'posted',
 				matched_entry_id: existingEntry.id,
-				account_id: accountId,
+				account_id: matchedAccountId,
 				suggested_account_id: categoryAccountId
 			})
 			.eq('group_id', auth.group.id)
@@ -1178,47 +1411,25 @@ export async function postFeedItem(auth, formData) {
 			metadata: {
 				provider: item.provider,
 				source_transaction_id: item.source_transaction_id,
+				feed_account_id: cashAccount.id,
+				feed_category_account_id: categoryAccount.id,
 				...(isTransferAccount ? { transfer_account_id: categoryAccount.id } : {})
 			}
 		},
-		isTransferAccount
-			? amount >= 0
-				? [
-						{ account_id: cashAccount.id, debit_cents: amountCents },
-						{ account_id: categoryAccount.id, credit_cents: amountCents }
-					]
-				: [
-						{ account_id: categoryAccount.id, debit_cents: amountCents },
-						{ account_id: cashAccount.id, credit_cents: amountCents }
-					]
-			: flow === 'income'
-				? [
-						{ account_id: cashAccount.id, debit_cents: amountCents },
-						{ account_id: categoryAccount.id, credit_cents: amountCents }
-					]
-				: [
-						{ account_id: categoryAccount.id, debit_cents: amountCents },
-						{ account_id: cashAccount.id, credit_cents: amountCents }
-					]
+		entryLines
 	);
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_bank_feed_items')
-		.update({
-			status: 'posted',
-			matched_entry_id: entry.id,
-			account_id: accountId,
-			suggested_account_id: categoryAccountId
-		})
-		.eq('group_id', auth.group.id)
-		.eq('id', item.id)
-		.in('status', ['needs_review', 'matched']);
-	if (updateError) throw new Error(updateError.message);
+	return entry;
 }
 
 export async function matchFeedItemToEntry(auth, formData) {
 	const feedItemId = cleanText(formData.get('feedItemId'));
 	const entryId = cleanText(formData.get('entryId'));
 	const accountId = cleanText(formData.get('accountId'));
+	const { settings, accounts } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
 	if (!feedItemId || !entryId) throw new Error('Choose a transaction to match.');
 	const [{ data: item, error: itemError }, { data: entry, error: entryError }] = await Promise.all([
 		auth.serviceSupabase
@@ -1229,7 +1440,9 @@ export async function matchFeedItemToEntry(auth, formData) {
 			.maybeSingle(),
 		auth.serviceSupabase
 			.from('group_accounting_entries')
-			.select('id, entry_date, amount_cents, status')
+			.select(
+				'id,entry_date,amount_cents,currency,status,lines:group_accounting_lines(account_id,debit_cents,credit_cents)'
+			)
 			.eq('group_id', auth.group.id)
 			.eq('id', entryId)
 			.maybeSingle()
@@ -1241,27 +1454,19 @@ export async function matchFeedItemToEntry(auth, formData) {
 	if (!['needs_review', 'matched'].includes(item.status)) {
 		throw new Error('This bank activity has already been handled.');
 	}
+	requireGroupCurrency(item.currency, settings.currency);
+	requireGroupCurrency(entry.currency, settings.currency);
 	if (entry.status !== 'posted') throw new Error('Only posted transactions can be matched.');
-	if (accountId) {
-		const { data: account, error: accountError } = await auth.serviceSupabase
-			.from('group_accounting_accounts')
-			.select('id, kind')
-			.eq('group_id', auth.group.id)
-			.eq('id', accountId)
-			.maybeSingle();
-		if (accountError) throw new Error(accountError.message);
-		if (!account || !['asset', 'liability'].includes(account.kind)) {
-			throw new Error('Choose a cash account.');
-		}
-	}
 	if (Math.abs(Number(entry.amount_cents || 0)) !== Math.abs(Number(item.amount_cents || 0))) {
 		throw new Error('Matched transactions must have the same amount.');
 	}
+	const matchedAccountId = feedAccountForMatchedEntry(item, entry, accounts, accountId);
 	const { data: existingMatch, error: existingMatchError } = await auth.serviceSupabase
 		.from('group_accounting_bank_feed_items')
 		.select('id')
 		.eq('group_id', auth.group.id)
 		.eq('matched_entry_id', entry.id)
+		.eq('account_id', matchedAccountId)
 		.neq('id', item.id)
 		.in('status', ['matched', 'posted'])
 		.maybeSingle();
@@ -1272,7 +1477,7 @@ export async function matchFeedItemToEntry(auth, formData) {
 		.update({
 			status: 'posted',
 			matched_entry_id: entry.id,
-			account_id: accountId || item.account_id,
+			account_id: matchedAccountId,
 			match_confidence: 1,
 			match_reason: 'Matched manually during bank review'
 		})
@@ -1295,17 +1500,7 @@ export async function ignoreFeedItem(auth, formData) {
 
 async function maybeStoreReceipt(auth, entryId, file) {
 	if (!(file instanceof File) || file.size <= 0) return null;
-	const allowed = [
-		'image/jpeg',
-		'image/png',
-		'image/webp',
-		'application/pdf',
-		'text/plain',
-		'text/csv'
-	];
-	if (!allowed.includes(file.type))
-		throw new Error('Receipt must be an image, PDF, text, or CSV file.');
-	if (file.size > 10 * 1024 * 1024) throw new Error('Receipt must be smaller than 10 MB.');
+	validateReceiptFile(file);
 
 	const objectPath = `${auth.group.id}/${entryId}/${Date.now()}-${slugFileName(file.name)}`;
 	const arrayBuffer = await file.arrayBuffer();
@@ -1333,11 +1528,67 @@ async function maybeStoreReceipt(auth, entryId, file) {
 		})
 		.select('*')
 		.single();
-	if (error) throw new Error(error.message);
+	if (error || !data) {
+		const cleanup = await auth.serviceSupabase.storage
+			.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
+			.remove([objectPath]);
+		const message = error?.message || 'Receipt record was not returned after upload.';
+		if (cleanup.error) {
+			throw new Error(
+				`${message} The uploaded file could not be removed: ${cleanup.error.message}`
+			);
+		}
+		throw new Error(message);
+	}
 	return data;
 }
 
+function validateReceiptFile(file) {
+	if (!(file instanceof File) || file.size <= 0) return;
+	const allowed = [
+		'image/jpeg',
+		'image/png',
+		'image/webp',
+		'application/pdf',
+		'text/plain',
+		'text/csv'
+	];
+	if (!allowed.includes(file.type))
+		throw new Error('Receipt must be an image, PDF, text, or CSV file.');
+	if (file.size > 10 * 1024 * 1024) throw new Error('Receipt must be smaller than 10 MB.');
+}
+
+export async function attachReceiptToEntry(auth, formData) {
+	const entryId = cleanText(formData.get('entryId'));
+	const file = formData.get('receipt');
+	validateReceiptFile(file);
+	if (!(file instanceof File) || file.size <= 0) throw new Error('Choose a receipt file.');
+	const { data: entry, error } = await auth.serviceSupabase
+		.from('group_accounting_entries')
+		.select('id,status')
+		.eq('group_id', auth.group.id)
+		.eq('id', entryId)
+		.maybeSingle();
+	if (error) throw new Error(error.message);
+	if (!entry) throw new Error('Transaction not found.');
+	if (entry.status !== 'posted')
+		throw new Error('Receipts can only be attached to posted transactions.');
+	const receipt = await maybeStoreReceipt(auth, entry.id, file);
+	await auditEvent(auth, 'attach_receipt', 'receipt', receipt.id, null, receipt, {
+		entry_id: entry.id
+	});
+	return receipt;
+}
+
 export async function saveSettings(auth, formData) {
+	const fiscalYearStartMonth = Number(formData.get('fiscalYearStartMonth') || 1);
+	if (
+		!Number.isInteger(fiscalYearStartMonth) ||
+		fiscalYearStartMonth < 1 ||
+		fiscalYearStartMonth > 12
+	) {
+		throw new Error('Choose a fiscal year start month from 1 to 12.');
+	}
 	const visibility = normalizeVisibility({
 		activity: formData.get('showActivity') === 'on',
 		position: formData.get('showPosition') === 'on',
@@ -1350,7 +1601,7 @@ export async function saveSettings(auth, formData) {
 		.update({
 			public_reports_enabled: formData.get('publicReportsEnabled') === 'on',
 			public_visibility: visibility,
-			fiscal_year_start_month: Number(formData.get('fiscalYearStartMonth') || 1)
+			fiscal_year_start_month: fiscalYearStartMonth
 		})
 		.eq('group_id', auth.group.id);
 	if (error) throw new Error(error.message);
@@ -1358,31 +1609,32 @@ export async function saveSettings(auth, formData) {
 
 export async function createReconciliation(auth, formData) {
 	const accountId = cleanText(formData.get('accountId'));
+	if (!accountId) throw new Error('Choose a bank or credit card account.');
+	const statementEndingDate = requiredDateOnly(
+		formData.get('statementEndingDate'),
+		'Statement ending date'
+	);
 	const statementEndingBalanceCents = centsFromSignedAmount(formData.get('statementEndingBalance'));
-	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, {
-		to: dateOnly(formData.get('statementEndingDate'))
-	});
-	const account = report.accounts.find((candidate) => candidate.id === accountId);
-	if (!account) throw new Error('Account not found.');
-	const differenceCents =
-		Number(statementEndingBalanceCents || 0) - Number(account.balance_cents || 0);
-	const { error } = await auth.serviceSupabase.from('group_accounting_reconciliations').insert({
-		group_id: auth.group.id,
-		account_id: accountId,
-		statement_ending_date: dateOnly(formData.get('statementEndingDate')),
-		statement_ending_balance_cents: Number(statementEndingBalanceCents || 0),
-		book_balance_cents: Number(account.balance_cents || 0),
-		difference_cents: differenceCents,
-		status: differenceCents === 0 ? 'completed' : 'draft',
-		completed_by_user_id: differenceCents === 0 ? auth.userId : null,
-		completed_at: differenceCents === 0 ? new Date().toISOString() : null
+	if (statementEndingBalanceCents === null)
+		throw new Error('Enter a valid statement ending balance.');
+	const { data, error } = await auth.serviceSupabase.rpc('group_accounting_reconcile', {
+		p_group_id: auth.group.id,
+		p_account_id: accountId,
+		p_statement_date: statementEndingDate,
+		p_statement_balance: statementEndingBalanceCents,
+		p_checked_ids: [],
+		p_actor_id: auth.userId
 	});
 	if (error) throw new Error(error.message);
+	const reconciliation = Array.isArray(data) ? data[0] : data;
+	if (!reconciliation?.id) throw new Error('Reconciliation was not returned after saving.');
+	return reconciliation;
 }
 
 export async function buildAccountingReport(supabase, groupId, options = {}) {
-	const from = options.from || `${currentYear()}-01-01`;
-	const to = options.to || new Date().toISOString().slice(0, 10);
+	const from = dateOnly(options.from || `${currentYear()}-01-01`);
+	const to = dateOnly(options.to || new Date().toISOString().slice(0, 10));
+	if (from > to) throw new Error('The report start date must be on or before the end date.');
 	const { data: accounts, error: accountsError } = await supabase
 		.from('group_accounting_accounts')
 		.select('*')
@@ -1390,85 +1642,36 @@ export async function buildAccountingReport(supabase, groupId, options = {}) {
 		.order('sort_order', { ascending: true });
 	if (accountsError) throw new Error(accountsError.message);
 
-	const { data: entries, error: entriesError } = await supabase
-		.from('group_accounting_entries')
-		.select('id,entry_date,status,description,entry_type')
-		.eq('group_id', groupId)
-		.eq('status', 'posted')
-		.lte('entry_date', to);
-	if (entriesError) throw new Error(entriesError.message);
-
-	const entriesById = new Map((entries ?? []).map((entry) => [entry.id, entry]));
-	let lines = [];
-	if (entriesById.size) {
-		const { data: lineRows, error: linesError } = await supabase
-			.from('group_accounting_lines')
-			.select('*')
+	const entries = await fetchAllRows((fromRow, toRow) =>
+		supabase
+			.from('group_accounting_entries')
+			.select('id,entry_date,status,description,entry_type')
 			.eq('group_id', groupId)
-			.in('entry_id', Array.from(entriesById.keys()));
-		if (linesError) throw new Error(linesError.message);
-		lines = (lineRows ?? []).map((line) => ({
-			...line,
-			entry: entriesById.get(line.entry_id)
-		}));
+			.in('status', ['posted', 'void'])
+			.lte('entry_date', to)
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
+
+	let lines = [];
+	if (entries.length) {
+		const entryIds = entries.map((entry) => entry.id);
+		const entryIdPageSize = 500;
+		for (let index = 0; index < entryIds.length; index += entryIdPageSize) {
+			const entryIdPage = entryIds.slice(index, index + entryIdPageSize);
+			const lineRows = await fetchAllRows((fromRow, toRow) =>
+				supabase
+					.from('group_accounting_lines')
+					.select('*')
+					.eq('group_id', groupId)
+					.in('entry_id', entryIdPage)
+					.order('id', { ascending: true })
+					.range(fromRow, toRow)
+			);
+			lines.push(...lineRows);
+		}
 	}
-
-	const periodLines = (lines ?? []).filter((line) => line.entry?.entry_date >= from);
-	const accountsWithBalances = (accounts ?? []).map((account) => {
-		const allAccountLines = (lines ?? []).filter((line) => line.account_id === account.id);
-		const periodAccountLines = periodLines.filter((line) => line.account_id === account.id);
-		return {
-			...account,
-			balance_cents: accountBalanceCents(account, allAccountLines),
-			period_balance_cents: accountBalanceCents(account, periodAccountLines)
-		};
-	});
-
-	const income = accountsWithBalances.filter((account) => account.kind === 'income');
-	const expenses = accountsWithBalances.filter((account) => account.kind === 'expense');
-	const assets = accountsWithBalances.filter((account) => account.kind === 'asset');
-	const liabilities = accountsWithBalances.filter((account) => account.kind === 'liability');
-	const equity = accountsWithBalances.filter((account) => account.kind === 'equity');
-	const totalIncome = income.reduce((sum, account) => sum + account.period_balance_cents, 0);
-	const totalExpenses = expenses.reduce((sum, account) => sum + account.period_balance_cents, 0);
-	const net = totalIncome - totalExpenses;
-
-	const monthly = {};
-	for (const line of periodLines) {
-		const account = accountsWithBalances.find((candidate) => candidate.id === line.account_id);
-		if (!account || !['income', 'expense'].includes(account.kind)) continue;
-		const key = monthKey(line.entry.entry_date);
-		monthly[key] ??= { income_cents: 0, expense_cents: 0, net_cents: 0 };
-		const amount =
-			account.normal_side === 'credit'
-				? Number(line.credit_cents || 0) - Number(line.debit_cents || 0)
-				: Number(line.debit_cents || 0) - Number(line.credit_cents || 0);
-		if (account.kind === 'income') monthly[key].income_cents += amount;
-		if (account.kind === 'expense') monthly[key].expense_cents += amount;
-		monthly[key].net_cents = monthly[key].income_cents - monthly[key].expense_cents;
-	}
-
-	return {
-		from,
-		to,
-		accounts: accountsWithBalances,
-		income,
-		expenses,
-		assets,
-		liabilities,
-		equity,
-		totals: {
-			income_cents: totalIncome,
-			expense_cents: totalExpenses,
-			net_cents: net,
-			assets_cents: assets.reduce((sum, account) => sum + account.balance_cents, 0),
-			liabilities_cents: liabilities.reduce((sum, account) => sum + account.balance_cents, 0),
-			equity_cents: equity.reduce((sum, account) => sum + account.balance_cents, 0) + net
-		},
-		monthly: Object.entries(monthly)
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([month, value]) => ({ month, ...value }))
-	};
+	return buildAccountingReportFromRows(accounts ?? [], entries, lines, from, to);
 }
 
 export async function loadAccountingDashboard(auth, url) {
@@ -1478,7 +1681,12 @@ export async function loadAccountingDashboard(auth, url) {
 		auth.userId
 	);
 	const reportWindow = resolveAccountingReportWindow(url);
-	const year = Number(url?.searchParams?.get('year') || currentYear());
+	const yearValue = url?.searchParams?.get('year');
+	const requestedYear = yearValue ? Number(yearValue) : currentYear();
+	const year =
+		Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200
+			? requestedYear
+			: currentYear();
 	const bankReviewPageSize = 50;
 	const requestedBankReviewPage = Math.max(
 		1,
@@ -1489,11 +1697,12 @@ export async function loadAccountingDashboard(auth, url) {
 		to: reportWindow.to
 	});
 
-	const { count: bankReviewTotal = 0 } = await auth.serviceSupabase
+	const { count: bankReviewTotal = 0, error: bankReviewCountError } = await auth.serviceSupabase
 		.from('group_accounting_bank_feed_items')
 		.select('id', { count: 'exact', head: true })
 		.eq('group_id', auth.group.id)
 		.in('status', ['needs_review', 'matched']);
+	if (bankReviewCountError) throw new Error(bankReviewCountError.message);
 	const bankReviewTotalPages =
 		bankReviewTotal > 0 ? Math.ceil(bankReviewTotal / bankReviewPageSize) : 0;
 	const bankReviewPage = bankReviewTotalPages
@@ -1502,16 +1711,16 @@ export async function loadAccountingDashboard(auth, url) {
 	const bankReviewOffset = (bankReviewPage - 1) * bankReviewPageSize;
 
 	const [
-		{ data: entries },
-		{ data: budgets },
-		{ data: feedItems },
-		{ data: connections },
-		{ data: reconciliations },
-		{ data: snapshots },
-		{ data: providerAccounts },
-		{ data: receipts },
-		{ data: auditEvents },
-		{ data: matchedFeedItems },
+		{ data: entries, error: entriesError },
+		{ data: budgets, error: budgetsError },
+		{ data: feedItems, error: feedItemsError },
+		{ data: connections, error: connectionsError },
+		{ data: reconciliations, error: reconciliationsError },
+		{ data: snapshots, error: snapshotsError },
+		{ data: providerAccounts, error: providerAccountsError },
+		{ data: receipts, error: receiptsError },
+		{ data: auditEvents, error: auditEventsError },
+		{ data: matchedFeedItems, error: matchedFeedItemsError },
 		stripeConnection
 	] = await Promise.all([
 		auth.serviceSupabase
@@ -1538,7 +1747,9 @@ export async function loadAccountingDashboard(auth, url) {
 			.range(bankReviewOffset, bankReviewOffset + bankReviewPageSize - 1),
 		auth.serviceSupabase
 			.from('group_accounting_bank_connections')
-			.select('*')
+			.select(
+				'id,group_id,provider,display_name,status,external_id,last_synced_at,error_message,institution_name,created_at,updated_at'
+			)
 			.eq('group_id', auth.group.id)
 			.order('provider', { ascending: true }),
 		auth.serviceSupabase
@@ -1572,17 +1783,50 @@ export async function loadAccountingDashboard(auth, url) {
 			.limit(12),
 		auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
-			.select('matched_entry_id')
+			.select('matched_entry_id,account_id')
 			.eq('group_id', auth.group.id)
 			.not('matched_entry_id', 'is', null)
 			.in('status', ['matched', 'posted']),
 		loadGroupStripeConnection(auth)
 	]);
+	const dashboardQueryErrors = [
+		entriesError,
+		budgetsError,
+		feedItemsError,
+		connectionsError,
+		reconciliationsError,
+		snapshotsError,
+		providerAccountsError,
+		receiptsError,
+		auditEventsError,
+		matchedFeedItemsError
+	].filter(Boolean);
+	if (dashboardQueryErrors.length) throw new Error(dashboardQueryErrors[0].message);
+	const reconciliationFeedItems = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select(
+				'id,account_id,transaction_date,description,amount_cents,currency,status,matched_entry_id,provider'
+			)
+			.eq('group_id', auth.group.id)
+			.in('status', ['matched', 'posted'])
+			.is('reconciliation_id', null)
+			.is('cleared_at', null)
+			.order('transaction_date', { ascending: false })
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
 
+	const actualWindow = budgetActualWindow(year);
+	const budgetReport = !actualWindow.to
+		? null
+		: actualWindow.from === report.from && actualWindow.to === report.to
+			? report
+			: await buildAccountingReport(auth.serviceSupabase, auth.group.id, actualWindow);
 	const budgetRows = (budgets ?? []).map((budget) => {
 		const actual =
-			report.accounts.find((account) => account.id === budget.account_id)?.period_balance_cents ??
-			0;
+			budgetReport?.accounts.find((account) => account.id === budget.account_id)
+				?.period_balance_cents ?? 0;
 		return {
 			...budget,
 			actual_cents: actual,
@@ -1590,11 +1834,20 @@ export async function loadAccountingDashboard(auth, url) {
 		};
 	});
 
+	const safeSettings = {
+		enabled: settings?.enabled,
+		currency: normalizeCurrency(settings?.currency),
+		fiscal_year_start_month: settings?.fiscal_year_start_month,
+		public_reports_enabled: settings?.public_reports_enabled,
+		mercury_api_key_hint: settings?.mercury_api_key_hint,
+		mercury_connected_at: settings?.mercury_connected_at,
+		mercury_connected: Boolean(
+			settings?.mercury_api_key_ciphertext || settings?.mercury_connected_at
+		),
+		public_visibility: normalizeVisibility(settings?.public_visibility)
+	};
 	return {
-		settings: {
-			...settings,
-			public_visibility: normalizeVisibility(settings?.public_visibility)
-		},
+		settings: safeSettings,
 		accounts,
 		report,
 		entries: entries ?? [],
@@ -1602,8 +1855,9 @@ export async function loadAccountingDashboard(auth, url) {
 		feed_items: buildFeedItemsWithMatchCandidates(
 			feedItems ?? [],
 			entries ?? [],
-			(matchedFeedItems ?? []).map((item) => item.matched_entry_id)
+			matchedFeedItems ?? []
 		),
+		reconciliation_feed_items: reconciliationFeedItems,
 		bank_review_page: bankReviewPage,
 		bank_review_page_size: bankReviewPageSize,
 		bank_review_total: bankReviewTotal,
@@ -1629,10 +1883,19 @@ export async function loadAccountingDashboard(auth, url) {
 }
 
 export async function publishSnapshot(auth, formData) {
-	const from = dateOnly(formData.get('from'));
-	const to = dateOnly(formData.get('to'));
+	const from = requiredDateOnly(formData.get('from'), 'Snapshot start date');
+	const to = requiredDateOnly(formData.get('to'), 'Snapshot end date');
+	if (from > to) throw new Error('The snapshot start date must be on or before the end date.');
 	const title = cleanText(formData.get('title'), 160) || `Financial snapshot ${to}`;
 	const notes = cleanText(formData.get('notes'), 1200) || null;
+	const { settings } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
+	if (settings.public_reports_enabled !== true) {
+		throw new Error('Public accounting reports are disabled for this group.');
+	}
 	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, { from, to });
 	const visibility = normalizeVisibility({
 		activity: formData.get('showActivity') === 'on',
@@ -1641,17 +1904,22 @@ export async function publishSnapshot(auth, formData) {
 		cash: formData.get('showCash') === 'on',
 		notes: formData.get('showNotes') === 'on'
 	});
-	const { data: budgets } = await auth.serviceSupabase
-		.from('group_accounting_budgets')
-		.select('*, account:group_accounting_accounts(code,name,kind)')
-		.eq('group_id', auth.group.id)
-		.eq('year', Number(from.slice(0, 4)));
+	let budgets = [];
+	if (visibility.budgets) {
+		const { data, error: budgetsError } = await auth.serviceSupabase
+			.from('group_accounting_budgets')
+			.select('*, account:group_accounting_accounts(code,name,kind)')
+			.eq('group_id', auth.group.id)
+			.eq('year', Number(from.slice(0, 4)));
+		if (budgetsError) throw new Error(budgetsError.message);
+		budgets = data ?? [];
+	}
 
 	const snapshot = {
-		report,
-		budgets: budgets ?? [],
+		...buildPublicAccountingSnapshot(report, budgets, visibility),
 		generated_at: new Date().toISOString(),
-		group: { id: auth.group.id, name: auth.group.name, slug: auth.group.slug }
+		group: { id: auth.group.id, name: auth.group.name, slug: auth.group.slug },
+		currency: normalizeCurrency(settings.currency)
 	};
 	const slug = await uniquePublicReportSlug(auth.serviceSupabase, auth.group.id, `${title}-${to}`);
 
@@ -1663,7 +1931,7 @@ export async function publishSnapshot(auth, formData) {
 		report_period_end: to,
 		visibility,
 		snapshot,
-		notes,
+		notes: visibility.notes ? notes : null,
 		published: true,
 		published_by_user_id: auth.userId
 	});
@@ -1693,8 +1961,9 @@ export async function voidEntry(auth, formData) {
 	if (!entry) throw new Error('Entry not found.');
 	if (entry.locked_at) throw new Error('This entry is locked by reconciliation.');
 	if (entry.status === 'void') return;
+	if (entry.status !== 'posted') throw new Error('Only posted transactions can be voided.');
 
-	const reversal = await insertBalancedEntry(
+	await insertBalancedEntry(
 		auth.serviceSupabase,
 		auth.group.id,
 		{
@@ -1716,38 +1985,10 @@ export async function voidEntry(auth, formData) {
 			credit_cents: Number(line.debit_cents || 0)
 		}))
 	);
-
-	const after = {
-		status: 'void',
-		voided_at: new Date().toISOString(),
-		reversed_entry_id: reversal.id,
-		metadata: { ...(entry.metadata ?? {}), void_reason: reason }
-	};
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_entries')
-		.update(after)
-		.eq('id', entry.id);
-	if (updateError) throw new Error(updateError.message);
-	await auditEvent(
-		auth,
-		'void',
-		'entry',
-		entry.id,
-		entry,
-		{ ...entry, ...after },
-		{ reversal_id: reversal.id }
-	);
 }
 
-export async function updateEntryByReplacement(auth, formData) {
-	const entryId = cleanText(formData.get('entryId'));
-	if (!entryId) throw new Error('Entry id is required.');
-	const voidForm = new FormData();
-	voidForm.set('entryId', entryId);
-	voidForm.set('reason', 'Edited by replacement entry');
-	voidForm.set('entryDate', formData.get('entryDate') || new Date().toISOString());
-	await voidEntry(auth, voidForm);
-	return postSimpleEntry(auth, formData);
+export async function updateEntryByReplacement() {
+	throw new Error('Use the transaction editor to update posted transactions.');
 }
 
 export async function updateTransaction(auth, formData) {
@@ -1791,6 +2032,7 @@ export async function updateTransaction(auth, formData) {
 	if (error) throw new Error(error.message);
 	if (!entry) throw new Error('Entry not found.');
 	if (entry.status === 'void') throw new Error('This transaction has been voided.');
+	if (entry.status !== 'posted') throw new Error('Only posted transactions can be edited.');
 	if (entry.locked_at) throw new Error('This transaction is locked by reconciliation.');
 
 	const { data: lines, error: linesError } = await auth.serviceSupabase
@@ -1822,186 +2064,192 @@ export async function updateTransaction(auth, formData) {
 		});
 	}
 
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_entries')
-		.update({
-			entry_date: entryDate,
-			description,
-			memo
-		})
-		.eq('group_id', auth.group.id)
-		.eq('id', entry.id);
+	const { error: updateError } = await auth.serviceSupabase.rpc(
+		'group_accounting_update_transaction',
+		{
+			p_group_id: auth.group.id,
+			p_entry_id: entry.id,
+			p_patch: { entry_date: entryDate, description, memo, actor_user_id: auth.userId },
+			p_line_accounts: lineAccountUpdates.map((line) => ({
+				lineId: line.lineId,
+				accountId: line.accountId
+			}))
+		}
+	);
 	if (updateError) throw new Error(updateError.message);
-
-	for (const line of lineAccountUpdates) {
-		const { error: lineUpdateError } = await auth.serviceSupabase
-			.from('group_accounting_lines')
-			.update({ account_id: line.accountId })
-			.eq('group_id', auth.group.id)
-			.eq('id', line.lineId);
-		if (lineUpdateError) throw new Error(lineUpdateError.message);
-	}
-
-	if (entry.source === 'bank_feed' && entry.source_id) {
-		const bankAccountLine = lineAccountUpdates.find((line) =>
-			['asset', 'liability'].includes(line.accountKind)
-		);
-		await auth.serviceSupabase
-			.from('group_accounting_bank_feed_items')
-			.update({
-				transaction_date: entryDate,
-				description,
-				...(bankAccountLine ? { account_id: bankAccountLine.accountId } : {})
-			})
-			.eq('group_id', auth.group.id)
-			.eq('id', entry.source_id);
-	}
-
-	await auditEvent(auth, 'update', 'entry', entry.id, entry, {
-		...entry,
-		entry_date: entryDate,
-		description,
-		memo,
-		line_accounts: lineAccountUpdates.map((line) => ({
-			line_id: line.lineId,
-			account_id: line.accountId
-		}))
-	});
 }
 
 export async function autoMatchFeedItems(auth) {
-	const [{ data: feedItems }, { data: entries }, { data: existingMatches }] = await Promise.all([
-		auth.serviceSupabase
-			.from('group_accounting_bank_feed_items')
-			.select('*')
-			.eq('group_id', auth.group.id)
-			.eq('status', 'needs_review')
-			.order('transaction_date', { ascending: false })
-			.limit(200),
-		auth.serviceSupabase
-			.from('group_accounting_entries')
-			.select('*')
-			.eq('group_id', auth.group.id)
-			.eq('status', 'posted')
-			.order('entry_date', { ascending: false })
-			.limit(500),
-		auth.serviceSupabase
-			.from('group_accounting_bank_feed_items')
-			.select('matched_entry_id')
-			.eq('group_id', auth.group.id)
-			.not('matched_entry_id', 'is', null)
-			.in('status', ['matched', 'posted'])
+	const [feedItems, entries, existingMatches] = await Promise.all([
+		fetchAllRows((fromRow, toRow) =>
+			auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.select('*')
+				.eq('group_id', auth.group.id)
+				.eq('status', 'needs_review')
+				.order('transaction_date', { ascending: false })
+				.order('id', { ascending: true })
+				.range(fromRow, toRow)
+		),
+		fetchAllRows((fromRow, toRow) =>
+			auth.serviceSupabase
+				.from('group_accounting_entries')
+				.select(
+					'id,entry_date,description,amount_cents,currency,source,lines:group_accounting_lines(account_id,debit_cents,credit_cents,account:group_accounting_accounts(kind))'
+				)
+				.eq('group_id', auth.group.id)
+				.eq('status', 'posted')
+				.order('id', { ascending: true })
+				.range(fromRow, toRow)
+		),
+		fetchAllRows((fromRow, toRow) =>
+			auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.select('matched_entry_id,account_id')
+				.eq('group_id', auth.group.id)
+				.not('matched_entry_id', 'is', null)
+				.in('status', ['matched', 'posted'])
+				.order('id', { ascending: true })
+				.range(fromRow, toRow)
+		)
 	]);
-	const usedEntryIds = new Set((existingMatches ?? []).map((match) => match.matched_entry_id));
-	const updates = [];
-	for (const item of feedItems ?? []) {
-		const match = (entries ?? []).find((entry) => {
-			if (usedEntryIds.has(entry.id)) return false;
-			const sameAmount =
-				Math.abs(Number(entry.amount_cents || 0)) === Math.abs(Number(item.amount_cents || 0));
-			const dateDelta = Math.abs(
-				new Date(entry.entry_date).getTime() - new Date(item.transaction_date).getTime()
-			);
-			return sameAmount && dateDelta <= 3 * 24 * 60 * 60 * 1000;
-		});
-		if (match) {
-			usedEntryIds.add(match.id);
-			updates.push(
-				auth.serviceSupabase
-					.from('group_accounting_bank_feed_items')
-					.update({
-						status: 'matched',
-						matched_entry_id: match.id,
-						match_confidence: 0.92,
-						match_reason: 'Same amount within three days'
-					})
-					.eq('group_id', auth.group.id)
-					.eq('id', item.id)
-			);
+
+	const usedEntryAccountPairs = new Set();
+	const usedEntryWithoutAccount = new Set();
+	for (const match of existingMatches) {
+		if (match.account_id)
+			usedEntryAccountPairs.add(`${match.matched_entry_id}:${match.account_id}`);
+		else usedEntryWithoutAccount.add(match.matched_entry_id);
+	}
+	const entriesByCurrencyAndAmount = new Map();
+	for (const entry of entries) {
+		const currency = normalizeCurrency(entry.currency);
+		for (const line of entry.lines ?? []) {
+			if (!['asset', 'liability'].includes(line.account?.kind)) continue;
+			const signedAmount = Number(line.debit_cents || 0) - Number(line.credit_cents || 0);
+			if (!signedAmount) continue;
+			const key = `${currency}:${signedAmount}`;
+			const candidates = entriesByCurrencyAndAmount.get(key) ?? [];
+			if (
+				!candidates.some(
+					(candidate) => candidate.entry.id === entry.id && candidate.accountId === line.account_id
+				)
+			) {
+				candidates.push({ entry, accountId: line.account_id });
+				entriesByCurrencyAndAmount.set(key, candidates);
+			}
 		}
+	}
+
+	const updates = [];
+	for (const item of feedItems) {
+		const amount = Number(item.amount_cents);
+		if (!Number.isSafeInteger(amount) || amount === 0) continue;
+		const itemCurrency = normalizeCurrency(item.currency);
+		const itemText = normalizedMatchText(item.description);
+		const candidates = (entriesByCurrencyAndAmount.get(`${itemCurrency}:${amount}`) ?? [])
+			.filter(({ entry, accountId }) => {
+				if (item.account_id && accountId !== item.account_id) return false;
+				if (usedEntryWithoutAccount.has(entry.id)) return false;
+				if (usedEntryAccountPairs.has(`${entry.id}:${accountId}`)) return false;
+				return dateDeltaDays(entry.entry_date, item.transaction_date) <= 3;
+			})
+			.map((candidate) => {
+				const days = dateDeltaDays(candidate.entry.entry_date, item.transaction_date);
+				const entryText = normalizedMatchText(candidate.entry.description);
+				const descriptionMatch = Boolean(
+					itemText && entryText && (itemText.includes(entryText) || entryText.includes(itemText))
+				);
+				return {
+					...candidate,
+					days,
+					descriptionMatch,
+					score: (days === 0 ? 2 : 0) + (descriptionMatch ? 1 : 0)
+				};
+			})
+			.filter((candidate) => candidate.score > 0)
+			.sort((left, right) => right.score - left.score || left.days - right.days);
+		const best = candidates[0];
+		if (
+			!best ||
+			(candidates.length > 1 &&
+				best.score === candidates[1].score &&
+				best.days === candidates[1].days)
+		) {
+			continue;
+		}
+		usedEntryAccountPairs.add(`${best.entry.id}:${best.accountId}`);
+		updates.push(
+			auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.update({
+					status: 'matched',
+					matched_entry_id: best.entry.id,
+					account_id: best.accountId,
+					match_confidence: best.days === 0 ? 0.99 : 0.94,
+					match_reason: `Same cash account, amount, and currency within ${best.days} days`
+				})
+				.eq('group_id', auth.group.id)
+				.eq('id', item.id)
+				.eq('status', 'needs_review')
+				.is('matched_entry_id', null)
+				.select('id')
+				.maybeSingle()
+		);
 	}
 	const results = await Promise.all(updates);
 	const updateError = results.find((result) => result.error)?.error;
 	if (updateError) throw new Error(updateError.message);
+	const matchedCount = results.filter((result) => result.data?.id).length;
 	await auditEvent(auth, 'auto_match', 'bank_feed_item', null, null, null, {
-		matched: updates.length
+		matched: matchedCount
 	});
-	return updates.length;
+	return matchedCount;
 }
 
 export async function completeAutomatedReconciliation(auth, formData) {
 	const accountId = cleanText(formData.get('accountId'));
-	const statementEndingDate = dateOnly(formData.get('statementEndingDate'));
+	if (!accountId) throw new Error('Choose a bank or credit card account.');
+	const statementEndingDate = requiredDateOnly(
+		formData.get('statementEndingDate'),
+		'Statement ending date'
+	);
 	const statementEndingBalanceCents = centsFromSignedAmount(formData.get('statementEndingBalance'));
+	if (statementEndingBalanceCents === null)
+		throw new Error('Enter a valid statement ending balance.');
 	const checkedIds = cleanText(formData.get('checkedFeedItemIds'))
 		.split(',')
 		.map((id) => id.trim())
 		.filter(Boolean);
-	const report = await buildAccountingReport(auth.serviceSupabase, auth.group.id, {
-		to: statementEndingDate
+	if (new Set(checkedIds).size !== checkedIds.length) {
+		throw new Error('A bank feed item may only be selected once.');
+	}
+	if (
+		checkedIds.length > 2000 ||
+		checkedIds.some(
+			(id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+		)
+	) {
+		throw new Error('Invalid bank feed selection.');
+	}
+	const { data, error } = await auth.serviceSupabase.rpc('group_accounting_reconcile', {
+		p_group_id: auth.group.id,
+		p_account_id: accountId,
+		p_statement_date: statementEndingDate,
+		p_statement_balance: statementEndingBalanceCents,
+		p_checked_ids: checkedIds,
+		p_actor_id: auth.userId
 	});
-	const account = report.accounts.find((candidate) => candidate.id === accountId);
-	if (!account) throw new Error('Account not found.');
-	const differenceCents =
-		Number(statementEndingBalanceCents || 0) - Number(account.balance_cents || 0);
-	const { data: reconciliation, error } = await auth.serviceSupabase
-		.from('group_accounting_reconciliations')
-		.insert({
-			group_id: auth.group.id,
-			account_id: accountId,
-			statement_ending_date: statementEndingDate,
-			statement_ending_balance_cents: Number(statementEndingBalanceCents || 0),
-			book_balance_cents: Number(account.balance_cents || 0),
-			difference_cents: differenceCents,
-			status: differenceCents === 0 ? 'completed' : 'draft',
-			checked_feed_item_ids: checkedIds,
-			completed_by_user_id: differenceCents === 0 ? auth.userId : null,
-			completed_at: differenceCents === 0 ? new Date().toISOString() : null
-		})
-		.select('*')
-		.single();
 	if (error) throw new Error(error.message);
-	if (checkedIds.length) {
-		const { error: clearError } = await auth.serviceSupabase
-			.from('group_accounting_bank_feed_items')
-			.update({
-				cleared_at: new Date().toISOString(),
-				reconciliation_id: reconciliation.id
-			})
-			.eq('group_id', auth.group.id)
-			.in('id', checkedIds);
-		if (clearError) throw new Error(clearError.message);
-	}
-	if (differenceCents === 0) {
-		const { data: candidateEntries, error: candidateError } = await auth.serviceSupabase
-			.from('group_accounting_entries')
-			.select('id')
-			.eq('group_id', auth.group.id)
-			.lte('entry_date', statementEndingDate);
-		if (candidateError) throw new Error(candidateError.message);
-		const candidateIds = (candidateEntries ?? []).map((entry) => entry.id);
-		if (candidateIds.length) {
-			const { data: accountLines, error: lineError } = await auth.serviceSupabase
-				.from('group_accounting_lines')
-				.select('entry_id')
-				.eq('group_id', auth.group.id)
-				.eq('account_id', accountId)
-				.in('entry_id', candidateIds);
-			if (lineError) throw new Error(lineError.message);
-			const lockEntryIds = [...new Set((accountLines ?? []).map((line) => line.entry_id))];
-			if (lockEntryIds.length) {
-				const { error: lockError } = await auth.serviceSupabase
-					.from('group_accounting_entries')
-					.update({ locked_at: new Date().toISOString() })
-					.eq('group_id', auth.group.id)
-					.in('id', lockEntryIds);
-				if (lockError) throw new Error(lockError.message);
-			}
-		}
-	}
-	await auditEvent(auth, 'reconcile', 'reconciliation', reconciliation.id, null, reconciliation, {
-		checked_feed_items: checkedIds.length
-	});
+	const reconciliation = Array.isArray(data) ? data[0] : data;
+	if (!reconciliation?.id) throw new Error('Reconciliation was not returned after saving.');
+	return reconciliation;
+}
+
+function providerBalanceCents(value) {
+	if (value === null || value === undefined || value === '') return null;
+	const amount = Number(value);
+	return Number.isFinite(amount) ? Math.round(amount * 100) : null;
 }
 
 async function upsertProviderAccounts(auth, connection, provider, accounts = []) {
@@ -2015,19 +2263,25 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 				display_name: cleanText(
 					account.name || account.official_name || account.nickname || 'Bank account'
 				),
-				account_type: cleanText(account.type),
-				account_subtype: cleanText(account.subtype),
-				mask: cleanText(account.mask || account.lastFour),
-				current_balance_cents: Math.round(
-					Number(account.balances?.current ?? account.currentBalance ?? 0) * 100
-				),
-				available_balance_cents: Math.round(
-					Number(account.balances?.available ?? account.availableBalance ?? 0) * 100
-				),
+				account_type:
+					cleanText(account.kind || account.accountType || account.account_type || account.type) ||
+					null,
+				account_subtype: cleanText(account.subtype) || null,
+				mask: cleanText(account.mask || account.lastFour || account.lastFourDigits) || null,
+				current_balance_cents: Number.isSafeInteger(account.currentBalanceCents)
+					? account.currentBalanceCents
+					: providerBalanceCents(
+							account.balances?.current ?? account.currentBalance ?? account.current_balance
+						),
+				available_balance_cents: Number.isSafeInteger(account.availableBalanceCents)
+					? account.availableBalanceCents
+					: providerBalanceCents(
+							account.balances?.available ?? account.availableBalance ?? account.available_balance
+						),
 				currency: normalizeCurrency(
 					account.balances?.iso_currency_code || account.currency || 'usd'
 				),
-				raw: account
+				raw: provider === 'mercury' ? redactMercurySensitiveFields(account) : account
 			}))
 			.filter((row) => row.external_account_id),
 		'external_account_id'
@@ -2038,106 +2292,6 @@ async function upsertProviderAccounts(auth, connection, provider, accounts = [])
 			.upsert(rows, { onConflict: 'group_id,provider,external_account_id' });
 		if (error) throw new Error(error.message);
 	}
-}
-
-function providerExternalAccountId(account = {}) {
-	return cleanText(
-		account.account_id ||
-			account.accountId ||
-			account.bankAccountId ||
-			account.creditAccountId ||
-			account.debitAccountId ||
-			account.cardAccountId ||
-			account.cardId ||
-			account.account?.id ||
-			account.account?.uuid ||
-			account.id ||
-			account.uuid ||
-			account.number
-	);
-}
-
-function dedupeRowsByKey(rows = [], key) {
-	const deduped = new Map();
-	for (const row of rows) {
-		const value = row?.[key];
-		if (!value) continue;
-		deduped.set(value, row);
-	}
-	return Array.from(deduped.values());
-}
-
-function firstCleanText(values = [], limit = 200) {
-	for (const value of values) {
-		const cleaned = cleanText(value, limit);
-		if (cleaned) return cleaned;
-	}
-	return '';
-}
-
-function mercuryTransactionDescription(transaction = {}) {
-	return (
-		firstCleanText(
-			[
-				transaction.counterpartyName,
-				transaction.counterparty_name,
-				transaction.merchantName,
-				transaction.merchant_name,
-				transaction.bankDescription,
-				transaction.bank_description,
-				transaction.externalMemo,
-				transaction.external_memo,
-				transaction.note,
-				transaction.memo,
-				transaction.description,
-				transaction.name
-			],
-			200
-		) || 'Mercury activity'
-	);
-}
-
-function mercuryProviderAccountsFromTransactions(transactions = []) {
-	const accounts = new Map();
-	for (const transaction of transactions) {
-		const externalAccountId = providerExternalAccountId(transaction);
-		if (!externalAccountId || accounts.has(externalAccountId)) continue;
-		const account = transaction.account ?? {};
-		const displayName =
-			firstCleanText([
-				account.name,
-				account.nickname,
-				transaction.accountName,
-				transaction.account_name,
-				transaction.cardName,
-				transaction.card_name,
-				transaction.creditAccountName,
-				transaction.credit_account_name
-			]) || 'Mercury account';
-		const accountType = firstCleanText([
-			account.type,
-			transaction.accountType,
-			transaction.account_type,
-			transaction.kind
-		]);
-		const accountSubtype =
-			firstCleanText([
-				account.subtype,
-				transaction.accountSubtype,
-				transaction.account_subtype,
-				transaction.cardId || transaction.cardAccountId ? 'credit_card' : ''
-			]) || null;
-		accounts.set(externalAccountId, {
-			...account,
-			id: externalAccountId,
-			name: displayName,
-			type: accountType || 'mercury',
-			subtype: accountSubtype,
-			mask: account.mask || transaction.mask || transaction.lastFour || transaction.last_four,
-			currency: account.currency || transaction.currency
-		});
-	}
-	return Array.from(accounts.values());
 }
 
 async function loadProviderAccountMap(auth, provider) {
@@ -2155,21 +2309,6 @@ async function loadProviderAccountMap(auth, provider) {
 	);
 }
 
-function feedItemAmountCents(provider, transaction) {
-	if (Number.isInteger(transaction.amount_cents)) return transaction.amount_cents;
-	const amount = Number(transaction.amount ?? 0);
-	if (provider === 'mercury') return Math.round(amount * 100);
-	return Math.round(amount * -100);
-}
-
-function feedItemDescription(provider, transaction) {
-	if (provider === 'mercury') return mercuryTransactionDescription(transaction);
-	return cleanText(
-		transaction.name || transaction.description || transaction.memo || 'Imported activity',
-		200
-	);
-}
-
 async function upsertFeedItems(auth, connection, provider, transactions = [], options = {}) {
 	const { defaultAccountId = null, accountMap = new Map() } = options;
 	const rows = dedupeRowsByKey(
@@ -2177,40 +2316,62 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 			.map((transaction) => {
 				const externalAccountId = providerExternalAccountId(transaction);
 				const accountId = accountMap.get(externalAccountId) || defaultAccountId || null;
+				const sourceDate =
+					provider === 'mercury'
+						? mercuryTransactionDate(transaction)
+						: providerTransactionDate(
+								transaction.date ||
+									transaction.posted_at ||
+									transaction.postedAt ||
+									transaction.created
+							);
+				const amountCents = feedItemAmountCents(provider, transaction);
 				return {
 					group_id: auth.group.id,
 					connection_id: connection.id,
 					provider,
-					source_transaction_id: cleanText(transaction.transaction_id || transaction.id),
-					transaction_date: dateOnly(
-						transaction.date || transaction.posted_at || transaction.created
-					),
+					source_transaction_id: feedTransactionId(transaction),
+					transaction_date: sourceDate,
 					account_id: accountId,
 					description: feedItemDescription(provider, transaction),
-					amount_cents: feedItemAmountCents(provider, transaction),
+					amount_cents: amountCents,
 					currency: normalizeCurrency(
 						transaction.iso_currency_code || transaction.currency || 'usd'
 					),
 					status: 'needs_review',
 					raw: {
-						...(transaction.raw ?? transaction),
+						...(provider === 'mercury'
+							? redactMercurySensitiveFields(transaction.raw ?? transaction)
+							: (transaction.raw ?? transaction)),
 						external_account_id: externalAccountId || null
 					}
 				};
 			})
-			.filter((row) => row.source_transaction_id),
+			.filter(
+				(row) =>
+					row.source_transaction_id &&
+					row.transaction_date &&
+					Number.isSafeInteger(row.amount_cents) &&
+					Math.abs(row.amount_cents) <= 2_147_483_647
+			),
 		'source_transaction_id'
 	);
 	if (rows.length) {
-		const { error } = await auth.serviceSupabase
-			.from('group_accounting_bank_feed_items')
-			.upsert(rows, {
-				onConflict: 'group_id,provider,source_transaction_id',
-				ignoreDuplicates: true
-			});
-		if (error) throw new Error(error.message);
+		let inserted = 0;
+		for (let index = 0; index < rows.length; index += 100) {
+			const { data, error } = await auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.upsert(rows.slice(index, index + 100), {
+					onConflict: 'group_id,provider,source_transaction_id',
+					ignoreDuplicates: true
+				})
+				.select('id');
+			if (error) throw new Error(error.message);
+			inserted += data?.length ?? Math.min(100, rows.length - index);
+		}
+		return inserted;
 	}
-	return rows.length;
+	return 0;
 }
 
 export async function updateProviderAccountMapping(auth, formData) {
@@ -2275,7 +2436,7 @@ export async function createStripeFinancialConnectionsSession(auth) {
 			countries: ['US']
 		}
 	});
-	await auth.serviceSupabase.from('group_accounting_bank_connections').upsert(
+	const { error } = await auth.serviceSupabase.from('group_accounting_bank_connections').upsert(
 		{
 			group_id: auth.group.id,
 			provider: 'stripe_financial_connections',
@@ -2291,6 +2452,7 @@ export async function createStripeFinancialConnectionsSession(auth) {
 		},
 		{ onConflict: 'group_id,provider' }
 	);
+	if (error) throw new Error(error.message);
 	return {
 		clientSecret: session.client_secret,
 		sessionId: session.id,
@@ -2301,45 +2463,78 @@ export async function createStripeFinancialConnectionsSession(auth) {
 export async function completeStripeFinancialConnectionsSession(auth, sessionId) {
 	const cleanedSessionId = cleanText(sessionId);
 	if (!cleanedSessionId) throw new Error('Financial Connections session id is required.');
+	const { data: pendingConnection, error: pendingError } = await auth.serviceSupabase
+		.from('group_accounting_bank_connections')
+		.select('id, group_id, provider, external_id, config')
+		.eq('group_id', auth.group.id)
+		.eq('provider', 'stripe_financial_connections')
+		.maybeSingle();
+	if (pendingError) throw new Error(pendingError.message);
+	const connectedAccountId = await getGroupConnectedStripeAccount(auth);
+	assertFinancialConnectionsSessionOwnership({
+		pendingConnection,
+		sessionId: cleanedSessionId,
+		groupId: auth.group.id,
+		connectedAccountId
+	});
 	const stripe = getStripeClient();
 	const session = await stripe.financialConnections.sessions.retrieve(cleanedSessionId, {
 		expand: ['accounts']
 	});
+	const sessionHolderAccount = session.account_holder?.account;
+	const sessionHolderAccountId =
+		typeof sessionHolderAccount === 'string'
+			? sessionHolderAccount
+			: cleanText(sessionHolderAccount?.id);
+	assertFinancialConnectionsSessionOwnership({
+		pendingConnection,
+		sessionId: cleanedSessionId,
+		groupId: auth.group.id,
+		connectedAccountId,
+		sessionHolderAccountId
+	});
+	const linkedAccounts = session.accounts?.data ?? [];
+	if (!linkedAccounts.length) throw new Error('No bank accounts were selected in Stripe.');
 	const { data: connection, error } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
-		.upsert(
-			{
-				group_id: auth.group.id,
-				provider: 'stripe_financial_connections',
-				display_name: 'Linked bank accounts and cards',
-				status: 'connected',
-				external_id: session.id,
-				config: {
-					session_id: session.id,
-					account_ids: (session.accounts?.data ?? []).map((account) => account.id),
-					pricing_note:
-						'Stripe Financial Connections Transactions costs $0.30/month per institution per account holder.'
-				}
-			},
-			{ onConflict: 'group_id,provider' }
-		)
+		.update({
+			display_name: 'Linked bank accounts and cards',
+			status: 'connected',
+			external_id: session.id,
+			config: {
+				session_id: session.id,
+				connected_account_id: connectedAccountId,
+				account_ids: linkedAccounts.map((account) => account.id),
+				pricing_note:
+					'Stripe Financial Connections Transactions costs $0.30/month per institution per account holder.'
+			}
+		})
+		.eq('group_id', auth.group.id)
+		.eq('provider', 'stripe_financial_connections')
+		.eq('id', pendingConnection.id)
+		.eq('external_id', cleanedSessionId)
 		.select('*')
-		.single();
+		.maybeSingle();
 	if (error) throw new Error(error.message);
+	if (!connection) throw new Error('This bank-link session was replaced. Start a new connection.');
 	await upsertProviderAccounts(
 		auth,
 		connection,
 		'stripe_financial_connections',
-		(session.accounts?.data ?? []).map((account) => ({
-			id: account.id,
-			name: account.display_name || account.institution_name || 'Linked account',
-			type: account.category,
-			subtype: account.subcategory,
-			lastFour: account.last4,
-			currency: account.balance?.currency || 'usd',
-			currentBalance: account.balance?.current,
-			raw: account
-		}))
+		linkedAccounts.map((account) => {
+			const balance = stripeFinancialConnectionsBalance(account);
+			return {
+				id: account.id,
+				name: account.display_name || account.institution_name || 'Linked account',
+				type: account.category,
+				subtype: account.subcategory,
+				lastFour: account.last4,
+				currency: balance.currency,
+				currentBalanceCents: balance.currentBalanceCents,
+				availableBalanceCents: balance.availableBalanceCents,
+				raw: account
+			};
+		})
 	);
 	await syncStripeFinancialConnectionsTransactions(auth, connection);
 	return connection;
@@ -2352,65 +2547,88 @@ export async function syncStripeFinancialConnectionsTransactions(
 ) {
 	const { runAutoMatch = true } = options;
 	const stripe = getStripeClient();
-	const resolved =
-		connection ??
-		(
-			await auth.serviceSupabase
-				.from('group_accounting_bank_connections')
-				.select('*')
-				.eq('group_id', auth.group.id)
-				.eq('provider', 'stripe_financial_connections')
-				.maybeSingle()
-		).data;
-	const accountIds = resolved?.config?.account_ids ?? [];
+	let resolved = connection;
+	if (!resolved) {
+		const { data, error } = await auth.serviceSupabase
+			.from('group_accounting_bank_connections')
+			.select('*')
+			.eq('group_id', auth.group.id)
+			.eq('provider', 'stripe_financial_connections')
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		resolved = data;
+	}
+	if (
+		resolved?.group_id !== auth.group.id ||
+		resolved?.provider !== 'stripe_financial_connections'
+	) {
+		throw new Error('Financial Connections belongs to a different group.');
+	}
+	const accountIds = [
+		...new Set((resolved.config?.account_ids ?? []).map((id) => cleanText(id)).filter(Boolean))
+	];
 	if (!resolved?.id || !accountIds.length) {
 		throw new Error('No Stripe Financial Connections accounts are linked yet.');
 	}
+	const accountMap = await loadProviderAccountMap(auth, 'stripe_financial_connections');
 	let inserted = 0;
 	for (const accountId of accountIds) {
-		const transactions = await stripe.financialConnections.transactions.list({
+		const listPromise = stripe.financialConnections.transactions.list({
 			account: accountId,
 			limit: 100
 		});
-		inserted += await upsertFeedItems(
-			auth,
-			resolved,
-			'stripe_financial_connections',
-			transactions.data.map((transaction) => ({
+		let batch = [];
+		const flush = async () => {
+			if (!batch.length) return;
+			inserted += await upsertFeedItems(auth, resolved, 'stripe_financial_connections', batch, {
+				accountMap
+			});
+			batch = [];
+		};
+		await forEachStripeListItem(listPromise, async (transaction) => {
+			if (!shouldImportFinancialConnectionsTransaction(transaction)) return;
+			const amountCents = Number(transaction.amount);
+			if (!Number.isSafeInteger(amountCents)) return;
+			const date = providerTransactionDate(transaction.transacted_at ?? transaction.created);
+			if (!date) return;
+			batch.push({
 				id: transaction.id,
-				date: transaction.transacted_at
-					? new Date(transaction.transacted_at * 1000).toISOString()
-					: transaction.created
-						? new Date(transaction.created * 1000).toISOString()
-						: new Date().toISOString(),
-				description: transaction.description || transaction.status || 'Linked account activity',
-				amount_cents: Number(transaction.amount || 0),
+				account_id: transaction.account || accountId,
+				date,
+				description: transaction.description || 'Linked account activity',
+				amount_cents: amountCents,
 				currency: transaction.currency || 'usd',
 				raw: transaction
-			}))
-		);
+			});
+			if (batch.length >= 100) await flush();
+		});
+		await flush();
 	}
-	await auth.serviceSupabase
+	const { error: updateError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
+		.eq('group_id', auth.group.id)
 		.eq('id', resolved.id);
+	if (updateError) throw new Error(updateError.message);
 	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return { inserted };
 }
 
 export async function syncMercuryTransactions(auth, options = {}) {
 	const { runAutoMatch = true } = options;
-	const { data: connection } = await auth.serviceSupabase
+	const { data: connection, error: connectionError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.select('*')
 		.eq('group_id', auth.group.id)
 		.eq('provider', 'mercury')
 		.maybeSingle();
-	const { data: settings } = await auth.serviceSupabase
+	if (connectionError) throw new Error(connectionError.message);
+	const { data: settings, error: settingsError } = await auth.serviceSupabase
 		.from('group_accounting_settings')
 		.select('mercury_api_key_ciphertext')
 		.eq('group_id', auth.group.id)
 		.maybeSingle();
+	if (settingsError) throw new Error(settingsError.message);
 	const resolvedApiKey = decryptSocialToken(settings?.mercury_api_key_ciphertext);
 	if (!resolvedApiKey) {
 		throw new Error('Mercury API key is not configured for this group.');
@@ -2434,49 +2652,79 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		if (error) throw new Error(error.message);
 		resolved = inserted;
 	}
-	const accountsPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
-		method: 'GET',
-		path: '/api/v1/accounts'
-	});
-	const txPayload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
-		method: 'GET',
-		path: '/api/v1/transactions',
-		query: { limit: 1000, order: 'desc' }
-	});
-	const transactions = txPayload.transactions ?? [];
-	const accounts = [
-		...(accountsPayload.accounts ?? []),
-		...(accountsPayload.creditAccounts ?? []),
-		...(accountsPayload.credit_accounts ?? []),
-		...(accountsPayload.cards ?? []),
-		...mercuryProviderAccountsFromTransactions(transactions)
-	];
-	await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
-	const accountMap = await loadProviderAccountMap(auth, 'mercury');
-	const normalizedTransactions = dedupeRowsByKey(
-		transactions.map((transaction) => ({
-			...transaction,
-			account_id: providerExternalAccountId(transaction)
-		})),
-		'transaction_id'
-	).map((transaction) => ({
-		...transaction,
-		source_transaction_id: cleanText(transaction.transaction_id || transaction.id)
-	}));
-	const insertedCount = await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
-		accountMap
-	});
-	await auth.serviceSupabase
+	let initialAccountPayload = null;
+	let legacyAccounts = [];
+	const mercuryAccountIds = new Set();
+	for await (const accountPage of mercuryAccountPages(async (query) => {
+		const payload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
+			method: 'GET',
+			path: '/api/v1/accounts',
+			query
+		});
+		if (!initialAccountPayload) {
+			initialAccountPayload = payload;
+			legacyAccounts = [
+				...(payload.creditAccounts ?? []),
+				...(payload.credit_accounts ?? []),
+				...(payload.cards ?? [])
+			];
+		}
+		return payload;
+	})) {
+		const accounts = [...accountPage, ...legacyAccounts].filter((account) => {
+			const type = cleanText(account.type).toLowerCase();
+			return type !== 'external' && type !== 'recipient';
+		});
+		legacyAccounts = [];
+		for (const account of accounts) {
+			const externalAccountId = providerExternalAccountId(account);
+			if (externalAccountId) mercuryAccountIds.add(externalAccountId);
+		}
+		await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
+	}
+
+	let insertedCount = 0;
+	for await (const transactions of mercuryTransactionPages(async (query) =>
+		mercuryRelayRequest(auth, resolved, resolvedApiKey, {
+			method: 'GET',
+			path: '/api/v1/transactions',
+			query
+		})
+	)) {
+		await upsertProviderAccounts(
+			auth,
+			resolved,
+			'mercury',
+			mercuryProviderAccountsFromTransactions(transactions).filter(
+				(account) => !mercuryAccountIds.has(account.id)
+			)
+		);
+		const accountMap = await loadProviderAccountMap(auth, 'mercury');
+		const normalizedTransactions = dedupeRowsByKey(
+			transactions.filter(shouldImportMercuryTransaction).map((transaction) => ({
+				...transaction,
+				account_id: mercuryTransactionAccountId(transaction),
+				source_transaction_id: feedTransactionId(transaction)
+			})),
+			'source_transaction_id'
+		);
+		insertedCount += await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
+			accountMap
+		});
+	}
+	const { error: updateError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
+		.eq('group_id', auth.group.id)
 		.eq('id', resolved.id);
+	if (updateError) throw new Error(updateError.message);
 	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return { inserted: insertedCount };
 }
 
 export async function syncStripeTransactions(auth, options = {}) {
 	const { runAutoMatch = true } = options;
-	const [{ getStripeClient }, { data: donationAccount }] = await Promise.all([
+	const [{ getStripeClient }, donationAccountResult] = await Promise.all([
 		import('$lib/server/stripe'),
 		auth.serviceSupabase
 			.from('donation_accounts')
@@ -2484,9 +2732,17 @@ export async function syncStripeTransactions(auth, options = {}) {
 			.eq('group_id', auth.group.id)
 			.maybeSingle()
 	]);
+	if (donationAccountResult.error) throw new Error(donationAccountResult.error.message);
+	const donationAccount = donationAccountResult.data;
 	if (!donationAccount?.stripe_account_id) {
 		throw new Error('Stripe donations are not connected for this group.');
 	}
+	const { accounts: chartAccounts } = await ensureGroupAccountingSetup(
+		auth.serviceSupabase,
+		auth.group,
+		auth.userId
+	);
+	const stripeBalanceChartAccount = chartAccounts.find((account) => account.code === '1030');
 	const stripe = getStripeClient();
 	const { data: connection, error } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
@@ -2503,41 +2759,80 @@ export async function syncStripeTransactions(auth, options = {}) {
 		.select('*')
 		.single();
 	if (error) throw new Error(error.message);
-	const transactions = await stripe.balanceTransactions.list(
+	await upsertProviderAccounts(auth, connection, 'stripe', [
+		{
+			id: donationAccount.stripe_account_id,
+			name: 'Stripe balance',
+			kind: 'processor_balance',
+			currency: 'usd'
+		}
+	]);
+	if (stripeBalanceChartAccount?.id) {
+		const { data: existingProviderAccount, error: providerAccountError } =
+			await auth.serviceSupabase
+				.from('group_accounting_provider_accounts')
+				.select('id, account_id')
+				.eq('group_id', auth.group.id)
+				.eq('provider', 'stripe')
+				.eq('external_account_id', donationAccount.stripe_account_id)
+				.maybeSingle();
+		if (providerAccountError) throw new Error(providerAccountError.message);
+		if (existingProviderAccount && !existingProviderAccount.account_id) {
+			const { error: mapError } = await auth.serviceSupabase
+				.from('group_accounting_provider_accounts')
+				.update({ account_id: stripeBalanceChartAccount.id })
+				.eq('group_id', auth.group.id)
+				.eq('id', existingProviderAccount.id);
+			if (mapError) throw new Error(mapError.message);
+		}
+	}
+	const accountMap = await loadProviderAccountMap(auth, 'stripe');
+	const listPromise = stripe.balanceTransactions.list(
 		{ limit: 100 },
 		{ stripeAccount: donationAccount.stripe_account_id }
 	);
-	const inserted = await upsertFeedItems(
-		auth,
-		connection,
-		'stripe',
-		transactions.data.map((item) => ({
-			id: item.id,
-			date: new Date(item.created * 1000).toISOString(),
-			description: item.description || item.type,
-			amount_cents: item.amount,
-			currency: item.currency,
-			raw: item
-		}))
-	);
-	await auth.serviceSupabase
+	let inserted = 0;
+	let skipped = 0;
+	let batch = [];
+	const flush = async () => {
+		if (!batch.length) return;
+		inserted += await upsertFeedItems(auth, connection, 'stripe', batch, { accountMap });
+		batch = [];
+	};
+	await forEachStripeListItem(listPromise, async (item) => {
+		const rows = stripeBalanceTransactionFeedRows(item, donationAccount.stripe_account_id);
+		if (!rows.length) {
+			skipped += 1;
+			return;
+		}
+		batch.push(...rows);
+		if (batch.length >= 100) await flush();
+	});
+	await flush();
+	const { error: updateError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
-		.update({ last_synced_at: new Date().toISOString(), status: 'connected' })
+		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
+		.eq('group_id', auth.group.id)
 		.eq('id', connection.id);
+	if (updateError) throw new Error(updateError.message);
 	if (runAutoMatch) await autoMatchFeedItems(auth);
-	return { inserted };
+	return { inserted, skipped };
 }
 
 export async function syncAllBankTransactions(auth) {
-	const { data: connections } = await auth.serviceSupabase
+	const { data: connections, error: connectionsError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.select('provider,status')
 		.eq('group_id', auth.group.id);
-	const providers = new Set((connections ?? []).map((connection) => connection.provider));
+	if (connectionsError) throw new Error(connectionsError.message);
+	const connectionsByProvider = new Map(
+		(connections ?? []).map((connection) => [connection.provider, connection])
+	);
 	let inserted = 0;
+	let skipped = 0;
 	const errors = [];
 
-	if (providers.has('mercury')) {
+	if (shouldSyncBankProvider(connectionsByProvider.get('mercury'))) {
 		try {
 			const result = await syncMercuryTransactions(auth, { runAutoMatch: false });
 			inserted += Number(result?.inserted || 0);
@@ -2546,7 +2841,7 @@ export async function syncAllBankTransactions(auth) {
 		}
 	}
 
-	if (providers.has('stripe_financial_connections')) {
+	if (shouldSyncBankProvider(connectionsByProvider.get('stripe_financial_connections'))) {
 		try {
 			const result = await syncStripeFinancialConnectionsTransactions(auth, null, {
 				runAutoMatch: false
@@ -2557,18 +2852,24 @@ export async function syncAllBankTransactions(auth) {
 		}
 	}
 
-	if (providers.has('stripe')) {
+	if (shouldSyncBankProvider(connectionsByProvider.get('stripe'))) {
 		try {
 			const result = await syncStripeTransactions(auth, { runAutoMatch: false });
 			inserted += Number(result?.inserted || 0);
+			skipped += Number(result?.skipped || 0);
 		} catch (error) {
 			errors.push(error?.message || 'Stripe sync failed.');
 		}
 	}
 
+	if (skipped) {
+		errors.push(
+			`Skipped ${skipped} Stripe balance transactions with invalid IDs, dates, currencies, amounts, fees, or net values.`
+		);
+	}
 	await autoMatchFeedItems(auth);
 	if (!inserted && errors.length) throw new Error(errors[0]);
-	return { inserted, errors };
+	return { inserted, skipped, errors };
 }
 
 export async function reclassifyReceipt(auth, formData) {
@@ -2603,12 +2904,15 @@ export async function reclassifyReceipt(auth, formData) {
 }
 
 export async function buildEntriesCsv(auth) {
-	const { data: entries, error } = await auth.serviceSupabase
-		.from('group_accounting_entries')
-		.select('*')
-		.eq('group_id', auth.group.id)
-		.order('entry_date', { ascending: false });
-	if (error) throw new Error(error.message);
+	const entries = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_entries')
+			.select('*')
+			.eq('group_id', auth.group.id)
+			.order('entry_date', { ascending: false })
+			.order('id', { ascending: false })
+			.range(fromRow, toRow)
+	);
 	await auth.serviceSupabase.from('group_accounting_exports').insert({
 		group_id: auth.group.id,
 		created_by_user_id: auth.userId,
@@ -2742,11 +3046,12 @@ export async function postDonationToGroupAccounting({
 		.eq('id', groupId)
 		.maybeSingle();
 	if (!group) return null;
-	const { accounts } = await ensureGroupAccountingSetup(supabase, group, null);
+	const { settings, accounts } = await ensureGroupAccountingSetup(supabase, group, null);
 	const stripe = accountByCode(accounts, '1030');
 	const donations = accountByCode(accounts, source === 'membership' ? '4010' : '4000');
 	const amountCents = Number(donation.amount_total_cents || donation.amount_cents || 0);
 	if (amountCents <= 0) return null;
+	const currency = requireGroupCurrency(donation.currency, settings.currency);
 	return insertBalancedEntry(
 		supabase,
 		groupId,
@@ -2758,7 +3063,7 @@ export async function postDonationToGroupAccounting({
 			description: source === 'membership' ? 'Membership payment' : 'Donation received',
 			memo: donation.donor_name ? `From ${donation.donor_name}` : null,
 			amount_cents: amountCents,
-			currency: normalizeCurrency(donation.currency),
+			currency,
 			metadata: {
 				donation_id: donation.id,
 				stripe_payment_intent_id: donation.stripe_payment_intent_id || null

@@ -31,11 +31,58 @@ async function syncGroup(serviceSupabase, group) {
 		auto_match: null,
 		errors: []
 	};
+	const { data: settings, error: settingsError } = await serviceSupabase
+		.from('group_accounting_settings')
+		.select('enabled')
+		.eq('group_id', group.id)
+		.maybeSingle();
+	if (settingsError) {
+		result.errors.push({ provider: 'settings', message: settingsError.message });
+		return result;
+	}
+	if (settings?.enabled !== true) return result;
 
-	for (const task of [
-		['stripe_financial_connections', syncStripeFinancialConnectionsTransactions],
-		['stripe', syncStripeTransactions]
-	]) {
+	const [
+		{ data: connections, error: connectionsError },
+		{ data: donationAccount, error: donationError }
+	] = await Promise.all([
+		serviceSupabase
+			.from('group_accounting_bank_connections')
+			.select('provider,status,config')
+			.eq('group_id', group.id),
+		serviceSupabase
+			.from('donation_accounts')
+			.select('stripe_account_id')
+			.eq('group_id', group.id)
+			.maybeSingle()
+	]);
+	if (connectionsError) {
+		result.errors.push({ provider: 'connections', message: connectionsError.message });
+		return result;
+	}
+	if (donationError) {
+		result.errors.push({ provider: 'stripe', message: donationError.message });
+	}
+	const hasStripeFinancialConnections = (connections ?? []).some(
+		(connection) =>
+			connection.provider === 'stripe_financial_connections' &&
+			connection.status === 'connected' &&
+			Array.isArray(connection.config?.account_ids) &&
+			connection.config.account_ids.length > 0
+	);
+	const stripeBalanceConnection = (connections ?? []).find(
+		(connection) => connection.provider === 'stripe'
+	);
+
+	const tasks = [];
+	if (hasStripeFinancialConnections) {
+		tasks.push(['stripe_financial_connections', syncStripeFinancialConnectionsTransactions]);
+	}
+	if (donationAccount?.stripe_account_id && stripeBalanceConnection?.status !== 'disabled') {
+		tasks.push(['stripe', syncStripeTransactions]);
+	}
+
+	for (const task of tasks) {
 		const [key, fn] = task;
 		try {
 			result[key] = await fn(auth);
@@ -44,10 +91,15 @@ async function syncGroup(serviceSupabase, group) {
 		}
 	}
 
-	try {
-		result.auto_match = await autoMatchFeedItems(auth);
-	} catch (error) {
-		result.errors.push({ provider: 'auto_match', message: error?.message || 'Auto-match failed.' });
+	if (tasks.length) {
+		try {
+			result.auto_match = await autoMatchFeedItems(auth);
+		} catch (error) {
+			result.errors.push({
+				provider: 'auto_match',
+				message: error?.message || 'Auto-match failed.'
+			});
+		}
 	}
 
 	return result;
@@ -58,11 +110,28 @@ export async function POST({ request }) {
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) return json({ error: 'Service role is not configured.' }, { status: 500 });
 
-	const { data: groups, error } = await serviceSupabase
-		.from('groups')
-		.select('id,slug,name')
-		.order('name', { ascending: true });
-	if (error) return json({ error: error.message }, { status: 500 });
+	const groups = [];
+	const pageSize = 500;
+	for (let offset = 0; ; offset += pageSize) {
+		const { data: settings, error: settingsError } = await serviceSupabase
+			.from('group_accounting_settings')
+			.select('group_id')
+			.eq('enabled', true)
+			.order('group_id', { ascending: true })
+			.range(offset, offset + pageSize - 1);
+		if (settingsError) return json({ error: settingsError.message }, { status: 500 });
+		const groupIds = (settings ?? []).map((setting) => setting.group_id).filter(Boolean);
+		if (groupIds.length) {
+			const { data: groupRows, error: groupError } = await serviceSupabase
+				.from('groups')
+				.select('id,slug,name')
+				.in('id', groupIds);
+			if (groupError) return json({ error: groupError.message }, { status: 500 });
+			groups.push(...(groupRows ?? []));
+		}
+		if ((settings ?? []).length < pageSize) break;
+	}
+	groups.sort((left, right) => left.name.localeCompare(right.name));
 
 	const results = [];
 	for (const group of groups ?? []) {
