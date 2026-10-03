@@ -469,7 +469,12 @@ async function fetchJson(url, options = {}) {
 		const error = new Error(
 			payload?.error_message || payload?.message || `Request failed (${response.status})`
 		);
-		Object.assign(error, { httpStatus: response.status });
+		Object.assign(error, {
+			httpStatus: response.status,
+			...(response.status === 401 && payload?.error === 'Authentication failed'
+				? { code: 'relay_auth' }
+				: {})
+		});
 		throw error;
 	}
 	return payload;
