@@ -41,6 +41,7 @@ import {
 	feedTransactionId,
 	forEachStripeListItem,
 	mercuryAccountPages,
+	mercuryInternalTransferPairs,
 	mercuryProviderAccountsFromTransactions,
 	mercuryTransactionDate,
 	mercuryTransactionAccountId,
@@ -1952,7 +1953,7 @@ export async function loadAccountingDashboard(auth, url) {
 		auth.serviceSupabase
 			.from('group_accounting_sync_runs')
 			.select(
-				'id,provider,trigger,status,started_at,completed_at,inserted_count,updated_count,correction_count,skipped_count,error_code,error_message'
+				'id,provider,trigger,status,started_at,completed_at,inserted_count,updated_count,correction_count,skipped_count,error_code,error_message,metadata'
 			)
 			.eq('group_id', auth.group.id)
 			.order('started_at', { ascending: false })
@@ -2586,11 +2587,29 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 	);
 	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
 	for (let index = 0; index < rows.length; index += 100) {
+		const batch = rows.slice(index, index + 100);
 		const { data, error } = await auth.serviceSupabase.rpc('sync_group_accounting_feed_items', {
-			p_rows: rows.slice(index, index + 100)
+			p_rows: batch
 		});
 		if (error) throw new Error('Unable to save provider feed items.');
 		for (const key of Object.keys(totals)) totals[key] += Number(data?.[key] || 0);
+		if (provider === 'mercury' && batch.length) {
+			const { data: refreshedCount, error: refreshError } = await auth.serviceSupabase.rpc(
+				'refresh_group_accounting_mercury_feed_raw',
+				{
+					p_group_id: auth.group.id,
+					p_connection_id: connection.id,
+					p_rows: batch.map(({ source_transaction_id, account_id, should_import, raw }) => ({
+						source_transaction_id,
+						account_id,
+						should_import,
+						raw
+					}))
+				}
+			);
+			if (refreshError) throw new Error('Unable to refresh Mercury feed details.');
+			totals.updated += Number(refreshedCount || 0);
+		}
 	}
 	return totals;
 }
@@ -2995,7 +3014,7 @@ async function performMercurySync(auth, options = {}) {
 		await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
 	}
 
-	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
+	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0, auto_posted_transfers: 0 };
 	for await (const transactions of mercuryTransactionPages(async (query) =>
 		mercuryRelayRequest(auth, resolved, resolvedApiKey, {
 			method: 'GET',
@@ -3024,7 +3043,34 @@ async function performMercurySync(auth, options = {}) {
 		const counts = await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
 			accountMap
 		});
-		for (const key of Object.keys(totals)) totals[key] += counts[key];
+		for (const key of ['inserted', 'updated', 'corrections', 'skipped']) totals[key] += counts[key];
+	}
+	const transferFeedItems = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select(
+				'id,connection_id,account_id,source_transaction_id,transaction_date,amount_cents,currency,status,matched_entry_id,provider,provider_status,provider_correction_pending,reconciliation_id,cleared_at,raw'
+			)
+			.eq('group_id', auth.group.id)
+			.eq('connection_id', resolved.id)
+			.eq('provider', 'mercury')
+			.eq('status', 'needs_review')
+			.contains('raw', { kind: 'internalTransfer' })
+			.order('transaction_date', { ascending: false })
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
+	for (const pair of mercuryInternalTransferPairs(transferFeedItems)) {
+		const { data: result, error } = await auth.serviceSupabase.rpc(
+			'post_group_accounting_mercury_internal_transfer_pair',
+			{
+				p_group_id: auth.group.id,
+				p_outgoing_feed_item_id: pair.outgoingFeedItemId,
+				p_incoming_feed_item_id: pair.incomingFeedItemId
+			}
+		);
+		if (error) throw new Error('Unable to safely post a Mercury internal transfer.');
+		if (result?.posted === true) totals.auto_posted_transfers += 1;
 	}
 	if (runAutoMatch) await autoMatchFeedItems(auth);
 	return totals;

@@ -258,6 +258,86 @@ export function mercuryTransactionDate(transaction = {}) {
 	);
 }
 
+function mercuryTransferAccountId(transaction = {}, owner = false) {
+	return firstCleanText(
+		owner
+			? [transaction.accountId, transaction.account_id, transaction.account?.id]
+			: [
+					transaction.counterpartyId,
+					transaction.counterparty_id,
+					transaction.counterpartyAccountId,
+					transaction.counterparty_account_id,
+					transaction.counterpartyAccount?.id,
+					transaction.counterparty?.id
+				]
+	);
+}
+
+function isEligibleMercuryInternalTransfer(item = {}) {
+	const raw = item.raw && typeof item.raw === 'object' ? item.raw : {};
+	const postedAt = raw.postedAt || raw.posted_at;
+	return Boolean(
+		item.provider === 'mercury' &&
+		item.status === 'needs_review' &&
+		!item.matched_entry_id &&
+		!item.provider_correction_pending &&
+		!item.reconciliation_id &&
+		!item.cleared_at &&
+		item.id &&
+		item.connection_id &&
+		item.account_id &&
+		item.source_transaction_id &&
+		Number.isSafeInteger(item.amount_cents) &&
+		item.amount_cents !== 0 &&
+		Math.abs(item.amount_cents) <= 2_147_483_647 &&
+		String(raw.kind || '').toLowerCase() === 'internaltransfer' &&
+		String(item.provider_status || raw.status || '').toLowerCase() === 'sent' &&
+		String(raw.status || '').toLowerCase() === 'sent' &&
+		Boolean(postedAt) &&
+		providerTransactionDate(postedAt) === item.transaction_date &&
+		/^[a-z]{3}$/i.test(String(item.currency || '')) &&
+		mercuryTransferAccountId(raw, true) &&
+		mercuryTransferAccountId(raw, false)
+	);
+}
+
+/**
+ * Return only unambiguous, reciprocal, completed Mercury transfers. Account-map
+ * validity and the final ledger write are checked again by the database RPC.
+ */
+export function mercuryInternalTransferPairs(feedItems = []) {
+	const eligible = feedItems.filter(isEligibleMercuryInternalTransfer);
+	const outgoingByKey = new Map();
+	const incomingByKey = new Map();
+	for (const item of eligible) {
+		const raw = item.raw;
+		const owner = mercuryTransferAccountId(raw, true);
+		const counterparty = mercuryTransferAccountId(raw);
+		const accountOrder = item.amount_cents < 0 ? [owner, counterparty] : [counterparty, owner];
+		const key = JSON.stringify([
+			item.connection_id,
+			...accountOrder,
+			Math.abs(item.amount_cents),
+			item.currency.toLowerCase(),
+			item.transaction_date
+		]);
+		const grouped = item.amount_cents < 0 ? outgoingByKey : incomingByKey;
+		grouped.set(key, [...(grouped.get(key) || []), item]);
+	}
+
+	const pairs = [];
+	for (const [key, outgoing] of outgoingByKey) {
+		const incoming = incomingByKey.get(key);
+		if (outgoing.length === 1 && incoming?.length === 1) {
+			pairs.push({
+				outgoingFeedItemId: outgoing[0].id,
+				incomingFeedItemId: incoming[0].id
+			});
+		}
+	}
+	return pairs;
+}
+
 export function shouldImportMercuryTransaction(transaction = {}) {
 	const status = cleanText(transaction.status).toLowerCase();
 	return !['pending', 'cancelled', 'failed', 'reversed', 'blocked'].includes(status);

@@ -35,10 +35,12 @@ test(
 					'20261002134257_atomic_accounting_workflows_20261002.sql',
 					'20261003024701_monitor_group_accounting_provider_sync.sql',
 					'20261003025416_group_accounting_followup_20261002.sql',
-					'20261003030447_guard_accounting_statement_order.sql'
+					'20261003030447_guard_accounting_statement_order.sql',
+					'20261003160000_auto_post_mercury_internal_transfers.sql'
 				].map((name) => fs.readFileSync(path.join(root, 'migrations', name), 'utf8')),
 				fs.readFileSync(path.join(root, 'tests/group_accounting_integrity.sql'), 'utf8'),
-				fs.readFileSync(path.join(root, 'tests/group_accounting_sync_integrity.sql'), 'utf8')
+				fs.readFileSync(path.join(root, 'tests/group_accounting_sync_integrity.sql'), 'utf8'),
+				fs.readFileSync(path.join(root, 'tests/group_accounting_mercury_transfers.sql'), 'utf8')
 			].join('\n');
 			assert.match(
 				run(url.toString(), `set client_min_messages=warning;\n${sql}`),

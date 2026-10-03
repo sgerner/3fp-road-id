@@ -6,6 +6,7 @@ import {
 	feedItemAmountCents,
 	forEachStripeListItem,
 	mercuryAccountPages,
+	mercuryInternalTransferPairs,
 	mercuryProviderAccountsFromTransactions,
 	mercuryTransactionDate,
 	mercuryTransactionPages,
@@ -15,6 +16,7 @@ import {
 	shouldImportFinancialConnectionsTransaction,
 	shouldImportMercuryTransaction,
 	shouldSyncBankProvider,
+	shouldScheduleMercurySync,
 	stripeBalanceTransactionFeedRows
 } from './groupAccountingProviders.js';
 
@@ -122,6 +124,124 @@ test('provider transaction dates reject missing or malformed values instead of i
 	assert.equal(mercuryTransactionDate({}), null);
 });
 
+test('Mercury internal transfers pair only when both completed sides match exactly', () => {
+	const shared = {
+		provider: 'mercury',
+		connection_id: 'connection-1',
+		status: 'needs_review',
+		provider_status: 'sent',
+		transaction_date: '2026-04-22',
+		currency: 'usd',
+		provider_correction_pending: false
+	};
+	const outgoing = {
+		...shared,
+		id: 'feed-out',
+		source_transaction_id: 'mercury-out',
+		account_id: 'ledger-checking',
+		amount_cents: -100_000,
+		raw: {
+			kind: 'internalTransfer',
+			status: 'sent',
+			postedAt: '2026-04-22T10:00:00Z',
+			accountId: 'mercury-checking',
+			counterpartyId: 'mercury-savings'
+		}
+	};
+	const incoming = {
+		...shared,
+		id: 'feed-in',
+		source_transaction_id: 'mercury-in',
+		account_id: 'ledger-savings',
+		amount_cents: 100_000,
+		raw: {
+			kind: 'internalTransfer',
+			status: 'sent',
+			postedAt: '2026-04-22T10:00:00Z',
+			accountId: 'mercury-savings',
+			counterpartyId: 'mercury-checking'
+		}
+	};
+
+	assert.deepEqual(mercuryInternalTransferPairs([outgoing, incoming]), [
+		{ outgoingFeedItemId: 'feed-out', incomingFeedItemId: 'feed-in' }
+	]);
+	const nestedOwner = {
+		...outgoing,
+		raw: { ...outgoing.raw, account: { id: 'mercury-checking' } }
+	};
+	delete nestedOwner.raw.accountId;
+	assert.deepEqual(mercuryInternalTransferPairs([nestedOwner, incoming]), [
+		{ outgoingFeedItemId: 'feed-out', incomingFeedItemId: 'feed-in' }
+	]);
+	assert.deepEqual(mercuryInternalTransferPairs([outgoing]), []);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([outgoing, { ...incoming, amount_cents: 99_999 }]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([
+			outgoing,
+			{
+				...incoming,
+				id: 'pending-in',
+				provider_status: 'pending',
+				raw: { ...incoming.raw, status: 'pending' }
+			}
+		]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([
+			outgoing,
+			{
+				...incoming,
+				raw: { ...incoming.raw, postedAt: undefined, createdAt: '2026-04-22T10:00:00Z' }
+			}
+		]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([outgoing, { ...incoming, transaction_date: '2026-04-23' }]),
+		[]
+	);
+	assert.deepEqual(mercuryInternalTransferPairs([outgoing, { ...incoming, currency: 'cad' }]), []);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([outgoing, { ...incoming, connection_id: 'another-connection' }]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([outgoing, { ...incoming, provider: 'stripe' }]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([
+			outgoing,
+			{ ...incoming, status: 'posted', matched_entry_id: 'entry-already-posted' }
+		]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([
+			outgoing,
+			{ ...incoming, raw: { ...incoming.raw, counterpartyId: 'some-other-account' } }
+		]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([
+			outgoing,
+			incoming,
+			{ ...outgoing, id: 'duplicate-out', source_transaction_id: 'duplicate' }
+		]),
+		[]
+	);
+	assert.deepEqual(
+		mercuryInternalTransferPairs([outgoing, { ...incoming, provider_correction_pending: true }]),
+		[]
+	);
+});
+
 test('provider status filters omit cancelled Mercury and non-posted Financial Connections rows', () => {
 	assert.equal(shouldImportMercuryTransaction({ status: 'sent' }), true);
 	assert.equal(shouldImportMercuryTransaction({ status: 'pending' }), false);
@@ -138,6 +258,26 @@ test('sync all honors disabled and not-yet-connected provider connections', () =
 	assert.equal(shouldSyncBankProvider({ status: 'setup_needed' }), false);
 	assert.equal(shouldSyncBankProvider({ status: 'connected' }), true);
 	assert.equal(shouldSyncBankProvider({ status: 'error' }), true);
+});
+
+test('hourly Mercury sync requires group opt-in, a saved key, and an enabled connection', () => {
+	const configured = { mercury_sync_enabled: true, mercury_api_key_ciphertext: 'encrypted-key' };
+	assert.equal(shouldScheduleMercurySync(configured, { status: 'connected' }), true);
+	assert.equal(
+		shouldScheduleMercurySync(
+			{ ...configured, mercury_sync_enabled: false },
+			{ status: 'connected' }
+		),
+		false
+	);
+	assert.equal(
+		shouldScheduleMercurySync(
+			{ ...configured, mercury_api_key_ciphertext: '' },
+			{ status: 'connected' }
+		),
+		false
+	);
+	assert.equal(shouldScheduleMercurySync(configured, { status: 'disabled' }), false);
 });
 
 test('provider account IDs do not fall back to exposing full bank account numbers', () => {

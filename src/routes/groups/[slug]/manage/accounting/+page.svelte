@@ -9,6 +9,7 @@
 	import IconCheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconCog from '@lucide/svelte/icons/cog';
+	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconLandmark from '@lucide/svelte/icons/landmark';
@@ -188,14 +189,20 @@
 			(connection) => connection.provider === 'mercury'
 		)
 	);
+	const healthConnections = $derived(
+		(Array.isArray(data.connections) ? data.connections : []).filter(
+			(connection) => !['manual', 'mercury'].includes(connection.provider)
+		)
+	);
 	const mercuryConnected = $derived(Boolean(data.settings?.mercury_connected));
-
-	let showBankConfig = $state(false);
-	$effect(() => {
-		if (!mercuryConnected && bankFeedAccounts.length === 0) {
-			showBankConfig = true;
-		}
-	});
+	const mercuryScheduleActive = $derived(
+		mercuryConnected &&
+			data.settings?.mercury_sync_enabled === true &&
+			mercuryConnection?.status !== 'disabled'
+	);
+	let showConnections = $state(false);
+	let syncDetailsDialog = $state(null);
+	let selectedSyncRun = $state(null);
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const ledgerPageSize = $derived(Number(data.history_page_size ?? 25));
 	const ledgerTotal = $derived(Number(data.entries_total ?? transactionEntries.length));
@@ -548,6 +555,12 @@
 				failed: 'Last sync failed'
 			}[status] || status.replaceAll('_', ' ')
 		);
+	}
+
+	async function openSyncDetails(run) {
+		selectedSyncRun = run;
+		await tick();
+		if (syncDetailsDialog && !syncDetailsDialog.open) syncDetailsDialog.showModal();
 	}
 
 	function providerCorrectionRows(correction) {
@@ -3665,16 +3678,6 @@
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<button
-						class="btn btn-sm preset-tonal-surface font-semibold"
-						onclick={() => (showBankConfig = !showBankConfig)}
-						aria-label={showBankConfig
-							? 'Hide bank connection settings'
-							: 'Show bank connection settings'}
-					>
-						<IconCog class="h-4 w-4" />
-						<span class="hidden sm:inline">{showBankConfig ? 'Hide Settings' : 'Settings'}</span>
-					</button>
 					<form method="POST" use:enhance={enhanceSyncAll} action="?/syncAll">
 						<button
 							class="btn btn-sm preset-filled-primary-500 font-bold"
@@ -3689,178 +3692,486 @@
 			</div>
 
 			<section class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-4 sm:p-5">
-				<div
-					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+				<button
+					class="flex w-full items-center justify-between gap-3 text-left"
+					type="button"
+					aria-expanded={showConnections}
+					aria-controls="bank-connections-content"
+					onclick={() => (showConnections = !showConnections)}
 				>
-					<div>
-						<h3 class="text-base font-bold">Connection health</h3>
-						<p class="text-surface-600-400 mt-1 text-xs">
-							Connection, sync attempt, last success, and current data freshness.
-						</p>
-					</div>
-				</div>
-				<div class="grid gap-3 lg:grid-cols-2">
-					{#each (data.connections ?? []).filter((connection) => connection.provider !== 'manual') as connection (connection.id)}
-						<div
-							class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
-						>
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<p class="font-semibold capitalize">
-									{connection.display_name || connection.provider.replaceAll('_', ' ')}
-								</p>
-								<span
-									class="badge {['active', 'connected'].includes(connection.status)
-										? 'preset-tonal-success'
-										: 'preset-tonal-warning'} text-[10px] font-bold uppercase"
-									>{['active', 'connected'].includes(connection.status)
-										? 'Connected'
-										: connection.status || 'Unknown'}</span
-								>
-							</div>
-							<p class="text-sm font-semibold">{syncStatusLabel(connection)}</p>
-							<div class="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2">
-								<p>
-									<span class="text-surface-500">Last attempt:</span>
-									{formatTimestamp(connection.last_sync_attempt_at)}
-								</p>
-								<p>
-									<span class="text-surface-500">Last success:</span>
-									{formatTimestamp(connection.last_sync_success_at || connection.last_synced_at)}
-								</p>
-								<p class="sm:col-span-2">
-									<span class="text-surface-500">Data freshness:</span>
-									{connectionFreshness(connection)}
-								</p>
-								{#if connection.next_sync_at}<p class="sm:col-span-2">
-										<span class="text-surface-500">Next scheduled sync:</span>
-										{formatTimestamp(connection.next_sync_at)}
-									</p>{/if}
-							</div>
-							{#if connection.last_sync_error_message}
-								<p
-									class="border-warning-500/20 bg-warning-500/10 rounded-lg border p-2 text-xs"
-									role="status"
-								>
-									{connection.last_sync_error_message}
-								</p>
-							{/if}
-							{#if connection.provider === 'mercury' && mercuryConnected}
+					<span class="min-w-0"
+						><span class="block text-base font-bold">Connections</span><span
+							class="text-surface-600-400 mt-1 block text-xs"
+							>{mercuryConnected
+								? mercuryScheduleActive
+									? 'Mercury automatic sync is on'
+									: 'Mercury automatic sync is off'
+								: 'Manage provider connections, account mappings, and imports'}</span
+						></span
+					>
+					<span class="flex shrink-0 items-center gap-2"
+						>{#if mercuryConnected}<span
+								class="badge {mercuryScheduleActive
+									? 'preset-tonal-success'
+									: 'preset-tonal-surface'} text-[9px] font-bold uppercase"
+								>{mercuryScheduleActive ? 'Hourly sync on' : 'Sync off'}</span
+							>{/if}<IconChevronDown
+							class="h-4 w-4 transition-transform duration-180 {showConnections
+								? 'rotate-180'
+								: ''}"
+							aria-hidden="true"
+						/></span
+					>
+				</button>
+				<div id="bank-connections-content">
+					{#if showConnections}
+						<div transition:slide={{ duration: 180 }} class="space-y-4">
+							<section class="space-y-4">
 								<div
-									class="border-surface-500/10 flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between"
+									class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
 								>
-									<form
-										method="POST"
-										use:enhance
-										action="?/saveConnections"
-										class="flex min-w-0 flex-1 flex-wrap items-center gap-2"
-									>
-										<label
-											class="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-xs font-medium"
+									<div>
+										<h3 class="text-base font-bold">Connection health</h3>
+										<p class="text-surface-600-400 mt-1 text-xs">
+											Connection, sync attempt, last success, and current data freshness.
+										</p>
+									</div>
+								</div>
+								<div class="grid gap-3 lg:grid-cols-2">
+									{#each healthConnections as connection (connection.id)}
+										<div
+											class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
+										>
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<p class="font-semibold capitalize">
+													{connection.display_name || connection.provider.replaceAll('_', ' ')}
+												</p>
+												<span
+													class="badge {['active', 'connected'].includes(connection.status)
+														? 'preset-tonal-success'
+														: 'preset-tonal-warning'} text-[10px] font-bold uppercase"
+													>{['active', 'connected'].includes(connection.status)
+														? 'Connected'
+														: connection.status || 'Unknown'}</span
+												>
+											</div>
+											<p class="text-sm font-semibold">{syncStatusLabel(connection)}</p>
+											<div class="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2">
+												<p>
+													<span class="text-surface-500">Last attempt:</span>
+													{formatTimestamp(connection.last_sync_attempt_at)}
+												</p>
+												<p>
+													<span class="text-surface-500">Last success:</span>
+													{formatTimestamp(
+														connection.last_sync_success_at || connection.last_synced_at
+													)}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="text-surface-500">Data freshness:</span>
+													{connectionFreshness(connection)}
+												</p>
+												{#if connection.next_sync_at}<p class="sm:col-span-2">
+														<span class="text-surface-500">Next scheduled sync:</span>
+														{formatTimestamp(connection.next_sync_at)}
+													</p>{/if}
+											</div>
+											{#if connection.last_sync_error_message}<p
+													class="border-warning-500/20 bg-warning-500/10 rounded-lg border p-2 text-xs"
+													role="status"
+												>
+													{connection.last_sync_error_message}
+												</p>{/if}
+										</div>
+									{/each}
+									{#if mercuryConnected}
+										<div
+											class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
+										>
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<p class="font-semibold">Mercury</p>
+												<span
+													class="badge {mercuryConnection?.status === 'disabled'
+														? 'preset-tonal-warning'
+														: 'preset-tonal-success'} text-[10px] font-bold uppercase"
+													>{mercuryConnection?.status === 'disabled'
+														? 'Disabled'
+														: 'Connected'}</span
+												>
+											</div>
+											<p class="text-sm font-semibold">{syncStatusLabel(mercuryConnection)}</p>
+											<div class="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2">
+												<p>
+													<span class="text-surface-500">Last attempt:</span>
+													{formatTimestamp(mercuryConnection?.last_sync_attempt_at)}
+												</p>
+												<p>
+													<span class="text-surface-500">Last success:</span>
+													{formatTimestamp(
+														mercuryConnection?.last_sync_success_at ||
+															mercuryConnection?.last_synced_at
+													)}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="text-surface-500">Data freshness:</span>
+													{connectionFreshness(mercuryConnection)}
+												</p>
+												{#if mercuryConnection?.next_sync_at}<p class="sm:col-span-2">
+														<span class="text-surface-500">Next scheduled sync:</span>
+														{formatTimestamp(mercuryConnection.next_sync_at)}
+													</p>{/if}
+											</div>
+											{#if mercuryConnection?.last_sync_error_message}<p
+													class="border-warning-500/20 bg-warning-500/10 rounded-lg border p-2 text-xs"
+													role="status"
+												>
+													{mercuryConnection.last_sync_error_message}
+												</p>{/if}
+											<div
+												class="border-surface-500/10 flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between"
+											>
+												<form
+													method="POST"
+													use:enhance
+													action="?/saveConnections"
+													class="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+												>
+													<input type="hidden" name="mercurySyncEnabled" value="false" />
+													<label
+														class="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-xs font-medium"
+														><input
+															class="checkbox mt-0.5"
+															type="checkbox"
+															name="mercurySyncEnabled"
+															checked={data.settings?.mercury_sync_enabled === true}
+														/><span>Sync Mercury automatically each hour</span></label
+													>
+													<button
+														class="btn btn-sm preset-tonal-surface font-semibold"
+														type="submit">Save</button
+													>
+												</form>
+												<form method="POST" use:enhance={enhanceSyncAll} action="?/syncMercury">
+													<button
+														class="btn btn-sm preset-outlined-primary-500 shrink-0 font-semibold"
+														type="submit"
+														disabled={syncAllBusy || mercuryConnection?.status === 'disabled'}
+														><IconRefreshCw
+															class="h-3.5 w-3.5 {syncAllBusy ? 'animate-spin' : ''}"
+														/>{syncAllBusy ? 'Syncing…' : 'Sync now'}</button
+													>
+												</form>
+											</div>
+											<p class="text-surface-500 text-xs leading-relaxed">
+												Confirmed transfers between two separately mapped Mercury accounts post as
+												one ledger transfer. Ambiguous or unmatched activity stays in Bank Review.
+											</p>
+										</div>
+									{/if}
+								</div>
+							</section>
+							<div class="card preset-tonal-surface p-5">
+								<div class="grid gap-6 md:grid-cols-2">
+									<!-- Connected Accounts -->
+									<div class="space-y-3">
+										<p class="text-xs font-bold tracking-wider uppercase opacity-60">
+											Connected Accounts
+										</p>
+
+										{#if mercuryConnected && !mercuryEditMode}
+											<div
+												class="card preset-tonal-success flex items-center justify-between gap-3 p-3"
+											>
+												<div>
+													<p class="text-sm font-semibold">
+														Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}
+													</p>
+													{#if mercuryConnection?.last_synced_at}
+														<p class="text-xs opacity-70">
+															Synced {formatDate(mercuryConnection.last_synced_at)}
+														</p>
+													{/if}
+												</div>
+												<button
+													class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
+													type="button"
+													aria-label="Edit Mercury connection"
+													title="Edit Mercury connection"
+													onclick={() => (mercuryEditMode = true)}
+												>
+													<IconPencil class="h-3.5 w-3.5" />
+												</button>
+											</div>
+										{:else}
+											<form
+												method="POST"
+												use:enhance={enhanceSaveConnections}
+												action="?/saveConnections"
+												class="flex gap-2"
+											>
+												<input
+													class="input preset-tonal-surface flex-1 text-sm"
+													type="password"
+													name="mercuryApiKey"
+													placeholder={mercuryConnected
+														? 'Replace Mercury API key…'
+														: 'Mercury API key…'}
+													autocomplete="off"
+													required={!mercuryConnected || mercuryEditMode}
+												/>
+												<button
+													class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
+													type="submit"
+												>
+													{mercuryConnected ? 'Update' : 'Save'}
+												</button>
+												{#if mercuryConnected}
+													<button
+														class="btn btn-sm preset-tonal-surface shrink-0"
+														type="button"
+														onclick={() => (mercuryEditMode = false)}>Cancel</button
+													>
+												{/if}
+											</form>
+										{/if}
+
+										{#if bankFeedAccounts.length > 0}
+											<div class="space-y-1.5">
+												{#each bankFeedAccounts as providerAccount}
+													<form
+														method="POST"
+														use:enhance
+														action="?/updateProviderAccountMapping"
+														class="card preset-tonal-surface flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+													>
+														<input
+															type="hidden"
+															name="providerAccountId"
+															value={providerAccount.id}
+														/>
+														<div class="min-w-0">
+															<div class="flex min-w-0 items-center gap-2">
+																<span class="truncate font-semibold"
+																	>{bankFeedLabel(providerAccount)}</span
+																>
+																<span
+																	class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
+																>
+																	{providerAccount.provider}
+																</span>
+															</div>
+															{#if !providerAccount.account_id}
+																<p class="text-warning-700-300 mt-1 text-xs font-semibold">
+																	Map this feed before reviewing its transactions.
+																</p>
+															{/if}
+														</div>
+														<select
+															class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
+															name="accountId"
+															value={providerAccount.account_id || ''}
+															onchange={requestInlineSave}
+														>
+															<option value="">Unmapped</option>
+															{#each cashAccounts as account}
+																<option value={account.id}>{accountLabel(account)}</option>
+															{/each}
+														</select>
+													</form>
+												{/each}
+											</div>
+										{/if}
+
+										{#if !stripeConnected}
+											<div class="border-warning-500/20 bg-warning-500/10 rounded-xl border p-3">
+												<div class="flex items-center justify-between gap-3">
+													<p class="min-w-0 truncate text-sm leading-tight font-semibold">
+														Connect Stripe to link bank accounts
+													</p>
+													<a
+														class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold whitespace-nowrap"
+														href={stripeConnectUrl}
+													>
+														<IconCreditCard class="h-4 w-4" />
+														<span>Connect Stripe</span>
+													</a>
+												</div>
+											</div>
+										{/if}
+										<button
+											class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+											type="button"
+											disabled={!stripeConnected || financialConnectionsBusy}
+											onclick={connectFinancialAccounts}
+										>
+											<IconLandmark class="h-4 w-4" />
+											<span
+												>{financialConnectionsBusy
+													? 'Opening Stripe…'
+													: 'Connect Bank Account'}</span
+											>
+										</button>
+										<p class="text-surface-700-300 text-xs leading-snug font-medium">
+											Stripe lists $0.30 per institution per account holder per month for
+											transaction data.
+											<a
+												class="text-primary-500 underline underline-offset-2"
+												href="https://stripe.com/financial-connections"
+												target="_blank"
+												rel="noreferrer">View Stripe pricing</a
+											>. Mercury imports do not use Financial Connections.
+										</p>
+										{#if financialConnectionsMessage}
+											<p class="card preset-tonal-primary p-2 text-xs font-semibold">
+												{financialConnectionsMessage}
+											</p>
+										{/if}
+									</div>
+
+									<!-- Manual Import -->
+									<div class="space-y-3">
+										<p class="text-xs font-bold tracking-wider uppercase opacity-60">Import CSV</p>
+										<form
+											method="POST"
+											use:enhance
+											action="?/importBankCsv"
+											enctype="multipart/form-data"
+											class="space-y-3"
 										>
 											<input
-												class="checkbox mt-0.5"
-												type="checkbox"
-												name="mercurySyncEnabled"
-												checked={data.settings?.mercury_sync_enabled === true}
+												class="input preset-tonal-surface text-sm"
+												type="file"
+												name="csvFile"
+												accept=".csv,text/csv"
+												required
 											/>
-											<span>Allow scheduled Mercury sync</span>
-										</label>
-										<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
-											>Save schedule</button
-										>
-									</form>
-									<form method="POST" use:enhance={enhanceSyncAll} action="?/syncMercury">
-										<button
-											class="btn btn-sm preset-outlined-primary-500 font-semibold"
-											type="submit"
-											disabled={syncAllBusy}
-										>
-											<IconRefreshCw class="h-3.5 w-3.5 {syncAllBusy ? 'animate-spin' : ''}" />
-											{syncAllBusy ? 'Syncing…' : 'Sync Mercury now'}
-										</button>
-									</form>
+											<select
+												class="select preset-tonal-surface text-sm"
+												name="accountId"
+												bind:value={csvImportAccountId}
+												disabled={!cashAccounts.length}
+												required
+											>
+												<option value=""
+													>{cashAccounts.length
+														? 'Select target account…'
+														: 'No bank accounts available'}</option
+												>
+												{#each cashAccounts as account}
+													<option value={account.id}>{accountLabel(account)}</option>
+												{/each}
+											</select>
+											<button
+												class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
+												type="submit"
+												disabled={!cashAccounts.length}
+											>
+												<IconUpload class="h-4 w-4" />
+												<span>Import CSV</span>
+											</button>
+										</form>
+									</div>
 								</div>
+							</div>
+
+							{#if syncRuns.length}
+								{@const latestSync = syncRuns[0]}
+								<div
+									class="bg-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-2.5"
+								>
+									<div class="min-w-0">
+										<p class="text-xs font-semibold">Latest provider sync</p>
+										<p class="text-surface-500 mt-0.5 truncate text-xs">
+											{latestSync.provider.replaceAll('_', ' ')} · {latestSync.status} · {formatTimestamp(
+												latestSync.started_at
+											)}
+										</p>
+									</div>
+									<button
+										class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
+										type="button"
+										aria-label="View latest {latestSync.provider} sync details"
+										aria-haspopup="dialog"
+										onclick={() => openSyncDetails(latestSync)}>View details</button
+									>
+								</div>
+								<dialog
+									bind:this={syncDetailsDialog}
+									aria-labelledby="provider-sync-dialog-title"
+									class="bg-surface-50-950 text-surface-950-50 border-surface-500/15 w-[min(94vw,34rem)] max-w-none rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60"
+								>
+									{#if selectedSyncRun}
+										<div class="space-y-4 p-5">
+											<div class="flex items-start justify-between gap-4">
+												<div>
+													<h3 id="provider-sync-dialog-title" class="text-lg font-bold capitalize">
+														{selectedSyncRun.provider.replaceAll('_', ' ')} sync details
+													</h3>
+													<p class="text-surface-500 mt-1 text-xs">
+														{selectedSyncRun.trigger} · {formatTimestamp(
+															selectedSyncRun.started_at
+														)}
+													</p>
+												</div>
+												<span
+													class="badge {selectedSyncRun.status === 'succeeded'
+														? 'preset-tonal-success'
+														: selectedSyncRun.status === 'failed' ||
+															  selectedSyncRun.status === 'partial'
+															? 'preset-tonal-warning'
+															: 'preset-tonal-surface'} text-[10px] font-bold uppercase"
+													>{selectedSyncRun.status}</span
+												>
+											</div>
+											<dl class="grid grid-cols-2 gap-3 text-sm">
+												<div>
+													<dt class="text-surface-500 text-xs">Finished</dt>
+													<dd class="mt-1">{formatTimestamp(selectedSyncRun.completed_at)}</dd>
+												</div>
+												<div>
+													<dt class="text-surface-500 text-xs">New</dt>
+													<dd class="mt-1">{Number(selectedSyncRun.inserted_count || 0)}</dd>
+												</div>
+												<div>
+													<dt class="text-surface-500 text-xs">Updated</dt>
+													<dd class="mt-1">{Number(selectedSyncRun.updated_count || 0)}</dd>
+												</div>
+												<div>
+													<dt class="text-surface-500 text-xs">Corrections</dt>
+													<dd class="mt-1">{Number(selectedSyncRun.correction_count || 0)}</dd>
+												</div>
+												<div>
+													<dt class="text-surface-500 text-xs">Skipped</dt>
+													<dd class="mt-1">{Number(selectedSyncRun.skipped_count || 0)}</dd>
+												</div>
+												<div>
+													<dt class="text-surface-500 text-xs">Internal transfers auto-posted</dt>
+													<dd class="mt-1">
+														{Number(selectedSyncRun.metadata?.auto_posted_internal_transfers || 0)}
+													</dd>
+												</div>
+											</dl>
+											{#if selectedSyncRun.error_message}<p
+													class="border-warning-500/20 bg-warning-500/10 rounded-lg border p-3 text-sm"
+													role="status"
+												>
+													{selectedSyncRun.error_message}
+												</p>{/if}
+											<div class="border-surface-500/10 flex justify-end border-t pt-3">
+												<form method="dialog">
+													<button class="btn btn-sm preset-filled-primary-500 font-semibold"
+														>Close</button
+													>
+												</form>
+											</div>
+										</div>
+									{/if}
+								</dialog>
 							{/if}
 						</div>
-					{:else}
-						{#if mercuryConnected}
-							<div
-								class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
-							>
-								<div class="flex items-center justify-between gap-2">
-									<p class="font-semibold">Mercury</p>
-									<span class="badge preset-tonal-success text-[10px] font-bold uppercase"
-										>Connected</span
-									>
-								</div>
-								<p class="text-sm font-semibold">{syncStatusLabel(mercuryConnection)}</p>
-								<p class="text-xs">
-									Last attempt: {formatTimestamp(mercuryConnection?.last_sync_attempt_at)}
-								</p>
-								<p class="text-xs">
-									Last success: {formatTimestamp(
-										mercuryConnection?.last_sync_success_at || mercuryConnection?.last_synced_at
-									)}
-								</p>
-								<p class="text-xs">Data freshness: {connectionFreshness(mercuryConnection)}</p>
-								<form
-									method="POST"
-									use:enhance
-									action="?/saveConnections"
-									class="border-surface-500/10 flex flex-wrap items-center justify-between gap-2 border-t pt-2"
-								>
-									<label class="flex items-center gap-2 text-xs font-medium"
-										><input
-											class="checkbox"
-											type="checkbox"
-											name="mercurySyncEnabled"
-											checked={data.settings?.mercury_sync_enabled === true}
-										/>Allow scheduled Mercury sync</label
-									>
-									<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
-										>Save schedule</button
-									>
-								</form>
-							</div>
-						{/if}
-					{/each}
+					{/if}
 				</div>
-				{#if syncRuns.length}
-					<div class="border-surface-500/10 space-y-2 border-t pt-3">
-						<p class="text-xs font-bold tracking-wider uppercase">Recent provider syncs</p>
-						<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-							{#each syncRuns.slice(0, 6) as run (run.id)}
-								<div class="bg-surface-500/5 rounded-lg p-3 text-xs">
-									<div class="flex items-center justify-between gap-2">
-										<span class="font-semibold capitalize">{run.provider.replaceAll('_', ' ')}</span
-										><span
-											class="badge {run.status === 'succeeded'
-												? 'preset-tonal-success'
-												: run.status === 'failed' || run.status === 'partial'
-													? 'preset-tonal-warning'
-													: 'preset-tonal-surface'} text-[9px] font-bold uppercase"
-											>{run.status}</span
-										>
-									</div>
-									<p class="text-surface-500 mt-1">
-										{run.trigger} · {formatTimestamp(run.started_at)}
-									</p>
-									<p class="mt-1">
-										{Number(run.inserted_count || 0)} new · {Number(run.updated_count || 0)} updated ·
-										{Number(run.correction_count || 0)} corrections · {Number(
-											run.skipped_count || 0
-										)} skipped
-									</p>
-									{#if run.error_message}<p class="text-warning-700-300 mt-1">
-											{run.error_message}
-										</p>{/if}
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
 			</section>
-
 			{#if providerCorrectionItems.length}
 				<section
 					class="card preset-tonal-surface border-warning-500/20 space-y-3 border p-4 sm:p-5"
@@ -4243,201 +4554,6 @@
 				</div>
 			{/if}
 
-			<!-- Settings Panel -->
-			{#if showBankConfig}
-				<div transition:slide={{ duration: 180 }} class="card preset-tonal-surface p-5">
-					<div class="grid gap-6 md:grid-cols-2">
-						<!-- Connected Accounts -->
-						<div class="space-y-3">
-							<p class="text-xs font-bold tracking-wider uppercase opacity-60">
-								Connected Accounts
-							</p>
-
-							{#if mercuryConnected && !mercuryEditMode}
-								<div class="card preset-tonal-success flex items-center justify-between gap-3 p-3">
-									<div>
-										<p class="text-sm font-semibold">
-											Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}
-										</p>
-										{#if mercuryConnection?.last_synced_at}
-											<p class="text-xs opacity-70">
-												Synced {formatDate(mercuryConnection.last_synced_at)}
-											</p>
-										{/if}
-									</div>
-									<button
-										class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
-										type="button"
-										aria-label="Edit Mercury connection"
-										title="Edit Mercury connection"
-										onclick={() => (mercuryEditMode = true)}
-									>
-										<IconPencil class="h-3.5 w-3.5" />
-									</button>
-								</div>
-							{:else}
-								<form
-									method="POST"
-									use:enhance={enhanceSaveConnections}
-									action="?/saveConnections"
-									class="flex gap-2"
-								>
-									<input
-										class="input preset-tonal-surface flex-1 text-sm"
-										type="password"
-										name="mercuryApiKey"
-										placeholder={mercuryConnected ? 'Replace Mercury API key…' : 'Mercury API key…'}
-										autocomplete="off"
-										required={!mercuryConnected || mercuryEditMode}
-									/>
-									<button
-										class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
-										type="submit"
-									>
-										{mercuryConnected ? 'Update' : 'Save'}
-									</button>
-									{#if mercuryConnected}
-										<button
-											class="btn btn-sm preset-tonal-surface shrink-0"
-											type="button"
-											onclick={() => (mercuryEditMode = false)}>Cancel</button
-										>
-									{/if}
-								</form>
-							{/if}
-
-							{#if bankFeedAccounts.length > 0}
-								<div class="space-y-1.5">
-									{#each bankFeedAccounts as providerAccount}
-										<form
-											method="POST"
-											use:enhance
-											action="?/updateProviderAccountMapping"
-											class="card preset-tonal-surface flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-										>
-											<input type="hidden" name="providerAccountId" value={providerAccount.id} />
-											<div class="min-w-0">
-												<div class="flex min-w-0 items-center gap-2">
-													<span class="truncate font-semibold"
-														>{bankFeedLabel(providerAccount)}</span
-													>
-													<span
-														class="badge preset-outlined-surface-500 shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
-													>
-														{providerAccount.provider}
-													</span>
-												</div>
-												{#if !providerAccount.account_id}
-													<p class="text-warning-700-300 mt-1 text-xs font-semibold">
-														Map this feed before reviewing its transactions.
-													</p>
-												{/if}
-											</div>
-											<select
-												class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
-												name="accountId"
-												value={providerAccount.account_id || ''}
-												onchange={requestInlineSave}
-											>
-												<option value="">Unmapped</option>
-												{#each cashAccounts as account}
-													<option value={account.id}>{accountLabel(account)}</option>
-												{/each}
-											</select>
-										</form>
-									{/each}
-								</div>
-							{/if}
-
-							{#if !stripeConnected}
-								<div class="border-warning-500/20 bg-warning-500/10 rounded-xl border p-3">
-									<div class="flex items-center justify-between gap-3">
-										<p class="min-w-0 truncate text-sm leading-tight font-semibold">
-											Connect Stripe to link bank accounts
-										</p>
-										<a
-											class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold whitespace-nowrap"
-											href={stripeConnectUrl}
-										>
-											<IconCreditCard class="h-4 w-4" />
-											<span>Connect Stripe</span>
-										</a>
-									</div>
-								</div>
-							{/if}
-							<button
-								class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
-								type="button"
-								disabled={!stripeConnected || financialConnectionsBusy}
-								onclick={connectFinancialAccounts}
-							>
-								<IconLandmark class="h-4 w-4" />
-								<span>{financialConnectionsBusy ? 'Opening Stripe…' : 'Connect Bank Account'}</span>
-							</button>
-							<p class="text-surface-700-300 text-xs leading-snug font-medium">
-								Stripe lists $0.30 per institution per account holder per month for transaction
-								data.
-								<a
-									class="text-primary-500 underline underline-offset-2"
-									href="https://stripe.com/financial-connections"
-									target="_blank"
-									rel="noreferrer">View Stripe pricing</a
-								>. Mercury imports do not use Financial Connections.
-							</p>
-							{#if financialConnectionsMessage}
-								<p class="card preset-tonal-primary p-2 text-xs font-semibold">
-									{financialConnectionsMessage}
-								</p>
-							{/if}
-						</div>
-
-						<!-- Manual Import -->
-						<div class="space-y-3">
-							<p class="text-xs font-bold tracking-wider uppercase opacity-60">Import CSV</p>
-							<form
-								method="POST"
-								use:enhance
-								action="?/importBankCsv"
-								enctype="multipart/form-data"
-								class="space-y-3"
-							>
-								<input
-									class="input preset-tonal-surface text-sm"
-									type="file"
-									name="csvFile"
-									accept=".csv,text/csv"
-									required
-								/>
-								<select
-									class="select preset-tonal-surface text-sm"
-									name="accountId"
-									bind:value={csvImportAccountId}
-									disabled={!cashAccounts.length}
-									required
-								>
-									<option value=""
-										>{cashAccounts.length
-											? 'Select target account…'
-											: 'No bank accounts available'}</option
-									>
-									{#each cashAccounts as account}
-										<option value={account.id}>{accountLabel(account)}</option>
-									{/each}
-								</select>
-								<button
-									class="btn btn-sm preset-outlined-primary-500 w-full font-bold"
-									type="submit"
-									disabled={!cashAccounts.length}
-								>
-									<IconUpload class="h-4 w-4" />
-									<span>Import CSV</span>
-								</button>
-							</form>
-						</div>
-					</div>
-				</div>
-			{/if}
-
 			<!-- Transaction Review -->
 			{#if bankReviewGroups.length > 0}
 				<div class="space-y-3">
@@ -4625,17 +4741,9 @@
 					</div>
 					<h3 class="text-lg font-bold">All caught up!</h3>
 					<p class="mt-1 max-w-xs text-sm opacity-60">
-						No bank feeds need review. Sync your bank feeds or import a CSV to get started.
+						No bank feeds need review. Open Connections to sync, connect an account, or import a
+						CSV.
 					</p>
-					{#if !showBankConfig}
-						<button
-							class="btn btn-sm preset-tonal-surface mt-4 font-semibold"
-							onclick={() => (showBankConfig = true)}
-						>
-							<IconCog class="h-4 w-4" />
-							<span>Manage Connections</span>
-						</button>
-					{/if}
 				</div>
 			{/if}
 		</section>
