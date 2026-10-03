@@ -22,6 +22,16 @@ test('provider failures expose safe messages and preserve known error classifica
 		'provider_refresh_pending'
 	);
 	assert.equal(sanitizeProviderSyncError({ message: secret }, 'mercury').code, 'sync_failed');
+	for (const [httpStatus, expected] of [
+		[401, 'provider_auth'],
+		[403, 'provider_permission'],
+		[429, 'provider_rate_limited'],
+		[503, 'provider_unavailable']
+	]) {
+		const result = sanitizeProviderSyncError({ message: secret, httpStatus }, 'mercury');
+		assert.equal(result.code, expected);
+		assert.ok(!result.message.includes(secret));
+	}
 	assert.equal(providerSyncBackoffMs(1), 300000);
 	assert.ok(providerSyncBackoffMs(100) <= 86400000);
 });

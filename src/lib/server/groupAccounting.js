@@ -466,9 +466,11 @@ async function fetchJson(url, options = {}) {
 		payload = {};
 	}
 	if (!response.ok) {
-		throw new Error(
+		const error = new Error(
 			payload?.error_message || payload?.message || `Request failed (${response.status})`
 		);
+		Object.assign(error, { httpStatus: response.status });
+		throw error;
 	}
 	return payload;
 }

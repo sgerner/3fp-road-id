@@ -26,10 +26,13 @@ History searches and pagination run on the server. Account filters retain comple
 - Svelte check: zero errors and warnings. Full ESLint passes.
 - Desktop (1440px) and mobile (390px) renders of seven accounting tabs used production reference data: no browser errors or horizontal overflow. Temporary preview routes were removed before release.
 - A live Stripe import under the corrected connection succeeded with zero balance transactions returned; success is recorded independently of cron dispatch.
-- Production has the Mercury relay configuration. The existing hourly Supabase cron is enabled.
+- Production has the Mercury relay configuration. The existing hourly Supabase cron is enabled. A deployed endpoint test succeeded for Stripe but returned a partial failure for Mercury before any imports; the relay client now preserves HTTP status for safe authentication/permission/rate-limit classification.
+- A quiet six-hour health monitor checks actual cron results and durable provider success, alerting only on meaningful failures, recovery, or required action.
 - Repository-wide Prettier checking reports existing formatting in `src/lib/server/micrositeRouting.js` and `src/lib/services/email.ts`; neither file is part of this accounting change.
 
 Financial Connections still needs an authorized person to link the group's bank/card accounts. A logged-in Stripe dashboard does not provide bank credentials. Imported activity remains subject to accounting review; feeds never automatically post new ledger entries.
+
+The pending-donation audit verified 75 current-account PaymentIntents, all requiring a payment method. None is confirmed paid or expired. Seven historic-account records remain inaccessible and unverified. Their statuses were preserved; age alone does not establish expiry, and no donations were cancelled or notification emails sent. The existing production Stripe webhook subscription now includes Financial Connections transaction-refresh events.
 
 Applied schema versions:
 
@@ -37,5 +40,4 @@ Applied schema versions:
 - `20261003024701_monitor_group_accounting_provider_sync.sql`
 - `20261003025416_group_accounting_followup_20261002.sql`
 - `20261003025417_guard_shared_stripe_account_identity.sql`
-
 - `20261003030447_guard_accounting_statement_order.sql`
