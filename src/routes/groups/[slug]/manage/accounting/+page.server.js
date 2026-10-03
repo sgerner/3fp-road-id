@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { readFormData } from '$lib/server/security';
 import {
 	actionFailure,
@@ -6,6 +6,7 @@ import {
 	addManualFeedItem,
 	autoMatchFeedItems,
 	completeAutomatedReconciliation,
+	createReconciliationStatementDownload,
 	createAccount,
 	createReconciliation,
 	ignoreFeedItem,
@@ -18,7 +19,9 @@ import {
 	postSimpleEntry,
 	postTransfer,
 	publishSnapshot,
+	reopenReconciliation,
 	requireGroupAccountingManager,
+	resolveProviderCorrection,
 	saveConnections,
 	saveSettings,
 	syncAllBankTransactions,
@@ -154,6 +157,22 @@ export const actions = {
 	completeReconciliation: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await completeAutomatedReconciliation(auth, await readAccountingFormData(request));
+		}),
+	reopenReconciliation: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await reopenReconciliation(auth, await readAccountingFormData(request));
+		}),
+	downloadReconciliationStatement: async ({ cookies, params, request }) => {
+		const result = await withAccountingAuth(cookies, params, async (auth) => {
+			const formData = await readAccountingFormData(request);
+			return await createReconciliationStatementDownload(auth, formData.get('reconciliationId'));
+		});
+		if (result?.url) throw redirect(303, result.url);
+		return result;
+	},
+	resolveProviderCorrection: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => {
+			await resolveProviderCorrection(auth, await readAccountingFormData(request));
 		}),
 	autoMatch: async ({ cookies, params }) =>
 		withAccountingAuth(cookies, params, async (auth) => {

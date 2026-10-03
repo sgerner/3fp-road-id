@@ -1,11 +1,14 @@
 do $$
 declare
 	g uuid := gen_random_uuid(); other_group uuid := gen_random_uuid(); cash uuid := gen_random_uuid(); income uuid := gen_random_uuid(); foreign_account uuid := gen_random_uuid();
-	entry jsonb; reversed jsonb; recon jsonb; lines jsonb; feed_id uuid := gen_random_uuid(); original_id uuid; line_ids jsonb; failed boolean; balance bigint; public_row public.group_accounting_public_reports;
+	cash_followup uuid := gen_random_uuid(); expense_followup uuid := gen_random_uuid(); request_id uuid := gen_random_uuid();
+	entry jsonb; reversed jsonb; recon jsonb; reopened jsonb; lines jsonb; feed_id uuid := gen_random_uuid(); original_id uuid; line_ids jsonb; failed boolean; balance bigint; public_row public.group_accounting_public_reports;
+	deposit_entry jsonb; replay_entry jsonb; check_entry jsonb;
 begin
 	insert into public.groups values(g,'Accounting test','accounting-test'),(other_group,'Other group','other-group');
 	insert into public.group_accounting_accounts(id,group_id,code,name,kind,subtype,normal_side,display_group)
-	values(cash,g,'1000','Checking','asset','bank','debit','Cash'),(income,g,'4000','Income','income','donations','credit','Income'),(foreign_account,other_group,'1000','Foreign bank','asset','bank','debit','Cash');
+	values(cash,g,'1000','Checking','asset','bank','debit','Cash'),(income,g,'4000','Income','income','donations','credit','Income'),(foreign_account,other_group,'1000','Foreign bank','asset','bank','debit','Cash'),
+		(cash_followup,g,'1010','Follow-up Checking','asset','bank','debit','Cash'),(expense_followup,g,'5000','Follow-up Expense','expense','other','debit','Expenses');
 	lines:=jsonb_build_array(jsonb_build_object('account_id',cash,'debit_cents',10000,'credit_cents',0),jsonb_build_object('account_id',income,'debit_cents',0,'credit_cents',10000));
 	entry:=public.group_accounting_post_entry(g,jsonb_build_object('entry_date','2026-01-01','entry_type','income','description','Donation','currency','usd'),lines);
 	original_id:=(entry->>'id')::uuid;
@@ -88,8 +91,40 @@ begin
 	begin update group_accounting_public_reports set published=true where id=public_row.id;
 	exception when others then failed:=true; end;
 	if not failed then raise exception 'Report was republished while public reports were disabled'; end if;
+	-- Repeated manual posting with the same request key must return the first row.
+	lines:=jsonb_build_array(jsonb_build_object('account_id',cash_followup,'debit_cents',1000,'credit_cents',0),jsonb_build_object('account_id',income,'debit_cents',0,'credit_cents',1000));
+	deposit_entry:=public.group_accounting_post_entry_idempotent(g,request_id,jsonb_build_object('entry_date','2026-04-01','entry_type','income','source','manual','description','Idempotent deposit','currency','usd'),lines);
+	replay_entry:=public.group_accounting_post_entry_idempotent(g,request_id,jsonb_build_object('entry_date','2026-04-01','entry_type','income','source','manual','description','Idempotent deposit','currency','usd'),lines);
+	if deposit_entry->>'id' is distinct from replay_entry->>'id' or replay_entry->>'_idempotent_replay'<>'true' then raise exception 'Repeated request posted twice'; end if;
+	if (select count(*) from group_accounting_entries where group_id=g and metadata->>'idempotency_key'=request_id::text)<>1 then raise exception 'Idempotency key is not unique'; end if;
+	failed:=false;
+	begin perform public.group_accounting_post_entry_idempotent(g,request_id,jsonb_build_object('entry_date','2026-04-01','entry_type','income','source','manual','description','Changed payload','currency','usd'),lines);
+	exception when others then failed:=true; end;
+	if not failed then raise exception 'Idempotency key accepted a different payload'; end if;
+	lines:=jsonb_build_array(jsonb_build_object('account_id',expense_followup,'debit_cents',300,'credit_cents',0),jsonb_build_object('account_id',cash_followup,'debit_cents',0,'credit_cents',300));
+	check_entry:=public.group_accounting_post_entry(g,jsonb_build_object('entry_date','2026-04-02','entry_type','expense','source','manual','description','Outstanding check','currency','usd'),lines);
+	-- A statement can be saved as a draft while the checked amount differs, then completed
+	-- once cleared activity agrees. Only selected entries clear; outstanding checks remain open.
+	recon:=public.group_accounting_complete_reconciliation(g,cash_followup,'2026-04-30',1100,'{}'::uuid[],array[(deposit_entry->>'id')::uuid],null,null);
+	if recon->>'status'<>'draft' or (select cleared_at from group_accounting_lines where entry_id=(deposit_entry->>'id')::uuid and account_id=cash_followup) is not null then raise exception 'Draft reconciliation cleared transactions'; end if;
+	recon:=public.group_accounting_complete_reconciliation(g,cash_followup,'2026-04-30',1000,'{}'::uuid[],array[(deposit_entry->>'id')::uuid],null,null);
+	if recon->>'status'<>'completed' or (recon->>'book_balance_cents')::integer<>700 or (recon->>'cleared_balance_cents')::integer<>1000
+		or (recon->>'outstanding_checks_cents')::integer<>300
+		or not (recon->'outstanding_entry_ids' @> jsonb_build_array((check_entry->>'id')::uuid)) then raise exception 'Outstanding reconciliation activity was not captured'; end if;
+	if (select reconciliation_id from group_accounting_lines where entry_id=(deposit_entry->>'id')::uuid and account_id=cash_followup) is distinct from (recon->>'id')::uuid
+		or (select reconciliation_id from group_accounting_lines where entry_id=(check_entry->>'id')::uuid and account_id=cash_followup) is not null
+		or (select locked_at from group_accounting_entries where id=(check_entry->>'id')::uuid) is not null then raise exception 'Reconciliation cleared outstanding entries'; end if;
+	begin perform public.group_accounting_complete_reconciliation(g,cash_followup,'2026-03-31',0,'{}'::uuid[],'{}'::uuid[],null,null);
+		raise exception 'Older statement was accepted after a later completed statement';
+	exception when others then if sqlerrm not like 'Reconcile statements in chronological order%' then raise; end if; end;
+	reopened:=public.group_accounting_reopen_reconciliation(g,(recon->>'id')::uuid,null,'Correct the selected statement activity');
+	if reopened->>'status'<>'draft' or (select locked_at from group_accounting_entries where id=(deposit_entry->>'id')::uuid) is not null
+		or (select cleared_at from group_accounting_lines where entry_id=(deposit_entry->>'id')::uuid and account_id=cash_followup) is not null
+		or not exists(select 1 from group_accounting_audit_events where entity_id=(recon->>'id')::uuid and event_type='reopen_reconciliation' and metadata->>'reason'='Correct the selected statement activity')
+	then raise exception 'Reopen did not unlock and audit the reconciliation'; end if;
 	if not exists(select 1 from group_accounting_audit_events where group_id=g and event_type='void')
-		or not exists(select 1 from group_accounting_audit_events where group_id=g and event_type='reconcile') then raise exception 'Atomic audit records missing'; end if;
+		or not exists(select 1 from group_accounting_audit_events where group_id=g and event_type='reconcile')
+		or not exists(select 1 from group_accounting_audit_events where group_id=g and event_type='reopen_reconciliation') then raise exception 'Atomic audit records missing'; end if;
 	if has_function_privilege('anon','public.group_accounting_post_entry(uuid,jsonb,jsonb)','execute') or has_function_privilege('authenticated','public.group_accounting_reconcile(uuid,uuid,date,integer,uuid[],uuid)','execute') then raise exception 'Privileged RPC is client callable'; end if;
 	if exists (
 		select 1

@@ -273,13 +273,34 @@ export function buildAccountingReportFromRows(accounts, entries, lines, from, to
 	};
 }
 
-export function budgetActualWindow(year, today = new Date().toISOString().slice(0, 10)) {
-	const start = `${year}-01-01`;
-	const yearEnd = `${year}-12-31`;
-	const currentYear = Number(today.slice(0, 4));
+export function fiscalYearStartYear(today, fiscalYearStartMonth = 1) {
+	const month = Number(fiscalYearStartMonth);
+	if (!Number.isInteger(month) || month < 1 || month > 12) return Number(today.slice(0, 4));
+	const calendarYear = Number(today.slice(0, 4));
+	return Number(today.slice(5, 7)) >= month ? calendarYear : calendarYear - 1;
+}
+
+export function fiscalYearWindow(year, fiscalYearStartMonth = 1) {
+	const month = Number(fiscalYearStartMonth);
+	if (!Number.isInteger(month) || month < 1 || month > 12) {
+		throw new Error('Choose a fiscal year start month from 1 to 12.');
+	}
+	const from = `${year}-${String(month).padStart(2, '0')}-01`;
+	const end = new Date(Date.UTC(year + 1, month - 1, 0));
+	const to = `${end.getUTCFullYear()}-${String(end.getUTCMonth() + 1).padStart(2, '0')}-${String(end.getUTCDate()).padStart(2, '0')}`;
+	return { from, to, year: Number(year) };
+}
+
+export function budgetActualWindow(
+	year,
+	today = new Date().toISOString().slice(0, 10),
+	fiscalYearStartMonth = 1
+) {
+	const window = fiscalYearWindow(Number(year), fiscalYearStartMonth);
+	const currentYear = fiscalYearStartYear(today, fiscalYearStartMonth);
 	return {
-		from: start,
-		to: year < currentYear ? yearEnd : year === currentYear ? today : null
+		from: window.from,
+		to: Number(year) < currentYear ? window.to : Number(year) === currentYear ? today : null
 	};
 }
 

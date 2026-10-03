@@ -273,6 +273,42 @@ export function shouldSyncBankProvider(connection) {
 	);
 }
 
+export function shouldScheduleMercurySync(settings, connection) {
+	return Boolean(
+		settings?.mercury_sync_enabled === true &&
+		cleanText(settings?.mercury_api_key_ciphertext) &&
+		connection?.status !== 'disabled'
+	);
+}
+
+export function financialConnectionsRefreshState(account = {}) {
+	const refresh = account.transaction_refresh ?? account.transactionRefresh ?? null;
+	const status = cleanText(refresh?.status).toLowerCase();
+	const asIsoTime = (value) => {
+		const seconds = Number(value);
+		return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null;
+	};
+	const nextRefreshAt = asIsoTime(
+		refresh?.next_refresh_available_at ?? refresh?.nextRefreshAvailableAt
+	);
+	if (status === 'pending') return { status: 'pending', refreshAt: null, nextRefreshAt };
+	if (status === 'failed') return { status: 'failed', refreshAt: null, nextRefreshAt };
+	if (status === 'succeeded') {
+		const refreshAt = asIsoTime(refresh?.last_attempted_at ?? refresh?.lastAttemptedAt);
+		return { status: 'succeeded', refreshAt, nextRefreshAt };
+	}
+	return { status: 'not_requested', refreshAt: null, nextRefreshAt };
+}
+
+export function providerFeedFactsChanged(existing = {}, incoming = {}) {
+	return (
+		existing.transaction_date !== incoming.transaction_date ||
+		existing.description !== incoming.description ||
+		existing.amount_cents !== incoming.amount_cents ||
+		cleanText(existing.currency).toLowerCase() !== cleanText(incoming.currency).toLowerCase()
+	);
+}
+
 export function assertFinancialConnectionsSessionOwnership({
 	pendingConnection,
 	sessionId,

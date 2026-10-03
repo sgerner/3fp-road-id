@@ -153,7 +153,13 @@ The cron paginates accounting-enabled groups and attempts, per group:
 - Stripe balance transaction sync
 - auto-match
 
-Mercury sync is initiated manually using the group-specific key; it is excluded from the global cron. Provider errors are returned per group without failing the whole cron run.
+Mercury uses each group's own encrypted key. Scheduled Mercury sync is opt-in through Bank Feeds; other groups remain off by default. Cron and manual sync share provider monitoring, leases, retry backoff, and sanitized errors. Partial failures return HTTP 502 while retaining successful providers' results. A successful pg_cron dispatch alone does not prove that feeds were imported: inspect `group_accounting_sync_runs`, connection last-success timestamps, and the HTTP result.
+
+Financial Connections requests eligible refreshes, waits for pending refreshes, and imports after `financial_connections.account.refreshed_transactions`. Saved refresh cursors fetch new and changed transactions after the initial history import. Hourly polling recovers missed webhooks; failed refreshes can retry when Stripe permits.
+
+Provider corrections update unposted feed facts. Changes to matched or posted activity enter a review queue without changing ledger entries. Review decisions are audited and suppress repeat alerts for identical facts. Accounting corrections require a reversal and corrected entry. Pending or invalid provider activity cannot be posted or matched.
+
+The organization donation page and its own 3 Feet Please group may share the confirmed Stripe account. Each other tenant connects its own account through the existing group pathway; there is no global fallback.
 
 See [the accounting audit](group-accounting-audit-2026-10-01.md) for the integrity migrations, coordinated deployment requirements, and remaining limitations.
 
@@ -188,7 +194,15 @@ Operational setup still required outside code:
 
 - Enable Stripe Financial Connections on the Stripe account/platform.
 - Confirm the connected-account flow is allowed for the platform's Stripe account.
-- Configure Stripe webhook coverage if future real-time Financial Connections refresh events are needed.
-- Add the cron endpoint to the deployment scheduler.
+- Include `financial_connections.account.refreshed_transactions` on the existing Stripe webhook endpoint.
+- Keep the existing Supabase hourly cron enabled and monitor actual provider success.
 - Provide live Mercury API keys per group.
 - Run Supabase migrations in every environment.
+
+## Follow-up accounting workflows
+
+Manual forms carry group-scoped request UUIDs. A replay returns the original entry; changing details under the same key is rejected. Receipt upload failures report that the transaction was saved and can be attached separately.
+
+Reconciliation compares the statement with selected cleared activity and previously cleared balances. Unchecked deposits/checks or charges/payments remain outstanding. Only selected activity is cleared and locked. Private statement attachments use short-lived manager-authorized links. Reopening requires an audited reason and preserves activity reconciled elsewhere.
+
+Ledger, receipt, and audit history support server-side search and pagination. Account filters preserve every journal line. Fiscal start months control report years, quarters, and budget actuals; budget years identify their start year. Setup progress tracks accounts, mappings, opening balances, imports, and reconciliation.

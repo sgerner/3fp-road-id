@@ -22,6 +22,8 @@ import {
 	buildCsvSourceIds,
 	dateDeltaDays,
 	fetchAllRows,
+	fiscalYearStartYear,
+	fiscalYearWindow,
 	isValidAccountingDate,
 	normalizedMatchText,
 	normalizeBankDate,
@@ -30,6 +32,7 @@ import {
 	uniquePublicReportSlug
 } from './groupAccountingRules.js';
 import { loadGroupStripeConnection } from './groupStripeConnection.js';
+import { loadAccountingHistory, loadAccountingSetupProgress } from './groupAccountingHistory.js';
 import {
 	assertFinancialConnectionsSessionOwnership,
 	dedupeRowsByKey,
@@ -48,9 +51,12 @@ import {
 	shouldImportFinancialConnectionsTransaction,
 	shouldImportMercuryTransaction,
 	shouldSyncBankProvider,
+	shouldScheduleMercurySync,
+	financialConnectionsRefreshState,
 	stripeBalanceTransactionFeedRows,
 	stripeFinancialConnectionsBalance
 } from './groupAccountingProviders.js';
+import { withProviderSync } from './groupAccountingSync.js';
 import { buildPublicAccountingSnapshot } from './groupAccountingPublic.js';
 import { fetchPublicHttp } from './security.js';
 
@@ -263,40 +269,30 @@ function endOfMonthIso(date) {
 	return isoDateFromDate(new Date(date.getFullYear(), date.getMonth() + 1, 0));
 }
 
-function startOfQuarterIso(date) {
-	const quarterStartMonth = Math.floor(date.getMonth() / 3) * 3;
-	return isoDateFromParts(date.getFullYear(), quarterStartMonth, 1);
-}
-
-function endOfQuarterIso(date) {
-	const quarterStartMonth = Math.floor(date.getMonth() / 3) * 3;
-	return isoDateFromDate(new Date(date.getFullYear(), quarterStartMonth + 3, 0));
-}
-
-function startOfYearIso(date) {
-	return isoDateFromParts(date.getFullYear(), 0, 1);
-}
-
-function endOfYearIso(date) {
-	return isoDateFromParts(date.getFullYear(), 11, 31);
-}
-
 const ACCOUNTING_REPORT_PERIOD_LABELS = {
 	this_month: 'This month',
 	last_month: 'Last month',
 	this_quarter: 'This quarter',
 	last_quarter: 'Last quarter',
-	this_year: 'This year',
-	last_year: 'Last year',
+	this_year: 'This fiscal year',
+	last_year: 'Last fiscal year',
 	custom: 'Custom range'
 };
 
-export function resolveAccountingReportWindow(url, now = new Date()) {
+export function resolveAccountingReportWindow(url, now = new Date(), fiscalYearStartMonth = 1) {
 	const period = cleanText(url?.searchParams?.get('period'), 40) || 'this_year';
 	const today = isoDateFromDate(now);
 	const currentDate = new Date(`${today}T12:00:00`);
 	const currentYear = currentDate.getFullYear();
 	const currentMonth = currentDate.getMonth();
+	const currentFiscalYear = fiscalYearStartYear(today, fiscalYearStartMonth);
+	const currentFiscalWindow = fiscalYearWindow(currentFiscalYear, fiscalYearStartMonth);
+	const previousFiscalWindow = fiscalYearWindow(currentFiscalYear - 1, fiscalYearStartMonth);
+	const quarterOffset = (currentMonth - (fiscalYearStartMonth - 1) + 12) % 12;
+	const quarterMonth = (fiscalYearStartMonth - 1 + Math.floor(quarterOffset / 3) * 3) % 12;
+	const quarterYear = quarterMonth > currentMonth ? currentYear - 1 : currentYear;
+	const currentQuarterStart = new Date(quarterYear, quarterMonth, 1);
+	const previousQuarterStart = new Date(quarterYear, quarterMonth - 3, 1);
 
 	switch (period) {
 		case 'this_month':
@@ -319,31 +315,39 @@ export function resolveAccountingReportWindow(url, now = new Date()) {
 			return {
 				period,
 				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
-				from: startOfQuarterIso(currentDate),
+				from: isoDateFromParts(
+					currentQuarterStart.getFullYear(),
+					currentQuarterStart.getMonth(),
+					1
+				),
 				to: today
 			};
 		case 'last_quarter': {
-			const lastQuarterAnchor = new Date(currentYear, currentMonth - 3, 1);
 			return {
 				period,
 				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
-				from: startOfQuarterIso(lastQuarterAnchor),
-				to: endOfQuarterIso(lastQuarterAnchor)
+				from: isoDateFromParts(
+					previousQuarterStart.getFullYear(),
+					previousQuarterStart.getMonth(),
+					1
+				),
+				to: isoDateFromDate(
+					new Date(previousQuarterStart.getFullYear(), previousQuarterStart.getMonth() + 3, 0)
+				)
 			};
 		}
 		case 'last_year': {
-			const lastYear = new Date(currentYear - 1, 0, 1);
 			return {
 				period,
 				label: ACCOUNTING_REPORT_PERIOD_LABELS[period],
-				from: startOfYearIso(lastYear),
-				to: endOfYearIso(lastYear)
+				from: previousFiscalWindow.from,
+				to: previousFiscalWindow.to
 			};
 		}
 		case 'custom': {
 			const fromValue = cleanText(url?.searchParams?.get('from'));
 			const toValue = cleanText(url?.searchParams?.get('to'));
-			const from = fromValue ? dateOnly(fromValue) : startOfYearIso(currentDate);
+			const from = fromValue ? dateOnly(fromValue) : currentFiscalWindow.from;
 			const to = toValue ? dateOnly(toValue) : today;
 			if (from > to) throw new Error('The report start date must be on or before the end date.');
 			return {
@@ -358,7 +362,7 @@ export function resolveAccountingReportWindow(url, now = new Date()) {
 			return {
 				period: 'this_year',
 				label: ACCOUNTING_REPORT_PERIOD_LABELS.this_year,
-				from: startOfYearIso(currentDate),
+				from: currentFiscalWindow.from,
 				to: today
 			};
 	}
@@ -714,7 +718,17 @@ function accountByCode(accounts, code) {
 	return account;
 }
 
-async function insertBalancedEntry(supabase, groupId, entry, lines) {
+function requiredPostingRequestId(formData) {
+	const requestId = cleanText(formData.get('requestId'));
+	if (
+		!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
+	) {
+		throw new Error('Refresh the form before posting this transaction.');
+	}
+	return requestId;
+}
+
+async function insertBalancedEntry(supabase, groupId, entry, lines, requestId = null) {
 	const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit_cents || 0), 0);
 	const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit_cents || 0), 0);
 	if (debitTotal !== creditTotal) throw new Error('This entry does not balance.');
@@ -742,11 +756,18 @@ async function insertBalancedEntry(supabase, groupId, entry, lines) {
 		debit_cents: Number(line.debit_cents || 0),
 		credit_cents: Number(line.credit_cents || 0)
 	}));
-	const { data, error } = await supabase.rpc('group_accounting_post_entry', {
-		p_group_id: groupId,
-		p_entry: entryRow,
-		p_lines: lineRows
-	});
+	const { data, error } = requestId
+		? await supabase.rpc('group_accounting_post_entry_idempotent', {
+				p_group_id: groupId,
+				p_request_id: requestId,
+				p_entry: entryRow,
+				p_lines: lineRows
+			})
+		: await supabase.rpc('group_accounting_post_entry', {
+				p_group_id: groupId,
+				p_entry: entryRow,
+				p_lines: lineRows
+			});
 	if (error) throw new Error(error.message);
 	const inserted = Array.isArray(data) ? data[0] : data;
 	if (!inserted?.id) throw new Error('Accounting entry was not returned after posting.');
@@ -754,6 +775,7 @@ async function insertBalancedEntry(supabase, groupId, entry, lines) {
 }
 
 export async function postSimpleEntry(auth, formData) {
+	const requestId = requiredPostingRequestId(formData);
 	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
@@ -807,18 +829,39 @@ export async function postSimpleEntry(auth, formData) {
 			: [
 					{ account_id: categoryAccount.id, debit_cents: amountCents },
 					{ account_id: cashAccount.id, credit_cents: amountCents }
-				]
+				],
+		requestId
 	);
 
-	try {
-		await maybeStoreReceipt(auth, entry.id, receiptFile);
-	} catch (error) {
-		entry.receipt_warning = `Transaction saved, but the receipt upload failed. Do not record the transaction again. You can attach the receipt from the receipts section. (${error.message})`;
+	const idempotentReplay = entry._idempotent_replay === true;
+	delete entry._idempotent_replay;
+	let receiptAlreadyStored = false;
+	if (idempotentReplay && receiptFile instanceof File && receiptFile.size > 0) {
+		const { data: existingReceipt, error: receiptLookupError } = await auth.serviceSupabase
+			.from('group_accounting_receipts')
+			.select('id')
+			.eq('group_id', auth.group.id)
+			.eq('entry_id', entry.id)
+			.limit(1)
+			.maybeSingle();
+		if (receiptLookupError) {
+			entry.receipt_warning = `Transaction saved, but the existing receipt could not be checked. Do not record the transaction again. (${receiptLookupError.message})`;
+			return entry;
+		}
+		receiptAlreadyStored = Boolean(existingReceipt?.id);
+	}
+	if (!receiptAlreadyStored) {
+		try {
+			await maybeStoreReceipt(auth, entry.id, receiptFile);
+		} catch (error) {
+			entry.receipt_warning = `Transaction saved, but the receipt upload failed. Do not record the transaction again. You can attach the receipt from the receipts section. (${error.message})`;
+		}
 	}
 	return entry;
 }
 
 export async function postTransfer(auth, formData) {
+	const requestId = requiredPostingRequestId(formData);
 	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
@@ -862,11 +905,13 @@ export async function postTransfer(auth, formData) {
 		[
 			{ account_id: toAccount.id, debit_cents: amountCents },
 			{ account_id: fromAccount.id, credit_cents: amountCents }
-		]
+		],
+		requestId
 	);
 }
 
 export async function postJournal(auth, formData) {
+	const requestId = requiredPostingRequestId(formData);
 	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
@@ -917,11 +962,13 @@ export async function postJournal(auth, formData) {
 			created_by_user_id: auth.userId,
 			metadata: { advanced: true }
 		},
-		validLines
+		validLines,
+		requestId
 	);
 }
 
 export async function postOpeningBalance(auth, formData) {
+	const requestId = requiredPostingRequestId(formData);
 	const { settings, accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
 		auth.group,
@@ -951,7 +998,8 @@ export async function postOpeningBalance(auth, formData) {
 		[
 			{ account_id: cashAccount.id, debit_cents: amountCents },
 			{ account_id: equity.id, credit_cents: amountCents }
-		]
+		],
+		requestId
 	);
 }
 
@@ -1032,8 +1080,17 @@ export async function updateAccountGroup(auth, formData) {
 }
 
 export async function updateBudget(auth, formData) {
+	const { data: settings, error: settingsError } = await auth.serviceSupabase
+		.from('group_accounting_settings')
+		.select('fiscal_year_start_month')
+		.eq('group_id', auth.group.id)
+		.maybeSingle();
+	if (settingsError) throw new Error(settingsError.message);
+	const fiscalYearStartMonth = Number(settings?.fiscal_year_start_month || 1);
 	const yearText = cleanText(formData.get('year'));
-	const year = yearText ? Number(yearText) : currentYear();
+	const year = yearText
+		? Number(yearText)
+		: fiscalYearStartYear(new Date().toISOString().slice(0, 10), fiscalYearStartMonth);
 	const accountId = cleanText(formData.get('accountId'));
 	const amountValue = cleanText(formData.get('amount'));
 	const amountCents = amountValue ? centsFromAmount(amountValue) : 0;
@@ -1075,17 +1132,32 @@ export async function updateBudget(auth, formData) {
 
 export async function saveConnections(auth, formData) {
 	const mercuryKey = cleanText(formData.get('mercuryApiKey'));
-	if (!mercuryKey) return;
 	const updates = {};
-	const encryptedKey = encryptSocialToken(mercuryKey);
-	updates.mercury_api_key_ciphertext = encryptedKey;
-	updates.mercury_api_key_hint = mercuryKey.slice(-4).padStart(Math.min(mercuryKey.length, 8), '*');
-	updates.mercury_connected_at = new Date().toISOString();
+	if (formData.has('mercurySyncEnabled')) {
+		const values =
+			typeof formData.getAll === 'function'
+				? formData.getAll('mercurySyncEnabled')
+				: [formData.get('mercurySyncEnabled')];
+		updates.mercury_sync_enabled = values.some((value) =>
+			['true', 'on', '1'].includes(String(value).toLowerCase())
+		);
+	}
+	let encryptedKey = null;
+	if (mercuryKey) {
+		encryptedKey = encryptSocialToken(mercuryKey);
+		updates.mercury_api_key_ciphertext = encryptedKey;
+		updates.mercury_api_key_hint = mercuryKey
+			.slice(-4)
+			.padStart(Math.min(mercuryKey.length, 8), '*');
+		updates.mercury_connected_at = new Date().toISOString();
+	}
+	if (!Object.keys(updates).length) return;
 	const { error: settingsError } = await auth.serviceSupabase
 		.from('group_accounting_settings')
 		.update(updates)
 		.eq('group_id', auth.group.id);
 	if (settingsError) throw new Error(settingsError.message);
+	if (!encryptedKey) return;
 	const { error: connectionError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.upsert(
@@ -1271,16 +1343,17 @@ export async function importBankCsv(auth, formData) {
 		.select('*')
 		.single();
 	if (error) throw new Error(error.message);
-	const inserted = await upsertFeedItems(auth, connection, 'manual', identifiedTransactions, {
+	const feedCounts = await upsertFeedItems(auth, connection, 'manual', identifiedTransactions, {
 		defaultAccountId: selectedAccount.id
 	});
 	await autoMatchFeedItems(auth);
 	await auditEvent(auth, 'import_csv', 'bank_feed_item', null, null, null, {
 		file_name: file.name,
 		rows: identifiedTransactions.length,
-		inserted
+		inserted: feedCounts.inserted,
+		updated: feedCounts.updated
 	});
-	return inserted;
+	return feedCounts.inserted;
 }
 
 export async function postFeedItem(auth, formData) {
@@ -1300,6 +1373,11 @@ export async function postFeedItem(auth, formData) {
 		.maybeSingle();
 	if (error) throw new Error(error.message);
 	if (!item) throw new Error('Bank activity not found.');
+	if (
+		item.provider_correction_pending ||
+		['pending', 'void', 'cancelled', 'failed', 'reversed', 'blocked'].includes(item.provider_status)
+	)
+		throw new Error('Review the provider status or correction before posting this activity.');
 	if (!['needs_review', 'matched'].includes(item.status)) {
 		throw new Error('This bank activity has already been handled.');
 	}
@@ -1607,7 +1685,21 @@ export async function saveSettings(auth, formData) {
 	if (error) throw new Error(error.message);
 }
 
-export async function createReconciliation(auth, formData) {
+function selectedReconciliationIds(formData, fieldName, label) {
+	const values = cleanText(formData.get(fieldName))
+		.split(',')
+		.map((id) => id.trim())
+		.filter(Boolean);
+	const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+	if (new Set(values).size !== values.length)
+		throw new Error(`${label} may only be selected once.`);
+	if (values.length > 2000 || values.some((id) => !uuid.test(id))) {
+		throw new Error(`Invalid ${label.toLowerCase()} selection.`);
+	}
+	return values;
+}
+
+async function saveAccountingReconciliation(auth, formData) {
 	const accountId = cleanText(formData.get('accountId'));
 	if (!accountId) throw new Error('Choose a bank or credit card account.');
 	const statementEndingDate = requiredDateOnly(
@@ -1617,18 +1709,68 @@ export async function createReconciliation(auth, formData) {
 	const statementEndingBalanceCents = centsFromSignedAmount(formData.get('statementEndingBalance'));
 	if (statementEndingBalanceCents === null)
 		throw new Error('Enter a valid statement ending balance.');
-	const { data, error } = await auth.serviceSupabase.rpc('group_accounting_reconcile', {
-		p_group_id: auth.group.id,
-		p_account_id: accountId,
-		p_statement_date: statementEndingDate,
-		p_statement_balance: statementEndingBalanceCents,
-		p_checked_ids: [],
-		p_actor_id: auth.userId
-	});
-	if (error) throw new Error(error.message);
+	const checkedFeedItemIds = selectedReconciliationIds(
+		formData,
+		'checkedFeedItemIds',
+		'Bank activity'
+	);
+	const clearedEntryIds = selectedReconciliationIds(formData, 'clearedEntryIds', 'Ledger activity');
+	const statementFile = formData.get('statementFile');
+	let uploadedPath = null;
+	let fileMetadata = null;
+	if (statementFile && statementFile !== '' && typeof statementFile !== 'string') {
+		if (!(statementFile instanceof File) || statementFile.size <= 0) {
+			throw new Error('Choose a valid statement attachment.');
+		}
+		validateReceiptFile(statementFile);
+		uploadedPath = `${auth.group.id}/reconciliations/${randomUUID()}/${slugFileName(statementFile.name)}`;
+		const upload = await auth.serviceSupabase.storage
+			.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
+			.upload(uploadedPath, await statementFile.arrayBuffer(), {
+				contentType: statementFile.type,
+				upsert: false
+			});
+		if (upload.error) throw new Error(upload.error.message);
+		fileMetadata = {
+			object_path: uploadedPath,
+			file_name: cleanText(statementFile.name, 255),
+			mime_type: statementFile.type,
+			size_bytes: statementFile.size
+		};
+	}
+	const { data, error } = await auth.serviceSupabase.rpc(
+		'group_accounting_complete_reconciliation',
+		{
+			p_group_id: auth.group.id,
+			p_account_id: accountId,
+			p_statement_date: statementEndingDate,
+			p_statement_balance: statementEndingBalanceCents,
+			p_checked_feed_item_ids: checkedFeedItemIds,
+			p_cleared_entry_ids: clearedEntryIds,
+			p_statement_file: fileMetadata,
+			p_actor_id: auth.userId
+		}
+	);
+	if (error) {
+		if (uploadedPath) {
+			const cleanup = await auth.serviceSupabase.storage
+				.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
+				.remove([uploadedPath]);
+			if (cleanup.error) {
+				throw new Error(
+					`${error.message} The statement file could not be removed: ${cleanup.error.message}`
+				);
+			}
+		}
+		throw new Error(error.message);
+	}
 	const reconciliation = Array.isArray(data) ? data[0] : data;
 	if (!reconciliation?.id) throw new Error('Reconciliation was not returned after saving.');
 	return reconciliation;
+}
+
+export async function createReconciliation(auth, formData) {
+	return saveAccountingReconciliation(auth, formData);
 }
 
 export async function buildAccountingReport(supabase, groupId, options = {}) {
@@ -1680,13 +1822,17 @@ export async function loadAccountingDashboard(auth, url) {
 		auth.group,
 		auth.userId
 	);
-	const reportWindow = resolveAccountingReportWindow(url);
+	const fiscalYearStartMonth = Number(settings?.fiscal_year_start_month || 1);
+	const today = new Date().toISOString().slice(0, 10);
+	const activeFiscalYear = fiscalYearStartYear(today, fiscalYearStartMonth);
+	const currentFiscalWindow = fiscalYearWindow(activeFiscalYear, fiscalYearStartMonth);
+	const reportWindow = resolveAccountingReportWindow(url, new Date(), fiscalYearStartMonth);
 	const yearValue = url?.searchParams?.get('year');
-	const requestedYear = yearValue ? Number(yearValue) : currentYear();
+	const requestedYear = yearValue ? Number(yearValue) : activeFiscalYear;
 	const year =
 		Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200
 			? requestedYear
-			: currentYear();
+			: activeFiscalYear;
 	const bankReviewPageSize = 50;
 	const requestedBankReviewPage = Math.max(
 		1,
@@ -1711,27 +1857,32 @@ export async function loadAccountingDashboard(auth, url) {
 	const bankReviewOffset = (bankReviewPage - 1) * bankReviewPageSize;
 
 	const [
-		{ data: entries, error: entriesError },
+		{ data: candidateEntries, error: entriesError },
 		{ data: budgets, error: budgetsError },
 		{ data: feedItems, error: feedItemsError },
 		{ data: connections, error: connectionsError },
 		{ data: reconciliations, error: reconciliationsError },
 		{ data: snapshots, error: snapshotsError },
 		{ data: providerAccounts, error: providerAccountsError },
-		{ data: receipts, error: receiptsError },
-		{ data: auditEvents, error: auditEventsError },
 		{ data: matchedFeedItems, error: matchedFeedItemsError },
-		stripeConnection
+		{ data: providerCorrectionItems, error: providerCorrectionItemsError },
+		{ data: syncRuns, error: syncRunsError },
+		stripeConnection,
+		history,
+		setupProgress
 	] = await Promise.all([
-		auth.serviceSupabase
-			.from('group_accounting_entries')
-			.select(
-				'*, receipts:group_accounting_receipts(id,file_name), lines:group_accounting_lines(*, account:group_accounting_accounts(id,code,name,kind))'
-			)
-			.eq('group_id', auth.group.id)
-			.order('entry_date', { ascending: false })
-			.order('created_at', { ascending: false })
-			.limit(500),
+		fetchAllRows((fromRow, toRow) =>
+			auth.serviceSupabase
+				.from('group_accounting_entries')
+				.select(
+					'id,entry_date,description,amount_cents,currency,status,source,lines:group_accounting_lines(*,account:group_accounting_accounts(id,code,name,kind))'
+				)
+				.eq('group_id', auth.group.id)
+				.eq('status', 'posted')
+				.order('entry_date', { ascending: false })
+				.order('id', { ascending: true })
+				.range(fromRow, toRow)
+		).then((data) => ({ data })),
 		auth.serviceSupabase
 			.from('group_accounting_budgets')
 			.select('*, account:group_accounting_accounts(*)')
@@ -1748,7 +1899,7 @@ export async function loadAccountingDashboard(auth, url) {
 		auth.serviceSupabase
 			.from('group_accounting_bank_connections')
 			.select(
-				'id,group_id,provider,display_name,status,external_id,last_synced_at,error_message,institution_name,created_at,updated_at'
+				'id,group_id,provider,display_name,status,external_id,last_synced_at,error_message,institution_name,created_at,updated_at,sync_status,last_sync_attempt_at,last_sync_success_at,last_provider_refresh_at,next_sync_at,sync_consecutive_failures,last_sync_error_code,last_sync_error_message'
 			)
 			.eq('group_id', auth.group.id)
 			.order('provider', { ascending: true }),
@@ -1770,24 +1921,31 @@ export async function loadAccountingDashboard(auth, url) {
 			.eq('group_id', auth.group.id)
 			.order('provider', { ascending: true }),
 		auth.serviceSupabase
-			.from('group_accounting_receipts')
-			.select('*, entry:group_accounting_entries(description,entry_date,amount_cents)')
-			.eq('group_id', auth.group.id)
-			.order('created_at', { ascending: false })
-			.limit(25),
-		auth.serviceSupabase
-			.from('group_accounting_audit_events')
-			.select('*')
-			.eq('group_id', auth.group.id)
-			.order('created_at', { ascending: false })
-			.limit(12),
-		auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
 			.select('matched_entry_id,account_id')
 			.eq('group_id', auth.group.id)
 			.not('matched_entry_id', 'is', null)
 			.in('status', ['matched', 'posted']),
-		loadGroupStripeConnection(auth)
+		auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select(
+				'id,provider,source_transaction_id,transaction_date,description,amount_cents,currency,status,provider_correction_pending,provider_correction,provider_correction_decision,provider_correction_resolved_at'
+			)
+			.eq('group_id', auth.group.id)
+			.eq('provider_correction_pending', true)
+			.order('updated_at', { ascending: false })
+			.limit(50),
+		auth.serviceSupabase
+			.from('group_accounting_sync_runs')
+			.select(
+				'id,provider,trigger,status,started_at,completed_at,inserted_count,updated_count,correction_count,skipped_count,error_code,error_message'
+			)
+			.eq('group_id', auth.group.id)
+			.order('started_at', { ascending: false })
+			.limit(25),
+		loadGroupStripeConnection(auth),
+		loadAccountingHistory(auth.serviceSupabase, auth.group.id, url?.searchParams),
+		loadAccountingSetupProgress(auth.serviceSupabase, auth.group.id)
 	]);
 	const dashboardQueryErrors = [
 		entriesError,
@@ -1797,9 +1955,9 @@ export async function loadAccountingDashboard(auth, url) {
 		reconciliationsError,
 		snapshotsError,
 		providerAccountsError,
-		receiptsError,
-		auditEventsError,
-		matchedFeedItemsError
+		matchedFeedItemsError,
+		providerCorrectionItemsError,
+		syncRunsError
 	].filter(Boolean);
 	if (dashboardQueryErrors.length) throw new Error(dashboardQueryErrors[0].message);
 	const reconciliationFeedItems = await fetchAllRows((fromRow, toRow) =>
@@ -1817,7 +1975,22 @@ export async function loadAccountingDashboard(auth, url) {
 			.range(fromRow, toRow)
 	);
 
-	const actualWindow = budgetActualWindow(year);
+	const reconciliationEntries = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_entries')
+			.select(
+				'*,lines:group_accounting_lines(*,account:group_accounting_accounts(id,code,name,kind,normal_side)),uncleared_lines:group_accounting_lines!inner(id)'
+			)
+			.eq('group_id', auth.group.id)
+			.in('status', ['posted', 'void'])
+			.is('uncleared_lines.cleared_at', null)
+			.order('entry_date', { ascending: false })
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
+	for (const entry of reconciliationEntries) delete entry.uncleared_lines;
+
+	const actualWindow = budgetActualWindow(year, today, fiscalYearStartMonth);
 	const budgetReport = !actualWindow.to
 		? null
 		: actualWindow.from === report.from && actualWindow.to === report.to
@@ -1838,9 +2011,13 @@ export async function loadAccountingDashboard(auth, url) {
 		enabled: settings?.enabled,
 		currency: normalizeCurrency(settings?.currency),
 		fiscal_year_start_month: settings?.fiscal_year_start_month,
+		fiscal_year_label: `FY ${activeFiscalYear}`,
+		fiscal_year_from: currentFiscalWindow.from,
+		fiscal_year_to: currentFiscalWindow.to,
 		public_reports_enabled: settings?.public_reports_enabled,
 		mercury_api_key_hint: settings?.mercury_api_key_hint,
 		mercury_connected_at: settings?.mercury_connected_at,
+		mercury_sync_enabled: settings?.mercury_sync_enabled === true,
 		mercury_connected: Boolean(
 			settings?.mercury_api_key_ciphertext || settings?.mercury_connected_at
 		),
@@ -1850,26 +2027,52 @@ export async function loadAccountingDashboard(auth, url) {
 		settings: safeSettings,
 		accounts,
 		report,
-		entries: entries ?? [],
+		entries: history.entries.data,
+		entries_page: history.entries.page,
+		entries_total: history.entries.total,
+		entries_total_pages: history.entries.total_pages,
+		history_page_size: history.entries.page_size,
+		setup_progress: {
+			...setupProgress,
+			has_accounts: accounts.some((account) => !account.is_archived),
+			mapped_feed_accounts: (providerAccounts ?? []).filter(
+				(account) => account.account_id && account.is_enabled !== false
+			).length
+		},
 		budgets: budgetRows,
 		feed_items: buildFeedItemsWithMatchCandidates(
 			feedItems ?? [],
-			entries ?? [],
+			candidateEntries ?? [],
 			matchedFeedItems ?? []
 		),
 		reconciliation_feed_items: reconciliationFeedItems,
+		reconciliation_entries: reconciliationEntries,
 		bank_review_page: bankReviewPage,
 		bank_review_page_size: bankReviewPageSize,
 		bank_review_total: bankReviewTotal,
 		bank_review_total_pages: bankReviewTotalPages,
 		connections: connections ?? [],
 		provider_accounts: providerAccounts ?? [],
-		receipts: receipts ?? [],
-		audit_events: auditEvents ?? [],
+		provider_correction_items: providerCorrectionItems ?? [],
+		sync_runs: syncRuns ?? [],
+		posting_request_ids: Object.fromEntries(
+			['recordMoney', 'transfer', 'openingBalance', 'journal'].map((key) => [key, randomUUID()])
+		),
+		receipts: history.receipts.data,
+		receipts_page: history.receipts.page,
+		receipts_total: history.receipts.total,
+		receipts_total_pages: history.receipts.total_pages,
+		audit_events: history.audit.data,
+		audit_page: history.audit.page,
+		audit_total: history.audit.total,
+		audit_total_pages: history.audit.total_pages,
 		reconciliations: reconciliations ?? [],
 		public_reports: snapshots ?? [],
 		stripe_connection: stripeConnection,
 		year,
+		fiscal_year_label: `FY ${year}`,
+		fiscal_year_from: fiscalYearWindow(year, fiscalYearStartMonth).from,
+		fiscal_year_to: fiscalYearWindow(year, fiscalYearStartMonth).to,
 		report_period_key: reportWindow.period,
 		report_period_label: reportWindow.label,
 		report_from: reportWindow.from,
@@ -2143,6 +2346,13 @@ export async function autoMatchFeedItems(auth) {
 
 	const updates = [];
 	for (const item of feedItems) {
+		if (
+			item.provider_correction_pending ||
+			['pending', 'void', 'cancelled', 'failed', 'reversed', 'blocked'].includes(
+				item.provider_status
+			)
+		)
+			continue;
 		const amount = Number(item.amount_cents);
 		if (!Number.isSafeInteger(amount) || amount === 0) continue;
 		const itemCurrency = normalizeCurrency(item.currency);
@@ -2208,42 +2418,44 @@ export async function autoMatchFeedItems(auth) {
 }
 
 export async function completeAutomatedReconciliation(auth, formData) {
-	const accountId = cleanText(formData.get('accountId'));
-	if (!accountId) throw new Error('Choose a bank or credit card account.');
-	const statementEndingDate = requiredDateOnly(
-		formData.get('statementEndingDate'),
-		'Statement ending date'
-	);
-	const statementEndingBalanceCents = centsFromSignedAmount(formData.get('statementEndingBalance'));
-	if (statementEndingBalanceCents === null)
-		throw new Error('Enter a valid statement ending balance.');
-	const checkedIds = cleanText(formData.get('checkedFeedItemIds'))
-		.split(',')
-		.map((id) => id.trim())
-		.filter(Boolean);
-	if (new Set(checkedIds).size !== checkedIds.length) {
-		throw new Error('A bank feed item may only be selected once.');
-	}
-	if (
-		checkedIds.length > 2000 ||
-		checkedIds.some(
-			(id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
-		)
-	) {
-		throw new Error('Invalid bank feed selection.');
-	}
-	const { data, error } = await auth.serviceSupabase.rpc('group_accounting_reconcile', {
+	return saveAccountingReconciliation(auth, formData);
+}
+
+export async function reopenReconciliation(auth, formData) {
+	const reconciliationId = cleanText(formData.get('reconciliationId'));
+	const reason = cleanText(formData.get('reason'), 500);
+	if (!reconciliationId) throw new Error('Reconciliation is required.');
+	if (!reason) throw new Error('Add a reason for reopening this reconciliation.');
+	const { data, error } = await auth.serviceSupabase.rpc('group_accounting_reopen_reconciliation', {
 		p_group_id: auth.group.id,
-		p_account_id: accountId,
-		p_statement_date: statementEndingDate,
-		p_statement_balance: statementEndingBalanceCents,
-		p_checked_ids: checkedIds,
-		p_actor_id: auth.userId
+		p_reconciliation_id: reconciliationId,
+		p_actor_id: auth.userId,
+		p_reason: reason
 	});
 	if (error) throw new Error(error.message);
 	const reconciliation = Array.isArray(data) ? data[0] : data;
-	if (!reconciliation?.id) throw new Error('Reconciliation was not returned after saving.');
+	if (!reconciliation?.id) throw new Error('Reopened reconciliation was not returned.');
 	return reconciliation;
+}
+
+export async function createReconciliationStatementDownload(auth, reconciliationId) {
+	const { data: reconciliation, error } = await auth.serviceSupabase
+		.from('group_accounting_reconciliations')
+		.select('id,statement_object_path')
+		.eq('group_id', auth.group.id)
+		.eq('id', cleanText(reconciliationId))
+		.maybeSingle();
+	if (error) throw new Error(error.message);
+	if (!reconciliation?.statement_object_path) throw new Error('Statement attachment not found.');
+	if (!reconciliation.statement_object_path.startsWith(`${auth.group.id}/reconciliations/`)) {
+		throw new Error('Statement attachment path is invalid.');
+	}
+	const { data, error: signedUrlError } = await auth.serviceSupabase.storage
+		.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
+		.createSignedUrl(reconciliation.statement_object_path, 60);
+	if (signedUrlError) throw new Error(signedUrlError.message);
+	if (!data?.signedUrl) throw new Error('Statement download link was not returned.');
+	return { url: data.signedUrl, expiresIn: 60 };
 }
 
 function providerBalanceCents(value) {
@@ -2339,6 +2551,8 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 						transaction.iso_currency_code || transaction.currency || 'usd'
 					),
 					status: 'needs_review',
+					provider_status: cleanText(transaction.status).toLowerCase() || null,
+					should_import: transaction.should_import !== false,
 					raw: {
 						...(provider === 'mercury'
 							? redactMercurySensitiveFields(transaction.raw ?? transaction)
@@ -2356,22 +2570,15 @@ async function upsertFeedItems(auth, connection, provider, transactions = [], op
 			),
 		'source_transaction_id'
 	);
-	if (rows.length) {
-		let inserted = 0;
-		for (let index = 0; index < rows.length; index += 100) {
-			const { data, error } = await auth.serviceSupabase
-				.from('group_accounting_bank_feed_items')
-				.upsert(rows.slice(index, index + 100), {
-					onConflict: 'group_id,provider,source_transaction_id',
-					ignoreDuplicates: true
-				})
-				.select('id');
-			if (error) throw new Error(error.message);
-			inserted += data?.length ?? Math.min(100, rows.length - index);
-		}
-		return inserted;
+	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
+	for (let index = 0; index < rows.length; index += 100) {
+		const { data, error } = await auth.serviceSupabase.rpc('sync_group_accounting_feed_items', {
+			p_rows: rows.slice(index, index + 100)
+		});
+		if (error) throw new Error('Unable to save provider feed items.');
+		for (const key of Object.keys(totals)) totals[key] += Number(data?.[key] || 0);
 	}
-	return 0;
+	return totals;
 }
 
 export async function updateProviderAccountMapping(auth, formData) {
@@ -2432,6 +2639,7 @@ export async function createStripeFinancialConnectionsSession(auth) {
 			account: connectedAccountId
 		},
 		permissions: ['balances', 'transactions', 'ownership'],
+		prefetch: ['transactions'],
 		filters: {
 			countries: ['US']
 		}
@@ -2536,16 +2744,12 @@ export async function completeStripeFinancialConnectionsSession(auth, sessionId)
 			};
 		})
 	);
-	await syncStripeFinancialConnectionsTransactions(auth, connection);
+	await syncStripeFinancialConnectionsTransactions(auth, connection).catch(() => null);
 	return connection;
 }
 
-export async function syncStripeFinancialConnectionsTransactions(
-	auth,
-	connection = null,
-	options = {}
-) {
-	const { runAutoMatch = true } = options;
+async function performStripeFinancialConnectionsSync(auth, connection = null, options = {}) {
+	const { runAutoMatch = true, allowRefresh = true, refreshedAccount = null } = options;
 	const stripe = getStripeClient();
 	let resolved = connection;
 	if (!resolved) {
@@ -2571,22 +2775,75 @@ export async function syncStripeFinancialConnectionsTransactions(
 		throw new Error('No Stripe Financial Connections accounts are linked yet.');
 	}
 	const accountMap = await loadProviderAccountMap(auth, 'stripe_financial_connections');
-	let inserted = 0;
+	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
+	let pendingAccounts = 0;
+	let failedAccounts = 0;
+	let lastProviderRefreshAt = null;
+	const refreshCursors = { ...(resolved.config?.transaction_refresh_cursors || {}) };
 	for (const accountId of accountIds) {
-		const listPromise = stripe.financialConnections.transactions.list({
-			account: accountId,
-			limit: 100
-		});
+		let account =
+			refreshedAccount?.id === accountId
+				? refreshedAccount
+				: await stripe.financialConnections.accounts.retrieve(accountId);
+		let refreshState = financialConnectionsRefreshState(account);
+		if (refreshState.status === 'pending') {
+			pendingAccounts += 1;
+			continue;
+		}
+		if (
+			refreshState.status === 'failed' &&
+			(!allowRefresh ||
+				(refreshState.nextRefreshAt && Date.parse(refreshState.nextRefreshAt) > Date.now()))
+		) {
+			failedAccounts += 1;
+			continue;
+		}
+
+		if (allowRefresh) {
+			const now = Date.now();
+			const nextRefreshDue = refreshState.nextRefreshAt
+				? Date.parse(refreshState.nextRefreshAt) <= now
+				: ['not_requested', 'failed'].includes(refreshState.status) ||
+					(refreshState.refreshAt &&
+						now - Date.parse(refreshState.refreshAt) >= 24 * 60 * 60 * 1000);
+			if (nextRefreshDue) {
+				account = await stripe.financialConnections.accounts.refresh(accountId, {
+					features: ['transactions']
+				});
+				refreshState = financialConnectionsRefreshState(account);
+				if (refreshState.status === 'pending' || refreshState.status === 'not_requested') {
+					pendingAccounts += 1;
+					continue;
+				}
+				if (refreshState.status === 'failed') {
+					failedAccounts += 1;
+					continue;
+				}
+			}
+		}
+		if (
+			refreshState.refreshAt &&
+			(!lastProviderRefreshAt || refreshState.refreshAt > lastProviderRefreshAt)
+		) {
+			lastProviderRefreshAt = refreshState.refreshAt;
+		}
+
+		const listParams = { account: accountId, limit: 100 };
+		if (refreshCursors[accountId])
+			listParams.transaction_refresh = { after: refreshCursors[accountId] };
+		const listPromise = stripe.financialConnections.transactions.list(listParams);
 		let batch = [];
 		const flush = async () => {
 			if (!batch.length) return;
-			inserted += await upsertFeedItems(auth, resolved, 'stripe_financial_connections', batch, {
+			const counts = await upsertFeedItems(auth, resolved, 'stripe_financial_connections', batch, {
 				accountMap
 			});
+			for (const key of Object.keys(totals)) totals[key] += counts[key];
 			batch = [];
 		};
 		await forEachStripeListItem(listPromise, async (transaction) => {
-			if (!shouldImportFinancialConnectionsTransaction(transaction)) return;
+			const providerStatus = cleanText(transaction.status).toLowerCase();
+			if (!['posted', 'pending', 'void'].includes(providerStatus)) return;
 			const amountCents = Number(transaction.amount);
 			if (!Number.isSafeInteger(amountCents)) return;
 			const date = providerTransactionDate(transaction.transacted_at ?? transaction.created);
@@ -2598,23 +2855,64 @@ export async function syncStripeFinancialConnectionsTransactions(
 				description: transaction.description || 'Linked account activity',
 				amount_cents: amountCents,
 				currency: transaction.currency || 'usd',
+				status: providerStatus,
+				should_import: shouldImportFinancialConnectionsTransaction(transaction),
 				raw: transaction
 			});
 			if (batch.length >= 100) await flush();
 		});
 		await flush();
+		if (account.transaction_refresh?.id) refreshCursors[accountId] = account.transaction_refresh.id;
 	}
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_bank_connections')
-		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
-		.eq('group_id', auth.group.id)
-		.eq('id', resolved.id);
-	if (updateError) throw new Error(updateError.message);
+	if (lastProviderRefreshAt) {
+		const { error: updateError } = await auth.serviceSupabase
+			.from('group_accounting_bank_connections')
+			.update({
+				last_provider_refresh_at: lastProviderRefreshAt,
+				config: { ...resolved.config, transaction_refresh_cursors: refreshCursors }
+			})
+			.eq('group_id', auth.group.id)
+			.eq('id', resolved.id);
+		if (updateError) throw new Error('Unable to update provider refresh status.');
+	}
 	if (runAutoMatch) await autoMatchFeedItems(auth);
-	return { inserted };
+	if (failedAccounts) {
+		return {
+			...totals,
+			sync_status: 'partial',
+			error_code: 'provider_refresh_failed',
+			error_message: 'A linked institution could not refresh transaction data.'
+		};
+	}
+	if (pendingAccounts) {
+		return {
+			...totals,
+			sync_status: totals.inserted || totals.updated || totals.corrections ? 'partial' : 'pending',
+			error_code: 'provider_refresh_pending',
+			error_message: 'A linked institution is still refreshing transaction data.'
+		};
+	}
+	return totals;
 }
 
-export async function syncMercuryTransactions(auth, options = {}) {
+export async function syncStripeFinancialConnectionsTransactions(
+	auth,
+	connection = null,
+	options = {}
+) {
+	const trigger = options.trigger || 'manual';
+	return withProviderSync(
+		auth,
+		'stripe_financial_connections',
+		{
+			trigger,
+			force: options.force ?? trigger !== 'cron'
+		},
+		() => performStripeFinancialConnectionsSync(auth, connection, options)
+	);
+}
+
+async function performMercurySync(auth, options = {}) {
 	const { runAutoMatch = true } = options;
 	const { data: connection, error: connectionError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
@@ -2683,7 +2981,7 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		await upsertProviderAccounts(auth, resolved, 'mercury', accounts);
 	}
 
-	let insertedCount = 0;
+	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
 	for await (const transactions of mercuryTransactionPages(async (query) =>
 		mercuryRelayRequest(auth, resolved, resolvedApiKey, {
 			method: 'GET',
@@ -2701,28 +2999,37 @@ export async function syncMercuryTransactions(auth, options = {}) {
 		);
 		const accountMap = await loadProviderAccountMap(auth, 'mercury');
 		const normalizedTransactions = dedupeRowsByKey(
-			transactions.filter(shouldImportMercuryTransaction).map((transaction) => ({
+			transactions.map((transaction) => ({
 				...transaction,
 				account_id: mercuryTransactionAccountId(transaction),
-				source_transaction_id: feedTransactionId(transaction)
+				source_transaction_id: feedTransactionId(transaction),
+				should_import: shouldImportMercuryTransaction(transaction)
 			})),
 			'source_transaction_id'
 		);
-		insertedCount += await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
+		const counts = await upsertFeedItems(auth, resolved, 'mercury', normalizedTransactions, {
 			accountMap
 		});
+		for (const key of Object.keys(totals)) totals[key] += counts[key];
 	}
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_bank_connections')
-		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
-		.eq('group_id', auth.group.id)
-		.eq('id', resolved.id);
-	if (updateError) throw new Error(updateError.message);
 	if (runAutoMatch) await autoMatchFeedItems(auth);
-	return { inserted: insertedCount };
+	return totals;
 }
 
-export async function syncStripeTransactions(auth, options = {}) {
+export async function syncMercuryTransactions(auth, options = {}) {
+	const trigger = options.trigger || 'manual';
+	return withProviderSync(
+		auth,
+		'mercury',
+		{
+			trigger,
+			force: options.force ?? trigger !== 'cron'
+		},
+		() => performMercurySync(auth, options)
+	);
+}
+
+async function performStripeSync(auth, options = {}) {
 	const { runAutoMatch = true } = options;
 	const [{ getStripeClient }, donationAccountResult] = await Promise.all([
 		import('$lib/server/stripe'),
@@ -2791,12 +3098,13 @@ export async function syncStripeTransactions(auth, options = {}) {
 		{ limit: 100 },
 		{ stripeAccount: donationAccount.stripe_account_id }
 	);
-	let inserted = 0;
+	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0 };
 	let skipped = 0;
 	let batch = [];
 	const flush = async () => {
 		if (!batch.length) return;
-		inserted += await upsertFeedItems(auth, connection, 'stripe', batch, { accountMap });
+		const counts = await upsertFeedItems(auth, connection, 'stripe', batch, { accountMap });
+		for (const key of Object.keys(totals)) totals[key] += counts[key];
 		batch = [];
 	};
 	await forEachStripeListItem(listPromise, async (item) => {
@@ -2809,17 +3117,112 @@ export async function syncStripeTransactions(auth, options = {}) {
 		if (batch.length >= 100) await flush();
 	});
 	await flush();
-	const { error: updateError } = await auth.serviceSupabase
-		.from('group_accounting_bank_connections')
-		.update({ last_synced_at: new Date().toISOString(), status: 'connected', error_message: null })
-		.eq('group_id', auth.group.id)
-		.eq('id', connection.id);
-	if (updateError) throw new Error(updateError.message);
+	totals.skipped += skipped;
 	if (runAutoMatch) await autoMatchFeedItems(auth);
-	return { inserted, skipped };
+	return { ...totals, invalid_count: skipped };
 }
 
-export async function syncAllBankTransactions(auth) {
+export async function syncStripeTransactions(auth, options = {}) {
+	const trigger = options.trigger || 'manual';
+	return withProviderSync(
+		auth,
+		'stripe',
+		{
+			trigger,
+			force: options.force ?? trigger !== 'cron'
+		},
+		() => performStripeSync(auth, options)
+	);
+}
+
+export async function resolveProviderCorrection(auth, formData) {
+	const feedItemId = cleanText(formData.get('feedItemId'));
+	const submittedDecision = cleanText(formData.get('decision')).toLowerCase();
+	const decision =
+		submittedDecision === 'accept'
+			? 'accepted'
+			: submittedDecision === 'dismiss'
+				? 'dismissed'
+				: '';
+	if (!feedItemId || !decision) throw new Error('Choose a provider correction to review.');
+	const { data, error } = await auth.serviceSupabase.rpc(
+		'resolve_group_accounting_provider_correction',
+		{
+			p_group_id: auth.group.id,
+			p_feed_item_id: feedItemId,
+			p_decision: decision,
+			p_actor_user_id: auth.userId || null
+		}
+	);
+	if (error) throw new Error('Unable to resolve provider correction.');
+	if (!data?.resolved) throw new Error('This provider correction has already been resolved.');
+	return { decision: data.decision };
+}
+
+export async function handleStripeFinancialConnectionsRefreshWebhook(serviceSupabase, event) {
+	if (event?.type !== 'financial_connections.account.refreshed_transactions') {
+		return { processed: false, reason: 'event_not_supported' };
+	}
+	const account = event?.data?.object;
+	const accountId = cleanText(account?.id);
+	const refreshState = financialConnectionsRefreshState(account);
+	if (!accountId || !['succeeded', 'failed'].includes(refreshState.status)) {
+		return { processed: false, reason: 'refresh_not_complete' };
+	}
+	const { data: connections, error } = await serviceSupabase
+		.from('group_accounting_bank_connections')
+		.select('id,group_id,provider,config')
+		.eq('provider', 'stripe_financial_connections')
+		.contains('config', { account_ids: [accountId] });
+	if (error) throw new Error('Unable to match the Financial Connections refresh event.');
+	const holder = account?.account_holder?.account;
+	const holderAccountId = typeof holder === 'string' ? holder : cleanText(holder?.id);
+	const matches = (connections ?? []).filter((connection) => {
+		const configuredAccount = cleanText(connection.config?.connected_account_id);
+		return (
+			(!event.account || event.account === configuredAccount) &&
+			(!holderAccountId || holderAccountId === configuredAccount)
+		);
+	});
+	if (!matches.length) return { processed: false, reason: 'connection_not_found' };
+
+	const results = [];
+	for (const connection of matches) {
+		const { data: group, error: groupError } = await serviceSupabase
+			.from('groups')
+			.select('id,slug,name')
+			.eq('id', connection.group_id)
+			.maybeSingle();
+		if (groupError || !group) {
+			throw new Error('Unable to load the group for a Financial Connections refresh.');
+		}
+		const auth = { group, userId: null, serviceSupabase };
+		const result = await syncStripeFinancialConnectionsTransactions(auth, connection, {
+			trigger: 'webhook',
+			force: true,
+			refreshedAccount: account,
+			allowRefresh: false,
+			runAutoMatch: true
+		});
+		results.push({
+			group_id: group.id,
+			status: result.sync_status,
+			inserted: result.inserted || 0,
+			updated: result.updated || 0,
+			corrections: result.corrections || 0
+		});
+	}
+	return { processed: true, results };
+}
+
+export async function syncAllBankTransactions(auth, options = {}) {
+	const trigger = options.trigger || 'manual';
+	const { data: syncSettings, error: syncSettingsError } = await auth.serviceSupabase
+		.from('group_accounting_settings')
+		.select('mercury_sync_enabled,mercury_api_key_ciphertext')
+		.eq('group_id', auth.group.id)
+		.maybeSingle();
+	if (syncSettingsError) throw new Error('Unable to read provider sync settings.');
 	const { data: connections, error: connectionsError } = await auth.serviceSupabase
 		.from('group_accounting_bank_connections')
 		.select('provider,status')
@@ -2828,37 +3231,55 @@ export async function syncAllBankTransactions(auth) {
 	const connectionsByProvider = new Map(
 		(connections ?? []).map((connection) => [connection.provider, connection])
 	);
+	const stripeConnection = await loadGroupStripeConnection(auth);
 	let inserted = 0;
+	let updated = 0;
+	let corrections = 0;
 	let skipped = 0;
 	const errors = [];
+	const providers = {};
 
-	if (shouldSyncBankProvider(connectionsByProvider.get('mercury'))) {
+	if (
+		trigger === 'cron'
+			? shouldScheduleMercurySync(syncSettings, connectionsByProvider.get('mercury'))
+			: shouldSyncBankProvider(connectionsByProvider.get('mercury'))
+	) {
 		try {
-			const result = await syncMercuryTransactions(auth, { runAutoMatch: false });
+			const result = await syncMercuryTransactions(auth, { runAutoMatch: false, trigger });
+			providers.mercury = result;
 			inserted += Number(result?.inserted || 0);
+			updated += Number(result?.updated || 0);
+			corrections += Number(result?.corrections || 0);
 		} catch (error) {
-			errors.push(error?.message || 'Mercury sync failed.');
+			errors.push(`Mercury: ${error?.message || 'Sync failed.'}`);
 		}
 	}
 
 	if (shouldSyncBankProvider(connectionsByProvider.get('stripe_financial_connections'))) {
 		try {
 			const result = await syncStripeFinancialConnectionsTransactions(auth, null, {
-				runAutoMatch: false
+				runAutoMatch: false,
+				trigger
 			});
+			providers.stripe_financial_connections = result;
 			inserted += Number(result?.inserted || 0);
+			updated += Number(result?.updated || 0);
+			corrections += Number(result?.corrections || 0);
 		} catch (error) {
-			errors.push(error?.message || 'Linked account sync failed.');
+			errors.push(`Linked accounts: ${error?.message || 'Sync failed.'}`);
 		}
 	}
 
-	if (shouldSyncBankProvider(connectionsByProvider.get('stripe'))) {
+	if (stripeConnection.connected && connectionsByProvider.get('stripe')?.status !== 'disabled') {
 		try {
-			const result = await syncStripeTransactions(auth, { runAutoMatch: false });
+			const result = await syncStripeTransactions(auth, { runAutoMatch: false, trigger });
+			providers.stripe = result;
 			inserted += Number(result?.inserted || 0);
-			skipped += Number(result?.skipped || 0);
+			updated += Number(result?.updated || 0);
+			corrections += Number(result?.corrections || 0);
+			skipped += Number(result?.invalid_count || 0);
 		} catch (error) {
-			errors.push(error?.message || 'Stripe sync failed.');
+			errors.push(`Stripe: ${error?.message || 'Sync failed.'}`);
 		}
 	}
 
@@ -2868,8 +3289,19 @@ export async function syncAllBankTransactions(auth) {
 		);
 	}
 	await autoMatchFeedItems(auth);
-	if (!inserted && errors.length) throw new Error(errors[0]);
-	return { inserted, skipped, errors };
+	const hasPartialProvider = Object.values(providers).some((provider) =>
+		['pending', 'partial', 'failed', 'skipped'].includes(provider?.sync_status)
+	);
+	return {
+		ok: errors.length === 0 && !hasPartialProvider && skipped === 0,
+		sync_status: errors.length || hasPartialProvider || skipped ? 'partial' : 'succeeded',
+		inserted,
+		updated,
+		corrections,
+		skipped,
+		providers,
+		errors
+	};
 }
 
 export async function reclassifyReceipt(auth, formData) {

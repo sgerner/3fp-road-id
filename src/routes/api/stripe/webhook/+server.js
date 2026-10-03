@@ -1,3 +1,4 @@
+import { handleStripeFinancialConnectionsRefreshWebhook } from '$lib/server/groupAccounting';
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import {
@@ -82,10 +83,10 @@ async function safelyFinalizePaymentIntent(paymentIntentId, fetchImpl) {
 	return { donationMatched, merchMatched, domainMatched };
 }
 
-export const POST = async (event) => {
-	const { request, fetch } = event;
+export const POST = async (requestEvent) => {
+	const { request, fetch } = requestEvent;
 	try {
-		const limited = enforceRateLimit(event, {
+		const limited = enforceRateLimit(requestEvent, {
 			name: 'stripe-webhook',
 			limit: 300,
 			windowMs: 60 * 1000
@@ -131,6 +132,7 @@ export const POST = async (event) => {
 		}
 
 		const handledEventTypes = new Set([
+			'financial_connections.account.refreshed_transactions',
 			'checkout.session.completed',
 			'checkout.session.async_payment_succeeded',
 			'checkout.session.expired',
@@ -179,6 +181,13 @@ export const POST = async (event) => {
 					});
 				}
 			}
+		}
+
+		if (event.type === 'financial_connections.account.refreshed_transactions') {
+			const serviceSupabase = createServiceSupabaseClient();
+			if (!serviceSupabase)
+				return json({ error: 'Service role is not configured.' }, { status: 500 });
+			await handleStripeFinancialConnectionsRefreshWebhook(serviceSupabase, event);
 		}
 
 		if (

@@ -5,6 +5,8 @@ import {
 	buildAccountingReportFromRows,
 	buildBankFeedEntryLines,
 	budgetActualWindow,
+	fiscalYearStartYear,
+	fiscalYearWindow,
 	buildCsvSourceIds,
 	centsFromAmount,
 	centsFromAmountAndDirection,
@@ -245,6 +247,25 @@ test('report equity carries cumulative net activity and respects the selected pe
 	assert.equal(afterReversal.totals.expense_cents, 0);
 	assert.equal(afterReversal.totals.assets_cents, 9000);
 	assert.equal(afterReversal.totals.equity_cents, 9000);
+});
+
+test('fiscal year windows use the configured start month and start-year budget key', () => {
+	assert.deepEqual(fiscalYearWindow(2026, 7), {
+		from: '2026-07-01',
+		to: '2027-06-30',
+		year: 2026
+	});
+	assert.equal(fiscalYearStartYear('2026-06-30', 7), 2025);
+	assert.equal(fiscalYearStartYear('2026-07-01', 7), 2026);
+	assert.deepEqual(budgetActualWindow(2025, '2026-06-30', 7), {
+		from: '2025-07-01',
+		to: '2026-06-30'
+	});
+	assert.deepEqual(budgetActualWindow(2026, '2026-10-02', 7), {
+		from: '2026-07-01',
+		to: '2026-10-02'
+	});
+	assert.equal(budgetActualWindow(2027, '2026-10-02', 7).to, null);
 });
 
 test('report aggregation handles more than one thousand ledger lines', () => {

@@ -30,11 +30,15 @@ test(
 				...[
 					'20260609010000_create_group_accounting_module.sql',
 					'20260609020000_extend_group_accounting_production_features.sql',
-					'20261002010000_harden_group_accounting_integrity.sql',
-					'20261002020000_enforce_accounting_snapshot_visibility.sql',
-					'20261002030000_atomic_accounting_workflows.sql'
+					'20261002134250_harden_group_accounting_integrity_20261002.sql',
+					'20261002134256_enforce_accounting_snapshot_visibility_20261002.sql',
+					'20261002134257_atomic_accounting_workflows_20261002.sql',
+					'20261003024701_monitor_group_accounting_provider_sync.sql',
+					'20261003025416_group_accounting_followup_20261002.sql',
+					'20261003030447_guard_accounting_statement_order.sql'
 				].map((name) => fs.readFileSync(path.join(root, 'migrations', name), 'utf8')),
-				fs.readFileSync(path.join(root, 'tests/group_accounting_integrity.sql'), 'utf8')
+				fs.readFileSync(path.join(root, 'tests/group_accounting_integrity.sql'), 'utf8'),
+				fs.readFileSync(path.join(root, 'tests/group_accounting_sync_integrity.sql'), 'utf8')
 			].join('\n');
 			assert.match(
 				run(url.toString(), `set client_min_messages=warning;\n${sql}`),

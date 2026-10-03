@@ -95,6 +95,18 @@
 	const mappedBankFeedAccounts = $derived(bankFeedAccounts.filter((account) => account.account_id));
 	const receipts = $derived(Array.isArray(data.receipts) ? data.receipts : []);
 	const auditEvents = $derived(Array.isArray(data.audit_events) ? data.audit_events : []);
+	const receiptsTotal = $derived(Number(data.receipts_total ?? receipts.length));
+	const receiptsPage = $derived(Number(data.receipts_page ?? 1));
+	const receiptsPageSize = $derived(Number(data.history_page_size ?? 25));
+	const receiptsTotalPages = $derived(
+		Number(data.receipts_total_pages ?? Math.max(1, Math.ceil(receiptsTotal / receiptsPageSize)))
+	);
+	const auditTotal = $derived(Number(data.audit_total ?? auditEvents.length));
+	const auditPage = $derived(Number(data.audit_page ?? 1));
+	const auditPageSize = $derived(Number(data.history_page_size ?? 25));
+	const auditTotalPages = $derived(
+		Number(data.audit_total_pages ?? Math.max(1, Math.ceil(auditTotal / auditPageSize)))
+	);
 	const visibility = $derived(data.settings?.public_visibility ?? {});
 	const stripeConnection = $derived(data.stripe_connection || null);
 	const stripeConnected = $derived(Boolean(stripeConnection?.connected));
@@ -108,6 +120,9 @@
 	let postingFeedItemIds = $state({});
 	let syncedTabUrl = $state('');
 	let syncAllBusy = $state(false);
+	let mercurySyncBusy = $state(false);
+	let requestIds = $state({});
+	let requestIdsReady = $state(false);
 	let mercuryEditMode = $state(false);
 	let transactionSearch = $state('');
 	let transactionViewMode = $state('recent');
@@ -116,9 +131,12 @@
 	let transactionTo = $state('');
 	let transactionAccountId = $state('all');
 	let transactionSource = $state('all');
+	let receiptSearch = $state('');
+	let auditSearch = $state('');
 	let reconciliationAccountId = $state('');
 	let reconciliationDate = $state('');
 	let checkedReconciliationItemIds = $state([]);
+	let checkedReconciliationEntryIds = $state([]);
 	let csvImportAccountId = $state('');
 	let editingTransactionId = $state('');
 	let savingTransactionIds = $state({});
@@ -152,8 +170,8 @@
 		{ value: 'last_month', label: 'Last month' },
 		{ value: 'this_quarter', label: 'This quarter' },
 		{ value: 'last_quarter', label: 'Last quarter' },
-		{ value: 'this_year', label: 'This year' },
-		{ value: 'last_year', label: 'Last year' },
+		{ value: 'this_year', label: 'This fiscal year' },
+		{ value: 'last_year', label: 'Last fiscal year' },
 		{ value: 'custom', label: 'Custom range' }
 	];
 	const reportPeriodLabel = $derived(
@@ -179,15 +197,37 @@
 		}
 	});
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
+	const ledgerPageSize = $derived(Number(data.history_page_size ?? 25));
+	const ledgerTotal = $derived(Number(data.entries_total ?? transactionEntries.length));
+	const ledgerPage = $derived(Number(data.entries_page ?? 1));
+	const ledgerTotalPages = $derived(
+		Number(data.entries_total_pages ?? Math.max(1, Math.ceil(ledgerTotal / ledgerPageSize)))
+	);
+	const ledgerRangeStart = $derived(ledgerTotal ? (ledgerPage - 1) * ledgerPageSize + 1 : 0);
+	const ledgerRangeEnd = $derived(Math.min(ledgerPage * ledgerPageSize, ledgerTotal));
+	const ledgerFiltersActive = $derived(
+		Boolean(
+			transactionSearch ||
+			transactionAccountId !== 'all' ||
+			transactionSource !== 'all' ||
+			transactionPeriodKey !== 'all'
+		)
+	);
 	const receiptAttachableEntries = $derived(
 		transactionEntries.filter((entry) => entry.status === 'posted').slice(0, 100)
 	);
 	const transactionAccountOptions = $derived(accounts.filter((account) => !account.is_archived));
 	const transactionSourceOptions = $derived(
 		[
-			...new Set(
-				transactionEntries.map((entry) => String(entry.source || entry.entry_type || 'manual'))
-			)
+			...new Set([
+				'manual',
+				'opening_balance',
+				'mercury',
+				'stripe',
+				'bank_csv',
+				'reversal',
+				...transactionEntries.map((entry) => String(entry.source || entry.entry_type || 'manual'))
+			])
 		].sort()
 	);
 	const transactionDefaultEntries = $derived(transactionEntries.slice(0, 20));
@@ -197,8 +237,7 @@
 	);
 	const transactionDateRangeInvalid = $derived(
 		transactionPeriodKey === 'custom' &&
-			Boolean(transactionFrom && transactionTo) &&
-			transactionFrom > transactionTo
+			(!transactionFrom || !transactionTo || transactionFrom > transactionTo)
 	);
 	const filteredTransactions = $derived(
 		transactionEntries
@@ -207,9 +246,56 @@
 			.filter((entry) => transactionSourceMatches(entry, transactionSource))
 			.filter((entry) => matchesTransaction(entry, transactionSearch))
 	);
-	const transactionDisplayEntries = $derived(
-		transactionViewMode === 'recent' ? transactionDefaultEntries : filteredTransactions
+	const transactionDisplayEntries = $derived(transactionEntries);
+	const setupProgress = $derived(data.setup_progress ?? {});
+	const mappingComplete = $derived(
+		typeof setupProgress.mapping_complete === 'boolean'
+			? setupProgress.mapping_complete
+			: bankFeedAccounts.length > 0 &&
+					Number(setupProgress.mapped_feed_accounts || 0) >= bankFeedAccounts.length
 	);
+	const syncRuns = $derived(Array.isArray(data.sync_runs) ? data.sync_runs : []);
+	const providerCorrectionItems = $derived(
+		Array.isArray(data.provider_correction_items) ? data.provider_correction_items : []
+	);
+	const setupSteps = $derived([
+		{
+			label: 'Review your account buckets',
+			detail: 'Check the bank, income, and expense accounts you will use.',
+			done: Boolean(setupProgress.has_accounts),
+			tab: 'accounts',
+			action: setupProgress.has_accounts ? 'Review buckets' : 'Add buckets'
+		},
+		{
+			label: 'Map connected bank accounts',
+			detail: 'Connect imported activity to the matching ledger account.',
+			done: mappingComplete,
+			tab: 'banking',
+			action: setupProgress.mapping_complete ? 'Review mappings' : 'Map accounts'
+		},
+		{
+			label: 'Enter opening balances',
+			detail: 'Set the starting balance for each account you are tracking.',
+			done: Boolean(setupProgress.has_opening_balances),
+			tab: 'enter',
+			action: setupProgress.has_opening_balances ? 'Review balances' : 'Set balances'
+		},
+		{
+			label: 'Import bank activity',
+			detail: 'Sync a connected provider or upload a bank CSV to bring in transactions.',
+			done: Boolean(setupProgress.has_imported_activity),
+			tab: 'banking',
+			action: setupProgress.has_imported_activity ? 'Review activity' : 'Import activity'
+		},
+		{
+			label: 'Reconcile a statement',
+			detail: 'Compare a statement balance and mark its cleared activity.',
+			done: Boolean(setupProgress.has_reconciliation),
+			tab: 'banking',
+			action: setupProgress.has_reconciliation ? 'View reconciliation' : 'Reconcile'
+		}
+	]);
+	const setupComplete = $derived(setupSteps.every((step) => step.done));
 	const eligibleReconciliationItems = $derived(
 		reconciliationFeedItems
 			.filter((item) => item.account_id === reconciliationAccountId)
@@ -220,9 +306,34 @@
 				String(right.transaction_date || '').localeCompare(String(left.transaction_date || ''))
 			)
 	);
+	const reconciliationEntries = $derived(
+		Array.isArray(data.reconciliation_entries) ? data.reconciliation_entries : []
+	);
+	const eligibleReconciliationEntries = $derived(
+		reconciliationEntries
+			.filter((entry) => ['posted', 'void'].includes(entry.status))
+			.filter(
+				(entry) => !eligibleReconciliationItems.some((item) => item.matched_entry_id === entry.id)
+			)
+			.filter((entry) => !reconciliationDate || entry.entry_date <= reconciliationDate)
+			.filter((entry) =>
+				(entry.lines ?? []).some(
+					(line) => line.account_id === reconciliationAccountId && !line.cleared_at
+				)
+			)
+			.slice()
+			.sort((left, right) =>
+				String(right.entry_date || '').localeCompare(String(left.entry_date || ''))
+			)
+	);
 	const eligibleReconciliationItemIds = $derived(
 		checkedReconciliationItemIds.filter((id) =>
 			eligibleReconciliationItems.some((item) => item.id === id)
+		)
+	);
+	const eligibleReconciliationEntryIds = $derived(
+		checkedReconciliationEntryIds.filter((id) =>
+			eligibleReconciliationEntries.some((entry) => entry.id === id)
 		)
 	);
 
@@ -269,12 +380,85 @@
 		});
 	}
 
+	function setHistoryPage(key, pageNumber) {
+		const nextPage = Math.max(1, Number.parseInt(String(pageNumber), 10) || 1);
+		const url = new URL(page.url);
+		url.searchParams.set('tab', 'settings');
+		if (nextPage === 1) url.searchParams.delete(key);
+		else url.searchParams.set(key, String(nextPage));
+		void goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+	}
+
+	function localDateParam(date) {
+		if (!date || Number.isNaN(date.getTime())) return '';
+		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	}
+
+	async function applyLedgerFilters(nextPage = 1) {
+		if (transactionDateRangeInvalid) return;
+		const bounds = resolveTransactionPeriodBounds();
+		const url = new URL(page.url);
+		url.searchParams.set('tab', 'transactions');
+		const setOrDelete = (key, value) => {
+			if (value) url.searchParams.set(key, value);
+			else url.searchParams.delete(key);
+		};
+		setOrDelete('ledger_q', transactionSearch.trim());
+		setOrDelete('ledger_account', transactionAccountId === 'all' ? '' : transactionAccountId);
+		setOrDelete('ledger_source', transactionSource === 'all' ? '' : transactionSource);
+		setOrDelete('ledger_from', localDateParam(bounds.from));
+		setOrDelete('ledger_to', localDateParam(bounds.to));
+		if (nextPage <= 1) url.searchParams.delete('ledger_page');
+		else url.searchParams.set('ledger_page', String(nextPage));
+		activeTab = 'transactions';
+		await goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+	}
+
+	function showRecentTransactions() {
+		transactionSearch = '';
+		transactionAccountId = 'all';
+		transactionSource = 'all';
+		transactionPeriodKey = 'all';
+		transactionFrom = '';
+		transactionTo = '';
+		transactionViewMode = 'recent';
+		void applyLedgerFilters(1);
+	}
+
+	async function applyHistoryFilters(kind, nextPage = 1) {
+		const url = new URL(page.url);
+		url.searchParams.set('tab', 'settings');
+		const isReceipt = kind === 'receipt';
+		const queryKey = isReceipt ? 'receipt_q' : 'audit_q';
+		const pageKey = isReceipt ? 'receipt_page' : 'audit_page';
+		const query = (isReceipt ? receiptSearch : auditSearch).trim();
+		if (query) url.searchParams.set(queryKey, query);
+		else url.searchParams.delete(queryKey);
+		if (nextPage <= 1) url.searchParams.delete(pageKey);
+		else url.searchParams.set(pageKey, String(nextPage));
+		await goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+	}
+
 	$effect(() => {
 		const href = page.url.href;
 		if (href === syncedTabUrl) return;
 		syncedTabUrl = href;
 		const tab = page.url.searchParams.get('tab');
 		activeTab = tab && tabIds.has(tab) ? tab : data.report_filter_active ? 'reports' : 'overview';
+	});
+
+	$effect(() => {
+		const search = page.url.searchParams;
+		transactionSearch = search.get('ledger_q') || '';
+		transactionAccountId = search.get('ledger_account') || 'all';
+		transactionSource = search.get('ledger_source') || 'all';
+		const from = search.get('ledger_from') || '';
+		const to = search.get('ledger_to') || '';
+		transactionFrom = from;
+		transactionTo = to;
+		transactionPeriodKey = from || to ? 'custom' : 'all';
+		receiptSearch = search.get('receipt_q') || '';
+		auditSearch = search.get('audit_q') || '';
 	});
 
 	function formatCents(cents) {
@@ -329,6 +513,84 @@
 		});
 	}
 
+	function formatTimestamp(value) {
+		if (!value) return 'Never';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return 'Unknown';
+		return date.toLocaleString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+	}
+
+	function connectionFreshness(connection) {
+		const value = connection?.last_sync_success_at || connection?.last_synced_at;
+		if (!value) return 'No successful sync yet';
+		const age = Date.now() - new Date(value).getTime();
+		if (!Number.isFinite(age)) return 'Freshness unknown';
+		if (age < 24 * 60 * 60 * 1000) return 'Fresh · synced within 24 hours';
+		if (age < 72 * 60 * 60 * 1000) return 'Aging · last sync within 3 days';
+		return 'Stale · sync is more than 3 days old';
+	}
+
+	function syncStatusLabel(connection) {
+		const status = connection?.sync_status || 'idle';
+		return (
+			{
+				idle: 'Not synced yet',
+				running: 'Sync running',
+				pending: 'Provider refresh pending',
+				succeeded: 'Last sync succeeded',
+				partial: 'Sync incomplete · review provider details',
+				failed: 'Last sync failed'
+			}[status] || status.replaceAll('_', ' ')
+		);
+	}
+
+	function providerCorrectionRows(correction) {
+		const provider = correction?.provider || correction?.observed || {};
+		const current = correction?.current || correction?.recorded || {};
+		const candidates = [
+			['Description', provider.description, current.description],
+			[
+				'Date',
+				provider.transaction_date || provider.date,
+				current.transaction_date || current.date
+			],
+			['Amount', provider.amount_cents, current.amount_cents],
+			['Currency', provider.currency, current.currency]
+		];
+		return candidates
+			.filter(
+				([, observed, recorded]) =>
+					observed != null && recorded != null && String(observed) !== String(recorded)
+			)
+			.map(([label, observed, recorded]) => ({
+				label,
+				observed: label === 'Amount' ? formatCents(observed) : String(observed),
+				recorded: label === 'Amount' ? formatCents(recorded) : String(recorded)
+			}));
+	}
+
+	function reconciliationEntryAmount(entry) {
+		if (entry.account_amount_cents != null) return Number(entry.account_amount_cents);
+		const account = accounts.find((candidate) => candidate.id === reconciliationAccountId);
+		const accountLines = (entry.lines ?? []).filter(
+			(line) => line.account_id === reconciliationAccountId && !line.cleared_at
+		);
+		if (accountLines.length) {
+			return accountLines.reduce((total, line) => {
+				const debit = Number(line.debit_cents || 0);
+				const credit = Number(line.credit_cents || 0);
+				return total + (account?.normal_side === 'credit' ? credit - debit : debit - credit);
+			}, 0);
+		}
+		return Number(entry.amount_cents || 0);
+	}
+
 	function matchCandidateLabel(candidate) {
 		return `${formatDate(candidate.entry_date)} · ${candidate.description} · ${formatCents(
 			candidate.amount_cents
@@ -366,6 +628,24 @@
 
 	function resolveTransactionPeriodBounds() {
 		if (transactionPeriodKey === 'all') return { from: null, to: null };
+		if (transactionPeriodKey === 'this_year') {
+			return {
+				from: startOfLocalDay(
+					data.fiscal_year_from || `${data.year || new Date().getFullYear()}-01-01`
+				),
+				to: endOfLocalDay(today || new Date().toISOString().slice(0, 10))
+			};
+		}
+		if (transactionPeriodKey === 'last_year') {
+			const currentStart = startOfLocalDay(
+				data.fiscal_year_from || `${data.year || new Date().getFullYear()}-01-01`
+			);
+			const start = new Date(currentStart);
+			start.setFullYear(start.getFullYear() - 1);
+			const end = new Date(currentStart);
+			end.setDate(end.getDate() - 1);
+			return { from: start, to: endOfLocalDay(localDateParam(end)) };
+		}
 		const todayDate = new Date();
 		const currentYear = todayDate.getFullYear();
 		const currentMonth = todayDate.getMonth();
@@ -708,16 +988,6 @@
 		transactionViewMode = 'filtered';
 	}
 
-	function showRecentTransactions() {
-		transactionSearch = '';
-		transactionAccountId = 'all';
-		transactionSource = 'all';
-		transactionPeriodKey = 'all';
-		transactionFrom = '';
-		transactionTo = '';
-		transactionViewMode = 'recent';
-	}
-
 	function startTransactionEdit(entry) {
 		transactionViewMode = 'filtered';
 		editingTransactionId = entry.id;
@@ -838,6 +1108,23 @@
 		};
 	}
 
+	function rotateRequestId(key) {
+		if (!globalThis.crypto?.randomUUID) return;
+		requestIds = { ...requestIds, [key]: globalThis.crypto.randomUUID() };
+	}
+
+	function enhanceIdempotentForm(key) {
+		return () =>
+			async ({ result, update }) => {
+				const succeeded = result?.type === 'success' && !result.data?.accounting_error;
+				await update({ reset: succeeded, invalidateAll: false });
+				if (succeeded) {
+					rotateRequestId(key);
+					await invalidateAll();
+				}
+			};
+	}
+
 	const bankReviewGroups = $derived(groupBankReviewItems(reviewableFeedItems));
 
 	function enhancePostFeedItem(feedItemId) {
@@ -847,6 +1134,7 @@
 				try {
 					await update({ reset: false, invalidateAll: false });
 					if (result.type === 'success') {
+						rotateRequestId(`feed:${feedItemId}`);
 						await invalidateAll();
 					}
 				} finally {
@@ -956,7 +1244,8 @@
 		reportPeriodKey = data.report_period_key ?? 'this_year';
 		reportFrom = data.report_from ?? '';
 		reportTo = data.report_to ?? '';
-		if (data.report_filter_active) setActiveTab('reports', { replaceState: true });
+		if (data.report_filter_active && !page.url.searchParams.has('tab'))
+			setActiveTab('reports', { replaceState: true });
 	});
 
 	function reportExportHref(format, type) {
@@ -1367,6 +1656,29 @@
 		const date = new Date();
 		today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 		reconciliationDate = today;
+		if (globalThis.crypto?.randomUUID) {
+			requestIds = {
+				recordMoney: globalThis.crypto.randomUUID(),
+				transfer: globalThis.crypto.randomUUID(),
+				openingBalance: globalThis.crypto.randomUUID(),
+				journal: globalThis.crypto.randomUUID(),
+				...Object.fromEntries(
+					feedItems.map((item) => [`feed:${item.id}`, globalThis.crypto.randomUUID()])
+				)
+			};
+		}
+		requestIdsReady = true;
+	});
+	$effect(() => {
+		if (!requestIdsReady || !globalThis.crypto?.randomUUID) return;
+		const missing = feedItems.filter((item) => !requestIds[`feed:${item.id}`]);
+		if (!missing.length) return;
+		requestIds = {
+			...requestIds,
+			...Object.fromEntries(
+				missing.map((item) => [`feed:${item.id}`, globalThis.crypto.randomUUID()])
+			)
+		};
 	});
 	$effect(() => {
 		if (!cashAccounts.some((account) => account.id === reconciliationAccountId)) {
@@ -1375,8 +1687,24 @@
 		}
 	});
 	const selectedYear = $derived(data.year || new Date().getFullYear());
-	const yearStart = $derived(`${selectedYear}-01-01`);
-	const yearEnd = $derived(`${selectedYear}-12-31`);
+	const yearStart = $derived(data.fiscal_year_from || `${selectedYear}-01-01`);
+	const yearEnd = $derived(data.fiscal_year_to || `${selectedYear}-12-31`);
+	const fiscalYearOptions = $derived(
+		Array.from({ length: 7 }, (_, index) => Number(selectedYear) - 5 + index)
+	);
+	const fiscalMonths = Array.from({ length: 12 }, (_, index) => ({
+		value: index + 1,
+		label: new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(2020, index, 1))
+	}));
+
+	function changeBudgetYear(event) {
+		const nextYear = Number(event.currentTarget.value);
+		if (!Number.isInteger(nextYear) || nextYear < 2000 || nextYear > 2200) return;
+		const url = new URL(page.url);
+		url.searchParams.set('tab', 'budgets');
+		url.searchParams.set('year', String(nextYear));
+		void goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+	}
 </script>
 
 <svelte:head>
@@ -1534,6 +1862,56 @@
 
 	<!-- Tab Panels -->
 	{#if activeTab === 'overview'}
+		<section class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
+			<div
+				class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+			>
+				<div>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Accounting setup</h2>
+					<p class="text-surface-600-400 mt-1 text-sm">
+						{setupComplete
+							? 'Your account is ready for regular bookkeeping.'
+							: 'Complete these steps to make your reports and bank reviews reliable.'}
+					</p>
+				</div>
+				<span
+					class="badge {setupComplete
+						? 'preset-tonal-success'
+						: 'preset-tonal-primary'} font-semibold"
+				>
+					{setupSteps.filter((step) => step.done).length} of {setupSteps.length} complete
+				</span>
+			</div>
+			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+				{#each setupSteps as step, index}
+					<div
+						class="bg-surface-500/5 border-surface-500/10 flex min-w-0 flex-col gap-3 rounded-xl border p-3"
+					>
+						<div class="flex items-start gap-2">
+							<span class="{step.done ? 'text-success-600' : 'text-surface-500'} mt-0.5 shrink-0">
+								{#if step.done}<IconCheckCircle2 class="h-4 w-4" />{:else}<span
+										class="inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-bold"
+										>{index + 1}</span
+									>{/if}
+							</span>
+							<div class="min-w-0">
+								<h3 class="text-surface-900-100 text-sm font-semibold">{step.label}</h3>
+								<p class="text-surface-600-400 mt-1 text-xs leading-relaxed">{step.detail}</p>
+							</div>
+						</div>
+						<button
+							class="btn btn-sm {step.done
+								? 'preset-tonal-surface'
+								: 'preset-outlined-primary-500'} mt-auto w-full justify-center font-semibold"
+							type="button"
+							onclick={() => setActiveTab(step.tab)}
+						>
+							{step.action}
+						</button>
+					</div>
+				{/each}
+			</div>
+		</section>
 		<section class="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
 			<!-- Monthly Stats -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
@@ -1544,7 +1922,9 @@
 							Monthly Performance
 						</h2>
 					</div>
-					<span class="badge preset-outlined-surface-500 font-semibold">{data.year}</span>
+					<span class="badge preset-outlined-surface-500 font-semibold"
+						>{data.fiscal_year_label || `FY ${data.year}`}</span
+					>
 				</div>
 
 				<div class="space-y-2">
@@ -1717,11 +2097,16 @@
 			<!-- Record Money Form -->
 			<form
 				method="POST"
-				use:enhance
+				use:enhance={enhanceIdempotentForm('recordMoney')}
 				action="?/recordMoney"
 				enctype="multipart/form-data"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
 			>
+				<input
+					type="hidden"
+					name="requestId"
+					value={requestIds.recordMoney || data.posting_request_ids?.recordMoney || ''}
+				/>
 				<div
 					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-4 border-b pb-4"
 				>
@@ -1788,7 +2173,7 @@
 					</label>
 					<label class="label">
 						<span class="text-surface-700-300 text-xs font-semibold"
-							>{moneyFlow === 'income' ? 'Where did it land?' : 'Where did it come from?'}</span
+							>{moneyFlow === 'income' ? 'Where did it land?' : 'Which account paid?'}</span
 						>
 						<select class="select preset-tonal-surface" name="cashAccountId" required>
 							{#each cashAccounts as account}
@@ -1846,10 +2231,15 @@
 				<!-- Move Money -->
 				<form
 					method="POST"
-					use:enhance
+					use:enhance={enhanceIdempotentForm('transfer')}
 					action="?/transfer"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
+					<input
+						type="hidden"
+						name="requestId"
+						value={requestIds.transfer || data.posting_request_ids?.transfer || ''}
+					/>
 					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 						<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
 						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Move Money</h2>
@@ -1867,8 +2257,8 @@
 						<label class="label">
 							<span class="text-surface-700-300 text-xs font-semibold">To</span>
 							<select class="select preset-tonal-surface" name="toAccountId">
-								{#each cashAccounts as account}
-									<option value={account.id}>{account.name}</option>
+								{#each cashAccounts as account, index}
+									<option value={account.id} selected={index === 1}>{account.name}</option>
 								{/each}
 							</select>
 						</label>
@@ -1904,10 +2294,15 @@
 				<!-- Starting Balance -->
 				<form
 					method="POST"
-					use:enhance
+					use:enhance={enhanceIdempotentForm('openingBalance')}
 					action="?/openingBalance"
 					class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm"
 				>
+					<input
+						type="hidden"
+						name="requestId"
+						value={requestIds.openingBalance || data.posting_request_ids?.openingBalance || ''}
+					/>
 					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 						<IconBanknote class="text-secondary-500 h-5 w-5" />
 						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Starting Balance</h2>
@@ -2158,7 +2553,9 @@
 			>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconBadgeDollarSign class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Set Budget</h2>
+					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
+						Set Budget · {data.fiscal_year_label || `FY ${data.year}`}
+					</h2>
 				</div>
 				<div class="space-y-4">
 					<input type="hidden" name="year" value={data.year} />
@@ -2171,7 +2568,7 @@
 						</select>
 					</label>
 					<label class="label">
-						<span class="text-surface-700-300 text-xs font-semibold">Annual amount</span>
+						<span class="text-surface-700-300 text-xs font-semibold">Fiscal-year limit</span>
 						<div class="relative">
 							<span
 								class="text-surface-500 absolute top-1/2 left-3.5 -translate-y-1/2 font-semibold"
@@ -2204,9 +2601,28 @@
 
 			<!-- Budget vs Actual list -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconChartColumn class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Budget vs Actual</h2>
+				<div
+					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+				>
+					<div class="flex items-center gap-2">
+						<IconChartColumn class="text-secondary-500 h-5 w-5" />
+						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
+							Budget vs Actual · {data.fiscal_year_label || `FY ${data.year}`}
+						</h2>
+					</div>
+					<label class="flex items-center gap-2 text-xs font-semibold">
+						<span>Fiscal year</span>
+						<select
+							class="select preset-tonal-surface h-9 text-sm"
+							value={selectedYear}
+							onchange={changeBudgetYear}
+							aria-label="Budget fiscal year"
+						>
+							{#each fiscalYearOptions as fiscalYear}
+								<option value={fiscalYear}>FY {fiscalYear}</option>
+							{/each}
+						</select>
+					</label>
 				</div>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -2728,10 +3144,9 @@
 								Transactions Ledger
 							</h2>
 							<p class="text-surface-500 text-xs font-semibold">
-								{transactionViewMode === 'recent'
-									? `Showing ${transactionDisplayEntries.length} most recent of ${transactionEntries.length} records`
-									: `Found ${transactionDisplayEntries.length} of ${transactionEntries.length} records`}
-								· {transactionPeriodLabel}
+								{ledgerTotal
+									? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal} records`
+									: 'No records found'} · {transactionPeriodLabel}
 							</p>
 						</div>
 					</div>
@@ -2761,11 +3176,17 @@
 								class="input preset-tonal-surface pl-9"
 								type="search"
 								aria-label="Search transactions"
-								placeholder="Descriptions, accounts, amounts..."
+								placeholder="Search descriptions…"
 								value={transactionSearch}
 								oninput={(event) => {
 									transactionSearch = event.currentTarget.value;
 									startTransactionFiltering();
+								}}
+								onkeydown={(event) => {
+									if (event.key === 'Enter') {
+										event.preventDefault();
+										void applyLedgerFilters(1);
+									}
 								}}
 							/>
 						</div>
@@ -2824,17 +3245,25 @@
 						</select>
 					</label>
 				</div>
-				{#if transactionViewMode === 'filtered'}
-					<div class="flex justify-end">
+				<div class="flex flex-wrap items-center justify-end gap-2">
+					{#if transactionViewMode === 'filtered' || ledgerFiltersActive}
 						<button
 							class="btn btn-sm preset-tonal-surface font-semibold"
 							type="button"
 							onclick={showRecentTransactions}
 						>
-							Show latest 20
+							Clear filters
 						</button>
-					</div>
-				{/if}
+					{/if}
+					<button
+						class="btn btn-sm preset-filled-primary-500 font-bold"
+						type="button"
+						onclick={() => void applyLedgerFilters(1)}
+						disabled={transactionDateRangeInvalid}
+					>
+						Apply filters
+					</button>
+				</div>
 
 				<!-- Custom Date selectors -->
 				{#if transactionPeriodKey === 'custom'}
@@ -3191,6 +3620,32 @@
 						</div>
 					{/each}
 				</div>
+				<div
+					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+				>
+					<p class="text-surface-600-400 text-sm">
+						{ledgerTotal
+							? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal}`
+							: 'No ledger entries'}
+					</p>
+					<div class="flex items-center gap-2">
+						<button
+							class="btn btn-sm preset-tonal-surface font-semibold"
+							type="button"
+							disabled={ledgerPage <= 1}
+							onclick={() => void applyLedgerFilters(ledgerPage - 1)}>Previous</button
+						>
+						<span class="text-surface-500 text-xs font-semibold"
+							>Page {ledgerPage} of {ledgerTotalPages}</span
+						>
+						<button
+							class="btn btn-sm preset-tonal-surface font-semibold"
+							type="button"
+							disabled={ledgerPage >= ledgerTotalPages}
+							onclick={() => void applyLedgerFilters(ledgerPage + 1)}>Next</button
+						>
+					</div>
+				</div>
 			</div>
 		</section>
 	{/if}
@@ -3233,11 +3688,249 @@
 				</div>
 			</div>
 
+			<section class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-4 sm:p-5">
+				<div
+					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+				>
+					<div>
+						<h3 class="text-base font-bold">Connection health</h3>
+						<p class="text-surface-600-400 mt-1 text-xs">
+							Connection, sync attempt, last success, and current data freshness.
+						</p>
+					</div>
+				</div>
+				<div class="grid gap-3 lg:grid-cols-2">
+					{#each (data.connections ?? []).filter((connection) => connection.provider !== 'manual') as connection (connection.id)}
+						<div
+							class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
+						>
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<p class="font-semibold capitalize">
+									{connection.display_name || connection.provider.replaceAll('_', ' ')}
+								</p>
+								<span
+									class="badge {['active', 'connected'].includes(connection.status)
+										? 'preset-tonal-success'
+										: 'preset-tonal-warning'} text-[10px] font-bold uppercase"
+									>{['active', 'connected'].includes(connection.status)
+										? 'Connected'
+										: connection.status || 'Unknown'}</span
+								>
+							</div>
+							<p class="text-sm font-semibold">{syncStatusLabel(connection)}</p>
+							<div class="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-2">
+								<p>
+									<span class="text-surface-500">Last attempt:</span>
+									{formatTimestamp(connection.last_sync_attempt_at)}
+								</p>
+								<p>
+									<span class="text-surface-500">Last success:</span>
+									{formatTimestamp(connection.last_sync_success_at || connection.last_synced_at)}
+								</p>
+								<p class="sm:col-span-2">
+									<span class="text-surface-500">Data freshness:</span>
+									{connectionFreshness(connection)}
+								</p>
+								{#if connection.next_sync_at}<p class="sm:col-span-2">
+										<span class="text-surface-500">Next scheduled sync:</span>
+										{formatTimestamp(connection.next_sync_at)}
+									</p>{/if}
+							</div>
+							{#if connection.last_sync_error_message}
+								<p
+									class="border-warning-500/20 bg-warning-500/10 rounded-lg border p-2 text-xs"
+									role="status"
+								>
+									{connection.last_sync_error_message}
+								</p>
+							{/if}
+							{#if connection.provider === 'mercury' && mercuryConnected}
+								<div
+									class="border-surface-500/10 flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between"
+								>
+									<form
+										method="POST"
+										use:enhance
+										action="?/saveConnections"
+										class="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+									>
+										<label
+											class="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-xs font-medium"
+										>
+											<input
+												class="checkbox mt-0.5"
+												type="checkbox"
+												name="mercurySyncEnabled"
+												checked={data.settings?.mercury_sync_enabled === true}
+											/>
+											<span>Allow scheduled Mercury sync</span>
+										</label>
+										<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
+											>Save schedule</button
+										>
+									</form>
+									<form method="POST" use:enhance={enhanceSyncAll} action="?/syncMercury">
+										<button
+											class="btn btn-sm preset-outlined-primary-500 font-semibold"
+											type="submit"
+											disabled={syncAllBusy}
+										>
+											<IconRefreshCw class="h-3.5 w-3.5 {syncAllBusy ? 'animate-spin' : ''}" />
+											{syncAllBusy ? 'Syncing…' : 'Sync Mercury now'}
+										</button>
+									</form>
+								</div>
+							{/if}
+						</div>
+					{:else}
+						{#if mercuryConnected}
+							<div
+								class="bg-surface-500/5 border-surface-500/10 min-w-0 space-y-2 rounded-xl border p-3"
+							>
+								<div class="flex items-center justify-between gap-2">
+									<p class="font-semibold">Mercury</p>
+									<span class="badge preset-tonal-success text-[10px] font-bold uppercase"
+										>Connected</span
+									>
+								</div>
+								<p class="text-sm font-semibold">{syncStatusLabel(mercuryConnection)}</p>
+								<p class="text-xs">
+									Last attempt: {formatTimestamp(mercuryConnection?.last_sync_attempt_at)}
+								</p>
+								<p class="text-xs">
+									Last success: {formatTimestamp(
+										mercuryConnection?.last_sync_success_at || mercuryConnection?.last_synced_at
+									)}
+								</p>
+								<p class="text-xs">Data freshness: {connectionFreshness(mercuryConnection)}</p>
+								<form
+									method="POST"
+									use:enhance
+									action="?/saveConnections"
+									class="border-surface-500/10 flex flex-wrap items-center justify-between gap-2 border-t pt-2"
+								>
+									<label class="flex items-center gap-2 text-xs font-medium"
+										><input
+											class="checkbox"
+											type="checkbox"
+											name="mercurySyncEnabled"
+											checked={data.settings?.mercury_sync_enabled === true}
+										/>Allow scheduled Mercury sync</label
+									>
+									<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
+										>Save schedule</button
+									>
+								</form>
+							</div>
+						{/if}
+					{/each}
+				</div>
+				{#if syncRuns.length}
+					<div class="border-surface-500/10 space-y-2 border-t pt-3">
+						<p class="text-xs font-bold tracking-wider uppercase">Recent provider syncs</p>
+						<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+							{#each syncRuns.slice(0, 6) as run (run.id)}
+								<div class="bg-surface-500/5 rounded-lg p-3 text-xs">
+									<div class="flex items-center justify-between gap-2">
+										<span class="font-semibold capitalize">{run.provider.replaceAll('_', ' ')}</span
+										><span
+											class="badge {run.status === 'succeeded'
+												? 'preset-tonal-success'
+												: run.status === 'failed' || run.status === 'partial'
+													? 'preset-tonal-warning'
+													: 'preset-tonal-surface'} text-[9px] font-bold uppercase"
+											>{run.status}</span
+										>
+									</div>
+									<p class="text-surface-500 mt-1">
+										{run.trigger} · {formatTimestamp(run.started_at)}
+									</p>
+									<p class="mt-1">
+										{Number(run.inserted_count || 0)} new · {Number(run.updated_count || 0)} updated ·
+										{Number(run.correction_count || 0)} corrections · {Number(
+											run.skipped_count || 0
+										)} skipped
+									</p>
+									{#if run.error_message}<p class="text-warning-700-300 mt-1">
+											{run.error_message}
+										</p>{/if}
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</section>
+
+			{#if providerCorrectionItems.length}
+				<section
+					class="card preset-tonal-surface border-warning-500/20 space-y-3 border p-4 sm:p-5"
+				>
+					<div>
+						<h3 class="text-base font-bold">Provider correction review</h3>
+						<p class="text-surface-600-400 mt-1 text-xs">
+							Acknowledge or dismiss provider updates. Acknowledging a correction records the
+							review; posted ledger entries stay unchanged and any accounting edit remains manual.
+						</p>
+					</div>
+					{#each providerCorrectionItems as item (item.id)}
+						{@const changes = providerCorrectionRows(item.provider_correction)}
+						<div
+							class="bg-surface-500/5 border-surface-500/10 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between"
+						>
+							<div class="min-w-0 flex-1">
+								<p class="text-sm font-semibold">
+									{item.description || 'Provider activity'}
+									<span class="text-surface-500 font-normal">· {item.provider} · {item.status}</span
+									>
+								</p>
+								<p class="text-surface-500 mt-1 text-xs">
+									Observed {formatTimestamp(item.provider_correction?.observed_at)}
+								</p>
+								<div class="mt-2 space-y-1 text-xs">
+									{#each changes as change}
+										<p>
+											<span class="font-semibold">{change.label}:</span> provider {change.observed} ·
+											recorded {change.recorded}
+										</p>
+									{:else}
+										<p class="text-surface-500">
+											Provider facts changed; review the sync record before deciding.
+										</p>
+									{/each}
+								</div>
+							</div>
+							<div class="flex shrink-0 flex-wrap gap-2">
+								<form method="POST" use:enhance action="?/resolveProviderCorrection">
+									<input type="hidden" name="feedItemId" value={item.id} /><input
+										type="hidden"
+										name="decision"
+										value="accept"
+									/><button
+										class="btn btn-sm preset-outlined-primary-500 font-semibold"
+										type="submit">Acknowledge</button
+									>
+								</form>
+								<form method="POST" use:enhance action="?/resolveProviderCorrection">
+									<input type="hidden" name="feedItemId" value={item.id} /><input
+										type="hidden"
+										name="decision"
+										value="dismiss"
+									/><button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
+										>Dismiss</button
+									>
+								</form>
+							</div>
+						</div>
+					{/each}
+				</section>
+			{/if}
+
 			<section class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
 				<form
 					method="POST"
 					use:enhance
 					action="?/completeReconciliation"
+					enctype="multipart/form-data"
 					class="card preset-tonal-surface border-surface-500/10 min-w-0 space-y-4 border p-4 sm:p-5"
 				>
 					<input
@@ -3245,13 +3938,19 @@
 						name="checkedFeedItemIds"
 						value={eligibleReconciliationItemIds.join(',')}
 					/>
+					<input
+						type="hidden"
+						name="clearedEntryIds"
+						value={eligibleReconciliationEntryIds.join(',')}
+					/>
 					<div>
 						<h3 class="text-base font-bold">Reconcile a Statement</h3>
 						<p
 							class="text-surface-600-400 mt-1 min-w-0 pr-10 text-xs leading-relaxed break-words sm:pr-0"
 						>
-							Compare the statement ending balance with the posted ledger balance. A zero difference
-							completes the reconciliation and locks entries through that date.
+							Select the activity that cleared on this statement. A zero difference between the
+							statement and cleared balance completes reconciliation; unchecked deposits and
+							payments stay outstanding.
 						</p>
 					</div>
 					<div class="grid gap-3 sm:grid-cols-3">
@@ -3344,6 +4043,76 @@
 							</p>
 						{/if}
 					</div>
+					<div class="space-y-2">
+						<div class="flex flex-wrap items-baseline justify-between gap-2">
+							<p class="text-surface-700-300 text-xs font-semibold">
+								Posted ledger activity to clear
+							</p>
+							<span class="text-surface-500 text-xs"
+								>{eligibleReconciliationEntryIds.length} selected</span
+							>
+						</div>
+						{#if eligibleReconciliationEntries.length}
+							<div
+								class="border-surface-500/10 divide-surface-500/10 max-h-64 divide-y overflow-y-auto rounded-xl border"
+							>
+								{#each eligibleReconciliationEntries as entry (entry.id)}
+									<label
+										class="hover:bg-surface-500/5 flex cursor-pointer items-center gap-3 p-3 text-sm"
+									>
+										<input
+											class="checkbox shrink-0"
+											type="checkbox"
+											name="selectedLedgerEntry"
+											value={entry.id}
+											bind:group={checkedReconciliationEntryIds}
+											aria-label="Clear {entry.description} from {formatDate(entry.entry_date)}"
+										/>
+										<span class="min-w-0 flex-1">
+											<span class="block truncate font-semibold">{entry.description}</span>
+											<span class="text-surface-500 text-xs"
+												>{formatDate(entry.entry_date)} · {entry.source || 'manual'} · {(
+													entry.lines ?? []
+												)
+													.filter(
+														(line) =>
+															line.account_id === reconciliationAccountId && !line.cleared_at
+													)
+													.map((line) => line.account?.name || 'Account')
+													.join(', ')}</span
+											>
+										</span>
+										<span class="shrink-0 text-right">
+											<span class="block text-[10px] font-bold tracking-wide uppercase"
+												>{reconciliationEntryAmount(entry) >= 0
+													? 'Deposit'
+													: 'Check / payment'}</span
+											>
+											<span class="font-semibold tabular-nums"
+												>{formatCents(reconciliationEntryAmount(entry))}</span
+											>
+										</span>
+									</label>
+								{/each}
+							</div>
+						{:else}
+							<p class="bg-surface-500/5 text-surface-600-400 rounded-xl p-3 text-xs">
+								No uncleared posted ledger activity is available for this account through the
+								selected date.
+							</p>
+						{/if}
+					</div>
+					<label class="label">
+						<span class="text-surface-700-300 text-xs font-semibold"
+							>Statement attachment (optional)</span
+						>
+						<input
+							class="input preset-tonal-surface"
+							type="file"
+							name="statementFile"
+							accept="application/pdf,image/jpeg,image/png,image/webp"
+						/>
+					</label>
 					<button
 						class="btn preset-filled-primary-500 w-full font-bold sm:w-auto"
 						type="submit"
@@ -3386,6 +4155,51 @@
 										<p class="text-surface-500 mt-1 text-xs tabular-nums">
 											Difference {formatCents(reconciliation.difference_cents)}
 										</p>
+										{#if Number(reconciliation.outstanding_deposits_cents || 0) || Number(reconciliation.outstanding_checks_cents || 0)}
+											<div class="mt-2 space-y-0.5 text-xs">
+												<p class="text-success-700-300">
+													Outstanding deposits: {formatCents(
+														Math.abs(Number(reconciliation.outstanding_deposits_cents || 0))
+													)}
+												</p>
+												<p class="text-warning-700-300">
+													Outstanding checks / payments: {formatCents(
+														Math.abs(Number(reconciliation.outstanding_checks_cents || 0))
+													)}
+												</p>
+											</div>
+										{/if}
+										{#if reconciliation.statement_file_name}
+											<p class="text-surface-500 mt-2 text-xs">
+												Statement attached: {reconciliation.statement_file_name}
+											</p>
+											<form method="POST" action="?/downloadReconciliationStatement" class="mt-2">
+												<input type="hidden" name="reconciliationId" value={reconciliation.id} />
+												<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
+													>Download statement</button
+												>
+											</form>
+										{/if}
+										{#if reconciliation.status === 'completed'}
+											<form
+												method="POST"
+												use:enhance
+												action="?/reopenReconciliation"
+												class="mt-2 flex flex-col gap-2 sm:flex-row"
+											>
+												<input type="hidden" name="reconciliationId" value={reconciliation.id} />
+												<input
+													class="input preset-tonal-surface min-w-0 text-xs"
+													name="reason"
+													placeholder="Reason for reopening"
+													required
+												/>
+												<button
+													class="btn btn-sm preset-tonal-warning shrink-0 font-semibold"
+													type="submit">Reopen</button
+												>
+											</form>
+										{/if}
 									</div>
 								</div>
 							{/each}
@@ -3832,10 +4646,15 @@
 			<!-- Advanced Journal Form -->
 			<form
 				method="POST"
-				use:enhance
+				use:enhance={enhanceIdempotentForm('journal')}
 				action="?/journal"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
+				<input
+					type="hidden"
+					name="requestId"
+					value={requestIds.journal || data.posting_request_ids?.journal || ''}
+				/>
 				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
 					<IconBookOpen class="text-primary-500 h-5 w-5" />
 					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Advanced Journal</h2>
@@ -4024,18 +4843,17 @@
 					</p>
 
 					<label class="label">
-						<span class="text-surface-700-300 text-xs font-semibold"
-							>Fiscal year starts (Month #)</span
-						>
-						<input
-							class="input preset-tonal-surface"
-							type="number"
-							min="1"
-							max="12"
+						<span class="text-surface-700-300 text-xs font-semibold">Fiscal year starts in</span>
+						<select
+							class="select preset-tonal-surface"
 							name="fiscalYearStartMonth"
 							value={data.settings?.fiscal_year_start_month || 1}
 							required
-						/>
+						>
+							{#each fiscalMonths as month}
+								<option value={month.value}>{month.label}</option>
+							{/each}
+						</select>
 					</label>
 
 					<div class="mt-2 space-y-2">
@@ -4230,7 +5048,25 @@
 					</button>
 				</form>
 				<div class="space-y-3">
-					{#each receipts.slice(0, 5) as receipt}
+					<div class="flex flex-wrap items-end justify-between gap-3">
+						<label class="label min-w-0 flex-1">
+							<span class="text-surface-700-300 text-xs font-semibold"
+								>Search receipt filenames</span
+							>
+							<input
+								class="input preset-tonal-surface"
+								type="search"
+								bind:value={receiptSearch}
+								placeholder="Search filenames…"
+							/>
+						</label>
+						<button
+							class="btn btn-sm preset-filled-primary-500 font-semibold"
+							type="button"
+							onclick={() => void applyHistoryFilters('receipt', 1)}>Search</button
+						>
+					</div>
+					{#each receipts as receipt}
 						<form
 							method="POST"
 							use:enhance
@@ -4281,6 +5117,35 @@
 							<p class="text-surface-500 text-sm font-medium">No receipts uploaded yet.</p>
 						</div>
 					{/each}
+					{#if receiptsTotalPages > 1}
+						<div
+							class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
+						>
+							<p class="text-surface-600-400 text-xs">
+								Showing {(receiptsPage - 1) * receiptsPageSize + 1}-{Math.min(
+									receiptsPage * receiptsPageSize,
+									receiptsTotal
+								)} of {receiptsTotal}
+							</p>
+							<div class="flex items-center gap-2">
+								<button
+									class="btn btn-sm preset-tonal-surface"
+									type="button"
+									disabled={receiptsPage <= 1}
+									onclick={() => setHistoryPage('receipt_page', receiptsPage - 1)}>Previous</button
+								>
+								<span class="text-surface-500 text-xs"
+									>Page {receiptsPage} of {receiptsTotalPages}</span
+								>
+								<button
+									class="btn btn-sm preset-tonal-surface"
+									type="button"
+									disabled={receiptsPage >= receiptsTotalPages}
+									onclick={() => setHistoryPage('receipt_page', receiptsPage + 1)}>Next</button
+								>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -4292,8 +5157,24 @@
 					<IconCog class="text-primary-500 h-5 w-5" />
 					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Audit Trail</h2>
 				</div>
+				<div class="flex flex-wrap items-end justify-between gap-3">
+					<label class="label min-w-0 flex-1">
+						<span class="text-surface-700-300 text-xs font-semibold">Search event types</span>
+						<input
+							class="input preset-tonal-surface"
+							type="search"
+							bind:value={auditSearch}
+							placeholder="e.g. post_entry, reconcile…"
+						/>
+					</label>
+					<button
+						class="btn btn-sm preset-filled-primary-500 font-semibold"
+						type="button"
+						onclick={() => void applyHistoryFilters('audit', 1)}>Search</button
+					>
+				</div>
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-					{#each auditEvents.slice(0, 8) as event}
+					{#each auditEvents as event}
 						<div
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-1 rounded-xl border p-4 transition-colors duration-150"
 						>
@@ -4315,6 +5196,33 @@
 						</div>
 					{/each}
 				</div>
+				{#if auditTotalPages > 1}
+					<div
+						class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
+					>
+						<p class="text-surface-600-400 text-xs">
+							Showing {(auditPage - 1) * auditPageSize + 1}-{Math.min(
+								auditPage * auditPageSize,
+								auditTotal
+							)} of {auditTotal}
+						</p>
+						<div class="flex items-center gap-2">
+							<button
+								class="btn btn-sm preset-tonal-surface"
+								type="button"
+								disabled={auditPage <= 1}
+								onclick={() => setHistoryPage('audit_page', auditPage - 1)}>Previous</button
+							>
+							<span class="text-surface-500 text-xs">Page {auditPage} of {auditTotalPages}</span>
+							<button
+								class="btn btn-sm preset-tonal-surface"
+								type="button"
+								disabled={auditPage >= auditTotalPages}
+								onclick={() => setHistoryPage('audit_page', auditPage + 1)}>Next</button
+							>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</section>
 	{/if}
