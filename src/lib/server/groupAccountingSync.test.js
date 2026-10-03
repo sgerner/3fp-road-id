@@ -27,6 +27,11 @@ test('provider failures expose safe messages and preserve known error classifica
 			.code,
 		'relay_auth'
 	);
+	assert.equal(
+		sanitizeProviderSyncError({ code: 'relay_access', message: secret, httpStatus: 401 }, 'mercury')
+			.code,
+		'relay_access'
+	);
 	for (const [httpStatus, expected] of [
 		[401, 'provider_auth'],
 		[403, 'provider_permission'],

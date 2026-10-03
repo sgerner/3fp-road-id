@@ -12,6 +12,8 @@ const SAFE_ERRORS = {
 	provider_auth: 'The provider rejected its credentials. Review the connection settings.',
 	relay_auth:
 		'The Mercury relay rejected the signed request. An administrator must review the relay configuration.',
+	relay_access:
+		'Mercury relay access was rejected without a confirmed upstream response. An administrator must review the relay endpoint.',
 	provider_permission:
 		'The provider denied access to this account. Reconnect the account or review its permissions.',
 	provider_rate_limited: 'The provider rate limited this sync. It will retry automatically.',

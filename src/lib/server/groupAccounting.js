@@ -471,8 +471,15 @@ async function fetchJson(url, options = {}) {
 		);
 		Object.assign(error, {
 			httpStatus: response.status,
-			...(response.status === 401 && payload?.error === 'Authentication failed'
-				? { code: 'relay_auth' }
+			...(response.status === 401
+				? {
+						code:
+							payload?.error === 'Authentication failed'
+								? 'relay_auth'
+								: response.headers.has('x-relay-request-id')
+									? 'provider_auth'
+									: 'relay_access'
+					}
 				: {})
 		});
 		throw error;
