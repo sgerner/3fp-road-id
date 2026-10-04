@@ -84,4 +84,15 @@ test('history pages clamp to the last page and account filters preserve complete
 		assert.ok(
 			calls.some(([t, m, k, v]) => t === table && m === 'eq' && k === 'group_id' && v === group)
 		);
+	assert.ok(
+		calls.some(
+			([table, method, value]) =>
+				table === 'group_accounting_entries' &&
+				method === 'select' &&
+				value.includes(
+					'receipts:group_accounting_receipts!group_accounting_receipts_entry_id_fkey'
+				) &&
+				value.includes('mime_type,size_bytes')
+		)
+	);
 });

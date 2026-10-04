@@ -33,6 +33,7 @@ import {
 } from './groupAccountingRules.js';
 import { loadGroupStripeConnection } from './groupStripeConnection.js';
 import { loadAccountingHistory, loadAccountingSetupProgress } from './groupAccountingHistory.js';
+import { createGroupAccountingReceiptViewUrl } from './groupAccountingReceipts.js';
 import {
 	assertFinancialConnectionsSessionOwnership,
 	dedupeRowsByKey,
@@ -1591,11 +1592,12 @@ export async function ignoreFeedItem(auth, formData) {
 	if (error) throw new Error(error.message);
 }
 
-async function maybeStoreReceipt(auth, entryId, file) {
+async function storeReceipt(auth, { entryId = null, feedItemId = null }, file) {
 	if (!(file instanceof File) || file.size <= 0) return null;
 	validateReceiptFile(file);
 
-	const objectPath = `${auth.group.id}/${entryId}/${Date.now()}-${slugFileName(file.name)}`;
+	const targetPath = entryId ? entryId : `feed-items/${feedItemId}`;
+	const objectPath = `${auth.group.id}/${targetPath}/${randomUUID()}-${slugFileName(file.name)}`;
 	const arrayBuffer = await file.arrayBuffer();
 	const upload = await auth.serviceSupabase.storage
 		.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
@@ -1611,6 +1613,7 @@ async function maybeStoreReceipt(auth, entryId, file) {
 		.insert({
 			group_id: auth.group.id,
 			entry_id: entryId,
+			feed_item_id: feedItemId,
 			uploaded_by_user_id: auth.userId,
 			object_path: objectPath,
 			file_name: file.name,
@@ -1636,6 +1639,11 @@ async function maybeStoreReceipt(auth, entryId, file) {
 	return data;
 }
 
+async function maybeStoreReceipt(auth, entryId, file) {
+	if (!(file instanceof File) || file.size <= 0) return null;
+	return storeReceipt(auth, { entryId }, file);
+}
+
 function validateReceiptFile(file) {
 	if (!(file instanceof File) || file.size <= 0) return;
 	const allowed = [
@@ -1653,22 +1661,70 @@ function validateReceiptFile(file) {
 
 export async function attachReceiptToEntry(auth, formData) {
 	const entryId = cleanText(formData.get('entryId'));
+	const feedItemId = cleanText(formData.get('feedItemId'));
 	const file = formData.get('receipt');
 	validateReceiptFile(file);
 	if (!(file instanceof File) || file.size <= 0) throw new Error('Choose a receipt file.');
-	const { data: entry, error } = await auth.serviceSupabase
-		.from('group_accounting_entries')
-		.select('id,status')
-		.eq('group_id', auth.group.id)
-		.eq('id', entryId)
-		.maybeSingle();
-	if (error) throw new Error(error.message);
-	if (!entry) throw new Error('Transaction not found.');
-	if (entry.status !== 'posted')
-		throw new Error('Receipts can only be attached to posted transactions.');
-	const receipt = await maybeStoreReceipt(auth, entry.id, file);
+	if (Boolean(entryId) === Boolean(feedItemId)) {
+		throw new Error('Choose one posted transaction or bank-feed item.');
+	}
+
+	let targetEntryId = null;
+	let targetFeedItemId = null;
+	if (entryId) {
+		const { data: entry, error } = await auth.serviceSupabase
+			.from('group_accounting_entries')
+			.select('id,status,source,source_id')
+			.eq('group_id', auth.group.id)
+			.eq('id', entryId)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		if (!entry) throw new Error('Transaction not found.');
+		if (entry.status !== 'posted')
+			throw new Error('Receipts can only be attached to posted transactions.');
+		targetEntryId = entry.id;
+		if (entry.source === 'bank_feed' && entry.source_id) {
+			const { data: feedItem, error: feedError } = await auth.serviceSupabase
+				.from('group_accounting_bank_feed_items')
+				.select('id')
+				.eq('group_id', auth.group.id)
+				.eq('id', entry.source_id)
+				.maybeSingle();
+			if (feedError) throw new Error(feedError.message);
+			targetFeedItemId = feedItem?.id ?? null;
+		}
+	} else {
+		const { data: item, error } = await auth.serviceSupabase
+			.from('group_accounting_bank_feed_items')
+			.select('id,matched_entry_id')
+			.eq('group_id', auth.group.id)
+			.eq('id', feedItemId)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		if (!item) throw new Error('Bank activity not found.');
+		targetFeedItemId = item.id;
+		targetEntryId = item.matched_entry_id;
+		if (!targetEntryId) {
+			const { data: sourceEntry, error: sourceError } = await auth.serviceSupabase
+				.from('group_accounting_entries')
+				.select('id,status')
+				.eq('group_id', auth.group.id)
+				.eq('source', 'bank_feed')
+				.eq('source_id', item.id)
+				.maybeSingle();
+			if (sourceError) throw new Error(sourceError.message);
+			targetEntryId = sourceEntry?.status === 'posted' ? sourceEntry.id : null;
+		}
+	}
+
+	const receipt = await storeReceipt(
+		auth,
+		{ entryId: targetEntryId, feedItemId: targetFeedItemId },
+		file
+	);
 	await auditEvent(auth, 'attach_receipt', 'receipt', receipt.id, null, receipt, {
-		entry_id: entry.id
+		entry_id: targetEntryId,
+		feed_item_id: targetFeedItemId
 	});
 	return receipt;
 }
@@ -1905,7 +1961,9 @@ export async function loadAccountingDashboard(auth, url) {
 			.eq('year', year),
 		auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
-			.select('*')
+			.select(
+				'*,receipts:group_accounting_receipts!group_accounting_receipts_feed_item_id_fkey(id,file_name,mime_type,size_bytes,created_at),matched_entry:group_accounting_entries!group_accounting_bank_feed_items_matched_entry_id_fkey(id,receipts:group_accounting_receipts!group_accounting_receipts_entry_id_fkey(id,file_name,mime_type,size_bytes,created_at))'
+			)
 			.eq('group_id', auth.group.id)
 			.in('status', ['needs_review', 'matched'])
 			.order('transaction_date', { ascending: false })
@@ -2471,6 +2529,15 @@ export async function createReconciliationStatementDownload(auth, reconciliation
 	if (signedUrlError) throw new Error(signedUrlError.message);
 	if (!data?.signedUrl) throw new Error('Statement download link was not returned.');
 	return { url: data.signedUrl, expiresIn: 60 };
+}
+
+export async function createReceiptViewUrl(auth, receiptId) {
+	return createGroupAccountingReceiptViewUrl(
+		auth.serviceSupabase,
+		auth.group.id,
+		cleanText(receiptId),
+		GROUP_ACCOUNTING_RECEIPT_BUCKET
+	);
 }
 
 function providerBalanceCents(value) {

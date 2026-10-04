@@ -119,6 +119,9 @@
 	let reviewSelections = $state({});
 	let activeReviewCategoryItemId = $state('');
 	let postingFeedItemIds = $state({});
+	let receiptUploadFeedItemId = $state('');
+	let receiptUploadEntryId = $state('');
+	let uploadingReceiptTarget = $state('');
 	let syncedTabUrl = $state('');
 	let syncAllBusy = $state(false);
 	let mercurySyncBusy = $state(false);
@@ -1061,20 +1064,53 @@
 		};
 	}
 
+	const receiptFileAccept =
+		'image/jpeg,image/png,image/webp,application/pdf,text/plain,text/csv,.txt,.csv';
+
+	function receiptViewHref(receiptId) {
+		return `/api/groups/${encodeURIComponent(groupSlug)}/accounting/receipts/${encodeURIComponent(receiptId)}`;
+	}
+
+	function receiptsForFeedItem(item) {
+		const receipts = [...(item.receipts ?? []), ...(item.matched_entry?.receipts ?? [])];
+		return Array.from(
+			new Map(
+				receipts.filter((receipt) => receipt?.id).map((receipt) => [receipt.id, receipt])
+			).values()
+		);
+	}
+
+	function clearReceiptInput(formElement) {
+		const input = formElement?.querySelector('input[name="receipt"]');
+		if (input) input.value = '';
+	}
+
+	function isReceiptUploading(kind, id) {
+		return uploadingReceiptTarget === `${kind}:${id}`;
+	}
+
 	function enhanceTransactionEdit(entryId) {
-		return () => {
-			setSavingTransaction(entryId, true);
-			return async ({ result, update }) => {
+		return ({ submitter }) => {
+			const isReceiptUpload = submitter?.name === 'attachReceipt';
+			if (isReceiptUpload) uploadingReceiptTarget = `entry:${entryId}`;
+			else setSavingTransaction(entryId, true);
+			return async ({ result, update, formElement }) => {
 				try {
 					if (typeof update === 'function') {
 						await update({ reset: false, invalidateAll: false });
 					}
 					if (result?.type === 'success') {
-						stopTransactionEdit();
+						if (isReceiptUpload) {
+							clearReceiptInput(formElement);
+							receiptUploadEntryId = '';
+						} else {
+							stopTransactionEdit();
+						}
 						await invalidateAll();
 					}
 				} finally {
-					setSavingTransaction(entryId, false);
+					if (isReceiptUpload) uploadingReceiptTarget = '';
+					else setSavingTransaction(entryId, false);
 				}
 			};
 		};
@@ -1141,17 +1177,25 @@
 	const bankReviewGroups = $derived(groupBankReviewItems(reviewableFeedItems));
 
 	function enhancePostFeedItem(feedItemId) {
-		return () => {
-			setPostingFeedItem(feedItemId, true);
-			return async ({ result, update }) => {
+		return ({ submitter }) => {
+			const isReceiptUpload = submitter?.name === 'attachReceipt';
+			if (isReceiptUpload) uploadingReceiptTarget = `feed:${feedItemId}`;
+			else setPostingFeedItem(feedItemId, true);
+			return async ({ result, update, formElement }) => {
 				try {
 					await update({ reset: false, invalidateAll: false });
 					if (result.type === 'success') {
-						rotateRequestId(`feed:${feedItemId}`);
+						if (isReceiptUpload) {
+							clearReceiptInput(formElement);
+							receiptUploadFeedItemId = '';
+						} else {
+							rotateRequestId(`feed:${feedItemId}`);
+						}
 						await invalidateAll();
 					}
 				} finally {
-					setPostingFeedItem(feedItemId, false);
+					if (isReceiptUpload) uploadingReceiptTarget = '';
+					else setPostingFeedItem(feedItemId, false);
 				}
 			};
 		};
@@ -3575,6 +3619,67 @@
 													</span>
 												{/if}
 											</div>
+											{#if (entry.receipts ?? []).length > 0}
+												<div class="flex flex-wrap gap-x-3 gap-y-1">
+													{#each entry.receipts as receipt (receipt.id)}
+														<a
+															class="text-primary-600-300 inline-flex max-w-full items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline"
+															href={receiptViewHref(receipt.id)}
+															target="_blank"
+															rel="noreferrer"
+															title={`View ${receipt.file_name}`}
+														>
+															<IconReceipt class="h-3.5 w-3.5 shrink-0" />
+															<span class="truncate">{receipt.file_name}</span>
+														</a>
+													{/each}
+												</div>
+											{/if}
+											{#if entry.status === 'posted'}
+												<div class="flex flex-wrap items-center gap-2">
+													<button
+														class="text-primary-600-300 text-xs font-semibold underline-offset-2 hover:underline"
+														type="button"
+														disabled={isReceiptUploading('entry', entry.id)}
+														aria-expanded={receiptUploadEntryId === entry.id}
+														onclick={() =>
+															(receiptUploadEntryId =
+																receiptUploadEntryId === entry.id ? '' : entry.id)}
+													>
+														{receiptUploadEntryId === entry.id ? 'Cancel receipt' : 'Add receipt'}
+													</button>
+												</div>
+											{/if}
+											{#if receiptUploadEntryId === entry.id}
+												<div
+													class="bg-surface-500/5 border-surface-500/10 flex flex-wrap items-end gap-2 rounded-lg border p-2"
+												>
+													<label class="label min-w-0 flex-1">
+														<span class="text-surface-700-300 text-xs font-semibold"
+															>Receipt · PDF, JPG, PNG, WebP, text, or CSV · up to 10 MB</span
+														>
+														<input
+															class="input preset-tonal-surface text-xs"
+															type="file"
+															name="receipt"
+															accept={receiptFileAccept}
+															required
+														/>
+													</label>
+													<button
+														class="btn btn-sm preset-filled-primary-500 font-semibold"
+														name="attachReceipt"
+														type="submit"
+														formaction="?/attachReceipt"
+														formenctype="multipart/form-data"
+														disabled={isReceiptUploading('entry', entry.id) ||
+															isSavingTransaction(entry.id)}
+														aria-label={`Attach receipt to ${entry.description}`}
+													>
+														{isReceiptUploading('entry', entry.id) ? 'Attaching…' : 'Attach'}
+													</button>
+												</div>
+											{/if}
 										</div>
 									</div>
 
@@ -3602,6 +3707,7 @@
 												<button
 													class="text-surface-400 hover:text-surface-900-100"
 													type="button"
+													disabled={isReceiptUploading('entry', entry.id)}
 													onclick={() => startTransactionEdit(entry)}
 													aria-label={`Edit transaction ${entry.description}`}
 													title="Edit transaction"
@@ -3614,7 +3720,9 @@
 													formaction="?/voidEntry"
 													name="reason"
 													value="Voided from transaction ledger"
+													formnovalidate
 													aria-label={`Void transaction ${entry.description}`}
+													disabled={isReceiptUploading('entry', entry.id)}
 													onclick={(event) => confirmVoid(event, entry.description)}>Void</button
 												>
 											{/if}
@@ -4587,6 +4695,7 @@
 									{@const categoryOptions = getReviewCategoryOptions(item, selection.categoryQuery)}
 									{@const selectedMatch = selectedMatchCandidate(item)}
 									{@const mercuryDetails = mercuryFeedDetails(item)}
+									{@const itemReceipts = receiptsForFeedItem(item)}
 									<form
 										method="POST"
 										use:enhance={enhancePostFeedItem(item.id)}
@@ -4651,7 +4760,9 @@
 													class="btn btn-sm preset-outlined-primary-500 shrink-0 font-bold"
 													formaction="?/matchFeedItem"
 													type="submit"
-													disabled={isPostingFeedItem(item.id)}
+													formnovalidate
+													disabled={isPostingFeedItem(item.id) ||
+														isReceiptUploading('feed', item.id)}
 												>
 													Match
 												</button>
@@ -4668,6 +4779,63 @@
 														<span class="ml-1 truncate">{detail.value}</span>
 													</span>
 												{/each}
+											</div>
+										{/if}
+
+										<div class="mb-2 flex flex-wrap items-center gap-2">
+											{#each itemReceipts as receipt (receipt.id)}
+												<a
+													class="text-primary-600-300 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold underline-offset-2 hover:underline"
+													href={receiptViewHref(receipt.id)}
+													target="_blank"
+													rel="noreferrer"
+													title={`View ${receipt.file_name}`}
+												>
+													<IconReceipt class="h-3.5 w-3.5 shrink-0" />
+													<span class="truncate">{receipt.file_name}</span>
+												</a>
+											{/each}
+											<button
+												class="btn btn-sm preset-outlined-surface-500 px-2 py-1 text-xs font-semibold"
+												type="button"
+												disabled={isReceiptUploading('feed', item.id)}
+												aria-expanded={receiptUploadFeedItemId === item.id}
+												onclick={() =>
+													(receiptUploadFeedItemId =
+														receiptUploadFeedItemId === item.id ? '' : item.id)}
+											>
+												{receiptUploadFeedItemId === item.id ? 'Cancel receipt' : 'Add receipt'}
+											</button>
+										</div>
+
+										{#if receiptUploadFeedItemId === item.id}
+											<div
+												class="bg-surface-500/5 border-surface-500/10 mb-3 flex flex-wrap items-end gap-2 rounded-lg border p-3"
+											>
+												<label class="label min-w-0 flex-1">
+													<span class="text-surface-700-300 text-xs font-semibold"
+														>Receipt · PDF, JPG, PNG, WebP, text, or CSV · up to 10 MB</span
+													>
+													<input
+														class="input preset-tonal-surface text-xs"
+														type="file"
+														name="receipt"
+														accept={receiptFileAccept}
+														required
+													/>
+												</label>
+												<button
+													class="btn btn-sm preset-filled-primary-500 font-semibold"
+													name="attachReceipt"
+													type="submit"
+													formaction="?/attachReceipt"
+													formenctype="multipart/form-data"
+													disabled={isReceiptUploading('feed', item.id) ||
+														isPostingFeedItem(item.id)}
+													aria-label={`Attach receipt to ${item.description}`}
+												>
+													{isReceiptUploading('feed', item.id) ? 'Attaching…' : 'Attach'}
+												</button>
 											</div>
 										{/if}
 
@@ -4708,7 +4876,9 @@
 											<button
 												class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
 												type="submit"
+												formnovalidate
 												disabled={isPostingFeedItem(item.id) ||
+													isReceiptUploading('feed', item.id) ||
 													(!group.accountId && !selection.accountId)}
 											>
 												{#if isPostingFeedItem(item.id)}
@@ -4721,7 +4891,8 @@
 												class="btn btn-sm preset-tonal-error shrink-0 font-medium"
 												formaction="?/ignoreFeedItem"
 												type="submit"
-												disabled={isPostingFeedItem(item.id)}
+												formnovalidate
+												disabled={isPostingFeedItem(item.id) || isReceiptUploading('feed', item.id)}
 											>
 												Ignore
 											</button>
@@ -5115,8 +5286,8 @@
 					<div>
 						<h3 class="text-sm font-bold">Attach a receipt to an existing transaction</h3>
 						<p class="text-surface-600-400 mt-1 text-xs leading-relaxed">
-							Use this if a transaction saved but its receipt upload failed. This adds evidence
-							without creating another transaction. Reconciled entries can still accept receipts.
+							Use this fallback if a transaction or bank feed row is no longer on screen. Receipts
+							can also be added directly from those rows and remain available after reconciliation.
 						</p>
 					</div>
 					<label class="label">
@@ -5143,7 +5314,7 @@
 							class="input preset-tonal-surface file:bg-surface-500/10 file:text-surface-700 hover:file:bg-surface-500/20 file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-semibold"
 							type="file"
 							name="receipt"
-							accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/csv,.txt,.csv"
+							accept={receiptFileAccept}
 							required
 						/>
 					</label>
@@ -5191,6 +5362,12 @@
 								<span
 									class="badge preset-outlined-surface-500 px-1.5 py-0.5 text-[10px] font-semibold capitalize"
 									>{receipt.classification_status}</span
+								>
+								<a
+									class="btn btn-sm preset-outlined-primary-500 shrink-0 px-2 py-1 text-xs font-semibold"
+									href={receiptViewHref(receipt.id)}
+									target="_blank"
+									rel="noreferrer">View</a
 								>
 							</div>
 

@@ -49,7 +49,7 @@ export async function loadAccountingHistory(db, groupId, params) {
 		let query = db
 			.from('group_accounting_entries')
 			.select(
-				`*,receipts:group_accounting_receipts(id,file_name),lines:group_accounting_lines(*,account:group_accounting_accounts(id,code,name,kind))${accountJoin}`,
+				`*,receipts:group_accounting_receipts!group_accounting_receipts_entry_id_fkey(id,file_name,mime_type,size_bytes,created_at),lines:group_accounting_lines(*,account:group_accounting_accounts(id,code,name,kind))${accountJoin}`,
 				{ count: 'exact' }
 			)
 			.eq('group_id', groupId);
