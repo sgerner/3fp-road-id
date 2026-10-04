@@ -33,6 +33,7 @@
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
+	import ReconciliationWorkspace from '$lib/components/accounting/ReconciliationWorkspace.svelte';
 	import { escapeHtml } from '$lib/markdown';
 
 	let { data, form } = $props();
@@ -87,9 +88,6 @@
 	const providerAccounts = $derived(
 		Array.isArray(data.provider_accounts) ? data.provider_accounts : []
 	);
-	const reconciliationFeedItems = $derived(
-		Array.isArray(data.reconciliation_feed_items) ? data.reconciliation_feed_items : []
-	);
 	const bankFeedAccounts = $derived(
 		providerAccounts.filter((account) => account.is_enabled !== false)
 	);
@@ -137,10 +135,6 @@
 	let transactionSource = $state('all');
 	let receiptSearch = $state('');
 	let auditSearch = $state('');
-	let reconciliationAccountId = $state('');
-	let reconciliationDate = $state('');
-	let checkedReconciliationItemIds = $state([]);
-	let checkedReconciliationEntryIds = $state([]);
 	let csvImportAccountId = $state('');
 	let editingTransactionId = $state('');
 	let savingTransactionIds = $state({});
@@ -306,47 +300,6 @@
 		}
 	]);
 	const setupComplete = $derived(setupSteps.every((step) => step.done));
-	const eligibleReconciliationItems = $derived(
-		reconciliationFeedItems
-			.filter((item) => item.account_id === reconciliationAccountId)
-			.filter((item) => !reconciliationDate || item.transaction_date <= reconciliationDate)
-			.filter((item) => !item.cleared_at)
-			.slice()
-			.sort((left, right) =>
-				String(right.transaction_date || '').localeCompare(String(left.transaction_date || ''))
-			)
-	);
-	const reconciliationEntries = $derived(
-		Array.isArray(data.reconciliation_entries) ? data.reconciliation_entries : []
-	);
-	const eligibleReconciliationEntries = $derived(
-		reconciliationEntries
-			.filter((entry) => ['posted', 'void'].includes(entry.status))
-			.filter(
-				(entry) => !eligibleReconciliationItems.some((item) => item.matched_entry_id === entry.id)
-			)
-			.filter((entry) => !reconciliationDate || entry.entry_date <= reconciliationDate)
-			.filter((entry) =>
-				(entry.lines ?? []).some(
-					(line) => line.account_id === reconciliationAccountId && !line.cleared_at
-				)
-			)
-			.slice()
-			.sort((left, right) =>
-				String(right.entry_date || '').localeCompare(String(left.entry_date || ''))
-			)
-	);
-	const eligibleReconciliationItemIds = $derived(
-		checkedReconciliationItemIds.filter((id) =>
-			eligibleReconciliationItems.some((item) => item.id === id)
-		)
-	);
-	const eligibleReconciliationEntryIds = $derived(
-		checkedReconciliationEntryIds.filter((id) =>
-			eligibleReconciliationEntries.some((entry) => entry.id === id)
-		)
-	);
-
 	const tabs = [
 		{ id: 'overview', label: 'Overview', icon: IconChartColumn },
 		{ id: 'enter', label: 'Add Activity', icon: IconPlus },
@@ -589,22 +542,6 @@
 				observed: label === 'Amount' ? formatCents(observed) : String(observed),
 				recorded: label === 'Amount' ? formatCents(recorded) : String(recorded)
 			}));
-	}
-
-	function reconciliationEntryAmount(entry) {
-		if (entry.account_amount_cents != null) return Number(entry.account_amount_cents);
-		const account = accounts.find((candidate) => candidate.id === reconciliationAccountId);
-		const accountLines = (entry.lines ?? []).filter(
-			(line) => line.account_id === reconciliationAccountId && !line.cleared_at
-		);
-		if (accountLines.length) {
-			return accountLines.reduce((total, line) => {
-				const debit = Number(line.debit_cents || 0);
-				const credit = Number(line.credit_cents || 0);
-				return total + (account?.normal_side === 'credit' ? credit - debit : debit - credit);
-			}, 0);
-		}
-		return Number(entry.amount_cents || 0);
 	}
 
 	function matchCandidateLabel(candidate) {
@@ -1712,7 +1649,6 @@
 	onMount(() => {
 		const date = new Date();
 		today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-		reconciliationDate = today;
 		if (globalThis.crypto?.randomUUID) {
 			requestIds = {
 				recordMoney: globalThis.crypto.randomUUID(),
@@ -1736,12 +1672,6 @@
 				missing.map((item) => [`feed:${item.id}`, globalThis.crypto.randomUUID()])
 			)
 		};
-	});
-	$effect(() => {
-		if (!cashAccounts.some((account) => account.id === reconciliationAccountId)) {
-			reconciliationAccountId =
-				cashAccounts.find((account) => account.kind === 'asset')?.id || cashAccounts[0]?.id || '';
-		}
 	});
 	const selectedYear = $derived(data.year || new Date().getFullYear());
 	const yearStart = $derived(data.fiscal_year_from || `${selectedYear}-01-01`);
@@ -4344,292 +4274,14 @@
 				</section>
 			{/if}
 
-			<section class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
-				<form
-					method="POST"
-					use:enhance
-					action="?/completeReconciliation"
-					enctype="multipart/form-data"
-					class="card preset-tonal-surface border-surface-500/10 min-w-0 space-y-4 border p-4 sm:p-5"
-				>
-					<input
-						type="hidden"
-						name="checkedFeedItemIds"
-						value={eligibleReconciliationItemIds.join(',')}
-					/>
-					<input
-						type="hidden"
-						name="clearedEntryIds"
-						value={eligibleReconciliationEntryIds.join(',')}
-					/>
-					<div>
-						<h3 class="text-base font-bold">Reconcile a Statement</h3>
-						<p
-							class="text-surface-600-400 mt-1 min-w-0 pr-10 text-xs leading-relaxed break-words sm:pr-0"
-						>
-							Select the activity that cleared on this statement. A zero difference between the
-							statement and cleared balance completes reconciliation; unchecked deposits and
-							payments stay outstanding.
-						</p>
-					</div>
-					<div class="grid gap-3 sm:grid-cols-3">
-						<label class="label">
-							<span class="text-surface-700-300 text-xs font-semibold">Bank or card account</span>
-							<select
-								class="select preset-tonal-surface"
-								name="accountId"
-								bind:value={reconciliationAccountId}
-								required
-								disabled={!cashAccounts.length}
-							>
-								<option value="">Select account…</option>
-								{#each cashAccounts as account}
-									<option value={account.id}>{accountLabel(account)}</option>
-								{/each}
-							</select>
-						</label>
-						<label class="label">
-							<span class="text-surface-700-300 text-xs font-semibold">Statement ending date</span>
-							<input
-								class="input preset-tonal-surface"
-								name="statementEndingDate"
-								type="date"
-								bind:value={reconciliationDate}
-								max={today || undefined}
-								required
-							/>
-						</label>
-						<label class="label">
-							<span class="text-surface-700-300 text-xs font-semibold"
-								>Statement ending balance</span
-							>
-							<input
-								class="input preset-tonal-surface"
-								name="statementEndingBalance"
-								type="number"
-								inputmode="decimal"
-								step="0.01"
-								placeholder="0.00"
-								required
-							/>
-						</label>
-					</div>
-					<div class="space-y-2">
-						<div class="flex flex-wrap items-baseline justify-between gap-2">
-							<p class="text-surface-700-300 text-xs font-semibold">
-								Activity included on this statement
-							</p>
-							<span class="text-surface-500 text-xs">
-								{eligibleReconciliationItemIds.length} selected
-							</span>
-						</div>
-						{#if eligibleReconciliationItems.length}
-							<div
-								class="border-surface-500/10 divide-surface-500/10 max-h-64 divide-y overflow-y-auto rounded-xl border"
-							>
-								{#each eligibleReconciliationItems as item (item.id)}
-									<label
-										class="hover:bg-surface-500/5 flex cursor-pointer items-center gap-3 p-3 text-sm"
-									>
-										<input
-											class="checkbox shrink-0"
-											type="checkbox"
-											name="selectedFeedItem"
-											value={item.id}
-											bind:group={checkedReconciliationItemIds}
-											aria-label="Include {item.description} from {formatDate(
-												item.transaction_date
-											)}"
-										/>
-										<span class="min-w-0 flex-1">
-											<span class="block truncate font-semibold">{item.description}</span>
-											<span class="text-surface-500 text-xs">
-												{formatDate(item.transaction_date)} · {item.provider} · {item.status}
-											</span>
-										</span>
-										<span class="shrink-0 font-semibold tabular-nums">
-											{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
-										</span>
-									</label>
-								{/each}
-							</div>
-						{:else}
-							<p
-								class="bg-surface-500/5 text-surface-600-400 rounded-xl p-3 text-xs leading-relaxed"
-							>
-								No uncleared posted or matched bank activity is available for this account through
-								the selected date. You can still compare the statement balance with the ledger.
-							</p>
-						{/if}
-					</div>
-					<div class="space-y-2">
-						<div class="flex flex-wrap items-baseline justify-between gap-2">
-							<p class="text-surface-700-300 text-xs font-semibold">
-								Posted ledger activity to clear
-							</p>
-							<span class="text-surface-500 text-xs"
-								>{eligibleReconciliationEntryIds.length} selected</span
-							>
-						</div>
-						{#if eligibleReconciliationEntries.length}
-							<div
-								class="border-surface-500/10 divide-surface-500/10 max-h-64 divide-y overflow-y-auto rounded-xl border"
-							>
-								{#each eligibleReconciliationEntries as entry (entry.id)}
-									<label
-										class="hover:bg-surface-500/5 flex cursor-pointer items-center gap-3 p-3 text-sm"
-									>
-										<input
-											class="checkbox shrink-0"
-											type="checkbox"
-											name="selectedLedgerEntry"
-											value={entry.id}
-											bind:group={checkedReconciliationEntryIds}
-											aria-label="Clear {entry.description} from {formatDate(entry.entry_date)}"
-										/>
-										<span class="min-w-0 flex-1">
-											<span class="block truncate font-semibold">{entry.description}</span>
-											<span class="text-surface-500 text-xs"
-												>{formatDate(entry.entry_date)} · {entry.source || 'manual'} · {(
-													entry.lines ?? []
-												)
-													.filter(
-														(line) =>
-															line.account_id === reconciliationAccountId && !line.cleared_at
-													)
-													.map((line) => line.account?.name || 'Account')
-													.join(', ')}</span
-											>
-										</span>
-										<span class="shrink-0 text-right">
-											<span class="block text-[10px] font-bold tracking-wide uppercase"
-												>{reconciliationEntryAmount(entry) >= 0
-													? 'Deposit'
-													: 'Check / payment'}</span
-											>
-											<span class="font-semibold tabular-nums"
-												>{formatCents(reconciliationEntryAmount(entry))}</span
-											>
-										</span>
-									</label>
-								{/each}
-							</div>
-						{:else}
-							<p class="bg-surface-500/5 text-surface-600-400 rounded-xl p-3 text-xs">
-								No uncleared posted ledger activity is available for this account through the
-								selected date.
-							</p>
-						{/if}
-					</div>
-					<label class="label">
-						<span class="text-surface-700-300 text-xs font-semibold"
-							>Statement attachment (optional)</span
-						>
-						<input
-							class="input preset-tonal-surface"
-							type="file"
-							name="statementFile"
-							accept="application/pdf,image/jpeg,image/png,image/webp"
-						/>
-					</label>
-					<button
-						class="btn preset-filled-primary-500 w-full font-bold sm:w-auto"
-						type="submit"
-						disabled={!cashAccounts.length || !reconciliationDate}
-					>
-						<IconCheckCircle2 class="h-4 w-4" />
-						<span>Compare and Reconcile</span>
-					</button>
-				</form>
-
-				<div class="card preset-tonal-surface border-surface-500/10 space-y-3 border p-4 sm:p-5">
-					<h3 class="text-base font-bold">Recent Reconciliations</h3>
-					{#if (data.reconciliations ?? []).length}
-						<div class="divide-surface-500/10 divide-y">
-							{#each data.reconciliations as reconciliation (reconciliation.id)}
-								<div class="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0">
-									<div class="min-w-0">
-										<p class="truncate text-sm font-semibold">
-											{reconciliation.account?.code
-												? `${reconciliation.account.code} · `
-												: ''}{reconciliation.account?.name || 'Account'}
-										</p>
-										<p class="text-surface-500 mt-0.5 text-xs">
-											Statement through {formatDate(reconciliation.statement_ending_date)}
-										</p>
-									</div>
-									<div class="text-right">
-										<span
-											class="badge {reconciliation.status === 'completed'
-												? 'preset-tonal-success'
-												: 'preset-tonal-warning'} px-2 py-0.5 text-[10px] font-bold uppercase"
-										>
-											{reconciliation.status === 'completed' ? 'Completed' : 'Draft'}
-										</span>
-										<p class="mt-1 text-xs tabular-nums">
-											Statement {formatCents(reconciliation.statement_ending_balance_cents)}
-											<span class="mx-1 opacity-40">·</span>
-											Ledger {formatCents(reconciliation.book_balance_cents)}
-										</p>
-										<p class="text-surface-500 mt-1 text-xs tabular-nums">
-											Difference {formatCents(reconciliation.difference_cents)}
-										</p>
-										{#if Number(reconciliation.outstanding_deposits_cents || 0) || Number(reconciliation.outstanding_checks_cents || 0)}
-											<div class="mt-2 space-y-0.5 text-xs">
-												<p class="text-success-700-300">
-													Outstanding deposits: {formatCents(
-														Math.abs(Number(reconciliation.outstanding_deposits_cents || 0))
-													)}
-												</p>
-												<p class="text-warning-700-300">
-													Outstanding checks / payments: {formatCents(
-														Math.abs(Number(reconciliation.outstanding_checks_cents || 0))
-													)}
-												</p>
-											</div>
-										{/if}
-										{#if reconciliation.statement_file_name}
-											<p class="text-surface-500 mt-2 text-xs">
-												Statement attached: {reconciliation.statement_file_name}
-											</p>
-											<form method="POST" action="?/downloadReconciliationStatement" class="mt-2">
-												<input type="hidden" name="reconciliationId" value={reconciliation.id} />
-												<button class="btn btn-sm preset-tonal-surface font-semibold" type="submit"
-													>Download statement</button
-												>
-											</form>
-										{/if}
-										{#if reconciliation.status === 'completed'}
-											<form
-												method="POST"
-												use:enhance
-												action="?/reopenReconciliation"
-												class="mt-2 flex flex-col gap-2 sm:flex-row"
-											>
-												<input type="hidden" name="reconciliationId" value={reconciliation.id} />
-												<input
-													class="input preset-tonal-surface min-w-0 text-xs"
-													name="reason"
-													placeholder="Reason for reopening"
-													required
-												/>
-												<button
-													class="btn btn-sm preset-tonal-warning shrink-0 font-semibold"
-													type="submit">Reopen</button
-												>
-											</form>
-										{/if}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<p class="text-surface-600-400 rounded-xl border border-dashed p-6 text-center text-sm">
-							No statements reconciled yet.
-						</p>
-					{/if}
-				</div>
-			</section>
+			<ReconciliationWorkspace
+				{data}
+				{cashAccounts}
+				{today}
+				{accountLabel}
+				{formatDate}
+				{formatCents}
+			/>
 
 			{#if bankReviewTotalPages > 1}
 				<div

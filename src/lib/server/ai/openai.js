@@ -28,6 +28,24 @@ function textFromInputItem(item) {
 export function buildOpenAiInput(contents) {
 	if (typeof contents === 'string') return contents;
 	if (Array.isArray(contents)) {
+		// Responses API multimodal inputs use message content parts such as
+		// input_text, input_image, and input_file. Preserve these structured
+		// parts instead of flattening them into strings.
+		if (
+			contents.length > 0 &&
+			contents.every(
+				(item) =>
+					item &&
+					typeof item === 'object' &&
+					typeof item.role === 'string' &&
+					Array.isArray(item.content)
+			)
+		) {
+			return contents.map((item) => ({
+				role: item.role,
+				content: item.content.map((part) => ({ ...part }))
+			}));
+		}
 		return contents
 			.map((item) => textFromInputItem(item))
 			.filter(Boolean)

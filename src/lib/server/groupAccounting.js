@@ -1756,94 +1756,6 @@ export async function saveSettings(auth, formData) {
 	if (error) throw new Error(error.message);
 }
 
-function selectedReconciliationIds(formData, fieldName, label) {
-	const values = cleanText(formData.get(fieldName))
-		.split(',')
-		.map((id) => id.trim())
-		.filter(Boolean);
-	const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-	if (new Set(values).size !== values.length)
-		throw new Error(`${label} may only be selected once.`);
-	if (values.length > 2000 || values.some((id) => !uuid.test(id))) {
-		throw new Error(`Invalid ${label.toLowerCase()} selection.`);
-	}
-	return values;
-}
-
-async function saveAccountingReconciliation(auth, formData) {
-	const accountId = cleanText(formData.get('accountId'));
-	if (!accountId) throw new Error('Choose a bank or credit card account.');
-	const statementEndingDate = requiredDateOnly(
-		formData.get('statementEndingDate'),
-		'Statement ending date'
-	);
-	const statementEndingBalanceCents = centsFromSignedAmount(formData.get('statementEndingBalance'));
-	if (statementEndingBalanceCents === null)
-		throw new Error('Enter a valid statement ending balance.');
-	const checkedFeedItemIds = selectedReconciliationIds(
-		formData,
-		'checkedFeedItemIds',
-		'Bank activity'
-	);
-	const clearedEntryIds = selectedReconciliationIds(formData, 'clearedEntryIds', 'Ledger activity');
-	const statementFile = formData.get('statementFile');
-	let uploadedPath = null;
-	let fileMetadata = null;
-	if (statementFile && statementFile !== '' && typeof statementFile !== 'string') {
-		if (!(statementFile instanceof File) || statementFile.size <= 0) {
-			throw new Error('Choose a valid statement attachment.');
-		}
-		validateReceiptFile(statementFile);
-		uploadedPath = `${auth.group.id}/reconciliations/${randomUUID()}/${slugFileName(statementFile.name)}`;
-		const upload = await auth.serviceSupabase.storage
-			.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
-			.upload(uploadedPath, await statementFile.arrayBuffer(), {
-				contentType: statementFile.type,
-				upsert: false
-			});
-		if (upload.error) throw new Error(upload.error.message);
-		fileMetadata = {
-			object_path: uploadedPath,
-			file_name: cleanText(statementFile.name, 255),
-			mime_type: statementFile.type,
-			size_bytes: statementFile.size
-		};
-	}
-	const { data, error } = await auth.serviceSupabase.rpc(
-		'group_accounting_complete_reconciliation',
-		{
-			p_group_id: auth.group.id,
-			p_account_id: accountId,
-			p_statement_date: statementEndingDate,
-			p_statement_balance: statementEndingBalanceCents,
-			p_checked_feed_item_ids: checkedFeedItemIds,
-			p_cleared_entry_ids: clearedEntryIds,
-			p_statement_file: fileMetadata,
-			p_actor_id: auth.userId
-		}
-	);
-	if (error) {
-		if (uploadedPath) {
-			const cleanup = await auth.serviceSupabase.storage
-				.from(GROUP_ACCOUNTING_RECEIPT_BUCKET)
-				.remove([uploadedPath]);
-			if (cleanup.error) {
-				throw new Error(
-					`${error.message} The statement file could not be removed: ${cleanup.error.message}`
-				);
-			}
-		}
-		throw new Error(error.message);
-	}
-	const reconciliation = Array.isArray(data) ? data[0] : data;
-	if (!reconciliation?.id) throw new Error('Reconciliation was not returned after saving.');
-	return reconciliation;
-}
-
-export async function createReconciliation(auth, formData) {
-	return saveAccountingReconciliation(auth, formData);
-}
-
 export async function buildAccountingReport(supabase, groupId, options = {}) {
 	const from = dateOnly(options.from || `${currentYear()}-01-01`);
 	const to = dateOnly(options.to || new Date().toISOString().slice(0, 10));
@@ -2033,11 +1945,31 @@ export async function loadAccountingDashboard(auth, url) {
 		syncRunsError
 	].filter(Boolean);
 	if (dashboardQueryErrors.length) throw new Error(dashboardQueryErrors[0].message);
-	const reconciliationFeedItems = await fetchAllRows((fromRow, toRow) =>
+	const openReconciliations = await fetchAllRows((fromRow, toRow) =>
+		auth.serviceSupabase
+			.from('group_accounting_reconciliations')
+			.select('*, account:group_accounting_accounts(name,code)')
+			.eq('group_id', auth.group.id)
+			.eq('status', 'draft')
+			.order('statement_ending_date', { ascending: false })
+			.order('id', { ascending: true })
+			.range(fromRow, toRow)
+	);
+	const visibleReconciliations = [
+		...openReconciliations,
+		...(reconciliations ?? []).filter(
+			(row) => !openReconciliations.some((draft) => draft.id === row.id)
+		)
+	].sort((left, right) =>
+		String(right.statement_ending_date || '').localeCompare(
+			String(left.statement_ending_date || '')
+		)
+	);
+	const reconciliationFeedRows = await fetchAllRows((fromRow, toRow) =>
 		auth.serviceSupabase
 			.from('group_accounting_bank_feed_items')
 			.select(
-				'id,account_id,transaction_date,description,amount_cents,currency,status,matched_entry_id,provider'
+				'id,account_id,transaction_date,description,amount_cents,currency,status,provider_status,provider_correction_pending,matched_entry_id,provider'
 			)
 			.eq('group_id', auth.group.id)
 			.in('status', ['matched', 'posted'])
@@ -2046,6 +1978,13 @@ export async function loadAccountingDashboard(auth, url) {
 			.order('transaction_date', { ascending: false })
 			.order('id', { ascending: true })
 			.range(fromRow, toRow)
+	);
+	const reconciliationFeedItems = reconciliationFeedRows.filter(
+		(item) =>
+			!item.provider_correction_pending &&
+			!['pending', 'void', 'cancelled', 'failed', 'reversed', 'blocked'].includes(
+				item.provider_status
+			)
 	);
 
 	const reconciliationEntries = await fetchAllRows((fromRow, toRow) =>
@@ -2062,6 +2001,31 @@ export async function loadAccountingDashboard(auth, url) {
 			.range(fromRow, toRow)
 	);
 	for (const entry of reconciliationEntries) delete entry.uncleared_lines;
+	const reconciliationIds = visibleReconciliations.map((row) => row.id);
+	const reconciliationStatementLines = reconciliationIds.length
+		? await fetchAllRows((fromRow, toRow) =>
+				auth.serviceSupabase
+					.from('group_accounting_reconciliation_statement_lines')
+					.select('*')
+					.eq('group_id', auth.group.id)
+					.in('reconciliation_id', reconciliationIds)
+					.order('reconciliation_id', { ascending: true })
+					.order('line_number', { ascending: true })
+					.range(fromRow, toRow)
+			)
+		: [];
+	const reconciliationMatches = reconciliationIds.length
+		? await fetchAllRows((fromRow, toRow) =>
+				auth.serviceSupabase
+					.from('group_accounting_reconciliation_line_matches')
+					.select('*')
+					.eq('group_id', auth.group.id)
+					.in('reconciliation_id', reconciliationIds)
+					.order('created_at', { ascending: true })
+					.order('id', { ascending: true })
+					.range(fromRow, toRow)
+			)
+		: [];
 
 	const actualWindow = budgetActualWindow(year, today, fiscalYearStartMonth);
 	const budgetReport = !actualWindow.to
@@ -2120,6 +2084,8 @@ export async function loadAccountingDashboard(auth, url) {
 		),
 		reconciliation_feed_items: reconciliationFeedItems,
 		reconciliation_entries: reconciliationEntries,
+		reconciliation_statement_lines: reconciliationStatementLines,
+		reconciliation_matches: reconciliationMatches,
 		bank_review_page: bankReviewPage,
 		bank_review_page_size: bankReviewPageSize,
 		bank_review_total: bankReviewTotal,
@@ -2139,7 +2105,7 @@ export async function loadAccountingDashboard(auth, url) {
 		audit_page: history.audit.page,
 		audit_total: history.audit.total,
 		audit_total_pages: history.audit.total_pages,
-		reconciliations: reconciliations ?? [],
+		reconciliations: visibleReconciliations,
 		public_reports: snapshots ?? [],
 		stripe_connection: stripeConnection,
 		year,
@@ -2488,10 +2454,6 @@ export async function autoMatchFeedItems(auth) {
 		matched: matchedCount
 	});
 	return matchedCount;
-}
-
-export async function completeAutomatedReconciliation(auth, formData) {
-	return saveAccountingReconciliation(auth, formData);
 }
 
 export async function reopenReconciliation(auth, formData) {

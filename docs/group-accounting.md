@@ -91,13 +91,22 @@ CSV export is available at:
 
 ## Reconciliation
 
-Reconciliation supports:
+The banking tab has a saved statement workspace. A manager can enter a statement's
+period and balances, attach a PDF or image, and transcribe its lines manually.
+AI analysis is optional and requires a separate opt-in; extracted rows, page
+references, arithmetic warnings, and feed/ledger suggestions remain editable.
+AI suggestions do not post entries or clear activity. The manager resolves each
+statement line and saves a draft before explicitly closing it.
 
-- Auto-matching feed items to posted entries by amount and nearby date.
-- Marking matched feed items as checked activity.
-- Statement ending balance comparison.
-- Completing reconciliation when the difference is zero.
-- Locking entries through the statement date after a zero-difference reconciliation.
+The close operation checks statement arithmetic, every line decision, confirmed
+bank-feed and ledger links, selected cleared activity, chronological statement
+order, and a zero cleared-balance difference in one database transaction. It
+locks only the selected cleared entries; prior-period outstanding checks and
+deposits may clear on a later statement. A close with explained exceptions is
+marked `qualified`. Balance-only reconciliation is available when transaction
+lines are unavailable, with an explicit attestation and `unverified` label.
+Statements live in private storage and are opened through short-lived manager
+links. Reopening requires a reason and preserves the audit trail.
 
 Corrections should be made with reversal entries rather than destructive edits.
 

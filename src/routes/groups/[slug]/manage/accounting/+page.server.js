@@ -5,10 +5,8 @@ import {
 	attachReceiptToEntry,
 	addManualFeedItem,
 	autoMatchFeedItems,
-	completeAutomatedReconciliation,
 	createReconciliationStatementDownload,
 	createAccount,
-	createReconciliation,
 	ignoreFeedItem,
 	importBankCsv,
 	loadAccountingDashboard,
@@ -37,6 +35,11 @@ import {
 	voidEntry,
 	reclassifyReceipt
 } from '$lib/server/groupAccounting';
+import {
+	analyzeReconciliationStatement,
+	closeReconciliation,
+	saveReconciliationDraft
+} from '$lib/server/groupAccountingReconciliation';
 
 const MAX_ACCOUNTING_FORM_BYTES = 12 * 1024 * 1024;
 
@@ -150,14 +153,20 @@ export const actions = {
 		withAccountingAuth(cookies, params, async (auth) => {
 			await ignoreFeedItem(auth, await readAccountingFormData(request));
 		}),
-	reconcile: async ({ cookies, params, request }) =>
-		withAccountingAuth(cookies, params, async (auth) => {
-			await createReconciliation(auth, await readAccountingFormData(request));
-		}),
-	completeReconciliation: async ({ cookies, params, request }) =>
-		withAccountingAuth(cookies, params, async (auth) => {
-			await completeAutomatedReconciliation(auth, await readAccountingFormData(request));
-		}),
+	saveReconciliationDraft: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => ({
+			accounting_success: true,
+			reconciliation: await saveReconciliationDraft(auth, await readAccountingFormData(request))
+		})),
+	analyzeReconciliationStatement: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => ({
+			analysis: await analyzeReconciliationStatement(auth, await readAccountingFormData(request))
+		})),
+	closeReconciliation: async ({ cookies, params, request }) =>
+		withAccountingAuth(cookies, params, async (auth) => ({
+			accounting_success: true,
+			reconciliation: await closeReconciliation(auth, await readAccountingFormData(request))
+		})),
 	reopenReconciliation: async ({ cookies, params, request }) =>
 		withAccountingAuth(cookies, params, async (auth) => {
 			await reopenReconciliation(auth, await readAccountingFormData(request));
