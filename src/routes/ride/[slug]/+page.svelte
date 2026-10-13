@@ -4,7 +4,7 @@
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
@@ -75,12 +75,12 @@
 			165
 		)
 	);
-	const seoCanonical = $derived(buildCanonicalUrl($page.url));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url));
 	const seoImage = $derived.by(() => {
 		const image = leadRideImage || '';
 		if (!image) return '';
 		try {
-			return new URL(image, $page.url.origin).toString();
+			return new URL(image, page.url.origin).toString();
 		} catch {
 			return image;
 		}
@@ -94,7 +94,7 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Rides',
-					item: buildAbsoluteUrl($page.url.origin, '/ride')
+					item: buildAbsoluteUrl(page.url.origin, '/ride')
 				},
 				{
 					'@type': 'ListItem',
@@ -209,7 +209,7 @@
 
 	function selectedOccurrenceCalendarLinks() {
 		if (!selectedOccurrence?.starts_at) return { googleUrl: '', icsUrl: '' };
-		const origin = $page?.url?.origin || '';
+		const origin = page?.url?.origin || '';
 		const slug = activity?.slug || '';
 		const rideUrl = origin && slug ? `${origin}/ride/${encodeURIComponent(slug)}` : '';
 		const icsUrl =

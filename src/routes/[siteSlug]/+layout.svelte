@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		buildAbsoluteUrl,
 		cleanSeoText,
@@ -57,10 +57,10 @@
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
 	);
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
-	const currentPathname = $derived(normalizePathname($page.url.pathname));
+	const currentPathname = $derived(normalizePathname(page.url.pathname));
 	const homePathname = $derived(normalizePathname(homeHref));
-	const siteRootUrl = $derived(buildAbsoluteUrl($page.url.origin, homeHref || '/'));
-	const seoCanonical = $derived(buildAbsoluteUrl($page.url.origin, currentPathname || '/'));
+	const siteRootUrl = $derived(buildAbsoluteUrl(page.url.origin, homeHref || '/'));
+	const seoCanonical = $derived(buildAbsoluteUrl(page.url.origin, currentPathname || '/'));
 	const seoSection = $derived.by(() => {
 		const relative = getRelativePathname(currentPathname, homePathname);
 		return relative.split('/')[0] || '';
@@ -277,14 +277,14 @@
 		if (!href) return false;
 		let targetUrl;
 		try {
-			targetUrl = new URL(href, $page.url);
+			targetUrl = new URL(href, page.url);
 		} catch {
 			return false;
 		}
 
-		const currentPath = normalizePathname($page.url.pathname);
+		const currentPath = normalizePathname(page.url.pathname);
 		const targetPath = normalizePathname(targetUrl.pathname);
-		const currentHash = $page.url.hash || '';
+		const currentHash = page.url.hash || '';
 		const targetHash = targetUrl.hash || '';
 
 		if (targetHash) {

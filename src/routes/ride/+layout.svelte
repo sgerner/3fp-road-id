@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -8,15 +8,15 @@
 
 	let { children } = $props();
 
-	const pathname = $derived($page.url.pathname);
-	const currentUser = $derived($page.data?.currentUser ?? null);
-	const currentRide = $derived($page.data?.ride ?? null);
+	const pathname = $derived(page.url.pathname);
+	const currentUser = $derived(page.data?.currentUser ?? null);
+	const currentRide = $derived(page.data?.ride ?? null);
 	const currentRideSlug = $derived(currentRide?.activity?.slug ?? null);
 	const isWidgetFrame = $derived(pathname.startsWith('/ride/widget/frame'));
 	const canManageCurrentRide = $derived(
 		Boolean(
 			currentRideSlug &&
-			($page.data?.canManage ||
+			(page.data?.canManage ||
 				pathname === `/ride/${currentRideSlug}/manage` ||
 				pathname.startsWith(`/ride/${currentRideSlug}/manage`))
 		)

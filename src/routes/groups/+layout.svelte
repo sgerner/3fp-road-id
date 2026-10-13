@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
@@ -8,7 +8,7 @@
 
 	let { data, children } = $props();
 
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 	const currentGroup = $derived(data?.group ?? null);
 	const ownedGroups = $derived((data?.groupsNavOwnedGroups ?? []).filter((group) => group?.slug));
 	const currentGroupSlug = $derived(currentGroup?.slug ?? null);

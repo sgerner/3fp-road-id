@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
@@ -19,7 +19,7 @@
 
 	const { data } = $props();
 	const initialConfig = normalizeRideWidgetConfig(
-		parseRideWidgetConfigFromSearchParams($page.url.searchParams)
+		parseRideWidgetConfigFromSearchParams(page.url.searchParams)
 	);
 
 	let organizationSlug = $state(initialConfig.organizationSlug);

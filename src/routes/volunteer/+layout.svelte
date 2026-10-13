@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
@@ -10,14 +10,14 @@
 
 	let { data, children } = $props();
 
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 	const currentUser = $derived(data?.volunteerNavUser ?? null);
-	const currentEvent = $derived($page.data?.event ?? null);
+	const currentEvent = $derived(page.data?.event ?? null);
 	const currentEventSlug = $derived(currentEvent?.slug ?? null);
 	const canManageCurrentEvent = $derived(
 		Boolean(
 			currentEventSlug &&
-			($page.data?.canManageEvent ||
+			(page.data?.canManageEvent ||
 				pathname === `/volunteer/${currentEventSlug}/edit` ||
 				pathname === `/volunteer/${currentEventSlug}/manage`)
 		)

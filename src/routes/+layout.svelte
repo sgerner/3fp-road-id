@@ -3,7 +3,7 @@
 	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { toaster } from './toaster-svelte';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { loadThemeStyles } from '#lib/themeLoader';
@@ -432,14 +432,14 @@
 	}
 
 	function isActiveNav(item) {
-		return item.match($page.url.pathname);
+		return item.match(page.url.pathname);
 	}
 
 	function isGetInvolvedActive() {
-		return $page.url.pathname.startsWith('/get-involved');
+		return page.url.pathname.startsWith('/get-involved');
 	}
 
-	let isEmbedRoute = $derived($page.url.pathname.startsWith('/ride/widget/frame'));
+	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
 </script>
 
@@ -939,7 +939,7 @@
 			</div>
 		{/if}
 
-		<LazyGlobalAssistant userId={user?.id ?? null} pathname={$page.url.pathname} />
+		<LazyGlobalAssistant userId={user?.id ?? null} pathname={page.url.pathname} />
 	{/if}
 </div>
 

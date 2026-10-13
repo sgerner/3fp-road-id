@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
@@ -13,7 +13,7 @@
 	let { group = null, canManageSocial = false } = $props();
 
 	const slug = $derived(group?.slug ?? '');
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 
 	const allTabs = $derived([
 		{

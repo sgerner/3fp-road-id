@@ -13,7 +13,7 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconX from '@lucide/svelte/icons/x';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { fade, fly, scale } from 'svelte/transition';
 
 	let { slug = '', buckets = [] } = $props();
@@ -31,11 +31,11 @@
 
 	const panel = $derived(
 		(() => {
-			const value = ($page.url.searchParams.get('panel') || '').trim().toLowerCase();
+			const value = (page.url.searchParams.get('panel') || '').trim().toLowerCase();
 			return PANEL_KEYS.has(value) ? value : '';
 		})()
 	);
-	const panelQuery = $derived(($page.url.searchParams.get('q') || '').trim());
+	const panelQuery = $derived((page.url.searchParams.get('q') || '').trim());
 	const openBucket = $derived(
 		(() => {
 			if (!panel || panel === 'all') return null;
@@ -83,7 +83,7 @@
 	}
 
 	function panelHref(panelSlug) {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.set('panel', panelSlug);
 		const trimmedQuery = quickSearch.trim();
 		if (trimmedQuery) {
@@ -114,7 +114,7 @@
 	}
 
 	async function closePanel() {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.delete('panel');
 		url.searchParams.delete('q');
 		await goto(`${url.pathname}${url.search}`, { keepFocus: true, noScroll: true });
@@ -122,7 +122,7 @@
 
 	async function openSearchPanel(event) {
 		event.preventDefault();
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.set('panel', 'all');
 		const query = quickSearch.trim();
 		if (query) {

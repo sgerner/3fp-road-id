@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconHome from '@lucide/svelte/icons/home';
 
@@ -23,7 +23,7 @@
 	];
 
 	// Determine the status code
-	let status = $derived($page.status);
+	let status = $derived(page.status);
 	let is404 = $derived(status === 404);
 
 	// Select a random pun based on the error type
@@ -34,7 +34,7 @@
 	);
 
 	// Get the error message (if any)
-	let errorMessage = $derived($page.error?.message);
+	let errorMessage = $derived(page.error?.message);
 </script>
 
 <svelte:head>

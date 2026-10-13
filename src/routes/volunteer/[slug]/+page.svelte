@@ -3,7 +3,7 @@
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { supabase } from '#lib/supabaseClient';
 	import { renderMarkdown } from '#lib/markdown';
@@ -662,7 +662,7 @@
 	}
 
 	function volunteerShiftCalendarLinks(shift, opportunity) {
-		const origin = $page?.url?.origin || '';
+		const origin = page?.url?.origin || '';
 		const slug = event?.slug || '';
 		const eventUrl =
 			origin && slug ? new URL(`/volunteer/${encodeURIComponent(slug)}`, origin).toString() : '';
@@ -961,9 +961,9 @@
 		let eventUrl = '';
 		let origin = '';
 
-		if ($page?.url) {
-			eventUrl = $page.url.href;
-			origin = $page.url.origin;
+		if (page?.url) {
+			eventUrl = page.url.href;
+			origin = page.url.origin;
 		}
 
 		if ((!eventUrl || !origin) && typeof window !== 'undefined') {
@@ -1306,7 +1306,7 @@
 	}
 
 	// Notices via query params
-	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
+	const authFlag = $derived((page && page.url && page.url.searchParams.get('auth')) || '');
 
 	let showQuestion = $state(false);
 
@@ -1334,12 +1334,12 @@
 			165
 		)
 	);
-	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['auth']));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url, ['auth']));
 	const seoImage = $derived.by(() => {
 		const image = hostGroup?.cover_photo_url || hostGroup?.logo_url || '';
 		if (!image) return '';
 		try {
-			return new URL(image, $page.url.origin).toString();
+			return new URL(image, page.url.origin).toString();
 		} catch {
 			return image;
 		}
@@ -1353,7 +1353,7 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Volunteer',
-					item: buildAbsoluteUrl($page.url.origin, '/volunteer')
+					item: buildAbsoluteUrl(page.url.origin, '/volunteer')
 				},
 				{
 					'@type': 'ListItem',
@@ -1385,7 +1385,7 @@
 				? {
 						'@type': 'Organization',
 						name: hostGroup.name,
-						url: buildAbsoluteUrl($page.url.origin, `/groups/${hostGroup.slug}`)
+						url: buildAbsoluteUrl(page.url.origin, `/groups/${hostGroup.slug}`)
 					}
 				: undefined
 		};

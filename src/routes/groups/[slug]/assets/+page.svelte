@@ -10,13 +10,13 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconX from '@lucide/svelte/icons/x';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { fade, fly, scale } from 'svelte/transition';
 
 	let { data } = $props();
 
 	const activeSlug = $derived(
-		($page.url.searchParams.get('bucket') || data.active_bucket || '').trim()
+		(page.url.searchParams.get('bucket') || data.active_bucket || '').trim()
 	);
 	const activeBucket = $derived(
 		data.buckets.find((bucket) => bucket.slug === activeSlug) ||

@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { fade } from 'svelte/transition';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
@@ -85,7 +85,7 @@
 			: [])
 	]);
 
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 
 	function isActive(tab) {
 		if (tab.id === 'overview') {

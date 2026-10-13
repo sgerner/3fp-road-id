@@ -9,7 +9,7 @@
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
@@ -132,12 +132,12 @@
 			165
 		)
 	);
-	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['revision']));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url, ['revision']));
 	const seoImage = $derived.by(() => {
 		const image = data.article.cover_image_url || '';
 		if (!image) return '';
 		try {
-			return new URL(image, $page.url.origin).toString();
+			return new URL(image, page.url.origin).toString();
 		} catch {
 			return image;
 		}
@@ -147,7 +147,7 @@
 	);
 	const seoStructuredData = $derived.by(() => {
 		const categoryUrl = buildAbsoluteUrl(
-			$page.url.origin,
+			page.url.origin,
 			`/learn/category/${data.article.category_slug}`
 		);
 		const breadcrumbs = {
@@ -158,7 +158,7 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Learn',
-					item: buildAbsoluteUrl($page.url.origin, '/learn')
+					item: buildAbsoluteUrl(page.url.origin, '/learn')
 				},
 				{
 					'@type': 'ListItem',
@@ -195,7 +195,7 @@
 			publisher: {
 				'@type': 'Organization',
 				name: '3 Feet Please',
-				url: buildAbsoluteUrl($page.url.origin, '/')
+				url: buildAbsoluteUrl(page.url.origin, '/')
 			}
 		};
 		return toJsonLd([breadcrumbs, article]);

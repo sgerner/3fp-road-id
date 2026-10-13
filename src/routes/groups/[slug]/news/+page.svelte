@@ -6,7 +6,7 @@
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
@@ -67,18 +67,18 @@
 			165
 		)
 	);
-	const seoCanonical = $derived(buildCanonicalUrl($page.url, ['open']));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url, ['open']));
 	const seoImage = $derived.by(() => {
 		const image = data.group.cover_photo_url || data.group.logo_url || '';
 		if (!image) return '';
 		try {
-			return new URL(image, $page.url.origin).toString();
+			return new URL(image, page.url.origin).toString();
 		} catch {
 			return image;
 		}
 	});
 	const hasOpenQuery = $derived(
-		Boolean(openSlug || data.initialOpenSlug || $page.url.searchParams.get('open'))
+		Boolean(openSlug || data.initialOpenSlug || page.url.searchParams.get('open'))
 	);
 	const seoStructuredData = $derived.by(() => {
 		const breadcrumbs = {
@@ -89,13 +89,13 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Groups',
-					item: buildAbsoluteUrl($page.url.origin, '/groups')
+					item: buildAbsoluteUrl(page.url.origin, '/groups')
 				},
 				{
 					'@type': 'ListItem',
 					position: 2,
 					name: data.group.name,
-					item: buildAbsoluteUrl($page.url.origin, `/groups/${data.group.slug}`)
+					item: buildAbsoluteUrl(page.url.origin, `/groups/${data.group.slug}`)
 				},
 				{
 					'@type': 'ListItem',
@@ -119,7 +119,7 @@
 					position: index + 1,
 					name: post.title,
 					url: buildAbsoluteUrl(
-						$page.url.origin,
+						page.url.origin,
 						`/groups/${data.group.slug}/news?open=${encodeURIComponent(post.slug)}`
 					)
 				}))

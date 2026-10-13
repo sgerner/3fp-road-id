@@ -29,7 +29,7 @@
 		CONTACT_ICON_MAP
 	} from '#lib/groups/contactLinks';
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { fade, slide } from 'svelte/transition';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
@@ -316,8 +316,8 @@
 	}
 	const singleFreeFollowTier = $derived(resolveSingleFreeFollowTier());
 	const canInstantFollow = $derived(Boolean(singleFreeFollowTier));
-	const followFlag = $derived(($page.url.searchParams.get('follow') || '').trim());
-	const followMessage = $derived(($page.url.searchParams.get('follow_msg') || '').trim());
+	const followFlag = $derived((page.url.searchParams.get('follow') || '').trim());
+	const followMessage = $derived((page.url.searchParams.get('follow_msg') || '').trim());
 
 	let followModalOpen = $state(false);
 	let followEmail = $state('');
@@ -466,7 +466,7 @@
 	}
 
 	// Notices via query params
-	const authFlag = $derived(($page && $page.url && $page.url.searchParams.get('auth')) || '');
+	const authFlag = $derived((page && page.url && page.url.searchParams.get('auth')) || '');
 
 	// Deterministic chip coloring (same as /groups listing)
 	const filledClasses = [
@@ -522,7 +522,7 @@
 		return limitSeoText(`${base}${tail}`, 165);
 	});
 	const seoCanonical = $derived(
-		buildCanonicalUrl($page.url, [
+		buildCanonicalUrl(page.url, [
 			'auth',
 			'follow',
 			'follow_msg',
@@ -534,7 +534,7 @@
 		const image = data.group?.cover_photo_url || data.group?.logo_url || '';
 		if (!image) return '';
 		try {
-			return new URL(image, $page.url.origin).toString();
+			return new URL(image, page.url.origin).toString();
 		} catch {
 			return image;
 		}
@@ -552,7 +552,7 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Groups',
-					item: buildAbsoluteUrl($page.url.origin, '/groups')
+					item: buildAbsoluteUrl(page.url.origin, '/groups')
 				},
 				{
 					'@type': 'ListItem',

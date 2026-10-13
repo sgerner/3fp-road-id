@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconStore from '@lucide/svelte/icons/store';
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
@@ -8,8 +8,8 @@
 
 	let { children } = $props();
 
-	const pathname = $derived($page.url.pathname);
-	const isAdmin = $derived(Boolean($page.data?.isAdmin));
+	const pathname = $derived(page.url.pathname);
+	const isAdmin = $derived(Boolean(page.data?.isAdmin));
 
 	const navSections = $derived.by(() => {
 		const sections = [

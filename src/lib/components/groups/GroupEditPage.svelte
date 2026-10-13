@@ -6,7 +6,7 @@
 	import IconRemove from '@lucide/svelte/icons/circle-x';
 	import IconAlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import '#lib/map/leaflet.css';
 	import * as env from '$app/env/public';
@@ -2221,7 +2221,7 @@
 		</section>
 
 		{#if submitError}<p class="text-error-600-400 text-sm">{submitError}</p>{/if}
-		{#if $page.form?.error}<p class="text-error-600-400 text-sm">{$page.form.error}</p>{/if}
+		{#if page.form?.error}<p class="text-error-600-400 text-sm">{page.form.error}</p>{/if}
 	</form>
 
 	<section class="edit-card danger relative overflow-hidden rounded-2xl p-5">

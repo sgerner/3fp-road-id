@@ -2,11 +2,11 @@
 	import EditPage from '#lib/components/groups/GroupEditPage.svelte';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
 	import { slide } from 'svelte/transition';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let { data, form } = $props();
 
-	const showSaved = $derived($page.url.searchParams.get('saved') === '1');
+	const showSaved = $derived(page.url.searchParams.get('saved') === '1');
 </script>
 
 <div class="edit-manage space-y-6 pb-10">

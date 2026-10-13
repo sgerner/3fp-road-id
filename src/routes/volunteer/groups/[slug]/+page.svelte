@@ -2,7 +2,7 @@
 	import GroupHeroCard from '#lib/components/groups/GroupHeroCard.svelte';
 	import VolunteerEventsExplorer from '#lib/components/volunteer/VolunteerEventsExplorer.svelte';
 	import { buildContactLinks, selectPrimaryCta } from '#lib/groups/contactLinks';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { buildCanonicalUrl, cleanSeoText, limitSeoText } from '#lib/seo';
 
 	const { data } = $props();
@@ -40,7 +40,7 @@
 		}
 		return `Support ${group.name} by joining their upcoming volunteer events.`;
 	});
-	const seoCanonical = $derived(buildCanonicalUrl($page.url));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url));
 </script>
 
 <svelte:head>

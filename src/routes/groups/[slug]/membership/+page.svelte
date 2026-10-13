@@ -23,7 +23,7 @@
 	import IconWallet from '@lucide/svelte/icons/wallet';
 	import IconUser from '@lucide/svelte/icons/user';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
@@ -78,7 +78,7 @@
 	let handoffPrefillApplied = $state(false);
 
 	const handoffPrefill = $derived.by(() => {
-		const params = $page?.url?.searchParams;
+		const params = page?.url?.searchParams;
 		return {
 			tier: String(params?.get('tier') || '').trim(),
 			interval: String(params?.get('interval') || '')

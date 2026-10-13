@@ -12,7 +12,7 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import {
 		buildAbsoluteUrl,
@@ -210,7 +210,7 @@
 			165
 		)
 	);
-	const seoCanonical = $derived(buildCanonicalUrl($page.url));
+	const seoCanonical = $derived(buildCanonicalUrl(page.url));
 	const seoStructuredData = $derived.by(() => {
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
@@ -220,7 +220,7 @@
 					'@type': 'ListItem',
 					position: 1,
 					name: 'Learn',
-					item: buildAbsoluteUrl($page.url.origin, '/learn')
+					item: buildAbsoluteUrl(page.url.origin, '/learn')
 				},
 				{
 					'@type': 'ListItem',
@@ -243,7 +243,7 @@
 					'@type': 'ListItem',
 					position: index + 1,
 					name: article.title,
-					url: buildAbsoluteUrl($page.url.origin, `/learn/${article.slug}`)
+					url: buildAbsoluteUrl(page.url.origin, `/learn/${article.slug}`)
 				}))
 			}
 		};

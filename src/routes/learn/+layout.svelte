@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconHistory from '@lucide/svelte/icons/history';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -8,14 +8,14 @@
 
 	let { children } = $props();
 
-	const pathname = $derived($page.url.pathname);
-	const currentUser = $derived($page.data?.currentUser ?? null);
-	const currentArticle = $derived($page.data?.article ?? null);
-	const currentArticleSlug = $derived($page.data?.article?.slug ?? null);
+	const pathname = $derived(page.url.pathname);
+	const currentUser = $derived(page.data?.currentUser ?? null);
+	const currentArticle = $derived(page.data?.article ?? null);
+	const currentArticleSlug = $derived(page.data?.article?.slug ?? null);
 	const canEditCurrentArticle = $derived(
 		Boolean(
 			currentArticleSlug &&
-			($page.data?.canEdit ||
+			(page.data?.canEdit ||
 				pathname === `/learn/${currentArticleSlug}/edit` ||
 				pathname.startsWith(`/learn/${currentArticleSlug}/edit`))
 		)
@@ -40,8 +40,8 @@
 			items: []
 		};
 
-		const currentCategorySlug = $page.data?.category?.slug ?? $page.data?.article?.category_slug;
-		const currentCategoryName = $page.data?.category?.name ?? $page.data?.article?.category_name;
+		const currentCategorySlug = page.data?.category?.slug ?? page.data?.article?.category_slug;
+		const currentCategoryName = page.data?.category?.name ?? page.data?.article?.category_name;
 
 		if (currentCategorySlug) {
 			sections[0].items.push(
@@ -76,10 +76,10 @@
 				});
 			}
 
-			if ($page.data?.viewingRevision) {
+			if (page.data?.viewingRevision) {
 				actionSection.items.push({
-					label: `Revision ${$page.data.viewingRevision.revisionNumber}`,
-					href: `/learn/${currentArticleSlug}?revision=${$page.data.viewingRevision.id}`,
+					label: `Revision ${page.data.viewingRevision.revisionNumber}`,
+					href: `/learn/${currentArticleSlug}?revision=${page.data.viewingRevision.id}`,
 					icon: IconHistory,
 					tone: 'tertiary'
 				});

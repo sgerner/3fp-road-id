@@ -18,7 +18,7 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
-	import { navigating } from '$app/stores';
+	import { navigating } from '$app/state';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	function getInitialFilters() {
@@ -406,7 +406,7 @@
 
 	$effect(() => {
 		if (!scrollToCardsAfterSearch) return;
-		if ($navigating) return;
+		if (navigating) return;
 		scrollToCardsAfterSearch = false;
 		setTimeout(() => scrollToGroupCards(), 10);
 	});
@@ -913,7 +913,7 @@
 			<div class="mt-10 flex items-center justify-center gap-3">
 				<button
 					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
-					disabled={page <= 1 || $navigating}
+					disabled={page <= 1 || navigating}
 					onclick={() => setPage(page - 1)}
 				>
 					Previous
@@ -921,14 +921,14 @@
 				<span
 					class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
 				>
-					{#if $navigating}
+					{#if navigating}
 						<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
 					{/if}
 					Page {page} of {totalPages}
 				</span>
 				<button
 					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
-					disabled={page >= totalPages || $navigating}
+					disabled={page >= totalPages || navigating}
 					onclick={() => setPage(page + 1)}
 				>
 					Next
