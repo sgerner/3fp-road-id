@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { getImageTonePreset } from '#lib/ai/imageTones';
 import { json } from '@sveltejs/kit';
 import {
 	BIKE_VIBE_STYLE_ID,
@@ -153,7 +154,7 @@ function buildTargetPrompt(target, context = {}) {
 	if (target === 'ride') {
 		return [
 			'Create promotional cover art for a community bike ride.',
-			'Show cyclists like comic-book heroes with clear motion, fun, and welcoming community energy.',
+			'Show cyclists with clear motion and welcoming community energy, rendered in the selected visual style.',
 			'Favor a bold lead image that works well as a ride card and ride page header.',
 			...formatContextLines({
 				title: context.title,
@@ -213,10 +214,17 @@ function buildFinalPrompt({
 	stylePrompt,
 	styleId,
 	styleOptions,
+	toneId,
 	allowTextInImage = false,
 	textOverlay = ''
 }) {
 	const targetPrompt = buildTargetPrompt(target, context);
+	const tone = getImageTonePreset(toneId);
+	const toneDirective = tone
+		? `Selected tone: ${tone.label}.
+Visual tone direction: ${tone.imagePrompt}
+Use this tone for mood, gestures, and composition while keeping the selected art medium. If the base style describes a conflicting mood, the selected tone takes priority. Tone labels are instructions, not text to render.`
+		: '';
 	const selectedStateCode = normalizeUsStateCode(styleOptions?.stateCode);
 	const selectedStateName = selectedStateCode ? getUsStateName(selectedStateCode) : '';
 	const selectedBikeVibeId = normalizeBikeVibeId(styleOptions?.bikeVibeId);
@@ -254,12 +262,13 @@ Optional user direction:
 ${prompt || 'No additional steering provided.'}
 ${stateDirective}
 ${bikeDirective}
+${toneDirective}
 
 Output requirements:
 - Single polished illustration suitable for a wide 16:9 cover image unless another aspect ratio is requested.
 - Keep the scene readable at thumbnail size.
 - ${textRequirement}
-- Preserve the wholesome, slightly ridiculous comic-book energy.`;
+- Honor the selected visual style and tone; keep the result welcoming and the subject recognizable.`;
 }
 
 function getStorageConfig(
@@ -414,6 +423,10 @@ export async function POST(event) {
 	const stylePreset = getImageStylePreset(payload?.styleId);
 	const styleOptions =
 		payload?.styleOptions && typeof payload.styleOptions === 'object' ? payload.styleOptions : {};
+	const toneId = safeTrim(payload?.toneId);
+	if (toneId && !getImageTonePreset(toneId)) {
+		return json({ error: 'Unsupported image tone.' }, { status: 400 });
+	}
 	const prompt = sanitizePrompt(payload?.prompt, 800);
 	const allowTextInImage = Boolean(payload?.allowTextInImage);
 	const textOverlay = sanitizePrompt(payload?.textOverlay, 280);
@@ -443,6 +456,7 @@ export async function POST(event) {
 		stylePrompt: stylePreset.prompt,
 		styleId: stylePreset.id,
 		styleOptions,
+		toneId,
 		allowTextInImage,
 		textOverlay
 	});
@@ -544,6 +558,7 @@ export async function POST(event) {
 			target,
 			aspectRatio,
 			styleId: stylePreset.id,
+			toneId: toneId || null,
 			model: model.id,
 			asset,
 			bucket: storage.bucket,

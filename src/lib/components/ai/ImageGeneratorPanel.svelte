@@ -1,10 +1,12 @@
 <script>
 	import { onMount } from 'svelte';
+	import { IMAGE_TONE_OPTIONS, getImageTonePreset } from '#lib/ai/imageTones';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
+		IMAGE_STYLE_GROUPS,
 		STATE_MASCOT_STYLE_ID
 	} from '#lib/ai/imageStyles';
 	import { BIKE_VIBE_OPTIONS, getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
@@ -24,6 +26,8 @@
 	} = $props();
 
 	let styleId = $state('');
+	let toneId = $state('');
+	const selectedTone = $derived(getImageTonePreset(toneId));
 	let userPrompt = $state('');
 	let generating = $state(false);
 	let error = $state('');
@@ -195,6 +199,7 @@
 					target,
 					aspectRatio,
 					styleId,
+					toneId,
 					prompt: userPrompt.trim() || null,
 					styleOptions,
 					context,
@@ -229,7 +234,7 @@
 				<p class="text-sm opacity-75">{description}</p>
 			{/if}
 		</div>
-		<div class="chip preset-tonal-surface text-xs">{aspectRatio} comic artwork</div>
+		<div class="chip preset-tonal-surface text-xs">{aspectRatio} artwork</div>
 	</div>
 
 	<div class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -237,8 +242,12 @@
 			<label class="block">
 				<span class="label mb-1">Style</span>
 				<select class="select" bind:value={styleId}>
-					{#each IMAGE_STYLE_PRESETS as preset}
-						<option value={preset.id}>{preset.label}</option>
+					{#each IMAGE_STYLE_GROUPS as styleGroup}
+						<optgroup label={styleGroup.label}>
+							{#each styleGroup.presets as preset}
+								<option value={preset.id}>{preset.label}</option>
+							{/each}
+						</optgroup>
 					{/each}
 				</select>
 			</label>
@@ -248,6 +257,17 @@
 					{selectedStyle.description}
 				</p>
 			{/if}
+
+			<label class="block">
+				<span class="label mb-1">Tone</span>
+				<select class="select" bind:value={toneId}>
+					<option value="">Match the style</option>
+					{#each IMAGE_TONE_OPTIONS as tone}
+						<option value={tone.id}>{tone.label}</option>
+					{/each}
+				</select>
+			</label>
+			{#if selectedTone}<p class="text-xs opacity-65">{selectedTone.guidance}</p>{/if}
 
 			{#if requiresStateSelection}
 				<label class="block">

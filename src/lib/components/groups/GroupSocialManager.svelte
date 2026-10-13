@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
@@ -29,6 +30,7 @@
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
+		IMAGE_STYLE_GROUPS,
 		STATE_MASCOT_STYLE_ID
 	} from '#lib/ai/imageStyles';
 	import {
@@ -43,56 +45,7 @@
 
 	const PLATFORMS = ['facebook', 'instagram'];
 	const POST_TARGETS = ['page', 'story'];
-	const AI_TONE_OPTIONS = [
-		{
-			id: 'passionate_advocate',
-			label: 'Passionate Advocate',
-			guidance:
-				'Passionate, persuasive, and energizing. Sound like a committed bike advocate rallying people to care and act.',
-			example:
-				'Example energy: "This law exists for a reason. Riders deserve real space, not excuses."'
-		},
-		{
-			id: 'rebellious',
-			label: 'Rebellious',
-			guidance:
-				'Rebellious, sharp, and defiant without sounding reckless. Challenge the status quo and make the post feel bold.',
-			example:
-				'Example energy: "No, cyclists are not asking for special treatment. We are asking drivers to follow the law."'
-		},
-		{
-			id: 'playful',
-			label: 'Playful',
-			guidance:
-				'Playful, witty, and socially warm. Keep it clever and light without becoming vague or unserious.',
-			example:
-				'Example energy: "Three feet is not a huge ask. It is basically one good golden retriever."'
-		},
-		{
-			id: 'serious_organizer',
-			label: 'Serious Organizer',
-			guidance:
-				'Serious, credible, and organized. Sound like a movement leader giving people a clear reason and next step.',
-			example:
-				'Example energy: "If we want safer streets, we need people who know the law and are willing to insist on it."'
-		},
-		{
-			id: 'wonky_teacher',
-			label: 'Wonky Teacher',
-			guidance:
-				'Wonky, educational, and precise. Explain the issue clearly like a smart bike-law explainer who enjoys the details.',
-			example:
-				'Example energy: "The 3-foot law is not a courtesy guideline. It is a legal minimum clearance requirement."'
-		},
-		{
-			id: 'neighborly',
-			label: 'Neighborly',
-			guidance:
-				'Neighborly, welcoming, and community-first. Sound like a trusted local group inviting people in.',
-			example:
-				'Example energy: "We all want to get home safe. Giving people space on bikes is part of being a good neighbor."'
-		}
-	];
+
 	const CALENDAR_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
 	const CALENDAR_STATUSES = new Set(['scheduled', 'queued', 'publishing', 'published', 'failed']);
 	const UPCOMING_CARD_STATUSES = new Set(['draft', 'scheduled', 'queued', 'publishing', 'failed']);
@@ -1533,6 +1486,7 @@
 					modelId: aiImageModelId,
 					aspectRatio: composerAspectRatio(),
 					styleId: aiStyleId,
+					toneId: aiToneId,
 					styleOptions: {
 						...(requiresAiStateSelection
 							? {
@@ -2712,7 +2666,9 @@
 											<div class="ai-settings-row">
 												<!-- Tone -->
 												<div class="ai-setting">
-													<label class="ai-setting__label" for="ai-tone">Tone</label>
+													<label class="ai-setting__label" for="ai-tone"
+														>Tone · caption & image</label
+													>
 													<select
 														id="ai-tone"
 														class="ai-setting__select"
@@ -2734,8 +2690,12 @@
 														bind:value={aiStyleId}
 														disabled={composerReadOnly}
 													>
-														{#each IMAGE_STYLE_PRESETS as style}
-															<option value={style.id}>{style.label}</option>
+														{#each IMAGE_STYLE_GROUPS as styleGroup}
+															<optgroup label={styleGroup.label}>
+																{#each styleGroup.presets as style}
+																	<option value={style.id}>{style.label}</option>
+																{/each}
+															</optgroup>
 														{/each}
 													</select>
 												</div>
@@ -2777,6 +2737,9 @@
 											</div>
 										</div>
 
+										{#if selectedAiStyle?.description}
+											<p class="ai-tone-hint">{selectedAiStyle.description}</p>
+										{/if}
 										<!-- Optional: Tone description hint -->
 										{#if selectedAiTone?.guidance}
 											<p class="ai-tone-hint">{selectedAiTone.guidance}</p>

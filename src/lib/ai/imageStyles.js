@@ -66,7 +66,7 @@ Avoid photorealism, glossy rendering, loud neon color, comic sound effects, extr
 	},
 	{
 		id: 'wpa_travel_poster',
-		label: 'WPA Travel Poster',
+		label: 'Old-timey / WPA poster',
 		description:
 			'1930s-inspired Works Progress Administration travel poster look with bold shapes, scenic depth, and civic optimism.',
 		prompt: `1930s WPA-era travel poster illustration, art deco influenced composition, block-printed texture, simplified geometric forms, strong poster hierarchy, stylized landscape perspective, civic-era optimism, not photorealistic
@@ -237,9 +237,108 @@ Composition rules: surround the mascot with imagery unique to the selected state
 Text guidance: avoid paragraphs and dense text blocks; if any lettering appears, keep it to at most 1 short phrase.
 
 Avoid logos, brand marks, copyrighted mascots, photorealism, stock-photo staging, and overloaded visual clutter.`
+	},
+	{
+		id: 'mid_century',
+		label: 'Mid-century',
+		description: 'Geometric silhouettes, warm spot colors, and elegant 1950s–60s print design.',
+		prompt:
+			'Mid-century modern editorial illustration, flat geometric shapes, elegant simplified silhouettes, warm cream ochre teal and rust spot colors, screenprint grain, balanced negative space, no photorealism. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'rugged_handcrafted',
+		label: 'Rugged & handcrafted',
+		description: 'Woodcut grain, flannel accents, and earthy workshop character.',
+		prompt:
+			'Rugged handcrafted woodcut illustration, carved wood grain, bold ink cuts, tactile paper, earthy forest rust charcoal palette, subtle flannel pattern accents where appropriate, purposeful worn materials. Keep the brief subject central; do not turn every scene into a workshop. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'nature',
+		label: 'Nature',
+		description: 'Botanical illustration with organic shapes and a landscape-led palette.',
+		prompt:
+			'Nature-inspired editorial illustration, organic contours, botanical textures, layered landscape shapes, forest green sky blue earthy ochre palette. Integrate local flora and landscape only where supported by the brief, clear subject and breathable scenery. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'industrial_metal',
+		label: 'Industrial metal',
+		description: 'Brushed steel, riveted shapes, and bold mechanical poster detail.',
+		prompt:
+			'Industrial metal-inspired graphic illustration, brushed steel textures, riveted geometric shapes, copper and charcoal accents, restrained metallic highlights, strong mechanical silhouettes, poster clarity. Metal is a visual treatment, not an instruction to add weapons or change the subject. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'instrumental',
+		label: 'Instrumental / music',
+		description: 'Musical rhythm, flowing forms, and instrument-inspired visual accents.',
+		prompt:
+			'Music-inspired editorial illustration, rhythmic repeated shapes, flowing melodic lines, instrument-inspired curves and subtle musical motifs, warm expressive color harmonies. Preserve the actual brief subject; musical props are supporting accents, not a replacement subject. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'block_graphic',
+		label: 'Block style',
+		description: 'Bold rectangular shapes, flat color fields, and crisp graphic silhouettes.',
+		prompt:
+			'Bold block-style graphic illustration, chunky geometric forms, flat interlocking color fields, crisp hard edges, limited high-contrast palette, minimal texture, strong silhouettes and clear negative space. Avoid pixel grids and glossy 3D rendering. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'psychedelic_60s',
+		label: '60s psychedelic',
+		description: 'Swirling shapes, optical patterns, and vibrant flower-power color.',
+		prompt:
+			'1960s psychedelic poster illustration, flowing organic curves, optical patterns, flower-power motifs, vibrant contrasting spot colors, vintage screenprint texture, strong central subject. Keep psychedelic detail peripheral for thumbnail readability. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'groovy_70s',
+		label: '70s groovy',
+		description: 'Earthy oranges, rounded forms, and warm retro print texture.',
+		prompt:
+			'1970s groovy editorial poster illustration, rounded flowing shapes, warm burnt orange mustard avocado brown and cream palette, vintage print grain, sunburst and curved stripe motifs, relaxed retro design. Preserve a clear focal subject. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
+	},
+	{
+		id: 'neon_80s',
+		label: '80s neon',
+		description: 'Electric pink and cyan, glowing outlines, and a deep night palette.',
+		prompt:
+			'1980s neon poster illustration, luminous pink cyan violet graphic contours, deep indigo backdrop, restrained airbrush accents, geometric light forms, electric contrasting highlights, clean readable silhouettes. Avoid photorealism, excessive bloom and clutter. Keep the scene readable at thumbnail size. Do not add lettering unless requested.'
 	}
 ];
 
 export function getImageStylePreset(styleId) {
 	return IMAGE_STYLE_PRESETS.find((preset) => preset.id === styleId) ?? IMAGE_STYLE_PRESETS[0];
 }
+
+// Keep every stored style ID available while making long menus easier to scan.
+const STYLE_GROUP_DEFINITIONS = [
+	{ label: '3FP favorites', ids: ['comic_house', 'risograph_patchwork', 'quiet_gouache'] },
+	{
+		label: 'Retro & eras',
+		ids: ['wpa_travel_poster', 'mid_century', 'psychedelic_60s', 'groovy_70s', 'neon_80s']
+	},
+	{
+		label: 'Texture & inspiration',
+		ids: [
+			'rugged_handcrafted',
+			'nature',
+			'industrial_metal',
+			'instrumental',
+			'crafty_clay',
+			'origami'
+		]
+	},
+	{
+		label: 'Graphic & illustrated',
+		ids: [
+			'block_graphic',
+			'line_art',
+			'pixel_art',
+			'anime',
+			'fantasy_art',
+			'bubbly_nautical_cartoon'
+		]
+	},
+	{ label: 'Cycling & local', ids: [BIKE_VIBE_STYLE_ID, STATE_MASCOT_STYLE_ID] }
+];
+export const IMAGE_STYLE_GROUPS = STYLE_GROUP_DEFINITIONS.map((group) => ({
+	label: group.label,
+	presets: group.ids.map((id) => IMAGE_STYLE_PRESETS.find((preset) => preset.id === id))
+}));
