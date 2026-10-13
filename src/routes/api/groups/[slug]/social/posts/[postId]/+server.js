@@ -3,8 +3,8 @@ import {
 	deleteGroupSocialPost,
 	getGroupSocialPostById,
 	serializeSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
 
 const DELETABLE_STATUSES = new Set(['draft', 'scheduled']);
 

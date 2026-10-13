@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient } from '$lib/server/activities';
-import { isAiModelConfigured, requireAiModel } from '$lib/server/ai/models';
-import { buildHybridArticleCandidates, inferArticleIntent } from '$lib/server/learnRecommendations';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { getActivityClient } from '#lib/server/activities';
+import { isAiModelConfigured, requireAiModel } from '#lib/server/ai/models';
+import { buildHybridArticleCandidates, inferArticleIntent } from '#lib/server/learnRecommendations';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const config = { maxDuration: 60 };
 

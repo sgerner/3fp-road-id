@@ -4,7 +4,7 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
-	import SectionSecondaryNav from '$lib/components/navigation/SectionSecondaryNav.svelte';
+	import SectionSecondaryNav from '#lib/components/navigation/SectionSecondaryNav.svelte';
 
 	let { children } = $props();
 

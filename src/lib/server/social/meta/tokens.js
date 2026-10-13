@@ -1,9 +1,9 @@
-import { decryptSocialToken, encryptSocialToken } from '$lib/server/social/crypto';
+import { decryptSocialToken, encryptSocialToken } from '#lib/server/social/crypto';
 import {
 	computeTokenExpiryFromSeconds,
 	exchangeForLongLivedMetaToken,
 	refreshLongLivedInstagramToken
-} from '$lib/server/social/meta/oauth';
+} from '#lib/server/social/meta/oauth';
 
 const REFRESH_BUFFER_MS = 24 * 60 * 60 * 1000;
 

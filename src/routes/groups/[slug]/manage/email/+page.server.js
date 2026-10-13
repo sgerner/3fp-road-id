@@ -1,8 +1,8 @@
-import { listGroupSiteDomains } from '$lib/server/groupSiteDomains';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { listGroupEmailSendingDomains } from '$lib/server/groupEmailDomains';
-import { listGroupSubscriberWelcomeFailures } from '$lib/server/groupSubscriberWelcome';
-import { listMembershipEmailHistory } from '$lib/server/memberships';
+import { listGroupSiteDomains } from '#lib/server/groupSiteDomains';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { listGroupEmailSendingDomains } from '#lib/server/groupEmailDomains';
+import { listGroupSubscriberWelcomeFailures } from '#lib/server/groupSubscriberWelcome';
+import { listMembershipEmailHistory } from '#lib/server/memberships';
 
 async function loadAudienceSummary(serviceSupabase, groupId) {
 	if (!serviceSupabase || !groupId) {

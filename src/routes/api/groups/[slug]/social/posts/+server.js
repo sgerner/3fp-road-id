@@ -1,16 +1,16 @@
 import { json } from '@sveltejs/kit';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import {
 	createGroupSocialPost,
 	listGroupSocialAccounts,
 	listGroupSocialPosts,
 	serializeSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
-import { normalizeScheduledPostTime } from '$lib/server/social/scheduler';
-import { normalizePlatforms, normalizePostTarget } from '$lib/server/social/types';
-import { validatePlatformPostPayload } from '$lib/server/social/meta/permissions';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { publishSingleGroupSocialPost } from '#lib/server/social/publish';
+import { normalizeScheduledPostTime } from '#lib/server/social/scheduler';
+import { normalizePlatforms, normalizePostTarget } from '#lib/server/social/types';
+import { validatePlatformPostPayload } from '#lib/server/social/meta/permissions';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

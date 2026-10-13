@@ -13,8 +13,8 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconHeart from '@lucide/svelte/icons/heart';
-	import { merchCart } from '$lib/merch/cart';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { merchCart } from '#lib/merch/cart';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	let { data } = $props();
 	let selectedVariantIdByProduct = $state({});

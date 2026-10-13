@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { DEFAULT_BRAND_ORIGIN } from '$lib/email/branding';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { DEFAULT_BRAND_ORIGIN } from '#lib/email/branding';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
 import {
 	buildRideReminderContext,
 	getActivityServiceClient,
 	getCronSecretVerifier,
 	loadRideById,
 	renderRideEmailTemplate
-} from '$lib/server/activities';
+} from '#lib/server/activities';
 
 function textToHtml(text) {
 	return String(text || '')

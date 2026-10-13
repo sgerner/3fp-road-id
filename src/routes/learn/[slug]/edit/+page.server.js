@@ -8,14 +8,14 @@ import {
 	normalizeLearnPayload,
 	requireLearnUser,
 	learnFormDataValues
-} from '$lib/server/learn';
-import { withLearnAiReadingAid } from '$lib/server/learnAi';
-import { enforceRateLimit } from '$lib/server/security';
+} from '#lib/server/learn';
+import { withLearnAiReadingAid } from '#lib/server/learnAi';
+import { enforceRateLimit } from '#lib/server/security';
 import {
 	buildLearnArticleChunks,
 	inferLearnArticleSearchSignals,
 	syncLearnArticleChunks
-} from '$lib/server/learnDiscovery';
+} from '#lib/server/learnDiscovery';
 
 export const load = async ({ params, url, cookies }) => {
 	const { user, supabase } = await getLearnClient(cookies);

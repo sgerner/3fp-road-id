@@ -7,12 +7,12 @@ import {
 	getGroupAssetBucketMeta,
 	groupGroupAssetsByBucket,
 	slugifyGroupAssetSegment
-} from '$lib/groups/assets';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/groups/assets';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
+} from '#lib/server/supabaseClient';
 
 export const GROUP_ASSET_ALLOWED_MIME_TYPES = [
 	'image/jpeg',

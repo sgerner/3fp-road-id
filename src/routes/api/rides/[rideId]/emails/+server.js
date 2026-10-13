@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
 import {
 	buildOccurrenceView,
 	canManageActivity,
 	getActivityClient,
 	loadRideById
-} from '$lib/server/activities';
+} from '#lib/server/activities';
 
 const EMAIL_SEND_CONCURRENCY = 10;
 

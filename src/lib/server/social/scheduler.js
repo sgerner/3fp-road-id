@@ -1,4 +1,4 @@
-import { SOCIAL_SCHEDULING_INTERVAL_MINUTES } from '$lib/server/social/types';
+import { SOCIAL_SCHEDULING_INTERVAL_MINUTES } from '#lib/server/social/types';
 
 function toDate(value) {
 	if (value instanceof Date) {

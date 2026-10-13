@@ -1,11 +1,11 @@
 <script>
 	import { slide } from 'svelte/transition';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
-	import { normalizePhoneNumber, formatPhoneNumber } from '$lib/utils/phone';
-	import AlertSystem from '$lib/components/AlertSystem.svelte';
-	import CrashResponse from '$lib/components/CrashResponse.svelte';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { normalizePhoneNumber, formatPhoneNumber } from '#lib/utils/phone';
+	import AlertSystem from '#lib/components/AlertSystem.svelte';
+	import CrashResponse from '#lib/components/CrashResponse.svelte';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 
 	let { data } = $props();
 	function getPageData() {

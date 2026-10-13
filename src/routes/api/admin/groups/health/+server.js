@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { requireAdmin } from '#lib/server/admin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_WINDOW_DAYS = 30;

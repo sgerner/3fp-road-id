@@ -1,9 +1,9 @@
 <script>
 	let { data, form } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
-	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
+	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import * as env from '$app/env/public';
 
 	function getInitialValues() {
 		return form?.values ?? {};

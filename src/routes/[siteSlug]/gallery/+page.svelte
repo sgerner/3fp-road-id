@@ -3,8 +3,8 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconImage from '@lucide/svelte/icons/image';
 	import IconX from '@lucide/svelte/icons/x';
-	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '#lib/media/lazyImage';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { fade, scale } from 'svelte/transition';
 
 	let { data } = $props();

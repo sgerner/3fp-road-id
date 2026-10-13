@@ -1,5 +1,5 @@
 <script>
-	import Toggle from '$lib/components/ui/Toggle.svelte';
+	import Toggle from '#lib/components/ui/Toggle.svelte';
 
 	export let value = { register: true, cancel: true };
 	export let onChange = () => {};

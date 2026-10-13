@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { ALLOWED_API_TABLES, TABLE_PRIMARY_KEYS } from '$lib/apiConfig';
-import { readJsonBody } from '$lib/server/security';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { ALLOWED_API_TABLES, TABLE_PRIMARY_KEYS } from '#lib/apiConfig';
+import { readJsonBody } from '#lib/server/security';
 
 const MAX_RESULT_ROWS = 500;
 const MAX_OFFSET = 10_000;

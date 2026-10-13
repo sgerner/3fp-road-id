@@ -28,10 +28,10 @@
 		return value;
 	}
 	import { Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
-	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
-	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
-	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
-	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
+	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
+	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
+	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
+	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
 
 	import {
 		mapEventRecordToFormDetails,
@@ -45,7 +45,7 @@
 		mapEmailRecordToFormDetails,
 		buildEmailPayload,
 		ensureArray
-	} from '$lib/components/volunteer/form-utils';
+	} from '#lib/components/volunteer/form-utils';
 	import {
 		getVolunteerEvent,
 		updateVolunteerEvent,
@@ -66,7 +66,7 @@
 		updateVolunteerEventEmail,
 		deleteVolunteerEventEmail,
 		getVolunteerEventEmail
-	} from '$lib';
+	} from '#lib';
 
 	let { data } = $props();
 

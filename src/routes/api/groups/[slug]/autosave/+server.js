@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',

@@ -6,9 +6,9 @@
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
 		STATE_MASCOT_STYLE_ID
-	} from '$lib/ai/imageStyles';
-	import { BIKE_VIBE_OPTIONS, getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
-	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '$lib/geo/usStates';
+	} from '#lib/ai/imageStyles';
+	import { BIKE_VIBE_OPTIONS, getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
+	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '#lib/geo/usStates';
 
 	let {
 		target = 'ride',

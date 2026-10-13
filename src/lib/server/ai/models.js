@@ -1,10 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { env } from '$env/dynamic/private';
-import { IMAGE_GENERATION_MODEL_IDS } from '$lib/ai/imageGenerationModels';
+import * as env from '$app/env/private';
+import { IMAGE_GENERATION_MODEL_IDS } from '#lib/ai/imageGenerationModels';
 import { createOpenAiTextProviderClient } from './openai.js';
 import { convertSchemaNode } from './schema.js';
-import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
+import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',

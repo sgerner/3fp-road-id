@@ -1,7 +1,7 @@
-import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE, MAIN_ORG_TAX_NOTICE } from '$lib/donations/constants';
-import { getDonationRecipient } from '$lib/server/donations';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE, MAIN_ORG_TAX_NOTICE } from '#lib/donations/constants';
+import { getDonationRecipient } from '#lib/server/donations';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 function cleanSlug(value) {
 	return String(value || '')

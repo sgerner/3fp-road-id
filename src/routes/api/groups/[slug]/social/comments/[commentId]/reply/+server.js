@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { replyToGroupSocialComment } from '$lib/server/social/comments';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
+import { replyToGroupSocialComment } from '#lib/server/social/comments';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

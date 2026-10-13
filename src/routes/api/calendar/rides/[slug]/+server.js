@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { buildIcsContent, eventLocation } from '$lib/calendar/links';
-import { getActivityServiceClient, loadRideBySlug } from '$lib/server/activities';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { buildIcsContent, eventLocation } from '#lib/calendar/links';
+import { getActivityServiceClient, loadRideBySlug } from '#lib/server/activities';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';

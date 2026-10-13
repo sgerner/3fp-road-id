@@ -12,35 +12,35 @@
 	import IconInfo from '@lucide/svelte/icons/info';
 	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
+	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconBadgeDollarSign from '@lucide/svelte/icons/badge-dollar-sign';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import GroupHeroCard from '$lib/components/groups/GroupHeroCard.svelte';
-	import GroupAssetShowcase from '$lib/components/groups/GroupAssetShowcase.svelte';
-	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
+	import GroupHeroCard from '#lib/components/groups/GroupHeroCard.svelte';
+	import GroupAssetShowcase from '#lib/components/groups/GroupAssetShowcase.svelte';
+	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
 	import {
 		buildContactLinks,
 		selectPrimaryCta,
 		CTA_ICON_MAP,
 		CONTACT_ICON_MAP
-	} from '$lib/groups/contactLinks';
+	} from '#lib/groups/contactLinks';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { fade, slide } from 'svelte/transition';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
-	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
+	} from '#lib/seo';
+	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
 
 	// UI state
 	let showSticky = $state(false);
@@ -66,7 +66,7 @@
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		try {
 			if (!mapLoadPromise) {
-				mapLoadPromise = Promise.all([import('$lib/map/leaflet.css'), import('leaflet')]).then(
+				mapLoadPromise = Promise.all([import('#lib/map/leaflet.css'), import('leaflet')]).then(
 					([, mod]) => {
 						L = mod.default || mod;
 						return L;

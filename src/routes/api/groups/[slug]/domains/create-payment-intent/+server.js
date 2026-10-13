@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { createDomainPaymentIntentForGroup } from '$lib/server/groupSiteDomains';
-import { getStripePublishableKey } from '$lib/server/stripe';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { createDomainPaymentIntentForGroup } from '#lib/server/groupSiteDomains';
+import { getStripePublishableKey } from '#lib/server/stripe';
 
 export async function POST({ cookies, params, request, url }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug || '' });

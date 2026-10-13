@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient } from '$lib/server/activities';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { getActivityClient } from '#lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import {
 	SMS_CONSENT_TEXT,
 	SMS_CONSENT_VERSION,
@@ -11,7 +11,7 @@ import {
 	getSmsServiceClient,
 	enqueueSms,
 	normalizeSmsPhone
-} from '$lib/server/sms';
+} from '#lib/server/sms';
 
 const CATEGORY_KEYS = [
 	'ride_reminders',

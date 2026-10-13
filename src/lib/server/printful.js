@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { env } from '$env/dynamic/private';
-import { readResponseBuffer } from '$lib/server/security';
+import * as env from '$app/env/private';
+import { readResponseBuffer } from '#lib/server/security';
 
 const PRINTFUL_API_BASE_URL = 'https://api.printful.com';
 const PRINTFUL_V2_BASE_URL = `${PRINTFUL_API_BASE_URL}/v2`;

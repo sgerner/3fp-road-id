@@ -2,7 +2,7 @@
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
+	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
 
 	let { data } = $props();
 

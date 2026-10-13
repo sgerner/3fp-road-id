@@ -1,6 +1,6 @@
-import { listMerchOrdersForUser } from '$lib/server/merch';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { listMerchOrdersForUser } from '#lib/server/merch';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 function formatCurrency(cents, currency = 'usd') {
 	return new Intl.NumberFormat('en-US', {

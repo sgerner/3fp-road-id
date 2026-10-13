@@ -1,4 +1,4 @@
-import { requireAdmin } from '$lib/server/admin';
+import { requireAdmin } from '#lib/server/admin';
 
 export async function load({ cookies }) {
 	const { user, supabase } = await requireAdmin(cookies);

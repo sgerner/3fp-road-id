@@ -1,5 +1,5 @@
 import { createSign } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import {
 	cleanText,
 	describeWorkspaceAuthError,

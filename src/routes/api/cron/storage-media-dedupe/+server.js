@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 const RETENTION_DAYS = 21;
 

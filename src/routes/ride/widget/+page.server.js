@@ -1,4 +1,4 @@
-import { getActivityClient } from '$lib/server/activities';
+import { getActivityClient } from '#lib/server/activities';
 
 function uniqOrganizations(rows = []) {
 	const seen = new Set();

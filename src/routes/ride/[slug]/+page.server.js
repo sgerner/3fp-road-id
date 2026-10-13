@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { canManageActivity, getActivityClient, loadRideBySlug } from '$lib/server/activities';
+import { canManageActivity, getActivityClient, loadRideBySlug } from '#lib/server/activities';
 
 export const load = async ({ params, cookies }) => {
 	const { supabase, user } = await getActivityClient(cookies);

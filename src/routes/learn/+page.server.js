@@ -1,4 +1,4 @@
-import { getLearnClient, getLearnProfilesMap, listPublishedLearnArticles } from '$lib/server/learn';
+import { getLearnClient, getLearnProfilesMap, listPublishedLearnArticles } from '#lib/server/learn';
 
 export const load = async ({ cookies }) => {
 	const { user, supabase } = await getLearnClient(cookies);

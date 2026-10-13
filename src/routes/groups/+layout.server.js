@@ -1,5 +1,5 @@
-import { resolveVerifiedSession } from '$lib/server/session';
-import { loadOwnedGroups } from '$lib/server/sectionNavigation';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { loadOwnedGroups } from '#lib/server/sectionNavigation';
 
 export const load = async ({ fetch, cookies, parent }) => {
 	const parentData = await parent().catch(() => ({}));

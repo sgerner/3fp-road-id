@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import Stripe from 'stripe';
-import { env } from '$env/dynamic/private';
-import { PUBLIC_STRIPE_PUBLISHABLE_KEY, PUBLIC_URL_BASE } from '$env/static/public';
+import * as env from '$app/env/private';
+import { PUBLIC_STRIPE_PUBLISHABLE_KEY, PUBLIC_URL_BASE } from '$app/env/public';
 
 const CONNECT_STATE_TTL_MS = 10 * 60 * 1000;
 

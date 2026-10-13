@@ -1,11 +1,11 @@
 <script>
 	import { tick } from 'svelte';
-	import ShareButton from '$lib/components/ui/ShareButton.svelte';
-	import ArticleAssistant from '$lib/components/learn/ArticleAssistant.svelte';
+	import ShareButton from '#lib/components/ui/ShareButton.svelte';
+	import ArticleAssistant from '#lib/components/learn/ArticleAssistant.svelte';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHistory from '@lucide/svelte/icons/history';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
@@ -16,7 +16,7 @@
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 
 	const { data, form } = $props();
 	let showVersionHistory = $state(false);

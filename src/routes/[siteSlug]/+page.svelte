@@ -6,7 +6,7 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
-	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
+	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -16,23 +16,23 @@
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
-	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
-	import { CONTACT_ICON_MAP } from '$lib/groups/contactLinks';
-	import { safeNavigationUrl } from '$lib/security/urls.js';
-	import { optimizedImageUrl } from '$lib/media/optimized';
-	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '$lib/media/lazyImage';
-	import { getGroupSiteBlockTone } from '$lib/microsites/blocks';
+	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
+	import { CONTACT_ICON_MAP } from '#lib/groups/contactLinks';
+	import { safeNavigationUrl } from '#lib/security/urls.js';
+	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '#lib/media/lazyImage';
+	import { getGroupSiteBlockTone } from '#lib/microsites/blocks';
 	import {
 		inferTbagSourceMediaPage,
 		mapTbagLegacyUrl,
 		tbagSourceMediaKey
-	} from '$lib/microsites/tempeBicycleActionGroup';
+	} from '#lib/microsites/tempeBicycleActionGroup';
 	import {
 		THREE_FEET_LAWS,
 		THREE_FEET_LAWS_LAST_REVIEWED,
 		THREE_FEET_LAWS_SOURCE_FILE,
 		THREE_FEET_LAW_STATUS_LABELS
-	} from '$lib/microsites/laws';
+	} from '#lib/microsites/laws';
 	import { fade, scale } from 'svelte/transition';
 	import { slide } from 'svelte/transition';
 	let { data } = $props();

@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { getLearnClient, slugifyLearn } from '$lib/server/learn';
+import { getLearnClient, slugifyLearn } from '#lib/server/learn';
 
 function normalizeOrderItemList(type, value) {
 	if (!Array.isArray(value)) return [];

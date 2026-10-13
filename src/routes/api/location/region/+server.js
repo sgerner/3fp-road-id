@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { normalizeUsStateCode } from '$lib/geo/usStates';
-import { enforceRateLimit } from '$lib/server/security';
+import { normalizeUsStateCode } from '#lib/geo/usStates';
+import { enforceRateLimit } from '#lib/server/security';
 
 const COUNTRY_HEADERS = ['x-vercel-ip-country', 'cf-ipcountry', 'x-country-code'];
 const REGION_HEADERS = ['x-vercel-ip-country-region', 'cf-region-code', 'x-region-code'];

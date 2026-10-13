@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { calculateMerchQuote, getMerchStoreBySlug } from '$lib/server/merch';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { calculateMerchQuote, getMerchStoreBySlug } from '#lib/server/merch';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const POST = async (event) => {
 	const limited = enforceRateLimit(event, {

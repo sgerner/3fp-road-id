@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
-import { verifyOwnerInviteState } from '$lib/server/groupOwnerInvites';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { verifyOwnerInviteState } from '#lib/server/groupOwnerInvites';
 
 // Redeems a short-lived capability issued to an existing group manager.
 export async function POST(event) {

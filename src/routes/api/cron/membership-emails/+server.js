@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { processScheduledMembershipEmails } from '$lib/server/memberships';
-import { timingSafeStringEqual } from '$lib/server/security';
+import * as env from '$app/env/private';
+import { processScheduledMembershipEmails } from '#lib/server/memberships';
+import { timingSafeStringEqual } from '#lib/server/security';
 
 function enforceCronSecret(request) {
 	const secret =

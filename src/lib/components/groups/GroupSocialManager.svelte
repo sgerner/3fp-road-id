@@ -17,8 +17,8 @@
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
-	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
+	import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
@@ -30,13 +30,13 @@
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
 		STATE_MASCOT_STYLE_ID
-	} from '$lib/ai/imageStyles';
+	} from '#lib/ai/imageStyles';
 	import {
 		DEFAULT_SOCIAL_IMAGE_GENERATION_MODEL_ID,
 		SOCIAL_IMAGE_GENERATION_MODELS
-	} from '$lib/ai/imageGenerationModels';
-	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '$lib/ai/bikeVibes';
-	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '$lib/geo/usStates';
+	} from '#lib/ai/imageGenerationModels';
+	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '#lib/ai/bikeVibes';
+	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '#lib/geo/usStates';
 	import { toaster } from '../../../routes/toaster-svelte';
 
 	let { slug = '', canManageSocial = false, showClaimMessage = false, group = null } = $props();

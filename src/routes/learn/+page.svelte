@@ -1,5 +1,5 @@
 <script>
-	import LearnNavigator from '$lib/components/learn/LearnNavigator.svelte';
+	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
@@ -7,7 +7,7 @@
 
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	const { data } = $props();
 

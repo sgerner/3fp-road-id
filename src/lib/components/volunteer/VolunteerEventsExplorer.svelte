@@ -1,7 +1,7 @@
 <script>
 	import { browser } from '$app/environment';
-	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
+	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
 	import { tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconPlus from '@lucide/svelte/icons/plus';

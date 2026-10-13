@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
+import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
 
 export const load = async (event) => {
 	const { params, fetch } = event;

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { normalizePlatform } from '$lib/server/social/types';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { normalizePlatform } from '#lib/server/social/types';
 
 export async function DELETE({ cookies, params }) {
 	const platform = normalizePlatform(params.platform);

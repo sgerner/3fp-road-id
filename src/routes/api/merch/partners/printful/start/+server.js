@@ -1,7 +1,7 @@
 import { json, redirect } from '@sveltejs/kit';
-import { requireGroupDonationManager, requireMainDonationManager } from '$lib/server/donations';
-import { buildPrintfulAuthorizeUrl, createPrintfulStateToken } from '$lib/server/printful';
-import { resolvePublicBaseUrl } from '$lib/server/stripe';
+import { requireGroupDonationManager, requireMainDonationManager } from '#lib/server/donations';
+import { buildPrintfulAuthorizeUrl, createPrintfulStateToken } from '#lib/server/printful';
+import { resolvePublicBaseUrl } from '#lib/server/stripe';
 
 export const GET = async ({ url, cookies }) => {
 	const recipientType = (url.searchParams.get('recipient') || 'main').toLowerCase();

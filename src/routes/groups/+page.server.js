@@ -1,4 +1,4 @@
-import { supabase } from '$lib/supabaseClient';
+import { supabase } from '#lib/supabaseClient';
 
 const SEARCH_STOP_WORDS = new Set([
 	'a',

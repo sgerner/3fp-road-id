@@ -1,14 +1,14 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import {
 	callInstagramApi,
 	callMetaApi,
 	requireMetaAppCredentials
-} from '$lib/server/social/meta/client';
+} from '#lib/server/social/meta/client';
 import {
 	normalizeConnectedAccountSummary,
 	normalizeMetaError,
 	normalizeMetaScopes
-} from '$lib/server/social/meta/normalize';
+} from '#lib/server/social/meta/normalize';
 
 const FACEBOOK_OAUTH_BASE = 'https://www.facebook.com';
 const INSTAGRAM_OAUTH_BASE = 'https://www.instagram.com';

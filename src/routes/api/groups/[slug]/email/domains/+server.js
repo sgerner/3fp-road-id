@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
 	listGroupEmailSendingDomains,
 	upsertGroupEmailSendingDomain
-} from '$lib/server/groupEmailDomains';
+} from '#lib/server/groupEmailDomains';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

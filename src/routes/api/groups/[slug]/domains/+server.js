@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
 import {
 	attachExistingDomainToGroup,
 	listGroupSiteDomainOrders,
 	listGroupSiteDomains
-} from '$lib/server/groupSiteDomains';
+} from '#lib/server/groupSiteDomains';
 
 export async function GET({ cookies, params }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug || '' });

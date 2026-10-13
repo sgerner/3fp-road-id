@@ -1,5 +1,5 @@
-import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
-import { normalizeMetaError } from '$lib/server/social/meta/normalize';
+import { callInstagramApi, callMetaApi } from '#lib/server/social/meta/client';
+import { normalizeMetaError } from '#lib/server/social/meta/normalize';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

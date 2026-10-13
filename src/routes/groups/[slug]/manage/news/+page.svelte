@@ -5,7 +5,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import GroupNewsEditorForm from '$lib/components/groups/GroupNewsEditorForm.svelte';
+	import GroupNewsEditorForm from '#lib/components/groups/GroupNewsEditorForm.svelte';
 
 	const { data, form } = $props();
 	const values = $derived(form?.values ?? data.initialValues ?? {});

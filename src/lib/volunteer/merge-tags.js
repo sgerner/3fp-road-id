@@ -1,11 +1,11 @@
-import { escapeHtml, renderMarkdown } from '$lib/markdown';
-import { buildGoogleCalendarUrl } from '$lib/calendar/links';
-import { safeHttpUrl } from '$lib/security/urls';
+import { escapeHtml, renderMarkdown } from '#lib/markdown';
+import { buildGoogleCalendarUrl } from '#lib/calendar/links';
+import { safeHttpUrl } from '#lib/security/urls';
 import {
 	VOLUNTEER_PORTAL_PATH,
 	wrapHtmlWithBranding,
 	wrapTextWithBranding
-} from '$lib/email/branding';
+} from '#lib/email/branding';
 
 function safeString(value, fallback = '') {
 	if (value === null || value === undefined) return fallback;

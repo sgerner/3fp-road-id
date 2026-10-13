@@ -4,10 +4,10 @@ import {
 	listGroupSocialLibraryItems,
 	listGroupSocialPosts,
 	serializeSocialLibraryItem
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
-import { enforceRateLimit, readFormData, readJsonBody } from '$lib/server/security';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
+import { enforceRateLimit, readFormData, readJsonBody } from '#lib/server/security';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;

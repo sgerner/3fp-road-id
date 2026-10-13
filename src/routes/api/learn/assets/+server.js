@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { json } from '@sveltejs/kit';
-import { getLearnServiceClient, requireLearnUser, slugifyLearn } from '$lib/server/learn';
-import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+import { getLearnServiceClient, requireLearnUser, slugifyLearn } from '#lib/server/learn';
+import { optimizeImageForStorage, replaceFileExtension } from '#lib/server/storageImages';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FILES = 8;

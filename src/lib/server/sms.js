@@ -1,7 +1,7 @@
-import { env } from '$env/dynamic/private';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { normalizeE164PhoneNumber } from '$lib/utils/phone';
+import * as env from '$app/env/private';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { normalizeE164PhoneNumber } from '#lib/utils/phone';
 import {
 	SMS_MAX_BODY_LENGTH,
 	SMS_MAX_SEGMENTS,
@@ -13,7 +13,7 @@ import {
 	smsProviderStatus,
 	subscriptionAllowsSms,
 	validateSmsBody
-} from '$lib/utils/sms';
+} from '#lib/utils/sms';
 
 export {
 	SMS_MAX_BODY_LENGTH,
@@ -26,7 +26,7 @@ export {
 	smsProviderStatus,
 	subscriptionAllowsSms,
 	validateSmsBody
-} from '$lib/utils/sms';
+} from '#lib/utils/sms';
 
 export const SMS_CONSENT_VERSION = '2026-09-23';
 export const SMS_CONSENT_TEXT =

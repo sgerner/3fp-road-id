@@ -1,7 +1,7 @@
-import { env } from '$env/dynamic/private';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { autoProvisionEmailSenderForRegisteredDomain } from '$lib/server/groupEmailDomains';
-import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
+import * as env from '$app/env/private';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { autoProvisionEmailSenderForRegisteredDomain } from '#lib/server/groupEmailDomains';
+import { getStripeClient, resolvePublicBaseUrl } from '#lib/server/stripe';
 import {
 	addDomainToMicrositeProject,
 	buyDomainWithVercel,
@@ -13,7 +13,7 @@ import {
 	searchBulkDomainAvailability,
 	updateVercelDomainAutoRenew,
 	verifyMicrositeProjectDomain
-} from '$lib/server/vercelDomains';
+} from '#lib/server/vercelDomains';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';

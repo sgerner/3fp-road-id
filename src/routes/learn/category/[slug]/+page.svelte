@@ -1,5 +1,5 @@
 <script>
-	import LearnNavigator from '$lib/components/learn/LearnNavigator.svelte';
+	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -20,7 +20,7 @@
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 
 	let { data, form } = $props();
 

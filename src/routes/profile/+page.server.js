@@ -1,5 +1,5 @@
-import { getActivityClient } from '$lib/server/activities';
-import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '$lib/server/sms';
+import { getActivityClient } from '#lib/server/activities';
+import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '#lib/server/sms';
 
 const INTEREST_SUGGESTIONS = [
 	'Road riding',

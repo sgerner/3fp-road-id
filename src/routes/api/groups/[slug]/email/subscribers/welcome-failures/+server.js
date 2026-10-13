@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { listGroupSubscriberWelcomeFailures } from '$lib/server/groupSubscriberWelcome';
+import { listGroupSubscriberWelcomeFailures } from '#lib/server/groupSubscriberWelcome';
 
 function respond(result) {
 	if (!result?.ok) {

@@ -1,5 +1,5 @@
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { publicAccountingReport } from '$lib/server/groupAccountingPublic';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { publicAccountingReport } from '#lib/server/groupAccountingPublic';
 
 export const load = async ({ params }) => {
 	const supabase = createServiceSupabaseClient();

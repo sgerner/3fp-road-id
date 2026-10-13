@@ -1,7 +1,7 @@
 <script>
-	import { buildAbsoluteUrl, limitSeoText, toJsonLd } from '$lib/seo';
-	import { getRideImage } from '$lib/rides/media';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { buildAbsoluteUrl, limitSeoText, toJsonLd } from '#lib/seo';
+	import { getRideImage } from '#lib/rides/media';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarDays from '@lucide/svelte/icons/calendar-days';

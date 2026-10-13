@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 
 const BUCKET_NAME = 'group-social-media';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;

@@ -1,6 +1,6 @@
-import { supabase } from '$lib/supabaseClient';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { supabase } from '#lib/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ cookies, url }) => {
 	const { accessToken, user: currentUser } = await resolveVerifiedSession(cookies);

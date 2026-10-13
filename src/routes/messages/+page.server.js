@@ -1,5 +1,5 @@
-import { getActivityClient } from '$lib/server/activities';
-import { getSmsServiceClient, loadSmsThreadsForUser } from '$lib/server/sms';
+import { getActivityClient } from '#lib/server/activities';
+import { getSmsServiceClient, loadSmsThreadsForUser } from '#lib/server/sms';
 
 export async function load({ cookies }) {
 	const { user, supabase } = await getActivityClient(cookies);

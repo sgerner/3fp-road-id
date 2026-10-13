@@ -32,9 +32,9 @@
 	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
-	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
-	import ReconciliationWorkspace from '$lib/components/accounting/ReconciliationWorkspace.svelte';
-	import { escapeHtml } from '$lib/markdown';
+	import SearchableSelect from '#lib/components/ui/SearchableSelect.svelte';
+	import ReconciliationWorkspace from '#lib/components/accounting/ReconciliationWorkspace.svelte';
+	import { escapeHtml } from '#lib/markdown';
 
 	let { data, form } = $props();
 	let activeTab = $state('overview');

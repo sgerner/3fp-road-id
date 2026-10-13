@@ -4,16 +4,16 @@ import {
 	generateLearnAiTakeaways,
 	generateLearnWritingDraft,
 	navigateLearnArticles
-} from '$lib/server/learnAi';
-import { getLearnClient } from '$lib/server/learn';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+} from '#lib/server/learnAi';
+import { getLearnClient } from '#lib/server/learn';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import {
 	buildLearnQuestionContext,
 	canAccessLearnAiArticle,
 	canUseLearnAiAction,
 	cleanLearnAiString,
 	LEARN_AI_SOURCE_LIMIT
-} from '$lib/server/learnAiCore';
+} from '#lib/server/learnAiCore';
 
 const MAX_REQUEST_BYTES = 48 * 1024;
 const MAX_CONTENT_CHARS = 18_000;

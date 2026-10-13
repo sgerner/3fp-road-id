@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { deleteAttachedDomainForGroup } from '$lib/server/groupSiteDomains';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { deleteAttachedDomainForGroup } from '#lib/server/groupSiteDomains';
 
 export async function DELETE({ cookies, params }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug || '' });

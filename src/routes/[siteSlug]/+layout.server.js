@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { loadGroupMicrosite } from '$lib/server/groupSites';
+import { loadGroupMicrosite } from '#lib/server/groupSites';
 
 export const load = async ({ params, fetch, url, locals, setHeaders }) => {
 	const site = await loadGroupMicrosite({

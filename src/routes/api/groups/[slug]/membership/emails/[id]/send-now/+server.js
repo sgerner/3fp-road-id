@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { sendMembershipEmailCampaignNow } from '$lib/server/memberships';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { sendMembershipEmailCampaignNow } from '#lib/server/memberships';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

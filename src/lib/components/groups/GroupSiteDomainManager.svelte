@@ -8,7 +8,7 @@
 	import IconGlobe from '@lucide/svelte/icons/globe-2';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
 	import IconTrash from '@lucide/svelte/icons/trash-2';
-	import DomainPurchasePanel from '$lib/components/groups/DomainPurchasePanel.svelte';
+	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
 
 	let { group, slug = $bindable(''), currentSlug = '', liveUrl = '' } = $props();
 	let availability = $state({

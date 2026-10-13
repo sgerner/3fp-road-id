@@ -5,10 +5,10 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { toaster } from './toaster-svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
-	import { loadThemeStyles } from '$lib/themeLoader';
-	import { syncServerSession } from '$lib/security/session';
-	import LazyGlobalAssistant from '$lib/components/ai/LazyGlobalAssistant.svelte';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import { loadThemeStyles } from '#lib/themeLoader';
+	import { syncServerSession } from '#lib/security/session';
+	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconHome from '@lucide/svelte/icons/home';
@@ -23,8 +23,8 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	// Branding / social icons
 	import IconHeart from '@lucide/svelte/icons/heart';
-	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
-	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
+	import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconMail from '@lucide/svelte/icons/mail';
 
 	const themeStorageKey = '3fp-theme';
@@ -216,13 +216,13 @@
 
 	async function getSupabaseClient() {
 		if (!supabaseClient) {
-			supabaseClient = (await import('$lib/supabaseClient')).supabase;
+			supabaseClient = (await import('#lib/supabaseClient')).supabase;
 		}
 		return supabaseClient;
 	}
 
 	async function getTurnstileModule() {
-		if (!turnstileModule) turnstileModule = await import('$lib/security/turnstile');
+		if (!turnstileModule) turnstileModule = await import('#lib/security/turnstile');
 		return turnstileModule;
 	}
 

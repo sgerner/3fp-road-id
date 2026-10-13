@@ -1,8 +1,8 @@
 <script>
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
-	import { CTA_ICON_MAP } from '$lib/groups/contactLinks.js';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { CTA_ICON_MAP } from '#lib/groups/contactLinks.js';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	let { group, canEdit, primaryCta, membershipCta = null } = $props();
 

@@ -12,8 +12,8 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconSave from '@lucide/svelte/icons/save';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import {
 		createVolunteerEvent,
 		createVolunteerOpportunity,
@@ -26,12 +26,12 @@
 		listVolunteerCustomQuestions,
 		listVolunteerEventEmails,
 		notifyVolunteerHosts
-	} from '$lib';
+	} from '#lib';
 	import {
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer
-	} from '$lib/volunteer/communications-ai';
-	import { VOLUNTEER_MERGE_TAGS } from '$lib/volunteer/merge-tags';
+	} from '#lib/volunteer/communications-ai';
+	import { VOLUNTEER_MERGE_TAGS } from '#lib/volunteer/merge-tags';
 	import {
 		ensureArray,
 		ensureDefaultEmail,
@@ -39,12 +39,12 @@
 		mapEventRecordToFormDetails,
 		mapOpportunityRecordToFormDetails,
 		mapQuestionRecordToFormDetails
-	} from '$lib/components/volunteer/form-utils';
-	import EventOverviewStep from '$lib/components/volunteer/EventOverviewStep.svelte';
-	import ScheduleStep from '$lib/components/volunteer/ScheduleStep.svelte';
-	import RolesStep from '$lib/components/volunteer/RolesStep.svelte';
-	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
-	import ReviewStep from '$lib/components/volunteer/ReviewStep.svelte';
+	} from '#lib/components/volunteer/form-utils';
+	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
+	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
+	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
+	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
+	import ReviewStep from '#lib/components/volunteer/ReviewStep.svelte';
 
 	const { data } = $props();
 

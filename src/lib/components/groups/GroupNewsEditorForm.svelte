@@ -13,7 +13,7 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import { tick } from 'svelte';
-	import LearnEditor from '$lib/components/learn/LearnEditor.svelte';
+	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
 
 	let {
 		group,

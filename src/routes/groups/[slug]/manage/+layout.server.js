@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ params, cookies, fetch }) => {
 	const slug = params.slug;

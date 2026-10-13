@@ -1,5 +1,5 @@
-import { env } from '$env/dynamic/private';
-import { shouldAutoUpdateExistingDnsRecord } from '$lib/server/emailDomainRules';
+import * as env from '$app/env/private';
+import { shouldAutoUpdateExistingDnsRecord } from '#lib/server/emailDomainRules';
 import { Vercel } from '@vercel/sdk';
 
 function cleanText(value) {

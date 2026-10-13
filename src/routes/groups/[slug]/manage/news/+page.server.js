@@ -15,8 +15,8 @@ import {
 	queueGroupUpdateEmailBatch,
 	requireGroupNewsManager,
 	toGroupNewsFormValues
-} from '$lib/server/groupNews';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+} from '#lib/server/groupNews';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 export const load = async ({ parent, cookies, url }) => {
 	const parentData = await parent();

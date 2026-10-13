@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { mergeGroupSiteConfig } from '$lib/microsites/config';
-import { getGroupSiteConfig } from '$lib/server/groupSites';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { mergeGroupSiteConfig } from '#lib/microsites/config';
+import { getGroupSiteConfig } from '#lib/server/groupSites';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';

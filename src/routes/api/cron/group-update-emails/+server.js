@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { getGroupNewsServiceClient, renderGroupUpdateEmailContent } from '$lib/server/groupNews';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { getGroupNewsServiceClient, renderGroupUpdateEmailContent } from '#lib/server/groupNews';
 
 const BATCH_LIMIT = 25;
 const GROUP_UPDATE_SOURCE = 'group_update';

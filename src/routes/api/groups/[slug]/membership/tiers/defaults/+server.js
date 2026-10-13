@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { seedDefaultMembershipTiers } from '$lib/server/memberships';
+import { seedDefaultMembershipTiers } from '#lib/server/memberships';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

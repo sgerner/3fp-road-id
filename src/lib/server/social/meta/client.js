@@ -1,5 +1,5 @@
-import { env } from '$env/dynamic/private';
-import { normalizeMetaError } from '$lib/server/social/meta/normalize';
+import * as env from '$app/env/private';
+import { normalizeMetaError } from '#lib/server/social/meta/normalize';
 
 const DEFAULT_META_GRAPH_VERSION = 'v25.0';
 const FACEBOOK_GRAPH_HOST = 'https://graph.facebook.com';

@@ -14,7 +14,7 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconLock from '@lucide/svelte/icons/lock';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
-	import { merchCart } from '$lib/merch/cart';
+	import { merchCart } from '#lib/merch/cart';
 
 	let { data } = $props();
 

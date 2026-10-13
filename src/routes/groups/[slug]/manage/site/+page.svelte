@@ -20,14 +20,14 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash from '@lucide/svelte/icons/trash-2';
 	import IconType from '@lucide/svelte/icons/type';
-	import GroupSiteAiAssistant from '$lib/components/groups/GroupSiteAiAssistant.svelte';
-	import GroupSiteBlockEditor from '$lib/components/groups/GroupSiteBlockEditor.svelte';
-	import GroupSiteDomainManager from '$lib/components/groups/GroupSiteDomainManager.svelte';
-	import GroupSitePartnerEditor from '$lib/components/groups/GroupSitePartnerEditor.svelte';
-	import GroupSitePreview from '$lib/components/groups/GroupSitePreview.svelte';
-	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '$lib/groups/siteEditor';
-	import { deriveLegacySiteVisibility } from '$lib/microsites/blocks';
-	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '$lib/microsites/templates';
+	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';
+	import GroupSiteBlockEditor from '#lib/components/groups/GroupSiteBlockEditor.svelte';
+	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
+	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
+	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '#lib/groups/siteEditor';
+	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
+	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '#lib/microsites/templates';
 	import {
 		createGroupSitePage,
 		GROUP_SITE_PAGE_LIMIT,
@@ -38,7 +38,7 @@
 		normalizeGroupSitePages,
 		normalizeGroupSitePageSlug,
 		pageBlock
-	} from '$lib/microsites/pages';
+	} from '#lib/microsites/pages';
 	import {
 		GROUP_SITE_BACKGROUND_STYLES,
 		GROUP_SITE_FONT_PAIRING_OPTIONS,
@@ -48,7 +48,7 @@
 		GROUP_SITE_PANEL_TONES,
 		GROUP_SITE_RIDE_WIDGET_HOST_SCOPES,
 		GROUP_SITE_SECTION_KEYS
-	} from '$lib/microsites/config';
+	} from '#lib/microsites/config';
 
 	let { data, form } = $props();
 	const clone = (value) => JSON.parse(JSON.stringify(value));

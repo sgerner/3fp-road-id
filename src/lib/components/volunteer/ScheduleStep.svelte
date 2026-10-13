@@ -1,8 +1,8 @@
 <script>
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { env } from '$env/dynamic/public';
-	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
-	import '$lib/map/leaflet.css';
+	import * as env from '$app/env/public';
+	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import '#lib/map/leaflet.css';
 
 	export let eventDetails;
 	export let timezoneOptions = [];

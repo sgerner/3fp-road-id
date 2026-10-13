@@ -1,14 +1,14 @@
-import { env } from '$env/dynamic/private';
-import { PUBLIC_URL_BASE } from '$env/static/public';
-import { wrapHtmlWithBranding, wrapTextWithBranding } from '$lib/email/branding';
-import { domainMatchesManagedZone, resolveSenderSelection } from '$lib/server/emailDomainRules';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { selectAwsSesCredentials } from '$lib/server/awsSesCredentials.js';
+import * as env from '$app/env/private';
+import { PUBLIC_URL_BASE } from '$app/env/public';
+import { wrapHtmlWithBranding, wrapTextWithBranding } from '#lib/email/branding';
+import { domainMatchesManagedZone, resolveSenderSelection } from '#lib/server/emailDomainRules';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { selectAwsSesCredentials } from '#lib/server/awsSesCredentials.js';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { upsertDnsRecordsForVercelDomain } from '$lib/server/vercelDomains';
+} from '#lib/server/supabaseClient';
+import { upsertDnsRecordsForVercelDomain } from '#lib/server/vercelDomains';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import {
 	CreateEmailIdentityCommand,

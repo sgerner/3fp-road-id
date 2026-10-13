@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { normalizeDomain } from '$lib/server/vercelDomains';
-import { enforceRateLimit, readRawBody, verifyWebhookRequest } from '$lib/server/security';
+import * as env from '$app/env/private';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { normalizeDomain } from '#lib/server/vercelDomains';
+import { enforceRateLimit, readRawBody, verifyWebhookRequest } from '#lib/server/security';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';

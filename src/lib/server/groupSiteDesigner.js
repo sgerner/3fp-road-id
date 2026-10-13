@@ -2,7 +2,7 @@ import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
+} from '#lib/server/ai/models';
 import {
 	GROUP_SITE_BACKGROUND_STYLES,
 	GROUP_SITE_FONT_PAIRINGS,
@@ -15,7 +15,7 @@ import {
 	buildDefaultGroupSiteConfig,
 	mergeGroupSiteConfig,
 	normalizeGroupSiteConfig
-} from '$lib/microsites/config';
+} from '#lib/microsites/config';
 
 const RESPONSE_SCHEMA = {
 	type: 'object',

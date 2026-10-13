@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
-import { normalizeRideWidgetConfig } from '$lib/rides/widgetConfig';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { getActivityClient, getActivityServiceClient } from '#lib/server/activities';
+import { normalizeRideWidgetConfig } from '#lib/rides/widgetConfig';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });

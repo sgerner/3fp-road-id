@@ -4,8 +4,8 @@
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();

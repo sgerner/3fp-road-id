@@ -1,12 +1,12 @@
 <script>
 	let { data } = $props();
 	import { onMount } from 'svelte';
-	import { supabase } from '$lib/supabaseClient';
+	import { supabase } from '#lib/supabaseClient';
 	import { goto } from '$app/navigation';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { isSafeInternalPath } from '$lib/security/navigation';
-	import { syncServerSession } from '$lib/security/session';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { isSafeInternalPath } from '#lib/security/navigation';
+	import { syncServerSession } from '#lib/security/session';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 
 	let error = $state('');
 	let message = $state('Completing login…');

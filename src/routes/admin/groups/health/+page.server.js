@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
+import { requireAdmin } from '#lib/server/admin';
 
 export async function load({ fetch, url, cookies }) {
 	await requireAdmin(cookies);

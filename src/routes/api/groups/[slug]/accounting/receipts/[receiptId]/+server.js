@@ -1,5 +1,5 @@
 import { text } from '@sveltejs/kit';
-import { createReceiptViewUrl, requireGroupAccountingManager } from '$lib/server/groupAccounting';
+import { createReceiptViewUrl, requireGroupAccountingManager } from '#lib/server/groupAccounting';
 
 const PRIVATE_HEADERS = {
 	'cache-control': 'private, no-store',

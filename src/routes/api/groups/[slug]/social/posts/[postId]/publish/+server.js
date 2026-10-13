@@ -3,9 +3,9 @@ import {
 	getGroupSocialPostById,
 	serializeSocialPost,
 	updateGroupSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { publishSingleGroupSocialPost } from '#lib/server/social/publish';
 
 const PUBLISHABLE_STATUSES = new Set(['draft', 'scheduled', 'queued', 'failed', 'cancelled']);
 

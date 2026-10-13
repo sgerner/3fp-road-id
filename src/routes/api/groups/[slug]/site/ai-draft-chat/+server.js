@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
-import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
-import { getGroupSiteConfig } from '$lib/server/groupSites';
-import { mergeGroupSiteConfig } from '$lib/microsites/config';
+} from '#lib/server/ai/models';
+import { generateGroupSiteDraft } from '#lib/server/groupSiteDesigner';
+import { getGroupSiteConfig } from '#lib/server/groupSites';
+import { mergeGroupSiteConfig } from '#lib/microsites/config';
 
 const MAX_MESSAGES = 20;
 const RESPONSE_SCHEMA = {

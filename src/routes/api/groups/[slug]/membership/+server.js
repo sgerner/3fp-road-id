@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 export const POST = async ({ params, cookies, request }) => {
 	const { user: sessionUser } = await resolveVerifiedSession(cookies);

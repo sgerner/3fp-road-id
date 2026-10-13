@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { finalizeMembershipPaymentIntent } from '$lib/server/memberships';
+import { finalizeMembershipPaymentIntent } from '#lib/server/memberships';
 
 export async function POST({ params, cookies, request, fetch }) {
 	const payload = await request.json().catch(() => ({}));

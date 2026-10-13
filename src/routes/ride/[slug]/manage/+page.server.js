@@ -4,7 +4,7 @@ import {
 	getActivityClient,
 	loadRideBySlug,
 	loadRideLookups
-} from '$lib/server/activities';
+} from '#lib/server/activities';
 
 async function loadHostGroups(supabase) {
 	const { data: groups } = await supabase

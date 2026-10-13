@@ -18,7 +18,7 @@
 		duplicateEmailBlock,
 		moveEmailBlock,
 		newEmailBlock
-	} from '$lib/groups/emailEditor';
+	} from '#lib/groups/emailEditor';
 
 	let {
 		blocks: initialBlocks = [],

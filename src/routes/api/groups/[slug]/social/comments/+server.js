@@ -4,8 +4,8 @@ import {
 	listGroupSocialCommentsPage,
 	listGroupSocialPosts,
 	serializeSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
 
 function deriveSourcePostFromComment(comment) {
 	const source = comment?.raw_payload?.source_post;

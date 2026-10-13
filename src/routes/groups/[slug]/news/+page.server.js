@@ -5,7 +5,7 @@ import {
 	getGroupNewsClient,
 	getGroupNewsProfilesMap,
 	listPublishedGroupNewsPosts
-} from '$lib/server/groupNews';
+} from '#lib/server/groupNews';
 
 export const load = async ({ params, cookies, url }) => {
 	const { supabase } = await getGroupNewsClient(cookies);

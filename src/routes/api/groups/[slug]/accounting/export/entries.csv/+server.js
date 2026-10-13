@@ -1,5 +1,5 @@
 import { text } from '@sveltejs/kit';
-import { buildEntriesCsv, requireGroupAccountingManager } from '$lib/server/groupAccounting';
+import { buildEntriesCsv, requireGroupAccountingManager } from '#lib/server/groupAccounting';
 
 export async function GET({ cookies, params }) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);

@@ -1,5 +1,5 @@
 <script>
-	import { getRideImage } from '$lib/rides/media';
+	import { getRideImage } from '#lib/rides/media';
 	import { browser } from '$app/environment';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
@@ -18,7 +18,7 @@
 		extractRideCity,
 		extractRideState,
 		formatRideWidgetTitle
-	} from '$lib/rides/widgetConfig';
+	} from '#lib/rides/widgetConfig';
 
 	const { data } = $props();
 

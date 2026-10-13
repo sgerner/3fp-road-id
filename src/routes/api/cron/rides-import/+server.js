@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { importWeeklyRidesFeed } from '$lib/server/weeklyrides-imports';
-import { importBtwPhxCalendar } from '$lib/server/btwphx-imports';
-import { importMeetupRoadCyclingTopic } from '$lib/server/meetup-topic-imports';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { importWeeklyRidesFeed } from '#lib/server/weeklyrides-imports';
+import { importBtwPhxCalendar } from '#lib/server/btwphx-imports';
+import { importMeetupRoadCyclingTopic } from '#lib/server/meetup-topic-imports';
 
 async function enforceCronSecret(request) {
 	const providedSecret =

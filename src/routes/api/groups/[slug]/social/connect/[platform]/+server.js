@@ -3,14 +3,14 @@ import {
 	buildSocialReturnPath,
 	createGroupSocialOauthState,
 	purgeExpiredGroupSocialOauthStates
-} from '$lib/server/social/auth';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { normalizePlatform } from '$lib/server/social/types';
-import { isSafeInternalPath } from '$lib/security/navigation.js';
+} from '#lib/server/social/auth';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { normalizePlatform } from '#lib/server/social/types';
+import { isSafeInternalPath } from '#lib/security/navigation.js';
 import {
 	buildMetaOAuthAuthorizeUrl,
 	resolveMetaOAuthRedirectUri
-} from '$lib/server/social/meta/oauth';
+} from '#lib/server/social/meta/oauth';
 
 export async function GET({ cookies, params, url }) {
 	const platform = normalizePlatform(params.platform);

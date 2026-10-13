@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { generateGroupSocialCaptionDraft } from '$lib/server/social/ai';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { normalizePlatforms, normalizePostTarget } from '$lib/server/social/types';
+import { generateGroupSocialCaptionDraft } from '#lib/server/social/ai';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { normalizePlatforms, normalizePostTarget } from '#lib/server/social/types';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

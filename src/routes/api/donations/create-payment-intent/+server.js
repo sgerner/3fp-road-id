@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { createDonationPaymentIntent } from '$lib/server/donations';
-import { getStripePublishableKey } from '$lib/server/stripe';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { createDonationPaymentIntent } from '#lib/server/donations';
+import { getStripePublishableKey } from '#lib/server/stripe';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const POST = async (event) => {
 	const limited = enforceRateLimit(event, {

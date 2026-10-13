@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+import { getActivityClient, getActivityServiceClient } from '#lib/server/activities';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 
 const BUCKET_NAME = 'storage';
 const MAX_FILE_BYTES = 5 * 1024 * 1024;

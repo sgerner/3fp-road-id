@@ -3,9 +3,9 @@ import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/server/ai/models';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const config = { maxDuration: 60 };
 

@@ -1,12 +1,12 @@
 import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
-import { enforceRateLimit, isSafeInternalPath, readJsonBody } from '$lib/server/security';
-import { isTurnstileEnabled } from '$lib/server/turnstile';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { createOwnerInviteState } from '$lib/server/groupOwnerInvites';
-import { TURNSTILE_SECRET_KEY } from '$env/static/private';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { supabase } from '#lib/supabaseClient';
+import { enforceRateLimit, isSafeInternalPath, readJsonBody } from '#lib/server/security';
+import { isTurnstileEnabled } from '#lib/server/turnstile';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { createOwnerInviteState } from '#lib/server/groupOwnerInvites';
+import { TURNSTILE_SECRET_KEY } from '$app/env/private';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 // Expect a payload like:
 // {

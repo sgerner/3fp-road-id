@@ -1,4 +1,4 @@
-import { normalizeHexColor } from '$lib/microsites/config';
+import { normalizeHexColor } from '#lib/microsites/config';
 
 const FALLBACK_PALETTES = [
 	{ primary: '#F59E0B', secondary: '#0EA5E9', accent: '#FB7185', surface: '#111827' },

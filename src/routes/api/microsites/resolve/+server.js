@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { lookupCustomDomainMicrositeSlug } from '$lib/server/micrositeRouting';
+import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
 
 function cleanHost(value) {
 	return String(value || '')

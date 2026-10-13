@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
 async function safeJson(fetchPromise, fallback = null) {
 	try {

@@ -8,7 +8,7 @@
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
-	import Toggle from '$lib/components/ui/Toggle.svelte';
+	import Toggle from '#lib/components/ui/Toggle.svelte';
 	import { tick, onMount } from 'svelte';
 	import HostNotificationSettings from './HostNotificationSettings.svelte';
 	import {
@@ -17,7 +17,7 @@
 		renderSubject,
 		VOLUNTEER_MERGE_TAGS,
 		getMergeTagExample
-	} from '$lib/volunteer/merge-tags';
+	} from '#lib/volunteer/merge-tags';
 	import { slide } from 'svelte/transition';
 
 	export let customQuestions = [];

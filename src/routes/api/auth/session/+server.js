@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 const MAX_ACCESS_TOKEN_LENGTH = 8 * 1024;
 const MAX_SESSION_AGE_SECONDS = 24 * 60 * 60;

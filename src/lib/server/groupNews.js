@@ -1,16 +1,16 @@
 import { error } from '@sveltejs/kit';
-import { renderLearnMarkdown } from '$lib/learn/markdown';
-import { estimateReadMinutes } from '$lib/learn/readingAid';
+import { renderLearnMarkdown } from '#lib/learn/markdown';
+import { estimateReadMinutes } from '#lib/learn/readingAid';
 import {
 	isTbagLegacyUrl,
 	mapTbagLegacyUrl,
 	TBAG_SOURCE_NAME
-} from '$lib/microsites/tempeBicycleActionGroup';
+} from '#lib/microsites/tempeBicycleActionGroup';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';

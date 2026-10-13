@@ -1,11 +1,11 @@
 import { fail } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { requireAdmin } from '#lib/server/admin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import {
 	DEFAULT_CREATED_BY_USER_ID,
 	importRideSeedData,
 	parseRideSeedJson
-} from '$lib/server/ride-imports';
+} from '#lib/server/ride-imports';
 
 export async function load({ cookies, url }) {
 	await requireAdmin(cookies, {

@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { canManageActivity, getActivityClient, loadRideById } from '$lib/server/activities';
+import { canManageActivity, getActivityClient, loadRideById } from '#lib/server/activities';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });

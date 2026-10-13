@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { resolveTimezoneFromCoordinates } from '$lib/server/timezones';
+import { resolveTimezoneFromCoordinates } from '#lib/server/timezones';
 
 function toFiniteNumber(value) {
 	if (typeof value === 'number' && Number.isFinite(value)) return value;

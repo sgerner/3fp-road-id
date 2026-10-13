@@ -1,4 +1,4 @@
-import { VOLUNTEER_MERGE_TAGS } from '$lib/volunteer/merge-tags';
+import { VOLUNTEER_MERGE_TAGS } from '#lib/volunteer/merge-tags';
 
 function cloneWithFallback(value) {
 	try {

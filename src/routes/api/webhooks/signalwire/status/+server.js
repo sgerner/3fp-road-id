@@ -1,12 +1,12 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { json } from '@sveltejs/kit';
 import {
 	getSmsServiceClient,
 	shouldApplySmsStatus,
 	smsProviderMessageId,
 	smsProviderStatus
-} from '$lib/server/sms';
-import { readRawBody, verifySignalWireWebhookRequest } from '$lib/server/security';
+} from '#lib/server/sms';
+import { readRawBody, verifySignalWireWebhookRequest } from '#lib/server/security';
 
 function parsePayload(raw, contentType) {
 	if (/application\/json/i.test(contentType || '')) {

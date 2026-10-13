@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { readFormData } from '$lib/server/security';
+import { readFormData } from '#lib/server/security';
 import {
 	actionFailure,
 	attachReceiptToEntry,
@@ -34,12 +34,12 @@ import {
 	updateProviderAccountMapping,
 	voidEntry,
 	reclassifyReceipt
-} from '$lib/server/groupAccounting';
+} from '#lib/server/groupAccounting';
 import {
 	analyzeReconciliationStatement,
 	closeReconciliation,
 	saveReconciliationDraft
-} from '$lib/server/groupAccountingReconciliation';
+} from '#lib/server/groupAccountingReconciliation';
 
 const MAX_ACCOUNTING_FORM_BYTES = 12 * 1024 * 1024;
 

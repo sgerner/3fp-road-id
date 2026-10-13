@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { createMerchPaymentIntent } from '$lib/server/merch';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { getStripePublishableKey } from '$lib/server/stripe';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { createMerchPaymentIntent } from '#lib/server/merch';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { getStripePublishableKey } from '#lib/server/stripe';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const POST = async (event) => {
 	const { request, url, cookies } = event;

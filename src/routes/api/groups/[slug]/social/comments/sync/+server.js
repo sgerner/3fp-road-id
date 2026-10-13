@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { syncGroupSocialComments } from '$lib/server/social/comments';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { normalizePlatform } from '$lib/server/social/types';
+import { syncGroupSocialComments } from '#lib/server/social/comments';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { normalizePlatform } from '#lib/server/social/types';
 
 export async function POST({ cookies, params, request }) {
 	try {

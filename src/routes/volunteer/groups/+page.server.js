@@ -1,4 +1,4 @@
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();

@@ -110,10 +110,7 @@ export async function sendEmail(
 		if (typeof errorDetails.code === 'string') {
 			(error as Error & { code?: string }).code = errorDetails.code;
 		}
-		if (
-			typeof errorDetails.requestId === 'string' ||
-			errorDetails.requestId === null
-		) {
+		if (typeof errorDetails.requestId === 'string' || errorDetails.requestId === null) {
 			(error as Error & { requestId?: string | null }).requestId = errorDetails.requestId;
 		}
 		throw error;

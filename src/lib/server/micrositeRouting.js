@@ -1,9 +1,5 @@
-import {
-	isCoreHostname,
-	normalizeHostname,
-	normalizeMicrositeSlug
-} from '$lib/microsites/host';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { isCoreHostname, normalizeHostname, normalizeMicrositeSlug } from '#lib/microsites/host';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 const CUSTOM_DOMAIN_LOOKUP_CACHE_TTL_MS = 60_000;
 const customDomainSlugCache = new Map();

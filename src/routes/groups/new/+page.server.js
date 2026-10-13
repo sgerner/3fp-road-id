@@ -1,11 +1,11 @@
-import { supabase } from '$lib/supabaseClient';
+import { supabase } from '#lib/supabaseClient';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '$lib/server/remoteImages';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
 
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {

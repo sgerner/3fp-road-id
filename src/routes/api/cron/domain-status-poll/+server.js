@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { getDomainConfigForProject, verifyMicrositeProjectDomain } from '$lib/server/vercelDomains';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { getDomainConfigForProject, verifyMicrositeProjectDomain } from '#lib/server/vercelDomains';
 
 export const config = { maxDuration: 60 };
 

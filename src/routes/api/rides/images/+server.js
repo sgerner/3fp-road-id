@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
-import { getActivityClient, getActivityServiceClient } from '$lib/server/activities';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
+import { getActivityClient, getActivityServiceClient } from '#lib/server/activities';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 6;

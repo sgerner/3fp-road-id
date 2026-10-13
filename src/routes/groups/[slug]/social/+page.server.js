@@ -1,10 +1,10 @@
 import { error } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { getGroupClaimStatus } from '$lib/server/groupClaimStatus';
+} from '#lib/server/supabaseClient';
+import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();

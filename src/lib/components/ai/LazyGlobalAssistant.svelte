@@ -9,7 +9,7 @@
 		if (assistantComponent || loading) return;
 		loading = true;
 		try {
-			assistantComponent = (await import('$lib/components/ai/GlobalAssistant.svelte')).default;
+			assistantComponent = (await import('#lib/components/ai/GlobalAssistant.svelte')).default;
 		} finally {
 			loading = false;
 		}

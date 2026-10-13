@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
-import { env } from '$env/dynamic/private';
-import { timingSafeStringEqual } from '$lib/server/security';
+import * as env from '$app/env/private';
+import { timingSafeStringEqual } from '#lib/server/security';
 
 const OWNER_INVITE_TTL_MS = 15 * 60 * 1000;
 const MAX_TOKEN_LENGTH = 4_096;

@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { lookupMembershipUserByEmail } from '$lib/server/memberships';
+import { lookupMembershipUserByEmail } from '#lib/server/memberships';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

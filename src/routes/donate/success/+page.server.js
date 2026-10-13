@@ -1,7 +1,7 @@
 import {
 	finalizeDonationByPaymentIntentId,
 	finalizeDonationBySessionId
-} from '$lib/server/donations';
+} from '#lib/server/donations';
 
 function formatAmount(cents, currency = 'usd') {
 	const amount = Number(cents || 0) / 100;

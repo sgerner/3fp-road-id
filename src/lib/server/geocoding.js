@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/public';
+import * as env from '$app/env/public';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';

@@ -8,26 +8,26 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import '$lib/map/leaflet.css';
-	import { env } from '$env/dynamic/public';
-	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
+	import '#lib/map/leaflet.css';
+	import * as env from '$app/env/public';
+	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
-	import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
-	import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
-	import BrandX from '$lib/icons/BrandX.svelte';
-	import BrandStrava from '$lib/icons/BrandStrava.svelte';
-	import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
-	import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
-	import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
-	import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
-	import BrandThreads from '$lib/icons/BrandThreads.svelte';
+	import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
+	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
+	import BrandX from '#lib/icons/BrandX.svelte';
+	import BrandStrava from '#lib/icons/BrandStrava.svelte';
+	import BrandTikTok from '#lib/icons/BrandTikTok.svelte';
+	import BrandBluesky from '#lib/icons/BrandBluesky.svelte';
+	import BrandDiscord from '#lib/icons/BrandDiscord.svelte';
+	import BrandMastodon from '#lib/icons/BrandMastodon.svelte';
+	import BrandThreads from '#lib/icons/BrandThreads.svelte';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMountain from '@lucide/svelte/icons/mountain';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	function getPageData() {
 		return data ?? {};
 	}
@@ -352,7 +352,7 @@
 		try {
 			const mod = await import('leaflet');
 			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
 			await ensureLeafletDefaultIcon(L);
 		} catch (e) {
 			console.error('Failed to load Leaflet', e);

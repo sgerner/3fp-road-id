@@ -1,9 +1,9 @@
 <script>
 	import { browser } from '$app/environment';
-	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
-	import { getRideImage } from '$lib/rides/media';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
+	import { getRideImage } from '#lib/rides/media';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
@@ -299,7 +299,7 @@
 		try {
 			if (!mapLoadPromise) {
 				mapLoadPromise = (async () => {
-					await import('$lib/map/leaflet.css');
+					await import('#lib/map/leaflet.css');
 					const mod = await import('leaflet');
 					L = mod.default || mod;
 					// markercluster is a legacy UMD bundle and reads Leaflet from the global scope.
@@ -309,7 +309,7 @@
 				})();
 			}
 			await mapLoadPromise;
-			const { ensureLeafletDefaultIcon } = await import('$lib/map/leaflet');
+			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
 			await ensureLeafletDefaultIcon(L);
 		} catch (e) {
 			console.error('Failed to load Leaflet or clustering', e);

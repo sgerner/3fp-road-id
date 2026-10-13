@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { getActivityClient, loadRideBySlug } from '$lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { getActivityClient, loadRideBySlug } from '#lib/server/activities';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });

@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
+import { requireAdmin } from '#lib/server/admin';
 import {
 	createMerchFulfillmentMethod,
 	deleteMerchShippingRule,
@@ -20,7 +20,7 @@ import {
 	uploadMerchProductImage,
 	upsertMerchTaxSettings,
 	upsertMerchVariant
-} from '$lib/server/merch';
+} from '#lib/server/merch';
 
 function formValue(formData, key) {
 	return formData.get(key)?.toString() ?? '';

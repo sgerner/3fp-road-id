@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { createMerchCheckoutSession } from '$lib/server/merch';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { createMerchCheckoutSession } from '#lib/server/merch';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const POST = async (event) => {
 	const { request, url, cookies } = event;

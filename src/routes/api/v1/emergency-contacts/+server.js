@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { readJsonBody } from '$lib/server/security';
+} from '#lib/server/supabaseClient';
+import { readJsonBody } from '#lib/server/security';
 
 const CONTACT_FIELDS = {
 	contact_name: 200,

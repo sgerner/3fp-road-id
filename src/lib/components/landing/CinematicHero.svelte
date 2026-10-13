@@ -1,5 +1,5 @@
 <script>
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	let {
 		eyebrow,

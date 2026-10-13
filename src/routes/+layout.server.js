@@ -1,7 +1,7 @@
-import { isTurnstileEnabled } from '$lib/server/turnstile';
-import { loadOwnedGroups } from '$lib/server/sectionNavigation';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { isTurnstileEnabled } from '#lib/server/turnstile';
+import { loadOwnedGroups } from '#lib/server/sectionNavigation';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ cookies, fetch, route }) => {
 	const isMicrosite = Boolean(route?.id?.startsWith('/[siteSlug]'));

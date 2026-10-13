@@ -3,9 +3,9 @@ import {
 	getGroupSocialPostById,
 	serializeSocialPost,
 	updateGroupSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { publishSingleGroupSocialPost } from '#lib/server/social/publish';
 
 const RETRYABLE_STATUSES = new Set(['failed']);
 

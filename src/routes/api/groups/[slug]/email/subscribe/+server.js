@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 import {
 	GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES,
 	normalizeGroupEmailSignup,
 	shouldSendGroupSubscriberWelcome
-} from '$lib/server/groupEmailSubscribers';
-import { attemptGroupSubscriberWelcome } from '$lib/server/groupSubscriberWelcome';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+} from '#lib/server/groupEmailSubscribers';
+import { attemptGroupSubscriberWelcome } from '#lib/server/groupSubscriberWelcome';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 export async function POST(event) {
 	const { params, request, fetch: fetchImpl } = event;

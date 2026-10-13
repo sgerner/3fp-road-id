@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { MAIN_ORG_DONATION_ACCOUNT_ID } from '$lib/donations/constants';
+import { MAIN_ORG_DONATION_ACCOUNT_ID } from '#lib/donations/constants';
 import {
 	buildGroupDonationAccountId,
 	clearDonationAccountConnection,
 	requireGroupDonationManager,
 	requireMainDonationManager
-} from '$lib/server/donations';
+} from '#lib/server/donations';
 
 export const POST = async ({ request, cookies }) => {
 	let payload = {};

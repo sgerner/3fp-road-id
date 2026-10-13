@@ -1,5 +1,5 @@
 <script>
-	import GroupAssetManager from '$lib/components/groups/GroupAssetManager.svelte';
+	import GroupAssetManager from '#lib/components/groups/GroupAssetManager.svelte';
 
 	let { data, form } = $props();
 </script>

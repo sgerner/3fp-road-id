@@ -1,4 +1,4 @@
-import { normalizePlatform } from '$lib/server/social/types';
+import { normalizePlatform } from '#lib/server/social/types';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

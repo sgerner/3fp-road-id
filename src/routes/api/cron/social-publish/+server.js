@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { getGroupSocialPostById, updateGroupSocialPost } from '$lib/server/social/db';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { publishSingleGroupSocialPost } from '$lib/server/social/publish';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { getGroupSocialPostById, updateGroupSocialPost } from '#lib/server/social/db';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { publishSingleGroupSocialPost } from '#lib/server/social/publish';
 
 export const config = { maxDuration: 60 };
 

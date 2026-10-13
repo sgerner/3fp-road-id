@@ -1,5 +1,5 @@
-import { getPublicMerchCatalog } from '$lib/server/merch';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { getPublicMerchCatalog } from '#lib/server/merch';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ cookies, url }) => {
 	let catalog = null;

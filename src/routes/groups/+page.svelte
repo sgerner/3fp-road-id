@@ -1,7 +1,7 @@
 <script>
 	let { data } = $props();
-	import CinematicHero from '$lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '$lib/components/landing/DiscoveryToolbar.svelte';
+	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
+	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -19,7 +19,7 @@
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
 	import { navigating } from '$app/stores';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	function getInitialFilters() {
 		return data.filters ?? {};
@@ -274,7 +274,7 @@
 		if (L) return L;
 		if (!mapLoadPromise) {
 			mapLoadPromise = Promise.all([
-				import('$lib/map/leaflet.css'),
+				import('#lib/map/leaflet.css'),
 				import('leaflet'),
 				import('leaflet.markercluster')
 			]).then(([, mod]) => {

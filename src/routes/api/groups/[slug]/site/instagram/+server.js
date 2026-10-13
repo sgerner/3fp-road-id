@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { loadMicrositeInstagram } from '$lib/server/groupSites';
+import { loadMicrositeInstagram } from '#lib/server/groupSites';
 
 export async function GET({ params, setHeaders }) {
 	const feed = await loadMicrositeInstagram(params.slug).catch(() => null);

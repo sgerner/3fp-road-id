@@ -7,9 +7,9 @@ import {
 	listGroupSocialPosts,
 	serializeSocialPost,
 	summarizeSocialAccount
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { SOCIAL_SCHEDULING_INTERVAL_MINUTES } from '$lib/server/social/types';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { SOCIAL_SCHEDULING_INTERVAL_MINUTES } from '#lib/server/social/types';
 
 function buildReplyMap(replies = []) {
 	const map = new Map();

@@ -3,9 +3,9 @@
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
-	import AutoLinkText from '$lib/components/ui/AutoLinkText.svelte';
+	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
 	import { goto } from '$app/navigation';
-	import { safeNavigationUrl } from '$lib/security/urls.js';
+	import { safeNavigationUrl } from '#lib/security/urls.js';
 
 	let { data } = $props();
 	const openSlug = $derived(data.initialOpenSlug || '');

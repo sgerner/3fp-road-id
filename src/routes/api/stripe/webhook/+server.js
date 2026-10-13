@@ -1,22 +1,22 @@
-import { handleStripeFinancialConnectionsRefreshWebhook } from '$lib/server/groupAccounting';
+import { handleStripeFinancialConnectionsRefreshWebhook } from '#lib/server/groupAccounting';
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import {
 	finalizeDonationByPaymentIntentId,
 	finalizeDonationBySessionId
-} from '$lib/server/donations';
+} from '#lib/server/donations';
 import {
 	finalizeDomainOrderByCheckoutSessionId,
 	finalizeDomainOrderByPaymentIntentId
-} from '$lib/server/groupSiteDomains';
+} from '#lib/server/groupSiteDomains';
 import {
 	finalizeMerchOrderByPaymentIntentId,
 	finalizeMerchOrderBySessionId
-} from '$lib/server/merch';
-import { handleMembershipStripeEvent } from '$lib/server/memberships';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { getStripeClient } from '$lib/server/stripe';
-import { enforceRateLimit, readRawBody } from '$lib/server/security';
+} from '#lib/server/merch';
+import { handleMembershipStripeEvent } from '#lib/server/memberships';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { getStripeClient } from '#lib/server/stripe';
+import { enforceRateLimit, readRawBody } from '#lib/server/security';
 
 async function safelyFinalizeSession(sessionId, fetchImpl) {
 	let donationResult = null;

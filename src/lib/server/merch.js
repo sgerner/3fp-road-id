@@ -1,15 +1,15 @@
 import { randomBytes } from 'node:crypto';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
 import {
 	calculatePrintfulShippingRatesV2,
 	listPrintfulProductsWithVariantsV2,
 	listPrintfulStoresV2,
 	refreshPrintfulAccessToken,
 	sendPrintfulRequest
-} from '$lib/server/printful';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
-import { timingSafeStringEqual } from '$lib/server/security';
+} from '#lib/server/printful';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { getStripeClient, resolvePublicBaseUrl } from '#lib/server/stripe';
+import { timingSafeStringEqual } from '#lib/server/security';
 
 const MAIN_STORE_SLUG = 'main';
 const MAX_CART_LINES = 30;

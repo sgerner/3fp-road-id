@@ -13,7 +13,7 @@
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 
 	const { data } = $props();
 	let openSlug = $state('');

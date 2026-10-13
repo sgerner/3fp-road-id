@@ -1,9 +1,9 @@
 <script>
 	import { enhance } from '$app/forms';
-	import LearnEditor from '$lib/components/learn/LearnEditor.svelte';
-	import LearnMediaUploader from '$lib/components/learn/LearnMediaUploader.svelte';
-	import LearnWritingAssistant from '$lib/components/learn/LearnWritingAssistant.svelte';
-	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
+	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
+	import LearnMediaUploader from '#lib/components/learn/LearnMediaUploader.svelte';
+	import LearnWritingAssistant from '#lib/components/learn/LearnWritingAssistant.svelte';
+	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import IconBookPlus from '@lucide/svelte/icons/book-plus';
 	import IconPencil from '@lucide/svelte/icons/pencil';
 

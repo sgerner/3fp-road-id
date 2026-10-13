@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
-import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '$lib/microsites/host';
+import { supabase } from '#lib/supabaseClient';
+import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';

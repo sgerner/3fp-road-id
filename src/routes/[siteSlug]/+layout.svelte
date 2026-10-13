@@ -8,16 +8,16 @@
 		limitSeoText,
 		normalizePathname,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconMoonStar from '@lucide/svelte/icons/moon-star';
 	import IconSun from '@lucide/svelte/icons/sun';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { fade, fly } from 'svelte/transition';
-	import { scrollReveal } from '$lib/microsites/scrollReveal';
+	import { scrollReveal } from '#lib/microsites/scrollReveal';
 
 	let { data, children } = $props();
 

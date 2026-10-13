@@ -17,8 +17,8 @@
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconSettings from '@lucide/svelte/icons/settings-2';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import DomainPurchasePanel from '$lib/components/groups/DomainPurchasePanel.svelte';
-	import GroupEmailCanvas from '$lib/components/groups/GroupEmailCanvas.svelte';
+	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
+	import GroupEmailCanvas from '#lib/components/groups/GroupEmailCanvas.svelte';
 	import {
 		EMAIL_BRAND_PRESETS,
 		EMAIL_PURPOSES,
@@ -27,7 +27,7 @@
 		getCampaignReadiness,
 		renderCampaignHtml,
 		renderCampaignText
-	} from '$lib/groups/emailEditor';
+	} from '#lib/groups/emailEditor';
 
 	let { data } = $props();
 	const group = $derived(data.group ?? {});

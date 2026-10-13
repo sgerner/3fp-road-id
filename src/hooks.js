@@ -2,7 +2,7 @@ import {
 	extractMicrositeSlugFromHostname,
 	isCoreHostname,
 	normalizeHostname
-} from '$lib/microsites/host';
+} from '#lib/microsites/host';
 
 function shouldSkipMicrositeReroute(pathname) {
 	if (!pathname) return false;

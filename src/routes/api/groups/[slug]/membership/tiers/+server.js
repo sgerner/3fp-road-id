@@ -4,7 +4,7 @@ import {
 	createMembershipTier,
 	updateMembershipTier,
 	deleteMembershipTier
-} from '$lib/server/memberships';
+} from '#lib/server/memberships';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

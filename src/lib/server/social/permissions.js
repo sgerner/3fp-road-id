@@ -1,8 +1,8 @@
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
+} from '#lib/server/supabaseClient';
 
 const MANAGER_ROLES = ['owner', 'admin'];
 

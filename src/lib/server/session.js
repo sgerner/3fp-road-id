@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
 function parseSessionCookie(raw) {
 	if (!raw) return null;

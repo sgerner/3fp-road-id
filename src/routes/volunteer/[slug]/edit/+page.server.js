@@ -1,12 +1,12 @@
 import { redirect, error } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	listVolunteerEvents,
 	listVolunteerOpportunities,
 	listVolunteerShifts,
 	listVolunteerCustomQuestions,
 	listVolunteerEventEmails
-} from '$lib';
+} from '#lib';
 
 function buildQuery(params) {
 	const search = new URLSearchParams();

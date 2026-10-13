@@ -1,4 +1,4 @@
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 import { fail } from '@sveltejs/kit';
 
 const CONFIRM_WINDOW_HOURS = 48;

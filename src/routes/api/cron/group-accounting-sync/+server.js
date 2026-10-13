@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { syncAllBankTransactions } from '$lib/server/groupAccounting';
+import { getCronSecretVerifier } from '#lib/server/activities';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { syncAllBankTransactions } from '#lib/server/groupAccounting';
 
 async function isAuthorized(request) {
 	const providedSecret =

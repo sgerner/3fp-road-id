@@ -2,9 +2,9 @@ import { json } from '@sveltejs/kit';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 async function getSupabaseInstance(event) {
 	const { accessToken } = await resolveVerifiedSession(event.cookies);

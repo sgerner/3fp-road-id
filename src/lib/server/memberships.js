@@ -1,24 +1,24 @@
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { getStripeClient, resolvePublicBaseUrl } from '$lib/server/stripe';
-import { getGroupEmailSenderConfig, sendGroupManagedEmail } from '$lib/server/groupEmailDomains';
+} from '#lib/server/supabaseClient';
+import { getStripeClient, resolvePublicBaseUrl } from '#lib/server/stripe';
+import { getGroupEmailSenderConfig, sendGroupManagedEmail } from '#lib/server/groupEmailDomains';
 import {
 	createSafeEmailHtmlContext,
 	escapeEmailHtmlValue,
 	safeEmailHref
-} from '$lib/server/emailTemplate';
+} from '#lib/server/emailTemplate';
 import {
 	claimEmailCampaign,
 	recoverStaleEmailCampaignClaims,
 	renewEmailCampaignClaim,
 	resolveEmailCampaignFinalStatus
-} from '$lib/server/emailCampaignState';
-import { PUBLIC_URL_BASE } from '$env/static/public';
-import { MAX_EMAIL_HTML_LENGTH } from '$lib/groups/emailEditor';
+} from '#lib/server/emailCampaignState';
+import { PUBLIC_URL_BASE } from '$app/env/public';
+import { MAX_EMAIL_HTML_LENGTH } from '#lib/groups/emailEditor';
 
 const MANAGER_ROLES = ['owner', 'admin'];
 const DEFAULT_POLICY_MARKDOWN = `By joining, you agree to this membership policy.

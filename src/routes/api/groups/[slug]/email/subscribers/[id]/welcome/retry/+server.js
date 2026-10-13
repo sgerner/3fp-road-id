@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { retryGroupSubscriberWelcome } from '$lib/server/groupSubscriberWelcome';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { retryGroupSubscriberWelcome } from '#lib/server/groupSubscriberWelcome';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 function respond(result) {
 	if (!result?.ok) {

@@ -1,15 +1,15 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import * as env from '$app/env/private';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import {
 	buildShiftCalendarBlocks,
 	createMergeContext,
 	renderEmailBody,
 	renderSubject
-} from '$lib/volunteer/merge-tags';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { timingSafeStringEqual } from '$lib/server/security';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+} from '#lib/volunteer/merge-tags';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { timingSafeStringEqual } from '#lib/server/security';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
 const ONE_HOUR_MS = 60 * 60 * 1000;

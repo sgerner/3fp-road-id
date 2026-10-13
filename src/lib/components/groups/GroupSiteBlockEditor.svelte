@@ -25,7 +25,7 @@
 		GROUP_SITE_BLOCK_LIMIT,
 		GROUP_SITE_BLOCK_TYPES,
 		getGroupSiteBlockTone
-	} from '$lib/microsites/blocks';
+	} from '#lib/microsites/blocks';
 
 	let {
 		blocks = [],

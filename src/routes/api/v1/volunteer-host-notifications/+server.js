@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 import {
 	fetchList,
 	fetchSingle,

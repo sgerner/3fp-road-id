@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { readJsonBody } from '$lib/server/security';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { readJsonBody } from '#lib/server/security';
 
 const PROFILE_FIELDS = {
 	full_name: 200,

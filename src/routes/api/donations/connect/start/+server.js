@@ -3,8 +3,8 @@ import {
 	createConnectStateToken,
 	requireGroupDonationManager,
 	requireMainDonationManager
-} from '$lib/server/donations';
-import { getStripeConnectClientId, resolvePublicBaseUrl } from '$lib/server/stripe';
+} from '#lib/server/donations';
+import { getStripeConnectClientId, resolvePublicBaseUrl } from '#lib/server/stripe';
 
 export const GET = async ({ url, cookies }) => {
 	const recipientType = (url.searchParams.get('recipient') || 'main').toLowerCase();

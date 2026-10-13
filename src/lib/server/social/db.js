@@ -6,7 +6,7 @@ import {
 	safeErrorMessage,
 	safePrompt,
 	safeTitle
-} from '$lib/server/social/types';
+} from '#lib/server/social/types';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

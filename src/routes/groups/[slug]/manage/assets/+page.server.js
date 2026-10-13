@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fail } from '@sveltejs/kit';
-import { GROUP_ASSET_BUCKET } from '$lib/groups/assets';
+import { GROUP_ASSET_BUCKET } from '#lib/groups/assets';
 import {
 	buildGroupAssetObjectPath,
 	ensureCanonicalGroupAssetSections,
@@ -10,9 +10,9 @@ import {
 	requireGroupAssetManager,
 	sanitizeExternalUrl,
 	validateAssetUpload
-} from '$lib/server/groupAssets';
-import { optimizeImageForStorage, replaceFileExtension } from '$lib/server/storageImages';
-import { readFormData } from '$lib/server/security';
+} from '#lib/server/groupAssets';
+import { optimizeImageForStorage, replaceFileExtension } from '#lib/server/storageImages';
+import { readFormData } from '#lib/server/security';
 
 const MAX_UPLOAD_FILES = 8;
 

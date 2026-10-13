@@ -1,36 +1,36 @@
 import sharp from 'sharp';
-import { supabase } from '$lib/supabaseClient';
-import { listGroupAssetBuckets, getGroupAssetsReadClient } from '$lib/server/groupAssets';
+import { supabase } from '#lib/supabaseClient';
+import { listGroupAssetBuckets, getGroupAssetsReadClient } from '#lib/server/groupAssets';
 import {
 	buildGroupNewsView,
 	getGroupNewsProfilesMap,
 	getGroupNewsPostBySlug,
 	listPublishedGroupNewsSummaries,
 	listPublishedGroupNewsPosts
-} from '$lib/server/groupNews';
-import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
-import { buildContactLinks, selectPrimaryCta } from '$lib/groups/contactLinks';
-import { safeNavigationUrl } from '$lib/security/urls.js';
-import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
-import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
+} from '#lib/server/groupNews';
+import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
+import { buildContactLinks, selectPrimaryCta } from '#lib/groups/contactLinks';
+import { safeNavigationUrl } from '#lib/security/urls.js';
+import { callInstagramApi, callMetaApi } from '#lib/server/social/meta/client';
+import { resolveMetaAccountAccessToken } from '#lib/server/social/meta/tokens';
 import {
 	buildDefaultGroupSiteConfig,
 	mergeGroupSiteConfig,
 	normalizeGroupSiteConfig,
 	serializeGroupSiteConfig
-} from '$lib/microsites/config';
-import { normalizeMicrositeSlug } from '$lib/microsites/host';
-import { buildMicrositeThemeStyle, normalizePalette } from '$lib/microsites/theme';
-import { THREE_FEET_PLEASE_COLORS } from '$lib/microsites/threeFeetPlease';
+} from '#lib/microsites/config';
+import { normalizeMicrositeSlug } from '#lib/microsites/host';
+import { buildMicrositeThemeStyle, normalizePalette } from '#lib/microsites/theme';
+import { THREE_FEET_PLEASE_COLORS } from '#lib/microsites/threeFeetPlease';
 import {
 	isTbagLegacyUrl,
 	mapTbagLegacyUrl,
 	TBAG_COLORS
-} from '$lib/microsites/tempeBicycleActionGroup';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { filterRidesForWidget } from '$lib/rides/widgetConfig';
-import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
-import { sniffRasterImageMimeType } from '$lib/server/storageImages';
+} from '#lib/microsites/tempeBicycleActionGroup';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { filterRidesForWidget } from '#lib/rides/widgetConfig';
+import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
+import { sniffRasterImageMimeType } from '#lib/server/storageImages';
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const MAX_PALETTE_IMAGE_BYTES = 12 * 1024 * 1024;

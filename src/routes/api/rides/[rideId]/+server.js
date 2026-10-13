@@ -10,7 +10,7 @@ import {
 	refreshActivityNextOccurrence,
 	syncActivityOccurrences,
 	upsertActivityRelations
-} from '$lib/server/activities';
+} from '#lib/server/activities';
 
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });

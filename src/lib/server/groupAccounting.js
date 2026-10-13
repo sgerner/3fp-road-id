@@ -1,14 +1,14 @@
 import path from 'node:path';
 import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { fail } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { decryptSocialToken, encryptSocialToken } from '$lib/server/social/crypto';
-import { getStripeClient, getStripePublishableKey } from '$lib/server/stripe';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { decryptSocialToken, encryptSocialToken } from '#lib/server/social/crypto';
+import { getStripeClient, getStripePublishableKey } from '#lib/server/stripe';
 import {
 	centsFromAmount,
 	centsFromAmountAndDirection,
@@ -3121,7 +3121,7 @@ export async function syncMercuryTransactions(auth, options = {}) {
 async function performStripeSync(auth, options = {}) {
 	const { runAutoMatch = true } = options;
 	const [{ getStripeClient }, donationAccountResult] = await Promise.all([
-		import('$lib/server/stripe'),
+		import('#lib/server/stripe'),
 		auth.serviceSupabase
 			.from('donation_accounts')
 			.select('stripe_account_id')

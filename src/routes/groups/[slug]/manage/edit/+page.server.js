@@ -1,11 +1,11 @@
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '$lib/server/remoteImages';
-import { readFormData } from '$lib/server/security';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
+import { readFormData } from '#lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB

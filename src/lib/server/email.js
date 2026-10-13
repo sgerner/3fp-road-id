@@ -1,5 +1,5 @@
-import { env } from '$env/dynamic/private';
-import { sendEmail } from '$lib/services/email';
+import * as env from '$app/env/private';
+import { sendEmail } from '#lib/services/email';
 
 /**
  * Server-only email client. The public email route requires this capability

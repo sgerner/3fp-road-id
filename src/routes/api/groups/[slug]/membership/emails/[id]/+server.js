@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { updateMembershipEmailCampaign } from '$lib/server/memberships';
+import { updateMembershipEmailCampaign } from '#lib/server/memberships';
 
 function respond(result) {
 	if (!result?.ok) {

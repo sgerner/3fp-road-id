@@ -3,13 +3,13 @@
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconCheck from '@lucide/svelte/icons/check';
-	import Toggle from '$lib/components/ui/Toggle.svelte';
+	import Toggle from '#lib/components/ui/Toggle.svelte';
 	import {
 		DEFAULT_SIGNATURE_FORM,
 		buildSignatureHtml,
 		getAccentOptions,
 		getLogoOptions
-	} from '$lib/admin/signatureBuilder';
+	} from '#lib/admin/signatureBuilder';
 
 	let { data } = $props();
 

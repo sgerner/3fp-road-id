@@ -1,23 +1,23 @@
-import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
 import {
 	ANONYMITY_NOTICE,
 	GROUP_TAX_NOTICE,
 	MAIN_ORG_DONATION_ACCOUNT_ID,
 	MAIN_ORG_TAX_NOTICE
-} from '$lib/donations/constants';
+} from '#lib/donations/constants';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	createSignedConnectState,
 	getStripeClient,
 	resolvePublicBaseUrl,
 	verifySignedConnectState
-} from '$lib/server/stripe';
-import { postDonationToGroupAccounting } from '$lib/server/groupAccounting';
-import { timingSafeStringEqual } from '$lib/server/security';
+} from '#lib/server/stripe';
+import { postDonationToGroupAccounting } from '#lib/server/groupAccounting';
+import { timingSafeStringEqual } from '#lib/server/security';
 
 function normalizeEmail(value) {
 	if (!value || typeof value !== 'string') return '';

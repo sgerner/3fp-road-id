@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
+import { getCronSecretVerifier } from '#lib/server/activities';
 import {
 	buildSmsUrl,
 	formatSmsDateTime,
 	getSmsManagerIds,
 	getSmsServiceClient,
 	enqueueSms
-} from '$lib/server/sms';
+} from '#lib/server/sms';
 
 const HORIZON_MS = 14 * 24 * 60 * 60 * 1000;
 const REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;

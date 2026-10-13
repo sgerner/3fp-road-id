@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient } from '$lib/server/activities';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { getActivityClient } from '#lib/server/activities';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 const ALLOWED_FEEDBACK_TYPES = new Set(['impression', 'click', 'dwell', 'save', 'hide']);
 const DEFAULT_WEIGHTS = {

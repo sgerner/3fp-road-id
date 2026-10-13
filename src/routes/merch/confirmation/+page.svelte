@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { merchCart } from '$lib/merch/cart';
+	import { merchCart } from '#lib/merch/cart';
 
 	let { data } = $props();
 

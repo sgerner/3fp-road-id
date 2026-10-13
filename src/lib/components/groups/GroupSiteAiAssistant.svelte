@@ -4,7 +4,7 @@
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
 	import IconSend from '@lucide/svelte/icons/send-horizontal';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import { siteEditorConfigFingerprint } from '$lib/groups/siteEditor';
+	import { siteEditorConfigFingerprint } from '#lib/groups/siteEditor';
 
 	let { groupSlug, currentConfig = {}, onapplied = () => {} } = $props();
 	const starter =

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getGroupSocialCommentById } from '$lib/server/social/db';
-import { generateGroupSocialCommentReplyDraft } from '$lib/server/social/ai';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
+import { getGroupSocialCommentById } from '#lib/server/social/db';
+import { generateGroupSocialCommentReplyDraft } from '#lib/server/social/ai';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

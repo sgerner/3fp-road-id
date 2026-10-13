@@ -15,7 +15,7 @@
 		buildRideWidgetSearchParams,
 		normalizeRideWidgetConfig,
 		parseRideWidgetConfigFromSearchParams
-	} from '$lib/rides/widgetConfig';
+	} from '#lib/rides/widgetConfig';
 
 	const { data } = $props();
 	const initialConfig = normalizeRideWidgetConfig(

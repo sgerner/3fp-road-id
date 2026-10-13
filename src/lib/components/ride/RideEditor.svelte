@@ -9,7 +9,7 @@
 		SURFACE_TYPE_OPTIONS,
 		BIKE_SUITABILITY_OPTIONS,
 		WEEKDAY_OPTIONS
-	} from '$lib/rides/constants';
+	} from '#lib/rides/constants';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -19,7 +19,7 @@
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
-	import ImageGeneratorPanel from '$lib/components/ai/ImageGeneratorPanel.svelte';
+	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 
 	let {
 		pageTitle = 'New Ride',

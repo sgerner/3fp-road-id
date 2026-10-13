@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { setDomainAutoRenewForGroup } from '$lib/server/groupSiteDomains';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { setDomainAutoRenewForGroup } from '#lib/server/groupSiteDomains';
 
 export async function PATCH({ cookies, params, request }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug || '' });

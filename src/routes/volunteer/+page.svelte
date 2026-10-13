@@ -1,5 +1,5 @@
 <script>
-	import VolunteerEventsExplorer from '$lib/components/volunteer/VolunteerEventsExplorer.svelte';
+	import VolunteerEventsExplorer from '#lib/components/volunteer/VolunteerEventsExplorer.svelte';
 
 	const { data } = $props();
 

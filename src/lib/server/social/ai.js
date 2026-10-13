@@ -2,7 +2,7 @@ import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
+} from '#lib/server/ai/models';
 
 const RESPONSE_SCHEMA = {
 	type: 'object',

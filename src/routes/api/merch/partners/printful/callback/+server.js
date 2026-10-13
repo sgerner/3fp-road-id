@@ -1,11 +1,11 @@
 import { redirect } from '@sveltejs/kit';
-import { requireGroupDonationManager, requireMainDonationManager } from '$lib/server/donations';
+import { requireGroupDonationManager, requireMainDonationManager } from '#lib/server/donations';
 import {
 	connectPrintfulForStore,
 	getMerchStoreBySlug,
 	getOrCreateGroupMerchStore
-} from '$lib/server/merch';
-import { exchangePrintfulAuthorizationCode, parsePrintfulStateToken } from '$lib/server/printful';
+} from '#lib/server/merch';
+import { exchangePrintfulAuthorizationCode, parsePrintfulStateToken } from '#lib/server/printful';
 
 function buildReturnPath(target) {
 	if (!target || target.type === 'main') return '/merch/manage';

@@ -1,5 +1,5 @@
 <script>
-	import RideEditor from '$lib/components/ride/RideEditor.svelte';
+	import RideEditor from '#lib/components/ride/RideEditor.svelte';
 
 	const { data } = $props();
 </script>

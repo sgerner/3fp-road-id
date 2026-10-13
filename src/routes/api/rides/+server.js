@@ -9,7 +9,7 @@ import {
 	refreshActivityNextOccurrence,
 	syncActivityOccurrences,
 	upsertActivityRelations
-} from '$lib/server/activities';
+} from '#lib/server/activities';
 
 function parseJson(request) {
 	return request.json().catch(() => null);

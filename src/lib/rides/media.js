@@ -1,4 +1,4 @@
-import { optimizedImageUrl } from '$lib/media/optimized';
+import { optimizedImageUrl } from '#lib/media/optimized';
 
 export const DEFAULT_RIDE_IMAGE_URL = '/images/default-ride.webp';
 

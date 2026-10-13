@@ -1,8 +1,8 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
 	import IconHandshake from '@lucide/svelte/icons/handshake';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';

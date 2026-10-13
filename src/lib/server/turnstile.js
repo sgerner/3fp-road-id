@@ -1,4 +1,4 @@
-import { TURNSTILE_ENABLED } from '$env/static/private';
+import { TURNSTILE_ENABLED } from '$app/env/private';
 
 const FALSEY_VALUES = new Set(['0', 'false', 'no', 'off']);
 

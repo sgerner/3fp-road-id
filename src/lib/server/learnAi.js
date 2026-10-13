@@ -2,9 +2,9 @@ import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
-import { generateLearnReadingAid } from '$lib/learn/readingAid';
-import { buildHybridArticleCandidates } from '$lib/server/learnRecommendations';
+} from '#lib/server/ai/models';
+import { generateLearnReadingAid } from '#lib/learn/readingAid';
+import { buildHybridArticleCandidates } from '#lib/server/learnRecommendations';
 import {
 	buildLearnNavigationExplanationPrompt,
 	buildLearnNavigationIntentPrompt,

@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
-import { supabase } from '$lib/supabaseClient';
-import { syncServerSession } from '$lib/security/session';
+import { supabase } from '#lib/supabaseClient';
+import { syncServerSession } from '#lib/security/session';
 
 const VOLUNTEER_TABLES = {
 	events: 'volunteer_events',

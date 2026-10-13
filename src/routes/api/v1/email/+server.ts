@@ -1,21 +1,21 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit, readJsonBody, timingSafeStringEqual } from '$lib/server/security';
-import { sanitizeEmailHtml } from '$lib/server/emailHtml';
-import { selectAwsSesCredentials } from '$lib/server/awsSesCredentials.js';
-import { describeSesSendFailure } from '$lib/server/sesSendError.js';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit, readJsonBody, timingSafeStringEqual } from '#lib/server/security';
+import { sanitizeEmailHtml } from '#lib/server/emailHtml';
+import { selectAwsSesCredentials } from '#lib/server/awsSesCredentials.js';
+import { describeSesSendFailure } from '#lib/server/sesSendError.js';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 import {
 	normalizeEmailBrand,
 	wrapHtmlWithBranding,
 	wrapTextWithBranding
-} from '$lib/email/branding';
+} from '#lib/email/branding';
 
 const MAX_RECIPIENTS = 10;
 const MAX_BODY_LENGTH = 5000;

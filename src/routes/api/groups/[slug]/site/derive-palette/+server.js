@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { mergeGroupSiteConfig } from '$lib/microsites/config';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { deriveGroupSitePalette, getGroupSiteConfig } from '$lib/server/groupSites';
+import { mergeGroupSiteConfig } from '#lib/microsites/config';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { deriveGroupSitePalette, getGroupSiteConfig } from '#lib/server/groupSites';
 
 export async function POST({ params, request, cookies }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug });

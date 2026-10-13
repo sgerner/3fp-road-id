@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { buildGoogleCalendarUrl, buildIcsContent, eventLocation } from '$lib/calendar/links';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { buildGoogleCalendarUrl, buildIcsContent, eventLocation } from '#lib/calendar/links';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';

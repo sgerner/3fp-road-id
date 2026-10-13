@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient } from '$lib/server/activities';
-import { searchGeocode } from '$lib/server/geocoding';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { normalizeE164PhoneNumber } from '$lib/utils/phone';
+import { getActivityClient } from '#lib/server/activities';
+import { searchGeocode } from '#lib/server/geocoding';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { normalizeE164PhoneNumber } from '#lib/utils/phone';
 
 const MAX_FULL_NAME_LENGTH = 120;
 const MAX_BIO_LENGTH = 600;

@@ -6,12 +6,12 @@ import {
 	listGroupSocialPosts,
 	setGroupSocialAccountStatus,
 	upsertGroupSocialCommentsBatch
-} from '$lib/server/social/db';
+} from '#lib/server/social/db';
 import {
 	fetchConnectedAccountComments,
 	replyToConnectedComment
-} from '$lib/server/social/meta/comments';
-import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
+} from '#lib/server/social/meta/comments';
+import { resolveMetaAccountAccessToken } from '#lib/server/social/meta/tokens';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

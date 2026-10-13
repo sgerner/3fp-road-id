@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupSiteManager } from '$lib/server/groupSiteAuth';
-import { verifyAttachedDomainForGroup } from '$lib/server/groupSiteDomains';
+import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
+import { verifyAttachedDomainForGroup } from '#lib/server/groupSiteDomains';
 
 export async function POST({ cookies, params }) {
 	const auth = await requireGroupSiteManager({ cookies, groupSlug: params.slug || '' });

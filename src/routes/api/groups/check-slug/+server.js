@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { supabase } from '$lib/supabaseClient';
+import { supabase } from '#lib/supabaseClient';
 
 function slugify(text) {
 	return (text || '')

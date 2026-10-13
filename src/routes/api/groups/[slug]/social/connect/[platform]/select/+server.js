@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { encryptSocialToken, decryptSocialToken } from '$lib/server/social/crypto';
+import { encryptSocialToken, decryptSocialToken } from '#lib/server/social/crypto';
 import {
 	deleteGroupSocialOauthPendingConnection,
 	getGroupSocialOauthPendingConnectionById,
 	upsertGroupSocialAccount
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
-import { resolveMetaConnectionFromOption } from '$lib/server/social/meta/oauth';
-import { normalizePlatform } from '$lib/server/social/types';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
+import { resolveMetaConnectionFromOption } from '#lib/server/social/meta/oauth';
+import { normalizePlatform } from '#lib/server/social/types';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

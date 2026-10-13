@@ -1,9 +1,9 @@
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { normalizeTimezone, resolveTimezoneFromCoordinates } from '$lib/server/timezones';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { normalizeTimezone, resolveTimezoneFromCoordinates } from '#lib/server/timezones';
 
 const MAX_OCCURRENCE_MONTHS = 18;
 const ACTIVITY_SELECT = `

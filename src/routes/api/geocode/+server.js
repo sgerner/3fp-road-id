@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { searchGeocode } from '$lib/server/geocoding';
-import { enforceRateLimit } from '$lib/server/security';
+import { searchGeocode } from '#lib/server/geocoding';
+import { enforceRateLimit } from '#lib/server/security';
 
 export async function GET(event) {
 	const { url, fetch } = event;

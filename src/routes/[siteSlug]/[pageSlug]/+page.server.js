@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { groupSitePageBySlug } from '$lib/microsites/pages';
+import { groupSitePageBySlug } from '#lib/microsites/pages';
 
 export const load = async ({ parent, params }) => {
 	const data = await parent();

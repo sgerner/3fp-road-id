@@ -1,5 +1,5 @@
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export async function requireGroupSiteManager({ cookies, groupSlug }) {
 	const serviceSupabase = createServiceSupabaseClient();

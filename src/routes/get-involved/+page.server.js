@@ -1,15 +1,15 @@
 import { dev } from '$app/environment';
 import { fail } from '@sveltejs/kit';
-import { TURNSTILE_SECRET_KEY } from '$env/static/private';
+import { TURNSTILE_SECRET_KEY } from '$app/env/private';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { isTurnstileEnabled } from '$lib/server/turnstile';
-import { requireAdmin } from '$lib/server/admin';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { enforceRateLimit, readFormData } from '$lib/server/security';
+} from '#lib/server/supabaseClient';
+import { isTurnstileEnabled } from '#lib/server/turnstile';
+import { requireAdmin } from '#lib/server/admin';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { enforceRateLimit, readFormData } from '#lib/server/security';
 
 const emailPattern = /^\S+@\S+\.\S+$/;
 const hasTurnstileSecret = Boolean(TURNSTILE_SECRET_KEY);

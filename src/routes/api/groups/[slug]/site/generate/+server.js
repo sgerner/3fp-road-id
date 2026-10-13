@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { getGroupSiteConfig } from '$lib/server/groupSites';
-import { generateGroupSiteDraft } from '$lib/server/groupSiteDesigner';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { getGroupSiteConfig } from '#lib/server/groupSites';
+import { generateGroupSiteDraft } from '#lib/server/groupSiteDesigner';
 
 async function requireOwner(cookies, groupSlug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);

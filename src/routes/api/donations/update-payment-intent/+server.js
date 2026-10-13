@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { updateDonationPaymentIntent } from '$lib/server/donations';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { updateDonationPaymentIntent } from '#lib/server/donations';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 export const POST = async (event) => {
 	const limited = enforceRateLimit(event, {

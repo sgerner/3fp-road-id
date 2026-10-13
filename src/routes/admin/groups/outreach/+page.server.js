@@ -1,11 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { requireAiModel } from '$lib/server/ai/models';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { GROUP_ASSET_BUCKET } from '$lib/groups/assets';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { readFormData } from '$lib/server/security';
+import { requireAdmin } from '#lib/server/admin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { requireAiModel } from '#lib/server/ai/models';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { GROUP_ASSET_BUCKET } from '#lib/groups/assets';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { readFormData } from '#lib/server/security';
 
 const ALL_FIELD_KEYS = [
 	'name',

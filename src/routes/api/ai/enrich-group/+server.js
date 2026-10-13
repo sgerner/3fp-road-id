@@ -1,21 +1,21 @@
 import { createHash } from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { DomUtils, parseDocument } from 'htmlparser2';
-import { searchGeocode } from '$lib/server/geocoding';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { searchGeocode } from '#lib/server/geocoding';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
 	getAiModel,
 	requireAiModel
-} from '$lib/server/ai/models';
+} from '#lib/server/ai/models';
 import {
 	enforceRateLimit,
 	readJsonBody,
 	readResponseBuffer,
 	fetchPublicHttp
-} from '$lib/server/security';
+} from '#lib/server/security';
 
 // Give Vercel enough time for the AI call.
 export const config = { maxDuration: 60 };

@@ -2,8 +2,8 @@ import { redirect } from '@sveltejs/kit';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { isSafeInternalPath } from '$lib/security/navigation.js';
+} from '#lib/server/supabaseClient';
+import { isSafeInternalPath } from '#lib/security/navigation.js';
 
 export const GET = async ({ url, cookies }) => {
 	const tokenHash = url.searchParams.get('token_hash');

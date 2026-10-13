@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 function normalizeMetadata(existing) {
 	if (!existing || typeof existing !== 'object' || Array.isArray(existing)) return {};

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { requireAdmin } from '#lib/server/admin';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 const ALL_FIELD_KEYS = [
 	'name',

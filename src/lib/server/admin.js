@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
 export async function requireAdmin(cookies, { redirectTo = null } = {}) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);

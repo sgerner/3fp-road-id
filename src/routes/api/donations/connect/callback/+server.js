@@ -6,8 +6,8 @@ import {
 	requireMainDonationManager,
 	upsertDonationAccountForGroup,
 	upsertDonationAccountForMain
-} from '$lib/server/donations';
-import { getStripeClient } from '$lib/server/stripe';
+} from '#lib/server/donations';
+import { getStripeClient } from '#lib/server/stripe';
 
 function buildReturnUrl(path, status, reason = '') {
 	const qp = new URLSearchParams();

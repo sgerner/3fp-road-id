@@ -1,4 +1,4 @@
-import { loadMicrositeNewsArchive } from '$lib/server/groupSites';
+import { loadMicrositeNewsArchive } from '#lib/server/groupSites';
 
 export const load = async ({ parent, url }) => {
 	const parentData = await parent();

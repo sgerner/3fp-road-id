@@ -2,14 +2,14 @@ import { error } from '@sveltejs/kit';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	extractMarkdownHeadings,
 	renderLearnMarkdown,
 	splitMarkdownIntoSections
-} from '$lib/learn/markdown';
-import { estimateReadMinutes, generateLearnReadingAid } from '$lib/learn/readingAid';
+} from '#lib/learn/markdown';
+import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
 
 export const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 

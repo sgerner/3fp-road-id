@@ -1,4 +1,4 @@
-import { resolveVerifiedSession } from '$lib/server/session';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ fetch, cookies, parent }) => {
 	const parentData = await parent().catch(() => ({}));

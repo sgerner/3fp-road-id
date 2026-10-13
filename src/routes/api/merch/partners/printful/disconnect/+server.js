@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { requireGroupDonationManager, requireMainDonationManager } from '$lib/server/donations';
+import { requireGroupDonationManager, requireMainDonationManager } from '#lib/server/donations';
 import {
 	disconnectPrintfulForStore,
 	getExistingGroupMerchStore,
 	getMerchStoreBySlug
-} from '$lib/server/merch';
+} from '#lib/server/merch';
 
 export const POST = async ({ request, cookies }) => {
 	let payload = {};

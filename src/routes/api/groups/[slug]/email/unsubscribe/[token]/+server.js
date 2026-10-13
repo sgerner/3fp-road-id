@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 export async function GET({ params }) {
 	const serviceSupabase = createServiceSupabaseClient();

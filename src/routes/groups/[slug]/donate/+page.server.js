@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE } from '$lib/donations/constants';
-import { getDonationRecipient } from '$lib/server/donations';
+import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE } from '#lib/donations/constants';
+import { getDonationRecipient } from '#lib/server/donations';
 
 export const load = async ({ params, url }) => {
 	const groupSlug = String(params.slug || '').trim();

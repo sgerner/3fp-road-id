@@ -1,13 +1,13 @@
 <script>
-	import ShareButton from '$lib/components/ui/ShareButton.svelte';
+	import ShareButton from '#lib/components/ui/ShareButton.svelte';
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { supabase } from '$lib/supabaseClient';
-	import { renderMarkdown } from '$lib/markdown';
-	import { safeNavigationUrl } from '$lib/security/urls.js';
+	import { supabase } from '#lib/supabaseClient';
+	import { renderMarkdown } from '#lib/markdown';
+	import { safeNavigationUrl } from '#lib/security/urls.js';
 	import {
 		createVolunteerSignup,
 		updateVolunteerSignup,
@@ -16,11 +16,11 @@
 		createVolunteerSignupResponse,
 		updateVolunteerSignupResponse,
 		deleteVolunteerSignupResponse
-	} from '$lib/services/volunteers';
-	import { notifyVolunteerHosts } from '$lib/services/volunteerHostNotifications';
-	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates.js';
-	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
-	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
+	} from '#lib/services/volunteers';
+	import { notifyVolunteerHosts } from '#lib/services/volunteerHostNotifications';
+	import { buildVolunteerStatusUpdateEmail } from '#lib/volunteer/email-templates.js';
+	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
+	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconCircle from '@lucide/svelte/icons/circle';
 	import IconCircleCheckBig from '@lucide/svelte/icons/circle-check-big';
@@ -37,20 +37,20 @@
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import IconArrowUp from '@lucide/svelte/icons/arrow-up';
 	import IconArrowDown from '@lucide/svelte/icons/arrow-down';
-	import VolunteerQuestionFields from '$lib/components/volunteer/VolunteerQuestionFields.svelte';
-	import VolunteerContactFields from '$lib/components/volunteer/VolunteerContactFields.svelte';
-	import VolunteerSelectedShifts from '$lib/components/volunteer/VolunteerSelectedShifts.svelte';
-	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
+	import VolunteerQuestionFields from '#lib/components/volunteer/VolunteerQuestionFields.svelte';
+	import VolunteerContactFields from '#lib/components/volunteer/VolunteerContactFields.svelte';
+	import VolunteerSelectedShifts from '#lib/components/volunteer/VolunteerSelectedShifts.svelte';
+	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '$lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 
 	function getPageData() {
 		return data ?? {};

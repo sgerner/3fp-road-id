@@ -1,13 +1,13 @@
 <script>
-	import EventSummary from '$lib/components/volunteer/manage/EventSummary.svelte';
-	import AnalyticsOverview from '$lib/components/volunteer/manage/AnalyticsOverview.svelte';
-	import SignupManagement from '$lib/components/volunteer/manage/SignupManagement.svelte';
-	import ApprovedRoster from '$lib/components/volunteer/manage/ApprovedRoster.svelte';
-	import EventHostManagement from '$lib/components/volunteer/manage/EventHostManagement.svelte';
-	import CommunicationsStep from '$lib/components/volunteer/CommunicationsStep.svelte';
-	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
+	import EventSummary from '#lib/components/volunteer/manage/EventSummary.svelte';
+	import AnalyticsOverview from '#lib/components/volunteer/manage/AnalyticsOverview.svelte';
+	import SignupManagement from '#lib/components/volunteer/manage/SignupManagement.svelte';
+	import ApprovedRoster from '#lib/components/volunteer/manage/ApprovedRoster.svelte';
+	import EventHostManagement from '#lib/components/volunteer/manage/EventHostManagement.svelte';
+	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
+	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { sendEmail } from '$lib/services/email';
+	import { sendEmail } from '#lib/services/email';
 	import {
 		createVolunteerEventEmail,
 		updateVolunteerEventEmail,
@@ -17,18 +17,18 @@
 		createVolunteerSignupShift,
 		deleteVolunteerSignupShift,
 		updateVolunteerSignupShift
-	} from '$lib/services/volunteers.js';
-	import { buildVolunteerStatusUpdateEmail } from '$lib/volunteer/email-templates';
+	} from '#lib/services/volunteers.js';
+	import { buildVolunteerStatusUpdateEmail } from '#lib/volunteer/email-templates';
 	import {
 		createMergeContext,
 		renderEmailBody,
 		renderSubject,
 		VOLUNTEER_MERGE_TAGS
-	} from '$lib/volunteer/merge-tags';
+	} from '#lib/volunteer/merge-tags';
 	import {
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer
-	} from '$lib/volunteer/communications-ai';
+	} from '#lib/volunteer/communications-ai';
 	import { slide } from 'svelte/transition';
 	import { toaster } from '../../../toaster-svelte';
 	import IconUsers from '@lucide/svelte/icons/users';

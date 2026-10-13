@@ -1,19 +1,19 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { createHash } from 'node:crypto';
-import { getConfiguredPublicOrigin } from '$lib/server/publicOrigin';
-import { sendServerEmail } from '$lib/server/email';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
+import { sendServerEmail } from '#lib/server/email';
 import {
 	getSmsServiceClient,
 	getSignalWireConfig,
 	handleSignalWireInbound,
 	twimlEmpty,
 	twimlMessage
-} from '$lib/server/sms';
+} from '#lib/server/sms';
 import {
 	enforceRateLimit,
 	readRawBody,
 	verifySignalWireWebhookRequest
-} from '$lib/server/security';
+} from '#lib/server/security';
 
 function response(body, status = 200) {
 	return new Response(body, {

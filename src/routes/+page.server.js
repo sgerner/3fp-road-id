@@ -1,4 +1,4 @@
-import { getActivityClient } from '$lib/server/activities';
+import { getActivityClient } from '#lib/server/activities';
 
 const LOCATION_HEADERS = {
 	city: ['cf-ipcity', 'x-vercel-ip-city', 'x-azure-clientip-city'],

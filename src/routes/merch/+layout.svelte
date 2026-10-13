@@ -4,7 +4,7 @@
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
 	import IconSettings from '@lucide/svelte/icons/settings';
-	import SectionSecondaryNav from '$lib/components/navigation/SectionSecondaryNav.svelte';
+	import SectionSecondaryNav from '#lib/components/navigation/SectionSecondaryNav.svelte';
 
 	let { children } = $props();
 

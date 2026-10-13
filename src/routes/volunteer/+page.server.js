@@ -1,4 +1,4 @@
-import { normalizeVolunteerEvents } from '$lib/volunteer/event-utils';
+import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
 
 export const load = async ({ fetch }) => {
 	const now = new Date();

@@ -1,5 +1,5 @@
 <script>
-	import GroupSocialManager from '$lib/components/groups/GroupSocialManager.svelte';
+	import GroupSocialManager from '#lib/components/groups/GroupSocialManager.svelte';
 
 	let { data } = $props();
 </script>

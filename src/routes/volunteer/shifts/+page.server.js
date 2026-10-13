@@ -1,6 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { readFormData } from '$lib/server/security';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { readFormData } from '#lib/server/security';
 import {
 	shiftActionsHelpers,
 	fetchList,

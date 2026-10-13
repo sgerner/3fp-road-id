@@ -1,10 +1,10 @@
-import { loadGroupMicrosite } from '$lib/server/groupSites';
-import { extractMicrositeSlugFromHostname, normalizeMicrositeSlug } from '$lib/microsites/host';
-import { lookupCustomDomainMicrositeSlug } from '$lib/server/micrositeRouting';
+import { loadGroupMicrosite } from '#lib/server/groupSites';
+import { extractMicrositeSlugFromHostname, normalizeMicrositeSlug } from '#lib/microsites/host';
+import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
+} from '#lib/server/supabaseClient';
 
 function escapeXml(value) {
 	return String(value || '')

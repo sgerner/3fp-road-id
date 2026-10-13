@@ -1,5 +1,5 @@
-import { escapeHtml } from '$lib/markdown';
-import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
+import { escapeHtml } from '#lib/markdown';
+import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
 
 function safeTrim(value) {
 	if (typeof value !== 'string') return '';

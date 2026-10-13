@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { updateMembershipPaymentIntent } from '$lib/server/memberships';
-import { getStripePublishableKey } from '$lib/server/stripe';
+import { updateMembershipPaymentIntent } from '#lib/server/memberships';
+import { getStripePublishableKey } from '#lib/server/stripe';
 
 export async function POST({ params, cookies, request, url }) {
 	const payload = await request.json().catch(() => ({}));

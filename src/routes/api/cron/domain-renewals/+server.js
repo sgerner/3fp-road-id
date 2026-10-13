@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { sendServerEmail as sendEmail } from '$lib/server/email';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { getStripeClient } from '$lib/server/stripe';
-import { timingSafeStringEqual } from '$lib/server/security';
-import { renewDomainWithVercel, updateVercelDomainAutoRenew } from '$lib/server/vercelDomains';
+import * as env from '$app/env/private';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { getStripeClient } from '#lib/server/stripe';
+import { timingSafeStringEqual } from '#lib/server/security';
+import { renewDomainWithVercel, updateVercelDomainAutoRenew } from '#lib/server/vercelDomains';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';

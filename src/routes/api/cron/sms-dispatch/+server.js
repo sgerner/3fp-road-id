@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
-import { getCronSecretVerifier } from '$lib/server/activities';
+import { getCronSecretVerifier } from '#lib/server/activities';
 import {
 	getSignalWireConfig,
 	getSmsServiceClient,
 	recordSmsMessage,
 	sendSignalWireMessage,
 	subscriptionAllowsSms
-} from '$lib/server/sms';
+} from '#lib/server/sms';
 
 const BATCH_LIMIT = 50;
 

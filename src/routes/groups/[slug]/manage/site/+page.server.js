@@ -4,18 +4,18 @@ import { randomUUID } from 'node:crypto';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+} from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 import {
 	buildMicrositeUrl,
 	isReservedMicrositeSlug,
 	normalizeMicrositeSlug
-} from '$lib/microsites/host';
-import { buildDefaultGroupSiteConfig, parseGroupSiteFormData } from '$lib/microsites/config';
-import { recommendGroupSiteTemplate } from '$lib/microsites/templates';
-import { getGroupSiteConfig, upsertGroupSiteConfig } from '$lib/server/groupSites';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { readFormData } from '$lib/server/security';
+} from '#lib/microsites/host';
+import { buildDefaultGroupSiteConfig, parseGroupSiteFormData } from '#lib/microsites/config';
+import { recommendGroupSiteTemplate } from '#lib/microsites/templates';
+import { getGroupSiteConfig, upsertGroupSiteConfig } from '#lib/server/groupSites';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { readFormData } from '#lib/server/security';
 
 const SPONSOR_LOGO_BUCKET = 'group-assets';
 const SPONSOR_LOGO_MAX_BYTES = 5 * 1024 * 1024;

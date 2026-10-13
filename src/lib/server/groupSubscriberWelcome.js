@@ -1,15 +1,15 @@
-import { sendServerEmail as sendEmail } from '$lib/server/email';
+import { sendServerEmail as sendEmail } from '#lib/server/email';
 import {
 	buildGroupSubscriberWelcomeEmail,
 	GROUP_SUBSCRIBER_WELCOME_CLAIM_TIMEOUT_MS,
 	GROUP_SUBSCRIBER_WELCOME_DELIVERY_STATUSES,
 	isGroupSubscriberWelcomeClaimable
-} from '$lib/server/groupEmailSubscribers';
+} from '#lib/server/groupEmailSubscribers';
 import {
 	getGroupEmailSenderConfig,
 	requireGroupEmailManager,
 	sendGroupManagedEmail
-} from '$lib/server/groupEmailDomains';
+} from '#lib/server/groupEmailDomains';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUBSCRIBER_SELECT =

@@ -3,7 +3,7 @@ import {
 	cosineSimilarity,
 	parseLearnEmbedding,
 	tokenizeLearnText
-} from '$lib/server/learnDiscovery';
+} from '#lib/server/learnDiscovery';
 
 export const DEFAULT_ARTICLE_WEIGHTS = {
 	lexical_weight: 0.28,

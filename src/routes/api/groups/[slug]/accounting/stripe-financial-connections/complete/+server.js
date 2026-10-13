@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
 	completeStripeFinancialConnectionsSession,
 	requireGroupAccountingManager
-} from '$lib/server/groupAccounting';
+} from '#lib/server/groupAccounting';
 
 export async function POST({ cookies, params, request }) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);

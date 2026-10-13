@@ -1,18 +1,18 @@
 import { redirect } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { callInstagramApi, callMetaApi } from '$lib/server/social/meta/client';
-import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
-import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
-import { listPublishedGroupNewsPosts } from '$lib/server/groupNews';
-import { getGroupClaimStatus } from '$lib/server/groupClaimStatus';
-import { joinMembership } from '$lib/server/memberships';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { callInstagramApi, callMetaApi } from '#lib/server/social/meta/client';
+import { resolveMetaAccountAccessToken } from '#lib/server/social/meta/tokens';
+import { getGroupAssetsReadClient, listGroupAssetBuckets } from '#lib/server/groupAssets';
+import { listPublishedGroupNewsPosts } from '#lib/server/groupNews';
+import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
+import { joinMembership } from '#lib/server/memberships';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '$lib/server/supabaseClient';
-import { supabase } from '$lib/supabaseClient';
-import { fetchPublicHttp } from '$lib/server/security';
-import { publicAccountingReport } from '$lib/server/groupAccountingPublic';
+} from '#lib/server/supabaseClient';
+import { supabase } from '#lib/supabaseClient';
+import { fetchPublicHttp } from '#lib/server/security';
+import { publicAccountingReport } from '#lib/server/groupAccountingPublic';
 
 const INSTAGRAM_POST_LIMIT = 3;
 const INSTAGRAM_WEB_APP_ID = '936619743392459';

@@ -1,7 +1,7 @@
 import {
 	finalizeMerchOrderByPaymentIntentId,
 	finalizeMerchOrderBySessionId
-} from '$lib/server/merch';
+} from '#lib/server/merch';
 
 function formatCurrency(cents, currency = 'usd') {
 	return new Intl.NumberFormat('en-US', {

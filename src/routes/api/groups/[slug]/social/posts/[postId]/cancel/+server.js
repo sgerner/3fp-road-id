@@ -3,8 +3,8 @@ import {
 	getGroupSocialPostById,
 	serializeSocialPost,
 	updateGroupSocialPost
-} from '$lib/server/social/db';
-import { requireGroupSocialManager } from '$lib/server/social/permissions';
+} from '#lib/server/social/db';
+import { requireGroupSocialManager } from '#lib/server/social/permissions';
 
 const CANCELLABLE_STATUSES = new Set(['scheduled', 'queued']);
 

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit } from '$lib/server/security';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit } from '#lib/server/security';
 
 export async function POST(event) {
 	const limited = enforceRateLimit(event, {

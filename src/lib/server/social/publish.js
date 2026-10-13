@@ -1,19 +1,19 @@
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { PUBLIC_SUPABASE_URL } from '$app/env/public';
 import sharp from 'sharp';
 import {
 	getGroupSocialPostById,
 	listGroupSocialAccounts,
 	serializeSocialPost,
 	updateGroupSocialPost
-} from '$lib/server/social/db';
-import { resolveMetaAccountAccessToken } from '$lib/server/social/meta/tokens';
-import { publishGroupSocialPostToPlatform } from '$lib/server/social/meta/publish';
+} from '#lib/server/social/db';
+import { resolveMetaAccountAccessToken } from '#lib/server/social/meta/tokens';
+import { publishGroupSocialPostToPlatform } from '#lib/server/social/meta/publish';
 import {
 	normalizePlatforms,
 	normalizePostTarget,
 	SOCIAL_MAX_PUBLISH_ATTEMPTS
-} from '$lib/server/social/types';
-import { fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
+} from '#lib/server/social/types';
+import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

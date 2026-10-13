@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
-import { getActivityClient } from '$lib/server/activities';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+import { getActivityClient } from '#lib/server/activities';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import {
 	canManageSmsThread,
 	getSmsServiceClient,
 	enqueueSms,
 	normalizeSmsPhone
-} from '$lib/server/sms';
+} from '#lib/server/sms';
 
 const ALLOWED_KINDS = new Set(['admin', 'bike_valet']);
 

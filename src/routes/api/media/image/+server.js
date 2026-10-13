@@ -1,7 +1,7 @@
 import sharp from 'sharp';
-import { isOptimizableImageHost } from '$lib/media/optimized';
-import { enforceRateLimit, fetchPublicHttp, readResponseBuffer } from '$lib/server/security';
-import { sniffIcoImageMimeType, sniffRasterImageMimeType } from '$lib/server/storageImages';
+import { isOptimizableImageHost } from '#lib/media/optimized';
+import { enforceRateLimit, fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
+import { sniffIcoImageMimeType, sniffRasterImageMimeType } from '#lib/server/storageImages';
 
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;

@@ -1,5 +1,5 @@
 <script>
-	import { renderMarkdown } from '$lib/markdown';
+	import { renderMarkdown } from '#lib/markdown';
 
 	export let questions = [];
 	export let heading = 'Signup questions you’ll answer';

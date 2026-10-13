@@ -1,5 +1,5 @@
-import { extractMicrositeSlugFromHostname, normalizeHostname } from '$lib/microsites/host';
-import { lookupCustomDomainMicrositeSlug } from '$lib/server/micrositeRouting';
+import { extractMicrositeSlugFromHostname, normalizeHostname } from '#lib/microsites/host';
+import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
 
 const redirectCodes = new Set([
 	'1NOS2hP3',

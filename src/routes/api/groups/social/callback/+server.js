@@ -1,13 +1,13 @@
 import { redirect } from '@sveltejs/kit';
-import { buildSocialReturnPath, consumeGroupSocialOauthState } from '$lib/server/social/auth';
-import { isSafeInternalPath } from '$lib/security/navigation.js';
+import { buildSocialReturnPath, consumeGroupSocialOauthState } from '#lib/server/social/auth';
+import { isSafeInternalPath } from '#lib/security/navigation.js';
 import {
 	createGroupSocialOauthPendingConnection,
 	purgeExpiredGroupSocialOauthPendingConnections,
 	upsertGroupSocialAccount
-} from '$lib/server/social/db';
-import { canManageGroupSocial, getSocialAuthContext } from '$lib/server/social/permissions';
-import { encryptSocialToken } from '$lib/server/social/crypto';
+} from '#lib/server/social/db';
+import { canManageGroupSocial, getSocialAuthContext } from '#lib/server/social/permissions';
+import { encryptSocialToken } from '#lib/server/social/crypto';
 import {
 	computeTokenExpiryFromSeconds,
 	exchangeForLongLivedMetaToken,
@@ -17,7 +17,7 @@ import {
 	normalizeGrantedScopes,
 	resolveMetaConnectionFromOption,
 	resolveMetaOAuthRedirectUri
-} from '$lib/server/social/meta/oauth';
+} from '#lib/server/social/meta/oauth';
 
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';

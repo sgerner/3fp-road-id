@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { requireAdmin } from '$lib/server/admin';
+import { requireAdmin } from '#lib/server/admin';
 import {
 	addWorkspaceUserAlias,
 	createWorkspaceUser,
@@ -14,7 +14,7 @@ import {
 	signOutWorkspaceUser,
 	updateWorkspaceUser,
 	workspaceConfigured
-} from '$lib/server/googleWorkspace';
+} from '#lib/server/googleWorkspace';
 import {
 	cleanText,
 	confirmationMatches,
@@ -23,7 +23,7 @@ import {
 	normalizeWorkspaceAliases,
 	normalizeErrorMessage,
 	sameEmail
-} from '$lib/server/googleWorkspaceRules';
+} from '#lib/server/googleWorkspaceRules';
 
 function normalizeError(error, fallback) {
 	const message = normalizeErrorMessage(error?.body?.message ?? error?.message ?? error, fallback);

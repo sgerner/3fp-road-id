@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { rejectMembershipApplication } from '$lib/server/memberships';
+import { rejectMembershipApplication } from '#lib/server/memberships';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

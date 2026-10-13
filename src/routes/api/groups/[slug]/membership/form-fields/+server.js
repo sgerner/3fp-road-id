@@ -4,7 +4,7 @@ import {
 	createMembershipFormField,
 	updateMembershipFormField,
 	deleteMembershipFormField
-} from '$lib/server/memberships';
+} from '#lib/server/memberships';
 
 function respond(result, successStatus = 200) {
 	if (!result?.ok) {

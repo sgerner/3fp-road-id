@@ -1,6 +1,6 @@
-import { getPublicMerchCatalog } from '$lib/server/merch';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { getPublicMerchCatalog } from '#lib/server/merch';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ cookies }) => {
 	let catalog = null;

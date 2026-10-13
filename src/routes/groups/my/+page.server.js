@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
-import { fetchList, loadOwnedGroups } from '$lib/server/sectionNavigation';
-import { resolveVerifiedSession } from '$lib/server/session';
+import { fetchList, loadOwnedGroups } from '#lib/server/sectionNavigation';
+import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
 	const parentData = await parent().catch(() => ({}));

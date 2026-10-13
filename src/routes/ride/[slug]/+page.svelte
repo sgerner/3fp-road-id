@@ -1,7 +1,7 @@
 <script>
-	import ShareButton from '$lib/components/ui/ShareButton.svelte';
-	import { getRideImages } from '$lib/rides/media';
-	import { optimizedImageUrl } from '$lib/media/optimized';
+	import ShareButton from '#lib/components/ui/ShareButton.svelte';
+	import { getRideImages } from '#lib/rides/media';
+	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -11,17 +11,17 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
-	import SmsContextOptIn from '$lib/components/sms/SmsContextOptIn.svelte';
-	import { ensureLeafletDefaultIcon } from '$lib/map/leaflet';
-	import { escapeHtml } from '$lib/markdown';
-	import { buildGoogleCalendarUrl, eventLocation } from '$lib/calendar/links';
+	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
+	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import { escapeHtml } from '#lib/markdown';
+	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
 		cleanSeoText,
 		limitSeoText,
 		toJsonLd
-	} from '$lib/seo';
+	} from '#lib/seo';
 
 	const { data } = $props();
 	const ride = $derived.by(() => data?.ride ?? null);
@@ -296,7 +296,7 @@
 					try {
 						if (!mapLoadPromise) {
 							mapLoadPromise = Promise.all([
-								import('$lib/map/leaflet.css'),
+								import('#lib/map/leaflet.css'),
 								import('leaflet')
 							]).then(([, mod]) => mod.default || mod);
 						}

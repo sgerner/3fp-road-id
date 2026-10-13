@@ -4,24 +4,24 @@ import {
 	BIKE_VIBE_STYLE_ID,
 	getImageStylePreset,
 	STATE_MASCOT_STYLE_ID
-} from '$lib/ai/imageStyles';
+} from '#lib/ai/imageStyles';
 import {
 	IMAGE_GENERATION_MODEL_IDS,
 	normalizeSocialImageGenerationModelId
-} from '$lib/ai/imageGenerationModels';
-import { getBikeVibeById, normalizeBikeVibeId } from '$lib/ai/bikeVibes';
-import { getUsStateName, normalizeUsStateCode } from '$lib/geo/usStates';
-import { uploadCanonicalMediaAsset } from '$lib/server/mediaAssets';
-import { optimizeImageForStorage } from '$lib/server/storageImages';
-import { createServiceSupabaseClient } from '$lib/server/supabaseClient';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { enforceRateLimit, readJsonBody } from '$lib/server/security';
+} from '#lib/ai/imageGenerationModels';
+import { getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
+import { getUsStateName, normalizeUsStateCode } from '#lib/geo/usStates';
+import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
+import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import {
 	getAiModel,
 	getAiConfigurationError,
 	isAiModelConfigured,
 	requireAiModel
-} from '$lib/server/ai/models';
+} from '#lib/server/ai/models';
 
 export const config = { maxDuration: 60 };
 

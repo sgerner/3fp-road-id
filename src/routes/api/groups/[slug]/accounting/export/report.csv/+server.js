@@ -1,10 +1,10 @@
 import { text } from '@sveltejs/kit';
-import { filterAccountingReportCsv } from '$lib/server/groupAccountingExport';
+import { filterAccountingReportCsv } from '#lib/server/groupAccountingExport';
 import {
 	buildAccountingReportCsv,
 	requireGroupAccountingManager,
 	resolveAccountingReportWindow
-} from '$lib/server/groupAccounting';
+} from '#lib/server/groupAccounting';
 
 export async function GET({ cookies, params, url }) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);

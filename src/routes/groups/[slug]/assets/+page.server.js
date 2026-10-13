@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { cleanGroupAssetBucket } from '$lib/groups/assets';
-import { getGroupAssetsReadClient, listGroupAssetBuckets } from '$lib/server/groupAssets';
-import { resolveVerifiedSession } from '$lib/server/session';
-import { createRequestSupabaseClient } from '$lib/server/supabaseClient';
+import { cleanGroupAssetBucket } from '#lib/groups/assets';
+import { getGroupAssetsReadClient, listGroupAssetBuckets } from '#lib/server/groupAssets';
+import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
 export const load = async ({ params, cookies, url }) => {
 	const supabase = getGroupAssetsReadClient();

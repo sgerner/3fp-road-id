@@ -1,18 +1,18 @@
 import IconGlobe from '@lucide/svelte/icons/globe';
 import IconMail from '@lucide/svelte/icons/mail';
 import IconPhone from '@lucide/svelte/icons/phone';
-import BrandFacebook from '$lib/icons/BrandFacebook.svelte';
-import BrandInstagram from '$lib/icons/BrandInstagram.svelte';
-import BrandX from '$lib/icons/BrandX.svelte';
-import BrandYoutube from '$lib/icons/BrandYoutube.svelte';
+import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
+import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
+import BrandX from '#lib/icons/BrandX.svelte';
+import BrandYoutube from '#lib/icons/BrandYoutube.svelte';
 import IconLink from '@lucide/svelte/icons/link';
-import BrandThreads from '$lib/icons/BrandThreads.svelte';
-import BrandTikTok from '$lib/icons/BrandTikTok.svelte';
-import BrandBluesky from '$lib/icons/BrandBluesky.svelte';
-import BrandDiscord from '$lib/icons/BrandDiscord.svelte';
-import BrandMastodon from '$lib/icons/BrandMastodon.svelte';
-import BrandStrava from '$lib/icons/BrandStrava.svelte';
-import { safeNavigationUrl } from '$lib/security/urls.js';
+import BrandThreads from '#lib/icons/BrandThreads.svelte';
+import BrandTikTok from '#lib/icons/BrandTikTok.svelte';
+import BrandBluesky from '#lib/icons/BrandBluesky.svelte';
+import BrandDiscord from '#lib/icons/BrandDiscord.svelte';
+import BrandMastodon from '#lib/icons/BrandMastodon.svelte';
+import BrandStrava from '#lib/icons/BrandStrava.svelte';
+import { safeNavigationUrl } from '#lib/security/urls.js';
 
 export function extractSocialLinks(group) {
 	if (group?.social_links && typeof group.social_links === 'object') {
