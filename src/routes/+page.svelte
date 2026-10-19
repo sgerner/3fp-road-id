@@ -9,7 +9,6 @@
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
-	import IconUsersRound from '@lucide/svelte/icons/users-round';
 
 	let { data } = $props();
 
@@ -151,13 +150,13 @@
 </svelte:head>
 
 <div
-	class="mx-auto flex w-full max-w-7xl flex-col gap-16 py-2 sm:gap-24 sm:py-6 [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-offset-4 [&_a:focus-visible]:outline-current"
+	class="bg-surface-950 text-surface-50 [&_h2]:!text-surface-50 [&_h3]:!text-surface-50 mx-auto my-2 flex w-full max-w-7xl flex-col overflow-hidden rounded-3xl shadow-2xl sm:my-6 [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-offset-4 [&_a:focus-visible]:outline-current"
 >
 	<section
-		class="bg-secondary-950 grid overflow-hidden rounded-3xl text-white lg:grid-cols-[1.1fr_0.9fr]"
+		class="from-secondary-950 to-secondary-800 text-surface-50 grid overflow-hidden bg-gradient-to-br lg:grid-cols-[1.1fr_0.9fr]"
 		aria-labelledby="welcome-heading"
 	>
-		<div class="flex flex-col justify-between gap-12 p-7 sm:p-12 lg:p-14">
+		<div class="flex flex-col justify-between gap-8 p-6 sm:p-10 lg:p-12">
 			<div class="flex flex-wrap items-center gap-4">
 				<p
 					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
@@ -167,7 +166,7 @@
 				{#if data.locationSource}
 					<a
 						href="/profile"
-						class="inline-flex items-center gap-1.5 text-sm text-white/80 underline underline-offset-4"
+						class="text-surface-50/80 inline-flex items-center gap-1.5 text-sm underline underline-offset-4"
 					>
 						<IconMapPin class="h-3.5 w-3.5" />{data.area}
 					</a>
@@ -176,34 +175,31 @@
 			<div class="space-y-6">
 				<h1
 					id="welcome-heading"
-					class="text-4xl leading-[0.98] font-black tracking-tight text-balance !text-white sm:text-6xl lg:text-5xl xl:text-6xl"
+					class="!text-surface-50 text-4xl leading-[0.98] font-black tracking-tight text-balance sm:text-6xl lg:text-5xl xl:text-6xl"
 				>
 					Good people.<br />Open roads.<br /><span class="text-primary-500">Room to ride.</span>
 				</h1>
-				<p class="max-w-lg text-lg leading-relaxed text-white/80">
+				<p class="text-surface-50/80 max-w-lg text-lg leading-relaxed">
 					Every ride deserves a safe return. Find your cycling community and help make the road a
 					more welcoming place{data.area ? `—starting around ${data.area}` : ''}.
 				</p>
 				<div class="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap">
 					<a
 						href="/groups"
-						class="btn bg-primary-500 text-secondary-950 hover:bg-primary-300 gap-2 px-6 py-3 font-bold"
+						class="btn bg-primary-500 text-surface-950 hover:bg-primary-300 gap-2 px-6 py-3 font-bold"
 					>
 						Find your people <IconArrowRight class="h-4 w-4" />
 					</a>
 					<a
 						href="/ride"
-						class="btn gap-2 border border-white/40 px-6 py-3 font-bold text-white hover:bg-white/10"
+						class="btn border-surface-50/40 text-surface-50 hover:bg-surface-50/10 gap-2 border px-6 py-3 font-bold"
 					>
 						<IconCalendarDays class="h-5 w-5" /> Find a ride
 					</a>
 				</div>
 			</div>
-			<p class="border-t border-white/20 pt-5 text-sm text-white/70">
-				For the everyday rider. The weekend explorer. And everyone who shares the road.
-			</p>
 		</div>
-		<div class="relative min-h-80 lg:min-h-full">
+		<div class="relative min-h-64 lg:min-h-full">
 			<img
 				src={heroImageSmall || '/images/default-ride.webp'}
 				srcset={heroImageSmall ? `${heroImageSmall} 768w, ${heroImageLarge} 1200w` : undefined}
@@ -220,15 +216,16 @@
 			<div
 				class="from-secondary-950/90 absolute inset-0 bg-gradient-to-t via-transparent to-transparent"
 			></div>
-			<div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-5 p-7 sm:p-10">
-				<p class="text-3xl leading-tight font-black text-white">Life is better<br />on a bike.</p>
+			<div
+				class="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-5 p-6 sm:p-8"
+			>
 				{#if heroGroup}
 					<a
 						href={`/groups/${heroGroup.slug}`}
-						class="max-w-44 text-right text-sm text-white underline-offset-4 hover:underline"
+						class="text-surface-50 max-w-44 text-sm underline-offset-4 hover:underline"
 					>
 						<span class="block font-bold">{heroGroup.name}</span>
-						<span class="text-white/80"
+						<span class="text-surface-50/80"
 							>{groupPlace(heroGroup)} <IconArrowRight class="inline h-3.5 w-3.5" /></span
 						>
 					</a>
@@ -237,54 +234,31 @@
 		</div>
 	</section>
 
-	<nav
-		aria-label="Explore 3 Feet Please"
-		class="divide-surface-500/20 border-surface-500/20 -mt-8 grid divide-y border-b sm:-mt-12 sm:grid-cols-3 sm:divide-x sm:divide-y-0"
-	>
-		{#each [{ href: '/groups', icon: IconUsersRound, label: 'Find your community', detail: 'Good company. Great miles.' }, { href: '/learn', icon: IconShieldCheck, label: 'Ride with confidence', detail: 'Practical know-how for every road.' }, { href: '/volunteer', icon: IconHeartHandshake, label: 'Make a difference', detail: 'Safer streets start with us.' }] as item}
-			<a
-				href={item.href}
-				class="group hover:bg-secondary-500/10 flex items-center gap-4 px-3 py-6 transition sm:px-6"
-			>
-				<item.icon class="text-primary-500 h-6 w-6 shrink-0" />
-				<span class="flex-1"
-					><strong class="block text-base">{item.label}</strong><span
-						class="mt-1 block text-xs opacity-70">{item.detail}</span
-					></span
-				>
-				<IconArrowRight class="h-4 w-4 shrink-0 transition group-hover:translate-x-1" />
-			</a>
-		{/each}
-	</nav>
-
 	<section
-		class="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:gap-16"
+		class="grid gap-10 p-6 sm:p-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-12 lg:p-12"
 		aria-labelledby="nearby-heading"
 	>
 		<div>
 			<div
-				class="mb-3 flex items-center gap-2 text-sm font-bold tracking-[0.18em] uppercase opacity-60"
+				class="text-surface-300 mb-3 flex items-center gap-2 text-sm font-bold tracking-[0.18em] uppercase"
 			>
 				<IconMapPin class="h-4 w-4" />
 				{data.locationSource ? 'Close to home' : 'Community directory'}
 			</div>
 			<h2
 				id="nearby-heading"
-				class="max-w-2xl text-4xl leading-tight font-black tracking-tight text-balance sm:text-5xl"
+				class="max-w-2xl text-3xl leading-tight font-black tracking-tight text-balance sm:text-4xl"
 			>
-				{data.locationSource
-					? `People to ride with around ${data.area}`
-					: 'Good people are already riding.'}
+				{data.locationSource ? `Ride together around ${data.area}` : 'Find your people.'}
 			</h2>
 
 			{#if shownGroups.length}
 				<div class="divide-surface-500/20 mt-8 divide-y">
-					{#each shownGroups as group, index}
+					{#each shownGroups as group}
 						<a
 							href={`/groups/${group.slug}`}
 							class="group hover:bg-secondary-500/10 flex items-center gap-4 rounded-xl px-3 py-5 transition sm:gap-6"
 						>
-							<span class="text-sm font-black tabular-nums opacity-70">0{index + 1}</span>
 							<img
 								src={optimizedImageUrl(group.logo_url || group.cover_photo_url, {
 									width: 96,
@@ -300,9 +274,7 @@
 							/>
 							<span class="min-w-0 flex-1">
 								<strong class="block text-lg leading-tight sm:text-xl">{group.name}</strong>
-								<span class="mt-1 block truncate text-sm opacity-65"
-									>{group.tagline || groupPlace(group)}</span
-								>
+								<span class="text-surface-200 mt-1 block text-sm">{groupPlace(group)}</span>
 							</span>
 							<IconArrowRight
 								class="h-5 w-5 shrink-0 opacity-45 transition group-hover:translate-x-1 group-hover:opacity-100"
@@ -311,7 +283,7 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="mt-6 max-w-xl text-lg leading-relaxed opacity-70">
+				<p class="text-surface-200 mt-6 max-w-xl text-lg leading-relaxed">
 					No group has claimed this area yet. Browse the directory—or start the community you wish
 					existed.
 				</p>
@@ -322,9 +294,9 @@
 					>Explore every group <IconArrowRight class="h-4 w-4" /></a
 				>
 				{#if data.locationSource === 'profile'}
-					<a href="/profile" class="text-sm opacity-60 hover:opacity-100">Change home area</a>
+					<a href="/profile" class="text-surface-300 text-sm hover:opacity-100">Change home area</a>
 				{:else if data.locationSource === 'approximate'}
-					<a href="/profile" class="text-sm opacity-60 hover:opacity-100"
+					<a href="/profile" class="text-surface-300 text-sm hover:opacity-100"
 						>Set a more useful home area</a
 					>
 				{/if}
@@ -332,70 +304,62 @@
 		</div>
 
 		<aside
-			class="relative min-h-[34rem] overflow-hidden rounded-3xl p-6 sm:p-8 {nextRide
-				? 'preset-filled-surface-950 text-surface-50'
-				: 'preset-tonal-secondary'}"
+			class="border-surface-700 bg-surface-900 self-start overflow-hidden rounded-2xl border"
 			aria-label="Next ride"
 		>
 			{#if nextRide}
 				<img
 					src={nextRideImage}
 					alt=""
-					class="absolute inset-0 h-full w-full object-cover"
+					class="aspect-[16/8] w-full object-cover"
 					width="768"
-					height="768"
+					height="384"
 					loading="lazy"
 					decoding="async"
 				/>
-				<div
-					class="from-surface-950 via-surface-950/75 to-surface-950/20 absolute inset-0 bg-gradient-to-t"
-				></div>
 			{/if}
-
-			<div class="relative z-10 flex min-h-full flex-col justify-between gap-10">
-				<div class="flex items-center justify-between gap-3">
-					<p class="flex items-center gap-2 text-sm font-bold tracking-[0.16em] uppercase">
-						<IconCalendarDays class="h-4 w-4" />
-						{data.rideSource === 'local' ? 'Next up near you' : 'Featured ride'}
-					</p>
-					<a href="/ride" class="btn btn-sm preset-tonal-surface backdrop-blur-md">All rides</a>
-				</div>
-
+			<div class="space-y-5 p-6 sm:p-7">
+				<p
+					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.16em] uppercase"
+				>
+					<IconCalendarDays class="h-4 w-4" />{data.rideSource === 'local'
+						? 'Next up near you'
+						: 'Featured ride'}
+				</p>
 				{#if nextRide}
 					{@const when = formatRideDate(nextRide.nextOccurrenceStart)}
-					<div class="space-y-5">
-						<p class="text-6xl font-black tracking-tight sm:text-7xl">{when.day}</p>
-						<div>
-							<h3 class="text-2xl leading-tight font-black">{nextRide.title}</h3>
-							<p class="mt-3 text-sm leading-relaxed opacity-75">
-								{when.date}<br />{ridePlace(nextRide)}
-							</p>
-						</div>
-						<a href={`/ride/${nextRide.slug}`} class="btn preset-filled-primary-500 gap-2"
-							>Open this ride <IconArrowRight class="h-4 w-4" /></a
-						>
+					<div>
+						<h3 class="text-2xl leading-tight font-bold">{nextRide.title}</h3>
+						<p class="text-surface-200 mt-4 flex items-start gap-2">
+							<IconCalendarDays class="mt-0.5 h-4 w-4 shrink-0" />{when.day}, {when.date}
+						</p>
+						<p class="text-surface-200 mt-2 flex items-start gap-2">
+							<IconMapPin class="mt-0.5 h-4 w-4 shrink-0" />{ridePlace(nextRide)}
+						</p>
 					</div>
+					<a
+						href={`/ride/${nextRide.slug}`}
+						class="btn bg-primary-500 text-surface-950 hover:bg-primary-300 w-full gap-2 font-bold"
+						>View ride details <IconArrowRight class="h-4 w-4" /></a
+					>
 				{:else}
-					<div class="space-y-5">
-						<IconBike class="h-16 w-16 opacity-35" />
-						<div>
-							<h3 class="text-2xl font-black">The calendar is open.</h3>
-							<p class="mt-3 leading-relaxed opacity-75">
-								Find a ride farther afield, or be the person who puts the next local one on the map.
-							</p>
-						</div>
-						<div class="flex flex-wrap gap-2">
-							<a href="/ride" class="btn preset-filled-secondary-500">Browse rides</a><a
-								href="/ride/new"
-								class="btn preset-outlined-secondary-500">Post one</a
-							>
-						</div>
-					</div>
+					<h3 class="text-2xl font-bold">Your next ride starts here.</h3>
+					<p class="text-surface-200 leading-relaxed">
+						Explore the calendar, or bring people together by posting a ride.
+					</p>
+					<a href="/ride/new" class="btn bg-primary-500 text-surface-950 hover:bg-primary-300"
+						>Post a ride</a
+					>
 				{/if}
-
+				<a
+					href="/ride"
+					class="flex items-center justify-center gap-2 py-1 text-sm font-bold underline underline-offset-4"
+					>Browse all rides <IconArrowRight class="h-4 w-4" /></a
+				>
 				{#if data.rideSource !== 'featured' && data.locationSource === 'approximate'}
-					<p class="text-xs leading-relaxed opacity-55">
-						Based on a broad network region. We never request your precise device location.
+					<p class="text-surface-300 text-xs leading-relaxed">
+						Based on a broad network region. Set your home area in your profile for better
+						suggestions.
 					</p>
 				{/if}
 			</div>
@@ -403,88 +367,103 @@
 	</section>
 
 	<section
-		class="bg-primary-500 text-secondary-950 grid items-center gap-8 rounded-3xl p-7 sm:p-10 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-12 lg:p-12"
+		class="border-secondary-700 from-secondary-950 to-secondary-900 grid gap-6 border-y bg-gradient-to-r p-6 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:p-12"
 		aria-labelledby="mission-heading"
 	>
-		<div
-			aria-hidden="true"
-			class="border-secondary-950 border-b-4 pb-3 text-8xl leading-none font-black tracking-tighter lg:text-9xl"
-		>
-			3<span class="text-3xl tracking-normal"> ft</span>
-			<div class="mt-3 flex justify-between text-xl"><span>←</span><span>→</span></div>
+		<div class="flex items-start gap-5 sm:gap-8">
+			<span
+				aria-hidden="true"
+				class="text-primary-500 hidden text-7xl leading-none font-black tracking-tighter sm:block"
+				>3<span class="text-2xl">ft</span></span
+			>
+			<div>
+				<p
+					class="text-primary-500 mb-3 flex items-center gap-2 text-xs font-bold tracking-[0.16em] uppercase"
+				>
+					<IconHeart class="h-4 w-4" /> A little space changes everything
+				</p>
+				<h2 id="mission-heading" class="text-3xl leading-tight font-bold tracking-tight">
+					Safer roads. More happy homecomings.
+				</h2>
+				<p class="text-surface-200 mt-3 max-w-xl leading-relaxed">
+					Help make room for every person on a bike. Start with three feet. Keep going with us.
+				</p>
+			</div>
 		</div>
-		<div class="max-w-4xl">
-			<p
-				class="mb-4 flex items-center gap-2 text-sm font-bold tracking-[0.18em] uppercase opacity-65"
-			>
-				<IconHeart class="h-4 w-4" /> The distance that matters
-			</p>
-			<h2
-				id="mission-heading"
-				class="!text-secondary-950 text-4xl leading-tight font-black tracking-tight text-balance sm:text-5xl"
-			>
-				Three feet can change a life.
-			</h2>
-			<p class="mt-5 max-w-2xl text-lg leading-relaxed opacity-75">
-				Help build streets where every person on a bike is seen, respected, and able to come home
-				safely.
-			</p>
-		</div>
-		<div class="flex flex-col gap-3 sm:flex-row lg:flex-col">
-			<a href="/volunteer" class="btn bg-secondary-950 hover:bg-secondary-800 gap-2 text-white"
-				><IconHeartHandshake class="h-5 w-5" /> Volunteer</a
-			>
+		<div class="flex flex-wrap items-center gap-5">
 			<a
-				href="/donate"
-				class="btn border-secondary-950 text-secondary-950 hover:bg-secondary-950/10 border"
-				>Support the mission</a
+				href="/volunteer"
+				class="btn bg-primary-500 text-surface-950 hover:bg-primary-300 gap-2 font-bold"
+				><IconHeartHandshake class="h-5 w-5" /> Get involved</a
 			>
+			<a href="/donate" class="font-bold underline underline-offset-4">Donate</a>
 		</div>
 	</section>
 
-	<section class="border-surface-500/20 space-y-8 border-t pt-12" aria-labelledby="safety-heading">
-		<div class="max-w-3xl">
-			<p class="mb-3 text-sm font-bold tracking-[0.18em] uppercase opacity-60">Keep this close</p>
-			<h2 id="safety-heading" class="text-4xl font-black tracking-tight text-balance sm:text-5xl">
-				Know what to do before you need it.
-			</h2>
-		</div>
-
-		<div class="divide-surface-500/20 grid gap-8 md:grid-cols-2 md:gap-0 md:divide-x">
-			<div class="md:pr-10">
-				<div class="mb-5 flex items-center gap-3">
-					<IconShieldCheck class="text-error-600-400 h-7 w-7" />
-					<h3 class="text-2xl font-black">After a crash</h3>
-				</div>
-				<ol class="space-y-3 text-sm sm:text-base">
-					{#each ['Get out of traffic and check for injuries', 'Call police and make a report', 'Photograph the scene and exchange information', 'Seek medical care', 'Protect your records and your rights'] as step, index}
-						<li class="flex gap-4">
-							<span class="font-black opacity-40">0{index + 1}</span><span>{step}</span>
-						</li>
-					{/each}
-				</ol>
+	<section class="p-6 sm:p-10 lg:p-12" aria-labelledby="safety-heading">
+		<div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<p class="text-primary-500 mb-3 text-xs font-bold tracking-[0.16em] uppercase">
+					A little preparation. A lot more confidence.
+				</p>
+				<h2 id="safety-heading" class="text-3xl font-bold tracking-tight sm:text-4xl">
+					Ready for the road.
+				</h2>
 			</div>
-			<div class="md:pl-10">
-				<div class="mb-5 flex items-center gap-3">
-					<IconBike class="text-primary-600-400 h-7 w-7" />
-					<h3 class="text-2xl font-black">Stay A.L.E.R.T.</h3>
-				</div>
-				<div class="space-y-5">
+			<a
+				href="/learn"
+				class="inline-flex items-center gap-2 py-2 font-bold underline underline-offset-4"
+				>Explore the safety library <IconArrowRight class="h-4 w-4" /></a
+			>
+		</div>
+		<div class="divide-surface-700 border-surface-700 divide-y border-y">
+			<details class="group py-5">
+				<summary
+					class="focus-visible:outline-primary-500 flex cursor-pointer list-none items-center gap-4 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden"
+				>
+					<IconBike class="text-primary-500 h-6 w-6 shrink-0" />
+					<span class="flex-1"
+						><strong class="block text-lg">Before you ride: stay A.L.E.R.T.</strong><span
+							class="text-surface-200 mt-1 block text-sm"
+							>Five simple habits for a more confident ride.</span
+						></span
+					>
+					<span aria-hidden="true" class="text-primary-500 text-2xl transition group-open:rotate-45"
+						>+</span
+					>
+				</summary>
+				<dl class="mt-6 grid gap-5 sm:ml-10 sm:grid-cols-2 lg:grid-cols-3">
 					{#each alertPrinciples as item}
-						<div class="grid grid-cols-[2rem_1fr] gap-3">
-							<strong class="text-2xl font-black">{item.letter}</strong>
-							<div>
-								<p class="font-bold">{item.label}</p>
-								<p class="mt-1 text-sm leading-relaxed opacity-70">{item.description}</p>
-							</div>
+						<div>
+							<dt class="font-bold">
+								<span class="text-primary-500">{item.letter}</span> · {item.label}
+							</dt>
+							<dd class="text-surface-200 mt-2 text-sm leading-relaxed">{item.description}</dd>
 						</div>
 					{/each}
-				</div>
-			</div>
+				</dl>
+			</details>
+			<details class="group py-5">
+				<summary
+					class="focus-visible:outline-primary-500 flex cursor-pointer list-none items-center gap-4 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden"
+				>
+					<IconShieldCheck class="text-tertiary-300 h-6 w-6 shrink-0" />
+					<span class="flex-1"
+						><strong class="block text-lg">After a crash: your next steps</strong><span
+							class="text-surface-200 mt-1 block text-sm"
+							>Keep the essentials close, before you need them.</span
+						></span
+					>
+					<span aria-hidden="true" class="text-primary-500 text-2xl transition group-open:rotate-45"
+						>+</span
+					>
+				</summary>
+				<ol class="text-surface-200 mt-6 ml-6 list-decimal space-y-3 leading-relaxed sm:ml-16">
+					{#each ['Get out of traffic and check for injuries', 'Call police and make a report', 'Photograph the scene and exchange information', 'Seek medical care', 'Protect your records and your rights'] as step}
+						<li class="pl-2">{step}</li>
+					{/each}
+				</ol>
+			</details>
 		</div>
-
-		<a href="/learn" class="anchor inline-flex items-center gap-1 font-bold"
-			>Explore the complete safety library <IconArrowRight class="h-4 w-4" /></a
-		>
 	</section>
 </div>
