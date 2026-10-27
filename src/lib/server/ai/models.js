@@ -18,7 +18,7 @@ export const AI_CAPABILITIES = {
 };
 
 const MODEL_ID = {
-	MERCURY_2: 'inception/mercury-2',
+	MERCURY_3: 'inception/mercury-3',
 	OPENAI_GPT_6_LUNA: 'openai/gpt-6-luna',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
 	GEMINI_38_FLASH: 'google/gemini-3.8-flash',
@@ -31,12 +31,17 @@ const MODEL_ID = {
 	STABLE_IMAGE_CORE: IMAGE_GENERATION_MODEL_IDS.STABLE_IMAGE_CORE
 };
 
+const MODEL_ID_ALIASES = {
+	'inception/mercury-2': MODEL_ID.MERCURY_3,
+	'inception/mercury-2.5': MODEL_ID.MERCURY_3
+};
+
 const AI_MODELS = {
-	[MODEL_ID.MERCURY_2]: {
-		id: MODEL_ID.MERCURY_2,
+	[MODEL_ID.MERCURY_3]: {
+		id: MODEL_ID.MERCURY_3,
 		provider: 'inception',
-		model: 'mercury-2',
-		label: 'Mercury 2',
+		model: 'mercury-3',
+		label: 'Mercury 3',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -716,7 +721,7 @@ function resolveProfile(profileName) {
 
 function resolveDefaultModelId(profile) {
 	if (profile?.ignoreDefaultModel) return null;
-	const defaultModelId = env.AI_MODEL_DEFAULT || null;
+	const defaultModelId = canonicalizeModelId(env.AI_MODEL_DEFAULT || null);
 	if (!defaultModelId) return null;
 	const defaultModel = AI_MODELS[defaultModelId];
 	if (!defaultModel) return null;
@@ -725,13 +730,22 @@ function resolveDefaultModelId(profile) {
 
 function resolveModelId(profileName) {
 	const profile = resolveProfile(profileName);
-	return env[profile.envVar] || resolveDefaultModelId(profile) || profile.fallbackModelId;
+	return (
+		canonicalizeModelId(env[profile.envVar] || null) ||
+		resolveDefaultModelId(profile) ||
+		profile.fallbackModelId
+	);
+}
+
+function canonicalizeModelId(modelId) {
+	return Object.hasOwn(MODEL_ID_ALIASES, modelId) ? MODEL_ID_ALIASES[modelId] : modelId;
 }
 
 function resolveModel(profileName, options = {}) {
 	const profile = resolveProfile(profileName);
-	const explicitModelId =
+	const requestedModelId =
 		typeof options?.modelIdOverride === 'string' ? options.modelIdOverride.trim() : '';
+	const explicitModelId = canonicalizeModelId(requestedModelId);
 	const modelId = explicitModelId || resolveModelId(profileName);
 	const model = AI_MODELS[modelId];
 
