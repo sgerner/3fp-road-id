@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	let { report, onAsk = undefined } = $props();
 	const storageKey = '3fp-safety-message-brief-v1';
 	const templates = {
@@ -58,6 +59,7 @@
 	let imageId = $state('01-give-people-space-poster-v9-page-01');
 	let checks = $state([false, false, false, false]);
 	let status = $state('');
+	let motionDuration = $state(150);
 	const checklist = [
 		'Check the local rules and road scene.',
 		'Confirm any help is real and available.',
@@ -129,11 +131,16 @@
 		}
 	}
 	onMount(() => {
+		const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const updateMotion = () => (motionDuration = preference.matches ? 0 : 150);
+		updateMotion();
+		preference.addEventListener('change', updateMotion);
+		const cleanupMotion = () => preference.removeEventListener('change', updateMotion);
 		try {
 			const raw = localStorage.getItem(storageKey);
-			if (!raw || raw.length > 5000) return;
+			if (!raw || raw.length > 5000) return cleanupMotion;
 			const saved = JSON.parse(raw);
-			if (!saved || !Object.hasOwn(templates, saved.encounter)) return;
+			if (!saved || !Object.hasOwn(templates, saved.encounter)) return cleanupMotion;
 			const bounded = (value, max) => typeof value === 'string' && value.length <= max;
 			if (
 				!bounded(saved.audience, 100) ||
@@ -147,7 +154,7 @@
 				saved.checks.length !== 4 ||
 				!saved.checks.every((value) => typeof value === 'boolean')
 			)
-				return;
+				return cleanupMotion;
 			encounter = saved.encounter;
 			audience = saved.audience;
 			headline = saved.headline;
@@ -161,6 +168,7 @@
 		} catch {
 			status = 'Could not restore the saved brief.';
 		}
+		return cleanupMotion;
 	});
 </script>
 
@@ -236,10 +244,15 @@
 			<div class="poster">
 				<div class="poster-top"><span>3 FEET PLEASE</span><span>✳</span></div>
 				<p class="poster-kicker">{templates[encounter].label} / {audience || 'Your audience'}</p>
-				<h3>{headline || 'Your headline here'}</h3>
-				{#if selectedImage}<div class="poster-image">
-						<img src={selectedImage.src} alt={selectedImage.alt || selectedImage.title} />
-					</div>{/if}
+				{#key encounter}<h3 in:fade={{ duration: motionDuration }}>
+						{headline || 'Your headline here'}
+					</h3>{/key}
+				{#if selectedImage}{#key imageId}<div
+							class="poster-image"
+							in:fade={{ duration: motionDuration }}
+						>
+							<img src={selectedImage.src} alt={selectedImage.alt || selectedImage.title} />
+						</div>{/key}{/if}
 				<p class="poster-action">{action}</p>
 				{#if help}<p class="poster-help">{help}</p>{/if}
 				<div class="poster-footer">
@@ -273,7 +286,9 @@
 						)}>Ask for feedback <span>↗</span></button
 				>{/if}
 			<p>This brief stays on this device until you ask the assistant.</p>
-			<p class="status" aria-live="polite">{status}</p>
+			<p class="status" aria-live="polite">
+				{#key status}<span in:fade={{ duration: motionDuration }}>{status}</span>{/key}
+			</p>
 		</div>
 	</div>
 </section>
@@ -364,6 +379,15 @@
 	}
 	button {
 		cursor: pointer;
+	}
+	button {
+		transition:
+			background-color 140ms ease,
+			border-color 140ms ease,
+			color 140ms ease;
+	}
+	button:hover {
+		border-color: var(--lemon);
 	}
 	.text-button {
 		background: none;
@@ -579,6 +603,11 @@
 		}
 		.finish {
 			gap: 1.5rem;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		button {
+			transition: none;
 		}
 	}
 </style>

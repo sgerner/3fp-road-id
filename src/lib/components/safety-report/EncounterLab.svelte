@@ -1,4 +1,6 @@
 <script>
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	/** @type {{ onAsk?: (question: string) => void }} */
 	let { onAsk } = $props();
 	let mode = $state('passing');
@@ -7,6 +9,14 @@
 	let view = $state('overhead');
 	let doorStep = $state('check');
 	let crossing = $state(true);
+	let motionDuration = $state(150);
+	onMount(() => {
+		const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const update = () => (motionDuration = preference.matches ? 0 : 150);
+		update();
+		preference.addEventListener('change', update);
+		return () => preference.removeEventListener('change', update);
+	});
 
 	const modes = [
 		{ id: 'passing', number: '01', label: 'Passing' },
@@ -258,8 +268,9 @@
 			<p class="panel-kicker">THE DECISION <span>✳</span></p>
 			<h3>{title}</h3>
 			<div class="state" aria-live="polite">
-				<span>WHAT HAPPENS NEXT</span><strong>{action}</strong>
-				<p>{context}</p>
+				<span>WHAT HAPPENS NEXT</span>
+				{#key action}<strong in:fade={{ duration: motionDuration }}>{action}</strong>{/key}
+				{#key context}<p transition:fade={{ duration: motionDuration }}>{context}</p>{/key}
 			</div>
 			{#if mode === 'passing'}
 				<p class="control-label">CHANGE THE SCENE</p>
@@ -371,6 +382,19 @@
 		font: inherit;
 		cursor: pointer;
 	}
+	button {
+		transition:
+			background-color 140ms ease,
+			border-color 140ms ease,
+			color 140ms ease;
+	}
+	button:hover:not([aria-pressed='true']) {
+		border-color: var(--yellow);
+	}
+	button:focus-visible {
+		outline: 3px solid var(--pink);
+		outline-offset: 3px;
+	}
 	.mode-list button {
 		border: 1px solid #806a96;
 		background: #3a294e;
@@ -438,6 +462,12 @@
 	}
 	.scene.angled {
 		transform: perspective(900px) rotateX(12deg) rotateZ(-3deg) scale(0.93);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		button,
+		.scene {
+			transition: none;
+		}
 	}
 	svg {
 		display: block;

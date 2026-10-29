@@ -1,5 +1,6 @@
 <script>
-	import { onDestroy, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
 	let { report, initialQuestion = '' } = $props();
 	let draft = $state(untrack(() => initialQuestion));
@@ -10,6 +11,27 @@
 	let input;
 	let controller;
 	let destroyed = false;
+	let elapsed = $state(0);
+	let timer;
+	let requestStarted = 0;
+	let timedOut = false;
+	let motionDuration = $state(0);
+	onMount(() => {
+		const preference = matchMedia('(prefers-reduced-motion: reduce)');
+		const update = () => (motionDuration = preference.matches ? 0 : 220);
+		update();
+		preference.addEventListener('change', update);
+		return () => preference.removeEventListener('change', update);
+	});
+
+	function clearRequestTimer() {
+		clearInterval(timer);
+		timer = undefined;
+	}
+
+	function cancelRequest() {
+		controller?.abort();
+	}
 
 	const prompts = [
 		'What makes a cycling safety campaign effective?',
@@ -50,6 +72,17 @@
 		if (!question || busy) return;
 		draft = question.slice(0, 1200);
 		busy = true;
+		elapsed = 0;
+		timedOut = false;
+		requestStarted = Date.now();
+		clearRequestTimer();
+		timer = setInterval(() => {
+			elapsed = Math.floor((Date.now() - requestStarted) / 1000);
+			if (elapsed >= 45) {
+				timedOut = true;
+				controller?.abort();
+			}
+		}, 1000);
 		error = '';
 		related = [];
 		controller = new AbortController();
@@ -69,9 +102,13 @@
 			messages = [...messages, { question: draft, result: data }];
 			draft = '';
 		} catch (err) {
-			if (!destroyed && err?.name !== 'AbortError')
+			if (!destroyed && timedOut)
+				error =
+					'The service is taking too long to respond. Your question is still here; please try again.';
+			else if (!destroyed && err?.name !== 'AbortError')
 				error = 'The assistant could not connect. Please try again.';
 		} finally {
+			clearRequestTimer();
 			if (!destroyed) busy = false;
 		}
 	}
@@ -82,12 +119,13 @@
 		draft = question.trim().slice(0, 1200);
 		await tick();
 		input?.focus();
-		input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		input?.scrollIntoView({ behavior: motionDuration ? 'smooth' : 'instant', block: 'center' });
 		await submit();
 	}
 
 	onDestroy(() => {
 		destroyed = true;
+		clearRequestTimer();
 		controller?.abort();
 	});
 </script>
@@ -105,9 +143,13 @@
 	</div>
 
 	{#if messages.length}
-		<div class="conversation" aria-label="Questions and answers">
+		<div
+			class="conversation"
+			aria-label="Questions and answers"
+			transition:fade={{ duration: motionDuration }}
+		>
 			{#each messages as message}
-				<article class="answer-card">
+				<article class="answer-card" in:fly={{ y: 8, duration: motionDuration }}>
 					<p class="question">{message.question}</p>
 					<p class="answer">{message.result.answer}</p>
 					{#if message.result.nextSteps?.length}
@@ -153,6 +195,7 @@
 	{/if}
 
 	<form
+		aria-busy={busy}
 		onsubmit={(event) => {
 			event.preventDefault();
 			submit();
@@ -175,9 +218,29 @@
 			>
 		</div>
 	</form>
-	<div aria-live="polite" aria-atomic="true" class="status">
-		{#if busy}<p>Reading the review for an answer…</p>{/if}
-		{#if error}<p class="error">{error}</p>{/if}
+	<div class="status">
+		{#if busy}
+			<section class="busy-card" in:fly={{ y: 8, duration: motionDuration }}>
+				<div class="busy-heading" role="status" aria-live="polite" aria-atomic="true">
+					<span class="spinner" aria-hidden="true"></span>
+					<div>
+						<strong>Preparing your answer</strong>
+						<p>Reading the review and preparing a source-linked answer.</p>
+					</div>
+				</div>
+				<div class="progress-track" aria-hidden="true"><span></span></div>
+				<div class="busy-footer">
+					<span
+						>{elapsed} sec elapsed{elapsed >= 8
+							? ' · Still waiting for the AI service. You can keep browsing.'
+							: ''}</span
+					><button type="button" class="cancel" onclick={cancelRequest}>Stop waiting</button>
+				</div>
+			</section>
+		{/if}
+		{#if error}<p class="error" role="alert" transition:fade={{ duration: motionDuration }}>
+				{error}
+			</p>{/if}
 		{#if related.length}
 			<p>Related report sections:</p>
 			<ul>
@@ -332,8 +395,97 @@
 	.status {
 		line-height: 1.5;
 	}
-	.status:empty {
-		display: none;
+	.busy-card {
+		background: #fff;
+		border: 1px solid #d9c9e3;
+		border-radius: 0.8rem;
+		box-shadow: 0 8px 24px #39195f12;
+		margin: 1rem 0;
+		padding: 1rem 1.1rem;
+	}
+	.busy-heading {
+		align-items: center;
+		display: flex;
+		gap: 0.8rem;
+	}
+	.busy-heading strong {
+		color: #39195f;
+	}
+	.busy-heading p {
+		color: #5d4b64;
+		margin: 0.1rem 0 0;
+	}
+	.spinner {
+		animation: spin 0.85s linear infinite;
+		border: 3px solid #eadff0;
+		border-right-color: #9b427d;
+		border-top-color: #4c1d73;
+		border-radius: 50%;
+		flex: 0 0 auto;
+		height: 1.35rem;
+		width: 1.35rem;
+	}
+	.progress-track {
+		background: #eee7f1;
+		border-radius: 99px;
+		height: 0.35rem;
+		margin: 0.95rem 0 0.65rem;
+		overflow: hidden;
+	}
+	.progress-track span {
+		animation: progress 1.6s ease-in-out infinite;
+		background: linear-gradient(90deg, #4c1d73, #b41b71, #f0d94a);
+		border-radius: inherit;
+		display: block;
+		height: 100%;
+		width: 38%;
+	}
+	.busy-footer {
+		align-items: center;
+		color: #5d4b64;
+		display: flex;
+		flex-wrap: wrap;
+		font-size: 0.88rem;
+		gap: 0.7rem;
+		justify-content: space-between;
+	}
+	.cancel {
+		background: transparent;
+		border: 1px solid #8d719b;
+		border-radius: 0.45rem;
+		color: #4c1d73;
+		cursor: pointer;
+		font: inherit;
+		font-weight: 700;
+		padding: 0.35rem 0.65rem;
+	}
+	.cancel:hover {
+		background: #f5eff8;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	@keyframes progress {
+		0% {
+			transform: translateX(-130%);
+		}
+		55% {
+			transform: translateX(150%);
+		}
+		100% {
+			transform: translateX(300%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.spinner,
+		.progress-track span {
+			animation: none;
+		}
+		.progress-track span {
+			width: 100%;
+		}
 	}
 	.error {
 		color: #8a1645;

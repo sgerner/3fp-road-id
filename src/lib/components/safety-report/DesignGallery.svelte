@@ -1,5 +1,7 @@
 <script>
-	import { tick } from 'svelte';
+	import { tick, onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
 	let { report, onAsk = undefined } = $props();
 	let library = $state('visuals');
 	let query = $state('');
@@ -9,6 +11,33 @@
 	let activeIndex = $state(0);
 	let dialog = $state();
 	let trigger;
+	let reducedMotion = $state(true);
+	onMount(() => {
+		const preference = matchMedia('(prefers-reduced-motion: reduce)');
+		const update = () => (reducedMotion = preference.matches);
+		update();
+		preference.addEventListener('change', update);
+		return () => preference.removeEventListener('change', update);
+	});
+	const bytes = (size) =>
+		size >= 1000000 ? `${(size / 1000000).toFixed(1)} MB` : `${Math.ceil(size / 1000)} KB`;
+	const campaignName = (value) =>
+		value === 'All'
+			? 'All'
+			: value
+					.split(', ')
+					.map((name) =>
+						name === '03-a-person-on-a-bike'
+							? 'Family, friends & everyday rides'
+							: name.replace(/^\d+-/, '').replaceAll('-', ' ')
+					)
+					.join(' + ');
+	const formatSize = (item) =>
+		item.kind === 'social'
+			? `${item.pixelWidth || 1080} × ${item.pixelHeight || 1080} px`
+			: item.dimensions
+				? `${item.dimensions.join(' × ')} in`
+				: '';
 
 	const items = $derived(library === 'visuals' ? report.figures : report.campaignGallery);
 	const types = $derived([...new Set(items.map((item) => item.kind))].sort());
@@ -97,6 +126,23 @@
 		alternatives; card pages may form duplex pairs. Page numbers identify each proof without
 		assuming every page is a front or back.
 	</p>
+	<div class="free-assets">
+		<div>
+			<span class="free-label">FREE CAMPAIGN LIBRARY</span>
+			<h3>Take an idea.<br />Make it your own.</h3>
+			<p>
+				Download a PDF to print, or open a Canva template to create your own editable copy. No email
+				or form required for downloads.
+			</p>
+		</div>
+		<div class="free-actions">
+			<button type="button" onclick={() => switchLibrary('campaigns')}
+				>Explore {report.meta.campaignAssetCount || 36} free design sets
+				<span aria-hidden="true">↗</span></button
+			>
+			<p>Canva sign-in is required to make a copy. Editable PowerPoint files are available too.</p>
+		</div>
+	</div>
 	<div class="switcher" aria-label="Choose a library">
 		<button
 			type="button"
@@ -129,7 +175,8 @@
 		<label
 			>{library === 'visuals' ? 'Topic' : 'Campaign'}
 			<select bind:value={topic} onchange={reset}
-				><option>All</option>{#each topics as value}<option {value}>{value}</option>{/each}</select
+				><option>All</option>{#each topics as value}<option {value}>{campaignName(value)}</option
+					>{/each}</select
 			></label
 		>
 	</div>
@@ -139,7 +186,10 @@
 	</p>
 	<div class="grid">
 		{#each results.slice(0, visible) as item, index (item.id)}
-			<article>
+			<article
+				in:fly={{ y: reducedMotion ? 0 : 14, duration: reducedMotion ? 0 : 250 }}
+				animate:flip={{ duration: reducedMotion ? 0 : 220 }}
+			>
 				<button
 					type="button"
 					class="image-button"
@@ -161,6 +211,27 @@
 						: `${displayType(item.kind)} · page ${item.page} of ${item.pageCount}`}
 				</p>
 				<h3>{item.title}</h3>
+				{#if library === 'campaigns'}<p class="asset-meta">
+						{formatSize(item)} · {item.pageCount}-page set
+					</p>
+					<div class="card-actions">
+						{#if item.pdfUrl}<a
+								href={item.pdfUrl}
+								download
+								aria-label={`Download PDF set: ${item.title}`}>PDF ↓</a
+							>{/if}
+						{#if item.pngUrl}<a
+								href={item.pngUrl}
+								download
+								aria-label={`Download PNG: ${item.title}`}>PNG ↓</a
+							>{/if}
+						{#if item.canvaTemplateUrl}<a
+								href={item.canvaTemplateUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label={`Make your own Canva copy: ${item.title}`}>Make a Canva copy ↗</a
+							>{/if}
+					</div>{/if}
 			</article>
 		{/each}
 	</div>
@@ -186,7 +257,12 @@
 			<button type="button" class="close" onclick={closeImage} aria-label="Close image">×</button>
 		</div>
 		<h2 id="gallery-dialog-title">{active.title}</h2>
-		<img class="full-image" src={active.src} alt={active.alt} />
+		{#key active.id}<img
+				class="full-image"
+				src={active.src}
+				alt={active.alt}
+				in:fade={{ duration: reducedMotion ? 0 : 200 }}
+			/>{/key}
 		{#if active.caption}<p class="caption">{active.caption}</p>{:else}<p class="caption">
 				{active.alt}
 			</p>{/if}
@@ -195,8 +271,20 @@
 					>Read chapter ↓</button
 				>{/if}
 			{#if active.downloadUrl}<a href={active.downloadUrl} download>Download editable SVG ↓</a>{/if}
-			{#if active.canvaUrl}<a href={active.canvaUrl} target="_blank" rel="noopener noreferrer"
-					>Edit in Canva ↗</a
+			{#if active.pdfUrl}<a class="download-primary" href={active.pdfUrl} download
+					>Download PDF set ↓ <small>{bytes(active.pdfBytes)}</small></a
+				>{/if}
+			{#if active.pngUrl}<a href={active.pngUrl} download
+					>Download PNG ↓ <small>{bytes(active.pngBytes)}</small></a
+				>{/if}
+			{#if active.canvaTemplateUrl}<a
+					class="template-link"
+					href={active.canvaTemplateUrl}
+					target="_blank"
+					rel="noopener noreferrer">Make your own Canva copy ↗</a
+				>{/if}
+			{#if active.editableUrl}<a href={active.editableUrl} download
+					>Download editable PowerPoint ↓ <small>{bytes(active.editableBytes)}</small></a
 				>{/if}
 			{#if onAsk}<button
 					type="button"
@@ -208,6 +296,12 @@
 					}}>Ask about this example →</button
 				>{/if}
 		</div>
+		{#if active.pdfUrl}<p class="download-note">
+				The PDF and PowerPoint include all {active.pageCount} pages in this design set. {formatSize(
+					active
+				)}. Canva opens a template so you can edit your own copy. Check the final layout and QR code
+				after making changes.
+			</p>{/if}
 		<div class="navigation">
 			<button type="button" onclick={() => move(-1)}>← Previous</button><span
 				>Use arrow keys to browse</span
@@ -217,6 +311,134 @@
 </dialog>
 
 <style>
+	.free-assets {
+		display: grid;
+		grid-template-columns: 1.2fr 1fr;
+		gap: 2rem;
+		align-items: center;
+		background: #35125f;
+		color: #fff3df;
+		padding: clamp(1.3rem, 3vw, 2.3rem);
+		margin: 2rem 0;
+		border-top: 6px solid #ff0180;
+	}
+	.free-label {
+		font-size: 0.68rem;
+		font-weight: 800;
+		color: #ffff0a;
+		letter-spacing: 0.14em;
+	}
+	.free-assets h3 {
+		color: #fff3df !important;
+		font-size: clamp(1.8rem, 3vw, 2.7rem);
+		line-height: 1.05;
+		margin: 0.8rem 0 1rem;
+	}
+	.free-assets p {
+		font-size: 0.85rem;
+		line-height: 1.6;
+		max-width: 32rem;
+	}
+	.free-actions button {
+		background: #ffff0a;
+		color: #23143a;
+		border: 0;
+		padding: 1.1rem;
+		font-weight: 800;
+		display: flex;
+		justify-content: space-between;
+		gap: 1.2rem;
+		width: 100%;
+	}
+	.free-actions p {
+		margin: 1rem 0 0;
+		color: #e6d5f5;
+		font-size: 0.75rem;
+	}
+	.asset-meta {
+		font-size: 0.73rem;
+		color: #655b70;
+		margin: 0.6rem 0;
+	}
+	.card-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-top: 0.8rem;
+	}
+	.card-actions a {
+		font-size: 0.7rem;
+		padding: 0.5rem 0.6rem;
+		background: #eee2f9;
+		color: #4c197d;
+		text-decoration: none;
+		font-weight: 800;
+	}
+	.card-actions a:last-child {
+		background: #7926cb;
+		color: white;
+	}
+	.card-actions a:hover {
+		background: #ffff0a;
+		color: #23143a;
+	}
+	.actions small {
+		display: block;
+		font-size: 0.65rem;
+		font-weight: 400;
+		opacity: 0.8;
+	}
+	.actions .download-primary {
+		background: #7926cb;
+		color: white;
+	}
+	.actions .template-link {
+		background: #ffff0a;
+		color: #23143a;
+	}
+	.download-note {
+		font-size: 0.78rem;
+		line-height: 1.7;
+		color: #655b70;
+		margin: 1rem 0;
+	}
+	dialog[open] {
+		animation: gallery-arrive 0.22s ease-out;
+	}
+	@keyframes gallery-arrive {
+		from {
+			opacity: 0;
+			transform: translateY(12px) scale(0.99);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	.image-button img {
+		transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	.image-button:hover img {
+		transform: scale(1.035);
+	}
+	@media (max-width: 650px) {
+		.free-assets {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		dialog[open] {
+			animation: none;
+		}
+		.image-button img {
+			transition: none;
+		}
+		.image-button:hover img {
+			transform: none;
+		}
+	}
+
 	h2,
 	h3 {
 		color: #26123c !important;

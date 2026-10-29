@@ -1,5 +1,15 @@
 <script>
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	let { report, onAsk = undefined } = $props();
+	let motionDuration = $state(140);
+	onMount(() => {
+		const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const update = () => (motionDuration = preference.matches ? 0 : 140);
+		update();
+		preference.addEventListener('change', update);
+		return () => preference.removeEventListener('change', update);
+	});
 	let query = $state('');
 	let outcome = $state('All');
 	let visible = $state(10);
@@ -77,7 +87,7 @@
 	</p>
 	<div class="records">
 		{#each matches.slice(0, visible) as source (source.id)}
-			<details>
+			<details in:fade={{ duration: motionDuration }}>
 				<summary
 					><span class="record-id">{source.id}</span><span
 						><strong>{source.title}</strong><small>{source.authors} · {source.year}</small></span
@@ -124,7 +134,7 @@
 			</details>
 		{/each}
 	</div>
-	{#if matches.length === 0}<p class="empty">
+	{#if matches.length === 0}<p class="empty" transition:fade={{ duration: motionDuration }}>
 			No studies match. Try another word or choose All.
 		</p>{/if}
 	{#if visible < matches.length}<button class="more" type="button" onclick={() => (visible += 10)}
@@ -151,49 +161,54 @@
 				)}. The reference value for equal rates is 1.</desc
 			>
 			<line x1="48" y1="95" x2="552" y2="95" stroke="currentColor" stroke-width="2" />
-			<line
-				x1={axis(1)}
-				y1="15"
-				x2={axis(1)}
-				y2="103"
-				stroke="#7926cb"
-				stroke-width="2"
-				stroke-dasharray="5 5"
-			/>
-			<text x={axis(1)} y="13" text-anchor="middle" class="chart-label">Equal rates</text>
-			<line
-				x1={axis(current.low)}
-				y1="60"
-				x2={axis(current.high)}
-				y2="60"
-				stroke="#ff0180"
-				stroke-width="6"
-			/>
-			<line
-				x1={axis(current.low)}
-				y1="49"
-				x2={axis(current.low)}
-				y2="71"
-				stroke="#ff0180"
-				stroke-width="3"
-			/>
-			<line
-				x1={axis(current.high)}
-				y1="49"
-				x2={axis(current.high)}
-				y2="71"
-				stroke="#ff0180"
-				stroke-width="3"
-			/>
-			<circle cx={axis(current.estimate)} cy="60" r="8" fill="#23143a" />
-			{#each [0.1, 0.3, 1, 3] as tick}<line
-					x1={axis(tick)}
-					y1="95"
-					x2={axis(tick)}
-					y2="102"
-					stroke="currentColor"
-				/><text x={axis(tick)} y="122" text-anchor="middle" class="chart-label">{tick}</text>{/each}
-			<text x="300" y="145" text-anchor="middle" class="chart-label">Rate ratio (log scale)</text>
+			{#key selected}<g transition:fade={{ duration: motionDuration }}>
+					<line
+						x1={axis(1)}
+						y1="15"
+						x2={axis(1)}
+						y2="103"
+						stroke="#7926cb"
+						stroke-width="2"
+						stroke-dasharray="5 5"
+					/>
+					<text x={axis(1)} y="13" text-anchor="middle" class="chart-label">Equal rates</text>
+					<line
+						x1={axis(current.low)}
+						y1="60"
+						x2={axis(current.high)}
+						y2="60"
+						stroke="#ff0180"
+						stroke-width="6"
+					/>
+					<line
+						x1={axis(current.low)}
+						y1="49"
+						x2={axis(current.low)}
+						y2="71"
+						stroke="#ff0180"
+						stroke-width="3"
+					/>
+					<line
+						x1={axis(current.high)}
+						y1="49"
+						x2={axis(current.high)}
+						y2="71"
+						stroke="#ff0180"
+						stroke-width="3"
+					/>
+					<circle cx={axis(current.estimate)} cy="60" r="8" fill="#23143a" />
+					{#each [0.1, 0.3, 1, 3] as tick}<line
+							x1={axis(tick)}
+							y1="95"
+							x2={axis(tick)}
+							y2="102"
+							stroke="currentColor"
+						/><text x={axis(tick)} y="122" text-anchor="middle" class="chart-label">{tick}</text
+						>{/each}
+					<text x="300" y="145" text-anchor="middle" class="chart-label"
+						>Rate ratio (log scale)</text
+					>
+				</g>{/key}
 		</svg>
 		<p class="result">
 			<strong>Estimate: {current.estimate.toFixed(2)}.</strong> 95% confidence interval: {current.low.toFixed(
@@ -364,6 +379,18 @@
 		font: inherit;
 		font-weight: 800;
 	}
+	button,
+	a,
+	summary {
+		transition:
+			color 140ms ease,
+			background-color 140ms ease,
+			border-color 140ms ease;
+	}
+	button:hover,
+	a:hover {
+		color: #4e198c;
+	}
 	.links button {
 		color: #681bae;
 		border: 0;
@@ -421,6 +448,13 @@
 		}
 		.detail {
 			padding-left: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		button,
+		a,
+		summary {
+			transition: none;
 		}
 	}
 </style>

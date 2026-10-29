@@ -10,7 +10,7 @@ if (!preset) {
 	process.exit(1);
 }
 
-const outDir = path.resolve('artifacts/microsite-presets');
+const outDir = path.resolve('/tmp/3fp-microsite-presets');
 fs.mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });

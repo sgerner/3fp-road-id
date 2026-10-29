@@ -1,5 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 	import EncounterLab from '#lib/components/safety-report/EncounterLab.svelte';
 	import MessageWorkbench from '#lib/components/safety-report/MessageWorkbench.svelte';
 	import DesignGallery from '#lib/components/safety-report/DesignGallery.svelte';
@@ -11,14 +12,25 @@
 	let query = $state('');
 	let active = $state('start');
 	let assistant;
+	let motionReady = $state(false);
 	const navigation = [
-		['start', 'Start here'],
+		['start', 'Key takeaways'],
 		['encounters', 'Road encounters'],
 		['workbench', 'Make a message'],
 		['gallery', 'Visual library'],
 		['evidence', 'Evidence'],
 		['read', 'Full review'],
 		['assistant', 'Ask the report']
+	];
+	const takeawayCopy = [
+		'Choose one audience and road situation, such as drivers passing on a narrow street.',
+		'Say who should act, when, and what to do. Make this the main headline.',
+		'Help readers see the safe choice. Keep any portrait or story beside a clear instruction.',
+		'Offer real help: lights and fitting, supervised practice, or a clear place to get support.',
+		'Use familiar places, useful languages, and formats chosen with the people you want to reach.',
+		'Ask readers to explain the action before you explain it. Revise confusing or blaming messages.',
+		'Review local rules, print at actual size, check translations, and test the QR code and short web address.',
+		'Track who you reach, what readers understand, and whether people use the action. Use the results to improve.'
 	];
 	const topics = [
 		{
@@ -154,17 +166,47 @@
 	}
 	onMount(() => {
 		followHash();
-		const observer = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) if (entry.isIntersecting) active = entry.target.id;
-			},
-			{ rootMargin: '-10% 0px -65% 0px' }
-		);
-		for (const [id] of navigation) {
-			const el = document.getElementById(id);
-			if (el) observer.observe(el);
+		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		motionReady = !reduceMotion;
+		let revealObserver;
+		if (!reduceMotion && 'IntersectionObserver' in window) {
+			revealObserver = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (entry.isIntersecting) {
+							entry.target.classList.add('is-visible');
+							revealObserver.unobserve(entry.target);
+						}
+					}
+				},
+				{ rootMargin: '0px 0px -8% 0px', threshold: 0.01 }
+			);
+			for (const el of document.querySelectorAll('.report-page .motion-reveal'))
+				revealObserver.observe(el);
 		}
-		return () => observer.disconnect();
+		// Track section starts, including sections taller than the viewport.
+		let frame = 0;
+		const updateActive = () => {
+			frame = 0;
+			let current = navigation[0][0];
+			for (const [id] of navigation) {
+				const element = document.getElementById(id);
+				if (element && element.getBoundingClientRect().top <= 165) current = id;
+			}
+			active = current;
+		};
+		const queueActive = () => {
+			if (!frame) frame = requestAnimationFrame(updateActive);
+		};
+		window.addEventListener('scroll', queueActive, { passive: true });
+		window.addEventListener('resize', queueActive);
+		queueActive();
+		return () => {
+			window.removeEventListener('scroll', queueActive);
+			window.removeEventListener('resize', queueActive);
+			cancelAnimationFrame(frame);
+			revealObserver?.disconnect();
+		};
 	});
 </script>
 
@@ -203,19 +245,19 @@
 		</div>
 	</div>
 
-	<header class="report-hero">
+	<header class="report-hero" class:motion-ready={motionReady}>
 		<div class="hero-copy">
 			<p class="kicker"><span></span> 3 FEET PLEASE / OPEN RESEARCH</p>
 			<h1>Safer cycling.<br /><em>Better messages.</em></h1>
 			<p class="hero-deck">
-				Turn research into a campaign<br class="wide-only" /> people can understand and use.
+				Build a campaign with clear actions<br class="wide-only" /> and practical help.
 			</p>
 			<p class="hero-description">
-				Explore what was studied, see the design choices, and build a practical plan for your own
-				community.
+				This review brings together research on safety messages, riding education, and support.
+				Start with eight practical steps, then explore the examples and evidence.
 			</p>
 			<div class="hero-actions">
-				<a href="#start" class="primary-link">Find your starting point <span>↓</span></a><a
+				<a href="#start" class="primary-link">Start with the key takeaways <span>↓</span></a><a
 					href="#assistant"
 					class="text-link">Ask the report ↗</a
 				>
@@ -249,7 +291,7 @@
 			>{/each}
 	</nav>
 
-	<section id="start" class="start-section section-pad">
+	<section id="start" class="start-section section-pad motion-reveal">
 		<div class="infrastructure">
 			<span aria-hidden="true">↗</span>
 			<div>
@@ -263,9 +305,47 @@
 				>
 			</div>
 		</div>
+		<div class="takeaways-intro">
+			<p class="kicker">THE RESEARCH / PUT IT TO WORK</p>
+			<h2>Make a safety message<br /><em>people can use.</em></h2>
+			<p>
+				For community advocates, local groups, and anyone making a safety campaign: give people one
+				clear action and a practical way to take it. Start with these steps from the two-page guide.
+			</p>
+		</div>
+		<ol class="quick-takeaways" aria-label="Eight steps for a useful safety campaign">
+			{#each report.quickGuide.steps as step, i}
+				<li>
+					<span class="takeaway-number" aria-hidden="true"
+						>{String(step.number).padStart(2, '0')}</span
+					>
+					<div>
+						<h3>{step.title}</h3>
+						<p>{takeawayCopy[i] || step.body}</p>
+					</div>
+				</li>
+			{/each}
+		</ol>
+		<div class="takeaway-example">
+			<div>
+				<p class="kicker">EXAMPLE / A DRIVER PASSING A RIDER</p>
+				<blockquote>“{report.quickGuide.examples[0].text}”</blockquote>
+				<p>
+					Show a driver waiting behind the rider. Ask a few drivers to explain when to wait before
+					you print a large batch.
+				</p>
+			</div>
+			<div class="takeaway-actions">
+				<a class="primary-link" href="#encounters"
+					>Explore this road encounter <span aria-hidden="true">↗</span></a
+				><a href={report.meta.quickPdfUrl} target="_blank" rel="noopener"
+					>Keep the two-page guide · PDF ↗</a
+				>
+			</div>
+		</div>
 		<div class="section-heading">
 			<div>
-				<p class="kicker">01 / CHOOSE YOUR WAY IN</p>
+				<p class="kicker">NEXT / CHOOSE YOUR WAY IN</p>
 				<h2>What are you<br /><em>trying to change?</em></h2>
 			</div>
 			<p>
@@ -311,7 +391,11 @@
 							? `${results.length} matching results${results.length === 12 ? ' · showing the closest matches' : ''}`
 							: 'No matches. Try a shorter phrase or a source ID.'}
 					</p>
-					{#each results as result}<button type="button" onclick={() => navigateTo(result.target)}
+					{#each results as result (result.id)}<button
+							type="button"
+							onclick={() => navigateTo(result.target)}
+							in:fly={{ y: 8, duration: 180 }}
+							out:fade={{ duration: 100 }}
 							><span>{result.kind}</span><strong>{result.title}</strong><b aria-hidden="true">↗</b
 							></button
 						>{/each}
@@ -319,20 +403,20 @@
 		</div>
 	</section>
 
-	<section id="encounters" class="section-pad encounter-section">
+	<section id="encounters" class="section-pad encounter-section motion-reveal">
 		<EncounterLab onAsk={askReport} />
 	</section>
-	<section id="workbench" class="section-pad workbench-section">
+	<section id="workbench" class="section-pad workbench-section motion-reveal">
 		<MessageWorkbench {report} onAsk={askReport} />
 	</section>
-	<section id="gallery" class="section-pad gallery-section">
+	<section id="gallery" class="section-pad gallery-section motion-reveal">
 		<DesignGallery {report} onAsk={askReport} />
 	</section>
-	<section id="evidence" class="section-pad evidence-section">
+	<section id="evidence" class="section-pad evidence-section motion-reveal">
 		<EvidenceExplorer {report} onAsk={askReport} />
 	</section>
 
-	<section id="read" class="reading-section section-pad">
+	<section id="read" class="reading-section section-pad motion-reveal">
 		<div class="section-heading">
 			<div>
 				<p class="kicker">THE COMPLETE REVIEW</p>
@@ -370,7 +454,7 @@
 		</div>
 	</section>
 
-	<section id="assistant" class="section-pad assistant-section">
+	<section id="assistant" class="section-pad assistant-section motion-reveal">
 		<ReportAssistant bind:this={assistant} {report} />
 	</section>
 	<footer class="report-footer">
@@ -387,6 +471,113 @@
 </div>
 
 <style>
+	.takeaways-intro {
+		max-width: 48rem;
+		margin-bottom: 2rem;
+	}
+	.takeaways-intro .kicker {
+		color: var(--purple);
+		margin-bottom: 1.2rem;
+	}
+	.takeaways-intro h2 {
+		font-size: clamp(2.1rem, 4vw, 4rem);
+		line-height: 1.05;
+	}
+	.takeaways-intro > p:last-child {
+		margin-top: 1.2rem;
+		line-height: 1.7;
+		color: var(--muted);
+		max-width: 43rem;
+	}
+	.quick-takeaways {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0 2.5rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.quick-takeaways li {
+		display: flex;
+		align-items: flex-start;
+		gap: 1rem;
+		padding: 1.5rem 0;
+		border-top: 1px solid var(--line);
+	}
+	.takeaway-number {
+		flex-shrink: 0;
+		color: var(--pink);
+		font-size: 0.75rem;
+		font-weight: 800;
+		padding-top: 0.2rem;
+	}
+	.quick-takeaways h3 {
+		font-size: 1.05rem;
+		line-height: 1.4;
+		letter-spacing: -0.015em;
+	}
+	.quick-takeaways p {
+		font-size: 0.9rem;
+		line-height: 1.65;
+		color: var(--muted);
+		margin-top: 0.5rem;
+	}
+	.takeaway-example {
+		display: grid;
+		grid-template-columns: 1.25fr 1fr;
+		align-items: center;
+		gap: 2rem;
+		background: #35125f;
+		color: #fff3df;
+		border-top: 5px solid var(--pink);
+		padding: clamp(1.4rem, 3vw, 2.5rem);
+		margin: 1.2rem 0 4rem;
+	}
+	.takeaway-example .kicker {
+		color: var(--lemon);
+		font-size: 0.6rem;
+	}
+	.takeaway-example blockquote {
+		font-size: clamp(1.4rem, 2.5vw, 2rem);
+		font-weight: 800;
+		line-height: 1.25;
+		margin: 1rem 0;
+		letter-spacing: -0.03em;
+	}
+	.takeaway-example p:last-child {
+		font-size: 0.85rem;
+		line-height: 1.65;
+		color: #e2d2f1;
+	}
+	.takeaway-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		align-items: flex-start;
+	}
+	.takeaway-actions > a:last-child {
+		color: #fff3df;
+		font-size: 0.78rem;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	@media (max-width: 720px) {
+		.quick-takeaways,
+		.takeaway-example {
+			grid-template-columns: 1fr;
+		}
+		.quick-takeaways li {
+			padding: 1.2rem 0;
+		}
+		.takeaway-example {
+			gap: 1.5rem;
+		}
+		.takeaway-actions .primary-link {
+			font-size: 0.8rem;
+			gap: 0.8rem;
+		}
+	}
+
 	:global(main:has(> .report-page)) {
 		overflow-x: clip;
 		overflow-y: visible;
@@ -486,6 +677,36 @@
 		color: white;
 		min-height: 650px;
 		align-items: center;
+	}
+	.report-hero.motion-ready .hero-copy {
+		animation: hero-arrive 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	}
+	.report-hero.motion-ready .hero-poster {
+		animation: poster-arrive 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	}
+	.report-hero.motion-ready .poster-1 {
+		animation-delay: 90ms;
+	}
+	.report-hero.motion-ready .poster-2 {
+		animation-delay: 170ms;
+	}
+	@keyframes hero-arrive {
+		from {
+			opacity: 0;
+			transform: translateY(12px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	@keyframes poster-arrive {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 	.kicker {
 		font-size: 0.65rem;
@@ -656,6 +877,9 @@
 		padding: 1.1rem 0.95rem;
 		white-space: nowrap;
 		border-bottom: 4px solid transparent;
+		transition:
+			background-color 160ms ease,
+			border-color 160ms ease;
 	}
 	.report-nav a:hover,
 	.report-nav a[aria-current] {
@@ -665,6 +889,24 @@
 	.section-pad {
 		padding: clamp(2.75rem, 6vw, 6rem) clamp(1.25rem, 5vw, 5rem);
 		scroll-margin-top: 140px;
+	}
+	.motion-reveal {
+		opacity: 1;
+		transform: none;
+	}
+	/* Keep all report text visible before hydration and without JavaScript. */
+	.motion-reveal.is-visible {
+		animation: section-arrive 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	}
+	@keyframes section-arrive {
+		from {
+			opacity: 0;
+			transform: translateY(14px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 	.section-heading {
 		display: flex;
@@ -1191,6 +1433,15 @@
 		}
 		* {
 			scroll-behavior: auto;
+		}
+		.motion-reveal:not(.is-visible) {
+			opacity: 1;
+			transform: none;
+		}
+		.report-hero.motion-ready .hero-copy,
+		.report-hero.motion-ready .hero-poster,
+		.motion-reveal.is-visible {
+			animation: none;
 		}
 	}
 	@media print {

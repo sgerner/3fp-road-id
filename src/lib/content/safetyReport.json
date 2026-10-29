@@ -6,7 +6,9 @@
     "publishedAt": "2026-10-29",
     "fullPdfUrl": "/reports/safer-cycling-better-messages/safer-cycling-better-messages-public-review.pdf",
     "quickPdfUrl": "/reports/safer-cycling-better-messages/safer-cycling-campaigns-quick-guide.pdf",
-    "csvUrl": "/reports/safer-cycling-better-messages/evidence-matrix.csv"
+    "csvUrl": "/reports/safer-cycling-better-messages/evidence-matrix.csv",
+    "campaignAssetCount": 36,
+    "campaignTemplateCount": 36
   },
   "sections": [
     {
@@ -1740,7 +1742,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/2s1enjtqXWzYT6q"
+      "assetId": "01-give-people-space-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-poster-v9.pdf",
+      "pdfBytes": 14147676,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-poster-v9.pptx",
+      "editableBytes": 7194152,
+      "canvaTemplateUrl": "https://canva.link/mm4cwr1w1ax8mu7",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "01-give-people-space-poster-v9-page-02",
@@ -1751,7 +1762,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/2s1enjtqXWzYT6q"
+      "assetId": "01-give-people-space-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-poster-v9.pdf",
+      "pdfBytes": 14147676,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-poster-v9.pptx",
+      "editableBytes": 7194152,
+      "canvaTemplateUrl": "https://canva.link/mm4cwr1w1ax8mu7",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "01-give-people-space-card-v9-page-01",
@@ -1762,7 +1782,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/noBrpiiQg7__dif"
+      "assetId": "01-give-people-space-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-card-v9.pdf",
+      "pdfBytes": 6637649,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-card-v9.pptx",
+      "editableBytes": 3851922,
+      "canvaTemplateUrl": "https://canva.link/xki9um0s9qc6hs9",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "01-give-people-space-card-v9-page-02",
@@ -1773,7 +1802,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/noBrpiiQg7__dif"
+      "assetId": "01-give-people-space-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-card-v9.pdf",
+      "pdfBytes": 6637649,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-card-v9.pptx",
+      "editableBytes": 3851922,
+      "canvaTemplateUrl": "https://canva.link/xki9um0s9qc6hs9",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "01-give-people-space-social-v9-page-01",
@@ -1784,7 +1822,20 @@
       "kind": "social",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/c_CddyC9a7BGIEA"
+      "assetId": "01-give-people-space-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-social-v9.pptx",
+      "editableBytes": 7191048,
+      "canvaTemplateUrl": "https://canva.link/4gmrrakfrypgu6o",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-social-v9-page-01.png",
+      "pngBytes": 2050902,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "01-give-people-space-social-v9-page-02",
@@ -1795,7 +1846,20 @@
       "kind": "social",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/c_CddyC9a7BGIEA"
+      "assetId": "01-give-people-space-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-social-v9.pptx",
+      "editableBytes": 7191048,
+      "canvaTemplateUrl": "https://canva.link/4gmrrakfrypgu6o",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/01-give-people-space-social-v9-page-02.png",
+      "pngBytes": 2126645,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "02-why-im-here-poster-v9-page-01",
@@ -1806,7 +1870,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/eoYrhKMTeFvsR_d"
+      "assetId": "02-why-im-here-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-poster-v9.pdf",
+      "pdfBytes": 10939146,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-poster-v9.pptx",
+      "editableBytes": 5895477,
+      "canvaTemplateUrl": "https://canva.link/4jmykgtkh4unbnk",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "02-why-im-here-poster-v9-page-02",
@@ -1817,7 +1890,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/eoYrhKMTeFvsR_d"
+      "assetId": "02-why-im-here-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-poster-v9.pdf",
+      "pdfBytes": 10939146,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-poster-v9.pptx",
+      "editableBytes": 5895477,
+      "canvaTemplateUrl": "https://canva.link/4jmykgtkh4unbnk",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "02-why-im-here-card-v9-page-01",
@@ -1828,7 +1910,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/R0ZaCmVFdloSt0H"
+      "assetId": "02-why-im-here-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-card-v9.pdf",
+      "pdfBytes": 5437664,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-card-v9.pptx",
+      "editableBytes": 2805958,
+      "canvaTemplateUrl": "https://canva.link/x09qro4ht9esgnm",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "02-why-im-here-card-v9-page-02",
@@ -1839,7 +1930,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/R0ZaCmVFdloSt0H"
+      "assetId": "02-why-im-here-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-card-v9.pdf",
+      "pdfBytes": 5437664,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-card-v9.pptx",
+      "editableBytes": 2805958,
+      "canvaTemplateUrl": "https://canva.link/x09qro4ht9esgnm",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "02-why-im-here-social-v9-page-01",
@@ -1850,7 +1950,20 @@
       "kind": "social",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/udVLOmxGgmRVgT7"
+      "assetId": "02-why-im-here-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-social-v9.pptx",
+      "editableBytes": 5892403,
+      "canvaTemplateUrl": "https://canva.link/e437ga1k9c2iq0b",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-social-v9-page-01.png",
+      "pngBytes": 1840655,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "02-why-im-here-social-v9-page-02",
@@ -1861,7 +1974,20 @@
       "kind": "social",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/udVLOmxGgmRVgT7"
+      "assetId": "02-why-im-here-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-social-v9.pptx",
+      "editableBytes": 5892403,
+      "canvaTemplateUrl": "https://canva.link/e437ga1k9c2iq0b",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/02-why-im-here-social-v9-page-02.png",
+      "pngBytes": 1597548,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "04-practice-before-traffic-poster-v9-page-01",
@@ -1872,7 +1998,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/w60bTDS3ENQgpRc"
+      "assetId": "04-practice-before-traffic-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-poster-v9.pdf",
+      "pdfBytes": 9127741,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-poster-v9.pptx",
+      "editableBytes": 4783854,
+      "canvaTemplateUrl": "https://canva.link/gt2b5esehkonyj8",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "04-practice-before-traffic-poster-v9-page-02",
@@ -1883,7 +2018,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/w60bTDS3ENQgpRc"
+      "assetId": "04-practice-before-traffic-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-poster-v9.pdf",
+      "pdfBytes": 9127741,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-poster-v9.pptx",
+      "editableBytes": 4783854,
+      "canvaTemplateUrl": "https://canva.link/gt2b5esehkonyj8",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "04-practice-before-traffic-card-v9-page-01",
@@ -1894,7 +2038,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/iT-O6oBrF0RJBqN"
+      "assetId": "04-practice-before-traffic-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-card-v9.pdf",
+      "pdfBytes": 4893794,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-card-v9.pptx",
+      "editableBytes": 2523958,
+      "canvaTemplateUrl": "https://canva.link/n5i4xxbpqqo06z3",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "04-practice-before-traffic-card-v9-page-02",
@@ -1905,7 +2058,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/iT-O6oBrF0RJBqN"
+      "assetId": "04-practice-before-traffic-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-card-v9.pdf",
+      "pdfBytes": 4893794,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-card-v9.pptx",
+      "editableBytes": 2523958,
+      "canvaTemplateUrl": "https://canva.link/n5i4xxbpqqo06z3",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "04-practice-before-traffic-social-v9-page-01",
@@ -1916,7 +2078,20 @@
       "kind": "social",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/EvzDJoDDiBCA0n1"
+      "assetId": "04-practice-before-traffic-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-social-v9.pptx",
+      "editableBytes": 4781054,
+      "canvaTemplateUrl": "https://canva.link/h8cy3v2c957tw4v",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-social-v9-page-01.png",
+      "pngBytes": 1527582,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "04-practice-before-traffic-social-v9-page-02",
@@ -1927,7 +2102,20 @@
       "kind": "social",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/EvzDJoDDiBCA0n1"
+      "assetId": "04-practice-before-traffic-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-social-v9.pptx",
+      "editableBytes": 4781054,
+      "canvaTemplateUrl": "https://canva.link/h8cy3v2c957tw4v",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/04-practice-before-traffic-social-v9-page-02.png",
+      "pngBytes": 1558597,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "05-light-the-ride-poster-v9-page-01",
@@ -1938,7 +2126,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/63FUj7knE1qJrJH"
+      "assetId": "05-light-the-ride-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-poster-v9.pdf",
+      "pdfBytes": 10447469,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-poster-v9.pptx",
+      "editableBytes": 4588568,
+      "canvaTemplateUrl": "https://canva.link/5lu8v07614bziop",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "05-light-the-ride-poster-v9-page-02",
@@ -1949,7 +2146,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/63FUj7knE1qJrJH"
+      "assetId": "05-light-the-ride-poster-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-poster-v9.pdf",
+      "pdfBytes": 10447469,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-poster-v9.pptx",
+      "editableBytes": 4588568,
+      "canvaTemplateUrl": "https://canva.link/5lu8v07614bziop",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "05-light-the-ride-card-v9-page-01",
@@ -1960,7 +2166,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/ox1oKHJ9WFcl8bE"
+      "assetId": "05-light-the-ride-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-card-v9.pdf",
+      "pdfBytes": 5334383,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-card-v9.pptx",
+      "editableBytes": 2252024,
+      "canvaTemplateUrl": "https://canva.link/1v5r3shwk1zwpzt",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "05-light-the-ride-card-v9-page-02",
@@ -1971,7 +2186,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/ox1oKHJ9WFcl8bE"
+      "assetId": "05-light-the-ride-card-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-card-v9.pdf",
+      "pdfBytes": 5334383,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-card-v9.pptx",
+      "editableBytes": 2252024,
+      "canvaTemplateUrl": "https://canva.link/1v5r3shwk1zwpzt",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "05-light-the-ride-social-v9-page-01",
@@ -1982,7 +2206,20 @@
       "kind": "social",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/u4cw35hzHADtPok"
+      "assetId": "05-light-the-ride-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-social-v9.pptx",
+      "editableBytes": 4585747,
+      "canvaTemplateUrl": "https://canva.link/qc806kob7w5nfgf",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-social-v9-page-01.png",
+      "pngBytes": 2183457,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "05-light-the-ride-social-v9-page-02",
@@ -1993,7 +2230,20 @@
       "kind": "social",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/u4cw35hzHADtPok"
+      "assetId": "05-light-the-ride-social-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-social-v9.pptx",
+      "editableBytes": 4585747,
+      "canvaTemplateUrl": "https://canva.link/qc806kob7w5nfgf",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/05-light-the-ride-social-v9-page-02.png",
+      "pngBytes": 1868817,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "3fp-poster-pass-with-room-letter-native-v9-page-01",
@@ -2004,7 +2254,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/iNdUAYMZAxB_FXf"
+      "assetId": "3fp-poster-pass-with-room-letter-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-pass-with-room-letter-native-v9.pdf",
+      "pdfBytes": 8189859,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-pass-with-room-letter-native-v9.pptx",
+      "editableBytes": 3530824,
+      "canvaTemplateUrl": "https://canva.link/ihruopz01onttkg",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-poster-pass-with-room-11x17-native-v9-page-01",
@@ -2015,7 +2274,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/1K85NtBRGn8lMkI"
+      "assetId": "3fp-poster-pass-with-room-11x17-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-pass-with-room-11x17-native-v9.pdf",
+      "pdfBytes": 10388479,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-pass-with-room-11x17-native-v9.pptx",
+      "editableBytes": 3530827,
+      "canvaTemplateUrl": "https://canva.link/zz5k4pwwnjx9l29",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "3fp-driver-handout-letter-2up-space-v9-page-01",
@@ -2026,7 +2294,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/fNnrxZ65IDAKmnB"
+      "assetId": "3fp-driver-handout-letter-2up-space-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-driver-handout-letter-2up-space-v9.pdf",
+      "pdfBytes": 12101440,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-driver-handout-letter-2up-space-v9.pptx",
+      "editableBytes": 13033614,
+      "canvaTemplateUrl": "https://canva.link/ew0hg9le5fdb47w",
+      "dimensions": [
+        11,
+        8.5
+      ]
     },
     {
       "id": "3fp-driver-handout-letter-2up-space-v9-page-02",
@@ -2037,7 +2314,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/fNnrxZ65IDAKmnB"
+      "assetId": "3fp-driver-handout-letter-2up-space-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-driver-handout-letter-2up-space-v9.pdf",
+      "pdfBytes": 12101440,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-driver-handout-letter-2up-space-v9.pptx",
+      "editableBytes": 13033614,
+      "canvaTemplateUrl": "https://canva.link/ew0hg9le5fdb47w",
+      "dimensions": [
+        11,
+        8.5
+      ]
     },
     {
       "id": "3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9-page-01",
@@ -2048,7 +2334,16 @@
       "kind": "guide",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/-uH9FIeSZUCFYRb"
+      "assetId": "3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9.pdf",
+      "pdfBytes": 10021093,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9.pptx",
+      "editableBytes": 9449925,
+      "canvaTemplateUrl": "https://canva.link/0n8ivqkp83m3vy0",
+      "dimensions": [
+        11,
+        8.5
+      ]
     },
     {
       "id": "3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9-page-02",
@@ -2059,7 +2354,16 @@
       "kind": "guide",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/-uH9FIeSZUCFYRb"
+      "assetId": "3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9.pdf",
+      "pdfBytes": 10021093,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-family-school-guide-letter-imposed-spreads-rev3-native-v9.pptx",
+      "editableBytes": 9449925,
+      "canvaTemplateUrl": "https://canva.link/0n8ivqkp83m3vy0",
+      "dimensions": [
+        11,
+        8.5
+      ]
     },
     {
       "id": "3fp-spoke-ride-your-way-3x5-rev3-native-v9-page-01",
@@ -2070,7 +2374,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/JNfTX4dGof-jyWB"
+      "assetId": "3fp-spoke-ride-your-way-3x5-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-spoke-ride-your-way-3x5-rev3-native-v9.pdf",
+      "pdfBytes": 7572689,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-spoke-ride-your-way-3x5-rev3-native-v9.pptx",
+      "editableBytes": 6104229,
+      "canvaTemplateUrl": "https://canva.link/q0vm2042ehq0x46",
+      "dimensions": [
+        3,
+        5
+      ]
     },
     {
       "id": "3fp-spoke-ride-your-way-3x5-rev3-native-v9-page-02",
@@ -2081,7 +2394,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/JNfTX4dGof-jyWB"
+      "assetId": "3fp-spoke-ride-your-way-3x5-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-spoke-ride-your-way-3x5-rev3-native-v9.pdf",
+      "pdfBytes": 7572689,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-spoke-ride-your-way-3x5-rev3-native-v9.pptx",
+      "editableBytes": 6104229,
+      "canvaTemplateUrl": "https://canva.link/q0vm2042ehq0x46",
+      "dimensions": [
+        3,
+        5
+      ]
     },
     {
       "id": "lights-ready-practice-card-4x6-v3-v9-page-01",
@@ -2092,7 +2414,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/K4D0ih4DpGHg1Ar"
+      "assetId": "lights-ready-practice-card-4x6-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/lights-ready-practice-card-4x6-v3-v9.pdf",
+      "pdfBytes": 5773939,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/lights-ready-practice-card-4x6-v3-v9.pptx",
+      "editableBytes": 2955599,
+      "canvaTemplateUrl": "https://canva.link/b7bree6io0uu3l4",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "lights-ready-practice-card-4x6-v3-v9-page-02",
@@ -2103,7 +2434,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/K4D0ih4DpGHg1Ar"
+      "assetId": "lights-ready-practice-card-4x6-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/lights-ready-practice-card-4x6-v3-v9.pdf",
+      "pdfBytes": 5773939,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/lights-ready-practice-card-4x6-v3-v9.pptx",
+      "editableBytes": 2955599,
+      "canvaTemplateUrl": "https://canva.link/b7bree6io0uu3l4",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-poster-look-before-you-open-letter-native-v9-page-01",
@@ -2114,7 +2454,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/zhl6Z99oaH3N3Ne"
+      "assetId": "3fp-poster-look-before-you-open-letter-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-look-before-you-open-letter-native-v9.pdf",
+      "pdfBytes": 7671707,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-look-before-you-open-letter-native-v9.pptx",
+      "editableBytes": 3098233,
+      "canvaTemplateUrl": "https://canva.link/pzg4p6qz800u3tm",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-poster-look-before-you-open-11x17-native-v9-page-01",
@@ -2125,7 +2474,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/8KkclNiRw0GSduv"
+      "assetId": "3fp-poster-look-before-you-open-11x17-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-look-before-you-open-11x17-native-v9.pdf",
+      "pdfBytes": 9655648,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-look-before-you-open-11x17-native-v9.pptx",
+      "editableBytes": 3098244,
+      "canvaTemplateUrl": "https://canva.link/0cuqq9aaaxupnl7",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "before-the-door-practice-card-4x6-v3-v9-page-01",
@@ -2136,7 +2494,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/nDMQl4CXVWFwq0U"
+      "assetId": "before-the-door-practice-card-4x6-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/before-the-door-practice-card-4x6-v3-v9.pdf",
+      "pdfBytes": 6782818,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/before-the-door-practice-card-4x6-v3-v9.pptx",
+      "editableBytes": 3818496,
+      "canvaTemplateUrl": "https://canva.link/vx499jceuh3s7si",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "before-the-door-practice-card-4x6-v3-v9-page-02",
@@ -2147,7 +2514,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/nDMQl4CXVWFwq0U"
+      "assetId": "before-the-door-practice-card-4x6-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/before-the-door-practice-card-4x6-v3-v9.pdf",
+      "pdfBytes": 6782818,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/before-the-door-practice-card-4x6-v3-v9.pptx",
+      "editableBytes": 3818496,
+      "canvaTemplateUrl": "https://canva.link/vx499jceuh3s7si",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-poster-check-before-you-turn-letter-native-v9-page-01",
@@ -2158,7 +2534,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/YeKujMD6ErmvTfg"
+      "assetId": "3fp-poster-check-before-you-turn-letter-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-check-before-you-turn-letter-native-v9.pdf",
+      "pdfBytes": 8771655,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-check-before-you-turn-letter-native-v9.pptx",
+      "editableBytes": 2783218,
+      "canvaTemplateUrl": "https://canva.link/96bd1frirqm3zck",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-poster-check-before-you-turn-11x17-native-v9-page-01",
@@ -2169,7 +2554,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/FjdpLnAaYY8BdiQ"
+      "assetId": "3fp-poster-check-before-you-turn-11x17-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-check-before-you-turn-11x17-native-v9.pdf",
+      "pdfBytes": 10990787,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-poster-check-before-you-turn-11x17-native-v9.pptx",
+      "editableBytes": 2783219,
+      "canvaTemplateUrl": "https://canva.link/jwlpclfcs0yulok",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "3fp-field-card-4x6-core-v9-page-01",
@@ -2180,7 +2574,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/FgPsk0_P5aq7JJG"
+      "assetId": "3fp-field-card-4x6-core-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-field-card-4x6-core-v9.pdf",
+      "pdfBytes": 8009950,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-field-card-4x6-core-v9.pptx",
+      "editableBytes": 6530800,
+      "canvaTemplateUrl": "https://canva.link/1gzvx7lc7h5ivlm",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-field-card-4x6-core-v9-page-02",
@@ -2191,7 +2594,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/FgPsk0_P5aq7JJG"
+      "assetId": "3fp-field-card-4x6-core-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-field-card-4x6-core-v9.pdf",
+      "pdfBytes": 8009950,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-field-card-4x6-core-v9.pptx",
+      "editableBytes": 6530800,
+      "canvaTemplateUrl": "https://canva.link/1gzvx7lc7h5ivlm",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-wallet-card-3.5x2-core-v9-page-01",
@@ -2202,7 +2614,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/Kyz5Nc94tSMi9AP"
+      "assetId": "3fp-wallet-card-3.5x2-core-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-wallet-card-3.5x2-core-v9.pdf",
+      "pdfBytes": 5574052,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-wallet-card-3.5x2-core-v9.pptx",
+      "editableBytes": 6242399,
+      "canvaTemplateUrl": "https://canva.link/w1shmtohj6tz5ax",
+      "dimensions": [
+        3.5,
+        2
+      ]
     },
     {
       "id": "3fp-wallet-card-3.5x2-core-v9-page-02",
@@ -2213,7 +2634,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/Kyz5Nc94tSMi9AP"
+      "assetId": "3fp-wallet-card-3.5x2-core-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-wallet-card-3.5x2-core-v9.pdf",
+      "pdfBytes": 5574052,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-wallet-card-3.5x2-core-v9.pptx",
+      "editableBytes": 6242399,
+      "canvaTemplateUrl": "https://canva.link/w1shmtohj6tz5ax",
+      "dimensions": [
+        3.5,
+        2
+      ]
     },
     {
       "id": "3fp-welcoming-group-ride-card-4x6-rev2-native-v9-page-01",
@@ -2224,7 +2654,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/eImlCWp11v8LEyI"
+      "assetId": "3fp-welcoming-group-ride-card-4x6-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-welcoming-group-ride-card-4x6-rev2-native-v9.pdf",
+      "pdfBytes": 7454600,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-welcoming-group-ride-card-4x6-rev2-native-v9.pptx",
+      "editableBytes": 6592517,
+      "canvaTemplateUrl": "https://canva.link/ghv9tnd8dbv7evt",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-welcoming-group-ride-card-4x6-rev2-native-v9-page-02",
@@ -2235,7 +2674,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/eImlCWp11v8LEyI"
+      "assetId": "3fp-welcoming-group-ride-card-4x6-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-welcoming-group-ride-card-4x6-rev2-native-v9.pdf",
+      "pdfBytes": 7454600,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-welcoming-group-ride-card-4x6-rev2-native-v9.pptx",
+      "editableBytes": 6592517,
+      "canvaTemplateUrl": "https://canva.link/ghv9tnd8dbv7evt",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-local-groups-rides-rack-card-4x9-rev2-native-v9-page-01",
@@ -2246,7 +2694,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/KELatvkqU8Aq4FK"
+      "assetId": "3fp-local-groups-rides-rack-card-4x9-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-groups-rides-rack-card-4x9-rev2-native-v9.pdf",
+      "pdfBytes": 6173503,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-groups-rides-rack-card-4x9-rev2-native-v9.pptx",
+      "editableBytes": 5540605,
+      "canvaTemplateUrl": "https://canva.link/sp5jicd2sfzi22h",
+      "dimensions": [
+        4,
+        9
+      ]
     },
     {
       "id": "3fp-local-groups-rides-rack-card-4x9-rev2-native-v9-page-02",
@@ -2257,7 +2714,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/KELatvkqU8Aq4FK"
+      "assetId": "3fp-local-groups-rides-rack-card-4x9-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-groups-rides-rack-card-4x9-rev2-native-v9.pdf",
+      "pdfBytes": 6173503,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-groups-rides-rack-card-4x9-rev2-native-v9.pptx",
+      "editableBytes": 5540605,
+      "canvaTemplateUrl": "https://canva.link/sp5jicd2sfzi22h",
+      "dimensions": [
+        4,
+        9
+      ]
     },
     {
       "id": "3fp-public-display-pair-letter-rev2-native-v9-page-01",
@@ -2268,7 +2734,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/qtcFZZqDy1KLWHW"
+      "assetId": "3fp-public-display-pair-letter-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-public-display-pair-letter-rev2-native-v9.pdf",
+      "pdfBytes": 12274126,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-public-display-pair-letter-rev2-native-v9.pptx",
+      "editableBytes": 6895393,
+      "canvaTemplateUrl": "https://canva.link/xrf19cvxuqtu6ab",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-public-display-pair-letter-rev2-native-v9-page-02",
@@ -2279,7 +2754,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/qtcFZZqDy1KLWHW"
+      "assetId": "3fp-public-display-pair-letter-rev2-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-public-display-pair-letter-rev2-native-v9.pdf",
+      "pdfBytes": 12274126,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-public-display-pair-letter-rev2-native-v9.pptx",
+      "editableBytes": 6895393,
+      "canvaTemplateUrl": "https://canva.link/xrf19cvxuqtu6ab",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-local-riding-essentials-letter-rev3-native-v9-page-01",
@@ -2290,7 +2774,16 @@
       "kind": "guide",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/tlgE6WxRSAgnUQs"
+      "assetId": "3fp-local-riding-essentials-letter-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-riding-essentials-letter-rev3-native-v9.pdf",
+      "pdfBytes": 9654458,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-riding-essentials-letter-rev3-native-v9.pptx",
+      "editableBytes": 5242016,
+      "canvaTemplateUrl": "https://canva.link/g54dxm4bapu28qq",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "3fp-local-riding-essentials-letter-rev3-native-v9-page-02",
@@ -2301,7 +2794,16 @@
       "kind": "guide",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/tlgE6WxRSAgnUQs"
+      "assetId": "3fp-local-riding-essentials-letter-rev3-native-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-riding-essentials-letter-rev3-native-v9.pdf",
+      "pdfBytes": 9654458,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-local-riding-essentials-letter-rev3-native-v9.pptx",
+      "editableBytes": 5242016,
+      "canvaTemplateUrl": "https://canva.link/g54dxm4bapu28qq",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "partner-demonstration-guide-letter-duplex-v3-v9-page-01",
@@ -2312,7 +2814,16 @@
       "kind": "guide",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/BB91S0TUldUvv1L"
+      "assetId": "partner-demonstration-guide-letter-duplex-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/partner-demonstration-guide-letter-duplex-v3-v9.pdf",
+      "pdfBytes": 7704164,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/partner-demonstration-guide-letter-duplex-v3-v9.pptx",
+      "editableBytes": 3076354,
+      "canvaTemplateUrl": "https://canva.link/0zcbtf6mcpy1ks6",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "partner-demonstration-guide-letter-duplex-v3-v9-page-02",
@@ -2323,7 +2834,16 @@
       "kind": "guide",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/BB91S0TUldUvv1L"
+      "assetId": "partner-demonstration-guide-letter-duplex-v3-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/partner-demonstration-guide-letter-duplex-v3-v9.pdf",
+      "pdfBytes": 7704164,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/partner-demonstration-guide-letter-duplex-v3-v9.pptx",
+      "editableBytes": 3076354,
+      "canvaTemplateUrl": "https://canva.link/0zcbtf6mcpy1ks6",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-social-1080x1350-v9-page-01",
@@ -2334,7 +2854,20 @@
       "kind": "social",
       "page": 1,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/kiDXt-VAPLvaZ8r"
+      "assetId": "relationships-social-1080x1350-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9.pptx",
+      "editableBytes": 11264859,
+      "canvaTemplateUrl": "https://canva.link/0ejgk6fthsjj33a",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9-page-01.png",
+      "pngBytes": 1421160,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "relationships-social-1080x1350-v9-page-02",
@@ -2345,7 +2878,20 @@
       "kind": "social",
       "page": 2,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/kiDXt-VAPLvaZ8r"
+      "assetId": "relationships-social-1080x1350-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9.pptx",
+      "editableBytes": 11264859,
+      "canvaTemplateUrl": "https://canva.link/0ejgk6fthsjj33a",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9-page-02.png",
+      "pngBytes": 1458830,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "relationships-social-1080x1350-v9-page-03",
@@ -2356,7 +2902,20 @@
       "kind": "social",
       "page": 3,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/kiDXt-VAPLvaZ8r"
+      "assetId": "relationships-social-1080x1350-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9.pptx",
+      "editableBytes": 11264859,
+      "canvaTemplateUrl": "https://canva.link/0ejgk6fthsjj33a",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9-page-03.png",
+      "pngBytes": 1475660,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "relationships-social-1080x1350-v9-page-04",
@@ -2367,7 +2926,20 @@
       "kind": "social",
       "page": 4,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/kiDXt-VAPLvaZ8r"
+      "assetId": "relationships-social-1080x1350-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9.pptx",
+      "editableBytes": 11264859,
+      "canvaTemplateUrl": "https://canva.link/0ejgk6fthsjj33a",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9-page-04.png",
+      "pngBytes": 1409863,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "relationships-social-1080x1350-v9-page-05",
@@ -2378,7 +2950,20 @@
       "kind": "social",
       "page": 5,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/kiDXt-VAPLvaZ8r"
+      "assetId": "relationships-social-1080x1350-v9",
+      "pdfUrl": null,
+      "pdfBytes": null,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9.pptx",
+      "editableBytes": 11264859,
+      "canvaTemplateUrl": "https://canva.link/0ejgk6fthsjj33a",
+      "dimensions": [
+        11.25,
+        14.062598425196805
+      ],
+      "pngUrl": "/reports/safer-cycling-better-messages/downloads/relationships-social-1080x1350-v9-page-05.png",
+      "pngBytes": 1466759,
+      "pixelWidth": 1080,
+      "pixelHeight": 1350
     },
     {
       "id": "relationships-poster-11x17-v9-page-01",
@@ -2389,7 +2974,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/wEIqG7qp_qf6SVp"
+      "assetId": "relationships-poster-11x17-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pdf",
+      "pdfBytes": 26042763,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pptx",
+      "editableBytes": 11264847,
+      "canvaTemplateUrl": "https://canva.link/u7ms3a22x0yuvpm",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "relationships-poster-11x17-v9-page-02",
@@ -2400,7 +2994,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/wEIqG7qp_qf6SVp"
+      "assetId": "relationships-poster-11x17-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pdf",
+      "pdfBytes": 26042763,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pptx",
+      "editableBytes": 11264847,
+      "canvaTemplateUrl": "https://canva.link/u7ms3a22x0yuvpm",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "relationships-poster-11x17-v9-page-03",
@@ -2411,7 +3014,16 @@
       "kind": "poster",
       "page": 3,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/wEIqG7qp_qf6SVp"
+      "assetId": "relationships-poster-11x17-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pdf",
+      "pdfBytes": 26042763,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pptx",
+      "editableBytes": 11264847,
+      "canvaTemplateUrl": "https://canva.link/u7ms3a22x0yuvpm",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "relationships-poster-11x17-v9-page-04",
@@ -2422,7 +3034,16 @@
       "kind": "poster",
       "page": 4,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/wEIqG7qp_qf6SVp"
+      "assetId": "relationships-poster-11x17-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pdf",
+      "pdfBytes": 26042763,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pptx",
+      "editableBytes": 11264847,
+      "canvaTemplateUrl": "https://canva.link/u7ms3a22x0yuvpm",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "relationships-poster-11x17-v9-page-05",
@@ -2433,7 +3054,16 @@
       "kind": "poster",
       "page": 5,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/wEIqG7qp_qf6SVp"
+      "assetId": "relationships-poster-11x17-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pdf",
+      "pdfBytes": 26042763,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-11x17-v9.pptx",
+      "editableBytes": 11264847,
+      "canvaTemplateUrl": "https://canva.link/u7ms3a22x0yuvpm",
+      "dimensions": [
+        11,
+        17
+      ]
     },
     {
       "id": "relationships-poster-letter-v9-page-01",
@@ -2444,7 +3074,16 @@
       "kind": "poster",
       "page": 1,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/LZ2y4EuzRcovCBL"
+      "assetId": "relationships-poster-letter-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pdf",
+      "pdfBytes": 19330472,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pptx",
+      "editableBytes": 11264666,
+      "canvaTemplateUrl": "https://canva.link/pncbphpmqfjzicw",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-poster-letter-v9-page-02",
@@ -2455,7 +3094,16 @@
       "kind": "poster",
       "page": 2,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/LZ2y4EuzRcovCBL"
+      "assetId": "relationships-poster-letter-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pdf",
+      "pdfBytes": 19330472,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pptx",
+      "editableBytes": 11264666,
+      "canvaTemplateUrl": "https://canva.link/pncbphpmqfjzicw",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-poster-letter-v9-page-03",
@@ -2466,7 +3114,16 @@
       "kind": "poster",
       "page": 3,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/LZ2y4EuzRcovCBL"
+      "assetId": "relationships-poster-letter-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pdf",
+      "pdfBytes": 19330472,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pptx",
+      "editableBytes": 11264666,
+      "canvaTemplateUrl": "https://canva.link/pncbphpmqfjzicw",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-poster-letter-v9-page-04",
@@ -2477,7 +3134,16 @@
       "kind": "poster",
       "page": 4,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/LZ2y4EuzRcovCBL"
+      "assetId": "relationships-poster-letter-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pdf",
+      "pdfBytes": 19330472,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pptx",
+      "editableBytes": 11264666,
+      "canvaTemplateUrl": "https://canva.link/pncbphpmqfjzicw",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-poster-letter-v9-page-05",
@@ -2488,7 +3154,16 @@
       "kind": "poster",
       "page": 5,
       "pageCount": 5,
-      "canvaUrl": "https://www.canva.com/d/LZ2y4EuzRcovCBL"
+      "assetId": "relationships-poster-letter-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pdf",
+      "pdfBytes": 19330472,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-poster-letter-v9.pptx",
+      "editableBytes": 11264666,
+      "canvaTemplateUrl": "https://canva.link/pncbphpmqfjzicw",
+      "dimensions": [
+        8.5,
+        11
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-01",
@@ -2499,7 +3174,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-02",
@@ -2510,7 +3194,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-03",
@@ -2521,7 +3214,16 @@
       "kind": "card",
       "page": 3,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-04",
@@ -2532,7 +3234,16 @@
       "kind": "card",
       "page": 4,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-05",
@@ -2543,7 +3254,16 @@
       "kind": "card",
       "page": 5,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-06",
@@ -2554,7 +3274,16 @@
       "kind": "card",
       "page": 6,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-07",
@@ -2565,7 +3294,16 @@
       "kind": "card",
       "page": 7,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-08",
@@ -2576,7 +3314,16 @@
       "kind": "card",
       "page": 8,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-09",
@@ -2587,7 +3334,16 @@
       "kind": "card",
       "page": 9,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "relationships-card-4x6-v9-page-10",
@@ -2598,7 +3354,16 @@
       "kind": "card",
       "page": 10,
       "pageCount": 10,
-      "canvaUrl": "https://www.canva.com/d/A0WU5hUnwgyH5SV"
+      "assetId": "relationships-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pdf",
+      "pdfBytes": 12585478,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/relationships-card-4x6-v9.pptx",
+      "editableBytes": 12046096,
+      "canvaTemplateUrl": "https://canva.link/uuk9zaihhz9aemr",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-turning-practice-card-4x6-v9-page-01",
@@ -2609,7 +3374,16 @@
       "kind": "card",
       "page": 1,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/q8ULi1BQ-BYbIuV"
+      "assetId": "3fp-turning-practice-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-turning-practice-card-4x6-v9.pdf",
+      "pdfBytes": 4017066,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-turning-practice-card-4x6-v9.pptx",
+      "editableBytes": 333021,
+      "canvaTemplateUrl": "https://canva.link/72futjusgmjpuy9",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-turning-practice-card-4x6-v9-page-02",
@@ -2620,7 +3394,16 @@
       "kind": "card",
       "page": 2,
       "pageCount": 2,
-      "canvaUrl": "https://www.canva.com/d/q8ULi1BQ-BYbIuV"
+      "assetId": "3fp-turning-practice-card-4x6-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-turning-practice-card-4x6-v9.pdf",
+      "pdfBytes": 4017066,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-turning-practice-card-4x6-v9.pptx",
+      "editableBytes": 333021,
+      "canvaTemplateUrl": "https://canva.link/72futjusgmjpuy9",
+      "dimensions": [
+        4,
+        6
+      ]
     },
     {
       "id": "3fp-light-check-counter-sign-5x7-v9-page-01",
@@ -2631,7 +3414,16 @@
       "kind": "sign",
       "page": 1,
       "pageCount": 1,
-      "canvaUrl": "https://www.canva.com/d/vJoqZQCC6PZ77Hc"
+      "assetId": "3fp-light-check-counter-sign-5x7-v9",
+      "pdfUrl": "/reports/safer-cycling-better-messages/downloads/3fp-light-check-counter-sign-5x7-v9.pdf",
+      "pdfBytes": 3772157,
+      "editableUrl": "/reports/safer-cycling-better-messages/downloads/3fp-light-check-counter-sign-5x7-v9.pptx",
+      "editableBytes": 174699,
+      "canvaTemplateUrl": "https://canva.link/it7kxhjli0fvgo0",
+      "dimensions": [
+        5,
+        7
+      ]
     }
   ],
   "quickGuide": {
