@@ -103,6 +103,176 @@ body::after {
 	opacity: 0.65;
 }
 
+/*
+ * Lane Lines design language (see docs/design-language.md).
+ * Scoped to .app-shell so group microsites keep their own branding.
+ * Flat asphalt ground, square edges, solid fields, loud uppercase type.
+ */
+body:has(.app-shell) {
+	background-color: var(--color-surface-950);
+}
+
+body:has(.app-shell)::before,
+body:has(.app-shell)::after {
+	display: none;
+}
+
+.app-shell {
+	--radius-xs: 0;
+	--radius-sm: 0;
+	--radius-md: 0;
+	--radius-lg: 0;
+	--radius-xl: 0;
+	--radius-2xl: 0;
+	--radius-3xl: 0;
+	--radius-4xl: 0;
+	--radius-base: 0;
+	--radius-container: 0;
+
+	/* Black text on lemon, magenta, and other light fields */
+	--color-primary-contrast-50: var(--color-surface-950);
+	--color-primary-contrast-100: var(--color-surface-950);
+	--color-primary-contrast-200: var(--color-surface-950);
+	--color-primary-contrast-300: var(--color-surface-950);
+	--color-primary-contrast-400: var(--color-surface-950);
+	--color-primary-contrast-500: var(--color-surface-950);
+	--color-primary-contrast-600: var(--color-surface-950);
+	--color-primary-contrast-700: var(--color-surface-950);
+	--color-primary-contrast-800: var(--color-surface-950);
+	--color-primary-contrast-900: var(--color-surface-950);
+	--color-tertiary-contrast-50: var(--color-surface-950);
+	--color-tertiary-contrast-100: var(--color-surface-950);
+	--color-tertiary-contrast-200: var(--color-surface-950);
+	--color-tertiary-contrast-300: var(--color-surface-950);
+	--color-tertiary-contrast-400: var(--color-surface-950);
+	--color-tertiary-contrast-500: var(--color-surface-950);
+	--color-tertiary-contrast-600: var(--color-surface-950);
+	--color-tertiary-contrast-700: var(--color-surface-950);
+	--color-tertiary-contrast-800: var(--color-surface-950);
+	--color-tertiary-contrast-900: var(--color-surface-950);
+	--color-warning-contrast-50: var(--color-surface-950);
+	--color-warning-contrast-100: var(--color-surface-950);
+	--color-warning-contrast-200: var(--color-surface-950);
+	--color-warning-contrast-300: var(--color-surface-950);
+	--color-warning-contrast-400: var(--color-surface-950);
+	--color-warning-contrast-500: var(--color-surface-950);
+	--color-warning-contrast-600: var(--color-surface-950);
+	--color-warning-contrast-700: var(--color-surface-950);
+	--color-warning-contrast-800: var(--color-surface-950);
+	--color-warning-contrast-900: var(--color-surface-950);
+	--color-success-contrast-50: var(--color-surface-950);
+	--color-success-contrast-100: var(--color-surface-950);
+	--color-success-contrast-200: var(--color-surface-950);
+	--color-success-contrast-300: var(--color-surface-950);
+	--color-success-contrast-400: var(--color-surface-950);
+	--color-success-contrast-500: var(--color-surface-950);
+	--color-success-contrast-600: var(--color-surface-950);
+	--color-success-contrast-700: var(--color-surface-950);
+	--color-success-contrast-800: var(--color-surface-950);
+	--color-success-contrast-900: var(--color-surface-950);
+	--color-primary-contrast-950: var(--color-surface-50);
+}
+
+.app-shell [class*='rounded-['] {
+	border-radius: 0;
+}
+
+.app-shell h1,
+.app-shell h2 {
+	font-weight: 900;
+	font-style: italic;
+	text-transform: uppercase;
+	letter-spacing: -0.03em;
+	line-height: 0.95;
+}
+
+.app-shell h3 {
+	font-weight: 900;
+	text-transform: uppercase;
+	letter-spacing: -0.01em;
+}
+
+.app-shell .btn,
+.app-shell .chip,
+.app-shell .badge {
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.app-shell .btn:hover,
+.app-shell a:hover {
+	text-decoration: none;
+}
+
+.app-shell .card {
+	box-shadow: none;
+}
+
+/* No panels inside panels: flatten nested cards into ruled sections. */
+.app-shell .card .card {
+	background: transparent;
+	border-width: 0;
+	border-top: 2px solid var(--color-surface-700);
+	outline: 0;
+	padding-inline: 0;
+}
+
+.app-shell [class*='shadow-'] {
+	box-shadow: none;
+}
+
+.app-shell [class*='backdrop-blur'] {
+	backdrop-filter: none;
+}
+
+.app-shell .select,
+.app-shell .input,
+.app-shell .textarea {
+	border-width: 2px;
+}
+
+/*
+ * Page-scoped styles still carry rounded corners, glows and blurred orbs.
+ * Force the Lane Lines look everywhere inside the app shell. Avatars and
+ * radio buttons keep their circles.
+ */
+.app-shell *:not(.rounded-full):not([type='radio']) {
+	border-radius: 0 !important;
+}
+
+.app-shell [class*='orb'],
+.app-shell [class*='glow'] {
+	display: none !important;
+}
+
+.app-shell .hero-section {
+	background: var(--color-secondary-500) !important;
+	border: 0 !important;
+	color: var(--color-surface-50);
+}
+
+.app-shell .btn[class*='preset-tonal-primary'],
+.app-shell .chip[class*='preset-tonal-primary'],
+.app-shell .badge[class*='preset-tonal-primary'] {
+	background: var(--color-primary-500);
+	color: var(--color-surface-950);
+}
+
+.app-shell .btn[class*='preset-tonal-secondary'],
+.app-shell .chip[class*='preset-tonal-secondary'],
+.app-shell .badge[class*='preset-tonal-secondary'] {
+	background: var(--color-secondary-500);
+	color: var(--color-surface-50);
+}
+
+.app-shell .btn[class*='preset-tonal-tertiary'],
+.app-shell .chip[class*='preset-tonal-tertiary'],
+.app-shell .badge[class*='preset-tonal-tertiary'] {
+	background: var(--color-tertiary-500);
+	color: var(--color-surface-950);
+}
+
 .label {
 	text-transform: uppercase;
 	font-size: 0.75rem;

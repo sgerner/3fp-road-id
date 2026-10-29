@@ -106,3 +106,22 @@ with an icon, an up-right arrow, and an uppercase italic title.
 - Keep body text at full contrast on its field; use `surface-300` for muted text on asphalt only.
 - Decorative motifs (rulers, ticker, giant "3FT") are `aria-hidden`.
 - Every section has an `aria-labelledby` heading; link targets stay large (full rows/tiles).
+
+## Site-wide enforcement
+
+Pages other than the homepage inherit the look from `src/app.css` and the shell in
+`src/routes/+layout.svelte`, so they do not need per-page rewrites:
+
+- Everything is scoped to `.app-shell`; group microsites (`[siteSlug]`) keep their own branding.
+- Body ground is flat asphalt; the old gradient background is hidden.
+- Radius tokens are zero, and `border-radius: 0 !important` is applied to everything except
+  `.rounded-full` (avatars) and radio buttons.
+- Decorative `*orb*` and `*glow*` elements are hidden. `.hero-section` becomes a flat violet field.
+- Lemon, magenta, warning, and success fills use black text; `h1`/`h2` are uppercase italic black.
+- `.btn`/`.chip`/`.badge` with `preset-tonal-primary|secondary|tertiary` render as solid fields.
+- Nested `.card .card` is flattened to a ruled section.
+- Header is a solid lemon bar; the side rail is asphalt with a lemon active item.
+
+New pages should follow the homepage recipes above and avoid adding radii, blur, or glow, since
+those are overridden anyway. Page-specific polish is still welcome where a page has
+dim tinted panels that should become full color fields.

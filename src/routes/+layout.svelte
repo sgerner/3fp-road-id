@@ -460,12 +460,12 @@
 		</main>
 	{:else}
 		<header
-			class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
+			class="header-lane border-surface-950 bg-primary-500 text-surface-950 sticky top-0 z-50 border-b-[3px]"
 		>
 			<div class="flex items-center justify-between gap-4 p-4">
 				<div class="flex items-center gap-2">
 					<button
-						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
+						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 border-2 p-2 md:hidden"
 						bind:this={mobileMenuBtnEl}
 						onclick={() => (showMobileMenu = !showMobileMenu)}
 						aria-label="Menu"
@@ -473,17 +473,19 @@
 					>
 						<IconMenu class="h-5 w-5" />
 					</button>
-					<a href="/" class="text-surface-950-50 flex items-center gap-3">
+					<a href="/" class="text-surface-950 flex items-center gap-3 hover:no-underline">
 						<img
 							src="/3fp-64.webp"
 							alt="3 Feet Please"
-							class="h-9 w-9 rounded-md object-contain"
+							class="h-9 w-9 object-contain"
 							width="36"
 							height="36"
 							decoding="async"
 						/>
 						<div>
-							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+							<p class="text-surface-950 m-0 text-xl font-black tracking-tight uppercase italic">
+								3 Feet Please
+							</p>
 						</div>
 					</a>
 				</div>
@@ -491,7 +493,7 @@
 				<div class="flex items-center gap-3">
 					<label class="hidden items-center gap-2 md:flex">
 						<select
-							class="select bg-surface-100-900/70 text-sm"
+							class="select border-surface-950 bg-surface-950 text-surface-50 border-2 text-sm"
 							value={theme}
 							onchange={(e) => applyTheme(e.currentTarget.value)}
 							aria-label="Select theme"
@@ -506,7 +508,7 @@
 						{#if user}
 							<div class="relative flex items-center gap-2">
 								<button
-									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center gap-2 rounded-full border px-2 py-1 transition"
+									class="profile-trigger border-surface-950 bg-surface-950 text-surface-50 hover:bg-secondary-500 flex items-center gap-2 border-2 px-2 py-1 transition"
 									bind:this={userMenuBtnEl}
 									onclick={() => (showUserMenu = !showUserMenu)}
 									aria-label="Open profile menu"
@@ -531,7 +533,7 @@
 								</button>
 								{#if showUserMenu}
 									<div
-										class="profile-menu border-surface-300-700 bg-surface-100-900 absolute top-[calc(100%+0.55rem)] right-0 z-50 w-56 rounded-xl border p-1.5 shadow-xl"
+										class="profile-menu border-primary-500 bg-surface-950 text-surface-50 absolute top-[calc(100%+0.55rem)] right-0 z-50 w-56 border-2 p-1.5"
 										bind:this={userMenuEl}
 										role="menu"
 									>
@@ -580,7 +582,7 @@
 							</div>
 						{:else}
 							<button
-								class="chip preset-filled-primary-500"
+								class="chip bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 font-black tracking-wide uppercase"
 								bind:this={loginBtnEl}
 								onclick={toggleLogin}
 							>
@@ -705,7 +707,7 @@
 		</header>
 
 		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
-			<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
+			<aside class="border-surface-800 bg-surface-950 hidden md:block md:border-r-2">
 				<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
 					<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
 						{#each navigationItems as item}
@@ -713,14 +715,16 @@
 								href={item.href}
 								title={item.label}
 								aria-label={item.label}
-								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
+								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 px-2 py-4 text-center transition hover:no-underline ${
 									isActiveNav(item)
-										? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
-										: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
+										? 'bg-primary-500 text-surface-950'
+										: 'text-surface-300 hover:bg-surface-50 hover:text-surface-950'
 								}`}
 							>
 								<item.icon class="h-6 w-6 shrink-0" />
-								<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
+								<span class="text-[0.7rem] leading-none font-black tracking-wide uppercase"
+									>{item.label}</span
+								>
 							</a>
 						{/each}
 						<!-- ── Bottom branding section ── -->
@@ -733,13 +737,13 @@
 								href="/get-involved"
 								title="Get Involved"
 								aria-label="Get Involved"
-								class={`rail-brand-link flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-center transition ${
+								class={`rail-brand-link flex w-full flex-col items-center gap-1.5 px-2 py-2.5 text-center transition ${
 									isGetInvolvedActive()
-										? 'text-primary-500 bg-primary-500/10'
-										: 'text-surface-600-400 hover:text-primary-500 hover:bg-primary-500/8'
+										? 'bg-primary-500 text-surface-950'
+										: 'text-surface-300 hover:bg-surface-50 hover:text-surface-950'
 								}`}
 							>
-								<span class="text-[0.68rem] leading-none font-semibold tracking-wide"
+								<span class="text-[0.68rem] leading-none font-black tracking-wide uppercase"
 									>Get Involved</span
 								>
 							</a>
@@ -780,7 +784,7 @@
 								href="/donate"
 								title="Donate"
 								aria-label="Donate"
-								class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
+								class="rail-donate-btn flex items-center gap-1.5 px-3 py-2 text-[0.7rem] font-black tracking-wide uppercase"
 							>
 								<IconHeart class="h-3.5 w-3.5 fill-current" />
 								Donate
@@ -826,9 +830,7 @@
 		<!-- Mobile dropdown menu (AppBar hamburger) -->
 		{#if showMobileMenu}
 			<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
-				<div
-					class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
-				>
+				<div class="border-primary-500 bg-surface-950 text-surface-50 border-2 p-2">
 					<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
 						<label class="flex flex-col gap-2">
 							<span
@@ -854,8 +856,8 @@
 								href={item.href}
 								class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
 									isActiveNav(item)
-										? 'bg-primary-500 text-surface-50-950'
-										: 'hover:bg-surface-950-50/10'
+										? 'bg-primary-500 text-surface-950'
+										: 'hover:bg-surface-50 hover:text-surface-950'
 								}`}
 								onclick={() => (showMobileMenu = false)}
 							>
@@ -902,7 +904,7 @@
 							</a>
 							<a
 								href="/donate"
-								class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+								class="mob-donate-btn ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase"
 								onclick={() => (showMobileMenu = false)}
 							>
 								<IconHeart class="h-3.5 w-3.5 fill-current" />
@@ -948,18 +950,17 @@
 		display: inline-flex;
 		width: 2rem;
 		height: 2rem;
-		border-radius: 9999px;
+		border-radius: 0;
 		overflow: hidden;
 		align-items: center;
 		justify-content: center;
 		font-size: 0.78rem;
 		font-weight: 700;
-		background: color-mix(in oklab, var(--color-primary-500) 16%, var(--color-surface-900) 84%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
 	}
 
 	.profile-menu {
-		backdrop-filter: blur(10px);
 	}
 
 	.profile-menu-item {
@@ -979,8 +980,8 @@
 	}
 
 	.profile-menu-item:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 14%, transparent);
-		color: var(--color-primary-300);
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
 	}
 
 	/* ── Rail: Get Involved link ── */
@@ -1018,19 +1019,12 @@
 
 	/* ── Rail: Donate button ── */
 	:global(.rail-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
-		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
+		color: var(--color-surface-950);
+		background: var(--color-tertiary-500);
 		text-decoration: none;
-		transition:
-			transform 150ms ease,
-			background 150ms ease,
-			border-color 150ms ease;
 	}
 	:global(.rail-donate-btn:hover) {
-		transform: translateY(-1px);
-		background: color-mix(in oklab, var(--color-error-500) 18%, transparent);
-		border-color: color-mix(in oklab, var(--color-error-500) 44%, transparent);
+		background: var(--color-tertiary-400);
 	}
 
 	/* ── Mobile menu: social icon buttons ── */
@@ -1058,9 +1052,8 @@
 
 	/* ── Mobile menu: Donate button ── */
 	:global(.mob-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
-		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
+		color: var(--color-surface-950);
+		background: var(--color-tertiary-500);
 		text-decoration: none;
 	}
 </style>
