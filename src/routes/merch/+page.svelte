@@ -178,48 +178,49 @@
 <div class="text-surface-50 flex flex-col overflow-hidden pb-20 lg:pb-0">
 	<!-- ═══ HERO ══════════════════════════════════════════════════ -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="merch-hero-heading"
 	>
 		<!-- Left: copy -->
 		<div
-			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<p
-				class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
-			>
-				<span class="bg-tertiary-500 h-3 w-3 shrink-0" aria-hidden="true"></span>
-				<IconBike class="h-4 w-4 shrink-0" />
-				<span>100% funds street safety advocacy</span>
-			</p>
+			<div class="flex flex-col gap-3">
+				<p
+					class="text-primary-500 m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span class="bg-tertiary-500 h-2.5 w-2.5 shrink-0" aria-hidden="true"></span>
+					<IconBike class="h-4 w-4 shrink-0" />
+					<span>100% funds street safety advocacy</span>
+				</p>
 
-			<div class="flex flex-col gap-6">
 				<h1
 					id="merch-hero-heading"
-					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,7rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					Wear the <span class="text-secondary-500">mission.</span>
+					Wear the <span class="text-primary-500">mission.</span>
 				</h1>
-				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-xl text-base leading-snug font-medium text-balance">
 					Every piece of 3FP gear is a rolling billboard for safer streets.
-					<strong class="font-black uppercase italic">Look sharp. Ride loud. Fund the fight.</strong
+					<strong class="text-surface-50 font-black uppercase italic"
+						>Look sharp. Ride loud. Fund the fight.</strong
 					>
 				</p>
 			</div>
 
-			<div class="flex flex-col gap-6">
-				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+			<div class="border-surface-800 flex flex-col gap-5 border-t pt-5">
+				<div class="flex flex-wrap gap-3">
 					<a
 						href="#merch-catalog"
-						class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
 						<span>Shop the Drop</span>
-						<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 					</a>
 					{#if data.isAdmin}
 						<a
 							href="/merch/manage"
-							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 						>
 							Manage Store
 						</a>
@@ -227,62 +228,55 @@
 				</div>
 
 				<!-- Trust stat strip -->
-				<div
-					class="border-surface-950 grid gap-4 border-t-[3px] pt-5 sm:grid-cols-3"
-					aria-label="Store highlights"
-				>
-					<div class="flex items-center gap-2 text-xs font-black tracking-[0.16em] uppercase">
-						<IconHeart class="text-tertiary-600 h-4 w-4 shrink-0" />
+				<div class="flex flex-wrap gap-6" aria-label="Store highlights">
+					<div
+						class="text-surface-300 flex items-center gap-2 text-xs font-black tracking-[0.14em] uppercase"
+					>
+						<IconHeart class="text-tertiary-500 h-4 w-4 shrink-0" />
 						<span>Community-backed</span>
 					</div>
-					<div class="flex items-center gap-2 text-xs font-black tracking-[0.16em] uppercase">
-						<IconShieldCheck class="text-secondary-600 h-4 w-4 shrink-0" />
+					<div
+						class="text-surface-300 flex items-center gap-2 text-xs font-black tracking-[0.14em] uppercase"
+					>
+						<IconShieldCheck class="text-secondary-400 h-4 w-4 shrink-0" />
 						<span>Secure checkout</span>
 					</div>
-					<div class="flex items-center gap-2 text-xs font-black tracking-[0.16em] uppercase">
-						<IconSparkles class="text-surface-950 h-4 w-4 shrink-0" />
+					<div
+						class="text-surface-300 flex items-center gap-2 text-xs font-black tracking-[0.14em] uppercase"
+					>
+						<IconSparkles class="text-primary-500 h-4 w-4 shrink-0" />
 						<span>Real local impact</span>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Right: featured product showcase + 3FT ruler -->
+		<!-- Right: featured product showcase -->
 		<div
-			class="bg-surface-950 relative flex min-h-[24rem] flex-col justify-between sm:min-h-[30rem]"
+			class="bg-surface-900 border-surface-800 relative flex min-h-[16rem] flex-col justify-between border-t-2 lg:border-t-0 lg:border-l-2"
 		>
-			<!-- Signature: the 3-foot ruler -->
-			<div
-				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 z-10 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
-				aria-hidden="true"
-			>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
-				<span
-					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
-				></span>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
-			</div>
+			<div class="bg-tertiary-500 absolute inset-y-0 left-0 z-10 w-2" aria-hidden="true"></div>
 
 			{#if data.products?.length > 0}
 				{@const featured = data.products[0]}
-				<div class="flex flex-1 flex-col justify-between pl-12 sm:pl-16">
+				<div class="flex flex-1 flex-col justify-between pl-2">
 					{#if productFeaturedImage(featured)}
 						<button
 							type="button"
-							class="group bg-surface-900 relative flex min-h-[18rem] w-full flex-1 cursor-pointer items-center justify-center overflow-hidden p-8 text-left"
+							class="group bg-surface-900 relative flex min-h-[13rem] w-full flex-1 cursor-pointer items-center justify-center overflow-hidden p-6 text-left"
 							onclick={() => openLightbox(featured, 0)}
 							aria-label={`View ${featured.name}`}
 						>
 							<span
-								class="bg-secondary-500 text-surface-50 absolute top-0 left-0 z-10 inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.2em] uppercase"
+								class="bg-secondary-500 text-surface-50 absolute top-0 left-0 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.65rem] font-black tracking-[0.2em] uppercase"
 							>
-								<IconSparkles class="text-primary-500 h-3.5 w-3.5" />
+								<IconSparkles class="text-primary-500 h-3 w-3" />
 								Featured Drop
 							</span>
 							<img
 								src={productFeaturedImage(featured)}
 								alt={featured.name}
-								class="max-h-72 w-full object-contain transition duration-300 group-hover:scale-105"
+								class="max-h-48 w-full object-contain transition duration-300 group-hover:scale-105"
 								width="768"
 								height="768"
 								loading="eager"
@@ -290,16 +284,16 @@
 								decoding="async"
 							/>
 							<span
-								class="bg-surface-950 text-primary-500 border-primary-500 absolute right-0 bottom-0 inline-flex items-center gap-1.5 border-t-2 border-l-2 px-3 py-1.5 text-[0.68rem] font-black tracking-[0.18em] uppercase"
+								class="bg-surface-950 text-primary-500 border-surface-700 absolute right-0 bottom-0 inline-flex items-center gap-1.5 border-t border-l px-2.5 py-1 text-[0.65rem] font-black tracking-[0.18em] uppercase"
 							>
-								<IconExpand class="h-3.5 w-3.5" />
+								<IconExpand class="h-3 w-3" />
 								View
 							</span>
 						</button>
 					{/if}
 
 					<div
-						class="bg-surface-950 text-surface-50 border-surface-800 flex flex-wrap items-center justify-between gap-4 border-t-[3px] px-6 py-5"
+						class="bg-surface-950 text-surface-50 border-surface-800 flex flex-wrap items-center justify-between gap-4 border-t-2 px-5 py-3.5"
 					>
 						<div class="min-w-0">
 							<span
@@ -307,36 +301,36 @@
 							>
 								Now available
 							</span>
-							<h3 class="text-surface-50! m-0 truncate text-xl font-black uppercase sm:text-2xl">
+							<h3 class="text-surface-50! m-0 truncate text-base font-black uppercase sm:text-lg">
 								{featured.name}
 							</h3>
-							<p class="text-primary-500 m-0 mt-0.5 text-2xl font-black italic tabular-nums">
+							<p class="text-primary-500 m-0 text-lg font-black italic tabular-nums">
 								{featured.variants?.[0] ? formatCurrency(featured.variants[0].price_cents) : ''}
 							</p>
 						</div>
 						<a
 							href="#merch-catalog"
-							class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex shrink-0 items-center gap-2 px-5 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+							class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
 						>
-							<span>Shop This Drop</span>
-							<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+							<span>Shop Drop</span>
+							<IconArrowRight class="h-3.5 w-3.5 transition group-hover:translate-x-1" />
 						</a>
 					</div>
 				</div>
 			{:else}
-				<div class="flex flex-1 flex-col justify-between gap-8 py-12 pr-8 pl-20 sm:pl-24">
+				<div class="flex flex-1 flex-col justify-between gap-4 py-8 pr-6 pl-8">
 					<span
-						class="bg-secondary-500 text-surface-50 self-start px-4 py-2 text-xs font-black tracking-[0.2em] uppercase"
+						class="bg-secondary-500 text-surface-50 self-start px-3 py-1.5 text-xs font-black tracking-[0.2em] uppercase"
 					>
 						Official Gear
 					</span>
 					<p
-						class="text-primary-500 m-0 text-[clamp(4.5rem,12vw,9rem)] leading-[0.8] font-black tracking-[-0.06em] uppercase italic"
+						class="text-primary-500 m-0 text-5xl leading-[0.8] font-black tracking-[-0.06em] uppercase italic sm:text-6xl"
 						aria-hidden="true"
 					>
 						3FT
 					</p>
-					<p class="text-surface-300 m-0 max-w-sm text-base leading-relaxed">
+					<p class="text-surface-300 m-0 max-w-sm text-sm leading-relaxed">
 						High-visibility advocacy apparel and street-ready gear built for every ride.
 					</p>
 				</div>
@@ -344,46 +338,24 @@
 		</div>
 	</section>
 
-	<!-- ═══ RULER BAND: 0 → 3 FT ══════════════════════════════════ -->
-	<div
-		class="bg-secondary-500 text-surface-50 border-surface-950 grid grid-cols-3 border-y-[3px]"
-		aria-hidden="true"
-	>
-		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
-			<div class="border-surface-950 relative h-12 border-l-[3px] first:border-l-0">
-				<span
-					class="absolute inset-x-0 top-0 h-4 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_2px,transparent_2px_calc(100%/12))]"
-				></span>
-				<span class="text-primary-500 absolute bottom-1.5 left-3 text-xs font-black uppercase">
-					{mark}
-				</span>
-				{#if i === 2}
-					<span class="text-primary-500 absolute right-3 bottom-1.5 text-xs font-black uppercase">
-						3 ft
-					</span>
-				{/if}
-			</div>
-		{/each}
-	</div>
-
 	<!-- ═══ CATALOG + SIDEBAR ════════════════════════════════════ -->
 	<section
 		id="merch-catalog"
-		class="bg-surface-950 grid lg:grid-cols-[minmax(0,1fr)_25rem]"
+		class="bg-surface-950 grid lg:grid-cols-[minmax(0,1fr)_24rem]"
 		aria-labelledby="catalog-heading"
 	>
 		<!-- Product grid column -->
 		<div
-			class="border-surface-800 flex min-w-0 flex-col gap-8 px-6 py-12 sm:px-10 lg:border-r-[3px] lg:px-14 lg:py-16"
+			class="border-surface-800 flex min-w-0 flex-col gap-6 px-6 py-10 sm:px-10 lg:border-r-2 lg:px-12 lg:py-12"
 		>
 			<div class="flex flex-wrap items-end justify-between gap-4">
-				<div class="flex flex-col gap-3">
+				<div class="flex flex-col gap-2">
 					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 						Official 3FP Gear
 					</p>
 					<h2
 						id="catalog-heading"
-						class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+						class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
 					>
 						The Drop.
 					</h2>
@@ -396,7 +368,7 @@
 
 			<!-- Lane divider -->
 			<div
-				class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+				class="h-1 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_48px,transparent_48px_80px)]"
 				aria-hidden="true"
 			></div>
 
@@ -594,53 +566,57 @@
 		<!-- ═══ SIDEBAR (desktop) ════════════════════════════════ -->
 		<aside class="bg-surface-950 hidden lg:block" aria-label="Shopping cart and impact">
 			<div class="sticky top-16 flex flex-col">
-				<!-- Cart Color Block -->
-				<section class="bg-secondary-500 text-surface-50 flex flex-col gap-6 p-8">
+				<!-- Cart Block -->
+				<section
+					class="bg-surface-900 text-surface-50 border-surface-800 border-t-secondary-500 flex flex-col gap-5 border-t-4 border-b-2 p-7"
+				>
 					<div class="flex items-center justify-between gap-3">
 						<div class="flex items-center gap-3">
 							<span
-								class="bg-primary-500 text-surface-950 flex h-10 w-10 items-center justify-center {cartBounce
+								class="bg-primary-500 text-surface-950 flex h-9 w-9 items-center justify-center {cartBounce
 									? 'scale-110'
 									: ''} transition"
 							>
-								<IconShoppingBag class="h-5 w-5" />
+								<IconShoppingBag class="h-4 w-4" />
 							</span>
-							<h2 class="text-surface-50! m-0 text-2xl font-black uppercase italic">Cart</h2>
+							<h2 class="text-surface-50! m-0 text-xl font-black uppercase italic">Cart</h2>
 						</div>
-						<span class="bg-primary-500 text-surface-950 px-3 py-1 text-sm font-black tabular-nums">
+						<span
+							class="bg-primary-500 text-surface-950 px-2.5 py-0.5 text-xs font-black tabular-nums"
+						>
 							{cartLineCount}
 						</span>
 					</div>
 
 					{#if ($merchCart ?? []).length === 0}
-						<div class="border-surface-50 flex flex-col gap-2 border-t-2 pt-6">
-							<p class="m-0 text-base font-black uppercase">Your cart is empty.</p>
-							<p class="m-0 text-sm opacity-85">Browse the drops on the left to gear up.</p>
+						<div class="border-surface-800 flex flex-col gap-1.5 border-t-2 pt-5">
+							<p class="m-0 text-sm font-black uppercase">Your cart is empty.</p>
+							<p class="text-surface-300 m-0 text-xs">Browse the drops on the left to gear up.</p>
 						</div>
 					{:else}
-						<ul class="border-surface-50 m-0 list-none border-t-2 p-0">
+						<ul class="border-surface-800 m-0 list-none border-t-2 p-0">
 							{#each $merchCart as line (line.variantId)}
-								<li class="border-secondary-300/40 border-b py-4">
+								<li class="border-surface-800 border-b py-3.5">
 									<div class="flex items-start gap-3">
 										{#if line.productImageUrl}
 											<img
 												src={line.productImageUrl}
 												alt={line.productName}
-												class="bg-surface-50 h-14 w-14 shrink-0 object-contain p-1"
+												class="bg-surface-950 border-surface-700 h-14 w-14 shrink-0 border object-contain p-1"
 											/>
 										{/if}
 										<div class="min-w-0 flex-1">
 											<p class="m-0 truncate text-sm leading-tight font-black uppercase">
 												{line.productName}
 											</p>
-											<p class="m-0 mt-0.5 truncate text-xs opacity-85">{line.variantName}</p>
+											<p class="text-surface-400 m-0 mt-0.5 truncate text-xs">{line.variantName}</p>
 											<p class="text-primary-500 m-0 mt-1 text-xs font-black tabular-nums">
 												{line.quantity} × {formatCurrency(line.priceCents)}
 											</p>
 										</div>
 										<button
 											type="button"
-											class="border-surface-50 text-surface-50 hover:bg-surface-950 hover:text-primary-500 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center border-2 transition"
+											class="border-surface-700 text-surface-300 hover:border-primary-500 hover:text-primary-500 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center border-2 transition"
 											onclick={() => removeCartLine(line.variantId)}
 											aria-label="Remove item"
 										>
@@ -651,23 +627,27 @@
 							{/each}
 						</ul>
 
-						<div class="border-surface-50 flex flex-col gap-4 border-t-2 pt-5">
+						<div class="border-surface-800 flex flex-col gap-4 border-t-2 pt-4">
 							<div class="flex items-baseline justify-between">
-								<span class="text-xs font-bold tracking-[0.2em] uppercase">Subtotal</span>
-								<strong class="text-primary-500 text-2xl font-black italic tabular-nums">
+								<span class="text-surface-300 text-xs font-bold tracking-[0.2em] uppercase">
+									Subtotal
+								</span>
+								<strong class="text-primary-500 text-xl font-black italic tabular-nums">
 									{formatCurrency(cartTotalCents)}
 								</strong>
 							</div>
 							{#if data.canCheckout}
 								<a
 									href="/merch/checkout"
-									class="group bg-primary-500 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex w-full items-center justify-center gap-3 px-6 py-4 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+									class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-wide uppercase transition hover:no-underline"
 								>
 									<span>Proceed to Checkout</span>
 									<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 								</a>
 							{:else}
-								<div class="bg-surface-950 text-primary-500 p-4 text-xs font-bold">
+								<div
+									class="bg-surface-950 text-primary-500 border-surface-800 border p-3.5 text-xs font-bold"
+								>
 									Checkout will be available once Stripe is connected.
 								</div>
 							{/if}
@@ -676,32 +656,36 @@
 				</section>
 
 				<!-- Mission impact block -->
-				<section class="bg-tertiary-500 text-surface-950 flex flex-col gap-6 p-8">
-					<p class="m-0 text-xs font-black tracking-[0.22em] uppercase">Every order counts</p>
-					<div class="flex flex-col gap-5">
-						<div class="flex items-start gap-4">
+				<section
+					class="bg-surface-900 text-surface-50 border-t-tertiary-500 flex flex-col gap-5 border-t-4 p-7"
+				>
+					<p class="text-tertiary-500 m-0 text-xs font-black tracking-[0.22em] uppercase">
+						Every order counts
+					</p>
+					<div class="flex flex-col gap-4">
+						<div class="flex items-start gap-3.5">
 							<span
-								class="bg-surface-950 text-primary-500 flex h-10 w-10 shrink-0 items-center justify-center"
+								class="bg-surface-950 text-primary-500 border-surface-700 flex h-9 w-9 shrink-0 items-center justify-center border"
 							>
-								<IconBike class="h-5 w-5" />
+								<IconBike class="h-4 w-4" />
 							</span>
 							<div>
-								<p class="m-0 text-base font-black uppercase">Wear the Mission</p>
-								<p class="m-0 mt-1 text-sm leading-snug font-medium">
+								<p class="m-0 text-sm font-black uppercase">Wear the Mission</p>
+								<p class="text-surface-300 m-0 mt-0.5 text-xs leading-snug font-medium">
 									This gear shows up loud for safer streets and a stronger bike culture — everywhere
 									you ride.
 								</p>
 							</div>
 						</div>
-						<div class="flex items-start gap-4">
+						<div class="flex items-start gap-3.5">
 							<span
-								class="bg-surface-950 text-primary-500 flex h-10 w-10 shrink-0 items-center justify-center"
+								class="bg-surface-950 text-primary-500 border-surface-700 flex h-9 w-9 shrink-0 items-center justify-center border"
 							>
-								<IconShieldCheck class="h-5 w-5" />
+								<IconShieldCheck class="h-4 w-4" />
 							</span>
 							<div>
-								<p class="m-0 text-base font-black uppercase">Feel Good Checkout</p>
-								<p class="m-0 mt-1 text-sm leading-snug font-medium">
+								<p class="m-0 text-sm font-black uppercase">Feel Good Checkout</p>
+								<p class="text-surface-300 m-0 mt-0.5 text-xs leading-snug font-medium">
 									Every purchase directly backs real, local advocacy. No middlemen. No fluff.
 								</p>
 							</div>
@@ -710,7 +694,7 @@
 					{#if data.isAdmin}
 						<a
 							href="/merch/manage"
-							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex w-full items-center justify-center border-[3px] px-5 py-3 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline"
+							class="border-surface-700 text-surface-200 hover:border-primary-500 hover:text-primary-500 inline-flex w-full items-center justify-center border-2 px-4 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline"
 						>
 							Manage Merch Store
 						</a>

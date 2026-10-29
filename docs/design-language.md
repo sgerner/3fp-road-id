@@ -109,6 +109,13 @@ with an icon, an up-right arrow, and an uppercase italic title.
 
 ## Shell & Site-wide Rollout
 
-- **App shell (`src/routes/+layout.svelte`)**: The top header bar (`backdrop-blur-xl bg-primary-500/20`) and left navigation rail (`bg-surface-50-950/42` with rounded nav pills) remain translucent over the ambient radial-gradient body background.
-- **Page canvas (`src/app.css` scoped to `.app-shell main`)**: Every route inside `<main>` uses the full-bleed retro 90s "Lane Lines" poster aesthetic—flat stacked fields in `primary-500`, `secondary-500`, `tertiary-500`, and `surface-950`, square edges (`border-radius: 0`), `3FT` ruler motifs, dashed lane dividers, and numbered ruled rows.
+- **App shell (`src/routes/+layout.svelte`)**:
+  - The sticky top header bar uses `bg-surface-950/78 backdrop-blur-xl border-b border-primary-500/25` so it preserves blurred glass translucency while maintaining enough dark surface density for white text (`3 Feet Please`, controls) to stay 100% readable when scrolling over bright yellow, violet, magenta, or photographic sections.
+  - The left navigation rail (`bg-surface-50-950/42` with rounded nav pills) remains translucent over the ambient radial-gradient body background.
+- **Hierarchy between Homepage and Secondary Landing Pages**:
+  - **Homepage (`src/routes/+page.svelte`)**: The bold centerpiece. Uses full-bleed saturated color fields (`bg-primary-500`, `bg-secondary-500`, `bg-tertiary-500`), oversized display headlines (`clamp(2.9rem, 7.4vw, 7rem)`), the 64px vertical `3FT` ruler, and full-row color-field hovers.
+  - **Secondary Landing & Directory Pages (`/groups`, `/ride`, `/learn`, `/volunteer`, `/merch`, `/donate`, `/get-involved`, `/profile`)**: Grounded on dark asphalt (`bg-surface-950` and `bg-surface-900`) so they belong to the boxy 90s "Lane Lines" family without competing with the homepage or overwhelming directory browsing:
+    - Compact split hero (`bg-surface-950 border-b-2 border-surface-800`) with a `border-l-4 border-primary-500` left accent stripe, `text-3xl sm:text-5xl` uppercase italic headline, inline stats, and a slim `w-2 bg-tertiary-500` stripe on the photo/stat column.
+    - Compact search & filter toolbar (`bg-surface-900 border-b-2 border-surface-800 px-6 py-5`) without a redundant secondary billboard heading, keeping directory listings visible above the fold.
+    - Sidebars and callout panels use `bg-surface-900` with `border-t-4 border-secondary-500` or `border-t-4 border-tertiary-500` top accent bars rather than solid full-column neon fills.
 - **Microsites (`[siteSlug]`)**: Scoped outside `.app-shell` so group microsites keep their custom themes.

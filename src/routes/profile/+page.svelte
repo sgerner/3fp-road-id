@@ -250,46 +250,48 @@
 >
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="profile-heading"
 	>
 		<div
-			class="flex flex-col justify-between gap-8 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-5 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<p class="m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase">
-				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+			<p
+				class="text-primary-500 m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase"
+			>
+				<span class="bg-tertiary-500 h-2.5 w-2.5" aria-hidden="true"></span>
 				<IconUserCircle2 class="h-4 w-4" />
 				<span>Profile</span>
 			</p>
 
-			<div class="flex flex-col gap-5">
+			<div class="flex flex-col gap-3">
 				<h1
 					id="profile-heading"
-					class="text-surface-950! m-0 text-[clamp(2.7rem,6.4vw,6rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					Shape your experience. <span class="text-secondary-500">Get better suggestions.</span>
+					Shape your experience. <span class="text-primary-500">Get better suggestions.</span>
 				</h1>
-				<p class="m-0 max-w-2xl text-lg leading-snug font-medium sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-2xl text-base leading-snug font-medium">
 					Better match with local groups, upcoming rides, and volunteer opportunities.
 				</p>
 			</div>
 		</div>
 
 		<div
-			class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col justify-between gap-8 border-t-[3px] px-6 py-10 sm:px-10 lg:border-t-0 lg:border-l-[3px] lg:px-12 lg:py-14"
+			class="bg-surface-900 text-surface-50 border-surface-800 border-t-secondary-500 flex flex-col justify-between gap-5 border-t-4 px-6 py-7 sm:px-10 lg:border-l-2 lg:px-10 lg:py-8"
 		>
 			{#if currentUser}
-				<div class="flex flex-col gap-6">
+				<div class="flex flex-col gap-4">
 					<div class="flex items-center justify-between gap-3">
 						<span
-							class="bg-primary-500 text-surface-950 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+							class="bg-primary-500 text-surface-950 px-2.5 py-0.5 text-xs font-black tracking-[0.2em] uppercase"
 						>
 							{completionScore}% Complete
 						</span>
 					</div>
 					<div class="flex items-center gap-4">
 						<div
-							class="bg-surface-950 text-primary-500 border-primary-500 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] text-lg font-black"
+							class="bg-surface-950 text-primary-500 border-primary-500 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-base font-black"
 						>
 							{#if avatarUrl}
 								<img src={avatarUrl} alt="Profile" class="h-full w-full object-cover" />
@@ -298,38 +300,38 @@
 							{/if}
 						</div>
 						<div class="min-w-0">
-							<p class="m-0 truncate text-xl font-black uppercase">
+							<p class="m-0 truncate text-lg font-black uppercase">
 								{fullName || currentUser?.email || 'Rider profile'}
 							</p>
-							<p class="m-0 mt-1 text-sm leading-snug opacity-90">{profileSummary}</p>
+							<p class="text-surface-300 m-0 mt-0.5 text-xs leading-snug">{profileSummary}</p>
 						</div>
 					</div>
 				</div>
 				<button
 					type="button"
-					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
 					onclick={saveProfile}
 					disabled={saving}
 				>
-					<IconSave class="h-5 w-5" />
+					<IconSave class="h-4 w-4" />
 					{saving ? 'Saving…' : 'Save profile'}
 				</button>
 			{:else}
-				<div class="flex flex-col gap-4">
+				<div class="flex flex-col gap-3">
 					<span
-						class="bg-primary-500 text-surface-950 self-start px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+						class="bg-primary-500 text-surface-950 self-start px-2.5 py-0.5 text-xs font-black tracking-[0.2em] uppercase"
 					>
 						Members
 					</span>
-					<h2 class="text-surface-50! m-0 text-3xl leading-none font-black uppercase italic">
+					<h2 class="text-surface-50! m-0 text-2xl leading-none font-black uppercase italic">
 						Log in to create your profile
 					</h2>
-					<p class="m-0 text-base leading-relaxed opacity-90">
+					<p class="text-surface-300 m-0 text-sm leading-relaxed">
 						Sign in from the top-right menu, then return here to personalize your recommendations.
 					</p>
 				</div>
 				<a
-					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center justify-center gap-3 self-start px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 self-start px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					href="/"
 				>
 					Go to home
@@ -337,24 +339,6 @@
 			{/if}
 		</div>
 	</section>
-
-	<!-- Ruler band: 0 → 3 ft -->
-	<div
-		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
-		aria-hidden="true"
-	>
-		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
-			<div class="border-surface-950 relative h-12 border-l-[3px] first:border-l-0">
-				<span
-					class="absolute inset-x-0 top-0 h-4 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
-				></span>
-				<span class="absolute bottom-1.5 left-3 text-xs font-black uppercase">{mark}</span>
-				{#if i === 2}
-					<span class="absolute right-3 bottom-1.5 text-xs font-black uppercase">3 ft</span>
-				{/if}
-			</div>
-		{/each}
-	</div>
 
 	{#if currentUser}
 		<!-- ESSENTIALS + INTERESTS/FOCUS -->

@@ -413,77 +413,75 @@
 	]);
 </script>
 
-<div class="volunteer-hub-page flex w-full flex-col overflow-hidden">
+<div class="volunteer-hub-page -m-4 flex w-full flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="volunteer-hero-heading"
 	>
 		<div
-			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<p class="m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase">
-				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
-				<span>Show up for safer streets</span>
-			</p>
+			<div class="flex flex-col gap-3">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span class="bg-tertiary-500 h-2.5 w-2.5" aria-hidden="true"></span>
+					<span>Show up for safer streets</span>
+				</p>
 
-			<div class="flex flex-col gap-6">
 				<h1
 					id="volunteer-hero-heading"
-					class="text-surface-950! m-0 text-[clamp(2.9rem,7.2vw,6.75rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					{title === 'Volunteer' ? 'A little time can move a whole community.' : title}
+					{#if title === 'Volunteer'}
+						A little time can move a <span class="text-primary-500">whole community.</span>
+					{:else}
+						{title}
+					{/if}
 				</h1>
-				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-xl text-base leading-snug font-medium text-balance">
 					{description}
 				</p>
 			</div>
 
-			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+			<div class="border-surface-800 flex flex-wrap items-center gap-3 border-t pt-5">
 				<a
 					href="#volunteer-directory"
-					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+					class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 				>
 					Find an opportunity
-					<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+					<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 				</a>
 				{#if showCreateButton}
 					<a
 						href={createButtonHref}
-						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
-						<IconPlus class="h-5 w-5" /> Create an event
+						<IconPlus class="h-4 w-4" /> Create an event
 					</a>
 				{/if}
 			</div>
 		</div>
 
-		<div class="bg-surface-950 text-surface-50 relative flex min-h-[20rem] flex-col">
-			<!-- Signature: the 3-foot ruler -->
-			<div
-				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
-				aria-hidden="true"
-			>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
-				<span
-					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
-				></span>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
-			</div>
+		<div
+			class="bg-surface-900 text-surface-50 border-surface-800 relative flex flex-col border-t-2 lg:border-t-0 lg:border-l-2"
+		>
+			<div class="bg-tertiary-500 absolute inset-y-0 left-0 w-2" aria-hidden="true"></div>
 
-			<div class="divide-surface-800 flex flex-1 flex-col divide-y-[3px] pl-12 sm:pl-16">
+			<div class="divide-surface-800 flex flex-1 flex-col divide-y-2 pl-4">
 				{#each heroStats as stat, idx (stat.label)}
-					<div class="flex flex-1 items-center justify-between gap-6 px-6 py-6 sm:px-10">
-						<div class="flex flex-col gap-1">
-							<span class="text-surface-300 text-xs font-bold tracking-[0.22em] uppercase">
+					<div class="flex flex-1 items-center justify-between gap-4 px-6 py-4 sm:px-8">
+						<div class="flex flex-col gap-0.5">
+							<span class="text-surface-400 text-[0.65rem] font-bold tracking-[0.2em] uppercase">
 								0{idx + 1} / Metric
 							</span>
-							<span class="text-surface-50 text-lg font-black uppercase sm:text-xl">
+							<span class="text-surface-50 text-sm font-black uppercase sm:text-base">
 								{stat.label}
 							</span>
 						</div>
 						<span
-							class="{stat.tone} text-5xl leading-none font-black italic tabular-nums sm:text-6xl"
+							class="{stat.tone} text-3xl leading-none font-black italic tabular-nums sm:text-4xl"
 						>
 							{stat.value}
 						</span>
@@ -495,37 +493,19 @@
 
 	<!-- OPPORTUNITY FINDER -->
 	<section
-		class="bg-secondary-500 text-surface-50 border-surface-950 border-t-[3px] px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
-		aria-labelledby="opportunity-finder-heading"
+		class="bg-surface-900 text-surface-50 border-surface-800 border-b-2 px-6 py-5 sm:px-10 lg:px-12"
+		aria-label="Filter volunteer opportunities"
 	>
-		<div class="flex flex-col gap-8">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-				<div class="flex flex-col gap-2">
-					<p
-						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
-					>
-						<IconSearch class="h-4 w-4" />
-						<span>Opportunity finder</span>
-					</p>
-					<h2
-						id="opportunity-finder-heading"
-						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
-					>
-						Search by host, type, or location
-					</h2>
-				</div>
-				<p class="m-0 max-w-md text-sm leading-snug font-medium opacity-90 sm:text-base">
-					Use only the filters that help; every upcoming opportunity remains easy to browse.
-				</p>
-			</div>
-
-			<div class="grid gap-4">
-				<div class="border-surface-950 bg-surface-950 flex border-[3px]">
+		<div class="grid gap-3">
+			<div
+				class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+			>
+				<div class="border-surface-700 bg-surface-950 flex border-2">
 					<input
 						type="search"
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-3.5 text-base font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none"
 						bind:value={searchInput}
-						placeholder="Find by title, host, or description"
+						placeholder="Find by title, host, or description…"
 						onkeydown={(event) => {
 							if (event.key === 'Enter') {
 								event.preventDefault();
@@ -535,7 +515,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
 						onclick={applySearchAndScroll}
 						aria-label="Search volunteer events"
 						title="Search"
@@ -545,37 +525,35 @@
 					</button>
 				</div>
 
-				<div class="grid gap-4 sm:grid-cols-3">
-					<div class="border-surface-950 bg-surface-950 relative flex items-center border-[3px]">
-						<IconMapPin class="text-primary-500 pointer-events-none ml-3.5 h-4 w-4 shrink-0" />
-						<input
-							type="search"
-							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-3 pr-4 pl-2.5 text-sm font-medium focus:outline-none"
-							bind:value={locationQ}
-							placeholder="City and/or state"
-						/>
-					</div>
-
-					<select
-						class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-bold uppercase focus:outline-none"
-						bind:value={hostGroupId}
-					>
-						<option value="">All groups</option>
-						{#each hostGroups as host (host.id)}
-							<option value={host.id}>{host.name}</option>
-						{/each}
-					</select>
-
-					<select
-						class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-bold uppercase focus:outline-none"
-						bind:value={eventType}
-					>
-						<option value="">All types</option>
-						{#each eventTypes as option (option.slug)}
-							<option value={option.slug}>{option.event_type}</option>
-						{/each}
-					</select>
+				<div class="border-surface-700 bg-surface-950 relative flex items-center border-2">
+					<IconMapPin class="text-primary-500 pointer-events-none ml-3 h-4 w-4 shrink-0" />
+					<input
+						type="search"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
+						bind:value={locationQ}
+						placeholder="City and/or state"
+					/>
 				</div>
+
+				<select
+					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+					bind:value={hostGroupId}
+				>
+					<option value="">All groups</option>
+					{#each hostGroups as host (host.id)}
+						<option value={host.id}>{host.name}</option>
+					{/each}
+				</select>
+
+				<select
+					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+					bind:value={eventType}
+				>
+					<option value="">All types</option>
+					{#each eventTypes as option (option.slug)}
+						<option value={option.slug}>{option.event_type}</option>
+					{/each}
+				</select>
 			</div>
 		</div>
 	</section>
@@ -583,7 +561,7 @@
 	<!-- RESULTS + DIRECTORY -->
 	<section
 		id="volunteer-directory"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12"
 		bind:this={directoryTopEl}
 		aria-labelledby="directory-heading"
 	>
@@ -593,17 +571,17 @@
 				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
 				<h2
 					id="directory-heading"
-					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
 				>
 					Event listings
 				</h2>
 			</div>
 
 			<div class="flex flex-wrap items-center gap-4">
-				<p class="text-surface-300 m-0 text-sm font-bold tracking-wide uppercase tabular-nums">
+				<p class="text-surface-300 m-0 text-xs font-bold tracking-wide uppercase tabular-nums">
 					{totalUpcoming} upcoming event{totalUpcoming === 1 ? '' : 's'}
 				</p>
-				<div class="border-surface-50 flex shrink-0 border-[3px]">
+				<div class="border-surface-700 flex shrink-0 border-2">
 					{#each ['list', 'calendar', 'map'] as mode (mode)}
 						<button
 							type="button"

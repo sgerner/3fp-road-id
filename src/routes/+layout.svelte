@@ -460,7 +460,7 @@
 		</main>
 	{:else}
 		<header
-			class="border-b-primary-500/20 bg-primary-500/20 sticky top-0 z-50 border-b backdrop-blur-xl"
+			class="border-b-primary-500/25 bg-surface-950/78 sticky top-0 z-50 border-b backdrop-blur-xl"
 		>
 			<div class="flex items-center justify-between gap-4 p-4">
 				<div class="flex items-center gap-2">

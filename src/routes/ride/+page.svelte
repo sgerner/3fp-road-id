@@ -406,67 +406,73 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="ride-hero-heading"
 	>
 		<div
-			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<p
-				class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
-			>
-				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
-				<span>Community rides</span>
-			</p>
+			<div class="flex flex-col gap-3">
+				<p
+					class="text-primary-500 m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span class="bg-tertiary-500 h-2.5 w-2.5" aria-hidden="true"></span>
+					<span>Community rides</span>
+				</p>
 
-			<div class="flex flex-col gap-6">
 				<h1
 					id="ride-hero-heading"
-					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					Find a ride worth <span class="text-secondary-500">showing up for.</span>
+					Find a ride worth <span class="text-primary-500">showing up for.</span>
 				</h1>
-				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-xl text-base leading-snug font-medium text-balance">
 					Discover public rides, recurring series, and group-hosted events—then help keep the rides
 					your community loves accurate and welcoming.
 				</p>
 			</div>
 
-			<div class="flex flex-col gap-8">
-				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+			<div
+				class="border-surface-800 flex flex-wrap items-center justify-between gap-4 border-t pt-5"
+			>
+				<div class="flex flex-wrap gap-3">
 					<a
 						href="#ride-list"
-						class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
 						Browse rides
-						<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 					</a>
 					<a
 						href="/ride/new"
-						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
-						<IconPlus class="h-5 w-5" /> Share a ride
+						<IconPlus class="h-4 w-4" /> Share a ride
 					</a>
 				</div>
 
-				<dl class="border-surface-950 m-0 grid grid-cols-3 gap-4 border-t-[3px] pt-6">
+				<dl class="m-0 flex flex-wrap items-center gap-6">
 					<div>
-						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Upcoming</dt>
-						<dd class="m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl">
+						<dt class="text-surface-400 text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+							Upcoming
+						</dt>
+						<dd class="text-primary-500 m-0 text-2xl leading-none font-black italic tabular-nums">
 							{formatStatNumber(rides.length)}
 						</dd>
 					</div>
 					<div>
-						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Recurring</dt>
-						<dd class="m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl">
+						<dt class="text-surface-400 text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+							Recurring
+						</dt>
+						<dd class="text-surface-50 m-0 text-2xl leading-none font-black italic tabular-nums">
 							{formatStatNumber(recurringRides.length)}
 						</dd>
 					</div>
 					<div>
-						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Need a host</dt>
-						<dd
-							class="text-secondary-500 m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl"
-						>
+						<dt class="text-surface-400 text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+							Need a host
+						</dt>
+						<dd class="text-tertiary-500 m-0 text-2xl leading-none font-black italic tabular-nums">
 							{formatStatNumber(claimableRides.length)}
 						</dd>
 					</div>
@@ -474,32 +480,23 @@
 			</div>
 		</div>
 
-		<div class="bg-surface-950 relative min-h-[24rem] sm:min-h-[30rem]">
+		<div
+			class="bg-surface-900 border-surface-800 relative min-h-[14rem] border-t-2 lg:border-t-0 lg:border-l-2"
+		>
 			<img
 				src={heroRide ? heroImage(heroRide) : '/images/default-ride.webp'}
 				alt={heroRide ? heroRide.title : 'Cyclists riding together'}
-				class="absolute inset-0 h-full w-full object-cover"
+				class="absolute inset-0 h-full w-full object-cover opacity-75"
 				width="1200"
 				height="736"
 				fetchpriority="high"
 			/>
-
-			<!-- Signature: the 3-foot ruler -->
-			<div
-				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
-				aria-hidden="true"
-			>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
-				<span
-					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
-				></span>
-				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
-			</div>
+			<div class="bg-tertiary-500 absolute inset-y-0 left-0 w-2" aria-hidden="true"></div>
 
 			{#if heroRide}
 				<a
 					href={`/ride/${heroRide.slug}`}
-					class="group bg-surface-950 text-surface-50 hover:bg-secondary-500 absolute right-0 bottom-0 left-12 flex items-center justify-between gap-4 px-5 py-4 transition hover:no-underline sm:left-16"
+					class="group bg-surface-950/95 text-surface-50 hover:bg-surface-900 border-surface-800 absolute right-0 bottom-0 left-2 flex items-center justify-between gap-4 border-t-2 px-5 py-3.5 transition hover:no-underline"
 				>
 					<span class="min-w-0">
 						<span
@@ -507,11 +504,11 @@
 						>
 							Next up
 						</span>
-						<span class="block truncate text-base font-black sm:text-lg">{heroRide.title}</span>
+						<span class="block truncate text-sm font-black sm:text-base">{heroRide.title}</span>
 						<span class="block truncate text-xs opacity-75">{formatNext(heroRide)}</span>
 					</span>
 					<IconArrowUpRight
-						class="text-primary-500 h-6 w-6 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+						class="text-primary-500 h-5 w-5 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
 					/>
 				</a>
 			{/if}
@@ -520,127 +517,106 @@
 
 	<!-- DISCOVERY TOOLBAR -->
 	<section
-		class="bg-secondary-500 text-surface-50 px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
-		aria-labelledby="discovery-heading"
+		class="bg-surface-900 text-surface-50 border-surface-800 border-b-2 px-6 py-5 sm:px-10 lg:px-12"
+		aria-label="Search and filter rides"
 	>
-		<div class="flex flex-col gap-6">
-			<div class="flex flex-col gap-2">
-				<p
-					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+			<div class="flex w-full">
+				<input
+					class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
+					bind:value={searchInput}
+					placeholder="Search by title, location, pace, discipline…"
+					onkeydown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							applySearchAndScroll();
+						}
+					}}
+				/>
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
+					onclick={applySearchAndScroll}
+					aria-label="Search rides"
 				>
-					<IconSearch class="h-4 w-4" /> Find your fit
-				</p>
-				<div class="flex flex-wrap items-end justify-between gap-4">
-					<h2
-						id="discovery-heading"
-						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
-					>
-						Search by route, neighborhood, or pace
-					</h2>
-					<p class="m-0 text-sm font-medium opacity-90 sm:text-base">
-						Start broad, then narrow by difficulty when you need to.
-					</p>
-				</div>
+					<IconSearch class="h-4 w-4" />
+					<span class="hidden sm:inline">Search</span>
+				</button>
 			</div>
 
-			<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-				<div class="flex w-full">
-					<input
-						class="bg-surface-950 text-surface-50 border-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-w-0 flex-1 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
-						bind:value={searchInput}
-						placeholder="Title, location, pace, discipline…"
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								applySearchAndScroll();
-							}
-						}}
-					/>
+			{#if difficultyOptions.length}
+				<div class="flex flex-wrap gap-2">
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-surface-50 border-surface-50 inline-flex shrink-0 items-center justify-center gap-2 border-[3px] border-l-0 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition"
-						onclick={applySearchAndScroll}
-						aria-label="Search rides"
+						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
+							selectedDifficulty === 'all'
+								? 'bg-primary-500 text-surface-950 border-primary-500'
+								: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
+						}`}
+						onclick={() => selectDifficulty('all')}
 					>
-						<IconSearch class="h-5 w-5" />
-						<span class="hidden sm:inline">Search</span>
+						All levels
 					</button>
-				</div>
-
-				{#if difficultyOptions.length}
-					<div class="flex flex-wrap gap-2">
+					{#each difficultyOptions as option (option)}
 						<button
 							type="button"
-							class={`border-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition ${
-								selectedDifficulty === 'all'
+							class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
+								selectedDifficulty === option
 									? 'bg-primary-500 text-surface-950 border-primary-500'
-									: 'bg-surface-950 text-surface-50 border-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500'
+									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 							}`}
-							onclick={() => selectDifficulty('all')}
+							onclick={() => selectDifficulty(option)}
 						>
-							All levels
+							{option}
 						</button>
-						{#each difficultyOptions as option (option)}
-							<button
-								type="button"
-								class={`border-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition ${
-									selectedDifficulty === option
-										? 'bg-primary-500 text-surface-950 border-primary-500'
-										: 'bg-surface-950 text-surface-50 border-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500'
-								}`}
-								onclick={() => selectDifficulty(option)}
-							>
-								{option}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</section>
 
 	<!-- FEATURED + CLAIMABLE -->
 	{#if featuredRides.length}
 		<section
-			class="bg-surface-950 grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
+			class="bg-surface-950 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
 			aria-labelledby="featured-heading"
 		>
-			<div class="flex min-w-0 flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-				<div class="flex flex-col gap-4">
+			<div class="flex min-w-0 flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
+				<div class="flex flex-col gap-2">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 							Featured
 						</p>
 						<a
 							href="#ride-list"
-							class="text-surface-50 hover:text-primary-500 inline-flex items-center gap-1.5 text-sm font-bold uppercase"
+							class="text-surface-300 hover:text-primary-500 inline-flex items-center gap-1.5 text-xs font-bold uppercase"
 						>
 							See all <IconArrowRight class="h-4 w-4" />
 						</a>
 					</div>
 					<h2
 						id="featured-heading"
-						class="text-surface-50! m-0 max-w-3xl text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
+						class="text-surface-50! m-0 max-w-3xl text-2xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-4xl"
 					>
 						Fresh rides worth opening first
 					</h2>
 				</div>
 
-				<ol class="border-surface-50 m-0 list-none border-t-2 p-0">
+				<ol class="border-surface-800 m-0 list-none border-t-2 p-0">
 					{#each featuredRides as ride, i (ride.id ?? ride.slug)}
 						<li class="border-surface-800 border-b">
 							<a
 								href={`/ride/${ride.slug}`}
-								class="group text-surface-50 hover:bg-primary-500 hover:text-surface-950 -mx-3 flex min-w-0 flex-col gap-4 px-3 py-5 transition hover:no-underline sm:flex-row sm:items-center sm:gap-6"
+								class="group text-surface-50 hover:bg-surface-900 -mx-3 flex min-w-0 flex-col gap-4 px-3 py-4 transition hover:no-underline sm:flex-row sm:items-center sm:gap-5"
 							>
 								<div class="flex items-center gap-4">
 									<span
-										class="text-tertiary-500 group-hover:text-secondary-500 w-10 shrink-0 text-2xl font-black italic tabular-nums sm:w-14 sm:text-4xl"
+										class="text-tertiary-500 group-hover:text-primary-500 w-8 shrink-0 text-xl font-black italic tabular-nums sm:w-10 sm:text-2xl"
 									>
 										{String(i + 1).padStart(2, '0')}
 									</span>
 									{#if leadImage(ride)}
-										<span class="bg-surface-800 block h-16 w-24 shrink-0 overflow-hidden">
+										<span class="bg-surface-800 block h-14 w-20 shrink-0 overflow-hidden">
 											<img
 												src={leadImage(ride)}
 												alt={ride.title}
@@ -653,9 +629,7 @@
 
 								<div class="min-w-0 flex-1">
 									<div class="mb-1 flex flex-wrap items-center gap-2">
-										<span
-											class="text-primary-500 group-hover:text-surface-950 text-xs font-black tracking-[0.14em] uppercase"
-										>
+										<span class="text-primary-500 text-xs font-black tracking-[0.14em] uppercase">
 											{formatFeaturedNext(ride)}
 										</span>
 										{#if !ride.hostUserId && !ride.hostGroupId}
@@ -667,7 +641,7 @@
 										{/if}
 									</div>
 									<h3
-										class="text-surface-50! group-hover:text-surface-950! m-0 truncate text-lg leading-tight font-black uppercase sm:text-2xl"
+										class="text-surface-50! group-hover:text-primary-500! m-0 truncate text-base leading-tight font-black uppercase sm:text-xl"
 									>
 										{ride.title}
 									</h3>
@@ -675,7 +649,7 @@
 										<p class="m-0 mt-1 line-clamp-1 text-sm opacity-80">{ride.summary}</p>
 									{/if}
 									<div
-										class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold uppercase opacity-75"
+										class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold uppercase opacity-75"
 									>
 										<span class="inline-flex items-center gap-1">
 											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
@@ -694,10 +668,10 @@
 								</div>
 
 								<span
-									class="inline-flex shrink-0 items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
+									class="text-primary-500 inline-flex shrink-0 items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
 								>
 									Open ride
-									<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+									<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 								</span>
 							</a>
 						</li>
@@ -707,65 +681,54 @@
 
 			<!-- Claimable rides callout -->
 			<aside
-				class="bg-tertiary-500 text-surface-950 flex min-w-0 flex-col justify-between"
+				class="bg-surface-900 text-surface-50 border-surface-800 border-t-tertiary-500 flex min-w-0 flex-col justify-between border-t-4 lg:border-l-2"
 				aria-labelledby="claim-series-heading"
 			>
-				<div class="flex flex-col gap-6 px-6 py-12 sm:px-10 lg:px-12 lg:py-16">
-					<div class="flex flex-col gap-3">
-						<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+				<div class="flex flex-col gap-5 px-6 py-10 sm:px-10 lg:px-10 lg:py-12">
+					<div class="flex flex-col gap-2">
+						<p
+							class="text-tertiary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+						>
 							<IconFlag class="h-4 w-4" /> Claim a series
 						</p>
 						<h2
 							id="claim-series-heading"
-							class="text-surface-950! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
+							class="text-surface-50! m-0 text-2xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-3xl"
 						>
 							See a public ride with no host attached?
 						</h2>
-						<p class="m-0 text-base leading-snug font-medium">
+						<p class="text-surface-300 m-0 text-sm leading-snug font-medium">
 							Logged-in users can post rides even when they are not the host. If a listing has no
 							host or organization, someone local can claim it and manage reminders, RSVPs, and
 							updates.
 						</p>
 					</div>
 
-					<div class="border-surface-950 border-t-[3px]">
+					<div class="border-surface-800 border-t-2">
 						{#each claimableRides.slice(0, 3) as ride (ride.id ?? ride.slug)}
 							<a
-								class="group border-surface-950/30 hover:bg-surface-950 hover:text-primary-500 -mx-3 flex items-center justify-between gap-3 border-b px-3 py-4 transition hover:no-underline"
+								class="group border-surface-800 hover:bg-surface-950 -mx-3 flex items-center justify-between gap-3 border-b px-3 py-3.5 transition hover:no-underline"
 								href={`/ride/${ride.slug}`}
 							>
 								<div class="min-w-0">
-									<div class="truncate text-base font-black uppercase">{ride.title}</div>
-									<div class="mt-0.5 text-xs font-bold opacity-80">{formatNext(ride)}</div>
+									<div class="group-hover:text-primary-500 truncate text-sm font-black uppercase">
+										{ride.title}
+									</div>
+									<div class="text-surface-400 mt-0.5 text-xs font-bold">{formatNext(ride)}</div>
 								</div>
 								<span
-									class="bg-surface-950 text-primary-500 group-hover:bg-primary-500 group-hover:text-surface-950 shrink-0 px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase"
+									class="bg-tertiary-500 text-surface-950 group-hover:bg-primary-500 shrink-0 px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase"
 								>
 									{ride.recurrenceEnabled ? 'Claim series' : 'Claim'}
 								</span>
 							</a>
 						{/each}
 						{#if !claimableRides.length}
-							<div class="py-6 text-sm font-bold uppercase">
+							<div class="text-surface-400 py-5 text-sm font-bold uppercase">
 								All rides currently have a host. Check back soon!
 							</div>
 						{/if}
 					</div>
-				</div>
-
-				<!-- Ruler band: 0 -> 3 ft -->
-				<div class="border-surface-950 grid grid-cols-3 border-t-[3px]" aria-hidden="true">
-					{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
-						<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
-							<span
-								class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
-							></span>
-							<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
-							{#if i === 2}
-								<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
-							{/if}
-						</div>
-					{/each}
 				</div>
 			</aside>
 		</section>
@@ -774,26 +737,26 @@
 	<!-- RIDE LISTING DIRECTORY -->
 	<section
 		id="ride-list"
-		class="bg-surface-950 text-surface-50 border-surface-800 flex flex-col gap-8 border-t-2 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12"
 		bind:this={rideListEl}
 		aria-labelledby="directory-heading"
 	>
 		<div class="flex flex-wrap items-end justify-between gap-6">
-			<div class="flex flex-col gap-3">
+			<div class="flex flex-col gap-2">
 				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
 				<h2
 					id="directory-heading"
-					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
 				>
 					Public ride listings
 				</h2>
 			</div>
 
-			<div class="flex flex-col items-start gap-3 sm:items-end">
+			<div class="flex flex-col items-start gap-2 sm:items-end">
 				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
 					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
-				<div class="border-surface-50 flex shrink-0 border-[3px]">
+				<div class="border-surface-700 flex shrink-0 border-2">
 					<button
 						type="button"
 						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
@@ -807,7 +770,7 @@
 					</button>
 					<button
 						type="button"
-						class={`border-surface-50 border-l-[3px] px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
 							view === 'calendar'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -818,7 +781,7 @@
 					</button>
 					<button
 						type="button"
-						class={`border-surface-50 border-l-[3px] px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
 							view === 'map'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -833,7 +796,7 @@
 
 		<!-- lane divider -->
 		<div
-			class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+			class="h-1 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_48px,transparent_48px_80px)]"
 			aria-hidden="true"
 		></div>
 

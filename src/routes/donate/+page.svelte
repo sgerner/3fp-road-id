@@ -329,42 +329,48 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="donate-heading"
 	>
 		<div
-			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<div class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
-				<span class="bg-surface-950 text-primary-500 inline-flex items-center gap-1.5 px-3 py-1.5">
-					<IconHeart class="h-3.5 w-3.5" />
-					Donate
-				</span>
-				{#if isGroupRecipient}
-					<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">Community Group</span>
-					<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Tax Status Varies</span>
-				{:else}
-					<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">501(c)(3) Nonprofit</span>
-					<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Tax-Deductible</span>
-				{/if}
-			</div>
+			<div class="flex flex-col gap-3">
+				<div
+					class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span
+						class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-2.5 py-1"
+					>
+						<IconHeart class="h-3.5 w-3.5" />
+						Donate
+					</span>
+					{#if isGroupRecipient}
+						<span class="bg-secondary-500 text-surface-50 px-2.5 py-1">Community Group</span>
+						<span class="bg-tertiary-500 text-surface-950 px-2.5 py-1">Tax Status Varies</span>
+					{:else}
+						<span class="bg-secondary-500 text-surface-50 px-2.5 py-1">501(c)(3) Nonprofit</span>
+						<span class="bg-tertiary-500 text-surface-950 px-2.5 py-1">Tax-Deductible</span>
+					{/if}
+				</div>
 
-			<div class="flex flex-col gap-6">
 				<h1
 					id="donate-heading"
-					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
 					{#if isGroupRecipient}
 						Support {recipientLabel}.
-						<span class="text-secondary-500">Fund local impact.</span>
+						<span class="text-primary-500">Fund local impact.</span>
 					{:else}
-						Every ride counts. <span class="text-secondary-500">Fund safer streets.</span>
+						Every ride counts. <span class="text-primary-500">Fund safer streets.</span>
 					{/if}
 				</h1>
-				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-xl text-base leading-snug font-medium text-balance">
 					{#if isGroupRecipient}
-						This page sends donations directly to <strong>{recipientLabel}</strong> through their connected
-						Stripe account. Tax deductibility depends on that group's legal status and may not apply.
+						This page sends donations directly to <strong class="text-surface-50"
+							>{recipientLabel}</strong
+						> through their connected Stripe account. Tax deductibility depends on that group's legal
+						status and may not apply.
 					{:else}
 						3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger cycling
 						culture. Your tax-deductible gift powers advocacy, education, and community programs
@@ -373,16 +379,16 @@
 				</p>
 			</div>
 
-			<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-4">
 				<div
-					class="border-surface-950 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-[3px] pt-5 text-xs font-bold tracking-[0.16em] uppercase"
+					class="border-surface-800 text-surface-300 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 text-xs font-bold tracking-[0.14em] uppercase"
 				>
 					<span class="flex items-center gap-2">
-						<IconLock class="h-4 w-4 shrink-0" />
+						<IconLock class="text-primary-500 h-4 w-4 shrink-0" />
 						Secure via Stripe
 					</span>
 					<span class="flex items-center gap-2">
-						<IconShield class="h-4 w-4 shrink-0" />
+						<IconShield class="text-secondary-400 h-4 w-4 shrink-0" />
 						{#if isGroupRecipient}
 							Tax status depends on the group
 						{:else}
@@ -390,27 +396,27 @@
 						{/if}
 					</span>
 					<span class="flex items-center gap-2">
-						<IconEyeOff class="h-4 w-4 shrink-0" />
+						<IconEyeOff class="text-tertiary-500 h-4 w-4 shrink-0" />
 						Anonymity available
 					</span>
 				</div>
 
 				{#if data.canceled}
-					<div class="bg-surface-950 text-primary-500 px-5 py-4 text-sm font-bold">
+					<div
+						class="bg-surface-900 text-primary-500 border-surface-700 border px-4 py-3 text-sm font-bold"
+					>
 						Checkout was canceled. No donation was charged.
 					</div>
 				{/if}
 				{#if data.stripeStatus === 'connected'}
 					<div
-						class="bg-surface-950 text-primary-500 flex items-center gap-2 px-5 py-4 text-sm font-bold"
+						class="bg-surface-900 text-primary-500 border-surface-700 flex items-center gap-2 border px-4 py-3 text-sm font-bold"
 					>
 						<IconCheck class="h-4 w-4 shrink-0" />
 						Stripe account connected successfully.
 					</div>
 				{:else if data.stripeStatus === 'error'}
-					<div
-						class="bg-tertiary-500 text-surface-950 border-surface-950 border-[3px] px-5 py-4 text-sm font-bold"
-					>
+					<div class="bg-tertiary-500 text-surface-950 px-4 py-3 text-sm font-bold">
 						Stripe connection failed. {data.stripeReason ? `Reason: ${data.stripeReason}` : ''}
 					</div>
 				{/if}
@@ -419,71 +425,53 @@
 
 		<!-- Right: impact stat blocks -->
 		<div
-			class="bg-secondary-500 text-surface-50 border-surface-950 grid grid-rows-3 border-t-[3px] lg:border-t-0 lg:border-l-[3px]"
+			class="bg-surface-900 text-surface-50 border-surface-800 border-t-secondary-500 grid grid-rows-3 border-t-4 lg:border-l-2"
 		>
 			<div
-				class="border-surface-950 flex flex-col justify-between gap-4 border-b-[3px] px-6 py-8 sm:px-10 lg:px-12"
+				class="border-surface-800 flex items-center justify-between gap-4 border-b-2 px-6 py-5 sm:px-8"
 			>
 				<div
-					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
 				>
-					<IconBike class="h-4 w-4" />
+					<IconBike class="text-primary-500 h-4 w-4" />
 					{isGroupRecipient ? 'Direct Support' : 'Years Active'}
 				</div>
 				<div
-					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+					class="text-primary-500 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
 				>
 					{isGroupRecipient ? 'Local' : '10+'}
 				</div>
 			</div>
 			<div
-				class="border-surface-950 flex flex-col justify-between gap-4 border-b-[3px] px-6 py-8 sm:px-10 lg:px-12"
+				class="border-surface-800 flex items-center justify-between gap-4 border-b-2 px-6 py-5 sm:px-8"
 			>
 				<div
-					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
 				>
-					<IconUsers class="h-4 w-4" />
+					<IconUsers class="text-tertiary-500 h-4 w-4" />
 					{isGroupRecipient ? 'Funds Route' : 'Advocates'}
 				</div>
 				<div
-					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+					class="text-surface-50 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
 				>
 					{isGroupRecipient ? 'Group' : '100+'}
 				</div>
 			</div>
-			<div class="flex flex-col justify-between gap-4 px-6 py-8 sm:px-10 lg:px-12">
+			<div class="flex items-center justify-between gap-4 px-6 py-5 sm:px-8">
 				<div
-					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
 				>
-					<IconTrendingUp class="h-4 w-4" />
+					<IconTrendingUp class="text-primary-500 h-4 w-4" />
 					{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
 				</div>
 				<div
-					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+					class="text-tertiary-500 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
 				>
 					{isGroupRecipient ? 'Varies' : '1000+'}
 				</div>
 			</div>
 		</div>
 	</section>
-
-	<!-- Ruler band: 0 → 3 ft -->
-	<div
-		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
-		aria-hidden="true"
-	>
-		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
-			<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
-				<span
-					class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
-				></span>
-				<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
-				{#if i === 2}
-					<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
-				{/if}
-			</div>
-		{/each}
-	</div>
 
 	<!-- ADMIN: MANAGE MAIN STRIPE -->
 	{#if data.showManageMain}

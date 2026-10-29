@@ -126,30 +126,34 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
 		aria-labelledby="get-involved-heading"
 	>
 		<!-- Left: headline + copy + stats -->
 		<div
-			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-10"
 		>
-			<div class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
-				<span class="bg-surface-950 text-primary-500 inline-flex items-center gap-1.5 px-3 py-1.5">
-					<IconHeart class="h-3.5 w-3.5" />
-					Get Involved
-				</span>
-				<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">Community</span>
-				<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Local Impact</span>
-			</div>
+			<div class="flex flex-col gap-3">
+				<div
+					class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span
+						class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-2.5 py-1"
+					>
+						<IconHeart class="h-3.5 w-3.5" />
+						Get Involved
+					</span>
+					<span class="bg-secondary-500 text-surface-50 px-2.5 py-1">Community</span>
+					<span class="bg-tertiary-500 text-surface-950 px-2.5 py-1">Local Impact</span>
+				</div>
 
-			<div class="flex flex-col gap-6">
 				<h1
 					id="get-involved-heading"
-					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					Make streets safer. <span class="text-secondary-500">Show up for cyclists.</span>
+					Make streets safer. <span class="text-primary-500">Show up for cyclists.</span>
 				</h1>
-				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+				<p class="text-surface-300 m-0 max-w-xl text-base leading-snug font-medium text-balance">
 					3 Feet Please runs on people who care. Whether you want to lead, advocate, or amplify —
 					there's a place for you here. Tell us where you want to help and we'll connect you with
 					the right next step.
@@ -157,37 +161,43 @@
 			</div>
 
 			<!-- Stat strip -->
-			<div class="border-surface-950 grid grid-cols-3 gap-3 border-t-[3px] pt-6 sm:gap-6">
-				<div class="min-w-0">
+			<div class="border-surface-800 flex flex-wrap items-center gap-8 border-t pt-5">
+				<div>
 					<div
-						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
+						class="text-surface-400 flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.2em] uppercase"
 					>
-						<IconBriefcase class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-						<span class="truncate">Open Roles</span>
+						<IconBriefcase class="text-primary-500 h-3.5 w-3.5 shrink-0" />
+						<span>Open Roles</span>
 					</div>
-					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+					<div
+						class="text-primary-500 mt-1 text-2xl leading-none font-black italic tabular-nums sm:text-3xl"
+					>
 						{data.opportunities?.length || 0}
 					</div>
 				</div>
-				<div class="border-surface-950 min-w-0 border-l-[3px] pl-3 sm:pl-6">
+				<div>
 					<div
-						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
+						class="text-surface-400 flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.2em] uppercase"
 					>
-						<IconBike class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-						<span class="truncate">Years Strong</span>
+						<IconBike class="text-tertiary-500 h-3.5 w-3.5 shrink-0" />
+						<span>Years Strong</span>
 					</div>
-					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+					<div
+						class="text-surface-50 mt-1 text-2xl leading-none font-black italic tabular-nums sm:text-3xl"
+					>
 						10+
 					</div>
 				</div>
-				<div class="border-surface-950 min-w-0 border-l-[3px] pl-3 sm:pl-6">
+				<div>
 					<div
-						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
+						class="text-surface-400 flex items-center gap-1.5 text-[0.65rem] font-bold tracking-[0.2em] uppercase"
 					>
-						<IconUsers class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-						<span class="truncate">Advocates</span>
+						<IconUsers class="text-primary-500 h-3.5 w-3.5 shrink-0" />
+						<span>Advocates</span>
 					</div>
-					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+					<div
+						class="text-tertiary-500 mt-1 text-2xl leading-none font-black italic tabular-nums sm:text-3xl"
+					>
 						100+
 					</div>
 				</div>
@@ -196,102 +206,84 @@
 
 		<!-- Right: contact + social block -->
 		<div
-			class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col justify-between gap-8 border-t-[3px] px-6 py-10 sm:px-10 lg:border-t-0 lg:border-l-[3px] lg:px-12 lg:py-14"
+			class="bg-surface-900 text-surface-50 border-surface-800 border-t-secondary-500 flex flex-col justify-between gap-5 border-t-4 px-6 py-7 sm:px-10 lg:border-l-2 lg:px-10 lg:py-8"
 		>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-1.5">
 				<p
 					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
 				>
-					<IconSparkles class="h-4 w-4" />
+					<IconSparkles class="h-3.5 w-3.5" />
 					Reach out
 				</p>
-				<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
+				<h2 class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-3xl">
 					Connect with us
 				</h2>
 			</div>
 
-			<div class="border-surface-50/40 flex flex-col border-t-2">
+			<div class="border-surface-800 flex flex-col border-t-2">
 				<a
 					href="mailto:hi@3fp.org"
-					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
 				>
-					<span class="flex items-center gap-3">
-						<IconMail class="h-5 w-5 shrink-0" />
+					<span class="group-hover:text-primary-500 flex items-center gap-3">
+						<IconMail class="text-primary-500 h-4 w-4 shrink-0" />
 						<span>hi@3fp.org</span>
 					</span>
-					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+					<IconArrowUpRight class="text-primary-500 h-4 w-4 shrink-0" />
 				</a>
 				<a
 					href="https://www.facebook.com/3FeetPlease/"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
 				>
-					<span class="flex items-center gap-3">
-						<IconShare2 class="h-5 w-5 shrink-0" />
+					<span class="group-hover:text-primary-500 flex items-center gap-3">
+						<IconShare2 class="text-secondary-400 h-4 w-4 shrink-0" />
 						<span>Facebook</span>
 					</span>
-					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+					<IconArrowUpRight class="text-primary-500 h-4 w-4 shrink-0" />
 				</a>
 				<a
 					href="https://www.instagram.com/3feetplease"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
 				>
-					<span class="flex items-center gap-3">
-						<IconMegaphone class="h-5 w-5 shrink-0" />
+					<span class="group-hover:text-primary-500 flex items-center gap-3">
+						<IconMegaphone class="text-tertiary-500 h-4 w-4 shrink-0" />
 						<span>Instagram</span>
 					</span>
-					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+					<IconArrowUpRight class="text-primary-500 h-4 w-4 shrink-0" />
 				</a>
-				<div class="border-surface-50/25 flex items-start gap-3 border-b py-4 text-sm font-medium">
-					<IconMapPin class="text-primary-500 mt-0.5 h-5 w-5 shrink-0" />
+				<div class="text-surface-300 flex items-start gap-3 py-3 text-xs font-medium">
+					<IconMapPin class="text-primary-500 mt-0.5 h-4 w-4 shrink-0" />
 					<span>2628 W Birchwood Cir, STE C<br />Mesa, AZ 85202</span>
 				</div>
 			</div>
 
 			<a
 				href="#interest-form"
-				class="group bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-full items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+				class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 			>
 				Raise your hand
-				<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+				<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 			</a>
 		</div>
 	</section>
 
-	<!-- Ruler band: 0 → 3 ft -->
-	<div
-		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
-		aria-hidden="true"
-	>
-		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
-			<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
-				<span
-					class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
-				></span>
-				<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
-				{#if i === 2}
-					<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
-				{/if}
-			</div>
-		{/each}
-	</div>
-
 	<!-- CURRENT OPPORTUNITIES -->
 	<section
-		class="bg-surface-950 text-surface-50 px-6 py-14 sm:px-10 lg:px-14 lg:py-20"
+		class="bg-surface-950 text-surface-50 px-6 py-10 sm:px-10 lg:px-12 lg:py-12"
 		aria-labelledby="opportunities-heading"
 	>
 		<div class="flex flex-wrap items-end justify-between gap-6">
-			<div class="flex flex-col gap-3">
+			<div class="flex flex-col gap-2">
 				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 					Where we need hands
 				</p>
 				<h2
 					id="opportunities-heading"
-					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
 				>
 					Current opportunities
 				</h2>
