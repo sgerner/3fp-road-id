@@ -960,9 +960,6 @@
 		color: var(--color-surface-950);
 	}
 
-	.profile-menu {
-	}
-
 	.profile-menu-item {
 		display: flex;
 		align-items: center;
