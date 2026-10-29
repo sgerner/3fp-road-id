@@ -170,6 +170,7 @@ function addCommonPublicEntries(entryMap, origin) {
 		'/ride',
 		'/volunteer',
 		'/learn',
+		'/learn/safer-cycling-better-messages',
 		'/volunteer/groups',
 		'/merch',
 		'/get-involved',

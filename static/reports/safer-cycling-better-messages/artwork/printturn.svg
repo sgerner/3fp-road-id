@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg
+  PUBLIC '-//W3C//DTD SVG 1.0//EN'
+  'http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd'>
+<svg width="419.528" height="595.276" preserveAspectRatio="xMinYMin meet" viewBox="0 0 419 595" xmlns="http://www.w3.org/2000/svg" version="1.0" fill-rule="evenodd" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<title>...</title>
+	<desc>...</desc>
+	<clipPath id="clip">
+		<rect x="0" y="0" width="419.528" height="595.276"/>
+	</clipPath>
+	<g id="group" transform="scale(1,-1) translate(0,-595)" style="clip-path: url(#clip)">
+		<g transform="">
+			<g transform=" matrix(1.589121,0,0,1.591647,0,0)">
+				<rect x="0" y="0" width="264" height="374" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 1; fill: rgb(100%,100%,100%); fill-rule: evenodd;"/>
+				<rect x="0" y="263" width="264" height="111" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,13%,54%); fill-rule: evenodd;"/>
+				<text x="18" y="352" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 8px;fill: rgb(100%,100%,3%); stroke:none;" transform="translate(0,704) scale(1,-1)">AT A TURN ACROSS A RIDER'S PATH</text>
+				<text x="18" y="318" style="font-family: Space Grotesk, DejaVu Sans, sans-serif; font-weight: bold; font-size: 30px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,636) scale(1,-1)">CHECK.</text>
+				<text x="18" y="280" style="font-family: Space Grotesk, DejaVu Sans, sans-serif; font-weight: bold; font-size: 30px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,560) scale(1,-1)">THEN WAIT.</text>
+				<rect x="18" y="112" width="228" height="137" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(90%,86%,94%); fill-rule: evenodd;"/>
+				<path d="M 150.24,120 L 150.24,241 Z" style="stroke: rgb(100%,100%,100%); stroke-linecap: butt; stroke-width: 2; stroke-dasharray: 6, 6;"/>
+				<rect x="170.76000000000002" y="126" width="25.0" height="42" rx="6" ry="6" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,13%,54%); fill-rule: evenodd;"/>
+				<rect x="174.76000000000002" y="152" width="17.0" height="9" rx="2" ry="2" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(83%,76%,90%); fill-rule: evenodd;"/>
+				<rect x="174.76000000000002" y="135" width="17.0" height="8" rx="2" ry="2" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(83%,76%,90%); fill-rule: evenodd;"/>
+				<rect x="209.51999999999998" y="119" width="29.639999999999986" height="123" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(100%,96%,74%); fill-rule: evenodd;"/>
+				<rect x="221.20000000000002" y="193" width="4.0" height="16" rx="1" ry="1" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,13%,54%); fill-rule: evenodd;"/>
+				<rect x="221.20000000000002" y="220" width="4.0" height="16" rx="1" ry="1" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,13%,54%); fill-rule: evenodd;"/>
+				<path d="M 223.2,207 L 223.2,225 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 4;"/>
+				<path d="M 214.2,222 L 232.2,222 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 3;"/>
+				<circle cx="223.20000000000002" cy="213" r="6" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(83%,0%,43%); fill-rule: evenodd;"/>
+				<path d="M 189,173 L 189,219 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 2; stroke-dasharray: 4, 4;"/>
+				<path d="M 189,219 L 241,219 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 2; stroke-dasharray: 4, 4;"/>
+				<path d="M 234,219 L 243,219 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 2;"/>
+				<polygon points="243 219, 237.7345 221.8766, 237.7345 216.1234" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(83%,0%,43%); fill-rule: evenodd;"/>
+				<text x="163.92000000000002" y="174" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 8px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,348) scale(1,-1)">WAIT</text>
+				<text x="18" y="88" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 13px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,176) scale(1,-1)">Keep the bicycle path clear.</text>
+				<text x="18" y="71" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 13px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,142) scale(1,-1)">Turn only when safe and</text>
+				<text x="18" y="54" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 13px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,108) scale(1,-1)">lawful.</text>
+				<text x="18" y="14" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 7px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,28) scale(1,-1)">3 FEET PLEASE</text>
+				<text x="206" y="14" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 8px;fill: rgb(32%,13%,54%); stroke:none;" transform="translate(0,28) scale(1,-1)">3fp.org</text>
+			</g>
+		</g>
+	</g>
+</svg>

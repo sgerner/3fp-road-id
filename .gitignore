@@ -18,8 +18,11 @@ node_modules
 /.svelte-kit
 /build
 .codex/
+.codex-attachments/
 .gemini/
 .opencode/
+__pycache__/
+*.pyc
 
 # OS
 .DS_Store

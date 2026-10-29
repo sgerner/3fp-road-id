@@ -142,6 +142,27 @@
 		</div>
 	</header>
 
+	<!-- Featured research uses a dedicated interactive report layout. -->
+	<a href="/learn/safer-cycling-better-messages" class="research-feature">
+		<div class="research-feature-copy">
+			<p>NEW / INTERACTIVE RESEARCH</p>
+			<h2>Safer Cycling.<br /><span>Better Messages.</span></h2>
+			<p class="research-feature-deck">
+				Make a campaign people can understand and use. Explore the evidence, test a message, and see
+				the designs.
+			</p>
+			<span class="research-feature-link">Explore the report <span aria-hidden="true">↗</span></span
+			>
+		</div>
+		<div class="research-feature-art" aria-hidden="true">
+			<img
+				src="/reports/safer-cycling-better-messages/campaigns/01-give-people-space-poster-v9-page-01.webp"
+				alt=""
+				loading="lazy"
+			/><span>68 sources<br />Interactive tools<br />Free PDF guides</span>
+		</div>
+	</a>
+
 	<!-- SEARCH & FILTER BAND -->
 	<div
 		id="library"
@@ -313,3 +334,91 @@
 		{/if}
 	</section>
 </div>
+
+<style>
+	.research-feature {
+		display: grid;
+		grid-template-columns: 1.3fr 1fr;
+		gap: 1.5rem;
+		background: #35125f;
+		color: white;
+		padding: clamp(1.5rem, 4vw, 3rem);
+		border-top: 5px solid #ff0180;
+		overflow: hidden;
+		text-decoration: none;
+		position: relative;
+	}
+	.research-feature:hover {
+		text-decoration: none;
+		background: #42166d;
+	}
+	.research-feature:focus-visible {
+		outline: 4px solid #ffff0a;
+		outline-offset: -7px;
+	}
+	.research-feature-copy > p:first-child {
+		font-size: 0.65rem;
+		font-weight: 900;
+		letter-spacing: 0.18em;
+		color: #ffff0a;
+		margin-bottom: 1rem;
+	}
+	.research-feature h2 {
+		font-size: clamp(2rem, 4vw, 3.7rem);
+		color: white !important;
+		line-height: 0.98;
+		letter-spacing: -0.04em;
+		margin: 0;
+	}
+	.research-feature h2 span {
+		color: #ffff0a;
+	}
+	.research-feature-deck {
+		font-size: 0.95rem;
+		line-height: 1.55;
+		max-width: 32rem;
+		color: #e4d5f0;
+		margin-top: 1.15rem;
+	}
+	.research-feature-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 2rem;
+		color: white;
+		font-size: 0.8rem;
+		font-weight: 900;
+		margin-top: 1.4rem;
+	}
+	.research-feature-link > span {
+		color: #ff0180;
+		font-size: 1.4rem;
+	}
+	.research-feature-art {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 2rem;
+	}
+	.research-feature-art img {
+		height: 250px;
+		width: auto;
+		max-width: 55%;
+		object-fit: contain;
+		transform: rotate(7deg);
+		box-shadow: 0 20px 30px #16052666;
+	}
+	.research-feature-art > span {
+		font-size: 0.75rem;
+		font-weight: 800;
+		line-height: 2;
+		color: #e4d5f0;
+	}
+	@media (max-width: 680px) {
+		.research-feature {
+			grid-template-columns: 1fr;
+		}
+		.research-feature-art {
+			display: none;
+		}
+	}
+</style>

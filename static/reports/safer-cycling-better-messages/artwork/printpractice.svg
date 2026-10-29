@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg
+  PUBLIC '-//W3C//DTD SVG 1.0//EN'
+  'http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd'>
+<svg width="288" height="432" preserveAspectRatio="xMinYMin meet" viewBox="0 0 288 432" xmlns="http://www.w3.org/2000/svg" version="1.0" fill-rule="evenodd" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<title>...</title>
+	<desc>...</desc>
+	<clipPath id="clip">
+		<rect x="0" y="0" width="288" height="432"/>
+	</clipPath>
+	<g id="group" transform="scale(1,-1) translate(0,-432)" style="clip-path: url(#clip)">
+		<g transform="">
+			<g transform=" matrix(1.090909,0,0,1.090909,0,0)">
+				<rect x="0" y="0" width="264" height="396" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(32%,13%,54%); fill-rule: evenodd;"/>
+				<text x="18" y="373" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 8px;fill: rgb(100%,100%,3%); stroke:none;" transform="translate(0,746) scale(1,-1)">TAKE-HOME PRACTICE CARD</text>
+				<text x="18" y="340" style="font-family: Space Grotesk, DejaVu Sans, sans-serif; font-weight: bold; font-size: 25px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,680) scale(1,-1)">BUILD THE SKILL</text>
+				<text x="18" y="311" style="font-family: Space Grotesk, DejaVu Sans, sans-serif; font-weight: bold; font-size: 25px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,622) scale(1,-1)">BEFORE THE</text>
+				<text x="18" y="282" style="font-family: Space Grotesk, DejaVu Sans, sans-serif; font-weight: bold; font-size: 25px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,564) scale(1,-1)">TRAFFIC.</text>
+				<rect x="18" y="153" width="228" height="71" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(100%,96%,74%); fill-rule: evenodd;"/>
+				<circle cx="49" cy="172" r="14.399999999999999" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2; fill: none; fill-rule: evenodd;"/>
+				<circle cx="101.8" cy="172" r="14.399999999999999" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2; fill: none; fill-rule: evenodd;"/>
+				<path d="M 49,172 L 68.2,199.6 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 68.2,199.6 L 81.4,172 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 49,172 L 81.4,172 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 81.4,172 L 91,202 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 68.2,199.6 L 91,202 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 91,202 L 101.8,172 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 91,202 L 91,209.2 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 87.4,209.2 L 94.6,209.2 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 68.2,199.6 L 64.6,206.8 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<path d="M 59.8,206.8 L 70.6,206.8 Z" style="stroke: rgb(32%,13%,54%); stroke-linecap: butt; stroke-width: 2;"/>
+				<circle cx="206" cy="210" r="7" style="stroke: none; stroke-linecap: butt; stroke-width: 1; fill: rgb(83%,0%,43%); fill-rule: evenodd;"/>
+				<path d="M 206,202 L 206,182 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 6;"/>
+				<path d="M 206,184 L 197,167 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 4;"/>
+				<path d="M 206,184 L 215,167 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 4;"/>
+				<path d="M 193,195 L 219,195 Z" style="stroke: rgb(83%,0%,43%); stroke-linecap: butt; stroke-width: 4;"/>
+				<text x="18" y="127" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 13px;fill: rgb(100%,100%,3%); stroke:none;" transform="translate(0,254) scale(1,-1)">PRACTICE. GET FEEDBACK.</text>
+				<text x="18" y="104" style="font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,208) scale(1,-1)">Ask your instructor what to practice next</text>
+				<text x="18" y="88" style="font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,176) scale(1,-1)">and where to practice safely.</text>
+				<text x="18" y="57" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 10px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,114) scale(1,-1)">Bring this card to your next lesson.</text>
+				<text x="18" y="14" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 7px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,28) scale(1,-1)">3 FEET PLEASE</text>
+				<text x="206" y="14" style="font-family: DejaVu Sans, Arial, sans-serif; font-weight: bold; font-size: 8px;fill: rgb(100%,100%,100%); stroke:none;" transform="translate(0,28) scale(1,-1)">3fp.org</text>
+			</g>
+		</g>
+	</g>
+</svg>
