@@ -2,15 +2,10 @@ node_modules
 
 # Output
 .output
-/output/campaign-kits-v1/assets/
-/output/campaign-kits-v1/materials/
-/output/print-v*/
-/output/**/*.png
-/output/**/*.jpg
-/output/**/*.jpeg
-/output/**/*.webp
-/output/**/*.pdf
-/output/**/*.pptx
+/output/
+docs/**/CAMPAIGN.md
+docs/campaign-messaging-principles.md
+docs/safety-report-web.md
 /tmp/
 .vercel
 .netlify
