@@ -1,5 +1,5 @@
 <script>
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
@@ -80,108 +80,111 @@
 	<title>Volunteer Opportunities by Group</title>
 </svelte:head>
 
-<section class="mx-auto w-full max-w-5xl space-y-8">
-	<!-- ═══════════════════════ HERO ═══════════════════════ -->
-	<div class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)]"
+		aria-labelledby="groups-volunteer-heading"
+	>
+		<!-- Left: Lemon field -->
 		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.85fr)] lg:p-10"
+			class="bg-primary-500 text-surface-950 flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
 		>
-			<!-- Left: headline + chips + stats -->
-			<div class="flex flex-col gap-6">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="chip preset-filled-tertiary-500 gap-1.5 font-semibold tracking-wide">
-						<IconUsers class="h-3.5 w-3.5" />
-						By Group
-					</span>
-					<span class="chip preset-tonal-secondary">Organizers</span>
-					<span class="chip preset-tonal-primary">Community</span>
-				</div>
-
-				<div class="space-y-3">
-					<h1
-						class="volunteer-headline max-w-xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl"
-					>
-						Volunteer
-						<span class="volunteer-headline-accent">by Group.</span>
-					</h1>
-					<p class="max-w-md text-base leading-relaxed opacity-75">
-						Discover upcoming ways to pitch in with local organizers. Each group below is hosting
-						volunteer events—join one or explore everything they have planned.
-					</p>
-				</div>
-
-				<!-- Stat cards -->
-				<div class="grid grid-cols-2 gap-3">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-tertiary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							Active Groups
-						</div>
-						<div class="text-3xl font-black tabular-nums">{groups.length}</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-primary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconCalendar class="h-4 w-4" />
-							Upcoming Events
-						</div>
-						<div class="text-3xl font-black tabular-nums">{totalGroupEvents}</div>
-					</div>
-				</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<span
+					class="bg-tertiary-500 text-surface-950 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+				>
+					<IconUsers class="h-3.5 w-3.5" />
+					By Group
+				</span>
+				<span
+					class="bg-surface-950 text-primary-500 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+				>
+					Organizers
+				</span>
+				<span
+					class="border-surface-950 text-surface-950 border-2 px-3 py-0.5 text-xs font-black tracking-[0.2em] uppercase"
+				>
+					Community
+				</span>
 			</div>
 
-			<!-- Right: search panel -->
-			<div
-				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
-			>
-				<div class="space-y-1">
-					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
-					>
-						<IconSearch class="h-4 w-4" />
-						Find a group
-					</div>
-					<h2 class="text-xl font-bold">Search by name or location</h2>
-				</div>
+			<div class="flex flex-col gap-5">
+				<h1
+					id="groups-volunteer-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.2vw,6.75rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					Volunteer <span class="text-secondary-500">by Group.</span>
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					Discover upcoming ways to pitch in with local organizers. Each group below is hosting
+					volunteer events—join one or explore everything they have planned.
+				</p>
+			</div>
 
-				<div class="relative">
-					<IconSearch
-						class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-					/>
+			<!-- Stat strip -->
+			<div class="border-surface-950 grid grid-cols-2 gap-6 border-t-[3px] pt-6">
+				<div class="flex flex-col gap-1">
+					<span class="flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+						<IconUsers class="h-4 w-4" />
+						Active Groups
+					</span>
+					<span class="text-5xl leading-none font-black italic tabular-nums sm:text-6xl">
+						{groups.length}
+					</span>
+				</div>
+				<div class="border-surface-950 flex flex-col gap-1 border-l-[3px] pl-6">
+					<span class="flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+						<IconCalendar class="h-4 w-4" />
+						Upcoming Events
+					</span>
+					<span
+						class="text-secondary-500 text-5xl leading-none font-black italic tabular-nums sm:text-6xl"
+					>
+						{totalGroupEvents}
+					</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- Right: Violet search field -->
+		<div
+			class="bg-secondary-500 text-surface-50 relative flex flex-col justify-between gap-8 px-6 py-10 sm:px-10 lg:px-12 lg:py-14"
+		>
+			<div class="flex flex-col gap-3">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconSearch class="h-4 w-4" />
+					Find a group
+				</p>
+				<h2
+					class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+				>
+					Search by name or location
+				</h2>
+			</div>
+
+			<div class="flex flex-col gap-4">
+				<label for="search-groups" class="sr-only">Search groups by name or location</label>
+				<div class="border-surface-950 bg-surface-950 relative flex items-center border-[3px]">
+					<IconSearch class="text-primary-500 pointer-events-none ml-4 h-5 w-5 shrink-0" />
 					<input
 						id="search-groups"
 						type="search"
 						bind:value={searchTerm}
 						placeholder="e.g. 'trail building', 'Boise', ..."
-						class="input bg-surface-950-50/5 w-full pl-9"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-4 pr-4 pl-3 text-base font-medium focus:outline-none"
 					/>
 				</div>
 
-				<div class="mt-auto space-y-1 text-sm opacity-60">
+				<div class="text-primary-500 text-xs font-black tracking-[0.2em] uppercase tabular-nums">
 					{#if searchTerm}
-						<p>
+						<p class="m-0">
 							{filteredGroups.length} group{filteredGroups.length === 1 ? '' : 's'} matching "{searchTerm}"
 						</p>
 					{:else}
-						<p>
+						<p class="m-0">
 							{groups.length} group{groups.length === 1 ? '' : 's'} · {totalGroupEvents} upcoming event{totalGroupEvents ===
 							1
 								? ''
@@ -190,18 +193,45 @@
 					{/if}
 				</div>
 			</div>
-		</div>
-	</div>
 
-	<!-- ═══════════════════════ RESULTS ═══════════════════════ -->
-	<div class="space-y-5">
-		<!-- Directory toolbar -->
-		<div class="flex items-center justify-between gap-2">
-			<div>
-				<p class="label opacity-60">Directory</p>
-				<h2 class="text-2xl font-bold">Group listings</h2>
+			<!-- 3-foot ruler motif -->
+			<div class="border-surface-950 grid grid-cols-3 border-t-[3px] pt-2" aria-hidden="true">
+				{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+					<div class="border-surface-950 relative h-10 border-l-[3px] first:border-l-0">
+						<span
+							class="absolute inset-x-0 top-0 h-3 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_2px,transparent_2px_calc(100%/8))]"
+						></span>
+						<span class="text-primary-500 absolute bottom-0 left-2 text-xs font-black uppercase">
+							{mark}
+						</span>
+						{#if i === 2}
+							<span class="text-primary-500 absolute right-2 bottom-0 text-xs font-black uppercase">
+								3 ft
+							</span>
+						{/if}
+					</div>
+				{/each}
 			</div>
-			<p class="text-sm tabular-nums opacity-60">
+		</div>
+	</section>
+
+	<!-- DIRECTORY RESULTS -->
+	<section
+		class="bg-surface-950 text-surface-50 flex flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		aria-labelledby="group-listings-heading"
+	>
+		<!-- Directory toolbar -->
+		<div class="flex flex-wrap items-end justify-between gap-4">
+			<div class="flex flex-col gap-2">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
+				<h2
+					id="group-listings-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Group listings
+				</h2>
+			</div>
+			<p class="text-surface-300 m-0 text-sm font-bold tracking-wide uppercase tabular-nums">
 				{filteredGroups.length} group{filteredGroups.length === 1 ? '' : 's'}
 				{#if totalEvents !== totalGroupEvents}· {totalEvents} event{totalEvents === 1
 						? ''
@@ -209,192 +239,191 @@
 			</p>
 		</div>
 
-		{#if filteredGroups.length}
-			<ul class="space-y-6" transition:slide>
-				{#each filteredGroups as group, i}
-					<li
-						class="event-card border-surface-400-600/50 bg-surface-50-950/60 hover:border-tertiary-500/40 hover:shadow-tertiary-500/10 relative overflow-hidden rounded-xl border p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
-						style="--stagger: {i % 10}"
-						transition:slide
-					>
-						{#if group.cover_photo_url}
-							<div
-								class="absolute inset-0 bg-cover bg-center opacity-15"
-								style="background-image: url({group.cover_photo_url});"
-							></div>
-							<div
-								class="from-surface-50-950/90 via-surface-50-950/70 to-surface-50-950/50 absolute inset-0 bg-gradient-to-br"
-							></div>
-						{/if}
+		<!-- Lane divider -->
+		<div
+			class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+			aria-hidden="true"
+		></div>
 
-						<div class="relative space-y-5">
-							<!-- Group header row -->
-							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-								<div class="flex items-start gap-4">
-									<!-- Logo / initials avatar -->
-									<div class="shrink-0">
-										{#if group.logo_url}
+		{#if filteredGroups.length}
+			<ol class="border-surface-50 m-0 list-none border-t-2 p-0" transition:slide>
+				{#each filteredGroups as group, i (group.id ?? group.slug ?? i)}
+					<li class="border-surface-800 flex flex-col gap-6 border-b-2 py-10" transition:slide>
+						<!-- Group header row -->
+						<div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+							<div class="flex min-w-0 items-start gap-4 sm:gap-6">
+								<span
+									class="text-tertiary-500 w-10 shrink-0 text-3xl leading-none font-black italic tabular-nums sm:w-14 sm:text-5xl"
+								>
+									{String(i + 1).padStart(2, '0')}
+								</span>
+
+								<!-- Logo / initials tile -->
+								<div class="shrink-0">
+									{#if group.logo_url}
+										<span class="bg-surface-50 flex h-16 w-16 items-center justify-center p-1.5">
 											<img
 												src={group.logo_url}
 												alt="{group.name} logo"
-												class="ring-surface-300-700/50 h-12 w-12 rounded-xl object-cover ring-2"
+												class="h-full w-full object-contain"
 											/>
-										{:else}
-											<div
-												class="bg-tertiary-500/20 text-tertiary-800-200 ring-tertiary-500/30 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold ring-2"
-											>
-												{groupInitials(group.name)}
-											</div>
-										{/if}
-									</div>
-
-									<!-- Group name + meta -->
-									<div class="min-w-0 space-y-0.5">
-										<h2 class="text-surface-950-50 !text-left text-xl font-bold">
-											{#if group.slug}
-												<a
-													href={`/volunteer/groups/${group.slug}`}
-													class="hover:text-tertiary-700-300 transition-colors"
-												>
-													{group.name}
-												</a>
-											{:else}
-												{group.name}
-											{/if}
-										</h2>
-										{#if locationLabel(group)}
-											<div class="text-surface-600-400 flex items-center gap-1 text-sm">
-												<IconMapPin class="h-3.5 w-3.5 shrink-0 opacity-70" />
-												<span>{locationLabel(group)}</span>
-											</div>
-										{/if}
-										{#if group.tagline}
-											<p
-												class="text-surface-700-300 !mb-0 max-w-lg truncate pt-1 text-sm leading-relaxed"
-											>
-												{group.tagline}
-											</p>
-										{/if}
-									</div>
+										</span>
+									{:else}
+										<div
+											class="bg-tertiary-500 text-surface-950 flex h-16 w-16 items-center justify-center text-lg font-black uppercase"
+										>
+											{groupInitials(group.name)}
+										</div>
+									{/if}
 								</div>
 
-								<!-- Action buttons -->
-								{#if group.slug}
-									<div class="flex shrink-0 flex-col items-start gap-2 md:items-end">
-										<a
-											href={`/volunteer/groups/${group.slug}`}
-											class="btn preset-filled-tertiary-500 gap-1.5 whitespace-nowrap"
+								<!-- Group name + meta -->
+								<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+									<h3
+										class="text-surface-50! m-0 text-2xl leading-tight font-black uppercase italic sm:text-3xl"
+									>
+										{#if group.slug}
+											<a
+												href={`/volunteer/groups/${group.slug}`}
+												class="text-surface-50 hover:text-primary-500 transition hover:no-underline"
+											>
+												{group.name}
+											</a>
+										{:else}
+											{group.name}
+										{/if}
+									</h3>
+									{#if locationLabel(group)}
+										<div
+											class="text-primary-500 flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase"
 										>
-											All events
-											<IconArrowRight class="h-4 w-4" />
-										</a>
-										<a
-											href={`/groups/${group.slug}`}
-											class="btn preset-outlined-secondary-500 gap-1.5 whitespace-nowrap"
-										>
-											<IconBuilding2 class="h-4 w-4" />
-											Group profile
-										</a>
-									</div>
-								{/if}
+											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+											<span>{locationLabel(group)}</span>
+										</div>
+									{/if}
+									{#if group.tagline}
+										<p class="text-surface-300 m-0 max-w-2xl text-sm leading-relaxed">
+											{group.tagline}
+										</p>
+									{/if}
+								</div>
 							</div>
 
-							<!-- Event sub-list -->
-							<ul class="space-y-2.5">
-								{#each group.events as event}
-									<li
-										class="bg-surface-100-900/60 border-surface-500/20 hover:border-surface-400-600/50 rounded-xl border p-4 transition-colors duration-200"
+							<!-- Action buttons -->
+							{#if group.slug}
+								<div class="flex shrink-0 flex-wrap items-center gap-3 pl-14 lg:pl-0">
+									<a
+										href={`/volunteer/groups/${group.slug}`}
+										class="group bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-2 px-5 py-3 text-xs font-black tracking-wide whitespace-nowrap uppercase transition hover:no-underline"
 									>
-										<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-											<div class="min-w-0 space-y-1.5">
-												<a
-													href={`/volunteer/${event.slug}`}
-													class="text-secondary-800-200 hover:text-secondary-900-100 block leading-tight font-semibold transition-colors"
-												>
-													{event.title}
-												</a>
-												<div
-													class="text-surface-600-400 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
-												>
-													<span class="flex items-center gap-1">
-														<IconCalendar class="h-3.5 w-3.5 opacity-70" />
-														<strong>{eventDateRange(event)}</strong>
-													</span>
-													{#if eventTimeRange(event)}
-														<span class="opacity-70">{eventTimeRange(event)}</span>
-													{/if}
-												</div>
-											</div>
-											<div class="flex shrink-0 flex-wrap items-center gap-2">
-												{#if event.can_manage}
-													<a
-														href={`/volunteer/${event.slug}/edit`}
-														class="btn btn-sm preset-outlined-secondary-500 whitespace-nowrap"
-													>
-														Edit
-													</a>
-													<a
-														href={`/volunteer/${event.slug}/manage`}
-														class="btn btn-sm preset-tonal-tertiary whitespace-nowrap"
-													>
-														Manage
-													</a>
-												{:else}
-													<a
-														href={`/volunteer/${event.slug}`}
-														class="btn btn-sm preset-filled-primary-500 gap-1 whitespace-nowrap"
-													>
-														<IconHeartHandshake class="h-3.5 w-3.5" />
-														Volunteer
-													</a>
-												{/if}
-											</div>
-										</div>
-									</li>
-								{/each}
-							</ul>
+										All events
+										<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+									</a>
+									<a
+										href={`/groups/${group.slug}`}
+										class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-xs font-black tracking-wide whitespace-nowrap uppercase transition hover:no-underline"
+									>
+										<IconBuilding2 class="h-4 w-4" />
+										Group profile
+									</a>
+								</div>
+							{/if}
 						</div>
+
+						<!-- Event sub-list (ruled rows, no nested cards) -->
+						<ul class="border-surface-800 m-0 list-none border-t p-0 lg:ml-20">
+							{#each group.events as event (event.id ?? event.slug)}
+								<li
+									class="border-surface-800 flex flex-col gap-4 border-b py-4 sm:flex-row sm:items-center sm:justify-between"
+								>
+									<div class="flex min-w-0 flex-col gap-1">
+										<a
+											href={`/volunteer/${event.slug}`}
+											class="text-surface-50 hover:text-primary-500 block text-lg leading-tight font-black uppercase hover:no-underline"
+										>
+											{event.title}
+										</a>
+										<div
+											class="text-surface-300 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold tracking-wide uppercase"
+										>
+											<span class="text-primary-500 flex items-center gap-1.5">
+												<IconCalendar class="h-3.5 w-3.5" />
+												<strong>{eventDateRange(event)}</strong>
+											</span>
+											{#if eventTimeRange(event)}
+												<span>{eventTimeRange(event)}</span>
+											{/if}
+										</div>
+									</div>
+									<div class="flex shrink-0 flex-wrap items-center gap-2">
+										{#if event.can_manage}
+											<a
+												href={`/volunteer/${event.slug}/edit`}
+												class="border-secondary-500 text-surface-50 hover:bg-secondary-500 border-2 px-4 py-2 text-xs font-black tracking-wide whitespace-nowrap uppercase transition hover:no-underline"
+											>
+												Edit
+											</a>
+											<a
+												href={`/volunteer/${event.slug}/manage`}
+												class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 px-4 py-2 text-xs font-black tracking-wide whitespace-nowrap uppercase transition hover:no-underline"
+											>
+												Manage
+											</a>
+										{:else}
+											<a
+												href={`/volunteer/${event.slug}`}
+												class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-black tracking-wide whitespace-nowrap uppercase transition hover:no-underline"
+											>
+												<IconHeartHandshake class="h-3.5 w-3.5" />
+												Volunteer
+											</a>
+										{/if}
+									</div>
+								</li>
+							{/each}
+						</ul>
 					</li>
 				{/each}
-			</ul>
+			</ol>
 		{:else}
-			<!-- Empty state -->
-			<div
-				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-				transition:slide
-			>
-				<div class="app-empty-orb" aria-hidden="true"></div>
-				<div class="relative z-10 mx-auto max-w-lg space-y-4">
-					<div
-						class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-					>
-						<IconUsers class="h-10 w-10 opacity-60" />
-					</div>
-					<h3 class="text-2xl font-bold">
-						{#if searchTerm}
-							No groups match "{searchTerm}"
-						{:else}
-							No upcoming volunteer events yet
-						{/if}
-					</h3>
-					<p class="text-sm leading-relaxed opacity-70">
-						{#if searchTerm}
-							Try a different search term or clear the filter to see all groups.
-						{:else}
-							Check back soon or browse
-							<a class="text-secondary-800-200 underline" href="/volunteer"
-								>all volunteer opportunities</a
-							>
-							to get involved.
-						{/if}
-					</p>
+			<div class="border-surface-50 flex flex-col gap-5 border-t-2 py-12" transition:slide>
+				<p
+					class="text-tertiary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconUsers class="h-4 w-4" />
+					<span>Directory status</span>
+				</p>
+				<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-5xl">
 					{#if searchTerm}
-						<button class="btn preset-outlined-surface-950-50" onclick={() => (searchTerm = '')}>
+						No groups match "{searchTerm}"
+					{:else}
+						No upcoming volunteer events yet
+					{/if}
+				</h3>
+				<p class="text-surface-300 m-0 max-w-xl text-lg leading-relaxed">
+					{#if searchTerm}
+						Try a different search term or clear the filter to see all groups.
+					{:else}
+						Check back soon or browse
+						<a
+							class="text-primary-500 decoration-primary-500 font-bold underline decoration-2 underline-offset-4"
+							href="/volunteer">all volunteer opportunities</a
+						>
+						to get involved.
+					{/if}
+				</p>
+				{#if searchTerm}
+					<div>
+						<button
+							type="button"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-3 text-sm font-black tracking-wide uppercase transition"
+							onclick={() => (searchTerm = '')}
+						>
 							Clear search
 						</button>
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
-	</div>
-</section>
+	</section>
+</div>

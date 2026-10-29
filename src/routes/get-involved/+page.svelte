@@ -7,6 +7,7 @@
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconMegaphone from '@lucide/svelte/icons/megaphone';
 	import IconBriefcase from '@lucide/svelte/icons/briefcase';
@@ -16,7 +17,7 @@
 	import IconShare2 from '@lucide/svelte/icons/share-2';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle-2';
-	import { fade, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	let { data, form } = $props();
 
@@ -112,18 +113,6 @@
 		if (t.includes('community') || t.includes('group')) return IconUsers;
 		return IconHeart;
 	}
-
-	// Vivid accent per opportunity slot (cycles through app colors)
-	const accentColors = [
-		'var(--color-primary-500)',
-		'var(--color-secondary-500)',
-		'var(--color-tertiary-500)',
-		'var(--color-warning-500)',
-		'var(--color-success-500)'
-	];
-	function opportunityAccent(index) {
-		return accentColors[index % accentColors.length];
-	}
 </script>
 
 <svelte:head>
@@ -134,321 +123,356 @@
 	/>
 </svelte:head>
 
-<div class="get-involved-page mx-auto flex w-full max-w-7xl flex-col gap-12">
-	<!-- ═══════════════════════════════════════════════
-	     CINEMATIC HERO
-	═══════════════════════════════════════════════ -->
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		aria-labelledby="get-involved-heading"
+	>
+		<!-- Left: headline + copy + stats -->
 		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:p-10"
+			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
 		>
-			<!-- Left: headline + copy + stat cards -->
-			<div class="flex flex-col gap-7">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
-						<IconHeart class="h-3.5 w-3.5" />
-						Get Involved
-					</span>
-					<span class="chip preset-tonal-secondary">Community</span>
-					<span class="chip preset-tonal-tertiary">Local Impact</span>
-				</div>
-
-				<div class="space-y-4">
-					<h1
-						class="gi-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
-					>
-						Make streets safer.<br />
-						<span class="gi-headline-accent">Show up for cyclists.</span>
-					</h1>
-					<p class="max-w-xl text-base leading-relaxed opacity-75">
-						3 Feet Please runs on people who care. Whether you want to lead, advocate, or amplify —
-						there's a place for you here. Tell us where you want to help and we'll connect you with
-						the right next step.
-					</p>
-				</div>
-
-				<!-- Stat cards -->
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-primary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconBriefcase class="h-4 w-4" />
-							Open Roles
-						</div>
-						<div class="text-3xl font-black tabular-nums">{data.opportunities?.length || 0}</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-secondary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconBike class="h-4 w-4" />
-							Years Strong
-						</div>
-						<div class="text-3xl font-black tabular-nums">10+</div>
-					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-tertiary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							Advocates
-						</div>
-						<div class="text-3xl font-black tabular-nums">100+</div>
-					</div>
-				</div>
+			<div class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+				<span class="bg-surface-950 text-primary-500 inline-flex items-center gap-1.5 px-3 py-1.5">
+					<IconHeart class="h-3.5 w-3.5" />
+					Get Involved
+				</span>
+				<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">Community</span>
+				<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Local Impact</span>
 			</div>
 
-			<!-- Right: contact + social panel -->
-			<div
-				class="contact-panel card preset-filled-surface-50-950 flex flex-col gap-5 p-6 shadow-2xl"
-			>
-				<div class="space-y-1">
+			<div class="flex flex-col gap-6">
+				<h1
+					id="get-involved-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					Make streets safer. <span class="text-secondary-500">Show up for cyclists.</span>
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					3 Feet Please runs on people who care. Whether you want to lead, advocate, or amplify —
+					there's a place for you here. Tell us where you want to help and we'll connect you with
+					the right next step.
+				</p>
+			</div>
+
+			<!-- Stat strip -->
+			<div class="border-surface-950 grid grid-cols-3 gap-3 border-t-[3px] pt-6 sm:gap-6">
+				<div class="min-w-0">
 					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.22em] uppercase opacity-60"
+						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
 					>
-						<IconSparkles class="h-4 w-4" />
-						Reach out
+						<IconBriefcase class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+						<span class="truncate">Open Roles</span>
 					</div>
-					<h2 class="text-xl font-bold">Connect with us</h2>
-				</div>
-
-				<div class="space-y-3 text-sm">
-					<a href="mailto:hi@3fp.org" class="contact-link flex items-center gap-3 rounded-xl p-3">
-						<div class="contact-icon-wrap">
-							<IconMail class="h-4 w-4" />
-						</div>
-						<span>hi@3fp.org</span>
-					</a>
-					<a
-						href="https://www.facebook.com/3FeetPlease/"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="contact-link flex items-center gap-3 rounded-xl p-3"
-					>
-						<div class="contact-icon-wrap">
-							<IconShare2 class="h-4 w-4" />
-						</div>
-						<span>Facebook</span>
-					</a>
-					<a
-						href="https://www.instagram.com/3feetplease"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="contact-link flex items-center gap-3 rounded-xl p-3"
-					>
-						<div class="contact-icon-wrap">
-							<IconMegaphone class="h-4 w-4" />
-						</div>
-						<span>Instagram</span>
-					</a>
-					<div class="contact-link flex items-start gap-3 rounded-xl p-3">
-						<div class="contact-icon-wrap mt-0.5">
-							<IconMapPin class="h-4 w-4" />
-						</div>
-						<span class="text-xs leading-relaxed opacity-80"
-							>2628 W Birchwood Cir, STE C<br />Mesa, AZ 85202</span
-						>
+					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+						{data.opportunities?.length || 0}
 					</div>
 				</div>
-
-				<div class="mt-auto">
-					<a href="#interest-form" class="btn preset-filled-primary-500 w-full gap-2">
-						Raise your hand
-						<IconArrowRight class="h-4 w-4" />
-					</a>
+				<div class="border-surface-950 min-w-0 border-l-[3px] pl-3 sm:pl-6">
+					<div
+						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
+					>
+						<IconBike class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+						<span class="truncate">Years Strong</span>
+					</div>
+					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+						10+
+					</div>
+				</div>
+				<div class="border-surface-950 min-w-0 border-l-[3px] pl-3 sm:pl-6">
+					<div
+						class="flex items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase sm:gap-1.5 sm:text-xs sm:tracking-[0.2em]"
+					>
+						<IconUsers class="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+						<span class="truncate">Advocates</span>
+					</div>
+					<div class="mt-1 text-4xl leading-none font-black italic tabular-nums sm:text-5xl">
+						100+
+					</div>
 				</div>
 			</div>
+		</div>
+
+		<!-- Right: contact + social block -->
+		<div
+			class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col justify-between gap-8 border-t-[3px] px-6 py-10 sm:px-10 lg:border-t-0 lg:border-l-[3px] lg:px-12 lg:py-14"
+		>
+			<div class="flex flex-col gap-2">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconSparkles class="h-4 w-4" />
+					Reach out
+				</p>
+				<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
+					Connect with us
+				</h2>
+			</div>
+
+			<div class="border-surface-50/40 flex flex-col border-t-2">
+				<a
+					href="mailto:hi@3fp.org"
+					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+				>
+					<span class="flex items-center gap-3">
+						<IconMail class="h-5 w-5 shrink-0" />
+						<span>hi@3fp.org</span>
+					</span>
+					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+				</a>
+				<a
+					href="https://www.facebook.com/3FeetPlease/"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+				>
+					<span class="flex items-center gap-3">
+						<IconShare2 class="h-5 w-5 shrink-0" />
+						<span>Facebook</span>
+					</span>
+					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+				</a>
+				<a
+					href="https://www.instagram.com/3feetplease"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="group border-surface-50/25 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 border-b py-4 text-base font-bold transition hover:px-3 hover:no-underline"
+				>
+					<span class="flex items-center gap-3">
+						<IconMegaphone class="h-5 w-5 shrink-0" />
+						<span>Instagram</span>
+					</span>
+					<IconArrowUpRight class="h-5 w-5 shrink-0" />
+				</a>
+				<div class="border-surface-50/25 flex items-start gap-3 border-b py-4 text-sm font-medium">
+					<IconMapPin class="text-primary-500 mt-0.5 h-5 w-5 shrink-0" />
+					<span>2628 W Birchwood Cir, STE C<br />Mesa, AZ 85202</span>
+				</div>
+			</div>
+
+			<a
+				href="#interest-form"
+				class="group bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-full items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+			>
+				Raise your hand
+				<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+			</a>
 		</div>
 	</section>
 
-	<!-- ═══════════════════════════════════════════════
-	     CURRENT OPPORTUNITIES
-	═══════════════════════════════════════════════ -->
-	<section class="space-y-6">
-		<div class="flex flex-wrap items-start justify-between gap-4">
-			<h2 class="text-2xl font-bold">Current opportunities</h2>
-			<a href="#interest-form" class="btn btn-sm preset-outlined-primary-500 gap-1.5">
-				<IconArrowRight class="h-3.5 w-3.5" />
-				Apply now
+	<!-- Ruler band: 0 → 3 ft -->
+	<div
+		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
+		aria-hidden="true"
+	>
+		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+			<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
+				<span
+					class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+				></span>
+				<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
+				{#if i === 2}
+					<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
+				{/if}
+			</div>
+		{/each}
+	</div>
+
+	<!-- CURRENT OPPORTUNITIES -->
+	<section
+		class="bg-surface-950 text-surface-50 px-6 py-14 sm:px-10 lg:px-14 lg:py-20"
+		aria-labelledby="opportunities-heading"
+	>
+		<div class="flex flex-wrap items-end justify-between gap-6">
+			<div class="flex flex-col gap-3">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+					Where we need hands
+				</p>
+				<h2
+					id="opportunities-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Current opportunities
+				</h2>
+			</div>
+			<a
+				href="#interest-form"
+				class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+			>
+				Apply now <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 			</a>
 		</div>
 
+		<!-- lane divider -->
+		<div
+			class="my-10 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)] lg:my-14"
+			aria-hidden="true"
+		></div>
+
 		{#if parsedOpportunities.length}
-			<div class="grid gap-4 sm:grid-cols-2">
-				{#each parsedOpportunities as opportunity, i}
+			<div class="border-surface-50 grid border-t-2 lg:grid-cols-2">
+				{#each parsedOpportunities as opportunity, i (opportunity.id)}
 					{@const OppIcon = opportunityIcon(opportunity.title)}
-					{@const accent = opportunityAccent(i)}
 					<article
-						class="opportunity-card card border-surface-300-700/50 bg-surface-100-900/60 relative overflow-hidden border p-6"
-						style="--accent: {accent}"
-						in:fade={{ duration: 120, delay: i * 40 }}
+						class="border-surface-800 flex flex-col justify-between gap-6 border-b py-8 lg:odd:border-r lg:odd:pr-12 lg:even:pl-12"
 					>
-						<div class="opp-glow" aria-hidden="true"></div>
-						<div class="relative z-10 flex flex-col gap-4">
+						<div class="flex flex-col gap-5">
 							<div class="flex items-start gap-4">
-								<div
-									class="opp-icon-ring flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+								<span
+									class="text-tertiary-500 w-12 shrink-0 text-4xl leading-none font-black italic tabular-nums"
 								>
-									<OppIcon class="h-5 w-5" />
-								</div>
-								<div class="min-w-0 flex-1">
-									<h3 class="!mt-0 !mb-0 !text-left text-lg leading-snug font-bold">
-										{opportunity.title}
-									</h3>
-								</div>
+									{String(i + 1).padStart(2, '0')}
+								</span>
+								<span
+									class="bg-primary-500 text-surface-950 flex h-12 w-12 shrink-0 items-center justify-center"
+								>
+									<OppIcon class="h-6 w-6" />
+								</span>
+								<h3 class="text-surface-50! m-0 flex-1 text-2xl leading-tight font-black uppercase">
+									{opportunity.title}
+								</h3>
 							</div>
+
 							{#if opportunity.summary}
-								<p class="text-surface-700-300 !mb-0 text-sm leading-relaxed">
+								<p class="text-surface-300 m-0 text-base leading-relaxed">
 									{opportunity.summary}
 								</p>
 							{/if}
+
 							{#if opportunity.bullets.length}
-								<div>
-									<p class="mb-2 text-[11px] font-semibold tracking-[0.18em] uppercase opacity-65">
+								<div class="flex flex-col gap-2">
+									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.2em] uppercase">
 										What You'll Do
 									</p>
-									<ul class="m-0 list-disc space-y-1 pl-5 text-sm leading-relaxed opacity-85">
-										{#each opportunity.bullets as bullet}
+									<ul
+										class="text-surface-300 m-0 list-disc space-y-1.5 pl-5 text-sm leading-relaxed"
+									>
+										{#each opportunity.bullets as bullet (bullet)}
 											<li>{bullet}</li>
 										{/each}
 									</ul>
 								</div>
 							{/if}
-							<div class="mt-auto">
-								<a
-									href="#interest-form"
-									class="opp-cta inline-flex items-center gap-1.5 text-sm font-semibold"
-									onclick={() => {
-										if (!checkedIds.includes(opportunity.id)) toggleOpportunity(opportunity.id);
-									}}
-								>
-									I'm interested
-									<IconArrowRight class="h-3.5 w-3.5" />
-								</a>
-							</div>
+						</div>
+
+						<div class="pt-2">
+							<a
+								href="#interest-form"
+								class="group bg-surface-900 text-primary-500 border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-sm font-black uppercase transition hover:no-underline"
+								onclick={() => {
+									if (!checkedIds.includes(opportunity.id)) toggleOpportunity(opportunity.id);
+								}}
+							>
+								I'm interested
+								<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+							</a>
 						</div>
 					</article>
 				{/each}
 			</div>
 		{:else}
-			<div
-				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-			>
-				<div class="app-empty-orb" aria-hidden="true"></div>
-				<div class="relative z-10 mx-auto max-w-sm space-y-4">
-					<div
-						class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-					>
-						<IconHeart class="h-10 w-10 opacity-60" />
-					</div>
-					<h3 class="text-2xl font-bold">No roles posted right now</h3>
-					<p class="text-sm leading-relaxed opacity-70">
-						Check back soon — or reach out at <a href="mailto:hi@3fp.org" class="anchor"
-							>hi@3fp.org</a
-						> if you're ready to jump in now.
-					</p>
-				</div>
+			<div class="border-surface-50 flex flex-col gap-4 border-t-2 pt-8">
+				<span
+					class="bg-tertiary-500 text-surface-950 flex h-14 w-14 items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconHeart class="h-7 w-7" />
+				</span>
+				<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">
+					No roles posted right now
+				</h3>
+				<p class="text-surface-300 m-0 max-w-md text-lg leading-relaxed">
+					Check back soon — or reach out at
+					<a href="mailto:hi@3fp.org" class="text-primary-500 font-bold underline">hi@3fp.org</a>
+					if you're ready to jump in now.
+				</p>
 			</div>
 		{/if}
 	</section>
 
-	<!-- ═══════════════════════════════════════════════
-	     EXPRESS INTEREST FORM
-	═══════════════════════════════════════════════ -->
-	<section id="interest-form" class="interest-section card relative overflow-hidden p-0">
-		<div class="interest-orb" aria-hidden="true"></div>
-
-		<div class="relative z-10 p-6 lg:p-8">
-			<div class="mb-6 flex items-start gap-4">
-				<div
-					class="interest-icon-ring flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+	<!-- EXPRESS INTEREST FORM -->
+	<section
+		id="interest-form"
+		class="grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
+		aria-labelledby="interest-heading"
+	>
+		<!-- Left: Magenta poster header -->
+		<div
+			class="bg-tertiary-500 text-surface-950 flex flex-col justify-between gap-10 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		>
+			<div class="flex flex-col gap-5">
+				<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+					<IconHandshake class="h-4 w-4" />
+					Express Interest
+				</p>
+				<h2
+					id="interest-heading"
+					class="text-surface-950! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
 				>
-					<IconHandshake class="h-5 w-5" />
-				</div>
-				<div>
-					<div
-						class="mb-1 flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase opacity-60"
-					>
-						<IconSparkles class="h-3.5 w-3.5" />
-						Express Interest
-					</div>
-					<h2 class="!mt-0 !mb-1 !text-left text-2xl font-bold">Raise your hand</h2>
-					{#if data.user?.id}
-						<p class="text-surface-700-300 !mb-0 text-sm">
-							Signed in as <strong>{data.user.email || 'you'}</strong>. We prefilled your details so
-							you can jump in quickly.
-						</p>
-					{:else}
-						<p class="text-surface-700-300 !mb-0 text-sm">
-							Select one or more opportunities and share your contact info. We'll follow up
-							directly.
-						</p>
-					{/if}
-				</div>
+					Raise your hand
+				</h2>
+				{#if data.user?.id}
+					<p class="m-0 text-lg leading-snug font-medium">
+						Signed in as <strong>{data.user.email || 'you'}</strong>. We prefilled your details so
+						you can jump in quickly.
+					</p>
+				{:else}
+					<p class="m-0 text-lg leading-snug font-medium">
+						Select one or more opportunities and share your contact info. We'll follow up directly.
+					</p>
+				{/if}
 			</div>
 
+			<p
+				class="m-0 text-[clamp(5.5rem,14vw,10rem)] leading-[0.78] font-black tracking-[-0.06em] italic"
+				aria-hidden="true"
+			>
+				3<span class="text-transparent [-webkit-text-stroke:3px_var(--color-surface-950)]">FT</span>
+			</p>
+		</div>
+
+		<!-- Right: Form on asphalt -->
+		<div
+			class="bg-surface-950 text-surface-50 border-surface-800 border-t-2 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		>
 			{#if data.opportunities?.length}
 				<form
 					method="POST"
 					action="?/submitInterest"
 					use:enhance={enhanceInterestForm}
-					class="space-y-6"
+					class="flex flex-col gap-6"
 				>
 					<input type="hidden" name="turnstileToken" value="" />
 
 					<!-- Opportunity checkboxes -->
-					<div>
-						<p class="label mb-3 text-xs font-semibold tracking-[0.15em] uppercase opacity-60">
+					<div class="flex flex-col gap-3">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 							Opportunities (choose all that fit)
 						</p>
-						<div class="grid gap-2 sm:grid-cols-2">
-							{#each data.opportunities ?? [] as opportunity, i}
+						<div class="grid gap-3 sm:grid-cols-2">
+							{#each data.opportunities ?? [] as opportunity (opportunity.id)}
 								{@const OppIcon = opportunityIcon(opportunity.title)}
-								{@const accent = opportunityAccent(i)}
 								{@const isChecked = checkedIds.includes(opportunity.id)}
 								<label
 									for={`opportunity-${opportunity.id}`}
-									class="interest-checkbox-label flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition-all duration-200 {isChecked
-										? 'interest-checkbox-label--checked'
-										: ''}"
-									style="--accent: {accent}"
+									class="flex cursor-pointer items-center gap-3 border-2 p-4 transition {isChecked
+										? 'border-primary-500 bg-primary-500 text-surface-950'
+										: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'}"
 								>
 									<input
 										id={`opportunity-${opportunity.id}`}
 										name="opportunityIds"
 										type="checkbox"
 										value={opportunity.id}
-										class="checkbox mt-0.5 shrink-0"
+										class="checkbox shrink-0"
 										checked={isChecked}
 										onchange={() => toggleOpportunity(opportunity.id)}
 									/>
-									<div
-										class="interest-checkbox-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-									>
-										<OppIcon class="h-3.5 w-3.5" />
-									</div>
-									<span class="text-sm leading-tight font-medium">{opportunity.title}</span>
+									<OppIcon class="h-4 w-4 shrink-0" />
+									<span class="text-sm leading-tight font-black uppercase">
+										{opportunity.title}
+									</span>
 								</label>
 							{/each}
 						</div>
@@ -456,59 +480,67 @@
 
 					<!-- Contact fields -->
 					<div class="grid gap-4 sm:grid-cols-2">
-						<div>
+						<div class="flex flex-col gap-1.5">
 							<label
-								class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-								for="fullName">Name</label
+								class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+								for="fullName"
 							>
+								Name
+							</label>
 							<input
 								id="fullName"
 								name="fullName"
 								type="text"
 								required
-								class="input preset-tonal-surface w-full"
+								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 								value={form?.interestValues?.fullName ?? data.prefill?.fullName ?? ''}
 							/>
 						</div>
-						<div>
+						<div class="flex flex-col gap-1.5">
 							<label
-								class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-								for="email">Email</label
+								class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+								for="email"
 							>
+								Email
+							</label>
 							<input
 								id="email"
 								name="email"
 								type="email"
 								required
-								class="input preset-tonal-surface w-full"
+								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 								value={form?.interestValues?.email ?? data.prefill?.email ?? ''}
 							/>
 						</div>
 					</div>
 
-					<div>
+					<div class="flex flex-col gap-1.5">
 						<label
-							class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-							for="phone">Phone <span class="normal-case opacity-60">(optional)</span></label
+							class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+							for="phone"
 						>
+							Phone <span class="text-surface-300 normal-case">(optional)</span>
+						</label>
 						<input
 							id="phone"
 							name="phone"
 							type="tel"
-							class="input preset-tonal-surface w-full"
+							class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 							value={form?.interestValues?.phone ?? data.prefill?.phone ?? ''}
 						/>
 					</div>
 
-					<div>
+					<div class="flex flex-col gap-1.5">
 						<label
-							class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-							for="message">Message <span class="normal-case opacity-60">(optional)</span></label
+							class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+							for="message"
 						>
+							Message <span class="text-surface-300 normal-case">(optional)</span>
+						</label>
 						<textarea
 							id="message"
 							name="message"
-							class="textarea preset-tonal-surface w-full"
+							class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 							rows="3"
 							placeholder="Tell us a bit about yourself, your availability, or anything else..."
 							>{form?.interestValues?.message ?? ''}</textarea
@@ -516,7 +548,7 @@
 					</div>
 
 					{#if turnstileEnabled}
-						<p class="text-surface-700-300 text-xs">Protected by Cloudflare Turnstile.</p>
+						<p class="text-surface-300 m-0 text-xs">Protected by Cloudflare Turnstile.</p>
 						<div
 							aria-hidden="true"
 							style="position: absolute; width: 0; height: 0; overflow: hidden;"
@@ -526,41 +558,53 @@
 					{/if}
 
 					{#if form?.interestError}
-						<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
+						<div
+							class="border-tertiary-500 bg-surface-900 text-surface-50 border-l-4 px-4 py-3 text-sm font-bold"
+							in:slide
+						>
 							{form.interestError}
 						</div>
 					{/if}
 					{#if captchaError}
-						<div class="bg-error-500/10 text-error-300 mb-4 rounded-xl px-4 py-3 text-sm" in:slide>
+						<div
+							class="border-tertiary-500 bg-surface-900 text-surface-50 border-l-4 px-4 py-3 text-sm font-bold"
+							in:slide
+						>
 							{captchaError}
 						</div>
 					{/if}
 					{#if form?.interestSuccess}
 						<div
-							class="bg-success-500/10 text-success-300 mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+							class="border-primary-500 bg-surface-900 text-surface-50 flex items-center gap-2 border-l-4 px-4 py-3 text-sm font-bold"
 							in:slide
 						>
-							<IconCheckCircle class="h-4 w-4 shrink-0" />
+							<IconCheckCircle class="text-primary-500 h-4 w-4 shrink-0" />
 							{form.interestSuccess}
 						</div>
 					{/if}
 
-					<div class="flex flex-wrap items-center gap-3">
-						<button type="submit" class="btn preset-filled-primary-500 gap-2">
-							<IconHandshake class="h-4 w-4" />
+					<div class="flex flex-wrap items-center gap-4 pt-2">
+						<button
+							type="submit"
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:text-surface-950 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+						>
+							<IconHandshake class="h-5 w-5" />
 							Send Interest
 						</button>
-						<p class="text-surface-700-300 text-xs">We typically respond within a few days.</p>
+						<p class="text-surface-300 m-0 text-xs">We typically respond within a few days.</p>
 					</div>
 				</form>
 			{:else}
-				<div class="bg-surface-200-800/50 space-y-2 rounded-xl px-5 py-6 text-center">
-					<p class="text-surface-700-300 text-sm">
+				<div class="border-surface-800 flex flex-col items-start gap-4 border-2 p-6">
+					<p class="text-surface-300 m-0 text-base">
 						There are no active opportunities posted right now, but we'd still love to hear from
 						you.
 					</p>
-					<a href="mailto:hi@3fp.org" class="btn btn-sm preset-outlined-primary-500 gap-1.5">
-						<IconMail class="h-3.5 w-3.5" />
+					<a
+						href="mailto:hi@3fp.org"
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase hover:no-underline"
+					>
+						<IconMail class="h-4 w-4" />
 						Email us at hi@3fp.org
 					</a>
 				</div>
@@ -568,261 +612,75 @@
 		</div>
 	</section>
 
-	<!-- ═══════════════════════════════════════════════
-	     ADMIN: POST OPPORTUNITY
-	═══════════════════════════════════════════════ -->
+	<!-- ADMIN: POST OPPORTUNITY -->
 	{#if data.isAdmin}
-		<section class="card border-surface-300-700/50 bg-surface-100-900/60 space-y-4 border p-6">
-			<div class="flex items-center gap-3">
-				<div class="bg-success-500/15 flex h-9 w-9 items-center justify-center rounded-xl">
-					<IconPlus class="text-success-400-600 h-4 w-4" />
-				</div>
-				<div>
-					<p class="label text-xs tracking-widest uppercase opacity-60">Admin</p>
-					<h2 class="!mt-0 !mb-0 !text-left text-xl font-bold">Post Opportunity</h2>
-				</div>
-			</div>
-
-			{#if form?.createOpportunityError}
-				<div class="bg-error-500/10 text-error-300 rounded-xl px-3 py-2 text-sm">
-					{form.createOpportunityError}
-				</div>
-			{/if}
-			{#if form?.createOpportunitySuccess}
-				<div class="bg-success-500/10 text-success-300 rounded-xl px-3 py-2 text-sm">
-					{form.createOpportunitySuccess}
-				</div>
-			{/if}
-
-			<form method="POST" action="?/createOpportunity" class="space-y-4">
-				<div>
-					<label class="label mb-1.5" for="title">Title</label>
-					<input
-						id="title"
-						name="title"
-						type="text"
-						required
-						class="input preset-tonal-surface w-full"
-						value={form?.createValues?.title ?? ''}
-					/>
-				</div>
-				<div>
-					<label class="label mb-1.5" for="description">Description (optional)</label>
-					<textarea
-						id="description"
-						name="description"
-						rows="3"
-						class="textarea preset-tonal-surface w-full"
-						>{form?.createValues?.description ?? ''}</textarea
+		<section
+			class="bg-secondary-500 text-surface-50 border-surface-950 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14"
+			aria-labelledby="admin-post-opportunity-heading"
+		>
+			<div class="mx-auto flex max-w-3xl flex-col gap-6">
+				<div class="flex items-center gap-4">
+					<span
+						class="bg-primary-500 text-surface-950 flex h-12 w-12 shrink-0 items-center justify-center"
 					>
+						<IconPlus class="h-6 w-6" />
+					</span>
+					<div>
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Admin</p>
+						<h2
+							id="admin-post-opportunity-heading"
+							class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-3xl"
+						>
+							Post Opportunity
+						</h2>
+					</div>
 				</div>
-				<button type="submit" class="btn preset-filled-success-500">Post Opportunity</button>
-			</form>
+
+				{#if form?.createOpportunityError}
+					<div class="bg-tertiary-500 text-surface-950 px-4 py-3 text-sm font-bold">
+						{form.createOpportunityError}
+					</div>
+				{/if}
+				{#if form?.createOpportunitySuccess}
+					<div class="bg-primary-500 text-surface-950 px-4 py-3 text-sm font-bold">
+						{form.createOpportunitySuccess}
+					</div>
+				{/if}
+
+				<form method="POST" action="?/createOpportunity" class="flex flex-col gap-4">
+					<div class="flex flex-col gap-1.5">
+						<label class="text-xs font-bold tracking-[0.16em] uppercase" for="title">Title</label>
+						<input
+							id="title"
+							name="title"
+							type="text"
+							required
+							class="border-surface-50 bg-surface-950 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
+							value={form?.createValues?.title ?? ''}
+						/>
+					</div>
+					<div class="flex flex-col gap-1.5">
+						<label class="text-xs font-bold tracking-[0.16em] uppercase" for="description">
+							Description (optional)
+						</label>
+						<textarea
+							id="description"
+							name="description"
+							rows="3"
+							class="border-surface-50 bg-surface-950 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
+							>{form?.createValues?.description ?? ''}</textarea
+						>
+					</div>
+					<div>
+						<button
+							type="submit"
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+						>
+							Post Opportunity
+						</button>
+					</div>
+				</form>
+			</div>
 		</section>
 	{/if}
 </div>
-
-<style>
-	/* ── Hero ── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	/* ── Headline ── */
-	.gi-headline {
-		color: var(--color-primary-50);
-		text-align: left;
-	}
-
-	.gi-headline-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-primary-300),
-			var(--color-secondary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Stat cards ── */
-	.stat-card {
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-	}
-
-	.stat-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.stat-card-glow {
-		position: absolute;
-		inset: 0;
-		opacity: 0.06;
-		pointer-events: none;
-	}
-
-	/* ── Contact panel ── */
-	.contact-panel {
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
-	.contact-link {
-		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
-		color: inherit;
-		text-decoration: none;
-		transition:
-			background 180ms,
-			border-color 180ms,
-			transform 150ms;
-	}
-
-	.contact-link:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-500) 10%);
-		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-		transform: translateX(2px);
-	}
-
-	.contact-icon-wrap {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 10px;
-		background: color-mix(in oklab, var(--color-primary-500) 18%, var(--color-surface-800) 82%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-		flex-shrink: 0;
-	}
-
-	/* ── Opportunity cards ── */
-	.opportunity-card {
-		transition:
-			transform 220ms ease,
-			box-shadow 220ms ease,
-			border-color 220ms ease;
-		animation: card-in 380ms ease both;
-	}
-
-	.opportunity-card:hover {
-		transform: translateY(-3px);
-		box-shadow: 0 12px 32px -6px
-			color-mix(in oklab, var(--accent, var(--color-primary-500)) 30%, transparent);
-		border-color: color-mix(
-			in oklab,
-			var(--accent, var(--color-primary-500)) 45%,
-			transparent
-		) !important;
-	}
-
-	.opp-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 80% 60% at 5% 10%,
-			color-mix(in oklab, var(--accent, var(--color-primary-500)) 12%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.opp-icon-ring {
-		background: color-mix(
-			in oklab,
-			var(--accent, var(--color-primary-500)) 18%,
-			var(--color-surface-800) 82%
-		);
-		border: 1px solid color-mix(in oklab, var(--accent, var(--color-primary-500)) 32%, transparent);
-		color: color-mix(in oklab, var(--accent, var(--color-primary-400)) 90%, white 10%);
-	}
-
-	.opp-cta {
-		color: color-mix(in oklab, var(--accent, var(--color-primary-400)) 100%, transparent);
-		transition: gap 150ms;
-		text-decoration: none;
-	}
-
-	.opp-cta:hover {
-		gap: 0.5rem;
-	}
-
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(14px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	/* ── Interest form section ── */
-	.interest-section {
-		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-100) 92%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	:global(.dark) .interest-section {
-		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950) 92%);
-	}
-
-	.interest-orb {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 60% at 95% 10%,
-			color-mix(in oklab, var(--color-secondary-500) 14%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.interest-icon-ring {
-		background: color-mix(in oklab, var(--color-primary-500) 18%, var(--color-surface-800) 82%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 32%, transparent);
-		color: color-mix(in oklab, var(--color-primary-400) 90%, white 10%);
-	}
-
-	/* ── Interest checkboxes ── */
-	.interest-checkbox-label {
-		border-color: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-surface-500) 5%, transparent);
-	}
-
-	.interest-checkbox-label:hover {
-		border-color: color-mix(in oklab, var(--accent, var(--color-primary-500)) 40%, transparent);
-		background: color-mix(in oklab, var(--accent, var(--color-primary-500)) 8%, transparent);
-	}
-
-	.interest-checkbox-label--checked {
-		border-color: color-mix(
-			in oklab,
-			var(--accent, var(--color-primary-500)) 55%,
-			transparent
-		) !important;
-		background: color-mix(
-			in oklab,
-			var(--accent, var(--color-primary-500)) 10%,
-			transparent
-		) !important;
-	}
-
-	.interest-checkbox-icon {
-		background: color-mix(
-			in oklab,
-			var(--accent, var(--color-primary-500)) 15%,
-			var(--color-surface-800) 85%
-		);
-		border: 1px solid color-mix(in oklab, var(--accent, var(--color-primary-500)) 25%, transparent);
-		color: color-mix(in oklab, var(--accent, var(--color-primary-400)) 80%, white 20%);
-	}
-
-	/* ── Empty state ── */
-</style>

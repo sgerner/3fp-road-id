@@ -72,19 +72,38 @@
 	}
 </script>
 
-<section class="assistant-card" aria-labelledby="article-assistant-title">
-	<div class="assistant-heading">
-		<div class="assistant-mark" aria-hidden="true">✳</div>
-		<div class="assistant-copy">
-			<p class="assistant-eyebrow">Reading companion</p>
-			<h2 id="article-assistant-title">Ask about this article</h2>
-			{#if panelOpen}
-				<p>Get a simpler explanation, an example, or help with a detail that feels unclear.</p>
-			{/if}
+<section
+	class="border-surface-800 bg-surface-950 text-surface-50 border-2"
+	aria-labelledby="article-assistant-title"
+>
+	<div class="flex items-center justify-between gap-4 px-5 py-4">
+		<div class="flex min-w-0 items-center gap-4">
+			<div
+				class="bg-primary-500 text-surface-950 flex h-10 w-10 shrink-0 items-center justify-center text-xl font-black"
+				aria-hidden="true"
+			>
+				✳
+			</div>
+			<div class="min-w-0">
+				<p class="text-primary-500 m-0 text-[0.65rem] font-bold tracking-[0.22em] uppercase">
+					Reading companion
+				</p>
+				<h2
+					id="article-assistant-title"
+					class="text-surface-50! m-0 text-lg font-black tracking-tight uppercase"
+				>
+					Ask about this article
+				</h2>
+				{#if panelOpen}
+					<p class="text-surface-300 m-0 mt-1 text-xs leading-relaxed">
+						Get a simpler explanation, an example, or help with a detail that feels unclear.
+					</p>
+				{/if}
+			</div>
 		</div>
 		<button
 			type="button"
-			class="assistant-toggle"
+			class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 shrink-0 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition"
 			aria-expanded={panelOpen}
 			aria-controls="article-assistant-panel"
 			onclick={() => (panelOpen = !panelOpen)}
@@ -94,27 +113,36 @@
 	</div>
 
 	{#if panelOpen}
-		<div id="article-assistant-panel" class="assistant-panel">
+		<div id="article-assistant-panel" class="border-surface-800 flex flex-col gap-4 border-t-2 p-5">
 			{#if turns.length}
-				<div class="assistant-answer" aria-live="polite">
-					<div class="assistant-question">{turns.at(-1).question}</div>
-					<p class="assistant-answer-label">Answer</p>
-					<div class="assistant-answer-text">
+				<div
+					class="border-primary-500 bg-surface-900 flex flex-col gap-2 border-l-4 p-4"
+					aria-live="polite"
+				>
+					<div class="text-surface-50 text-sm font-black">{turns.at(-1).question}</div>
+					<p class="text-primary-500 m-0 text-[0.65rem] font-bold tracking-[0.22em] uppercase">
+						Answer
+					</p>
+					<div class="text-surface-50 text-sm leading-relaxed whitespace-pre-wrap">
 						{#if turns.at(-1).pending}
-							<span class="typing-indicator" aria-label="Thinking">Thinking…</span>
+							<span class="text-surface-300" aria-label="Thinking">Thinking…</span>
 						{:else}
 							{turns.at(-1).answer}
 						{/if}
 					</div>
 				</div>
 				{#if turns.length > 1}
-					<details class="assistant-history" bind:open={historyOpen}>
-						<summary>Earlier questions <span>({turns.length - 1})</span></summary>
-						<div class="assistant-history-list">
+					<details class="border-surface-800 border-t pt-3 text-xs" bind:open={historyOpen}>
+						<summary class="text-surface-300 cursor-pointer font-bold tracking-wider uppercase">
+							Earlier questions <span>({turns.length - 1})</span>
+						</summary>
+						<div class="mt-3 flex max-h-60 flex-col gap-3 overflow-auto">
 							{#each turns.slice(0, -1).reverse() as turn}
-								<div class="assistant-history-item">
-									<p class="assistant-history-question">{turn.question}</p>
-									<p>{turn.answer}</p>
+								<div class="border-tertiary-500 border-l-2 pl-3">
+									<p class="text-surface-50 m-0 mb-1 font-bold">{turn.question}</p>
+									<p class="text-surface-300 m-0 leading-relaxed whitespace-pre-wrap">
+										{turn.answer}
+									</p>
 								</div>
 							{/each}
 						</div>
@@ -123,244 +151,48 @@
 			{/if}
 
 			{#if error}
-				<p class="assistant-error" role="alert">{error}</p>
+				<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-3 text-sm font-bold" role="alert">
+					{error}
+				</p>
 			{/if}
 
 			{#if !turns.length}
-				<div class="assistant-suggestions" aria-label="Suggested questions">
+				<div class="flex flex-wrap gap-2" aria-label="Suggested questions">
 					{#each suggestions as suggestion}
-						<button type="button" disabled={busy} onclick={() => ask(suggestion)}
-							>{suggestion}</button
+						<button
+							type="button"
+							class="border-surface-800 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+							disabled={busy}
+							onclick={() => ask(suggestion)}
 						>
+							{suggestion}
+						</button>
 					{/each}
 				</div>
 			{/if}
 
-			<form class="assistant-form" onsubmit={submit}>
+			<form class="flex flex-col gap-3 sm:flex-row sm:items-end" onsubmit={submit}>
 				<label class="sr-only" for="article-assistant-question">Your question</label>
 				<textarea
 					bind:value={draft}
 					id="article-assistant-question"
 					rows="2"
 					maxlength="700"
+					class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-w-0 flex-1 border-2 p-3 text-sm leading-relaxed focus:outline-none"
 					placeholder="What would you like help understanding?"
 					disabled={busy}></textarea>
-				<button type="submit" disabled={busy || !draft.trim()} aria-label="Send question">
+				<button
+					type="submit"
+					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 h-12 shrink-0 px-6 text-xs font-black tracking-[0.18em] uppercase transition disabled:opacity-50"
+					disabled={busy || !draft.trim()}
+					aria-label="Send question"
+				>
 					{busy ? '…' : 'Send'}
 				</button>
 			</form>
-			<p class="assistant-note">
+			<p class="text-surface-300 m-0 text-xs">
 				Answers are based on this article. Check important details against the source.
 			</p>
 		</div>
 	{/if}
 </section>
-
-<style>
-	.assistant-card {
-		border: 1px solid
-			color-mix(in oklab, var(--color-primary-400) 25%, var(--color-surface-500) 15%);
-		border-radius: 1.25rem;
-		background:
-			linear-gradient(
-				125deg,
-				color-mix(in oklab, var(--color-primary-500) 9%, transparent),
-				transparent 58%
-			),
-			color-mix(in oklab, var(--color-surface-900) 72%, var(--color-surface-950));
-		overflow: hidden;
-	}
-	.assistant-heading {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1.1rem 1.25rem;
-	}
-	.assistant-mark {
-		display: grid;
-		place-items: center;
-		width: 2.4rem;
-		height: 2.4rem;
-		flex: 0 0 auto;
-		border-radius: 0.85rem;
-		color: var(--color-primary-300);
-		background: color-mix(in oklab, var(--color-primary-500) 14%, transparent);
-		font-size: 1.25rem;
-	}
-	.assistant-copy {
-		min-width: 0;
-		flex: 1;
-	}
-	.assistant-eyebrow {
-		margin: 0 0 0.15rem;
-		color: var(--color-primary-300);
-		font-size: 0.65rem;
-		font-weight: 750;
-		letter-spacing: 0.13em;
-		text-transform: uppercase;
-	}
-	.assistant-copy h2 {
-		margin: 0;
-		font-size: 1rem;
-		font-weight: 700;
-	}
-	.assistant-copy > p:last-child {
-		margin: 0.2rem 0 0;
-		font-size: 0.84rem;
-		line-height: 1.5;
-		opacity: 0.7;
-	}
-	.assistant-toggle {
-		flex: 0 0 auto;
-		border-radius: 999px;
-		padding: 0.45rem 0.9rem;
-		background: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
-		color: var(--color-primary-200);
-		font-size: 0.8rem;
-		font-weight: 700;
-	}
-	.assistant-toggle:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-	.assistant-panel {
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-		padding: 1rem 1.25rem 1.1rem;
-	}
-	.assistant-suggestions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 0.75rem;
-	}
-	.assistant-suggestions button {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 24%, transparent);
-		border-radius: 999px;
-		padding: 0.38rem 0.7rem;
-		font-size: 0.75rem;
-		opacity: 0.8;
-	}
-	.assistant-suggestions button:hover {
-		border-color: color-mix(in oklab, var(--color-primary-400) 50%, transparent);
-		opacity: 1;
-	}
-	.assistant-form {
-		display: flex;
-		align-items: end;
-		gap: 0.6rem;
-	}
-	.assistant-form textarea {
-		min-width: 0;
-		flex: 1;
-		resize: vertical;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
-		border-radius: 0.85rem;
-		background: color-mix(in oklab, var(--color-surface-950) 75%, transparent);
-		padding: 0.7rem 0.8rem;
-		font: inherit;
-		font-size: 0.9rem;
-		line-height: 1.5;
-	}
-	.assistant-form textarea:focus {
-		outline: 2px solid color-mix(in oklab, var(--color-primary-400) 70%, transparent);
-		outline-offset: 1px;
-	}
-	.assistant-form > button {
-		min-width: 4.2rem;
-		border-radius: 0.75rem;
-		background: var(--color-primary-500);
-		padding: 0.65rem 0.85rem;
-		font-size: 0.82rem;
-		font-weight: 700;
-		color: var(--color-primary-contrast, white);
-	}
-	.assistant-form > button:disabled {
-		cursor: not-allowed;
-		opacity: 0.5;
-	}
-	.assistant-note {
-		margin: 0.55rem 0 0;
-		font-size: 0.7rem;
-		opacity: 0.55;
-	}
-	.assistant-answer {
-		border-radius: 0.9rem;
-		background: color-mix(in oklab, var(--color-surface-950) 56%, transparent);
-		padding: 0.9rem 1rem;
-		margin-bottom: 0.75rem;
-	}
-	.assistant-question {
-		font-size: 0.85rem;
-		font-weight: 700;
-	}
-	.assistant-answer-label {
-		margin: 0.65rem 0 0.2rem;
-		color: var(--color-primary-300);
-		font-size: 0.65rem;
-		font-weight: 750;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-	.assistant-answer-text {
-		font-size: 0.875rem;
-		line-height: 1.7;
-		opacity: 0.88;
-		white-space: pre-wrap;
-	}
-	.typing-indicator {
-		opacity: 0.65;
-	}
-	.assistant-error {
-		margin: 0 0 0.65rem;
-		color: var(--color-error-400);
-		font-size: 0.82rem;
-	}
-	.assistant-history {
-		margin: 0 0 0.75rem;
-		font-size: 0.8rem;
-	}
-	.assistant-history summary {
-		cursor: pointer;
-		opacity: 0.72;
-	}
-	.assistant-history-list {
-		display: grid;
-		gap: 0.7rem;
-		margin-top: 0.65rem;
-		max-height: 15rem;
-		overflow: auto;
-	}
-	.assistant-history-item {
-		border-left: 2px solid color-mix(in oklab, var(--color-primary-400) 35%, transparent);
-		padding-left: 0.7rem;
-		opacity: 0.78;
-	}
-	.assistant-history-item p {
-		margin: 0;
-		line-height: 1.55;
-		white-space: pre-wrap;
-	}
-	.assistant-history-question {
-		margin-bottom: 0.25rem !important;
-		font-weight: 700;
-	}
-	@media (max-width: 520px) {
-		.assistant-heading {
-			align-items: flex-start;
-			padding: 1rem;
-			gap: 0.7rem;
-		}
-		.assistant-toggle {
-			margin-left: auto;
-		}
-		.assistant-panel {
-			padding: 0.9rem 1rem 1rem;
-		}
-		.assistant-form {
-			align-items: stretch;
-			flex-direction: column;
-		}
-		.assistant-form > button {
-			align-self: flex-end;
-		}
-	}
-</style>

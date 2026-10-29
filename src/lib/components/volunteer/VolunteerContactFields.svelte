@@ -12,15 +12,15 @@
 	];
 </script>
 
-<div class="grid gap-3 md:grid-cols-2">
-	{#each fields as field}
-		<label class="flex flex-col gap-1 text-xs tracking-wide uppercase">
+<div class="grid gap-4 md:grid-cols-2">
+	{#each fields as field (field.key)}
+		<label class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.18em] uppercase">
 			<span>{field.label}</span>
 			<input
 				type={field.type}
 				required={field.required}
 				autocomplete={field.autocomplete}
-				class="input bg-surface-50-950/40"
+				class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-medium focus:outline-none"
 				value={values[field.key] ?? ''}
 				{disabled}
 				oninput={(event) => onChange(field.key, event.currentTarget.value)}

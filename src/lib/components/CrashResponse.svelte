@@ -53,29 +53,48 @@
 	];
 </script>
 
-<div class="flex flex-col gap-4">
-	<h2 class="mb-2 text-2xl font-bold uppercase">Crash Response</h2>
-	{#each CRASH_STEPS as step}
-		<div class="mb-4">
-			<div class="flex items-center text-xl font-bold">
-				<span
-					class="bg-primary-500 text-primary-contrast-500 mr-2 flex h-8 w-8 items-center justify-center rounded-full font-extrabold"
-				>
-					{step.number}
-				</span>
-				{step.title}
-			</div>
-			<ul class="ml-10 list-inside list-disc text-sm">
-				{#each step.points as point}
-					<li>{point}</li>
-				{/each}
-			</ul>
-		</div>
-	{/each}
+<div class="flex flex-col gap-8">
+	<div class="flex flex-col gap-2">
+		<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+			Five Critical Steps
+		</p>
+		<h2
+			class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+		>
+			Crash Response
+		</h2>
+	</div>
 
-	<p class="mt-4 text-sm">
+	<div class="border-surface-50 flex flex-col border-t-2">
+		{#each CRASH_STEPS as step (step.number)}
+			<div
+				class="border-surface-800 grid gap-4 border-b py-6 sm:grid-cols-[4.5rem_minmax(0,16rem)_minmax(0,1fr)] sm:gap-6"
+			>
+				<span
+					class="bg-tertiary-500 text-surface-950 flex h-12 w-12 items-center justify-center text-2xl leading-none font-black italic tabular-nums"
+				>
+					{String(step.number).padStart(2, '0')}
+				</span>
+				<div class="text-surface-50 flex items-center text-xl font-black uppercase">
+					{step.title}
+				</div>
+				<ul class="text-surface-200 m-0 list-disc space-y-1.5 pl-5 text-base leading-relaxed">
+					{#each step.points as point (point)}
+						<li>{point}</li>
+					{/each}
+				</ul>
+			</div>
+		{/each}
+	</div>
+
+	<p class="text-surface-300 m-0 text-sm">
 		For more tips & info, visit
-		<a href="https://3feetplease.org" target="_blank" rel="noopener noreferrer" class="anchor">
+		<a
+			href="https://3feetplease.org"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="text-primary-500 font-bold underline"
+		>
 			3FeetPlease.org
 		</a>
 	</p>

@@ -14,13 +14,13 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { fade, fly, scale } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 
 	let { slug = '', buckets = [] } = $props();
 
 	const PANEL_KEYS = new Set(['links', 'files', 'all']);
 	const DEFAULT_PREVIEW_COUNT = 3;
-	const PHOTO_PREVIEW_COUNT = 12; // Show up to 12, CSS will control how many fit per row
+	const PHOTO_PREVIEW_COUNT = 12;
 
 	let quickSearch = $state('');
 	let hasInitializedSearch = $state(false);
@@ -177,109 +177,121 @@
 			photoLightboxIndex >= photoLightboxAssets.length - 1 ? 0 : photoLightboxIndex + 1;
 	}
 
-	function getTotalCount(bucket) {
-		return listBucketAssets(bucket).length;
-	}
-
 	function shouldShowBucket(bucket) {
 		return !quickSearch.trim() || previewAssets(bucket).length > 0;
 	}
 </script>
 
 {#if buckets.length}
-	<section class="asset-showcase space-y-4">
+	<section class="flex flex-col gap-6">
 		<!-- Search Bar -->
-		<div class="search-container">
+		<div class="border-surface-50 flex border-[3px]">
 			<div class="relative flex-1">
 				<IconSearch
-					class="text-surface-500-400 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2"
+					class="text-surface-400 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2"
 				/>
 				<input
 					id="resource-search"
 					type="search"
-					class="search-input"
+					class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-3 pr-4 pl-11 text-sm font-medium focus:outline-none"
 					placeholder="Search photos, links, and files..."
 					bind:value={quickSearch}
 				/>
 			</div>
-			<a href={panelHref('all')} class="search-btn" onclick={openSearchPanel}>
+			<a
+				href={panelHref('all')}
+				class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex shrink-0 items-center gap-2 px-5 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+				onclick={openSearchPanel}
+			>
 				<span>Search</span>
 				<IconArrowRight class="h-4 w-4" />
 			</a>
 		</div>
 
-		<!-- Asset Cards - Single Column Layout -->
-		<div class="space-y-4">
-			{#each buckets as bucket}
+		<!-- Asset Buckets -->
+		<div class="flex flex-col gap-6">
+			{#each buckets as bucket (bucket.slug)}
 				{#if shouldShowBucket(bucket)}
 					{@const Icon = iconForBucket(bucket.slug)}
 					{@const items = previewAssets(bucket)}
-					<div class="asset-card" in:fade={{ duration: 170 }}>
-						<!-- Card Header -->
-						<div class="flex items-center justify-between gap-3">
+					<div class="border-surface-800 border-t-2 pt-5" in:fade={{ duration: 170 }}>
+						<!-- Bucket Header -->
+						<div class="mb-4 flex items-center justify-between gap-3">
 							<div class="flex items-center gap-3">
-								<div
-									class="asset-icon-sm flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+								<span
+									class="bg-primary-500 text-surface-950 flex h-8 w-8 shrink-0 items-center justify-center"
 								>
-									<Icon class="h-3.5 w-3.5" />
-								</div>
-								<span class="text-sm font-medium">{bucket.label}</span>
+									<Icon class="h-4 w-4" />
+								</span>
+								<span class="text-surface-50 text-base font-black uppercase">{bucket.label}</span>
 							</div>
 							{#if bucket.slug === 'photos'}
 								<button
 									type="button"
-									class="view-btn-header"
+									class="text-primary-500 hover:text-surface-50 inline-flex cursor-pointer items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
 									onclick={() => openPhotoLightbox(bucket, { mode: 'grid' })}
 								>
 									<span>View all</span>
 									<IconArrowRight class="h-3.5 w-3.5" />
 								</button>
 							{:else}
-								<a href={panelHref(bucket.slug)} class="view-btn-header">
+								<a
+									href={panelHref(bucket.slug)}
+									class="text-primary-500 hover:text-surface-50 inline-flex items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase hover:no-underline"
+								>
 									<span>View all</span>
 									<IconArrowRight class="h-3.5 w-3.5" />
 								</a>
 							{/if}
 						</div>
 
-						<!-- Card Content -->
-						<div class="mt-4">
+						<!-- Bucket Content -->
+						<div>
 							{#if items.length}
 								{#if bucket.slug === 'photos'}
-									<div class="photo-grid">
-										{#each items as asset, index}
+									<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+										{#each items as asset, index (asset.href ?? index)}
 											<button
 												type="button"
-												class="photo-item"
+												class="group border-surface-800 hover:border-primary-500 relative aspect-square cursor-pointer overflow-hidden border-2 transition"
 												onclick={() => openPhotoLightbox(bucket, { index, mode: 'single' })}
 												in:fade={{ duration: 160 }}
 											>
-												<img src={asset.href} alt={asset.title} />
-												<div class="photo-overlay">
+												<img
+													src={asset.href}
+													alt={asset.title}
+													class="h-full w-full object-cover"
+												/>
+												<div
+													class="bg-surface-950/75 text-primary-500 absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100"
+												>
 													<IconImage class="h-5 w-5" />
 												</div>
 											</button>
 										{/each}
 									</div>
 								{:else}
-									<ul class="space-y-2">
-										{#each items as asset}
-											<li in:fade={{ duration: 160 }}>
+									<ul class="border-surface-800 m-0 list-none border-t p-0">
+										{#each items as asset, idx (asset.href ?? idx)}
+											<li class="border-surface-800 border-b" in:fade={{ duration: 160 }}>
 												<a
 													href={asset.href}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="link-item"
+													class="text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-3 px-3 py-3 text-sm font-bold transition hover:no-underline"
 												>
-													<Icon class="text-surface-500-400 h-4 w-4 shrink-0" />
-													<span class="text-sm">{asset.title}</span>
+													<span class="flex min-w-0 items-center gap-3">
+														<Icon class="h-4 w-4 shrink-0" />
+														<span class="truncate">{asset.title}</span>
+													</span>
+													<IconExternalLink class="h-4 w-4 shrink-0" />
 												</a>
 											</li>
 										{/each}
 									</ul>
 								{/if}
 							{:else}
-								<div class="empty-state">
+								<div class="border-surface-800 border p-4 text-sm opacity-75">
 									No matching {bucket.label.toLowerCase()}.
 								</div>
 							{/if}
@@ -291,10 +303,10 @@
 	</section>
 {/if}
 
-<!-- Resources Modal - Centered -->
+<!-- Resources Modal -->
 {#if panel}
 	<div
-		class="modal-backdrop"
+		class="fixed inset-0 z-[9999] grid place-items-center bg-black/90 p-4"
 		use:portal
 		role="dialog"
 		tabindex="0"
@@ -310,26 +322,28 @@
 		}}
 	>
 		<div
-			class="modal-panel"
+			class="bg-surface-950 text-surface-50 border-primary-500 grid max-h-[calc(100vh-2rem)] w-[min(92vw,48rem)] grid-rows-[auto_minmax(0,1fr)] border-[3px]"
 			role="document"
-			in:scale={{ start: 0.96, duration: 200 }}
-			out:scale={{ start: 0.96, duration: 150 }}
+			in:scale={{ start: 0.98, duration: 180 }}
+			out:scale={{ start: 0.98, duration: 140 }}
 		>
 			<!-- Modal Header -->
-			<div class="modal-header">
+			<div class="border-surface-800 flex items-center justify-between gap-4 border-b-2 p-5">
 				<div class="flex items-center gap-3">
 					{#if openBucket}
 						{@const Icon = iconForBucket(openBucket.slug)}
-						<div class="modal-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+						<div
+							class="bg-primary-500 text-surface-950 flex h-10 w-10 shrink-0 items-center justify-center"
+						>
 							<Icon class="h-5 w-5" />
 						</div>
 					{/if}
 					<div>
-						<h3 class="text-lg font-semibold">
+						<h3 class="text-surface-50! m-0 text-xl font-black uppercase">
 							{panel === 'all' ? 'Search Results' : openBucket?.label || 'Resources'}
 						</h3>
 						{#if panelQuery || quickSearch}
-							<p class="text-surface-500-400 text-xs">
+							<p class="text-surface-300 m-0 text-xs">
 								{filteredAssets(openBucket || buckets[0], panelQuery || quickSearch).length} results for
 								"{panelQuery || quickSearch}"
 							</p>
@@ -338,57 +352,70 @@
 				</div>
 				<div class="flex items-center gap-2">
 					{#if panel !== 'all' && openBucket}
-						<a href={canonicalHref(openBucket.slug)} class="modal-action-btn">
+						<a
+							href={canonicalHref(openBucket.slug)}
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-1.5 border-2 px-3 py-2 text-xs font-black uppercase transition hover:no-underline"
+						>
 							<IconExternalLink class="h-4 w-4" />
 							<span>Open page</span>
 						</a>
 					{/if}
-					<button type="button" class="modal-close-btn" onclick={closePanel}>
+					<button
+						type="button"
+						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 flex h-10 w-10 cursor-pointer items-center justify-center transition"
+						onclick={closePanel}
+						aria-label="Close modal"
+					>
 						<IconX class="h-5 w-5" />
 					</button>
 				</div>
 			</div>
 
 			<!-- Modal Body -->
-			<div class="modal-body">
+			<div class="overflow-auto p-5">
 				{#if panel === 'all'}
-					<!-- Search Results - Grouped by bucket -->
 					{#if hasAnyMatches(panelQuery || quickSearch)}
-						<div class="space-y-6">
-							{#each buckets as bucket}
+						<div class="flex flex-col gap-6">
+							{#each buckets as bucket (bucket.slug)}
 								{@const matches = filteredAssets(bucket, panelQuery || quickSearch)}
 								{@const Icon = iconForBucket(bucket.slug)}
 								{#if matches.length}
-									<div class="bucket-section" in:fade={{ duration: 170 }}>
-										<div class="bucket-header">
+									<div class="flex flex-col gap-3" in:fade={{ duration: 170 }}>
+										<div class="border-surface-800 flex items-center justify-between border-b pb-2">
 											<div class="flex items-center gap-2">
-												<Icon class="text-surface-500-400 h-4 w-4" />
-												<span class="text-sm font-medium">{bucket.label}</span>
+												<Icon class="text-primary-500 h-4 w-4" />
+												<span class="text-sm font-black uppercase">{bucket.label}</span>
 											</div>
-											<span class="text-surface-500-400 text-xs">{matches.length}</span>
+											<span class="text-tertiary-500 text-xs font-black tabular-nums">
+												{matches.length}
+											</span>
 										</div>
-										<div class="bucket-items">
-											{#each matches as asset}
+										<div class="flex flex-col gap-2">
+											{#each matches as asset, idx (asset.href ?? idx)}
 												{@const FileIcon = getFileIcon(asset)}
 												<a
 													href={asset.href}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="resource-card"
+													class="border-surface-800 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex items-center gap-3 border p-3 transition hover:no-underline"
 													in:fade={{ duration: 170 }}
 												>
 													<div
-														class="resource-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+														class="bg-secondary-500 text-surface-50 flex h-10 w-10 shrink-0 items-center justify-center"
 													>
 														<FileIcon class="h-5 w-5" />
 													</div>
-													<div class="resource-content min-w-0">
-														<div class="resource-title">{asset.title}</div>
+													<div class="min-w-0 flex-1">
+														<div class="truncate text-sm font-black">{asset.title}</div>
 														{#if asset.file_name}
-															<div class="resource-meta">{formatFileName(asset.file_name)}</div>
+															<div class="text-xs opacity-75">
+																{formatFileName(asset.file_name)}
+															</div>
 														{/if}
 														{#if asset.description}
-															<div class="resource-desc">{asset.description}</div>
+															<div class="mt-1 line-clamp-2 text-xs opacity-80">
+																{asset.description}
+															</div>
 														{/if}
 													</div>
 												</a>
@@ -399,22 +426,20 @@
 							{/each}
 						</div>
 					{:else}
-						<div class="modal-empty">
-							<IconSearch class="text-surface-600-400 mb-3 h-12 w-12" />
-							<p class="text-surface-500-400 text-sm">No results found</p>
-							<p class="text-surface-600-400 mt-1 text-xs">Try a different search term</p>
+						<div class="flex flex-col items-center justify-center py-12 text-center">
+							<IconSearch class="text-primary-500 mb-3 h-10 w-10" />
+							<p class="m-0 text-sm font-black uppercase">No results found</p>
+							<p class="text-surface-300 m-0 mt-1 text-xs">Try a different search term</p>
 						</div>
 					{/if}
 				{:else if openBucket}
 					{@const matches = filteredAssets(openBucket, panelQuery || quickSearch)}
-					{@const Icon = iconForBucket(openBucket.slug)}
-					<!-- Single Bucket View -->
 					{#if openBucket.slug === 'photos'}
-						<div class="photo-gallery">
-							{#each matches as asset}
+						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+							{#each matches as asset, idx (asset.href ?? idx)}
 								<button
 									type="button"
-									class="photo-card"
+									class="group border-surface-800 hover:border-primary-500 relative aspect-square cursor-pointer overflow-hidden border-2"
 									onclick={() => {
 										photoLightboxAssets = matches;
 										photoLightboxIndex = matches.indexOf(asset);
@@ -422,38 +447,40 @@
 										photoLightboxOpen = true;
 									}}
 								>
-									<img src={asset.href} alt={asset.title} />
-									<div class="photo-card-overlay">
+									<img src={asset.href} alt={asset.title} class="h-full w-full object-cover" />
+									<div
+										class="bg-surface-950/75 text-primary-500 absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100"
+									>
 										<IconImage class="h-6 w-6" />
 									</div>
 								</button>
 							{/each}
 						</div>
 					{:else}
-						<div class="resource-list">
-							{#each matches as asset}
+						<div class="flex flex-col gap-2">
+							{#each matches as asset, idx (asset.href ?? idx)}
 								{@const FileIcon = getFileIcon(asset)}
 								<a
 									href={asset.href}
 									target="_blank"
 									rel="noopener noreferrer"
-									class="resource-card resource-card-large"
+									class="border-surface-800 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex items-center gap-4 border p-4 transition hover:no-underline"
 								>
 									<div
-										class="resource-icon-large flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+										class="bg-secondary-500 text-surface-50 flex h-12 w-12 shrink-0 items-center justify-center"
 									>
 										<FileIcon class="h-6 w-6" />
 									</div>
-									<div class="resource-content">
-										<div class="resource-title-large">{asset.title}</div>
+									<div class="min-w-0 flex-1">
+										<div class="text-base font-black">{asset.title}</div>
 										{#if asset.file_name}
-											<div class="resource-meta-large">{formatFileName(asset.file_name)}</div>
+											<div class="text-xs opacity-75">{formatFileName(asset.file_name)}</div>
 										{/if}
 										{#if asset.description}
-											<div class="resource-desc-large">{asset.description}</div>
+											<div class="mt-1 line-clamp-2 text-xs opacity-80">{asset.description}</div>
 										{/if}
 									</div>
-									<IconExternalLink class="text-surface-500-400 h-4 w-4 shrink-0" />
+									<IconExternalLink class="h-4 w-4 shrink-0" />
 								</a>
 							{/each}
 						</div>
@@ -464,10 +491,10 @@
 	</div>
 {/if}
 
-<!-- Photo Lightbox - Fixed position -->
+<!-- Photo Lightbox -->
 {#if photoLightboxOpen && photoLightboxAssets.length}
 	<div
-		class="lightbox-backdrop"
+		class="fixed inset-0 z-[10000] grid place-items-center bg-black/95 p-3"
 		use:portal
 		role="dialog"
 		tabindex="0"
@@ -485,20 +512,20 @@
 		}}
 	>
 		<div
-			class="lightbox-panel"
+			class="bg-surface-950 border-primary-500 grid max-h-[calc(100dvh-1.5rem)] w-[min(98vw,92rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-3 border-[3px] p-4"
 			role="document"
 			tabindex="-1"
 			in:scale={{ start: 0.98, duration: 170 }}
 			out:scale={{ start: 0.98, duration: 130 }}
 		>
-			<div class="lightbox-toolbar">
-				<div class="text-surface-300 text-sm">
+			<div class="border-surface-800 flex items-center justify-between gap-4 border-b pb-3">
+				<div class="text-primary-500 text-sm font-black tabular-nums">
 					{photoLightboxIndex + 1} / {photoLightboxAssets.length}
 				</div>
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="mode-btn"
+						class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex cursor-pointer items-center gap-1.5 border-2 px-3 py-1.5 text-xs font-black uppercase transition"
 						onclick={() => (photoLightboxMode = photoLightboxMode === 'grid' ? 'single' : 'grid')}
 					>
 						{#if photoLightboxMode === 'grid'}
@@ -509,688 +536,80 @@
 							<span>Grid</span>
 						{/if}
 					</button>
-					<button type="button" class="close-btn" onclick={closePhotoLightbox}>
+					<button
+						type="button"
+						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 flex h-9 w-9 cursor-pointer items-center justify-center"
+						onclick={closePhotoLightbox}
+						aria-label="Close lightbox"
+					>
 						<IconX class="h-5 w-5" />
 					</button>
 				</div>
 			</div>
 
 			{#if photoLightboxMode === 'grid'}
-				<div class="lightbox-grid">
-					{#each photoLightboxAssets as asset, index}
+				<div
+					class="grid grid-cols-2 gap-3 overflow-auto p-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+				>
+					{#each photoLightboxAssets as asset, index (asset.href ?? index)}
 						<button
 							type="button"
-							class="lightbox-grid-item {photoLightboxIndex === index ? 'active' : ''}"
+							class="aspect-square cursor-pointer overflow-hidden border-2 {photoLightboxIndex ===
+							index
+								? 'border-primary-500'
+								: 'border-surface-800'}"
 							onclick={() => {
 								photoLightboxIndex = index;
 								photoLightboxMode = 'single';
 							}}
 						>
-							<img src={asset.href} alt={asset.title} />
+							<img src={asset.href} alt={asset.title} class="h-full w-full object-cover" />
 						</button>
 					{/each}
 				</div>
 			{:else}
-				<div class="lightbox-stage">
+				<div class="relative flex min-h-0 items-center justify-center">
 					<img
 						src={photoLightboxAssets[photoLightboxIndex]?.href}
 						alt={photoLightboxAssets[photoLightboxIndex]?.title}
-						class="lightbox-image"
+						class="h-full w-full object-contain"
 					/>
 					{#if photoLightboxAssets.length > 1}
-						<button type="button" class="nav-btn nav-left" onclick={previousPhoto}>
+						<button
+							type="button"
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 absolute top-1/2 left-2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center"
+							onclick={previousPhoto}
+							aria-label="Previous image"
+						>
 							<IconChevronLeft class="h-5 w-5" />
 						</button>
-						<button type="button" class="nav-btn nav-right" onclick={nextPhoto}>
+						<button
+							type="button"
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 absolute top-1/2 right-2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center"
+							onclick={nextPhoto}
+							aria-label="Next image"
+						>
 							<IconChevronRight class="h-5 w-5" />
 						</button>
 					{/if}
 				</div>
 			{/if}
 
-			<div class="lightbox-strip">
-				{#each photoLightboxAssets as asset, index}
+			<div class="flex gap-2 overflow-x-auto pt-1">
+				{#each photoLightboxAssets as asset, index (asset.href ?? index)}
 					<button
 						type="button"
-						class="lightbox-thumb {photoLightboxIndex === index ? 'active' : ''}"
+						class="h-14 w-14 shrink-0 cursor-pointer overflow-hidden border-2 {photoLightboxIndex ===
+						index
+							? 'border-primary-500 opacity-100'
+							: 'border-surface-800 opacity-60 hover:opacity-100'}"
 						onclick={() => (photoLightboxIndex = index)}
 						aria-label={`Show image ${index + 1}`}
 					>
-						<img src={asset.href} alt={asset.title} />
+						<img src={asset.href} alt={asset.title} class="h-full w-full object-cover" />
 					</button>
 				{/each}
 			</div>
 		</div>
 	</div>
 {/if}
-
-<style>
-	/* Asset Showcase */
-	.asset-showcase {
-		animation: fade-in 260ms ease both;
-	}
-
-	/* Search Bar */
-	.search-container {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-	}
-
-	.search-input {
-		width: 100%;
-		padding: 0.625rem 1rem 0.625rem 2.5rem;
-		background: color-mix(in oklab, var(--color-surface-900) 80%, black 20%);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 0.75rem;
-		font-size: 0.875rem;
-		color: inherit;
-		transition: all 150ms ease;
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: color-mix(in oklab, var(--color-secondary-500) 50%, transparent);
-		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-	}
-
-	.search-input::placeholder {
-		color: color-mix(in oklab, var(--color-surface-500) 60%, transparent);
-	}
-
-	.search-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.625rem 1rem;
-		background: var(--color-secondary-500);
-		color: white;
-		border-radius: 0.75rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		transition: all 150ms ease;
-		flex-shrink: 0;
-	}
-
-	.search-btn:hover {
-		background: color-mix(in oklab, var(--color-secondary-500) 85%, white 15%);
-		transform: translateY(-1px);
-	}
-
-	/* Asset Cards */
-	.asset-card {
-		background: color-mix(in oklab, var(--color-surface-950) 90%, var(--color-secondary-500) 4%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		border-radius: 1rem;
-		padding: 1rem;
-		transition: all 200ms ease;
-	}
-
-	.asset-card:hover {
-		border-color: color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
-	}
-
-	.asset-icon-sm {
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		color: var(--color-secondary-400);
-	}
-
-	/* View All Button in Header */
-	.view-btn-header {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		color: var(--color-secondary-400);
-		font-size: 0.8125rem;
-		font-weight: 500;
-		transition: all 150ms ease;
-	}
-
-	.view-btn-header:hover {
-		color: var(--color-secondary-300);
-		gap: 0.5rem;
-	}
-
-	/* Photo Grid - Single row, fit as many as possible */
-	.photo-grid {
-		display: flex;
-		gap: 0.5rem;
-		overflow: hidden;
-	}
-
-	.photo-grid .photo-item {
-		flex: 1 1 0;
-		min-width: 80px;
-		max-width: 160px;
-	}
-
-	@media (min-width: 640px) {
-		.photo-grid {
-			gap: 0.625rem;
-		}
-		.photo-grid .photo-item {
-			min-width: 100px;
-			max-width: 180px;
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.photo-grid {
-			gap: 0.75rem;
-		}
-		.photo-grid .photo-item {
-			min-width: 120px;
-			max-width: 200px;
-		}
-	}
-
-	/* Photo Items */
-	.photo-item {
-		aspect-ratio: 1;
-		position: relative;
-		overflow: hidden;
-		border-radius: 0.5rem;
-		background: color-mix(in oklab, var(--color-surface-900) 70%, transparent);
-		cursor: pointer;
-	}
-
-	.photo-item img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		transition: transform 300ms ease;
-	}
-
-	.photo-overlay {
-		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0;
-		transition: opacity 200ms ease;
-		color: white;
-	}
-
-	.photo-item:hover img {
-		transform: scale(1.08);
-	}
-
-	.photo-item:hover .photo-overlay {
-		opacity: 1;
-	}
-
-	/* Link Items */
-	.link-item {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		padding: 0.625rem 0.875rem;
-		background: color-mix(in oklab, var(--color-surface-900) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-		border-radius: 0.625rem;
-		transition: all 150ms ease;
-	}
-
-	.link-item:hover {
-		background: color-mix(in oklab, var(--color-surface-900) 75%, transparent);
-		border-color: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-	}
-
-	/* Empty State */
-	.empty-state {
-		padding: 1rem;
-		text-align: center;
-		font-size: 0.875rem;
-		color: color-mix(in oklab, var(--color-surface-500) 80%, transparent);
-		background: color-mix(in oklab, var(--color-surface-900) 50%, transparent);
-		border-radius: 0.75rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-	}
-
-	/* Modal - Centered */
-	.modal-backdrop {
-		position: fixed !important;
-		top: 0 !important;
-		left: 0 !important;
-		right: 0 !important;
-		bottom: 0 !important;
-		z-index: 9999 !important;
-		display: grid;
-		place-items: center;
-		background: rgba(6, 10, 18, 0.9);
-		backdrop-filter: blur(20px);
-		padding: 1rem;
-	}
-
-	.modal-panel {
-		width: min(90vw, 48rem);
-		max-height: calc(100vh - 2rem);
-		border-radius: 1.25rem;
-		background: color-mix(in oklab, var(--color-surface-950) 97%, black 3%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-	}
-
-	.modal-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 1.25rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	.modal-icon {
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		color: var(--color-secondary-400);
-	}
-
-	.modal-action-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.875rem;
-		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 0.625rem;
-		font-size: 0.75rem;
-		transition: all 150ms ease;
-	}
-
-	.modal-action-btn:hover {
-		border-color: color-mix(in oklab, var(--color-secondary-500) 35%, transparent);
-		background: color-mix(in oklab, var(--color-secondary-500) 10%, transparent);
-	}
-
-	.modal-close-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		transition: all 150ms ease;
-	}
-
-	.modal-close-btn:hover {
-		background: color-mix(in oklab, var(--color-error-500) 25%, transparent);
-		border-color: color-mix(in oklab, var(--color-error-500) 35%, transparent);
-	}
-
-	.modal-body {
-		overflow: auto;
-		padding: 1.25rem;
-	}
-
-	.modal-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 3rem 1rem;
-		text-align: center;
-	}
-
-	/* Bucket Sections in Modal */
-	.bucket-section {
-		animation: fade-in 300ms ease;
-	}
-
-	.bucket-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-		margin-bottom: 0.75rem;
-	}
-
-	.bucket-items {
-		display: grid;
-		gap: 0.5rem;
-	}
-
-	/* Resource Cards */
-	.resource-card {
-		display: flex;
-		align-items: center;
-		gap: 0.875rem;
-		padding: 0.875rem;
-		background: color-mix(in oklab, var(--color-surface-900) 70%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
-		border-radius: 0.75rem;
-		transition: all 150ms ease;
-	}
-
-	.resource-card:hover {
-		background: color-mix(in oklab, var(--color-surface-900) 85%, transparent);
-		border-color: color-mix(in oklab, var(--color-secondary-500) 25%, transparent);
-		transform: translateY(-1px);
-	}
-
-	.resource-icon {
-		background: color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
-		color: var(--color-secondary-400);
-	}
-
-	.resource-content {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.resource-title {
-		font-weight: 500;
-		font-size: 0.875rem;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.resource-meta {
-		font-size: 0.75rem;
-		color: color-mix(in oklab, var(--color-surface-500) 90%, transparent);
-		margin-top: 0.125rem;
-	}
-
-	.resource-desc {
-		font-size: 0.75rem;
-		color: color-mix(in oklab, var(--color-surface-600) 90%, transparent);
-		margin-top: 0.25rem;
-		line-height: 1.4;
-		display: -webkit-box;
-		line-clamp: 2;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	/* Large Resource Cards */
-	.resource-card-large {
-		padding: 1rem;
-		gap: 1rem;
-	}
-
-	.resource-icon-large {
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		color: var(--color-secondary-400);
-	}
-
-	.resource-title-large {
-		font-weight: 600;
-		font-size: 0.9375rem;
-	}
-
-	.resource-meta-large {
-		font-size: 0.8125rem;
-		color: color-mix(in oklab, var(--color-surface-500) 90%, transparent);
-		margin-top: 0.25rem;
-	}
-
-	.resource-desc-large {
-		font-size: 0.8125rem;
-		color: color-mix(in oklab, var(--color-surface-600) 90%, transparent);
-		margin-top: 0.375rem;
-		line-height: 1.5;
-		display: -webkit-box;
-		line-clamp: 2;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	/* Photo Gallery in Modal */
-	.photo-gallery {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-		gap: 0.75rem;
-	}
-
-	.photo-card {
-		aspect-ratio: 1;
-		position: relative;
-		overflow: hidden;
-		border-radius: 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-900) 70%, transparent);
-		cursor: pointer;
-		transition: all 200ms ease;
-	}
-
-	.photo-card:hover {
-		transform: scale(1.02);
-		box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-	}
-
-	.photo-card img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		transition: transform 300ms ease;
-	}
-
-	.photo-card:hover img {
-		transform: scale(1.1);
-	}
-
-	.photo-card-overlay {
-		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0;
-		transition: opacity 200ms ease;
-		color: white;
-	}
-
-	.photo-card:hover .photo-card-overlay {
-		opacity: 1;
-	}
-
-	/* Resource List */
-	.resource-list {
-		display: grid;
-		gap: 0.75rem;
-	}
-
-	/* Lightbox */
-	.lightbox-backdrop {
-		position: fixed !important;
-		top: 0 !important;
-		left: 0 !important;
-		right: 0 !important;
-		bottom: 0 !important;
-		z-index: 10000 !important;
-		display: grid;
-		place-items: center;
-		padding: clamp(0.25rem, 1.2vw, 0.875rem);
-		background: rgba(5, 10, 18, 0.95);
-		backdrop-filter: blur(20px);
-	}
-
-	.lightbox-panel {
-		width: min(99.5vw, 96rem);
-		max-height: calc(100dvh - 0.5rem);
-		border-radius: 1.25rem;
-		padding: clamp(0.5rem, 1vw, 1rem);
-		background: color-mix(in oklab, var(--color-surface-950) 96%, black 4%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
-		display: grid;
-		gap: 0.75rem;
-		grid-template-rows: auto minmax(0, 1fr) auto;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-	}
-
-	.lightbox-toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding-bottom: 0.5rem;
-	}
-
-	.mode-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 0.5rem;
-		font-size: 0.75rem;
-		color: white;
-		transition: all 150ms ease;
-	}
-
-	.mode-btn:hover {
-		background: color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-	}
-
-	.lightbox-stage {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 0;
-		height: 100%;
-	}
-
-	.lightbox-image {
-		width: 100%;
-		height: 100%;
-		max-height: none;
-		max-width: none;
-		border-radius: 0.75rem;
-		object-fit: contain;
-		box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.4);
-	}
-
-	.nav-btn {
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 2.75rem;
-		height: 2.75rem;
-		border-radius: 0.75rem;
-		background: color-mix(in oklab, var(--color-surface-800) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		color: white;
-		opacity: 0;
-		transition: all 200ms ease;
-	}
-
-	.nav-left {
-		left: 0.5rem;
-	}
-
-	.nav-right {
-		right: 0.5rem;
-	}
-
-	.lightbox-stage:hover .nav-btn {
-		opacity: 1;
-	}
-
-	.nav-btn:hover {
-		opacity: 1 !important;
-		background: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
-	}
-
-	.lightbox-grid {
-		overflow: auto;
-		display: grid;
-		gap: 0.75rem;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		padding: 0.25rem;
-	}
-
-	@media (min-width: 640px) {
-		.lightbox-grid {
-			gap: 1rem;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-	}
-
-	@media (min-width: 768px) {
-		.lightbox-grid {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.lightbox-grid {
-			grid-template-columns: repeat(5, minmax(0, 1fr));
-		}
-	}
-
-	.lightbox-grid-item {
-		aspect-ratio: 1;
-		overflow: hidden;
-		border-radius: 0.5rem;
-		border: 2px solid transparent;
-		transition: all 150ms ease;
-		cursor: pointer;
-	}
-
-	.lightbox-grid-item img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.lightbox-grid-item.active {
-		border-color: var(--color-secondary-400);
-		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-	}
-
-	.lightbox-strip {
-		overflow-x: auto;
-		display: flex;
-		gap: 0.375rem;
-		padding: 0.25rem;
-	}
-
-	.lightbox-thumb {
-		flex: 0 0 3.5rem;
-		height: 3.5rem;
-		border-radius: 0.5rem;
-		overflow: hidden;
-		border: 2px solid transparent;
-		transition: all 150ms ease;
-		cursor: pointer;
-		opacity: 0.6;
-	}
-
-	.lightbox-thumb img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.lightbox-thumb:hover {
-		opacity: 1;
-	}
-
-	.lightbox-thumb.active {
-		border-color: var(--color-secondary-400);
-		opacity: 1;
-		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-	}
-
-	@keyframes fade-in {
-		from {
-			opacity: 0;
-			transform: translateY(8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-</style>

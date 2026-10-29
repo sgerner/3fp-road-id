@@ -11,37 +11,32 @@
 </script>
 
 {#if selectedShifts.length}
-	<div class="border-secondary-500/30 bg-secondary-500/5 rounded-2xl border p-4 text-sm">
-		<ul class="space-y-2">
-			{#each selectedShifts as item (item.id)}
-				<li
-					transition:slide
-					class="bg-surface-100-900/60 flex items-center justify-between gap-3 rounded-xl px-3 py-2"
-				>
-					<div>
-						<p class="font-semibold">
-							{opportunity.title || 'Untitled role'}
-						</p>
-						<span class="text-surface-900-100">{item.label}</span>
-					</div>
-					<button
-						type="button"
-						class="chip preset-filled-danger-500 flex items-center gap-1"
-						onclick={() => onRemoveShift(item.id)}
-					>
-						<IconTrash class="h-4 w-4" />
-						<span>Remove</span>
-					</button>
-				</li>
-			{/each}
-		</ul>
-	</div>
-{:else if requiresSelection}
-	<p
-		class="border-warning-500/30 bg-warning-500/10 text-warning-900-100 rounded-2xl border px-3 py-2 text-xs"
+	<ul
+		class="border-surface-950 divide-surface-800 bg-surface-950 text-surface-50 m-0 list-none divide-y border-[3px] p-0 text-sm"
 	>
+		{#each selectedShifts as item (item.id)}
+			<li transition:slide class="flex items-center justify-between gap-3 px-4 py-3">
+				<div class="flex flex-col gap-0.5">
+					<p class="text-primary-500 m-0 text-xs font-black tracking-[0.16em] uppercase">
+						{opportunity.title || 'Untitled role'}
+					</p>
+					<span class="text-surface-50 font-bold">{item.label}</span>
+				</div>
+				<button
+					type="button"
+					class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black tracking-wide uppercase transition"
+					onclick={() => onRemoveShift(item.id)}
+				>
+					<IconTrash class="h-3.5 w-3.5" />
+					<span>Remove</span>
+				</button>
+			</li>
+		{/each}
+	</ul>
+{:else if requiresSelection}
+	<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-3 text-xs font-black uppercase">
 		{requireSelectionMessage}
 	</p>
 {:else}
-	<p class="text-surface-600-400 text-xs">{optionalSelectionMessage}</p>
+	<p class="m-0 text-xs opacity-80">{optionalSelectionMessage}</p>
 {/if}

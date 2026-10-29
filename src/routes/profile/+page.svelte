@@ -245,37 +245,52 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="profile-page mx-auto flex w-full max-w-7xl flex-col gap-8">
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
+<div
+	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
+>
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		aria-labelledby="profile-heading"
+	>
+		<div
+			class="flex flex-col justify-between gap-8 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<p class="m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase">
+				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+				<IconUserCircle2 class="h-4 w-4" />
+				<span>Profile</span>
+			</p>
+
+			<div class="flex flex-col gap-5">
+				<h1
+					id="profile-heading"
+					class="text-surface-950! m-0 text-[clamp(2.7rem,6.4vw,6rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					Shape your experience. <span class="text-secondary-500">Get better suggestions.</span>
+				</h1>
+				<p class="m-0 max-w-2xl text-lg leading-snug font-medium sm:text-2xl">
+					Better match with local groups, upcoming rides, and volunteer opportunities.
+				</p>
+			</div>
+		</div>
 
 		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(290px,0.8fr)] lg:p-10"
+			class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col justify-between gap-8 border-t-[3px] px-6 py-10 sm:px-10 lg:border-t-0 lg:border-l-[3px] lg:px-12 lg:py-14"
 		>
-			<div class="flex flex-col gap-6">
-				<div class="space-y-3">
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
-						<IconUserCircle2 class="h-3.5 w-3.5" />
-						Profile
-					</span>
-					<h1 class="profile-headline max-w-3xl text-4xl font-extrabold tracking-tight lg:text-5xl">
-						Shape your experience.<br />
-						<span class="profile-headline-accent">Get better suggestions.</span>
-					</h1>
-					<p class="max-w-2xl text-base leading-relaxed opacity-80">
-						Better match with local groups, upcoming rides, and volunteer opportunities.
-					</p>
-				</div>
-			</div>
-
-			<div
-				class="search-panel card preset-filled-surface-50-950 flex flex-col gap-4 p-6 shadow-2xl"
-			>
-				{#if currentUser}
-					<div class="flex items-center gap-3">
-						<div class="avatar-preview shrink-0">
+			{#if currentUser}
+				<div class="flex flex-col gap-6">
+					<div class="flex items-center justify-between gap-3">
+						<span
+							class="bg-primary-500 text-surface-950 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+						>
+							{completionScore}% Complete
+						</span>
+					</div>
+					<div class="flex items-center gap-4">
+						<div
+							class="bg-surface-950 text-primary-500 border-primary-500 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] text-lg font-black"
+						>
 							{#if avatarUrl}
 								<img src={avatarUrl} alt="Profile" class="h-full w-full object-cover" />
 							{:else}
@@ -283,51 +298,104 @@
 							{/if}
 						</div>
 						<div class="min-w-0">
-							<p class="text-sm font-semibold">
+							<p class="m-0 truncate text-xl font-black uppercase">
 								{fullName || currentUser?.email || 'Rider profile'}
 							</p>
-							<p class="text-xs opacity-70">{profileSummary}</p>
+							<p class="m-0 mt-1 text-sm leading-snug opacity-90">{profileSummary}</p>
 						</div>
 					</div>
-					<button
-						type="button"
-						class="btn preset-filled-primary-500 mt-auto gap-2"
-						onclick={saveProfile}
-						disabled={saving}
+				</div>
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+					onclick={saveProfile}
+					disabled={saving}
+				>
+					<IconSave class="h-5 w-5" />
+					{saving ? 'Saving…' : 'Save profile'}
+				</button>
+			{:else}
+				<div class="flex flex-col gap-4">
+					<span
+						class="bg-primary-500 text-surface-950 self-start px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
 					>
-						<IconSave class="h-4 w-4" />
-						{saving ? 'Saving…' : 'Save profile'}
-					</button>
-				{:else}
-					<div class="space-y-3">
-						<p class="text-sm font-semibold">Log in to create your profile</p>
-						<p class="text-sm opacity-75">
-							Sign in from the top-right menu, then return here to personalize your recommendations.
-						</p>
-						<a class="btn preset-filled-primary-500" href="/">Go to home</a>
-					</div>
-				{/if}
-			</div>
+						Members
+					</span>
+					<h2 class="text-surface-50! m-0 text-3xl leading-none font-black uppercase italic">
+						Log in to create your profile
+					</h2>
+					<p class="m-0 text-base leading-relaxed opacity-90">
+						Sign in from the top-right menu, then return here to personalize your recommendations.
+					</p>
+				</div>
+				<a
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center justify-center gap-3 self-start px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+					href="/"
+				>
+					Go to home
+				</a>
+			{/if}
 		</div>
 	</section>
 
+	<!-- Ruler band: 0 → 3 ft -->
+	<div
+		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
+		aria-hidden="true"
+	>
+		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+			<div class="border-surface-950 relative h-12 border-l-[3px] first:border-l-0">
+				<span
+					class="absolute inset-x-0 top-0 h-4 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+				></span>
+				<span class="absolute bottom-1.5 left-3 text-xs font-black uppercase">{mark}</span>
+				{#if i === 2}
+					<span class="absolute right-3 bottom-1.5 text-xs font-black uppercase">3 ft</span>
+				{/if}
+			</div>
+		{/each}
+	</div>
+
 	{#if currentUser}
-		<section class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-			<div class="card preset-tonal-surface form-card space-y-5 p-6">
-				<div>
-					<p class="label opacity-60">Essentials</p>
-					<h2 class="text-2xl font-bold">Identity and location</h2>
+		<!-- ESSENTIALS + INTERESTS/FOCUS -->
+		<section
+			class="bg-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
+			aria-labelledby="essentials-heading"
+		>
+			<div
+				class="lg:border-surface-800 flex flex-col gap-8 px-6 py-12 sm:px-10 lg:border-r lg:px-14 lg:py-16"
+			>
+				<div class="flex items-start gap-4">
+					<span
+						class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
+						aria-hidden="true"
+					>
+						01
+					</span>
+					<div class="flex flex-col gap-1">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							Essentials
+						</p>
+						<h2
+							id="essentials-heading"
+							class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+						>
+							Identity and location
+						</h2>
+					</div>
 				</div>
 
-				<div class="flex flex-wrap items-center gap-4">
-					<div class="avatar-editor shrink-0">
+				<div class="border-surface-800 flex flex-wrap items-center gap-5 border-t pt-6">
+					<div
+						class="bg-secondary-500 text-surface-50 border-primary-500 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] text-xl font-black"
+					>
 						{#if avatarUrl}
 							<img src={avatarUrl} alt="Profile" class="h-full w-full object-cover" />
 						{:else}
 							<span>{avatarFallback}</span>
 						{/if}
 					</div>
-					<div class="flex flex-wrap gap-2">
+					<div class="flex flex-wrap gap-3">
 						<input
 							bind:this={fileInputEl}
 							type="file"
@@ -337,7 +405,7 @@
 						/>
 						<button
 							type="button"
-							class="btn preset-outlined-primary-500 gap-2"
+							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center gap-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
 							onclick={() => fileInputEl?.click()}
 							disabled={uploadingAvatar}
 						>
@@ -347,7 +415,7 @@
 						{#if avatarUrl}
 							<button
 								type="button"
-								class="btn preset-tonal-warning"
+								class="border-surface-50 text-surface-50 hover:bg-tertiary-500 hover:border-tertiary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
 								onclick={() => {
 									avatarUrl = '';
 									avatarError = '';
@@ -359,68 +427,98 @@
 					</div>
 				</div>
 				{#if avatarError}
-					<p class="text-error-600-400 text-sm">{avatarError}</p>
+					<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+						{avatarError}
+					</p>
 				{/if}
 
-				<label class="flex flex-col gap-2">
-					<span class="label">Display name</span>
-					<input
-						class="input bg-surface-50-950/10"
-						bind:value={fullName}
-						maxlength="120"
-						placeholder="How should we show your name?"
-					/>
-				</label>
+				<div class="flex flex-col gap-6">
+					<label class="flex flex-col gap-2">
+						<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Display name
+						</span>
+						<input
+							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							bind:value={fullName}
+							maxlength="120"
+							placeholder="How should we show your name?"
+						/>
+					</label>
 
-				<label class="flex flex-col gap-2">
-					<span class="label flex items-center gap-1.5">
-						<IconMapPin class="h-3.5 w-3.5" />
-						General location
-					</span>
-					<input
-						class="input bg-surface-50-950/10"
-						bind:value={location}
-						maxlength="120"
-						placeholder="City, State (example: Phoenix, AZ)"
-					/>
-					<p class="text-xs opacity-60">
-						Use a city or neighborhood—we’ll resolve it to a map point for nearby suggestions. No
-						street address needed.
-					</p>
-					{#if locationConfirmation}
-						<p class="text-success-600-400 text-xs">Saved area: {locationConfirmation}</p>
-					{/if}
-				</label>
+					<label class="flex flex-col gap-2">
+						<span
+							class="text-primary-500 flex items-center gap-1.5 text-xs font-bold tracking-[0.22em] uppercase"
+						>
+							<IconMapPin class="h-3.5 w-3.5" />
+							General location
+						</span>
+						<input
+							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							bind:value={location}
+							maxlength="120"
+							placeholder="City, State (example: Phoenix, AZ)"
+						/>
+						<p class="text-surface-300 m-0 text-xs leading-relaxed">
+							Use a city or neighborhood—we’ll resolve it to a map point for nearby suggestions. No
+							street address needed.
+						</p>
+						{#if locationConfirmation}
+							<p class="text-primary-500 m-0 text-xs font-bold uppercase">
+								Saved area: {locationConfirmation}
+							</p>
+						{/if}
+					</label>
 
-				<label class="flex flex-col gap-2">
-					<span class="label">Short bio (optional)</span>
-					<textarea
-						class="textarea bg-surface-50-950/10 min-h-28"
-						bind:value={bio}
-						maxlength="600"
-						placeholder="A sentence or two about your riding style or what you care about."
-					></textarea>
-				</label>
+					<label class="flex flex-col gap-2">
+						<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Short bio (optional)
+						</span>
+						<textarea
+							class="textarea bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500 min-h-32"
+							bind:value={bio}
+							maxlength="600"
+							placeholder="A sentence or two about your riding style or what you care about."
+						></textarea>
+					</label>
+				</div>
 			</div>
 
-			<div class="space-y-6">
-				<div class="card preset-tonal-surface form-card space-y-4 p-6">
-					<div>
-						<p class="label opacity-60">Interests</p>
-						<h2 class="text-xl font-bold">What are you into?</h2>
+			<div class="divide-surface-800 flex flex-col divide-y-2">
+				<!-- Interests -->
+				<div class="flex flex-col gap-6 px-6 py-12 sm:px-10 lg:px-12 lg:py-14">
+					<div class="flex items-start gap-4">
+						<span
+							class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
+							aria-hidden="true"
+						>
+							02
+						</span>
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Interests
+							</p>
+							<h2
+								class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
+							>
+								What are you into?
+							</h2>
+						</div>
 					</div>
-					<p class="text-sm opacity-75">
+					<p class="text-surface-300 m-0 text-sm leading-relaxed">
 						Pick the things that best describe what you like to do. Keep it lightweight.
 					</p>
 
 					<div class="flex flex-wrap gap-2">
-						{#each interestSuggestions as suggestion}
+						{#each interestSuggestions as suggestion (suggestion)}
+							{@const active = interests.some(
+								(item) => item.toLowerCase() === suggestion.toLowerCase()
+							)}
 							<button
 								type="button"
-								class={`chip ${
-									interests.some((item) => item.toLowerCase() === suggestion.toLowerCase())
-										? 'preset-filled-primary-500'
-										: 'preset-tonal-surface'
+								class={`border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition ${
+									active
+										? 'bg-primary-500 text-surface-950 border-primary-500'
+										: 'bg-surface-900 text-surface-50 border-surface-700 hover:border-primary-500'
 								}`}
 								onclick={() => toggleInterest(suggestion)}
 							>
@@ -429,25 +527,29 @@
 						{/each}
 					</div>
 
-					<div class="flex flex-wrap gap-2">
-						{#each interests as interest}
-							<span class="chip preset-tonal-secondary gap-1.5">
-								{interest}
-								<button
-									type="button"
-									class="inline-flex rounded-full p-0.5 hover:bg-black/15"
-									onclick={() => removeInterest(interest)}
-									aria-label={`Remove ${interest}`}
+					{#if interests.length}
+						<div class="flex flex-wrap gap-2">
+							{#each interests as interest (interest)}
+								<span
+									class="bg-secondary-500 text-surface-50 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black uppercase"
 								>
-									<IconX class="h-3 w-3" />
-								</button>
-							</span>
-						{/each}
-					</div>
+									{interest}
+									<button
+										type="button"
+										class="hover:text-primary-500 inline-flex p-0.5"
+										onclick={() => removeInterest(interest)}
+										aria-label={`Remove ${interest}`}
+									>
+										<IconX class="h-3.5 w-3.5" />
+									</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
 
 					<div class="flex gap-2">
 						<input
-							class="input bg-surface-50-950/10"
+							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
 							bind:value={customInterest}
 							placeholder="Add interest"
 							maxlength="40"
@@ -460,7 +562,7 @@
 						/>
 						<button
 							type="button"
-							class="btn preset-outlined-primary-500 gap-1.5"
+							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex shrink-0 items-center gap-1.5 px-5 py-2.5 text-sm font-black uppercase transition"
 							onclick={addCustomInterest}
 						>
 							<IconPlus class="h-4 w-4" />
@@ -469,26 +571,49 @@
 					</div>
 				</div>
 
-				<div class="card preset-tonal-surface form-card space-y-4 p-6">
-					<div>
-						<p class="label opacity-60">Recommendation focus</p>
-						<h2 class="text-xl font-bold">What should we prioritize?</h2>
+				<!-- Recommendation focus -->
+				<div class="flex flex-col gap-6 px-6 py-12 sm:px-10 lg:px-12 lg:py-14">
+					<div class="flex items-start gap-4">
+						<span
+							class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
+							aria-hidden="true"
+						>
+							03
+						</span>
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Recommendation focus
+							</p>
+							<h2
+								class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
+							>
+								What should we prioritize?
+							</h2>
+						</div>
 					</div>
-					<div class="grid gap-2">
-						{#each recommendationOptions as option}
+					<div class="border-surface-50 flex flex-col border-t-2">
+						{#each recommendationOptions as option (option.value)}
 							{@const FocusIcon = focusIcon(option.value)}
+							{@const selected = recommendationFocus.includes(option.value)}
 							<button
 								type="button"
-								class={`focus-option text-left ${recommendationFocus.includes(option.value) ? 'is-selected' : ''}`}
+								class={`border-surface-800 flex w-full items-start gap-4 border-b px-4 py-4 text-left transition ${
+									selected
+										? 'bg-primary-500 text-surface-950'
+										: 'text-surface-50 hover:bg-surface-900'
+								}`}
 								onclick={() => toggleRecommendationFocus(option.value)}
 							>
-								<div class="flex items-start gap-3">
-									<FocusIcon class="h-5 w-5 shrink-0" />
-									<div>
-										<div class="font-semibold">{option.label}</div>
-										<div class="text-xs opacity-70">{option.description}</div>
+								<FocusIcon class="mt-0.5 h-6 w-6 shrink-0" />
+								<div class="min-w-0 flex-1">
+									<div class="text-base font-black uppercase">{option.label}</div>
+									<div class={`text-xs ${selected ? 'opacity-90' : 'text-surface-300'}`}>
+										{option.description}
 									</div>
 								</div>
+								<span class="text-xs font-black tracking-widest uppercase">
+									{selected ? 'Active' : 'Select'}
+								</span>
 							</button>
 						{/each}
 					</div>
@@ -496,209 +621,171 @@
 			</div>
 		</section>
 
-		<section class="card preset-tonal-surface form-card space-y-5 p-6">
-			<div class="max-w-3xl">
-				<p class="label opacity-60">Optional notifications</p>
-				<h2 class="text-2xl font-bold">SMS updates</h2>
-				<p class="mt-2 text-sm leading-relaxed opacity-75">
+		<!-- SMS UPDATES -->
+		<section
+			class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col gap-8 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+			aria-labelledby="sms-heading"
+		>
+			<div class="flex max-w-3xl flex-col gap-3">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+					04 · Optional notifications
+				</p>
+				<h2
+					id="sms-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+				>
+					SMS updates
+				</h2>
+				<p class="m-0 text-base leading-relaxed opacity-90">
 					Choose the kinds of 3 Feet Please messages you want to receive. Frequency varies with your
 					upcoming RSVPs, shifts, and conversations; messages are not marketing.
 				</p>
 			</div>
 
 			<label class="flex max-w-md flex-col gap-2">
-				<span class="label">Mobile number</span>
+				<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+					Mobile number
+				</span>
 				<input
-					class="input bg-surface-50-950/10"
+					class="input bg-surface-950 border-surface-50 text-surface-50"
 					bind:value={smsPhone}
 					type="tel"
 					autocomplete="tel"
 					maxlength="20"
 					placeholder="(480) 555-0123"
 				/>
-				<span class="text-xs opacity-60">US numbers are saved in E.164 format for delivery.</span>
+				<span class="text-xs opacity-80">US numbers are saved in E.164 format for delivery.</span>
 			</label>
 
-			<div class="grid gap-3 md:grid-cols-2">
-				<label class="sms-option">
+			<div class="grid gap-4 md:grid-cols-2">
+				<label class="sms-option bg-surface-950 border-surface-50 text-surface-50">
 					<input
 						type="checkbox"
 						role="switch"
 						aria-checked={smsRideReminders}
 						bind:checked={smsRideReminders}
 					/>
-					<span><strong>Ride reminders</strong><small>Upcoming rides you RSVP for.</small></span>
+					<span>
+						<strong class="font-black uppercase">Ride reminders</strong>
+						<small class="text-surface-300">Upcoming rides you RSVP for.</small>
+					</span>
 				</label>
-				<label class="sms-option">
+				<label class="sms-option bg-surface-950 border-surface-50 text-surface-50">
 					<input
 						type="checkbox"
 						role="switch"
 						aria-checked={smsVolunteerReminders}
 						bind:checked={smsVolunteerReminders}
 					/>
-					<span
-						><strong>Volunteer shift reminders</strong><small
-							>Upcoming shifts you are assigned to.</small
-						></span
-					>
+					<span>
+						<strong class="font-black uppercase">Volunteer shift reminders</strong>
+						<small class="text-surface-300">Upcoming shifts you are assigned to.</small>
+					</span>
 				</label>
-				<label class="sms-option">
+				<label class="sms-option bg-surface-950 border-surface-50 text-surface-50">
 					<input
 						type="checkbox"
 						role="switch"
 						aria-checked={smsAdminMessages}
 						bind:checked={smsAdminMessages}
 					/>
-					<span
-						><strong>Ride and volunteer admin messages</strong><small
-							>Replies and updates from event admins.</small
-						></span
-					>
+					<span>
+						<strong class="font-black uppercase">Ride and volunteer admin messages</strong>
+						<small class="text-surface-300">Replies and updates from event admins.</small>
+					</span>
 				</label>
-				<label class="sms-option">
+				<label class="sms-option bg-surface-950 border-surface-50 text-surface-50">
 					<input
 						type="checkbox"
 						role="switch"
 						aria-checked={smsBikeValetMessages}
 						bind:checked={smsBikeValetMessages}
 					/>
-					<span
-						><strong>Bike valet coordination</strong><small
+					<span>
+						<strong class="font-black uppercase">Bike valet coordination</strong>
+						<small class="text-surface-300"
 							>Claim, pickup, and service details when available.</small
-						></span
-					>
+						>
+					</span>
 				</label>
 			</div>
-			<p class="text-xs opacity-60">Category switches are saved with your profile below.</p>
+			<p class="m-0 text-xs opacity-85">Category switches are saved with your profile below.</p>
 
 			<label
-				class="border-primary-500/30 bg-primary-500/8 flex items-start gap-3 rounded-xl border p-4"
+				class="bg-primary-500 text-surface-950 border-surface-950 flex items-start gap-4 border-[3px] p-5"
 			>
-				<input class="mt-1" type="checkbox" bind:checked={smsConsent} />
-				<span class="text-sm leading-relaxed">
+				<input class="mt-1 h-5 w-5 shrink-0" type="checkbox" bind:checked={smsConsent} />
+				<span class="text-sm leading-relaxed font-medium">
 					{pageData.smsConsentText ??
 						'By checking this box, I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.'}
 				</span>
 			</label>
-			<p class="text-xs opacity-60">
+			<p class="m-0 text-xs leading-relaxed opacity-85">
 				SMS is optional. We send plain text only, do not support multimedia, and limit message
 				volume to control cost and abuse. You can change these choices here or reply STOP at any
-				time. See the <a class="underline" href="/terms">Terms</a> and
-				<a class="underline" href="/privacy">Privacy Policy</a>.
+				time. See the <a class="text-primary-500 font-bold underline" href="/terms">Terms</a> and
+				<a class="text-primary-500 font-bold underline" href="/privacy">Privacy Policy</a>.
 			</p>
 		</section>
 
-		<section class="card preset-tonal-surface rounded-2xl p-4">
-			<div class="flex flex-wrap items-center gap-3">
+		<!-- SAVE BAR -->
+		<section
+			class="bg-tertiary-500 text-surface-950 border-surface-950 flex flex-wrap items-center justify-between gap-4 border-t-[3px] px-6 py-8 sm:px-10 lg:px-14"
+		>
+			<div class="flex flex-wrap items-center gap-4">
 				<button
 					type="button"
-					class="btn preset-filled-primary-500 gap-2"
+					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-3 px-8 py-4 text-base font-black tracking-wide uppercase transition"
 					onclick={saveProfile}
 					disabled={saving}
 				>
-					<IconSave class="h-4 w-4" />
+					<IconSave class="h-5 w-5" />
 					{saving ? 'Saving…' : 'Save profile'}
 				</button>
 				{#if saveError}
-					<p class="text-error-600-400 text-sm">{saveError}</p>
+					<p class="bg-surface-950 text-tertiary-400 m-0 px-4 py-2 text-sm font-bold">
+						{saveError}
+					</p>
 				{/if}
 				{#if saveSuccess}
-					<p class="text-success-600-400 text-sm">{saveSuccess}</p>
+					<p class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-sm font-black uppercase">
+						{saveSuccess}
+					</p>
 				{/if}
 			</div>
+			<span class="text-xs font-black tracking-[0.22em] uppercase">Give 3 Feet · Ride Together</span
+			>
+		</section>
+	{:else}
+		<section
+			class="bg-surface-950 flex flex-1 flex-col justify-between gap-8 px-6 py-12 sm:px-10 lg:px-14"
+		>
+			<div class="flex max-w-2xl flex-col gap-3">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+					Why create a profile
+				</p>
+				<h2
+					class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+				>
+					Local groups, rides, and shifts tailored to your area.
+				</h2>
+			</div>
+			<div
+				class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+				aria-hidden="true"
+			></div>
 		</section>
 	{/if}
 </div>
 
 <style>
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.profile-headline {
-		color: var(--color-primary-50);
-	}
-
-	.profile-headline-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-primary-300),
-			var(--color-secondary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	.search-panel {
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
-	.form-card {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	.avatar-preview {
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 9999px;
-		overflow: hidden;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 700;
-		font-size: 0.95rem;
-		background: color-mix(in oklab, var(--color-primary-500) 18%, var(--color-surface-900) 82%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-	}
-
-	.avatar-editor {
-		width: 4.75rem;
-		height: 4.75rem;
-		border-radius: 1rem;
-		overflow: hidden;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 700;
-		font-size: 1.05rem;
-		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-900) 86%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.focus-option {
-		width: 100%;
-		padding: 0.8rem 0.9rem;
-		border-radius: 0.9rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-surface-200) 10%, transparent);
-		transition:
-			border-color 150ms ease,
-			background 150ms ease,
-			transform 150ms ease;
-	}
-
-	.focus-option:hover {
-		transform: translateY(-1px);
-		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-	}
-
-	.focus-option.is-selected {
-		background: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 45%, transparent);
-	}
-
 	.sms-option {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-		border-radius: 0.9rem;
-		padding: 0.8rem 0.9rem;
+		border-width: 2px;
+		padding: 1rem 1.15rem;
 		cursor: pointer;
 	}
 
@@ -709,8 +796,7 @@
 	}
 
 	.sms-option small {
-		font-size: 0.75rem;
-		opacity: 0.68;
+		font-size: 0.78rem;
 	}
 
 	.sms-option input[role='switch'] {
@@ -718,16 +804,15 @@
 		-webkit-appearance: none;
 		position: relative;
 		flex: 0 0 auto;
-		width: 2.75rem;
-		height: 1.55rem;
+		width: 3rem;
+		height: 1.65rem;
 		margin: 0;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 55%, transparent);
-		border-radius: 9999px;
-		background: color-mix(in oklab, var(--color-surface-500) 28%, transparent);
-		background-image: radial-gradient(circle, white 0.5rem, transparent 0.53rem);
+		border: 2px solid var(--color-surface-50);
+		background: var(--color-surface-800);
+		background-image: linear-gradient(var(--color-surface-50), var(--color-surface-50));
 		background-repeat: no-repeat;
 		background-position: 0.2rem center;
-		background-size: 1.05rem 1.05rem;
+		background-size: 1rem 1rem;
 		cursor: pointer;
 		transition:
 			background-color 150ms ease,
@@ -738,11 +823,12 @@
 	.sms-option input[role='switch']:checked {
 		border-color: var(--color-primary-500);
 		background-color: var(--color-primary-500);
-		background-position: 1.5rem center;
+		background-image: linear-gradient(var(--color-surface-950), var(--color-surface-950));
+		background-position: 1.55rem center;
 	}
 
 	.sms-option input[role='switch']:focus-visible {
-		outline: 3px solid color-mix(in oklab, var(--color-primary-300) 75%, transparent);
+		outline: 3px solid var(--color-primary-500);
 		outline-offset: 3px;
 	}
 </style>

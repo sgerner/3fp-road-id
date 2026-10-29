@@ -107,21 +107,8 @@ with an icon, an up-right arrow, and an uppercase italic title.
 - Decorative motifs (rulers, ticker, giant "3FT") are `aria-hidden`.
 - Every section has an `aria-labelledby` heading; link targets stay large (full rows/tiles).
 
-## Site-wide enforcement
+## Shell & Site-wide Rollout
 
-Pages other than the homepage inherit the look from `src/app.css` and the shell in
-`src/routes/+layout.svelte`, so they do not need per-page rewrites:
-
-- Everything is scoped to `.app-shell`; group microsites (`[siteSlug]`) keep their own branding.
-- Body ground is flat asphalt; the old gradient background is hidden.
-- Radius tokens are zero, and `border-radius: 0 !important` is applied to everything except
-  `.rounded-full` (avatars) and radio buttons.
-- Decorative `*orb*` and `*glow*` elements are hidden. `.hero-section` becomes a flat violet field.
-- Lemon, magenta, warning, and success fills use black text; `h1`/`h2` are uppercase italic black.
-- `.btn`/`.chip`/`.badge` with `preset-tonal-primary|secondary|tertiary` render as solid fields.
-- Nested `.card .card` is flattened to a ruled section.
-- Header is a solid lemon bar; the side rail is asphalt with a lemon active item.
-
-New pages should follow the homepage recipes above and avoid adding radii, blur, or glow, since
-those are overridden anyway. Page-specific polish is still welcome where a page has
-dim tinted panels that should become full color fields.
+- **App shell (`src/routes/+layout.svelte`)**: The top header bar (`backdrop-blur-xl bg-primary-500/20`) and left navigation rail (`bg-surface-50-950/42` with rounded nav pills) remain translucent over the ambient radial-gradient body background.
+- **Page canvas (`src/app.css` scoped to `.app-shell main`)**: Every route inside `<main>` uses the full-bleed retro 90s "Lane Lines" poster aesthetic—flat stacked fields in `primary-500`, `secondary-500`, `tertiary-500`, and `surface-950`, square edges (`border-radius: 0`), `3FT` ruler motifs, dashed lane dividers, and numbered ruled rows.
+- **Microsites (`[siteSlug]`)**: Scoped outside `.app-shell` so group microsites keep their custom themes.

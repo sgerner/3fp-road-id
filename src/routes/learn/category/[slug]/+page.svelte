@@ -273,56 +273,61 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
-	<a class="hover:opacity-100" href="/learn">Learn</a>
-	<span aria-hidden="true">/</span>
-	<span class="text-surface-600-400">{seoTitle}</span>
-</nav>
-
 <!-- ── Article card snippet ───────────────────────────────────────────── -->
-{#snippet articleCard(article)}
+{#snippet articleCard(article, index = 0)}
 	<div
-		class="cat-card group border-surface-500/20 bg-surface-900/60 relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border shadow-lg"
+		class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-primary-500 hover:text-surface-950 relative flex h-full flex-col justify-between border-2 transition"
 	>
-		<div class="cat-card-accent" aria-hidden="true"></div>
-
 		{#if isReordering}
-			<div class="dnd-card-handle">
+			<div
+				class="bg-tertiary-500 text-surface-950 border-surface-950 flex cursor-grab items-center gap-2 border-b-2 px-4 py-2 text-xs font-black tracking-wider uppercase active:cursor-grabbing"
+			>
 				<IconGripVertical class="h-4 w-4" />
-				<span class="text-xs font-medium opacity-55">Drag to reorder</span>
+				<span>Drag to reorder</span>
 			</div>
 		{/if}
 
 		<a
 			href={`/learn/${article.slug}`}
-			class="hover:bg-surface-800/40 flex flex-1 flex-col transition-colors"
+			class="flex flex-1 flex-col justify-between hover:no-underline"
 		>
 			{#if article.cover_image_url}
-				<div class="aspect-[16/8] overflow-hidden">
+				<div class="border-surface-800 aspect-[16/9] overflow-hidden border-b-2">
 					<img
-						class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+						class="h-full w-full object-cover"
 						src={article.cover_image_url}
 						alt={article.title}
 					/>
 				</div>
 			{/if}
-			<div class="flex flex-1 flex-col gap-4 p-5">
-				<div class="space-y-2">
-					<h3 class="text-lg leading-snug font-bold">{article.title}</h3>
-					<p class="line-clamp-3 text-sm leading-relaxed opacity-70">
+			<div class="flex flex-1 flex-col justify-between gap-6 p-6">
+				<div class="flex flex-col gap-3">
+					<span
+						class="text-tertiary-500 group-hover:text-secondary-500 text-3xl leading-none font-black italic tabular-nums"
+					>
+						{String(index + 1).padStart(2, '0')}
+					</span>
+					<h3
+						class="text-surface-50! group-hover:text-surface-950! m-0 text-xl leading-tight font-black uppercase sm:text-2xl"
+					>
+						{article.title}
+					</h3>
+					<p
+						class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
+					>
 						{article.summary || 'Open the article to read the full guide.'}
 					</p>
 				</div>
-				<div class="mt-auto flex items-center justify-between gap-3 text-sm">
-					<div class="flex items-center gap-1.5 opacity-55">
-						<IconClock3 class="h-3.5 w-3.5" />
+				<div
+					class="border-surface-800 group-hover:border-surface-950/30 flex items-center justify-between gap-3 border-t pt-4 text-xs font-bold tracking-wider uppercase"
+				>
+					<div class="flex items-center gap-1.5">
+						<IconClock3 class="h-4 w-4" />
 						{formatDate(article.updated_at)}
 					</div>
-					<span
-						class="inline-flex items-center gap-1 font-semibold opacity-70 transition group-hover:translate-x-0.5 group-hover:opacity-100"
-					>
+					<span class="inline-flex items-center gap-1.5 font-black">
 						Read
-						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-0.5" />
+						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 					</span>
 				</div>
 			</div>
@@ -330,15 +335,17 @@
 
 		<!-- Reorder controls (drag hint + Move-to dropdown) -->
 		{#if isReordering}
-			<div class="reorder-card-footer border-surface-500/20 border-t">
-				<div class="dnd-card-current-section">
-					<IconGripVertical class="h-3.5 w-3.5 opacity-50" />
-					<span class="opacity-55">Drag between sections to move</span>
+			<div class="border-surface-800 bg-surface-900 text-surface-50 border-t-2 p-3">
+				<div
+					class="text-primary-500 mb-2 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
+				>
+					<IconGripVertical class="h-3.5 w-3.5" />
+					<span>Drag between sections to move</span>
 				</div>
-				<div class="move-to-row">
-					<span class="move-to-label">Move to</span>
+				<div class="flex items-center gap-2">
+					<span class="text-surface-300 text-xs font-black tracking-widest uppercase">Move to</span>
 					<select
-						class="select select-sm flex-1"
+						class="border-surface-50 bg-surface-950 text-surface-50 flex-1 border-2 px-2 py-1 text-xs font-bold uppercase"
 						onchange={(e) => assignSubcategory(article.id, e.target.value)}
 					>
 						<option value="" selected={!article.subcategory_slug}>General</option>
@@ -354,196 +361,216 @@
 	</div>
 {/snippet}
 
-<div class="cat-page mx-auto flex w-full max-w-7xl flex-col gap-8">
+<div class="flex flex-col">
 	<!-- ═══════════════════════════════════════════════
 	     HERO
 	═══════════════════════════════════════════════ -->
-	<section class="cat-hero relative overflow-hidden rounded-3xl">
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]"
+	>
 		<div
-			class="relative z-10 grid gap-6 p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:p-10"
+			class="flex flex-col justify-between gap-8 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
 		>
-			<div class="flex flex-col gap-6">
-				<div class="flex flex-wrap items-center gap-2">
-					<a
-						href="/learn"
-						class="chip preset-tonal-surface hover:preset-filled-surface-500 gap-1.5 font-medium"
-					>
-						<IconBookOpen class="h-3.5 w-3.5" />
-						Learn Library
-					</a>
-					<span class="opacity-40">/</span>
-					<span class="chip preset-filled-primary-500 gap-1.5 font-semibold">
-						<IconFolderOpen class="h-3.5 w-3.5" />
-						{data.category.name}
-					</span>
-				</div>
-
-				<div class="space-y-3">
-					<h1 class="cat-headline text-4xl font-black tracking-tight lg:text-5xl xl:text-6xl">
-						{data.category.name}
-					</h1>
-					{#if data.category.description}
-						<p class="max-w-xl text-base leading-relaxed opacity-75 lg:text-lg">
-							{data.category.description}
-						</p>
-					{:else}
-						<p class="max-w-xl text-base leading-relaxed opacity-60">
-							Guides, references, and community-edited resources for this topic area.
-						</p>
-					{/if}
-				</div>
-
-				<div class="flex flex-wrap gap-3">
-					<a class="btn preset-filled-primary-500 gap-2" href="/learn/new">
-						<IconPlus class="h-4 w-4" />
-						Create article
-					</a>
-					{#if data.canEdit}
-						<button
-							type="button"
-							class="btn {isReordering
-								? 'preset-filled-warning-500'
-								: 'preset-tonal-surface'} gap-2"
-							onclick={isReordering ? exitReorderMode : enterReorderMode}
-						>
-							<IconGripVertical class="h-4 w-4" />
-							{isReordering ? 'Done reordering' : 'Reorder content'}
-						</button>
-					{/if}
-				</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<a
+					href="/learn"
+					class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center gap-2 border-2 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline"
+				>
+					<IconBookOpen class="h-3.5 w-3.5" />
+					Learn Library
+				</a>
+				<span class="text-xs font-black" aria-hidden="true">/</span>
+				<span
+					class="bg-surface-950 text-primary-500 inline-flex items-center gap-2 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+				>
+					<IconFolderOpen class="h-3.5 w-3.5" />
+					{data.category.name}
+				</span>
 			</div>
 
 			<div class="flex flex-col gap-5">
-				<div class="grid grid-cols-2 gap-3">
-					{#each [{ icon: IconBookOpen, label: 'Articles', value: totalArticles, accent: 'var(--color-primary-500)' }, { icon: IconLayersThree, label: 'Subcategories', value: totalSubcategories, accent: 'var(--color-secondary-500)' }] as stat}
-						<div class="cat-stat card preset-tonal-surface relative overflow-hidden p-4">
-							<div
-								class="cat-stat-glow"
-								style="background: {stat.accent};"
-								aria-hidden="true"
-							></div>
-							<div
-								class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase opacity-55"
-							>
-								<stat.icon class="h-4 w-4" />
-								{stat.label}
-							</div>
-							<div class="text-3xl font-black tabular-nums">{stat.value}</div>
-						</div>
-					{/each}
-				</div>
+				<h1
+					class="text-surface-950! m-0 text-[clamp(2.6rem,6.5vw,6rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					{data.category.name}
+				</h1>
+				{#if data.category.description}
+					<p class="m-0 max-w-xl text-lg leading-snug font-medium sm:text-2xl">
+						{data.category.description}
+					</p>
+				{:else}
+					<p class="m-0 max-w-xl text-lg leading-snug font-medium sm:text-2xl">
+						Guides, references, and community-edited resources for this topic area.
+					</p>
+				{/if}
+			</div>
 
-				<div class="cat-search-panel card preset-filled-surface-50-950 flex flex-col gap-3 p-5">
-					<div
-						class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase opacity-55"
+			<div class="flex flex-wrap gap-3">
+				<a
+					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+					href="/learn/new"
+				>
+					<IconPlus class="h-4 w-4" />
+					Create article
+				</a>
+				{#if data.canEdit}
+					<button
+						type="button"
+						class="inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition {isReordering
+							? 'bg-tertiary-500 border-surface-950 text-surface-950'
+							: 'border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500'}"
+						onclick={isReordering ? exitReorderMode : enterReorderMode}
 					>
-						<IconSearch class="h-3.5 w-3.5" />
-						Search this category
+						<IconGripVertical class="h-4 w-4" />
+						{isReordering ? 'Done reordering' : 'Reorder content'}
+					</button>
+				{/if}
+			</div>
+		</div>
+
+		<div
+			class="bg-tertiary-500 text-surface-950 border-surface-950 flex flex-col justify-between gap-8 border-t-[3px] px-6 py-10 sm:px-10 lg:border-t-0 lg:border-l-[3px] lg:px-12 lg:py-14"
+		>
+			<div class="border-surface-950 grid grid-cols-2 border-2">
+				{#each [{ icon: IconBookOpen, label: 'Articles', value: totalArticles }, { icon: IconLayersThree, label: 'Subcategories', value: totalSubcategories }] as stat, i}
+					<div
+						class="border-surface-950 flex flex-col justify-between gap-4 p-5 {i > 0
+							? 'border-l-2'
+							: ''}"
+					>
+						<div class="flex items-center gap-2 text-xs font-black tracking-[0.2em] uppercase">
+							<stat.icon class="h-4 w-4" />
+							{stat.label}
+						</div>
+						<div class="text-5xl leading-none font-black italic tabular-nums sm:text-6xl">
+							{String(stat.value).padStart(2, '0')}
+						</div>
 					</div>
-					<div class="relative">
-						<IconSearch
-							class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-45"
-						/>
-						<input
-							bind:value={searchQuery}
-							class="input pl-9"
-							type="search"
-							placeholder="Find an article…"
-							aria-label="Search this category"
-						/>
-					</div>
-					{#if searchQuery.trim()}
-						<p class="text-xs opacity-55">
-							{filteredArticles.length}
-							{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
-						</p>
-					{/if}
+				{/each}
+			</div>
+
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center gap-2 text-xs font-black tracking-[0.22em] uppercase">
+					<IconSearch class="h-4 w-4" />
+					Search this category
 				</div>
+				<div class="relative">
+					<IconSearch
+						class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
+					/>
+					<input
+						bind:value={searchQuery}
+						class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 h-14 w-full border-[3px] pr-4 pl-12 text-base font-bold focus:outline-none"
+						type="search"
+						placeholder="Find an article…"
+						aria-label="Search this category"
+					/>
+				</div>
+				{#if searchQuery.trim()}
+					<p class="m-0 text-xs font-black tracking-wider uppercase">
+						{filteredArticles.length}
+						{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
+					</p>
+				{/if}
 			</div>
 		</div>
 	</section>
 
-	<LearnNavigator />
-
 	<!-- ═══════════════════════════════════════════════
-	     ADD SUBCATEGORY (admin only)
+	     NAVIGATOR & SUBCATEGORY FILTER BAND
 	═══════════════════════════════════════════════ -->
-	{#if data.canEdit}
-		<details
-			class="card preset-tonal-surface border-surface-500/20 overflow-hidden rounded-[2rem] border p-6"
-		>
-			<summary class="flex cursor-pointer items-center gap-2">
-				<IconSparkles class="h-4 w-4 opacity-60" />
-				<span class="font-bold">Add subcategory</span>
-			</summary>
-			<form method="POST" action="?/createSubcategory" use:enhance class="mt-4 flex max-w-md gap-3">
-				<input
-					type="text"
-					name="name"
-					class="input w-full"
-					placeholder="e.g. Response Templates"
-					required
-				/>
-				<button type="submit" class="btn preset-filled-primary-500 shrink-0">
-					<IconPlus class="h-4 w-4" />
-					Add
-				</button>
-			</form>
-			{#if form?.error}
-				<p class="text-error-400 mt-2 text-sm">{form.error}</p>
-			{/if}
-		</details>
-	{/if}
+	<div class="bg-secondary-500 text-surface-50 px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
+		<div class="flex flex-col gap-6">
+			<LearnNavigator />
 
-	<!-- ═══════════════════════════════════════════════
-	     SUBCATEGORY FILTER PILLS
-	═══════════════════════════════════════════════ -->
-	{#if subcategories.length > 0}
-		<div class="flex flex-wrap items-center gap-2">
-			<button
-				type="button"
-				class="chip {activeSubcategory === 'all'
-					? 'preset-filled-primary-500'
-					: 'preset-tonal-surface'} font-medium"
-				onclick={() => (activeSubcategory = 'all')}
-			>
-				All
-			</button>
-			{#if groups.some((g) => !g.subcategory && g.articles.length > 0)}
-				<button
-					type="button"
-					class="chip {activeSubcategory === 'uncategorized'
-						? 'preset-filled-secondary-500'
-						: 'preset-tonal-surface'}"
-					onclick={() => (activeSubcategory = 'uncategorized')}
-				>
-					General
-				</button>
+			{#if data.canEdit}
+				<details class="border-surface-50 bg-surface-950 text-surface-50 border-2">
+					<summary
+						class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-xs font-black tracking-[0.2em] uppercase transition [&::-webkit-details-marker]:hidden"
+					>
+						<IconSparkles class="h-4 w-4" />
+						<span>Add subcategory</span>
+					</summary>
+					<div class="border-surface-800 border-t-2 p-5">
+						<form
+							method="POST"
+							action="?/createSubcategory"
+							use:enhance
+							class="flex max-w-md flex-col gap-3 sm:flex-row"
+						>
+							<input
+								type="text"
+								name="name"
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 h-12 w-full border-2 px-4 text-sm font-bold focus:outline-none"
+								placeholder="e.g. Response Templates"
+								required
+							/>
+							<button
+								type="submit"
+								class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex h-12 shrink-0 items-center justify-center gap-2 px-6 text-xs font-black tracking-wider uppercase transition"
+							>
+								<IconPlus class="h-4 w-4" />
+								Add
+							</button>
+						</form>
+						{#if form?.error}
+							<p class="bg-tertiary-500 text-surface-950 m-0 mt-3 px-4 py-2 text-sm font-bold">
+								{form.error}
+							</p>
+						{/if}
+					</div>
+				</details>
 			{/if}
-			{#each subcategories as sub}
-				<button
-					type="button"
-					class="chip {activeSubcategory === sub.slug
-						? 'preset-filled-secondary-500'
-						: 'preset-tonal-surface'}"
-					onclick={() => (activeSubcategory = sub.slug)}
-				>
-					{sub.name}
-				</button>
-			{/each}
+
+			{#if subcategories.length > 0}
+				<div class="flex flex-wrap items-center gap-2">
+					<button
+						type="button"
+						class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+						'all'
+							? 'bg-primary-500 text-surface-950'
+							: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
+						onclick={() => (activeSubcategory = 'all')}
+					>
+						All
+					</button>
+					{#if groups.some((g) => !g.subcategory && g.articles.length > 0)}
+						<button
+							type="button"
+							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							'uncategorized'
+								? 'bg-primary-500 text-surface-950'
+								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
+							onclick={() => (activeSubcategory = 'uncategorized')}
+						>
+							General
+						</button>
+					{/if}
+					{#each subcategories as sub}
+						<button
+							type="button"
+							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							sub.slug
+								? 'bg-primary-500 text-surface-950'
+								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
+							onclick={() => (activeSubcategory = sub.slug)}
+						>
+							{sub.name}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
-	{/if}
+	</div>
 
 	<!-- ═══════════════════════════════════════════════
 	     REORDER HINT BANNER
 	═══════════════════════════════════════════════ -->
 	{#if isReordering}
-		<div class="reorder-banner">
-			<IconGripVertical class="h-4 w-4 shrink-0" />
+		<div
+			class="bg-tertiary-500 text-surface-950 flex items-center gap-3 px-6 py-4 text-sm font-bold sm:px-10 lg:px-14"
+		>
+			<IconGripVertical class="h-5 w-5 shrink-0" />
 			<span>
 				Drag <strong>article cards</strong> within or <em>between</em> sections to reorder and
 				reassign them · Drag <strong>section headers</strong> to reorder subcategories.
@@ -554,17 +581,21 @@
 	<!-- ═══════════════════════════════════════════════
 	     ARTICLE GROUPS
 	═══════════════════════════════════════════════ -->
-	<div class="space-y-14">
+	<div class="bg-surface-950 flex flex-col gap-16 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
 		{#if isReordering && activeSubcategory === 'all'}
 			<!-- Uncategorized: always render the DnD zone -->
 			{#each groups.filter((g) => !g.subcategory) as group (group.id)}
 				{@const artItems = dndArticleMap[group.id] ?? []}
-				<section class="cat-group">
-					<div class="cat-group-header mb-5 flex items-center gap-4">
-						<div class="cat-group-dot" aria-hidden="true"></div>
+				<section class="flex flex-col gap-6">
+					<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
+						<span class="bg-primary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
 						<div>
-							<p class="label opacity-55">Category</p>
-							<h2 class="text-2xl font-bold">General</h2>
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Category
+							</p>
+							<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
+								General
+							</h2>
 						</div>
 					</div>
 					<div
@@ -575,9 +606,9 @@
 							? 'dnd-article-zone grid gap-5 sm:grid-cols-2 lg:grid-cols-3'
 							: 'dnd-empty-zone'}
 					>
-						{#each artItems as article (article.id)}
+						{#each artItems as article, idx (article.id)}
 							<div animate:flip={{ duration: FLIP_MS }}>
-								{@render articleCard(article)}
+								{@render articleCard(article, idx)}
 							</div>
 						{/each}
 						{#if artItems.length === 0}
@@ -593,27 +624,31 @@
 					use:dndzone={{ items: dndSubGroups, flipDurationMs: FLIP_MS, type: 'subgroup' }}
 					onconsider={handleGroupConsider}
 					onfinalize={handleGroupFinalize}
-					class="dnd-group-zone space-y-14"
+					class="dnd-group-zone flex flex-col gap-16"
 				>
 					{#each dndSubGroups as groupItem (groupItem.id)}
 						{@const artItems = dndArticleMap[groupItem.id] ?? []}
 						{@const isEmpty = artItems.length === 0}
-						<section class="cat-group" animate:flip={{ duration: FLIP_MS }}>
+						<section class="flex flex-col gap-6" animate:flip={{ duration: FLIP_MS }}>
 							<!-- Draggable heading bar -->
-							<div class="cat-group-header dnd-group-drag-target mb-5 flex items-center gap-3">
+							<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
 								<div class="dnd-drag-handle" title="Drag to reorder subcategory">
 									<IconGripVertical class="h-5 w-5" />
 								</div>
-								<div class="cat-group-dot" aria-hidden="true"></div>
+								<span class="bg-tertiary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
 								<div class="flex-1">
-									<p class="label opacity-55">Subcategory</p>
-									<h2 class="text-2xl font-bold">{groupItem.sub.name}</h2>
+									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+										Subcategory
+									</p>
+									<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
+										{groupItem.sub.name}
+									</h2>
 								</div>
 								<!-- Delete button (only when empty) -->
 								{#if isEmpty}
 									<button
 										type="button"
-										class="delete-subcategory-btn"
+										class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-wider uppercase transition"
 										title="Delete empty subcategory"
 										onclick={() => {
 											document.getElementById('delete-subcategory-slug').value = groupItem.id;
@@ -635,9 +670,9 @@
 									? 'dnd-article-zone grid gap-5 sm:grid-cols-2 lg:grid-cols-3'
 									: 'dnd-empty-zone'}
 							>
-								{#each artItems as article (article.id)}
+								{#each artItems as article, idx (article.id)}
 									<div animate:flip={{ duration: FLIP_MS }}>
-										{@render articleCard(article)}
+										{@render articleCard(article, idx)}
 									</div>
 								{/each}
 								{#if artItems.length === 0}
@@ -650,71 +685,53 @@
 			{/if}
 		{:else}
 			<!-- ── Normal / filtered view ── -->
-			{#each visibleGroups as group, groupIndex}
-				<section class="cat-group" style="--group-index: {groupIndex}">
-					<div class="cat-group-header mb-5 flex items-center gap-4">
-						<div class="cat-group-dot" aria-hidden="true"></div>
-						<div>
-							{#if group.subcategory}
-								<p class="label opacity-55">Subcategory</p>
-								<h2 class="text-2xl font-bold">{group.subcategory.name}</h2>
-							{:else}
-								<p class="label opacity-55">Category</p>
-								<h2 class="text-2xl font-bold">General</h2>
-							{/if}
+			{#each visibleGroups as group, groupIndex (group.id)}
+				<section class="flex flex-col gap-6">
+					<div class="border-surface-50 flex items-end justify-between gap-4 border-b-2 pb-4">
+						<div class="flex items-center gap-4">
+							<span
+								class="bg-tertiary-500 text-surface-950 flex h-10 w-10 shrink-0 items-center justify-center text-lg font-black italic tabular-nums"
+								aria-hidden="true"
+							>
+								{String(groupIndex + 1).padStart(2, '0')}
+							</span>
+							<div>
+								{#if group.subcategory}
+									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+										Subcategory
+									</p>
+									<h2
+										class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+									>
+										{group.subcategory.name}
+									</h2>
+								{:else}
+									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+										Category
+									</p>
+									<h2
+										class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+									>
+										General
+									</h2>
+								{/if}
+							</div>
 						</div>
+						<span class="text-tertiary-500 text-sm font-black uppercase italic tabular-nums">
+							{group.articles.length}
+							{group.articles.length === 1 ? 'guide' : 'guides'}
+						</span>
 					</div>
 
 					{#if group.articles.length > 0}
 						<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-							{#each group.articles as article, articleIndex}
-								<div
-									class="cat-card group border-surface-500/20 bg-surface-900/60 relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border shadow-lg"
-									style="--stagger: {articleIndex}"
-								>
-									<div class="cat-card-accent" aria-hidden="true"></div>
-									<a
-										href={`/learn/${article.slug}`}
-										class="hover:bg-surface-800/40 flex flex-1 flex-col transition-colors"
-									>
-										{#if article.cover_image_url}
-											<div class="aspect-[16/8] overflow-hidden">
-												<img
-													class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-													src={article.cover_image_url}
-													alt={article.title}
-												/>
-											</div>
-										{/if}
-										<div class="flex flex-1 flex-col gap-4 p-5">
-											<div class="space-y-2">
-												<h3 class="text-lg leading-snug font-bold">{article.title}</h3>
-												<p class="line-clamp-3 text-sm leading-relaxed opacity-70">
-													{article.summary || 'Open the article to read the full guide.'}
-												</p>
-											</div>
-											<div class="mt-auto flex items-center justify-between gap-3 text-sm">
-												<div class="flex items-center gap-1.5 opacity-55">
-													<IconClock3 class="h-3.5 w-3.5" />
-													{formatDate(article.updated_at)}
-												</div>
-												<span
-													class="inline-flex items-center gap-1 font-semibold opacity-70 transition group-hover:translate-x-0.5 group-hover:opacity-100"
-												>
-													Read
-													<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-0.5" />
-												</span>
-											</div>
-										</div>
-									</a>
-								</div>
+							{#each group.articles as article, articleIndex (article.id ?? article.slug)}
+								{@render articleCard(article, articleIndex)}
 							{/each}
 						</div>
 					{:else}
-						<div
-							class="cat-empty border-surface-500/30 rounded-[1.5rem] border border-dashed p-6 text-center"
-						>
-							<p class="text-sm opacity-60">No articles in this section yet.</p>
+						<div class="border-surface-800 text-surface-300 border-2 p-6 text-sm font-medium">
+							No articles in this section yet.
 						</div>
 					{/if}
 				</section>
@@ -722,31 +739,31 @@
 		{/if}
 
 		{#if visibleGroups.length === 0}
-			<div
-				class="cat-app-empty-state card preset-tonal-surface relative overflow-hidden rounded-[2rem] p-12 text-center"
-			>
-				<div class="app-empty-orb" aria-hidden="true"></div>
-				<div class="relative z-10 mx-auto max-w-md space-y-4">
-					<div
-						class="border-primary-500/25 bg-surface-800 mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border"
+			<div class="border-surface-50 flex flex-col items-start gap-5 border-t-2 pt-10">
+				<span class="bg-primary-500 text-surface-950 flex h-14 w-14 items-center justify-center">
+					<IconBookOpen class="h-7 w-7" />
+				</span>
+				<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">No articles found</h3>
+				<p class="text-surface-300 m-0 max-w-md text-base leading-relaxed">
+					Try clearing your search, or create the first guide for this category.
+				</p>
+				<div class="flex flex-wrap gap-3 pt-2">
+					{#if searchQuery}
+						<button
+							type="button"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-2 px-6 py-3 text-sm font-black uppercase transition"
+							onclick={() => (searchQuery = '')}
+						>
+							Clear search
+						</button>
+					{/if}
+					<a
+						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase transition hover:no-underline"
+						href="/learn/new"
 					>
-						<IconBookOpen class="h-9 w-9 opacity-50" />
-					</div>
-					<h3 class="text-xl font-bold">No articles found</h3>
-					<p class="text-sm leading-relaxed opacity-65">
-						Try clearing your search, or create the first guide for this category.
-					</p>
-					<div class="flex flex-wrap justify-center gap-3 pt-2">
-						{#if searchQuery}
-							<button class="btn preset-tonal-surface" onclick={() => (searchQuery = '')}>
-								Clear search
-							</button>
-						{/if}
-						<a class="btn preset-filled-primary-500 gap-2" href="/learn/new">
-							<IconPlus class="h-4 w-4" />
-							Create article
-						</a>
-					</div>
+						<IconPlus class="h-4 w-4" />
+						Create article
+					</a>
 				</div>
 			</div>
 		{/if}
@@ -785,119 +802,6 @@
 </form>
 
 <style>
-	.cat-page {
-		background: var(--color-surface-950);
-		padding: clamp(1rem, 2.5vw, 2rem);
-		border-radius: 1.5rem;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.cat-page :global(*) {
-			animation: none !important;
-			transition: none !important;
-		}
-	}
-
-	/* ── Hero ── */
-	.cat-hero {
-		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-950) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-	}
-
-	/* ── Headline ── */
-	.cat-headline {
-		font-family: 'Georgia', 'Times New Roman', serif;
-		text-wrap: balance;
-		background: linear-gradient(
-			135deg,
-			var(--color-primary-100),
-			var(--color-primary-300) 40%,
-			var(--color-secondary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Stat cards ── */
-	.cat-stat {
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-	}
-
-	.cat-stat:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-	}
-
-	.cat-stat-glow {
-		position: absolute;
-		inset: 0;
-		opacity: 0.07;
-		pointer-events: none;
-	}
-
-	/* ── Search panel ── */
-	.cat-search-panel {
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
-	/* ── Group sections ── */
-	.cat-group {
-		animation: group-in 400ms ease both;
-		animation-delay: calc(var(--group-index, 0) * 80ms);
-	}
-
-	@keyframes group-in {
-		from {
-			opacity: 0;
-			transform: translateY(14px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	.cat-group-header {
-		position: relative;
-	}
-
-	.cat-group-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: linear-gradient(135deg, var(--color-primary-400), var(--color-secondary-400));
-		box-shadow: 0 0 10px 2px color-mix(in oklab, var(--color-primary-400) 40%, transparent);
-		flex-shrink: 0;
-	}
-
-	/* ── Article cards ── */
-	.cat-card {
-		transition:
-			transform 220ms ease,
-			box-shadow 220ms ease;
-		animation: card-in 360ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 60ms);
-	}
-
-	.cat-card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 12px 32px -6px color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-	}
-
-	.cat-card-accent {
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.6;
-		transition: opacity 220ms ease;
-	}
-
-	.cat-card:hover .cat-card-accent {
-		opacity: 1;
-	}
-
 	/* ── DnD ── */
 	.dnd-group-zone {
 		outline: none;
@@ -908,202 +812,39 @@
 		min-height: 80px;
 	}
 
-	/* Subcategory section drag handle */
 	.dnd-drag-handle {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 34px;
-		height: 34px;
-		border-radius: 9px;
+		width: 36px;
+		height: 36px;
 		cursor: grab;
-		color: var(--color-warning-400);
-		background: color-mix(in oklab, var(--color-warning-500) 13%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
+		color: var(--color-surface-950);
+		background: var(--color-primary-500);
 		flex-shrink: 0;
-		transition:
-			background 150ms,
-			color 150ms,
-			box-shadow 150ms;
-	}
-
-	.dnd-drag-handle:hover {
-		background: color-mix(in oklab, var(--color-warning-500) 24%, transparent);
-		color: var(--color-warning-300);
-		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-warning-500) 30%, transparent);
 	}
 
 	.dnd-drag-handle:active {
 		cursor: grabbing;
 	}
 
-	/* Card drag handle strip */
-	.dnd-card-handle {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 7px 12px;
-		cursor: grab;
-		color: var(--color-warning-400);
-		background: color-mix(in oklab, var(--color-warning-500) 8%, transparent);
-		border-bottom: 1px solid color-mix(in oklab, var(--color-warning-500) 18%, transparent);
-		font-size: 0.78rem;
-		font-weight: 600;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-	}
-
-	.dnd-card-handle:active {
-		cursor: grabbing;
-	}
-
-	/* ── Reorder hint banner ── */
-	.reorder-banner {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 10px 16px;
-		border-radius: 12px;
-		font-size: 0.83rem;
-		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-900) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
-		color: var(--color-warning-300);
-		animation: slide-in 200ms ease;
-	}
-
-	/* ── Article card bottom hint (cross-zone drag) ── */
-	.dnd-card-current-section {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 7px 12px;
-		font-size: 0.75rem;
-		color: var(--color-warning-400);
-		background: color-mix(in oklab, var(--color-warning-500) 8%, transparent);
-		border-top: 1px solid color-mix(in oklab, var(--color-warning-500) 18%, transparent);
-		animation: slide-in 180ms ease;
-	}
-
-	/* ── Empty DnD drop zone ── */
 	.dnd-empty-zone {
 		outline: none;
 		min-height: 110px;
-		border-radius: 1.25rem;
-		border: 2px dashed color-mix(in oklab, var(--color-warning-500) 35%, transparent);
-		background: color-mix(in oklab, var(--color-warning-500) 5%, transparent);
+		border: 2px dashed var(--color-primary-500);
+		background: var(--color-surface-900);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition:
-			border-color 200ms,
-			background 200ms;
-	}
-
-	.dnd-empty-zone:global(.droppable) {
-		border-color: color-mix(in oklab, var(--color-warning-400) 70%, transparent);
-		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
 	}
 
 	.dnd-empty-placeholder {
 		font-size: 0.8rem;
-		font-weight: 600;
-		letter-spacing: 0.08em;
+		font-weight: 900;
+		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: color-mix(in oklab, var(--color-warning-400) 60%, transparent);
+		color: var(--color-primary-500);
 		pointer-events: none;
 		user-select: none;
-	}
-
-	/* ── Article card reorder footer (drag hint + move-to) ── */
-	.reorder-card-footer {
-		display: flex;
-		flex-direction: column;
-		animation: slide-in 180ms ease;
-	}
-
-	.dnd-card-current-section {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 6px 12px;
-		font-size: 0.75rem;
-		color: var(--color-warning-400);
-		background: color-mix(in oklab, var(--color-warning-500) 7%, transparent);
-	}
-
-	.move-to-row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 6px 12px 8px;
-		background: color-mix(in oklab, var(--color-surface-900) 80%, transparent);
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	.move-to-label {
-		flex-shrink: 0;
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		opacity: 0.45;
-	}
-
-	/* ── Delete subcategory button ── */
-	.delete-subcategory-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 6px 12px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		cursor: pointer;
-		flex-shrink: 0;
-		color: var(--color-error-400);
-		background: color-mix(in oklab, var(--color-error-500) 10%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 25%, transparent);
-		transition:
-			background 150ms,
-			color 150ms,
-			box-shadow 150ms;
-	}
-
-	.delete-subcategory-btn:hover {
-		background: color-mix(in oklab, var(--color-error-500) 20%, transparent);
-		color: var(--color-error-300);
-		box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-error-500) 25%, transparent);
-	}
-
-	@keyframes slide-in {
-		from {
-			opacity: 0;
-			transform: translateY(6px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	/* ── Empty state ── */
-	.cat-empty {
-		animation: group-in 350ms ease both;
-	}
-
-	.cat-app-empty-state {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-	}
-
-	/* ── Card entrance ── */
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(16px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
 	}
 </style>

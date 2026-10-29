@@ -353,71 +353,80 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
-	<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
-		<a class="hover:opacity-100" href="/ride">Rides</a>
-		<span aria-hidden="true">/</span>
-		<span class="text-surface-600-400">{seoTitle}</span>
-	</nav>
-
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
 	<section
-		class="hero-section relative overflow-hidden rounded-3xl"
-		class:hero-section--cover={leadRideImage}
-		style={leadRideImage ? `--hero-bg: url('${leadRideImage}')` : ''}
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
+		aria-labelledby="ride-title"
 	>
-		{#if leadRideImage}
-			<div class="hero-cover-bg" aria-hidden="true"></div>
-			<div class="hero-cover-overlay" aria-hidden="true"></div>
-		{:else}
-			<div class="app-orb app-orb-1" aria-hidden="true"></div>
-			<div class="app-orb app-orb-2" aria-hidden="true"></div>
-			<div class="app-orb app-orb-3" aria-hidden="true"></div>
-		{/if}
+		<div
+			class="flex flex-col justify-between gap-8 px-6 pt-8 pb-12 sm:px-10 lg:px-14 lg:pt-12 lg:pb-16"
+		>
+			<div class="flex flex-col gap-4">
+				<nav
+					aria-label="Breadcrumb"
+					class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+					<a
+						class="border-surface-950 hover:border-tertiary-600 border-b-2 hover:no-underline"
+						href="/ride"
+					>
+						Rides
+					</a>
+					<span aria-hidden="true">/</span>
+					<span class="truncate">{seoTitle}</span>
+				</nav>
 
-		<div class="relative z-10 flex flex-col justify-end p-6 lg:min-h-[32rem] lg:p-12">
-			<div class="max-w-3xl space-y-5">
-				<div class="flex flex-wrap gap-2">
-					{#each ride?.difficultyLevels ?? [] as level}
-						<span class="chip preset-tonal-warning">{level.name}</span>
-					{/each}
-					{#each ride?.ridingDisciplines ?? [] as discipline}
-						<span class="chip preset-tonal-success">{discipline.name}</span>
-					{/each}
-				</div>
-				<h1 class="ride-headline text-4xl font-extrabold tracking-tight text-balance lg:text-6xl">
+				{#if (ride?.difficultyLevels ?? []).length || (ride?.ridingDisciplines ?? []).length}
+					<div class="flex flex-wrap gap-2">
+						{#each ride?.difficultyLevels ?? [] as level (level.name)}
+							<span
+								class="bg-surface-950 text-primary-500 px-3 py-1 text-xs font-black tracking-[0.16em] uppercase"
+							>
+								{level.name}
+							</span>
+						{/each}
+						{#each ride?.ridingDisciplines ?? [] as discipline (discipline.name)}
+							<span
+								class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black tracking-[0.16em] uppercase"
+							>
+								{discipline.name}
+							</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex flex-col gap-5">
+				<h1
+					id="ride-title"
+					class="text-surface-950! m-0 text-[clamp(2.5rem,6vw,5.6rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
 					{activity?.title}
 				</h1>
 				{#if activity?.summary}
-					<p class="max-w-2xl text-base leading-relaxed opacity-85">
+					<p class="m-0 max-w-2xl text-lg leading-snug font-medium sm:text-xl">
 						{@html renderLinkifiedText(activity.summary)}
 					</p>
 				{/if}
 				{#if selectedOccurrence}
-					<p class="text-sm font-medium opacity-70">
+					<p
+						class="border-surface-950 m-0 inline-flex flex-wrap items-center gap-2 border-l-[4px] pl-3 text-sm font-black tracking-wide uppercase"
+					>
 						{activity?.start_location_name
 							? `${activity.start_location_name} · `
 							: ''}{occurrenceLabel(selectedOccurrence)}
 					</p>
 				{/if}
-				<div class="flex flex-wrap gap-3 pt-1">
-					<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="ride" />
-					{#if canManage}
-						<a
-							class="btn preset-outlined-primary-500 bg-surface-950-50/10 backdrop-blur-sm"
-							href={`/ride/${activity.slug}/manage`}>Manage ride</a
-						>
-					{:else if canClaim}
-						<button
-							class="btn preset-filled-warning-500 shadow-md transition-transform hover:scale-105"
-							onclick={claimRide}
-							disabled={claimLoading}
-						>
-							{claimLoading ? 'Claiming...' : claimLabel}
-						</button>
-					{/if}
+			</div>
+
+			<div class="flex flex-col gap-6">
+				<div class="flex flex-wrap items-center gap-3">
 					{#if currentUser}
 						<button
-							class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
+							type="button"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
 							onclick={() =>
 								submitRsvp(
 									currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
@@ -432,13 +441,34 @@
 						</button>
 					{:else}
 						<a
-							class="btn preset-filled-primary-500 shadow-md transition-transform hover:scale-105"
-							href="/ride/new">Log in to RSVP</a
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+							href="/ride/new"
 						>
+							Log in to RSVP
+						</a>
 					{/if}
+
+					{#if canManage}
+						<a
+							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center border-[3px] px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							href={`/ride/${activity.slug}/manage`}
+						>
+							Manage ride
+						</a>
+					{:else if canClaim}
+						<button
+							type="button"
+							class="bg-tertiary-500 text-surface-950 hover:bg-surface-950 hover:text-tertiary-400 inline-flex items-center justify-center px-6 py-4 text-sm font-black tracking-wide uppercase transition"
+							onclick={claimRide}
+							disabled={claimLoading}
+						>
+							{claimLoading ? 'Claiming...' : claimLabel}
+						</button>
+					{/if}
+
 					{#if selectedCalendarLinks.googleUrl}
 						<a
-							class="btn preset-outlined-secondary-500 bg-surface-950-50/10 backdrop-blur-sm"
+							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center border-[3px] px-5 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 							href={selectedCalendarLinks.googleUrl}
 							target="_blank"
 							rel="noopener noreferrer"
@@ -448,56 +478,534 @@
 					{/if}
 					{#if selectedCalendarLinks.icsUrl}
 						<a
-							class="btn preset-outlined-surface-950-50 bg-surface-950-50/10 backdrop-blur-sm"
+							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center border-[3px] px-5 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 							href={selectedCalendarLinks.icsUrl}
 						>
 							Download .ics
 						</a>
 					{/if}
+
+					<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="ride" />
 				</div>
+
 				{#if currentUser}
-					<div class="mt-4 max-w-xl">
-						<div class="space-y-3">
-							<SmsContextOptIn
-								category="ride_reminders"
-								source="ride-rsvp"
-								title="Text me reminders for rides I RSVP for"
-								description="Get concise reminders for upcoming rides you choose to attend. You can manage this preference from your Profile."
-							/>
-							<SmsContextOptIn
-								category="admin_messages"
-								source="ride-rsvp-admin-messages"
-								title="Let ride organizers text me about my RSVP"
-								description="Receive and reply to messages from organizers about rides you attend."
-							/>
-						</div>
+					<div class="flex max-w-xl flex-col gap-3">
+						<SmsContextOptIn
+							category="ride_reminders"
+							source="ride-rsvp"
+							title="Text me reminders for rides I RSVP for"
+							description="Get concise reminders for upcoming rides you choose to attend. You can manage this preference from your Profile."
+						/>
+						<SmsContextOptIn
+							category="admin_messages"
+							source="ride-rsvp-admin-messages"
+							title="Let ride organizers text me about my RSVP"
+							description="Receive and reply to messages from organizers about rides you attend."
+						/>
+					</div>
+				{/if}
+
+				{#if rsvpError}
+					<div
+						class="bg-tertiary-500 text-surface-950 border-surface-950 border-[3px] p-4 text-sm font-black uppercase"
+					>
+						{rsvpError}
+					</div>
+				{/if}
+				{#if claimError}
+					<div
+						class="bg-tertiary-500 text-surface-950 border-surface-950 border-[3px] p-4 text-sm font-black uppercase"
+					>
+						{claimError}
 					</div>
 				{/if}
 			</div>
 		</div>
-		{#if rsvpError}
-			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-12">
-				{rsvpError}
+
+		<div class="bg-surface-950 relative min-h-[24rem] sm:min-h-[30rem]">
+			<img
+				src={leadRideImage || '/images/default-ride.webp'}
+				alt={activity?.title || 'Ride'}
+				class="absolute inset-0 h-full w-full object-cover"
+				width="1200"
+				height="576"
+				fetchpriority="high"
+			/>
+
+			<!-- Signature: the 3-foot ruler -->
+			<div
+				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
+				aria-hidden="true"
+			>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
+				<span
+					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
+				></span>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
 			</div>
-		{/if}
-		{#if claimError}
-			<div class="card preset-tonal-error relative z-10 mx-6 mb-6 p-3 text-sm lg:mx-12">
-				{claimError}
+
+			<div
+				class="bg-surface-950 text-surface-50 absolute right-0 bottom-0 left-12 grid grid-cols-2 gap-3 px-5 py-4 sm:left-16 sm:grid-cols-4"
+			>
+				<div>
+					<span class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+						Distance
+					</span>
+					<span class="block text-sm font-black uppercase">
+						{rideDetails?.estimated_distance_miles
+							? `${rideDetails.estimated_distance_miles} mi`
+							: 'TBD'}
+					</span>
+				</div>
+				<div>
+					<span class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+						Duration
+					</span>
+					<span class="block text-sm font-black uppercase">
+						{rideDetails?.estimated_duration_minutes
+							? `${rideDetails.estimated_duration_minutes} min`
+							: 'TBD'}
+					</span>
+				</div>
+				<div>
+					<span class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+						Elevation
+					</span>
+					<span class="block text-sm font-black uppercase">
+						{rideDetails?.elevation_gain_feet ? `${rideDetails.elevation_gain_feet} ft` : 'TBD'}
+					</span>
+				</div>
+				<div>
+					<span class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.2em] uppercase">
+						Drop style
+					</span>
+					<span class="block text-sm font-black uppercase">
+						{rideDetails?.is_no_drop ? 'No-drop' : 'Drop ride'}
+					</span>
+				</div>
 			</div>
-		{/if}
+		</div>
 	</section>
 
-	{#if rideImages.length > 1}
-		<section class="card preset-tonal-surface overflow-hidden p-5">
-			<div class="mb-4 flex items-center justify-between gap-3">
-				<div>
-					<div class="text-sm tracking-[0.18em] uppercase opacity-60">Photos</div>
-					<div class="mt-1 text-lg font-semibold">Route and ride vibe</div>
+	<!-- UNCLAIMED CALLOUT -->
+	{#if !activity?.host_user_id && !activity?.host_group_id}
+		<section
+			class="bg-tertiary-500 text-surface-950 border-surface-950 border-b-[3px] px-6 py-8 sm:px-10 lg:px-14"
+			aria-labelledby="unclaimed-heading"
+		>
+			<div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+				<div class="flex flex-col gap-2">
+					<h2
+						id="unclaimed-heading"
+						class="text-surface-950! m-0 flex items-center gap-2.5 text-2xl font-black uppercase italic sm:text-3xl"
+					>
+						<IconShieldQuestion class="h-6 w-6 shrink-0" />
+						This {ride?.recurrenceRule ? 'ride series is' : 'ride is'} currently unclaimed
+					</h2>
+					<p class="m-0 max-w-3xl text-base leading-snug font-medium">
+						The listing is public, but no host or host organization is attached yet. Claim it to
+						manage updates, RSVPs, reminder emails, and rider communication.
+					</p>
 				</div>
-				<div class="text-sm opacity-65">{rideImages.length} images</div>
+				{#if canClaim}
+					<button
+						type="button"
+						class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 shrink-0 px-7 py-4 text-sm font-black tracking-wide uppercase transition"
+						onclick={claimRide}
+						disabled={claimLoading}
+					>
+						{claimLoading ? 'Claiming...' : claimLabel}
+					</button>
+				{:else if !currentUser}
+					<p
+						class="border-surface-950 m-0 shrink-0 border-[3px] px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
+					>
+						Log in with the header action to claim it.
+					</p>
+				{/if}
+			</div>
+		</section>
+	{/if}
+
+	<!-- DETAILS + SIDEBAR -->
+	<div class="bg-surface-950 grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+		<div class="flex min-w-0 flex-col gap-12 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+			<!-- Ride Details -->
+			<section class="flex flex-col gap-6" aria-labelledby="ride-details-heading">
+				<div class="flex flex-col gap-2">
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconRoute class="h-4 w-4" /> Route & Specs
+					</p>
+					<h2
+						id="ride-details-heading"
+						class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+					>
+						Ride Details
+					</h2>
+				</div>
+
+				<div class="border-surface-50 grid border-t-2 sm:grid-cols-2">
+					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Meet</div>
+						<div class="text-surface-50 mt-1 text-lg font-black">
+							{@html renderLinkifiedText(activity?.start_location_name)}
+						</div>
+						{#if activity?.start_location_address}
+							<div class="text-surface-300 mt-0.5 text-sm">
+								{@html renderLinkifiedText(activity.start_location_address)}
+							</div>
+						{/if}
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:pl-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Finish</div>
+						{#if rideDetails?.end_location_name}
+							<div class="text-surface-50 mt-1 text-lg font-black">
+								{@html renderLinkifiedText(rideDetails.end_location_name)}
+							</div>
+						{:else}
+							<div class="text-surface-50 mt-1 text-lg font-black">
+								Same as start or route-dependent
+							</div>
+						{/if}
+						{#if rideDetails?.end_location_address}
+							<div class="text-surface-300 mt-0.5 text-sm">
+								{@html renderLinkifiedText(rideDetails.end_location_address)}
+							</div>
+						{/if}
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Distance
+						</div>
+						<div class="text-surface-50 mt-1 text-2xl font-black italic tabular-nums">
+							{rideDetails?.estimated_distance_miles
+								? `${rideDetails.estimated_distance_miles} miles`
+								: 'TBD'}
+						</div>
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:pl-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Duration
+						</div>
+						<div class="text-surface-50 mt-1 text-2xl font-black italic tabular-nums">
+							{rideDetails?.estimated_duration_minutes
+								? `${rideDetails.estimated_duration_minutes} min`
+								: 'TBD'}
+						</div>
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Elevation
+						</div>
+						<div class="text-surface-50 mt-1 text-2xl font-black italic tabular-nums">
+							{rideDetails?.elevation_gain_feet ? `${rideDetails.elevation_gain_feet} ft` : 'TBD'}
+						</div>
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:pl-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Drop style
+						</div>
+						<div class="text-surface-50 mt-1 text-2xl font-black uppercase italic">
+							{rideDetails?.is_no_drop ? 'No-drop' : 'Drop ride'}
+						</div>
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:col-span-2">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Pace</div>
+						{#if rideDetails?.pace_notes}
+							<div class="text-surface-50 mt-1.5 text-base leading-relaxed font-medium">
+								{@html renderLinkifiedText(rideDetails.pace_notes)}
+							</div>
+						{:else}
+							<div class="text-surface-300 mt-1.5 text-base">Not specified</div>
+						{/if}
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:col-span-2">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Surface
+						</div>
+						<div class="mt-2.5 flex flex-wrap gap-2">
+							{#each rideDetails?.surface_types ?? [] as surface (surface)}
+								<span
+									class="bg-primary-500 text-surface-950 px-3 py-1 text-xs font-black uppercase"
+								>
+									{surface}
+								</span>
+							{/each}
+						</div>
+					</div>
+
+					<div class="border-surface-800 border-b py-5 sm:col-span-2">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Bike suitability
+						</div>
+						<div class="mt-2.5 flex flex-wrap gap-2">
+							{#each rideDetails?.bike_suitability ?? [] as bike (bike)}
+								<span
+									class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black uppercase"
+								>
+									{bike}
+								</span>
+							{/each}
+						</div>
+					</div>
+
+					{#if rideDetails?.accessibility_notes}
+						<div class="border-surface-800 border-b py-5 sm:col-span-2">
+							<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+								Accessibility
+							</div>
+							<div class="text-surface-50 mt-1.5 text-base leading-relaxed">
+								{@html renderLinkifiedText(rideDetails.accessibility_notes)}
+							</div>
+						</div>
+					{/if}
+
+					{#if activity?.description}
+						<div class="border-surface-800 border-b py-5 sm:col-span-2">
+							<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+								About this ride
+							</div>
+							<div class="text-surface-50 mt-2 text-base leading-7">
+								{@html renderLinkifiedText(activity.description)}
+							</div>
+						</div>
+					{/if}
+				</div>
+			</section>
+
+			<!-- Hosting -->
+			<section class="flex flex-col gap-6" aria-labelledby="hosting-heading">
+				<div class="flex flex-col gap-2">
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconBadgeInfo class="h-4 w-4" /> Organization
+					</p>
+					<h2
+						id="hosting-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
+					>
+						Hosting
+					</h2>
+				</div>
+
+				<div class="border-surface-50 grid border-t-2 sm:grid-cols-2">
+					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Organizer
+						</div>
+						<div class="text-surface-50 mt-1 text-lg font-black uppercase">
+							{#if activity?.host_group_id}
+								Organization-hosted ride
+							{:else if activity?.host_user_id}
+								Hosted by a rider on 3FP
+							{:else}
+								No host attached yet
+							{/if}
+						</div>
+					</div>
+					<div class="border-surface-800 border-b py-5 sm:pl-6">
+						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+							Participant list
+						</div>
+						<div class="text-surface-50 mt-1 text-lg font-black uppercase">
+							{rideDetails?.participant_visibility === 'private' ? 'Private to hosts' : 'Public'}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- Upcoming Occurrences -->
+			<section class="flex flex-col gap-6" aria-labelledby="occurrences-heading">
+				<div class="flex flex-col gap-2">
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconCalendarClock class="h-4 w-4" /> Schedule
+					</p>
+					<h2
+						id="occurrences-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
+					>
+						Upcoming Occurrences
+					</h2>
+				</div>
+
+				<div class="border-surface-50 border-t-2">
+					{#each visibleOccurrences as occurrence, i (occurrence.id)}
+						<button
+							type="button"
+							class={`border-surface-800 flex w-full items-center justify-between gap-4 border-b px-4 py-5 text-left transition ${
+								String(selectedOccurrenceId) === String(occurrence.id)
+									? 'bg-primary-500 text-surface-950'
+									: 'text-surface-50 hover:bg-surface-900'
+							}`}
+							onclick={() => (selectedOccurrenceId = occurrence.id)}
+						>
+							<div class="flex min-w-0 items-center gap-4">
+								<span
+									class={`w-10 shrink-0 text-2xl font-black italic tabular-nums sm:text-3xl ${
+										String(selectedOccurrenceId) === String(occurrence.id)
+											? 'text-secondary-500'
+											: 'text-tertiary-500'
+									}`}
+								>
+									{String(i + 1).padStart(2, '0')}
+								</span>
+								<div class="min-w-0">
+									<div class="text-base font-black uppercase sm:text-lg">
+										{occurrenceLabel(occurrence)}
+									</div>
+									<div class="mt-0.5 text-sm opacity-80">
+										{@html renderLinkifiedText(
+											occurrence.start_location_name || activity?.start_location_name
+										)}
+									</div>
+								</div>
+							</div>
+							{#if currentUserRsvp(occurrence)?.status === 'going'}
+								<span
+									class="bg-tertiary-500 text-surface-950 shrink-0 px-3 py-1 text-xs font-black uppercase"
+								>
+									You're in
+								</span>
+							{/if}
+						</button>
+					{/each}
+					{#if scheduledOccurrences.length > 5}
+						<p class="text-surface-300 m-0 pt-4 text-xs font-bold tracking-[0.16em] uppercase">
+							Showing the next 5 upcoming occurrences.
+						</p>
+					{/if}
+				</div>
+			</section>
+		</div>
+
+		<!-- SIDEBAR: MAP + PARTICIPANTS -->
+		<aside class="bg-secondary-500 text-surface-50 flex min-w-0 flex-col justify-between">
+			<div class="flex flex-col">
+				<section class="px-6 pt-12 pb-8 sm:px-10" aria-labelledby="map-heading">
+					<div class="mb-4 flex flex-col gap-1">
+						<p
+							class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+						>
+							<IconMapPin class="h-4 w-4" /> Start line
+						</p>
+						<h2
+							id="map-heading"
+							class="text-surface-50! m-0 text-3xl leading-[0.92] font-black uppercase italic"
+						>
+							Map
+						</h2>
+					</div>
+					{#if activity?.start_latitude != null && activity?.start_longitude != null}
+						<div class="border-surface-950 h-72 overflow-hidden border-[3px]">
+							<div bind:this={mapEl} class="h-full w-full"></div>
+						</div>
+					{:else}
+						<p class="m-0 text-sm opacity-85">
+							Map pin will appear when the start location has coordinates.
+						</p>
+					{/if}
+				</section>
+
+				<section
+					class="border-surface-950/30 border-t-2 px-6 py-10 sm:px-10"
+					aria-labelledby="participants-heading"
+				>
+					<div class="mb-4 flex flex-col gap-1">
+						<p
+							class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+						>
+							<IconUsers class="h-4 w-4" /> Roll call
+						</p>
+						<h2
+							id="participants-heading"
+							class="text-surface-50! m-0 text-3xl leading-[0.92] font-black uppercase italic"
+						>
+							Participants
+						</h2>
+					</div>
+					{#if participantListVisible}
+						<div class="border-surface-50 border-t-2">
+							{#each selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going') ?? [] as rsvp, idx (rsvp.userId ?? idx)}
+								<div class="border-surface-50/20 flex items-center gap-4 border-b py-3.5">
+									<span class="text-primary-500 text-xl font-black italic tabular-nums">
+										{String(idx + 1).padStart(2, '0')}
+									</span>
+									<div class="min-w-0">
+										<div class="truncate font-black uppercase">{rsvp.participantName}</div>
+										{#if canManage}
+											<div class="truncate text-xs opacity-80">{rsvp.participantEmail}</div>
+										{/if}
+									</div>
+								</div>
+							{/each}
+							{#if !selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going')?.length}
+								<p class="m-0 pt-4 text-sm font-medium opacity-85">
+									No RSVPs yet for the selected occurrence.
+								</p>
+							{/if}
+						</div>
+					{:else}
+						<p class="border-surface-50 m-0 border-t-2 pt-4 text-sm font-medium opacity-85">
+							The organizer has kept the participant list private.
+						</p>
+					{/if}
+				</section>
+			</div>
+
+			<!-- Ruler band: 0 -> 3 ft -->
+			<div
+				class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-t-[3px]"
+				aria-hidden="true"
+			>
+				{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+					<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
+						<span
+							class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+						></span>
+						<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
+						{#if i === 2}
+							<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</aside>
+	</div>
+
+	<!-- PHOTO GALLERY -->
+	{#if rideImages.length > 1}
+		<section
+			class="bg-surface-950 text-surface-50 border-surface-800 border-t-2 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+			aria-labelledby="photos-heading"
+		>
+			<div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+				<div class="flex flex-col gap-2">
+					<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Photos</div>
+					<h2
+						id="photos-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black uppercase italic sm:text-5xl"
+					>
+						Route and ride vibe
+					</h2>
+				</div>
+				<div class="text-surface-300 text-xs font-bold tracking-[0.22em] uppercase">
+					{rideImages.length} images
+				</div>
 			</div>
 			<div class="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-				<div class="gallery-feature-frame">
+				<div class="bg-surface-900 border-surface-800 min-h-72 overflow-hidden border">
 					<img
 						src={rideImages[1]}
 						alt={`${activity?.title || 'Ride'} photo 2`}
@@ -510,7 +1018,7 @@
 				</div>
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each rideImages.slice(2) as imageUrl, index (imageUrl)}
-						<div class="gallery-tile">
+						<div class="bg-surface-900 border-surface-800 overflow-hidden border">
 							<img
 								src={imageUrl}
 								alt={`${activity?.title || 'Ride'} photo ${index + 3}`}
@@ -525,303 +1033,15 @@
 				</div>
 			</div>
 			{#if rideImages.length === 2}
-				<div class="mt-4 text-sm opacity-65">
+				<div class="text-surface-300 mt-4 text-sm">
 					More ride photos will appear here as organizers add them.
 				</div>
 			{/if}
 		</section>
 	{/if}
-
-	{#if !activity?.host_user_id && !activity?.host_group_id}
-		<section class="card preset-tonal-warning p-5">
-			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<div class="space-y-2">
-					<div class="flex items-center gap-2 text-lg font-semibold">
-						<IconShieldQuestion class="h-5 w-5" />
-						This {ride?.recurrenceRule ? 'ride series is' : 'ride is'} currently unclaimed
-					</div>
-					<p class="text-sm opacity-80">
-						The listing is public, but no host or host organization is attached yet. Claim it to
-						manage updates, RSVPs, reminder emails, and rider communication.
-					</p>
-				</div>
-				{#if canClaim}
-					<button class="btn preset-filled-warning-500" onclick={claimRide} disabled={claimLoading}>
-						{claimLoading ? 'Claiming...' : claimLabel}
-					</button>
-				{:else if !currentUser}
-					<p class="text-sm font-medium opacity-80">Log in with the header action to claim it.</p>
-				{/if}
-			</div>
-		</section>
-	{/if}
-
-	<div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-		<div class="space-y-6">
-			<section class="card preset-tonal-surface p-5">
-				<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-					<IconBadgeInfo class="h-5 w-5" />
-					Hosting
-				</div>
-				<div class="grid gap-4 md:grid-cols-2">
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Organizer</div>
-						<div class="mt-1 font-semibold">
-							{#if activity?.host_group_id}
-								Organization-hosted ride
-							{:else if activity?.host_user_id}
-								Hosted by a rider on 3FP
-							{:else}
-								No host attached yet
-							{/if}
-						</div>
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Participant list</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.participant_visibility === 'private' ? 'Private to hosts' : 'Public'}
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="card preset-tonal-surface p-5">
-				<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-					<IconRoute class="h-5 w-5" />
-					Ride Details
-				</div>
-				<div class="grid gap-4 md:grid-cols-2">
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Meet</div>
-						<div class="mt-1 font-semibold">
-							{@html renderLinkifiedText(activity?.start_location_name)}
-						</div>
-						{#if activity?.start_location_address}
-							<div class="text-sm opacity-75">
-								{@html renderLinkifiedText(activity.start_location_address)}
-							</div>
-						{/if}
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Finish</div>
-						{#if rideDetails?.end_location_name}
-							<div class="mt-1 font-semibold">
-								{@html renderLinkifiedText(rideDetails.end_location_name)}
-							</div>
-						{:else}
-							<div class="mt-1 font-semibold">Same as start or route-dependent</div>
-						{/if}
-						{#if rideDetails?.end_location_address}
-							<div class="text-sm opacity-75">
-								{@html renderLinkifiedText(rideDetails.end_location_address)}
-							</div>
-						{/if}
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Distance</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.estimated_distance_miles
-								? `${rideDetails.estimated_distance_miles} miles`
-								: 'TBD'}
-						</div>
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Duration</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.estimated_duration_minutes
-								? `${rideDetails.estimated_duration_minutes} min`
-								: 'TBD'}
-						</div>
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Elevation</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.elevation_gain_feet ? `${rideDetails.elevation_gain_feet} ft` : 'TBD'}
-						</div>
-					</div>
-					<div>
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Drop style</div>
-						<div class="mt-1 font-semibold">
-							{rideDetails?.is_no_drop ? 'No-drop' : 'Drop ride'}
-						</div>
-					</div>
-					<div class="md:col-span-2">
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Pace</div>
-						{#if rideDetails?.pace_notes}
-							<div class="mt-1">{@html renderLinkifiedText(rideDetails.pace_notes)}</div>
-						{:else}
-							<div class="mt-1">Not specified</div>
-						{/if}
-					</div>
-					<div class="md:col-span-2">
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Surface</div>
-						<div class="mt-2 flex flex-wrap gap-2">
-							{#each rideDetails?.surface_types ?? [] as surface}
-								<span class="chip preset-tonal-surface">{surface}</span>
-							{/each}
-						</div>
-					</div>
-					<div class="md:col-span-2">
-						<div class="text-sm tracking-[0.18em] uppercase opacity-60">Bike suitability</div>
-						<div class="mt-2 flex flex-wrap gap-2">
-							{#each rideDetails?.bike_suitability ?? [] as bike}
-								<span class="chip preset-tonal-secondary">{bike}</span>
-							{/each}
-						</div>
-					</div>
-					{#if rideDetails?.accessibility_notes}
-						<div class="md:col-span-2">
-							<div class="text-sm tracking-[0.18em] uppercase opacity-60">Accessibility</div>
-							<div class="mt-1">{@html renderLinkifiedText(rideDetails.accessibility_notes)}</div>
-						</div>
-					{/if}
-					{#if activity?.description}
-						<div class="md:col-span-2">
-							<div class="text-sm tracking-[0.18em] uppercase opacity-60">About this ride</div>
-							<div class="mt-1 leading-7">{@html renderLinkifiedText(activity.description)}</div>
-						</div>
-					{/if}
-				</div>
-			</section>
-
-			<section class="card preset-tonal-surface p-5">
-				<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-					<IconCalendarClock class="h-5 w-5" />
-					Upcoming Occurrences
-				</div>
-				<div class="space-y-3">
-					{#each visibleOccurrences as occurrence}
-						<button
-							type="button"
-							class={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${String(selectedOccurrenceId) === String(occurrence.id) ? 'border-primary-500 bg-primary-500/8' : 'border-surface-500/20'}`}
-							onclick={() => (selectedOccurrenceId = occurrence.id)}
-						>
-							<div>
-								<div class="font-semibold">{occurrenceLabel(occurrence)}</div>
-								<div class="text-sm opacity-75">
-									{@html renderLinkifiedText(
-										occurrence.start_location_name || activity?.start_location_name
-									)}
-								</div>
-							</div>
-							{#if currentUserRsvp(occurrence)?.status === 'going'}
-								<span class="chip preset-tonal-success">You're in</span>
-							{/if}
-						</button>
-					{/each}
-					{#if scheduledOccurrences.length > 5}
-						<p class="text-sm opacity-70">Showing the next 5 upcoming occurrences.</p>
-					{/if}
-				</div>
-			</section>
-		</div>
-
-		<aside class="space-y-6">
-			<section class="card preset-tonal-surface p-5">
-				<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-					<IconMapPin class="h-5 w-5" />
-					Map
-				</div>
-				{#if activity?.start_latitude != null && activity?.start_longitude != null}
-					<div class="border-surface-500/20 h-72 overflow-hidden rounded-xl border">
-						<div bind:this={mapEl} class="h-full w-full"></div>
-					</div>
-				{:else}
-					<p class="text-sm opacity-70">
-						Map pin will appear when the start location has coordinates.
-					</p>
-				{/if}
-			</section>
-
-			<section class="card preset-tonal-surface p-5">
-				<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-					<IconUsers class="h-5 w-5" />
-					Participants
-				</div>
-				{#if participantListVisible}
-					<div class="space-y-3">
-						{#each selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going') ?? [] as rsvp}
-							<div class="border-surface-500/20 rounded-xl border p-3">
-								<div class="font-medium">{rsvp.participantName}</div>
-								{#if canManage}
-									<div class="text-sm opacity-70">{rsvp.participantEmail}</div>
-								{/if}
-							</div>
-						{/each}
-						{#if !selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going')?.length}
-							<p class="text-sm opacity-70">No RSVPs yet for the selected occurrence.</p>
-						{/if}
-					</div>
-				{:else}
-					<p class="text-sm opacity-70">The organizer has kept the participant list private.</p>
-				{/if}
-			</section>
-		</aside>
-	</div>
 </div>
 
 <style>
-	/* ── Hero base (no image) ─────────────────────── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	/* ── Hero with cover image ────────────────────── */
-	.hero-section--cover {
-		border: none;
-		background: var(--color-surface-950);
-	}
-
-	.hero-cover-bg {
-		position: absolute;
-		inset: 0;
-		background-image: var(--hero-bg);
-		background-size: cover;
-		background-position: center;
-		transform: scale(1.04);
-		filter: brightness(0.72) saturate(1.1);
-		transition: transform 0.6s ease;
-		pointer-events: none;
-	}
-
-	.hero-section--cover:hover .hero-cover-bg {
-		transform: scale(1.06);
-	}
-
-	.hero-cover-overlay {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			to top,
-			rgba(6, 6, 14, 0.88) 0%,
-			rgba(6, 6, 14, 0.45) 50%,
-			rgba(6, 6, 14, 0.18) 100%
-		);
-		pointer-events: none;
-	}
-
-	/* ── Orb animations (no-image fallback only) ──── */
-	/* ── Typography ───────────────────────────────── */
-	.ride-headline {
-		color: white;
-		text-align: left;
-		text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
-	}
-
-	/* ── Photo gallery below hero ─────────────────── */
-	.gallery-feature-frame,
-	.gallery-tile {
-		overflow: hidden;
-		border-radius: 1.25rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
-		background: color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-900) 90%);
-	}
-
-	.gallery-feature-frame {
-		min-height: 18rem;
-	}
-
 	:global(.linkified-url) {
 		word-break: break-word;
 		overflow-wrap: anywhere;

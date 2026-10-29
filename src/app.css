@@ -105,19 +105,10 @@ body::after {
 
 /*
  * Lane Lines design language (see docs/design-language.md).
- * Scoped to .app-shell so group microsites keep their own branding.
+ * Scoped to .app-shell main so group microsites keep their own branding.
  * Flat asphalt ground, square edges, solid fields, loud uppercase type.
  */
-body:has(.app-shell) {
-	background-color: var(--color-surface-950);
-}
-
-body:has(.app-shell)::before,
-body:has(.app-shell)::after {
-	display: none;
-}
-
-.app-shell {
+.app-shell main {
 	--radius-xs: 0;
 	--radius-sm: 0;
 	--radius-md: 0;
@@ -173,12 +164,12 @@ body:has(.app-shell)::after {
 	--color-primary-contrast-950: var(--color-surface-50);
 }
 
-.app-shell [class*='rounded-['] {
+.app-shell main [class*='rounded-['] {
 	border-radius: 0;
 }
 
-.app-shell h1,
-.app-shell h2 {
+.app-shell main h1,
+.app-shell main h2 {
 	font-weight: 900;
 	font-style: italic;
 	text-transform: uppercase;
@@ -186,31 +177,31 @@ body:has(.app-shell)::after {
 	line-height: 0.95;
 }
 
-.app-shell h3 {
+.app-shell main h3 {
 	font-weight: 900;
 	text-transform: uppercase;
 	letter-spacing: -0.01em;
 }
 
-.app-shell .btn,
-.app-shell .chip,
-.app-shell .badge {
+.app-shell main .btn,
+.app-shell main .chip,
+.app-shell main .badge {
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
 
-.app-shell .btn:hover,
-.app-shell a:hover {
+.app-shell main .btn:hover,
+.app-shell main a:hover {
 	text-decoration: none;
 }
 
-.app-shell .card {
+.app-shell main .card {
 	box-shadow: none;
 }
 
 /* No panels inside panels: flatten nested cards into ruled sections. */
-.app-shell .card .card {
+.app-shell main .card .card {
 	background: transparent;
 	border-width: 0;
 	border-top: 2px solid var(--color-surface-700);
@@ -218,17 +209,17 @@ body:has(.app-shell)::after {
 	padding-inline: 0;
 }
 
-.app-shell [class*='shadow-'] {
+.app-shell main [class*='shadow-'] {
 	box-shadow: none;
 }
 
-.app-shell [class*='backdrop-blur'] {
+.app-shell main [class*='backdrop-blur'] {
 	backdrop-filter: none;
 }
 
-.app-shell .select,
-.app-shell .input,
-.app-shell .textarea {
+.app-shell main .select,
+.app-shell main .input,
+.app-shell main .textarea {
 	border-width: 2px;
 }
 
@@ -237,38 +228,32 @@ body:has(.app-shell)::after {
  * Force the Lane Lines look everywhere inside the app shell. Avatars and
  * radio buttons keep their circles.
  */
-.app-shell *:not(.rounded-full):not([type='radio']) {
+.app-shell main *:not(.rounded-full):not([type='radio']) {
 	border-radius: 0 !important;
 }
 
-.app-shell [class*='orb'],
-.app-shell [class*='glow'] {
+.app-shell main [class*='orb'],
+.app-shell main [class*='glow'] {
 	display: none !important;
 }
 
-.app-shell .hero-section {
-	background: var(--color-secondary-500) !important;
-	border: 0 !important;
-	color: var(--color-surface-50);
-}
-
-.app-shell .btn[class*='preset-tonal-primary'],
-.app-shell .chip[class*='preset-tonal-primary'],
-.app-shell .badge[class*='preset-tonal-primary'] {
+.app-shell main .btn[class*='preset-tonal-primary'],
+.app-shell main .chip[class*='preset-tonal-primary'],
+.app-shell main .badge[class*='preset-tonal-primary'] {
 	background: var(--color-primary-500);
 	color: var(--color-surface-950);
 }
 
-.app-shell .btn[class*='preset-tonal-secondary'],
-.app-shell .chip[class*='preset-tonal-secondary'],
-.app-shell .badge[class*='preset-tonal-secondary'] {
+.app-shell main .btn[class*='preset-tonal-secondary'],
+.app-shell main .chip[class*='preset-tonal-secondary'],
+.app-shell main .badge[class*='preset-tonal-secondary'] {
 	background: var(--color-secondary-500);
 	color: var(--color-surface-50);
 }
 
-.app-shell .btn[class*='preset-tonal-tertiary'],
-.app-shell .chip[class*='preset-tonal-tertiary'],
-.app-shell .badge[class*='preset-tonal-tertiary'] {
+.app-shell main .btn[class*='preset-tonal-tertiary'],
+.app-shell main .chip[class*='preset-tonal-tertiary'],
+.app-shell main .badge[class*='preset-tonal-tertiary'] {
 	background: var(--color-tertiary-500);
 	color: var(--color-surface-950);
 }

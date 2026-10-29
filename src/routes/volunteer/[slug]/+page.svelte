@@ -582,28 +582,28 @@
 		draft: {
 			label: 'Draft',
 			className:
-				'chip preset-tonal-warning border border-warning-600-400/40 bg-warning-500/10 text-warning-950-50 uppercase tracking-wide text-[11px]'
+				'bg-surface-950 text-primary-500 px-3 py-1 text-xs font-black tracking-[0.18em] uppercase'
 		},
 		published: {
 			label: 'Published',
 			className:
-				'chip preset-tonal-success border border-success-500/40 bg-success-500/10 text-success-950-50 uppercase tracking-wide text-[11px]'
+				'bg-surface-950 text-primary-500 px-3 py-1 text-xs font-black tracking-[0.18em] uppercase'
 		},
 		cancelled: {
 			label: 'Cancelled',
 			className:
-				'chip preset-tonal-error border border-error-500/40 bg-error-500/10 text-error-900-100 uppercase tracking-wide text-[11px]'
+				'bg-tertiary-500 text-surface-950 px-3 py-1 text-xs font-black tracking-[0.18em] uppercase'
 		},
 		archived: {
 			label: 'Archived',
 			className:
-				'chip preset-tonal-surface border border-surface-600-400/40 bg-surface-300-700/40 text-surface-900-100 uppercase tracking-wide text-[11px]'
+				'border-2 border-surface-950 text-surface-950 px-3 py-0.5 text-xs font-black tracking-[0.18em] uppercase'
 		}
 	};
 	const statusInfo = statusStyles[event.status] ?? {
 		label: event.status ? event.status.replace(/_/g, ' ') : 'Unknown',
 		className:
-			'chip preset-tonal-surface border border-surface-500/40 bg-surface-300-700/40 text-surface-900-100 uppercase tracking-wide text-[11px]'
+			'border-2 border-surface-950 text-surface-950 px-3 py-0.5 text-xs font-black tracking-[0.18em] uppercase'
 	};
 
 	function typeLabel(value) {
@@ -1423,77 +1423,109 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-{#if draftRestricted}
-	<section class="mx-auto max-w-3xl space-y-6 px-4 py-16">
-		<div
-			class="border-error-500/40 bg-error-100-900/30 text-error-900-100 rounded-3xl border p-8 shadow-lg"
-		>
-			<h1 class="text-2xl font-semibold">This draft is locked</h1>
-			<p class="text-error-800-200 mt-3 text-sm">
-				Only the event host or owners of the hosting group can view draft events. Ask the organizer
-				to publish or add you as an owner to continue.
-			</p>
-		</div>
-	</section>
-{:else if authRequired}
-	<section class="mx-auto max-w-3xl space-y-6 px-4 py-16">
-		<div
-			class="border-warning-500/40 bg-warning-100-900/30 text-warning-900-100 rounded-3xl border p-8 shadow-lg"
-		>
-			<h1 class="text-2xl font-semibold">Log in to view this draft event</h1>
-			<p class="text-warning-800-200 mt-3 text-sm">
-				This event is still in draft. Enter your email to receive a magic link and continue.
-			</p>
-			<form class="mt-6 space-y-3" onsubmit={requestMagicLink}>
-				<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-					<div bind:this={turnstileEl}></div>
-				</div>
-				<input
-					type="text"
-					name="website"
-					bind:value={loginHoneypot}
-					autocomplete="off"
-					tabindex="-1"
-					aria-hidden="true"
-					style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-				/>
-				<label
-					class="text-warning-800-200 text-xs font-semibold tracking-wide uppercase"
-					for="draft-login-email">Email</label
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	{#if draftRestricted}
+		<section class="bg-tertiary-500 text-surface-950 px-6 py-16 sm:px-10 lg:px-14 lg:py-24">
+			<div class="flex max-w-3xl flex-col gap-5">
+				<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+					<span class="bg-surface-950 h-3 w-3" aria-hidden="true"></span>
+					<span>Restricted draft</span>
+				</p>
+				<h1
+					class="text-surface-950! m-0 text-4xl leading-[0.88] font-black tracking-[-0.04em] uppercase italic sm:text-6xl"
 				>
-				<input
-					id="draft-login-email"
-					type="email"
-					class="input bg-surface-50-950/60"
-					bind:value={loginEmail}
-					required
-					placeholder="you@example.com"
-				/>
-				{#if loginError}
-					<p class="text-error-800-200 text-xs">{loginError}</p>
-				{/if}
-				{#if loginSuccess}
-					<p class="text-success-800-200 text-xs">{loginSuccess}</p>
-				{/if}
-				<button
-					type="submit"
-					class={`btn preset-filled-warning-500 w-full ${loginLoading ? 'animate-pulse' : ''}`}
-					disabled={loginLoading}
+					This draft is locked
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium">
+					Only the event host or owners of the hosting group can view draft events. Ask the
+					organizer to publish or add you as an owner to continue.
+				</p>
+			</div>
+		</section>
+	{:else if authRequired}
+		<section class="bg-primary-500 text-surface-950 px-6 py-16 sm:px-10 lg:px-14 lg:py-24">
+			<div class="flex max-w-2xl flex-col gap-6">
+				<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+					<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+					<span>Authentication required</span>
+				</p>
+				<h1
+					class="text-surface-950! m-0 text-4xl leading-[0.88] font-black tracking-[-0.04em] uppercase italic sm:text-6xl"
 				>
-					{loginLoading ? 'Sending magic link…' : 'Email me a magic link'}
-				</button>
-			</form>
-		</div>
-	</section>
-{:else}
-	<section class="mx-auto max-w-6xl space-y-8 px-2 py-8">
-		<nav class="flex flex-wrap items-center gap-2 text-sm opacity-75">
-			<a class="hover:opacity-100" href="/volunteer">Volunteer</a>
+					Log in to view this draft event
+				</h1>
+				<p class="m-0 text-lg leading-snug font-medium">
+					This event is still in draft. Enter your email to receive a magic link and continue.
+				</p>
+				<form class="flex flex-col gap-4 pt-2" onsubmit={requestMagicLink}>
+					<div
+						aria-hidden="true"
+						style="position: absolute; width: 0; height: 0; overflow: hidden;"
+					>
+						<div bind:this={turnstileEl}></div>
+					</div>
+					<input
+						type="text"
+						name="website"
+						bind:value={loginHoneypot}
+						autocomplete="off"
+						tabindex="-1"
+						aria-hidden="true"
+						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
+					/>
+					<label class="text-xs font-bold tracking-[0.2em] uppercase" for="draft-login-email">
+						Email
+					</label>
+					<input
+						id="draft-login-email"
+						type="email"
+						class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
+						bind:value={loginEmail}
+						required
+						placeholder="you@example.com"
+					/>
+					{#if loginError}
+						<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase">
+							{loginError}
+						</p>
+					{/if}
+					{#if loginSuccess}
+						<p class="bg-surface-950 text-primary-500 m-0 px-4 py-2 text-xs font-black uppercase">
+							{loginSuccess}
+						</p>
+					{/if}
+					<button
+						type="submit"
+						class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-7 py-4 text-base font-black tracking-wide uppercase transition {loginLoading
+							? 'opacity-70'
+							: ''}"
+						disabled={loginLoading}
+					>
+						{loginLoading ? 'Sending magic link…' : 'Email me a magic link'}
+					</button>
+				</form>
+			</div>
+		</section>
+	{:else}
+		<!-- BREADCRUMB BAR -->
+		<nav
+			aria-label="Breadcrumb"
+			class="bg-surface-950 text-surface-300 border-surface-800 flex flex-wrap items-center gap-2 border-b px-6 py-3 text-xs font-bold tracking-[0.18em] uppercase sm:px-10 lg:px-14"
+		>
+			<a
+				class="text-primary-500 hover:text-surface-50 transition hover:no-underline"
+				href="/volunteer"
+			>
+				Volunteer
+			</a>
 			<span aria-hidden="true">/</span>
-			<span class="text-surface-600-400">{seoTitle}</span>
+			<span class="text-surface-50">{seoTitle}</span>
 			{#if hostGroup?.slug}
 				<span aria-hidden="true">·</span>
-				<a class="hover:opacity-100" href={`/volunteer/groups/${hostGroup.slug}`}>
+				<a
+					class="text-surface-300 hover:text-primary-500 transition hover:no-underline"
+					href={`/volunteer/groups/${hostGroup.slug}`}
+				>
 					{hostGroup.name}
 				</a>
 			{/if}
@@ -1501,263 +1533,299 @@
 
 		{#if authFlag === 'required' || authFlag === 'forbidden'}
 			<section
-				class="mx-auto max-w-3xl rounded-xl border p-4 {authFlag === 'required'
-					? 'border-warning-400-600/40 bg-warning-100-900/20'
-					: 'border-error-400-600/40 bg-error-100-900/20'}"
+				class="border-surface-950 border-b-[3px] px-6 py-4 sm:px-10 lg:px-14 {authFlag ===
+				'required'
+					? 'bg-primary-500 text-surface-950'
+					: 'bg-tertiary-500 text-surface-950'}"
 			>
 				{#if authFlag === 'required'}
 					<div class="text-sm">
-						<strong>Please log in to edit this event.</strong>
-						<div class="text-surface-700-300">
-							Use the "Log in / Register" button in the header, then try again.
-						</div>
+						<strong class="font-black uppercase">Please log in to edit this event.</strong>
+						<div>Use the "Log in / Register" button in the header, then try again.</div>
 					</div>
 				{:else}
 					<div class="text-sm">
-						<strong>You don't have permission to edit this event.</strong>
-						<div class="text-surface-700-300">Ask an existing owner to add you as an owner.</div>
+						<strong class="font-black uppercase"
+							>You don't have permission to edit this event.</strong
+						>
+						<div>Ask an existing owner to add you as an owner.</div>
 					</div>
 				{/if}
 			</section>
 		{/if}
 
-		<!-- ═══════════════════════════ HERO BANNER ═══════════════════════════ -->
-		<header class="card relative overflow-hidden rounded-3xl">
-			<div class="hero-section relative z-10 p-6 pb-0 md:p-10 md:pb-0">
-				<div class="app-orb app-orb-1" aria-hidden="true"></div>
-				<div class="app-orb app-orb-2" aria-hidden="true"></div>
-				<div class="app-orb app-orb-3" aria-hidden="true"></div>
-				<!-- chips row -->
-				<div class="flex flex-wrap items-center gap-2">
+		<!-- HERO BANNER -->
+		<header class="bg-primary-500 text-surface-950">
+			<div class="flex flex-col gap-8 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16">
+				<!-- Eyebrow & status row -->
+				<div class="flex flex-wrap items-center gap-3">
+					<span class="bg-tertiary-500 h-3 w-3 shrink-0" aria-hidden="true"></span>
 					{#if eventTypeLabel}
-						<span class="chip preset-tonal-secondary text-[11px] tracking-widest uppercase">
+						<span
+							class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+						>
 							{eventTypeLabel}
 						</span>
+					{:else}
+						<span class="text-xs font-bold tracking-[0.22em] uppercase">Volunteer Event</span>
 					{/if}
 					{#if canManage}
 						<span class={statusInfo.className}>{statusInfo.label}</span>
 						{#if event.waitlist_enabled}
-							<span class="chip preset-tonal-primary text-[11px] tracking-widest uppercase">
+							<span
+								class="border-surface-950 text-surface-950 border-2 px-3 py-0.5 text-xs font-black tracking-[0.18em] uppercase"
+							>
 								Waitlist enabled
 							</span>
 						{/if}
 					{/if}
 				</div>
 
-				<!-- title row -->
-				<div class="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-					<div class="space-y-3">
-						<h1 class="h1 !text-left text-4xl font-extrabold tracking-tight md:text-5xl">
+				<!-- Title + Actions row -->
+				<div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+					<div class="flex flex-col gap-4">
+						<h1
+							class="text-surface-950! m-0 text-[clamp(2.6rem,6.5vw,6rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+						>
 							{event.title || 'Untitled volunteer event'}
 						</h1>
 						{#if eventType?.description}
-							<p class="text-surface-700-300 max-w-2xl text-sm leading-relaxed">
+							<p class="m-0 max-w-3xl text-lg leading-snug font-medium sm:text-xl">
 								{eventType.description}
 							</p>
 						{:else if event.summary}
-							<p class="text-surface-800-200 max-w-2xl text-base leading-relaxed">
+							<p class="m-0 max-w-3xl text-lg leading-snug font-medium sm:text-2xl">
 								{event.summary}
 							</p>
 						{/if}
 					</div>
 
-					<!-- manage / host CTA -->
-					{#if canManage}
-						<div class="flex shrink-0 items-center gap-2 self-start">
+					<!-- Manage / Host CTA + Share -->
+					<div class="flex shrink-0 flex-wrap items-center gap-3 self-start lg:self-end">
+						{#if canManage}
 							<a
 								href={`/volunteer/${event.slug}/manage`}
-								class="btn preset-outlined-secondary-500 flex items-center gap-2 text-sm"
+								class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 							>
 								<span>Manage</span>
 							</a>
 							<a
 								href={`/volunteer/${event.slug}/edit`}
-								class="btn preset-outlined-success-500 flex items-center gap-2 text-sm"
+								class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 							>
 								<span>Edit</span>
 							</a>
-						</div>
-					{:else if hostGroup?.slug}
-						<a
-							href={`/groups/${hostGroup.slug}`}
-							class="btn preset-outlined-secondary-500 flex shrink-0 items-center gap-2 self-start text-sm"
-						>
-							<IconBuilding class="h-4 w-4" />
-							<span>View host profile</span>
-						</a>
-					{/if}
-				</div>
-
-				{#if event.status !== 'draft'}
-					<div class="mt-5">
-						<ShareButton
-							title={seoTitle}
-							text={seoDescription}
-							url={seoCanonical}
-							kind="volunteer event"
-						/>
-					</div>
-				{/if}
-
-				<!-- stat info grid -->
-				<div class="mt-7 grid gap-3 pb-6 sm:grid-cols-3 md:pb-8">
-					<!-- Date -->
-					<div class="card preset-tonal-primary flex items-start gap-3 p-4">
-						<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-							<IconCalendar class="h-4 w-4" />
-						</span>
-						<div class="min-w-0">
-							<p class="text-xs font-semibold tracking-widest uppercase opacity-60">Schedule</p>
-							<p class="mt-0.5 text-sm leading-snug font-bold">
-								{eventDateLabel(event.event_start, event.event_end, event.timezone)}
-							</p>
-							<p class="text-xs">
-								{eventTimeLabel(event.event_start, event.event_end, event.timezone)}
-							</p>
-						</div>
-					</div>
-
-					<!-- Location -->
-					<div class="card preset-tonal-secondary flex items-start gap-3 p-4">
-						<span
-							class="preset-tonal-secondary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-						>
-							<IconMapPin class="h-4 w-4" />
-						</span>
-						<div class="min-w-0">
-							<p class="text-xs font-semibold tracking-widest uppercase opacity-60">Location</p>
-							<p class="mt-0.5 text-sm leading-snug font-bold">
-								{event.location_name || 'Meeting spot coming soon'}
-							</p>
-							{#if event.location_address}
-								<p class="text-xs opacity-70">{event.location_address}</p>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Host -->
-					<div class="card preset-tonal-tertiary flex items-start gap-3 p-4">
-						<span
-							class="preset-tonal-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-						>
-							<IconUsers class="h-4 w-4" />
-						</span>
-						<div class="min-w-0">
-							<p class="text-xs font-semibold tracking-widest uppercase opacity-60">Host</p>
-							<p class="mt-0.5 text-sm leading-snug font-bold">
-								{hostGroup ? hostGroup.name : 'Independent host'}
-							</p>
-							{#if hostGroup}
-								<p class="text-xs opacity-70">
-									{hostLocationLabel() || 'Local volunteer crew'}
-								</p>
-							{/if}
-							{#if contactEmail}
-								<a
-									href={`mailto:${contactEmail}`}
-									class="mt-1 flex items-center gap-1 text-xs opacity-80 hover:opacity-100"
-								>
-									<IconMail class="h-3 w-3" />
-									{contactEmail}
-								</a>
-							{/if}
-							{#if contactPhone}
-								<a
-									href={`tel:${contactPhone}`}
-									class="mt-1 flex items-center gap-1 text-xs opacity-80 hover:opacity-100"
-								>
-									<IconPhone class="h-3 w-3" />
-									{contactPhone}
-								</a>
-							{/if}
-							{#if hostSocialLinks.length}
-								<div class="mt-1 flex flex-wrap gap-2">
-									{#if hostWebsite}
-										<a
-											href={hostWebsite}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="text-xs tracking-wide uppercase opacity-70 hover:opacity-100"
-										>
-											Website
-										</a>
-									{/if}
-									{#each hostSocialLinks as link}
-										<a
-											href={link.url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="text-xs tracking-wide uppercase opacity-70 hover:opacity-100"
-										>
-											{humanizeSlug(link.key)}
-										</a>
-									{/each}
-								</div>
-							{/if}
-						</div>
+						{:else if hostGroup?.slug}
+							<a
+								href={`/groups/${hostGroup.slug}`}
+								class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							>
+								<IconBuilding class="h-4 w-4" />
+								<span>View host profile</span>
+							</a>
+						{/if}
+						{#if event.status !== 'draft'}
+							<ShareButton
+								title={seoTitle}
+								text={seoDescription}
+								url={seoCanonical}
+								kind="volunteer event"
+							/>
+						{/if}
 					</div>
 				</div>
 			</div>
 
-			<!-- Map — flush inside hero card -->
+			<!-- 3-TILE METADATA BAND -->
+			<div class="border-surface-950 grid border-t-[3px] lg:grid-cols-3">
+				<!-- 01 / Schedule -->
+				<div
+					class="bg-surface-950 text-surface-50 border-surface-800 flex flex-col justify-between gap-4 border-b p-6 sm:p-8 lg:border-r lg:border-b-0"
+				>
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconCalendar class="h-4 w-4" />
+						<span>01 / Schedule</span>
+					</p>
+					<div class="flex flex-col gap-1">
+						<p class="m-0 text-xl leading-tight font-black uppercase italic sm:text-2xl">
+							{eventDateLabel(event.event_start, event.event_end, event.timezone)}
+						</p>
+						<p class="text-surface-300 m-0 text-sm font-bold uppercase">
+							{eventTimeLabel(event.event_start, event.event_end, event.timezone)}
+						</p>
+					</div>
+				</div>
+
+				<!-- 02 / Location -->
+				<div
+					class="bg-secondary-500 text-surface-50 border-surface-950 flex flex-col justify-between gap-4 border-b p-6 sm:p-8 lg:border-r lg:border-b-0"
+				>
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconMapPin class="h-4 w-4" />
+						<span>02 / Location</span>
+					</p>
+					<div class="flex flex-col gap-1">
+						<p class="m-0 text-xl leading-tight font-black uppercase italic sm:text-2xl">
+							{event.location_name || 'Meeting spot coming soon'}
+						</p>
+						{#if event.location_address}
+							<p class="m-0 text-sm opacity-90">{event.location_address}</p>
+						{/if}
+					</div>
+				</div>
+
+				<!-- 03 / Host -->
+				<div
+					class="bg-tertiary-500 text-surface-950 flex flex-col justify-between gap-4 p-6 sm:p-8"
+				>
+					<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+						<IconUsers class="h-4 w-4" />
+						<span>03 / Host</span>
+					</p>
+					<div class="flex flex-col gap-1.5">
+						<p class="m-0 text-xl leading-tight font-black uppercase italic sm:text-2xl">
+							{hostGroup ? hostGroup.name : 'Independent host'}
+						</p>
+						{#if hostGroup}
+							<p class="m-0 text-xs font-bold uppercase">
+								{hostLocationLabel() || 'Local volunteer crew'}
+							</p>
+						{/if}
+						{#if contactEmail}
+							<a
+								href={`mailto:${contactEmail}`}
+								class="text-surface-950 inline-flex items-center gap-1.5 text-xs font-bold underline underline-offset-4"
+							>
+								<IconMail class="h-3.5 w-3.5" />
+								{contactEmail}
+							</a>
+						{/if}
+						{#if contactPhone}
+							<a
+								href={`tel:${contactPhone}`}
+								class="text-surface-950 inline-flex items-center gap-1.5 text-xs font-bold underline underline-offset-4"
+							>
+								<IconPhone class="h-3.5 w-3.5" />
+								{contactPhone}
+							</a>
+						{/if}
+						{#if hostSocialLinks.length || hostWebsite}
+							<div class="flex flex-wrap gap-3 pt-1">
+								{#if hostWebsite}
+									<a
+										href={hostWebsite}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-surface-950 text-xs font-black tracking-wide uppercase underline underline-offset-4"
+									>
+										Website
+									</a>
+								{/if}
+								{#each hostSocialLinks as link (link.key)}
+									<a
+										href={link.url}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-surface-950 text-xs font-black tracking-wide uppercase underline underline-offset-4"
+									>
+										{humanizeSlug(link.key)}
+									</a>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<!-- Map — flush inside hero -->
 			{#if hasCoords}
-				<div class="h-64 w-full overflow-hidden md:h-72">
+				<div class="border-surface-950 h-64 w-full overflow-hidden border-t-[3px] md:h-80">
 					<div bind:this={mapEl} class="h-full w-full"></div>
 				</div>
 			{/if}
 		</header>
 
-		<!-- ══════════════ EVENT FINISHED BANNER ══════════════ -->
+		<!-- EVENT FINISHED BANNER -->
 		{#if eventFinished}
-			<section class="card preset-tonal-error flex items-center gap-4 rounded-3xl p-6">
+			<section
+				class="bg-tertiary-500 text-surface-950 border-surface-950 flex items-center gap-4 border-t-[3px] px-6 py-6 sm:px-10 lg:px-14"
+			>
 				<span
-					class="preset-tonal-warning flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+					class="bg-surface-950 text-primary-500 flex h-12 w-12 shrink-0 items-center justify-center"
 				>
 					<IconAlertCircle class="h-6 w-6" />
 				</span>
 				<div>
-					<h2 class="!text-left text-lg font-semibold">This event has finished</h2>
-					<p class="mt-1">Sign-ups are closed, but you can still review the event details below.</p>
+					<h2 class="text-surface-950! m-0 text-xl font-black uppercase italic">
+						This event has finished
+					</h2>
+					<p class="m-0 mt-1 text-sm font-medium">
+						Sign-ups are closed, but you can still review the event details below.
+					</p>
 				</div>
 			</section>
 		{/if}
 
-		<div class="space-y-8">
-			<!-- ══════════════════ OVERVIEW ══════════════════ -->
-			{#if eventDescriptionHtml}
-				<section
-					class="card preset-tonal-surface border-l-secondary-500 rounded-3xl border-l-4 p-6"
-				>
-					<h2 class="h2">Overview</h2>
-					<div class="prose prose-invert mt-4 max-w-none space-y-4 text-base leading-relaxed">
-						{#if showFullOverview || eventDescriptionPlain.length <= TRUNCATE_LIMIT}
-							{@html eventDescriptionHtml}
-						{:else}
-							<p>{truncateText(eventDescriptionPlain)}</p>
-						{/if}
-					</div>
-					{#if eventDescriptionPlain.length > TRUNCATE_LIMIT}
-						<button
-							class="btn preset-tonal-secondary mt-4 text-sm"
-							type="button"
-							onclick={() => (showFullOverview = !showFullOverview)}
-						>
-							{showFullOverview ? 'Show less' : 'Show full details'}
-						</button>
+		<!-- OVERVIEW -->
+		{#if eventDescriptionHtml}
+			<section
+				class="bg-surface-950 text-surface-50 border-surface-800 border-b px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+				aria-labelledby="overview-heading"
+			>
+				<div class="flex flex-col gap-4">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Briefing</p>
+					<h2
+						id="overview-heading"
+						class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+					>
+						Overview
+					</h2>
+				</div>
+				<div class="prose prose-invert mt-6 max-w-3xl space-y-4 text-base leading-relaxed">
+					{#if showFullOverview || eventDescriptionPlain.length <= TRUNCATE_LIMIT}
+						{@html eventDescriptionHtml}
+					{:else}
+						<p>{truncateText(eventDescriptionPlain)}</p>
 					{/if}
-				</section>
-			{/if}
+				</div>
+				{#if eventDescriptionPlain.length > TRUNCATE_LIMIT}
+					<button
+						class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 mt-6 border-2 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						type="button"
+						onclick={() => (showFullOverview = !showFullOverview)}
+					>
+						{showFullOverview ? 'Show less' : 'Show full details'}
+					</button>
+				{/if}
+			</section>
+		{/if}
 
-			<!-- ══════════════ LOGIN / VOLUNTEER CTA ══════════════ -->
-			{#if !user && !eventFinished}
-				<section class="card preset-tonal-secondary rounded-3xl p-6">
-					<h2 class="h2">Ready to volunteer?</h2>
-					<p class="mt-2 text-sm leading-relaxed opacity-80">
+		<!-- LOGIN / VOLUNTEER CTA -->
+		{#if !user && !eventFinished}
+			<section
+				class="bg-secondary-500 text-surface-50 border-surface-950 border-b-[3px] px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+				aria-labelledby="ready-volunteer-heading"
+			>
+				<div class="flex max-w-3xl flex-col gap-4">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+						Step 01 / Sign in
+					</p>
+					<h2
+						id="ready-volunteer-heading"
+						class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+					>
+						Ready to volunteer?
+					</h2>
+					<p class="m-0 text-base leading-relaxed opacity-90 sm:text-lg">
 						Enter your email to get a magic link. Once you're logged in you'll be able to pick
 						shifts and share the details organizers need.
 					</p>
 					<form
-						class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
+						class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end"
 						onsubmit={requestMagicLink}
 					>
 						<div
@@ -1776,12 +1844,12 @@
 							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 						/>
 						<label
-							class="flex flex-col gap-1.5 text-xs tracking-widest uppercase opacity-80 sm:flex-1"
+							class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase sm:flex-1"
 						>
 							<span>Your email</span>
 							<input
 								type="email"
-								class="input"
+								class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
 								bind:value={loginEmail}
 								required
 								placeholder="you@example.com"
@@ -1789,8 +1857,8 @@
 						</label>
 						<button
 							type="submit"
-							class="btn preset-filled-secondary-500 shrink-0 font-semibold {loginLoading
-								? 'animate-pulse'
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 shrink-0 px-7 py-4 text-sm font-black tracking-wide uppercase transition {loginLoading
+								? 'opacity-70'
 								: ''}"
 							disabled={loginLoading}
 						>
@@ -1798,130 +1866,174 @@
 						</button>
 					</form>
 					{#if loginError}
-						<div class="card preset-tonal-error mt-3 p-3 text-sm" transition:slide>
+						<div
+							class="bg-tertiary-500 text-surface-950 mt-2 px-4 py-3 text-xs font-black uppercase"
+							transition:slide
+						>
 							{loginError}
 						</div>
 					{/if}
 					{#if loginSuccess}
-						<div class="card preset-tonal-success mt-3 p-3 text-sm" transition:slide>
+						<div
+							class="bg-primary-500 text-surface-950 mt-2 px-4 py-3 text-xs font-black uppercase"
+							transition:slide
+						>
 							{loginSuccess}
 						</div>
 					{/if}
-				</section>
-			{/if}
+				</div>
+			</section>
+		{/if}
 
-			<!-- ══════════════ SIGNUP SUCCESS ══════════════ -->
-			{#if bulkSubmit.success}
-				<section class="card preset-tonal-success rounded-3xl p-8 text-center" transition:slide>
-					<div
-						class="preset-tonal-success mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
+		<!-- SIGNUP SUCCESS -->
+		{#if bulkSubmit.success}
+			<section
+				class="bg-primary-500 text-surface-950 px-6 py-16 sm:px-10 lg:px-14 lg:py-20"
+				transition:slide
+			>
+				<div class="flex max-w-2xl flex-col gap-5">
+					<span class="bg-surface-950 text-primary-500 flex h-14 w-14 items-center justify-center">
+						<IconCheckCircle class="h-8 w-8" />
+					</span>
+					<h2
+						class="text-surface-950! m-0 text-4xl leading-[0.9] font-black uppercase italic sm:text-6xl"
 					>
-						<IconCheckCircle class="h-9 w-9" />
-					</div>
-					<h2 class="h2">Thank you for volunteering!</h2>
-					<p class="mt-3 text-sm opacity-80">
+						Thank you for volunteering!
+					</h2>
+					<p class="m-0 text-lg font-medium">
 						We received your signup and look forward to seeing you there.
 					</p>
-					<a
-						href="/volunteer/shifts"
-						class="btn preset-outlined-success-500 mx-auto mt-6 flex w-fit items-center gap-2 text-sm"
-					>
-						View my shifts
-					</a>
-				</section>
-			{/if}
-
-			<!-- ══════════ VOLUNTEER ROLES & SHIFTS ══════════ -->
-			{#if !bulkSubmit.success}
-				<section class="space-y-6">
-					<div class="flex items-center justify-between gap-3">
-						<h2 class="text-secondary-200 text-2xl font-bold">Volunteer roles &amp; shifts</h2>
-					</div>
-
-					{#if opportunities.length === 0}
-						<div
-							class="border-primary-500/30 bg-primary-500/5 text-primary-300 rounded-3xl border border-dashed p-8 text-center text-sm"
+					<div>
+						<a
+							href="/volunteer/shifts"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-2 px-7 py-4 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 						>
+							View my shifts
+						</a>
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<!-- VOLUNTEER ROLES & SHIFTS -->
+		{#if !bulkSubmit.success}
+			<section
+				id="opportunities"
+				class="bg-surface-950 text-surface-50 flex flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+				aria-labelledby="roles-shifts-heading"
+			>
+				<div class="flex flex-wrap items-end justify-between gap-4">
+					<div class="flex flex-col gap-2">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							Assignments
+						</p>
+						<h2
+							id="roles-shifts-heading"
+							class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+						>
+							Volunteer roles &amp; shifts
+						</h2>
+					</div>
+				</div>
+
+				{#if opportunities.length === 0}
+					<div class="border-surface-50 border-t-2 pt-8">
+						<p class="text-surface-300 m-0 max-w-xl text-base leading-relaxed">
 							No volunteer opportunities defined yet. Organizers can add roles, capacities, and
 							shift coverage once planning begins.
-						</div>
-					{:else}
-						<div class="space-y-6">
-							<!-- instruction banner -->
-							<div class="space-y-2">
-								{#if !user}
-									<div class="preset-tonal-warning rounded-2xl border px-4 py-3 text-center">
-										<p class="">Log in above to choose shifts and share your details.</p>
-									</div>
-								{:else}
-									<div
-										class="card preset-tonal-secondary flex items-center justify-center gap-2 rounded-2xl border px-4 py-3"
-									>
-										<IconArrowDown class="h-4 w-4" />
-										<p class="font-semibold">Click on any shift card below to select it.</p>
-									</div>
-								{/if}
+						</p>
+					</div>
+				{:else}
+					<div class="flex flex-col gap-6">
+						<!-- Instruction banner -->
+						{#if !user}
+							<div
+								class="border-primary-500 text-primary-500 border-l-4 py-1 pl-4 text-xs font-black tracking-[0.18em] uppercase"
+							>
+								Log in above to choose shifts and share your details.
 							</div>
+						{:else}
+							<div
+								class="bg-secondary-500 text-surface-50 flex items-center gap-3 px-4 py-3 text-xs font-black tracking-[0.18em] uppercase"
+							>
+								<IconArrowDown class="text-primary-500 h-4 w-4 shrink-0" />
+								<span>Click on any shift card below to select it.</span>
+							</div>
+						{/if}
 
-							{#each opportunities as opportunity (opportunity.id)}
+						<div class="border-surface-50 divide-surface-800 divide-y-2 border-t-2">
+							{#each opportunities as opportunity, idx (opportunity.id)}
 								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
-								<article
-									class="card preset-tonal-surface rounded-3xl p-6 shadow-lg {opportunityAccent(
-										opportunity.opportunity_type
-									)}"
-								>
+								<article class="flex flex-col gap-6 py-10">
 									<header class="flex flex-wrap items-start justify-between gap-4">
-										<div>
-											<h3 class="text-surface-50 text-xl font-bold">
-												{opportunity.title || 'Untitled role'}
-											</h3>
-											<p class=" mt-0.5 text-xs tracking-widest uppercase">
-												{typeLabel(opportunity.opportunity_type)}
-											</p>
+										<div class="flex items-start gap-4 sm:gap-6">
+											<span
+												class="text-tertiary-500 w-10 shrink-0 text-3xl leading-none font-black italic tabular-nums sm:w-14 sm:text-5xl"
+											>
+												{String(idx + 1).padStart(2, '0')}
+											</span>
+											<div class="flex flex-col gap-1">
+												<p
+													class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+												>
+													{typeLabel(opportunity.opportunity_type)}
+												</p>
+												<h3
+													class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-3xl"
+												>
+													{opportunity.title || 'Untitled role'}
+												</h3>
+											</div>
 										</div>
-										<div class="flex flex-wrap items-center gap-2">
-											<span class="chip preset-tonal-secondary text-xs uppercase">
+										<div class="flex flex-wrap items-center gap-2 pl-14 sm:pl-0">
+											<span
+												class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black tracking-[0.16em] uppercase"
+											>
 												{signupStatusText(opportunity)}
 											</span>
 											{#if opportunity.requires_approval}
-												<span class="chip preset-tonal-warning text-xs uppercase"
-													>Approval required</span
+												<span
+													class="bg-tertiary-500 text-surface-950 px-3 py-1 text-xs font-black tracking-[0.16em] uppercase"
 												>
+													Approval required
+												</span>
 											{/if}
 										</div>
 									</header>
 
 									{#if opportunity.descriptionHtml}
-										<div class="prose prose-invert mt-4 max-w-none space-y-3 text-sm">
-											{#if expandedOpportunityDescriptions.has(opportunity.id) || opportunity.descriptionPlain.length <= TRUNCATE_LIMIT}
-												{@html opportunity.descriptionHtml}
-											{:else}
-												<p>{truncateText(opportunity.descriptionPlain)}</p>
+										<div class="lg:pl-20">
+											<div class="prose prose-invert max-w-3xl space-y-3 text-sm leading-relaxed">
+												{#if expandedOpportunityDescriptions.has(opportunity.id) || opportunity.descriptionPlain.length <= TRUNCATE_LIMIT}
+													{@html opportunity.descriptionHtml}
+												{:else}
+													<p>{truncateText(opportunity.descriptionPlain)}</p>
+												{/if}
+											</div>
+											{#if opportunity.descriptionPlain.length > TRUNCATE_LIMIT}
+												<button
+													class="text-primary-500 hover:text-surface-50 mt-3 text-xs font-black tracking-[0.16em] uppercase transition"
+													type="button"
+													onclick={() => toggleOpportunityDescription(opportunity.id)}
+												>
+													{expandedOpportunityDescriptions.has(opportunity.id)
+														? '↑ Show less'
+														: '↓ Show full details'}
+												</button>
 											{/if}
 										</div>
-										{#if opportunity.descriptionPlain.length > TRUNCATE_LIMIT}
-											<button
-												class="text-secondary-400 hover:text-secondary-200 mt-2 text-xs font-medium transition-colors"
-												type="button"
-												onclick={() => toggleOpportunityDescription(opportunity.id)}
-											>
-												{expandedOpportunityDescriptions.has(opportunity.id)
-													? '↑ Show less'
-													: '↓ Show full details'}
-											</button>
-										{/if}
 									{/if}
 
-									<div class="mt-6">
+									<div class="lg:pl-20">
 										{#if !opportunity.shifts || opportunity.shifts.length === 0}
 											<p
-												class="border-surface-500/30 bg-surface-800/40 text-surface-500 rounded-2xl border border-dashed p-4 text-sm"
+												class="border-surface-800 text-surface-300 m-0 border-t border-b py-4 text-sm"
 											>
 												Organizers will add shift timing soon. Volunteers can still express interest
 												below.
 											</p>
 										{:else}
-											<ul class="grid gap-2.5 md:grid-cols-2">
+											<ul class="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
 												{#each opportunity.shifts as shift (shift.id)}
 													{@const isSelected = form.shiftIds?.includes(shift.id)}
 													{@const approvedCount = getShiftSignupCount(shift.id)}
@@ -1931,11 +2043,13 @@
 													{@const pct = cap
 														? Math.min(100, Math.round((approvedCount / cap) * 100))
 														: 0}
-													<li>
+													<li class="flex flex-col gap-2">
 														<button
 															type="button"
-															class={`group relative w-full overflow-hidden rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
-																isSelected ? 'preset-tonal-success' : 'preset-outlined-surface-500'
+															class={`group relative w-full border-[3px] p-4 text-left transition ${
+																isSelected
+																	? 'border-primary-500 bg-primary-500 text-surface-950'
+																	: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'
 															}`}
 															aria-pressed={isSelected}
 															disabled={!user || eventFinished}
@@ -1946,65 +2060,66 @@
 														>
 															<!-- capacity bar -->
 															{#if cap > 0}
-																<div
-																	class="absolute top-0 right-0 left-0 h-0.5 rounded-full bg-white/5"
-																>
+																<div class="bg-surface-800 absolute top-0 right-0 left-0 h-1">
 																	<div
-																		class="h-full rounded-full transition-all duration-500 {pct >=
-																		100
-																			? 'bg-error-500'
-																			: pct >= 75
-																				? 'bg-warning-500'
-																				: 'bg-secondary-500'}"
+																		class="h-full {pct >= 100
+																			? 'bg-tertiary-500'
+																			: isSelected
+																				? 'bg-surface-950'
+																				: 'bg-primary-500'}"
 																		style="width: {pct}%"
 																	></div>
 																</div>
 															{/if}
 
-															<div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+															<div class="flex flex-wrap items-center justify-between gap-3 pt-1">
 																<div class="flex items-center gap-3">
 																	<span
-																		class={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${
+																		class={`flex h-8 w-8 shrink-0 items-center justify-center ${
 																			isSelected
-																				? 'text-secondary-300'
-																				: 'text-surface-600 group-hover:text-secondary-400'
+																				? 'text-surface-950'
+																				: 'text-surface-300 group-hover:text-primary-500'
 																		}`}
 																	>
-																		<IconCircleCheckBig class="h-8 w-8" />
+																		<IconCircleCheckBig class="h-7 w-7" />
 																	</span>
 																	<div class="min-w-0">
-																		<p class="!mb-0 text-sm leading-tight font-semibold">
+																		<p class="m-0 text-sm leading-tight font-black uppercase">
 																			{formatShiftRange(shift)}
 																		</p>
-																		<p class="mt-0.5 !mb-0 flex items-center gap-1 text-[11px]">
+																		<p
+																			class="m-0 mt-1 flex items-center gap-1 text-[11px] font-bold uppercase opacity-80"
+																		>
 																			<IconClock class="h-3 w-3" />
 																			{shift.timezone || event.timezone || 'Timezone TBD'}
 																		</p>
 																	</div>
 																</div>
-																<div class="text-right text-xs">
-																	<span class="text-surface-300 font-semibold">
+																<div class="text-right text-xs font-black uppercase tabular-nums">
+																	<span>
 																		{approvedCount}{cap ? `/${cap}` : ''} spots
 																	</span>
 																	{#if waitlistedCount > 0}
-																		<p class="text-warning-400 !mb-0 text-[11px] font-medium">
+																		<p class="m-0 text-[11px]">
 																			{waitlistedCount} waitlisted
 																		</p>
 																	{/if}
 																</div>
 															</div>
 															{#if shift.notes}
-																<p class="text-surface-400 mt-2 text-xs">{shift.notes}</p>
+																<p class="m-0 mt-2 text-xs opacity-85">{shift.notes}</p>
 															{/if}
 														</button>
 														{#if calendarLinks.googleUrl || calendarLinks.icsUrl}
-															<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
+															<div
+																class="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold uppercase"
+															>
 																{#if calendarLinks.googleUrl}
 																	<a
 																		href={calendarLinks.googleUrl}
 																		target="_blank"
 																		rel="noopener noreferrer"
-																		class="text-secondary-300 hover:text-secondary-100 underline"
+																		class="text-primary-500 hover:text-surface-50 underline underline-offset-4"
 																		onclick={(eventObj) => eventObj.stopPropagation()}
 																	>
 																		Add to Google Calendar
@@ -2013,7 +2128,7 @@
 																{#if calendarLinks.icsUrl}
 																	<a
 																		href={calendarLinks.icsUrl}
-																		class="text-secondary-300 hover:text-secondary-100 underline"
+																		class="text-primary-500 hover:text-surface-50 underline underline-offset-4"
 																		onclick={(eventObj) => eventObj.stopPropagation()}
 																	>
 																		Download .ics
@@ -2029,11 +2144,11 @@
 
 									{#if !selectedOpportunities.length && user && !eventFinished}
 										<div
-											class="preset-tonal-warning mt-5 flex items-center gap-2 rounded-2xl border px-4 py-3"
+											class="border-tertiary-500 text-tertiary-400 flex items-center gap-2 border-l-4 py-1 pl-4 text-xs font-black tracking-[0.16em] uppercase lg:ml-20"
 											transition:slide
 										>
-											<IconArrowUp class="text-warning-400 h-4 w-4 shrink-0 animate-bounce" />
-											<p class="text-warning-300 text-sm font-medium">
+											<IconArrowUp class="h-4 w-4 shrink-0" />
+											<p class="m-0">
 												You haven't selected any shifts yet. Pick one above to get started.
 											</p>
 										</div>
@@ -2041,263 +2156,282 @@
 								</article>
 							{/each}
 						</div>
-					{/if}
-				</section>
-			{/if}
+					</div>
+				{/if}
+			</section>
+		{/if}
 
-			<!-- ══════════ COMPLETE SIGNUP (authenticated) ══════════ -->
-			{#if user && !bulkSubmit.success && !eventFinished}
-				<section
-					class="border-surface-500/20 rounded-3xl border shadow-2xl"
-					style="background: linear-gradient(135deg, hsl(var(--color-surface-900) / 0.9), hsl(var(--color-surface-950) / 0.95));"
-					transition:slide
-				>
-					<div class="p-6">
-						<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-							<h2 class="text-secondary-100 text-2xl font-bold">Complete your volunteer signup</h2>
-							<p class="text-surface-500 text-xs">Signed in as {user.email}</p>
+		<!-- COMPLETE SIGNUP (authenticated) -->
+		{#if user && !bulkSubmit.success && !eventFinished}
+			<section
+				class="bg-secondary-500 text-surface-50 border-surface-950 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+				transition:slide
+				aria-labelledby="complete-signup-heading"
+			>
+				<div class="flex flex-col gap-8">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+						<div>
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Final step
+							</p>
+							<h2
+								id="complete-signup-heading"
+								class="text-surface-50! m-0 mt-1 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+							>
+								Complete your volunteer signup
+							</h2>
 						</div>
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.16em] uppercase">
+							Signed in as {user.email}
+						</p>
+					</div>
 
-						<div class="mt-5 space-y-3">
-							<SmsContextOptIn
-								category="volunteer_reminders"
-								source="volunteer-signup"
-								title="Text me reminders for my volunteer shifts"
-								description="Get concise reminders for shifts you select at this event."
-							/>
-							<SmsContextOptIn
-								category="admin_messages"
-								source="volunteer-signup-admin-messages"
-								title="Let volunteer organizers text me about my shifts"
-								description="Receive and reply to messages from organizers about volunteer shifts you select."
-							/>
-						</div>
+					<div class="flex flex-col gap-3">
+						<SmsContextOptIn
+							category="volunteer_reminders"
+							source="volunteer-signup"
+							title="Text me reminders for my volunteer shifts"
+							description="Get concise reminders for shifts you select at this event."
+						/>
+						<SmsContextOptIn
+							category="admin_messages"
+							source="volunteer-signup-admin-messages"
+							title="Let volunteer organizers text me about my shifts"
+							description="Receive and reply to messages from organizers about volunteer shifts you select."
+						/>
+					</div>
 
-						{#if selectedOpportunities.length}
-							<div class="mt-6 space-y-6" transition:slide>
-								<h3 class="text-surface-400 text-xs font-semibold tracking-widest uppercase">
-									Selected shifts
-								</h3>
-								{#each selectedOpportunities as opportunity (opportunity.id)}
-									{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
-									{@const selectedShifts = getSelectedShiftEntries(opportunity, form)}
-									{@const opportunityQuestions = getQuestionsForOpportunity(opportunity.id)}
-									<article transition:slide>
-										<VolunteerSelectedShifts
-											{selectedShifts}
-											{opportunity}
-											requiresSelection={false}
-											onRemoveShift={(shiftId) => toggleShiftSelection(opportunity.id, shiftId)}
-											optionalSelectionMessage="No shifts selected."
+					{#if selectedOpportunities.length}
+						<div
+							class="border-surface-950 flex flex-col gap-6 border-t-[3px] pt-6"
+							transition:slide
+						>
+							<h3 class="text-primary-500! m-0 text-sm font-black tracking-[0.22em] uppercase">
+								Selected shifts
+							</h3>
+							{#each selectedOpportunities as opportunity (opportunity.id)}
+								{@const form = signupForms[opportunity.id] ?? signupFormDefaults[opportunity.id]}
+								{@const selectedShifts = getSelectedShiftEntries(opportunity, form)}
+								{@const opportunityQuestions = getQuestionsForOpportunity(opportunity.id)}
+								<article class="flex flex-col gap-4" transition:slide>
+									<VolunteerSelectedShifts
+										{selectedShifts}
+										{opportunity}
+										requiresSelection={false}
+										onRemoveShift={(shiftId) => toggleShiftSelection(opportunity.id, shiftId)}
+										optionalSelectionMessage="No shifts selected."
+									/>
+									{#if opportunityQuestions.length}
+										<VolunteerQuestionFields
+											questions={opportunityQuestions}
+											values={form.questionResponses ?? {}}
+											errors={form.questionErrors ?? {}}
+											onChange={(questionId, value) => {
+												const nextResponses = {
+													...(form.questionResponses ?? {}),
+													[questionId]: value
+												};
+												const nextErrors = { ...(form.questionErrors ?? {}) };
+												if (nextErrors[questionId]) delete nextErrors[questionId];
+												updateSignupForm(opportunity.id, {
+													questionResponses: nextResponses,
+													questionErrors: nextErrors
+												});
+											}}
 										/>
-										{#if opportunityQuestions.length}
-											<VolunteerQuestionFields
-												questions={opportunityQuestions}
-												values={form.questionResponses ?? {}}
-												errors={form.questionErrors ?? {}}
-												onChange={(questionId, value) => {
-													const nextResponses = {
-														...(form.questionResponses ?? {}),
-														[questionId]: value
-													};
-													const nextErrors = { ...(form.questionErrors ?? {}) };
-													if (nextErrors[questionId]) delete nextErrors[questionId];
-													updateSignupForm(opportunity.id, {
-														questionResponses: nextResponses,
-														questionErrors: nextErrors
-													});
-												}}
-											/>
-										{/if}
-									</article>
-								{/each}
-							</div>
-						{:else}
-							<p class="text-surface-500 mt-4 text-sm">
-								Select at least one shift above to review your signup details.
+									{/if}
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-primary-500 m-0 text-sm font-bold uppercase">
+							Select at least one shift above to review your signup details.
+						</p>
+					{/if}
+
+					<!-- Volunteer details (ruled section, no nested card) -->
+					<div class="border-surface-950 flex flex-col gap-5 border-t-[3px] pt-6">
+						<div class="flex flex-col gap-1">
+							<h3 class="text-surface-50! m-0 text-xl font-black uppercase italic sm:text-2xl">
+								Volunteer details &amp; questions
+							</h3>
+							<p class="m-0 text-xs opacity-85">
+								These contact details apply to every role you sign up for above.
+							</p>
+						</div>
+						<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
+						{#if eventQuestions.length}
+							<VolunteerQuestionFields
+								questions={eventQuestions}
+								values={eventQuestionResponses}
+								errors={eventQuestionErrors}
+								onChange={(questionId, value) => updateEventQuestionResponse(questionId, value)}
+							/>
+						{/if}
+					</div>
+
+					<!-- Submit -->
+					<div class="border-surface-950 flex flex-col gap-3 border-t-[3px] pt-6">
+						<p class="m-0 text-xs opacity-85">
+							We'll send confirmations to the contact details above once you submit.
+						</p>
+						<button
+							type="button"
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-full items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition disabled:opacity-40 {bulkSubmit.loading
+								? 'animate-pulse'
+								: ''}"
+							disabled={bulkSubmit.loading || selectedOpportunities.length === 0}
+							onclick={handleBulkSignupSubmission}
+						>
+							{#if bulkSubmit.loading}
+								<IconLoader class="h-5 w-5 animate-spin" />
+								Processing…
+							{:else}
+								Sign me up!
+							{/if}
+						</button>
+						{#if selectedOpportunities.length === 0 && !bulkSubmit.loading}
+							<p class="text-primary-500 m-0 text-center text-xs font-bold uppercase">
+								Select at least one shift above to enable the button.
 							</p>
 						{/if}
-
-						<!-- volunteer details nested card -->
-						<div
-							class="bg-surface-800/50 border-surface-600/20 mt-6 space-y-4 rounded-2xl border p-5"
-						>
-							<div>
-								<h3 class="text-surface-200 text-sm font-semibold tracking-widest uppercase">
-									Volunteer details &amp; questions
-								</h3>
-								<p class="text-surface-500 mt-0.5 text-xs">
-									These contact details apply to every role you sign up for above.
-								</p>
-							</div>
-							<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
-							{#if eventQuestions.length}
-								<VolunteerQuestionFields
-									questions={eventQuestions}
-									values={eventQuestionResponses}
-									errors={eventQuestionErrors}
-									onChange={(questionId, value) => updateEventQuestionResponse(questionId, value)}
-								/>
-							{/if}
-						</div>
-
-						<!-- submit -->
-						<div class="mt-6 space-y-3">
-							<p class="text-surface-600 text-xs">
-								We'll send confirmations to the contact details above once you submit.
-							</p>
-							<button
-								type="button"
-								class="btn preset-filled-primary-500 w-full justify-center gap-2 py-3 text-base font-bold transition-all {bulkSubmit.loading
-									? 'animate-pulse'
-									: 'hover:shadow-primary-500/20 hover:shadow-xl'}"
-								disabled={bulkSubmit.loading || selectedOpportunities.length === 0}
-								onclick={handleBulkSignupSubmission}
+						{#if bulkSubmit.error}
+							<p
+								class="bg-tertiary-500 text-surface-950 m-0 px-4 py-3 text-xs font-black uppercase"
 							>
-								{#if bulkSubmit.loading}
-									<IconLoader class="h-5 w-5 animate-spin" />
-									Processing…
-								{:else}
-									Sign me up!
-								{/if}
-							</button>
-							{#if selectedOpportunities.length === 0 && !bulkSubmit.loading}
-								<p class="text-warning-400 text-center text-xs">
-									Select at least one shift above to enable the button.
-								</p>
-							{/if}
-							{#if bulkSubmit.error}
-								<p
-									class="text-error-300 border-error-500/25 bg-error-500/8 rounded-xl border px-4 py-2 text-xs"
-								>
-									{bulkSubmit.error}
-								</p>
-							{/if}
-						</div>
-					</div>
-				</section>
-			{/if}
-
-			<!-- ══════════ HAVE A QUESTION (collapsible) ══════════ -->
-			{#if organizerEmail}
-				<section class="card preset-tonal-surface overflow-hidden rounded-3xl shadow-lg">
-					<button
-						type="button"
-						class="text-surface-200 hover:text-secondary-200 flex w-full items-center justify-between px-6 py-5 text-left transition-colors"
-						onclick={() => (showQuestion = !showQuestion)}
-					>
-						<span class="text-xl font-semibold">Have a question?</span>
-						<IconChevronDown
-							class="text-surface-500 h-5 w-5 transition-transform duration-300 {showQuestion
-								? 'rotate-180'
-								: ''}"
-						/>
-					</button>
-
-					{#if showQuestion}
-						<div class="border-surface-700/30 border-t px-6 pb-6" transition:slide>
-							<p class="text-surface-400 mt-4 text-sm">
-								Send the event organizer a message. We'll share your email address so they can reply
-								directly.
+								{bulkSubmit.error}
 							</p>
-							{#if questionStatus.success}
-								<div class="card preset-tonal-success mt-4 p-4" transition:slide>
-									{questionStatus.success}
-								</div>
-							{:else}
-								<form class="mt-5 space-y-4" onsubmit={handleQuestionSubmit} transition:slide>
-									<div class="grid gap-4 md:grid-cols-2">
-										<label class="flex flex-col gap-1.5 text-xs tracking-widest uppercase">
-											<span class="text-surface-400">Your email</span>
-											<input
-												type="email"
-												class="input bg-surface-50-950/10 border border-white/10"
-												autocomplete="email"
-												required
-												value={questionForm.replyTo}
-												oninput={(event) =>
-													updateQuestionField('replyTo', event.currentTarget.value)}
-											/>
-											{#if questionErrors.replyTo}
-												<span class="text-error-400 text-[11px] tracking-normal normal-case">
-													{questionErrors.replyTo}
-												</span>
-											{/if}
-										</label>
-										<label class="flex flex-col gap-1.5 text-xs tracking-widest uppercase">
-											<span class="text-surface-400">Subject</span>
-											<input
-												type="text"
-												class="input bg-surface-50-950/10 border border-white/10"
-												required
-												minlength="3"
-												value={questionForm.subject}
-												oninput={(event) =>
-													updateQuestionField('subject', event.currentTarget.value)}
-											/>
-											{#if questionErrors.subject}
-												<span class="text-error-400 text-[11px] tracking-normal normal-case">
-													{questionErrors.subject}
-												</span>
-											{/if}
-										</label>
-									</div>
-									<label class="flex flex-col gap-1.5 text-xs tracking-widest uppercase">
-										<span class="text-surface-400">Message</span>
-										<textarea
-											class="textarea bg-surface-50-950/10 border border-white/10"
+						{/if}
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<!-- HAVE A QUESTION (collapsible) -->
+		{#if organizerEmail}
+			<section
+				class="bg-surface-950 text-surface-50 border-surface-800 border-t-[3px] px-6 py-10 sm:px-10 lg:px-14"
+			>
+				<button
+					type="button"
+					class="text-surface-50 hover:text-primary-500 flex w-full items-center justify-between py-2 text-left transition"
+					onclick={() => (showQuestion = !showQuestion)}
+				>
+					<span class="text-2xl font-black uppercase italic sm:text-3xl">Have a question?</span>
+					<IconChevronDown
+						class="text-primary-500 h-6 w-6 transition-transform duration-300 {showQuestion
+							? 'rotate-180'
+							: ''}"
+					/>
+				</button>
+
+				{#if showQuestion}
+					<div class="border-surface-800 mt-4 border-t pt-6" transition:slide>
+						<p class="text-surface-300 m-0 max-w-2xl text-sm">
+							Send the event organizer a message. We'll share your email address so they can reply
+							directly.
+						</p>
+						{#if questionStatus.success}
+							<div
+								class="bg-primary-500 text-surface-950 mt-4 px-5 py-4 text-sm font-black uppercase"
+								transition:slide
+							>
+								{questionStatus.success}
+							</div>
+						{:else}
+							<form
+								class="mt-6 flex max-w-3xl flex-col gap-5"
+								onsubmit={handleQuestionSubmit}
+								transition:slide
+							>
+								<div class="grid gap-4 md:grid-cols-2">
+									<label class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase">
+										<span class="text-primary-500">Your email</span>
+										<input
+											type="email"
+											class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+											autocomplete="email"
 											required
-											rows="3"
-											bind:value={questionForm.message}></textarea>
-										{#if questionErrors.message}
-											<span class="text-error-400 text-[11px] tracking-normal normal-case">
-												{questionErrors.message}
+											value={questionForm.replyTo}
+											oninput={(event) => updateQuestionField('replyTo', event.currentTarget.value)}
+										/>
+										{#if questionErrors.replyTo}
+											<span class="text-tertiary-400 text-[11px] tracking-normal normal-case">
+												{questionErrors.replyTo}
 											</span>
 										{/if}
 									</label>
-									{#if !questionStatus.success && questionStatus.error}
-										<p class="text-error-400 text-xs">{questionStatus.error}</p>
-									{/if}
-									<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-										<button
-											type="submit"
-											class="btn preset-filled-secondary-500 flex items-center gap-2"
-											disabled={questionStatus.loading}
-										>
-											{#if questionStatus.loading}
-												<IconLoader class="h-4 w-4 animate-spin" />
-											{/if}
-											<span>Send question</span>
-										</button>
-										{#if !questionStatus.success && !questionStatus.error}
-											<p class="text-surface-600 text-xs">
-												Responses will go to {questionForm.replyTo || 'your email'}.
-											</p>
+									<label class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase">
+										<span class="text-primary-500">Subject</span>
+										<input
+											type="text"
+											class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+											required
+											minlength="3"
+											value={questionForm.subject}
+											oninput={(event) => updateQuestionField('subject', event.currentTarget.value)}
+										/>
+										{#if questionErrors.subject}
+											<span class="text-tertiary-400 text-[11px] tracking-normal normal-case">
+												{questionErrors.subject}
+											</span>
 										{/if}
-									</div>
-								</form>
-							{/if}
-						</div>
-					{/if}
-				</section>
-			{:else}
-				<section
-					class="border-surface-600-400/20 bg-surface-100-900/70 rounded-3xl border p-6 shadow-lg"
-				>
-					<h2 class="text-secondary-200 text-xl font-semibold">Organizer contact coming soon</h2>
-					<p class="text-surface-500 mt-3 text-sm">
-						We're getting the organizer's contact information ready. Please check back later if you
-						need to get in touch.
-					</p>
-				</section>
-			{/if}
-		</div>
-	</section>
-{/if}
-
-<style>
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-</style>
+									</label>
+								</div>
+								<label class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase">
+									<span class="text-primary-500">Message</span>
+									<textarea
+										class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+										required
+										rows="4"
+										bind:value={questionForm.message}></textarea>
+									{#if questionErrors.message}
+										<span class="text-tertiary-400 text-[11px] tracking-normal normal-case">
+											{questionErrors.message}
+										</span>
+									{/if}
+								</label>
+								{#if !questionStatus.success && questionStatus.error}
+									<p
+										class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase"
+									>
+										{questionStatus.error}
+									</p>
+								{/if}
+								<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+									<button
+										type="submit"
+										class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition"
+										disabled={questionStatus.loading}
+									>
+										{#if questionStatus.loading}
+											<IconLoader class="h-4 w-4 animate-spin" />
+										{/if}
+										<span>Send question</span>
+									</button>
+									{#if !questionStatus.success && !questionStatus.error}
+										<p class="text-surface-300 m-0 text-xs">
+											Responses will go to {questionForm.replyTo || 'your email'}.
+										</p>
+									{/if}
+								</div>
+							</form>
+						{/if}
+					</div>
+				{/if}
+			</section>
+		{:else}
+			<section
+				class="bg-surface-950 text-surface-50 border-surface-800 border-t-[3px] px-6 py-10 sm:px-10 lg:px-14"
+			>
+				<h2 class="text-surface-50! m-0 text-2xl font-black uppercase italic">
+					Organizer contact coming soon
+				</h2>
+				<p class="text-surface-300 m-0 mt-2 max-w-xl text-sm">
+					We're getting the organizer's contact information ready. Please check back later if you
+					need to get in touch.
+				</p>
+			</section>
+		{/if}
+	{/if}
+</div>

@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import ShareButton from '#lib/components/ui/ShareButton.svelte';
 	import ArticleAssistant from '#lib/components/learn/ArticleAssistant.svelte';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHistory from '@lucide/svelte/icons/history';
@@ -143,7 +144,7 @@
 		}
 	});
 	const optimizedArticleImage = $derived(
-		optimizedImageUrl(data.article.cover_image_url, { width: 1200, height: 400, quality: 68 })
+		optimizedImageUrl(data.article.cover_image_url, { width: 1200, height: 600, quality: 68 })
 	);
 	const seoStructuredData = $derived.by(() => {
 		const categoryUrl = buildAbsoluteUrl(
@@ -242,123 +243,193 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-<!--
-	Outer layout:
-	- xl+: article column stays the same width; TOC floats as a sticky right sidebar
-	- Below xl: single column, TOC is an accordion
--->
-
 <!-- Reading progress bar (fixed to viewport top) -->
 <div class="progress-bar-track" aria-hidden="true">
 	<div class="progress-bar-fill" style="width: {scrollProgress * 100}%"></div>
 </div>
 
-<nav class="mb-4 flex flex-wrap items-center gap-2 text-sm opacity-75">
-	<a class="hover:opacity-100" href="/learn">Learn</a>
-	<span aria-hidden="true">/</span>
-	<a class="hover:opacity-100" href={`/learn/category/${data.article.category_slug}`}>
-		{data.article.category_name}
-	</a>
-	<span aria-hidden="true">/</span>
-	<span class="text-surface-600-400">{seoTitle}</span>
-</nav>
+<div class="flex flex-col">
+	<!-- ═══ ARTICLE HERO ══════════════════════════════════════════════════ -->
+	<header
+		class="bg-primary-500 text-surface-950 {data.article.cover_image_url
+			? 'grid lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)]'
+			: ''}"
+	>
+		<div
+			class="flex flex-col justify-between gap-8 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<div class="flex flex-wrap items-center gap-2">
+				<a
+					href="/learn"
+					class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 border-2 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline"
+				>
+					Learn
+				</a>
+				<span class="text-xs font-black" aria-hidden="true">/</span>
+				<a
+					href={`/learn/category/${data.article.category_slug}`}
+					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline"
+				>
+					{data.article.category_name}
+				</a>
+				<span
+					class="bg-tertiary-500 text-surface-950 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.18em] uppercase"
+				>
+					<IconHistory class="h-3.5 w-3.5" />
+					v{data.article.last_revision_number}
+				</span>
+				{#if data.viewingRevision}
+					<span
+						class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black tracking-[0.18em] uppercase"
+					>
+						Viewing revision {data.viewingRevision.revisionNumber}
+					</span>
+				{/if}
+			</div>
 
-<div class="article-page-root">
-	<!-- ═══ MAIN ARTICLE COLUMN ══════════════════════════════════════════ -->
-	<div class="article-main">
-		<section class="article-card overflow-hidden rounded-[1.5rem] border" bind:this={articleEl}>
-			{#if data.article.cover_image_url}
-				<div class="aspect-[18/6] overflow-hidden">
-					<img
-						class="h-full w-full object-cover"
-						src={optimizedArticleImage}
-						alt={data.article.title}
-						width="1200"
-						height="400"
-						decoding="async"
-					/>
-				</div>
-			{/if}
+			<div class="flex flex-col gap-5">
+				<h1
+					class="text-surface-950! m-0 text-[clamp(2.4rem,5.5vw,5.25rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					{data.article.title}
+				</h1>
 
-			<div class="space-y-8 p-5 sm:p-8 lg:p-10">
-				<!-- Header chips + title + meta -->
-				<div class="space-y-4">
-					<div class="flex flex-wrap items-center gap-2">
-						<span class="chip preset-filled-primary-500">{data.article.category_name}</span>
-						<span class="chip preset-tonal-surface">
-							<IconHistory class="h-3.5 w-3.5" />
-							v{data.article.last_revision_number}
-						</span>
-						{#if data.viewingRevision}
-							<span class="chip preset-tonal-secondary">
-								Viewing revision {data.viewingRevision.revisionNumber}
-							</span>
-						{/if}
-					</div>
+				{#if data.article.summary}
+					<p class="m-0 max-w-3xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+						{data.article.summary}
+					</p>
+				{/if}
+			</div>
 
-					<h1 class="learn-article-title text-left text-4xl font-black lg:text-5xl">
-						{data.article.title}
-					</h1>
-
-					{#if data.article.summary}
-						<p class="max-w-3xl text-lg leading-8 opacity-80">{data.article.summary}</p>
-					{/if}
-
-					<div class="flex flex-wrap gap-5 text-sm opacity-70">
-						<div class="flex items-center gap-2">
-							<IconClock3 class="h-4 w-4" />
-							Updated {formatDate(data.article.updated_at)}
-						</div>
-						<div>{data.article.estimatedReadMinutes} min read</div>
-						<div>
-							Created by {data.article.authorProfile?.full_name ||
-								data.article.authorProfile?.email ||
-								'Community member'}
-						</div>
-					</div>
+			<div
+				class="border-surface-950 flex flex-wrap items-center justify-between gap-4 border-t-[3px] pt-5"
+			>
+				<div
+					class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-black tracking-[0.16em] uppercase"
+				>
+					<span class="flex items-center gap-2">
+						<IconClock3 class="h-4 w-4" />
+						Updated {formatDate(data.article.updated_at)}
+					</span>
+					<span class="bg-surface-950 text-primary-500 px-2.5 py-1">
+						{data.article.estimatedReadMinutes} min read
+					</span>
+					<span>
+						Created by {data.article.authorProfile?.full_name ||
+							data.article.authorProfile?.email ||
+							'Community member'}
+					</span>
 				</div>
 
 				<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="article" />
+			</div>
+		</div>
 
-				<!-- ── KEY TAKEAWAYS ───────────────────────────────────────────── -->
-				{#if data.article.keyTakeaways?.length}
-					<div class="takeaways-panel">
-						<div class="takeaways-header">
-							<IconSparkle class="h-3.5 w-3.5" />
-							<span>Key Takeaways</span>
-						</div>
-						<ul class="takeaways-list">
-							{#each data.article.keyTakeaways as takeaway}
-								<li class="takeaway-item">
-									<span class="takeaway-dot" aria-hidden="true"></span>
-									<span>{takeaway}</span>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
+		{#if data.article.cover_image_url}
+			<div
+				class="bg-surface-950 border-surface-950 relative min-h-[20rem] border-t-[3px] sm:min-h-[26rem] lg:border-t-0 lg:border-l-[3px]"
+			>
+				<img
+					class="absolute inset-0 h-full w-full object-cover"
+					src={optimizedArticleImage}
+					alt={data.article.title}
+					width="1200"
+					height="600"
+					decoding="async"
+				/>
+				<!-- Signature: the 3-foot ruler -->
+				<div
+					class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-10 flex-col items-center justify-between py-4 sm:w-12"
+					aria-hidden="true"
+				>
+					<span class="text-sm leading-none font-black italic sm:text-lg">3FT</span>
+					<span
+						class="my-3 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
+					></span>
+					<span class="text-sm leading-none font-black italic sm:text-lg">0</span>
+				</div>
+			</div>
+		{/if}
+	</header>
 
+	<!-- ── VIEWING REVISION BANNER ────────────────────────────────── -->
+	{#if data.viewingRevision}
+		<div
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-4 text-sm font-bold sm:px-10 lg:px-14"
+		>
+			<span>
+				This page is showing revision {data.viewingRevision.revisionNumber} from
+				{formatDate(data.viewingRevision.createdAt, true)}.
+			</span>
+			<a
+				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline"
+				href={`/learn/${data.article.slug}`}
+			>
+				Return to the latest version
+			</a>
+		</div>
+	{/if}
+
+	<!-- ── KEY TAKEAWAYS BAND ─────────────────────────────────────── -->
+	{#if data.article.keyTakeaways?.length}
+		<section
+			class="bg-secondary-500 text-surface-50 px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
+			aria-label="Key Takeaways"
+		>
+			<div class="mx-auto flex max-w-6xl flex-col gap-6">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconSparkle class="h-4 w-4" />
+					<span>Key Takeaways</span>
+				</p>
+				<ol class="border-surface-50 m-0 grid list-none gap-6 border-t-2 p-0 pt-6 md:grid-cols-2">
+					{#each data.article.keyTakeaways as takeaway, idx}
+						<li class="flex items-start gap-4">
+							<span
+								class="text-primary-500 shrink-0 text-3xl leading-none font-black italic tabular-nums"
+								aria-hidden="true"
+							>
+								{String(idx + 1).padStart(2, '0')}
+							</span>
+							<span class="text-base leading-relaxed font-medium">{takeaway}</span>
+						</li>
+					{/each}
+				</ol>
+			</div>
+		</section>
+	{/if}
+
+	<!-- ═══ MAIN ARTICLE BODY + SIDEBAR ══════════════════════════════════ -->
+	<div class="bg-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16" bind:this={articleEl}>
+		<div class="article-page-root">
+			<div class="article-main">
 				{#if !data.viewingRevision}
 					<ArticleAssistant articleSlug={data.article.slug} />
 				{/if}
 
 				<!-- ── MOBILE-ONLY TOC ACCORDION ──────────────────────────────── -->
 				{#if tocHeadingsMobile.length}
-					<details class="toc-accordion xl:hidden">
-						<summary class="toc-accordion-summary">
-							<div class="flex items-center gap-2">
-								<IconListTree class="h-4 w-4 opacity-70" />
-								<span class="font-semibold">On this page</span>
-							</div>
-							<IconChevronDown class="toc-accordion-chevron h-4 w-4 opacity-60" />
+					<details class="border-surface-800 bg-surface-950 border-2 xl:hidden">
+						<summary
+							class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-xs font-black tracking-[0.2em] uppercase transition [&::-webkit-details-marker]:hidden"
+						>
+							<span class="flex items-center gap-2">
+								<IconListTree class="h-4 w-4" />
+								<span>On this page</span>
+							</span>
+							<IconChevronDown class="toc-accordion-chevron h-4 w-4" />
 						</summary>
-						<nav class="toc-accordion-body">
+						<nav class="border-surface-800 flex flex-col border-t-2 p-3">
 							{#each tocHeadingsMobile as heading}
 								<a
-									class={`toc-link ${heading.depth > 1 ? 'toc-link-sub' : ''}`}
+									class="text-surface-300 hover:bg-primary-500 hover:text-surface-950 px-3 py-2 text-sm font-bold transition hover:no-underline {heading.depth >
+									1
+										? 'pl-6 text-xs'
+										: ''}"
 									href={`#${heading.id}`}
 									onclick={() => {
-										const el = document.querySelector('details.toc-accordion');
+										const el = document.querySelector('details.xl\\:hidden');
 										if (el) el.removeAttribute('open');
 									}}
 								>
@@ -369,151 +440,197 @@
 					</details>
 				{/if}
 
-				<!-- ── VIEWING REVISION BANNER ────────────────────────────────── -->
-				{#if data.viewingRevision}
-					<div
-						class="border-secondary-500/25 bg-secondary-500/10 rounded-[1.5rem] border p-4 text-sm"
-					>
-						This page is showing revision {data.viewingRevision.revisionNumber} from
-						{formatDate(data.viewingRevision.createdAt, true)}.
-						<a class="font-semibold underline" href={`/learn/${data.article.slug}`}
-							>Return to the latest version</a
-						>.
-					</div>
-				{/if}
-
 				<!-- ── ARTICLE BODY ────────────────────────────────────────────── -->
-				<div class="learn-article-body">
+				<div class="learn-article-body border-surface-800 border-t-2 pt-8">
 					<div class="prose prose-invert learn-prose max-w-none">
 						{@html data.article.bodyHtml}
 					</div>
 				</div>
+
+				<!-- ── ATTACHED MEDIA ──────────────────────────────────────────── -->
+				{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
+					<details class="border-surface-800 bg-surface-950 border-2">
+						<summary
+							class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-black uppercase transition [&::-webkit-details-marker]:hidden"
+						>
+							<span>Attached media</span>
+							<span class="flex items-center gap-2 text-xs font-bold tracking-[0.18em]">
+								{data.article.assets.filter((asset) => asset.usage_kind !== 'embedded').length} files
+								<IconChevronDown class="h-4 w-4" />
+							</span>
+						</summary>
+						<div class="border-surface-800 flex flex-col border-t-2">
+							{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
+								<a
+									class="border-surface-800 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-4 border-b p-4 text-sm transition last:border-b-0 hover:no-underline"
+									href={asset.public_url}
+									target="_blank"
+									rel="noreferrer"
+								>
+									<span class="font-black uppercase">{asset.file_name}</span>
+									<span class="text-xs font-bold uppercase opacity-75">
+										{asset.mime_type || 'file'}
+									</span>
+								</a>
+							{/each}
+						</div>
+					</details>
+				{/if}
+			</div>
+
+			<!-- ═══ DESKTOP TOC SIDEBAR (xl+) ════════════════════════════════════ -->
+			{#if tocHeadingsDesktop.length}
+				<aside class="toc-placeholder hidden xl:block" bind:this={tocPlaceholderEl}></aside>
+			{/if}
+		</div>
+	</div>
+
+	<!-- ── RELATED ARTICLES ───────────────────────────────────────── -->
+	{#if data.relatedArticles.length}
+		<section
+			class="bg-tertiary-500 text-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+			aria-labelledby="related-heading"
+		>
+			<div class="flex flex-col gap-8">
+				<div class="flex flex-wrap items-end justify-between gap-4">
+					<div class="flex flex-col gap-2">
+						<p class="m-0 text-xs font-bold tracking-[0.22em] uppercase">Keep reading</p>
+						<h2
+							id="related-heading"
+							class="text-surface-950! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+						>
+							More in {data.article.category_name}
+						</h2>
+					</div>
+					<a
+						href={`/learn/category/${data.article.category_slug}`}
+						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 text-sm font-black uppercase hover:no-underline"
+					>
+						View category <IconArrowRight class="h-4 w-4" />
+					</a>
+				</div>
+
+				<div
+					class="border-surface-950 grid border-t-[3px] border-l-[3px] sm:grid-cols-2 lg:grid-cols-4"
+				>
+					{#each data.relatedArticles as related, idx}
+						<a
+							class="group bg-tertiary-500 text-surface-950 border-surface-950 hover:bg-surface-950 hover:text-primary-500 flex min-h-48 flex-col justify-between gap-6 border-r-[3px] border-b-[3px] p-6 transition hover:no-underline"
+							href={`/learn/${related.slug}`}
+						>
+							<div class="flex flex-col gap-3">
+								<span class="text-2xl leading-none font-black italic tabular-nums">
+									{String(idx + 1).padStart(2, '0')}
+								</span>
+								<div class="text-xl leading-tight font-black uppercase">{related.title}</div>
+								<p class="m-0 line-clamp-3 text-sm leading-relaxed font-medium opacity-85">
+									{related.summary || 'Open article'}
+								</p>
+							</div>
+							<span
+								class="inline-flex items-center gap-1.5 text-xs font-black tracking-wider uppercase"
+							>
+								Read guide
+								<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+							</span>
+						</a>
+					{/each}
+				</div>
 			</div>
 		</section>
+	{/if}
 
-		<!-- ── BELOW-ARTICLE SECTIONS ─────────────────────────────────── -->
-		<section class="space-y-6">
-			{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
-				<details class="reader-disclosure">
-					<summary>
-						<span>Attached media</span>
-						<span class="disclosure-meta">
-							{data.article.assets.filter((asset) => asset.usage_kind !== 'embedded').length} files
-							<IconChevronDown class="h-4 w-4" />
-						</span>
-					</summary>
-					<div class="mt-4 space-y-2">
-						{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
-							<a
-								class="border-surface-500/20 bg-surface-900/60 hover:border-primary-500/30 block rounded-2xl border p-4 text-sm transition"
-								href={asset.public_url}
-								target="_blank"
-								rel="noreferrer"
-							>
-								<div class="font-medium">{asset.file_name}</div>
-								<div class="mt-1 opacity-70">{asset.mime_type || 'file'}</div>
-							</a>
-						{/each}
-					</div>
-				</details>
-			{/if}
-
-			{#if data.relatedArticles.length}
-				<section
-					class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl"
+	<!-- ── DISCUSSION & VERSION HISTORY ──────────────────────────── -->
+	<section
+		class="bg-surface-950 border-surface-800 border-t-2 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+	>
+		<div class="mx-auto flex max-w-5xl flex-col gap-8">
+			<details class="border-surface-50 bg-surface-950 border-2">
+				<summary
+					class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-lg font-black uppercase transition [&::-webkit-details-marker]:hidden"
 				>
-					<h2 class="text-left text-2xl font-bold">More in {data.article.category_name}</h2>
-					<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						{#each data.relatedArticles as related}
-							<a
-								class="border-surface-500/20 bg-surface-900/60 hover:border-primary-500/30 flex min-h-32 flex-col rounded-2xl border p-4 transition hover:-translate-y-0.5"
-								href={`/learn/${related.slug}`}
-							>
-								<div class="font-medium">{related.title}</div>
-								<div class="mt-2 text-sm opacity-70">
-									<p class="line-clamp-3">{related.summary || 'Open article'}</p>
-								</div>
-							</a>
-						{/each}
-					</div>
-				</section>
-			{/if}
-
-			<details class="reader-disclosure">
-				<summary>
-					<span class="flex items-center gap-2"
-						><IconMessageSquareText class="h-5 w-5" /> Discussion</span
-					>
-					<span class="disclosure-meta">
+					<span class="flex items-center gap-3">
+						<IconMessageSquareText class="h-5 w-5" /> Discussion
+					</span>
+					<span class="flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase">
 						{data.article.comments.length} comments
 						<IconChevronDown class="h-4 w-4" />
 					</span>
 				</summary>
 
-				{#if data.currentUser}
-					<form class="preset-tonal-surface mt-5 space-y-3 p-2" method="POST" action="?/comment">
-						<textarea
-							class="textarea min-h-32"
-							name="bodyMarkdown"
-							placeholder="Share context, corrections, follow-up questions, or examples from your city."
-						></textarea>
-						{#if form?.commentError}
-							<p class="text-error-500 text-sm">{form.commentError}</p>
-						{/if}
-						{#if form?.commentSuccess}
-							<p class="text-success-500 text-sm">Comment added.</p>
-						{/if}
-						<button class="btn preset-filled-secondary-500" type="submit">Post comment</button>
-					</form>
-				{:else}
-					<div
-						class="border-surface-500/30 mt-5 rounded-[1.5rem] border border-dashed p-5 text-sm opacity-80"
-					>
-						Sign in with a registered account to comment or edit the article.
-					</div>
-				{/if}
-
-				<div class="mt-6 space-y-4">
-					{#each data.article.comments as comment}
-						<div class="border-surface-500/20 bg-surface-900/60 rounded-[1.5rem] border p-4">
-							<div class="flex flex-wrap items-center justify-between gap-3">
-								<p class="font-semibold">
-									{comment.authorProfile?.full_name ||
-										comment.authorProfile?.email ||
-										'Community member'}
+				<div class="border-surface-800 flex flex-col gap-6 border-t-2 p-6">
+					{#if data.currentUser}
+						<form class="flex flex-col gap-3" method="POST" action="?/comment">
+							<textarea
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-h-32 w-full border-2 p-4 text-sm focus:outline-none"
+								name="bodyMarkdown"
+								placeholder="Share context, corrections, follow-up questions, or examples from your city."
+							></textarea>
+							{#if form?.commentError}
+								<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+									{form.commentError}
 								</p>
-								<p class="text-sm opacity-60">{formatDate(comment.created_at, true)}</p>
-							</div>
-							<div class="prose prose-invert mt-3 max-w-none">
-								{@html comment.bodyHtml}
-							</div>
-						</div>
-					{/each}
-
-					{#if !data.article.comments.length}
-						<div
-							class="border-surface-500/30 rounded-[1.5rem] border border-dashed p-6 text-center opacity-75"
-						>
-							No comments yet. Start the discussion with implementation notes, questions, or local
-							examples.
+							{/if}
+							{#if form?.commentSuccess}
+								<p class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+									Comment added.
+								</p>
+							{/if}
+							<button
+								class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 self-start px-7 py-3 text-sm font-black tracking-wide uppercase transition"
+								type="submit"
+							>
+								Post comment
+							</button>
+						</form>
+					{:else}
+						<div class="border-surface-800 text-surface-300 border-2 p-5 text-sm font-medium">
+							Sign in with a registered account to comment or edit the article.
 						</div>
 					{/if}
+
+					<div class="flex flex-col">
+						{#each data.article.comments as comment}
+							<div class="border-surface-800 border-t py-5 first:border-t-0">
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									<p class="text-primary-500 m-0 text-sm font-black uppercase">
+										{comment.authorProfile?.full_name ||
+											comment.authorProfile?.email ||
+											'Community member'}
+									</p>
+									<p class="text-surface-300 m-0 text-xs font-bold uppercase">
+										{formatDate(comment.created_at, true)}
+									</p>
+								</div>
+								<div class="prose prose-invert mt-3 max-w-none">
+									{@html comment.bodyHtml}
+								</div>
+							</div>
+						{/each}
+
+						{#if !data.article.comments.length}
+							<div class="border-surface-800 text-surface-300 border-t py-6 text-sm">
+								No comments yet. Start the discussion with implementation notes, questions, or local
+								examples.
+							</div>
+						{/if}
+					</div>
 				</div>
 			</details>
 
-			<section class="border-surface-500/20 bg-surface-950/50 rounded-[2rem] border p-6 shadow-xl">
+			<div class="border-surface-50 bg-surface-950 border-2">
 				<button
 					type="button"
-					class="flex w-full items-center justify-between gap-3 text-left"
+					class="hover:bg-primary-500 hover:text-surface-950 flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition"
 					onclick={() => (showVersionHistory = !showVersionHistory)}
 					aria-expanded={showVersionHistory}
 					aria-controls="learn-version-history"
 				>
-					<div class="flex items-center gap-2">
+					<span class="flex items-center gap-3">
 						<IconHistory class="h-5 w-5" />
-						<h2 class="text-left text-2xl font-bold">Version history</h2>
-					</div>
-					<span class="inline-flex items-center gap-2 text-sm opacity-70">
+						<span class="text-lg font-black uppercase">Version history</span>
+					</span>
+					<span class="inline-flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase">
 						{data.article.revisions.length} revisions
 						<IconChevronDown
 							class={`h-4 w-4 transition-transform duration-200 ${showVersionHistory ? 'rotate-180' : ''}`}
@@ -522,31 +639,41 @@
 				</button>
 
 				{#if showVersionHistory}
-					<div id="learn-version-history" class="mt-4 space-y-3">
+					<div id="learn-version-history" class="border-surface-800 flex flex-col border-t-2">
 						{#each data.article.revisions as revision}
-							<div class="space-y-2">
+							<div
+								class="border-surface-800 flex flex-wrap items-center justify-between gap-4 border-b p-5 last:border-b-0"
+							>
 								<a
-									class="border-surface-500/20 bg-surface-900/60 hover:border-primary-500/30 block rounded-2xl border p-4 transition"
+									class="group min-w-0 flex-1 hover:no-underline"
 									href={`/learn/${data.article.slug}?revision=${revision.id}`}
 								>
-									<div class="flex flex-wrap items-center justify-between gap-3">
-										<p class="font-medium">Revision {revision.revision_number}</p>
-										<p class="text-xs uppercase opacity-60">{formatDate(revision.created_at)}</p>
+									<div class="flex flex-wrap items-center gap-3">
+										<span
+											class="text-primary-500 group-hover:text-tertiary-500 text-base font-black uppercase"
+										>
+											Revision {revision.revision_number}
+										</span>
+										<span class="text-surface-300 text-xs font-bold uppercase">
+											{formatDate(revision.created_at)}
+										</span>
 									</div>
-									<p class="mt-1 text-sm opacity-70">
+									<p class="text-surface-300 m-0 mt-1 text-sm">
 										{revision.authorProfile?.full_name ||
 											revision.authorProfile?.email ||
 											'Community member'}
 									</p>
 									{#if data.canEdit}
-										<p class="mt-2 text-xs font-semibold tracking-[0.2em] uppercase opacity-60">
+										<p
+											class="text-tertiary-500 m-0 mt-2 text-xs font-bold tracking-[0.2em] uppercase"
+										>
 											Restore from edit screen
 										</p>
 									{/if}
 								</a>
 								{#if data.canEdit}
 									<a
-										class="btn btn-xs preset-tonal-surface"
+										class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-4 py-2 text-xs font-black tracking-wider uppercase transition hover:no-underline"
 										href={`/learn/${data.article.slug}/edit?fromRevision=${revision.id}`}
 									>
 										Open this revision in editor
@@ -556,18 +683,9 @@
 						{/each}
 					</div>
 				{/if}
-			</section>
-		</section>
-	</div>
-
-	<!-- ═══ DESKTOP TOC SIDEBAR (xl+) ════════════════════════════════════
-	     The aside is an invisible grid-column placeholder only. The actual
-	     visible panel is position:fixed, positioned via JS to work around
-	     overflow-x:hidden on the root <main> which breaks position:sticky.
-	-->
-	{#if tocHeadingsDesktop.length}
-		<aside class="toc-placeholder hidden xl:block" bind:this={tocPlaceholderEl}></aside>
-	{/if}
+			</div>
+		</div>
+	</section>
 </div>
 
 <!-- ═══ FIXED TOC PANEL (rendered outside grid, always on top) ══════════ -->
@@ -598,18 +716,15 @@
 	.article-page-root {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 2rem;
+		gap: 2.5rem;
 		width: 100%;
-		max-width: 86rem;
+		max-width: 82rem;
 		margin: 0 auto;
 	}
 
-	/* On xl+ screens: push a TOC sidebar to the right */
 	@media (min-width: 1280px) {
 		.article-page-root {
-			/* article takes the main space; sidebar is 260px */
 			grid-template-columns: minmax(0, 1fr) 260px;
-			/* Do NOT set align-items:start here — sticky needs the cell to be full height */
 		}
 	}
 
@@ -620,194 +735,26 @@
 		gap: 2rem;
 	}
 
-	.article-card {
-		border-color: color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-		background: var(--color-surface-950);
-		box-shadow: 0 24px 80px -48px color-mix(in oklab, black 75%, transparent);
-	}
-
-	.reader-disclosure {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		border-radius: 1.25rem;
-		background: var(--color-surface-950);
-		padding: 1rem 1.25rem;
-	}
-
-	.reader-disclosure > summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		cursor: pointer;
-		list-style: none;
-		font-size: 1.05rem;
-		font-weight: 700;
-	}
-
-	.reader-disclosure > summary::-webkit-details-marker {
-		display: none;
-	}
-	.reader-disclosure[open] > summary {
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-	}
-	.reader-disclosure[open] > summary .disclosure-meta :global(svg) {
-		transform: rotate(180deg);
-	}
-	.disclosure-meta {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55rem;
-		font-size: 0.78rem;
-		font-weight: 500;
-		opacity: 0.6;
-	}
-	.disclosure-meta :global(svg) {
-		transition: transform 160ms ease;
-	}
-
 	/* ── Reading progress bar (fixed to viewport top) ── */
 	.progress-bar-track {
 		position: fixed;
 		top: 0;
 		left: 0;
 		right: 0;
-		z-index: 50;
-		height: 3px;
+		z-index: 60;
+		height: 4px;
 		pointer-events: none;
-		background: color-mix(in oklab, var(--color-primary-500) 10%, transparent);
+		background: var(--color-surface-950);
 	}
 
 	.progress-bar-fill {
 		height: 100%;
-		background: linear-gradient(to right, var(--color-primary-500), var(--color-secondary-400));
+		background: var(--color-tertiary-500);
 		transition: width 0.1s linear;
-		border-radius: 0 2px 2px 0;
 	}
 
-	/* ── Article title ── */
-	.learn-article-title {
-		font-family: 'Georgia', 'Times New Roman', serif;
-		text-wrap: balance;
-		line-height: 1.08;
-		letter-spacing: -0.035em;
-	}
-
-	/* ── Key Takeaways panel ── */
-	.takeaways-panel {
-		border-radius: 1.25rem;
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950) 92%);
-		padding: 1rem 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.625rem;
-		box-shadow: 0 0 32px -8px color-mix(in oklab, var(--color-primary-500) 20%, transparent);
-	}
-
-	.takeaways-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--color-primary-300);
-		opacity: 0.9;
-	}
-
-	.takeaways-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.takeaway-item {
-		display: flex;
-		gap: 0.625rem;
-		align-items: flex-start;
-		font-size: 0.875rem;
-		line-height: 1.6;
-		opacity: 0.85;
-	}
-
-	.takeaway-dot {
-		flex-shrink: 0;
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--color-primary-400);
-		margin-top: 0.45rem;
-	}
-
-	/* ── Mobile TOC accordion ── */
-	.toc-accordion {
-		border-radius: 1.25rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
-		background: color-mix(in oklab, var(--color-surface-800) 50%, transparent);
-		overflow: hidden;
-	}
-
-	.toc-accordion-summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.875rem 1.125rem;
-		cursor: pointer;
-		list-style: none;
-		user-select: none;
-		font-size: 0.875rem;
-	}
-
-	.toc-accordion-summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.toc-accordion[open] .toc-accordion-chevron {
-		transform: rotate(180deg);
-	}
-
-	.toc-accordion-chevron {
-		transition: transform 200ms ease;
-	}
-
-	.toc-accordion-body {
-		padding: 0.25rem 0.75rem 0.875rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		padding-top: 0.625rem;
-	}
-
-	.toc-link {
-		display: block;
-		padding: 0.375rem 0.625rem;
-		border-radius: 0.625rem;
-		font-size: 0.8125rem;
-		opacity: 0.75;
-		transition:
-			background 150ms ease,
-			opacity 150ms ease;
-	}
-
-	.toc-link:hover {
-		background: color-mix(in oklab, var(--color-surface-50) 6%, transparent);
-		opacity: 1;
-	}
-
-	.toc-link-sub {
-		padding-left: 1.25rem;
-		opacity: 0.6;
-	}
-
-	/* ── Desktop TOC placeholder (reserves grid column space only) ── */
+	/* ── Desktop TOC placeholder ── */
 	.toc-placeholder {
-		/* No visual — just holds the grid column. The fixed panel renders outside. */
 		pointer-events: none;
 	}
 
@@ -818,12 +765,8 @@
 		max-height: calc(100vh - 9rem);
 		overflow-y: auto;
 		scrollbar-width: thin;
-		scrollbar-color: color-mix(in oklab, var(--color-surface-500) 30%, transparent) transparent;
-		/* Visual styling same as old sidebar-inner */
-		border-radius: 1.25rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-surface-900) 85%, transparent);
-		backdrop-filter: blur(12px);
+		border: 2px solid var(--color-surface-800);
+		background: var(--color-surface-950);
 		padding: 1.125rem;
 	}
 
@@ -831,14 +774,14 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 0.68rem;
-		font-weight: 700;
-		letter-spacing: 0.18em;
+		font-size: 0.7rem;
+		font-weight: 900;
+		letter-spacing: 0.22em;
 		text-transform: uppercase;
-		opacity: 0.5;
+		color: var(--color-primary-500);
 		margin-bottom: 0.75rem;
 		padding-bottom: 0.625rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		border-bottom: 2px solid var(--color-surface-800);
 	}
 
 	.toc-sidebar-nav {
@@ -849,41 +792,37 @@
 
 	.toc-sidebar-link {
 		display: block;
-		padding: 0.3rem 0.625rem;
-		border-radius: 0.5rem;
+		padding: 0.35rem 0.625rem;
 		font-size: 0.8rem;
-		line-height: 1.45;
-		opacity: 0.65;
-		border-left: 2px solid transparent;
+		font-weight: 700;
+		line-height: 1.4;
+		color: var(--color-surface-300);
+		border-left: 3px solid transparent;
 		transition:
-			opacity 150ms ease,
 			background 150ms ease,
 			border-color 150ms ease,
 			color 150ms ease;
 	}
 
 	.toc-sidebar-link:hover {
-		opacity: 0.95;
-		background: color-mix(in oklab, var(--color-surface-50) 5%, transparent);
+		color: var(--color-surface-950);
+		background: var(--color-primary-500);
 	}
 
 	.toc-sidebar-link-h2 {
 		padding-left: 1rem;
 		font-size: 0.775rem;
-		opacity: 0.55;
 	}
 
 	.toc-sidebar-link-h3 {
 		padding-left: 1.625rem;
 		font-size: 0.75rem;
-		opacity: 0.45;
 	}
 
 	.toc-sidebar-link-active {
-		opacity: 1 !important;
-		border-left-color: var(--color-primary-400);
-		color: var(--color-primary-200);
-		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
+		border-left-color: var(--color-tertiary-500);
+		color: var(--color-primary-500);
+		background: var(--color-surface-900);
 	}
 
 	/* ── Prose styles ── */
@@ -892,7 +831,6 @@
 	.learn-prose :global(h3),
 	.learn-prose :global(h4) {
 		text-align: left;
-		/* Offset for fixed header (~73px top bar + ~57px secondary nav) */
 		scroll-margin-top: 8rem;
 	}
 
@@ -912,7 +850,9 @@
 		margin-top: 2.5em;
 		margin-bottom: 0.65em;
 		font-size: clamp(1.5rem, 2.2vw, 2rem);
-		line-height: 1.25;
+		line-height: 1.1;
+		border-top: 2px solid var(--color-surface-800);
+		padding-top: 1em;
 	}
 
 	.learn-prose :global(h3) {
@@ -927,6 +867,9 @@
 
 	.learn-prose :global(a) {
 		overflow-wrap: anywhere;
+		color: var(--color-primary-500);
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 
 	.learn-prose :global(pre),
@@ -944,22 +887,11 @@
 	.learn-prose :global(th),
 	.learn-prose :global(td) {
 		padding: 0.5rem 0.75rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 28%, transparent);
+		border: 1px solid var(--color-surface-800);
 	}
 
 	.learn-prose :global(img) {
-		border-radius: 1rem;
 		max-width: min(100%, 58rem);
 		margin-inline: auto;
-	}
-
-	@media (max-width: 639px) {
-		.article-card {
-			border-radius: 1.125rem;
-		}
-
-		.takeaways-panel {
-			padding: 0.9rem 1rem;
-		}
 	}
 </style>

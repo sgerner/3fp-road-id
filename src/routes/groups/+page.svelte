@@ -1,21 +1,17 @@
 <script>
 	let { data } = $props();
-	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import IconMap from '@lucide/svelte/icons/map';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
-	import IconX from '@lucide/svelte/icons/x';
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
 	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import IconBike from '@lucide/svelte/icons/bike';
+	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
 	import { navigating } from '$app/state';
@@ -26,6 +22,15 @@
 	}
 	const initialFilters = getInitialFilters();
 	const heroGroup = $derived((data.groups ?? []).find((group) => group.cover_photo_url) ?? null);
+	const heroImage = $derived(
+		heroGroup?.cover_photo_url
+			? optimizedImageUrl(heroGroup.cover_photo_url, { width: 1200, height: 736, quality: 68 })
+			: ''
+	);
+	const regionCount = $derived(
+		new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0
+	);
+
 	let q = $state(initialFilters.q || '');
 	let country = $state(initialFilters.country || '');
 	let state_region = $state(initialFilters.state_region || '');
@@ -38,10 +43,6 @@
 
 	// Advanced filters collapse state
 	let showAdvanced = $state(false);
-	// Map visibility
-	function isMobileViewport() {
-		return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
-	}
 	let showMap = $state(false);
 	let showMapLightbox = $state(false);
 	let groupCardsEl = $state();
@@ -144,7 +145,6 @@
 		scheduleApply();
 	}
 
-	// Active filter count (excluding group_type_ids which are always visible)
 	const activeFilterCount = $derived(
 		(q ? 1 : 0) +
 			(country ? 1 : 0) +
@@ -155,45 +155,12 @@
 			riding_discipline_ids.length
 	);
 
-	// Deterministic chip styling per group type name using Skeleton presets
-	const filledClasses = [
-		'chip text-xs preset-filled-primary-500',
-		'chip text-xs preset-filled-secondary-500',
-		'chip text-xs preset-filled-tertiary-500',
-		'chip text-xs preset-filled-success-500',
-		'chip text-xs preset-filled-warning-500',
-		'chip text-xs preset-filled-error-500',
-		'chip text-xs preset-tonal-primary',
-		'chip text-xs preset-tonal-secondary',
-		'chip text-xs preset-tonal-tertiary',
-		'chip text-xs preset-tonal-surface'
-	];
-	const outlinedClasses = [
-		'chip text-xs preset-outlined-primary-500',
-		'chip text-xs preset-outlined-secondary-500',
-		'chip text-xs preset-outlined-tertiary-500',
-		'chip text-xs preset-outlined-success-500',
-		'chip text-xs preset-outlined-warning-500',
-		'chip text-xs preset-outlined-error-500',
-		'chip text-xs preset-tonal-primary',
-		'chip text-xs preset-tonal-secondary',
-		'chip text-xs preset-tonal-tertiary',
-		'chip text-xs preset-tonal-surface'
-	];
-
-	function hashStr(s) {
-		let h = 0;
-		for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-		return Math.abs(h);
-	}
-	function chipIndex(name) {
-		return hashStr(name || '') % filledClasses.length;
-	}
-	function chipFilled(name) {
-		return filledClasses[chipIndex(name)];
-	}
-	function chipOutlined(name) {
-		return outlinedClasses[chipIndex(name)];
+	function filterChipClass(active) {
+		const base =
+			'px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition cursor-pointer';
+		return active
+			? `${base} bg-primary-500 text-surface-950`
+			: `${base} bg-surface-950 text-surface-50 hover:bg-tertiary-500 hover:text-surface-950`;
 	}
 
 	// Country -> State/Region mapping
@@ -385,7 +352,6 @@
 		updateMarkers(mapLightbox, clusterLayerLightbox);
 	});
 
-	// Invalidate map size when map becomes visible
 	$effect(() => {
 		if (showMap && map) {
 			setTimeout(() => map?.invalidateSize(), 180);
@@ -430,309 +396,436 @@
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
 	});
+
+	function groupPlace(group) {
+		return (
+			[group?.city, group?.state_region].filter(Boolean).join(', ') ||
+			group?.country ||
+			'Location coming soon'
+		);
+	}
 </script>
 
-<div class="groups-page mx-auto flex w-full max-w-7xl flex-col gap-12 sm:gap-16">
-	<!-- ═══════════════════════════════════════════════
-	     HERO
-	═══════════════════════════════════════════════ -->
-	<CinematicHero
-		eyebrow="Cycling communities"
-		title="Find the people who make riding better."
-		description="Discover clubs, teams, and advocacy organizations that match where—and how—you ride."
-		icon={IconUsers}
-		imageUrl={heroGroup?.cover_photo_url}
-		imageAlt={heroGroup ? heroGroup.name : ''}
-		stats={[
-			{ value: data.totalGroups || 0, label: 'Groups' },
-			{
-				value: new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0,
-				label: 'Regions'
-			},
-			{ value: data.group_types?.length || 0, label: 'Community types' }
-		]}
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		aria-labelledby="groups-hero-heading"
 	>
-		{#snippet actions()}
-			<a class="btn preset-filled-primary-500 gap-2" href="#group-list"
-				>Explore groups <IconArrowRight class="h-4 w-4" /></a
+		<div
+			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<p
+				class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
 			>
-			<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href="/groups/new"
-				><IconPlus class="h-4 w-4" /> Start a group</a
-			>
-		{/snippet}
-	</CinematicHero>
+				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+				<span>Cycling communities</span>
+			</p>
 
-	<DiscoveryToolbar
-		eyebrow="Directory filters"
-		title="Search by name, place, or riding style"
-		description="The essentials stay visible; deeper filters are one tap away."
-		icon={IconSearch}
-	>
-		<div class="grid gap-5">
-			<div class="flex flex-col gap-3">
-				<div class="input-group grid-cols-[1fr_auto]">
-					<input
-						class="ig-input bg-surface-950-50/5"
-						bind:value={q}
-						placeholder="Name, city, description…"
-						oninput={handleSearchInput}
-					/>
-					<button
-						type="button"
-						class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
-						onclick={handleSearchButtonClick}
-						aria-label="Search groups"
-						title="Search"
-					>
-						<IconSearch class="h-4 w-4" />
-					</button>
-				</div>
-
-				<div class="grid grid-cols-2 gap-2">
-					<select
-						class="select bg-surface-950-50/5 text-sm"
-						bind:value={country}
-						onchange={scheduleApply}
-					>
-						<option value="">Any Country</option>
-						<option value="US">United States</option>
-						<option value="CA">Canada</option>
-						<option value="MX">Mexico</option>
-						<option value="GB">United Kingdom</option>
-						<option value="AU">Australia</option>
-						<option value="NZ">New Zealand</option>
-						<option value="OTHER">Other</option>
-					</select>
-
-					{#if hasStateList}
-						<select
-							class="select bg-surface-950-50/5 text-sm"
-							bind:value={state_region}
-							onchange={scheduleApply}
-						>
-							<option value="">Any Region</option>
-							{#each statesByCountry[country] as st}
-								<option value={st}>{st}</option>
-							{/each}
-						</select>
-					{:else}
-						<input
-							class="input bg-surface-950-50/5 text-sm"
-							bind:value={state_region}
-							oninput={scheduleApply}
-							placeholder="State/Region"
-						/>
-					{/if}
-				</div>
+			<div class="flex flex-col gap-6">
+				<h1
+					id="groups-hero-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.5rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					Find the people who make <span class="text-secondary-500">riding better.</span>
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					Discover clubs, teams, and advocacy organizations that match where—and how—you ride.
+				</p>
 			</div>
 
-			<div class="space-y-2">
-				<div
-					class="flex items-center gap-1.5 text-[0.7rem] font-semibold tracking-[0.2em] uppercase opacity-50"
+			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+				<a
+					href="#group-list"
+					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 				>
-					<IconSlidersHorizontal class="h-3.5 w-3.5" />
-					Group Type
-				</div>
-				<div class="flex flex-wrap gap-2">
-					<button
-						type="button"
-						class={`chip ${group_type_ids.length === 0 ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-						onclick={() => {
-							group_type_ids = [];
-							scheduleApply();
-						}}
+					Explore groups
+					<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+				</a>
+				<a
+					href="/groups/new"
+					class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+				>
+					<IconPlus class="h-5 w-5" /> Start a group
+				</a>
+			</div>
+		</div>
+
+		<div class="bg-surface-950 relative min-h-[22rem] sm:min-h-[28rem]">
+			<img
+				src={heroImage || '/images/default-ride.webp'}
+				alt={heroGroup ? heroGroup.name : 'Cyclists riding together'}
+				class="absolute inset-0 h-full w-full object-cover"
+				width="1200"
+				height="736"
+				fetchpriority="high"
+			/>
+
+			<!-- Signature: the 3-foot ruler -->
+			<div
+				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
+				aria-hidden="true"
+			>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
+				<span
+					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
+				></span>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
+			</div>
+
+			{#if heroGroup}
+				<a
+					href={`/groups/${heroGroup.slug}`}
+					class="group bg-surface-950 text-surface-50 hover:bg-secondary-500 absolute right-0 bottom-0 left-12 flex items-center justify-between gap-4 px-5 py-4 transition hover:no-underline sm:left-16"
+				>
+					<span class="min-w-0">
+						<span
+							class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.22em] uppercase"
+						>
+							Featured community
+						</span>
+						<span class="block truncate text-base font-black sm:text-lg">{heroGroup.name}</span>
+						<span class="block truncate text-xs opacity-75">{groupPlace(heroGroup)}</span>
+					</span>
+					<IconArrowUpRight
+						class="text-primary-500 h-6 w-6 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+					/>
+				</a>
+			{/if}
+		</div>
+	</section>
+
+	<!-- STATS RULER BAND -->
+	<div
+		class="bg-primary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-t-[3px]"
+		aria-label="Directory statistics"
+	>
+		{#each [{ value: data.totalGroups || 0, label: 'Groups', mark: '01' }, { value: regionCount, label: 'Regions', mark: '02' }, { value: data.group_types?.length || 0, label: 'Community types', mark: '03' }] as stat (stat.label)}
+			<div
+				class="border-surface-950 relative flex flex-col justify-between gap-2 border-l-[3px] px-4 pt-6 pb-4 first:border-l-0 sm:px-8 sm:pt-7 sm:pb-5"
+			>
+				<span
+					class="absolute inset-x-0 top-0 h-3 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+					aria-hidden="true"
+				></span>
+				<span
+					class="text-tertiary-600 text-xs font-black tracking-[0.2em] uppercase italic tabular-nums"
+				>
+					{stat.mark}
+				</span>
+				<div>
+					<div
+						class="text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-5xl"
 					>
-						All
-					</button>
-					{#each (data.group_types || []).slice(0, 6) as t}
+						{stat.value}
+					</div>
+					<div class="mt-1 text-xs font-bold tracking-[0.18em] uppercase">{stat.label}</div>
+				</div>
+			</div>
+		{/each}
+	</div>
+
+	<!-- DIRECTORY FILTERS -->
+	<section
+		class="bg-secondary-500 text-surface-50 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		aria-labelledby="filters-heading"
+	>
+		<div class="grid items-start gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)] lg:gap-14">
+			<div class="flex flex-col gap-5">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconSearch class="h-4 w-4" /> Directory filters
+				</p>
+				<h2
+					id="filters-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
+				>
+					Search by name, place, or riding style
+				</h2>
+				<p class="m-0 max-w-md text-lg leading-snug font-medium">
+					The essentials stay visible; deeper filters are one tap away.
+				</p>
+
+				<div class="flex flex-wrap gap-3 pt-2">
+					{#if activeFilterCount > 0}
 						<button
 							type="button"
-							class={`chip ${group_type_ids.includes(t.id) ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
-							onclick={() => toggleType(t.id)}
+							class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition"
+							onclick={clearAll}
+							in:fade={{ duration: 120 }}
 						>
-							{t.name}
+							Clear filters ({activeFilterCount})
 						</button>
-					{/each}
+					{:else}
+						<a
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-secondary-500 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							href="#group-list"
+						>
+							Browse all
+						</a>
+					{/if}
+
+					<a
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						href="/groups/new"
+					>
+						<IconPlus class="h-4 w-4" />
+						Create group
+					</a>
 				</div>
 			</div>
 
-			<!-- Advanced Settings Accordion -->
-			<div class="mt-2 text-sm">
-				<button
-					type="button"
-					class="flex w-full items-center justify-between py-2 text-left font-medium opacity-80 hover:opacity-100"
-					onclick={() => (showAdvanced = !showAdvanced)}
-					aria-expanded={showAdvanced}
-				>
-					<span class="flex items-center gap-2">
-						More Filters
-						{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length + Math.max(0, group_type_ids.length - 6) > 0}
-							<span
-								class="bg-primary-500 text-surface-50 ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-							>
-								{skill_level_ids.length +
-									audience_focus_ids.length +
-									riding_discipline_ids.length +
-									Math.max(0, group_type_ids.length - 6)}
-							</span>
-						{/if}
-					</span>
-					<IconChevronDown
-						class="h-4 w-4 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
-					/>
-				</button>
+			<div class="bg-surface-950 text-surface-50 flex flex-col gap-6 p-6 sm:p-8">
+				<div class="flex flex-col gap-3">
+					<div class="border-surface-50 flex border-[3px]">
+						<input
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-3 text-base font-medium focus:outline-none"
+							bind:value={q}
+							placeholder="Name, city, description…"
+							oninput={handleSearchInput}
+						/>
+						<button
+							type="button"
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 flex shrink-0 cursor-pointer items-center justify-center px-5 transition"
+							onclick={handleSearchButtonClick}
+							aria-label="Search groups"
+							title="Search"
+						>
+							<IconSearch class="h-5 w-5" />
+						</button>
+					</div>
 
-				{#if showAdvanced}
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<select
+							class="bg-surface-900 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-4 py-3 text-sm font-bold uppercase focus:outline-none"
+							bind:value={country}
+							onchange={scheduleApply}
+						>
+							<option value="">Any Country</option>
+							<option value="US">United States</option>
+							<option value="CA">Canada</option>
+							<option value="MX">Mexico</option>
+							<option value="GB">United Kingdom</option>
+							<option value="AU">Australia</option>
+							<option value="NZ">New Zealand</option>
+							<option value="OTHER">Other</option>
+						</select>
+
+						{#if hasStateList}
+							<select
+								class="bg-surface-900 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-4 py-3 text-sm font-bold uppercase focus:outline-none"
+								bind:value={state_region}
+								onchange={scheduleApply}
+							>
+								<option value="">Any Region</option>
+								{#each statesByCountry[country] as st (st)}
+									<option value={st}>{st}</option>
+								{/each}
+							</select>
+						{:else}
+							<input
+								class="bg-surface-900 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-4 py-3 text-sm font-bold uppercase focus:outline-none"
+								bind:value={state_region}
+								oninput={scheduleApply}
+								placeholder="State/Region"
+							/>
+						{/if}
+					</div>
+				</div>
+
+				<div class="flex flex-col gap-3">
 					<div
-						class="border-surface-500/10 mt-2 space-y-4 border-t pt-3"
-						in:slide={{ duration: 180 }}
-						out:fade={{ duration: 120 }}
+						class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
 					>
-						{#if (data.group_types || []).length > 6}
-							<div>
-								<div class="mb-1.5 text-xs font-semibold opacity-60">More Types</div>
+						<IconSlidersHorizontal class="h-3.5 w-3.5" />
+						Group Type
+					</div>
+					<div class="flex flex-wrap gap-2">
+						<button
+							type="button"
+							class="cursor-pointer px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.length ===
+							0
+								? 'bg-primary-500 text-surface-950'
+								: 'border-surface-700 text-surface-50 hover:border-primary-500 border-2'}"
+							onclick={() => {
+								group_type_ids = [];
+								scheduleApply();
+							}}
+						>
+							All
+						</button>
+						{#each (data.group_types || []).slice(0, 6) as t (t.id)}
+							<button
+								type="button"
+								class="cursor-pointer px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.includes(
+									t.id
+								)
+									? 'bg-primary-500 text-surface-950'
+									: 'border-surface-700 text-surface-50 hover:border-primary-500 border-2'}"
+								onclick={() => toggleType(t.id)}
+							>
+								{t.name}
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Advanced Settings Accordion -->
+				<div class="border-surface-800 border-t-2 pt-4">
+					<button
+						type="button"
+						class="text-surface-50 hover:text-primary-500 flex w-full cursor-pointer items-center justify-between py-1 text-left text-xs font-black tracking-[0.2em] uppercase transition"
+						onclick={() => (showAdvanced = !showAdvanced)}
+						aria-expanded={showAdvanced}
+					>
+						<span class="flex items-center gap-2">
+							More Filters
+							{#if skill_level_ids.length + audience_focus_ids.length + riding_discipline_ids.length + Math.max(0, group_type_ids.length - 6) > 0}
+								<span
+									class="bg-tertiary-500 text-surface-950 inline-flex h-5 min-w-5 items-center justify-center px-1.5 text-[11px] font-black"
+								>
+									{skill_level_ids.length +
+										audience_focus_ids.length +
+										riding_discipline_ids.length +
+										Math.max(0, group_type_ids.length - 6)}
+								</span>
+							{/if}
+						</span>
+						<IconChevronDown
+							class="h-4 w-4 transition-transform duration-200 {showAdvanced ? 'rotate-180' : ''}"
+						/>
+					</button>
+
+					{#if showAdvanced}
+						<div
+							class="border-surface-800 mt-4 flex flex-col gap-5 border-t pt-4"
+							in:slide={{ duration: 180 }}
+							out:fade={{ duration: 120 }}
+						>
+							{#if (data.group_types || []).length > 6}
+								<div class="flex flex-col gap-2">
+									<div class="text-surface-300 text-xs font-bold tracking-[0.2em] uppercase">
+										More Types
+									</div>
+									<div class="flex flex-wrap gap-1.5">
+										{#each (data.group_types || []).slice(6) as t (t.id)}
+											<button
+												type="button"
+												class="{filterChipClass(
+													group_type_ids.includes(t.id)
+												)} border-surface-700 border"
+												onclick={() => toggleType(t.id)}>{t.name}</button
+											>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+							<div class="flex flex-col gap-2">
+								<div class="text-surface-300 text-xs font-bold tracking-[0.2em] uppercase">
+									Skill Levels
+								</div>
 								<div class="flex flex-wrap gap-1.5">
-									{#each (data.group_types || []).slice(6) as t}
+									{#each data.skill_levels || [] as t (t.id)}
 										<button
 											type="button"
-											class={group_type_ids.includes(t.id)
-												? chipFilled(t.name)
-												: chipOutlined(t.name)}
-											onclick={() => toggleType(t.id)}>{t.name}</button
+											class="{filterChipClass(
+												skill_level_ids.includes(t.id)
+											)} border-surface-700 border"
+											onclick={() => toggleSkill(t.id)}>{t.name}</button
 										>
 									{/each}
 								</div>
 							</div>
-						{/if}
 
-						<div>
-							<div class="mb-1.5 text-xs font-semibold opacity-60">Skill Levels</div>
-							<div class="flex flex-wrap gap-1.5">
-								{#each data.skill_levels || [] as t}
-									<button
-										type="button"
-										class={skill_level_ids.includes(t.id)
-											? chipFilled(t.name)
-											: chipOutlined(t.name)}
-										onclick={() => toggleSkill(t.id)}>{t.name}</button
-									>
-								{/each}
+							<div class="flex flex-col gap-2">
+								<div class="text-surface-300 text-xs font-bold tracking-[0.2em] uppercase">
+									Audience Focus
+								</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each data.audience_focuses || [] as t (t.id)}
+										<button
+											type="button"
+											class="{filterChipClass(
+												audience_focus_ids.includes(t.id)
+											)} border-surface-700 border"
+											onclick={() => toggleAudience(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
+							</div>
+
+							<div class="flex flex-col gap-2">
+								<div class="text-surface-300 text-xs font-bold tracking-[0.2em] uppercase">
+									Riding Disciplines
+								</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each data.riding_disciplines || [] as t (t.id)}
+										<button
+											type="button"
+											class="{filterChipClass(
+												riding_discipline_ids.includes(t.id)
+											)} border-surface-700 border"
+											onclick={() => toggleDiscipline(t.id)}>{t.name}</button
+										>
+									{/each}
+								</div>
 							</div>
 						</div>
-
-						<div>
-							<div class="mb-1.5 text-xs font-semibold opacity-60">Audience Focus</div>
-							<div class="flex flex-wrap gap-1.5">
-								{#each data.audience_focuses || [] as t}
-									<button
-										type="button"
-										class={audience_focus_ids.includes(t.id)
-											? chipFilled(t.name)
-											: chipOutlined(t.name)}
-										onclick={() => toggleAudience(t.id)}>{t.name}</button
-									>
-								{/each}
-							</div>
-						</div>
-
-						<div>
-							<div class="mb-1.5 text-xs font-semibold opacity-60">Riding Disciplines</div>
-							<div class="flex flex-wrap gap-1.5">
-								{#each data.riding_disciplines || [] as t}
-									<button
-										type="button"
-										class={riding_discipline_ids.includes(t.id)
-											? chipFilled(t.name)
-											: chipOutlined(t.name)}
-										onclick={() => toggleDiscipline(t.id)}>{t.name}</button
-									>
-								{/each}
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			<div class="mt-auto grid gap-3 pt-2 sm:grid-cols-2">
-				{#if activeFilterCount > 0}
-					<button
-						type="button"
-						class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
-						onclick={clearAll}
-						in:fade={{ duration: 120 }}
-					>
-						Clear filters
-					</button>
-				{:else}
-					<a
-						class="btn preset-outlined-surface-950-50 col-span-1 hidden sm:flex"
-						href="#group-list"
-					>
-						Browse all
-					</a>
-				{/if}
-
-				<a
-					class="btn preset-outlined-primary-500 gap-2 {activeFilterCount > 0
-						? 'col-span-1 sm:col-span-1'
-						: 'col-span-1 sm:col-span-1'}"
-					href="/groups/new"
-				>
-					<IconPlus class="h-4 w-4" />
-					Create group
-				</a>
-
-				{#if activeFilterCount > 0}
-					<button
-						type="button"
-						class="btn preset-outlined-error-500 col-span-1 flex sm:hidden"
-						onclick={clearAll}
-					>
-						Clear filters
-					</button>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		</div>
-	</DiscoveryToolbar>
+	</section>
 
-	<!-- ═══════════════════════════════ RESULTS + MAP ═════════════════════════════ -->
-	<section id="group-list" class="space-y-5">
+	<!-- RESULTS + MAP -->
+	<section
+		id="group-list"
+		class="bg-surface-950 text-surface-50 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		aria-labelledby="listings-heading"
+	>
 		{#if data.error}
-			<div class="bg-error-500/10 border-error-500/30 rounded-xl border px-4 py-3">
-				<p class="text-error-600-400 m-0 text-sm">{data.error}</p>
+			<div class="bg-tertiary-500 text-surface-950 mb-8 px-5 py-4">
+				<p class="m-0 text-sm font-black uppercase">{data.error}</p>
 			</div>
 		{/if}
 
 		<!-- Results toolbar -->
-		<div class="flex items-center justify-between gap-2">
-			<div>
-				<p class="label opacity-60">Directory</p>
-				<h2 class="text-2xl font-bold">Group listings</h2>
+		<div class="flex flex-wrap items-end justify-between gap-6">
+			<div class="flex flex-col gap-2">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
+				<h2
+					id="listings-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Group listings
+				</h2>
 			</div>
 
-			<div class="flex flex-col items-end gap-2">
-				<p class="text-sm tabular-nums opacity-60">
+			<div class="flex flex-wrap items-center gap-4">
+				<p class="text-surface-300 m-0 text-sm font-bold tracking-[0.15em] uppercase tabular-nums">
 					{data.totalGroups ?? 0}
 					{data.totalGroups === 1 ? 'group' : 'groups'} match
 				</p>
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="btn btn-sm {showMap
-							? 'preset-filled-primary-500'
-							: 'preset-outlined-surface-500'} flex items-center gap-1.5 transition-all"
+						class="inline-flex cursor-pointer items-center gap-2 px-5 py-3 text-xs font-black tracking-[0.16em] uppercase transition {showMap
+							? 'bg-primary-500 text-surface-950'
+							: 'border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2'}"
 						onclick={() => (showMap = !showMap)}
 					>
-						<IconMapPin class="h-3.5 w-3.5" />
+						<IconMapPin class="h-4 w-4" />
 						{showMap ? 'Hide Map' : 'Show Map'}
 					</button>
 					{#if showMap}
 						<button
 							type="button"
-							class="btn btn-sm preset-outlined-primary-500 flex items-center gap-1.5"
+							class="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex cursor-pointer items-center gap-2 border-2 px-5 py-3 text-xs font-black tracking-[0.16em] uppercase transition"
 							onclick={() => (showMapLightbox = true)}
 						>
-							<IconMaximize2 class="h-3.5 w-3.5" />
+							<IconMaximize2 class="h-4 w-4" />
 							Expand Map
 						</button>
 					{/if}
@@ -740,12 +833,16 @@
 			</div>
 		</div>
 
+		<!-- Lane divider -->
+		<div
+			class="my-8 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)] lg:my-10"
+			aria-hidden="true"
+		></div>
+
 		<!-- Map -->
 		{#if showMap}
-			<div>
-				<div class="map-shell border-surface-500/15 overflow-hidden rounded-2xl border shadow-lg">
-					<div bind:this={mapEl} class="map-canvas"></div>
-				</div>
+			<div class="border-primary-500 mb-10 border-[3px]">
+				<div bind:this={mapEl} class="map-canvas"></div>
 			</div>
 		{/if}
 		{#if showMap && showMapLightbox}
@@ -755,16 +852,14 @@
 				aria-label="Close expanded map"
 				onclick={() => (showMapLightbox = false)}
 			></button>
-			<div
-				class="map-shell map-shell-lightbox border-surface-500/15 overflow-hidden border shadow-lg"
-			>
+			<div class="map-shell-lightbox border-primary-500 border-[3px]">
 				<div class="map-lightbox-toolbar">
 					<button
 						type="button"
-						class="btn btn-sm preset-tonal-surface"
+						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
 						onclick={() => (showMapLightbox = false)}
 					>
-						<IconMinimize2 class="h-3.5 w-3.5" />
+						<IconMinimize2 class="h-4 w-4" />
 						Close Expanded Map
 					</button>
 				</div>
@@ -776,81 +871,103 @@
 		<div bind:this={groupCardsEl}>
 			{#if !data.groups?.length}
 				<!-- Empty state -->
-				<div
-					class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-				>
-					<div class="app-empty-orb" aria-hidden="true"></div>
-					<div class="relative z-10 mx-auto max-w-lg space-y-4">
-						<div
-							class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-						>
-							<IconUsers class="h-10 w-10 opacity-60" />
-						</div>
-						<h3 class="text-2xl font-bold">No groups match that filter yet</h3>
-						<p class="text-sm leading-relaxed opacity-70">
+				<div class="border-surface-50 flex flex-col gap-6 border-t-2 pt-10">
+					<div class="bg-tertiary-500 text-surface-950 flex h-16 w-16 items-center justify-center">
+						<IconUsers class="h-8 w-8" />
+					</div>
+					<div class="flex max-w-xl flex-col gap-3">
+						<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">
+							No groups match that filter yet
+						</h3>
+						<p class="text-surface-300 m-0 text-lg leading-relaxed">
 							Try a broader search, clear some filters, or be the first to start a group in this
 							area!
 						</p>
-						<div class="flex flex-wrap justify-center gap-3 pt-2">
-							{#if activeFilterCount > 0}
-								<button class="btn preset-outlined-surface-950-50" onclick={clearAll}>
-									Clear filters
-								</button>
-							{/if}
-							<a class="btn preset-filled-primary-500 gap-2" href="/groups/new">
-								<IconPlus class="h-4 w-4" />
-								Create group
-							</a>
-						</div>
+					</div>
+					<div class="flex flex-wrap gap-3">
+						{#if activeFilterCount > 0}
+							<button
+								type="button"
+								class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 cursor-pointer border-2 px-6 py-3 font-black uppercase transition"
+								onclick={clearAll}
+							>
+								Clear filters
+							</button>
+						{/if}
+						<a
+							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center gap-2 px-6 py-3 font-black uppercase hover:no-underline"
+							href="/groups/new"
+						>
+							<IconPlus class="h-4 w-4" />
+							Create group
+						</a>
 					</div>
 				</div>
 			{:else}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-					{#each data.groups as g (g.id)}
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+					{#each data.groups as g, index (g.id)}
 						<a
 							href={`/groups/${g.slug}`}
-							class="card preset-tonal-surface group block overflow-hidden transition duration-300 hover:-translate-y-1"
+							class="group border-surface-800 bg-surface-900 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 flex flex-col justify-between border-2 transition hover:no-underline"
 						>
-							<!-- Cover image area -->
-							<div
-								class="from-primary-800/70 to-secondary-700/50 relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br"
-							>
-								{#if g.cover_photo_url}
-									<img
-										src={optimizedImageUrl(g.cover_photo_url, {
-											width: 768,
-											height: 576,
-											quality: 64
-										})}
-										alt="{g.name} cover"
-										loading="lazy"
-										class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-										width="768"
-										height="576"
-										decoding="async"
-									/>
-								{/if}
-
-								<!-- Bottom gradient scrim -->
+							<div>
+								<!-- Cover image area -->
 								<div
-									class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent"
-								></div>
+									class="bg-secondary-500 border-surface-800 relative aspect-[16/10] w-full overflow-hidden border-b-2"
+								>
+									{#if g.cover_photo_url}
+										<img
+											src={optimizedImageUrl(g.cover_photo_url, {
+												width: 768,
+												height: 576,
+												quality: 64
+											})}
+											alt="{g.name} cover"
+											loading="lazy"
+											class="absolute inset-0 h-full w-full object-cover"
+											width="768"
+											height="576"
+											decoding="async"
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center">
+											<span
+												class="text-primary-500/30 text-7xl leading-none font-black italic select-none"
+												aria-hidden="true"
+											>
+												3FT
+											</span>
+										</div>
+									{/if}
 
-								<!-- Top-right: group type chips -->
-								{#if (data.group_types_map?.[g.id] || []).length}
-									<div
-										class="absolute top-2.5 right-2.5 flex max-w-[70%] flex-wrap justify-end gap-1"
+									<!-- Top-left index numeral -->
+									<span
+										class="bg-surface-950 text-tertiary-500 absolute top-0 left-0 px-3 py-1.5 text-sm font-black italic tabular-nums"
 									>
-										{#each (data.group_types_map[g.id] || []).slice(0, 2) as t}
-											<span class="{chipFilled(t)} shadow-sm">{t}</span>
-										{/each}
-									</div>
-								{/if}
+										{String((page - 1) * limit + index + 1).padStart(2, '0')}
+									</span>
 
-								<!-- Bottom overlay: logo + name + location -->
-								<div class="absolute inset-x-0 bottom-0 p-3">
-									<div class="flex items-end gap-3">
-										<!-- Logo -->
+									<!-- Top-right: group type tags -->
+									{#if (data.group_types_map?.[g.id] || []).length}
+										<div
+											class="absolute top-0 right-0 flex max-w-[75%] flex-wrap justify-end gap-1 p-2"
+										>
+											{#each (data.group_types_map[g.id] || []).slice(0, 2) as t (t)}
+												<span
+													class="bg-primary-500 text-surface-950 px-2.5 py-1 text-[0.65rem] font-black tracking-[0.15em] uppercase"
+												>
+													{t}
+												</span>
+											{/each}
+										</div>
+									{/if}
+								</div>
+
+								<!-- Identity & copy -->
+								<div class="flex items-start gap-4 p-5">
+									<div
+										class="bg-surface-50 text-surface-950 flex h-14 w-14 shrink-0 items-center justify-center p-1.5"
+									>
 										{#if g.logo_url}
 											<img
 												src={optimizedImageUrl(g.logo_url, {
@@ -860,46 +977,47 @@
 												})}
 												alt="{g.name} logo"
 												loading="lazy"
-												class="ring-surface-950-50/20 h-12 w-12 shrink-0 rounded-xl object-cover shadow-lg ring-2"
+												class="h-full w-full object-contain"
 												width="96"
 												height="96"
 												decoding="async"
 											/>
 										{:else}
-											<div
-												class="bg-surface-950-50/20 ring-surface-950-50/20 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-2 backdrop-blur-sm"
-											>
-												<IconUsers class="text-surface-50 h-5 w-5" />
-											</div>
+											<IconUsers class="h-6 w-6" />
 										{/if}
-
-										<div class="min-w-0 flex-1">
-											<h3
-												class="text-surface-50 m-0 truncate !text-left text-base leading-tight font-bold drop-shadow-sm"
-											>
-												{g.name}
-											</h3>
-											<p
-												class="m-0 mt-0.5 flex items-center gap-1 truncate text-[11px] text-white/70"
-											>
-												<IconMapPin class="h-3 w-3 shrink-0" />
-												{#if g.city}{g.city},{/if}
-												{g.state_region}
-												{#if g.state_region && g.country}
-													·
-												{/if}
-												{g.country}
-											</p>
-										</div>
 									</div>
 
-									<!-- Tagline, shown below -->
-									{#if g.tagline}
-										<p class="m-0 mt-2 line-clamp-1 text-xs text-white/60 drop-shadow-sm">
-											{g.tagline}
+									<div class="min-w-0 flex-1">
+										<h3
+											class="text-surface-50! group-hover:text-surface-950! m-0 line-clamp-2 text-xl leading-tight font-black uppercase"
+										>
+											{g.name}
+										</h3>
+										<p
+											class="m-0 mt-1 flex items-center gap-1 truncate text-xs font-bold tracking-[0.12em] uppercase opacity-75"
+										>
+											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+											{#if g.city}{g.city},{/if}
+											{g.state_region}
+											{#if g.state_region && g.country}
+												·
+											{/if}
+											{g.country}
 										</p>
-									{/if}
+										{#if g.tagline}
+											<p class="m-0 mt-2.5 line-clamp-2 text-sm leading-snug opacity-85">
+												{g.tagline}
+											</p>
+										{/if}
+									</div>
 								</div>
+							</div>
+
+							<div
+								class="border-surface-800 group-hover:border-surface-950/20 flex items-center justify-between border-t px-5 py-3 text-xs font-black tracking-[0.18em] uppercase"
+							>
+								<span>Open group</span>
+								<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 							</div>
 						</a>
 					{/each}
@@ -910,16 +1028,19 @@
 		<!-- Pagination Controls -->
 		{#if data.totalGroups > limit}
 			{@const totalPages = Math.ceil(data.totalGroups / limit)}
-			<div class="mt-10 flex items-center justify-center gap-3">
+			<div
+				class="border-surface-800 mt-12 flex flex-wrap items-center justify-between gap-4 border-t-2 pt-8"
+			>
 				<button
-					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+					type="button"
+					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 cursor-pointer border-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
 					disabled={page <= 1 || navigating}
 					onclick={() => setPage(page - 1)}
 				>
 					Previous
 				</button>
 				<span
-					class="flex min-w-[140px] items-center justify-center gap-2 px-4 text-sm font-semibold opacity-70"
+					class="flex items-center justify-center gap-2 px-4 text-sm font-black tracking-[0.2em] uppercase tabular-nums"
 				>
 					{#if navigating}
 						<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
@@ -927,7 +1048,8 @@
 					Page {page} of {totalPages}
 				</span>
 				<button
-					class="btn preset-filled-surface-50-950 px-5 shadow-sm"
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
 					disabled={page >= totalPages || navigating}
 					onclick={() => setPage(page + 1)}
 				>
@@ -951,19 +1073,14 @@
 		border: none;
 		padding: 0;
 		margin: 0;
-		background: color-mix(in oklab, var(--color-surface-950) 78%, black 22%);
-		backdrop-filter: blur(2px);
+		background: rgba(10, 10, 14, 0.88);
 	}
 
 	.map-shell-lightbox {
 		position: fixed;
 		inset: 3vh 2vw;
 		z-index: 1250;
-		border-width: 1px;
-		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-		border-radius: 1rem;
-		box-shadow: 0 20px 80px -24px color-mix(in oklab, black 50%, transparent);
-		background: var(--color-surface-900);
+		background: var(--color-surface-950);
 	}
 
 	.map-lightbox-toolbar {
@@ -977,6 +1094,4 @@
 		height: 100%;
 		min-height: 78vh;
 	}
-
-	/* ── Empty state ── */
 </style>

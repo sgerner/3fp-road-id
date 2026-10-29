@@ -1,14 +1,12 @@
 <script>
 	import { browser } from '$app/environment';
-	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
 	import { tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconMap from '@lucide/svelte/icons/map';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import { slide, fade } from 'svelte/transition';
 
@@ -18,7 +16,7 @@
 		eventTypesData = [],
 		hostOrgsData = [],
 		opportunitiesData = [],
-		user = null,
+		user: _user = null,
 		title = 'Volunteer',
 		description = 'Browse rides, pop-up shops, workshops, and more. Filter by host, type, and location to find the right place to pitch in.',
 		showCreateButton = true,
@@ -124,30 +122,6 @@
 
 	const df = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
-
-	function eventDateRange(event) {
-		const start = parseEventDate(event?.event_start);
-		const end = parseEventDate(event?.event_end);
-		if (!start) return 'Date to be announced';
-		if (!end || end.getTime() === start.getTime() || start.toDateString() === end.toDateString()) {
-			return df.format(start);
-		}
-		return `${df.format(start)} → ${df.format(end)}`;
-	}
-
-	function eventTimeRangeOnly(event) {
-		const start = parseEventDate(event?.event_start);
-		const end = parseEventDate(event?.event_end);
-		if (!start) return '';
-		if (!end || end.getTime() === start.getTime()) {
-			return tf.format(start);
-		}
-		const sameDay = start.toDateString() === end.toDateString();
-		if (sameDay) {
-			return `${tf.format(start)} – ${tf.format(end)}`;
-		}
-		return `${tf.format(start)} → ${tf.format(end)}`;
-	}
 
 	function eventTimeRange(event) {
 		const start = parseEventDate(event?.event_start);
@@ -300,7 +274,6 @@
 		return weeks;
 	}
 
-	const tfShort = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 	const calendarHeaderText = $derived.by(() => {
 		const monthLabel = new Intl.DateTimeFormat(undefined, {
 			month: 'long',
@@ -432,267 +405,390 @@
 			markerLayer = null;
 		}
 	});
+
+	const heroStats = $derived([
+		{ value: totalUpcoming, label: 'Upcoming events', tone: 'text-primary-500' },
+		{ value: hostGroups.length, label: 'Host groups', tone: 'text-tertiary-500' },
+		{ value: opportunities.length, label: 'Open roles', tone: 'text-primary-500' }
+	]);
 </script>
 
-<section class="volunteer-hub-page mx-auto flex w-full max-w-7xl flex-col gap-12 pb-10 sm:gap-16">
-	<CinematicHero
-		eyebrow="Show up for safer streets"
-		title={title === 'Volunteer' ? 'A little time can move a whole community.' : title}
-		{description}
-		icon={IconHeartHandshake}
-		stats={[
-			{ value: totalUpcoming, label: 'Upcoming events' },
-			{ value: hostGroups.length, label: 'Host groups' },
-			{ value: opportunities.length, label: 'Open roles' }
-		]}
+<div class="volunteer-hub-page flex w-full flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.85fr)]"
+		aria-labelledby="volunteer-hero-heading"
 	>
-		{#snippet actions()}
-			<a class="btn preset-filled-primary-500 gap-2" href="#volunteer-directory"
-				>Find an opportunity</a
-			>
-			{#if showCreateButton}
-				<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href={createButtonHref}
-					><IconPlus class="h-4 w-4" /> Create an event</a
-				>
-			{/if}
-		{/snippet}
-	</CinematicHero>
+		<div
+			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<p class="m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase">
+				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+				<span>Show up for safer streets</span>
+			</p>
 
-	<DiscoveryToolbar
-		eyebrow="Opportunity finder"
-		title="Search by host, type, or location"
-		description="Use only the filters that help; every upcoming opportunity remains easy to browse."
-		icon={IconSearch}
-	>
-		<div class="grid gap-4">
-			<div class="input-group grid-cols-[1fr_auto]">
-				<input
-					type="search"
-					class="ig-input"
-					bind:value={searchInput}
-					placeholder="Find by title, host, or description"
-					onkeydown={(event) => {
-						if (event.key === 'Enter') {
-							event.preventDefault();
-							applySearchAndScroll();
-						}
-					}}
-				/>
-				<button
-					type="button"
-					class="ig-cell btn-icon preset-filled-primary-500 shrink-0"
-					onclick={applySearchAndScroll}
-					aria-label="Search volunteer events"
-					title="Search"
+			<div class="flex flex-col gap-6">
+				<h1
+					id="volunteer-hero-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.2vw,6.75rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
 				>
-					<IconSearch class="h-4 w-4" />
-				</button>
+					{title === 'Volunteer' ? 'A little time can move a whole community.' : title}
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					{description}
+				</p>
 			</div>
 
-			<div class="grid gap-3 sm:grid-cols-3">
-				<div class="relative">
-					<IconMapPin
-						class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 opacity-50"
-					/>
-					<input
-						type="search"
-						class="input pl-9 text-sm"
-						bind:value={locationQ}
-						placeholder="City and/or state"
-					/>
-				</div>
-
-				<select class="select text-sm" bind:value={hostGroupId}>
-					<option value="">All groups</option>
-					{#each hostGroups as host (host.id)}
-						<option value={host.id}>{host.name}</option>
-					{/each}
-				</select>
-				<select class="select text-sm" bind:value={eventType}>
-					<option value="">All types</option>
-					{#each eventTypes as option (option.slug)}
-						<option value={option.slug}>{option.event_type}</option>
-					{/each}
-				</select>
+			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+				<a
+					href="#volunteer-directory"
+					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+				>
+					Find an opportunity
+					<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+				</a>
+				{#if showCreateButton}
+					<a
+						href={createButtonHref}
+						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+					>
+						<IconPlus class="h-5 w-5" /> Create an event
+					</a>
+				{/if}
 			</div>
 		</div>
-	</DiscoveryToolbar>
 
-	<!-- ═══════════════════════════════ RESULTS + DIRECTORY ═════════════════════════════ -->
-	<div id="volunteer-directory" class="space-y-5 pt-4" bind:this={directoryTopEl}>
-		<!-- Results toolbar -->
-		<div class="flex items-center justify-between gap-2">
-			<div>
-				<p class="label opacity-60">Directory</p>
-				<h2 class="text-2xl font-bold">Event listings</h2>
+		<div class="bg-surface-950 text-surface-50 relative flex min-h-[20rem] flex-col">
+			<!-- Signature: the 3-foot ruler -->
+			<div
+				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
+				aria-hidden="true"
+			>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
+				<span
+					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
+				></span>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
 			</div>
 
-			<div class="flex flex-col items-end gap-2">
-				<p class="text-sm tabular-nums opacity-60">
+			<div class="divide-surface-800 flex flex-1 flex-col divide-y-[3px] pl-12 sm:pl-16">
+				{#each heroStats as stat, idx (stat.label)}
+					<div class="flex flex-1 items-center justify-between gap-6 px-6 py-6 sm:px-10">
+						<div class="flex flex-col gap-1">
+							<span class="text-surface-300 text-xs font-bold tracking-[0.22em] uppercase">
+								0{idx + 1} / Metric
+							</span>
+							<span class="text-surface-50 text-lg font-black uppercase sm:text-xl">
+								{stat.label}
+							</span>
+						</div>
+						<span
+							class="{stat.tone} text-5xl leading-none font-black italic tabular-nums sm:text-6xl"
+						>
+							{stat.value}
+						</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<!-- OPPORTUNITY FINDER -->
+	<section
+		class="bg-secondary-500 text-surface-50 border-surface-950 border-t-[3px] px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
+		aria-labelledby="opportunity-finder-heading"
+	>
+		<div class="flex flex-col gap-8">
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+				<div class="flex flex-col gap-2">
+					<p
+						class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+					>
+						<IconSearch class="h-4 w-4" />
+						<span>Opportunity finder</span>
+					</p>
+					<h2
+						id="opportunity-finder-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+					>
+						Search by host, type, or location
+					</h2>
+				</div>
+				<p class="m-0 max-w-md text-sm leading-snug font-medium opacity-90 sm:text-base">
+					Use only the filters that help; every upcoming opportunity remains easy to browse.
+				</p>
+			</div>
+
+			<div class="grid gap-4">
+				<div class="border-surface-950 bg-surface-950 flex border-[3px]">
+					<input
+						type="search"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-3.5 text-base font-medium focus:outline-none"
+						bind:value={searchInput}
+						placeholder="Find by title, host, or description"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								applySearchAndScroll();
+							}
+						}}
+					/>
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition"
+						onclick={applySearchAndScroll}
+						aria-label="Search volunteer events"
+						title="Search"
+					>
+						<IconSearch class="h-4 w-4" />
+						<span class="max-sm:sr-only">Search</span>
+					</button>
+				</div>
+
+				<div class="grid gap-4 sm:grid-cols-3">
+					<div class="border-surface-950 bg-surface-950 relative flex items-center border-[3px]">
+						<IconMapPin class="text-primary-500 pointer-events-none ml-3.5 h-4 w-4 shrink-0" />
+						<input
+							type="search"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-3 pr-4 pl-2.5 text-sm font-medium focus:outline-none"
+							bind:value={locationQ}
+							placeholder="City and/or state"
+						/>
+					</div>
+
+					<select
+						class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-bold uppercase focus:outline-none"
+						bind:value={hostGroupId}
+					>
+						<option value="">All groups</option>
+						{#each hostGroups as host (host.id)}
+							<option value={host.id}>{host.name}</option>
+						{/each}
+					</select>
+
+					<select
+						class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-bold uppercase focus:outline-none"
+						bind:value={eventType}
+					>
+						<option value="">All types</option>
+						{#each eventTypes as option (option.slug)}
+							<option value={option.slug}>{option.event_type}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- RESULTS + DIRECTORY -->
+	<section
+		id="volunteer-directory"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		bind:this={directoryTopEl}
+		aria-labelledby="directory-heading"
+	>
+		<!-- Results toolbar -->
+		<div class="flex flex-wrap items-end justify-between gap-6">
+			<div class="flex flex-col gap-2">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
+				<h2
+					id="directory-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Event listings
+				</h2>
+			</div>
+
+			<div class="flex flex-wrap items-center gap-4">
+				<p class="text-surface-300 m-0 text-sm font-bold tracking-wide uppercase tabular-nums">
 					{totalUpcoming} upcoming event{totalUpcoming === 1 ? '' : 's'}
 				</p>
-				<div
-					class="bg-surface-200-800/70 border-surface-500/40 flex shrink-0 items-center overflow-hidden rounded-lg border"
-				>
-					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
-						onclick={() => (view = 'list')}
-					>
-						List
-					</button>
-					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
-						onclick={() => (view = 'calendar')}
-					>
-						Calendar
-					</button>
-					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
-						onclick={() => (view = 'map')}
-					>
-						Map
-					</button>
+				<div class="border-surface-50 flex shrink-0 border-[3px]">
+					{#each ['list', 'calendar', 'map'] as mode (mode)}
+						<button
+							type="button"
+							class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+								view === mode
+									? 'bg-primary-500 text-surface-950'
+									: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
+							}`}
+							onclick={() => (view = mode)}
+						>
+							{mode}
+						</button>
+					{/each}
 				</div>
 			</div>
 		</div>
 
 		{#if view === 'list'}
-			<div class="space-y-4" transition:slide={{ duration: 200 }}>
+			<div transition:slide={{ duration: 200 }}>
 				{#if filteredEvents.length === 0}
-					<!-- Empty state -->
 					<div
-						class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
+						class="border-surface-50 flex flex-col gap-6 border-t-2 py-12"
 						in:fade={{ duration: 200 }}
 					>
-						<div class="app-empty-orb" aria-hidden="true"></div>
-						<div class="relative z-10 mx-auto max-w-lg space-y-4">
-							<div
-								class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-							>
-								<IconHeartHandshake class="h-10 w-10 opacity-60" />
-							</div>
-							<h3 class="text-2xl font-bold">No volunteer events found</h3>
-							<p class="text-sm leading-relaxed opacity-70">
-								Try a broader search, clear some filters, or be the first to start a volunteer
-								opportunity in this area!
-							</p>
-							<div class="flex flex-wrap justify-center gap-3 pt-2">
-								{#if searchInput || locationQ || hostGroupId || eventType}
-									<button
-										class="btn preset-outlined-surface-950-50"
-										onclick={() => {
-											searchInput = '';
-											appliedSearch = '';
-											locationQ = '';
-											hostGroupId = '';
-											eventType = '';
-										}}
-									>
-										Clear filters
-									</button>
-								{/if}
-								{#if showCreateButton}
-									<a class="btn preset-outlined-primary-500 gap-2" href={createButtonHref}>
-										<IconPlus class="h-4 w-4" />
-										Create Event
-									</a>
-								{/if}
-							</div>
+						<p
+							class="text-tertiary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+						>
+							<IconHeartHandshake class="h-4 w-4" />
+							<span>Open calendar</span>
+						</p>
+						<h3
+							class="text-surface-50! m-0 text-3xl leading-none font-black uppercase italic sm:text-5xl"
+						>
+							No volunteer events found
+						</h3>
+						<p class="text-surface-300 m-0 max-w-xl text-lg leading-relaxed">
+							Try a broader search, clear some filters, or be the first to start a volunteer
+							opportunity in this area!
+						</p>
+						<div class="flex flex-wrap gap-3 pt-2">
+							{#if searchInput || locationQ || hostGroupId || eventType}
+								<button
+									type="button"
+									class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-3 text-sm font-black tracking-wide uppercase transition"
+									onclick={() => {
+										searchInput = '';
+										appliedSearch = '';
+										locationQ = '';
+										hostGroupId = '';
+										eventType = '';
+									}}
+								>
+									Clear filters
+								</button>
+							{/if}
+							{#if showCreateButton}
+								<a
+									class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+									href={createButtonHref}
+								>
+									<IconPlus class="h-4 w-4" />
+									Create Event
+								</a>
+							{/if}
 						</div>
 					</div>
 				{:else}
-					<ul class="space-y-4">
+					<ol class="border-surface-50 m-0 list-none border-t-2 p-0">
 						{#each filteredEvents as event, i (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
 							<li
-								class="event-card preset-tonal-surface p-5 transition duration-300 hover:-translate-y-1"
-								style="--stagger: {i % 10}"
+								class="border-surface-800 flex flex-col gap-6 border-b py-8 lg:flex-row lg:items-start lg:justify-between"
 							>
-								<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-									<div class="space-y-2.5">
-										<div class="flex items-center gap-2">
-											<span class="chip preset-tonal-secondary text-xs font-semibold tracking-wide">
-												{eventTypeLabel(event)}
-											</span>
+								<div class="flex min-w-0 flex-1 gap-4 sm:gap-6">
+									<span
+										class="text-tertiary-500 w-10 shrink-0 text-2xl leading-none font-black italic tabular-nums sm:w-14 sm:text-4xl"
+									>
+										{String(i + 1).padStart(2, '0')}
+									</span>
+
+									<div class="flex min-w-0 flex-1 flex-col gap-3">
+										<div class="flex flex-wrap items-center gap-2">
+											{#if eventTypeLabel(event)}
+												<span
+													class="bg-secondary-500 text-surface-50 px-3 py-1 text-xs font-black tracking-[0.16em] uppercase"
+												>
+													{eventTypeLabel(event)}
+												</span>
+											{/if}
 											{#if opportunities.length}
 												<a
-													class="chip preset-tonal-tertiary hover:bg-tertiary-500/30 gap-1 text-xs transition-colors"
+													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
 													href={`/volunteer/${event.slug}#opportunities`}
 												>
-													<IconHeartHandshake class="h-3 w-3" />
+													<IconHeartHandshake class="h-3.5 w-3.5" />
 													{opportunities.length} role{opportunities.length === 1 ? '' : 's'} available
 												</a>
 											{/if}
 										</div>
+
 										<a
-											class="text-surface-950-50 block text-xl font-bold hover:underline"
+											class="text-surface-50 hover:text-primary-500 block text-2xl leading-tight font-black uppercase italic hover:no-underline sm:text-3xl"
 											href={`/volunteer/${event.slug}`}
 										>
 											{event.title}
 										</a>
-										<div class="text-surface-600-400 text-sm font-medium">
+
+										<div class="text-primary-500 text-sm font-bold tracking-wide uppercase">
 											{eventTimeRange(event)}
 										</div>
+
 										{#if event.summary}
-											<p class="text-surface-700-300 text-sm leading-relaxed">{event.summary}</p>
+											<p class="text-surface-300 m-0 max-w-3xl text-base leading-relaxed">
+												{event.summary}
+											</p>
 										{/if}
-										<div class="mt-2 space-y-1">
-											<div class="text-surface-600-400 flex items-center gap-1.5 text-sm">
-												<IconUsers class="h-4 w-4 shrink-0 opacity-70" />
-												<span class="font-semibold">Hosted by</span>
+
+										<div
+											class="text-surface-300 flex flex-wrap items-center gap-x-6 gap-y-2 pt-1 text-sm"
+										>
+											<div class="flex items-center gap-1.5">
+												<IconUsers class="text-primary-500 h-4 w-4 shrink-0" />
+												<span class="font-bold">Hosted by</span>
 												{#if hostGroup && hostGroup.slug}
 													<a
-														class="text-secondary-800-200 ml-0.5 hover:underline"
+														class="text-surface-50 decoration-primary-500 hover:text-primary-500 font-bold underline decoration-2 underline-offset-4"
 														href={`/volunteer/groups/${hostGroup.slug}`}
 													>
 														{hostGroup.name}
 													</a>
 												{:else if hostGroup}
-													<span class="ml-0.5">{hostGroup.name}</span>
+													<span>{hostGroup.name}</span>
 												{:else if event._hostOrgName}
-													<span class="ml-0.5">{event._hostOrgName}</span>
+													<span>{event._hostOrgName}</span>
 												{/if}
 											</div>
-											<div class="text-surface-700-300 flex items-center gap-1.5 text-sm">
-												<IconMapPin class="h-4 w-4 shrink-0 opacity-70" />
-												<span class="font-semibold">Location:</span>
-												<span class="ml-0.5">{eventLocation(event) || 'Details coming soon'}</span>
+											<div class="flex items-center gap-1.5">
+												<IconMapPin class="text-tertiary-500 h-4 w-4 shrink-0" />
+												<span class="font-bold">Location:</span>
+												<span>{eventLocation(event) || 'Details coming soon'}</span>
 											</div>
 										</div>
 									</div>
-									<div class="flex shrink-0 flex-col items-start gap-2 pt-1 md:items-end">
-										<a
-											class="btn preset-outlined-primary-500 w-full sm:w-auto"
-											href={`/volunteer/${event.slug}`}
-										>
-											View details
-										</a>
-									</div>
+								</div>
+
+								<div class="flex shrink-0 items-start pl-14 lg:pl-0">
+									<a
+										class="group bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+										href={`/volunteer/${event.slug}`}
+									>
+										View details
+										<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+									</a>
 								</div>
 							</li>
 						{/each}
-					</ul>
+					</ol>
 				{/if}
 			</div>
 		{:else if view === 'calendar'}
-			<div transition:slide class="space-y-4">
-				<div class="flex items-center justify-between">
-					<h3 class="text-xl font-semibold">{calendarHeaderText}</h3>
+			<div transition:slide class="flex flex-col gap-6">
+				<div
+					class="border-surface-50 flex flex-wrap items-center justify-between gap-4 border-t-2 pt-6"
+				>
+					<h3 class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-4xl">
+						{calendarHeaderText}
+					</h3>
 					<div class="flex gap-2">
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
 							onclick={() => (calendarReference = earliestEventMonth())}
 						>
 							Today
 						</button>
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -700,36 +796,33 @@
 					</div>
 				</div>
 
-				<div class="grid gap-2 sm:hidden">
-					{#each mobileWeekDays as day, i}
-						<div
-							class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-							style="--stagger: {i % 10}"
-						>
+				<div class="border-surface-800 divide-surface-800 divide-y border-t border-b sm:hidden">
+					{#each mobileWeekDays as day (day.key)}
+						<div class={`py-4 ${day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'}`}>
 							<div class="flex items-center justify-between">
-								<div class="text-xs font-semibold">
+								<div class="text-xs font-black tracking-wide uppercase">
 									{new Intl.DateTimeFormat(undefined, {
 										weekday: 'short',
 										month: 'short',
 										day: 'numeric'
 									}).format(day.date)}
 								</div>
-								<div class="text-[11px]">
+								<div class="text-primary-500 text-xs font-bold uppercase tabular-nums">
 									{day.events.length} event{day.events.length === 1 ? '' : 's'}
 								</div>
 							</div>
-							<div class="mt-2 space-y-1.5">
+							<div class="mt-2 flex flex-col gap-1.5">
 								{#if day.events.length === 0}
-									<p class="text-surface-500 text-xs">No events</p>
+									<p class="text-surface-300 m-0 text-xs">No events</p>
 								{:else}
-									{#each day.events as event}
+									{#each day.events as event (event.id)}
 										<a
-											class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/volunteer/${event.slug}`}
 										>
-											<span class="text-secondary-600-400 font-mono text-xs"
-												>{tf.format(parseEventDate(event.event_start))} -</span
-											>
+											<span class="text-primary-500 font-mono text-xs">
+												{tf.format(parseEventDate(event.event_start))} -
+											</span>
 											{event.title}
 										</a>
 									{/each}
@@ -741,7 +834,7 @@
 
 				<div class="hidden sm:block">
 					<div
-						class="text-surface-700-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
+						class="bg-secondary-500 text-primary-500 border-surface-50 grid grid-cols-7 border-t-2 border-b-2 py-2 text-center text-xs font-black tracking-[0.2em] uppercase"
 					>
 						<div>Sun</div>
 						<div>Mon</div>
@@ -751,31 +844,34 @@
 						<div>Fri</div>
 						<div>Sat</div>
 					</div>
-					<div class="grid grid-cols-7 gap-0">
-						{#each calendarMatrix as week, i}
-							{#each week as day, j}
+					<div class="border-surface-800 grid grid-cols-7 border-t border-l">
+						{#each calendarMatrix as week, i (i)}
+							{#each week as day (day.key)}
 								<div
-									class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-									style="--stagger: {(i * 7 + j) % 21}"
+									class={`border-surface-800 flex h-32 flex-col border-r border-b p-2 text-left ${
+										day.inMonth
+											? 'bg-surface-950 text-surface-50'
+											: 'bg-surface-900 text-surface-300 opacity-50'
+									}`}
 								>
-									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
-									<div class="mt-1 space-y-1 overflow-y-auto">
+									<div class="text-xs font-black tabular-nums">{day.date.getDate()}</div>
+									<div class="mt-1 flex flex-col gap-1 overflow-y-auto">
 										{#if day.events.length === 0}
-											<p class="text-surface-500 text-[11px]">No events</p>
+											<p class="text-surface-300 m-0 text-[11px] opacity-50">No events</p>
 										{:else}
-											{#each day.events.slice(0, 3) as event}
+											{#each day.events.slice(0, 3) as event (event.id)}
 												<a
-													class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
+													class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
 													href={`/volunteer/${event.slug}`}
 												>
-													<span class="text-secondary-600-400 font-mono text-xs"
-														>{tf.format(parseEventDate(event.event_start))} -</span
-													>
+													<span class="font-mono text-[10px]">
+														{tf.format(parseEventDate(event.event_start))} -
+													</span>
 													{event.title}
 												</a>
 											{/each}
 											{#if day.events.length > 3}
-												<div class="text-secondary-700-300 text-[10px] font-medium">
+												<div class="text-primary-500 text-[10px] font-black uppercase">
 													+{day.events.length - 3} more
 												</div>
 											{/if}
@@ -788,16 +884,13 @@
 				</div>
 			</div>
 		{:else if view === 'map'}
-			<div
-				transition:slide
-				class="bg-surface-100-900/60 border-surface-600-400/20 rounded-2xl border shadow-xl"
-			>
-				<div bind:this={mapContainer} class="h-[480px] w-full rounded-2xl"></div>
-				<div class="text-surface-700-300 border-surface-500/30 border-t px-6 py-3 text-sm">
+			<div transition:slide class="border-surface-50 bg-surface-950 border-[3px]">
+				<div bind:this={mapContainer} class="h-[480px] w-full"></div>
+				<div class="text-surface-300 border-surface-800 border-t-2 px-6 py-4 text-sm">
 					Zoom and click markers to preview event details. Some opportunities without mapped
 					coordinates are hidden from the map view.
 				</div>
 			</div>
 		{/if}
-	</div>
-</section>
+	</section>
+</div>

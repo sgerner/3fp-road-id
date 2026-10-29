@@ -1,10 +1,9 @@
 <script>
 	import { browser } from '$app/environment';
-	import CinematicHero from '#lib/components/landing/CinematicHero.svelte';
-	import DiscoveryToolbar from '#lib/components/landing/DiscoveryToolbar.svelte';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -16,6 +15,8 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
+	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
@@ -275,22 +276,6 @@
 		return getRideImage(ride);
 	}
 
-	// Discipline → accent color map
-	const disciplineColor = {
-		Road: 'preset-tonal-primary',
-		Mountain: 'preset-tonal-success',
-		Gravel: 'preset-tonal-tertiary',
-		Cyclocross: 'preset-tonal-warning',
-		BMX: 'preset-tonal-error',
-		Commute: 'preset-tonal-secondary'
-	};
-
-	function disciplineChipClass(name) {
-		return disciplineColor[name] ?? 'preset-tonal-secondary';
-	}
-
-	import { onMount } from 'svelte';
-	import { slide, fade } from 'svelte/transition';
 	let mapLoadPromise;
 
 	async function initMap() {
@@ -418,228 +403,426 @@
 	/>
 </svelte:head>
 
-<div class="ride-page mx-auto flex w-full max-w-7xl flex-col gap-12 sm:gap-16">
-	<CinematicHero
-		eyebrow="Community rides"
-		title="Find a ride worth showing up for."
-		description="Discover public rides, recurring series, and group-hosted events—then help keep the rides your community loves accurate and welcoming."
-		icon={IconBike}
-		imageUrl={heroRide ? heroImage(heroRide) : ''}
-		imageAlt={heroRide ? heroRide.title : ''}
-		stats={[
-			{ value: formatStatNumber(rides.length), label: 'Upcoming' },
-			{ value: formatStatNumber(recurringRides.length), label: 'Recurring' },
-			{ value: formatStatNumber(claimableRides.length), label: 'Need a host' }
-		]}
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		aria-labelledby="ride-hero-heading"
 	>
-		{#snippet actions()}
-			<a class="btn preset-filled-primary-500 gap-2" href="#ride-list"
-				>Browse rides <IconArrowRight class="h-4 w-4" /></a
+		<div
+			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<p
+				class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.22em] uppercase"
 			>
-			<a class="btn preset-tonal-surface gap-2 backdrop-blur-md" href="/ride/new"
-				><IconPlus class="h-4 w-4" /> Share a ride</a
-			>
-		{/snippet}
-	</CinematicHero>
+				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+				<span>Community rides</span>
+			</p>
 
-	<DiscoveryToolbar
-		eyebrow="Find your fit"
-		title="Search by route, neighborhood, or pace"
-		description="Start broad, then narrow by difficulty when you need to."
-		icon={IconSearch}
-	>
-		<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-			<div class="input-group grid-cols-[1fr_auto]">
-				<input
-					class="ig-input"
-					bind:value={searchInput}
-					placeholder="Title, location, pace, discipline…"
-					onkeydown={(event) => {
-						if (event.key === 'Enter') {
-							event.preventDefault();
-							applySearchAndScroll();
-						}
-					}}
-				/>
-				<button
-					type="button"
-					class="ig-cell btn-icon preset-filled-primary-500"
-					onclick={applySearchAndScroll}
-					aria-label="Search rides"
+			<div class="flex flex-col gap-6">
+				<h1
+					id="ride-hero-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
 				>
-					<IconSearch class="h-4 w-4" />
-				</button>
+					Find a ride worth <span class="text-secondary-500">showing up for.</span>
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					Discover public rides, recurring series, and group-hosted events—then help keep the rides
+					your community loves accurate and welcoming.
+				</p>
 			</div>
-			{#if difficultyOptions.length}
-				<div class="flex flex-wrap gap-2">
-					<button
-						type="button"
-						class={`chip ${selectedDifficulty === 'all' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-						onclick={() => selectDifficulty('all')}>All levels</button
+
+			<div class="flex flex-col gap-8">
+				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+					<a
+						href="#ride-list"
+						class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 					>
-					{#each difficultyOptions as option}
-						<button
-							type="button"
-							class={`chip ${selectedDifficulty === option ? 'preset-filled-secondary-500' : 'preset-tonal-secondary'}`}
-							onclick={() => selectDifficulty(option)}>{option}</button
-						>
-					{/each}
+						Browse rides
+						<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
+					</a>
+					<a
+						href="/ride/new"
+						class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+					>
+						<IconPlus class="h-5 w-5" /> Share a ride
+					</a>
 				</div>
+
+				<dl class="border-surface-950 m-0 grid grid-cols-3 gap-4 border-t-[3px] pt-6">
+					<div>
+						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Upcoming</dt>
+						<dd class="m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl">
+							{formatStatNumber(rides.length)}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Recurring</dt>
+						<dd class="m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl">
+							{formatStatNumber(recurringRides.length)}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-bold tracking-[0.22em] uppercase">Need a host</dt>
+						<dd
+							class="text-secondary-500 m-0 mt-1 text-3xl leading-none font-black italic tabular-nums sm:text-5xl"
+						>
+							{formatStatNumber(claimableRides.length)}
+						</dd>
+					</div>
+				</dl>
+			</div>
+		</div>
+
+		<div class="bg-surface-950 relative min-h-[24rem] sm:min-h-[30rem]">
+			<img
+				src={heroRide ? heroImage(heroRide) : '/images/default-ride.webp'}
+				alt={heroRide ? heroRide.title : 'Cyclists riding together'}
+				class="absolute inset-0 h-full w-full object-cover"
+				width="1200"
+				height="736"
+				fetchpriority="high"
+			/>
+
+			<!-- Signature: the 3-foot ruler -->
+			<div
+				class="bg-tertiary-500 text-surface-950 absolute inset-y-0 left-0 flex w-12 flex-col items-center justify-between py-4 sm:w-16"
+				aria-hidden="true"
+			>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">3FT</span>
+				<span
+					class="my-4 flex-1 self-stretch bg-[repeating-linear-gradient(180deg,currentColor_0_3px,transparent_3px_18px)] [mask-image:linear-gradient(90deg,#000_0_45%,transparent_45%)]"
+				></span>
+				<span class="text-lg leading-none font-black italic sm:text-2xl">0</span>
+			</div>
+
+			{#if heroRide}
+				<a
+					href={`/ride/${heroRide.slug}`}
+					class="group bg-surface-950 text-surface-50 hover:bg-secondary-500 absolute right-0 bottom-0 left-12 flex items-center justify-between gap-4 px-5 py-4 transition hover:no-underline sm:left-16"
+				>
+					<span class="min-w-0">
+						<span
+							class="text-primary-500 block text-[0.65rem] font-bold tracking-[0.22em] uppercase"
+						>
+							Next up
+						</span>
+						<span class="block truncate text-base font-black sm:text-lg">{heroRide.title}</span>
+						<span class="block truncate text-xs opacity-75">{formatNext(heroRide)}</span>
+					</span>
+					<IconArrowUpRight
+						class="text-primary-500 h-6 w-6 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+					/>
+				</a>
 			{/if}
 		</div>
-	</DiscoveryToolbar>
+	</section>
 
-	<!-- ═══════════════════════════════════════════════
-	     FEATURED + CLAIMABLE (shown only when rides exist)
-	═══════════════════════════════════════════════ -->
-	{#if featuredRides.length}
-		<section class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(290px,0.8fr)]">
-			<!-- Featured rides -->
-			<div>
-				<div class="mb-5 flex items-center justify-between gap-3">
-					<div>
-						<p class="label opacity-60">Featured</p>
-						<h2 class="text-xl font-bold">Fresh rides worth opening first</h2>
-					</div>
-					<a class="btn btn-sm preset-outlined-primary-500" href="#ride-list">See all</a>
+	<!-- DISCOVERY TOOLBAR -->
+	<section
+		class="bg-secondary-500 text-surface-50 px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
+		aria-labelledby="discovery-heading"
+	>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-2">
+				<p
+					class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconSearch class="h-4 w-4" /> Find your fit
+				</p>
+				<div class="flex flex-wrap items-end justify-between gap-4">
+					<h2
+						id="discovery-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
+					>
+						Search by route, neighborhood, or pace
+					</h2>
+					<p class="m-0 text-sm font-medium opacity-90 sm:text-base">
+						Start broad, then narrow by difficulty when you need to.
+					</p>
 				</div>
-				<div class="grid gap-4 lg:grid-cols-3">
-					{#each featuredRides as ride, i}
-						<a
-							class="featured-card card preset-filled-surface-100-900 flex h-full flex-col gap-4 p-5"
-							href={`/ride/${ride.slug}`}
-							style="--stagger: {i}"
+			</div>
+
+			<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+				<div class="flex w-full">
+					<input
+						class="bg-surface-950 text-surface-50 border-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-w-0 flex-1 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
+						bind:value={searchInput}
+						placeholder="Title, location, pace, discipline…"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								applySearchAndScroll();
+							}
+						}}
+					/>
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 border-surface-50 inline-flex shrink-0 items-center justify-center gap-2 border-[3px] border-l-0 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition"
+						onclick={applySearchAndScroll}
+						aria-label="Search rides"
+					>
+						<IconSearch class="h-5 w-5" />
+						<span class="hidden sm:inline">Search</span>
+					</button>
+				</div>
+
+				{#if difficultyOptions.length}
+					<div class="flex flex-wrap gap-2">
+						<button
+							type="button"
+							class={`border-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition ${
+								selectedDifficulty === 'all'
+									? 'bg-primary-500 text-surface-950 border-primary-500'
+									: 'bg-surface-950 text-surface-50 border-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500'
+							}`}
+							onclick={() => selectDifficulty('all')}
 						>
-							{#if leadImage(ride)}
-								<div class="relative -m-5 mb-0 overflow-hidden rounded-t-[inherit]">
-									<img
-										src={leadImage(ride)}
-										alt={ride.title}
-										class="featured-card-image h-52 w-full object-cover"
-										loading="lazy"
-									/>
-									<div class="featured-card-image-overlay" aria-hidden="true"></div>
-									<div class="featured-card-image-badges">
+							All levels
+						</button>
+						{#each difficultyOptions as option (option)}
+							<button
+								type="button"
+								class={`border-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition ${
+									selectedDifficulty === option
+										? 'bg-primary-500 text-surface-950 border-primary-500'
+										: 'bg-surface-950 text-surface-50 border-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500'
+								}`}
+								onclick={() => selectDifficulty(option)}
+							>
+								{option}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+	</section>
+
+	<!-- FEATURED + CLAIMABLE -->
+	{#if featuredRides.length}
+		<section
+			class="bg-surface-950 grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
+			aria-labelledby="featured-heading"
+		>
+			<div class="flex min-w-0 flex-col gap-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+				<div class="flex flex-col gap-4">
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							Featured
+						</p>
+						<a
+							href="#ride-list"
+							class="text-surface-50 hover:text-primary-500 inline-flex items-center gap-1.5 text-sm font-bold uppercase"
+						>
+							See all <IconArrowRight class="h-4 w-4" />
+						</a>
+					</div>
+					<h2
+						id="featured-heading"
+						class="text-surface-50! m-0 max-w-3xl text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
+					>
+						Fresh rides worth opening first
+					</h2>
+				</div>
+
+				<ol class="border-surface-50 m-0 list-none border-t-2 p-0">
+					{#each featuredRides as ride, i (ride.id ?? ride.slug)}
+						<li class="border-surface-800 border-b">
+							<a
+								href={`/ride/${ride.slug}`}
+								class="group text-surface-50 hover:bg-primary-500 hover:text-surface-950 -mx-3 flex min-w-0 flex-col gap-4 px-3 py-5 transition hover:no-underline sm:flex-row sm:items-center sm:gap-6"
+							>
+								<div class="flex items-center gap-4">
+									<span
+										class="text-tertiary-500 group-hover:text-secondary-500 w-10 shrink-0 text-2xl font-black italic tabular-nums sm:w-14 sm:text-4xl"
+									>
+										{String(i + 1).padStart(2, '0')}
+									</span>
+									{#if leadImage(ride)}
+										<span class="bg-surface-800 block h-16 w-24 shrink-0 overflow-hidden">
+											<img
+												src={leadImage(ride)}
+												alt={ride.title}
+												class="h-full w-full object-cover"
+												loading="lazy"
+											/>
+										</span>
+									{/if}
+								</div>
+
+								<div class="min-w-0 flex-1">
+									<div class="mb-1 flex flex-wrap items-center gap-2">
+										<span
+											class="text-primary-500 group-hover:text-surface-950 text-xs font-black tracking-[0.14em] uppercase"
+										>
+											{formatFeaturedNext(ride)}
+										</span>
 										{#if !ride.hostUserId && !ride.hostGroupId}
-											<span class="chip preset-tonal-warning text-xs backdrop-blur-sm"
-												>Needs host</span
+											<span
+												class="bg-tertiary-500 text-surface-950 px-2 py-0.5 text-[0.65rem] font-black tracking-[0.16em] uppercase"
 											>
+												Needs host
+											</span>
 										{/if}
 									</div>
-								</div>
-							{/if}
-							<div class="flex flex-wrap gap-2">
-								<span class="featured-time-chip chip preset-filled-surface-200-800 text-xs">
-									{formatFeaturedNext(ride)}
-								</span>
-							</div>
-							<div class="space-y-1.5">
-								<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
-								{#if ride.summary}
-									<p class="text-surface-700-200 line-clamp-2 text-sm leading-relaxed">
-										{ride.summary}
-									</p>
-								{/if}
-							</div>
-							<div class="mt-auto space-y-3">
-								<div class="text-surface-700-200 flex items-center gap-2 text-sm">
-									<IconMapPin class="h-3.5 w-3.5 shrink-0" />
-									<span class="truncate">{ride.startLocationName || 'Location coming soon'}</span>
-								</div>
-								<div class="flex flex-wrap gap-1.5">
-									{#each rideMeta(ride) as meta}
-										<span class="chip preset-tonal-surface gap-1 text-xs">
-											<meta.icon class="h-3 w-3" />
-											{meta.label}
+									<h3
+										class="text-surface-50! group-hover:text-surface-950! m-0 truncate text-lg leading-tight font-black uppercase sm:text-2xl"
+									>
+										{ride.title}
+									</h3>
+									{#if ride.summary}
+										<p class="m-0 mt-1 line-clamp-1 text-sm opacity-80">{ride.summary}</p>
+									{/if}
+									<div
+										class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold uppercase opacity-75"
+									>
+										<span class="inline-flex items-center gap-1">
+											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+											{ride.startLocationName || 'Location coming soon'}
 										</span>
-									{/each}
-									{#each ride.ridingDisciplines ?? [] as discipline}
-										<span class="chip {disciplineChipClass(discipline.name)} text-xs">
-											{discipline.name}
-										</span>
-									{/each}
+										{#each rideMeta(ride) as meta (meta.label)}
+											<span class="inline-flex items-center gap-1">
+												<meta.icon class="h-3 w-3" />
+												{meta.label}
+											</span>
+										{/each}
+										{#each ride.ridingDisciplines ?? [] as discipline (discipline.name)}
+											<span>{discipline.name}</span>
+										{/each}
+									</div>
 								</div>
+
 								<span
-									class="text-primary-700-300 inline-flex items-center gap-1.5 text-sm font-semibold"
+									class="inline-flex shrink-0 items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
 								>
 									Open ride
-									<IconArrowRight class="h-3.5 w-3.5" />
+									<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
 								</span>
-							</div>
-						</a>
+							</a>
+						</li>
 					{/each}
-				</div>
+				</ol>
 			</div>
 
 			<!-- Claimable rides callout -->
-			<div class="card preset-filled-surface-50-950 border-warning-600-400/40 border p-6 shadow-xl">
-				<div class="mb-5 space-y-2">
-					<div class="flex items-center gap-2">
-						<IconFlag class="text-warning-600-400 h-5 w-5" />
-						<p class="label text-warning-700-300">Claim a series</p>
-					</div>
-					<h2 class="text-xl font-bold">See a public ride with no host attached?</h2>
-					<p class="text-surface-700-200 text-sm leading-relaxed">
-						Logged-in users can post rides even when they are not the host. If a listing has no host
-						or organization, someone local can claim it and manage reminders, RSVPs, and updates.
-					</p>
-				</div>
-				<div class="divide-surface-300-700/30 divide-y">
-					{#each claimableRides.slice(0, 3) as ride}
-						<a
-							class="group flex items-start justify-between gap-3 py-4"
-							href={`/ride/${ride.slug}`}
+			<aside
+				class="bg-tertiary-500 text-surface-950 flex min-w-0 flex-col justify-between"
+				aria-labelledby="claim-series-heading"
+			>
+				<div class="flex flex-col gap-6 px-6 py-12 sm:px-10 lg:px-12 lg:py-16">
+					<div class="flex flex-col gap-3">
+						<p class="m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+							<IconFlag class="h-4 w-4" /> Claim a series
+						</p>
+						<h2
+							id="claim-series-heading"
+							class="text-surface-950! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 						>
-							<div class="min-w-0">
-								<div class="truncate text-sm font-semibold">{ride.title}</div>
-								<div class="text-surface-600-300 mt-0.5 text-xs">{formatNext(ride)}</div>
+							See a public ride with no host attached?
+						</h2>
+						<p class="m-0 text-base leading-snug font-medium">
+							Logged-in users can post rides even when they are not the host. If a listing has no
+							host or organization, someone local can claim it and manage reminders, RSVPs, and
+							updates.
+						</p>
+					</div>
+
+					<div class="border-surface-950 border-t-[3px]">
+						{#each claimableRides.slice(0, 3) as ride (ride.id ?? ride.slug)}
+							<a
+								class="group border-surface-950/30 hover:bg-surface-950 hover:text-primary-500 -mx-3 flex items-center justify-between gap-3 border-b px-3 py-4 transition hover:no-underline"
+								href={`/ride/${ride.slug}`}
+							>
+								<div class="min-w-0">
+									<div class="truncate text-base font-black uppercase">{ride.title}</div>
+									<div class="mt-0.5 text-xs font-bold opacity-80">{formatNext(ride)}</div>
+								</div>
+								<span
+									class="bg-surface-950 text-primary-500 group-hover:bg-primary-500 group-hover:text-surface-950 shrink-0 px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase"
+								>
+									{ride.recurrenceEnabled ? 'Claim series' : 'Claim'}
+								</span>
+							</a>
+						{/each}
+						{#if !claimableRides.length}
+							<div class="py-6 text-sm font-bold uppercase">
+								All rides currently have a host. Check back soon!
 							</div>
-							<span class="chip preset-filled-warning-500 shrink-0 text-xs font-semibold">
-								{ride.recurrenceEnabled ? 'Claim series' : 'Claim'}
-							</span>
-						</a>
-					{/each}
-					{#if !claimableRides.length}
-						<div class="text-surface-700-200 py-4 text-center text-sm">
-							All rides currently have a host. Check back soon!
-						</div>
-					{/if}
+						{/if}
+					</div>
 				</div>
-			</div>
+
+				<!-- Ruler band: 0 -> 3 ft -->
+				<div class="border-surface-950 grid grid-cols-3 border-t-[3px]" aria-hidden="true">
+					{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+						<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
+							<span
+								class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+							></span>
+							<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
+							{#if i === 2}
+								<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</aside>
 		</section>
 	{/if}
 
-	<!-- ═══════════════════════════════════════════════
-	     RIDE LISTING DIRECTORY
-	═══════════════════════════════════════════════ -->
-	<section id="ride-list" class="space-y-5" bind:this={rideListEl}>
-		<div class="flex items-center justify-between gap-2">
-			<div>
-				<p class="label opacity-60">Directory</p>
-				<h2 class="text-2xl font-bold">Public ride listings</h2>
+	<!-- RIDE LISTING DIRECTORY -->
+	<section
+		id="ride-list"
+		class="bg-surface-950 text-surface-50 border-surface-800 flex flex-col gap-8 border-t-2 px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
+		bind:this={rideListEl}
+		aria-labelledby="directory-heading"
+	>
+		<div class="flex flex-wrap items-end justify-between gap-6">
+			<div class="flex flex-col gap-3">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
+				<h2
+					id="directory-heading"
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Public ride listings
+				</h2>
 			</div>
 
-			<div class="flex flex-col items-end gap-2">
-				<p class="text-sm tabular-nums opacity-60">
+			<div class="flex flex-col items-start gap-3 sm:items-end">
+				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
 					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
-				<div
-					class="bg-surface-200-800/70 border-surface-500/40 flex shrink-0 items-center overflow-hidden rounded-lg border"
-				>
+				<div class="border-surface-50 flex shrink-0 border-[3px]">
 					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'list' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						type="button"
+						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+							view === 'list'
+								? 'bg-primary-500 text-surface-950'
+								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
+						}`}
 						onclick={() => (view = 'list')}
 					>
 						List
 					</button>
 					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'calendar' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						type="button"
+						class={`border-surface-50 border-l-[3px] px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+							view === 'calendar'
+								? 'bg-primary-500 text-surface-950'
+								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
+						}`}
 						onclick={() => (view = 'calendar')}
 					>
 						Calendar
 					</button>
 					<button
-						class={`px-3 py-1.5 text-sm transition-colors ${view === 'map' ? 'bg-secondary-500/20 text-secondary-800-200 font-medium' : 'text-surface-700-300 hover:bg-surface-300-700/50'}`}
+						type="button"
+						class={`border-surface-50 border-l-[3px] px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+							view === 'map'
+								? 'bg-primary-500 text-surface-950'
+								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
+						}`}
 						onclick={() => (view = 'map')}
 					>
 						Map
@@ -648,54 +831,78 @@
 			</div>
 		</div>
 
+		<!-- lane divider -->
+		<div
+			class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+			aria-hidden="true"
+		></div>
+
 		{#if view === 'list'}
 			{#if filteredRides.length}
-				<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" transition:slide={{ duration: 220 }}>
-					{#each paginatedRides as ride, i}
+				<div
+					class="border-surface-800 grid border-t border-l md:grid-cols-2 xl:grid-cols-3"
+					transition:slide={{ duration: 220 }}
+				>
+					{#each paginatedRides as ride, i (ride.id ?? ride.slug)}
 						<a
-							class="ride-card card preset-tonal-surface group flex h-full flex-col overflow-hidden no-underline"
-							style="--stagger: {i % 9}"
+							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 flex h-full flex-col border-r border-b transition hover:no-underline"
 							href={`/ride/${ride.slug}`}
 						>
-							<div class="ride-card-accent" aria-hidden="true"></div>
-
 							{#if cardImage(ride)}
-								<div class="ride-card-media">
+								<div class="bg-surface-900 relative aspect-[16/10] w-full overflow-hidden">
 									<img
 										src={cardImage(ride)}
 										alt={ride.title}
-										class="ride-card-image h-48 w-full object-cover"
+										class="h-full w-full object-cover"
 										loading="lazy"
 										width="768"
 										height="432"
 										decoding="async"
+										onerror={(e) => {
+											if (!e.currentTarget.dataset.fallback) {
+												e.currentTarget.dataset.fallback = '1';
+												e.currentTarget.src = '/images/default-ride.webp';
+											}
+										}}
 									/>
-									<div class="ride-card-image-overlay" aria-hidden="true"></div>
-									<div class="ride-card-image-badges">
-										<span class="chip preset-tonal-primary text-xs font-medium backdrop-blur-sm">
-											{formatNext(ride)}
+									<span
+										class="bg-primary-500 text-surface-950 absolute top-0 left-0 px-3 py-1.5 text-xs font-black tracking-[0.12em] uppercase"
+									>
+										{formatNext(ride)}
+									</span>
+									{#if !ride.hostUserId && !ride.hostGroupId}
+										<span
+											class="bg-tertiary-500 text-surface-950 absolute top-0 right-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
+										>
+											Unclaimed
 										</span>
-										{#if !ride.hostUserId && !ride.hostGroupId}
-											<span class="chip preset-tonal-warning text-xs backdrop-blur-sm"
-												>Unclaimed</span
-											>
-										{/if}
-									</div>
+									{/if}
 								</div>
 							{/if}
 
-							<div class="flex flex-1 flex-col gap-4 p-5">
+							<div class="flex flex-1 flex-col gap-4 p-6">
 								<div class="flex flex-wrap items-center gap-2">
+									<span class="text-tertiary-500 text-xl font-black italic tabular-nums">
+										{String((currentPage - 1) * ridesPerPage + i + 1).padStart(2, '0')}
+									</span>
 									{#if !cardImage(ride)}
-										<span class="chip preset-tonal-primary text-xs font-medium">
+										<span
+											class="bg-primary-500 text-surface-950 px-2.5 py-1 text-xs font-black uppercase"
+										>
 											{formatNext(ride)}
 										</span>
 									{/if}
 									{#if ride.group?.name}
-										<span class="chip preset-tonal-secondary text-xs">{ride.group.name}</span>
+										<span
+											class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
+										>
+											{ride.group.name}
+										</span>
 									{/if}
 									{#if ride.recurrenceEnabled}
-										<span class="chip preset-tonal-tertiary gap-1 text-xs">
+										<span
+											class="bg-tertiary-500 text-surface-950 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase"
+										>
 											<IconRepeat class="h-3 w-3" />
 											Series
 										</span>
@@ -703,43 +910,59 @@
 								</div>
 
 								<div>
-									<h3 class="text-lg leading-snug font-bold">{ride.title}</h3>
+									<h3
+										class="text-surface-50! group-hover:text-primary-500! m-0 text-2xl leading-tight font-black uppercase"
+									>
+										{ride.title}
+									</h3>
 									{#if ride.summary}
-										<p class="mt-1.5 line-clamp-2 text-sm leading-relaxed opacity-75">
+										<p class="text-surface-300 m-0 mt-2 line-clamp-2 text-sm leading-relaxed">
 											{ride.summary}
 										</p>
 									{/if}
 								</div>
 
-								<div class="space-y-1 text-sm opacity-65">
-									<div class="flex items-center gap-2">
-										<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+								<div class="text-surface-300 flex flex-col gap-1 text-sm">
+									<div class="flex items-center gap-2 font-medium">
+										<IconMapPin class="text-primary-500 h-4 w-4 shrink-0" />
 										<span class="truncate">{ride.startLocationName ?? 'Location coming soon'}</span>
 									</div>
 									{#if ride.startLocationAddress}
-										<div class="truncate pl-5 text-xs opacity-75">{ride.startLocationAddress}</div>
+										<div class="truncate pl-6 text-xs opacity-80">{ride.startLocationAddress}</div>
 									{/if}
 								</div>
 
 								<div class="flex flex-wrap gap-1.5">
-									{#each ride.difficultyLevels ?? [] as level}
-										<span class="chip preset-tonal-warning text-xs">{level.name}</span>
+									{#each ride.difficultyLevels ?? [] as level (level.name)}
+										<span
+											class="bg-primary-500 text-surface-950 px-2.5 py-1 text-xs font-black uppercase"
+										>
+											{level.name}
+										</span>
 									{/each}
-									{#each ride.ridingDisciplines ?? [] as discipline}
-										<span class="chip {disciplineChipClass(discipline.name)} text-xs">
+									{#each ride.ridingDisciplines ?? [] as discipline (discipline.name)}
+										<span
+											class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
+										>
 											{discipline.name}
 										</span>
 									{/each}
-									{#each rideMeta(ride) as meta}
-										<span class="chip preset-tonal-tertiary gap-1 text-xs">
+									{#each rideMeta(ride) as meta (meta.label)}
+										<span
+											class="border-surface-700 text-surface-200 inline-flex items-center gap-1 border px-2.5 py-1 text-xs font-bold uppercase"
+										>
 											<meta.icon class="h-3 w-3" />
 											{meta.label}
 										</span>
 									{/each}
 								</div>
 
-								<div class="mt-auto flex items-center justify-between gap-3 pt-1">
-									<div class="flex items-center gap-1.5 text-xs opacity-55">
+								<div
+									class="border-surface-800 mt-auto flex items-center justify-between gap-3 border-t pt-4"
+								>
+									<div
+										class="text-surface-300 flex items-center gap-1.5 text-xs font-bold uppercase"
+									>
 										<IconUsers class="h-3.5 w-3.5" />
 										<span>
 											{ride.rideDetails?.participant_visibility === 'private'
@@ -748,43 +971,46 @@
 										</span>
 									</div>
 									<span
-										class="ride-card-link inline-flex items-center gap-1.5 text-sm font-semibold"
+										class="text-primary-500 inline-flex items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
 									>
 										View ride
-										<IconArrowRight class="h-3.5 w-3.5" />
+										<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 									</span>
 								</div>
 							</div>
 						</a>
 					{/each}
 				</div>
+
 				{#if totalPages > 1}
 					<nav
-						class="flex flex-col items-center justify-between gap-3 sm:flex-row"
+						class="border-surface-800 flex flex-col items-center justify-between gap-4 border-t-2 pt-6 sm:flex-row"
 						aria-label="Ride pages"
 					>
-						<p class="text-sm tabular-nums opacity-65">
+						<p class="text-surface-300 m-0 text-sm font-bold uppercase tabular-nums">
 							Showing {(currentPage - 1) * ridesPerPage + 1}–{Math.min(
 								currentPage * ridesPerPage,
 								totalUpcoming
 							)} of {totalUpcoming}
 						</p>
-						<div class="join" aria-label="Pagination controls">
+						<div class="border-surface-50 flex border-[3px]" aria-label="Pagination controls">
 							<button
-								class="btn preset-outlined-surface-950-50 join-item"
+								type="button"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
 								onclick={() => changeRidePage(currentPage - 1)}
 								disabled={currentPage === 1}
 							>
 								Previous
 							</button>
 							<span
-								class="btn preset-tonal-surface join-item pointer-events-none"
+								class="border-surface-50 bg-surface-900 text-primary-500 border-x-[3px] px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
 								aria-current="page"
 							>
 								Page {currentPage} of {totalPages}
 							</span>
 							<button
-								class="btn preset-outlined-surface-950-50 join-item"
+								type="button"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
 								onclick={() => changeRidePage(currentPage + 1)}
 								disabled={currentPage === totalPages}
 							>
@@ -794,56 +1020,59 @@
 					</nav>
 				{/if}
 			{:else}
-				<!-- Empty state -->
-				<div
-					class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-				>
-					<div class="app-empty-orb" aria-hidden="true"></div>
-					<div class="relative z-10 mx-auto max-w-lg space-y-4">
-						<div
-							class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-						>
-							<IconBike class="h-10 w-10 opacity-60" />
-						</div>
-						<h3 class="text-2xl font-bold">No rides match that filter yet</h3>
-						<p class="text-sm leading-relaxed opacity-70">
+				<div class="border-surface-50 flex flex-col items-start gap-6 border-t-2 pt-10">
+					<IconBike class="text-primary-500 h-12 w-12" />
+					<div class="flex flex-col gap-2">
+						<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">
+							No rides match that filter yet
+						</h3>
+						<p class="text-surface-300 m-0 max-w-xl text-base leading-relaxed">
 							Try a broader search, clear the difficulty filter, or be the first to post a ride for
 							that route.
 						</p>
-						<div class="flex flex-wrap justify-center gap-3 pt-2">
-							<button
-								class="btn preset-outlined-surface-950-50"
-								onclick={() => ((search = ''), (selectedDifficulty = 'all'), (currentPage = 1))}
-							>
-								Clear filters
-							</button>
-							<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
-								<IconPlus class="h-4 w-4" />
-								Create ride
-							</a>
-						</div>
+					</div>
+					<div class="flex flex-wrap gap-3">
+						<button
+							type="button"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-3 text-sm font-black uppercase transition"
+							onclick={() => ((search = ''), (selectedDifficulty = 'all'), (currentPage = 1))}
+						>
+							Clear filters
+						</button>
+						<a
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-6 py-3 text-sm font-black uppercase transition hover:no-underline"
+							href="/ride/new"
+						>
+							<IconPlus class="h-4 w-4" />
+							Create ride
+						</a>
 					</div>
 				</div>
 			{/if}
 		{:else if view === 'calendar'}
-			<div transition:slide class="space-y-4">
-				<div class="flex items-center justify-between">
-					<h3 class="text-xl font-semibold">{calendarHeaderText}</h3>
-					<div class="flex gap-2">
+			<div transition:slide class="flex flex-col gap-6">
+				<div class="flex flex-wrap items-center justify-between gap-4">
+					<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">
+						{calendarHeaderText}
+					</h3>
+					<div class="border-surface-50 flex border-[3px]">
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
 							onclick={() => (calendarReference = earliestRideMonth)}
 						>
 							Today
 						</button>
 						<button
-							class="bg-surface-200-800/80 hover:bg-surface-300-700 text-surface-900-100 rounded-lg px-3 py-1.5 text-sm"
+							type="button"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -851,35 +1080,36 @@
 					</div>
 				</div>
 
-				<div class="grid gap-2 sm:hidden">
-					{#each mobileWeekDays as day, i}
+				<div class="border-surface-50 flex flex-col border-t-2 sm:hidden">
+					{#each mobileWeekDays as day (day.key)}
 						<div
-							class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-							style="--stagger: {i % 10}"
+							class={`border-surface-800 border-b py-4 ${
+								day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'
+							}`}
 						>
 							<div class="flex items-center justify-between">
-								<div class="text-xs font-semibold">
+								<div class="text-sm font-black uppercase">
 									{new Intl.DateTimeFormat(undefined, {
 										weekday: 'short',
 										month: 'short',
 										day: 'numeric'
 									}).format(day.date)}
 								</div>
-								<div class="text-[11px]">
+								<div class="text-primary-500 text-xs font-bold uppercase">
 									{day.rides.length} ride{day.rides.length === 1 ? '' : 's'}
 								</div>
 							</div>
-							<div class="mt-2 space-y-1.5">
+							<div class="mt-3 flex flex-col gap-2">
 								{#if day.rides.length === 0}
-									<p class="text-surface-500 text-xs">No rides</p>
+									<p class="text-surface-300 m-0 text-xs uppercase">No rides</p>
 								{:else}
-									{#each day.rides as ride}
+									{#each day.rides as ride (ride.id ?? ride.slug)}
 										<a
-											class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded-lg px-2 py-1 text-xs font-medium"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/ride/${ride.slug}`}
 										>
-											<span class="text-secondary-600-400 font-mono text-xs">
-												{tf.format(parseRideDate(ride.nextOccurrenceStart))} -
+											<span class="text-primary-500 font-black">
+												{tf.format(parseRideDate(ride.nextOccurrenceStart))} —
 											</span>
 											{ride.title}
 										</a>
@@ -892,41 +1122,44 @@
 
 				<div class="hidden sm:block">
 					<div
-						class="text-surface-700-300 grid grid-cols-7 gap-0 text-center text-[11px] font-semibold tracking-wide uppercase"
+						class="bg-primary-500 text-surface-950 grid grid-cols-7 text-center text-xs font-black tracking-[0.2em] uppercase"
 					>
-						<div>Sun</div>
-						<div>Mon</div>
-						<div>Tue</div>
-						<div>Wed</div>
-						<div>Thu</div>
-						<div>Fri</div>
-						<div>Sat</div>
+						<div class="py-2.5">Sun</div>
+						<div class="py-2.5">Mon</div>
+						<div class="py-2.5">Tue</div>
+						<div class="py-2.5">Wed</div>
+						<div class="py-2.5">Thu</div>
+						<div class="py-2.5">Fri</div>
+						<div class="py-2.5">Sat</div>
 					</div>
-					<div class="grid grid-cols-7 gap-0">
-						{#each calendarMatrix as week, i}
-							{#each week as day, j}
+					<div class="border-surface-800 grid grid-cols-7 border-t border-l">
+						{#each calendarMatrix as week, i (i)}
+							{#each week as day (day.key)}
 								<div
-									class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-									style="--stagger: {(i * 7 + j) % 21}"
+									class={`border-surface-800 flex h-32 flex-col border-r border-b p-2 text-left ${
+										day.inMonth
+											? 'bg-surface-950 text-surface-50'
+											: 'bg-surface-900 text-surface-300 opacity-50'
+									}`}
 								>
-									<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
-									<div class="mt-1 space-y-1 overflow-y-auto">
+									<div class="text-xs font-black tabular-nums">{day.date.getDate()}</div>
+									<div class="mt-1.5 flex flex-col gap-1 overflow-y-auto">
 										{#if day.rides.length === 0}
-											<p class="text-surface-500 text-[11px]">No rides</p>
+											<p class="text-surface-300 m-0 text-[11px] opacity-50">No rides</p>
 										{:else}
-											{#each day.rides.slice(0, 3) as ride}
+											{#each day.rides.slice(0, 3) as ride (ride.id ?? ride.slug)}
 												<a
-													class="bg-secondary-500/10 text-secondary-800-200 hover:bg-secondary-500/20 block rounded px-1 py-0.5 text-[11px] font-medium"
+													class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
 													href={`/ride/${ride.slug}`}
 												>
-													<span class="text-secondary-600-400 font-mono text-xs">
-														{tf.format(parseRideDate(ride.nextOccurrenceStart))} -
+													<span class="font-black">
+														{tf.format(parseRideDate(ride.nextOccurrenceStart))}
 													</span>
 													{ride.title}
 												</a>
 											{/each}
 											{#if day.rides.length > 3}
-												<div class="text-secondary-700-300 text-[10px] font-medium">
+												<div class="text-primary-500 text-[10px] font-black uppercase">
 													+{day.rides.length - 3} more
 												</div>
 											{/if}
@@ -939,203 +1172,15 @@
 				</div>
 			</div>
 		{:else if view === 'map'}
-			<div
-				transition:slide
-				class="bg-surface-100-900/60 border-surface-600-400/20 rounded-2xl border shadow-xl"
-			>
-				<div bind:this={mapEl} class="h-[480px] w-full rounded-2xl"></div>
-				<div class="text-surface-700-300 border-surface-500/30 border-t px-6 py-3 text-sm">
+			<div transition:slide class="border-surface-50 border-[3px]">
+				<div bind:this={mapEl} class="h-[480px] w-full"></div>
+				<div
+					class="bg-surface-900 text-surface-300 border-surface-50 border-t-[3px] px-6 py-4 text-sm font-medium"
+				>
 					Zoom and click markers to preview ride details. Listings without mapped coordinates are
 					hidden from the map view.
-				</div>
-			</div>
-		{:else}
-			<!-- Empty state -->
-			<div
-				class="app-empty-state card preset-tonal-surface relative overflow-hidden p-12 text-center"
-			>
-				<div class="app-empty-orb" aria-hidden="true"></div>
-				<div class="relative z-10 mx-auto max-w-lg space-y-4">
-					<div
-						class="app-empty-icon-ring mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-full"
-					>
-						<IconBike class="h-10 w-10 opacity-60" />
-					</div>
-					<h3 class="text-2xl font-bold">No rides match that filter yet</h3>
-					<p class="text-sm leading-relaxed opacity-70">
-						Try a broader search, clear the difficulty filter, or be the first to post a ride for
-						that route.
-					</p>
-					<div class="flex flex-wrap justify-center gap-3 pt-2">
-						<button
-							class="btn preset-outlined-surface-950-50"
-							onclick={() => ((search = ''), (selectedDifficulty = 'all'))}
-						>
-							Clear filters
-						</button>
-						<a class="btn preset-outlined-primary-500 gap-2" href="/ride/new">
-							<IconPlus class="h-4 w-4" />
-							Create ride
-						</a>
-					</div>
 				</div>
 			</div>
 		{/if}
 	</section>
 </div>
-
-<style>
-	/* ── Featured cards ── */
-	.featured-card {
-		transition:
-			transform 220ms ease,
-			box-shadow 220ms ease;
-		animation: card-in 420ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 80ms);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50-950) 18%, transparent);
-	}
-
-	.featured-card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 14px 36px -10px color-mix(in oklab, var(--color-warning-500) 16%, transparent);
-	}
-
-	.featured-time-chip {
-		max-width: 100%;
-		white-space: normal;
-		line-height: 1.2;
-		font-size: 0.7rem;
-	}
-
-	.featured-card-image {
-		display: block;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50-950) 18%, transparent);
-	}
-
-	.featured-card-image-overlay {
-		position: absolute;
-		inset: 0;
-		background:
-			linear-gradient(to top, rgba(6, 6, 14, 0.82) 0%, transparent 58%),
-			linear-gradient(to right, rgba(6, 6, 14, 0.18) 0%, transparent 35%);
-		pointer-events: none;
-	}
-
-	.featured-card-image-badges {
-		position: absolute;
-		bottom: 0.625rem;
-		left: 0.625rem;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-
-	/* ── Ride cards ── */
-	.ride-card {
-		transition:
-			transform 220ms ease,
-			box-shadow 220ms ease;
-		animation: card-in 380ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 50ms);
-		text-decoration: none;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
-	}
-
-	.ride-card:hover {
-		transform: translateY(-3px);
-		box-shadow: 0 8px 28px -6px color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-	}
-
-	.ride-card-accent {
-		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.6;
-		transition: opacity 220ms ease;
-	}
-
-	.ride-card:hover .ride-card-accent {
-		opacity: 1;
-	}
-
-	.ride-card-media {
-		position: relative;
-		overflow: hidden;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 16%, transparent);
-		background:
-			linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.48) 100%),
-			color-mix(in oklab, var(--color-primary-500) 10%, var(--color-surface-900) 90%);
-	}
-
-	.ride-card-image {
-		display: block;
-		transform: scale(1.01);
-		transition:
-			transform 260ms ease,
-			filter 260ms ease;
-	}
-
-	.ride-card:hover .ride-card-image {
-		transform: scale(1.05);
-		filter: saturate(1.08);
-	}
-
-	.ride-card-image-overlay {
-		position: absolute;
-		inset: 0;
-		background:
-			linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.58) 100%),
-			radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 45%);
-		pointer-events: none;
-	}
-
-	.ride-card-image-badges {
-		position: absolute;
-		right: 1rem;
-		bottom: 1rem;
-		left: 1rem;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.ride-card-link {
-		color: var(--color-primary-300);
-		transition:
-			transform 180ms ease,
-			color 180ms ease;
-	}
-
-	.ride-card:hover .ride-card-link {
-		transform: translateX(2px);
-		color: var(--color-primary-200);
-	}
-
-	/* ── Empty state ── */
-	.event-card {
-		animation: calendar-card-in 380ms ease both;
-		animation-delay: calc(var(--stagger, 0) * 30ms);
-	}
-
-	/* ── Card entrance animation ── */
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(16px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes calendar-card-in {
-		from {
-			opacity: 0;
-			transform: translateY(12px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-</style>

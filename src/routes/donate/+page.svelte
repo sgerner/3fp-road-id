@@ -11,7 +11,7 @@
 	import IconEyeOff from '@lucide/svelte/icons/eye-off';
 	import { loadStripe } from '@stripe/stripe-js';
 	import { onDestroy, onMount, tick } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
 
@@ -177,11 +177,11 @@
 					theme: 'night',
 					variables: {
 						colorPrimary: '#f4ff00',
-						colorBackground: 'rgba(10, 15, 20, 0.55)',
+						colorBackground: '#09090b',
 						colorText: '#f8f5dd',
 						colorDanger: '#ff6b6b',
 						fontFamily: 'inherit',
-						borderRadius: '16px'
+						borderRadius: '0px'
 					}
 				}
 			});
@@ -326,182 +326,192 @@
 	<meta name="description" content={pageDescription} />
 </svelte:head>
 
-<div class="donate-page mx-auto flex w-full max-w-5xl flex-col gap-10 pb-16">
-	<!-- ═══════════════════════════════════════════════
-	     CINEMATIC HERO
-	═══════════════════════════════════════════════ -->
-	<section class="hero-section relative overflow-hidden rounded-3xl">
-		<!-- Animated orb background -->
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
-
-		<div class="relative z-10 p-6 lg:p-12">
-			<!-- Badge chips -->
-			<div class="mb-6 flex flex-wrap items-center gap-2">
-				<span class="chip preset-filled-primary-500 gap-1.5 font-semibold tracking-wide">
+<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	<!-- HERO -->
+	<section
+		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+		aria-labelledby="donate-heading"
+	>
+		<div
+			class="flex flex-col justify-between gap-10 px-6 pt-10 pb-12 sm:px-10 lg:px-14 lg:pt-14 lg:pb-16"
+		>
+			<div class="flex flex-wrap items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase">
+				<span class="bg-surface-950 text-primary-500 inline-flex items-center gap-1.5 px-3 py-1.5">
 					<IconHeart class="h-3.5 w-3.5" />
 					Donate
 				</span>
 				{#if isGroupRecipient}
-					<span class="chip preset-tonal-secondary">Community Group</span>
-					<span class="chip preset-tonal-tertiary">Tax Status Varies</span>
+					<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">Community Group</span>
+					<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Tax Status Varies</span>
 				{:else}
-					<span class="chip preset-tonal-secondary">501(c)(3) Nonprofit</span>
-					<span class="chip preset-tonal-tertiary">Tax-Deductible</span>
+					<span class="bg-secondary-500 text-surface-50 px-3 py-1.5">501(c)(3) Nonprofit</span>
+					<span class="bg-tertiary-500 text-surface-950 px-3 py-1.5">Tax-Deductible</span>
 				{/if}
 			</div>
 
-			<!-- Two-column layout for content + stat cards -->
-			<div class="grid gap-8 lg:grid-cols-[1fr_auto]">
-				<!-- Left: headline + copy -->
-				<div class="flex flex-col gap-6">
-					<div class="space-y-4">
-						<h1
-							class="donate-headline max-w-2xl text-4xl font-extrabold tracking-tight text-balance lg:text-5xl xl:text-6xl"
-						>
-							{#if isGroupRecipient}
-								Support {recipientLabel}.<br />
-								<span class="donate-headline-accent">Fund local impact.</span>
-							{:else}
-								Every ride counts.<br />
-								<span class="donate-headline-accent">Fund safer streets.</span>
-							{/if}
-						</h1>
-						<p class="max-w-xl text-base leading-relaxed opacity-75">
-							{#if isGroupRecipient}
-								This page sends donations directly to <strong>{recipientLabel}</strong> through their
-								connected Stripe account. Tax deductibility depends on that group's legal status and may
-								not apply.
-							{:else}
-								3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger
-								cycling culture. Your tax-deductible gift powers advocacy, education, and community
-								programs that protect riders everywhere.
-							{/if}
-						</p>
-					</div>
+			<div class="flex flex-col gap-6">
+				<h1
+					id="donate-heading"
+					class="text-surface-950! m-0 text-[clamp(2.9rem,7.4vw,6.8rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					{#if isGroupRecipient}
+						Support {recipientLabel}.
+						<span class="text-secondary-500">Fund local impact.</span>
+					{:else}
+						Every ride counts. <span class="text-secondary-500">Fund safer streets.</span>
+					{/if}
+				</h1>
+				<p class="m-0 max-w-xl text-lg leading-snug font-medium text-balance sm:text-2xl">
+					{#if isGroupRecipient}
+						This page sends donations directly to <strong>{recipientLabel}</strong> through their connected
+						Stripe account. Tax deductibility depends on that group's legal status and may not apply.
+					{:else}
+						3 Feet Please is a 501(c)(3) nonprofit fighting for cyclist safety and stronger cycling
+						culture. Your tax-deductible gift powers advocacy, education, and community programs
+						that protect riders everywhere.
+					{/if}
+				</p>
+			</div>
 
-					<!-- Trust signals row -->
-					<div class="flex flex-wrap items-center gap-4 text-sm opacity-70">
-						<span class="flex items-center gap-1.5">
-							<IconLock class="h-4 w-4 text-green-400" />
-							Secure via Stripe
-						</span>
-						<span class="flex items-center gap-1.5">
-							<IconShield class="h-4 w-4 text-blue-400" />
-							{#if isGroupRecipient}
-								Tax status depends on the group
-							{:else}
-								Tax-deductible (EIN 99-3658890)
-							{/if}
-						</span>
-						<span class="flex items-center gap-1.5">
-							<IconEyeOff class="h-4 w-4 text-purple-400" />
-							Anonymity available
-						</span>
-					</div>
+			<div class="flex flex-col gap-6">
+				<div
+					class="border-surface-950 flex flex-wrap items-center gap-x-6 gap-y-3 border-t-[3px] pt-5 text-xs font-bold tracking-[0.16em] uppercase"
+				>
+					<span class="flex items-center gap-2">
+						<IconLock class="h-4 w-4 shrink-0" />
+						Secure via Stripe
+					</span>
+					<span class="flex items-center gap-2">
+						<IconShield class="h-4 w-4 shrink-0" />
+						{#if isGroupRecipient}
+							Tax status depends on the group
+						{:else}
+							Tax-deductible (EIN 99-3658890)
+						{/if}
+					</span>
+					<span class="flex items-center gap-2">
+						<IconEyeOff class="h-4 w-4 shrink-0" />
+						Anonymity available
+					</span>
 				</div>
 
-				<!-- Right: impact stat cards -->
-				<div class="flex flex-col gap-3 lg:w-56">
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-primary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconBike class="h-4 w-4" />
-							{isGroupRecipient ? 'Direct Support' : 'Years Active'}
-						</div>
-						<div class="text-3xl font-black tabular-nums">{isGroupRecipient ? 'Local' : '10+'}</div>
+				{#if data.canceled}
+					<div class="bg-surface-950 text-primary-500 px-5 py-4 text-sm font-bold">
+						Checkout was canceled. No donation was charged.
 					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-secondary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconUsers class="h-4 w-4" />
-							{isGroupRecipient ? 'Funds Route' : 'Advocates'}
-						</div>
-						<div class="text-3xl font-black tabular-nums">
-							{isGroupRecipient ? 'Group' : '100+'}
-						</div>
+				{/if}
+				{#if data.stripeStatus === 'connected'}
+					<div
+						class="bg-surface-950 text-primary-500 flex items-center gap-2 px-5 py-4 text-sm font-bold"
+					>
+						<IconCheck class="h-4 w-4 shrink-0" />
+						Stripe account connected successfully.
 					</div>
-					<div class="stat-card card preset-tonal-surface relative overflow-hidden p-4">
-						<div
-							class="stat-card-glow"
-							style="background: var(--color-tertiary-500);"
-							aria-hidden="true"
-						></div>
-						<div
-							class="mb-2 flex items-center gap-2 text-xs font-medium tracking-[0.2em] uppercase opacity-60"
-						>
-							<IconTrendingUp class="h-4 w-4" />
-							{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
-						</div>
-						<div class="text-3xl font-black tabular-nums">
-							{isGroupRecipient ? 'Varies' : '1000+'}
-						</div>
+				{:else if data.stripeStatus === 'error'}
+					<div
+						class="bg-tertiary-500 text-surface-950 border-surface-950 border-[3px] px-5 py-4 text-sm font-bold"
+					>
+						Stripe connection failed. {data.stripeReason ? `Reason: ${data.stripeReason}` : ''}
 					</div>
-				</div>
+				{/if}
 			</div>
 		</div>
 
-		<!-- Status alerts inside hero -->
-		{#if data.canceled}
+		<!-- Right: impact stat blocks -->
+		<div
+			class="bg-secondary-500 text-surface-50 border-surface-950 grid grid-rows-3 border-t-[3px] lg:border-t-0 lg:border-l-[3px]"
+		>
 			<div
-				class="relative z-10 mx-6 mb-6 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm lg:mx-12"
+				class="border-surface-950 flex flex-col justify-between gap-4 border-b-[3px] px-6 py-8 sm:px-10 lg:px-12"
 			>
-				Checkout was canceled. No donation was charged.
+				<div
+					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconBike class="h-4 w-4" />
+					{isGroupRecipient ? 'Direct Support' : 'Years Active'}
+				</div>
+				<div
+					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+				>
+					{isGroupRecipient ? 'Local' : '10+'}
+				</div>
 			</div>
-		{/if}
-		{#if data.stripeStatus === 'connected'}
 			<div
-				class="relative z-10 mx-6 mb-6 flex items-center gap-2 rounded-xl border border-green-500/35 bg-green-500/10 px-4 py-3 text-sm lg:mx-12"
+				class="border-surface-950 flex flex-col justify-between gap-4 border-b-[3px] px-6 py-8 sm:px-10 lg:px-12"
 			>
-				<IconCheck class="h-4 w-4 shrink-0 text-green-400" />
-				Stripe account connected successfully.
+				<div
+					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconUsers class="h-4 w-4" />
+					{isGroupRecipient ? 'Funds Route' : 'Advocates'}
+				</div>
+				<div
+					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+				>
+					{isGroupRecipient ? 'Group' : '100+'}
+				</div>
 			</div>
-		{:else if data.stripeStatus === 'error'}
-			<div
-				class="relative z-10 mx-6 mb-6 rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm lg:mx-12"
-			>
-				Stripe connection failed. {data.stripeReason ? `Reason: ${data.stripeReason}` : ''}
+			<div class="flex flex-col justify-between gap-4 px-6 py-8 sm:px-10 lg:px-12">
+				<div
+					class="text-primary-500 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					<IconTrendingUp class="h-4 w-4" />
+					{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
+				</div>
+				<div
+					class="text-surface-50 text-5xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-6xl"
+				>
+					{isGroupRecipient ? 'Varies' : '1000+'}
+				</div>
 			</div>
-		{/if}
+		</div>
 	</section>
 
-	<!-- ═══════════════════════════════════════════════
-	     ADMIN: MANAGE MAIN STRIPE
-	═══════════════════════════════════════════════ -->
+	<!-- Ruler band: 0 → 3 ft -->
+	<div
+		class="bg-tertiary-500 text-surface-950 border-surface-950 grid grid-cols-3 border-y-[3px]"
+		aria-hidden="true"
+	>
+		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+			<div class="border-surface-950 relative h-14 border-l-[3px] first:border-l-0">
+				<span
+					class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-surface-950)_0_2px,transparent_2px_calc(100%/12))]"
+				></span>
+				<span class="absolute bottom-2 left-3 text-sm font-black uppercase">{mark}</span>
+				{#if i === 2}
+					<span class="absolute right-3 bottom-2 text-sm font-black uppercase">3 ft</span>
+				{/if}
+			</div>
+		{/each}
+	</div>
+
+	<!-- ADMIN: MANAGE MAIN STRIPE -->
 	{#if data.showManageMain}
 		<section
-			class="card border-surface-300-700/50 bg-surface-100-900/60 relative overflow-hidden border p-6"
+			class="bg-secondary-500 text-surface-50 border-surface-950 border-b-[3px] px-6 py-10 sm:px-10 lg:px-14"
+			aria-labelledby="admin-stripe-heading"
 		>
-			<div class="admin-glow" aria-hidden="true"></div>
-			<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
-				<div class="flex items-start gap-3">
-					<div
-						class="admin-icon-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+			<div class="flex flex-wrap items-start justify-between gap-6">
+				<div class="flex items-start gap-4">
+					<span
+						class="bg-primary-500 text-surface-950 flex h-12 w-12 shrink-0 items-center justify-center"
 					>
-						<IconSparkles class="h-5 w-5" />
-					</div>
-					<div>
-						<p class="label mb-0.5 text-xs tracking-widest uppercase opacity-60">Admin</p>
-						<h2 class="!mt-0 !mb-1 !text-left text-lg font-bold">Main Organization Stripe</h2>
-						<p class="text-sm opacity-70">
+						<IconSparkles class="h-6 w-6" />
+					</span>
+					<div class="flex flex-col gap-1">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Admin</p>
+						<h2
+							id="admin-stripe-heading"
+							class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-3xl"
+						>
+							Main Organization Stripe
+						</h2>
+						<p class="m-0 max-w-2xl text-sm opacity-90">
 							Connect or replace the main 3 Feet Please Stripe account used by the global Donate
 							button.
 						</p>
 						{#if accountConnected}
-							<p class="mt-2 text-sm opacity-70">
+							<p class="text-primary-500 m-0 pt-1 text-sm font-bold">
 								{#if accountReady}
 									Account connected and ready to accept charges.
 								{:else}
@@ -511,10 +521,10 @@
 						{/if}
 					</div>
 				</div>
-				<div class="flex flex-wrap items-center gap-2">
+				<div class="flex flex-wrap items-center gap-3">
 					<a
 						href="/api/donations/connect/start?recipient=main"
-						class="btn preset-filled-primary-500 gap-2"
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
 						<IconSparkles class="h-4 w-4" />
 						Connect / Reconnect Stripe
@@ -522,7 +532,7 @@
 					{#if recipient?.accountConnected}
 						<button
 							type="button"
-							class="btn preset-outlined-error-500"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-2.5 text-sm font-black tracking-wide uppercase transition"
 							disabled={disconnecting}
 							onclick={disconnectMainStripe}
 						>
@@ -534,106 +544,179 @@
 		</section>
 	{/if}
 
-	<!-- ═══════════════════════════════════════════════
-	     DONATION FORM / STATUS
-	═══════════════════════════════════════════════ -->
-	{#if data.loadError}
-		<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-5 text-sm">
-			{data.loadError}
-		</section>
-	{:else if !recipient}
-		<section class="rounded-2xl border border-red-500/35 bg-red-500/10 p-5 text-sm">
-			Donation recipient could not be loaded.
-		</section>
-	{:else if recipientType === 'group' && !recipient?.claimed}
-		<section class="rounded-2xl border border-amber-500/35 bg-amber-500/10 p-5 text-sm">
-			This group has not been claimed yet, so donations are not enabled.
-		</section>
-	{:else if !donationEnabled}
-		<section class="not-enabled-section card relative overflow-hidden p-8 text-center">
-			<div class="not-enabled-orb" aria-hidden="true"></div>
-			<div class="relative z-10 mx-auto max-w-sm space-y-3">
-				<div
-					class="not-enabled-icon mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
+	<!-- DONATION FORM / STATUS -->
+	<section
+		class="bg-surface-950 text-surface-50 px-6 py-14 sm:px-10 lg:px-14 lg:py-20"
+		aria-labelledby="donation-form-heading"
+	>
+		{#if data.loadError}
+			<div class="border-tertiary-500 flex flex-col gap-3 border-l-4 pl-6">
+				<p class="text-tertiary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Error</p>
+				<h2
+					id="donation-form-heading"
+					class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-5xl"
 				>
-					<IconHeart class="h-8 w-8 opacity-60" />
-				</div>
-				<h2 class="text-xl font-bold">Donations coming soon</h2>
-				<p class="text-sm leading-relaxed opacity-70">
-					{#if accountConnected}
-						Stripe is connected, but this account is not yet ready to accept charges.
-					{:else if recipientType === 'group'}
-						This group hasn't connected Stripe donations yet.
-					{:else}
-						The main organization hasn't connected Stripe donations yet.
-					{/if}
+					Unable to load donation form
+				</h2>
+				<p class="text-surface-300 m-0 text-lg">{data.loadError}</p>
+			</div>
+		{:else if !recipient}
+			<div class="border-tertiary-500 flex flex-col gap-3 border-l-4 pl-6">
+				<p class="text-tertiary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Error</p>
+				<h2
+					id="donation-form-heading"
+					class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-5xl"
+				>
+					Recipient unavailable
+				</h2>
+				<p class="text-surface-300 m-0 text-lg">Donation recipient could not be loaded.</p>
+			</div>
+		{:else if recipientType === 'group' && !recipient?.claimed}
+			<div class="border-primary-500 flex flex-col gap-3 border-l-4 pl-6">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+					Group Status
+				</p>
+				<h2
+					id="donation-form-heading"
+					class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-5xl"
+				>
+					Donations not enabled yet
+				</h2>
+				<p class="text-surface-300 m-0 text-lg">
+					This group has not been claimed yet, so donations are not enabled.
 				</p>
 			</div>
-		</section>
-	{:else}
-		<!-- THE DONATION FORM -->
-		<form class="donation-form-section card relative overflow-hidden p-0" onsubmit={startCheckout}>
-			<div class="form-orb" aria-hidden="true"></div>
-
-			<div class="relative z-10 p-6 lg:p-8">
-				<!-- Form header -->
-				<div class="mb-7 flex items-start gap-4">
-					<div
-						class="form-icon-ring flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+		{:else if !donationEnabled}
+			<div class="border-surface-50 flex flex-col gap-6 border-t-2 pt-10">
+				<span
+					class="bg-primary-500 text-surface-950 flex h-14 w-14 items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconHeart class="h-7 w-7" />
+				</span>
+				<div class="flex flex-col gap-3">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+						Status update
+					</p>
+					<h2
+						id="donation-form-heading"
+						class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
 					>
-						<IconHeart class="h-5 w-5" />
-					</div>
-					<div>
-						<div
-							class="mb-1 flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase opacity-60"
+						Donations coming soon
+					</h2>
+					<p class="text-surface-300 m-0 max-w-xl text-lg leading-relaxed">
+						{#if accountConnected}
+							Stripe is connected, but this account is not yet ready to accept charges.
+						{:else if recipientType === 'group'}
+							This group hasn't connected Stripe donations yet.
+						{:else}
+							The main organization hasn't connected Stripe donations yet.
+						{/if}
+					</p>
+				</div>
+			</div>
+		{:else}
+			<div class="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+				<!-- Left column: Form header & context -->
+				<div class="flex flex-col justify-between gap-10">
+					<div class="flex flex-col gap-5">
+						<p
+							class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
 						>
-							<IconSparkles class="h-3.5 w-3.5" />
+							<IconSparkles class="h-4 w-4" />
 							Secure Donation
-						</div>
-						<h2 class="!mt-0 !mb-0.5 !text-left text-2xl font-bold">Support {recipientLabel}</h2>
-						<p class="text-sm opacity-65">
+						</p>
+						<h2
+							id="donation-form-heading"
+							class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
+						>
+							Support {recipientLabel}
+						</h2>
+						<p class="text-surface-300 m-0 max-w-md text-lg leading-snug">
 							{#if isGroupRecipient}
 								Choose an amount and complete your gift directly to this group with Stripe.
 							{:else}
 								Choose an amount and complete your gift directly on this page with Stripe.
 							{/if}
 						</p>
+
+						<!-- lane divider -->
+						<div
+							class="my-2 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+							aria-hidden="true"
+						></div>
+
+						<ol class="m-0 list-none p-0">
+							<li class="border-surface-800 flex gap-4 border-t py-4">
+								<span
+									class="text-tertiary-500 w-10 shrink-0 text-2xl leading-none font-black italic tabular-nums"
+								>
+									01
+								</span>
+								<p class="text-surface-300 m-0 text-sm leading-relaxed">
+									<strong class="text-surface-50 block font-black uppercase">Pick an amount</strong>
+									Select a preset or enter any custom contribution from $1 to $25,000.
+								</p>
+							</li>
+							<li class="border-surface-800 flex gap-4 border-t py-4">
+								<span
+									class="text-tertiary-500 w-10 shrink-0 text-2xl leading-none font-black italic tabular-nums"
+								>
+									02
+								</span>
+								<p class="text-surface-300 m-0 text-sm leading-relaxed">
+									<strong class="text-surface-50 block font-black uppercase"
+										>Receipt & privacy</strong
+									>
+									We send an instant confirmation to your email and honor anonymity requests.
+								</p>
+							</li>
+						</ol>
 					</div>
+
+					<p class="border-surface-800 text-surface-300 m-0 border-t pt-5 text-xs leading-relaxed">
+						{data.taxNotice}
+					</p>
 				</div>
 
-				<div class="grid grid-cols-1 gap-6">
+				<!-- Right column: Interactive form -->
+				<form
+					class="border-surface-800 flex flex-col gap-8 border-t-2 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-14"
+					onsubmit={startCheckout}
+				>
 					<!-- Amount selector -->
-					<div class="amount-section rounded-2xl p-5">
+					<div class="flex flex-col gap-4">
 						<label
-							class="label mb-3 text-xs font-semibold tracking-[0.15em] uppercase opacity-60"
+							class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase"
 							for="donation_amount"
 						>
-							Choose your amount (USD)
+							01 / Choose your amount (USD)
 						</label>
-						<!-- Preset chips -->
-						<div class="mb-4 flex flex-wrap gap-2">
-							{#each presetAmounts as preset}
+						<div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+							{#each presetAmounts as preset (preset)}
 								<button
 									type="button"
-									class="btn px-4 py-2 {Number(amount) === preset
-										? 'preset-filled-primary-500'
-										: 'preset-outlined-primary-500'}"
+									class="border-[3px] px-4 py-3 text-lg font-black tracking-wide uppercase tabular-nums transition {Number(
+										amount
+									) === preset
+										? 'border-primary-500 bg-primary-500 text-surface-950'
+										: 'border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950'}"
 									onclick={() => (amount = preset)}
 								>
 									${preset}
 								</button>
 							{/each}
 						</div>
-						<!-- Custom amount -->
-						<div class="relative">
+						<div class="relative max-w-xs">
 							<span
-								class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-lg font-bold opacity-50"
-								>$</span
+								class="text-primary-500 pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-xl font-black"
 							>
+								$
+							</span>
 							<input
 								id="donation_amount"
 								type="number"
-								class="input preset-tonal-surface w-full pl-8 text-lg font-bold md:w-48"
+								class="border-surface-50 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-[3px] py-3 pr-4 pl-9 text-xl font-black tabular-nums focus:outline-none"
 								min="1"
 								max="25000"
 								step="0.01"
@@ -644,90 +727,105 @@
 					</div>
 
 					<!-- Donor info -->
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<div>
-							<label
-								class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-								for="donor_name"
-							>
-								Name <span class="normal-case opacity-60">(optional)</span>
-							</label>
-							<input
-								id="donor_name"
-								class="input preset-tonal-surface w-full"
-								type="text"
-								maxlength="120"
-								placeholder="Your name"
-								bind:value={donorName}
-							/>
-						</div>
-						<div>
-							<label
-								class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-								for="donor_email"
-							>
-								Email <span class="normal-case opacity-60">(for receipt)</span>
-							</label>
-							<input
-								id="donor_email"
-								class="input preset-tonal-surface w-full"
-								type="email"
-								maxlength="160"
-								placeholder="you@example.com"
-								bind:value={donorEmail}
-								required
-							/>
-						</div>
-					</div>
-
-					<div>
-						<label
-							class="label mb-1.5 text-xs font-semibold tracking-[0.12em] uppercase opacity-60"
-							for="donor_message"
-						>
-							Message <span class="normal-case opacity-60">(optional)</span>
-						</label>
-						<textarea
-							id="donor_message"
-							class="textarea preset-tonal-surface w-full"
-							rows="3"
-							maxlength="1000"
-							placeholder="Share what inspires you to give…"
-							bind:value={donorMessage}></textarea>
-					</div>
-
-					<!-- Anonymity checkbox -->
-					<label class="anonymity-check flex cursor-pointer items-start gap-3 rounded-xl p-3">
-						<input
-							type="checkbox"
-							class="checkbox mt-0.5 shrink-0"
-							bind:checked={requestAnonymity}
-						/>
-						<div>
-							<div class="flex items-center gap-1.5 text-sm font-medium">
-								<IconEyeOff class="h-3.5 w-3.5 opacity-70" />
-								Request anonymity from the recipient
+					<div class="border-surface-800 flex flex-col gap-5 border-t pt-6">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							02 / Donor details
+						</p>
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+							<div class="flex flex-col gap-1.5">
+								<label
+									class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+									for="donor_name"
+								>
+									Name <span class="text-surface-300 normal-case">(optional)</span>
+								</label>
+								<input
+									id="donor_name"
+									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
+									type="text"
+									maxlength="120"
+									placeholder="Your name"
+									bind:value={donorName}
+								/>
 							</div>
-							<p class="mt-0.5 text-xs leading-relaxed opacity-70">
-								Card and payment records may still contain identifying information; this asks the
-								recipient to keep your donation private.
-							</p>
+							<div class="flex flex-col gap-1.5">
+								<label
+									class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+									for="donor_email"
+								>
+									Email <span class="text-surface-300 normal-case">(for receipt)</span>
+								</label>
+								<input
+									id="donor_email"
+									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
+									type="email"
+									maxlength="160"
+									placeholder="you@example.com"
+									bind:value={donorEmail}
+									required
+								/>
+							</div>
 						</div>
-					</label>
 
-					<div class="min-h-24 rounded-2xl border border-dashed border-white/10 bg-black/10 p-3">
-						<div bind:this={paymentElementHost}></div>
-						{#if !paymentFormReady}
-							<p class="text-sm opacity-60">
-								The card form loads automatically as the page initializes.
-							</p>
-						{/if}
+						<div class="flex flex-col gap-1.5">
+							<label
+								class="text-surface-50 text-xs font-bold tracking-[0.16em] uppercase"
+								for="donor_message"
+							>
+								Message <span class="text-surface-300 normal-case">(optional)</span>
+							</label>
+							<textarea
+								id="donor_message"
+								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
+								rows="3"
+								maxlength="1000"
+								placeholder="Share what inspires you to give…"
+								bind:value={donorMessage}></textarea>
+						</div>
+
+						<!-- Anonymity checkbox -->
+						<label
+							class="flex cursor-pointer items-start gap-3 border-2 p-4 transition {requestAnonymity
+								? 'border-primary-500 bg-surface-900'
+								: 'border-surface-800 bg-surface-900 hover:border-surface-600'}"
+						>
+							<input
+								type="checkbox"
+								class="checkbox mt-0.5 shrink-0"
+								bind:checked={requestAnonymity}
+							/>
+							<div class="flex flex-col gap-1">
+								<div class="text-surface-50 flex items-center gap-2 text-sm font-black uppercase">
+									<IconEyeOff class="text-primary-500 h-4 w-4" />
+									Request anonymity from the recipient
+								</div>
+								<p class="text-surface-300 m-0 text-xs leading-relaxed">
+									Card and payment records may still contain identifying information; this asks the
+									recipient to keep your donation private.
+								</p>
+							</div>
+						</label>
+					</div>
+
+					<!-- Payment Element -->
+					<div class="border-surface-800 flex flex-col gap-3 border-t pt-6">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							03 / Payment method
+						</p>
+						<div class="border-surface-700 bg-surface-900 min-h-24 border-2 p-4">
+							<div bind:this={paymentElementHost}></div>
+							{#if !paymentFormReady}
+								<p class="text-surface-300 m-0 text-sm">
+									The card form loads automatically as the page initializes.
+								</p>
+							{/if}
+						</div>
 					</div>
 
 					<!-- Errors / success -->
 					{#if error}
 						<div
-							class="rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm"
+							class="border-tertiary-500 bg-surface-900 text-surface-50 border-l-4 px-5 py-4 text-sm font-bold"
 							in:slide
 						>
 							{error}
@@ -735,191 +833,40 @@
 					{/if}
 					{#if success}
 						<div
-							class="flex items-center gap-2 rounded-xl border border-green-500/35 bg-green-500/10 px-4 py-3 text-sm"
+							class="border-primary-500 bg-surface-900 text-surface-50 flex items-center gap-2 border-l-4 px-5 py-4 text-sm font-bold"
 							in:slide
 						>
-							<IconCheck class="h-4 w-4 shrink-0 text-green-400" />
+							<IconCheck class="text-primary-500 h-4 w-4 shrink-0" />
 							{success}
 						</div>
 					{/if}
 
 					<!-- Submit -->
-					<div class="flex flex-wrap items-center gap-3">
+					<div class="sm: flex flex-col flex-wrap gap-3 sm:flex-row sm:items-center">
 						<button
 							type="submit"
-							class="donate-btn btn preset-filled-primary-500 gap-2"
+							class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:text-surface-950 inline-flex items-center justify-center gap-3 px-8 py-4 text-base font-black tracking-wide uppercase transition disabled:opacity-50"
 							disabled={submitting || preparingPayment}
 						>
 							{#if preparingPayment}
-								<span class="animate-pulse">Loading secure payment form…</span>
+								<span>Loading secure payment form…</span>
 							{:else if submitting}
-								<span class="animate-pulse">Confirming donation…</span>
+								<span>Confirming donation…</span>
 							{:else}
-								<IconHeart class="h-4 w-4" />
+								<IconHeart class="h-5 w-5" />
 								Donate
 								{formatAmount(amount) !== '0.00' ? ` $${formatAmount(amount)}` : ''}
-								<IconArrowRight class="h-4 w-4" />
+								<IconArrowRight class="h-5 w-5 transition group-hover:translate-x-1" />
 							{/if}
 						</button>
-						<p class="text-xs opacity-50">
-							{#if !paymentFormReady}
+						{#if !paymentFormReady}
+							<p class="text-surface-300 m-0 text-xs">
 								Loading Stripe's secure card form directly into this page.
-							{/if}
-						</p>
+							</p>
+						{/if}
 					</div>
-
-					<!-- Tax notice -->
-					<p class="text-xs leading-relaxed opacity-70">
-						{data.taxNotice}
-					</p>
-				</div>
+				</form>
 			</div>
-		</form>
-	{/if}
+		{/if}
+	</section>
 </div>
-
-<style>
-	/* ── Hero ── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-	}
-
-	/* ── Headline ── */
-	.donate-headline {
-		color: var(--color-primary-50);
-		text-align: left;
-	}
-
-	.donate-headline-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-primary-300),
-			var(--color-secondary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Stat cards ── */
-	.stat-card {
-		transition:
-			transform 200ms ease,
-			box-shadow 200ms ease;
-	}
-
-	.stat-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	.stat-card-glow {
-		position: absolute;
-		inset: 0;
-		opacity: 0.07;
-		pointer-events: none;
-	}
-
-	/* ── Admin section ── */
-	.admin-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 70% 80% at 0% 50%,
-			color-mix(in oklab, var(--color-warning-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.admin-icon-ring {
-		background: color-mix(in oklab, var(--color-warning-500) 18%, var(--color-surface-800) 82%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 32%, transparent);
-		color: color-mix(in oklab, var(--color-warning-400) 90%, white 10%);
-	}
-
-	/* ── Not enabled state ── */
-	.not-enabled-section {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
-	.not-enabled-orb {
-		position: absolute;
-		width: 300px;
-		height: 300px;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		border-radius: 50%;
-		background: color-mix(in oklab, var(--color-primary-500) 10%, transparent);
-		filter: blur(60px);
-		pointer-events: none;
-	}
-
-	.not-enabled-icon {
-		background: color-mix(in oklab, var(--color-primary-500) 15%, var(--color-surface-800) 85%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-		color: color-mix(in oklab, var(--color-primary-400) 90%, white 10%);
-	}
-
-	/* ── Donation form section ── */
-	.donation-form-section {
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		background: color-mix(in oklab, var(--color-primary-500) 6%, var(--color-surface-950) 94%);
-	}
-
-	.form-orb {
-		position: absolute;
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		right: -10%;
-		border-radius: 50%;
-		background: color-mix(in oklab, var(--color-primary-500) 10%, transparent);
-		filter: blur(80px);
-		pointer-events: none;
-	}
-
-	.form-icon-ring {
-		background: color-mix(in oklab, var(--color-primary-500) 20%, var(--color-surface-800) 80%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-		color: color-mix(in oklab, var(--color-primary-400) 90%, white 10%);
-	}
-
-	/* ── Amount section ── */
-	.amount-section {
-		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
-	}
-
-	/* ── Anonymity checkbox area ── */
-	.anonymity-check {
-		background: color-mix(in oklab, var(--color-surface-500) 8%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
-		transition:
-			background 180ms,
-			border-color 180ms;
-	}
-
-	.anonymity-check:has(input:checked) {
-		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-	}
-
-	/* ── Donate button ── */
-	.donate-btn {
-		font-size: 1.05rem;
-		font-weight: 700;
-		padding: 0.75rem 2rem;
-		transition:
-			transform 150ms,
-			box-shadow 150ms;
-	}
-
-	.donate-btn:not(:disabled):hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px -4px color-mix(in oklab, var(--color-primary-500) 45%, transparent);
-	}
-</style>

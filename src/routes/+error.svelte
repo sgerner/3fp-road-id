@@ -41,68 +41,87 @@
 	<title>{status} - 3 Feet Please</title>
 </svelte:head>
 
-<!-- Cinematic Full-Page Layout -->
 <section
-	class="relative flex min-h-[calc(100dvh-73px)] w-full flex-col items-center justify-center overflow-hidden"
+	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh+2rem)] flex-col overflow-hidden"
 	aria-label="Error"
 >
-	<!-- Subtle Background Enhancements (Assuming cinematic-bg-drift from app.css is active on the body) -->
-
-	<!-- Glow accent for depth -->
-	<div
-		class="bg-primary-600-400/20 pointer-events-none absolute top-1/2 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
-	></div>
-
-	<!-- Glassmorphic Card Container -->
-	<div
-		class="card border-surface-300-700/50 bg-surface-100-900/60 shadow-surface-950/20 relative z-10 mx-auto w-full max-w-2xl border p-8 text-center shadow-2xl backdrop-blur-md sm:rounded-3xl sm:p-12"
-	>
-		<!-- 404 / Error Code Header -->
-		<h1
-			class="from-primary-400 to-tertiary-500 mb-4 bg-linear-to-r bg-clip-text text-8xl font-black text-transparent drop-shadow-sm sm:text-9xl"
+	<div class="bg-primary-500 text-surface-950 grid flex-1 lg:grid-cols-[auto_minmax(0,1fr)]">
+		<div
+			class="bg-tertiary-500 text-surface-950 border-surface-950 flex flex-col justify-between gap-6 border-b-[3px] px-8 py-10 sm:px-12 lg:border-r-[3px] lg:border-b-0 lg:px-16 lg:py-16"
 		>
-			{status}
-		</h1>
-
-		<!-- Subheading / Title -->
-		<h2 class="text-primary-950-50 mb-6 text-2xl font-bold sm:text-3xl">
-			{#if is404}
-				Page Not Found
-			{:else}
-				Something went wrong
-			{/if}
-		</h2>
-
-		<!-- The Pun -->
-		<p class="text-surface-700-300 mx-auto mb-8 max-w-md text-lg leading-relaxed italic">
-			"{randomPun}"
-		</p>
-
-		<!-- Optional Error Details -->
-		{#if !is404 && errorMessage}
-			<div
-				class="bg-surface-800/40 text-surface-200 mt-4 mb-8 max-w-full overflow-x-auto rounded-lg p-3 text-left font-mono text-sm"
+			<p class="m-0 text-xs font-bold tracking-[0.22em] uppercase">Status Code</p>
+			<h1
+				class="text-surface-950! m-0 text-[clamp(6rem,18vw,14rem)] leading-[0.78] font-black tracking-[-0.06em] italic tabular-nums"
 			>
-				Error details: {errorMessage}
-			</div>
-		{/if}
-
-		<!-- CTA Buttons -->
-		<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
-			<button
-				onclick={() => history.back()}
-				class="btn preset-outlined-primary-500 group flex w-full items-center justify-center gap-2 px-6 py-2.5 transition-transform hover:scale-105 sm:w-auto"
-			>
-				<IconArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-				Go Back
-			</button>
-			<a
-				href="/"
-				class="btn preset-filled-primary-500 group shadow-primary-500/20 flex w-full items-center justify-center gap-2 px-6 py-2.5 shadow-lg transition-transform hover:scale-105 sm:w-auto"
-			>
-				<IconHome class="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
-				Return Home
-			</a>
+				{status}
+			</h1>
+			<p class="m-0 text-xs font-black tracking-[0.22em] uppercase">3 Feet Please</p>
 		</div>
+
+		<div class="flex flex-col justify-between gap-10 px-8 py-10 sm:px-12 lg:px-16 lg:py-16">
+			<p class="m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase">
+				<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
+				<span>Off Course</span>
+			</p>
+
+			<div class="flex flex-col gap-6">
+				<h2
+					class="text-surface-950! m-0 text-4xl leading-[0.88] font-black tracking-[-0.03em] uppercase italic sm:text-6xl lg:text-7xl"
+				>
+					{#if is404}
+						Page Not <span class="text-secondary-500">Found</span>
+					{:else}
+						Something went <span class="text-secondary-500">wrong</span>
+					{/if}
+				</h2>
+
+				<p class="m-0 max-w-xl text-xl leading-snug font-bold italic sm:text-2xl">
+					"{randomPun}"
+				</p>
+
+				{#if !is404 && errorMessage}
+					<div
+						class="bg-surface-950 text-surface-50 max-w-2xl overflow-x-auto p-4 text-left font-mono text-sm"
+					>
+						Error details: {errorMessage}
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+				<button
+					onclick={() => history.back()}
+					class="group border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center gap-3 border-[3px] px-7 py-4 text-base font-black tracking-wide uppercase transition"
+				>
+					<IconArrowLeft class="h-5 w-5 transition group-hover:-translate-x-1" />
+					Go Back
+				</button>
+				<a
+					href="/"
+					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+				>
+					<IconHome class="h-5 w-5" />
+					Return Home
+				</a>
+			</div>
+		</div>
+	</div>
+
+	<!-- Ruler band: 0 → 3 ft -->
+	<div
+		class="bg-surface-950 text-primary-500 border-surface-950 grid grid-cols-3 border-t-[3px]"
+		aria-hidden="true"
+	>
+		{#each ['0', '1 ft', '2 ft'] as mark, i (mark)}
+			<div class="border-surface-800 relative h-14 border-l-[3px] first:border-l-0">
+				<span
+					class="absolute inset-x-0 top-0 h-5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_2px,transparent_2px_calc(100%/12))]"
+				></span>
+				<span class="absolute bottom-2 left-6 text-sm font-black uppercase">{mark}</span>
+				{#if i === 2}
+					<span class="absolute right-6 bottom-2 text-sm font-black uppercase">3 ft</span>
+				{/if}
+			</div>
+		{/each}
 	</div>
 </section>

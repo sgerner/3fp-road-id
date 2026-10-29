@@ -70,21 +70,28 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="flex flex-col gap-5">
 	{#each questions as question (question.id)}
 		{@const questionInputId = `question-input-${question.id}`}
-		<div class="space-y-2">
-			<label class="text-surface-800-200 block text-sm font-semibold" for={questionInputId}>
+		<div class="flex flex-col gap-2">
+			<label
+				class="text-surface-50 block text-xs font-bold tracking-[0.18em] uppercase"
+				for={questionInputId}
+			>
 				<span class="flex items-center gap-2">
 					{question.label}
 					{#if question.is_required}
-						<span class="text-warning-700-300 text-xs uppercase">Required</span>
+						<span
+							class="bg-primary-500 text-surface-950 px-2 py-0.5 text-[10px] font-black uppercase"
+						>
+							Required
+						</span>
 					{/if}
 				</span>
 			</label>
 
 			{#if question.help_text}
-				<div class="text-surface-600-400 text-xs">
+				<div class="text-xs opacity-85">
 					{@html renderMarkdown(question.help_text)}
 				</div>
 			{/if}
@@ -92,13 +99,13 @@
 			{#if question.field_type === 'textarea'}
 				<textarea
 					id={questionInputId}
-					class="input bg-surface-50-950/40 min-h-[120px]"
+					class="border-surface-950 bg-surface-950 text-surface-50 min-h-[120px] border-[3px] px-4 py-3 text-sm font-medium focus:outline-none"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleTextChange(question, event)}></textarea>
 			{:else if question.field_type === 'select'}
 				<select
 					id={questionInputId}
-					class="input bg-surface-50-950/40"
+					class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-medium focus:outline-none"
 					onchange={(event) => handleSelectChange(question, event)}
 					value={getValue(question.id) ?? ''}
 				>
@@ -110,10 +117,10 @@
 			{:else if question.field_type === 'multiselect'}
 				<div
 					id={questionInputId}
-					class="bg-surface-50-950/40 border-surface-500/30 space-y-2 rounded-xl border p-3"
+					class="border-surface-950 bg-surface-950 text-surface-50 flex flex-col gap-2 border-[3px] p-4"
 				>
 					{#each optionsFor(question) as option (option)}
-						<label class="flex items-center gap-2 text-sm">
+						<label class="flex items-center gap-2 text-sm font-medium">
 							<input
 								type="checkbox"
 								class="checkbox"
@@ -126,7 +133,7 @@
 					{/each}
 				</div>
 			{:else if question.field_type === 'checkbox'}
-				<label class="flex items-center gap-2 text-sm">
+				<label class="flex items-center gap-2 text-sm font-medium">
 					<input
 						id={questionInputId}
 						type="checkbox"
@@ -140,7 +147,7 @@
 				<input
 					id={questionInputId}
 					type="number"
-					class="input bg-surface-50-950/40"
+					class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-medium focus:outline-none"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleNumberChange(question, event)}
 				/>
@@ -148,14 +155,16 @@
 				<input
 					id={questionInputId}
 					type={inputType(question)}
-					class="input bg-surface-50-950/40"
+					class="border-surface-950 bg-surface-950 text-surface-50 border-[3px] px-4 py-3 text-sm font-medium focus:outline-none"
 					value={getValue(question.id) ?? ''}
 					oninput={(event) => handleTextChange(question, event)}
 				/>
 			{/if}
 
 			{#if errors?.[question.id]}
-				<p class="text-error-800-200 text-xs">{errors[question.id]}</p>
+				<p class="bg-tertiary-500 text-surface-950 m-0 px-3 py-1.5 text-xs font-black uppercase">
+					{errors[question.id]}
+				</p>
 			{/if}
 		</div>
 	{/each}
