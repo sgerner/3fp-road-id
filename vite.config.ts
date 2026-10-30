@@ -7,9 +7,27 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	ssr: {
-		// Bundle the CommonJS sanitizer and its ESM parser together so Vercel's
-		// runtime does not have to require an ES module from node_modules.
-		noExternal: ['sanitize-html', 'htmlparser2']
+		// Bundle the sanitizer's entire dependency tree: external CommonJS
+		// requires become dynamic helpers that Vercel cannot reliably trace.
+		noExternal: [
+			'sanitize-html',
+			'deepmerge',
+			'escape-string-regexp',
+			'htmlparser2',
+			'domelementtype',
+			'domhandler',
+			'domutils',
+			'dom-serializer',
+			'entities',
+			'is-plain-object',
+			'launder',
+			'dayjs',
+			'parse-srcset',
+			'postcss',
+			'nanoid',
+			'picocolors',
+			'source-map-js'
+		]
 	},
 	build: {
 		rolldownOptions: {

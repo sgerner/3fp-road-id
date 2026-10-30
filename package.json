@@ -11,6 +11,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "node --test src/lib/server/*.test.js",
+		"test:server-sanitizer": "node --no-experimental-require-module scripts/check-server-sanitizer.mjs",
 		"prepare": "svelte-kit sync || echo ''",
 		"seed:rides": "node scripts/seed-rides.mjs",
 		"import:weeklyrides": "node scripts/import-weeklyrides.mjs",
