@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	ssr: {
+		// Bundle the CommonJS sanitizer and its ESM parser together so Vercel's
+		// runtime does not have to require an ES module from node_modules.
+		noExternal: ['sanitize-html', 'htmlparser2']
+	},
 	build: {
 		rolldownOptions: {
 			output: {
