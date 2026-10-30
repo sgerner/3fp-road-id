@@ -13,7 +13,10 @@ try {
 	// Shared runtime helpers also import Kit's environment config. Allow only
 	// that framework package; sanitizer dependencies must all be bundled.
 	await mkdir(join(isolated, 'node_modules/@sveltejs'), { recursive: true });
-	await symlink(resolve('node_modules/@sveltejs/kit'), join(isolated, 'node_modules/@sveltejs/kit'));
+	await symlink(
+		resolve('node_modules/@sveltejs/kit'),
+		join(isolated, 'node_modules/@sveltejs/kit')
+	);
 	const bundled = await import(pathToFileURL(join(isolated, 'chunks/sanitize-html.js')).href);
 	// Rolldown shortens export names; this chunk exports the CommonJS initializer.
 	const [loadSanitizer] = Object.values(bundled);
