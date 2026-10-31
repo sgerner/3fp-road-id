@@ -587,6 +587,7 @@
 								<label class="flex items-center gap-3">
 									<Toggle
 										name={`question-required-${question.id}`}
+										ariaLabel="Mark question as required"
 										checked={question.isRequired}
 										onChange={(v) => onUpdateQuestion(question.id, { isRequired: v })}
 									/>
@@ -1181,6 +1182,7 @@
 							<label class="flex items-center gap-3">
 								<Toggle
 									name={`email-confirm-toggle-${email.id}`}
+									ariaLabel="Require attendance confirmation"
 									checked={email.requireConfirmation}
 									onChange={(v) =>
 										handleConfirmationChange({ currentTarget: { checked: v } }, email)}

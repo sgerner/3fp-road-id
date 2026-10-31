@@ -843,7 +843,7 @@
 														target="_blank"
 														class="text-primary-500 font-black underline"
 													>
-														{profile?.phone ? formatPhoneNumber(contact.contact_phone) : ''}
+														{contact.contact_phone ? formatPhoneNumber(contact.contact_phone) : ''}
 													</a>
 												</li>
 											{/each}

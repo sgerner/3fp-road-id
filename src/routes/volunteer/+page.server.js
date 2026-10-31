@@ -1,3 +1,4 @@
+import { loadOpportunities } from '#lib/volunteer/loadOpportunities';
 import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
 
 export const load = async ({ fetch }) => {
@@ -64,6 +65,7 @@ export const load = async ({ fetch }) => {
 
 		return true;
 	});
+	const volunteer_opportunities = await loadOpportunities(fetch, events);
 	const hostGroupIds = Array.from(
 		new Set(
 			events.map((event) => event.host_group_id).filter((id) => id !== null && id !== undefined)
@@ -131,6 +133,7 @@ export const load = async ({ fetch }) => {
 
 	return {
 		events,
+		volunteer_opportunities,
 		hostGroups,
 		eventTypes,
 		retrievedAt: now.toISOString()

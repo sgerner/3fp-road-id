@@ -988,7 +988,7 @@
 	</section>
 
 	<div class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.85fr)]">
-		<div class="order-2 space-y-6 xl:order-1">
+		<div class="order-1 space-y-6 xl:order-1">
 			<section class="editor-section card preset-tonal-surface">
 				<div class="editor-section-header">
 					<div class="editor-section-icon"><IconCalendarClock class="h-4 w-4" /></div>
@@ -1890,7 +1890,7 @@
 			{/if}
 		</div>
 
-		<aside class="order-1 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
+		<aside class="order-2 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
 			<!-- AI Intake -->
 			<section class="ai-panel card overflow-hidden">
 				<div class="ai-panel-header p-4 pb-3">

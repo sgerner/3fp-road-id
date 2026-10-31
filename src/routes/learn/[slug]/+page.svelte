@@ -63,46 +63,10 @@
 		headingEls.forEach((el) => observer.observe(el));
 	}
 
-	// ── Fixed TOC positioning ─────────────────────────────────────────────
-	// overflow-x:hidden on the root <main> breaks position:sticky for all
-	// descendants. Instead we track the sidebar placeholder's screen rect
-	// and drive a position:fixed panel to match it.
-	let tocPlaceholderEl = $state(null);
-	let tocFixed = $state({ left: 0, top: 0, width: 0, visible: false });
-
-	function updateTocPosition() {
-		if (!tocPlaceholderEl) return;
-		const rect = tocPlaceholderEl.getBoundingClientRect();
-		// Only show when the placeholder column is actually on screen (xl+)
-		const isVisible = rect.width > 0 && window.innerWidth >= 1280;
-		tocFixed = {
-			left: rect.left,
-			// Clamp top: start from the placeholder top but never above the nav (~130px)
-			top: Math.max(130, rect.top),
-			width: rect.width,
-			visible: isVisible
-		};
-	}
-
 	$effect(() => {
 		window.addEventListener('scroll', onScroll, { passive: true });
-		window.addEventListener('scroll', updateTocPosition, { passive: true });
-		window.addEventListener('resize', updateTocPosition, { passive: true });
 		onScroll();
-		updateTocPosition();
-
-		let ro;
-		if (typeof ResizeObserver !== 'undefined') {
-			ro = new ResizeObserver(updateTocPosition);
-			if (tocPlaceholderEl) ro.observe(tocPlaceholderEl);
-		}
-
-		return () => {
-			window.removeEventListener('scroll', onScroll);
-			window.removeEventListener('scroll', updateTocPosition);
-			window.removeEventListener('resize', updateTocPosition);
-			ro?.disconnect();
-		};
+		return () => window.removeEventListener('scroll', onScroll);
 	});
 
 	$effect(() => {
@@ -113,7 +77,6 @@
 			if (!cancelled && content) {
 				setupScrollSpy();
 				onScroll();
-				updateTocPosition();
 			}
 		});
 		return () => {
@@ -480,7 +443,24 @@
 
 			<!-- ═══ DESKTOP TOC SIDEBAR (xl+) ════════════════════════════════════ -->
 			{#if tocHeadingsDesktop.length}
-				<aside class="toc-placeholder hidden xl:block" bind:this={tocPlaceholderEl}></aside>
+				<aside class="hidden xl:block">
+					<div class="toc-panel">
+						<div class="toc-sidebar-label">
+							<IconListTree class="h-3.5 w-3.5" />
+							On this page
+						</div>
+						<nav class="toc-sidebar-nav">
+							{#each tocHeadingsDesktop as heading}
+								<a
+									class={`toc-sidebar-link ${heading.depth === 2 ? 'toc-sidebar-link-h2' : ''} ${heading.depth === 3 ? 'toc-sidebar-link-h3' : ''} ${activeHeadingId === heading.id ? 'toc-sidebar-link-active' : ''}`}
+									href={`#${heading.id}`}
+								>
+									{heading.text}
+								</a>
+							{/each}
+						</nav>
+					</div>
+				</aside>
 			{/if}
 		</div>
 	</div>
@@ -688,29 +668,6 @@
 	</section>
 </div>
 
-<!-- ═══ FIXED TOC PANEL (rendered outside grid, always on top) ══════════ -->
-{#if tocHeadingsDesktop.length && tocFixed.visible}
-	<div
-		class="toc-fixed-panel"
-		style="left: {tocFixed.left}px; top: {tocFixed.top}px; width: {tocFixed.width}px;"
-	>
-		<div class="toc-sidebar-label">
-			<IconListTree class="h-3.5 w-3.5" />
-			On this page
-		</div>
-		<nav class="toc-sidebar-nav">
-			{#each tocHeadingsDesktop as heading}
-				<a
-					class={`toc-sidebar-link ${heading.depth === 2 ? 'toc-sidebar-link-h2' : ''} ${heading.depth === 3 ? 'toc-sidebar-link-h3' : ''} ${activeHeadingId === heading.id ? 'toc-sidebar-link-active' : ''}`}
-					href={`#${heading.id}`}
-				>
-					{heading.text}
-				</a>
-			{/each}
-		</nav>
-	</div>
-{/if}
-
 <style>
 	/* ── Page layout ── */
 	.article-page-root {
@@ -753,15 +710,9 @@
 		transition: width 0.1s linear;
 	}
 
-	/* ── Desktop TOC placeholder ── */
-	.toc-placeholder {
-		pointer-events: none;
-	}
-
-	/* ── Fixed TOC panel (JS-positioned, rendered outside the grid) ── */
-	.toc-fixed-panel {
-		position: fixed;
-		z-index: 30;
+	.toc-panel {
+		position: sticky;
+		top: 8.125rem;
 		max-height: calc(100vh - 9rem);
 		overflow-y: auto;
 		scrollbar-width: thin;

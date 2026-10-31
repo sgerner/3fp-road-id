@@ -3410,6 +3410,7 @@
 														items={getTransactionAccountOptions(lineDraft?.query ?? '')}
 														query={lineDraft?.query ??
 															(line.account ? accountLabel(line.account) : '')}
+														ariaLabel={lineLabel}
 														placeholder="Search accounts"
 														emptyMessage="No matching accounts."
 														itemLabel={accountLabel}
@@ -4516,6 +4517,7 @@
 												<SearchableSelect
 													items={categoryOptions}
 													query={selection.categoryQuery}
+													ariaLabel={`Category or transfer account for ${item.description || 'this transaction'}`}
 													placeholder="Category or transfer account…"
 													emptyMessage="No matches."
 													itemLabel={accountLabel}

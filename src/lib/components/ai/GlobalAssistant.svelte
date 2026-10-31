@@ -26,8 +26,12 @@
 	let input = $state('');
 	let error = $state('');
 	let messages = $state([DEFAULT_WELCOME]);
+	let dialogEl = $state(null);
 	let chatBodyEl = $state(null);
 	let inputTextareaEl = $state(null);
+	let toggleButtonEl = $state(null);
+	let previousFocusEl = $state(null);
+	let focusRestoreVersion = 0;
 	let assistantSessionId = $state('');
 	let savedRecommendationKeys = $state({});
 	let hasMounted = $state(false);
@@ -41,8 +45,73 @@
 	const messageShownAt = new Map();
 
 	$effect(() => {
-		if (initialOpen) isOpen = true;
+		if (initialOpen) openAssistant();
 	});
+
+	function openAssistant() {
+		if (isOpen) return;
+		focusRestoreVersion += 1;
+		const activeElement = document.activeElement;
+		previousFocusEl =
+			activeElement instanceof HTMLElement && activeElement !== document.body
+				? activeElement
+				: toggleButtonEl;
+		isOpen = true;
+		void tick().then(() => {
+			if (isOpen) inputTextareaEl?.focus();
+		});
+	}
+
+	function closeAssistant({ restoreFocus = true } = {}) {
+		if (!isOpen) {
+			if (!restoreFocus) focusRestoreVersion += 1;
+			return;
+		}
+		const restoreTarget = previousFocusEl;
+		const restoreVersion = ++focusRestoreVersion;
+		isOpen = false;
+		previousFocusEl = null;
+		if (!restoreFocus) return;
+		void tick().then(() => {
+			if (restoreVersion !== focusRestoreVersion || isOpen) return;
+			const target = restoreTarget?.isConnected ? restoreTarget : toggleButtonEl;
+			target?.focus();
+		});
+	}
+
+	function toggleAssistant() {
+		if (isOpen) closeAssistant();
+		else openAssistant();
+	}
+
+	function handleDialogKeydown(event) {
+		if (event.key !== 'Tab') return;
+
+		const focusable = Array.from(
+			dialogEl?.querySelectorAll(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			) ?? []
+		).filter(
+			(element) => element.tabIndex >= 0 && !element.hidden && element.getClientRects().length > 0
+		);
+
+		if (!focusable.length) {
+			event.preventDefault();
+			dialogEl?.focus();
+			return;
+		}
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const activeElement = document.activeElement;
+		if (event.shiftKey && (activeElement === first || !dialogEl?.contains(activeElement))) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && (activeElement === last || !dialogEl?.contains(activeElement))) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
 
 	function escapeHtml(value) {
 		return String(value)
@@ -327,7 +396,7 @@
 				});
 			}
 		}
-		isOpen = false;
+		closeAssistant();
 	}
 
 	function markRecommendationSaved(key) {
@@ -446,14 +515,18 @@
 		hasMounted = true;
 		loadMessagesFromStorage(storageKey);
 
-		const onEscape = (event) => {
-			if (event.key === 'Escape') isOpen = false;
+		const onGlobalKeydown = (event) => {
+			if (!isOpen || event.key !== 'Escape') return;
+			event.preventDefault();
+			closeAssistant();
 		};
-		document.addEventListener('keydown', onEscape);
-
+		const onOpenLogin = () => closeAssistant({ restoreFocus: false });
+		document.addEventListener('keydown', onGlobalKeydown);
+		window.addEventListener('open-login', onOpenLogin);
 		resizeInputTextarea();
 		return () => {
-			document.removeEventListener('keydown', onEscape);
+			document.removeEventListener('keydown', onGlobalKeydown);
+			window.removeEventListener('open-login', onOpenLogin);
 		};
 	});
 
@@ -475,12 +548,26 @@
 	});
 </script>
 
+{#if isOpen}
+	<button
+		type="button"
+		class="bg-surface-950/25 fixed inset-0 z-[79] cursor-default"
+		tabindex="-1"
+		aria-label="Close 3FP assistant"
+		onclick={closeAssistant}
+	></button>
+{/if}
+
 <div class="fixed right-0 bottom-0 z-[80]">
 	{#if isOpen}
 		<div
+			bind:this={dialogEl}
 			class="card preset-filled-surface-100-900 border-surface-300-700 absolute right-0 bottom-[calc(100%+0.5rem)] grid h-[min(75vh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur max-sm:h-[min(72vh,34rem)]"
 			role="dialog"
 			aria-label="3FP assistant"
+			aria-modal="true"
+			tabindex="-1"
+			onkeydown={handleDialogKeydown}
 		>
 			<header
 				class="border-surface-500/20 flex items-center justify-between gap-3 border-b px-4 py-3"
@@ -492,7 +579,7 @@
 						<IconBot class="h-4 w-4" />
 					</div>
 					<div class="min-w-0">
-						<p class="text-sm leading-tight font-semibold">3FP Assistant</p>
+						<h2 class="text-sm leading-tight font-semibold">3FP Assistant</h2>
 						<p class="text-[11px] opacity-65">Personalized rides, groups & activities</p>
 					</div>
 				</div>
@@ -503,7 +590,7 @@
 					<button
 						type="button"
 						class="btn btn-icon btn-sm preset-tonal-error"
-						onclick={() => (isOpen = false)}
+						onclick={closeAssistant}
 						aria-label="Close assistant"
 					>
 						<IconX class="h-4 w-4" />
@@ -532,7 +619,7 @@
 								<a
 									href={entry.navigationTarget.url}
 									class="btn btn-sm preset-filled-primary-500 mt-2 inline-flex gap-1.5"
-									onclick={() => (isOpen = false)}
+									onclick={closeAssistant}
 								>
 									<IconArrowRight class="h-3.5 w-3.5" />
 									{entry.navigationTarget.label}
@@ -626,6 +713,7 @@
 						maxlength="500"
 						class="input w-full resize-none p-2"
 						disabled={sending}
+						aria-label="Message to 3FP Assistant"
 						onkeydown={handleInputKeydown}></textarea>
 					<button
 						type="submit"
@@ -641,9 +729,10 @@
 	{/if}
 
 	<button
+		bind:this={toggleButtonEl}
 		type="button"
 		class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"
-		onclick={() => (isOpen = !isOpen)}
+		onclick={toggleAssistant}
 		aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
 	>
 		{#if isOpen}
