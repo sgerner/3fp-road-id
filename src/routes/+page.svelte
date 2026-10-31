@@ -117,9 +117,9 @@
 	];
 	const actions = [
 		{
-			href: '/groups/new',
-			label: 'Start a group',
-			description: 'Put your crew on the map so new riders can find you.',
+			href: '/get-involved',
+			label: 'Get involved',
+			description: 'Find volunteer shifts and ongoing ways to support safer cycling.',
 			icon: IconUsersRound,
 			tone: 'bg-primary-500 text-surface-950 hover:bg-primary-600'
 		},
@@ -271,7 +271,7 @@
 			</div>
 		</div>
 
-		<div class="bg-surface-950 relative min-h-[24rem] sm:min-h-[30rem]">
+		<div class="bg-surface-950 relative min-h-[12rem] sm:min-h-[30rem]">
 			<img
 				src={heroImageSmall || '/images/default-ride.webp'}
 				srcset={heroImageSmall ? `${heroImageSmall} 768w, ${heroImageLarge} 1200w` : undefined}

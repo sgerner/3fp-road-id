@@ -240,9 +240,18 @@
 					Sign in to see your shifts
 				</h2>
 				<p class="text-surface-300 m-0 max-w-xl text-lg leading-relaxed">
-					Use the volunteer hub sign-in link from your confirmation email. Once signed in, you can
-					confirm, cancel, or reschedule your shifts here.
+					Sign in to confirm, cancel, or reschedule your shifts here.
 				</p>
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-fit items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition"
+					onclick={(event) => {
+						event.stopPropagation();
+						window.dispatchEvent(new Event('open-login'));
+					}}
+				>
+					Sign in
+				</button>
 			</section>
 		{:else}
 			<!-- UPCOMING SHIFTS -->
