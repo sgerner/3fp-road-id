@@ -300,17 +300,9 @@
 		return monthLabel;
 	});
 
-	const mobileWeekDays = $derived.by(() => {
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const weekWithToday = calendarMatrix.find((week) =>
-			week.some((d) => d.date.toDateString() === today.toDateString())
-		);
-		if (weekWithToday) return weekWithToday;
-
-		const weekWithEvents = calendarMatrix.find((week) => week.some((d) => d.events?.length));
-		return weekWithEvents ?? calendarMatrix[0] ?? [];
-	});
+	const mobileMonthDays = $derived(
+		calendarMatrix.flat().filter((day) => day.inMonth && day.events.length > 0)
+	);
 
 	let mapContainer = $state(null);
 	let leafletModule = $state(null);
@@ -504,6 +496,7 @@
 					<input
 						type="search"
 						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none"
+						aria-label="Search volunteer opportunities"
 						bind:value={searchInput}
 						placeholder="Find by title, host, or description…"
 						onkeydown={(event) => {
@@ -530,6 +523,7 @@
 					<input
 						type="search"
 						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
+						aria-label="Filter by city and state"
 						bind:value={locationQ}
 						placeholder="City and/or state"
 					/>
@@ -537,6 +531,7 @@
 
 				<select
 					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+					aria-label="Filter by host group"
 					bind:value={hostGroupId}
 				>
 					<option value="">All groups</option>
@@ -547,6 +542,7 @@
 
 				<select
 					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+					aria-label="Filter by event type"
 					bind:value={eventType}
 				>
 					<option value="">All types</option>
@@ -652,6 +648,10 @@
 					<ol class="border-surface-50 m-0 list-none border-t-2 p-0">
 						{#each filteredEvents as event, i (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
+							{@const eventOpportunityCount = opportunities.filter(
+								(opportunity) =>
+									String(opportunity?.event_id ?? opportunity?.eventId) === String(event.id)
+							).length}
 							<li
 								class="border-surface-800 flex flex-col gap-6 border-b py-8 lg:flex-row lg:items-start lg:justify-between"
 							>
@@ -671,13 +671,13 @@
 													{eventTypeLabel(event)}
 												</span>
 											{/if}
-											{#if opportunities.length}
+											{#if eventOpportunityCount}
 												<a
 													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
 													href={`/volunteer/${event.slug}#opportunities`}
 												>
 													<IconHeartHandshake class="h-3.5 w-3.5" />
-													{opportunities.length} role{opportunities.length === 1 ? '' : 's'} available
+													{eventOpportunityCount} role{eventOpportunityCount === 1 ? '' : 's'} available
 												</a>
 											{/if}
 										</div>
@@ -746,7 +746,11 @@
 				<div
 					class="border-surface-50 flex flex-wrap items-center justify-between gap-4 border-t-2 pt-6"
 				>
-					<h3 class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-4xl">
+					<h3
+						aria-live="polite"
+						aria-atomic="true"
+						class="text-surface-50! m-0 text-2xl font-black uppercase italic sm:text-4xl"
+					>
 						{calendarHeaderText}
 					</h3>
 					<div class="flex gap-2">
@@ -775,24 +779,28 @@
 				</div>
 
 				<div class="border-surface-800 divide-surface-800 divide-y border-t border-b sm:hidden">
-					{#each mobileWeekDays as day (day.key)}
-						<div class={`py-4 ${day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'}`}>
-							<div class="flex items-center justify-between">
-								<div class="text-xs font-black tracking-wide uppercase">
-									{new Intl.DateTimeFormat(undefined, {
-										weekday: 'short',
-										month: 'short',
-										day: 'numeric'
-									}).format(day.date)}
+					{#if mobileMonthDays.length === 0}
+						<p class="text-surface-300 m-0 px-3 py-6 text-sm font-bold uppercase">
+							No events this month.
+						</p>
+					{:else}
+						{#each mobileMonthDays as day (day.key)}
+							<div
+								class={`py-4 ${day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'}`}
+							>
+								<div class="flex items-center justify-between">
+									<div class="text-xs font-black tracking-wide uppercase">
+										{new Intl.DateTimeFormat(undefined, {
+											weekday: 'short',
+											month: 'short',
+											day: 'numeric'
+										}).format(day.date)}
+									</div>
+									<div class="text-primary-500 text-xs font-bold uppercase tabular-nums">
+										{day.events.length} event{day.events.length === 1 ? '' : 's'}
+									</div>
 								</div>
-								<div class="text-primary-500 text-xs font-bold uppercase tabular-nums">
-									{day.events.length} event{day.events.length === 1 ? '' : 's'}
-								</div>
-							</div>
-							<div class="mt-2 flex flex-col gap-1.5">
-								{#if day.events.length === 0}
-									<p class="text-surface-300 m-0 text-xs">No events</p>
-								{:else}
+								<div class="mt-2 flex flex-col gap-1.5">
 									{#each day.events as event (event.id)}
 										<a
 											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
@@ -804,10 +812,10 @@
 											{event.title}
 										</a>
 									{/each}
-								{/if}
+								</div>
 							</div>
-						</div>
-					{/each}
+						{/each}
+					{/if}
 				</div>
 
 				<div class="hidden sm:block">

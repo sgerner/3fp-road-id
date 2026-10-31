@@ -89,18 +89,15 @@
 			>
 				<div class="flex flex-wrap gap-3">
 					<a
-						href="/learn/new"
-						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
-					>
-						<IconPlus class="h-4 w-4" /> Write a guide
-						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
-					</a>
-					<a
 						href="#library"
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						>Browse {articles.length} guides <IconArrowRight class="h-4 w-4" /></a
 					>
-						Browse {articles.length} guides
-					</a>
+					<a
+						href="/learn/new"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						><IconPlus class="h-4 w-4" /> Write a guide</a
+					>
 				</div>
 			</div>
 		</div>

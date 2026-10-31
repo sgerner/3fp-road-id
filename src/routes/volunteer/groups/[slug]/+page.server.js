@@ -1,3 +1,4 @@
+import { loadOpportunities } from '#lib/volunteer/loadOpportunities';
 import { error } from '@sveltejs/kit';
 import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
 
@@ -78,6 +79,7 @@ export const load = async (event) => {
 	}
 
 	const events = normalizeVolunteerEvents(eventRows);
+	const volunteer_opportunities = await loadOpportunities(fetch, events);
 
 	const hostGroups = [
 		{
@@ -113,6 +115,7 @@ export const load = async (event) => {
 	return {
 		group: groupRow,
 		events,
+		volunteer_opportunities,
 		hostGroups,
 		eventTypes,
 		retrievedAt: now.toISOString()

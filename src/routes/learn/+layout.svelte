@@ -32,7 +32,7 @@
 {#if isResearchReport}
 	{@render children()}
 {:else}
-	<div class="text-surface-50 -m-4 flex min-h-[calc(100dvh-73px)] flex-col overflow-hidden">
+	<div class="text-surface-50 -m-4 flex min-h-[calc(100dvh-73px)] flex-col overflow-clip">
 		<nav
 			aria-label="Learn secondary navigation"
 			class="bg-surface-950 border-surface-800 flex flex-wrap items-center justify-between gap-3 border-b-2 px-6 py-3 sm:px-10 lg:px-14"

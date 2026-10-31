@@ -119,17 +119,9 @@
 		}).format(calendarReference)
 	);
 
-	const mobileWeekDays = $derived.by(() => {
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const weekWithToday = calendarMatrix.find((week) =>
-			week.some((day) => day.date.toDateString() === today.toDateString())
-		);
-		if (weekWithToday) return weekWithToday;
-
-		const weekWithRides = calendarMatrix.find((week) => week.some((day) => day.rides?.length));
-		return weekWithRides ?? calendarMatrix[0] ?? [];
-	});
+	const mobileMonthDays = $derived(
+		calendarMatrix.flat().filter((day) => day.inMonth && day.rides.length > 0)
+	);
 
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 
@@ -448,7 +440,7 @@
 		</div>
 
 		<div
-			class="bg-surface-900 border-surface-800 relative min-h-[14rem] border-t-2 lg:border-t-0 lg:border-l-2"
+			class="bg-surface-900 border-surface-800 relative min-h-[10rem] border-t-2 sm:min-h-[14rem] lg:min-h-0 lg:border-t-0 lg:border-l-2"
 		>
 			<img
 				src={heroRide ? heroImage(heroRide) : '/images/default-ride.webp'}
@@ -823,7 +815,11 @@
 		{:else if view === 'calendar'}
 			<div transition:slide class="flex flex-col gap-6">
 				<div class="flex flex-wrap items-center justify-between gap-4">
-					<h3 class="text-surface-50! m-0 text-3xl font-black uppercase italic">
+					<h3
+						aria-live="polite"
+						aria-atomic="true"
+						class="text-surface-50! m-0 text-3xl font-black uppercase italic"
+					>
 						{calendarHeaderText}
 					</h3>
 					<div class="border-surface-50 flex border-[3px]">
@@ -852,28 +848,30 @@
 				</div>
 
 				<div class="border-surface-50 flex flex-col border-t-2 sm:hidden">
-					{#each mobileWeekDays as day (day.key)}
-						<div
-							class={`border-surface-800 border-b py-4 ${
-								day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'
-							}`}
-						>
-							<div class="flex items-center justify-between">
-								<div class="text-sm font-black uppercase">
-									{new Intl.DateTimeFormat(undefined, {
-										weekday: 'short',
-										month: 'short',
-										day: 'numeric'
-									}).format(day.date)}
+					{#if mobileMonthDays.length === 0}
+						<p class="text-surface-300 m-0 px-3 py-6 text-sm font-bold uppercase">
+							No rides this month.
+						</p>
+					{:else}
+						{#each mobileMonthDays as day (day.key)}
+							<div
+								class={`border-surface-800 border-b py-4 ${
+									day.inMonth ? 'text-surface-50' : 'text-surface-300 opacity-60'
+								}`}
+							>
+								<div class="flex items-center justify-between">
+									<div class="text-sm font-black uppercase">
+										{new Intl.DateTimeFormat(undefined, {
+											weekday: 'short',
+											month: 'short',
+											day: 'numeric'
+										}).format(day.date)}
+									</div>
+									<div class="text-primary-500 text-xs font-bold uppercase">
+										{day.rides.length} ride{day.rides.length === 1 ? '' : 's'}
+									</div>
 								</div>
-								<div class="text-primary-500 text-xs font-bold uppercase">
-									{day.rides.length} ride{day.rides.length === 1 ? '' : 's'}
-								</div>
-							</div>
-							<div class="mt-3 flex flex-col gap-2">
-								{#if day.rides.length === 0}
-									<p class="text-surface-300 m-0 text-xs uppercase">No rides</p>
-								{:else}
+								<div class="mt-3 flex flex-col gap-2">
 									{#each day.rides as ride (ride.id ?? ride.slug)}
 										<a
 											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
@@ -885,10 +883,10 @@
 											{ride.title}
 										</a>
 									{/each}
-								{/if}
+								</div>
 							</div>
-						</div>
-					{/each}
+						{/each}
+					{/if}
 				</div>
 
 				<div class="hidden sm:block">

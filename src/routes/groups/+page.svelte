@@ -520,6 +520,7 @@
 				<div class="border-surface-600 focus-within:border-primary-500 flex border-2">
 					<input
 						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-2.5 text-sm font-medium focus:outline-none"
+						aria-label="Search groups"
 						bind:value={q}
 						placeholder="Search by group name, city, or description…"
 						oninput={handleSearchInput}
@@ -538,6 +539,7 @@
 				<div class="grid grid-cols-2 gap-3">
 					<select
 						class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+						aria-label="Country"
 						bind:value={country}
 						onchange={scheduleApply}
 					>
@@ -554,6 +556,7 @@
 					{#if hasStateList}
 						<select
 							class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							aria-label="State or region"
 							bind:value={state_region}
 							onchange={scheduleApply}
 						>
@@ -565,6 +568,7 @@
 					{:else}
 						<input
 							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							aria-label="State or region"
 							bind:value={state_region}
 							oninput={scheduleApply}
 							placeholder="State/Region"

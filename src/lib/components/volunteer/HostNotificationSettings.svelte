@@ -39,6 +39,7 @@
 		<div class="bg-surface-800/30 flex items-center gap-4 px-4 py-3">
 			<Toggle
 				name="host-register"
+				ariaLabel="Notify hosts when a volunteer signs up"
 				checked={registerEnabled}
 				{disabled}
 				onChange={(v) => handleToggle('register', v)}
@@ -51,6 +52,7 @@
 		<div class="bg-surface-800/30 flex items-center gap-4 px-4 py-3">
 			<Toggle
 				name="host-cancel"
+				ariaLabel="Notify hosts when a volunteer cancels"
 				checked={cancelEnabled}
 				{disabled}
 				onChange={(v) => handleToggle('cancel', v)}

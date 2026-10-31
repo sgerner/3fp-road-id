@@ -140,7 +140,7 @@
 							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
 						>
 							<div class="text-surface-100 text-sm font-semibold">Phone</div>
-							<Toggle bind:checked={form.showPhone} />
+							<Toggle ariaLabel="Show phone number on signature" bind:checked={form.showPhone} />
 						</div>
 
 						<input
@@ -154,7 +154,7 @@
 							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
 						>
 							<div class="text-surface-100 text-sm font-semibold">Address</div>
-							<Toggle bind:checked={form.showAddress} />
+							<Toggle ariaLabel="Show address on signature" bind:checked={form.showAddress} />
 						</div>
 					</div>
 				</div>
