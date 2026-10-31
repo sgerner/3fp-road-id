@@ -9,7 +9,8 @@ import sharp from 'sharp';
 
 // Run from the repository root. Source files are the published report and v9 QA exports.
 const deliverables = path.join(os.homedir(), 'Downloads/3fp');
-const report = process.env.SAFETY_REPORT_SOURCE_DIR || path.join(deliverables, 'public-research-review');
+const report =
+	process.env.SAFETY_REPORT_SOURCE_DIR || path.join(deliverables, 'public-research-review');
 const release = process.env.CAMPAIGN_SOURCE_DIR || path.join(deliverables, '_release-v9');
 const campaignRoot = process.env.CAMPAIGN_ASSET_SOURCE_DIR || deliverables;
 const output = 'static/reports/safer-cycling-better-messages';
