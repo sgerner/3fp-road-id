@@ -1,0 +1,32 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      PUBLIC_TURNSTILE_SITE_KEY: ''
+      PUBLIC_STRIPE_PUBLISHABLE_KEY: ''
+      PUBLIC_URL_BASE: https://3fp.org
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:server-sanitizer

@@ -24,10 +24,7 @@ test('every campaign proof offers a public copy-safe template and complete downl
 		const template = new URL(item.canvaTemplateUrl);
 		assert.equal(template.protocol, 'https:');
 		assert.equal(template.hostname, 'canva.link');
-		for (const key of [
-			...(item.kind === 'social' ? ['pngUrl'] : ['pdfUrl']),
-			'editableUrl'
-		]) {
+		for (const key of [...(item.kind === 'social' ? ['pngUrl'] : ['pdfUrl']), 'editableUrl']) {
 			const url = item[key];
 			assert.ok(url.startsWith('/reports/safer-cycling-better-messages/downloads/'), item.id);
 			assert.ok(!url.includes('..'));
