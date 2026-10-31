@@ -96,3 +96,16 @@ export function isReservedMicrositeSlug(value) {
 	const normalized = normalizeMicrositeSlug(value);
 	return Boolean(normalized) && RESERVED_MICROSITE_SLUGS.has(normalized);
 }
+
+export function shouldSkipMicrositeRouting(pathname) {
+	if (!pathname) return false;
+	if (
+		pathname.startsWith('/api') ||
+		pathname.startsWith('/_app') ||
+		pathname.startsWith('/site/') ||
+		pathname.startsWith('/favicon')
+	) {
+		return true;
+	}
+	return /\.[a-z0-9]+$/i.test(pathname);
+}

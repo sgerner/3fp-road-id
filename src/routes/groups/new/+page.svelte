@@ -4,6 +4,7 @@
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import * as env from '$app/env/public';
+	import { geocodeAddress } from '#lib/groups/geocoding';
 
 	function getInitialValues() {
 		return form?.values ?? {};
@@ -105,28 +106,7 @@
 		if (window.initGroupsNewPlaces === initGooglePlaces) delete window.initGroupsNewPlaces;
 	}
 	function fetchLatLngWithGeocoder(query, countryCode) {
-		if (!geocoder) return Promise.resolve(null);
-		return new Promise((resolve) => {
-			const request = { address: query };
-			if (countryCode) request.componentRestrictions = { country: countryCode };
-			geocoder.geocode(request, (results, status) => {
-				const okStatus = window.google?.maps?.GeocoderStatus?.OK;
-				if (status !== 'OK' && status !== okStatus) {
-					resolve(null);
-					return;
-				}
-				const result = results?.[0];
-				const loc = result?.geometry?.location;
-				if (!loc) {
-					resolve(null);
-					return;
-				}
-				const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-				const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-				if (typeof lat === 'number' && typeof lng === 'number') resolve({ lat, lng });
-				else resolve(null);
-			});
-		});
+		return geocodeAddress(geocoder, query, countryCode, window.google?.maps?.GeocoderStatus?.OK);
 	}
 	function runGeocode(config) {
 		if (!config) return;

@@ -1,4 +1,5 @@
-import fs from 'node:fs/promises';
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -7,33 +8,17 @@ import {
 	syncLearnArticleChunks
 } from '../src/lib/server/learnDiscovery.js';
 
-const workspace = '/home/steven/code/3fp';
+const workspace = fileURLToPath(new URL('../', import.meta.url));
 const envPath = path.join(workspace, '.env');
 const pageSize = 100;
 
-function parseEnv(raw) {
-	const env = {};
-	for (const line of String(raw || '').split(/\r?\n/)) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith('#')) continue;
-		const separator = trimmed.indexOf('=');
-		if (separator === -1) continue;
-		const key = trimmed.slice(0, separator).trim();
-		let value = trimmed.slice(separator + 1).trim();
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1);
-		}
-		env[key] = value;
-	}
-	return env;
-}
-
 async function loadEnv() {
-	const envRaw = await fs.readFile(envPath, 'utf8');
-	const env = parseEnv(envRaw);
+	try {
+		loadEnvFile(envPath);
+	} catch (error) {
+		if (error.code !== 'ENOENT') throw error;
+	}
+	const env = process.env;
 	const supabaseUrl = env.PUBLIC_SUPABASE_URL;
 	const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 	if (!supabaseUrl || !serviceRoleKey) {

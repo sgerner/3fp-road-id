@@ -60,7 +60,6 @@
 		"@google/genai": "^2.27.0",
 		"@lucide/svelte": "^1.52.0",
 		"@stripe/stripe-js": "^10.0.0",
-		"@supabase/ssr": "^0.12.7",
 		"@supabase/supabase-js": "^2.117.2",
 		"@toast-ui/editor": "3.2.2",
 		"@vercel/sdk": "^1.28.40",

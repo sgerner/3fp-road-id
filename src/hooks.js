@@ -1,21 +1,9 @@
 import {
+	shouldSkipMicrositeRouting,
 	extractMicrositeSlugFromHostname,
 	isCoreHostname,
 	normalizeHostname
 } from '#lib/microsites/host';
-
-function shouldSkipMicrositeReroute(pathname) {
-	if (!pathname) return false;
-	if (
-		pathname.startsWith('/api') ||
-		pathname.startsWith('/_app') ||
-		pathname.startsWith('/site/') ||
-		pathname.startsWith('/favicon')
-	) {
-		return true;
-	}
-	return /\.[a-z0-9]+$/i.test(pathname);
-}
 
 function buildMicrositeRoutePath(pathname, micrositeSlug) {
 	const prefix = `/${encodeURIComponent(micrositeSlug)}`;
@@ -25,7 +13,7 @@ function buildMicrositeRoutePath(pathname, micrositeSlug) {
 
 export async function reroute({ url, fetch }) {
 	const pathname = url.pathname || '/';
-	if (shouldSkipMicrositeReroute(pathname)) return;
+	if (shouldSkipMicrositeRouting(pathname)) return;
 
 	const normalizedHost = normalizeHostname(url.hostname);
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);

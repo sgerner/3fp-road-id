@@ -1,4 +1,8 @@
-import { extractMicrositeSlugFromHostname, normalizeHostname } from '#lib/microsites/host';
+import {
+	shouldSkipMicrositeRouting,
+	extractMicrositeSlugFromHostname,
+	normalizeHostname
+} from '#lib/microsites/host';
 import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
 
 const redirectCodes = new Set([
@@ -43,19 +47,6 @@ function firstHeaderValue(value) {
 		?.trim();
 }
 
-function shouldSkipMicrositeRedirect(pathname) {
-	if (!pathname) return false;
-	if (
-		pathname.startsWith('/api') ||
-		pathname.startsWith('/_app') ||
-		pathname.startsWith('/site/') ||
-		pathname.startsWith('/favicon')
-	) {
-		return true;
-	}
-	return /\.[a-z0-9]+$/i.test(pathname);
-}
-
 function resolveRequestHostname(event) {
 	const headers = event.request.headers;
 	const requestUrlHostname = normalizeHostname(event.url.hostname);
@@ -80,7 +71,7 @@ export const handle = async ({ event, resolve }) => {
 	const normalizedHost = resolveRequestHostname(event);
 	const slugFromSubdomain = extractMicrositeSlugFromHostname(normalizedHost);
 	const slugFromCustomDomain =
-		!slugFromSubdomain && !shouldSkipMicrositeRedirect(pathname)
+		!slugFromSubdomain && !shouldSkipMicrositeRouting(pathname)
 			? await lookupCustomDomainMicrositeSlug(normalizedHost)
 			: '';
 	const micrositeSlug = slugFromSubdomain || slugFromCustomDomain;
