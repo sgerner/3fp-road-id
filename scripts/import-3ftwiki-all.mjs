@@ -1,10 +1,12 @@
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import TurndownService from 'turndown';
 import { createClient } from '@supabase/supabase-js';
 import { generateLearnReadingAid } from '../src/lib/learn/readingAid.js';
 
-const workspace = '/home/steven/code/3fp';
+const workspace = fileURLToPath(new URL('../', import.meta.url));
 const docsRoot = path.join(workspace, 'docs/3ftwiki');
 const envPath = path.join(workspace, '.env');
 const contentExtensions = new Set(['.md', '.html']);
@@ -44,26 +46,6 @@ const manualLinkAliases = new Map([
 	['/stories/council-awareness-ride', '/stories/tbag-winter-games'],
 	['/policies/elections/short-form-video-content', '/policies/elections/short-form-video']
 ]);
-
-function parseEnv(raw) {
-	const env = {};
-	for (const line of raw.split(/\r?\n/)) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith('#')) continue;
-		const separator = trimmed.indexOf('=');
-		if (separator === -1) continue;
-		const key = trimmed.slice(0, separator).trim();
-		let value = trimmed.slice(separator + 1).trim();
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1);
-		}
-		env[key] = value;
-	}
-	return env;
-}
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -450,7 +432,12 @@ function extractTitle(parsedData, relativePath) {
 }
 
 async function main() {
-	const env = parseEnv(await fs.readFile(envPath, 'utf8'));
+	try {
+		loadEnvFile(envPath);
+	} catch (error) {
+		if (error.code !== 'ENOENT') throw error;
+	}
+	const env = process.env;
 	const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
 		auth: { persistSession: false, autoRefreshToken: false }
 	});
