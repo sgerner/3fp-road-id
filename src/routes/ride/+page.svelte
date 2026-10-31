@@ -10,7 +10,6 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconRepeat from '@lucide/svelte/icons/repeat-2';
-	import IconFlag from '@lucide/svelte/icons/flag';
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
@@ -23,6 +22,7 @@
 	let searchInput = $state('');
 	let search = $state('');
 	let selectedDifficulty = $state('all');
+	let needsHost = $state(false);
 	let view = $state('list');
 	let currentPage = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
@@ -70,11 +70,12 @@
 				selectedDifficulty === 'all' ||
 				(ride.difficultyLevels ?? []).some((level) => level?.name === selectedDifficulty);
 
-			return matchesQuery && matchesDifficulty;
+			return (
+				matchesQuery && matchesDifficulty && (!needsHost || (!ride.hostUserId && !ride.hostGroupId))
+			);
 		})
 	);
 
-	const featuredRides = $derived(filteredRides.slice(0, 3));
 	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
 	const claimableRides = $derived(
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
@@ -137,10 +138,9 @@
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	function applySearchAndScroll() {
+	function applySearch() {
 		search = searchInput;
 		currentPage = 1;
-		scrollToRideCards();
 	}
 
 	function selectDifficulty(difficulty) {
@@ -158,39 +158,6 @@
 		const start = new Date(ride.nextOccurrenceStart);
 		const end = new Date(ride.nextOccurrenceEnd || ride.nextOccurrenceStart);
 		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
-	}
-
-	function formatCompactTime(date) {
-		const formatted = date.toLocaleTimeString(undefined, {
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-		return formatted.replace(/\s?(AM|PM)$/i, (_, meridiem) => meridiem[0].toLowerCase());
-	}
-
-	function formatFeaturedNext(ride) {
-		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
-		const start = new Date(ride.nextOccurrenceStart);
-		const end = new Date(ride.nextOccurrenceEnd || ride.nextOccurrenceStart);
-		const dateLabel = start.toLocaleDateString(undefined, {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric'
-		});
-		const startMeridiem = start
-			.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
-			.match(/AM|PM/i)?.[0];
-		const endMeridiem = end
-			.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
-			.match(/AM|PM/i)?.[0];
-		const startLabel =
-			startMeridiem && endMeridiem && startMeridiem === endMeridiem
-				? start
-						.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-						.replace(/\s?(AM|PM)$/i, '')
-				: formatCompactTime(start);
-		const endLabel = formatCompactTime(end);
-		return `${dateLabel} · ${startLabel} - ${endLabel}`;
 	}
 
 	function formatStatNumber(value) {
@@ -457,7 +424,7 @@
 							Upcoming
 						</dt>
 						<dd class="text-primary-500 m-0 text-2xl leading-none font-black italic tabular-nums">
-							{formatStatNumber(rides.length)}
+							{formatStatNumber(totalUpcoming)}
 						</dd>
 					</div>
 					<div>
@@ -521,30 +488,31 @@
 		aria-label="Search and filter rides"
 	>
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-			<div class="flex w-full">
-				<input
-					class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
-					bind:value={searchInput}
-					placeholder="Search by title, location, pace, discipline…"
-					onkeydown={(event) => {
-						if (event.key === 'Enter') {
-							event.preventDefault();
-							applySearchAndScroll();
-						}
-					}}
-				/>
-				<button
-					type="button"
-					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
-					onclick={applySearchAndScroll}
-					aria-label="Search rides"
-				>
-					<IconSearch class="h-4 w-4" />
-					<span class="hidden sm:inline">Search</span>
-				</button>
-			</div>
+			<div class="flex min-w-0 flex-col gap-3">
+				<div class="flex w-full">
+					<input
+						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
+						aria-label="Search rides"
+						bind:value={searchInput}
+						placeholder="Search by title, location, pace, discipline…"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								applySearch();
+							}
+						}}
+					/>
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						onclick={applySearch}
+						aria-label="Search rides"
+					>
+						<IconSearch class="h-4 w-4" />
+						<span class="hidden sm:inline">Search</span>
+					</button>
+				</div>
 
-			{#if difficultyOptions.length}
 				<div class="flex flex-wrap gap-2">
 					<button
 						type="button"
@@ -553,6 +521,7 @@
 								? 'bg-primary-500 text-surface-950 border-primary-500'
 								: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 						}`}
+						aria-pressed={selectedDifficulty === 'all'}
 						onclick={() => selectDifficulty('all')}
 					>
 						All levels
@@ -565,193 +534,25 @@
 									? 'bg-primary-500 text-surface-950 border-primary-500'
 									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 							}`}
+							aria-pressed={selectedDifficulty === option}
 							onclick={() => selectDifficulty(option)}
 						>
 							{option}
 						</button>
 					{/each}
-				</div>
-			{/if}
-		</div>
-	</section>
-
-	<!-- FEATURED + CLAIMABLE -->
-	{#if featuredRides.length}
-		<section
-			class="bg-surface-950 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
-			aria-labelledby="featured-heading"
-		>
-			<div class="flex min-w-0 flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
-				<div class="flex flex-col gap-2">
-					<div class="flex flex-wrap items-center justify-between gap-3">
-						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
-							Featured
-						</p>
-						<a
-							href="#ride-list"
-							class="text-surface-300 hover:text-primary-500 inline-flex items-center gap-1.5 text-xs font-bold uppercase"
-						>
-							See all <IconArrowRight class="h-4 w-4" />
-						</a>
-					</div>
-					<h2
-						id="featured-heading"
-						class="text-surface-50! m-0 max-w-3xl text-2xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-4xl"
+					<button
+						type="button"
+						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
+						aria-pressed={needsHost}
+						onclick={() => {
+							needsHost = !needsHost;
+							currentPage = 1;
+						}}
 					>
-						Fresh rides worth opening first
-					</h2>
+						Needs Host
+					</button>
 				</div>
-
-				<ol class="border-surface-800 m-0 list-none border-t-2 p-0">
-					{#each featuredRides as ride, i (ride.id ?? ride.slug)}
-						<li class="border-surface-800 border-b">
-							<a
-								href={`/ride/${ride.slug}`}
-								class="group text-surface-50 hover:bg-surface-900 -mx-3 flex min-w-0 flex-col gap-4 px-3 py-4 transition hover:no-underline sm:flex-row sm:items-center sm:gap-5"
-							>
-								<div class="flex items-center gap-4">
-									<span
-										class="text-tertiary-500 group-hover:text-primary-500 w-8 shrink-0 text-xl font-black italic tabular-nums sm:w-10 sm:text-2xl"
-									>
-										{String(i + 1).padStart(2, '0')}
-									</span>
-									{#if leadImage(ride)}
-										<span class="bg-surface-800 block h-14 w-20 shrink-0 overflow-hidden">
-											<img
-												src={leadImage(ride)}
-												alt={ride.title}
-												class="h-full w-full object-cover"
-												loading="lazy"
-											/>
-										</span>
-									{/if}
-								</div>
-
-								<div class="min-w-0 flex-1">
-									<div class="mb-1 flex flex-wrap items-center gap-2">
-										<span class="text-primary-500 text-xs font-black tracking-[0.14em] uppercase">
-											{formatFeaturedNext(ride)}
-										</span>
-										{#if !ride.hostUserId && !ride.hostGroupId}
-											<span
-												class="bg-tertiary-500 text-surface-950 px-2 py-0.5 text-[0.65rem] font-black tracking-[0.16em] uppercase"
-											>
-												Needs host
-											</span>
-										{/if}
-									</div>
-									<h3
-										class="text-surface-50! group-hover:text-primary-500! m-0 truncate text-base leading-tight font-black uppercase sm:text-xl"
-									>
-										{ride.title}
-									</h3>
-									{#if ride.summary}
-										<p class="m-0 mt-1 line-clamp-1 text-sm opacity-80">{ride.summary}</p>
-									{/if}
-									<div
-										class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold uppercase opacity-75"
-									>
-										<span class="inline-flex items-center gap-1">
-											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
-											{ride.startLocationName || 'Location coming soon'}
-										</span>
-										{#each rideMeta(ride) as meta (meta.label)}
-											<span class="inline-flex items-center gap-1">
-												<meta.icon class="h-3 w-3" />
-												{meta.label}
-											</span>
-										{/each}
-										{#each ride.ridingDisciplines ?? [] as discipline (discipline.name)}
-											<span>{discipline.name}</span>
-										{/each}
-									</div>
-								</div>
-
-								<span
-									class="text-primary-500 inline-flex shrink-0 items-center gap-1.5 text-xs font-black tracking-[0.16em] uppercase"
-								>
-									Open ride
-									<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
-								</span>
-							</a>
-						</li>
-					{/each}
-				</ol>
 			</div>
-
-			<!-- Claimable rides callout -->
-			<aside
-				class="bg-surface-900 text-surface-50 border-surface-800 border-t-tertiary-500 flex min-w-0 flex-col justify-between border-t-4 lg:border-l-2"
-				aria-labelledby="claim-series-heading"
-			>
-				<div class="flex flex-col gap-5 px-6 py-10 sm:px-10 lg:px-10 lg:py-12">
-					<div class="flex flex-col gap-2">
-						<p
-							class="text-tertiary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
-						>
-							<IconFlag class="h-4 w-4" /> Claim a series
-						</p>
-						<h2
-							id="claim-series-heading"
-							class="text-surface-50! m-0 text-2xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-3xl"
-						>
-							See a public ride with no host attached?
-						</h2>
-						<p class="text-surface-300 m-0 text-sm leading-snug font-medium">
-							Logged-in users can post rides even when they are not the host. If a listing has no
-							host or organization, someone local can claim it and manage reminders, RSVPs, and
-							updates.
-						</p>
-					</div>
-
-					<div class="border-surface-800 border-t-2">
-						{#each claimableRides.slice(0, 3) as ride (ride.id ?? ride.slug)}
-							<a
-								class="group border-surface-800 hover:bg-surface-950 -mx-3 flex items-center justify-between gap-3 border-b px-3 py-3.5 transition hover:no-underline"
-								href={`/ride/${ride.slug}`}
-							>
-								<div class="min-w-0">
-									<div class="group-hover:text-primary-500 truncate text-sm font-black uppercase">
-										{ride.title}
-									</div>
-									<div class="text-surface-400 mt-0.5 text-xs font-bold">{formatNext(ride)}</div>
-								</div>
-								<span
-									class="bg-tertiary-500 text-surface-950 group-hover:bg-primary-500 shrink-0 px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase"
-								>
-									{ride.recurrenceEnabled ? 'Claim series' : 'Claim'}
-								</span>
-							</a>
-						{/each}
-						{#if !claimableRides.length}
-							<div class="text-surface-400 py-5 text-sm font-bold uppercase">
-								All rides currently have a host. Check back soon!
-							</div>
-						{/if}
-					</div>
-				</div>
-			</aside>
-		</section>
-	{/if}
-
-	<!-- RIDE LISTING DIRECTORY -->
-	<section
-		id="ride-list"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12"
-		bind:this={rideListEl}
-		aria-labelledby="directory-heading"
-	>
-		<div class="flex flex-wrap items-end justify-between gap-6">
-			<div class="flex flex-col gap-2">
-				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Directory</p>
-				<h2
-					id="directory-heading"
-					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
-				>
-					Public ride listings
-				</h2>
-			</div>
-
 			<div class="flex flex-col items-start gap-2 sm:items-end">
 				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
 					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
@@ -764,6 +565,7 @@
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
+						aria-pressed={view === 'list'}
 						onclick={() => (view = 'list')}
 					>
 						List
@@ -775,6 +577,7 @@
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
+						aria-pressed={view === 'calendar'}
 						onclick={() => (view = 'calendar')}
 					>
 						Calendar
@@ -786,6 +589,7 @@
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
+						aria-pressed={view === 'map'}
 						onclick={() => (view = 'map')}
 					>
 						Map
@@ -793,12 +597,16 @@
 				</div>
 			</div>
 		</div>
+	</section>
 
-		<!-- lane divider -->
-		<div
-			class="h-1 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_48px,transparent_48px_80px)]"
-			aria-hidden="true"
-		></div>
+	<!-- RIDE LISTING DIRECTORY -->
+	<section
+		id="ride-list"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-6 sm:px-10 lg:px-12"
+		bind:this={rideListEl}
+		aria-labelledby="directory-heading"
+	>
+		<h2 id="directory-heading" class="sr-only">Public ride listings</h2>
 
 		{#if view === 'list'}
 			{#if filteredRides.length}
