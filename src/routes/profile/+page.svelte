@@ -327,15 +327,19 @@
 						Log in to create your profile
 					</h2>
 					<p class="text-surface-300 m-0 text-sm leading-relaxed">
-						Sign in from the top-right menu, then return here to personalize your recommendations.
+						Sign in to save your location and personalize your recommendations.
 					</p>
 				</div>
-				<a
-					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 self-start px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
-					href="/"
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 self-start px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
+					onclick={(event) => {
+						event.stopPropagation();
+						window.dispatchEvent(new Event('open-login'));
+					}}
 				>
-					Go to home
-				</a>
+					Log in / Register
+				</button>
 			{/if}
 		</div>
 	</section>

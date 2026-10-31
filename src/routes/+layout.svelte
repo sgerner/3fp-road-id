@@ -2,7 +2,7 @@
 	import '../app.css';
 	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { toaster } from './toaster-svelte';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
@@ -135,9 +135,15 @@
 		},
 		{
 			href: '/learn',
-			label: 'Learn',
+			label: 'Safety & Learning',
 			icon: IconBookOpen,
 			match: (pathname) => pathname.startsWith('/learn')
+		},
+		{
+			href: '/get-involved',
+			label: 'Get involved',
+			icon: IconHeart,
+			match: (pathname) => pathname.startsWith('/get-involved')
 		},
 		{
 			href: '/merch',
@@ -146,6 +152,63 @@
 			match: (pathname) => pathname.startsWith('/merch')
 		}
 	];
+
+	$effect(() => {
+		if (!showLogin) return;
+		const returnFocus = document.activeElement;
+		let cancelled = false;
+		void tick().then(() => {
+			if (cancelled) return;
+			const inputs = loginContainerEl?.querySelectorAll('input[type="email"]');
+			Array.from(inputs || [])
+				.find((input) => input.getClientRects().length)
+				?.focus();
+		});
+		return () => {
+			cancelled = true;
+			if (returnFocus instanceof HTMLElement && returnFocus.isConnected) returnFocus.focus();
+		};
+	});
+
+	$effect(() => {
+		if (!showMobileMenu) return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		let cancelled = false;
+		void tick().then(() => {
+			if (!cancelled) mobileMenuEl?.querySelector('button, select, a')?.focus();
+		});
+		const onResize = () => {
+			if (window.innerWidth >= 768) showMobileMenu = false;
+		};
+		window.addEventListener('resize', onResize);
+		return () => {
+			cancelled = true;
+			document.body.style.overflow = previousOverflow;
+			window.removeEventListener('resize', onResize);
+			if (mobileMenuBtnEl?.getClientRects().length) mobileMenuBtnEl.focus();
+			else document.getElementById('main-content')?.focus();
+		};
+	});
+
+	function onMobileMenuKeydown(event) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			showMobileMenu = false;
+		}
+		if (event.key !== 'Tab') return;
+		const controls = mobileMenuEl?.querySelectorAll('a[href], button, select');
+		if (!controls?.length) return;
+		const first = controls[0];
+		const last = controls[controls.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
 
 	function normalizeTheme(value) {
 		return themeOptions.some((option) => option.value === value) ? value : defaultTheme;
@@ -287,8 +350,31 @@
 			if (loginContainerEl?.contains?.(t) || loginBtnEl?.contains?.(t)) return;
 			showLogin = false;
 		}
+		function openLogin() {
+			showMobileMenu = false;
+			showLogin = true;
+			void initSession();
+		}
+		window.addEventListener('open-login', openLogin);
 		function onKey(e) {
+			if (!showLogin) return;
 			if (e.key === 'Escape') showLogin = false;
+			if (e.key === 'Tab') {
+				const controls = Array.from(
+					loginContainerEl?.querySelectorAll(
+						'input:not([tabindex="-1"]), button:not(:disabled), a[href]'
+					) || []
+				).filter((el) => el.getClientRects().length);
+				const first = controls[0];
+				const last = controls.at(-1);
+				if (first && e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (last && !e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
 		}
 		function onDocClickUserMenu(e) {
 			if (!showUserMenu) return;
@@ -326,6 +412,7 @@
 		document.addEventListener('keydown', onKeyMenu);
 		window.addEventListener('profile-updated', onProfileUpdated);
 		return () => {
+			window.removeEventListener('open-login', openLogin);
 			authSubscription?.unsubscribe?.();
 			authSubscription = null;
 			document.removeEventListener('click', onDocClick);
@@ -448,6 +535,7 @@
 </svelte:head>
 
 <div class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}">
+	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
 	{#if !isMicrositeRoute}
 		<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
@@ -455,7 +543,7 @@
 		</div>
 	{/if}
 	{#if isEmbedRoute || isMicrositeRoute}
-		<main class="min-h-dvh min-w-0 overflow-x-hidden p-0">
+		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
 	{:else}
@@ -706,14 +794,16 @@
 
 		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
 			<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
-				<div class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center px-2 py-4">
+				<div
+					class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center overflow-y-auto px-2 py-4"
+				>
 					<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
 						{#each navigationItems as item}
 							<a
 								href={item.href}
 								title={item.label}
 								aria-label={item.label}
-								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center transition ${
+								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center transition ${
 									isActiveNav(item)
 										? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
 										: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
@@ -727,22 +817,6 @@
 						<div class="mt-auto flex w-full flex-col items-center gap-3 pt-4 pb-2">
 							<!-- Divider -->
 							<div class="border-surface-500/15 w-full border-t"></div>
-
-							<!-- Get Involved link -->
-							<a
-								href="/get-involved"
-								title="Get Involved"
-								aria-label="Get Involved"
-								class={`rail-brand-link flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-center transition ${
-									isGetInvolvedActive()
-										? 'text-primary-500 bg-primary-500/10'
-										: 'text-surface-600-400 hover:text-primary-500 hover:bg-primary-500/8'
-								}`}
-							>
-								<span class="text-[0.68rem] leading-none font-semibold tracking-wide"
-									>Get Involved</span
-								>
-							</a>
 
 							<!-- Social icon row -->
 							<div class="flex items-center gap-1">
@@ -818,17 +892,35 @@
 				</div>
 			</aside>
 
-			<main class="min-w-0 overflow-x-hidden p-4">
+			<main id="main-content" tabindex="-1" class="min-w-0 overflow-x-clip p-4">
 				{@render children()}
 			</main>
 		</div>
 
 		<!-- Mobile dropdown menu (AppBar hamburger) -->
 		{#if showMobileMenu}
-			<div class="fixed top-[73px] right-4 left-4 z-50 md:hidden" bind:this={mobileMenuEl}>
+			<button
+				type="button"
+				aria-label="Close navigation"
+				tabindex="-1"
+				class="fixed inset-0 z-40 bg-black/50 md:hidden"
+				onclick={() => (showMobileMenu = false)}
+			></button>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label="Navigation"
+				tabindex="-1"
+				onkeydown={onMobileMenuKeydown}
+				class="fixed top-[73px] right-4 left-4 z-50 max-h-[calc(100dvh-90px)] overflow-y-auto md:hidden"
+				bind:this={mobileMenuEl}
+			>
 				<div
 					class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
 				>
+					<button type="button" class="btn mb-2 w-full" onclick={() => (showMobileMenu = false)}
+						>Close menu</button
+					>
 					<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
 						<label class="flex flex-col gap-2">
 							<span
@@ -865,18 +957,6 @@
 						{/each}
 					</nav>
 					<div class="border-surface-500/10 mt-2 space-y-1 border-t pt-2">
-						<a
-							href="/get-involved"
-							class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-								isGetInvolvedActive()
-									? 'text-primary-500 bg-primary-500/10'
-									: 'text-surface-700-300 hover:bg-surface-950-50/10 hover:text-primary-400'
-							}`}
-							onclick={() => (showMobileMenu = false)}
-						>
-							<IconHeart class="h-5 w-5 shrink-0" />
-							Get Involved
-						</a>
 						<!-- Social + Donate row -->
 						<div class="flex items-center gap-2 px-3 py-1.5">
 							<a
@@ -944,6 +1024,20 @@
 </div>
 
 <style>
+	.skip-link {
+		position: fixed;
+		top: 0.5rem;
+		left: 0.5rem;
+		z-index: 100;
+		transform: translateY(-200%);
+		background: var(--color-surface-950);
+		color: var(--color-surface-50);
+		padding: 0.75rem 1rem;
+	}
+	.skip-link:focus {
+		transform: translateY(0);
+	}
+
 	.profile-avatar {
 		display: inline-flex;
 		width: 2rem;

@@ -440,12 +440,16 @@
 							{/if}
 						</button>
 					{:else}
-						<a
+						<button
+							type="button"
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
-							href="/ride/new"
+							onclick={(event) => {
+								event.stopPropagation();
+								window.dispatchEvent(new Event('open-login'));
+							}}
 						>
 							Log in to RSVP
-						</a>
+						</button>
 					{/if}
 
 					{#if canManage}
