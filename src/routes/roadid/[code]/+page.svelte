@@ -561,13 +561,17 @@
 								</div>
 
 								<div class="flex flex-col gap-2">
-									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+									<p
+										id="allergies-label"
+										class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+									>
 										Allergies
 									</p>
-									<div class="flex flex-wrap gap-2">
+									<div class="flex flex-wrap gap-2" role="group" aria-labelledby="allergies-label">
 										{#each allergyOptions as allergy (allergy)}
 											<button
 												type="button"
+												aria-pressed={isAllergySelected(allergy)}
 												class="border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition {isAllergySelected(
 													allergy
 												)
@@ -579,10 +583,12 @@
 											</button>
 										{/each}
 									</div>
+									<label for="allergies" class="text-surface-300 text-sm font-medium">
+										Other allergies (comma-separated)
+									</label>
 									<input
 										type="text"
 										id="allergies"
-										placeholder="Other allergies (comma-separated)"
 										value={profile?.allergies}
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
@@ -593,13 +599,17 @@
 								</div>
 
 								<div class="flex flex-col gap-2">
-									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+									<p
+										id="medication-label"
+										class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+									>
 										Medication
 									</p>
-									<div class="flex flex-wrap gap-2">
+									<div class="flex flex-wrap gap-2" role="group" aria-labelledby="medication-label">
 										{#each medicineOptions as med (med)}
 											<button
 												type="button"
+												aria-pressed={isMedicationSelected(med)}
 												class="border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition {isMedicationSelected(
 													med
 												)
@@ -611,10 +621,12 @@
 											</button>
 										{/each}
 									</div>
+									<label for="medication" class="text-surface-300 text-sm font-medium">
+										Other medications (comma-separated)
+									</label>
 									<textarea
 										id="medication"
 										rows="3"
-										placeholder="Other medications (comma-separated)"
 										class="textarea bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
 											profile.medication = e.target.value;
@@ -655,41 +667,49 @@
 									<div class="divide-surface-800 flex flex-col divide-y">
 										{#each profile.emergency_contacts as contact (contact.id)}
 											<div class="flex flex-col gap-3 py-4 first:pt-0">
-												<p
+												<label
+													for={`contact-name-${contact.id}`}
 													class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
 												>
 													Name
-												</p>
+												</label>
 												<input
 													type="text"
+													id={`contact-name-${contact.id}`}
 													bind:value={contact.contact_name}
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
-												<p
+												<label
+													for={`contact-relationship-${contact.id}`}
 													class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
 												>
 													Relationship
-												</p>
+												</label>
 												<input
 													type="text"
+													id={`contact-relationship-${contact.id}`}
 													bind:value={contact.contact_relationship}
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
-												<p
+												<label
+													for={`contact-phone-${contact.id}`}
 													class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
 												>
 													Phone
-												</p>
+												</label>
 												<input
 													type="text"
+													id={`contact-phone-${contact.id}`}
 													bind:value={contact.contact_phone}
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
 												<button
+													type="button"
 													class="border-tertiary-500 text-tertiary-500 hover:bg-tertiary-500 hover:text-surface-950 self-start border-2 px-4 py-2 text-xs font-black uppercase transition"
+													aria-label={`Delete emergency contact ${contact.contact_name || 'contact'}`}
 													onclick={() => handleDeleteContact(contact.id)}
 												>
 													Delete
