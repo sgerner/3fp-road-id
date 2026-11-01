@@ -126,13 +126,3 @@ export async function resolveVerifiedSession(cookies) {
 		return { ...resolved, user: null, verified: false, verificationError: error };
 	}
 }
-
-export function getAccessToken(cookies) {
-	const { accessToken } = resolveSession(cookies);
-	return accessToken;
-}
-
-export function getSessionUser(cookies) {
-	const { user } = resolveSession(cookies);
-	return user;
-}

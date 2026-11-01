@@ -598,42 +598,7 @@
 			</section>
 		{/if}
 
-		<!-- 01 · AI COVER ART -->
-		<section
-			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14"
-			aria-labelledby="cover-art-heading"
-		>
-			<div class="flex items-start gap-4">
-				<span
-					class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
-					aria-hidden="true"
-				>
-					01
-				</span>
-				<div class="flex flex-col gap-1">
-					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Visuals</p>
-					<h2
-						id="cover-art-heading"
-						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
-					>
-						AI Cover Art
-					</h2>
-				</div>
-			</div>
-			<div>
-				<ImageGeneratorPanel
-					target="group"
-					heading="Generate group cover art"
-					description="Build a comic-book group banner from the name, description, location, and community focus on this page."
-					helperText="Generated cover art is added to the hidden cover field now and will be stored with the group when you submit."
-					currentImageUrl={hiddenCoverUrl}
-					buildContext={buildImageContext}
-					onApply={applyGeneratedGroupImage}
-				/>
-			</div>
-		</section>
-
-		<!-- 02 · IDENTITY -->
+		<!-- 01 · IDENTITY -->
 		<section
 			class="bg-surface-950 border-surface-800 flex flex-col gap-8 border-t-2 px-6 py-12 sm:px-10 lg:px-14"
 			aria-labelledby="identity-heading"
@@ -643,7 +608,7 @@
 					class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
 					aria-hidden="true"
 				>
-					02
+					01
 				</span>
 				<div class="flex flex-col gap-1">
 					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
@@ -743,6 +708,41 @@
 						rows="4">{initialValues.description || ''}</textarea
 					>
 				</div>
+			</div>
+		</section>
+
+		<!-- 02 · AI COVER ART -->
+		<section
+			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14"
+			aria-labelledby="cover-art-heading"
+		>
+			<div class="flex items-start gap-4">
+				<span
+					class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-5xl"
+					aria-hidden="true"
+				>
+					02
+				</span>
+				<div class="flex flex-col gap-1">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">Visuals</p>
+					<h2
+						id="cover-art-heading"
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
+					>
+						AI Cover Art
+					</h2>
+				</div>
+			</div>
+			<div>
+				<ImageGeneratorPanel
+					target="group"
+					heading="Generate group cover art"
+					description="Build a comic-book group banner from the name, description, location, and community focus on this page."
+					helperText="Generated cover art is added to the hidden cover field now and will be stored with the group when you submit."
+					currentImageUrl={hiddenCoverUrl}
+					buildContext={buildImageContext}
+					onApply={applyGeneratedGroupImage}
+				/>
 			</div>
 		</section>
 

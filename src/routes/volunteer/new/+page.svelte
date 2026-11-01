@@ -14,6 +14,7 @@
 	import IconSave from '@lucide/svelte/icons/save';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import { renderMarkdown } from '#lib/markdown';
 	import {
 		createVolunteerEvent,
 		createVolunteerOpportunity,
@@ -217,7 +218,7 @@
 
 	const initialTimezone = FALLBACK_TIMEZONES[0];
 	const currentUser = $derived(data?.currentUser ?? null);
-	const loginReturnTo = $derived(() => data?.returnTo ?? '/volunteer/new');
+	const loginReturnTo = $derived(data?.returnTo ?? '/volunteer/new');
 	const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	let loginEmail = $state('');
 	let loginLoading = $state(false);
@@ -1110,115 +1111,8 @@
 		}
 	}
 
-	function escapeHtml(value) {
-		return value
-			.replaceAll('&', '&amp;')
-			.replaceAll('<', '&lt;')
-			.replaceAll('>', '&gt;')
-			.replaceAll('"', '&quot;')
-			.replaceAll("'", '&#39;');
-	}
-
-	function renderInlineMarkdown(text) {
-		const len = text.length;
-		let index = 0;
-		let buffer = '';
-		let output = '';
-
-		const flushBuffer = () => {
-			if (buffer) {
-				output += escapeHtml(buffer);
-				buffer = '';
-			}
-		};
-
-		while (index < len) {
-			if (text.startsWith('**', index)) {
-				const end = text.indexOf('**', index + 2);
-				if (end !== -1) {
-					flushBuffer();
-					output += `<strong>${renderInlineMarkdown(text.slice(index + 2, end))}</strong>`;
-					index = end + 2;
-					continue;
-				}
-			}
-
-			if (text[index] === '*' && !text.startsWith('**', index)) {
-				const end = text.indexOf('*', index + 1);
-				if (end !== -1) {
-					flushBuffer();
-					output += `<em>${renderInlineMarkdown(text.slice(index + 1, end))}</em>`;
-					index = end + 1;
-					continue;
-				}
-			}
-
-			if (text[index] === '`') {
-				const end = text.indexOf('`', index + 1);
-				if (end !== -1) {
-					flushBuffer();
-					output += `<code>${escapeHtml(text.slice(index + 1, end))}</code>`;
-					index = end + 1;
-					continue;
-				}
-			}
-
-			buffer += text[index];
-			index += 1;
-		}
-
-		flushBuffer();
-		return output;
-	}
-
 	function renderChatContent(text) {
-		if (!text) return '';
-		const lines = text.replace(/\r\n?/g, '\n').split('\n');
-		const blocks = [];
-		let currentList = null;
-
-		const flushList = () => {
-			if (!currentList) return;
-			const items = currentList.items
-				.map((item) => `<li>${renderInlineMarkdown(item)}</li>`)
-				.join('');
-			blocks.push(`<${currentList.type}>${items}</${currentList.type}>`);
-			currentList = null;
-		};
-
-		for (const rawLine of lines) {
-			const line = rawLine.trim();
-			if (!line) {
-				flushList();
-				continue;
-			}
-
-			const ordered = line.match(/^(\d+)\.\s+(.*)$/);
-			if (ordered) {
-				if (!currentList || currentList.type !== 'ol') {
-					flushList();
-					currentList = { type: 'ol', items: [] };
-				}
-				currentList.items.push(ordered[2]);
-				continue;
-			}
-
-			const unordered = line.match(/^[-*+]\s+(.*)$/);
-			if (unordered) {
-				if (!currentList || currentList.type !== 'ul') {
-					flushList();
-					currentList = { type: 'ul', items: [] };
-				}
-				currentList.items.push(unordered[1]);
-				continue;
-			}
-
-			flushList();
-			blocks.push(`<p>${renderInlineMarkdown(line)}</p>`);
-		}
-
-		flushList();
-		return blocks.join('');
+		return renderMarkdown(text);
 	}
 
 	function buildConversationPayload(messages) {

@@ -68,6 +68,7 @@
 	let hostGroupId = $state('');
 	let eventType = $state('');
 	let view = $state('list');
+	let mobileFiltersOpen = $state(false);
 	let directoryTopEl = $state(null);
 
 	$effect(() => {
@@ -78,6 +79,7 @@
 		locationQ = sp.get('location') ?? '';
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
+		mobileFiltersOpen = Boolean(locationQ || hostGroupId || eventType);
 		view = sp.get('view') ?? 'list';
 	});
 
@@ -185,11 +187,7 @@
 	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
 	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
 
-	const todayStart = $derived(() => {
-		const d = new Date();
-		d.setHours(0, 0, 0, 0);
-		return d;
-	});
+	const currentTime = new Date();
 
 	const sortedEvents = $derived(
 		[...indexedEvents].sort((a, b) => {
@@ -202,7 +200,8 @@
 	const filteredEvents = $derived(
 		sortedEvents.filter((e) => {
 			const start = parseEventDate(e?.event_start);
-			if (!start || start < todayStart) return false;
+			const end = parseEventDate(e?.event_end) ?? start;
+			if (!start || end < currentTime) return false;
 
 			if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
 			if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
@@ -518,38 +517,54 @@
 					</button>
 				</div>
 
-				<div class="border-surface-700 bg-surface-950 relative flex items-center border-2">
-					<IconMapPin class="text-primary-500 pointer-events-none ml-3 h-4 w-4 shrink-0" />
-					<input
-						type="search"
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
-						aria-label="Filter by city and state"
-						bind:value={locationQ}
-						placeholder="City and/or state"
-					/>
+				<button
+					type="button"
+					class="border-surface-700 bg-surface-950 text-surface-50 flex items-center justify-between border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase sm:hidden"
+					aria-expanded={mobileFiltersOpen}
+					aria-controls="volunteer-extra-filters"
+					onclick={() => (mobileFiltersOpen = !mobileFiltersOpen)}
+				>
+					{mobileFiltersOpen ? 'Hide filters' : 'More filters'}
+					<span aria-hidden="true">{mobileFiltersOpen ? '−' : '+'}</span>
+				</button>
+
+				<div
+					id="volunteer-extra-filters"
+					class={`${mobileFiltersOpen ? 'grid' : 'hidden'} gap-3 sm:contents`}
+				>
+					<div class="border-surface-700 bg-surface-950 relative flex items-center border-2">
+						<IconMapPin class="text-primary-500 pointer-events-none ml-3 h-4 w-4 shrink-0" />
+						<input
+							type="search"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
+							aria-label="Filter by city and state"
+							bind:value={locationQ}
+							placeholder="City and/or state"
+						/>
+					</div>
+
+					<select
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						aria-label="Filter by host group"
+						bind:value={hostGroupId}
+					>
+						<option value="">All groups</option>
+						{#each hostGroups as host (host.id)}
+							<option value={host.id}>{host.name}</option>
+						{/each}
+					</select>
+
+					<select
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						aria-label="Filter by event type"
+						bind:value={eventType}
+					>
+						<option value="">All types</option>
+						{#each eventTypes as option (option.slug)}
+							<option value={option.slug}>{option.event_type}</option>
+						{/each}
+					</select>
 				</div>
-
-				<select
-					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
-					aria-label="Filter by host group"
-					bind:value={hostGroupId}
-				>
-					<option value="">All groups</option>
-					{#each hostGroups as host (host.id)}
-						<option value={host.id}>{host.name}</option>
-					{/each}
-				</select>
-
-				<select
-					class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
-					aria-label="Filter by event type"
-					bind:value={eventType}
-				>
-					<option value="">All types</option>
-					{#each eventTypes as option (option.slug)}
-						<option value={option.slug}>{option.event_type}</option>
-					{/each}
-				</select>
 			</div>
 		</div>
 	</section>

@@ -26,6 +26,7 @@
 	let view = $state('list');
 	let currentPage = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
+	let calendarMonthTouched = $state(false);
 	let rideListEl = $state(null);
 
 	let mapEl = $state(null);
@@ -135,6 +136,14 @@
 		currentPage = 1;
 	}
 
+	function clearFilters() {
+		searchInput = '';
+		search = '';
+		selectedDifficulty = 'all';
+		needsHost = false;
+		currentPage = 1;
+	}
+
 	function selectDifficulty(difficulty) {
 		selectedDifficulty = difficulty;
 		currentPage = 1;
@@ -175,6 +184,7 @@
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
+		calendarMonthTouched = true;
 	}
 
 	function buildCalendarMatrix(reference, lookup) {
@@ -338,6 +348,7 @@
 
 	$effect(() => {
 		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
+			if (calendarMonthTouched) return;
 			const currentMonthHasRide = calendarMatrix.some((week) =>
 				week.some((day) => day.rides.length)
 			);
@@ -798,7 +809,7 @@
 						<button
 							type="button"
 							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-3 text-sm font-black uppercase transition"
-							onclick={() => ((search = ''), (selectedDifficulty = 'all'), (currentPage = 1))}
+							onclick={clearFilters}
 						>
 							Clear filters
 						</button>
@@ -833,7 +844,10 @@
 						<button
 							type="button"
 							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
-							onclick={() => (calendarReference = earliestRideMonth)}
+							onclick={() => {
+								calendarReference = startOfMonth(new Date());
+								calendarMonthTouched = true;
+							}}
 						>
 							Today
 						</button>

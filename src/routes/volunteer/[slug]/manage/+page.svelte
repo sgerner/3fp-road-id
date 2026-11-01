@@ -1742,7 +1742,7 @@
 
 <!-- ── Sticky management header ─────────────────────────────────────────── -->
 <div
-	class="bg-surface-950/80 sticky top-0 z-30 border-b border-white/10 px-4 pt-4 pb-0 shadow-xl backdrop-blur-xl"
+	class="bg-surface-950/80 z-30 border-b border-white/10 px-4 pt-4 pb-0 shadow-xl backdrop-blur-xl lg:sticky lg:top-0"
 >
 	<!-- Event summary row -->
 	<div class="mx-auto max-w-6xl">

@@ -29,20 +29,6 @@
 		</ul>
 	</section>
 
-	<!-- Purpose Section -->
-	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
-		<p class="mb-2 border-b pb-2 text-center text-2xl font-bold">Purpose</p>
-		<p class="pl-8 indent-[-1.5rem]">
-			🚑 <strong>Securely store your emergency medical information</strong>
-		</p>
-		<p class="pl-8 indent-[-1.5rem]">
-			💡 Get <strong>instant crash response tips</strong> at your fingertips.
-		</p>
-		<p class="pl-8 indent-[-1.5rem]">
-			🔑 Enable <strong>quick scan access</strong> to your vital details when it matters most.
-		</p>
-	</section>
-
 	<!-- How To Use Section -->
 	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
 		<p class=" mb-2 border-b pb-2 text-center text-2xl font-bold">How to Use</p>

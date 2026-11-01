@@ -41,6 +41,13 @@
 					> button in the header before creating a new event.
 				</p>
 				<div class="mt-4 pt-2">
+					<button
+						class="btn preset-filled-primary-500 shadow-primary-500/20 mr-3 px-8 py-2.5 font-semibold shadow-xl transition hover:-translate-y-1"
+						type="button"
+						onclick={() => window.dispatchEvent(new Event('open-login'))}
+					>
+						Log in / Register
+					</button>
 					<a
 						class="btn preset-filled-primary-500 shadow-primary-500/20 px-8 py-2.5 font-semibold shadow-xl transition hover:-translate-y-1"
 						href="/ride">Back to rides</a

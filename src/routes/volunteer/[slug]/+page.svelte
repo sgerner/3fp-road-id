@@ -1950,7 +1950,9 @@
 							<div
 								class="border-primary-500 text-primary-500 border-l-4 py-1 pl-4 text-xs font-black tracking-[0.18em] uppercase"
 							>
-								Log in above to choose shifts and share your details.
+								<a class="underline underline-offset-4" href="#ready-volunteer-heading">
+									Sign in above to choose shifts and share your details.
+								</a>
 							</div>
 						{:else}
 							<div
