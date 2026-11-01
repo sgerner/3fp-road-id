@@ -1108,7 +1108,7 @@
 										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
 											<button
 												type="button"
-												class="chip preset-tonal-success px-2 py-1 text-xs"
+												class="chip preset-tonal-success min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
 												onclick={() => onApprove(item.assignment.id)}
 											>
 												Approve
@@ -1117,7 +1117,7 @@
 										{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled' && item.assignment.status !== 'checked_in' && item.assignment.status !== 'no_show'}
 											<button
 												type="button"
-												class="chip preset-tonal-surface px-2 py-1 text-xs"
+												class="chip preset-tonal-surface min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
 												onclick={() => onWaitlist(item.assignment.id)}
 											>
 												Waitlist
@@ -1126,7 +1126,7 @@
 										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
 											<button
 												type="button"
-												class="chip preset-tonal-error px-2 py-1 text-xs"
+												class="chip preset-tonal-error min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
 												onclick={() => onDecline(item.assignment.id)}
 											>
 												Decline

@@ -1,4 +1,5 @@
 <script>
+	import { invalidateAll } from '$app/navigation';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconClock from '@lucide/svelte/icons/clock';
@@ -7,6 +8,17 @@
 
 	let { data } = $props();
 	const donation = $derived(data?.donation ?? null);
+	let refreshing = $state(false);
+
+	async function checkPaymentStatus() {
+		if (refreshing) return;
+		refreshing = true;
+		try {
+			await invalidateAll();
+		} finally {
+			refreshing = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -65,9 +77,17 @@
 					Payment is not complete yet
 				</h1>
 				<p class="m-0 max-w-xl text-lg leading-snug font-medium sm:text-2xl">
-					If you just submitted payment, refresh this page in a few seconds.
+					If you just submitted payment, check again in a few seconds.
 				</p>
 				<div class="flex flex-wrap gap-3 pt-2">
+					<button
+						class="bg-surface-950 text-secondary-500 hover:bg-surface-50 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition disabled:opacity-60"
+						type="button"
+						disabled={refreshing}
+						onclick={checkPaymentStatus}
+					>
+						{refreshing ? 'Checking…' : 'Check payment status'}
+					</button>
 					<a
 						class="group bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 						href={data?.donateAgainHref || '/donate'}

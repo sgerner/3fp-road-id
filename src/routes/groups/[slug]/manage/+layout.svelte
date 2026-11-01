@@ -164,7 +164,7 @@
 			<!-- Navigation tabs (horizontally scrollable on mobile) -->
 			<div class="border-primary-500/10 bg-surface-50/30 dark:bg-surface-950/30 border-t">
 				<nav
-					class="flex scrollbar-none items-stretch gap-1.5 overflow-x-auto p-2"
+					class="flex items-stretch gap-1.5 overflow-x-auto p-2"
 					aria-label="Group management sections"
 				>
 					{#each allTabs as tab}
@@ -194,15 +194,3 @@
 		{/key}
 	</main>
 </div>
-
-<style>
-	/* Hide scrollbar for Chrome, Safari and Opera */
-	.scrollbar-none::-webkit-scrollbar {
-		display: none;
-	}
-	/* Hide scrollbar for IE, Edge and Firefox */
-	.scrollbar-none {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-</style>

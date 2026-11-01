@@ -105,8 +105,12 @@ export const load = async ({ fetch, cookies }) => {
 	const groupsById = new Map();
 	const eventIds = [];
 	const groupIds = new Set();
+	const upcomingEventRows = eventRows.filter((row) => {
+		const eventEnd = Date.parse(row?.event_end || row?.event_start);
+		return Number.isFinite(eventEnd) && eventEnd >= now.getTime();
+	});
 
-	for (const row of eventRows) {
+	for (const row of upcomingEventRows) {
 		if (!row || typeof row !== 'object') continue;
 		const hostGroup = row.host_group_id;
 		const groupId = hostGroup?.id ?? row.host_group_id;

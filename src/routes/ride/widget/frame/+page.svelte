@@ -643,44 +643,59 @@
 						</button>
 					</div>
 				</div>
-				<div class="calendar-grid days">
-					<div>Sun</div>
-					<div>Mon</div>
-					<div>Tue</div>
-					<div>Wed</div>
-					<div>Thu</div>
-					<div>Fri</div>
-					<div>Sat</div>
-				</div>
-				<div class="calendar-grid">
+				<div class="calendar-table" role="grid" aria-label="Ride calendar">
+					<div class="calendar-grid days" role="row">
+						<div role="columnheader">Sun</div>
+						<div role="columnheader">Mon</div>
+						<div role="columnheader">Tue</div>
+						<div role="columnheader">Wed</div>
+						<div role="columnheader">Thu</div>
+						<div role="columnheader">Fri</div>
+						<div role="columnheader">Sat</div>
+					</div>
 					{#each calendarMatrix as week}
-						{#each week as day}
-							{@const isToday = toDateKey(day.date) === todayKey}
-							<div class:out={!day.inMonth} class:today={isToday} class="day-cell">
-								<div class="day-number" class:today-num={isToday}>{day.date.getDate()}</div>
-								<div class="day-rides">
-									{#each day.rides.slice(0, 2) as ride}
-										{@const c = difficultyColor(primaryDifficulty(ride))}
-										<a
-											href={`/ride/${ride.slug}`}
-											target="_blank"
-											rel="noopener noreferrer"
-											style={config.difficultyColors ? `border-left-color:${c}` : ''}
-										>
-											{rideTitle(ride)}
-										</a>
-									{/each}
+						<div role="row" class="calendar-grid calendar-week">
+							{#each week as day}
+								{@const isToday = toDateKey(day.date) === todayKey}
+								<div
+									role="gridcell"
+									aria-label={day.date.toLocaleDateString(undefined, {
+										weekday: 'long',
+										month: 'long',
+										day: 'numeric',
+										year: 'numeric'
+									})}
+									class:out={!day.inMonth}
+									class:today={isToday}
+									class="day-cell"
+								>
+									<div class="day-number" class:today-num={isToday}>
+										{day.date.getDate()}
+									</div>
+									<div class="day-rides">
+										{#each day.rides.slice(0, 2) as ride}
+											{@const c = difficultyColor(primaryDifficulty(ride))}
+											<a
+												href={`/ride/${ride.slug}`}
+												target="_blank"
+												rel="noopener noreferrer"
+												style={config.difficultyColors ? `border-left-color:${c}` : ''}
+											>
+												{rideTitle(ride)}
+											</a>
+										{/each}
+									</div>
+									{#if day.rides.length > 2}
+										<button class="more" type="button" onclick={() => openDayModal(day)}>
+											+{day.rides.length - 2} more
+										</button>
+									{/if}
+									{#if day.rides.length === 1 && day.rides.length <= 2}
+										<!-- spacer -->
+									{/if}
 								</div>
-								{#if day.rides.length > 2}
-									<button class="more" type="button" onclick={() => openDayModal(day)}>
-										+{day.rides.length - 2} more
-									</button>
-								{/if}
-								{#if day.rides.length === 1 && day.rides.length <= 2}
-									<!-- spacer -->
-								{/if}
-							</div>
-						{/each}
+							{/each}
+						</div>
 					{/each}
 				</div>
 			</div>
@@ -716,7 +731,7 @@
 			<div class="modal" transition:slide={{ duration: 200 }}>
 				<div class="modal-head">
 					<h3>{dayModal.dateLabel}</h3>
-					<button onclick={closeDayModal} class="modal-close">
+					<button onclick={closeDayModal} class="modal-close" aria-label="Close ride details">
 						<IconX class="h-4 w-4" />
 					</button>
 				</div>
@@ -1277,6 +1292,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+	.calendar-table {
+		display: flex;
+		flex-direction: column;
+		gap: 0.28rem;
 	}
 	.calendar-head {
 		display: flex;
