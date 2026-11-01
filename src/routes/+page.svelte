@@ -496,11 +496,6 @@
 							All rides
 						</a>
 					</div>
-					{#if data.rideSource !== 'featured' && data.locationSource === 'approximate'}
-						<p class="m-0 text-xs leading-relaxed opacity-70">
-							Based on a broad network region. We never request your precise device location.
-						</p>
-					{/if}
 				</div>
 			{:else}
 				<div class="flex flex-1 flex-col justify-between gap-10 px-6 py-12 sm:px-10">
