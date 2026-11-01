@@ -605,7 +605,7 @@
 	<!-- RIDE LISTING DIRECTORY -->
 	<section
 		id="ride-list"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-6 sm:px-10 lg:px-12"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-0 py-6 md:px-10 lg:px-12"
 		bind:this={rideListEl}
 		aria-labelledby="directory-heading"
 	>
@@ -614,7 +614,7 @@
 		{#if view === 'list'}
 			{#if filteredRides.length}
 				<div
-					class="border-surface-800 grid border-t border-l md:grid-cols-2 xl:grid-cols-3"
+					class="border-surface-800 grid min-w-0 grid-cols-1 border-t border-l md:grid-cols-2 xl:grid-cols-3"
 					transition:slide={{ duration: 220 }}
 				>
 					{#each paginatedRides as ride, i (ride.id ?? ride.slug)}
