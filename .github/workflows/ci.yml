@@ -16,7 +16,7 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_USER: postgres
           POSTGRES_DB: postgres
         ports:
@@ -32,7 +32,7 @@ jobs:
       PUBLIC_TURNSTILE_SITE_KEY: ''
       PUBLIC_STRIPE_PUBLISHABLE_KEY: ''
       PUBLIC_URL_BASE: https://3fp.org
-      ACCOUNTING_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      ACCOUNTING_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
