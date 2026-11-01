@@ -489,14 +489,22 @@
 									<!-- Variant selector -->
 									{#if (product.variants?.length ?? 0) > 1}
 										<div class="flex flex-col gap-2">
-											<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+											<p
+												id={`variant-label-${product.id}`}
+												class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+											>
 												Size / Variation
 											</p>
-											<div class="flex flex-wrap gap-1.5">
+											<div
+												class="flex flex-wrap gap-1.5"
+												role="group"
+												aria-labelledby={`variant-label-${product.id}`}
+											>
 												{#each product.variants as variant (variant.id)}
 													{@const isSelected = activeVariant?.id === variant.id}
 													<button
 														type="button"
+														aria-pressed={isSelected}
 														class="cursor-pointer border-2 px-3 py-1.5 text-xs font-black tracking-wide uppercase transition {isSelected
 															? 'border-primary-500 bg-primary-500 text-surface-950'
 															: 'border-surface-700 bg-surface-950 text-surface-50 hover:border-primary-500 hover:text-primary-500'}"
