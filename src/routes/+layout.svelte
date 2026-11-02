@@ -578,9 +578,7 @@
 			{@render children()}
 		</main>
 	{:else}
-		<header
-			class="border-b-primary-500/25 bg-surface-50-950/78 sticky top-0 z-50 border-b backdrop-blur-xl"
-		>
+		<header class="app-header border-b-primary-500/25 sticky top-0 z-50 border-b">
 			<div class="flex items-center justify-between gap-4 p-4">
 				<div class="flex items-center gap-2">
 					<button
@@ -857,7 +855,7 @@
 								}`}
 							>
 								<item.icon class="h-6 w-6 shrink-0" />
-								<span class="text-[0.72rem] leading-tight font-bold">{item.label}</span>
+								<span class="text-[0.72rem] leading-tight font-semibold">{item.label}</span>
 							</a>
 						{/each}
 					</nav>
@@ -1094,26 +1092,42 @@
 		text-decoration: none;
 	}
 
+	.app-header {
+		--header-ground: light-dark(var(--color-surface-50), var(--color-surface-950));
+		background: linear-gradient(
+			110deg,
+			color-mix(in oklab, var(--color-primary-500) 28%, var(--header-ground)) 0%,
+			color-mix(in oklab, var(--color-tertiary-500) 24%, var(--header-ground)) 52%,
+			color-mix(in oklab, var(--color-secondary-500) 42%, var(--header-ground)) 100%
+		);
+	}
+
 	.app-rail,
 	.mobile-menu-panel {
+		--rail-ground: light-dark(var(--color-surface-50), var(--color-surface-950));
+		--rail-ink: light-dark(var(--color-surface-950), var(--color-surface-50));
+		--rail-divider: color-mix(in oklab, var(--rail-ink) 12%, transparent);
 		--rail-gradient: linear-gradient(
-			155deg,
-			color-mix(in oklab, var(--color-secondary-500) 88%, var(--color-surface-950) 12%) 0%,
-			color-mix(in oklab, var(--color-tertiary-500) 78%, var(--color-surface-950) 22%) 54%,
-			color-mix(in oklab, var(--color-secondary-700) 88%, var(--color-surface-950) 12%) 100%
+			165deg,
+			color-mix(in oklab, var(--color-secondary-500) 58%, var(--rail-ground)) 0%,
+			color-mix(in oklab, var(--color-secondary-500) 24%, var(--rail-ground)) 38%,
+			color-mix(in oklab, var(--color-tertiary-500) 38%, var(--rail-ground)) 72%,
+			color-mix(in oklab, var(--color-secondary-500) 52%, var(--rail-ground)) 100%
 		);
-		color: var(--color-surface-50);
-		background-color: var(--color-secondary-900);
+		color: var(--rail-ink);
+		background-color: var(--rail-ground);
 		background-image: var(--rail-gradient);
 	}
 
 	.app-rail {
-		border-right: 1px solid color-mix(in oklab, var(--color-surface-50) 24%, transparent);
+		background-image: none;
+		border-right: 1px solid var(--rail-divider);
 	}
 
 	.app-rail__scroll {
+		background-image: var(--rail-gradient);
 		scrollbar-width: thin;
-		scrollbar-color: color-mix(in oklab, var(--color-surface-50) 45%, transparent) transparent;
+		scrollbar-color: color-mix(in oklab, var(--rail-ink) 28%, transparent) transparent;
 	}
 
 	.app-rail__nav,
@@ -1127,8 +1141,8 @@
 		min-width: 0;
 		border-radius: 0;
 		border: 0;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50) 22%, transparent);
-		color: var(--color-surface-50);
+		border-bottom: 1px solid var(--rail-divider);
+		color: color-mix(in oklab, var(--rail-ink) 88%, transparent);
 		text-decoration: none;
 		transition:
 			background-color 150ms ease,
@@ -1147,30 +1161,31 @@
 
 	.app-rail__link:hover,
 	.mobile-menu-link:hover {
-		background: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
-		color: var(--color-surface-50);
+		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--rail-ground));
+		color: var(--rail-ink);
 	}
 
 	.app-rail__link.is-active,
 	.mobile-menu-link.is-active {
-		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-dark);
-		font-weight: 800;
+		background: color-mix(in oklab, var(--color-primary-500) 16%, var(--rail-ground));
+		box-shadow: inset 3px 0 0 var(--color-primary-500);
+		color: var(--rail-ink);
+		font-weight: 700;
 	}
 
 	.app-rail__footer,
 	.mobile-menu-footer {
-		color: var(--color-primary-contrast-dark);
-		background: var(--color-primary-500);
+		color: var(--rail-ink);
+		background: color-mix(in oklab, var(--rail-ground) 94%, var(--rail-ink));
 	}
 
 	.rail-legal {
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-950) 22%, transparent);
+		border-top: 1px solid var(--rail-divider);
 	}
 
 	.rail-footer-link,
 	.mobile-menu-legal-link {
-		color: var(--color-primary-contrast-dark);
+		color: color-mix(in oklab, var(--rail-ink) 78%, transparent);
 	}
 
 	.rail-footer-link:hover,
@@ -1179,42 +1194,7 @@
 	}
 
 	/* ── Square social icon buttons ── */
-	:global(.rail-social-btn) {
-		display: flex;
-		box-sizing: border-box;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		min-width: 0;
-		height: 2rem;
-		border-radius: 0;
-		color: var(--color-primary-contrast-dark);
-		border: 1px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
-		background: color-mix(in oklab, var(--color-surface-50) 35%, transparent);
-		text-decoration: none;
-		transition:
-			color 150ms,
-			background 150ms,
-			border-color 150ms;
-	}
-	:global(.rail-social-btn:hover) {
-		background: color-mix(in oklab, var(--color-surface-50) 58%, transparent);
-		border-color: color-mix(in oklab, var(--color-surface-950) 45%, transparent);
-	}
-
-	:global(.rail-donate-btn) {
-		box-sizing: border-box;
-		border-radius: 0;
-		color: var(--color-secondary-contrast-light);
-		background: var(--color-secondary-500);
-		border: 0;
-		text-decoration: none;
-		transition: filter 150ms ease;
-	}
-	:global(.rail-donate-btn:hover) {
-		filter: brightness(1.12);
-	}
-
+	:global(.rail-social-btn),
 	:global(.mob-social-btn) {
 		display: flex;
 		box-sizing: border-box;
@@ -1222,71 +1202,81 @@
 		justify-content: center;
 		width: 100%;
 		min-width: 0;
-		height: 2.5rem;
 		border-radius: 0;
-		color: var(--color-primary-contrast-dark);
-		border: 1px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
-		background: color-mix(in oklab, var(--color-surface-50) 35%, transparent);
+		color: var(--rail-ink);
+		border: 1px solid var(--rail-divider);
+		background: color-mix(in oklab, var(--rail-ground) 90%, var(--color-primary-500));
 		text-decoration: none;
 		transition: background 150ms;
 	}
+
+	:global(.rail-social-btn) {
+		height: 2rem;
+	}
+
+	:global(.mob-social-btn) {
+		height: 2.5rem;
+	}
+
+	:global(.rail-social-btn:hover),
 	:global(.mob-social-btn:hover) {
-		background: color-mix(in oklab, var(--color-surface-50) 58%, transparent);
+		background: color-mix(in oklab, var(--rail-ground) 84%, var(--color-primary-500));
+	}
+
+	:global(.rail-donate-btn),
+	:global(.mob-donate-btn) {
+		box-sizing: border-box;
+		border-radius: 0;
+		color: var(--rail-ink);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, var(--rail-divider));
+		background: color-mix(in oklab, var(--rail-ground) 82%, var(--color-primary-500));
+		text-decoration: none;
+		transition: background 150ms ease;
+	}
+
+	:global(.rail-donate-btn:hover),
+	:global(.mob-donate-btn:hover) {
+		background: color-mix(in oklab, var(--rail-ground) 74%, var(--color-primary-500));
 	}
 
 	.mobile-menu-panel {
 		box-sizing: border-box;
 		max-width: 100%;
 		border-radius: 0;
-		border: 2px solid color-mix(in oklab, var(--color-surface-50) 70%, transparent);
-		color: var(--color-surface-50);
-		box-shadow: 8px 8px 0 color-mix(in oklab, var(--color-surface-950) 28%, transparent);
+		border: 1px solid var(--rail-divider);
+		box-shadow: 0 8px 24px color-mix(in oklab, var(--color-surface-950) 18%, transparent);
 	}
 
 	.mobile-menu-close {
 		min-height: 2.75rem;
 		border-radius: 0;
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 50%, transparent);
-		color: var(--color-surface-50);
-		background: color-mix(in oklab, var(--color-surface-950) 20%, transparent);
-		font-weight: 800;
+		border: 1px solid var(--rail-divider);
+		color: var(--rail-ink);
+		background: color-mix(in oklab, var(--rail-ground) 94%, var(--rail-ink));
+		font-weight: 700;
 		text-align: left;
 		text-transform: uppercase;
 	}
 
 	.mobile-menu-actions {
 		grid-template-columns: repeat(3, minmax(0, 2.5rem)) minmax(0, 1fr);
-		border-top: 2px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
+		border-top: 1px solid var(--rail-divider);
 	}
 
 	.mobile-menu-link {
 		min-height: 3.25rem;
-		font-weight: 700;
+		font-weight: 600;
 	}
 
 	.mobile-menu-legal {
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-950) 22%, transparent);
+		border-top: 1px solid var(--rail-divider);
 	}
 
 	.app-rail a:focus-visible,
 	.mobile-menu-panel a:focus-visible,
 	.mobile-menu-panel button:focus-visible {
-		outline: 3px solid var(--color-surface-50);
+		outline: 2px solid var(--rail-ink);
 		outline-offset: -4px;
-		box-shadow: inset 0 0 0 1px var(--color-surface-950);
-	}
-
-	:global(.mob-donate-btn) {
-		box-sizing: border-box;
-		border-radius: 0;
-		color: var(--color-secondary-contrast-light);
-		background: var(--color-secondary-500);
-		border: 0;
-		text-decoration: none;
-		transition: filter 150ms ease;
-	}
-
-	:global(.mob-donate-btn:hover) {
-		filter: brightness(1.12);
+		box-shadow: inset 0 0 0 1px var(--color-primary-500);
 	}
 </style>
