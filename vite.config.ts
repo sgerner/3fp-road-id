@@ -5,29 +5,33 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
 	ssr: {
 		// Bundle the sanitizer's entire dependency tree: external CommonJS
 		// requires become dynamic helpers that Vercel cannot reliably trace.
-		noExternal: [
-			'sanitize-html',
-			'deepmerge',
-			'escape-string-regexp',
-			'htmlparser2',
-			'domelementtype',
-			'domhandler',
-			'domutils',
-			'dom-serializer',
-			'entities',
-			'is-plain-object',
-			'launder',
-			'dayjs',
-			'parse-srcset',
-			'postcss',
-			'nanoid',
-			'picocolors',
-			'source-map-js'
-		]
+		// Development must let Node load these CommonJS packages normally.
+		noExternal:
+			command === 'build'
+				? [
+						'sanitize-html',
+						'deepmerge',
+						'escape-string-regexp',
+						'htmlparser2',
+						'domelementtype',
+						'domhandler',
+						'domutils',
+						'dom-serializer',
+						'entities',
+						'is-plain-object',
+						'launder',
+						'dayjs',
+						'parse-srcset',
+						'postcss',
+						'nanoid',
+						'picocolors',
+						'source-map-js'
+					]
+				: []
 	},
 	build: {
 		rolldownOptions: {
@@ -58,4 +62,4 @@ export default defineConfig({
 		}),
 		tailwindcss()
 	]
-});
+}));

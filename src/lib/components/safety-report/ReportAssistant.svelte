@@ -2,7 +2,16 @@
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
-	let { report, initialQuestion = '' } = $props();
+	let { report, initialQuestion = '', currentTopic = '' } = $props();
+	const topicLabel = $derived(
+		typeof currentTopic === 'string'
+			? currentTopic
+					.trim()
+					.replace(/^\d+\.\s*/, '')
+					.split(':', 1)[0]
+					.trim()
+			: ''
+	);
 	let draft = $state(untrack(() => initialQuestion));
 	let busy = $state(false);
 	let error = $state('');
@@ -33,12 +42,56 @@
 		controller?.abort();
 	}
 
-	const prompts = [
+	const defaultPrompts = [
 		'What makes a cycling safety campaign effective?',
 		'What does the evidence say about safe passing?',
 		'How should we evaluate a campaign?',
 		'What are the limitations of this review?'
 	];
+	const prompts = $derived(
+		topicLabel
+			? [
+					`What does the review say about ${topicLabel}?`,
+					`Which sources support the findings on ${topicLabel}?`,
+					`What should a campaign test about ${topicLabel}?`
+				]
+			: defaultPrompts
+	);
+	const templateRoutes = [
+		{ pattern: /\bpass(?:ing)?\b|\blane position\b/i, campaigns: ['01-give-people-space'] },
+		{ pattern: /\bdoor(?:ing)?\b|\bopening a door\b/i, campaigns: ['06-before-the-door'] },
+		{
+			pattern: /\bturn(?:ing)?\b|\bjunctions?\b|\bintersections?\b/i,
+			campaigns: ['07-check-before-you-turn']
+		},
+		{
+			pattern: /\bstor(?:y|ies)\b|\bhuman stor(?:y|ies)\b|\bidentit(?:y|ies)\b|why i'?m here/i,
+			campaigns: ['02-why-im-here', '03-a-person-on-a-bike']
+		},
+		{ pattern: /\blights?\b|\bvisibility\b|\breflective\b/i, campaigns: ['05-light-the-ride'] }
+	];
+
+	function relevantTemplates(question) {
+		const context = `${topicLabel} ${question}`;
+		const campaigns = templateRoutes
+			.filter(({ pattern }) => pattern.test(context))
+			.flatMap(({ campaigns: slugs }) => slugs);
+		const selected = [];
+		for (const campaign of campaigns) {
+			const item = report?.campaignGallery?.find(
+				(candidate) =>
+					candidate.campaign === campaign &&
+					candidate.page === 1 &&
+					candidate.assetId &&
+					candidate.src &&
+					(candidate.pdfUrl || candidate.editableUrl || candidate.canvaTemplateUrl)
+			);
+			if (!item || selected.some((suggestion) => suggestion.assetId === item.assetId)) continue;
+			selected.push(item);
+			if (selected.length === 3) break;
+		}
+		return selected;
+	}
 
 	function openTarget(id) {
 		const target = document.getElementById(id);
@@ -71,6 +124,11 @@
 		const question = draft.trim();
 		if (!question || busy) return;
 		draft = question.slice(0, 1200);
+		const topicContext = topicLabel ? `\nReport topic: ${topicLabel}` : '';
+		const retrievalQuestion =
+			topicContext && draft.length + topicContext.length <= 1200
+				? `${draft}${topicContext}`
+				: draft;
 		busy = true;
 		elapsed = 0;
 		timedOut = false;
@@ -90,7 +148,7 @@
 			const response = await fetch('/api/learn/safety-report/ask', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ question: draft, history: conversationHistory() }),
+				body: JSON.stringify({ question: retrievalQuestion, history: conversationHistory() }),
 				signal: controller.signal
 			});
 			const data = await response.json();
@@ -99,7 +157,10 @@
 				related = Array.isArray(data.sections) ? data.sections : [];
 				return;
 			}
-			messages = [...messages, { question: draft, result: data }];
+			messages = [
+				...messages,
+				{ question: draft, result: data, templates: relevantTemplates(draft) }
+			];
 			draft = '';
 		} catch (err) {
 			if (!destroyed && timedOut)
@@ -132,7 +193,10 @@
 
 <div class="assistant">
 	<div class="intro">
-		<p class="eyebrow">Explore the evidence</p>
+		<p class="eyebrow">
+			Explore the evidence{#if topicLabel}
+				· {topicLabel}{/if}
+		</p>
 		<h2>Ask the report</h2>
 		<p>Answers use this review. Check linked sources.</p>
 	</div>
@@ -187,6 +251,32 @@
 										</li>{/each}
 								</ul>
 							{/if}
+						</div>
+					{/if}
+					{#if message.templates.length}
+						<div class="template-suggestions">
+							<h3>Example templates to adapt</h3>
+							<ul>
+								{#each message.templates as template (template.assetId)}
+									<li class="template-card">
+										<img src={template.src} alt={template.alt} loading="eager" />
+										<div class="template-copy">
+											<strong>{template.title}</strong>
+											<div class="template-links">
+												{#if template.pdfUrl}<a href={template.pdfUrl} download>PDF proof</a>{/if}
+												{#if template.editableUrl}<a href={template.editableUrl} download
+														>PowerPoint</a
+													>{/if}
+												{#if template.canvaTemplateUrl}<a
+														href={template.canvaTemplateUrl}
+														target="_blank"
+														rel="noopener noreferrer">Canva template ↗</a
+													>{/if}
+											</div>
+										</div>
+									</li>
+								{/each}
+							</ul>
 						</div>
 					{/if}
 				</article>
@@ -255,14 +345,22 @@
 <style>
 	h2,
 	h3 {
-		color: #26123c !important;
+		color: var(--color-secondary-950) !important;
 	}
 	.assistant {
-		background: #fffbea;
-		border: 2px solid #39195f;
+		background: var(--report-paper);
+		border: 2px solid var(--color-secondary-950);
 		border-radius: 1.25rem;
-		color: #26123c;
+		color: var(--color-secondary-950);
 		padding: clamp(1.2rem, 3vw, 2rem);
+	}
+	.assistant h2,
+	.assistant h3 {
+		text-transform: none;
+	}
+	.assistant p,
+	.assistant li {
+		line-height: 1.6;
 	}
 	.intro h2 {
 		font-size: clamp(1.7rem, 3vw, 2.3rem);
@@ -273,11 +371,10 @@
 		margin: 0;
 	}
 	.eyebrow {
-		color: #7e1754;
-		font-size: 0.78rem;
+		color: var(--color-tertiary-700-300);
+		font-size: 0.82rem;
 		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		letter-spacing: 0.02em;
 	}
 	.suggestions {
 		display: flex;
@@ -286,10 +383,10 @@
 		margin: 1.25rem 0;
 	}
 	.suggestions button {
-		background: #fce3f2;
-		border: 1px solid #9b427d;
+		background: var(--report-soft);
+		border: 1px solid var(--color-tertiary-700-300);
 		border-radius: 999px;
-		color: #4a1744;
+		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
 		font-size: 0.9rem;
@@ -298,7 +395,7 @@
 		text-align: left;
 	}
 	.suggestions button:hover {
-		background: #f8cce7;
+		background: var(--report-soft);
 	}
 	.conversation {
 		display: grid;
@@ -306,13 +403,13 @@
 		margin: 1rem 0;
 	}
 	.answer-card {
-		background: white;
-		border: 1px solid #d4c6df;
+		background: var(--report-paper);
+		border: 1px solid var(--color-secondary-300);
 		border-radius: 0.8rem;
 		padding: 1rem;
 	}
 	.question {
-		color: #5a205c;
+		color: var(--color-secondary-950);
 		font-weight: 800;
 		margin: 0 0 0.75rem;
 	}
@@ -329,11 +426,55 @@
 		padding-left: 1.3rem;
 	}
 	.evidence {
-		border-top: 1px solid #e6dce8;
+		border-top: 1px solid var(--color-secondary-300);
 		margin-top: 1rem;
 	}
+	.template-suggestions {
+		border-top: 1px solid var(--color-secondary-300);
+		margin-top: 1rem;
+	}
+	.template-suggestions h3 {
+		font-size: 0.95rem;
+		margin: 0.8rem 0 0.6rem;
+	}
+	.template-suggestions ul {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 240px));
+		gap: 0.75rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.template-card {
+		min-width: 0;
+		border: 1px solid var(--color-secondary-300);
+		border-radius: 0.6rem;
+		overflow: hidden;
+	}
+	.template-card img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 4 / 3;
+		object-fit: contain;
+		background: var(--report-soft);
+	}
+	.template-copy {
+		padding: 0.7rem;
+	}
+	.template-copy strong {
+		display: block;
+		font-size: 0.85rem;
+		line-height: 1.4;
+		margin-bottom: 0.5rem;
+	}
+	.template-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem 0.7rem;
+		font-size: 0.82rem;
+	}
 	a {
-		color: #60217c;
+		color: var(--color-secondary-700-300);
 		font-weight: 650;
 		text-decoration: underline;
 		text-underline-offset: 0.15em;
@@ -347,11 +488,11 @@
 		margin-bottom: 0.4rem;
 	}
 	textarea {
-		background: white;
-		border: 1px solid #6d537c;
+		background: var(--report-paper);
+		border: 1px solid var(--color-surface-700);
 		border-radius: 0.6rem;
 		box-sizing: border-box;
-		color: #26123c;
+		color: var(--color-secondary-950);
 		font: inherit;
 		padding: 0.75rem;
 		resize: vertical;
@@ -366,21 +507,22 @@
 		margin-top: 0.5rem;
 	}
 	.form-footer span {
-		color: #5d4b64;
+		color: var(--color-surface-700);
 		font-size: 0.85rem;
 	}
 	.submit {
-		background: #4c1d73;
-		border: 2px solid #4c1d73;
+		background: var(--report-soft);
+		border: 2px solid var(--color-secondary-950);
 		border-radius: 0.6rem;
-		color: white;
+		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
 		font-weight: 800;
 		padding: 0.65rem 1rem;
 	}
 	.submit:hover {
-		background: #682793;
+		background: var(--color-secondary-700-300);
+		color: var(--color-surface-50);
 	}
 	button:disabled {
 		cursor: not-allowed;
@@ -389,17 +531,17 @@
 	button:focus-visible,
 	a:focus-visible,
 	textarea:focus-visible {
-		outline: 3px solid #b41b71;
+		outline: 3px solid var(--color-tertiary-700-300);
 		outline-offset: 3px;
 	}
 	.status {
 		line-height: 1.5;
 	}
 	.busy-card {
-		background: #fff;
-		border: 1px solid #d9c9e3;
+		background: var(--report-paper);
+		border: 1px solid var(--color-secondary-300);
 		border-radius: 0.8rem;
-		box-shadow: 0 8px 24px #39195f12;
+		box-shadow: 0 8px 24px color-mix(in srgb, var(--color-secondary-950) 7%, transparent);
 		margin: 1rem 0;
 		padding: 1rem 1.1rem;
 	}
@@ -409,24 +551,24 @@
 		gap: 0.8rem;
 	}
 	.busy-heading strong {
-		color: #39195f;
+		color: var(--color-secondary-950);
 	}
 	.busy-heading p {
-		color: #5d4b64;
+		color: var(--color-surface-700);
 		margin: 0.1rem 0 0;
 	}
 	.spinner {
 		animation: spin 0.85s linear infinite;
-		border: 3px solid #eadff0;
-		border-right-color: #9b427d;
-		border-top-color: #4c1d73;
+		border: 3px solid var(--report-soft);
+		border-right-color: var(--color-tertiary-700-300);
+		border-top-color: var(--color-secondary-950);
 		border-radius: 50%;
 		flex: 0 0 auto;
 		height: 1.35rem;
 		width: 1.35rem;
 	}
 	.progress-track {
-		background: #eee7f1;
+		background: var(--report-soft);
 		border-radius: 99px;
 		height: 0.35rem;
 		margin: 0.95rem 0 0.65rem;
@@ -434,7 +576,12 @@
 	}
 	.progress-track span {
 		animation: progress 1.6s ease-in-out infinite;
-		background: linear-gradient(90deg, #4c1d73, #b41b71, #f0d94a);
+		background: linear-gradient(
+			90deg,
+			var(--color-secondary-950),
+			var(--color-tertiary-700-300),
+			var(--color-primary-500)
+		);
 		border-radius: inherit;
 		display: block;
 		height: 100%;
@@ -442,7 +589,7 @@
 	}
 	.busy-footer {
 		align-items: center;
-		color: #5d4b64;
+		color: var(--color-surface-700);
 		display: flex;
 		flex-wrap: wrap;
 		font-size: 0.88rem;
@@ -451,16 +598,16 @@
 	}
 	.cancel {
 		background: transparent;
-		border: 1px solid #8d719b;
+		border: 1px solid var(--color-surface-700);
 		border-radius: 0.45rem;
-		color: #4c1d73;
+		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
 		font-weight: 700;
 		padding: 0.35rem 0.65rem;
 	}
 	.cancel:hover {
-		background: #f5eff8;
+		background: var(--report-paper);
 	}
 	@keyframes spin {
 		to {
@@ -488,7 +635,7 @@
 		}
 	}
 	.error {
-		color: #8a1645;
+		color: var(--color-tertiary-700-300);
 		font-weight: 700;
 	}
 	.sr-only {

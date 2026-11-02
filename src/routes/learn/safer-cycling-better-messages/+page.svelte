@@ -1,8 +1,8 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import CampaignPlanner from '#lib/components/safety-report/CampaignPlanner.svelte';
 	import EncounterLab from '#lib/components/safety-report/EncounterLab.svelte';
-	import MessageWorkbench from '#lib/components/safety-report/MessageWorkbench.svelte';
 	import DesignGallery from '#lib/components/safety-report/DesignGallery.svelte';
 	import EvidenceExplorer from '#lib/components/safety-report/EvidenceExplorer.svelte';
 	import ReportAssistant from '#lib/components/safety-report/ReportAssistant.svelte';
@@ -11,64 +11,18 @@
 	const report = $derived(data.report);
 	let query = $state('');
 	let active = $state('start');
+	let currentTopic = $state('');
 	let assistant;
 	let motionReady = $state(false);
 	const navigation = [
 		['start', 'Key takeaways'],
-		['encounters', 'Road encounters'],
-		['workbench', 'Make a message'],
-		['gallery', 'Visual library'],
-		['evidence', 'Evidence'],
+		['campaign-planner', 'Build a campaign'],
 		['read', 'Full review'],
+		['evidence', 'Evidence'],
+		['gallery', 'Visual library'],
 		['assistant', 'Ask the report']
 	];
-	const takeawayCopy = [
-		'Choose one audience and road situation, such as drivers passing on a narrow street.',
-		'Say who should act, when, and what to do. Make this the main headline.',
-		'Help readers see the safe choice. Keep any portrait or story beside a clear instruction.',
-		'Offer real help: lights and fitting, supervised practice, or a clear place to get support.',
-		'Use familiar places, useful languages, and formats chosen with the people you want to reach.',
-		'Ask readers to explain the action before you explain it. Revise confusing or blaming messages.',
-		'Review local rules, print at actual size, check translations, and test the QR code and short web address.',
-		'Track who you reach, what readers understand, and whether people use the action. Use the results to improve.'
-	];
-	const topics = [
-		{
-			label: 'Passing & lane position',
-			chapter: 'chapter-4',
-			number: '01',
-			text: 'Explain the space a rider needs. Show when a driver should wait.',
-			sources: ['R15', 'R34']
-		},
-		{
-			label: 'Doors & turns',
-			chapter: 'chapter-5',
-			number: '02',
-			text: 'Make the check and the wait clear. Rehearse the decision in a safe setting.',
-			sources: ['R06', 'R09', 'R45']
-		},
-		{
-			label: 'Stories & creative choices',
-			chapter: 'chapter-6',
-			number: '03',
-			text: 'Pair an everyday human connection with a specific driver action. Test the response.',
-			sources: ['R07', 'R08', 'R31']
-		},
-		{
-			label: 'Skills & equipment',
-			chapter: 'chapter-8',
-			number: '04',
-			text: 'Connect the advice to practice, feedback, gear and fitting help.',
-			sources: ['R05', 'R20', 'R32']
-		},
-		{
-			label: 'Delivery & evaluation',
-			chapter: 'chapter-12',
-			number: '05',
-			text: 'Reach the right people. Check understanding, use and follow-through.',
-			sources: ['R47', 'R48', 'R49']
-		}
-	];
+
 	const heroImages = $derived(
 		[
 			report.campaignGallery.find((i) => i.id === '01-give-people-space-poster-v9-page-01'),
@@ -114,7 +68,14 @@
 					(sum, term) => sum + (title.includes(term) ? 8 : body.includes(term) ? 1 : 0),
 					0
 				);
-				return { ...item, score };
+				const first =
+					terms
+						.map((term) => body.indexOf(term))
+						.filter((index) => index >= 0)
+						.sort((a, b) => a - b)[0] ?? 0;
+				const start = Math.max(0, first - 65);
+				const excerpt = `${start ? '…' : ''}${item.text.slice(start, start + 220)}${item.text.length > start + 220 ? '…' : ''}`;
+				return { ...item, score, excerpt };
 			})
 			.filter((item) => item.score > 0)
 			.sort((a, b) => b.score - a.score)
@@ -159,6 +120,17 @@
 		await tick();
 		assistant?.ask(question);
 	}
+	function chapterLinks(section) {
+		return [...section.html.matchAll(/<h3 id="([^"]+)">([\s\S]*?)<\/h3>/g)].map((match) => ({
+			id: match[1],
+			title: match[2].replace(/<[^>]*>/g, '')
+		}));
+	}
+	function chapterParts(section) {
+		const html = chapterHtml(section);
+		const index = html.indexOf('<h3');
+		return [html.slice(0, index), html.slice(index)];
+	}
 	function chapterHtml(section) {
 		return section.html
 			.replace(new RegExp(`<h2 id="${section.id}">[\\s\\S]*?<\\/h2>`), '')
@@ -194,6 +166,14 @@
 				if (element && element.getBoundingClientRect().top <= 165) current = id;
 			}
 			active = current;
+			for (const section of report.sections) {
+				const element = document.getElementById(section.id);
+				if (element instanceof HTMLDetailsElement && element.open) {
+					const rect = element.getBoundingClientRect();
+					if (rect.top <= 220 && rect.bottom > 220)
+						currentTopic = section.title.replace(/^\d+\.\s*/, '');
+				}
+			}
 		};
 		const queueActive = () => {
 			if (!frame) frame = requestAnimationFrame(updateActive);
@@ -237,7 +217,7 @@
 		<a href="/learn" class="back-link">← Learn library</a>
 		<div class="download-links" aria-label="Download the report">
 			<a href={report.meta.quickPdfUrl} target="_blank" rel="noopener"
-				>Two-page quick guide <span>PDF ↗</span></a
+				>One-page quick guide <span>PDF ↗</span></a
 			>
 			<a href={report.meta.fullPdfUrl} target="_blank" rel="noopener"
 				>Full research report <span>PDF ↗</span></a
@@ -254,7 +234,7 @@
 			</p>
 			<p class="hero-description">
 				This review brings together research on safety messages, riding education, and support.
-				Start with eight practical steps, then explore the examples and evidence.
+				Start with seven practical decisions, then explore the examples and evidence.
 			</p>
 			<div class="hero-actions">
 				<a href="#start" class="primary-link">Start with the key takeaways <span>↓</span></a><a
@@ -263,7 +243,8 @@
 				>
 			</div>
 			<div class="edition">
-				Evidence reviewed through 28 October 2026 <span>•</span> Public edition 4.4
+				Evidence reviewed through 28 October 2026 <span>•</span> Public edition 4.4 <span>•</span> Updated
+				1 November 2026
 			</div>
 		</div>
 		<div class="hero-art" aria-label="Examples from the campaign library">
@@ -292,28 +273,20 @@
 	</nav>
 
 	<section id="start" class="start-section section-pad motion-reveal">
-		<div class="infrastructure">
-			<span aria-hidden="true">↗</span>
-			<div>
-				<h2>Start with safer streets.</h2>
-				<p>
-					Prioritize safer road design and speeds. Use messages and practical support to address
-					today’s needs while continuing to work for better streets.
-				</p>
-				<a href="#executive-findings" onclick={() => reveal('executive-findings', false)}
-					>Read the report’s starting point →</a
-				>
-			</div>
-		</div>
+		<p class="template-notice">
+			<strong>Make these examples local.</strong> Campaign images are AI generated. Images, logos, website
+			addresses and QR codes are design placeholders. Customize the Canva templates with locally appropriate
+			images, road rules and working links before sharing.
+		</p>
 		<div class="takeaways-intro">
 			<p class="kicker">THE RESEARCH / PUT IT TO WORK</p>
 			<h2>Make a safety message<br /><em>people can use.</em></h2>
 			<p>
 				For community advocates, local groups, and anyone making a safety campaign: give people one
-				clear action and a practical way to take it. Start with these steps from the two-page guide.
+				clear action and a practical way to take it. Start with these steps from the one-page guide.
 			</p>
 		</div>
-		<ol class="quick-takeaways" aria-label="Eight steps for a useful safety campaign">
+		<ol class="quick-takeaways" aria-label="Seven decisions for a useful safety campaign">
 			{#each report.quickGuide.steps as step, i}
 				<li>
 					<span class="takeaway-number" aria-hidden="true"
@@ -321,7 +294,7 @@
 					>
 					<div>
 						<h3>{step.title}</h3>
-						<p>{takeawayCopy[i] || step.body}</p>
+						<p>{step.body}</p>
 					</div>
 				</li>
 			{/each}
@@ -336,34 +309,17 @@
 				</p>
 			</div>
 			<div class="takeaway-actions">
-				<a class="primary-link" href="#encounters"
-					>Explore this road encounter <span aria-hidden="true">↗</span></a
+				<a
+					class="primary-link"
+					href="#chapter-4"
+					onclick={(event) => {
+						event.preventDefault();
+						navigateTo('chapter-4');
+					}}>Explore this road encounter <span aria-hidden="true">↗</span></a
 				><a href={report.meta.quickPdfUrl} target="_blank" rel="noopener"
-					>Keep the two-page guide · PDF ↗</a
+					>Keep the one-page guide · PDF ↗</a
 				>
 			</div>
-		</div>
-		<div class="section-heading">
-			<div>
-				<p class="kicker">NEXT / CHOOSE YOUR WAY IN</p>
-				<h2>What are you<br /><em>trying to change?</em></h2>
-			</div>
-			<p>
-				Pick a road situation or a practical need. Follow the evidence to an action your audience
-				can take.
-			</p>
-		</div>
-		<div class="topic-list">
-			{#each topics as topic}<a
-					href={`#${topic.chapter}`}
-					onclick={() => reveal(topic.chapter, false)}
-					><span class="topic-number">{topic.number}</span>
-					<div>
-						<h3>{topic.label}</h3>
-						<p>{topic.text}</p>
-					</div>
-					<span class="topic-arrow" aria-hidden="true">↗</span></a
-				>{/each}
 		</div>
 		<div class="report-search">
 			<label for="report-search">Find a topic, a source or an example</label>
@@ -396,24 +352,16 @@
 							onclick={() => navigateTo(result.target)}
 							in:fly={{ y: 8, duration: 180 }}
 							out:fade={{ duration: 100 }}
-							><span>{result.kind}</span><strong>{result.title}</strong><b aria-hidden="true">↗</b
-							></button
+							><span>{result.kind}</span><strong
+								>{result.title}<small class="search-excerpt">{result.excerpt}</small></strong
+							><b aria-hidden="true">↗</b></button
 						>{/each}
 				</div>{/if}
 		</div>
 	</section>
 
-	<section id="encounters" class="section-pad encounter-section motion-reveal">
-		<EncounterLab onAsk={askReport} />
-	</section>
-	<section id="workbench" class="section-pad workbench-section motion-reveal">
-		<MessageWorkbench {report} onAsk={askReport} />
-	</section>
-	<section id="gallery" class="section-pad gallery-section motion-reveal">
-		<DesignGallery {report} onAsk={askReport} />
-	</section>
-	<section id="evidence" class="section-pad evidence-section motion-reveal">
-		<EvidenceExplorer {report} onAsk={askReport} />
+	<section id="campaign-planner" class="section-pad planner-section">
+		<CampaignPlanner {report} onNavigate={navigateTo} onAsk={askReport} />
 	</section>
 
 	<section id="read" class="reading-section section-pad motion-reveal">
@@ -428,6 +376,20 @@
 			</p>
 		</div>
 		<div class="reading-toolbar">
+			<label class="chapter-jump"
+				>Chapter
+				<select
+					aria-label="Jump to a report chapter"
+					value={report.sections.find(
+						(section) => section.title.replace(/^\d+\.\s*/, '') === currentTopic
+					)?.id || ''}
+					onchange={(event) => navigateTo(event.currentTarget.value)}
+				>
+					<option value="" disabled>Choose a chapter</option>
+					{#each report.sections as section}<option value={section.id}>{section.title}</option
+						>{/each}
+				</select>
+			</label>
 			<button type="button" onclick={() => openChapters(true)}>Open all chapters +</button><button
 				type="button"
 				onclick={() => openChapters(false)}>Close all −</button
@@ -449,13 +411,74 @@
 						<h3>{section.title.replace(/^\d+\.\s*/, '')}</h3>
 						<span class="expand-icon" aria-hidden="true">+</span></summary
 					>
-					<div class="chapter-copy">{@html chapterHtml(section)}</div>
+					{#if chapterLinks(section).length}
+						<nav class="chapter-links" aria-label={`In ${section.title}`}>
+							<span>In this chapter</span>
+							{#each chapterLinks(section) as link}<a
+									href={`#${link.id}`}
+									onclick={(event) => {
+										event.preventDefault();
+										navigateTo(link.id);
+									}}>{link.title}</a
+								>{/each}
+						</nav>
+					{/if}
+					<div class="chapter-copy">
+						{@html ['chapter-4', 'chapter-5'].includes(section.id)
+							? chapterParts(section)[0]
+							: chapterHtml(section)}
+					</div>
+					{#if section.id === 'chapter-4' || section.id === 'chapter-5'}
+						<div class="chapter-interactive">
+							<EncounterLab
+								instanceId={section.id}
+								initialMode={section.id === 'chapter-5' ? 'door' : 'passing'}
+								onAsk={askReport}
+							/>
+						</div>
+						<div class="chapter-copy">{@html chapterParts(section)[1]}</div>
+					{/if}
+					{#if ['chapter-4', 'chapter-5', 'chapter-6', 'chapter-9'].includes(section.id)}
+						<div class="chapter-examples">
+							<h4>Adapt an example for your community</h4>
+							<p>
+								Campaign images are AI generated. Images, logos, website addresses and QR codes are
+								design placeholders. Customize these templates with locally appropriate imagery,
+								accurate road rules and working local links before use.
+							</p>
+							<div class="chapter-example-grid">
+								{#each report.campaignGallery
+									.filter((item) => item.kind === 'poster' && item.page === 1 && (section.id === 'chapter-6' ? item.campaign === '03-a-person-on-a-bike' : section.id === 'chapter-9' ? item.campaign === '05-light-the-ride' : section.id === 'chapter-4' ? item.campaign.includes('give-people-space') : /door|turn/.test(item.campaign)))
+									.slice(0, 2) as item}
+									<article>
+										<img src={item.src} alt={item.alt} loading="lazy" />
+										<h5>{item.title}</h5>
+										{#if item.canvaTemplateUrl}<a
+												href={item.canvaTemplateUrl}
+												target="_blank"
+												rel="noopener">Customize in Canva ↗</a
+											>{/if}
+										{#if item.pdfUrl}<a href={item.pdfUrl} download>Download example PDF ↓</a>{/if}
+									</article>
+								{/each}
+							</div>
+							<a href="#gallery">Explore all example templates ↗</a>
+						</div>
+					{/if}
 				</details>{/each}
 		</div>
 	</section>
 
+	<section id="evidence" class="section-pad evidence-section motion-reveal">
+		<EvidenceExplorer {report} onAsk={askReport} />
+	</section>
+
+	<section id="gallery" class="section-pad gallery-section motion-reveal">
+		<DesignGallery {report} onAsk={askReport} />
+	</section>
+
 	<section id="assistant" class="section-pad assistant-section motion-reveal">
-		<ReportAssistant bind:this={assistant} {report} />
+		<ReportAssistant {currentTopic} bind:this={assistant} {report} />
 	</section>
 	<footer class="report-footer">
 		<img src="/logos/3FeetPlease_WhiteOutline.png" alt="3 Feet Please" width="64" height="64" />
@@ -471,8 +494,130 @@
 </div>
 
 <style>
+	.report-page :global(input),
+	.report-page :global(select),
+	.report-page :global(textarea) {
+		border-color: var(--color-secondary-400);
+	}
+
+	.report-page :global(h4),
+	.report-page :global(h5) {
+		color: var(--color-secondary-950);
+	}
+
+	.chapter-jump {
+		display: flex;
+		gap: 0.6rem;
+		align-items: center;
+		font-size: 0.8rem;
+		font-weight: 700;
+		max-width: 100%;
+	}
+	.chapter-jump select {
+		color: var(--ink);
+		background: var(--cream);
+		border: 1px solid var(--line);
+		border-radius: 0.4rem;
+		padding: 0.5rem 2rem 0.5rem 0.7rem;
+		max-width: 24rem;
+		font-size: 0.8rem;
+	}
+
+	@media (max-width: 720px) {
+		.reading-toolbar {
+			position: static;
+		}
+		.chapter-jump {
+			width: 100%;
+		}
+		.chapter-jump select {
+			min-width: 0;
+			flex: 1;
+		}
+	}
+
+	.chapter-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.6rem 1.2rem;
+		margin: 0 0 1.8rem 3.5rem;
+		max-width: 70ch;
+		padding: 1rem;
+		background: var(--report-soft);
+		border-radius: 0.5rem;
+	}
+	.chapter-links span {
+		width: 100%;
+		font-weight: 700;
+	}
+	.chapter-links a {
+		font-size: 0.9rem;
+		text-decoration: underline;
+		color: var(--purple);
+	}
+	.search-excerpt {
+		display: block;
+		margin-top: 0.5rem;
+		font-size: 0.9rem;
+		font-weight: 400;
+		color: var(--muted);
+		line-height: 1.5;
+	}
+	.chapter-copy :global(h3),
+	.report-reading > details > summary h3 {
+		text-transform: none;
+	}
+	.chapter-copy :global([id]) {
+		scroll-margin-top: 160px;
+	}
+	.planner-section {
+		padding-top: 2rem;
+		padding-bottom: 2rem;
+		scroll-margin-top: 140px;
+	}
+	@media (max-width: 720px) {
+		.chapter-links {
+			margin-left: 0;
+		}
+	}
+
+	.template-notice {
+		padding: 1.25rem;
+		border-left: 4px solid var(--color-tertiary-700-300);
+		background: var(--report-soft);
+		line-height: 1.6;
+		margin-bottom: 2rem;
+	}
+	.chapter-interactive,
+	.chapter-examples {
+		margin: 2rem 0;
+		padding: 1.5rem;
+		border-radius: 20px;
+		background: var(--report-paper);
+	}
+	.chapter-examples h4 {
+		font-size: 1.5rem;
+		margin: 0 0 1rem;
+	}
+	.chapter-example-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 1.5rem;
+		margin: 1.5rem 0;
+	}
+	.chapter-example-grid img {
+		width: 100%;
+		max-height: 420px;
+		object-fit: contain;
+	}
+	.chapter-example-grid a {
+		display: block;
+		margin: 0.6rem 0;
+	}
+
 	.takeaways-intro {
 		max-width: 48rem;
+		margin-top: 2.5rem;
 		margin-bottom: 2rem;
 	}
 	.takeaways-intro .kicker {
@@ -527,14 +672,14 @@
 		grid-template-columns: 1.25fr 1fr;
 		align-items: center;
 		gap: 2rem;
-		background: #35125f;
-		color: #fff3df;
+		background: var(--report-soft);
+		color: var(--color-surface-700);
 		border-top: 5px solid var(--pink);
 		padding: clamp(1.4rem, 3vw, 2.5rem);
 		margin: 1.2rem 0 4rem;
 	}
 	.takeaway-example .kicker {
-		color: var(--lemon);
+		color: var(--color-secondary-700);
 		font-size: 0.6rem;
 	}
 	.takeaway-example blockquote {
@@ -547,7 +692,7 @@
 	.takeaway-example p:last-child {
 		font-size: 0.85rem;
 		line-height: 1.65;
-		color: #e2d2f1;
+		color: var(--color-surface-700);
 	}
 	.takeaway-actions {
 		display: flex;
@@ -556,7 +701,7 @@
 		align-items: flex-start;
 	}
 	.takeaway-actions > a:last-child {
-		color: #fff3df;
+		color: var(--color-surface-700);
 		font-size: 0.78rem;
 		text-decoration: underline;
 		text-underline-offset: 3px;
@@ -587,15 +732,18 @@
 		color: var(--ink) !important;
 	}
 	.report-page {
-		--purple: #7926cb;
-		--pink: #ff0180;
-		--lemon: #ffff0a;
-		--ink: #23143a;
-		--cream: #fff3df;
-		--muted: #655b70;
-		--line: #dfd3e8;
+		--report-paper: var(--color-surface-50);
+		--report-soft: color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50));
+		--report-border: var(--color-secondary-300);
+		--purple: var(--color-secondary-700-300);
+		--pink: var(--color-tertiary-700-300);
+		--lemon: var(--color-primary-500);
+		--ink: var(--color-secondary-950);
+		--cream: var(--report-soft);
+		--muted: var(--color-surface-700);
+		--line: var(--color-secondary-200);
 		margin: -1rem;
-		background: #fffaf3;
+		background: var(--report-paper);
 		color: var(--ink);
 		font-family: Arial, Helvetica, sans-serif;
 		color-scheme: light;
@@ -632,8 +780,8 @@
 		left: 1rem;
 		top: -5rem;
 		z-index: 99;
-		background: var(--lemon);
-		color: var(--ink);
+		background: var(--color-primary-100);
+		color: var(--color-secondary-950);
 		padding: 1rem;
 	}
 	.skip-report:focus {
@@ -669,12 +817,12 @@
 	}
 	.report-hero {
 		padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 4vw, 4rem) 3.5rem;
-		background: #35125f;
+		background: var(--report-soft);
 		display: grid;
 		grid-template-columns: 1.1fr 1fr;
 		gap: 1.5rem;
 		overflow: hidden;
-		color: white;
+		color: var(--color-secondary-950);
 		min-height: 650px;
 		align-items: center;
 	}
@@ -722,21 +870,21 @@
 		background: var(--pink);
 	}
 	.report-hero .kicker {
-		color: var(--lemon);
+		color: var(--color-secondary-700);
 		margin-bottom: 2.3rem;
 	}
 	.report-hero h1 {
 		font-size: clamp(3.4rem, 5.8vw, 7rem);
 		line-height: 0.96;
 		letter-spacing: -0.06em;
-		color: white;
+		color: var(--color-secondary-950);
 	}
 	.report-page em {
 		font-style: normal;
 		color: var(--purple);
 	}
 	.report-hero h1 em {
-		color: var(--lemon);
+		color: var(--color-secondary-700);
 	}
 	.hero-deck {
 		font-size: clamp(1.2rem, 1.7vw, 1.65rem);
@@ -750,7 +898,7 @@
 		margin-top: 1rem !important;
 		line-height: 1.6;
 		font-size: 1rem;
-		color: #e2d2f1;
+		color: var(--color-surface-700);
 	}
 	.hero-actions {
 		display: flex;
@@ -763,17 +911,17 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 2rem;
-		background: var(--lemon);
-		color: var(--ink);
+		background: var(--color-primary-100);
+		color: var(--color-secondary-950);
 		padding: 1rem 1.2rem;
 		font-weight: 800;
 		font-size: 0.9rem;
 	}
 	.primary-link:hover {
-		background: white;
+		background: var(--report-paper);
 	}
 	.text-link {
-		color: white;
+		color: var(--color-secondary-950);
 		font-size: 0.85rem;
 		font-weight: 700;
 	}
@@ -782,7 +930,7 @@
 	}
 	.edition {
 		font-size: 0.65rem;
-		color: #cdb7e0;
+		color: var(--color-secondary-700-300);
 		margin-top: 2rem;
 		line-height: 1.8;
 	}
@@ -799,9 +947,9 @@
 		display: block;
 		position: absolute;
 		width: 48%;
-		background: white;
+		background: var(--report-paper);
 		padding: 6px;
-		box-shadow: 0 25px 60px #13082080;
+		box-shadow: 0 25px 60px color-mix(in srgb, var(--color-surface-950) 50%, transparent);
 		transition: transform 0.25s;
 	}
 	.hero-poster img {
@@ -846,7 +994,7 @@
 		position: absolute;
 		left: 0;
 		bottom: 0;
-		color: #e9d7fc;
+		color: var(--color-surface-700);
 		font-size: 0.78rem;
 		line-height: 1.45;
 		z-index: 3;
@@ -864,7 +1012,7 @@
 		display: flex;
 		gap: 0;
 		overflow-x: auto;
-		background: var(--lemon);
+		background: var(--color-primary-100);
 		border-bottom: 1px solid var(--ink);
 		padding: 0 clamp(1rem, 3vw, 3rem);
 		scrollbar-width: thin;
@@ -884,7 +1032,7 @@
 	.report-nav a:hover,
 	.report-nav a[aria-current] {
 		border-color: var(--pink);
-		background: #ffffff50;
+		background: color-mix(in srgb, var(--report-paper) 31%, transparent);
 	}
 	.section-pad {
 		padding: clamp(2.75rem, 6vw, 6rem) clamp(1.25rem, 5vw, 5rem);
@@ -928,74 +1076,6 @@
 		line-height: 1.65;
 		font-size: 0.95rem;
 		color: var(--muted);
-	}
-	.infrastructure {
-		display: flex;
-		gap: 1.4rem;
-		background: var(--cream);
-		border-left: 5px solid var(--pink);
-		padding: 1.5rem 1.7rem;
-		margin-bottom: 4.5rem;
-		align-items: flex-start;
-	}
-	.infrastructure > span {
-		color: var(--purple);
-		font-size: 2.3rem;
-		line-height: 1;
-	}
-	.infrastructure h2 {
-		font-size: 1.35rem;
-		letter-spacing: -0.025em;
-	}
-	.infrastructure p {
-		font-size: 0.95rem;
-		line-height: 1.6;
-		max-width: 59rem;
-		margin-top: 0.45rem;
-	}
-	.infrastructure a {
-		display: inline-block;
-		color: var(--purple);
-		font-size: 0.75rem;
-		font-weight: 800;
-		margin-top: 0.65rem;
-	}
-	.topic-list {
-		border-top: 1px solid var(--ink);
-	}
-	.topic-list > a {
-		display: flex;
-		align-items: center;
-		gap: 1.5rem;
-		padding: 1.5rem 0.25rem;
-		border-bottom: 1px solid var(--line);
-		color: var(--ink);
-		transition: padding 0.2s;
-	}
-	.topic-list > a:hover {
-		background: var(--cream);
-		padding-left: 1rem;
-	}
-	.topic-number {
-		font-size: 0.75rem;
-		font-weight: 800;
-		color: var(--pink);
-		min-width: 1.7rem;
-	}
-	.topic-list h3 {
-		font-size: 1.35rem;
-		letter-spacing: -0.02em;
-	}
-	.topic-list p {
-		font-size: 0.85rem;
-		line-height: 1.5;
-		color: var(--muted);
-		margin-top: 0.35rem;
-	}
-	.topic-arrow {
-		font-size: 1.6rem;
-		color: var(--purple);
-		margin-left: auto;
 	}
 	.report-search {
 		margin-top: 3.5rem;
@@ -1050,7 +1130,7 @@
 		border: 1px solid var(--line);
 		color: var(--purple);
 		font-size: 0.72rem;
-		background: white;
+		background: var(--report-paper);
 	}
 	.search-chips button:hover {
 		border-color: var(--purple);
@@ -1089,27 +1169,28 @@
 		color: var(--pink);
 	}
 	.encounter-section {
-		background: #f0e6f8;
+		background: var(--report-soft);
 		border-top: 1px solid var(--line);
 	}
-	.workbench-section {
-		background: var(--cream);
-	}
 	.gallery-section {
-		background: white;
+		background: var(--report-paper);
 	}
 	.evidence-section {
-		background: #f4edf9;
+		background: var(--report-paper);
 	}
 	.reading-section {
-		background: #fffaf3;
+		background: var(--report-paper);
 		border-top: 1px solid var(--line);
 	}
 	.assistant-section {
-		background: #f0e6f8;
+		background: var(--report-soft);
 		border-top: 1px solid var(--line);
 	}
 	.reading-toolbar {
+		position: sticky;
+		top: 132px;
+		z-index: 12;
+		background: var(--report-paper);
 		display: flex;
 		gap: 1.4rem;
 		align-items: center;
@@ -1168,8 +1249,8 @@
 	}
 	.chapter-copy {
 		padding: 0.25rem 0 3rem 3.5rem;
-		max-width: 940px;
-		font-size: 1rem;
+		max-width: 76ch;
+		font-size: 1.125rem;
 		line-height: 1.85;
 	}
 	.chapter-copy :global(p) {
@@ -1219,7 +1300,7 @@
 		width: 100%;
 		height: auto;
 		display: block;
-		background: white;
+		background: var(--report-paper);
 	}
 	.chapter-copy :global(figcaption) {
 		font-size: 0.8rem;
@@ -1238,17 +1319,17 @@
 	}
 	.chapter-copy :global(td),
 	.chapter-copy :global(th) {
-		border: 1px solid #d6c4e4;
+		border: 1px solid var(--report-soft);
 		padding: 0.8rem;
 		vertical-align: top;
 		min-width: 100px;
 	}
 	.chapter-copy :global(th) {
-		background: #e5d5f2;
+		background: var(--report-soft);
 		text-align: left;
 	}
 	.chapter-copy :global(tr:nth-child(even)) {
-		background: #f4edf9;
+		background: var(--report-paper);
 	}
 	.chapter-copy :global([id]) {
 		scroll-margin-top: 140px;
@@ -1257,8 +1338,8 @@
 		display: flex;
 		align-items: center;
 		gap: 1.5rem;
-		background: #35125f;
-		color: white;
+		background: var(--report-soft);
+		color: var(--color-secondary-950);
 		padding: 2.5rem clamp(1.25rem, 5vw, 5rem);
 	}
 	.report-footer img {
@@ -1275,12 +1356,12 @@
 	}
 	.report-footer span {
 		font-size: 0.75rem;
-		color: #d8c6e9;
+		color: var(--color-surface-700);
 		line-height: 1.6;
 	}
 	.report-footer > a {
 		margin-left: auto;
-		color: var(--lemon);
+		color: var(--color-secondary-700);
 		font-size: 0.8rem;
 		white-space: nowrap;
 	}
@@ -1371,23 +1452,6 @@
 		.section-heading h2 {
 			font-size: 2.45rem;
 		}
-		.infrastructure {
-			padding: 1.2rem;
-			gap: 0.8rem;
-			margin-bottom: 3rem;
-		}
-		.infrastructure > span {
-			display: none;
-		}
-		.topic-list > a {
-			gap: 0.7rem;
-		}
-		.topic-list h3 {
-			font-size: 1.1rem;
-		}
-		.topic-list p {
-			font-size: 0.8rem;
-		}
 		.search-results > button {
 			grid-template-columns: 1fr 1rem;
 			gap: 0.4rem;
@@ -1428,9 +1492,6 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.hero-poster,
-		.topic-list > a {
-			transition: none;
-		}
 		* {
 			scroll-behavior: auto;
 		}
@@ -1447,14 +1508,13 @@
 	@media print {
 		.report-page {
 			margin: 0;
-			background: white;
+			background: var(--report-paper);
 		}
 		.download-bar,
 		.report-hero,
 		.report-nav,
 		.start-section,
 		.encounter-section,
-		.workbench-section,
 		.gallery-section,
 		.evidence-section,
 		.assistant-section,
@@ -1473,6 +1533,12 @@
 		}
 		.chapter-copy :global(figure) {
 			break-inside: avoid;
+		}
+	}
+
+	@media (min-width: 721px) {
+		.report-page :global(#read [id]) {
+			scroll-margin-top: 240px;
 		}
 	}
 </style>

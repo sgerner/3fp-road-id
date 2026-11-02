@@ -38,6 +38,75 @@
 			: item.dimensions
 				? `${item.dimensions.join(' × ')} in`
 				: '';
+	const campaignUses = {
+		'01-give-people-space': {
+			audience: 'Drivers and fleet teams',
+			action: 'Wait when there is not enough safe, legal room to pass.',
+			placement: 'Driver training, fleet briefings, community outreach',
+			customize: 'Local passing rules, road context, and help links'
+		},
+		'02-why-im-here': {
+			audience: 'Drivers and neighbors',
+			action: 'Pair a human story with one clear, respectful road action.',
+			placement: 'Community outreach, social posts, school or work displays',
+			customize: 'A real local voice, accurate image, and relevant action'
+		},
+		'03-a-person-on-a-bike': {
+			audience: 'Drivers and neighbors',
+			action: 'Recognize the person riding and give them room on the road.',
+			placement: 'Community outreach, social posts, school or work displays',
+			customize: 'A real local voice, accurate image, and relevant action'
+		},
+		'05-light-the-ride': {
+			audience: 'Riders and families',
+			action: 'Use visible front and rear lights after dark; offer fitting help.',
+			placement: 'Schools, bike programs, and community gear events',
+			customize: 'Local light rules, access to gear, and fitting support'
+		},
+		'06-before-the-door': {
+			audience: 'People in parked vehicles',
+			action: 'Check behind and wait for riders before opening a door.',
+			placement: 'Workplaces, parking areas, and driver training',
+			customize: 'Local rules, vehicle setup, and the parking context'
+		},
+		'07-check-before-you-turn': {
+			audience: 'Drivers approaching turns',
+			action: 'Check for riders and wait until the crossing path is clear.',
+			placement: 'Driver training, fleet briefings, intersection outreach',
+			customize: 'Local intersections, turning rules, and vehicle types'
+		},
+		'08-ride-alert, 09-after-a-crash': {
+			audience: 'Riders, ride leaders, and helpers',
+			action: 'Share a ride check-in plan and know where to get help after a crash.',
+			placement: 'Group ride check-ins, wallet cards, event kits',
+			customize: 'Emergency contacts, local routes, and response guidance'
+		},
+		'09-after-a-crash': {
+			audience: 'Riders, witnesses, and ride leaders',
+			action: 'Use the card to gather key details and connect with local help.',
+			placement: 'Ride kits, wallet cards, group ride briefings',
+			customize: 'Emergency contacts and local reporting procedures'
+		},
+		'10-find-your-people': {
+			audience: 'New or returning riders',
+			action: 'Join a welcoming local ride or connect with a riding community.',
+			placement: 'Group rides, newcomer sessions, community events',
+			customize: 'Local groups, meeting details, pace, and accessibility'
+		},
+		'11-arizona-riding-essentials': {
+			audience: 'New riders and families in Arizona',
+			action: 'Plan a ride with local gear, route, and heat-preparedness guidance.',
+			placement: 'Beginner guides, school and community sessions',
+			customize: 'Local routes, rules, climate, and support resources'
+		}
+	};
+	const suggestedUse = (campaign) =>
+		campaignUses[campaign] || {
+			audience: 'Local riders and road users',
+			action: 'Choose one clear, practical action for this audience.',
+			placement: 'Community, school, or workplace outreach',
+			customize: 'Local people, road rules, routes, and working links'
+		};
 
 	const items = $derived(library === 'visuals' ? report.figures : report.campaignGallery);
 	const types = $derived([...new Set(items.map((item) => item.kind))].sort());
@@ -128,10 +197,15 @@
 	</p>
 	<div class="free-assets">
 		<div>
-			<span class="free-label">FREE CAMPAIGN LIBRARY</span>
+			<span class="free-label">Free campaign library</span>
+			<p>
+				Campaign images are AI generated. Images, logos, website addresses and QR codes are design
+				placeholders. Customize each template for local people, road rules and working links before
+				distribution.
+			</p>
 			<h3>Take an idea.<br />Make it your own.</h3>
 			<p>
-				Download a PDF to print, or open a Canva template to create your own editable copy. No email
+				Download a PDF proof to review, or customize a Canva template for your community. No email
 				or form required for downloads.
 			</p>
 		</div>
@@ -148,13 +222,15 @@
 			type="button"
 			class:active={library === 'visuals'}
 			aria-pressed={library === 'visuals'}
-			onclick={() => switchLibrary('visuals')}>Report visuals <span>31</span></button
+			onclick={() => switchLibrary('visuals')}
+			>Report visuals <span>{report.figures.length}</span></button
 		>
 		<button
 			type="button"
 			class:active={library === 'campaigns'}
 			aria-pressed={library === 'campaigns'}
-			onclick={() => switchLibrary('campaigns')}>Campaign library <span>82</span></button
+			onclick={() => switchLibrary('campaigns')}
+			>Campaign library <span>{report.campaignGallery.length}</span></button
 		>
 	</div>
 	<div class="controls">
@@ -186,6 +262,7 @@
 	</p>
 	<div class="grid">
 		{#each results.slice(0, visible) as item, index (item.id)}
+			{@const guidance = suggestedUse(item.campaign)}
 			<article
 				in:fly={{ y: reducedMotion ? 0 : 14, duration: reducedMotion ? 0 : 250 }}
 				animate:flip={{ duration: reducedMotion ? 0 : 220 }}
@@ -214,6 +291,27 @@
 				{#if library === 'campaigns'}<p class="asset-meta">
 						{formatSize(item)} · {item.pageCount}-page set
 					</p>
+					<div class="campaign-guidance">
+						<p>Suggested use · draft to adapt</p>
+						<dl>
+							<div>
+								<dt>Audience</dt>
+								<dd>{guidance.audience}</dd>
+							</div>
+							<div>
+								<dt>Action</dt>
+								<dd>{guidance.action}</dd>
+							</div>
+							<div>
+								<dt>Placement</dt>
+								<dd>{guidance.placement}</dd>
+							</div>
+							<div>
+								<dt>Customize</dt>
+								<dd>{guidance.customize}</dd>
+							</div>
+						</dl>
+					</div>
 					<div class="card-actions">
 						{#if item.pdfUrl}<a
 								href={item.pdfUrl}
@@ -316,32 +414,32 @@
 		grid-template-columns: 1.2fr 1fr;
 		gap: 2rem;
 		align-items: center;
-		background: #35125f;
-		color: #fff3df;
+		background: var(--report-soft);
+		color: var(--color-surface-700);
 		padding: clamp(1.3rem, 3vw, 2.3rem);
 		margin: 2rem 0;
-		border-top: 6px solid #ff0180;
+		border-top: 6px solid var(--color-tertiary-700-300);
 	}
 	.free-label {
-		font-size: 0.68rem;
+		font-size: 0.82rem;
 		font-weight: 800;
-		color: #ffff0a;
-		letter-spacing: 0.14em;
+		color: var(--color-primary-contrast-500);
+		letter-spacing: 0.02em;
 	}
 	.free-assets h3 {
-		color: #fff3df !important;
+		color: var(--color-surface-700) !important;
 		font-size: clamp(1.8rem, 3vw, 2.7rem);
 		line-height: 1.05;
 		margin: 0.8rem 0 1rem;
 	}
 	.free-assets p {
-		font-size: 0.85rem;
+		font-size: 0.9rem;
 		line-height: 1.6;
 		max-width: 32rem;
 	}
 	.free-actions button {
-		background: #ffff0a;
-		color: #23143a;
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
 		border: 0;
 		padding: 1.1rem;
 		font-weight: 800;
@@ -352,13 +450,42 @@
 	}
 	.free-actions p {
 		margin: 1rem 0 0;
-		color: #e6d5f5;
-		font-size: 0.75rem;
+		color: var(--color-surface-700);
+		font-size: 0.85rem;
 	}
 	.asset-meta {
-		font-size: 0.73rem;
-		color: #655b70;
+		font-size: 0.85rem;
+		color: var(--color-surface-700);
 		margin: 0.6rem 0;
+	}
+	.campaign-guidance {
+		margin-top: 0.75rem;
+		padding-top: 0.7rem;
+		border-top: 1px solid var(--color-secondary-300);
+		font-size: 0.85rem;
+		line-height: 1.45;
+	}
+	.campaign-guidance > p {
+		margin: 0 0 0.45rem;
+		color: var(--color-surface-700);
+		font-size: 0.85rem;
+		font-weight: 750;
+	}
+	.campaign-guidance dl {
+		display: grid;
+		gap: 0.35rem;
+		margin: 0;
+	}
+	.campaign-guidance dl div {
+		display: grid;
+		grid-template-columns: 5.2rem minmax(0, 1fr);
+		gap: 0.45rem;
+	}
+	.campaign-guidance dt {
+		font-weight: 750;
+	}
+	.campaign-guidance dd {
+		margin: 0;
 	}
 	.card-actions {
 		display: flex;
@@ -367,39 +494,39 @@
 		margin-top: 0.8rem;
 	}
 	.card-actions a {
-		font-size: 0.7rem;
+		font-size: 0.8rem;
 		padding: 0.5rem 0.6rem;
-		background: #eee2f9;
-		color: #4c197d;
+		background: var(--report-soft);
+		color: var(--color-secondary-700-300);
 		text-decoration: none;
 		font-weight: 800;
 	}
 	.card-actions a:last-child {
-		background: #7926cb;
-		color: white;
+		background: var(--color-secondary-700-300);
+		color: var(--color-surface-50);
 	}
 	.card-actions a:hover {
-		background: #ffff0a;
-		color: #23143a;
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
 	}
 	.actions small {
 		display: block;
-		font-size: 0.65rem;
+		font-size: 0.75rem;
 		font-weight: 400;
 		opacity: 0.8;
 	}
 	.actions .download-primary {
-		background: #7926cb;
-		color: white;
+		background: var(--color-secondary-700-300);
+		color: var(--color-surface-50);
 	}
 	.actions .template-link {
-		background: #ffff0a;
-		color: #23143a;
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
 	}
 	.download-note {
-		font-size: 0.78rem;
-		line-height: 1.7;
-		color: #655b70;
+		font-size: 0.85rem;
+		line-height: 1.6;
+		color: var(--color-surface-700);
 		margin: 1rem 0;
 	}
 	dialog[open] {
@@ -441,18 +568,24 @@
 
 	h2,
 	h3 {
-		color: #26123c !important;
+		color: var(--color-secondary-950) !important;
 	}
 	.gallery {
-		color: #23143a;
+		color: var(--color-secondary-950);
 	}
 	.eyebrow,
 	.item-label {
-		color: #7926cb;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		font-size: 0.75rem;
+		color: var(--color-secondary-700-300);
+		letter-spacing: 0.02em;
+		font-size: 0.82rem;
 		font-weight: 800;
+	}
+	.gallery h2,
+	.gallery h3 {
+		text-transform: none;
+	}
+	.gallery p {
+		line-height: 1.6;
 	}
 	h2 {
 		font-size: clamp(2rem, 5vw, 3.5rem);
@@ -476,7 +609,7 @@
 	a:focus-visible,
 	input:focus-visible,
 	select:focus-visible {
-		outline: 3px solid #ff0180;
+		outline: 3px solid var(--color-tertiary-700-300);
 		outline-offset: 3px;
 	}
 	.switcher {
@@ -487,15 +620,15 @@
 	}
 	.switcher button {
 		padding: 0.75rem 1rem;
-		border: 2px solid #7926cb;
+		border: 2px solid var(--color-secondary-700-300);
 		background: transparent;
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 		border-radius: 0.3rem;
 		font-weight: 800;
 	}
 	.switcher button.active {
-		background: #7926cb;
-		color: white;
+		background: var(--color-secondary-700-300);
+		color: var(--color-surface-50);
 	}
 	.switcher span {
 		opacity: 0.8;
@@ -510,7 +643,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
-		font-size: 0.85rem;
+		font-size: 0.9rem;
 		font-weight: 800;
 	}
 	input,
@@ -519,10 +652,10 @@
 		width: 100%;
 		box-sizing: border-box;
 		padding: 0.8rem;
-		color: #23143a;
-		border: 1px solid #9d8aab;
+		color: var(--color-secondary-950);
+		border: 1px solid var(--color-secondary-300);
 		border-radius: 0.3rem;
-		background: white;
+		background: var(--report-paper);
 	}
 	.count {
 		font-weight: 700;
@@ -538,7 +671,7 @@
 		width: 100%;
 		padding: 0;
 		border: 0;
-		background: #f3edf7;
+		background: var(--report-paper);
 	}
 	.image-button img {
 		display: block;
@@ -548,7 +681,7 @@
 		object-fit: contain;
 	}
 	.image-button:hover {
-		box-shadow: 0 0 0 4px #ff0180;
+		box-shadow: 0 0 0 4px var(--color-tertiary-700-300);
 	}
 	.item-label {
 		margin: 0.8rem 0 0.35rem;
@@ -561,10 +694,10 @@
 	.more {
 		margin: 2rem 0;
 		padding: 0.85rem 1.2rem;
-		border: 2px solid #7926cb;
+		border: 2px solid var(--color-secondary-700-300);
 		border-radius: 0.3rem;
 		background: transparent;
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 		font-weight: 800;
 	}
 	dialog {
@@ -574,10 +707,10 @@
 		max-height: 90vh;
 		overflow: auto;
 		padding: clamp(1rem, 4vw, 2.5rem);
-		color: #23143a;
-		background: #fffdf8;
+		color: var(--color-secondary-950);
+		background: var(--report-paper);
 		border: 0;
-		border-top: 6px solid #ff0180;
+		border-top: 6px solid var(--color-tertiary-700-300);
 	}
 	dialog::backdrop {
 		background: rgb(35 20 58 / 0.78);
@@ -591,7 +724,7 @@
 	.close {
 		border: 0;
 		background: transparent;
-		color: #23143a;
+		color: var(--color-secondary-950);
 		font-size: 2.5rem;
 		line-height: 1;
 	}
@@ -620,7 +753,7 @@
 	}
 	.actions a,
 	.actions button {
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 		font-weight: 800;
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
@@ -634,17 +767,17 @@
 		justify-content: space-between;
 		margin-top: 2rem;
 		padding-top: 1rem;
-		border-top: 1px solid #cbbbd3;
+		border-top: 1px solid var(--report-border);
 	}
 	.navigation button {
 		border: 0;
-		background: #ffff0a;
-		color: #23143a;
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
 		padding: 0.65rem 0.9rem;
 		font-weight: 800;
 	}
 	.navigation span {
-		font-size: 0.8rem;
+		font-size: 0.85rem;
 	}
 	@media (max-width: 700px) {
 		.controls {

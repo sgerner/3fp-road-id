@@ -15,6 +15,7 @@ const release = process.env.CAMPAIGN_SOURCE_DIR || path.join(deliverables, '_rel
 const campaignRoot = process.env.CAMPAIGN_ASSET_SOURCE_DIR || deliverables;
 const output = 'static/reports/safer-cycling-better-messages';
 const base = '/reports/safer-cycling-better-messages';
+const excludedCampaigns = new Set(['04-practice-before-traffic', '12-partner-demonstrations']);
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const clean = (text) => text.replace(/\s+/g, ' ').trim();
 const descendants = (node, name) => findAll((el) => el.name === name, node.children || []);
@@ -175,7 +176,9 @@ const validation = readJson(
 		: `${release}/validation.json`
 );
 const campaignGallery = [];
-for (const record of validation.records) {
+for (const record of validation.records.filter(
+	(record) => !record.campaigns.some((campaign) => excludedCampaigns.has(campaign))
+)) {
 	const campaigns = record.campaigns;
 	const campaign = campaigns.join(', ');
 	const label = record.campaigns
@@ -216,6 +219,7 @@ const data = {
 		edition: 'Public edition 4.4',
 		reviewedThrough: '2026-10-28',
 		publishedAt: '2026-10-29',
+		updatedAt: '2026-11-01',
 		fullPdfUrl: `${base}/safer-cycling-better-messages-public-review.pdf`,
 		quickPdfUrl: `${base}/safer-cycling-campaigns-quick-guide.pdf`,
 		csvUrl: `${base}/evidence-matrix.csv`
@@ -224,12 +228,13 @@ const data = {
 	sources,
 	figures,
 	campaignGallery,
-	quickGuide
+	quickGuide,
+	campaignGuide: readJson(path.join(report, 'campaign-guide.json'))
 };
 if (
 	sources.length !== 68 ||
 	figures.length !== 31 ||
-	campaignGallery.length !== 82 ||
+	campaignGallery.length !== 70 ||
 	sections.length !== 15
 )
 	throw new Error(

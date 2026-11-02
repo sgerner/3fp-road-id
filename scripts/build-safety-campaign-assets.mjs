@@ -16,6 +16,7 @@ const validation = read(
 );
 const templatesPath = 'src/lib/content/safetyReportTemplates.json';
 const templates = fs.existsSync(templatesPath) ? read(templatesPath) : {};
+const excludedCampaigns = new Set(['04-practice-before-traffic', '12-partner-demonstrations']);
 const reportPath = 'src/lib/content/safetyReport.json';
 const report = read(reportPath);
 const base = '/reports/safer-cycling-better-messages/downloads';
@@ -35,7 +36,9 @@ const resolve = (original, record, folder, filename) => {
 	);
 };
 let exports = 0;
-for (const record of validation.records) {
+for (const record of validation.records.filter(
+	(record) => !record.campaigns.some((campaign) => excludedCampaigns.has(campaign))
+)) {
 	const master = path.basename(record.master);
 	const assetId = path.basename(master, '.pptx');
 	const template = Object.values(templates).find((item) => item.file === master);

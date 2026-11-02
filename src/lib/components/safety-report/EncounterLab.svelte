@@ -1,12 +1,11 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
-	/** @type {{ onAsk?: (question: string) => void }} */
-	let { onAsk } = $props();
-	let mode = $state('passing');
+	/** @type {{ onAsk?: (question: string) => void, initialMode?: string, instanceId?: string }} */
+	let { onAsk, initialMode = 'passing', instanceId = 'encounter' } = $props();
+	let mode = $state(untrack(() => initialMode));
 	let oncoming = $state(true);
 	let limitedRoom = $state(true);
-	let view = $state('overhead');
 	let doorStep = $state('check');
 	let crossing = $state(true);
 	let motionDuration = $state(150);
@@ -18,11 +17,13 @@
 		return () => preference.removeEventListener('change', update);
 	});
 
-	const modes = [
-		{ id: 'passing', number: '01', label: 'Passing' },
-		{ id: 'door', number: '02', label: 'Opening a door' },
-		{ id: 'turn', number: '03', label: 'Turning' }
-	];
+	const modes = $derived(
+		[
+			{ id: 'passing', number: '01', label: 'Passing' },
+			{ id: 'door', number: '02', label: 'Opening a door' },
+			{ id: 'turn', number: '03', label: 'Turning' }
+		].filter((item) => (initialMode === 'passing' ? item.id === 'passing' : item.id !== 'passing'))
+	);
 	let title = $derived(
 		mode === 'passing'
 			? 'Room to pass?'
@@ -60,11 +61,11 @@
 	);
 </script>
 
-<section class="lab" aria-labelledby="encounter-title">
+<section class="lab" aria-labelledby={`${instanceId}-title`}>
 	<div class="intro">
 		<div>
-			<p class="eyebrow">THE ENCOUNTER LAB <span>✳</span></p>
-			<h2 id="encounter-title">See the decision<br /><em>in the street.</em></h2>
+			<p class="eyebrow">Encounter lab <span>✳</span></p>
+			<h2 id={`${instanceId}-title`}>See the decision<br /><em>in the street.</em></h2>
 		</div>
 		<p class="intro-copy">
 			Choose a situation, change the scene, and notice who needs to act next.
@@ -80,22 +81,13 @@
 	<div class="workspace">
 		<div class="scene-wrap">
 			<div class="scene-top">
-				<span>ROAD SCENE / {mode.toUpperCase()}</span>
-				<div class="views" aria-label="Scene view">
-					<button
-						type="button"
-						aria-pressed={view === 'overhead'}
-						onclick={() => (view = 'overhead')}>Overhead</button
-					><button type="button" aria-pressed={view === 'angled'} onclick={() => (view = 'angled')}
-						>Angled</button
-					>
-				</div>
+				<span>Road scene / {mode}</span>
 			</div>
-			<div class:angled={view === 'angled'} class="scene">
+			<div class="scene">
 				<svg viewBox="0 0 760 440" role="img" aria-label={title + '. ' + action}>
 					<defs>
 						<marker
-							id="lab-arrow-pink"
+							id={`${instanceId}-lab-arrow-pink`}
 							viewBox="0 0 10 10"
 							refX="8"
 							refY="5"
@@ -104,7 +96,7 @@
 							orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#ff0180" /></marker
 						>
 						<marker
-							id="lab-arrow-yellow"
+							id={`${instanceId}-lab-arrow-yellow`}
 							viewBox="0 0 10 10"
 							refX="8"
 							refY="5"
@@ -112,7 +104,7 @@
 							markerHeight="8"
 							orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffff0a" /></marker
 						>
-						<g id="lab-car"
+						<g id={`${instanceId}-lab-car`}
 							><rect
 								x="-34"
 								y="-63"
@@ -134,28 +126,18 @@
 								fill="#ffff0a"
 							/></g
 						>
-						<g id="lab-bike"
-							><circle
-								cx="0"
-								cy="-27"
-								r="13"
+						<g id={`${instanceId}-lab-bike`}>
+							<rect x="-5" y="-36" width="10" height="26" rx="3" fill="#fff3df" />
+							<rect x="-5" y="10" width="10" height="26" rx="3" fill="#fff3df" />
+							<path
+								d="M0 -20V22 M-17 -17H17"
 								fill="none"
-								stroke="#23143a"
-								stroke-width="5"
-							/><circle cx="0" cy="27" r="13" fill="none" stroke="#23143a" stroke-width="5" /><path
-								d="M0 -27 L-10 0 L0 27 L10 2 Z M-13 -18 H13"
-								fill="none"
-								stroke="#23143a"
-								stroke-width="4"
+								stroke="#fff3df"
+								stroke-width="6"
 								stroke-linecap="round"
-							/><circle cy="-3" r="12" fill="#ff0180" stroke="#23143a" stroke-width="4" /><circle
-								cy="-18"
-								r="8"
-								fill="#fff3df"
-								stroke="#23143a"
-								stroke-width="3"
-							/></g
-						>
+							/>
+							<circle cy="0" r="12" fill="#ff0180" stroke="#fff3df" stroke-width="3" />
+						</g>
 					</defs>
 					<rect width="760" height="440" fill="#ae8dcb" />
 					<rect x="130" width="500" height="440" fill="#39284b" />
@@ -174,18 +156,16 @@
 								stroke-width="18"
 								stroke-dasharray="8 7"
 							/><text x="568" y="45" text-anchor="end" class="svg-label">LIMITED ROOM</text>{/if}
-						{#if oncoming}<use href="#lab-car" transform="translate(265 105) rotate(180)" /><text
-								x="265"
-								y="195"
-								text-anchor="middle"
-								class="svg-label">ONCOMING</text
-							>{/if}
-						<use href="#lab-bike" transform="translate(475 140)" /><path
-							d="M475 95V40"
+						{#if oncoming}<use
+								href={`#${instanceId}-lab-car`}
+								transform="translate(265 105) rotate(180)"
+							/><text x="265" y="195" text-anchor="middle" class="svg-label">ONCOMING</text>{/if}
+						<use href={`#${instanceId}-lab-bike`} transform="translate(475 140) scale(1.4)" /><path
+							d="M425 95V40"
 							stroke="#ffff0a"
 							stroke-width="6"
-							marker-end="url(#lab-arrow-yellow)"
-						/><use href="#lab-car" transform="translate(475 320)" /><text
+							marker-end={`url(#${instanceId}-lab-arrow-yellow)`}
+						/><use href={`#${instanceId}-lab-car`} transform="translate(475 320)" /><text
 							x="475"
 							y="410"
 							text-anchor="middle"
@@ -198,7 +178,7 @@
 							stroke-width="4"
 							stroke-dasharray="20 14"
 							opacity=".7"
-						/><use href="#lab-car" transform="translate(540 215)" /><text
+						/><use href={`#${instanceId}-lab-car`} transform="translate(540 215)" /><text
 							x="540"
 							y="320"
 							text-anchor="middle"
@@ -209,21 +189,24 @@
 								fill="#fff3df"
 								stroke="#23143a"
 								stroke-width="5"
-							/><use href="#lab-bike" transform="translate(395 60)" />{:else}<use
-								href="#lab-bike"
-								transform="translate(395 340)"
+							/><use
+								href={`#${instanceId}-lab-bike`}
+								transform="translate(395 60) scale(1.4)"
+							/>{:else}<use
+								href={`#${instanceId}-lab-bike`}
+								transform="translate(395 340) scale(1.4)"
 							/><path
-								d="M395 290V100"
+								d="M445 290V100"
 								stroke="#ffff0a"
 								stroke-width="6"
-								marker-end="url(#lab-arrow-yellow)"
+								marker-end={`url(#${instanceId}-lab-arrow-yellow)`}
 							/><path
 								d="M500 190 Q470 200 458 230"
 								fill="none"
 								stroke="#ff0180"
 								stroke-width="5"
 								stroke-dasharray="7 5"
-								marker-end="url(#lab-arrow-pink)"
+								marker-end={`url(#${instanceId}-lab-arrow-pink)`}
 							/>{/if}
 					{:else}
 						<rect x="130" y="0" width="500" height="160" fill="#39284b" /><rect
@@ -244,15 +227,17 @@
 							stroke="#ff0180"
 							stroke-width="6"
 							stroke-dasharray="12 9"
-							marker-end="url(#lab-arrow-pink)"
-						/><use href="#lab-car" transform="translate(480 340)" /><use
-							href="#lab-bike"
-							transform={crossing ? 'translate(555 255)' : 'translate(555 65)'}
+							marker-end={`url(#${instanceId}-lab-arrow-pink)`}
+						/><use href={`#${instanceId}-lab-car`} transform="translate(480 340)" /><use
+							href={`#${instanceId}-lab-bike`}
+							transform={crossing
+								? 'translate(555 255) scale(1.4)'
+								: 'translate(555 65) scale(1.4)'}
 						/><path
-							d="M555 225V110"
+							d="M610 225V110"
 							stroke="#ffff0a"
 							stroke-width="6"
-							marker-end="url(#lab-arrow-yellow)"
+							marker-end={`url(#${instanceId}-lab-arrow-yellow)`}
 						/><text x="660" y="195" text-anchor="middle" class="svg-label">FUTURE TURN</text><text
 							x="480"
 							y="425"
@@ -265,15 +250,15 @@
 			<p class="caption">Illustrative road scene. Check local rules and actual road layout.</p>
 		</div>
 		<div class="panel">
-			<p class="panel-kicker">THE DECISION <span>✳</span></p>
+			<p class="panel-kicker">The decision <span>✳</span></p>
 			<h3>{title}</h3>
 			<div class="state" aria-live="polite">
-				<span>WHAT HAPPENS NEXT</span>
+				<span>What happens next</span>
 				{#key action}<strong in:fade={{ duration: motionDuration }}>{action}</strong>{/key}
 				{#key context}<p transition:fade={{ duration: motionDuration }}>{context}</p>{/key}
 			</div>
 			{#if mode === 'passing'}
-				<p class="control-label">CHANGE THE SCENE</p>
+				<p class="control-label">Change the scene</p>
 				<div class="toggles">
 					<button type="button" aria-pressed={oncoming} onclick={() => (oncoming = !oncoming)}
 						><span>Oncoming traffic</span><b>{oncoming ? 'ON' : 'OFF'}</b></button
@@ -285,7 +270,7 @@
 					>
 				</div>
 			{:else if mode === 'door'}
-				<p class="control-label">STEP THROUGH THE CHECK</p>
+				<p class="control-label">Step through the check</p>
 				<div class="steps">
 					{#each [{ id: 'check', label: 'Check' }, { id: 'wait', label: 'Wait' }, { id: 'open', label: 'Open when clear' }] as step, i}<button
 							type="button"
@@ -294,7 +279,7 @@
 						>{/each}
 				</div>
 			{:else}
-				<p class="control-label">CHANGE THE SCENE</p>
+				<p class="control-label">Change the scene</p>
 				<div class="toggles">
 					<button type="button" aria-pressed={crossing} onclick={() => (crossing = !crossing)}
 						><span>Rider in crossing</span><b>{crossing ? 'YES' : 'CLEARED'}</b></button
@@ -316,19 +301,19 @@
 
 <style>
 	.intro h2 {
-		color: var(--cream) !important;
+		color: var(--color-surface-50) !important;
 	}
 	.panel h3 {
 		color: var(--ink) !important;
 	}
 	.lab {
-		--ink: #23143a;
-		--cream: #fff3df;
-		--purple: #7926cb;
-		--pink: #ff0180;
-		--yellow: #ffff0a;
+		--ink: var(--color-secondary-950);
+		--cream: var(--color-surface-100);
+		--purple: var(--color-secondary-700);
+		--pink: var(--color-tertiary-700);
+		--yellow: var(--color-primary-500);
 		background: var(--ink);
-		color: var(--cream);
+		color: var(--color-surface-50);
 		border-radius: 28px;
 		padding: clamp(1.1rem, 3vw, 2.5rem);
 		overflow: hidden;
@@ -345,9 +330,9 @@
 	.scene-top,
 	.control-label,
 	.state > span {
-		font-size: 0.7rem;
-		letter-spacing: 0.14em;
-		font-weight: 900;
+		font-size: 0.76rem;
+		letter-spacing: 0.06em;
+		font-weight: 800;
 	}
 	.eyebrow {
 		color: var(--yellow);
@@ -370,7 +355,7 @@
 	.intro-copy {
 		max-width: 20rem;
 		line-height: 1.5;
-		color: #e4d4f1;
+		color: var(--color-surface-200);
 	}
 	.mode-list {
 		display: grid;
@@ -396,9 +381,9 @@
 		outline-offset: 3px;
 	}
 	.mode-list button {
-		border: 1px solid #806a96;
-		background: #3a294e;
-		color: var(--cream);
+		border: 1px solid var(--color-surface-700);
+		background: var(--color-secondary-800);
+		color: var(--color-surface-50);
 		padding: 1rem;
 		text-align: left;
 		border-radius: 12px;
@@ -408,7 +393,7 @@
 		gap: 0.7rem;
 	}
 	.mode-list button span {
-		font-size: 0.7rem;
+		font-size: 0.8rem;
 		opacity: 0.7;
 	}
 	.mode-list button b {
@@ -416,7 +401,7 @@
 	}
 	.mode-list button[aria-pressed='true'] {
 		background: var(--yellow);
-		color: var(--ink);
+		color: var(--color-primary-contrast-500);
 		border-color: var(--yellow);
 	}
 	.workspace {
@@ -425,7 +410,7 @@
 		gap: 0.7rem;
 	}
 	.scene-wrap {
-		background: #61407e;
+		background: var(--color-secondary-800);
 		border-radius: 16px;
 		padding: 1rem;
 		min-width: 0;
@@ -437,31 +422,8 @@
 		align-items: center;
 		gap: 0.5rem;
 	}
-	.views {
-		flex-shrink: 0;
-		display: flex;
-		gap: 0.25rem;
-	}
-	.views button {
-		white-space: nowrap;
-		border: 0;
-		border-radius: 6px;
-		padding: 0.45rem 0.6rem;
-		color: var(--cream);
-		background: transparent;
-		font-size: 0.7rem;
-	}
-	.views button[aria-pressed='true'] {
-		background: var(--cream);
-		color: var(--ink);
-	}
 	.scene {
 		margin: 1rem auto 0;
-		transition: transform 0.25s;
-		transform-origin: center;
-	}
-	.scene.angled {
-		transform: perspective(900px) rotateX(12deg) rotateZ(-3deg) scale(0.93);
 	}
 	@media (prefers-reduced-motion: reduce) {
 		button,
@@ -475,16 +437,16 @@
 		border-radius: 10px;
 	}
 	.svg-label {
-		fill: #fff3df;
+		fill: var(--report-soft);
 		font-size: 15px;
 		font-weight: 900;
 		letter-spacing: 1px;
 	}
 	.caption {
-		font-size: 0.75rem;
-		line-height: 1.4;
+		font-size: 0.85rem;
+		line-height: 1.5;
 		margin: 0.8rem 0 0;
-		color: #f0dff5;
+		color: var(--color-surface-100);
 	}
 	.panel {
 		background: var(--cream);
@@ -509,9 +471,13 @@
 		letter-spacing: -0.05em;
 		margin: 1rem 0;
 	}
+	.lab h2,
+	.lab h3 {
+		text-transform: none;
+	}
 	.state {
 		background: var(--purple);
-		color: white;
+		color: var(--color-surface-50);
 		border-radius: 12px;
 		padding: 1rem;
 	}
@@ -525,10 +491,10 @@
 		margin: 0.6rem 0;
 	}
 	.state p {
-		font-size: 0.85rem;
-		line-height: 1.4;
+		font-size: 0.95rem;
+		line-height: 1.5;
 		margin: 0;
-		color: #f2e3ff;
+		color: var(--color-surface-100);
 	}
 	.control-label {
 		margin: 1.5rem 0 0.65rem;
@@ -546,21 +512,21 @@
 		gap: 0.5rem;
 		background: transparent;
 		color: var(--ink);
-		border: 1px solid #b8a8c5;
+		border: 1px solid var(--report-border);
 		border-radius: 9px;
 		padding: 0.75rem;
 		text-align: left;
 		font-weight: 750;
 	}
 	.toggles button b {
-		font-size: 0.65rem;
-		background: #ded3e4;
+		font-size: 0.75rem;
+		background: var(--report-soft);
 		border-radius: 5px;
 		padding: 0.3rem 0.45rem;
 	}
 	.toggles button[aria-pressed='true'] b {
 		background: var(--pink);
-		color: white;
+		color: var(--color-surface-50);
 	}
 	.steps button {
 		justify-content: flex-start;
@@ -571,19 +537,19 @@
 		width: 1.5rem;
 		height: 1.5rem;
 		border-radius: 50%;
-		background: #ded3e4;
+		background: var(--report-soft);
 	}
 	.steps button[aria-pressed='true'] {
 		background: var(--ink);
-		color: white;
+		color: var(--color-surface-50);
 		border-color: var(--ink);
 	}
 	.steps button[aria-pressed='true'] span {
 		background: var(--yellow);
-		color: var(--ink);
+		color: var(--color-primary-contrast-500);
 	}
 	.legend {
-		font-size: 0.75rem;
+		font-size: 0.85rem;
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
@@ -592,7 +558,7 @@
 	.yellow-line,
 	.pink-line {
 		width: 22px;
-		border-top: 4px solid #aa8e00;
+		border-top: 4px solid var(--color-primary-500);
 	}
 	.pink-line {
 		border-color: var(--pink);
