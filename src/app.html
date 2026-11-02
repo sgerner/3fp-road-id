@@ -38,6 +38,8 @@
 					const storedTheme = window.localStorage.getItem(storageKey);
 					const theme = allowedThemes.has(storedTheme) ? storedTheme : '3fp';
 					document.documentElement.dataset.theme = theme;
+					const colorMode = window.localStorage.getItem('3fp-color-mode');
+					document.documentElement.classList.toggle('dark', colorMode !== 'light');
 				} catch {
 					document.documentElement.dataset.theme = '3fp';
 				}

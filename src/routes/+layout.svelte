@@ -21,6 +21,8 @@
 	import IconLogOut from '@lucide/svelte/icons/log-out';
 	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconMoon from '@lucide/svelte/icons/moon';
+	import IconSun from '@lucide/svelte/icons/sun';
 	// Branding / social icons
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
@@ -28,7 +30,9 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 
 	const themeStorageKey = '3fp-theme';
+	const colorModeStorageKey = '3fp-color-mode';
 	const defaultTheme = '3fp';
+	const defaultColorMode = 'dark';
 	function getInitialLayoutData() {
 		return data ?? {};
 	}
@@ -77,6 +81,7 @@
 	let showMobileMenu = $state(false);
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
+	let colorMode = $state(defaultColorMode);
 	let supabaseClient = null;
 	let authSubscription = null;
 	let turnstileModule = null;
@@ -214,6 +219,10 @@
 		return themeOptions.some((option) => option.value === value) ? value : defaultTheme;
 	}
 
+	function normalizeColorMode(value) {
+		return value === 'light' ? 'light' : defaultColorMode;
+	}
+
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
@@ -339,8 +348,11 @@
 			const storedTheme = window.localStorage.getItem(themeStorageKey);
 			const initialTheme = normalizeTheme(storedTheme || document.documentElement.dataset.theme);
 			void applyTheme(initialTheme);
+			const storedColorMode = window.localStorage.getItem(colorModeStorageKey);
+			applyColorMode(normalizeColorMode(storedColorMode), false);
 		} catch {
 			void applyTheme(defaultTheme, false);
+			applyColorMode(defaultColorMode, false);
 		}
 
 		void initSession();
@@ -518,6 +530,25 @@
 		}
 	}
 
+	function applyColorMode(value, persist = true) {
+		const nextMode = normalizeColorMode(value);
+		colorMode = nextMode;
+		if (typeof document !== 'undefined') {
+			document.documentElement.classList.toggle('dark', nextMode === 'dark');
+		}
+		if (persist && typeof window !== 'undefined') {
+			try {
+				window.localStorage.setItem(colorModeStorageKey, nextMode);
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	function toggleColorMode() {
+		applyColorMode(colorMode === 'dark' ? 'light' : 'dark');
+	}
+
 	function isActiveNav(item) {
 		return item.match(page.url.pathname);
 	}
@@ -548,7 +579,7 @@
 		</main>
 	{:else}
 		<header
-			class="border-b-primary-500/25 bg-surface-950/78 sticky top-0 z-50 border-b backdrop-blur-xl"
+			class="border-b-primary-500/25 bg-surface-50-950/78 sticky top-0 z-50 border-b backdrop-blur-xl"
 		>
 			<div class="flex items-center justify-between gap-4 p-4">
 				<div class="flex items-center gap-2">
@@ -577,19 +608,6 @@
 				</div>
 
 				<div class="flex items-center gap-3">
-					<label class="hidden items-center gap-2 md:flex">
-						<select
-							class="select bg-surface-100-900/70 text-sm"
-							value={theme}
-							onchange={(e) => applyTheme(e.currentTarget.value)}
-							aria-label="Select theme"
-						>
-							{#each themeOptions as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
-						</select>
-					</label>
-
 					<div class="relative">
 						{#if user}
 							<div class="relative flex items-center gap-2">
@@ -623,6 +641,36 @@
 										bind:this={userMenuEl}
 										role="menu"
 									>
+										<div class="border-surface-500/10 mb-1 border-b px-1 pb-2" role="presentation">
+											<button
+												type="button"
+												class="profile-menu-item w-full"
+												role="menuitem"
+												aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
+												onclick={toggleColorMode}
+											>
+												{#if colorMode === 'dark'}
+													<IconSun class="h-4 w-4" />
+													Light mode
+												{:else}
+													<IconMoon class="h-4 w-4" />
+													Dark mode
+												{/if}
+											</button>
+											<label class="mt-1 flex flex-col gap-1 px-2 py-1.5">
+												<span class="text-surface-700-300 text-xs font-semibold">Color theme</span>
+												<select
+													class="select bg-surface-50-950/80 w-full text-sm"
+													value={theme}
+													onchange={(e) => applyTheme(e.currentTarget.value)}
+													aria-label="Select theme"
+												>
+													{#each themeOptions as option}
+														<option value={option.value}>{option.label}</option>
+													{/each}
+												</select>
+											</label>
+										</div>
 										<a
 											href="/profile"
 											class="profile-menu-item"
@@ -921,25 +969,6 @@
 					<button type="button" class="btn mb-2 w-full" onclick={() => (showMobileMenu = false)}
 						>Close menu</button
 					>
-					<div class="border-surface-500/10 mb-2 border-b px-1 pb-3">
-						<label class="flex flex-col gap-2">
-							<span
-								class="text-surface-700-300 text-[0.65rem] font-semibold tracking-[0.24em] uppercase"
-							>
-								Theme
-							</span>
-							<select
-								class="select bg-surface-50-950/80 w-full"
-								value={theme}
-								onchange={(e) => applyTheme(e.currentTarget.value)}
-								aria-label="Select theme"
-							>
-								{#each themeOptions as option}
-									<option value={option.value}>{option.label}</option>
-								{/each}
-							</select>
-						</label>
-					</div>
 					<nav aria-label="Mobile" class="space-y-1">
 						{#each navigationItems as item}
 							<a
@@ -1048,7 +1077,11 @@
 		justify-content: center;
 		font-size: 0.78rem;
 		font-weight: 700;
-		background: color-mix(in oklab, var(--color-primary-500) 16%, var(--color-surface-900) 84%);
+		background: color-mix(
+			in oklab,
+			var(--color-primary-500) 16%,
+			light-dark(var(--color-surface-100), var(--color-surface-900)) 84%
+		);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
 	}
 
@@ -1074,7 +1107,7 @@
 
 	.profile-menu-item:hover {
 		background: color-mix(in oklab, var(--color-primary-500) 14%, transparent);
-		color: var(--color-primary-300);
+		color: light-dark(var(--color-primary-700), var(--color-primary-300));
 	}
 
 	/* ── Rail: Get Involved link ── */
