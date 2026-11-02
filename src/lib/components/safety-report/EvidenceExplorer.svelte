@@ -231,19 +231,26 @@
 <style>
 	h2,
 	h3 {
-		color: #26123c !important;
+		color: var(--color-secondary-950) !important;
 	}
 	.evidence-explorer {
-		color: #23143a;
+		color: var(--color-secondary-950);
+	}
+	.evidence-explorer h2,
+	.evidence-explorer h3 {
+		text-transform: none;
+	}
+	.evidence-explorer p,
+	.evidence-explorer dd {
+		line-height: 1.6;
 	}
 	.intro {
 		max-width: 48rem;
 	}
 	.eyebrow {
-		color: #7926cb;
-		text-transform: uppercase;
-		letter-spacing: 0.11em;
-		font-size: 0.76rem;
+		color: var(--color-secondary-700-300);
+		letter-spacing: 0.02em;
+		font-size: 0.82rem;
 		font-weight: 800;
 	}
 	h2 {
@@ -262,7 +269,7 @@
 		line-height: 1.6;
 	}
 	a {
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 		font-weight: 700;
 		text-underline-offset: 0.2em;
 	}
@@ -285,18 +292,18 @@
 		grid-row: 1;
 	}
 	label {
-		font-size: 0.85rem;
+		font-size: 0.9rem;
 		font-weight: 800;
 	}
 	input,
 	select {
 		box-sizing: border-box;
 		width: 100%;
-		border: 1px solid #9d8aab;
+		border: 1px solid var(--color-secondary-300);
 		border-radius: 0.35rem;
-		background: white;
+		background: var(--report-paper);
 		padding: 0.8rem;
-		color: #23143a;
+		color: var(--color-secondary-950);
 		font: inherit;
 	}
 	input:focus-visible,
@@ -304,7 +311,7 @@
 	a:focus-visible,
 	button:focus-visible,
 	summary:focus-visible {
-		outline: 3px solid #ff0180;
+		outline: 3px solid var(--color-tertiary-700-300);
 		outline-offset: 3px;
 	}
 	.count {
@@ -312,10 +319,10 @@
 		margin: 1.4rem 0 0.5rem;
 	}
 	details {
-		border-top: 1px solid #cbbbd3;
+		border-top: 1px solid var(--color-secondary-300);
 	}
 	details:last-child {
-		border-bottom: 1px solid #cbbbd3;
+		border-bottom: 1px solid var(--color-secondary-300);
 	}
 	summary {
 		display: grid;
@@ -335,15 +342,16 @@
 	summary small {
 		display: block;
 		margin-top: 0.3rem;
-		line-height: 1.4;
-		color: #5c4b67;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		color: var(--color-surface-700);
 	}
 	.record-id {
-		color: #7926cb;
+		color: var(--color-secondary-700-300);
 		font-weight: 800;
 	}
 	.expand {
-		color: #7926cb;
+		color: var(--color-secondary-700-300);
 		font-size: 1.5rem;
 		line-height: 1;
 	}
@@ -389,10 +397,10 @@
 	}
 	button:hover,
 	a:hover {
-		color: #4e198c;
+		color: var(--color-secondary-700-300);
 	}
 	.links button {
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 		border: 0;
 		background: none;
 		padding: 0;
@@ -402,16 +410,16 @@
 	.more {
 		margin: 1.5rem 0;
 		padding: 0.85rem 1.2rem;
-		border: 2px solid #7926cb;
+		border: 2px solid var(--color-secondary-700-300);
 		border-radius: 0.35rem;
 		background: transparent;
-		color: #681bae;
+		color: var(--color-secondary-700-300);
 	}
 	.interval {
 		margin-top: 4rem;
 		padding: clamp(1.25rem, 4vw, 2.5rem);
-		background: #f7f1e9;
-		border-top: 5px solid #ff0180;
+		background: var(--report-paper);
+		border-top: 5px solid var(--color-tertiary-700-300);
 	}
 	.interval label {
 		display: block;
@@ -428,8 +436,8 @@
 		overflow: visible;
 	}
 	.chart-label {
-		fill: #23143a;
-		font: 13px sans-serif;
+		fill: var(--color-secondary-950);
+		font: 14px sans-serif;
 	}
 	.result {
 		font-size: 1.1rem;
