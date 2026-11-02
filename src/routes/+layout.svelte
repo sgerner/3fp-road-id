@@ -140,7 +140,7 @@
 		},
 		{
 			href: '/learn',
-			label: 'Safety & Learning',
+			label: 'Learn',
 			icon: IconBookOpen,
 			match: (pathname) => pathname.startsWith('/learn')
 		},
@@ -841,102 +841,79 @@
 		</header>
 
 		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
-			<aside class="border-surface-500/10 bg-surface-50-950/42 hidden md:block md:border-r">
+			<aside class="app-rail hidden md:block">
 				<div
-					class="sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col items-center overflow-y-auto px-2 py-4"
+					class="app-rail__scroll sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col overflow-y-auto"
 				>
-					<nav aria-label="Primary" class="flex w-full flex-col items-center gap-2">
+					<nav aria-label="Primary" class="app-rail__nav flex w-full flex-col">
 						{#each navigationItems as item}
 							<a
 								href={item.href}
 								title={item.label}
 								aria-label={item.label}
-								class={`flex w-full max-w-[5.6rem] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center transition ${
-									isActiveNav(item)
-										? 'bg-primary-600-400 text-surface-50-950 shadow-primary-50-950/25 shadow-lg'
-										: 'text-surface-800-200 hover:bg-surface-950-50/10 hover:text-surface-950-50'
+								aria-current={isActiveNav(item) ? 'page' : undefined}
+								class={`app-rail__link flex w-full flex-col items-center justify-center gap-2 text-center transition ${
+									isActiveNav(item) ? 'is-active' : ''
 								}`}
 							>
 								<item.icon class="h-6 w-6 shrink-0" />
-								<span class="text-[0.78rem] leading-none font-medium">{item.label}</span>
+								<span class="text-[0.72rem] leading-tight font-bold">{item.label}</span>
 							</a>
 						{/each}
-						<!-- ── Bottom branding section ── -->
-						<div class="mt-auto flex w-full flex-col items-center gap-3 pt-4 pb-2">
-							<!-- Divider -->
-							<div class="border-surface-500/15 w-full border-t"></div>
-
-							<!-- Social icon row -->
-							<div class="flex items-center gap-1">
-								<a
-									href="https://www.facebook.com/3FeetPlease/"
-									target="_blank"
-									rel="noopener noreferrer"
-									title="3FP on Facebook"
-									aria-label="3 Feet Please on Facebook"
-									class="rail-social-btn"
-								>
-									<BrandFacebook class="h-3.5 w-3.5" />
-								</a>
-								<a
-									href="https://www.instagram.com/3feetplease"
-									target="_blank"
-									rel="noopener noreferrer"
-									title="3FP on Instagram"
-									aria-label="3 Feet Please on Instagram"
-									class="rail-social-btn"
-								>
-									<BrandInstagram class="h-3.5 w-3.5" />
-								</a>
-								<a
-									href="mailto:hi@3fp.org"
-									title="Email 3FP"
-									aria-label="Email 3 Feet Please"
-									class="rail-social-btn"
-								>
-									<IconMail class="h-3.5 w-3.5" />
-								</a>
-							</div>
-
-							<a
-								href="/donate"
-								title="Donate"
-								aria-label="Donate"
-								class="rail-donate-btn flex items-center gap-1.5 rounded-xl px-3 py-2 text-[0.7rem] font-bold tracking-wide"
-							>
-								<IconHeart class="h-3.5 w-3.5 fill-current" />
-								Donate
-							</a>
-
-							<div
-								class="flex w-full flex-col items-center justify-center gap-1 px-2 text-[0.65rem]"
-							>
-								<div class="flex items-center gap-1">
-									<a
-										href="/privacy"
-										class="text-surface-700-300 hover:text-surface-600-400 transition"
-									>
-										Privacy
-									</a>
-									<span class="text-surface-700-300">|</span>
-									<a
-										href="/terms"
-										class="text-surface-700-300 hover:text-surface-600-400 transition"
-									>
-										Terms
-									</a>
-								</div>
-								{#if isAdmin}
-									<a
-										href="/admin"
-										class="text-surface-700-300 hover:text-surface-600-400 transition"
-									>
-										Admin
-									</a>
-								{/if}
-							</div>
-						</div>
 					</nav>
+					<div class="app-rail__footer mt-auto flex w-full flex-col items-center">
+						<div class="app-rail__socials grid w-full grid-cols-3">
+							<a
+								href="https://www.facebook.com/3FeetPlease/"
+								target="_blank"
+								rel="noopener noreferrer"
+								title="3FP on Facebook"
+								aria-label="3 Feet Please on Facebook"
+								class="rail-social-btn"
+							>
+								<BrandFacebook class="h-3.5 w-3.5" />
+							</a>
+							<a
+								href="https://www.instagram.com/3feetplease"
+								target="_blank"
+								rel="noopener noreferrer"
+								title="3FP on Instagram"
+								aria-label="3 Feet Please on Instagram"
+								class="rail-social-btn"
+							>
+								<BrandInstagram class="h-3.5 w-3.5" />
+							</a>
+							<a
+								href="mailto:hi@3fp.org"
+								title="Email 3FP"
+								aria-label="Email 3 Feet Please"
+								class="rail-social-btn"
+							>
+								<IconMail class="h-3.5 w-3.5" />
+							</a>
+						</div>
+						<a
+							href="/donate"
+							title="Donate"
+							aria-label="Donate"
+							class="rail-donate-btn flex w-full items-center justify-center gap-1.5 px-2 py-2 text-[0.7rem] font-black tracking-wide"
+						>
+							<IconHeart class="h-3.5 w-3.5 fill-current" />
+							Donate
+						</a>
+						<div
+							class="rail-legal flex w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[0.62rem] font-semibold"
+						>
+							<div class="flex items-center gap-1">
+								<a href="/privacy" class="rail-footer-link transition">Privacy</a>
+								<span aria-hidden="true">|</span>
+								<a href="/terms" class="rail-footer-link transition">Terms</a>
+							</div>
+							{#if isAdmin}
+								<a href="/admin" class="rail-footer-link transition">Admin</a>
+							{/if}
+						</div>
+					</div>
 				</div>
 			</aside>
 
@@ -963,20 +940,19 @@
 				class="fixed top-[73px] right-4 left-4 z-50 max-h-[calc(100dvh-90px)] overflow-y-auto md:hidden"
 				bind:this={mobileMenuEl}
 			>
-				<div
-					class="border-surface-300-700 bg-surface-100-900/78 text-surface-950-50 rounded-xl border p-2 shadow-xl backdrop-blur-xl"
-				>
-					<button type="button" class="btn mb-2 w-full" onclick={() => (showMobileMenu = false)}
-						>Close menu</button
+				<div class="mobile-menu-panel shadow-2xl">
+					<button
+						type="button"
+						class="mobile-menu-close w-full px-3 py-3"
+						onclick={() => (showMobileMenu = false)}>Close menu</button
 					>
-					<nav aria-label="Mobile" class="space-y-1">
+					<nav aria-label="Mobile" class="mobile-menu-nav flex flex-col">
 						{#each navigationItems as item}
 							<a
 								href={item.href}
-								class={`flex items-center gap-3 rounded-lg px-3 py-3 ${
-									isActiveNav(item)
-										? 'bg-primary-500 text-surface-50-950'
-										: 'hover:bg-surface-950-50/10'
+								aria-current={isActiveNav(item) ? 'page' : undefined}
+								class={`mobile-menu-link flex items-center gap-3 px-3 py-3 ${
+									isActiveNav(item) ? 'is-active' : ''
 								}`}
 								onclick={() => (showMobileMenu = false)}
 							>
@@ -985,9 +961,9 @@
 							</a>
 						{/each}
 					</nav>
-					<div class="border-surface-500/10 mt-2 space-y-1 border-t pt-2">
+					<div class="mobile-menu-footer mt-2 space-y-1">
 						<!-- Social + Donate row -->
-						<div class="flex items-center gap-2 px-3 py-1.5">
+						<div class="mobile-menu-actions grid items-center gap-2 px-3 py-2">
 							<a
 								href="https://www.facebook.com/3FeetPlease/"
 								target="_blank"
@@ -1011,24 +987,24 @@
 							</a>
 							<a
 								href="/donate"
-								class="mob-donate-btn ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+								class="mob-donate-btn flex min-w-0 items-center justify-center gap-1.5 px-2 py-2 text-xs font-black"
 								onclick={() => (showMobileMenu = false)}
 							>
 								<IconHeart class="h-3.5 w-3.5 fill-current" />
 								Donate
 							</a>
 						</div>
-						<div class="flex flex-wrap items-center gap-4 px-3 pb-1 text-xs">
+						<div class="mobile-menu-legal flex flex-wrap items-center gap-4 px-3 pb-2 text-xs">
 							<a
 								href="/privacy"
-								class="text-surface-700-300 hover:text-surface-600-400 transition"
+								class="mobile-menu-legal-link transition"
 								onclick={() => (showMobileMenu = false)}
 							>
 								Privacy
 							</a>
 							<a
 								href="/terms"
-								class="text-surface-700-300 hover:text-surface-600-400 transition"
+								class="mobile-menu-legal-link transition"
 								onclick={() => (showMobileMenu = false)}
 							>
 								Terms
@@ -1036,7 +1012,7 @@
 							{#if isAdmin}
 								<a
 									href="/admin"
-									class="text-surface-700-300 hover:text-surface-600-400 transition"
+									class="mobile-menu-legal-link transition"
 									onclick={() => (showMobileMenu = false)}
 								>
 									Admin
@@ -1118,76 +1094,199 @@
 		text-decoration: none;
 	}
 
-	/* ── Rail: social icon buttons ── */
+	.app-rail,
+	.mobile-menu-panel {
+		--rail-gradient: linear-gradient(
+			155deg,
+			color-mix(in oklab, var(--color-secondary-500) 88%, var(--color-surface-950) 12%) 0%,
+			color-mix(in oklab, var(--color-tertiary-500) 78%, var(--color-surface-950) 22%) 54%,
+			color-mix(in oklab, var(--color-secondary-700) 88%, var(--color-surface-950) 12%) 100%
+		);
+		color: var(--color-surface-50);
+		background-color: var(--color-secondary-900);
+		background-image: var(--rail-gradient);
+	}
+
+	.app-rail {
+		border-right: 1px solid color-mix(in oklab, var(--color-surface-50) 24%, transparent);
+	}
+
+	.app-rail__scroll {
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in oklab, var(--color-surface-50) 45%, transparent) transparent;
+	}
+
+	.app-rail__nav,
+	.mobile-menu-nav {
+		min-width: 0;
+	}
+
+	.app-rail__link,
+	.mobile-menu-link {
+		box-sizing: border-box;
+		min-width: 0;
+		border-radius: 0;
+		border: 0;
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50) 22%, transparent);
+		color: var(--color-surface-50);
+		text-decoration: none;
+		transition:
+			background-color 150ms ease,
+			color 150ms ease;
+	}
+
+	.app-rail__link {
+		min-height: 4.35rem;
+		padding: 0.7rem 0.2rem;
+	}
+
+	.app-rail__link span {
+		max-width: 100%;
+		overflow-wrap: anywhere;
+	}
+
+	.app-rail__link:hover,
+	.mobile-menu-link:hover {
+		background: color-mix(in oklab, var(--color-surface-50) 14%, transparent);
+		color: var(--color-surface-50);
+	}
+
+	.app-rail__link.is-active,
+	.mobile-menu-link.is-active {
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-dark);
+		font-weight: 800;
+	}
+
+	.app-rail__footer,
+	.mobile-menu-footer {
+		color: var(--color-primary-contrast-dark);
+		background: var(--color-primary-500);
+	}
+
+	.rail-legal {
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-950) 22%, transparent);
+	}
+
+	.rail-footer-link,
+	.mobile-menu-legal-link {
+		color: var(--color-primary-contrast-dark);
+	}
+
+	.rail-footer-link:hover,
+	.mobile-menu-legal-link:hover {
+		text-decoration: underline;
+	}
+
+	/* ── Square social icon buttons ── */
 	:global(.rail-social-btn) {
 		display: flex;
+		box-sizing: border-box;
 		align-items: center;
 		justify-content: center;
-		width: 2rem;
+		width: 100%;
+		min-width: 0;
 		height: 2rem;
-		border-radius: 0.6rem;
-		color: var(--color-surface-500);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-		background: color-mix(in oklab, var(--color-surface-500) 6%, transparent);
-		text-decoration: none;
-		transition:
-			color 150ms,
-			background 150ms,
-			border-color 150ms,
-			transform 150ms;
-	}
-	:global(.rail-social-btn:hover) {
-		color: var(--color-primary-500);
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-		transform: translateY(-1px);
-	}
-
-	/* ── Rail: Donate button ── */
-	:global(.rail-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
-		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
-		text-decoration: none;
-		transition:
-			transform 150ms ease,
-			background 150ms ease,
-			border-color 150ms ease;
-	}
-	:global(.rail-donate-btn:hover) {
-		transform: translateY(-1px);
-		background: color-mix(in oklab, var(--color-error-500) 18%, transparent);
-		border-color: color-mix(in oklab, var(--color-error-500) 44%, transparent);
-	}
-
-	/* ── Mobile menu: social icon buttons ── */
-	:global(.mob-social-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.1rem;
-		height: 2.1rem;
-		border-radius: 0.6rem;
-		color: var(--color-surface-500);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-		background: color-mix(in oklab, var(--color-surface-500) 6%, transparent);
+		border-radius: 0;
+		color: var(--color-primary-contrast-dark);
+		border: 1px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 35%, transparent);
 		text-decoration: none;
 		transition:
 			color 150ms,
 			background 150ms,
 			border-color 150ms;
 	}
-	:global(.mob-social-btn:hover) {
-		color: var(--color-primary-400);
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
+	:global(.rail-social-btn:hover) {
+		background: color-mix(in oklab, var(--color-surface-50) 58%, transparent);
+		border-color: color-mix(in oklab, var(--color-surface-950) 45%, transparent);
 	}
 
-	/* ── Mobile menu: Donate button ── */
-	:global(.mob-donate-btn) {
-		color: color-mix(in oklab, var(--color-error-500) 88%, var(--color-surface-50) 12%);
-		background: color-mix(in oklab, var(--color-error-500) 14%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-error-500) 34%, transparent);
+	:global(.rail-donate-btn) {
+		box-sizing: border-box;
+		border-radius: 0;
+		color: var(--color-secondary-contrast-light);
+		background: var(--color-secondary-500);
+		border: 0;
 		text-decoration: none;
+		transition: filter 150ms ease;
+	}
+	:global(.rail-donate-btn:hover) {
+		filter: brightness(1.12);
+	}
+
+	:global(.mob-social-btn) {
+		display: flex;
+		box-sizing: border-box;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		min-width: 0;
+		height: 2.5rem;
+		border-radius: 0;
+		color: var(--color-primary-contrast-dark);
+		border: 1px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
+		background: color-mix(in oklab, var(--color-surface-50) 35%, transparent);
+		text-decoration: none;
+		transition: background 150ms;
+	}
+	:global(.mob-social-btn:hover) {
+		background: color-mix(in oklab, var(--color-surface-50) 58%, transparent);
+	}
+
+	.mobile-menu-panel {
+		box-sizing: border-box;
+		max-width: 100%;
+		border-radius: 0;
+		border: 2px solid color-mix(in oklab, var(--color-surface-50) 70%, transparent);
+		color: var(--color-surface-50);
+		box-shadow: 8px 8px 0 color-mix(in oklab, var(--color-surface-950) 28%, transparent);
+	}
+
+	.mobile-menu-close {
+		min-height: 2.75rem;
+		border-radius: 0;
+		border: 1px solid color-mix(in oklab, var(--color-surface-50) 50%, transparent);
+		color: var(--color-surface-50);
+		background: color-mix(in oklab, var(--color-surface-950) 20%, transparent);
+		font-weight: 800;
+		text-align: left;
+		text-transform: uppercase;
+	}
+
+	.mobile-menu-actions {
+		grid-template-columns: repeat(3, minmax(0, 2.5rem)) minmax(0, 1fr);
+		border-top: 2px solid color-mix(in oklab, var(--color-surface-950) 24%, transparent);
+	}
+
+	.mobile-menu-link {
+		min-height: 3.25rem;
+		font-weight: 700;
+	}
+
+	.mobile-menu-legal {
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-950) 22%, transparent);
+	}
+
+	.app-rail a:focus-visible,
+	.mobile-menu-panel a:focus-visible,
+	.mobile-menu-panel button:focus-visible {
+		outline: 3px solid var(--color-surface-50);
+		outline-offset: -4px;
+		box-shadow: inset 0 0 0 1px var(--color-surface-950);
+	}
+
+	:global(.mob-donate-btn) {
+		box-sizing: border-box;
+		border-radius: 0;
+		color: var(--color-secondary-contrast-light);
+		background: var(--color-secondary-500);
+		border: 0;
+		text-decoration: none;
+		transition: filter 150ms ease;
+	}
+
+	:global(.mob-donate-btn:hover) {
+		filter: brightness(1.12);
 	}
 </style>
