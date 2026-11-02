@@ -343,7 +343,7 @@
 			void applyTheme(defaultTheme, false);
 		}
 
-		if (initialUser) void initSession();
+		void initSession();
 		function onDocClick(e) {
 			if (!showLogin) return;
 			const t = e.target;
