@@ -119,7 +119,7 @@
 		{
 			href: '/get-involved',
 			label: 'Get involved',
-			description: 'Find volunteer shifts and ongoing ways to support safer cycling.',
+			description: 'Explore ways to help build safer cycling in your community.',
 			icon: IconUsersRound,
 			tone: 'bg-primary-500 text-surface-950 hover:bg-primary-600'
 		},

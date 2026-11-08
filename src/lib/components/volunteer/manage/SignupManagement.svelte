@@ -734,6 +734,7 @@
 					<button
 						type="button"
 						class={`rounded-full px-3 py-1 text-xs font-medium transition-all ${pillClass(pill.value)}`}
+						aria-pressed={selectedStatus === pill.value}
 						onclick={() => onStatusChange(pill.value)}
 					>
 						{pill.label}
@@ -745,6 +746,7 @@
 			<div class="flex sm:hidden">
 				<select
 					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-sm"
+					aria-label="Filter volunteer signups by status"
 					value={selectedStatus}
 					onchange={(e) => onStatusChange(e.currentTarget.value)}
 				>
@@ -758,6 +760,7 @@
 			{#if activityFilters.length > 1}
 				<select
 					class="border-surface-400-600 bg-surface-50-950/60 ml-1 rounded-lg border px-3 py-1.5 text-xs"
+					aria-label="Filter volunteer signups by activity"
 					value={selectedActivity}
 					onchange={(e) => onActivityChange(e.currentTarget.value)}
 				>
@@ -771,6 +774,7 @@
 			{#if selectedActivity !== 'all' && shiftFilters.length > 0}
 				<select
 					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-xs"
+					aria-label="Filter volunteer signups by shift time"
 					value={selectedShift}
 					onchange={(e) => onShiftChange(e.currentTarget.value)}
 				>
@@ -787,6 +791,7 @@
 				<input
 					type="search"
 					class="border-surface-400-600 bg-surface-50-950/60 w-40 rounded-lg border py-1.5 pr-3 pl-8 text-sm transition-all focus:w-56"
+					aria-label="Search volunteer signups"
 					value={searchTerm}
 					oninput={(e) => onSearch(e.currentTarget.value)}
 					placeholder="Search…"

@@ -1,4 +1,3 @@
-import { resolveVerifiedSession } from '#lib/server/session';
 import { fail } from '@sveltejs/kit';
 
 const CONFIRM_WINDOW_HOURS = 48;
@@ -124,48 +123,6 @@ function isWaitlisted(status) {
 function isApproved(status) {
 	if (!status) return false;
 	return APPROVED_STATUSES.has(String(status).toLowerCase());
-}
-
-function ownsSignup(identity, signup) {
-	if (!identity) return false;
-	if (!signup) return false;
-	const signupUserId =
-		signup?.volunteer_user_id ??
-		signup?.volunteerUserId ??
-		signup?.user_id ??
-		signup?.userId ??
-		null;
-	const signupEmail = (signup?.volunteer_email ?? signup?.volunteerEmail ?? '').toLowerCase();
-	if (identity.userId && signupUserId && String(identity.userId) === String(signupUserId))
-		return true;
-	if (identity.email && signupEmail && identity.email === signupEmail) return true;
-	return false;
-}
-
-async function getIdentity(fetchImpl, cookies) {
-	const { user } = await resolveVerifiedSession(cookies);
-	let profile = null;
-	let email = user?.email?.toLowerCase?.() ?? null;
-	if (user?.id && !email) {
-		try {
-			profile = await fetchSingle(fetchImpl, 'profiles', {
-				params: {
-					user_id: `eq.${user.id}`,
-					select: 'user_id,email',
-					single: 'true'
-				}
-			});
-			email = profile?.email?.toLowerCase?.() ?? null;
-		} catch (err) {
-			if (err?.status !== 404 && err?.status !== 403) throw err;
-			profile = null;
-		}
-	}
-	return {
-		userId: user?.id ?? null,
-		email,
-		profile
-	};
 }
 
 async function loadAssignmentContext(fetchImpl, assignmentId) {

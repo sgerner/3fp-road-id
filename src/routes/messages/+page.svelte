@@ -1,5 +1,7 @@
 <script>
 	import { invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
+	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
 	import IconSend from '@lucide/svelte/icons/send';
@@ -9,6 +11,9 @@
 	const pageData = $derived(data ?? {});
 	const threads = $derived(pageData.threads ?? []);
 	let selectedThreadId = $state('');
+	let mobileThreadOpen = $state(false);
+	let mobileBackButton = $state(null);
+	let activeThreadButton = null;
 	let message = $state('');
 	let kind = $state('admin');
 	let sending = $state(false);
@@ -32,10 +37,22 @@
 		return 'General';
 	}
 
-	function selectThread(id) {
+	async function selectThread(id, trigger) {
 		selectedThreadId = id;
+		activeThreadButton = trigger;
+		mobileThreadOpen = true;
 		sendError = '';
 		sendSuccess = '';
+		await tick();
+		if (mobileBackButton?.getClientRects().length) mobileBackButton.focus();
+	}
+
+	async function showConversations() {
+		mobileThreadOpen = false;
+		sendError = '';
+		sendSuccess = '';
+		await tick();
+		activeThreadButton?.focus();
 	}
 
 	async function sendMessage() {
@@ -145,6 +162,13 @@
 				<p class="text-surface-300 m-0 text-lg leading-relaxed">
 					Only authenticated event admins and SMS managers can access conversations.
 				</p>
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-fit items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition"
+					onclick={() => window.dispatchEvent(new Event('open-login'))}
+				>
+					Sign in
+				</button>
 			</div>
 			<div
 				class="mt-6 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
@@ -189,7 +213,10 @@
 		<div
 			class="bg-surface-950 border-surface-950 grid min-h-[38rem] border-t-[3px] lg:grid-cols-[minmax(18rem,0.38fr)_minmax(0,1fr)]"
 		>
-			<aside class="lg:border-surface-800 flex flex-col lg:border-r-2">
+			<aside
+				class={`${mobileThreadOpen ? 'hidden' : 'flex'} lg:border-surface-800 flex-col lg:flex lg:border-r-2`}
+				aria-label="SMS conversations"
+			>
 				<div
 					class="bg-secondary-500 text-surface-50 px-6 py-4 text-xs font-black tracking-[0.22em] uppercase"
 				>
@@ -205,7 +232,9 @@
 									? 'bg-primary-500 text-surface-950'
 									: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'
 							}`}
-							onclick={() => selectThread(thread.id)}
+							aria-label={`${threadLabel(thread)}, ${contextLabel(thread)}, ${thread.phone_e164}, ${thread.messages?.length || 0} messages`}
+							aria-pressed={active}
+							onclick={(event) => selectThread(thread.id, event.currentTarget)}
 						>
 							<span
 								class={`w-8 shrink-0 text-xl font-black italic tabular-nums ${
@@ -230,18 +259,33 @@
 				</div>
 			</aside>
 
-			<section class="flex min-h-[38rem] flex-col">
+			<section
+				class={`${mobileThreadOpen ? 'flex' : 'hidden'} min-h-[38rem] flex-col lg:flex`}
+				aria-label="Selected SMS conversation"
+			>
 				{#if selectedThread}
 					<header
 						class="bg-surface-900 border-surface-800 flex flex-wrap items-center justify-between gap-4 border-b-2 px-6 py-5 sm:px-10"
 					>
-						<div>
-							<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
-								{threadLabel(selectedThread)}
-							</h2>
-							<p class="text-surface-300 m-0 mt-1 text-xs font-bold tracking-wide uppercase">
-								{selectedThread.phone_e164} · {contextLabel(selectedThread)}
-							</p>
+						<div class="flex items-center gap-4">
+							<button
+								type="button"
+								class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center gap-2 border-2 px-3 py-2 text-xs font-black uppercase transition lg:hidden"
+								aria-label="Back to conversations"
+								bind:this={mobileBackButton}
+								onclick={showConversations}
+							>
+								<IconArrowLeft class="h-4 w-4" />
+								Conversations
+							</button>
+							<div>
+								<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
+									{threadLabel(selectedThread)}
+								</h2>
+								<p class="text-surface-300 m-0 mt-1 text-xs font-bold tracking-wide uppercase">
+									{selectedThread.phone_e164} · {contextLabel(selectedThread)}
+								</p>
+							</div>
 						</div>
 						<span
 							class="bg-primary-500 text-surface-950 px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
@@ -284,6 +328,7 @@
 								</span>
 								<select
 									class="select bg-surface-950 border-surface-700 text-surface-50"
+									aria-label="Reply type"
 									bind:value={kind}
 								>
 									<option value="admin">Admin update</option>
@@ -298,7 +343,9 @@
 								{message.length}/480
 							</span>
 						</div>
+						<label class="sr-only" for="sms-reply">Message text</label>
 						<textarea
+							id="sms-reply"
 							class="textarea bg-surface-950 border-surface-700 text-surface-50 focus:border-primary-500 min-h-24"
 							bind:value={message}
 							maxlength="480"
@@ -318,12 +365,18 @@
 							</button>
 						</div>
 						{#if sendError}
-							<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+							<p
+								role="alert"
+								class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+							>
 								{sendError}
 							</p>
 						{/if}
 						{#if sendSuccess}
-							<p class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-sm font-black uppercase">
+							<p
+								role="status"
+								class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-sm font-black uppercase"
+							>
 								{sendSuccess}
 							</p>
 						{/if}

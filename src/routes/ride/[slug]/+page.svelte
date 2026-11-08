@@ -621,11 +621,13 @@
 						{claimLoading ? 'Claiming...' : claimLabel}
 					</button>
 				{:else if !currentUser}
-					<p
-						class="border-surface-950 m-0 shrink-0 border-[3px] px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
+					<button
+						type="button"
+						class="border-surface-950 bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 shrink-0 border-[3px] px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition"
+						onclick={() => window.dispatchEvent(new Event('open-login'))}
 					>
-						Log in with the header action to claim it.
-					</p>
+						Log in to claim this ride
+					</button>
 				{/if}
 			</div>
 		</section>
