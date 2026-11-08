@@ -598,6 +598,7 @@
 					</span>
 					<button
 						type="button"
+						aria-pressed={group_type_ids.length === 0}
 						class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.length ===
 						0
 							? 'bg-primary-500 text-surface-950'
@@ -612,6 +613,7 @@
 					{#each (data.group_types || []).slice(0, 6) as t (t.id)}
 						<button
 							type="button"
+							aria-pressed={group_type_ids.includes(t.id)}
 							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.includes(
 								t.id
 							)
@@ -664,6 +666,7 @@
 								{#each (data.group_types || []).slice(6) as t (t.id)}
 									<button
 										type="button"
+										aria-pressed={group_type_ids.includes(t.id)}
 										class="{filterChipClass(
 											group_type_ids.includes(t.id)
 										)} border-surface-700 border"
@@ -682,6 +685,7 @@
 							{#each data.skill_levels || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={skill_level_ids.includes(t.id)}
 									class="{filterChipClass(
 										skill_level_ids.includes(t.id)
 									)} border-surface-700 border"
@@ -699,6 +703,7 @@
 							{#each data.audience_focuses || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={audience_focus_ids.includes(t.id)}
 									class="{filterChipClass(
 										audience_focus_ids.includes(t.id)
 									)} border-surface-700 border"
@@ -716,6 +721,7 @@
 							{#each data.riding_disciplines || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={riding_discipline_ids.includes(t.id)}
 									class="{filterChipClass(
 										riding_discipline_ids.includes(t.id)
 									)} border-surface-700 border"

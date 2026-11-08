@@ -1294,10 +1294,11 @@
 								</label>
 								<div class="md:col-span-2">
 									<span class="label mb-2 block">Weekdays</span>
-									<div class="flex flex-wrap gap-2">
+									<div class="flex flex-wrap gap-2" role="group" aria-label="Ride weekdays">
 										{#each WEEKDAY_OPTIONS as option}
 											<button
 												type="button"
+												aria-pressed={form.recurrenceWeekdays.includes(option.value)}
 												class={`chip ${form.recurrenceWeekdays.includes(option.value) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
 												onclick={() => toggleSelection('recurrenceWeekdays', option.value)}
 											>
@@ -1353,6 +1354,7 @@
 								<button
 									type="button"
 									class="btn preset-outlined-secondary-500"
+									aria-label="Add a skipped date or date range"
 									onclick={addExclusion}
 								>
 									<IconPlus class="h-4 w-4" />
@@ -1360,13 +1362,14 @@
 								</button>
 							</div>
 							<div class="space-y-3">
-								{#each form.exclusions as exclusion (exclusion.id)}
+								{#each form.exclusions as exclusion, index (exclusion.id)}
 									<div
 										class="border-surface-500/20 grid gap-3 rounded-xl border p-3 md:grid-cols-[1fr_1fr_2fr_auto]"
 									>
 										<input
 											type="date"
 											class="input"
+											aria-label={`Skip range start date ${index + 1}`}
 											value={exclusion.starts_on}
 											oninput={(event) =>
 												updateExclusion(exclusion.id, 'starts_on', event.currentTarget.value)}
@@ -1374,12 +1377,14 @@
 										<input
 											type="date"
 											class="input"
+											aria-label={`Skip range end date ${index + 1}`}
 											value={exclusion.ends_on}
 											oninput={(event) =>
 												updateExclusion(exclusion.id, 'ends_on', event.currentTarget.value)}
 										/>
 										<input
 											class="input"
+											aria-label={`Optional note for skipped date ${index + 1}`}
 											value={exclusion.note}
 											placeholder="Optional note"
 											oninput={(event) =>
@@ -1388,6 +1393,7 @@
 										<button
 											type="button"
 											class="btn preset-outlined-error-500"
+											aria-label={`Remove skipped date ${index + 1}`}
 											onclick={() => removeExclusion(exclusion.id)}
 										>
 											<IconTrash2 class="h-4 w-4" />
@@ -1412,10 +1418,11 @@
 					<div class="grid gap-5 md:grid-cols-2">
 						<div>
 							<span class="label mb-2 block">Difficulty</span>
-							<div class="flex flex-wrap gap-2">
+							<div class="flex flex-wrap gap-2" role="group" aria-label="Ride difficulty">
 								{#each difficultyLevels as level}
 									<button
 										type="button"
+										aria-pressed={form.difficultyLevelIds.includes(level.id)}
 										class={`chip ${form.difficultyLevelIds.includes(level.id) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('difficultyLevelIds', level.id)}
 									>
@@ -1426,10 +1433,11 @@
 						</div>
 						<div>
 							<span class="label mb-2 block">Discipline</span>
-							<div class="flex flex-wrap gap-2">
+							<div class="flex flex-wrap gap-2" role="group" aria-label="Riding disciplines">
 								{#each disciplines as discipline}
 									<button
 										type="button"
+										aria-pressed={form.ridingDisciplineIds.includes(discipline.id)}
 										class={`chip ${form.ridingDisciplineIds.includes(discipline.id) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('ridingDisciplineIds', discipline.id)}
 									>
@@ -1478,12 +1486,13 @@
 								<span>Waiver required</span>
 							</label>
 						</div>
-						<div class="md:col-span-2">
+						<div class="md:col-span-2" role="group" aria-label="Ride surface types">
 							<span class="label mb-2 block">Surface types</span>
 							<div class="flex flex-wrap gap-2">
 								{#each SURFACE_TYPE_OPTIONS as option}
 									<button
 										type="button"
+										aria-pressed={form.surfaceTypes.includes(option)}
 										class={`chip ${form.surfaceTypes.includes(option) ? 'preset-filled-success-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('surfaceTypes', option)}
 									>
@@ -1492,12 +1501,13 @@
 								{/each}
 							</div>
 						</div>
-						<div class="md:col-span-2">
+						<div class="md:col-span-2" role="group" aria-label="Bike suitability">
 							<span class="label mb-2 block">Bike suitability</span>
 							<div class="flex flex-wrap gap-2">
 								{#each BIKE_SUITABILITY_OPTIONS as option}
 									<button
 										type="button"
+										aria-pressed={form.bikeSuitability.includes(option)}
 										class={`chip ${form.bikeSuitability.includes(option) ? 'preset-filled-warning-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('bikeSuitability', option)}
 									>
@@ -1594,6 +1604,7 @@
 									<button
 										type="button"
 										class="btn preset-outlined-error-500"
+										aria-label={`Remove ${template.name || 'email template'}`}
 										onclick={() => removeEmailTemplate(template.id)}
 									>
 										<IconTrash2 class="h-4 w-4" />

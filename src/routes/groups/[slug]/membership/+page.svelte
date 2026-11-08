@@ -1176,6 +1176,7 @@
 												<input
 													class="custom-input"
 													type="number"
+													aria-label={`Your ${selectedBillingInterval === 'year' ? 'annual' : 'monthly'} contribution`}
 													min={(Math.max(0, selectedTierMinAmountCents) / 100).toFixed(2)}
 													step="0.01"
 													inputmode="decimal"
@@ -1308,13 +1309,21 @@
 										<div class="custom-fields">
 											{#each formFields as field (field.id)}
 												<div class="custom-field">
-													<div class="field-label">{field.label}</div>
+													<div class="field-label" id={`custom-field-label-${field.id}`}>
+														{field.label}
+													</div>
 													{#if field.help_text}
-														<p class="field-help">{field.help_text}</p>
+														<p class="field-help" id={`custom-field-help-${field.id}`}>
+															{field.help_text}
+														</p>
 													{/if}
 													{#if field.field_type === 'textarea'}
 														<textarea
 															id={`custom-field-${field.id}`}
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1323,6 +1332,10 @@
 													{:else if field.field_type === 'select'}
 														<select
 															id={`custom-field-${field.id}`}
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															value={answers[field.id] || ''}
 															onchange={(e) =>
 																(answers = { ...answers, [field.id]: e.currentTarget.value })}
@@ -1333,7 +1346,14 @@
 															{/each}
 														</select>
 													{:else if field.field_type === 'multiselect'}
-														<div class="checkbox-group">
+														<div
+															class="checkbox-group"
+															role="group"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
+														>
 															{#each readOptions(field) as option}
 																<label class="checkbox-item">
 																	<input
@@ -1353,16 +1373,25 @@
 															<input
 																id={`custom-field-${field.id}`}
 																type="checkbox"
+																aria-labelledby={`custom-field-label-${field.id} custom-field-checkbox-yes-${field.id}`}
+																aria-describedby={field.help_text
+																	? `custom-field-help-${field.id}`
+																	: undefined}
 																checked={answers[field.id] === true}
 																onchange={(e) =>
 																	(answers = { ...answers, [field.id]: e.currentTarget.checked })}
 															/>
 															<span class="checkbox-check"></span>
-															<span>Yes</span>
+															<span id={`custom-field-checkbox-yes-${field.id}`}>Yes</span>
 														</label>
 													{:else if field.field_type === 'number'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="number"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="0"
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1370,14 +1399,24 @@
 														/>
 													{:else if field.field_type === 'date'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="date"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															value={answers[field.id] || ''}
 															onchange={(e) =>
 																(answers = { ...answers, [field.id]: e.currentTarget.value })}
 														/>
 													{:else if field.field_type === 'email'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="email"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="email@example.com"
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1387,6 +1426,10 @@
 														<input
 															id={`custom-field-${field.id}`}
 															type="text"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
 															oninput={(e) =>

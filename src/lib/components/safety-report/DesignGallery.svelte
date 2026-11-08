@@ -343,6 +343,7 @@
 	bind:this={dialog}
 	onclose={restoreFocus}
 	onkeydown={keydown}
+	onclick={(event) => event.target === event.currentTarget && closeImage()}
 	aria-labelledby="gallery-dialog-title"
 >
 	{#if active}

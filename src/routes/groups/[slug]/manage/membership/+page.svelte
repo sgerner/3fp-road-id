@@ -974,6 +974,7 @@
 							<div class="version-badge">Version {program.policy_version || 1}</div>
 							<textarea
 								class="policy-textarea"
+								aria-label="Membership policy"
 								bind:value={program.policy_markdown}
 								rows="8"
 								placeholder="Enter your membership policy..."></textarea>
@@ -1006,9 +1007,15 @@
 									{#each tiers as tier (tier.id)}
 										<div class="tier-row">
 											<div class="tier-fields">
-												<input class="tier-input" placeholder="Tier name" bind:value={tier.name} />
 												<input
 													class="tier-input"
+													aria-label={`Tier name for ${tier.name || 'tier'}`}
+													placeholder="Tier name"
+													bind:value={tier.name}
+												/>
+												<input
+													class="tier-input"
+													aria-label={`Description for ${tier.name || 'tier'}`}
 													placeholder="Description"
 													bind:value={tier.description}
 												/>
@@ -1018,6 +1025,7 @@
 														<input
 															type="text"
 															class="tier-input price"
+															aria-label={`Monthly contribution for ${tier.name || 'tier'}`}
 															placeholder="Monthly"
 															value={centsToDollar(tier.monthly_amount_cents)}
 															oninput={(e) =>
@@ -1029,6 +1037,7 @@
 														<input
 															type="text"
 															class="tier-input price"
+															aria-label={`Annual contribution for ${tier.name || 'tier'}`}
 															placeholder="Annual"
 															value={centsToDollar(tier.annual_amount_cents)}
 															oninput={(e) =>
@@ -1057,6 +1066,7 @@
 												</button>
 												<button
 													class="btn-text danger"
+													aria-label={`Delete ${tier.name || 'tier'}`}
 													disabled={busy}
 													onclick={() => deleteTier(tier.id)}
 												>
@@ -1081,9 +1091,15 @@
 									</button>
 								</div>
 								<div class="tier-fields">
-									<input class="tier-input" placeholder="Tier name" bind:value={newTier.name} />
 									<input
 										class="tier-input"
+										aria-label="New tier name"
+										placeholder="Tier name"
+										bind:value={newTier.name}
+									/>
+									<input
+										class="tier-input"
+										aria-label="New tier description"
 										placeholder="Description"
 										bind:value={newTier.description}
 									/>
@@ -1093,6 +1109,7 @@
 											<input
 												type="text"
 												class="tier-input price"
+												aria-label="New tier monthly contribution"
 												placeholder="Monthly"
 												value={centsToDollar(newTier.monthly_amount_cents)}
 												oninput={(e) =>
@@ -1104,6 +1121,7 @@
 											<input
 												type="text"
 												class="tier-input price"
+												aria-label="New tier annual contribution"
 												placeholder="Annual"
 												value={centsToDollar(newTier.annual_amount_cents)}
 												oninput={(e) =>
@@ -1175,10 +1193,15 @@
 								<div class="field-row-inputs">
 									<input
 										class="setting-input"
+										aria-label="Application field label"
 										placeholder="Field label"
 										bind:value={newField.label}
 									/>
-									<select class="setting-select" bind:value={newField.field_type}>
+									<select
+										class="setting-select"
+										aria-label="Application field type"
+										bind:value={newField.field_type}
+									>
 										<option value="text">Text</option>
 										<option value="textarea">Textarea</option>
 										<option value="email">Email</option>
@@ -1193,6 +1216,7 @@
 								{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
 									<textarea
 										class="setting-input"
+										aria-label="Application field options"
 										placeholder="Options (one per line)"
 										bind:value={newField.options_text}
 										rows="3"></textarea>

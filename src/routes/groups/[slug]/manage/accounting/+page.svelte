@@ -1737,7 +1737,7 @@
 	{/if}
 
 	<!-- Metric Cards Grid -->
-	<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+	<section class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
 		<!-- Cash on Hand -->
 		<div
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
@@ -1828,7 +1828,7 @@
 	<div
 		role="navigation"
 		aria-label="Accounting sections"
-		class="card preset-tonal-surface border-surface-500/10 flex flex-wrap justify-center gap-1.5 rounded-xl border p-1.5 shadow-sm sm:justify-start"
+		class="card preset-tonal-surface border-surface-500/10 flex flex-nowrap justify-start gap-1.5 overflow-x-auto rounded-xl border p-1.5 shadow-sm"
 	>
 		{#each tabs as tab}
 			{@const Icon = tab.icon}
@@ -3951,6 +3951,7 @@
 												<input
 													class="input preset-tonal-surface flex-1 text-sm"
 													type="password"
+													aria-label="Mercury API key"
 													name="mercuryApiKey"
 													placeholder={mercuryConnected
 														? 'Replace Mercury API key…'
@@ -4008,6 +4009,7 @@
 														<select
 															class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
 															name="accountId"
+															aria-label={`Ledger account for ${bankFeedLabel(providerAccount)}`}
 															value={providerAccount.account_id || ''}
 															onchange={requestInlineSave}
 														>
@@ -4080,6 +4082,7 @@
 											<input
 												class="input preset-tonal-surface text-sm"
 												type="file"
+												aria-label="Bank transactions CSV file"
 												name="csvFile"
 												accept=".csv,text/csv"
 												required
@@ -4087,6 +4090,7 @@
 											<select
 												class="select preset-tonal-surface text-sm"
 												name="accountId"
+												aria-label="Import CSV into account"
 												bind:value={csvImportAccountId}
 												disabled={!cashAccounts.length}
 												required
