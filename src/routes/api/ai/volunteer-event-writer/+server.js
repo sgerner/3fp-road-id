@@ -1,3 +1,4 @@
+import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
 import { json } from '@sveltejs/kit';
 import {
 	getAiConfigurationError,
@@ -147,20 +148,6 @@ const RESPONSE_SCHEMA = {
 
 let schemaUnsupported = false;
 
-function isSchemaUnsupportedError(error) {
-	if (!error) return false;
-	const raw = error?.message;
-	if (typeof raw !== 'string') return false;
-	try {
-		const parsed = JSON.parse(raw);
-		const details = parsed?.error;
-		const msg = details?.message || '';
-		return /response_schema/i.test(msg) || /Invalid JSON payload/i.test(msg);
-	} catch {
-		return /response_schema/i.test(raw) || /Invalid JSON payload/i.test(raw);
-	}
-}
-
 async function generateWithSchema({ contents, useSchema = true }) {
 	const { client, model } = requireAiModel('structured_text');
 	const config = {};
@@ -198,24 +185,6 @@ function formatMessages(messages) {
 		parts.push(`${role}: ${content}`);
 	}
 	return parts.length ? parts.join('\n') : 'Conversation: (none yet)';
-}
-
-function safeParseJson(text) {
-	if (!text) return null;
-	const first = text.indexOf('{');
-	const last = text.lastIndexOf('}');
-	if (first === -1 || last === -1 || last <= first) return null;
-	const candidate = text.slice(first, last + 1).trim();
-	try {
-		return JSON.parse(candidate);
-	} catch {
-		const cleaned = candidate.replace(/^```json\n?|```$/g, '');
-		try {
-			return JSON.parse(cleaned);
-		} catch {
-			return null;
-		}
-	}
 }
 
 function normalizeAiPayload(parsed) {

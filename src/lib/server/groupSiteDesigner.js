@@ -1,3 +1,4 @@
+import { safeParseJson } from '#lib/server/aiJson';
 import {
 	getAiConfigurationError,
 	isAiModelConfigured,
@@ -128,18 +129,6 @@ let schemaUnsupported = false;
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
-}
-
-function safeParseJson(text) {
-	if (!text) return null;
-	const first = text.indexOf('{');
-	const last = text.lastIndexOf('}');
-	if (first === -1 || last === -1 || last <= first) return null;
-	try {
-		return JSON.parse(text.slice(first, last + 1));
-	} catch {
-		return null;
-	}
 }
 
 function isSchemaUnsupportedError(error) {
