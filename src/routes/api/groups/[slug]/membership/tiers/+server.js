@@ -1,3 +1,4 @@
+import { respond } from '#lib/server/groupApiResponse';
 import { json } from '@sveltejs/kit';
 import {
 	listMembershipTiers,
@@ -5,13 +6,6 @@ import {
 	updateMembershipTier,
 	deleteMembershipTier
 } from '#lib/server/memberships';
-
-function respond(result, successStatus = 200) {
-	if (!result?.ok) {
-		return json({ error: result?.error || 'Request failed.' }, { status: result?.status || 500 });
-	}
-	return json({ data: result.data }, { status: successStatus });
-}
 
 function resolveTierId(url, payload = {}) {
 	return payload?.id || payload?.tier_id || url.searchParams.get('id') || null;

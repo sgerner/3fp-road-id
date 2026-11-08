@@ -454,36 +454,6 @@ export async function listPrintfulProductsWithVariantsV2({ accessToken, storeId 
 	return results;
 }
 
-export async function listPrintfulCatalogVariantImagesV2({
-	accessToken,
-	storeId,
-	catalogVariantId
-}) {
-	const cleanCatalogVariantId =
-		normalizePositiveInt(catalogVariantId) || cleanText(catalogVariantId, 120);
-	if (!cleanCatalogVariantId) return [];
-
-	const payload = await printfulFetchV2(
-		`/catalog-variants/${encodeURIComponent(cleanCatalogVariantId)}/images?limit=100`,
-		{
-			accessToken,
-			storeId,
-			timeoutMs: PRINTFUL_SYNC_REQUEST_TIMEOUT_MS,
-			maxAttempts: PRINTFUL_SYNC_REQUEST_ATTEMPTS
-		}
-	);
-
-	const images = Array.isArray(payload?.data?.images) ? payload.data.images : [];
-	return images
-		.map((image) => ({
-			image_url: cleanText(image?.image_url, 2000) || null,
-			placement: cleanText(image?.placement, 120) || null,
-			background_color: cleanText(image?.background_color, 40) || null,
-			background_image: cleanText(image?.background_image, 2000) || null
-		}))
-		.filter((image) => image.image_url);
-}
-
 export async function calculatePrintfulShippingRatesV2({
 	accessToken,
 	storeId,
@@ -500,27 +470,4 @@ export async function calculatePrintfulShippingRatesV2({
 		}
 	});
 	return normalizeResultList(payload);
-}
-
-export async function createPrintfulOrderV2({
-	accessToken,
-	storeId,
-	externalId,
-	recipient,
-	orderItems,
-	shippingMethodId
-}) {
-	const body = {
-		external_id: cleanText(externalId, 255) || undefined,
-		recipient,
-		order_items: Array.isArray(orderItems) ? orderItems : [],
-		status: 'draft'
-	};
-	if (cleanText(shippingMethodId, 120)) body.shipping = cleanText(shippingMethodId, 120);
-	return printfulFetchV2('/orders', {
-		accessToken,
-		method: 'POST',
-		storeId,
-		body
-	});
 }

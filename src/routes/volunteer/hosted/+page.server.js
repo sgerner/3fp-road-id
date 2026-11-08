@@ -1,9 +1,6 @@
+import { fetchList } from '#lib/server/internalApi';
 import { redirect } from '@sveltejs/kit';
-import {
-	fetchList,
-	loadManagedVolunteerEvents,
-	loadOwnedGroups
-} from '#lib/server/sectionNavigation';
+import { loadManagedVolunteerEvents, loadOwnedGroups } from '#lib/server/sectionNavigation';
 import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
