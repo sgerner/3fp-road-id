@@ -1,4 +1,4 @@
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { json } from '@sveltejs/kit';
 import { supabase } from '#lib/supabaseClient';
 import { enforceRateLimit, isSafeInternalPath, readJsonBody } from '#lib/server/security';

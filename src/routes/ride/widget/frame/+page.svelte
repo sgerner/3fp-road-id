@@ -1,6 +1,7 @@
 <script>
+	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { getRideImage } from '#lib/rides/media';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -11,7 +12,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconX from '@lucide/svelte/icons/x';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import 'leaflet/dist/leaflet.css';
 	import {
@@ -56,6 +57,9 @@
 	let pageNumber = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
+	let dayDialog = $state(null);
+	let dayModalTrigger = null;
+	let dayModalCloseButton = $state(null);
 
 	let mapEl = $state(null);
 	let map;
@@ -150,7 +154,7 @@
 		}, {})
 	);
 
-	const calendarMatrix = $derived(buildCalendarMatrix(calendarReference, ridesByDate));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
 	const calendarHeader = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
@@ -238,32 +242,6 @@
 		return true;
 	}
 
-	function buildCalendarMatrix(reference, lookup) {
-		const monthStart = startOfMonth(reference);
-		const month = monthStart.getMonth();
-		const year = monthStart.getFullYear();
-		const firstWeekday = monthStart.getDay();
-		const firstDate = new Date(monthStart);
-		firstDate.setDate(firstDate.getDate() - firstWeekday);
-
-		const weeks = [];
-		for (let w = 0; w < 6; w += 1) {
-			const days = [];
-			for (let d = 0; d < 7; d += 1) {
-				const current = new Date(firstDate);
-				current.setDate(firstDate.getDate() + w * 7 + d);
-				const key = toDateKey(current);
-				days.push({
-					date: current,
-					inMonth: current.getMonth() === month && current.getFullYear() === year,
-					rides: key && lookup[key] ? lookup[key] : []
-				});
-			}
-			weeks.push(days);
-		}
-		return weeks;
-	}
-
 	const todayKey = toDateKey(new Date());
 
 	function formatNext(ride) {
@@ -292,8 +270,9 @@
 		calendarReference = startOfMonth(next);
 	}
 
-	function openDayModal(day) {
-		if (!day?.rides?.length) return;
+	async function openDayModal(day, trigger) {
+		if (!day?.items?.length) return;
+		dayModalTrigger = trigger;
 		dayModal = {
 			open: true,
 			dateLabel: new Intl.DateTimeFormat(undefined, {
@@ -301,12 +280,26 @@
 				month: 'long',
 				day: 'numeric'
 			}).format(day.date),
-			rides: day.rides
+			rides: day.items
 		};
+		await tick();
+		dayDialog?.showModal();
+		dayModalCloseButton?.focus();
 	}
 
 	function closeDayModal() {
+		if (dayDialog?.open) {
+			dayDialog.close();
+			return;
+		}
+		handleDayModalClose();
+	}
+
+	function handleDayModalClose() {
+		const trigger = dayModalTrigger;
+		dayModalTrigger = null;
 		dayModal = { open: false, dateLabel: '', rides: [] };
+		void tick().then(() => trigger?.focus());
 	}
 
 	function handleBackdropClick(event) {
@@ -455,15 +448,27 @@
 		</div>
 		<div class="widget-tabs-wrap">
 			<div class="widget-tabs">
-				<button class:active={view === 'list'} onclick={() => (view = 'list')}>
+				<button
+					class:active={view === 'list'}
+					aria-pressed={view === 'list'}
+					onclick={() => (view = 'list')}
+				>
 					<IconList class="h-3.5 w-3.5" />
 					List
 				</button>
-				<button class:active={view === 'calendar'} onclick={() => (view = 'calendar')}>
+				<button
+					class:active={view === 'calendar'}
+					aria-pressed={view === 'calendar'}
+					onclick={() => (view = 'calendar')}
+				>
 					<IconCalendarRange class="h-3.5 w-3.5" />
 					Calendar
 				</button>
-				<button class:active={view === 'map'} onclick={() => (view = 'map')}>
+				<button
+					class:active={view === 'map'}
+					aria-pressed={view === 'map'}
+					onclick={() => (view = 'map')}
+				>
 					<IconMap class="h-3.5 w-3.5" />
 					Map
 				</button>
@@ -484,6 +489,7 @@
 				<button
 					type="button"
 					class={`legend-chip ${selectedDifficulty === 'all' ? 'active' : ''}`}
+					aria-pressed={selectedDifficulty === 'all'}
 					onclick={() => (selectedDifficulty = 'all')}
 				>
 					<i style="background: var(--widget-muted);"></i>
@@ -495,6 +501,7 @@
 					<button
 						type="button"
 						class={`legend-chip ${selectedDifficulty === entry.name ? 'active' : ''}`}
+						aria-pressed={selectedDifficulty === entry.name}
 						onclick={() => (selectedDifficulty = entry.name)}
 					>
 						<i style={`background:${entry.color}`}></i>
@@ -673,7 +680,7 @@
 										{day.date.getDate()}
 									</div>
 									<div class="day-rides">
-										{#each day.rides.slice(0, 2) as ride}
+										{#each day.items.slice(0, 2) as ride}
 											{@const c = difficultyColor(primaryDifficulty(ride))}
 											<a
 												href={`/ride/${ride.slug}`}
@@ -685,12 +692,17 @@
 											</a>
 										{/each}
 									</div>
-									{#if day.rides.length > 2}
-										<button class="more" type="button" onclick={() => openDayModal(day)}>
-											+{day.rides.length - 2} more
+									{#if day.items.length > 2}
+										<button
+											class="more"
+											type="button"
+											aria-label={`Show ${day.items.length - 2} more rides on ${day.date.toLocaleDateString()}`}
+											onclick={(event) => openDayModal(day, event.currentTarget)}
+										>
+											+{day.items.length - 2} more
 										</button>
 									{/if}
-									{#if day.rides.length === 1 && day.rides.length <= 2}
+									{#if day.items.length === 1 && day.items.length <= 2}
 										<!-- spacer -->
 									{/if}
 								</div>
@@ -719,19 +731,24 @@
 
 	<!-- ── Day modal ── -->
 	{#if dayModal.open}
-		<div
+		<dialog
+			bind:this={dayDialog}
 			class="modal-backdrop"
-			role="dialog"
-			aria-modal="true"
-			tabindex="0"
+			aria-labelledby="day-modal-title"
 			onclick={handleBackdropClick}
-			onkeydown={(event) => event.key === 'Escape' && closeDayModal()}
+			onclose={handleDayModalClose}
 			transition:fade={{ duration: 150 }}
 		>
 			<div class="modal" transition:slide={{ duration: 200 }}>
 				<div class="modal-head">
-					<h3>{dayModal.dateLabel}</h3>
-					<button onclick={closeDayModal} class="modal-close" aria-label="Close ride details">
+					<h3 id="day-modal-title">{dayModal.dateLabel}</h3>
+					<button
+						bind:this={dayModalCloseButton}
+						type="button"
+						onclick={closeDayModal}
+						class="modal-close"
+						aria-label="Close ride details"
+					>
 						<IconX class="h-4 w-4" />
 					</button>
 				</div>
@@ -751,7 +768,7 @@
 					{/each}
 				</div>
 			</div>
-		</div>
+		</dialog>
 	{/if}
 </div>
 
@@ -1486,14 +1503,23 @@
 	.modal-backdrop {
 		position: fixed;
 		inset: 0;
-		background: rgba(2, 8, 23, 0.55);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		max-height: none;
+		margin: auto;
+		border: 0;
+		background: transparent;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
-		z-index: 80;
+		overflow: hidden;
+	}
+	.modal-backdrop::backdrop {
+		background: rgba(2, 8, 23, 0.55);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 	}
 	.modal {
 		width: min(620px, 100%);
