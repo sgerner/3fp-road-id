@@ -355,24 +355,7 @@
 	</section>
 
 	<!-- ══════════════════ PREVIEW + SHARE ══════════════════ -->
-	<section class="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)]">
-		<!-- Live Preview -->
-		<div class="card preset-tonal-surface overflow-hidden p-4">
-			<div class="mb-3 flex items-center justify-between gap-2 px-1">
-				<div>
-					<p class="label opacity-55">Live Preview</p>
-					<h2 class="text-xl font-bold">Widget preview</h2>
-				</div>
-				<p class="text-xs opacity-60">Updates as you change settings</p>
-			</div>
-			<iframe
-				title="Ride widget preview"
-				src={previewPath}
-				style={`height:${iframeHeight}px;`}
-				class="border-surface-500/20 bg-surface-50-950 w-full rounded-2xl border"
-			></iframe>
-		</div>
-
+	<section class="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]">
 		<!-- Share + Embed -->
 		<div class="card preset-tonal-surface flex flex-col gap-5 p-5">
 			<!-- Share URL -->
@@ -466,10 +449,38 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- Live Preview -->
+		<div class="card preset-tonal-surface overflow-hidden p-4">
+			<div class="mb-3 flex items-center justify-between gap-2 px-1">
+				<div>
+					<p class="label opacity-55">Live Preview</p>
+					<h2 class="text-xl font-bold">Widget preview</h2>
+				</div>
+				<p class="text-xs opacity-60">Updates as you change settings</p>
+			</div>
+			<iframe
+				title="Ride widget preview"
+				src={previewPath}
+				style={`--preview-height:${iframeHeight}px;`}
+				class="widget-preview-frame border-surface-500/20 bg-surface-50-950 w-full rounded-2xl border"
+			></iframe>
+		</div>
 	</section>
 </div>
 
 <style>
+	.widget-preview-frame {
+		height: var(--preview-height);
+	}
+
+	@media (max-width: 639px) {
+		.widget-preview-frame {
+			height: min(var(--preview-height), 70vh);
+			min-height: 360px;
+		}
+	}
+
 	/* ── Hero ── */
 	.builder-hero {
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
