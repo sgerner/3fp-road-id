@@ -268,6 +268,13 @@
 				Raise your hand
 				<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 			</a>
+			<a
+				href="/volunteer"
+				class="group border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex w-full items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+			>
+				Browse volunteer events and shifts
+				<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+			</a>
 		</div>
 	</section>
 
@@ -306,6 +313,7 @@
 			<div class="border-surface-50 grid border-t-2 lg:grid-cols-2">
 				{#each parsedOpportunities as opportunity, i (opportunity.id)}
 					{@const OppIcon = opportunityIcon(opportunity.title)}
+					{@const isChecked = checkedIds.includes(opportunity.id)}
 					<article
 						class="border-surface-800 flex flex-col justify-between gap-6 border-b py-8 lg:odd:border-r lg:odd:pr-12 lg:even:pl-12"
 					>
@@ -349,16 +357,26 @@
 						</div>
 
 						<div class="pt-2">
-							<a
-								href="#interest-form"
-								class="group bg-surface-900 text-primary-500 border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-sm font-black uppercase transition hover:no-underline"
-								onclick={() => {
-									if (!checkedIds.includes(opportunity.id)) toggleOpportunity(opportunity.id);
-								}}
+							<label
+								for={`opportunity-${opportunity.id}`}
+								class={`inline-flex cursor-pointer items-center gap-3 border-2 px-4 py-2.5 text-sm font-black uppercase transition ${
+									isChecked
+										? 'border-primary-500 bg-primary-500 text-surface-950'
+										: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'
+								}`}
 							>
-								I'm interested
-								<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
-							</a>
+								<input
+									id={`opportunity-${opportunity.id}`}
+									form="interest-submission-form"
+									name="opportunityIds"
+									type="checkbox"
+									value={opportunity.id}
+									class="checkbox shrink-0"
+									checked={isChecked}
+									onchange={() => toggleOpportunity(opportunity.id)}
+								/>
+								<span>{isChecked ? 'Selected' : 'Choose this role'}</span>
+							</label>
 						</div>
 					</article>
 				{/each}
@@ -430,45 +448,13 @@
 		>
 			{#if data.opportunities?.length}
 				<form
+					id="interest-submission-form"
 					method="POST"
 					action="?/submitInterest"
 					use:enhance={enhanceInterestForm}
 					class="flex flex-col gap-6"
 				>
 					<input type="hidden" name="turnstileToken" value="" />
-
-					<!-- Opportunity checkboxes -->
-					<div class="flex flex-col gap-3">
-						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
-							Opportunities (choose all that fit)
-						</p>
-						<div class="grid gap-3 sm:grid-cols-2">
-							{#each data.opportunities ?? [] as opportunity (opportunity.id)}
-								{@const OppIcon = opportunityIcon(opportunity.title)}
-								{@const isChecked = checkedIds.includes(opportunity.id)}
-								<label
-									for={`opportunity-${opportunity.id}`}
-									class="flex cursor-pointer items-center gap-3 border-2 p-4 transition {isChecked
-										? 'border-primary-500 bg-primary-500 text-surface-950'
-										: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'}"
-								>
-									<input
-										id={`opportunity-${opportunity.id}`}
-										name="opportunityIds"
-										type="checkbox"
-										value={opportunity.id}
-										class="checkbox shrink-0"
-										checked={isChecked}
-										onchange={() => toggleOpportunity(opportunity.id)}
-									/>
-									<OppIcon class="h-4 w-4 shrink-0" />
-									<span class="text-sm leading-tight font-black uppercase">
-										{opportunity.title}
-									</span>
-								</label>
-							{/each}
-						</div>
-					</div>
 
 					<!-- Contact fields -->
 					<div class="grid gap-4 sm:grid-cols-2">

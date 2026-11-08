@@ -8,8 +8,12 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { page } from '$app/state';
 
 	const { data } = $props();
+	const authRequired = $derived(
+		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
+	);
 
 	let search = $state('');
 	let category = $state('all');
@@ -57,6 +61,26 @@
 </svelte:head>
 
 <div class="-m-4 flex flex-col">
+	{#if authRequired}
+		<section
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10"
+			aria-labelledby="learn-auth-heading"
+		>
+			<div class="flex flex-col gap-1">
+				<h2 id="learn-auth-heading" class="m-0 text-xl font-black uppercase">
+					Sign in to contribute a guide
+				</h2>
+				<p class="m-0 text-sm font-medium">After signing in, choose “Write a guide” to continue.</p>
+			</div>
+			<button
+				type="button"
+				class="bg-surface-950 text-primary-500 hover:bg-surface-50 inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase transition"
+				onclick={() => window.dispatchEvent(new Event('open-login'))}
+			>
+				Log in / Register
+			</button>
+		</section>
+	{/if}
 	<!-- HERO -->
 	<header
 		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]"

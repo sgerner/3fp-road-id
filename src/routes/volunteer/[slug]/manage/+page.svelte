@@ -1775,6 +1775,7 @@
 						? 'border-primary-400 text-primary-300'
 						: 'text-surface-400 hover:text-surface-200 hover:border-surface-500 border-transparent'}"
 					aria-current={active ? 'page' : undefined}
+					aria-label={section.label}
 					onclick={() => setActiveSection(section.id)}
 				>
 					<Icon class="h-4 w-4 flex-shrink-0" />

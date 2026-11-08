@@ -416,7 +416,8 @@
 		const onKeyMenu = (e) => {
 			if (e.key === 'Escape') showMobileMenu = false;
 		};
-		document.addEventListener('click', onDocClick);
+		// Dismiss before page buttons can request sign-in during the same click.
+		document.addEventListener('click', onDocClick, true);
 		document.addEventListener('keydown', onKey);
 		document.addEventListener('click', onDocClickUserMenu);
 		document.addEventListener('keydown', onKeyUserMenu);
@@ -427,7 +428,7 @@
 			window.removeEventListener('open-login', openLogin);
 			authSubscription?.unsubscribe?.();
 			authSubscription = null;
-			document.removeEventListener('click', onDocClick);
+			document.removeEventListener('click', onDocClick, true);
 			document.removeEventListener('keydown', onKey);
 			document.removeEventListener('click', onDocClickUserMenu);
 			document.removeEventListener('keydown', onKeyUserMenu);
