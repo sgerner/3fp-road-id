@@ -1,4 +1,4 @@
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { fail } from '@sveltejs/kit';
 import { TURNSTILE_SECRET_KEY } from '$app/env/private';
 import {

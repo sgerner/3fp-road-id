@@ -1,4 +1,5 @@
 <script>
+	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { onMount } from 'svelte';
 	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
@@ -173,7 +174,7 @@
 		}, {})
 	);
 
-	const monthMatrix = $derived(buildCalendarMatrix(calendarReference, postsByScheduleDay));
+	const monthMatrix = $derived(buildMonthGrid(calendarReference, postsByScheduleDay, toDateKey));
 	const weekDays = $derived(buildWeekDays(calendarReference, postsByScheduleDay));
 	const weekRows = $derived.by(() =>
 		CALENDAR_HOURS.map((hour) => ({
@@ -197,7 +198,7 @@
 			week.some((entry) => entry.date.toDateString() === today.toDateString())
 		);
 		if (weekWithToday) return weekWithToday;
-		const weekWithPosts = monthMatrix.find((week) => week.some((entry) => entry.posts.length > 0));
+		const weekWithPosts = monthMatrix.find((week) => week.some((entry) => entry.items.length > 0));
 		return weekWithPosts ?? monthMatrix[0] ?? [];
 	});
 
@@ -549,30 +550,6 @@
 	function handleCalendarSlotClick(date, hour = 9) {
 		const slot = defaultSlotForDay(date, hour);
 		openComposerModal(slot);
-	}
-
-	function buildCalendarMatrix(reference, lookup) {
-		const monthStart = startOfMonth(reference);
-		const month = monthStart.getMonth();
-		const year = monthStart.getFullYear();
-		const firstDate = startOfWeek(monthStart);
-		const weeks = [];
-
-		for (let w = 0; w < 6; w += 1) {
-			const days = [];
-			for (let d = 0; d < 7; d += 1) {
-				const current = addDays(firstDate, w * 7 + d);
-				const key = toDateKey(current);
-				days.push({
-					date: current,
-					key,
-					inMonth: current.getMonth() === month && current.getFullYear() === year,
-					posts: key && lookup[key] ? lookup[key] : []
-				});
-			}
-			weeks.push(days);
-		}
-		return weeks;
 	}
 
 	function buildWeekDays(reference, lookup) {
@@ -2077,11 +2054,11 @@
 													day: 'numeric'
 												}).format(day.date)}
 											</div>
-											<div class="text-[11px]">{day.posts.length} posts</div>
+											<div class="text-[11px]">{day.items.length} posts</div>
 										</div>
-										{#if day.posts.length > 0}
+										{#if day.items.length > 0}
 											<div class="mt-2 space-y-1">
-												{#each day.posts.slice(0, 2) as post}
+												{#each day.items.slice(0, 2) as post}
 													<button
 														type="button"
 														class={`w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
@@ -2132,10 +2109,10 @@
 											>
 												<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
 												<div class="mt-1 space-y-1 overflow-y-auto">
-													{#if day.posts.length === 0}
+													{#if day.items.length === 0}
 														<p class="text-surface-500 text-[11px]">Open slot</p>
 													{:else}
-														{#each day.posts.slice(0, 3) as post}
+														{#each day.items.slice(0, 3) as post}
 															<button
 																type="button"
 																class={`block w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
@@ -2154,9 +2131,9 @@
 																)}
 															</button>
 														{/each}
-														{#if day.posts.length > 3}
+														{#if day.items.length > 3}
 															<div class="text-secondary-700-300 text-[10px] font-medium">
-																+{day.posts.length - 3} more
+																+{day.items.length - 3} more
 															</div>
 														{/if}
 													{/if}

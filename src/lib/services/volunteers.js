@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { supabase } from '#lib/supabaseClient';
 import { syncServerSession } from '#lib/security/session';
 
