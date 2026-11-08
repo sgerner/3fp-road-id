@@ -162,9 +162,13 @@
 		handleProfileUpdate();
 	};
 
-	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Asprin'];
+	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Aspirin'];
+	const normalizeMedication = (medication) => {
+		const value = medication.trim();
+		return value.toLowerCase() === 'asprin' ? 'Aspirin' : value;
+	};
 	const getMedicationArray = () =>
-		profile?.medication ? profile.medication.split(',').map((s) => s.trim()) : [];
+		profile?.medication ? profile.medication.split(',').map(normalizeMedication) : [];
 	const isMedicationSelected = (med) => getMedicationArray().includes(med);
 	const toggleMedication = (med) => {
 		let current = getMedicationArray();
@@ -363,11 +367,11 @@
 						>
 							404
 						</span>
-						<h1
+						<h2
 							class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
 						>
 							Code Not Found
-						</h1>
+						</h2>
 						<p class="text-surface-200 m-0 text-lg leading-relaxed">
 							We haven't created a In Case bracelet for the code
 							<strong class="text-primary-500 font-black">{code}</strong> yet.
@@ -488,9 +492,9 @@
 									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 										Rider Medical Details
 									</p>
-									<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+									<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 										Emergency Information
-									</h6>
+									</h2>
 								</div>
 							</div>
 
@@ -631,7 +635,7 @@
 										onblur={(e) => {
 											profile.medication = e.target.value;
 											handleProfileUpdate();
-										}}>{profile?.medication}</textarea
+										}}>{getMedicationArray().join(', ')}</textarea
 									>
 								</div>
 							</div>
@@ -650,9 +654,9 @@
 									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 										Who to Call
 									</p>
-									<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+									<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 										Emergency Contacts
-									</h6>
+									</h2>
 								</div>
 							</div>
 
@@ -723,9 +727,9 @@
 
 								<!-- Add New Contact Form -->
 								<div class="border-surface-800 flex flex-col gap-4 border-t-2 pt-6">
-									<h6 class="text-surface-50! m-0 text-lg font-black uppercase">
+									<h3 class="text-surface-50! m-0 text-lg font-black uppercase">
 										Add a New Contact
-									</h6>
+									</h3>
 									<form class="flex flex-col gap-4" onsubmit={handleCreateContact}>
 										<div class="flex flex-col gap-1.5">
 											<label
@@ -788,9 +792,9 @@
 					<div class="flex flex-col gap-12">
 						<section class="grid gap-12 lg:grid-cols-2">
 							<div class="flex flex-col gap-6">
-								<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 									Emergency Information
-								</h6>
+								</h2>
 								<div class="border-surface-50 divide-surface-800 flex flex-col divide-y border-t-2">
 									<div class="flex items-center justify-between gap-4 py-4">
 										<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
@@ -799,17 +803,21 @@
 										<strong class="text-lg font-black">{profile?.full_name}</strong>
 									</div>
 									{#if profile.phone}
+										{@const profilePhone = normalizePhoneNumber(profile.phone)}
 										<div class="flex items-center justify-between gap-4 py-4">
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Phone
 											</span>
-											<a
-												href="tel:{normalizePhoneNumber(profile.phone)}"
-												target="_blank"
-												class="text-primary-500 text-lg font-black underline"
-											>
-												{profile?.phone ? formatPhoneNumber(profile.phone) : ''}
-											</a>
+											{#if profilePhone}
+												<a
+													href={`tel:${profilePhone}`}
+													class="text-primary-500 text-lg font-black underline"
+												>
+													{formatPhoneNumber(profile.phone)}
+												</a>
+											{:else}
+												<span class="text-lg font-black">{profile.phone}</span>
+											{/if}
 										</div>
 									{/if}
 									{#if profile.blood_type}
@@ -837,20 +845,22 @@
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Medication
 											</span>
-											<strong class="text-right font-bold">{profile?.medication}</strong>
+											<strong class="text-right font-bold">{getMedicationArray().join(', ')}</strong
+											>
 										</div>
 									{/if}
 								</div>
 							</div>
 
 							<div class="flex flex-col gap-6">
-								<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 									Emergency Contacts
-								</h6>
+								</h2>
 								<div class="border-surface-50 border-t-2 pt-4">
 									{#if profile?.emergency_contacts && profile.emergency_contacts.length}
 										<ul class="divide-surface-800 m-0 list-none divide-y p-0">
 											{#each profile.emergency_contacts as contact (contact.id)}
+												{@const contactPhone = normalizePhoneNumber(contact.contact_phone)}
 												<li class="flex flex-wrap items-center justify-between gap-2 py-4">
 													<span>
 														<strong class="font-black uppercase">{contact.contact_name}</strong>
@@ -858,13 +868,16 @@
 															({contact.contact_relationship})
 														</span>
 													</span>
-													<a
-														href="tel:{normalizePhoneNumber(contact.contact_phone)}"
-														target="_blank"
-														class="text-primary-500 font-black underline"
-													>
-														{contact.contact_phone ? formatPhoneNumber(contact.contact_phone) : ''}
-													</a>
+													{#if contactPhone}
+														<a
+															href={`tel:${contactPhone}`}
+															class="text-primary-500 font-black underline"
+														>
+															{formatPhoneNumber(contact.contact_phone)}
+														</a>
+													{:else if contact.contact_phone}
+														<span class="font-black">{contact.contact_phone}</span>
+													{/if}
 												</li>
 											{/each}
 										</ul>
@@ -878,9 +891,9 @@
 						<section class="border-surface-800 border-t-2 pt-8">
 							{#if submissionSuccess}
 								<div class="bg-primary-500 text-surface-950 p-6" transition:slide>
-									<h4 class="text-surface-950! m-0 text-2xl font-black uppercase italic">
+									<h2 class="text-surface-950! m-0 text-2xl font-black uppercase italic">
 										Check Your Email
-									</h4>
+									</h2>
 									<p class="m-0 mt-2">
 										A link has been sent to <strong>{newProfile.email}</strong>.
 									</p>

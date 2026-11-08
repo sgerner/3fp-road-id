@@ -1019,6 +1019,7 @@
 						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
+								aria-pressed={Number(donationAmount) === 0}
 								class="border-surface-950 cursor-pointer border-[3px] px-4 py-2.5 text-xs font-black tracking-wide uppercase transition {Number(
 									donationAmount
 								) === 0
@@ -1034,6 +1035,7 @@
 							{#each donationPresets as preset (preset)}
 								<button
 									type="button"
+									aria-pressed={Number(donationAmount) === preset}
 									class="border-surface-950 cursor-pointer border-[3px] px-4 py-2.5 text-xs font-black tracking-wide uppercase tabular-nums transition {Number(
 										donationAmount
 									) === preset

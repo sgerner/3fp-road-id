@@ -605,7 +605,21 @@
 					</a>
 				</div>
 
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2 sm:gap-3">
+					{#if !user}
+						<button
+							type="button"
+							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border"
+							aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
+							onclick={toggleColorMode}
+						>
+							{#if colorMode === 'dark'}
+								<IconSun class="size-4" />
+							{:else}
+								<IconMoon class="size-4" />
+							{/if}
+						</button>
+					{/if}
 					<div class="relative">
 						{#if user}
 							<div class="relative flex items-center gap-2">
