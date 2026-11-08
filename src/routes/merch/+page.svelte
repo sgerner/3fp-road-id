@@ -25,6 +25,7 @@
 	let lightboxImages = $state([]);
 	let lightboxIndex = $state(0);
 	let mobileCartOpen = $state(false);
+	let mobileCartDialog = $state(null);
 
 	onMount(() => {
 		merchCart.load();
@@ -163,6 +164,14 @@
 			0
 		)
 	);
+
+	$effect(() => {
+		if (mobileCartOpen && mobileCartDialog && !mobileCartDialog.open) {
+			mobileCartDialog.showModal();
+		} else if (!mobileCartOpen && mobileCartDialog?.open) {
+			mobileCartDialog.close();
+		}
+	});
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -717,123 +726,139 @@
 <div
 	class="bg-secondary-500 text-surface-50 border-primary-500 fixed right-0 bottom-0 left-0 z-50 border-t-[3px] lg:hidden"
 >
-	{#if !mobileCartOpen}
-		<div class="flex items-center justify-between gap-3 px-4 py-3">
+	<div class="flex items-center justify-between gap-3 px-4 py-3">
+		<button
+			type="button"
+			class="text-surface-50 flex flex-1 cursor-pointer items-center gap-3 text-left"
+			aria-haspopup="dialog"
+			aria-controls="mobile-cart-dialog"
+			aria-expanded={mobileCartOpen}
+			onclick={() => (mobileCartOpen = true)}
+		>
+			<span
+				class="bg-primary-500 text-surface-950 relative flex h-9 w-9 items-center justify-center"
+			>
+				<IconShoppingBag class="h-4 w-4" />
+				{#if cartLineCount > 0}
+					<span
+						class="bg-tertiary-500 text-surface-950 absolute -top-1.5 -right-1.5 px-1.5 text-[0.65rem] font-black"
+					>
+						{cartLineCount}
+					</span>
+				{/if}
+			</span>
+			<span class="text-xs font-black tracking-wide uppercase">
+				{cartLineCount === 0
+					? 'Your cart is empty'
+					: `${cartLineCount} item${cartLineCount > 1 ? 's' : ''} · ${formatCurrency(cartTotalCents)}`}
+			</span>
+		</button>
+		{#if cartLineCount > 0}
+			{#if data.canCheckout}
+				<a
+					href="/merch/checkout"
+					class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase hover:no-underline"
+				>
+					<span>Checkout</span>
+					<IconArrowRight class="h-3.5 w-3.5" />
+				</a>
+			{:else}
+				<span class="text-xs font-bold uppercase opacity-75">Stripe pending</span>
+			{/if}
+		{/if}
+	</div>
+</div>
+
+<dialog
+	id="mobile-cart-dialog"
+	bind:this={mobileCartDialog}
+	class="bg-secondary-500 text-surface-50 border-primary-500 fixed inset-x-0 top-auto bottom-0 m-0 max-h-[80vh] w-full max-w-none overflow-hidden border-t-[3px] p-0 shadow-2xl backdrop:bg-black/60"
+	aria-modal="true"
+	aria-labelledby="mobile-cart-heading"
+	onclick={(event) => {
+		if (event.target === mobileCartDialog) mobileCartOpen = false;
+	}}
+	onclose={() => (mobileCartOpen = false)}
+>
+	<div class="flex max-h-[80vh] flex-col">
+		<div class="border-surface-950 flex items-center justify-between border-b-2 px-5 py-4">
+			<div class="flex items-center gap-2">
+				<IconShoppingBag class="text-primary-500 h-4 w-4" />
+				<h2
+					id="mobile-cart-heading"
+					class="text-surface-50! m-0 text-sm font-black tracking-[0.18em] uppercase"
+				>
+					Cart — {cartLineCount} items
+				</h2>
+			</div>
 			<button
 				type="button"
-				class="text-surface-50 flex flex-1 cursor-pointer items-center gap-3 text-left"
-				onclick={() => (mobileCartOpen = true)}
+				class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 w-8 cursor-pointer items-center justify-center border-2"
+				onclick={() => (mobileCartOpen = false)}
+				aria-label="Close cart"
 			>
-				<span
-					class="bg-primary-500 text-surface-950 relative flex h-9 w-9 items-center justify-center"
-				>
-					<IconShoppingBag class="h-4 w-4" />
-					{#if cartLineCount > 0}
-						<span
-							class="bg-tertiary-500 text-surface-950 absolute -top-1.5 -right-1.5 px-1.5 text-[0.65rem] font-black"
-						>
-							{cartLineCount}
-						</span>
-					{/if}
-				</span>
-				<span class="text-xs font-black tracking-wide uppercase">
-					{cartLineCount === 0
-						? 'Your cart is empty'
-						: `${cartLineCount} item${cartLineCount > 1 ? 's' : ''} · ${formatCurrency(cartTotalCents)}`}
-				</span>
+				<IconX class="h-4 w-4" />
 			</button>
-			{#if cartLineCount > 0}
+		</div>
+
+		<div class="max-h-72 overflow-y-auto overscroll-contain px-5 py-2">
+			{#if ($merchCart ?? []).length === 0}
+				<p class="py-4 text-center text-sm font-bold uppercase">Your cart is empty.</p>
+			{:else}
+				{#each $merchCart as line (line.variantId)}
+					<div class="border-secondary-300/40 flex items-start gap-3 border-b py-3">
+						{#if line.productImageUrl}
+							<img
+								src={line.productImageUrl}
+								alt={line.productName}
+								class="bg-surface-50 h-12 w-12 shrink-0 object-contain p-1"
+							/>
+						{/if}
+						<div class="min-w-0 flex-1">
+							<p class="m-0 truncate text-sm font-black uppercase">{line.productName}</p>
+							<p class="m-0 text-xs opacity-85">{line.variantName}</p>
+							<p class="text-primary-500 m-0 text-xs font-black">
+								{line.quantity} × {formatCurrency(line.priceCents)}
+							</p>
+						</div>
+						<button
+							type="button"
+							class="border-surface-50 text-surface-50 flex h-7 w-7 cursor-pointer items-center justify-center border-2"
+							onclick={() => removeCartLine(line.variantId)}
+							aria-label="Remove item"
+						>
+							<IconX class="h-3.5 w-3.5" />
+						</button>
+					</div>
+				{/each}
+			{/if}
+		</div>
+
+		{#if ($merchCart ?? []).length > 0}
+			<div class="border-surface-950 flex flex-col gap-3 border-t-2 p-5">
+				<div class="flex items-baseline justify-between">
+					<span class="text-xs font-bold tracking-[0.18em] uppercase">Subtotal</span>
+					<strong class="text-primary-500 text-xl font-black italic">
+						{formatCurrency(cartTotalCents)}
+					</strong>
+				</div>
 				{#if data.canCheckout}
 					<a
 						href="/merch/checkout"
-						class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase hover:no-underline"
+						class="bg-primary-500 text-surface-950 inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-sm font-black tracking-wide uppercase hover:no-underline"
 					>
-						<span>Checkout</span>
-						<IconArrowRight class="h-3.5 w-3.5" />
+						<span>Proceed to Checkout</span>
+						<IconArrowRight class="h-4 w-4" />
 					</a>
 				{:else}
-					<span class="text-xs font-bold uppercase opacity-75">Stripe pending</span>
-				{/if}
-			{/if}
-		</div>
-	{:else}
-		<div class="flex max-h-[80vh] flex-col">
-			<div class="border-surface-950 flex items-center justify-between border-b-2 px-5 py-4">
-				<div class="flex items-center gap-2">
-					<IconShoppingBag class="text-primary-500 h-4 w-4" />
-					<h3 class="text-surface-50! m-0 text-sm font-black tracking-[0.18em] uppercase">
-						Cart — {cartLineCount} items
-					</h3>
-				</div>
-				<button
-					type="button"
-					class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 w-8 cursor-pointer items-center justify-center border-2"
-					onclick={() => (mobileCartOpen = false)}
-					aria-label="Close cart"
-				>
-					<IconX class="h-4 w-4" />
-				</button>
-			</div>
-
-			<div class="max-h-72 overflow-y-auto px-5 py-2">
-				{#if ($merchCart ?? []).length === 0}
-					<p class="py-4 text-center text-sm font-bold uppercase">Your cart is empty.</p>
-				{:else}
-					{#each $merchCart as line (line.variantId)}
-						<div class="border-secondary-300/40 flex items-start gap-3 border-b py-3">
-							{#if line.productImageUrl}
-								<img
-									src={line.productImageUrl}
-									alt={line.productName}
-									class="bg-surface-50 h-12 w-12 shrink-0 object-contain p-1"
-								/>
-							{/if}
-							<div class="min-w-0 flex-1">
-								<p class="m-0 truncate text-sm font-black uppercase">{line.productName}</p>
-								<p class="m-0 text-xs opacity-85">{line.variantName}</p>
-								<p class="text-primary-500 m-0 text-xs font-black">
-									{line.quantity} × {formatCurrency(line.priceCents)}
-								</p>
-							</div>
-							<button
-								type="button"
-								class="border-surface-50 text-surface-50 flex h-7 w-7 cursor-pointer items-center justify-center border-2"
-								onclick={() => removeCartLine(line.variantId)}
-								aria-label="Remove"
-							>
-								<IconX class="h-3.5 w-3.5" />
-							</button>
-						</div>
-					{/each}
-				{/if}
-			</div>
-
-			{#if ($merchCart ?? []).length > 0}
-				<div class="border-surface-950 flex flex-col gap-3 border-t-2 p-5">
-					<div class="flex items-baseline justify-between">
-						<span class="text-xs font-bold tracking-[0.18em] uppercase">Subtotal</span>
-						<strong class="text-primary-500 text-xl font-black italic">
-							{formatCurrency(cartTotalCents)}
-						</strong>
+					<div class="bg-surface-950 text-primary-500 p-3 text-xs font-bold">
+						Checkout will be available once Stripe is connected.
 					</div>
-					{#if data.canCheckout}
-						<a
-							href="/merch/checkout"
-							class="bg-primary-500 text-surface-950 inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-sm font-black tracking-wide uppercase hover:no-underline"
-						>
-							<span>Proceed to Checkout</span>
-							<IconArrowRight class="h-4 w-4" />
-						</a>
-					{:else}
-						<div class="bg-surface-950 text-primary-500 p-3 text-xs font-bold">
-							Checkout will be available once Stripe is connected.
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	{/if}
-</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+</dialog>
 
 <!-- ═══ LIGHTBOX ════════════════════════════════════════════════ -->
 {#if lightboxOpen}
@@ -925,6 +950,10 @@
 {/if}
 
 <style>
+	:global(html:has(#mobile-cart-dialog[open])) {
+		overflow: hidden;
+	}
+
 	.cinema-rail {
 		display: grid;
 		grid-auto-flow: column;

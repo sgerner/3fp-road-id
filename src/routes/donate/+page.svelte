@@ -573,6 +573,12 @@
 				<p class="text-surface-300 m-0 text-lg">
 					This group has not been claimed yet, so donations are not enabled.
 				</p>
+				<a
+					href={`/groups/${encodeURIComponent(groupSlug)}`}
+					class="text-primary-500 self-start text-sm font-black uppercase underline"
+				>
+					Back to {recipientLabel}
+				</a>
 			</div>
 		{:else if !donationEnabled}
 			<div class="border-surface-50 flex flex-col gap-6 border-t-2 pt-10">
@@ -601,6 +607,12 @@
 							The main organization hasn't connected Stripe donations yet.
 						{/if}
 					</p>
+					<a
+						href={isGroupRecipient && groupSlug ? `/groups/${encodeURIComponent(groupSlug)}` : '/'}
+						class="text-primary-500 self-start text-sm font-black uppercase underline"
+					>
+						Back to {recipientLabel}
+					</a>
 				</div>
 			</div>
 		{:else}
@@ -684,6 +696,7 @@
 							{#each presetAmounts as preset (preset)}
 								<button
 									type="button"
+									aria-pressed={Number(amount) === preset}
 									class="border-[3px] px-4 py-3 text-lg font-black tracking-wide uppercase tabular-nums transition {Number(
 										amount
 									) === preset

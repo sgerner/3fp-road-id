@@ -1,8 +1,21 @@
 <script>
+	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { merchCart } from '#lib/merch/cart';
 
 	let { data } = $props();
+	let refreshing = $state(false);
+
+	async function checkOrderStatus() {
+		if (refreshing) return;
+		refreshing = true;
+		try {
+			await invalidateAll();
+			if (data?.ok && data?.paid) merchCart.clear();
+		} finally {
+			refreshing = false;
+		}
+	}
 
 	onMount(() => {
 		if (data?.ok && data?.paid) {
@@ -45,9 +58,17 @@
 				Payment is still processing
 			</h1>
 			<p class="m-0 mt-4 max-w-xl text-base font-medium">
-				If you just checked out, refresh this page in a few seconds.
+				If you just checked out, check again in a few seconds.
 			</p>
-			<div class="mt-8">
+			<div class="mt-8 flex flex-wrap gap-3">
+				<button
+					type="button"
+					class="bg-surface-950 text-secondary-500 hover:bg-surface-50 inline-flex items-center px-7 py-4 text-sm font-black tracking-wide uppercase transition disabled:opacity-60"
+					disabled={refreshing}
+					onclick={checkOrderStatus}
+				>
+					{refreshing ? 'Checking…' : 'Check order status'}
+				</button>
 				<a
 					class="bg-primary-500 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center px-7 py-4 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					href="/merch/orders"
