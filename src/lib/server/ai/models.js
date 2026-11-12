@@ -21,6 +21,7 @@ const MODEL_ID = {
 	MERCURY_3: 'inception/mercury-3',
 	OPENAI_GPT_6_LUNA: 'openai/gpt-6-luna',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_4_HYDROGEN: 'google/gemini-4-hydrogen',
 	GEMINI_38_FLASH: 'google/gemini-3.8-flash',
 	GEMINI_35_FLASH_LITE: 'google/gemini-3.5-flash-lite',
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
@@ -75,6 +76,21 @@ const AI_MODELS = {
 			AI_CAPABILITIES.MULTIMODAL_INPUT
 		]
 	},
+	[MODEL_ID.GEMINI_4_HYDROGEN]: {
+		id: MODEL_ID.GEMINI_4_HYDROGEN,
+		provider: 'google',
+		model: 'gemini-4-hydrogen',
+		label: 'Gemini 4 Hydrogen',
+		fallbackModel: 'gemini-3.8-flash',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
 	[MODEL_ID.GEMINI_38_FLASH]: {
 		id: MODEL_ID.GEMINI_38_FLASH,
 		provider: 'google',
@@ -111,7 +127,7 @@ const AI_MODELS = {
 		label: 'Gemini 3 Flash Preview',
 		fallbackModel: 'gemini-3.8-flash',
 		deprecated: true,
-		replacementModelId: MODEL_ID.GEMINI_38_FLASH,
+		replacementModelId: MODEL_ID.GEMINI_4_HYDROGEN,
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -204,7 +220,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
-		fallbackModelId: MODEL_ID.GEMINI_38_FLASH,
+		fallbackModelId: MODEL_ID.GEMINI_4_HYDROGEN,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -215,7 +231,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment_retry: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT_RETRY',
-		fallbackModelId: MODEL_ID.GEMINI_35_FLASH_LITE,
+		fallbackModelId: MODEL_ID.GEMINI_38_FLASH,
 		ignoreDefaultModel: true,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
