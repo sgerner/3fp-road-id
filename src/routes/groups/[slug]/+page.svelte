@@ -51,6 +51,7 @@
 	let marker;
 	let mapInitialized = $state(false);
 	let mapLoadPromise;
+	let instagramFeed = $state(null);
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
@@ -125,6 +126,30 @@
 		});
 		obs.observe(heroSentinel);
 		return () => obs.disconnect();
+	});
+
+	$effect(() => {
+		const groupSlug = data.group?.slug;
+		if (!groupSlug) return;
+
+		const controller = new AbortController();
+		instagramFeed = null;
+
+		fetch(`/api/groups/${encodeURIComponent(groupSlug)}/site/instagram`, {
+			signal: controller.signal
+		})
+			.then(async (response) => {
+				if (!response.ok) return null;
+				const payload = await response.json().catch(() => null);
+				return payload?.data ?? null;
+			})
+			.then((feed) => {
+				if (controller.signal.aborted || !feed) return;
+				instagramFeed = feed;
+			})
+			.catch(() => {});
+
+		return () => controller.abort();
 	});
 
 	function pickNames(all, ids) {
@@ -247,9 +272,9 @@
 	}
 
 	const contactLinks = $derived(buildContactLinks(data.group));
-	const connectedInstagram = $derived(data.connected_instagram ?? null);
+	const connectedInstagram = $derived(instagramFeed?.connectedInstagram ?? null);
 	const instagramPosts = $derived(
-		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
+		Array.isArray(instagramFeed?.instagramPosts) ? instagramFeed.instagramPosts.slice(0, 3) : []
 	);
 	const groupNewsPosts = $derived(
 		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
@@ -258,7 +283,7 @@
 		Array.isArray(data.accounting_public_reports) ? data.accounting_public_reports.slice(0, 3) : []
 	);
 	const latestAccountingReport = $derived(accountingReports[0] ?? null);
-	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
+	const instagramPostsSource = $derived(instagramFeed?.instagramPostsSource || 'none');
 	const connectedInstagramLabel = $derived(
 		connectedInstagram?.username
 			? `@${connectedInstagram.username}`
