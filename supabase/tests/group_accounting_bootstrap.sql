@@ -1,9 +1,4 @@
 -- Minimal app dependencies for a disposable local database. Never run in production.
-do $$ begin
-	if not exists(select 1 from pg_roles where rolname='anon') then create role anon; end if;
-	if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
-	if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
-end $$;
 create schema extensions;
 create function extensions.uuid_generate_v4() returns uuid language sql as 'select gen_random_uuid()';
 create function extensions.gen_random_bytes(n integer) returns bytea language sql as 'select decode(repeat(''ab'',n),''hex'')';
