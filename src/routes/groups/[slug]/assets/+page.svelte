@@ -11,7 +11,8 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconX from '@lucide/svelte/icons/x';
 	import { page } from '$app/state';
-	import { fade, fly, scale } from 'svelte/transition';
+	import { tick } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
 
@@ -25,7 +26,7 @@
 	);
 
 	let searchQuery = $state('');
-	let lightboxOpen = $state(false);
+	let lightboxDialog = $state(null);
 	let lightboxIndex = $state(0);
 	let lightboxItems = $state([]);
 
@@ -48,14 +49,14 @@
 		});
 	}
 
-	function openLightbox(index) {
+	async function openLightbox(index) {
 		lightboxItems = filteredAssets(activeBucket, searchQuery);
 		lightboxIndex = index;
-		lightboxOpen = true;
+		await tick();
+		if (!lightboxDialog.open) lightboxDialog.showModal();
 	}
 
 	function closeLightbox() {
-		lightboxOpen = false;
 		lightboxItems = [];
 		lightboxIndex = 0;
 	}
@@ -70,20 +71,11 @@
 		lightboxIndex = lightboxIndex >= lightboxItems.length - 1 ? 0 : lightboxIndex + 1;
 	}
 
-	function handleKeydown(event) {
-		if (!lightboxOpen) return;
-		if (event.key === 'Escape') closeLightbox();
-		if (event.key === 'ArrowLeft') previousImage();
-		if (event.key === 'ArrowRight') nextImage();
-	}
-
 	const activeAssets = $derived(filteredAssets(activeBucket, searchQuery));
 	const totalCount = $derived(
 		data.buckets.reduce((sum, bucket) => sum + (bucket.asset_count || 0), 0)
 	);
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 <div class="mx-auto max-w-6xl space-y-6 px-3 py-4 md:px-4 lg:px-6 lg:py-6">
 	<!-- Hero Section -->
@@ -298,31 +290,18 @@
 </div>
 
 <!-- Lightbox Modal -->
-{#if lightboxOpen && lightboxItems.length}
-	<div
-		class="lightbox-backdrop"
-		role="dialog"
-		tabindex="0"
-		aria-modal="true"
-		aria-label={lightboxItems[lightboxIndex]?.title}
-		in:fade={{ duration: 140 }}
-		out:fade={{ duration: 120 }}
-		onclick={(event) => {
-			if (event.target === event.currentTarget) closeLightbox();
-		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') closeLightbox();
-			if (event.key === 'ArrowLeft') previousImage();
-			if (event.key === 'ArrowRight') nextImage();
-		}}
-	>
-		<div
-			class="lightbox-panel"
-			role="document"
-			tabindex="-1"
-			in:scale={{ start: 0.98, duration: 160 }}
-			out:scale={{ start: 0.98, duration: 120 }}
-		>
+<dialog
+	bind:this={lightboxDialog}
+	class="lightbox-backdrop"
+	aria-label="Group photo preview"
+	onclose={closeLightbox}
+	onkeydown={(event) => {
+		if (event.key === 'ArrowLeft') previousImage();
+		if (event.key === 'ArrowRight') nextImage();
+	}}
+>
+	{#if lightboxItems.length}
+		<div class="lightbox-panel">
 			<div class="lightbox-toolbar">
 				<div class="lightbox-counter">
 					{lightboxIndex + 1} <span class="text-white/40">/</span>
@@ -331,7 +310,7 @@
 				<button
 					type="button"
 					class="lightbox-close"
-					onclick={closeLightbox}
+					onclick={() => lightboxDialog.close()}
 					aria-label="Close lightbox"
 				>
 					<IconX class="h-5 w-5" />
@@ -379,8 +358,8 @@
 				</div>
 			{/if}
 		</div>
-	</div>
-{/if}
+	{/if}
+</dialog>
 
 <style>
 	/* Hero Section */
@@ -556,17 +535,18 @@
 	.lightbox-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 100;
-		display: grid;
-		place-items: center;
-		padding: 0.5rem;
-		background: rgba(0, 0, 0, 0.98);
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		padding: 0;
+		margin: 0;
+		background: var(--color-surface-950);
 	}
 
 	.lightbox-panel {
-		width: 99vw;
-		height: 99dvh;
-		border-radius: 1rem;
+		width: 100%;
+		height: 100%;
 		padding: 0.75rem;
 		background: transparent;
 		border: none;
@@ -636,7 +616,8 @@
 		opacity: 0;
 	}
 
-	.lightbox-stage:hover .lightbox-nav {
+	.lightbox-stage:hover .lightbox-nav,
+	.lightbox-nav:focus-visible {
 		opacity: 1;
 	}
 

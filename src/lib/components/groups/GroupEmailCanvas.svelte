@@ -1,5 +1,5 @@
 <script>
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconCopy from '@lucide/svelte/icons/copy';
@@ -33,6 +33,12 @@
 	let previewDevice = $state('desktop');
 	let showOutline = $state(false);
 	let mobilePaletteOpen = $state(false);
+	let mobilePaletteDialog = $state(null);
+	let mobilePaletteCloseButton = $state(null);
+	let mobilePaletteReturnFocus = null;
+	let focusEditorAfterPaletteClose = false;
+	let mobileEditorPanel = $state(null);
+	let mobileEditorReturnFocus = null;
 	let dragged = null;
 	let history = $state(untrack(() => [cloneEmailBlocks(blocks)]));
 	let historyIndex = $state(0);
@@ -90,8 +96,62 @@
 		const next = cloneEmailBlocks(blocks);
 		next.splice(Math.max(0, Math.min(index, next.length)), 0, block);
 		selectedId = block.id;
-		mobilePaletteOpen = false;
+		if (mobilePaletteOpen) {
+			focusEditorAfterPaletteClose = true;
+			closeMobilePalette();
+		} else {
+			void focusSelectedEditor({ returnToSelectedBlock: true });
+		}
 		emit(next);
+	}
+
+	async function openMobilePalette(trigger) {
+		mobilePaletteReturnFocus = trigger;
+		mobilePaletteDialog?.showModal();
+		mobilePaletteOpen = true;
+		await tick();
+		mobilePaletteCloseButton?.focus();
+	}
+
+	function closeMobilePalette() {
+		if (mobilePaletteDialog?.open) mobilePaletteDialog.close();
+	}
+
+	function handleMobilePaletteClose() {
+		mobilePaletteOpen = false;
+		const trigger = mobilePaletteReturnFocus;
+		mobilePaletteReturnFocus = null;
+		if (focusEditorAfterPaletteClose) {
+			focusEditorAfterPaletteClose = false;
+			void focusSelectedEditor({ returnToSelectedBlock: true });
+			return;
+		}
+		void tick().then(() => trigger?.focus());
+	}
+
+	async function focusSelectedEditor({ returnToSelectedBlock = false } = {}) {
+		await tick();
+		if (!selectedBlock || !window.matchMedia('(max-width: 1535px)').matches) return;
+		if (returnToSelectedBlock) {
+			mobileEditorReturnFocus = Array.from(document.querySelectorAll('[data-email-block-id]')).find(
+				(element) => element.dataset.emailBlockId === selectedId
+			);
+		}
+		mobileEditorPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		mobileEditorPanel?.focus({ preventScroll: true });
+	}
+
+	function selectBlock(id, trigger) {
+		selectedId = id;
+		mobileEditorReturnFocus = trigger || document.activeElement;
+		void focusSelectedEditor();
+	}
+
+	function closeSelectedEditor() {
+		const trigger = mobileEditorReturnFocus;
+		mobileEditorReturnFocus = null;
+		selectedId = '';
+		void tick().then(() => trigger?.focus());
 	}
 
 	function updateSelected(patch) {
@@ -206,7 +266,8 @@
 						draggable="true"
 						aria-pressed={selectedId === block.id}
 						ondragstart={(event) => startDrag(event, { kind: 'existing', id: block.id })}
-						onclick={() => (selectedId = block.id)}>{index + 1}. {blockLabel(block.type)}</button
+						onclick={(event) => selectBlock(block.id, event.currentTarget)}
+						>{index + 1}. {blockLabel(block.type)}</button
 					>
 				{/each}
 			</div>
@@ -287,7 +348,8 @@
 						type="button"
 						aria-pressed={selectedId === block.id}
 						aria-label={`Edit ${blockLabel(block.type)} block ${index + 1}`}
-						onclick={() => (selectedId = block.id)}
+						data-email-block-id={block.id}
+						onclick={(event) => selectBlock(block.id, event.currentTarget)}
 						draggable="true"
 						ondragstart={(event) => startDrag(event, { kind: 'existing', id: block.id })}
 						ondragover={(event) => event.preventDefault()}
@@ -351,9 +413,11 @@
 
 	{#if selectedBlock}
 		<aside
+			bind:this={mobileEditorPanel}
 			class="preset-tonal-surface preset-divider-top 2xl:preset-divider-top-0 2xl:preset-divider-left grid content-start gap-4 p-4 xl:col-span-2 2xl:col-span-1 2xl:overflow-y-auto"
 			aria-live="polite"
 			aria-label={`Editing ${blockLabel(selectedBlock.type)} block ${selectedIndex + 1}`}
+			tabindex="-1"
 		>
 			<div class="flex items-start justify-between gap-3">
 				<div>
@@ -362,10 +426,8 @@
 					</p>
 					<h2 class="text-lg font-bold capitalize">{selectedBlock.type}</h2>
 				</div>
-				<button
-					class="btn btn-sm preset-tonal-surface"
-					type="button"
-					onclick={() => (selectedId = '')}>Done</button
+				<button class="btn btn-sm preset-tonal-surface" type="button" onclick={closeSelectedEditor}
+					>Done</button
 				>
 			</div>
 
@@ -465,35 +527,41 @@
 <button
 	class="btn preset-filled-primary-500 fixed right-4 bottom-4 z-40 shadow-2xl xl:hidden"
 	type="button"
-	onclick={() => (mobilePaletteOpen = true)}
+	onclick={(event) => openMobilePalette(event.currentTarget)}
 	aria-expanded={mobilePaletteOpen}
+	aria-controls="email-content-library"
 >
 	<IconLayoutGrid class="h-5 w-5" /> Add content
 </button>
 
-{#if mobilePaletteOpen}
-	<button
-		class="bg-surface-950/45 fixed inset-0 z-40 backdrop-blur-sm xl:hidden"
-		type="button"
-		aria-label="Close content library"
-		onclick={() => (mobilePaletteOpen = false)}
-	></button>
-	<aside
-		class="card preset-tonal-surface fixed inset-x-3 bottom-3 z-50 grid max-h-[78dvh] gap-3 overflow-y-auto p-4 shadow-2xl xl:hidden"
-		aria-label="Add email content"
-	>
-		<div class="flex items-start gap-3">
-			<div class="grow">
-				<p class="font-semibold">Add content</p>
-				<p class="text-xs opacity-60">Tap a block to add it to your message.</p>
-			</div>
-			<button
-				class="btn btn-icon btn-sm preset-tonal-surface"
-				type="button"
-				aria-label="Close content library"
-				onclick={() => (mobilePaletteOpen = false)}><IconX class="h-4 w-4" /></button
-			>
+<dialog
+	bind:this={mobilePaletteDialog}
+	id="email-content-library"
+	class="mobile-content-library card preset-tonal-surface fixed inset-x-3 bottom-3 z-50 m-0 grid max-h-[78dvh] w-auto max-w-none gap-3 overflow-y-auto border-0 p-4 shadow-2xl xl:hidden"
+	aria-labelledby="email-content-library-title"
+	aria-modal="true"
+	onclose={handleMobilePaletteClose}
+	onclick={(event) => event.target === event.currentTarget && closeMobilePalette()}
+>
+	<div class="flex items-start gap-3">
+		<div class="grow">
+			<p id="email-content-library-title" class="font-semibold">Add content</p>
+			<p class="text-xs opacity-60">Tap a block to add it to your message.</p>
 		</div>
-		{@render blockPalette(true)}
-	</aside>
-{/if}
+		<button
+			bind:this={mobilePaletteCloseButton}
+			class="btn btn-icon btn-sm preset-tonal-surface"
+			type="button"
+			aria-label="Close content library"
+			onclick={closeMobilePalette}><IconX class="h-4 w-4" /></button
+		>
+	</div>
+	{@render blockPalette(true)}
+</dialog>
+
+<style>
+	.mobile-content-library::backdrop {
+		background: rgba(9, 12, 18, 0.45);
+		backdrop-filter: blur(4px);
+	}
+</style>

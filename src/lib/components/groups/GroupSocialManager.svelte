@@ -1912,7 +1912,7 @@
 												</div>
 												<button
 													type="button"
-													class="btn btn-xs preset-filled-primary-500"
+													class="btn btn-sm preset-filled-primary-500"
 													onclick={() =>
 														selectPendingConnection(platform, pending.id, option.option_id)}
 													disabled={Boolean(accountActionPending[optionKey])}
@@ -2038,13 +2038,7 @@
 							<div class="grid gap-2 sm:hidden">
 								{#each mobileMonthDays as day}
 									<div
-										role="button"
-										tabindex="0"
 										class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-										onclick={() => handleCalendarSlotClick(day.date, 9)}
-										onkeydown={(event) =>
-											(event.key === 'Enter' || event.key === ' ') &&
-											handleCalendarSlotClick(day.date, 9)}
 									>
 										<div class="flex items-center justify-between">
 											<div class="text-xs font-semibold">
@@ -2054,7 +2048,15 @@
 													day: 'numeric'
 												}).format(day.date)}
 											</div>
-											<div class="text-[11px]">{day.items.length} posts</div>
+											<div class="flex items-center gap-2">
+												<div class="text-[11px]">{day.items.length} posts</div>
+												<button
+													type="button"
+													class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-2 py-1 text-xs font-semibold"
+													aria-label={`Schedule a post on ${day.date.toLocaleDateString()}`}
+													onclick={() => handleCalendarSlotClick(day.date, 9)}>Add</button
+												>
+											</div>
 										</div>
 										{#if day.items.length > 0}
 											<div class="mt-2 space-y-1">
@@ -2098,16 +2100,18 @@
 									{#each monthMatrix as week, i}
 										{#each week as day, j}
 											<div
-												role="button"
-												tabindex="0"
-												class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+												class={`event-card bg-surface-50-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 												style="--stagger: {(i * 7 + j) % 21}"
-												onclick={() => handleCalendarSlotClick(day.date, 9)}
-												onkeydown={(event) =>
-													(event.key === 'Enter' || event.key === ' ') &&
-													handleCalendarSlotClick(day.date, 9)}
 											>
-												<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
+												<div class="flex items-center justify-between gap-1">
+													<span class="text-[11px] font-semibold">{day.date.getDate()}</span>
+													<button
+														type="button"
+														class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-1 text-[10px] font-semibold"
+														aria-label={`Schedule a post on ${day.date.toLocaleDateString()}`}
+														onclick={() => handleCalendarSlotClick(day.date, 9)}>+</button
+													>
+												</div>
 												<div class="mt-1 space-y-1 overflow-y-auto">
 													{#if day.items.length === 0}
 														<p class="text-surface-500 text-[11px]">Open slot</p>
@@ -2169,14 +2173,17 @@
 												{#each row.slots as slot}
 													<td class="p-1 align-top">
 														<div
-															role="button"
-															tabindex="0"
-															class="hover:bg-surface-200-800/40 border-surface-400-600/40 min-h-16 w-full rounded-lg border p-2 text-left transition-colors"
-															onclick={() => handleCalendarSlotClick(slot.day.date, row.hour)}
-															onkeydown={(event) =>
-																(event.key === 'Enter' || event.key === ' ') &&
-																handleCalendarSlotClick(slot.day.date, row.hour)}
+															class="border-surface-400-600/40 min-h-16 w-full rounded-lg border p-2 text-left"
 														>
+															<div class="mb-1 flex justify-end">
+																<button
+																	type="button"
+																	class="text-secondary-700-300 text-[10px] font-semibold"
+																	aria-label={`Schedule a post at ${formatHourLabel(row.hour)} on ${slot.day.date.toLocaleDateString()}`}
+																	onclick={() => handleCalendarSlotClick(slot.day.date, row.hour)}
+																	>Add</button
+																>
+															</div>
 															{#if slot.posts.length === 0}
 																<div class="text-surface-600-400 text-[10px]">Open slot</div>
 															{:else}
@@ -2209,19 +2216,22 @@
 								<div class="space-y-2">
 									{#each daySlots as slot}
 										<div
-											role="button"
-											tabindex="0"
-											class="hover:bg-surface-200-800/40 border-surface-400-600/40 flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
-											onclick={() => handleCalendarSlotClick(calendarReference, slot.hour)}
-											onkeydown={(event) =>
-												(event.key === 'Enter' || event.key === ' ') &&
-												handleCalendarSlotClick(calendarReference, slot.hour)}
+											class="border-surface-400-600/40 flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
 										>
-											<div class="w-20 text-sm font-semibold">
+											<div
+												class="flex w-20 shrink-0 flex-col items-start gap-2 text-sm font-semibold"
+											>
 												{new Intl.DateTimeFormat(undefined, {
 													hour: 'numeric',
 													minute: '2-digit'
 												}).format(slot.date)}
+												<button
+													type="button"
+													class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-2 py-1 text-xs font-semibold"
+													aria-label={`Schedule a post at ${formatHourLabel(slot.hour)} on ${calendarReference.toLocaleDateString()}`}
+													onclick={() => handleCalendarSlotClick(calendarReference, slot.hour)}
+													>Add</button
+												>
 											</div>
 											<div class="min-w-0 flex-1">
 												{#if slot.posts.length === 0}
