@@ -345,12 +345,12 @@
 				{@const isActive = activeTab === bucket.slug}
 				<button
 					type="button"
-					class="tab-button flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all
+					class="tab-button flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-medium transition-all sm:gap-2 sm:px-4 sm:text-sm
 						{isActive ? 'bg-surface-50-950 shadow-sm' : 'hover:bg-surface-300-700/30 text-surface-600-400'}"
 					onclick={() => (activeTab = bucket.slug)}
 				>
 					<Icon class="h-4 w-4" />
-					<span class="hidden sm:inline">{bucket.label}</span>
+					<span>{bucket.label}</span>
 					<span class="tab-count bg-surface-400-600/30 rounded-full px-2 py-0.5 text-xs">
 						{bucket.asset_count || 0}
 					</span>
@@ -529,11 +529,13 @@
 										</div>
 
 										<!-- Inputs row -->
-										<div class="flex min-w-0 flex-1 items-center gap-2">
+										<div
+											class="flex min-w-0 flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+										>
 											<form
 												method="POST"
 												action="?/updateLink"
-												class="contents"
+												class="min-w-0 flex-1"
 												use:enhance={enhanceUpdateLink(asset.id)}
 											>
 												<input type="hidden" name="asset_id" value={asset.id} />
@@ -541,7 +543,7 @@
 													type="text"
 													name="title"
 													value={asset.title || ''}
-													class="input preset-tonal-surface max-w-[14rem] text-sm font-medium"
+													class="input preset-tonal-surface w-full min-w-0 text-sm font-medium sm:max-w-[14rem]"
 													disabled={pendingDeleteAssetId === asset.id}
 													onchange={(event) => event.currentTarget.form?.requestSubmit()}
 													placeholder="Title"
@@ -551,7 +553,7 @@
 											<form
 												method="POST"
 												action="?/updateLink"
-												class="contents"
+												class="min-w-0 flex-1"
 												use:enhance={enhanceUpdateLink(asset.id)}
 											>
 												<input type="hidden" name="asset_id" value={asset.id} />
@@ -559,7 +561,7 @@
 													type="url"
 													name="external_url"
 													value={asset.href || ''}
-													class="input preset-tonal-surface text-tertiary-400 flex-1 font-mono text-xs"
+													class="input preset-tonal-surface text-tertiary-400 w-full min-w-0 font-mono text-xs"
 													disabled={pendingDeleteAssetId === asset.id}
 													onchange={(event) => event.currentTarget.form?.requestSubmit()}
 													placeholder="https://..."

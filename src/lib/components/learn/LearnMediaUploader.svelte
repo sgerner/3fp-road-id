@@ -36,6 +36,7 @@
 	let insertedAssetId = $state('');
 	let copiedNotice = $state('');
 	let previewAssetId = $state('');
+	let previewDialog = $state(null);
 	let results = $derived(uploaded);
 	const PAGE_SIZE = 12;
 
@@ -73,6 +74,10 @@
 
 	let displayItems = $derived(results.map(normalizeAsset));
 	let previewAsset = $derived(displayItems.find((item) => item.id === previewAssetId) ?? null);
+	$effect(() => {
+		if (previewAsset && previewDialog && !previewDialog.open) previewDialog.showModal();
+	});
+
 	let visibleFilters = $derived(
 		articleId ? [...FILTERS, { value: 'article', label: 'This article' }] : FILTERS
 	);
@@ -426,15 +431,13 @@
 </section>
 
 {#if previewAsset}
-	<div
-		class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+	<dialog
+		bind:this={previewDialog}
+		class="border-surface-500/20 bg-surface-950 text-surface-50 backdrop:bg-surface-50-950/80 fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-4xl overflow-hidden rounded-[2rem] border p-0 shadow-2xl backdrop:backdrop-blur-md"
+		aria-label={`Preview ${previewAsset.fileName}`}
+		onclose={() => (previewAssetId = '')}
 	>
-		<div
-			class="border-surface-500/20 bg-surface-950 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border shadow-2xl"
-			role="dialog"
-			aria-modal="true"
-			aria-label={`Preview ${previewAsset.fileName}`}
-		>
+		<div class="flex max-h-[90dvh] flex-col">
 			<div class="border-surface-500/15 flex items-start justify-between gap-4 border-b p-5">
 				<div class="space-y-1">
 					<p class="text-lg font-semibold">{previewAsset.fileName}</p>
@@ -451,9 +454,8 @@
 				<button
 					class="btn btn-sm preset-tonal-surface"
 					type="button"
-					onclick={() => {
-						previewAssetId = '';
-					}}
+					aria-label="Close media preview"
+					onclick={() => previewDialog.close()}
 				>
 					<IconX class="h-4 w-4" />
 				</button>
@@ -490,8 +492,11 @@
 					<p class="mt-4 text-xs opacity-55">{previewAsset.sourcePath}</p>
 				{/if}
 
-				<textarea class="textarea mt-4 min-h-24 text-xs" readonly value={buildSnippet(previewAsset)}
-				></textarea>
+				<textarea
+					class="textarea mt-4 min-h-24 text-xs"
+					aria-label="Markdown snippet"
+					readonly
+					value={buildSnippet(previewAsset)}></textarea>
 			</div>
 
 			<div class="border-surface-500/15 flex flex-wrap gap-2 border-t p-5">
@@ -522,7 +527,7 @@
 				</a>
 			</div>
 		</div>
-	</div>
+	</dialog>
 {/if}
 
 <style>

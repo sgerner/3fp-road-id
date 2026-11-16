@@ -1828,21 +1828,21 @@
 	<div
 		role="navigation"
 		aria-label="Accounting sections"
-		class="card preset-tonal-surface border-surface-500/10 flex flex-nowrap justify-start gap-1.5 overflow-x-auto rounded-xl border p-1.5 shadow-sm"
+		class="card preset-tonal-surface border-surface-500/10 grid grid-cols-2 gap-1.5 rounded-xl border p-1.5 shadow-sm sm:grid-cols-3 lg:grid-cols-5 2xl:flex 2xl:flex-nowrap 2xl:overflow-x-auto"
 	>
 		{#each tabs as tab}
 			{@const Icon = tab.icon}
 			<button
 				type="button"
 				aria-current={activeTab === tab.id ? 'page' : undefined}
-				class="btn btn-sm flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 font-semibold tracking-wide transition-all {activeTab ===
+				class="btn btn-sm flex min-w-0 items-center justify-start gap-2 rounded-lg px-3 py-2.5 font-semibold tracking-wide transition-all 2xl:w-auto 2xl:shrink-0 2xl:px-4 {activeTab ===
 				tab.id
 					? 'preset-filled-primary-500 shadow-sm'
 					: 'text-surface-700-300 hover:bg-surface-500/10'}"
 				onclick={() => setActiveTab(tab.id)}
 			>
 				<Icon class="h-4 w-4" />
-				<span>{tab.label}</span>
+				<span class="min-w-0 truncate">{tab.label}</span>
 			</button>
 		{/each}
 	</div>
@@ -2065,7 +2065,7 @@
 								<IconBanknote class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
 								<p class="text-surface-500 text-sm font-medium">No activity recorded yet.</p>
 								<button
-									class="btn btn-xs preset-filled-primary-500 mt-3"
+									class="btn btn-sm preset-filled-primary-500 mt-3"
 									type="button"
 									onclick={() => setActiveTab('enter')}
 								>
@@ -2106,7 +2106,7 @@
 					<div class="card bg-surface-500/10 flex gap-1 rounded-lg p-1">
 						<button
 							type="button"
-							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'income'
 								? 'preset-filled-success-500 text-white shadow-sm'
 								: 'text-surface-700-300'}"
@@ -2116,7 +2116,7 @@
 						</button>
 						<button
 							type="button"
-							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'expense'
 								? 'preset-filled-warning-500 text-white shadow-sm'
 								: 'text-surface-700-300'}"

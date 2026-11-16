@@ -804,7 +804,11 @@
 						<p class="font-semibold">Send later</p>
 						<p class="text-xs opacity-65">Times use this device’s timezone.</p>
 					</div>
-					<input class="input" type="datetime-local" bind:value={scheduleAt} /><button
+					<label class="label">
+						<span>Send date and time</span>
+						<input class="input" type="datetime-local" bind:value={scheduleAt} />
+					</label>
+					<button
 						class="btn preset-filled-primary-500"
 						type="button"
 						onclick={scheduleSend}

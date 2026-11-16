@@ -1731,7 +1731,11 @@
 								</p>
 							</div>
 							{#if occurrenceEntries.length}
-								<select class="select" bind:value={selectedManageOccurrenceId}>
+								<select
+									class="select"
+									aria-label="Roster occurrence"
+									bind:value={selectedManageOccurrenceId}
+								>
 									<option value="">Choose an occurrence</option>
 									{#each occurrenceEntries as occurrence}
 										<option value={occurrence.id}

@@ -2194,7 +2194,7 @@
 								{#if o.user_id !== data.current_user_id}
 									<button
 										type="button"
-										class="btn btn-xs preset-outlined-error-500"
+										class="btn btn-sm preset-outlined-error-500"
 										onclick={() => removeOwner(o.user_id, o.email)}>Remove</button
 									>
 								{/if}
