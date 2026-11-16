@@ -174,7 +174,7 @@
 						type="search"
 						bind:value={searchTerm}
 						placeholder="e.g. 'trail building', 'Boise', ..."
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-4 pr-4 pl-3 text-base font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 focus-visible:outline-primary-500 w-full border-0 py-4 pr-4 pl-3 text-base font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					/>
 				</div>
 

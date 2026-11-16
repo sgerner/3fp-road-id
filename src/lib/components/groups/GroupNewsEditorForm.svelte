@@ -58,7 +58,7 @@
 
 	let titleEl = $state(null);
 	let editorApi = $state(null);
-	let aiOpen = $state(true);
+	let aiOpen = $state(false);
 	let aiStylePreset = $state('warm_community');
 	let aiPrompt = $state('');
 	let aiLoading = $state(false);
@@ -436,133 +436,146 @@
 						</div>
 					</div>
 					<button
+						type="button"
+						class="btn preset-tonal-surface"
+						onclick={() => (aiOpen = !aiOpen)}
+						aria-expanded={aiOpen}
+						aria-controls="news-ai-panel"
+					>
+						{aiOpen ? 'Hide assistant' : 'Open assistant'}
+					</button>
+				</div>
+				<div id="news-ai-panel" hidden={!aiOpen}>
+					<button
 						class="ai-clear-btn"
 						type="button"
 						onclick={resetAiChat}
+						aria-label="Clear conversation"
 						title="Clear conversation"
 					>
 						<IconRefreshCw class="h-4 w-4" />
 					</button>
-				</div>
 
-				<div class="ai-chat-container" bind:this={aiMessagesEl}>
-					{#if aiMessages.length === 0}
-						<div class="ai-welcome">
-							<div class="ai-welcome-bubble">
-								<p class="ai-welcome-text">
-									Describe what you want to announce, and I'll draft it for you.
-								</p>
-								<div class="ai-quick-prompts">
-									<button
-										class="quick-prompt"
-										type="button"
-										onclick={() => {
-											aiPrompt = 'Write a welcome message for new members';
-											sendAiPrompt();
-										}}
-									>
-										"Welcome new members..."
-									</button>
-									<button
-										class="quick-prompt"
-										type="button"
-										onclick={() => {
-											aiPrompt = 'Announce a route change for this weekend';
-											sendAiPrompt();
-										}}
-									>
-										"Route change this weekend..."
-									</button>
-									<button
-										class="quick-prompt"
-										type="button"
-										onclick={() => {
-											aiPrompt = 'Share results from our latest event';
-											sendAiPrompt();
-										}}
-									>
-										"Event results..."
-									</button>
+					<div class="ai-chat-container" bind:this={aiMessagesEl}>
+						{#if aiMessages.length === 0}
+							<div class="ai-welcome">
+								<div class="ai-welcome-bubble">
+									<p class="ai-welcome-text">
+										Describe what you want to announce, and I'll draft it for you.
+									</p>
+									<div class="ai-quick-prompts">
+										<button
+											class="quick-prompt"
+											type="button"
+											onclick={() => {
+												aiPrompt = 'Write a welcome message for new members';
+												sendAiPrompt();
+											}}
+										>
+											"Welcome new members..."
+										</button>
+										<button
+											class="quick-prompt"
+											type="button"
+											onclick={() => {
+												aiPrompt = 'Announce a route change for this weekend';
+												sendAiPrompt();
+											}}
+										>
+											"Route change this weekend..."
+										</button>
+										<button
+											class="quick-prompt"
+											type="button"
+											onclick={() => {
+												aiPrompt = 'Share results from our latest event';
+												sendAiPrompt();
+											}}
+										>
+											"Event results..."
+										</button>
+									</div>
 								</div>
 							</div>
-						</div>
-					{:else}
-						<div class="ai-messages">
-							{#each aiMessages as message, i}
-								<div class="ai-message {message.role}">
-									<div class="ai-message-avatar">
-										{#if message.role === 'assistant'}
-											<IconSparkles class="h-4 w-4" />
-										{:else}
-											<span class="user-avatar">You</span>
-										{/if}
-									</div>
-									<div class="ai-message-content">
-										<p class="ai-message-text">{message.content}</p>
-									</div>
-								</div>
-							{/each}
-							{#if aiLoading}
-								<div class="ai-message assistant loading">
-									<div class="ai-message-avatar">
-										<IconSparkles class="h-4 w-4" />
-									</div>
-									<div class="ai-message-content">
-										<div class="typing-indicator">
-											<span></span>
-											<span></span>
-											<span></span>
+						{:else}
+							<div class="ai-messages">
+								{#each aiMessages as message, i}
+									<div class="ai-message {message.role}">
+										<div class="ai-message-avatar">
+											{#if message.role === 'assistant'}
+												<IconSparkles class="h-4 w-4" />
+											{:else}
+												<span class="user-avatar">You</span>
+											{/if}
+										</div>
+										<div class="ai-message-content">
+											<p class="ai-message-text">{message.content}</p>
 										</div>
 									</div>
-								</div>
-							{/if}
+								{/each}
+								{#if aiLoading}
+									<div class="ai-message assistant loading">
+										<div class="ai-message-avatar">
+											<IconSparkles class="h-4 w-4" />
+										</div>
+										<div class="ai-message-content">
+											<div class="typing-indicator">
+												<span></span>
+												<span></span>
+												<span></span>
+											</div>
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+
+					<div class="ai-composer">
+						<div class="ai-style-select">
+							<select aria-label="Draft tone" bind:value={aiStylePreset}>
+								{#each STYLE_OPTIONS as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+							<span class="style-hint">{selectedStyle.description}</span>
+						</div>
+						<div class="ai-input-area">
+							<textarea
+								aria-label="Draft instructions"
+								bind:value={aiPrompt}
+								onkeydown={handleAiPromptKeydown}
+								placeholder={aiMessages.length
+									? 'Reply to refine the draft...'
+									: 'What do you want to announce?'}
+								rows="2"></textarea>
+							<button
+								class="ai-send-btn"
+								type="button"
+								onclick={sendAiPrompt}
+								disabled={aiLoading || !safeTrim(aiPrompt)}
+								aria-label="Send message"
+							>
+								<IconSend class="h-5 w-5" />
+							</button>
+						</div>
+						{#if aiMessages.length > 0}
+							<p class="ai-hint">Press Enter to send, Shift+Enter for new line</p>
+						{/if}
+					</div>
+
+					{#if aiStatus}
+						<div class="ai-status success">
+							<IconCheck class="h-3.5 w-3.5" />
+							<span>{aiStatus}</span>
+						</div>
+					{/if}
+					{#if aiError}
+						<div class="ai-status error">
+							<span>{aiError}</span>
 						</div>
 					{/if}
 				</div>
-
-				<div class="ai-composer">
-					<div class="ai-style-select">
-						<select bind:value={aiStylePreset}>
-							{#each STYLE_OPTIONS as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
-						</select>
-						<span class="style-hint">{selectedStyle.description}</span>
-					</div>
-					<div class="ai-input-area">
-						<textarea
-							bind:value={aiPrompt}
-							onkeydown={handleAiPromptKeydown}
-							placeholder={aiMessages.length
-								? 'Reply to refine the draft...'
-								: 'What do you want to announce?'}
-							rows="2"></textarea>
-						<button
-							class="ai-send-btn"
-							type="button"
-							onclick={sendAiPrompt}
-							disabled={aiLoading || !safeTrim(aiPrompt)}
-							aria-label="Send message"
-						>
-							<IconSend class="h-5 w-5" />
-						</button>
-					</div>
-					{#if aiMessages.length > 0}
-						<p class="ai-hint">Press Enter to send, Shift+Enter for new line</p>
-					{/if}
-				</div>
-
-				{#if aiStatus}
-					<div class="ai-status success">
-						<IconCheck class="h-3.5 w-3.5" />
-						<span>{aiStatus}</span>
-					</div>
-				{/if}
-				{#if aiError}
-					<div class="ai-status error">
-						<span>{aiError}</span>
-					</div>
-				{/if}
 			</section>
 
 			<!-- Title (Below AI) -->

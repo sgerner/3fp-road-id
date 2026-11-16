@@ -581,7 +581,7 @@
 		</div>
 
 		<!-- ═══ SIDEBAR (desktop) ════════════════════════════════ -->
-		<aside class="bg-surface-950 hidden lg:block" aria-label="Shopping cart and impact">
+		<section class="bg-surface-950 hidden lg:block" aria-label="Shopping cart and impact">
 			<div class="sticky top-16 flex flex-col">
 				<!-- Cart Block -->
 				<section
@@ -718,7 +718,7 @@
 					{/if}
 				</section>
 			</div>
-		</aside>
+		</section>
 	</section>
 </div>
 

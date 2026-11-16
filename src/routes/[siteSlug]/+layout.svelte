@@ -449,7 +449,8 @@
 						type="button"
 						class="microsite-menu-btn lg:hidden"
 						onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
-						aria-label="Toggle site menu"
+						aria-label="Site menu"
+						aria-expanded={mobileMenuOpen}
 					>
 						{#if mobileMenuOpen}
 							<IconX class="h-5 w-5" />

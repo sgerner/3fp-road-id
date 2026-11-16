@@ -652,10 +652,10 @@
 												<p class="mt-1 text-xs opacity-80">{rec.reason}</p>
 											</a>
 											{#if isArticleRecommendation(rec)}
-												<div class="mt-2 flex flex-wrap items-center gap-1.5">
+												<div class="mt-2 flex flex-wrap items-center gap-3">
 													<button
 														type="button"
-														class="btn btn-xs preset-tonal-primary"
+														class="btn btn-sm preset-tonal-primary min-h-11"
 														onclick={(event) => handleArticlePreference(event, entry, rec, 'save')}
 													>
 														{#if savedRecommendationKeys[recommendationKey(entry.id, rec)]}
@@ -666,7 +666,7 @@
 													</button>
 													<button
 														type="button"
-														class="btn btn-xs preset-tonal-warning"
+														class="btn btn-sm preset-tonal-warning min-h-11"
 														onclick={(event) => handleArticlePreference(event, entry, rec, 'hide')}
 													>
 														Hide

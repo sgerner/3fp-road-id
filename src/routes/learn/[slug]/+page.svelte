@@ -567,7 +567,7 @@
 					{#if data.currentUser}
 						<form class="flex flex-col gap-3" method="POST" action="?/comment">
 							<textarea
-								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-h-32 w-full border-2 p-4 text-sm focus:outline-none"
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 focus-visible:outline-primary-500 min-h-32 w-full border-2 p-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 								name="bodyMarkdown"
 								placeholder="Share context, corrections, follow-up questions, or examples from your city."
 							></textarea>

@@ -87,11 +87,7 @@
 
 <div class="mx-auto max-w-6xl space-y-6 px-3 py-4 md:px-4 lg:px-6 lg:py-6">
 	<!-- Hero Section -->
-	<section class="asset-hero relative overflow-hidden rounded-3xl" in:fade={{ duration: 300 }}>
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
-
+	<section class="asset-hero relative overflow-hidden" in:fade={{ duration: 300 }}>
 		<div
 			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-6"
 		>
@@ -394,41 +390,6 @@
 		animation: hero-in 500ms ease both;
 	}
 
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(60px);
-		pointer-events: none;
-		animation: orb-float 8s ease-in-out infinite;
-	}
-
-	.hero-orb-1 {
-		width: 280px;
-		height: 280px;
-		background: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-		top: -80px;
-		right: -40px;
-		animation-delay: 0s;
-	}
-
-	.hero-orb-2 {
-		width: 200px;
-		height: 200px;
-		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		bottom: -60px;
-		left: 10%;
-		animation-delay: -3s;
-	}
-
-	.hero-orb-3 {
-		width: 140px;
-		height: 140px;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		top: 30%;
-		left: 35%;
-		animation-delay: -5s;
-	}
-
 	.hero-logo-placeholder {
 		background: linear-gradient(
 			135deg,
@@ -669,10 +630,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.75rem;
-		background: rgba(255, 255, 255, 0.1);
+		background: var(--color-surface-900);
 		color: white;
-		backdrop-filter: blur(10px);
 		transition: all 200ms ease;
 		opacity: 0;
 	}
@@ -752,22 +711,6 @@
 		to {
 			opacity: 1;
 			transform: translateY(0);
-		}
-	}
-
-	@keyframes orb-float {
-		0%,
-		100% {
-			transform: translate(0, 0) scale(1);
-		}
-		25% {
-			transform: translate(10px, -15px) scale(1.05);
-		}
-		50% {
-			transform: translate(-5px, 10px) scale(0.95);
-		}
-		75% {
-			transform: translate(15px, 5px) scale(1.02);
 		}
 	}
 

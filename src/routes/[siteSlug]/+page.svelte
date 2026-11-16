@@ -1071,7 +1071,7 @@ ABOUT — Comprehensive group profile
 							</div>
 							<div class="about-fact">
 								<p class="about-fact-label">Get involved</p>
-								<a href="/take-action" class="about-fact-link">
+								<a href={siteChildHref('/take-action')} class="about-fact-link">
 									Find your next step
 									<IconArrowRight class="h-3.5 w-3.5" />
 								</a>

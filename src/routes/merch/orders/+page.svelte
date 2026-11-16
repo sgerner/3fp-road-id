@@ -70,13 +70,18 @@
 					Please log in to view your order history.
 				</p>
 				<p class="text-surface-300 m-0 text-base leading-relaxed">
-					Use the Sign In button in the top bar with the email address you used at checkout to look
-					up past orders and fulfillment updates.
+					Sign in with the email address you used at checkout to look up past orders and fulfillment
+					updates.
 				</p>
 				<div class="flex flex-wrap gap-3">
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 px-6 py-3.5 text-sm font-black tracking-wide uppercase"
+						onclick={() => window.dispatchEvent(new CustomEvent('open-login'))}>Sign in</button
+					>
 					<a
 						href="/merch"
-						class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex items-center gap-2 px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="group border-surface-50 text-surface-50 hover:bg-surface-900 inline-flex items-center gap-2 border px-6 py-3.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
 					>
 						<span>Browse Merch Store</span>
 						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
