@@ -15,7 +15,7 @@ export async function POST({ params, request, cookies }) {
 	const status = payload.status === 'cancelled' ? 'cancelled' : 'going';
 	const { data: occurrence, error: occurrenceError } = await supabase
 		.from('activity_occurrences')
-		.select('id,activity_event_id,status')
+		.select('id,activity_event_id,status,starts_at')
 		.eq('id', payload.occurrenceId)
 		.eq('activity_event_id', params.rideId)
 		.maybeSingle();
@@ -24,6 +24,10 @@ export async function POST({ params, request, cookies }) {
 		return invalid(occurrenceError.message, 400);
 	}
 	if (!occurrence) return invalid('Ride occurrence not found.', 404);
+	const startsAt = new Date(occurrence.starts_at).getTime();
+	if (occurrence.status !== 'scheduled' || !Number.isFinite(startsAt) || startsAt <= Date.now()) {
+		return invalid('RSVPs are closed for this occurrence.', 410);
+	}
 
 	const { data: profile } = await supabase
 		.from('profiles')

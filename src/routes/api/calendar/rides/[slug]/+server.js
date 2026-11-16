@@ -8,12 +8,6 @@ function safeTrim(value) {
 	return String(value).trim();
 }
 
-function parseDate(value) {
-	if (!value) return null;
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function makeFilename(slug, occurrenceId) {
 	const base = (safeTrim(slug) || 'ride').replace(/[^a-z0-9-]/gi, '-');
 	const occurrence = safeTrim(occurrenceId).replace(/[^a-z0-9-]/gi, '-');
@@ -22,16 +16,15 @@ function makeFilename(slug, occurrenceId) {
 
 function selectOccurrence(ride, occurrenceId) {
 	const occurrences = Array.isArray(ride?.occurrences) ? ride.occurrences : [];
-	if (!occurrences.length) return null;
-	if (occurrenceId) {
-		return occurrences.find((occurrence) => String(occurrence.id) === String(occurrenceId)) || null;
-	}
 	const now = Date.now();
-	const scheduled = occurrences.filter((occurrence) => occurrence.status === 'scheduled');
-	const upcoming = scheduled.find(
-		(occurrence) => parseDate(occurrence.starts_at)?.getTime() >= now
+	const upcoming = occurrences.filter(
+		(occurrence) =>
+			occurrence.status === 'scheduled' && new Date(occurrence.starts_at).getTime() > now
 	);
-	return upcoming || scheduled[0] || occurrences[0] || null;
+	if (occurrenceId) {
+		return upcoming.find((occurrence) => String(occurrence.id) === String(occurrenceId)) || null;
+	}
+	return upcoming[0] || null;
 }
 
 export async function GET({ params, url }) {
@@ -46,11 +39,10 @@ export async function GET({ params, url }) {
 
 	const occurrenceId = safeTrim(url.searchParams.get('occurrenceId'));
 	const occurrence = selectOccurrence(ride, occurrenceId);
+	if (!occurrence) throw error(410, 'No upcoming occurrence is scheduled for this ride.');
 	const title = safeTrim(ride.activity?.title) || 'Ride';
-	const start =
-		occurrence?.starts_at || ride.activity?.next_occurrence_start || ride.activity?.starts_at;
-	const end =
-		occurrence?.ends_at || ride.activity?.next_occurrence_end || ride.activity?.ends_at || start;
+	const start = occurrence.starts_at;
+	const end = occurrence.ends_at || start;
 	const location = eventLocation(
 		occurrence?.start_location_name || ride.activity?.start_location_name,
 		occurrence?.start_location_address || ride.activity?.start_location_address
