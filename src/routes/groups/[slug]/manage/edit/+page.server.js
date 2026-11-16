@@ -4,6 +4,10 @@ import {
 } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
+import {
+	parseGroupEditorImageDataUrl,
+	uploadGroupEditorImageDataUrl
+} from '#lib/server/groupEditorImages';
 import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
 import { readFormData } from '#lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
@@ -45,41 +49,6 @@ async function uploadLocalImageToStorage(supabase, file, destBasePath) {
 	} catch {
 		return null;
 	}
-}
-
-function parseDataUrl(dataUrl) {
-	if (!dataUrl || typeof dataUrl !== 'string') return null;
-	const m = dataUrl.match(/^data:(.+);base64,(.*)$/);
-	if (!m) return null;
-	const [, mime, b64] = m;
-	try {
-		const buf = Buffer.from(b64, 'base64');
-		return { mime, buffer: buf };
-	} catch {
-		return null;
-	}
-}
-
-async function uploadDataUrlToStorage(supabase, dataUrl, destBasePath) {
-	const parsed = parseDataUrl(dataUrl);
-	if (!parsed) return null;
-	const { mime, buffer } = parsed;
-	const ct = mime || 'image/jpeg';
-	if (!ct.startsWith('image/')) return null;
-	const optimized = await optimizeImageForStorage(buffer, {
-		contentType: ct,
-		maxWidth: 2400,
-		maxHeight: 1800,
-		quality: 82
-	});
-	const objectPath = `${destBasePath}.${optimized.extension}`;
-	const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
-		contentType: optimized.contentType,
-		upsert: true
-	});
-	if (up.error) return null;
-	const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
-	return data?.publicUrl || null;
 }
 
 async function resolveGroupEditorContext({ params, cookies }) {
@@ -421,40 +390,64 @@ export const actions = {
 		}
 		// Validate cropped data URLs size if provided
 		if (logoCropped) {
-			const parsed = parseDataUrl(logoCropped);
+			const parsed = parseGroupEditorImageDataUrl(logoCropped);
 			if (!parsed || parsed.buffer.length > MAX_BYTES)
 				return fail(400, { error: 'Cropped logo exceeds 10MB limit.' });
 		}
 		if (coverCropped) {
-			const parsed = parseDataUrl(coverCropped);
+			const parsed = parseGroupEditorImageDataUrl(coverCropped);
 			if (!parsed || parsed.buffer.length > MAX_BYTES)
 				return fail(400, { error: 'Cropped cover exceeds 10MB limit.' });
 		}
 		if (clearLogo) payload.logo_url = null;
 		if (clearCover) payload.cover_photo_url = null;
 		if (logoCropped) {
-			const newLogo = await uploadDataUrlToStorage(logoCropped, `groups/${group_id}/logo`);
+			const newLogo = await uploadGroupEditorImageDataUrl(
+				supabase,
+				logoCropped,
+				`groups/${group_id}/logo`
+			);
 			if (newLogo) payload.logo_url = newLogo;
 			else if (group.logo_url) payload.logo_url = group.logo_url;
 		} else if (logoFile && logoFile.size) {
-			const newLogo = await uploadLocalImageToStorage(logoFile, `groups/${group_id}/logo`);
+			const newLogo = await uploadLocalImageToStorage(
+				supabase,
+				logoFile,
+				`groups/${group_id}/logo`
+			);
 			if (newLogo) payload.logo_url = newLogo;
 			else if (group.logo_url) payload.logo_url = group.logo_url;
 		} else if (incomingLogo && /^https?:\/\//i.test(incomingLogo)) {
-			const newLogo = await mirrorRemoteImageToStorage(incomingLogo, `groups/${group_id}/logo`);
+			const newLogo = await mirrorRemoteImageToStorage(
+				supabase,
+				incomingLogo,
+				`groups/${group_id}/logo`
+			);
 			if (newLogo) payload.logo_url = newLogo;
 			else if (group.logo_url) payload.logo_url = group.logo_url; // keep previous if mirror fails
 		}
 		if (coverCropped) {
-			const newCover = await uploadDataUrlToStorage(coverCropped, `groups/${group_id}/cover`);
+			const newCover = await uploadGroupEditorImageDataUrl(
+				supabase,
+				coverCropped,
+				`groups/${group_id}/cover`
+			);
 			if (newCover) payload.cover_photo_url = newCover;
 			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
 		} else if (coverFile && coverFile.size) {
-			const newCover = await uploadLocalImageToStorage(coverFile, `groups/${group_id}/cover`);
+			const newCover = await uploadLocalImageToStorage(
+				supabase,
+				coverFile,
+				`groups/${group_id}/cover`
+			);
 			if (newCover) payload.cover_photo_url = newCover;
 			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
 		} else if (incomingCover && /^https?:\/\//i.test(incomingCover)) {
-			const newCover = await mirrorRemoteImageToStorage(incomingCover, `groups/${group_id}/cover`);
+			const newCover = await mirrorRemoteImageToStorage(
+				supabase,
+				incomingCover,
+				`groups/${group_id}/cover`
+			);
 			if (newCover) payload.cover_photo_url = newCover;
 			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
 		}

@@ -302,6 +302,36 @@ export function verifySignalWireWebhookRequest(
 	return signatureHeaderMatches(compatibilitySignature, signalWireSignatureCandidates(expected));
 }
 
+function parseSignalWireWebhookPayload(rawBody, contentType) {
+	if (/application\/json/i.test(contentType || '')) {
+		try {
+			const parsed = rawBody ? JSON.parse(rawBody) : {};
+			return parsed && typeof parsed === 'object' ? parsed : {};
+		} catch {
+			return null;
+		}
+	}
+	return Object.fromEntries(new URLSearchParams(rawBody));
+}
+
+export async function readAuthenticatedSignalWirePayload(request, signingKey) {
+	const rawResult = await readRawBody(request, { maxBytes: 64 * 1024 });
+	if (!rawResult.ok) return rawResult;
+
+	const rawBody = rawResult.value;
+	if (
+		!verifySignalWireWebhookRequest(request, rawBody, signingKey, {
+			publicUrl: request?.url
+		})
+	) {
+		return { ok: false, status: 401, error: 'Webhook authentication failed.' };
+	}
+
+	const payload = parseSignalWireWebhookPayload(rawBody, request.headers.get('content-type'));
+	if (!payload) return { ok: false, status: 400, error: 'Invalid webhook payload.' };
+	return { ok: true, payload };
+}
+
 function isPrivateIpv4(address) {
 	const octets = address.split('.').map((value) => Number.parseInt(value, 10));
 	if (

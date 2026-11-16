@@ -1,5 +1,39 @@
-import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import {
+	createRequestSupabaseClient,
+	createServiceSupabaseClient
+} from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
+
+export async function requireGroupSiteAiOwner(cookies, groupSlug) {
+	const { accessToken, user } = await resolveVerifiedSession(cookies);
+	if (!accessToken || !user?.id) {
+		return { ok: false, status: 401, error: 'Authentication required.' };
+	}
+
+	const supabase = createRequestSupabaseClient(accessToken);
+	const { data: group } = await supabase
+		.from('groups')
+		.select('*')
+		.eq('slug', groupSlug)
+		.maybeSingle();
+	if (!group) return { ok: false, status: 404, error: 'Group not found.' };
+
+	const [{ data: profile }, { data: ownerRows }] = await Promise.all([
+		supabase.from('profiles').select('admin').eq('user_id', user.id).maybeSingle(),
+		supabase
+			.from('group_members')
+			.select('user_id')
+			.eq('group_id', group.id)
+			.eq('user_id', user.id)
+			.eq('role', 'owner')
+	]);
+
+	if (!(profile?.admin === true) && !(ownerRows ?? []).length) {
+		return { ok: false, status: 403, error: 'You do not have permission to manage this site.' };
+	}
+
+	return { ok: true, group };
+}
 
 export async function requireGroupSiteManager({ cookies, groupSlug }) {
 	const serviceSupabase = createServiceSupabaseClient();
