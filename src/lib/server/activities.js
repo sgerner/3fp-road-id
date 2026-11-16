@@ -11,6 +11,7 @@ const ACTIVITY_SELECT = `
 	activity_type,
 	host_user_id,
 	host_group_id,
+	group:groups(id,slug,name),
 	created_by_user_id,
 	created_at,
 	updated_at,

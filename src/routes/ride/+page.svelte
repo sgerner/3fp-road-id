@@ -593,9 +593,8 @@
 					transition:slide={{ duration: 220 }}
 				>
 					{#each paginatedRides as ride, i (ride.id ?? ride.slug)}
-						<a
-							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 flex h-full flex-col border-r border-b transition hover:no-underline"
-							href={`/ride/${ride.slug}`}
+						<article
+							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 relative flex h-full flex-col border-r border-b transition"
 						>
 							{#if cardImage(ride)}
 								<div class="bg-surface-900 relative aspect-[16/10] w-full overflow-hidden">
@@ -642,11 +641,20 @@
 										</span>
 									{/if}
 									{#if ride.group?.name}
-										<span
-											class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
-										>
-											{ride.group.name}
-										</span>
+										{#if ride.group?.slug}
+											<a
+												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4"
+												href={`/groups/${encodeURIComponent(ride.group.slug)}`}
+											>
+												{ride.group.name}
+											</a>
+										{:else}
+											<span
+												class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
+											>
+												{ride.group.name}
+											</span>
+										{/if}
 									{/if}
 									{#if ride.recurrenceEnabled}
 										<span
@@ -662,7 +670,11 @@
 									<h3
 										class="text-surface-50! group-hover:text-primary-500! m-0 text-2xl leading-tight font-black uppercase"
 									>
-										{ride.title}
+										<a
+											href={`/ride/${ride.slug}`}
+											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! hover:no-underline"
+											>{ride.title}</a
+										>
 									</h3>
 									{#if ride.summary}
 										<p class="text-surface-300 m-0 mt-2 line-clamp-2 text-sm leading-relaxed">
@@ -727,7 +739,7 @@
 									</span>
 								</div>
 							</div>
-						</a>
+						</article>
 					{/each}
 				</div>
 
@@ -954,3 +966,21 @@
 		{/if}
 	</section>
 </div>
+
+<style>
+	.ride-card-title-link::after {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		content: '';
+	}
+
+	.ride-card-title-link:focus-visible {
+		outline: none;
+	}
+
+	.ride-card-title-link:focus-visible::after {
+		outline: 3px solid var(--color-primary-500);
+		outline-offset: 4px;
+	}
+</style>

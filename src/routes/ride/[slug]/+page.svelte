@@ -42,6 +42,7 @@
 	let claimLoading = $state(false);
 	let claimError = $state('');
 	let selectedOccurrenceId = $state(null);
+	let nowMs = $state(Date.now());
 	let mapEl = $state(null);
 	let map;
 	let marker;
@@ -49,18 +50,20 @@
 
 	const canManage = $derived(Boolean(data?.canManage));
 	const currentUser = $derived(data?.currentUser ?? null);
+	const upcomingOccurrences = $derived(
+		occurrences.filter((occurrence) => isUpcomingOccurrence(occurrence))
+	);
 	const selectedOccurrence = $derived(
-		occurrences.find((occurrence) => String(occurrence.id) === String(selectedOccurrenceId)) ??
-			occurrences[0] ??
+		upcomingOccurrences.find(
+			(occurrence) => String(occurrence.id) === String(selectedOccurrenceId)
+		) ??
+			upcomingOccurrences[0] ??
 			null
 	);
 	const participantListVisible = $derived(
 		canManage || rideDetails?.participant_visibility !== 'private'
 	);
-	const scheduledOccurrences = $derived(
-		occurrences.filter((occurrence) => occurrence.status === 'scheduled')
-	);
-	const visibleOccurrences = $derived(scheduledOccurrences.slice(0, 5));
+	const visibleOccurrences = $derived(upcomingOccurrences.slice(0, 5));
 	const canClaim = $derived(
 		Boolean(currentUser?.id) && !activity?.host_user_id && !activity?.host_group_id
 	);
@@ -194,12 +197,25 @@
 	}
 
 	$effect(() => {
-		if (selectedOccurrenceId || !occurrences.length) return;
-		selectedOccurrenceId =
-			occurrences.find((occurrence) => new Date(occurrence.starts_at) >= new Date())?.id ??
-			occurrences[0]?.id ??
-			null;
+		if (
+			upcomingOccurrences.some(
+				(occurrence) => String(occurrence.id) === String(selectedOccurrenceId)
+			)
+		) {
+			return;
+		}
+		selectedOccurrenceId = upcomingOccurrences[0]?.id ?? null;
 	});
+
+	onMount(() => {
+		const timer = window.setInterval(() => (nowMs = Date.now()), 60_000);
+		return () => window.clearInterval(timer);
+	});
+
+	function isUpcomingOccurrence(occurrence) {
+		const startsAt = Date.parse(occurrence?.starts_at ?? '');
+		return occurrence?.status === 'scheduled' && Number.isFinite(startsAt) && startsAt > nowMs;
+	}
 
 	function occurrenceLabel(occurrence) {
 		const start = new Date(occurrence.starts_at);
@@ -208,7 +224,7 @@
 	}
 
 	function selectedOccurrenceCalendarLinks() {
-		if (!selectedOccurrence?.starts_at) return { googleUrl: '', icsUrl: '' };
+		if (!isUpcomingOccurrence(selectedOccurrence)) return { googleUrl: '', icsUrl: '' };
 		const origin = page?.url?.origin || '';
 		const slug = activity?.slug || '';
 		const rideUrl = origin && slug ? `${origin}/ride/${encodeURIComponent(slug)}` : '';
@@ -423,7 +439,7 @@
 
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-wrap items-center gap-3">
-					{#if currentUser}
+					{#if selectedOccurrence && currentUser}
 						<button
 							type="button"
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
@@ -439,7 +455,7 @@
 								RSVP
 							{/if}
 						</button>
-					{:else}
+					{:else if selectedOccurrence}
 						<button
 							type="button"
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
@@ -811,7 +827,16 @@
 						</div>
 						<div class="text-surface-50 mt-1 text-lg font-black uppercase">
 							{#if activity?.host_group_id}
-								Organization-hosted ride
+								{#if activity?.group?.slug && activity?.group?.name}
+									<a
+										class="text-primary-500 hover:text-surface-50 underline decoration-2 underline-offset-4"
+										href={`/groups/${encodeURIComponent(activity.group.slug)}`}
+									>
+										{activity.group.name}
+									</a>
+								{:else}
+									Organization-hosted ride
+								{/if}
 							{:else if activity?.host_user_id}
 								Hosted by a rider on 3FP
 							{:else}
@@ -847,47 +872,54 @@
 				</div>
 
 				<div class="border-surface-50 border-t-2">
-					{#each visibleOccurrences as occurrence, i (occurrence.id)}
-						<button
-							type="button"
-							class={`border-surface-800 flex w-full items-center justify-between gap-4 border-b px-4 py-5 text-left transition ${
-								String(selectedOccurrenceId) === String(occurrence.id)
-									? 'bg-primary-500 text-surface-950'
-									: 'text-surface-50 hover:bg-surface-900'
-							}`}
-							onclick={() => (selectedOccurrenceId = occurrence.id)}
-						>
-							<div class="flex min-w-0 items-center gap-4">
-								<span
-									class={`w-10 shrink-0 text-2xl font-black italic tabular-nums sm:text-3xl ${
-										String(selectedOccurrenceId) === String(occurrence.id)
-											? 'text-secondary-500'
-											: 'text-tertiary-500'
-									}`}
-								>
-									{String(i + 1).padStart(2, '0')}
-								</span>
-								<div class="min-w-0">
-									<div class="text-base font-black uppercase sm:text-lg">
-										{occurrenceLabel(occurrence)}
-									</div>
-									<div class="mt-0.5 text-sm opacity-80">
-										{@html renderLinkifiedText(
-											occurrence.start_location_name || activity?.start_location_name
-										)}
+					{#if visibleOccurrences.length}
+						{#each visibleOccurrences as occurrence, i (occurrence.id)}
+							<button
+								type="button"
+								class={`border-surface-800 flex w-full items-center justify-between gap-4 border-b px-4 py-5 text-left transition ${
+									String(selectedOccurrence?.id) === String(occurrence.id)
+										? 'bg-primary-500 text-surface-950'
+										: 'text-surface-50 hover:bg-surface-900'
+								}`}
+								aria-pressed={String(selectedOccurrence?.id) === String(occurrence.id)}
+								onclick={() => (selectedOccurrenceId = occurrence.id)}
+							>
+								<div class="flex min-w-0 items-center gap-4">
+									<span
+										class={`w-10 shrink-0 text-2xl font-black italic tabular-nums sm:text-3xl ${
+											String(selectedOccurrence?.id) === String(occurrence.id)
+												? 'text-secondary-500'
+												: 'text-tertiary-500'
+										}`}
+									>
+										{String(i + 1).padStart(2, '0')}
+									</span>
+									<div class="min-w-0">
+										<div class="text-base font-black uppercase sm:text-lg">
+											{occurrenceLabel(occurrence)}
+										</div>
+										<div class="mt-0.5 text-sm opacity-80">
+											{@html renderLinkifiedText(
+												occurrence.start_location_name || activity?.start_location_name
+											)}
+										</div>
 									</div>
 								</div>
-							</div>
-							{#if currentUserRsvp(occurrence)?.status === 'going'}
-								<span
-									class="bg-tertiary-500 text-surface-950 shrink-0 px-3 py-1 text-xs font-black uppercase"
-								>
-									You're in
-								</span>
-							{/if}
-						</button>
-					{/each}
-					{#if scheduledOccurrences.length > 5}
+								{#if currentUserRsvp(occurrence)?.status === 'going'}
+									<span
+										class="bg-tertiary-500 text-surface-950 shrink-0 px-3 py-1 text-xs font-black uppercase"
+									>
+										You're in
+									</span>
+								{/if}
+							</button>
+						{/each}
+					{:else}
+						<p class="text-surface-300 m-0 py-5 text-sm" role="status">
+							There are no upcoming dates for this ride. Check back later for schedule updates.
+						</p>
+					{/if}
+					{#if upcomingOccurrences.length > 5}
 						<p class="text-surface-300 m-0 pt-4 text-xs font-bold tracking-[0.16em] uppercase">
 							Showing the next 5 upcoming occurrences.
 						</p>
@@ -956,7 +988,11 @@
 									</div>
 								</div>
 							{/each}
-							{#if !selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going')?.length}
+							{#if !selectedOccurrence}
+								<p class="m-0 pt-4 text-sm font-medium opacity-85">
+									There is no upcoming occurrence to show participants for.
+								</p>
+							{:else if !selectedOccurrence.rsvps?.some((entry) => entry.status === 'going')}
 								<p class="m-0 pt-4 text-sm font-medium opacity-85">
 									No RSVPs yet for the selected occurrence.
 								</p>
