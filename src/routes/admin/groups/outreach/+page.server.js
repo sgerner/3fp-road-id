@@ -6,41 +6,7 @@ import { sendServerEmail as sendEmail } from '#lib/server/email';
 import { GROUP_ASSET_BUCKET } from '#lib/groups/assets';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { readFormData } from '#lib/server/security';
-
-const ALL_FIELD_KEYS = [
-	'name',
-	'tagline',
-	'description',
-	'city',
-	'state_region',
-	'country',
-	'website_url',
-	'public_contact_email',
-	'public_phone_number',
-	'preferred_contact_method_instructions',
-	'how_to_join_instructions',
-	'membership_info',
-	'specific_meeting_point_address',
-	'service_area_description',
-	'skill_levels_description',
-	'activity_frequency',
-	'typical_activity_day_time',
-	'logo_url',
-	'cover_photo_url'
-];
-
-function calculateCompleteness(group) {
-	let filledCount = 0;
-	for (const key of ALL_FIELD_KEYS) {
-		if (group[key] != null && group[key] !== '') {
-			filledCount++;
-		}
-	}
-	const socialLinks = group.social_links || {};
-	const hasSocial = Object.values(socialLinks).some((v) => v != null && v !== '');
-	if (hasSocial) filledCount++;
-	return Math.round((filledCount / (ALL_FIELD_KEYS.length + 1)) * 100);
-}
+import { calculateGroupCompleteness } from '#lib/server/groupCompleteness';
 
 function buildPriorityScore({
 	hasEmail,
@@ -180,7 +146,7 @@ export async function load({ cookies, url }) {
 	const processedGroups = (groups || [])
 		.filter((g) => !claimedSet.has(g.id))
 		.map((g) => {
-			const completeness = calculateCompleteness(g);
+			const completeness = calculateGroupCompleteness(g);
 			const enrichment = enrichmentMap.get(g.id) || null;
 			const history = outreachMap.get(g.id) || [];
 			const lastContact = history.length ? history[0] : null;
@@ -465,7 +431,8 @@ Do not wrap in markdown or code fences.`;
 			group_id: groupId,
 			last_enriched_at: new Date().toISOString(),
 			enrichment_data: enrichedData,
-			completeness_score: calculateCompleteness({ ...group, ...(enrichedData?.fields || {}) }) / 100
+			completeness_score:
+				calculateGroupCompleteness({ ...group, ...(enrichedData?.fields || {}) }) / 100
 		});
 		if (updateError) return fail(500, { error: updateError.message, selectedGroupId: groupId });
 		return { success: true, selectedGroupId: groupId };

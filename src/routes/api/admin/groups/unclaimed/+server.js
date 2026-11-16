@@ -1,41 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { requireAdmin } from '#lib/server/admin';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
-
-const ALL_FIELD_KEYS = [
-	'name',
-	'tagline',
-	'description',
-	'city',
-	'state_region',
-	'country',
-	'website_url',
-	'public_contact_email',
-	'public_phone_number',
-	'preferred_contact_method_instructions',
-	'how_to_join_instructions',
-	'membership_info',
-	'specific_meeting_point_address',
-	'service_area_description',
-	'skill_levels_description',
-	'activity_frequency',
-	'typical_activity_day_time',
-	'logo_url',
-	'cover_photo_url'
-];
-
-function calculateCompleteness(group) {
-	let filledCount = 0;
-	for (const key of ALL_FIELD_KEYS) {
-		if (group[key] != null && group[key] !== '') {
-			filledCount++;
-		}
-	}
-	const socialLinks = group.social_links || {};
-	const hasSocial = Object.values(socialLinks).some((v) => v != null && v !== '');
-	if (hasSocial) filledCount++;
-	return Math.round((filledCount / (ALL_FIELD_KEYS.length + 1)) * 100);
-}
+import { calculateGroupCompleteness } from '#lib/server/groupCompleteness';
 
 export async function GET({ cookies, url }) {
 	await requireAdmin(cookies);
@@ -102,7 +68,7 @@ export async function GET({ cookies, url }) {
 	const processedGroups = groups
 		.filter((g) => !claimedSet.has(g.id))
 		.map((g) => {
-			const completeness = calculateCompleteness(g);
+			const completeness = calculateGroupCompleteness(g);
 			const enrichment = enrichmentMap.get(g.id) || null;
 			const history = outreachMap.get(g.id) || [];
 			const lastContact = history.length
