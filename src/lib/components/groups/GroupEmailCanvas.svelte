@@ -137,7 +137,10 @@
 				(element) => element.dataset.emailBlockId === selectedId
 			);
 		}
-		mobileEditorPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+			? 'auto'
+			: 'smooth';
+		mobileEditorPanel?.scrollIntoView({ behavior, block: 'start' });
 		mobileEditorPanel?.focus({ preventScroll: true });
 	}
 
@@ -537,7 +540,7 @@
 <dialog
 	bind:this={mobilePaletteDialog}
 	id="email-content-library"
-	class="mobile-content-library card preset-tonal-surface fixed inset-x-3 bottom-3 z-50 m-0 grid max-h-[78dvh] w-auto max-w-none gap-3 overflow-y-auto border-0 p-4 shadow-2xl xl:hidden"
+	class="mobile-content-library card preset-tonal-surface fixed inset-x-3 bottom-3 z-50 m-0 hidden max-h-[78dvh] w-auto max-w-none gap-3 overflow-y-auto border-0 p-4 shadow-2xl open:grid"
 	aria-labelledby="email-content-library-title"
 	aria-modal="true"
 	onclose={handleMobilePaletteClose}
