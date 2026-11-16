@@ -1,11 +1,12 @@
 <script>
-	import { goto } from '$app/navigation';
+	import CrashResponse from '#lib/components/CrashResponse.svelte';
+	import AlertSystem from '#lib/components/AlertSystem.svelte';
 </script>
 
 <div class="mx-auto max-w-md space-y-10">
 	<header>
-		<h1 class="text-3xl font-bold">In Case Bracelet</h1>
-		<p class="mt-2 text-center text-lg">Bicycle Safety & Emergency Info</p>
+		<h1 class="text-3xl font-bold">Road ID</h1>
+		<p class="mt-2 text-center text-lg">Emergency profiles for In Case bracelets</p>
 	</header>
 
 	<!-- About Section -->
@@ -33,7 +34,8 @@
 	<section class="card border-surface-700-300 bg-surface-50-950 card-hover border-[1px] p-2">
 		<p class=" mb-2 border-b pb-2 text-center text-2xl font-bold">How to Use</p>
 		<p class="pl-8 indent-[-1.5rem]">
-			🤳 Simply <strong>scan your In Case bracelet</strong> to get started.
+			🤳 Scan your In Case bracelet to open your profile. New bracelets can be claimed from the scan
+			page. Sign in there to update an existing profile.
 		</p>
 		<p class="pl-8 indent-[-1.5rem]">
 			👤 <strong>Claim your unique profile</strong> and personalize your emergency details.
@@ -41,11 +43,16 @@
 		<p class="pl-8 indent-[-1.5rem]">
 			🚀 Now your info is <strong>instantly accessible to first responders</strong> in an emergency.
 		</p>
-		<button
-			class="btn btn-sm preset-outlined-success-500 mt-4 w-full"
-			onclick={() => goto('/roadid/3feetpls')}
-		>
+		<a class="btn btn-sm preset-outlined-success-500 mt-4 w-full" href="/roadid/3feetpls">
 			See an example profile
-		</button>
+		</a>
 	</section>
+	<details class="border-surface-500 border p-4">
+		<summary class="cursor-pointer font-bold">Crash response checklist</summary>
+		<CrashResponse />
+	</details>
+	<details class="border-surface-500 border p-4">
+		<summary class="cursor-pointer font-bold">Cycling safety tips</summary>
+		<AlertSystem />
+	</details>
 </div>

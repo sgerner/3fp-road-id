@@ -11,6 +11,7 @@
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
+	import IconContact from '@lucide/svelte/icons/contact';
 	import IconHome from '@lucide/svelte/icons/home';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
@@ -149,6 +150,12 @@
 			label: 'Get involved',
 			icon: IconHeart,
 			match: (pathname) => pathname.startsWith('/get-involved')
+		},
+		{
+			href: '/roadid',
+			label: 'Road ID',
+			icon: IconContact,
+			match: (pathname) => pathname.startsWith('/roadid')
 		},
 		{
 			href: '/merch',
@@ -594,7 +601,7 @@
 					<a href="/" class="text-surface-950-50 flex items-center gap-3">
 						<img
 							src="/3fp-64.webp"
-							alt="3 Feet Please"
+							alt=""
 							class="h-9 w-9 rounded-md object-contain"
 							width="36"
 							height="36"

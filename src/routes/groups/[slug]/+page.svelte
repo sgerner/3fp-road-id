@@ -327,6 +327,10 @@
 	const followMessage = $derived((page.url.searchParams.get('follow_msg') || '').trim());
 
 	let followModalOpen = $state(false);
+	let followDialog = $state(null);
+	$effect(() => {
+		if (followModalOpen && followDialog && !followDialog.open) followDialog.showModal();
+	});
 	let followEmail = $state('');
 	let followLoading = $state(false);
 	let followError = $state('');
@@ -2040,23 +2044,21 @@
 </div>
 
 {#if followModalOpen}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
-		role="button"
-		tabindex="0"
-		onclick={(event) => {
-			if (event.target === event.currentTarget) followModalOpen = false;
-		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') followModalOpen = false;
-		}}
+	<dialog
+		bind:this={followDialog}
+		aria-labelledby="follow-dialog-title"
+		onclose={() => (followModalOpen = false)}
+		class="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md bg-transparent p-0 backdrop:bg-black/85"
 	>
 		<form
 			class="bg-surface-950 text-surface-50 border-primary-500 flex w-full max-w-md flex-col gap-5 border-[3px] p-6"
 			onsubmit={sendFollowMagicLink}
 		>
 			<div>
-				<h3 class="text-surface-50! m-0 text-2xl font-black uppercase italic">
+				<h3
+					id="follow-dialog-title"
+					class="text-surface-50! m-0 text-2xl font-black uppercase italic"
+				>
 					Follow {data.group?.name}
 				</h3>
 				<p class="text-surface-300 m-0 mt-2 text-xs leading-relaxed">
@@ -2070,7 +2072,7 @@
 				>
 				<input
 					type="email"
-					class="bg-surface-900 text-surface-50 border-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+					class="bg-surface-900 text-surface-50 border-surface-50 border-2 px-4 py-3 text-sm font-medium"
 					bind:value={followEmail}
 					placeholder="you@example.com"
 					required
@@ -2086,7 +2088,7 @@
 				<button
 					type="button"
 					class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 cursor-pointer border-2 px-5 py-2.5 text-xs font-black uppercase transition"
-					onclick={() => (followModalOpen = false)}
+					onclick={() => followDialog?.close()}
 					disabled={followLoading}
 				>
 					Cancel
@@ -2100,5 +2102,5 @@
 				</button>
 			</div>
 		</form>
-	</div>
+	</dialog>
 {/if}

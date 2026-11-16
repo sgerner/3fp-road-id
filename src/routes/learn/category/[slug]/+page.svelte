@@ -460,7 +460,7 @@
 					/>
 					<input
 						bind:value={searchQuery}
-						class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 h-14 w-full border-[3px] pr-4 pl-12 text-base font-bold focus:outline-none"
+						class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-14 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						placeholder="Find an article…"
 						aria-label="Search this category"
@@ -501,7 +501,7 @@
 							<input
 								type="text"
 								name="name"
-								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 h-12 w-full border-2 px-4 text-sm font-bold focus:outline-none"
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus-visible:outline-primary-500 h-12 w-full border-2 px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 								placeholder="e.g. Response Templates"
 								required
 							/>

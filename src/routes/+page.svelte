@@ -443,7 +443,7 @@
 			{/if}
 		</div>
 
-		<aside class="bg-secondary-500 text-surface-50 flex min-w-0 flex-col" aria-label="Next ride">
+		<section class="bg-secondary-500 text-surface-50 flex min-w-0 flex-col" aria-label="Next ride">
 			{#if nextRide}
 				{@const when = formatRideDate(nextRide.nextOccurrenceStart)}
 				<div
@@ -529,7 +529,7 @@
 					</div>
 				</div>
 			{/if}
-		</aside>
+		</section>
 	</section>
 
 	<!-- MISSION -->
@@ -607,12 +607,20 @@
 					Know what to do before you need it.
 				</h2>
 			</div>
-			<a
-				href="/learn"
-				class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
-			>
-				Safety library <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
-			</a>
+			<div class="flex flex-wrap gap-x-6 gap-y-3">
+				<a
+					href="/learn"
+					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+				>
+					Safety library <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+				</a>
+				<a
+					href="/roadid"
+					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+				>
+					Road ID <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
+				</a>
+			</div>
 		</div>
 
 		<!-- lane divider -->

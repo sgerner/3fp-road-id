@@ -878,7 +878,7 @@
 	let draftAppliedAt = $state(null);
 	let showAdvancedSettings = $state(false);
 	let showAdvancedCommunications = $state(false);
-	let isMuseOpen = $state(true);
+	let isMuseOpen = $state(false);
 	let isDirty = $state(false);
 
 	function handleManualInteraction() {
@@ -1800,13 +1800,7 @@
 			aria-busy={aiLoading}
 		>
 			<!-- Collapsible header -->
-			<div
-				class="flex cursor-pointer items-center justify-between"
-				onclick={() => (isMuseOpen = !isMuseOpen)}
-				role="button"
-				tabindex="0"
-				onkeydown={(e) => e.key === 'Enter' && (isMuseOpen = !isMuseOpen)}
-			>
+			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<div class="bg-secondary-500/15 text-secondary-300 rounded-full p-2">
 						<IconSparkles class="h-5 w-5" />
@@ -1824,7 +1818,9 @@
 				<button
 					type="button"
 					class="btn-icon btn-icon-sm variant-soft-secondary shrink-0"
-					aria-label={isMuseOpen ? 'Collapse Volunteer Muse' : 'Expand Volunteer Muse'}
+					aria-label="Volunteer Muse"
+					aria-expanded={isMuseOpen}
+					onclick={() => (isMuseOpen = !isMuseOpen)}
 				>
 					{#if isMuseOpen}
 						<IconChevronUp class="h-4 w-4" />
