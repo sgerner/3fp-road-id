@@ -17,6 +17,7 @@ test(
 				encoding: 'utf8',
 				stdio: ['pipe', 'pipe', 'pipe']
 			});
+		run(databaseUrl, fs.readFileSync('supabase/tests/bootstrap_roles.sql', 'utf8'));
 		run(databaseUrl, `create database ${name}`);
 		url.pathname = `/${name}`;
 		try {
