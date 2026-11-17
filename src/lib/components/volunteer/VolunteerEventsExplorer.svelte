@@ -1,4 +1,5 @@
 <script>
+	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
 	import { tick } from 'svelte';
@@ -858,13 +859,20 @@
 															{event.title}
 														</a>
 													{/each}
-													{#if day.items.length > 3}
-														<div class="text-primary-500 text-[10px] font-black uppercase">
-															+{day.items.length - 3} more
-														</div>
-													{/if}
 												{/if}
 											</div>
+											{#if day.items.length > 3}
+												<CalendarDayOverflow
+													dateLabel={calendarDayFormat.format(day.date)}
+													itemLabel="volunteer events"
+													hiddenCount={day.items.length - 3}
+													items={day.items.map((event) => ({
+														href: `/volunteer/${event.slug}`,
+														title: event.title,
+														time: tf.format(parseEventDate(event.event_start))
+													}))}
+												/>
+											{/if}
 										</div>
 									</td>
 								{/each}
