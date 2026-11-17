@@ -39,6 +39,13 @@
 		mapOpportunityRecordToFormDetails,
 		mapQuestionRecordToFormDetails
 	} from '#lib/components/volunteer/form-utils';
+	import {
+		FALLBACK_TIMEZONES,
+		statusOptions,
+		opportunityTypeOptions,
+		emailTypeOptions,
+		fieldTypeOptions
+	} from '#lib/components/volunteer/form-options';
 	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
@@ -47,55 +54,6 @@
 
 	const { data } = $props();
 
-	const FALLBACK_TIMEZONES = [
-		'America/Los_Angeles',
-		'America/Denver',
-		'America/Chicago',
-		'America/New_York',
-		'America/Toronto',
-		'America/Mexico_City',
-		'America/Phoenix',
-		'America/Anchorage',
-		'Pacific/Honolulu',
-		'Europe/London',
-		'Europe/Berlin',
-		'Europe/Paris',
-		'Europe/Madrid',
-		'Europe/Amsterdam',
-		'Europe/Copenhagen',
-		'Australia/Sydney',
-		'Australia/Melbourne',
-		'Pacific/Auckland',
-		'Asia/Tokyo',
-		'Asia/Singapore',
-		'Asia/Hong_Kong',
-		'UTC'
-	];
-
-	const statusOptions = ['draft', 'published', 'cancelled', 'archived'];
-	const opportunityTypeOptions = [
-		{ value: 'coordination', label: 'Coordination & Leads' },
-		{ value: 'check-in', label: 'Check-in & Registration' },
-		{ value: 'logistics', label: 'Logistics & Support' },
-		{ value: 'mechanic', label: 'Mechanics & Repairs' },
-		{ value: 'education', label: 'Education & Coaching' },
-		{ value: 'hospitality', label: 'Hospitality & Culture' },
-		{ value: 'safety', label: 'Safety & Course Marshals' },
-		{ value: 'outreach', label: 'Outreach & Info Booths' },
-		{ value: 'other', label: 'Other' }
-	];
-	const emailTypeOptions = ['reminder', 'thank_you', 'follow_up', 'custom'];
-	const fieldTypeOptions = [
-		'text',
-		'textarea',
-		'number',
-		'select',
-		'multiselect',
-		'checkbox',
-		'phone',
-		'email',
-		'url'
-	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
 	const emailMergeTags = VOLUNTEER_MERGE_TAGS.map((tag) => tag.token);
 
