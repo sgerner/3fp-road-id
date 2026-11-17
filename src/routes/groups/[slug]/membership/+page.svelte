@@ -847,7 +847,7 @@
 			<div class="empty-icon">
 				<IconUsers class="h-10 w-10" />
 			</div>
-			<h3 class="empty-title">Membership Unavailable</h3>
+			<h2 class="empty-title">Membership Unavailable</h2>
 			<p class="empty-description">No membership program is currently available for this group.</p>
 			<a href="/groups/{group?.slug}" class="btn preset-tonal-surface">Return to Group</a>
 		</section>

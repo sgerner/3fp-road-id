@@ -18,6 +18,9 @@
 	let { data } = $props();
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
+	const MAX_TIER_PRICE_CENTS = 2_147_483_647;
+	const TIER_PRICE_ERROR =
+		'Enter a non-negative amount with up to two decimals (maximum $21,474,836.47).';
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
 	const DEFAULT_PROGRAM = {
 		enabled: true,
@@ -51,6 +54,7 @@
 			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
 		)
 	);
+	let tierPriceDrafts = $state({});
 	let formFields = $state(
 		untrack(() =>
 			Array.isArray(data?.program_data?.form_fields)
@@ -132,13 +136,48 @@
 	}
 
 	function centsToDollar(cents) {
-		if (!cents) return '';
+		if (cents === null || cents === undefined || cents === '') return '';
 		return (cents / 100).toFixed(2);
 	}
 
 	function dollarToCents(value) {
-		const num = parseFloat(value);
-		return isNaN(num) ? null : Math.round(num * 100);
+		const raw = String(value ?? '').trim();
+		if (!raw) return null;
+		if (!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(raw)) return undefined;
+		const num = Number(raw);
+		const cents = Math.round(num * 100);
+		return Number.isSafeInteger(cents) && cents <= MAX_TIER_PRICE_CENTS ? cents : undefined;
+	}
+
+	function getTierPriceDraft(id, field, cents) {
+		const key = `${id ?? 'new'}:${field}`;
+		return Object.hasOwn(tierPriceDrafts, key) ? tierPriceDrafts[key] : centsToDollar(cents);
+	}
+
+	function setTierPriceDraft(id, field, value) {
+		tierPriceDrafts[`${id ?? 'new'}:${field}`] = value;
+	}
+
+	function isTierPriceInvalid(id, field) {
+		const key = `${id ?? 'new'}:${field}`;
+		return Object.hasOwn(tierPriceDrafts, key) && dollarToCents(tierPriceDrafts[key]) === undefined;
+	}
+
+	function commitTierPriceDraft(id, tier, field) {
+		const key = `${id ?? 'new'}:${field}`;
+		if (!Object.hasOwn(tierPriceDrafts, key)) return true;
+
+		const cents = dollarToCents(tierPriceDrafts[key]);
+		if (cents === undefined) return false;
+		tier[field] = cents;
+		delete tierPriceDrafts[key];
+		return true;
+	}
+
+	function commitTierPriceDrafts(id, tier) {
+		const monthlyValid = commitTierPriceDraft(id, tier, 'monthly_amount_cents');
+		const annualValid = commitTierPriceDraft(id, tier, 'annual_amount_cents');
+		return monthlyValid && annualValid;
 	}
 
 	function formatCurrency(cents) {
@@ -312,6 +351,10 @@
 			setMessage('', 'Tier name is required');
 			return;
 		}
+		if (!commitTierPriceDrafts(null, newTier)) {
+			setMessage('', TIER_PRICE_ERROR);
+			return;
+		}
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
@@ -337,6 +380,10 @@
 	}
 
 	async function updateTier(tier) {
+		if (!commitTierPriceDrafts(tier.id, tier)) {
+			setMessage('', TIER_PRICE_ERROR);
+			return;
+		}
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
@@ -475,6 +522,26 @@
 		}
 	});
 </script>
+
+{#snippet tierPriceInput(tier, tierId, cycle, label, id)}
+	{@const field = `${cycle}_amount_cents`}
+	<input
+		{id}
+		type="text"
+		inputmode="decimal"
+		class="tier-input price"
+		aria-label={label}
+		placeholder={cycle === 'monthly' ? 'Monthly' : 'Annual'}
+		aria-invalid={isTierPriceInvalid(tierId, field) || undefined}
+		aria-describedby={isTierPriceInvalid(tierId, field) ? `${id}-error` : undefined}
+		value={getTierPriceDraft(tierId, field, tier[field])}
+		oninput={(event) => setTierPriceDraft(tierId, field, event.currentTarget.value)}
+		onblur={() => commitTierPriceDraft(tierId, tier, field)}
+	/>
+	{#if isTierPriceInvalid(tierId, field)}
+		<p id="{id}-error" class="price-error">{TIER_PRICE_ERROR}</p>
+	{/if}
+{/snippet}
 
 <div class="membership-manage">
 	<!-- Notifications -->
@@ -1022,27 +1089,23 @@
 												<div class="price-inputs">
 													<div class="price-field">
 														<span class="price-prefix">$</span>
-														<input
-															type="text"
-															class="tier-input price"
-															aria-label={`Monthly contribution for ${tier.name || 'tier'}`}
-															placeholder="Monthly"
-															value={centsToDollar(tier.monthly_amount_cents)}
-															oninput={(e) =>
-																(tier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
-														/>
+														{@render tierPriceInput(
+															tier,
+															tier.id,
+															'monthly',
+															`Monthly contribution for ${tier.name || 'tier'}`,
+															`tier-${tier.id}-monthly-price`
+														)}
 													</div>
 													<div class="price-field">
 														<span class="price-prefix">$</span>
-														<input
-															type="text"
-															class="tier-input price"
-															aria-label={`Annual contribution for ${tier.name || 'tier'}`}
-															placeholder="Annual"
-															value={centsToDollar(tier.annual_amount_cents)}
-															oninput={(e) =>
-																(tier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
-														/>
+														{@render tierPriceInput(
+															tier,
+															tier.id,
+															'annual',
+															`Annual contribution for ${tier.name || 'tier'}`,
+															`tier-${tier.id}-annual-price`
+														)}
 													</div>
 												</div>
 											</div>
@@ -1106,27 +1169,23 @@
 									<div class="price-inputs">
 										<div class="price-field">
 											<span class="price-prefix">$</span>
-											<input
-												type="text"
-												class="tier-input price"
-												aria-label="New tier monthly contribution"
-												placeholder="Monthly"
-												value={centsToDollar(newTier.monthly_amount_cents)}
-												oninput={(e) =>
-													(newTier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
-											/>
+											{@render tierPriceInput(
+												newTier,
+												null,
+												'monthly',
+												'New tier monthly contribution',
+												'new-tier-monthly-price'
+											)}
 										</div>
 										<div class="price-field">
 											<span class="price-prefix">$</span>
-											<input
-												type="text"
-												class="tier-input price"
-												aria-label="New tier annual contribution"
-												placeholder="Annual"
-												value={centsToDollar(newTier.annual_amount_cents)}
-												oninput={(e) =>
-													(newTier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
-											/>
+											{@render tierPriceInput(
+												newTier,
+												null,
+												'annual',
+												'New tier annual contribution',
+												'new-tier-annual-price'
+											)}
 										</div>
 									</div>
 								</div>
