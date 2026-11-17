@@ -1,4 +1,5 @@
 <script>
+	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
 	import { getRideImage } from '#lib/rides/media';
@@ -938,13 +939,20 @@
 															{ride.title}
 														</a>
 													{/each}
-													{#if day.items.length > 3}
-														<div class="text-primary-500 text-[10px] font-black uppercase">
-															+{day.items.length - 3} more
-														</div>
-													{/if}
 												{/if}
 											</div>
+											{#if day.items.length > 3}
+												<CalendarDayOverflow
+													dateLabel={calendarDayFormat.format(day.date)}
+													itemLabel="rides"
+													hiddenCount={day.items.length - 3}
+													items={day.items.map((ride) => ({
+														href: `/ride/${ride.slug}`,
+														title: ride.title,
+														time: tf.format(parseRideDate(ride.nextOccurrenceStart))
+													}))}
+												/>
+											{/if}
 										</div>
 									</td>
 								{/each}
