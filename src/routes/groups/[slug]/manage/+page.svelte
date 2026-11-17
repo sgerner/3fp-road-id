@@ -132,9 +132,9 @@
 	});
 
 	const accentStyles = {
-		primary: 'preset-tonal-primary text-primary-500',
-		secondary: 'preset-tonal-secondary text-secondary-500',
-		tertiary: 'preset-tonal-tertiary text-tertiary-500'
+		primary: 'bg-primary-500 text-surface-950',
+		secondary: 'bg-secondary-500 text-surface-50',
+		tertiary: 'bg-tertiary-500 text-surface-950'
 	};
 
 	const badgeStyles = {
@@ -145,28 +145,25 @@
 	};
 </script>
 
-<div class="manage-overview space-y-4 pb-6">
+<div class="manage-overview space-y-6 pb-6">
 	<!-- Profile completion reminder -->
 	{#if completionStats() < 100}
 		<a
 			href="/groups/{slug}/manage/edit"
-			class="card preset-tonal-warning border-warning-500/20 hover:border-warning-500/40 flex items-center gap-4 border p-4 transition-colors"
+			class="group border-surface-700 bg-surface-900 hover:bg-warning-500 hover:text-surface-950 flex items-stretch gap-4 border-y-2 px-4 py-4 transition-colors"
 		>
 			<div
-				class="preset-filled-warning-500 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-sm"
+				class="bg-warning-500 text-surface-950 group-hover:bg-surface-950 group-hover:text-warning-500 flex h-10 w-10 shrink-0 items-center justify-center"
 			>
 				<IconSparkles class="h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
-				<div class="flex items-center justify-between">
+				<div class="mt-2 flex items-center justify-between gap-3">
 					<span class="text-sm font-bold">Complete your group profile</span>
-					<span class="text-xs font-semibold opacity-80">{completionStats()}% Complete</span>
+					<span class="text-xs font-semibold">{completionStats()}% Complete</span>
 				</div>
-				<div class="bg-warning-500/20 mt-2 h-2 w-full overflow-hidden rounded-full">
-					<div
-						class="preset-filled-warning-500 h-full rounded-full transition-all duration-500"
-						style="width: {completionStats()}%"
-					></div>
+				<div class="bg-surface-800 mt-2 h-2 w-full overflow-hidden">
+					<div class="bg-warning-500 h-full" style="width: {completionStats()}%"></div>
 				</div>
 			</div>
 			<IconChevronRight class="h-5 w-5 opacity-60" />
@@ -174,23 +171,21 @@
 	{/if}
 
 	<!-- Action cards -->
-	<section class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+	<section class="border-surface-800 grid grid-cols-1 border-y-2 md:grid-cols-2 lg:grid-cols-3">
 		{#each manageActions() as action}
 			{@const Icon = action.icon}
 			<a
 				href={action.href}
-				class="group card preset-filled-surface-100-900 border-surface-200-800 flex items-center gap-4 border p-4 transition-all hover:scale-[1.02] hover:shadow-md"
+				class="group border-surface-800 bg-surface-900 hover:bg-primary-500 hover:text-surface-950 flex min-w-0 items-center gap-4 border-r border-b p-4 transition-colors"
 			>
 				<div
-					class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-sm {accentStyles[
-						action.accent
-					]}"
+					class="flex h-12 w-12 shrink-0 items-center justify-center {accentStyles[action.accent]}"
 				>
 					<Icon class="h-6 w-6" />
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-2">
-						<span class="text-surface-900 dark:text-surface-50 text-sm font-semibold"
+						<span class="text-surface-50 group-hover:text-surface-950 text-sm font-semibold"
 							>{action.label}</span
 						>
 						{#if action.badge}
@@ -198,12 +193,10 @@
 								{action.badge}
 							</span>
 						{:else}
-							<IconArrowRight
-								class="h-4 w-4 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-80"
-							/>
+							<IconArrowRight class="h-4 w-4 opacity-60" />
 						{/if}
 					</div>
-					<p class="text-surface-600 dark:text-surface-400 mt-1 text-xs leading-relaxed">
+					<p class="text-surface-300 group-hover:text-surface-950 mt-1 text-xs leading-relaxed">
 						{action.description}
 					</p>
 				</div>
@@ -212,27 +205,25 @@
 	</section>
 
 	<!-- Help -->
-	<section class="card preset-filled-surface-100-900 border-surface-200-800 border p-4">
-		<div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-			<div class="flex w-full items-center gap-3">
-				<div
-					class="preset-tonal-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-				>
-					<IconAlertCircle class="text-secondary-500 h-5 w-5" />
-				</div>
-				<div class="min-w-0 flex-1">
-					<h3 class="text-surface-900 dark:text-surface-50 text-sm font-bold">Need help?</h3>
-					<p class="text-surface-600 dark:text-surface-400 text-xs">
-						Contact our team for assistance
-					</p>
-				</div>
-			</div>
-			<a
-				href="mailto:hi@3fp.org"
-				class="btn btn-sm preset-outlined-primary-500 w-full font-semibold sm:w-auto"
+	<section
+		class="border-surface-800 bg-surface-900 flex flex-col items-start justify-between gap-4 border-y-2 px-4 py-5 sm:flex-row sm:items-center"
+	>
+		<div class="flex w-full items-center gap-3">
+			<div
+				class="bg-secondary-500 text-surface-50 flex h-10 w-10 shrink-0 items-center justify-center"
 			>
-				Contact
-			</a>
+				<IconAlertCircle class="h-5 w-5" />
+			</div>
+			<div class="min-w-0 flex-1">
+				<h2 class="text-surface-50! text-sm font-bold">Need help?</h2>
+				<p class="text-surface-300 text-xs">Contact our team for assistance</p>
+			</div>
 		</div>
+		<a
+			href="mailto:hi@3fp.org"
+			class="btn btn-sm preset-outlined-primary-500 w-full font-semibold sm:w-auto"
+		>
+			Contact
+		</a>
 	</section>
 </div>

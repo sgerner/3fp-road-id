@@ -910,9 +910,9 @@
 						<IconFlag class="h-6 w-6" />
 					</div>
 					<div>
-						<h3 id="claim-heading" class="text-surface-950! m-0 text-2xl font-black uppercase">
+						<h2 id="claim-heading" class="text-surface-950! m-0 text-2xl font-black uppercase">
 							This group hasn't been claimed yet
-						</h3>
+						</h2>
 						<p class="m-0 mt-1 text-base font-medium">
 							If you represent this group, claim it to manage details, photos, and more.
 						</p>

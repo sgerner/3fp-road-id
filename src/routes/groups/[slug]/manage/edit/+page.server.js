@@ -10,6 +10,7 @@ import {
 } from '#lib/server/groupEditorImages';
 import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
 import { readFormData } from '#lib/server/security';
+import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -105,7 +106,10 @@ export const load = async ({ params, cookies, url }) => {
 
 	// Require authenticated user
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
-	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
+	if (!accessToken || !user?.id) {
+		const returnTo = `${url.pathname}${url.search}`;
+		throw redirect(303, `/groups/${slug}?auth=required&returnTo=${encodeURIComponent(returnTo)}`);
+	}
 
 	const supabase = createRequestSupabaseClient(accessToken);
 	const privateSupabase = createServiceSupabaseClient() || supabase;
@@ -276,76 +280,9 @@ export const actions = {
 			preferred_cta_url: null,
 			// logo/cover handled below (mirror to storage first)
 			social_links: (() => {
-				const get = (k) => form.get(k)?.toString().trim() || '';
-				const parseInstagramPostUrls = (raw) => {
-					const lines = String(raw || '')
-						.split(/\r?\n/)
-						.map((line) => line.trim())
-						.filter(Boolean);
-					const out = [];
-					const seen = new Set();
-					for (const line of lines) {
-						let parsed = null;
-						try {
-							parsed = new URL(line);
-						} catch {
-							continue;
-						}
-						if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) continue;
-						const parts = parsed.pathname.split('/').filter(Boolean);
-						if (parts.length < 2) continue;
-						const kind = parts[0];
-						const shortcode = parts[1];
-						if (!['p', 'reel', 'tv'].includes(kind) || !shortcode) continue;
-						const canonical = `https://www.instagram.com/${kind}/${shortcode}/`;
-						if (seen.has(canonical)) continue;
-						seen.add(canonical);
-						out.push(canonical);
-					}
-					return out.slice(0, 3);
-				};
-				const buildUrl = (val, prefix) => {
-					if (!val) return null;
-					if (/^https?:\/\//i.test(val)) return val;
-					return `${prefix}${val.replace(/^@/, '')}`;
-				};
-				const instagramPosts = parseInstagramPostUrls(get('social_instagram_posts'));
-				const obj = {
-					instagram: buildUrl(get('social_instagram'), 'https://www.instagram.com/'),
-					facebook: buildUrl(get('social_facebook'), 'https://www.facebook.com/'),
-					x: buildUrl(get('social_x'), 'https://x.com/'),
-					threads: buildUrl(get('social_threads'), 'https://www.threads.net/@'),
-					youtube: (() => {
-						const v = get('social_youtube');
-						if (!v) return null;
-						if (/^https?:\/\//i.test(v)) return v;
-						const handle = v.startsWith('@') ? v : `@${v}`;
-						return `https://www.youtube.com/${handle}`;
-					})(),
-					tiktok: buildUrl(get('social_tiktok'), 'https://www.tiktok.com/@'),
-					strava: (() => {
-						const v = get('social_strava');
-						if (!v) return null;
-						if (/^https?:\/\//i.test(v)) return v;
-						return `https://www.strava.com/clubs/${v}`;
-					})(),
-					bluesky: (() => {
-						const v = get('social_bluesky');
-						if (!v) return null;
-						if (/^https?:\/\//i.test(v)) return v;
-						return `https://bsky.app/profile/${v.replace(/^@/, '')}`;
-					})(),
-					linkedin: (() => {
-						const v = get('social_linkedin');
-						if (!v) return null;
-						if (/^https?:\/\//i.test(v)) return v;
-						// best-effort: company page
-						return `https://www.linkedin.com/company/${v}`;
-					})(),
-					instagram_posts: instagramPosts.length ? instagramPosts : null
-				};
-				// Drop nulls
-				const cleaned = Object.fromEntries(Object.entries(obj).filter(([_, v]) => !!v));
+				const cleaned = collectGroupSocialLinkInputs(
+					(field) => form.get(`social_${field}`)?.toString() || ''
+				);
 				return Object.keys(cleaned).length ? cleaned : null;
 			})()
 		};

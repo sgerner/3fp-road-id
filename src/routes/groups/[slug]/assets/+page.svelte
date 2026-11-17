@@ -215,7 +215,7 @@
 						<div class="empty-icon">
 							<IconImage class="h-8 w-8" />
 						</div>
-						<h3 class="empty-title">No photos found</h3>
+						<h2 class="empty-title">No photos found</h2>
 						<p class="empty-desc">
 							{searchQuery ? 'Try a different search term' : 'Photos will appear here when added'}
 						</p>
@@ -243,7 +243,7 @@
 									{/if}
 								</div>
 								<div class="min-w-0 flex-1">
-									<h3 class="truncate text-base font-semibold">{asset.title}</h3>
+									<h2 class="truncate text-base font-semibold">{asset.title}</h2>
 									{#if asset.description}
 										<p class="text-surface-400 mt-1 line-clamp-2 text-sm">{asset.description}</p>
 									{/if}
@@ -276,7 +276,7 @@
 								<IconFileText class="h-8 w-8" />
 							{/if}
 						</div>
-						<h3 class="empty-title">No {activeBucket.label.toLowerCase()} found</h3>
+						<h2 class="empty-title">No {activeBucket.label.toLowerCase()} found</h2>
 						<p class="empty-desc">
 							{searchQuery
 								? 'Try a different search term'
