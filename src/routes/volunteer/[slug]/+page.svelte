@@ -1400,7 +1400,7 @@
 			{/if}
 		</nav>
 
-		{#if authFlag === 'required' || authFlag === 'forbidden'}
+		{#if (authFlag === 'required' && !user?.id) || authFlag === 'forbidden'}
 			<section
 				class="border-surface-950 border-b-[3px] px-6 py-4 sm:px-10 lg:px-14 {authFlag ===
 				'required'
@@ -1409,8 +1409,15 @@
 			>
 				{#if authFlag === 'required'}
 					<div class="text-sm">
-						<strong class="font-black uppercase">Please log in to edit this event.</strong>
-						<div>Use the "Log in / Register" button in the header, then try again.</div>
+						<strong class="font-black uppercase">Sign in to manage this event</strong>
+						<div>We'll return you to the page you requested.</div>
+						<button
+							type="button"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 mt-3 min-h-11 px-4 text-xs font-black tracking-wide uppercase transition"
+							onclick={() => window.dispatchEvent(new Event('open-login'))}
+						>
+							Sign in
+						</button>
 					</div>
 				{:else}
 					<div class="text-sm">

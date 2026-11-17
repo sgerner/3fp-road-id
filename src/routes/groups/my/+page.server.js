@@ -10,7 +10,10 @@ export const load = async ({ fetch, cookies, parent, url }) => {
 	const userId = currentUser?.id ?? null;
 
 	if (!userId) {
-		throw redirect(303, `/groups?auth=required&returnTo=${encodeURIComponent(url.pathname)}`);
+		throw redirect(
+			303,
+			`/groups?auth=required&returnTo=${encodeURIComponent(url.pathname + url.search)}`
+		);
 	}
 
 	// Load owned groups with full details (including images)

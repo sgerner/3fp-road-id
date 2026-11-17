@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 
-export const load = async ({ params, cookies, fetch }) => {
+export const load = async ({ params, cookies, fetch, url }) => {
 	const slug = params.slug;
 
 	// Resolve session
@@ -10,7 +10,10 @@ export const load = async ({ params, cookies, fetch }) => {
 	const sessionUserId = sessionUser?.id ?? null;
 
 	if (!sessionUserId) {
-		throw redirect(303, `/groups/${slug}?auth=required`);
+		throw redirect(
+			303,
+			`/groups/${slug}?auth=required&returnTo=${encodeURIComponent(url.pathname + url.search)}`
+		);
 	}
 
 	const supabase = createRequestSupabaseClient(accessToken);

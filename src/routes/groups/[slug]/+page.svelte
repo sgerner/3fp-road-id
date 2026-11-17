@@ -836,7 +836,7 @@
 	</section>
 
 	<!-- Auth notice -->
-	{#if authFlag === 'required' || authFlag === 'forbidden'}
+	{#if (authFlag === 'required' && !data.user?.id) || authFlag === 'forbidden'}
 		<section
 			class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-5 sm:px-10 lg:px-14"
 			in:fade={{ duration: 180 }}
@@ -845,10 +845,15 @@
 				<IconInfo class="mt-0.5 h-5 w-5 shrink-0" />
 				<div class="text-sm font-medium">
 					{#if authFlag === 'required'}
-						<strong class="font-black uppercase">Please log in to edit this group.</strong>
-						<div class="mt-0.5">
-							Use the "Log in / Register" button in the header, then try again.
-						</div>
+						<strong class="font-black uppercase">Sign in to manage this group</strong>
+						<div class="mt-0.5">We'll return you to the page you requested.</div>
+						<button
+							type="button"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 mt-3 min-h-11 px-4 text-xs font-black tracking-wide uppercase transition"
+							onclick={() => window.dispatchEvent(new Event('open-login'))}
+						>
+							Sign in
+						</button>
 					{:else}
 						<strong class="font-black uppercase"
 							>You don't have permission to edit this group.</strong

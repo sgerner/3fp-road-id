@@ -8,6 +8,7 @@
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
+	import { isSafeInternalPath } from '#lib/security/navigation.js';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -474,10 +475,16 @@
 					return;
 				}
 			}
-			const rt =
-				typeof window !== 'undefined'
-					? window.location.pathname + window.location.search + window.location.hash
-					: '/';
+			let rt = '/';
+			if (typeof window !== 'undefined') {
+				const currentUrl = new URL(window.location.href);
+				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
+				rt =
+					currentUrl.searchParams.get('auth') === 'required' &&
+					isSafeInternalPath(requestedReturnTo)
+						? requestedReturnTo
+						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+			}
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
