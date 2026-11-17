@@ -289,7 +289,7 @@
 					<!-- Group Info -->
 					<div class="space-y-3 p-4">
 						<div>
-							<h3 class="text-lg leading-tight font-bold">{g.group.name}</h3>
+							<h2 class="text-lg leading-tight font-bold">{g.group.name}</h2>
 							<p class="text-surface-600-400 text-sm">
 								{g.group.city || 'Unknown'}{g.group.state_region ? `, ${g.group.state_region}` : ''}
 							</p>

@@ -436,6 +436,7 @@
 </svelte:head>
 
 <div class={`ride-widget-shell theme-${resolvedTheme} density-${config.density}`}>
+	<h1 class="sr-only">Ride directory</h1>
 	<!-- ── Header: subtitle + tabs ── -->
 	<div class="widget-header">
 		<div class="widget-title-wrap">
@@ -605,15 +606,25 @@
 					{/each}
 				</div>
 				{#if totalPages > 1}
-					<div class="pagination">
-						<button disabled={pageNumber <= 1} onclick={() => (pageNumber -= 1)}>
+					<nav class="pagination" aria-label="Ride pages">
+						<button
+							type="button"
+							aria-label="Previous ride page"
+							disabled={pageNumber <= 1}
+							onclick={() => (pageNumber -= 1)}
+						>
 							<IconChevronLeft class="h-3.5 w-3.5" />
 						</button>
-						<span>{pageNumber} / {totalPages}</span>
-						<button disabled={pageNumber >= totalPages} onclick={() => (pageNumber += 1)}>
+						<span aria-current="page">Page {pageNumber} of {totalPages}</span>
+						<button
+							type="button"
+							aria-label="Next ride page"
+							disabled={pageNumber >= totalPages}
+							onclick={() => (pageNumber += 1)}
+						>
 							<IconChevronRight class="h-3.5 w-3.5" />
 						</button>
-					</div>
+					</nav>
 				{/if}
 			{:else}
 				<div class="app-empty-state">

@@ -310,9 +310,9 @@
 							>
 								Now available
 							</span>
-							<h3 class="text-surface-50! m-0 truncate text-base font-black uppercase sm:text-lg">
+							<h2 class="text-surface-50! m-0 truncate text-base font-black uppercase sm:text-lg">
 								{featured.name}
-							</h3>
+							</h2>
 							<p class="text-primary-500 m-0 text-lg font-black italic tabular-nums">
 								{featured.variants?.[0] ? formatCurrency(featured.variants[0].price_cents) : ''}
 							</p>
