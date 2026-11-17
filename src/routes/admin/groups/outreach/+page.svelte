@@ -55,12 +55,6 @@
 	let coverCroppedDataUrl = $state('');
 	let imageFormEl = $state(null);
 	let generateFormEl = $state(null);
-	const generationSteps = [
-		'Drafting a clearer subject line',
-		'Keeping the note short and non-salesy',
-		'Picking a few useful benefits for the group'
-	];
-	let generationStepIndex = $state(0);
 
 	const selectedGroup = $derived(groups.find((group) => group.id === selectedGroupId) || null);
 
@@ -122,17 +116,6 @@
 				[id]: `Quick hello from 3 Feet Please for ${selectedGroup.name}`
 			};
 		}
-	});
-
-	$effect(() => {
-		if (!generating) {
-			generationStepIndex = 0;
-			return;
-		}
-		const timer = window.setInterval(() => {
-			generationStepIndex = (generationStepIndex + 1) % generationSteps.length;
-		}, 1500);
-		return () => window.clearInterval(timer);
 	});
 
 	async function copyText(value) {
@@ -503,7 +486,7 @@
 					>
 						<IconSend class="text-surface-500 h-8 w-8" />
 					</div>
-					<h3 class="h5 text-surface-700-300">Select a group</h3>
+					<h2 class="h5 text-surface-700-300">Select a group</h2>
 					<p class="text-surface-600-400 mt-1 text-sm">
 						Choose a group to compose your outreach message.
 					</p>
@@ -659,22 +642,11 @@
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-2">
 				<IconSend class="text-primary-500 h-4 w-4" />
-				<span class="text-sm font-medium">Compose Message</span>
+				<h3 class="text-sm font-medium">Compose Message</h3>
 			</div>
-			{#if generating}
-				<div
-					class="bg-primary-500/10 text-primary-700-300 border-primary-500/20 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
-					transition:fade
-				>
-					<span class="relative flex h-2.5 w-2.5">
-						<span
-							class="bg-primary-500 absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-						></span>
-						<span class="bg-primary-500 relative inline-flex h-2.5 w-2.5 rounded-full"></span>
-					</span>
-					Writing draft
-				</div>
-			{/if}
+			<p class="text-surface-600-400 text-xs" role="status">
+				{generating ? 'Writing draft…' : ''}
+			</p>
 		</div>
 
 		{#if group.public_contact_email}
@@ -689,27 +661,17 @@
 					<label class="label text-surface-500 mb-1 text-xs" for={`subject-${group.id}`}
 						>Subject</label
 					>
-					<div class="relative">
-						<input
-							id={`subject-${group.id}`}
-							type="text"
-							name="subject"
-							class="input preset-tonal-surface"
-							value={getSubject(group)}
-							oninput={(e) => setSubject(group.id, e.currentTarget.value)}
-							disabled={generating}
-						/>
-						{#if generating}
-							<div
-								class="pointer-events-none absolute inset-y-0 right-0 left-0 flex items-center px-3"
-								transition:fade={{ duration: 120 }}
-							>
-								<div class="bg-primary-500/12 h-4 w-2/3 animate-pulse rounded-full"></div>
-							</div>
-						{/if}
-					</div>
+					<input
+						id={`subject-${group.id}`}
+						type="text"
+						name="subject"
+						class="input preset-tonal-surface"
+						value={getSubject(group)}
+						oninput={(e) => setSubject(group.id, e.currentTarget.value)}
+						disabled={generating}
+					/>
 				</div>
-				<div class="relative">
+				<div>
 					<label class="label text-surface-500 mb-1 text-xs" for={`message-${group.id}`}
 						>Message</label
 					>
@@ -720,54 +682,13 @@
 						value={getMessage(group)}
 						oninput={(e) => setMessage(group.id, e.currentTarget.value)}
 						disabled={generating}></textarea>
-					{#if generating}
-						<div
-							class="bg-surface-100-900/82 absolute inset-0 flex items-center justify-center rounded-lg p-4 backdrop-blur-sm"
-							transition:fade={{ duration: 150 }}
-						>
-							<div
-								class="bg-surface-50-950/94 border-surface-200-800 w-full max-w-md rounded-2xl border p-4 shadow-xl"
-							>
-								<div class="flex items-center gap-3">
-									<div
-										class="bg-primary-500/12 text-primary-600 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-									>
-										<span
-											class="border-primary-500/25 absolute inset-0 animate-ping rounded-2xl border"
-										></span>
-										<IconSparkles class="h-5 w-5 animate-pulse" />
-									</div>
-									<div class="min-w-0">
-										<p class="text-surface-900-100 text-sm font-medium">Crafting message</p>
-										<p class="text-surface-500 text-xs">
-											{generationSteps[generationStepIndex]}
-										</p>
-									</div>
-								</div>
-								<div class="mt-4 space-y-2">
-									<div class="bg-surface-200-800 h-2.5 w-11/12 animate-pulse rounded-full"></div>
-									<div
-										class="bg-surface-200-800 h-2.5 w-4/5 animate-pulse rounded-full"
-										style="animation-delay: 120ms"
-									></div>
-									<div
-										class="bg-surface-200-800 h-2.5 w-full animate-pulse rounded-full"
-										style="animation-delay: 220ms"
-									></div>
-									<div
-										class="bg-surface-200-800 h-2.5 w-3/4 animate-pulse rounded-full"
-										style="animation-delay: 320ms"
-									></div>
-								</div>
-								<p class="text-surface-500 mt-3 text-xs">
-									Building a short note with a stronger subject and a few relevant group benefits.
-								</p>
-							</div>
-						</div>
-					{/if}
 				</div>
 				<div class="flex items-center gap-3">
-					<button type="submit" class="btn preset-filled-primary-500" disabled={sending}>
+					<button
+						type="submit"
+						class="btn preset-filled-primary-500"
+						disabled={sending || generating}
+					>
 						{#if sending}
 							<span class="loading loading-spinner loading-xs"></span>
 						{:else}
@@ -789,56 +710,16 @@
 				</div>
 			</form>
 		{:else}
-			<div class="relative">
+			<div>
+				<label class="label text-surface-500 mb-1 text-xs" for={`message-${group.id}`}
+					>Message</label
+				>
 				<textarea
 					id={`message-${group.id}`}
 					class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
 					value={getMessage(group)}
 					oninput={(e) => setMessage(group.id, e.currentTarget.value)}
 					disabled={generating}></textarea>
-				{#if generating}
-					<div
-						class="bg-surface-100-900/82 absolute inset-0 flex items-center justify-center rounded-lg p-4 backdrop-blur-sm"
-						transition:fade={{ duration: 150 }}
-					>
-						<div
-							class="bg-surface-50-950/94 border-surface-200-800 w-full max-w-md rounded-2xl border p-4 shadow-xl"
-						>
-							<div class="flex items-center gap-3">
-								<div
-									class="bg-primary-500/12 text-primary-600 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-								>
-									<span
-										class="border-primary-500/25 absolute inset-0 animate-ping rounded-2xl border"
-									></span>
-									<IconSparkles class="h-5 w-5 animate-pulse" />
-								</div>
-								<div class="min-w-0">
-									<p class="text-surface-900-100 text-sm font-medium">Crafting message</p>
-									<p class="text-surface-500 text-xs">{generationSteps[generationStepIndex]}</p>
-								</div>
-							</div>
-							<div class="mt-4 space-y-2">
-								<div class="bg-surface-200-800 h-2.5 w-11/12 animate-pulse rounded-full"></div>
-								<div
-									class="bg-surface-200-800 h-2.5 w-4/5 animate-pulse rounded-full"
-									style="animation-delay: 120ms"
-								></div>
-								<div
-									class="bg-surface-200-800 h-2.5 w-full animate-pulse rounded-full"
-									style="animation-delay: 220ms"
-								></div>
-								<div
-									class="bg-surface-200-800 h-2.5 w-3/4 animate-pulse rounded-full"
-									style="animation-delay: 320ms"
-								></div>
-							</div>
-							<p class="text-surface-500 mt-3 text-xs">
-								Building a short note with a stronger subject and a few relevant group benefits.
-							</p>
-						</div>
-					</div>
-				{/if}
 			</div>
 			<div class="text-warning-600 flex items-center gap-2 text-sm">
 				<IconAlertCircle class="h-4 w-4" />
@@ -853,6 +734,7 @@
 						type="button"
 						class="btn btn-sm preset-tonal-surface"
 						onclick={(event) => openProfileAndCopy(url, getMessage(group), event)}
+						disabled={generating}
 					>
 						Open {platform.replace(/_/g, ' ')}
 					</button>
@@ -861,6 +743,7 @@
 					type="button"
 					class="btn btn-sm preset-tonal-secondary"
 					onclick={() => copyText(getMessage(group))}
+					disabled={generating}
 				>
 					<IconCopy class="h-3.5 w-3.5" /> Copy
 				</button>
@@ -1033,7 +916,7 @@
 			>
 				<div class="flex items-center gap-2">
 					<IconImageUp class="text-primary-500 h-5 w-5" />
-					<h3 class="h5">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h3>
+					<h2 class="h5">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h2>
 				</div>
 				<button
 					type="button"
