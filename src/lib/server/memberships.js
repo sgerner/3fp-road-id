@@ -4133,7 +4133,9 @@ export async function createManualMembership({
 
 		const joinPath = `/groups/${encodeURIComponent(auth.group.slug)}/membership`;
 		const baseUrl = resolvePublicBaseUrl(requestUrl);
-		const redirectTo = baseUrl ? `${baseUrl}/auth?next=${encodeURIComponent(joinPath)}` : undefined;
+		const redirectTo = baseUrl
+			? `${baseUrl}/auth/confirm?return_to=${encodeURIComponent(joinPath)}`
+			: undefined;
 		const inviteResult = await serviceSupabase.auth.admin.inviteUserByEmail(email, {
 			data: {
 				full_name: requestedFullName

@@ -30,7 +30,12 @@ export const load = async ({ params, cookies, fetch, url }) => {
 
 	const { user: currentUser } = await resolveVerifiedSession(cookies);
 	const userId = currentUser?.id ?? null;
-	if (!userId) throw redirect(303, `/volunteer/${slug}?auth=required`);
+	if (!userId) {
+		throw redirect(
+			303,
+			`/volunteer/${slug}?auth=required&returnTo=${encodeURIComponent(url.pathname + url.search)}`
+		);
+	}
 
 	const eventResponse = await listVolunteerEvents({
 		fetch,
