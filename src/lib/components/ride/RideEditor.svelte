@@ -972,6 +972,7 @@
 		{#if saveError}
 			<div
 				class="border-error-500 bg-error-500 text-surface-950 relative z-10 mx-6 mb-4 border p-3 text-sm"
+				role="alert"
 			>
 				{saveError}
 			</div>
@@ -1265,7 +1266,9 @@
 						</label>
 					</div>
 					{#if geocodeError}
-						<div class="card preset-tonal-warning mt-4 p-3 text-sm">{geocodeError}</div>
+						<div class="card preset-tonal-warning mt-4 p-3 text-sm" role="alert">
+							{geocodeError}
+						</div>
 					{/if}
 
 					<div class="mt-6 space-y-4">

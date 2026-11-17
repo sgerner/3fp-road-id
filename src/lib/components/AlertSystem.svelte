@@ -62,9 +62,9 @@
 		>
 			Stay A.L.E.R.T.
 		</h2>
-		<h6 class="text-surface-300! m-0 text-sm font-bold tracking-wider uppercase">
+		<p class="text-surface-300! m-0 text-sm font-bold tracking-wider uppercase">
 			Tips for cyclist safety
-		</h6>
+		</p>
 	</div>
 
 	<div class="border-surface-50 flex flex-col border-t-2">

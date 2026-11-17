@@ -449,17 +449,25 @@
 												? 'border-primary-500'
 												: 'border-surface-700'}"
 										required
+										aria-invalid={emailTouched && !emailIsValid}
+										aria-describedby={emailTouched && !emailIsValid
+											? 'email-validation-error'
+											: undefined}
 										oninput={() => (emailTouched = true)}
 									/>
-									{#if emailTouched && !emailIsValid}
-										<p class="text-tertiary-500 m-0 text-xs font-bold uppercase" transition:slide>
-											Please enter a valid email address.
-										</p>
-									{/if}
+									<p
+										id="email-validation-error"
+										class="text-tertiary-500 m-0 text-xs font-bold uppercase"
+										aria-live="polite"
+										transition:slide
+									>
+										{#if emailTouched && !emailIsValid}Please enter a valid email address.{/if}
+									</p>
 								</div>
 								{#if errorMessage}
 									<p
 										class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+										role="alert"
 										transition:slide
 									>
 										{errorMessage}
@@ -661,7 +669,10 @@
 							</div>
 
 							{#if errorMessage}
-								<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+								<p
+									class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+									role="alert"
+								>
 									{errorMessage}
 								</p>
 							{/if}
@@ -939,20 +950,25 @@
 														? 'border-primary-500'
 														: 'border-surface-700'}"
 												required
+												aria-invalid={emailTouched && !emailIsValid}
+												aria-describedby={emailTouched && !emailIsValid
+													? 'email-validation-error'
+													: undefined}
 												oninput={() => (emailTouched = true)}
 											/>
-											{#if emailTouched && !emailIsValid}
-												<p
-													class="text-tertiary-500 m-0 text-xs font-bold uppercase"
-													transition:slide
-												>
-													Please enter a valid email address.
-												</p>
-											{/if}
+											<p
+												id="email-validation-error"
+												class="text-tertiary-500 m-0 text-xs font-bold uppercase"
+												aria-live="polite"
+												transition:slide
+											>
+												{#if emailTouched && !emailIsValid}Please enter a valid email address.{/if}
+											</p>
 										</div>
 										{#if errorMessage}
 											<p
 												class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+												role="alert"
 												transition:slide
 											>
 												{errorMessage}
