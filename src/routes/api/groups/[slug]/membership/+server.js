@@ -1,31 +1,23 @@
 import { json, error } from '@sveltejs/kit';
-import { resolveVerifiedSession } from '#lib/server/session';
-import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import {
+	membershipTierRequiresPayment,
+	requireMembershipUser,
+	requestMembershipTierChange
+} from '#lib/server/memberships';
 
 export const POST = async ({ params, cookies, request }) => {
-	const { user: sessionUser } = await resolveVerifiedSession(cookies);
-	if (!sessionUser?.id) throw error(401, 'Authentication required');
+	const auth = await requireMembershipUser(cookies, params.slug);
+	if (!auth.ok) throw error(auth.status, auth.error);
+	const { serviceSupabase, group, userId } = auth;
 
-	const slug = params.slug;
-	const body = await request.json().catch(() => ({}));
-	const { tier_id, interval_unit } = body;
-
+	const body = await request.json().catch(() => null);
+	const { tier_id, interval_unit } = body ?? {};
 	if (!tier_id) throw error(400, 'tier_id is required');
-
-	const serviceSupabase = createServiceSupabaseClient();
-
-	// Load group
-	const { data: group } = await serviceSupabase
-		.from('groups')
-		.select('id,slug')
-		.eq('slug', slug)
-		.maybeSingle();
-	if (!group) throw error(404, 'Group not found');
 
 	// Load program
 	const { data: program } = await serviceSupabase
 		.from('group_membership_programs')
-		.select('id,enabled')
+		.select('id,enabled,access_mode,contribution_mode')
 		.eq('group_id', group.id)
 		.maybeSingle();
 	if (!program || !program.enabled) throw error(404, 'No membership program');
@@ -43,88 +35,80 @@ export const POST = async ({ params, cookies, request }) => {
 	if (!tier) throw error(404, 'Tier not found');
 
 	// Check for existing membership
-	const { data: existing } = await serviceSupabase
+	const { data: existing, error: membershipError } = await serviceSupabase
 		.from('group_memberships')
 		.select('id,tier_id,status,renews_at')
 		.eq('group_id', group.id)
-		.eq('user_id', sessionUser.id)
+		.eq('user_id', userId)
 		.maybeSingle();
+	if (membershipError) throw error(500, 'Unable to load the current membership.');
 
-	// Determine if this tier is free
-	const isFree = tier.amount_cents === 0 && !tier.monthly_amount_cents && !tier.annual_amount_cents;
+	if (
+		program.access_mode === 'private_request' &&
+		!['active', 'past_due', 'paused'].includes(existing?.status)
+	) {
+		throw error(403, 'This group requires an approved application before joining.');
+	}
+	if (existing?.tier_id === tier_id) {
+		return json({ success: true, action: 'no_change' });
+	}
+
+	if (membershipTierRequiresPayment(program, tier)) {
+		if (existing?.renews_at && tier.billing_type === 'recurring' && !tier.allow_custom_amount) {
+			const result = await requestMembershipTierChange({
+				cookies,
+				groupSlug: params.slug,
+				payload: { membership_id: existing.id, requested_tier_id: tier.id }
+			});
+			if (!result.ok && result.status !== 409) throw error(result.status, result.error);
+			if (result.ok) return json({ success: true, action: 'scheduled_at_renewal' });
+		}
+
+		return json({
+			success: false,
+			requires_payment: true,
+			tier_id: tier.id,
+			tier_name: tier.name,
+			interval_unit: interval_unit || tier.interval_unit
+		});
+	}
 
 	if (!existing) {
-		// New membership
-		if (isFree) {
-			// Create membership immediately
-			const { data: newMembership, error: insertErr } = await serviceSupabase
-				.from('group_memberships')
-				.insert({
-					group_id: group.id,
-					user_id: sessionUser.id,
-					tier_id: tier.id,
-					status: 'active',
-					source: 'online',
-					interval_unit: interval_unit || tier.interval_unit || null,
-					contribution_amount_cents: 0,
-					started_at: new Date().toISOString()
-				})
-				.select('id')
-				.single();
-
-			if (insertErr) throw error(500, insertErr.message);
-			return json({ success: true, membership_id: newMembership.id, action: 'joined' });
-		} else {
-			// Paid tier — return a checkout redirect signal
-			// The client will redirect to the Stripe checkout flow
-			return json({
-				success: false,
-				requires_payment: true,
+		const { data: newMembership, error: insertErr } = await serviceSupabase
+			.from('group_memberships')
+			.insert({
+				group_id: group.id,
+				user_id: userId,
 				tier_id: tier.id,
-				tier_name: tier.name,
-				interval_unit: interval_unit || tier.interval_unit
-			});
-		}
-	} else {
-		// Existing membership — schedule tier change
-		if (existing.tier_id === tier_id) {
-			return json({ success: true, action: 'no_change' });
-		}
+				status: 'active',
+				source: 'online',
+				interval_unit: interval_unit || tier.interval_unit || null,
+				contribution_amount_cents: 0,
+				started_at: new Date().toISOString()
+			})
+			.select('id')
+			.single();
 
-		// Clear any existing pending change requests
-		await serviceSupabase
-			.from('group_membership_tier_change_requests')
-			.update({ status: 'cancelled' })
-			.eq('membership_id', existing.id)
-			.eq('status', 'pending');
-
-		if (isFree || !existing.renews_at) {
-			// Apply free tier change immediately or if no renewal date
-			const { error: updateErr } = await serviceSupabase
-				.from('group_memberships')
-				.update({
-					tier_id: tier.id,
-					contribution_amount_cents: 0,
-					interval_unit: interval_unit || tier.interval_unit || null
-				})
-				.eq('id', existing.id);
-
-			if (updateErr) throw error(500, updateErr.message);
-			return json({ success: true, action: 'changed_immediately' });
-		} else {
-			// Schedule at renewal
-			const { error: changeErr } = await serviceSupabase
-				.from('group_membership_tier_change_requests')
-				.insert({
-					membership_id: existing.id,
-					requested_tier_id: tier.id,
-					effective_at_cycle_end: true,
-					status: 'pending',
-					requested_by: sessionUser.id
-				});
-
-			if (changeErr) throw error(500, changeErr.message);
-			return json({ success: true, action: 'scheduled_at_renewal' });
-		}
+		if (insertErr) throw error(500, insertErr.message);
+		return json({ success: true, membership_id: newMembership.id, action: 'joined' });
 	}
+
+	const { error: cancelError } = await serviceSupabase
+		.from('group_membership_tier_change_requests')
+		.update({ status: 'cancelled' })
+		.eq('membership_id', existing.id)
+		.eq('status', 'pending');
+	if (cancelError) throw error(500, 'Unable to cancel the previous tier change.');
+
+	const { error: updateErr } = await serviceSupabase
+		.from('group_memberships')
+		.update({
+			tier_id: tier.id,
+			contribution_amount_cents: 0,
+			interval_unit: interval_unit || tier.interval_unit || null
+		})
+		.eq('id', existing.id);
+
+	if (updateErr) throw error(500, updateErr.message);
+	return json({ success: true, action: 'changed_immediately' });
 };

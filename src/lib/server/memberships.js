@@ -826,6 +826,12 @@ async function loadDonationAccountForGroup(serviceSupabase, groupId) {
 	return data ?? null;
 }
 
+async function stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, stripeAccountId) {
+	if (!stripeAccountId) return false;
+	const account = await loadDonationAccountForGroup(serviceSupabase, groupId);
+	return account?.stripe_account_id === stripeAccountId;
+}
+
 async function createCheckoutSession({
 	serviceSupabase,
 	group,
@@ -1075,9 +1081,8 @@ async function resolveGroupProgramAndTier(serviceSupabase, groupId, tierId = nul
 
 	let tier = null;
 	if (tierId) {
-		tier = bundle.tiers.find((entry) => entry.id === tierId) || null;
-	}
-	if (!tier) {
+		tier = bundle.tiers.find((entry) => entry.id === tierId && entry.is_active !== false) || null;
+	} else {
 		tier =
 			bundle.tiers.find(
 				(entry) => entry.id === program.default_tier_id && entry.is_active !== false
@@ -1110,7 +1115,16 @@ function normalizeMembershipStatus(value, fallback = 'active') {
 	return MEMBERSHIP_STATUSES.has(cleaned) ? cleaned : fallback;
 }
 
-async function applyPendingTierChange({ serviceSupabase, membership, stripeAccountId = null }) {
+export function membershipTierRequiresPayment(program, tier) {
+	return (
+		normalizeContributionMode(program.contribution_mode) === 'paid' ||
+		tier.amount_cents > 0 ||
+		tier.monthly_amount_cents > 0 ||
+		tier.annual_amount_cents > 0
+	);
+}
+
+async function applyPendingTierChange({ serviceSupabase, membership, stripeAccountId, invoice }) {
 	if (!membership?.id) return { applied: false };
 	const { data: pending, error } = await serviceSupabase
 		.from('group_membership_tier_change_requests')
@@ -1124,7 +1138,17 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	if (!pending) return { applied: false };
 
 	const requestedTier = await loadTierById(serviceSupabase, pending.requested_tier_id);
-	if (!requestedTier || requestedTier.is_active === false) {
+	const { data: program, error: programError } = await serviceSupabase
+		.from('group_membership_programs')
+		.select('id,enabled,contribution_mode')
+		.eq('group_id', membership.group_id)
+		.maybeSingle();
+	if (programError) throw new Error(programError.message);
+	if (
+		!program?.enabled ||
+		requestedTier?.program_id !== program.id ||
+		requestedTier.is_active === false
+	) {
 		await serviceSupabase
 			.from('group_membership_tier_change_requests')
 			.update({ status: 'cancelled', updated_at: toIsoNow() })
@@ -1147,7 +1171,40 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 		0
 	);
 
-	const nextStripePriceId = requestedTier.stripe_price_id || billing?.stripe_price_id || null;
+	const nextStripePriceId =
+		(nextIntervalUnit === 'year'
+			? requestedTier.stripe_annual_price_id
+			: requestedTier.stripe_monthly_price_id) || null;
+	if (membershipTierRequiresPayment(program, requestedTier)) {
+		const invoiceHasTierPrice = invoice?.lines?.data?.some((line) => {
+			const price = line.pricing?.price_details?.price ?? line.price?.id;
+			const subscriptionDetails = line.parent?.subscription_item_details;
+			const invoiceSubscriptionId = extractSubscriptionIdFromInvoice(invoice);
+			const lineSubscriptionId = extractStripeObjectId(
+				subscriptionDetails?.subscription ?? line.subscription
+			);
+			return (
+				Boolean(invoiceSubscriptionId) &&
+				(!lineSubscriptionId || lineSubscriptionId === invoiceSubscriptionId) &&
+				price === nextStripePriceId &&
+				line.amount > 0 &&
+				(line.type === 'subscription' || line.parent?.type === 'subscription_item_details') &&
+				line.proration !== true &&
+				subscriptionDetails?.proration !== true
+			);
+		});
+		if (
+			requestedTier.billing_type !== 'recurring' ||
+			requestedTier.allow_custom_amount ||
+			nextContributionAmount <= 0 ||
+			!nextStripePriceId ||
+			!stripeAccountId ||
+			requestedTier.stripe_account_id !== stripeAccountId ||
+			!invoiceHasTierPrice
+		) {
+			return { applied: false };
+		}
+	}
 
 	await serviceSupabase
 		.from('group_memberships')
@@ -1166,7 +1223,7 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	await serviceSupabase
 		.from('group_membership_billing')
 		.update({
-			stripe_price_id: nextStripePriceId,
+			stripe_price_id: nextStripePriceId || billing?.stripe_price_id || null,
 			updated_at: now
 		})
 		.eq('membership_id', membership.id);
@@ -1668,24 +1725,23 @@ function renderGroupLinksBlock(group, baseUrl) {
 	};
 }
 
-function extractSubscriptionIdFromInvoice(invoice) {
-	const subscription = invoice?.subscription;
-	if (!subscription) return null;
-	if (typeof subscription === 'string') return subscription;
-	if (typeof subscription === 'object') return subscription.id || null;
-	return null;
-}
-
-function extractCustomerId(value) {
+function extractStripeObjectId(value) {
 	if (!value) return null;
 	if (typeof value === 'string') return value;
 	if (typeof value === 'object') return value.id || null;
 	return null;
 }
 
+function extractSubscriptionIdFromInvoice(invoice) {
+	return extractStripeObjectId(
+		invoice?.parent?.subscription_details?.subscription ?? invoice?.subscription
+	);
+}
+
 function extractCurrentPeriodEndFromSubscription(subscription) {
 	if (!subscription) return null;
-	const value = subscription.current_period_end;
+	const value =
+		subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end;
 	if (!value) return null;
 	if (typeof value === 'number') return new Date(value * 1000).toISOString();
 	const asDate = new Date(value);
@@ -3065,7 +3121,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 			);
 			clientSecretSource = clientSecret ? 'subscription.latest_invoice.confirmation_secret' : '';
 
-			if (!paymentIntent) {
+			if (!paymentIntent && !clientSecret) {
 				const latestInvoiceId =
 					typeof subscription?.latest_invoice === 'string'
 						? subscription.latest_invoice
@@ -3073,7 +3129,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 				if (latestInvoiceId) {
 					const latestInvoice = await stripe.invoices.retrieve(
 						latestInvoiceId,
-						{ expand: ['confirmation_secret', 'payment_intent'] },
+						{ expand: ['confirmation_secret'] },
 						{ stripeAccount: donationAccount.stripe_account_id }
 					);
 					latestInvoiceSnapshot = latestInvoice || null;
@@ -3141,9 +3197,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 		) || clientSecret;
 	if (!resolvedClientSecret) {
 		const invoicePaid =
-			latestInvoiceSnapshot?.paid === true ||
-			cleanText(latestInvoiceSnapshot?.status || '', 20) === 'paid' ||
-			Number(latestInvoiceSnapshot?.amount_due || 0) <= 0;
+			latestInvoiceSnapshot?.paid === true || latestInvoiceSnapshot?.status === 'paid';
 		if (subscription?.id && invoicePaid) {
 			const activation = await activateMembershipFromMetadata({
 				serviceSupabase,
@@ -3227,116 +3281,117 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 	}
 
 	const stripe = getStripeClient();
-	let paymentIntent = null;
-	let resolvedSubscriptionId = subscriptionIdFromPayload || null;
-	let subscriptionMetadata = null;
+	const stripeOptions = { stripeAccount: donationAccount.stripe_account_id };
+	let metadata;
+	let customerId;
+	let subscriptionId = subscriptionIdFromPayload;
+	let paymentStatus;
 	try {
-		if (paymentIntentId) {
-			paymentIntent = await stripe.paymentIntents.retrieve(
-				paymentIntentId,
-				{ expand: ['invoice.subscription'] },
-				{ stripeAccount: donationAccount.stripe_account_id }
-			);
-			if (
-				paymentIntent?.invoice &&
-				typeof paymentIntent.invoice === 'object' &&
-				paymentIntent.invoice.subscription &&
-				typeof paymentIntent.invoice.subscription === 'object'
-			) {
-				resolvedSubscriptionId = paymentIntent.invoice.subscription.id || resolvedSubscriptionId;
-				subscriptionMetadata =
-					paymentIntent.invoice.subscription.metadata &&
-					typeof paymentIntent.invoice.subscription.metadata === 'object'
-						? paymentIntent.invoice.subscription.metadata
-						: null;
+		if (!subscriptionId) {
+			const intent = await stripe.paymentIntents.retrieve(paymentIntentId, {}, stripeOptions);
+			metadata = intent.metadata;
+			customerId = extractStripeObjectId(intent.customer);
+			paymentStatus = intent.status;
+
+			if (!isMembershipMetadata(metadata) || metadata.membership_billing_type === 'recurring') {
+				// Current Stripe intents link to invoices through InvoicePayment. Older
+				// responses can still carry an invoice directly.
+				let invoice = intent.invoice;
+				if (typeof invoice === 'string') {
+					invoice = await stripe.invoices.retrieve(invoice, {}, stripeOptions);
+				}
+				if (!invoice) {
+					const payments = await stripe.invoicePayments.list(
+						{
+							payment: { type: 'payment_intent', payment_intent: paymentIntentId },
+							expand: ['data.invoice'],
+							limit: 2
+						},
+						stripeOptions
+					);
+					if (payments.data.length === 1) invoice = payments.data[0].invoice;
+				}
+				subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+				if (!subscriptionId) {
+					return { ok: false, status: 409, error: 'This payment is not a membership payment.' };
+				}
 			}
-			if (!subscriptionMetadata && subscriptionIdFromPayload) {
-				const payloadSubscription = await stripe.subscriptions.retrieve(
-					subscriptionIdFromPayload,
-					{},
-					{ stripeAccount: donationAccount.stripe_account_id }
-				);
-				resolvedSubscriptionId = payloadSubscription.id || resolvedSubscriptionId;
-				subscriptionMetadata =
-					payloadSubscription?.metadata && typeof payloadSubscription.metadata === 'object'
-						? payloadSubscription.metadata
-						: null;
-			}
-		} else if (subscriptionIdFromPayload) {
+		}
+
+		if (subscriptionId) {
 			const subscription = await stripe.subscriptions.retrieve(
-				subscriptionIdFromPayload,
-				{ expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'] },
-				{ stripeAccount: donationAccount.stripe_account_id }
+				subscriptionId,
+				{ expand: ['latest_invoice'] },
+				stripeOptions
 			);
-			resolvedSubscriptionId = subscription.id;
-			subscriptionMetadata =
-				subscription?.metadata && typeof subscription.metadata === 'object'
-					? subscription.metadata
-					: null;
-			const latestInvoice =
-				subscription?.latest_invoice && typeof subscription.latest_invoice === 'object'
-					? subscription.latest_invoice
-					: null;
-			if (latestInvoice?.payment_intent) {
-				paymentIntent =
-					typeof latestInvoice.payment_intent === 'object'
-						? latestInvoice.payment_intent
-						: await stripe.paymentIntents.retrieve(
-								latestInvoice.payment_intent,
-								{ expand: ['invoice.subscription'] },
-								{ stripeAccount: donationAccount.stripe_account_id }
-							);
+			metadata = subscription.metadata;
+			customerId = extractStripeObjectId(subscription.customer);
+			let invoice = subscription.latest_invoice;
+			if (typeof invoice === 'string') {
+				invoice = await stripe.invoices.retrieve(invoice, {}, stripeOptions);
 			}
+			if (
+				!isMembershipMetadata(metadata) ||
+				metadata.membership_group_id !== auth.group.id ||
+				metadata.membership_user_id !== auth.userId
+			) {
+				return {
+					ok: false,
+					status: 403,
+					error: 'Payment does not belong to this membership context.'
+				};
+			}
+			if (!invoice) {
+				return { ok: true, data: { completed: false, payment_status: 'processing' } };
+			}
+			if (extractSubscriptionIdFromInvoice(invoice) !== subscription.id) {
+				return { ok: false, status: 409, error: 'Invoice does not belong to this subscription.' };
+			}
+			if (paymentIntentId) {
+				const legacyIntentId = extractStripeObjectId(invoice.payment_intent);
+				const payments = legacyIntentId
+					? null
+					: await stripe.invoicePayments.list(
+							{
+								invoice: invoice.id,
+								payment: { type: 'payment_intent', payment_intent: paymentIntentId },
+								limit: 1
+							},
+							stripeOptions
+						);
+				const invoicePayment = payments?.data[0];
+				if (
+					legacyIntentId
+						? legacyIntentId !== paymentIntentId
+						: extractStripeObjectId(invoicePayment?.invoice) !== invoice.id ||
+							extractStripeObjectId(invoicePayment?.payment?.payment_intent) !== paymentIntentId
+				) {
+					return { ok: false, status: 409, error: 'Payment does not belong to this subscription.' };
+				}
+				if (invoicePayment && invoicePayment.status !== 'paid') {
+					return { ok: true, data: { completed: false, payment_status: 'processing' } };
+				}
+			}
+			paymentStatus =
+				subscription.status === 'active' && (invoice.status === 'paid' || invoice.paid === true)
+					? 'succeeded'
+					: 'processing';
+			subscriptionId = subscription.id;
 		}
 	} catch {
 		return { ok: false, status: 502, error: 'Unable to verify Stripe payment intent.' };
 	}
-	if (!paymentIntent) {
-		return {
-			ok: true,
-			data: {
-				completed: false,
-				payment_status: 'processing'
-			}
-		};
-	}
 
-	const metadata = isMembershipMetadata(paymentIntent?.metadata)
-		? paymentIntent.metadata
-		: isMembershipMetadata(subscriptionMetadata)
-			? subscriptionMetadata
-			: {};
-	if (!isMembershipMetadata(metadata)) {
-		return { ok: false, status: 409, error: 'This payment intent is not a membership payment.' };
-	}
 	if (
-		cleanText(metadata.membership_group_id, 64) !== auth.group.id ||
-		cleanText(metadata.membership_user_id, 64) !== auth.userId
+		!isMembershipMetadata(metadata) ||
+		metadata.membership_group_id !== auth.group.id ||
+		metadata.membership_user_id !== auth.userId
 	) {
-		return {
-			ok: false,
-			status: 403,
-			error: 'Payment intent does not belong to this membership context.'
-		};
+		return { ok: false, status: 403, error: 'Payment does not belong to this membership context.' };
 	}
-
-	if (paymentIntent.status !== 'succeeded') {
-		return {
-			ok: true,
-			data: {
-				completed: false,
-				payment_status: paymentIntent.status
-			}
-		};
+	if (paymentStatus !== 'succeeded') {
+		return { ok: true, data: { completed: false, payment_status: paymentStatus } };
 	}
-
-	const subscriptionId =
-		paymentIntent?.invoice &&
-		typeof paymentIntent.invoice === 'object' &&
-		paymentIntent.invoice.subscription &&
-		typeof paymentIntent.invoice.subscription === 'object'
-			? paymentIntent.invoice.subscription.id || null
-			: resolvedSubscriptionId;
 
 	const activation = await activateMembershipFromMetadata({
 		serviceSupabase: auth.serviceSupabase,
@@ -3344,7 +3399,7 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 		stripeSession: {
 			payment_status: 'paid',
 			status: 'succeeded',
-			customer: paymentIntent.customer,
+			customer: customerId,
 			subscription: subscriptionId
 		},
 		stripeAccountId: donationAccount.stripe_account_id,
@@ -3364,7 +3419,7 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 		data: {
 			completed: true,
 			membership_id: activation.membership_id || null,
-			payment_status: paymentIntent.status
+			payment_status: paymentStatus
 		}
 	};
 }
@@ -3404,7 +3459,9 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 	}
 
 	const requestedTier = await loadTierById(serviceSupabase, requestedTierId);
-	if (!requestedTier) return { ok: false, status: 404, error: 'Requested tier not found.' };
+	if (!requestedTier || requestedTier.is_active === false) {
+		return { ok: false, status: 404, error: 'Requested tier not found.' };
+	}
 	if (requestedTier.allow_custom_amount === true) {
 		return {
 			ok: false,
@@ -3416,11 +3473,36 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 
 	const { data: program } = await serviceSupabase
 		.from('group_membership_programs')
-		.select('id')
+		.select('id,enabled,contribution_mode')
 		.eq('group_id', auth.group.id)
 		.maybeSingle();
-	if (!program || requestedTier.program_id !== program.id) {
+	if (!program?.enabled || requestedTier.program_id !== program.id) {
 		return { ok: false, status: 400, error: 'Requested tier does not belong to this group.' };
+	}
+
+	const requiresPayment = membershipTierRequiresPayment(program, requestedTier);
+	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
+	if (requiresPayment) {
+		const interval = INTERVAL_UNITS.has(membership.interval_unit)
+			? membership.interval_unit
+			: 'month';
+		if (
+			requestedTier.billing_type !== 'recurring' ||
+			!donationAccount?.stripe_account_id ||
+			!(resolveTierAmountByInterval(requestedTier, interval) > 0)
+		) {
+			return { ok: false, status: 409, error: 'Complete checkout to activate this tier.' };
+		}
+
+		const { data: billing, error: billingError } = await serviceSupabase
+			.from('group_membership_billing')
+			.select('stripe_subscription_id')
+			.eq('membership_id', membership.id)
+			.maybeSingle();
+		if (billingError) throw new Error(billingError.message);
+		if (!billing?.stripe_subscription_id) {
+			return { ok: false, status: 409, error: 'Complete checkout to activate this tier.' };
+		}
 	}
 
 	const now = toIsoNow();
@@ -3481,14 +3563,14 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 	}
 
 	try {
-		const donationAccount = await loadDonationAccountForGroup(serviceSupabase, auth.group.id);
 		if (donationAccount?.stripe_account_id && requestedTier.billing_type === 'recurring') {
-			await updateStripeSubscriptionPriceForTierChange({
+			const priceId = await updateStripeSubscriptionPriceForTierChange({
 				serviceSupabase,
 				membership,
 				requestedTier,
 				stripeAccountId: donationAccount.stripe_account_id
 			});
+			if (requiresPayment && !priceId) throw new Error('Membership subscription is unavailable.');
 		}
 	} catch (error) {
 		if (data?.id && rollbackPending?.mode === 'delete') {
@@ -5014,6 +5096,10 @@ async function activateMembershipFromMetadata({
 		return { ok: false, matched: true, error: 'Missing required membership metadata fields.' };
 	}
 
+	if (!(await stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, stripeAccountId))) {
+		return { ok: false, matched: false, error: 'Payment account does not match this group.' };
+	}
+
 	const group = await loadGroupById(serviceSupabase, groupId);
 	if (!group)
 		return { ok: false, matched: true, error: 'Group not found for membership metadata.' };
@@ -5033,7 +5119,7 @@ async function activateMembershipFromMetadata({
 		typeof stripeSession?.subscription === 'string'
 			? stripeSession.subscription
 			: stripeSession?.subscription?.id || null;
-	const customerId = extractCustomerId(stripeSession?.customer) || null;
+	const customerId = extractStripeObjectId(stripeSession?.customer) || null;
 	const paymentStatus = cleanNullableText(
 		stripeSession?.payment_status || stripeSession?.status || 'paid',
 		120
@@ -5254,6 +5340,16 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		if (!billing) return { ok: true, matched: false };
 		if (!membership) return { ok: true, matched: false };
 
+		if (
+			!(await stripeAccountMatchesMembershipGroup(
+				serviceSupabase,
+				membership.group_id,
+				stripeAccountId
+			))
+		) {
+			return { ok: true, matched: false };
+		}
+
 		const nextBillingAt = extractInvoiceNextBillingAt(dataObject);
 		const isPaid = eventType === 'invoice.paid';
 		const paymentStatus = isPaid ? 'paid' : 'failed';
@@ -5297,7 +5393,8 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 			await applyPendingTierChange({
 				serviceSupabase,
 				membership,
-				stripeAccountId
+				stripeAccountId,
+				invoice: dataObject
 			}).catch((error) => {
 				console.error('Unable to apply pending tier change after invoice payment', error);
 			});
@@ -5334,6 +5431,16 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		if (!billing) return { ok: true, matched: false };
 		const membership = await loadMembershipById(serviceSupabase, billing.membership_id);
 		if (!membership) return { ok: true, matched: false };
+
+		if (
+			!(await stripeAccountMatchesMembershipGroup(
+				serviceSupabase,
+				membership.group_id,
+				stripeAccountId
+			))
+		) {
+			return { ok: true, matched: false };
+		}
 
 		const subStatus = cleanText(dataObject?.status, 40);
 		let membershipStatus = membership.status;
