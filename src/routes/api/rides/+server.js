@@ -269,6 +269,9 @@ export async function POST({ request, cookies }) {
 	await syncActivityOccurrences(writeSupabase, activity.id, schedule);
 	await refreshActivityNextOccurrence(writeSupabase, activity.id);
 
-	const ride = await loadRideBySlug(supabase, slug, { includeTemplates: true });
+	const ride = await loadRideBySlug(supabase, slug, {
+		includeTemplates: true,
+		includePrivateRsvps: true
+	});
 	return json({ data: ride }, { status: 201 });
 }

@@ -975,7 +975,7 @@
 					</div>
 					{#if participantListVisible}
 						<div class="border-surface-50 border-t-2">
-							{#each selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going') ?? [] as rsvp, idx (rsvp.userId ?? idx)}
+							{#each selectedOccurrence?.rsvps?.filter((entry) => entry.status === 'going') ?? [] as rsvp, idx (rsvp.id)}
 								<div class="border-surface-50/20 flex items-center gap-4 border-b py-3.5">
 									<span class="text-primary-500 text-xl font-black italic tabular-nums">
 										{String(idx + 1).padStart(2, '0')}

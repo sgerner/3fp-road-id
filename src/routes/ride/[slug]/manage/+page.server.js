@@ -20,7 +20,8 @@ export const load = async ({ params, cookies }) => {
 
 	const ride = await loadRideBySlug(supabase, params.slug, {
 		includeTemplates: true,
-		includePrivateProfiles: true
+		includePrivateProfiles: true,
+		includePrivateRsvps: true
 	}).catch((err) => {
 		console.error('Unable to load manage ride page', err);
 		return null;

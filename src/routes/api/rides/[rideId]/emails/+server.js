@@ -45,9 +45,10 @@ export async function POST(event) {
 		return invalid('occurrenceId, subject, and body are required.');
 	}
 
-	const ride = await loadRideById(supabase, params.rideId, { includeTemplates: true }).catch(
-		() => null
-	);
+	const ride = await loadRideById(supabase, params.rideId, {
+		includeTemplates: true,
+		includePrivateRsvps: true
+	}).catch(() => null);
 	if (!ride) return invalid('Ride not found or unavailable.', 404);
 
 	const occurrence = ride.occurrences.find(
