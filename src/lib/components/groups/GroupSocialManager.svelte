@@ -74,6 +74,11 @@
 	let uploadingMedia = $state(false);
 	let queuedMediaFiles = $state([]);
 	let composerModalOpen = $state(false);
+	let composerDialog = $state(null);
+
+	$effect(() => {
+		if (composerModalOpen && composerDialog && !composerDialog.open) composerDialog.showModal();
+	});
 	let composerPreviewExpanded = $state(false);
 	let mobilePreviewOpen = $state(false);
 	let mediaDropActive = $state(false);
@@ -497,6 +502,7 @@
 	}
 
 	function closeComposerModal() {
+		if (composerDialog?.open) composerDialog.close();
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
 		mobilePreviewOpen = false;
@@ -1364,7 +1370,7 @@
 			await refreshPosts();
 			await loadContentLibrary(contentLibraryFilter);
 			if (intent !== 'save_draft') {
-				composerModalOpen = false;
+				closeComposerModal();
 			}
 		} catch (error) {
 			showActionError(error?.message || 'Unable to save post.');
@@ -1780,9 +1786,7 @@
 </script>
 
 {#if canManageSocial || showClaimMessage}
-	<section
-		class="card border-surface-300-700 bg-surface-100-900/70 space-y-6 rounded-2xl border p-5"
-	>
+	<section class="card border-surface-300-700 bg-surface-100-900 space-y-6 border p-5">
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div>
 				<h2 class="text-xl font-semibold">Social Media Manager</h2>
@@ -1809,32 +1813,31 @@
 		</div>
 
 		{#if showClaimMessage && !canManageSocial}
-			<div class="card border-warning-400-600/30 bg-warning-500/10 rounded-xl border p-4 text-sm">
+			<div class="card border-warning-400-600/30 bg-warning-500/10 border p-4 text-sm">
 				This group must be claimed first before social media management is available.
 			</div>
 		{:else}
 			{#if loadError}
-				<div class="card border-error-400-600/35 bg-error-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-error-400-600/35 bg-error-500/10 border p-3 text-sm">
 					{loadError}
 				</div>
 			{/if}
 			{#if actionError}
-				<div class="card border-error-400-600/35 bg-error-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-error-400-600/35 bg-error-500/10 border p-3 text-sm">
 					{actionError}
 				</div>
 			{/if}
 			{#if actionNotice}
-				<div class="card border-success-400-600/35 bg-success-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-success-400-600/35 bg-success-500/10 border p-3 text-sm">
 					{actionNotice}
 				</div>
 			{/if}
 
 			{#if shouldShowConnectionsPanel}
 				<section
-					class="tip-card relative overflow-hidden rounded-xl p-4"
+					class="bg-surface-200-800 border-surface-300-700 border p-4"
 					in:fade={{ duration: 250, delay: 100 }}
 				>
-					<div class="tip-glow" aria-hidden="true"></div>
 					<div class="relative z-10 mb-4 flex items-start gap-3">
 						<div
 							class="bg-secondary-500/15 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
@@ -1853,7 +1856,7 @@
 						{#each PLATFORMS as platform}
 							{@const account = accountByPlatform(platform)}
 							{@const pending = pendingByPlatform(platform)}
-							<div class="card border-surface-300-700 rounded-xl border p-4">
+							<div class="card border-surface-300-700 border p-4">
 								<div class="flex items-start justify-between gap-3">
 									<div>
 										<div class="font-semibold">{platformLabel(platform)}</div>
@@ -1896,7 +1899,7 @@
 
 								{#if pending && Array.isArray(pending.options) && pending.options.length}
 									<div
-										class="card border-warning-400-600/35 bg-warning-500/10 mt-3 space-y-2 rounded-lg border p-3"
+										class="card border-warning-400-600/35 bg-warning-500/10 mt-3 space-y-2 border p-3"
 									>
 										<div class="text-xs font-medium">
 											Choose the {platformLabel(platform)} account to connect
@@ -2038,7 +2041,7 @@
 							<div class="grid gap-2 sm:hidden">
 								{#each mobileMonthDays as day}
 									<div
-										class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+										class={`event-card bg-surface-50-950 border-surface-500/20 border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 									>
 										<div class="flex items-center justify-between">
 											<div class="text-xs font-semibold">
@@ -2100,7 +2103,7 @@
 									{#each monthMatrix as week, i}
 										{#each week as day, j}
 											<div
-												class={`event-card bg-surface-50-950/40 border-surface-500/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+												class={`event-card bg-surface-50-950 border-surface-500/20 flex h-28 flex-col border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 												style="--stagger: {(i * 7 + j) % 21}"
 											>
 												<div class="flex items-center justify-between gap-1">
@@ -2212,7 +2215,7 @@
 								</table>
 							</div>
 						{:else if calendarView === 'day'}
-							<div class="card border-surface-300-700 rounded-xl border p-3">
+							<div class="card border-surface-300-700 border p-3">
 								<div class="space-y-2">
 									{#each daySlots as slot}
 										<div
@@ -2262,7 +2265,7 @@
 							<div class="space-y-3">
 								{#if upcomingCards.length === 0}
 									<div
-										class="card preset-filled-surface-100-900 border-surface-200-800 flex flex-col items-center justify-center rounded-xl border p-8 text-center"
+										class="card preset-filled-surface-100-900 border-surface-200-800 flex flex-col items-center justify-center border p-8 text-center"
 									>
 										<div
 											class="bg-surface-200-800 mb-3 flex h-12 w-12 items-center justify-center rounded-full"
@@ -2275,7 +2278,7 @@
 								{:else}
 									{#each upcomingCards as post}
 										<div
-											class="card preset-filled-surface-100-900 border-surface-200-800 group hover:border-primary-500/30 relative overflow-hidden rounded-xl border transition-all duration-200"
+											class="card preset-filled-surface-100-900 border-surface-200-800 group hover:border-primary-500/30 relative overflow-hidden border transition-all duration-200"
 										>
 											<!-- Status indicator line -->
 											<div
@@ -2442,15 +2445,12 @@
 			</section>
 
 			{#if composerModalOpen}
-				<div
-					class="composer-backdrop"
-					role="dialog"
-					aria-modal="true"
-					aria-label={composerReadOnly ? 'Post Details' : 'Schedule Content'}
-					tabindex="-1"
+				<dialog
+					bind:this={composerDialog}
+					class="composer-dialog"
+					aria-labelledby="social-composer-title"
+					onclose={closeComposerModal}
 					onclick={(event) => event.target === event.currentTarget && closeComposerModal()}
-					onkeydown={(event) => event.key === 'Escape' && closeComposerModal()}
-					transition:fade={{ duration: 200 }}
 				>
 					<div class="composer-panel">
 						<!-- Header -->
@@ -2460,7 +2460,7 @@
 									<IconSparkles class="h-4 w-4" />
 								</div>
 								<div>
-									<h3 class="composer-title">
+									<h3 id="social-composer-title" class="composer-title">
 										{composerReadOnly ? 'Scheduled Post Details' : 'Schedule Content'}
 									</h3>
 									<p class="composer-subtitle">
@@ -3112,8 +3112,7 @@
 						</div>
 					</div>
 					<!-- /composer-panel -->
-				</div>
-				<!-- /composer-backdrop -->
+				</dialog>
 			{/if}
 
 			<section class="space-y-3">
@@ -3169,7 +3168,7 @@
 						</button>
 					</div>
 				</div>
-				<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4">
+				<div class="card border-surface-300-700 bg-surface-50-950 border p-4">
 					<div class="flex flex-wrap items-end gap-3">
 						<label
 							class="btn btn-sm preset-filled-primary-500 cursor-pointer justify-center"
@@ -3198,16 +3197,14 @@
 					</p>
 				</div>
 				{#if filteredLibraryItems.length === 0}
-					<div
-						class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4 text-sm"
-					>
+					<div class="card border-surface-300-700 bg-surface-50-950 border p-4 text-sm">
 						No content found for this filter. Save AI-generated drafts from the composer to build
 						your library.
 					</div>
 				{:else}
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 						{#each filteredLibraryItems as item}
-							<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-3">
+							<div class="card border-surface-300-700 bg-surface-50-950 border p-3">
 								{#if postPrimaryImageUrl(item)}
 									<img
 										src={postPrimaryImageUrl(item)}
@@ -3608,71 +3605,46 @@
 {/if}
 
 <style>
-	/* ─── Existing tip-card / glow (unchanged) ─── */
-	.tip-card {
-		background: color-mix(in oklab, var(--color-secondary-500) 6%, var(--color-surface-900) 94%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
-	}
-
-	.tip-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 50% 40% at 0% 100%,
-			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
 	/* ─── Composer Modal ─── */
 
-	.composer-backdrop {
+	.composer-dialog {
 		position: fixed;
-		inset: 0;
-		margin: 0;
-		z-index: 120;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding: 0;
-		background: color-mix(in oklab, var(--color-surface-950) 85%, transparent);
-		backdrop-filter: blur(8px);
-		padding-bottom: env(safe-area-inset-bottom);
-	}
-
-	@media (min-width: 640px) {
-		.composer-backdrop {
-			align-items: center;
-		}
-	}
-
-	.composer-panel {
+		inset: auto 0 env(safe-area-inset-bottom);
+		margin: 0 auto;
 		width: 100%;
 		max-width: 42rem;
 		max-height: 95dvh;
+		padding: 0;
+		background: transparent;
+	}
+
+	.composer-dialog::backdrop {
+		background: rgb(0 0 0 / 85%);
+	}
+
+	.composer-panel {
+		max-height: 95dvh;
 		display: flex;
 		flex-direction: column;
-		border-radius: 1.5rem 1.5rem 0 0;
-		background: color-mix(in oklab, var(--color-surface-900) 97%, var(--color-secondary-500) 3%);
-		border: 1px solid
-			color-mix(in oklab, var(--color-surface-700) 60%, var(--color-secondary-500) 40%);
-		box-shadow:
-			0 -4px 40px -8px color-mix(in oklab, var(--color-secondary-500) 20%, transparent),
-			0 25px 60px -12px rgba(0, 0, 0, 0.6);
+		background: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
 		overflow: hidden;
 	}
 
 	@media (min-width: 640px) {
+		.composer-dialog {
+			inset: 0;
+			margin: auto;
+		}
+
+		.composer-dialog,
 		.composer-panel {
-			max-width: 42rem;
-			border-radius: 1.5rem;
 			max-height: 90dvh;
 		}
 	}
 
 	@media (min-width: 1024px) {
-		.composer-panel {
+		.composer-dialog {
 			max-width: 64rem;
 		}
 	}

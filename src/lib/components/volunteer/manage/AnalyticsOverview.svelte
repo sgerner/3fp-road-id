@@ -23,23 +23,25 @@
 	}
 </script>
 
-<section class="border-surface-300-700 bg-surface-100-900/70 rounded-2xl border p-6 shadow-xl">
+<section class="border-surface-300-700 bg-surface-100-900 border-primary-500 border-t-4 p-6">
 	<!-- Overall stats strip -->
-	<div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-		<div class="bg-surface-50-950/40 border-surface-300-700/50 rounded-xl border p-4 text-center">
-			<div class="text-surface-950-50 text-3xl font-bold">{counts.total ?? 0}</div>
+	<div class="mb-6 grid grid-cols-2 gap-x-4 sm:grid-cols-4">
+		<div class="border-surface-300-700 border-t-2 p-4 text-center">
+			<div class="text-surface-950-50 text-3xl font-black tabular-nums">{counts.total ?? 0}</div>
 			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Total</div>
 		</div>
-		<div class="bg-success-500/10 border-success-500/30 rounded-xl border p-4 text-center">
-			<div class="text-success-400 text-3xl font-bold">{counts.approved ?? 0}</div>
+		<div class="border-surface-300-700 border-t-2 p-4 text-center">
+			<div class="text-success-400 text-3xl font-black tabular-nums">{counts.approved ?? 0}</div>
 			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Approved</div>
 		</div>
-		<div class="bg-warning-500/10 border-warning-500/30 rounded-xl border p-4 text-center">
-			<div class="text-warning-400 text-3xl font-bold">{counts.pending ?? 0}</div>
+		<div class="border-surface-300-700 border-t-2 p-4 text-center">
+			<div class="text-warning-400 text-3xl font-black tabular-nums">{counts.pending ?? 0}</div>
 			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Pending</div>
 		</div>
-		<div class="bg-surface-500/10 border-surface-500/30 rounded-xl border p-4 text-center">
-			<div class="text-surface-300 text-3xl font-bold">{counts.attending ?? 0}</div>
+		<div class="border-surface-300-700 border-t-2 p-4 text-center">
+			<div class="text-surface-950-50 text-3xl font-black tabular-nums">
+				{counts.attending ?? 0}
+			</div>
 			<div class="text-surface-600-400 mt-0.5 text-xs tracking-wide uppercase">Checked In</div>
 		</div>
 	</div>
@@ -47,14 +49,16 @@
 	{#if shiftGroups.length}
 		<div class="space-y-5">
 			<header>
-				<h3 class="text-surface-950-50 !text-left text-base font-semibold">Shift Coverage</h3>
+				<h3 class="text-surface-950-50! !text-left text-base font-black uppercase">
+					Shift Coverage
+				</h3>
 				<p class="text-surface-600-400 text-xs">Approved volunteers vs. capacity per shift</p>
 			</header>
 			<div class="space-y-4">
 				{#each shiftGroups as group (group.id)}
 					<div class="space-y-2">
 						<h4
-							class="text-surface-700-300 !text-left text-xs font-semibold tracking-wider uppercase"
+							class="text-surface-700-300! !text-left text-xs font-black tracking-wider uppercase"
 						>
 							{group.title}
 						</h4>
@@ -79,16 +83,16 @@
 									</div>
 								</div>
 								{#if pct !== null}
-									<div class="bg-surface-300-700/40 h-1.5 w-full overflow-hidden rounded-full">
+									<div class="bg-surface-300-700 h-1.5 w-full overflow-hidden rounded-none!">
 										<div
-											class={`h-full rounded-full transition-all ${fillColor(pct)}`}
+											class={`h-full rounded-none! transition-all ${fillColor(pct)}`}
 											style="width: {pct}%"
 										></div>
 									</div>
 								{:else}
 									<!-- No capacity set: just show a subtle bar proportional to approved count -->
-									<div class="bg-surface-300-700/40 h-1.5 w-full overflow-hidden rounded-full">
-										<div class="bg-primary-500/60 h-full rounded-full" style="width: 60%"></div>
+									<div class="bg-surface-300-700 h-1.5 w-full overflow-hidden rounded-none!">
+										<div class="bg-primary-500 h-full rounded-none!" style="width: 60%"></div>
 									</div>
 								{/if}
 							</div>
