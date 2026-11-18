@@ -1639,7 +1639,7 @@
 </svelte:head>
 
 {#if currentUser?.id}
-	<main class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
+	<div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
 		<!-- ── Page Header ── -->
 		<header class="card preset-outlined-primary-500 bg-surface-50-950/80 p-6 shadow-lg">
 			<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -2116,9 +2116,9 @@
 				</button>
 			</div>
 		</section>
-	</main>
+	</div>
 {:else}
-	<main class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-20">
+	<div class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-20">
 		<section
 			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] p-6 sm:p-10"
 		>
@@ -2151,7 +2151,7 @@
 				</a>
 			</div>
 		</section>
-	</main>
+	</div>
 {/if}
 
 <style>

@@ -21,6 +21,11 @@
 	let addedProductId = $state(null);
 	let cartBounce = $state(false);
 	let lightboxOpen = $state(false);
+	let lightboxDialog = $state(null);
+
+	$effect(() => {
+		if (lightboxOpen && lightboxDialog && !lightboxDialog.open) lightboxDialog.showModal();
+	});
 	let lightboxProductName = $state('');
 	let lightboxImages = $state([]);
 	let lightboxIndex = $state(0);
@@ -90,6 +95,7 @@
 	}
 
 	function closeLightbox() {
+		if (lightboxDialog?.open) lightboxDialog.close();
 		lightboxOpen = false;
 		lightboxImages = [];
 		lightboxIndex = 0;
@@ -106,9 +112,7 @@
 		lightboxIndex = lightboxIndex >= lightboxImages.length - 1 ? 0 : lightboxIndex + 1;
 	}
 
-	function onWindowKeydown(event) {
-		if (!lightboxOpen) return;
-		if (event.key === 'Escape') closeLightbox();
+	function onLightboxKeydown(event) {
 		if (event.key === 'ArrowLeft') prevLightbox();
 		if (event.key === 'ArrowRight') nextLightbox();
 	}
@@ -173,8 +177,6 @@
 		}
 	});
 </script>
-
-<svelte:window onkeydown={onWindowKeydown} />
 
 <svelte:head>
 	<title>Merch Store • 3 Feet Please</title>
@@ -862,23 +864,15 @@
 
 <!-- ═══ LIGHTBOX ════════════════════════════════════════════════ -->
 {#if lightboxOpen}
-	<div
-		class="bg-surface-950/95 fixed inset-0 z-80 grid place-items-center p-4"
-		role="button"
-		aria-label="Close gallery overlay"
-		tabindex="0"
-		onclick={closeLightbox}
-		onkeydown={(event) => event.key === 'Escape' && closeLightbox()}
+	<dialog
+		bind:this={lightboxDialog}
+		aria-label={lightboxProductName}
+		onclose={closeLightbox}
+		onkeydown={onLightboxKeydown}
+		onclick={(event) => event.target === event.currentTarget && closeLightbox()}
+		class="backdrop:bg-surface-950/95 fixed inset-0 m-auto max-h-[94dvh] w-[calc(100%-2rem)] max-w-4xl bg-transparent p-0"
 	>
-		<div
-			class="bg-surface-950 border-primary-500 grid max-h-[94vh] w-full max-w-4xl gap-4 border-[3px] p-5"
-			role="dialog"
-			aria-modal="true"
-			aria-label={lightboxProductName}
-			tabindex="-1"
-			onclick={(event) => event.stopPropagation()}
-			onkeydown={(event) => event.stopPropagation()}
-		>
+		<div class="bg-surface-950 border-primary-500 grid gap-4 border-[3px] p-5">
 			<div class="border-surface-800 flex items-center justify-between gap-4 border-b-2 pb-3">
 				<div>
 					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
@@ -946,7 +940,7 @@
 				</div>
 			{/if}
 		</div>
-	</div>
+	</dialog>
 {/if}
 
 <style>
