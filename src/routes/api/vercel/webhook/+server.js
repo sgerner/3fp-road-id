@@ -2,7 +2,11 @@ import { json } from '@sveltejs/kit';
 import * as env from '$app/env/private';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import { normalizeDomain } from '#lib/server/vercelDomains';
-import { enforceRateLimit, readRawBody, verifyWebhookRequest } from '#lib/server/security';
+import {
+	enforceRateLimit,
+	readRequestBytes,
+	verifyVercelWebhookRequest
+} from '#lib/server/security';
 
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
@@ -40,22 +44,17 @@ export async function POST(event) {
 		return json({ error: 'Webhook authentication is not configured.' }, { status: 503 });
 	}
 
-	const rawResult = await readRawBody(request, { maxBytes: 256 * 1024 });
+	const rawResult = await readRequestBytes(request, 256 * 1024);
 	if (!rawResult.ok) {
 		return json({ error: rawResult.error }, { status: rawResult.status });
 	}
-	if (
-		!verifyWebhookRequest(request, rawResult.value, webhookSecret, {
-			directHeaders: ['x-vercel-webhook-secret'],
-			signatureHeaders: ['x-vercel-signature', 'x-webhook-signature']
-		})
-	) {
+	if (!verifyVercelWebhookRequest(request, rawResult.value, webhookSecret)) {
 		return json({ error: 'Unauthorized webhook request.' }, { status: 401 });
 	}
 
 	let body;
 	try {
-		body = rawResult.value ? JSON.parse(rawResult.value) : {};
+		body = rawResult.value.length ? JSON.parse(rawResult.value.toString('utf8')) : {};
 	} catch {
 		return json({ error: 'Invalid webhook payload.' }, { status: 400 });
 	}
