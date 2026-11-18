@@ -324,12 +324,12 @@
 	<!-- Skeleton UI Tabs -->
 	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
 		<div
-			class="bg-secondary-500 text-surface-50 border-surface-950 border-y-[3px] px-6 py-3 sm:px-10 lg:px-14"
+			class="bg-secondary-500 text-surface-50 border-surface-950 border-y-[3px] px-3 py-2 sm:px-10 sm:py-3 lg:px-14"
 		>
-			<Tabs.List class="flex flex-wrap gap-3 border-0">
+			<Tabs.List class="flex flex-wrap gap-1 border-0 sm:gap-3">
 				<Tabs.Trigger
 					value="profile"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'profile'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -338,7 +338,7 @@
 				</Tabs.Trigger>
 				<Tabs.Trigger
 					value="crash"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'crash'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -347,7 +347,7 @@
 				</Tabs.Trigger>
 				<Tabs.Trigger
 					value="alert"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'alert'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -377,15 +377,10 @@
 							<strong class="text-primary-500 font-black">{code}</strong> yet.
 						</p>
 						<p class="text-surface-300 m-0 text-base leading-relaxed">
-							For more information about ordering a bracelet, please visit
-							<a
-								href="https://3feetplease.org"
-								target="_blank"
-								rel="noopener noreferrer"
-								class="text-primary-500 font-bold underline"
-							>
-								3 Feet Please
-							</a>.
+							For details about In Case bracelets, see
+							<a href="/roadid" class="text-primary-500 font-bold underline"
+								>the bracelet information page</a
+							>.
 						</p>
 					</section>
 				{:else if !profile.claimed && !user}
@@ -534,9 +529,10 @@
 										Phone
 									</label>
 									<input
-										type="text"
+										type="tel"
 										id="phone"
 										value={profile?.phone}
+										autocomplete="tel"
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
 											profile.phone = e.target.value;
@@ -715,9 +711,10 @@
 													Phone
 												</label>
 												<input
-													type="text"
+													type="tel"
 													id={`contact-phone-${contact.id}`}
 													bind:value={contact.contact_phone}
+													autocomplete="tel"
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
@@ -780,9 +777,10 @@
 												Phone
 											</label>
 											<input
-												type="text"
+												type="tel"
 												id="contact_phone"
 												bind:value={newContact.contact_phone}
+												autocomplete="tel"
 												class="input bg-surface-900 border-surface-700 text-surface-50"
 												required
 											/>
@@ -807,22 +805,26 @@
 									Emergency Information
 								</h2>
 								<div class="border-surface-50 divide-surface-800 flex flex-col divide-y border-t-2">
-									<div class="flex items-center justify-between gap-4 py-4">
+									<div class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4">
 										<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 											Name
 										</span>
-										<strong class="text-lg font-black">{profile?.full_name}</strong>
+										<strong class="min-w-0 text-right text-lg font-black break-words"
+											>{profile?.full_name}</strong
+										>
 									</div>
 									{#if profile.phone}
 										{@const profilePhone = normalizePhoneNumber(profile.phone)}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Phone
 											</span>
 											{#if profilePhone}
 												<a
 													href={`tel:${profilePhone}`}
-													class="text-primary-500 text-lg font-black underline"
+													class="text-primary-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-lg font-black whitespace-nowrap underline"
 												>
 													{formatPhoneNumber(profile.phone)}
 												</a>
@@ -832,7 +834,9 @@
 										</div>
 									{/if}
 									{#if profile.blood_type}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Blood Type
 											</span>
@@ -844,19 +848,26 @@
 										</div>
 									{/if}
 									{#if profile.allergies}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Allergies
 											</span>
-											<strong class="text-right font-bold">{profile?.allergies}</strong>
+											<strong class="max-w-[70%] min-w-0 text-right font-bold break-words"
+												>{profile?.allergies}</strong
+											>
 										</div>
 									{/if}
 									{#if profile.medication}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Medication
 											</span>
-											<strong class="text-right font-bold">{getMedicationArray().join(', ')}</strong
+											<strong class="max-w-[70%] min-w-0 text-right font-bold break-words"
+												>{getMedicationArray().join(', ')}</strong
 											>
 										</div>
 									{/if}
@@ -872,8 +883,10 @@
 										<ul class="divide-surface-800 m-0 list-none divide-y p-0">
 											{#each profile.emergency_contacts as contact (contact.id)}
 												{@const contactPhone = normalizePhoneNumber(contact.contact_phone)}
-												<li class="flex flex-wrap items-center justify-between gap-2 py-4">
-													<span>
+												<li
+													class="flex flex-wrap items-start justify-between gap-2 py-2 sm:items-center sm:py-4"
+												>
+													<span class="min-w-0">
 														<strong class="font-black uppercase">{contact.contact_name}</strong>
 														<span class="text-surface-300 text-sm">
 															({contact.contact_relationship})
@@ -882,7 +895,7 @@
 													{#if contactPhone}
 														<a
 															href={`tel:${contactPhone}`}
-															class="text-primary-500 font-black underline"
+															class="text-primary-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center font-black whitespace-nowrap underline"
 														>
 															{formatPhoneNumber(contact.contact_phone)}
 														</a>
@@ -992,12 +1005,12 @@
 			</div>
 		</Tabs.Content>
 		<Tabs.Content value="crash">
-			<div class="bg-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
 				<CrashResponse />
 			</div>
 		</Tabs.Content>
 		<Tabs.Content value="alert">
-			<div class="bg-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
 				<AlertSystem />
 			</div>
 		</Tabs.Content>
