@@ -1742,7 +1742,7 @@
 
 <!-- ── Sticky management header ─────────────────────────────────────────── -->
 <div
-	class="bg-surface-950/80 z-30 border-b border-white/10 px-4 pt-4 pb-0 shadow-xl backdrop-blur-xl lg:sticky lg:top-0"
+	class="bg-surface-100-900 border-primary-500 z-30 border-b-4 px-4 pt-4 pb-0 lg:sticky lg:top-0"
 >
 	<!-- Event summary row -->
 	<div class="mx-auto max-w-6xl">
@@ -1764,16 +1764,16 @@
 		</div>
 
 		<!-- Tab navigation -->
-		<nav class="mt-3 -mb-px flex gap-0.5" aria-label="Management sections">
+		<nav class="mt-3 -mb-px flex gap-0" aria-label="Management sections">
 			{#each sections as section}
 				{@const active = isSectionActive(section.id)}
 				{@const Icon = section.icon}
 				<button
 					type="button"
-					class="flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2.5 text-sm font-medium transition-all
+					class="flex items-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors
 						{active
-						? 'border-primary-400 text-primary-300'
-						: 'text-surface-400 hover:text-surface-200 hover:border-surface-500 border-transparent'}"
+						? 'border-primary-500 bg-primary-500 text-surface-950'
+						: 'text-surface-700-300 hover:text-surface-950-50 hover:border-surface-500 border-transparent'}"
 					aria-current={active ? 'page' : undefined}
 					aria-label={section.label}
 					onclick={() => setActiveSection(section.id)}
@@ -1783,6 +1783,10 @@
 				</button>
 			{/each}
 		</nav>
+		<div
+			aria-hidden="true"
+			class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+		></div>
 	</div>
 </div>
 

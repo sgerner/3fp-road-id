@@ -571,12 +571,12 @@
 	{/if}
 
 	{#if hasPaidTiers && !stripeReady}
-		<div class="banner preset-tonal-warning" role="alert">
+		<div class="banner stripe-connect-banner preset-tonal-warning" role="alert">
 			<div class="banner-content">
 				<div class="banner-icon warning">
 					<IconCreditCard class="h-4 w-4" />
 				</div>
-				<div class="flex-1">
+				<div class="min-w-0 flex-1">
 					<p class="banner-title">Connect Stripe to accept paid memberships</p>
 					<p class="banner-subtitle">
 						You have paid tiers configured. Members cannot complete payment until Stripe is
@@ -584,7 +584,7 @@
 					</p>
 				</div>
 				<a
-					class="btn preset-filled-primary-500"
+					class="btn preset-filled-primary-500 stripe-connect-action"
 					href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(slug)}"
 				>
 					<IconCreditCard class="h-4 w-4" />
@@ -1425,6 +1425,25 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.stripe-connect-banner .banner-content {
+		flex-wrap: wrap;
+	}
+
+	.stripe-connect-action {
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 639px) {
+		.stripe-connect-banner .banner-content {
+			align-items: flex-start;
+		}
+
+		.stripe-connect-action {
+			width: 100%;
+			justify-content: center;
+		}
 	}
 
 	.banner-icon {
