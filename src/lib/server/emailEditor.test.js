@@ -30,7 +30,7 @@ test('email editor operations do not mutate blocks and preserve unique ids', () 
 		newEmailBlock('button', 'https://example.com/group').url,
 		'https://example.com/group'
 	);
-	assert.equal(newEmailBlock('button', 'not a url').url, 'https://3feetplease.org');
+	assert.equal(newEmailBlock('button', 'not a url').url, 'https://3fp.org');
 });
 
 test('campaign rendering escapes content and drops unsafe URLs', () => {

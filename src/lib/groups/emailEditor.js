@@ -1,3 +1,5 @@
+import { DEFAULT_BRAND_ORIGIN } from '../email/branding.js';
+
 const escapeHtml = (value) =>
 	String(value ?? '')
 		.replaceAll('&', '&amp;')
@@ -111,7 +113,7 @@ export function newEmailBlock(type, actionUrl = '') {
 		...(type === 'text' ? { text: 'Click to write your message.' } : {}),
 		...(type === 'image' ? { url: '', alt: '' } : {}),
 		...(type === 'button'
-			? { text: 'Take the next step', url: safeWebUrl(actionUrl) || 'https://3feetplease.org' }
+			? { text: 'Take the next step', url: safeWebUrl(actionUrl) || DEFAULT_BRAND_ORIGIN }
 			: {})
 	};
 }
@@ -140,7 +142,7 @@ export function duplicateEmailBlock(blocks, id) {
 
 export function createPurposeBlocks(purpose, group = {}) {
 	const groupName = String(group?.name || 'Your group').trim();
-	const siteUrl = safeWebUrl(group?.website_url) || 'https://3feetplease.org';
+	const siteUrl = safeWebUrl(group?.website_url) || DEFAULT_BRAND_ORIGIN;
 	const block = (type, values = {}) => ({ ...newEmailBlock(type), ...values });
 
 	if (purpose === 'announcement') {
