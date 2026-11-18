@@ -99,7 +99,7 @@
 </svelte:head>
 
 <div class="min-h-screen w-full">
-	<main class="mx-auto space-y-6 px-4 py-6 md:px-6">
+	<div class="mx-auto space-y-6 px-4 py-6 md:px-6">
 		<section class="border-primary-500 bg-surface-900 overflow-hidden border-y-2">
 			<div class="flex flex-col gap-6 p-5 md:flex-row md:items-center md:justify-between md:p-6">
 				<div class="flex items-center gap-4 text-left">
@@ -186,5 +186,5 @@
 				{@render children()}
 			</div>
 		{/key}
-	</main>
+	</div>
 </div>

@@ -69,6 +69,10 @@
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
+	let loginIntent = $state(null);
+	const activeLoginIntent = $derived(
+		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
+	);
 	let showUserMenu = $state(false);
 	let email = $state('');
 	let loading = $state(false);
@@ -86,14 +90,11 @@
 	let colorMode = $state(defaultColorMode);
 	let supabaseClient = null;
 	let authSubscription = null;
-	let turnstileModule = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
 	);
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -301,11 +302,6 @@
 		return supabaseClient;
 	}
 
-	async function getTurnstileModule() {
-		if (!turnstileModule) turnstileModule = await import('#lib/security/turnstile');
-		return turnstileModule;
-	}
-
 	async function syncSessionCookie(session) {
 		const synced = await syncServerSession(session);
 		if (session && !synced) {
@@ -334,20 +330,6 @@
 		await Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
 	}
 
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const { renderTurnstile } = await getTurnstileModule();
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
 	onMount(() => {
 		if (isMicrositeRoute) {
 			return;
@@ -370,7 +352,13 @@
 			if (loginContainerEl?.contains?.(t) || loginBtnEl?.contains?.(t)) return;
 			showLogin = false;
 		}
-		function openLogin() {
+		function openLogin(event) {
+			const intent = event.detail;
+			loginIntent = isSafeInternalPath(intent?.returnTo)
+				? { returnTo: intent.returnTo, message: intent.message, sourcePath: page.url.pathname }
+				: null;
+			error = '';
+			success = '';
 			showMobileMenu = false;
 			showLogin = true;
 			void initSession();
@@ -447,10 +435,13 @@
 	});
 
 	async function doLogin(e) {
-		e?.preventDefault?.();
+		e.preventDefault();
+		if (loading) return;
+		const verificationEl = e.currentTarget.querySelector('[data-login-verification]');
 		error = '';
 		success = '';
 		loading = true;
+		const intent = activeLoginIntent;
 		try {
 			void initSession();
 			if (honeypot.trim()) {
@@ -463,13 +454,8 @@
 			}
 			let turnstileToken = '';
 			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					error = 'Verification failed. Please reload and try again.';
-					return;
-				}
-				const { executeTurnstile } = await getTurnstileModule();
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
+				const { requestTurnstileToken } = await import('#lib/security/turnstile');
+				turnstileToken = await requestTurnstileToken(verificationEl, PUBLIC_TURNSTILE_SITE_KEY);
 				if (!turnstileToken) {
 					error = 'Verification failed. Please try again.';
 					return;
@@ -491,7 +477,7 @@
 				body: JSON.stringify({
 					email,
 					createProfile: true,
-					returnTo: rt,
+					returnTo: intent?.returnTo ?? rt,
 					honeypot,
 					turnstileToken
 				})
@@ -506,10 +492,6 @@
 			error = err.message || 'Login failed.';
 		} finally {
 			loading = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				const { resetTurnstile } = await getTurnstileModule();
-				resetTurnstile(turnstileWidgetId);
-			}
 		}
 	}
 
@@ -525,8 +507,15 @@
 	}
 
 	function toggleLogin() {
-		showLogin = !showLogin;
-		if (showLogin) void initSession();
+		if (showLogin) {
+			showLogin = false;
+			return;
+		}
+		loginIntent = null;
+		error = '';
+		success = '';
+		showLogin = true;
+		void initSession();
 	}
 
 	async function applyTheme(value, persist = true) {
@@ -583,12 +572,11 @@
 <div class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
-	{#if !isMicrositeRoute}
-		<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-			<div bind:this={turnstileEl}></div>
+	{#if isMicrositeRoute}
+		<div class="min-h-dvh min-w-0 overflow-x-clip">
+			{@render children()}
 		</div>
-	{/if}
-	{#if isEmbedRoute || isMicrositeRoute}
+	{:else if isEmbedRoute}
 		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
@@ -785,6 +773,9 @@
 												onclick={() => (showLogin = false)}>Close</button
 											>
 										</div>
+										{#if activeLoginIntent?.message}
+											<p class="text-surface-700-300 mb-2 text-sm">{activeLoginIntent.message}</p>
+										{/if}
 										<label for="login-email-m" class="text-surface-700-300 mb-1 block text-xs"
 											>Email</label
 										>
@@ -796,6 +787,7 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
+										<div data-login-verification></div>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -829,6 +821,9 @@
 											aria-hidden="true"
 											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 										/>
+										{#if activeLoginIntent?.message}
+											<p class="text-surface-700-300 mb-2 text-sm">{activeLoginIntent.message}</p>
+										{/if}
 										<label for="login-email" class="text-surface-700-300 mb-1 block text-xs"
 											>Email</label
 										>
@@ -840,6 +835,7 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
+										<div data-login-verification></div>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}

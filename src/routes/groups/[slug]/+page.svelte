@@ -351,16 +351,8 @@
 	const followFlag = $derived((page.url.searchParams.get('follow') || '').trim());
 	const followMessage = $derived((page.url.searchParams.get('follow_msg') || '').trim());
 
-	let followModalOpen = $state(false);
-	let followDialog = $state(null);
-	$effect(() => {
-		if (followModalOpen && followDialog && !followDialog.open) followDialog.showModal();
-	});
-	let followEmail = $state('');
 	let followLoading = $state(false);
 	let followError = $state('');
-	let followSuccess = $state('');
-	const followEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(followEmail));
 	let donationStartAmount = $state(25);
 
 	async function joinSingleFreeTierNow() {
@@ -382,7 +374,7 @@
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				if (response.status === 401) {
-					followModalOpen = true;
+					openFollowLogin();
 					return;
 				}
 				throw new Error(payload?.error || 'Unable to follow right now.');
@@ -403,38 +395,25 @@
 			await joinSingleFreeTierNow();
 			return;
 		}
-		followModalOpen = true;
-		followError = '';
-		followSuccess = '';
+		openFollowLogin();
 	}
 
-	async function sendFollowMagicLink(event) {
-		event?.preventDefault?.();
-		if (!followEmailValid || !singleFreeFollowTier) return;
-		followLoading = true;
+	function openFollowLogin() {
+		if (!singleFreeFollowTier) return;
 		followError = '';
-		followSuccess = '';
-		try {
-			const returnTo = `/groups/${encodeURIComponent(data.group.slug)}?auto_follow=1&auto_follow_tier=${encodeURIComponent(singleFreeFollowTier.id)}`;
-			const response = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: followEmail,
-					createProfile: true,
-					returnTo
-				})
-			});
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to send magic link.');
-			}
-			followSuccess = `Check ${followEmail} for your login link. We’ll complete follow automatically after login.`;
-		} catch (err) {
-			followError = err?.message || 'Unable to send magic link.';
-		} finally {
-			followLoading = false;
-		}
+		const params = new URLSearchParams({
+			auto_follow: '1',
+			auto_follow_tier: singleFreeFollowTier.id
+		});
+		window.dispatchEvent(
+			new CustomEvent('open-login', {
+				detail: {
+					returnTo: `/groups/${encodeURIComponent(data.group.slug)}?${params}`,
+					message:
+						'Sign in to follow this group. We’ll add you as a follower after you open the magic link.'
+				}
+			})
+		);
 	}
 
 	function parseVolunteerDate(value) {
@@ -881,7 +860,7 @@
 				<strong class="text-sm font-black uppercase">You're now following this group.</strong>
 			</div>
 		</section>
-	{:else if followFlag === 'error'}
+	{:else if followFlag === 'error' || followError}
 		<section
 			class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-5 sm:px-10 lg:px-14"
 			in:fade={{ duration: 180 }}
@@ -889,7 +868,7 @@
 			<div class="flex items-center gap-3">
 				<IconInfo class="h-5 w-5 shrink-0" />
 				<strong class="text-sm font-black uppercase"
-					>{followMessage || 'Unable to complete follow.'}</strong
+					>{followError || followMessage || 'Unable to complete follow.'}</strong
 				>
 			</div>
 		</section>
@@ -2072,65 +2051,3 @@
 		</section>
 	{/if}
 </div>
-
-{#if followModalOpen}
-	<dialog
-		bind:this={followDialog}
-		aria-labelledby="follow-dialog-title"
-		onclose={() => (followModalOpen = false)}
-		class="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md bg-transparent p-0 backdrop:bg-black/85"
-	>
-		<form
-			class="bg-surface-950 text-surface-50 border-primary-500 flex w-full max-w-md flex-col gap-5 border-[3px] p-6"
-			onsubmit={sendFollowMagicLink}
-		>
-			<div>
-				<h3
-					id="follow-dialog-title"
-					class="text-surface-50! m-0 text-2xl font-black uppercase italic"
-				>
-					Follow {data.group?.name}
-				</h3>
-				<p class="text-surface-300 m-0 mt-2 text-xs leading-relaxed">
-					Enter your email to log in or create an account. We'll add you as a follower right after
-					you open the magic link.
-				</p>
-			</div>
-			<label class="flex flex-col gap-2">
-				<span class="text-primary-500 text-xs font-bold tracking-[0.2em] uppercase"
-					>Email address</span
-				>
-				<input
-					type="email"
-					class="bg-surface-900 text-surface-50 border-surface-50 border-2 px-4 py-3 text-sm font-medium"
-					bind:value={followEmail}
-					placeholder="you@example.com"
-					required
-				/>
-			</label>
-			{#if followError}
-				<p class="text-tertiary-400 m-0 text-xs font-bold">{followError}</p>
-			{/if}
-			{#if followSuccess}
-				<p class="text-primary-500 m-0 text-xs font-bold">{followSuccess}</p>
-			{/if}
-			<div class="flex items-center justify-end gap-3 pt-2">
-				<button
-					type="button"
-					class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 cursor-pointer border-2 px-5 py-2.5 text-xs font-black uppercase transition"
-					onclick={() => followDialog?.close()}
-					disabled={followLoading}
-				>
-					Cancel
-				</button>
-				<button
-					type="submit"
-					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-5 py-2.5 text-xs font-black uppercase transition disabled:opacity-50"
-					disabled={followLoading || !followEmailValid}
-				>
-					{followLoading ? 'Sending…' : 'Email Me A Login Link'}
-				</button>
-			</div>
-		</form>
-	</dialog>
-{/if}

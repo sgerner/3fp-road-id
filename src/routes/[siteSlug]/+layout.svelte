@@ -490,7 +490,7 @@
 		</header>
 		<div class="microsite-nav-offset" aria-hidden="true"></div>
 
-		<main class="relative flex-1" use:scrollReveal>
+		<main id="main-content" tabindex="-1" class="relative flex-1" use:scrollReveal>
 			{#key routeTransitionKey}
 				<div
 					class="microsite-route"
