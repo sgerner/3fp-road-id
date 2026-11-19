@@ -1,128 +1,51 @@
 import { Buffer } from 'node:buffer';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
-function parseSessionCookie(raw) {
-	if (!raw) return null;
-	try {
-		return JSON.parse(raw);
-	} catch (err) {
-		console.warn('Failed to parse session cookie', err);
-		return null;
-	}
-}
-
-function base64UrlDecode(value) {
-	if (!value) return null;
-	try {
-		const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-		const padding = normalized.length % 4;
-		const padded = normalized + '='.repeat(padding ? 4 - padding : 0);
-		return Buffer.from(padded, 'base64').toString('utf8');
-	} catch (err) {
-		console.warn('Failed to decode base64 token payload', err);
-		return null;
-	}
-}
-
-function decodeAccessToken(token) {
-	if (!token) return null;
-	const parts = token.split('.');
-	if (parts.length < 2) return null;
-	const payload = base64UrlDecode(parts[1]);
-	if (!payload) return null;
-	try {
-		return JSON.parse(payload);
-	} catch (err) {
-		console.warn('Failed to parse access token payload', err);
-		return null;
-	}
-}
-
-function extractSessionUser(parsedSession, tokenPayload) {
-	const candidates = [
-		parsedSession?.user,
-		parsedSession?.session?.user,
-		parsedSession?.currentSession?.user
-	];
-	for (const candidate of candidates) {
-		if (candidate && typeof candidate === 'object') {
-			const id = candidate.id ?? candidate.user_id ?? candidate.userId ?? candidate.sub ?? null;
-			if (id) {
-				return {
-					...candidate,
-					id,
-					email:
-						candidate.email ??
-						candidate.user_email ??
-						candidate.userEmail ??
-						tokenPayload?.email ??
-						tokenPayload?.user_email ??
-						tokenPayload?.userEmail ??
-						tokenPayload?.user_metadata?.email ??
-						tokenPayload?.app_metadata?.email ??
-						null
-				};
-			}
-		}
-	}
-	if (tokenPayload && typeof tokenPayload === 'object') {
-		const id = tokenPayload.sub ?? tokenPayload.user_id ?? tokenPayload.userId ?? null;
-		if (id) {
-			return {
-				id,
-				email:
-					tokenPayload.email ??
-					tokenPayload.user_email ??
-					tokenPayload.userEmail ??
-					tokenPayload?.user_metadata?.email ??
-					tokenPayload?.app_metadata?.email ??
-					null
-			};
-		}
-	}
-	return null;
-}
-
-export function resolveSession(cookies) {
+function readAccessToken(cookies) {
 	const rawSession = cookies.get('sb_session');
-	if (!rawSession) {
-		return { session: null, accessToken: null, user: null };
+	if (!rawSession) return null;
+
+	try {
+		const session = JSON.parse(rawSession);
+		const token =
+			session?.access_token ??
+			session?.session?.access_token ??
+			session?.accessToken ??
+			session?.session?.accessToken;
+		return typeof token === 'string' && token ? token : null;
+	} catch {
+		return null;
 	}
-	const parsedSession = parseSessionCookie(rawSession);
-	const accessToken =
-		parsedSession?.access_token ??
-		parsedSession?.session?.access_token ??
-		parsedSession?.accessToken ??
-		parsedSession?.session?.accessToken ??
-		null;
-	const tokenPayload = decodeAccessToken(accessToken);
-	const user = extractSessionUser(parsedSession, tokenPayload);
-	return { session: parsedSession, accessToken, user, tokenPayload };
+}
+
+function decodeAccessTokenPayload(token) {
+	try {
+		return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+	} catch {
+		return null;
+	}
 }
 
 /**
- * Resolve identity from Supabase instead of trusting the user object copied
- * into the browser-writable session cookie. The access token is still taken
- * from that cookie, but Supabase Auth is the authority for the user id and
- * email used by server-side authorization checks.
+ * Use Supabase Auth as the authority for identity. Cookies supply only the
+ * bearer credential, and callers receive it only after verification.
  */
 export async function resolveVerifiedSession(cookies) {
-	const resolved = resolveSession(cookies);
-	if (!resolved.accessToken) return { ...resolved, user: null, verified: false };
+	const unauthenticated = { accessToken: null, user: null, verified: false, tokenPayload: null };
+	const accessToken = readAccessToken(cookies);
+	if (!accessToken) return unauthenticated;
 
 	try {
-		const requestSupabase = createRequestSupabaseClient(resolved.accessToken);
-		const { data, error } = await requestSupabase.auth.getUser(resolved.accessToken);
-		if (error || !data?.user?.id) {
-			return { ...resolved, user: null, verified: false, verificationError: error || null };
-		}
+		const requestSupabase = createRequestSupabaseClient(accessToken);
+		const { data, error } = await requestSupabase.auth.getUser(accessToken);
+		if (error || !data?.user?.id) return unauthenticated;
 		return {
-			...resolved,
+			accessToken,
 			user: data.user,
 			verified: true,
-			verificationError: null
+			tokenPayload: decodeAccessTokenPayload(accessToken)
 		};
-	} catch (error) {
-		return { ...resolved, user: null, verified: false, verificationError: error };
+	} catch {
+		return unauthenticated;
 	}
 }

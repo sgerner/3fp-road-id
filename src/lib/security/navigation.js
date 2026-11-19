@@ -29,7 +29,7 @@ export function isSafeInternalPath(value) {
 			return false;
 		}
 		const parsed = new URL(value, 'https://internal.invalid');
-		return parsed.origin === 'https://internal.invalid';
+		return parsed.origin === 'https://internal.invalid' && !parsed.pathname.startsWith('//');
 	} catch {
 		return false;
 	}

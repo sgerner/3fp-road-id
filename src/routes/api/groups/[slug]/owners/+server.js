@@ -3,6 +3,7 @@ import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import { verifyOwnerInviteState } from '#lib/server/groupOwnerInvites';
+import { readGroupSiteManagerRoles } from '#lib/server/groupSiteAuth';
 
 // Redeems a short-lived capability issued to an existing group manager.
 export async function POST(event) {
@@ -52,6 +53,14 @@ export async function POST(event) {
 			userEmail: user.email
 		});
 		if (!invite.ok) {
+			return json({ error: 'Invitation is invalid or expired.' }, { status: 403 });
+		}
+		const { isAdmin, isOwner } = await readGroupSiteManagerRoles(
+			serviceSupabase,
+			group.id,
+			invite.payload.inviterUserId
+		);
+		if (!isAdmin && !isOwner) {
 			return json({ error: 'Invitation is invalid or expired.' }, { status: 403 });
 		}
 

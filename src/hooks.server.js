@@ -82,6 +82,18 @@ export const handle = async ({ event, resolve }) => {
 	}
 
 	const response = await resolve(event);
+	const routeId = event.route.id;
+	if (
+		routeId === '/auth/confirm' ||
+		routeId === '/roadid/[code]' ||
+		routeId === '/api/v1/code/[code]'
+	) {
+		response.headers.set('cache-control', 'private, no-store');
+		response.headers.set('referrer-policy', 'no-referrer');
+	}
+	if (routeId === '/api/auth/session') {
+		response.headers.set('cache-control', 'private, no-store');
+	}
 	const securityHeaders = {
 		'x-content-type-options': 'nosniff',
 		'referrer-policy': 'strict-origin-when-cross-origin',

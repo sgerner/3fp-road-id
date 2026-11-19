@@ -10,6 +10,16 @@ const MAX_SELECT_LENGTH = 4_000;
 const MAX_FILTER_LENGTH = 2_000;
 const WRITE_PROTECTED_TABLES = new Set(['group_members']);
 const INSERT_PROTECTED_TABLES = new Set(['group_members', 'groups']);
+const RESERVED_QUERY_PARAMETERS = new Set([
+	'and',
+	'columns',
+	'limit',
+	'offset',
+	'on_conflict',
+	'or',
+	'order',
+	'select'
+]);
 
 const FILTER_METHODS = {
 	eq: 'eq',
@@ -133,7 +143,7 @@ export async function GET(event) {
 							query = query.in(columnName, inValues);
 						}
 					}
-				} else if (FILTER_METHODS[operator]) {
+				} else if (Object.hasOwn(FILTER_METHODS, operator)) {
 					query = query[FILTER_METHODS[operator]](columnName, filterValue);
 				} else {
 					query = query.eq(columnName, value);
@@ -347,24 +357,24 @@ export async function DELETE(event) {
 		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		query = query.eq(primaryKeyColumn, recordId);
 	} else {
-		const matchConditions = {};
-		let conditionsFound = 0;
+		let conditionCount = 0;
 		for (const [key, value] of url.searchParams) {
-			// Assuming query param keys (column names) are still snake_case
-			const columnName = key;
-
 			const parts = value.split('.');
-			if (parts.length === 2 && parts[0] === 'eq') {
-				matchConditions[columnName] = parts[1];
-				conditionsFound++;
-			} else if (parts.length === 1) {
-				matchConditions[columnName] = value;
-				conditionsFound++;
+			const isEqualityFilter = parts.length === 1 || (parts.length === 2 && parts[0] === 'eq');
+			if (
+				!isEqualityFilter ||
+				!/^[a-z_][a-z0-9_]*$/.test(key) ||
+				RESERVED_QUERY_PARAMETERS.has(key)
+			) {
+				return json(
+					{ error: 'DELETE requires top-level column equality filters.' },
+					{ status: 400 }
+				);
 			}
+			query = query.eq(key, parts.at(-1));
+			conditionCount++;
 		}
-		if (conditionsFound > 0) {
-			query = query.match(matchConditions);
-		} else {
+		if (!conditionCount) {
 			return json(
 				{
 					error:
