@@ -883,15 +883,83 @@ function hasCoordinates(row) {
 	);
 }
 
-function getSourceEventIdAliases(sourceEventId) {
+function getWeeklyRidesSourceEventIdAliases(sourceEventId) {
 	const source = safeTrim(sourceEventId);
 	if (!source) return [];
-	if (!source.includes('weeklyrides.com')) return [source];
 	return uniq([
 		source,
 		source.replace('/index.php/rides-events/', '/index.php/rides/rides-events-card-view/'),
 		source.replace('/index.php/rides/rides-events-card-view/', '/index.php/rides-events/')
 	]);
+}
+
+function getSourceEventIdAliases(sourceEventId) {
+	const source = safeTrim(sourceEventId);
+	if (!source) return [];
+	if (!source.includes('weeklyrides.com')) return [source];
+	return getWeeklyRidesSourceEventIdAliases(source);
+}
+
+function hasRideImage(row) {
+	const rideDetails = Array.isArray(row?.ride_details)
+		? row.ride_details[0] || null
+		: row?.ride_details || null;
+	return Array.isArray(rideDetails?.image_urls) && rideDetails.image_urls.some(Boolean);
+}
+
+export async function fetchExistingRideEventsBySourceId(
+	supabase,
+	sourceEventIds,
+	{ includeWeeklyRidesAliases = false } = {}
+) {
+	const sourceIds = uniq(sourceEventIds.map((id) => safeTrim(id)).filter(Boolean));
+	if (!sourceIds.length) return new Map();
+
+	const aliasesBySourceId = new Map(
+		sourceIds.map((sourceId) => [
+			sourceId,
+			includeWeeklyRidesAliases ? getWeeklyRidesSourceEventIdAliases(sourceId) : [sourceId]
+		])
+	);
+	const querySourceIds = uniq([...aliasesBySourceId.values()].flat());
+	const existingBySourceId = new Map();
+	const chunkSize = 40;
+	for (let index = 0; index < querySourceIds.length; index += chunkSize) {
+		const chunk = querySourceIds.slice(index, index + chunkSize);
+		const { data, error } = await supabase
+			.from('activity_events')
+			.select(
+				'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
+			)
+			.in('source_event_id', chunk);
+		if (error) throw error;
+		for (const row of data || []) {
+			const sourceEventId = safeTrim(row.source_event_id);
+			existingBySourceId.set(sourceEventId, {
+				sourceEventId,
+				activityId: row.id,
+				slug: row.slug,
+				title: row.title,
+				start_latitude: row.start_latitude,
+				start_longitude: row.start_longitude,
+				hasImage: hasRideImage(row)
+			});
+		}
+	}
+
+	if (includeWeeklyRidesAliases) {
+		for (const sourceId of sourceIds) {
+			if (existingBySourceId.has(sourceId)) continue;
+			for (const alias of aliasesBySourceId.get(sourceId)) {
+				const existing = existingBySourceId.get(alias);
+				if (!existing) continue;
+				existingBySourceId.set(sourceId, existing);
+				break;
+			}
+		}
+	}
+
+	return existingBySourceId;
 }
 
 function getRideImageUrls(row) {

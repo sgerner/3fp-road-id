@@ -1,4 +1,8 @@
-import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.js';
+import {
+	DEFAULT_CREATED_BY_USER_ID,
+	fetchExistingRideEventsBySourceId,
+	importRideSeedData
+} from './ride-imports.js';
 import { fetchPublicHttp, readResponseBuffer } from './security.js';
 
 const WEEKLYRIDES_BASE_URL = 'https://www.weeklyrides.com';
@@ -118,23 +122,6 @@ function hasCoordinates(row) {
 	return (
 		Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0)
 	);
-}
-
-function hasImage(row) {
-	const rideDetails = Array.isArray(row?.ride_details)
-		? row.ride_details[0] || null
-		: row?.ride_details || null;
-	return Array.isArray(rideDetails?.image_urls) && rideDetails.image_urls.some(Boolean);
-}
-
-function getSourceEventIdAliases(sourceEventId) {
-	const source = safeTrim(sourceEventId);
-	if (!source) return [];
-	return uniq([
-		source,
-		source.replace('/index.php/rides-events/', '/index.php/rides/rides-events-card-view/'),
-		source.replace('/index.php/rides/rides-events-card-view/', '/index.php/rides-events/')
-	]);
 }
 
 function compactWhitespace(value) {
@@ -459,45 +446,6 @@ export function parseWeeklyRidesRssFeed(xmlText) {
 	};
 }
 
-async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
-	const sourceIds = uniq(sourceEventIds.map((id) => safeTrim(id)).filter(Boolean));
-	if (!sourceIds.length) return new Map();
-	const existingBySourceId = new Map();
-	const querySourceIds = uniq(sourceIds.flatMap((sourceId) => getSourceEventIdAliases(sourceId)));
-	const chunkSize = 40;
-	for (let index = 0; index < querySourceIds.length; index += chunkSize) {
-		const chunk = querySourceIds.slice(index, index + chunkSize);
-		const { data, error } = await supabase
-			.from('activity_events')
-			.select(
-				'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
-			)
-			.in('source_event_id', chunk);
-		if (error) throw error;
-		for (const row of data || []) {
-			existingBySourceId.set(safeTrim(row.source_event_id), {
-				sourceEventId: safeTrim(row.source_event_id),
-				activityId: row.id,
-				slug: row.slug,
-				title: row.title,
-				start_latitude: row.start_latitude,
-				start_longitude: row.start_longitude,
-				hasImage: hasImage(row)
-			});
-		}
-	}
-	for (const sourceId of sourceIds) {
-		if (existingBySourceId.has(sourceId)) continue;
-		for (const alias of getSourceEventIdAliases(sourceId)) {
-			const existing = existingBySourceId.get(alias);
-			if (!existing) continue;
-			existingBySourceId.set(sourceId, existing);
-			break;
-		}
-	}
-	return existingBySourceId;
-}
-
 export async function importWeeklyRidesFeed(
 	supabase,
 	{
@@ -558,9 +506,10 @@ export async function importWeeklyRidesFeed(
 	let candidateEvents = parsedFeed.events;
 	let preSkippedExisting = [];
 	if (maintenance === 'images' || maintenance === 'geocoding') {
-		const existingBySourceId = await fetchExistingEventsBySourceId(
+		const existingBySourceId = await fetchExistingRideEventsBySourceId(
 			supabase,
-			parsedFeed.events.map((event) => event.id)
+			parsedFeed.events.map((event) => event.id),
+			{ includeWeeklyRidesAliases: true }
 		);
 		candidateEvents = parsedFeed.events.filter((event) => {
 			const existing = existingBySourceId.get(event.id);
@@ -569,9 +518,10 @@ export async function importWeeklyRidesFeed(
 			return !hasCoordinates(existing);
 		});
 	} else if (onlyNew && !reconcileMissingImages) {
-		const existingBySourceId = await fetchExistingEventsBySourceId(
+		const existingBySourceId = await fetchExistingRideEventsBySourceId(
 			supabase,
-			parsedFeed.events.map((event) => event.id)
+			parsedFeed.events.map((event) => event.id),
+			{ includeWeeklyRidesAliases: true }
 		);
 		preSkippedExisting = parsedFeed.events
 			.map((event) => existingBySourceId.get(event.id))
