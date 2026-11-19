@@ -1,7 +1,126 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
-import { importRideSeedData } from './ride-imports.js';
+import { fetchExistingRideEventsBySourceId, importRideSeedData } from './ride-imports.js';
+
+function createSourceLookupSupabase(rows) {
+	const queries = [];
+	return {
+		queries,
+		supabase: {
+			from(table) {
+				assert.equal(table, 'activity_events');
+				return {
+					select(columns) {
+						assert.equal(
+							columns,
+							'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
+						);
+						return {
+							in: async (column, values) => {
+								queries.push({ column, values });
+								return {
+									data: rows.filter((row) => values.includes(row.source_event_id)),
+									error: null
+								};
+							}
+						};
+					}
+				};
+			}
+		}
+	};
+}
+
+test('fetchExistingRideEventsBySourceId matches exact source IDs by default', async () => {
+	const sourceId = 'https://meetup.example/index.php/rides-events/example';
+	const aliasId = 'https://meetup.example/index.php/rides/rides-events-card-view/example';
+	const { queries, supabase } = createSourceLookupSupabase([
+		{
+			id: 'activity-1',
+			slug: 'sample-ride',
+			title: 'Sample Ride',
+			source_event_id: sourceId,
+			start_latitude: 33.4,
+			start_longitude: -112.1,
+			ride_details: [{ image_urls: ['existing.jpg'] }]
+		},
+		{
+			id: 'activity-alias',
+			slug: 'sample-ride-alias',
+			title: 'Sample Ride Alias',
+			source_event_id: aliasId,
+			ride_details: { image_urls: [] }
+		}
+	]);
+
+	const existing = await fetchExistingRideEventsBySourceId(supabase, [sourceId, sourceId]);
+
+	assert.deepEqual(queries, [{ column: 'source_event_id', values: [sourceId] }]);
+	assert.equal(existing.size, 1);
+	assert.deepEqual(existing.get(sourceId), {
+		sourceEventId: sourceId,
+		activityId: 'activity-1',
+		slug: 'sample-ride',
+		title: 'Sample Ride',
+		start_latitude: 33.4,
+		start_longitude: -112.1,
+		hasImage: true
+	});
+});
+
+test('fetchExistingRideEventsBySourceId maps WeeklyRides URL aliases to feed IDs', async () => {
+	const feedSourceId = 'https://calendar.example.test/index.php/rides-events/example';
+	const storedSourceId =
+		'https://calendar.example.test/index.php/rides/rides-events-card-view/example';
+	const { queries, supabase } = createSourceLookupSupabase([
+		{
+			id: 'activity-weeklyrides',
+			slug: 'weekly-ride',
+			title: 'Weekly Ride',
+			source_event_id: storedSourceId,
+			start_latitude: null,
+			start_longitude: null,
+			ride_details: { image_urls: [] }
+		}
+	]);
+
+	const existing = await fetchExistingRideEventsBySourceId(supabase, [feedSourceId], {
+		includeWeeklyRidesAliases: true
+	});
+
+	assert.deepEqual(queries, [
+		{ column: 'source_event_id', values: [feedSourceId, storedSourceId] }
+	]);
+	assert.equal(existing.get(feedSourceId)?.activityId, 'activity-weeklyrides');
+	assert.equal(existing.get(feedSourceId)?.sourceEventId, storedSourceId);
+});
+
+test('fetchExistingRideEventsBySourceId prefers an exact WeeklyRides source ID over an alias', async () => {
+	const feedSourceId = 'https://calendar.example.test/index.php/rides-events/example';
+	const aliasSourceId =
+		'https://calendar.example.test/index.php/rides/rides-events-card-view/example';
+	const { supabase } = createSourceLookupSupabase([
+		{
+			id: 'activity-alias',
+			slug: 'weekly-ride-alias',
+			title: 'Weekly Ride Alias',
+			source_event_id: aliasSourceId
+		},
+		{
+			id: 'activity-exact',
+			slug: 'weekly-ride-exact',
+			title: 'Weekly Ride Exact',
+			source_event_id: feedSourceId
+		}
+	]);
+
+	const existing = await fetchExistingRideEventsBySourceId(supabase, [feedSourceId], {
+		includeWeeklyRidesAliases: true
+	});
+
+	assert.equal(existing.get(feedSourceId)?.activityId, 'activity-exact');
+});
 
 function createSupabase(existingImageUrls = [], hasExistingRide = true) {
 	const imageUpdates = [];
