@@ -1007,7 +1007,7 @@
 	}
 	.report-nav {
 		position: sticky;
-		top: 73px;
+		top: var(--app-header-height, 73px);
 		z-index: 20;
 		display: flex;
 		gap: 0;

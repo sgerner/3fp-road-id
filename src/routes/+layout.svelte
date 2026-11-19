@@ -69,6 +69,7 @@
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
+	let headerHeight = $state(73);
 	let loginIntent = $state(null);
 	const activeLoginIntent = $derived(
 		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
@@ -569,7 +570,10 @@
 	<title>3 Feet Please</title>
 </svelte:head>
 
-<div class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}">
+<div
+	class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}"
+	style:--app-header-height={`${headerHeight}px`}
+>
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
 	{#if isMicrositeRoute}
@@ -581,9 +585,12 @@
 			{@render children()}
 		</main>
 	{:else}
-		<header class="app-header border-b-primary-500/25 sticky top-0 z-50 border-b">
-			<div class="flex items-center justify-between gap-4 p-4">
-				<div class="flex items-center gap-2">
+		<header
+			class="app-header border-b-primary-500/25 sticky top-0 z-[60] border-b"
+			bind:offsetHeight={headerHeight}
+		>
+			<div class="flex items-center justify-between gap-2 p-4 sm:gap-4">
+				<div class="flex min-w-0 items-center gap-2">
 					<button
 						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
 						bind:this={mobileMenuBtnEl}
@@ -593,22 +600,29 @@
 					>
 						<IconMenu class="h-5 w-5" />
 					</button>
-					<a href="/" class="text-surface-950-50 flex items-center gap-3">
+					<a
+						href="/"
+						aria-label="3 Feet Please"
+						class="text-surface-950-50 flex min-w-0 items-center gap-2 sm:gap-3"
+					>
 						<img
 							src="/3fp-64.webp"
 							alt=""
-							class="h-9 w-9 rounded-md object-contain"
+							class="size-9 shrink-0 rounded-md object-contain"
 							width="36"
 							height="36"
 							decoding="async"
 						/>
-						<div>
-							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+						<div class="min-w-0 max-sm:hidden">
+							<p class="text-primary-950-50 m-0 truncate text-lg font-bold tracking-wide">
+								3 Feet Please
+							</p>
 						</div>
 					</a>
 				</div>
 
-				<div class="flex items-center gap-2 sm:gap-3">
+				<div class="flex shrink-0 items-center gap-2 sm:gap-3">
+					<LazyGlobalAssistant userId={user?.id ?? null} pathname={page.url.pathname} />
 					{#if !user}
 						<button
 							type="button"
@@ -863,10 +877,12 @@
 			</div>
 		</header>
 
-		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
+		<div
+			class="grid min-h-[calc(100dvh-var(--app-header-height))] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]"
+		>
 			<aside class="app-rail hidden md:block">
 				<div
-					class="app-rail__scroll sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col overflow-y-auto"
+					class="app-rail__scroll sticky top-[var(--app-header-height)] flex h-[calc(100dvh-var(--app-header-height))] flex-col overflow-y-auto"
 				>
 					<nav aria-label="Primary" class="app-rail__nav flex w-full flex-col">
 						{#each navigationItems as item}
@@ -960,7 +976,7 @@
 				aria-label="Navigation"
 				tabindex="-1"
 				onkeydown={onMobileMenuKeydown}
-				class="fixed top-[73px] right-4 left-4 z-50 max-h-[calc(100dvh-90px)] overflow-y-auto md:hidden"
+				class="fixed top-[var(--app-header-height)] right-4 left-4 z-50 max-h-[calc(100dvh-var(--app-header-height)-1rem)] overflow-y-auto md:hidden"
 				bind:this={mobileMenuEl}
 			>
 				<div class="mobile-menu-panel shadow-2xl">
@@ -1046,8 +1062,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<LazyGlobalAssistant userId={user?.id ?? null} pathname={page.url.pathname} />
 	{/if}
 </div>
 

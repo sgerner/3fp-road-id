@@ -651,7 +651,7 @@
 	<!-- HERO -->
 	<section
 		bind:this={heroSentinel}
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		class="bg-primary-500 text-surface-950 grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
 		aria-labelledby="group-hero-heading"
 	>
 		<div
@@ -685,7 +685,7 @@
 			</div>
 
 			<div class="flex flex-col gap-5">
-				<div class="flex items-start gap-5">
+				<div class="flex flex-col items-start gap-3 sm:flex-row sm:gap-5">
 					{#if logoImage}
 						<div
 							class="bg-surface-50 border-surface-950 flex h-16 w-16 shrink-0 items-center justify-center border-[3px] p-1.5 sm:h-20 sm:w-20"
@@ -703,7 +703,7 @@
 					{/if}
 					<h1
 						id="group-hero-heading"
-						class="text-surface-950! m-0 text-[clamp(2.4rem,6vw,5.4rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+						class="text-surface-950! m-0 min-w-0 text-[clamp(2.4rem,6vw,5.4rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance wrap-anywhere uppercase italic"
 					>
 						{data.group?.name}
 					</h1>

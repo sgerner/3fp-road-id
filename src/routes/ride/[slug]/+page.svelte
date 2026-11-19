@@ -372,7 +372,7 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
+		class="bg-primary-500 text-surface-950 grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
 		aria-labelledby="ride-title"
 	>
 		<div
@@ -391,7 +391,7 @@
 						Rides
 					</a>
 					<span aria-hidden="true">/</span>
-					<span class="truncate">{seoTitle}</span>
+					<span class="min-w-0 truncate">{seoTitle}</span>
 				</nav>
 
 				{#if (ride?.difficultyLevels ?? []).length || (ride?.ridingDisciplines ?? []).length}
@@ -417,7 +417,7 @@
 			<div class="flex flex-col gap-5">
 				<h1
 					id="ride-title"
-					class="text-surface-950! m-0 text-[clamp(2.5rem,6vw,5.6rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+					class="text-surface-950! m-0 text-[clamp(2.5rem,6vw,5.6rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance wrap-anywhere uppercase italic"
 				>
 					{activity?.title}
 				</h1>

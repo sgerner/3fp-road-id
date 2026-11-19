@@ -2411,24 +2411,27 @@
 
 	.tier-fields {
 		display: grid;
-		grid-template-columns: 1.5fr 2fr 1fr;
+		grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 1fr);
 		gap: 0.5rem;
 		margin-bottom: 0.75rem;
 	}
 
 	@media (max-width: 640px) {
 		.tier-fields {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 
 	.price-inputs {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
 		gap: 0.5rem;
 	}
 
 	.price-field {
-		display: flex;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-content: start;
 		align-items: center;
 		background: var(--input-bg);
 		border-radius: 0.5rem;
@@ -2443,12 +2446,24 @@
 		border-right: 1px solid var(--input-border);
 	}
 
+	.tier-fields > .tier-input {
+		min-width: 0;
+	}
+
 	.tier-input.price {
 		border: none;
 		background: transparent;
 		border-radius: 0;
 		padding: 0.5rem;
-		min-width: 80px;
+		min-width: 0;
+	}
+
+	.price-error {
+		grid-column: 1 / -1;
+		margin: 0;
+		padding: 0.25rem 0.5rem;
+		color: var(--color-error-500);
+		overflow-wrap: anywhere;
 	}
 
 	.tier-actions {

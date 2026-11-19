@@ -21,7 +21,7 @@
 		currentProfile={data.currentProfile}
 	/>
 {:else}
-	<div class="-m-4 w-full">
+	<div class="-m-4">
 		<section
 			class="bg-surface-900 border-surface-700 border-primary-500 relative overflow-hidden border-t-4 px-6 py-16 text-center sm:px-10 lg:py-24"
 		>

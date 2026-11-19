@@ -527,7 +527,12 @@
 					<IconSearch class="search-icon h-3.5 w-3.5" />
 					<input bind:value={search} placeholder="Title, location, host..." />
 					{#if search}
-						<button class="search-clear" onclick={() => (search = '')} type="button">
+						<button
+							class="search-clear"
+							aria-label="Clear search"
+							onclick={() => (search = '')}
+							type="button"
+						>
 							<IconX class="h-3 w-3" />
 						</button>
 					{/if}
@@ -661,6 +666,35 @@
 						</button>
 					</div>
 				</div>
+				<ul class="calendar-agenda space-y-4" aria-label="Rides this month">
+					{#each calendarMatrix
+						.flat()
+						.filter((day) => day.inMonth && day.items.length) as day (toDateKey(day.date))}
+						<li>
+							<h3 class="font-bold">
+								{day.date.toLocaleDateString(undefined, {
+									weekday: 'long',
+									month: 'short',
+									day: 'numeric'
+								})}
+							</h3>
+							<ul class="day-rides">
+								{#each day.items as ride (ride.slug)}
+									<li>
+										<a
+											class="flex min-h-11 items-center wrap-anywhere"
+											href={`/ride/${ride.slug}`}
+											target="_blank"
+											rel="noopener noreferrer">{rideTitle(ride)}</a
+										>
+									</li>
+								{/each}
+							</ul>
+						</li>
+					{:else}
+						<li>No rides this month.</li>
+					{/each}
+				</ul>
 				<div class="calendar-table" role="grid" aria-label="Ride calendar">
 					<div class="calendar-grid days" role="row">
 						<div role="columnheader">Sun</div>
@@ -1068,6 +1102,7 @@
 		flex-shrink: 0;
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		color: var(--widget-text-muted);
 		background: none;
 		border: none;
@@ -1321,6 +1356,40 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
+	.calendar-agenda {
+		display: none;
+	}
+
+	@media (max-width: 599px) {
+		.calendar-wrap .calendar-table {
+			display: none;
+		}
+
+		.calendar-agenda {
+			display: block;
+		}
+
+		.calendar-wrap .calendar-head {
+			flex-wrap: wrap;
+		}
+
+		.calendar-wrap .calendar-nav button,
+		.ride-widget-shell .search-clear,
+		.widget-tabs button,
+		.widget-filters select,
+		.pagination button,
+		.modal .modal-close {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+
+		.calendar-agenda .day-rides a {
+			padding: 0.5rem;
+			font-size: 0.875rem;
+			white-space: normal;
+		}
+	}
+
 	.calendar-table {
 		display: flex;
 		flex-direction: column;

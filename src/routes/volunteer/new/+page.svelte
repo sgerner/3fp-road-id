@@ -1958,16 +1958,16 @@
 		<!-- ── Manual Builder ── -->
 		<section
 			id="manual-builder"
-			class="card preset-tonal-surface p-6"
+			class="card preset-tonal-surface min-w-0 p-4 sm:p-6"
 			onfocusin={handleManualInteraction}
 		>
 			<!-- Step navigation tabs -->
-			<nav class="mb-6 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+			<nav class="mb-6 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
 				{#each steps as step, idx}
 					<button
 						type="button"
 						onclick={() => goToStep(idx)}
-						class={`step-btn rounded-xl border px-3 py-2.5 text-left ${
+						class={`step-btn min-w-0 rounded-xl border px-2 py-2.5 text-left wrap-anywhere ${
 							idx === activeStep
 								? 'preset-tonal-primary'
 								: isStepComplete(idx)
@@ -2084,7 +2084,9 @@
 			</div>
 
 			<!-- Nav footer -->
-			<div class="border-surface-500/15 mt-8 flex items-center justify-between gap-3 border-t pt-6">
+			<div
+				class="border-surface-500/15 mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
+			>
 				<button
 					type="button"
 					class="btn preset-tonal-surface gap-2"
