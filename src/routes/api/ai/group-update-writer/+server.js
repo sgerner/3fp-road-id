@@ -229,7 +229,6 @@ Respond with JSON only.`;
 		});
 
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		return json(normalizeAiPayload(parsed, text));
 	} catch (error) {

@@ -35,7 +35,6 @@ export async function answerSafetyReportQuestion({ question, history, context })
 		30_000
 	);
 	let text = response?.text ?? '';
-	if (typeof text === 'function') text = text();
 	const raw = parseLearnAiJson(text);
 	const result = normalizeReportAnswer(raw, context);
 	if (!hasGroundedReportAnswer(result)) throw new Error('Invalid AI response');

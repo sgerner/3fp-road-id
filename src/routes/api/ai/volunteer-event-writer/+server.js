@@ -299,7 +299,6 @@ Default shift timezones to the event timezone when none is provided and mirror t
 		});
 
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = normalizeAiPayload(safeParseJson(text));
 		if (!parsed) {
 			return json({ reply: text || '', follow_up_questions: null, draft: null });
@@ -320,7 +319,6 @@ Default shift timezones to the event timezone when none is provided and mirror t
 				});
 
 				let text = fallbackResponse?.text ?? '';
-				if (typeof text === 'function') text = text();
 				const parsed = normalizeAiPayload(safeParseJson(text));
 				if (!parsed) {
 					return json({ reply: text || '', follow_up_questions: null, draft: null });

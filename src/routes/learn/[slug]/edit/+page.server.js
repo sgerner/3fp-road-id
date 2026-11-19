@@ -1,21 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import {
-	ensureUniqueLearnSlug,
 	getLearnArticleBySlug,
 	getLearnClient,
 	listLearnAssetsForArticle,
-	listLearnRecentAssets,
-	normalizeLearnPayload,
 	requireLearnUser,
 	learnFormDataValues
 } from '#lib/server/learn';
-import { withLearnAiReadingAid } from '#lib/server/learnAi';
-import { enforceRateLimit } from '#lib/server/security';
-import {
-	buildLearnArticleChunks,
-	inferLearnArticleSearchSignals,
-	syncLearnArticleChunks
-} from '#lib/server/learnDiscovery';
+import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
+import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
 
 export const load = async ({ params, url, cookies }) => {
 	const { user, supabase } = await getLearnClient(cookies);
@@ -46,20 +38,15 @@ export const load = async ({ params, url, cookies }) => {
 
 	const source = revision || article;
 
-	const [{ data: categories }, { data: subcategories }, articleAssets, recentAssets] =
-		await Promise.all([
-			supabase.from('learn_categories').select('slug, name').order('name'),
-			supabase.from('learn_subcategories').select('slug, name, category_slug').order('sort_order'),
-			listLearnAssetsForArticle(supabase, article.id),
-			listLearnRecentAssets(supabase, { uploadedByUserId: user.id })
-		]);
+	const [editorOptions, articleAssets] = await Promise.all([
+		loadLearnEditorOptions(supabase, user.id),
+		listLearnAssetsForArticle(supabase, article.id)
+	]);
 
 	return {
 		currentUser: user,
-		categories: categories ?? [],
-		subcategories: subcategories ?? [],
+		...editorOptions,
 		articleAssets,
-		recentAssets,
 		article: {
 			id: article.id,
 			slug: article.slug,
@@ -91,46 +78,17 @@ export const actions = {
 
 			const formData = await request.formData();
 			values = learnFormDataValues(formData);
-			const normalized = normalizeLearnPayload(formData);
-			const userLimited = enforceRateLimit(event, {
-				name: 'learn-ai-save-user',
-				key: user.id,
-				limit: 12,
-				windowMs: 60 * 60 * 1000
-			});
-			const payload = await withLearnAiReadingAid(normalized, { generateAi: !userLimited });
-			const signals = inferLearnArticleSearchSignals({
-				title: payload.title,
-				summary: payload.summary || '',
-				bodyMarkdown: payload.body_markdown,
-				categoryName: payload.category_name,
-				subcategoryName: payload.subcategory_name || ''
-			});
-			const slug = await ensureUniqueLearnSlug(supabase, payload.slug || payload.title, article.id);
-			const chunks = buildLearnArticleChunks({
-				title: payload.title,
-				summary: payload.summary || '',
-				bodyMarkdown: payload.body_markdown,
-				categoryName: payload.category_name,
-				signals
+			const { record, chunks } = await prepareLearnArticleSave(event, {
+				supabase,
+				user,
+				formData,
+				articleId: article.id
 			});
 
 			const { data, error: updateError } = await supabase
 				.from('learn_articles')
 				.update({
-					...payload,
-					tags: signals.tags,
-					audience: signals.audience,
-					difficulty_level: signals.difficulty_level,
-					ride_type: signals.ride_type,
-					geo_scope: signals.geo_scope,
-					geo_city: signals.geo_city,
-					geo_state: signals.geo_state,
-					content_type: signals.content_type,
-					is_evergreen: signals.is_evergreen,
-					metadata_confidence: signals.metadata_confidence,
-					article_embedding: signals.embedding_literal,
-					slug,
+					...record,
 					updated_by_user_id: user.id
 				})
 				.eq('id', article.id)

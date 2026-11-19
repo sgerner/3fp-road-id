@@ -23,9 +23,9 @@
 		listVolunteerOpportunities,
 		listVolunteerShifts,
 		listVolunteerCustomQuestions,
-		listVolunteerEventEmails,
-		notifyVolunteerHosts
-	} from '#lib';
+		listVolunteerEventEmails
+	} from '#lib/services/volunteers';
+	import { notifyVolunteerHosts } from '#lib/services/volunteerHostNotifications';
 	import {
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer

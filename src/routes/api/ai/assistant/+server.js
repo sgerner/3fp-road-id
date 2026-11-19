@@ -727,7 +727,6 @@ ${optionsBlock}
 			}
 		});
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const selectedIds = uniqStrings(
 			Array.isArray(parsed?.selected_ids) ? parsed.selected_ids : [],
@@ -860,7 +859,6 @@ Set learned_context to null when nothing explicit was provided.
 			config
 		});
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const reply = safeTrim(parsed?.reply || text);
 		const followUpQuestion = safeTrim(parsed?.follow_up_question) || null;

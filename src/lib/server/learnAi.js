@@ -61,7 +61,6 @@ async function generateJson(prompt, schema, schemaName) {
 		30_000
 	);
 	let text = response?.text ?? '';
-	if (typeof text === 'function') text = text();
 	const parsed = parseLearnAiJson(text);
 	if (!parsed) throw new Error('AI returned an invalid response.');
 	return parsed;

@@ -122,7 +122,6 @@ ${finalPrompt}`;
 			}
 		});
 		let text = rewritten?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const optimized = sanitizePrompt(parsed?.optimized_prompt || text, 5000);
 		return optimized || finalPrompt;

@@ -7,7 +7,7 @@ import {
 	listVolunteerShifts,
 	listVolunteerCustomQuestions,
 	listVolunteerEventEmails
-} from '#lib';
+} from '#lib/services/volunteers';
 
 function chunk(values, size) {
 	if (!Array.isArray(values) || values.length === 0 || size <= 0) return [];
