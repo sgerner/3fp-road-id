@@ -3252,11 +3252,6 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	};
 }
 
-export async function updateMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl }) {
-	// Membership pricing can affect recurring invoice setup; safest path is to recreate the Stripe intent/subscription.
-	return createMembershipPaymentIntent({ cookies, groupSlug, payload, requestUrl });
-}
-
 export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payload, fetchImpl }) {
 	const auth = await requireMembershipUser(cookies, groupSlug);
 	if (!auth.ok) return auth;

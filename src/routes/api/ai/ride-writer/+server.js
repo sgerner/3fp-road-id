@@ -242,7 +242,6 @@ Respond with JSON matching the schema.`;
 		});
 
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		return json(normalizeAiPayload(parsed, text));
 	} catch (error) {
@@ -254,7 +253,6 @@ Respond with JSON matching the schema.`;
 					useSchema: false
 				});
 				let text = fallbackResponse?.text ?? '';
-				if (typeof text === 'function') text = text();
 				const parsed = safeParseJson(text);
 				return json(normalizeAiPayload(parsed, text));
 			} catch (fallbackError) {

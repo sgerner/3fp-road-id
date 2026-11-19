@@ -253,7 +253,6 @@ export async function generateGroupSiteDraft({
 			config: aiConfig
 		});
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const draftConfig = mergeGroupSiteConfig(
 			buildDefaultGroupSiteConfig(group),

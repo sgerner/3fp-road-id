@@ -45,7 +45,7 @@
 		updateVolunteerEventEmail,
 		deleteVolunteerEventEmail,
 		getVolunteerEventEmail
-	} from '#lib';
+	} from '#lib/services/volunteers';
 
 	let { data } = $props();
 

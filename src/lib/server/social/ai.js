@@ -131,7 +131,6 @@ export async function generateGroupSocialCaptionDraft(input = {}) {
 	});
 
 	let text = response?.text ?? '';
-	if (typeof text === 'function') text = text();
 	const parsed = safeParseJson(text);
 	const caption = cleanText(parsed?.caption || text, 4000);
 	if (!caption) {
@@ -196,7 +195,6 @@ export async function generateGroupSocialCommentReplyDraft(input = {}) {
 	});
 
 	let text = response?.text ?? '';
-	if (typeof text === 'function') text = text();
 	const parsed = safeParseJson(text);
 	const reply = cleanText(parsed?.reply || text, 2200);
 	if (!reply) {

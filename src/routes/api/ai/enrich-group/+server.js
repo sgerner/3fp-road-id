@@ -848,7 +848,6 @@ async function runExtractionPass({ client, model, context, name }) {
 		}
 	});
 	let text = response.text ?? '';
-	if (typeof text === 'function') text = text();
 	const parsed = safeParseJson(text);
 	return { parsed, raw: text };
 }
@@ -899,7 +898,6 @@ ${evidenceLines.join('\n') || '(none provided)'}`;
 		}
 	});
 	let text = response.text ?? '';
-	if (typeof text === 'function') text = text();
 	return { parsed: safeParseJson(text), raw: text };
 }
 
