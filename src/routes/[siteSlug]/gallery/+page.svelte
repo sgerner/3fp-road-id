@@ -1,11 +1,9 @@
 <script>
-	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconImage from '@lucide/svelte/icons/image';
-	import IconX from '@lucide/svelte/icons/x';
+	import MicrositeGalleryLightbox from '#lib/components/microsites/MicrositeGalleryLightbox.svelte';
 	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '#lib/media/lazyImage';
 	import { optimizedImageUrl } from '#lib/media/optimized';
-	import { fade, scale } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 
@@ -45,26 +43,7 @@
 	function closeLightbox() {
 		lightboxOpen = false;
 	}
-
-	function previousImage() {
-		if (!galleryImages.length) return;
-		lightboxIndex = lightboxIndex <= 0 ? galleryImages.length - 1 : lightboxIndex - 1;
-	}
-
-	function nextImage() {
-		if (!galleryImages.length) return;
-		lightboxIndex = lightboxIndex >= galleryImages.length - 1 ? 0 : lightboxIndex + 1;
-	}
-
-	function handleKeydown(event) {
-		if (!lightboxOpen) return;
-		if (event.key === 'Escape') closeLightbox();
-		if (event.key === 'ArrowLeft') previousImage();
-		if (event.key === 'ArrowRight') nextImage();
-	}
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
 	<title>Gallery — {site.siteConfig?.site_title || group?.name || 'Gallery'}</title>
@@ -167,70 +146,11 @@
 </div>
 
 {#if lightboxOpen && galleryImages.length}
-	<div
-		class="lightbox-backdrop"
-		role="dialog"
-		tabindex="0"
-		aria-modal="true"
-		aria-label={galleryImages[lightboxIndex]?.title}
-		onclick={(e) => {
-			if (e.target === e.currentTarget) closeLightbox();
-		}}
-		onkeydown={handleKeydown}
-		transition:fade={{ duration: 140 }}
-	>
-		<div class="lightbox-panel" transition:scale={{ start: 0.98, duration: 160 }}>
-			<div class="lightbox-toolbar">
-				<div class="lightbox-counter">
-					{lightboxIndex + 1} <span>/</span>
-					{galleryImages.length}
-				</div>
-				<button
-					type="button"
-					class="lightbox-close"
-					onclick={closeLightbox}
-					aria-label="Close lightbox"
-				>
-					<IconX class="h-5 w-5" />
-				</button>
-			</div>
-			<div class="lightbox-stage">
-				<img
-					src={galleryImages[lightboxIndex]?.href}
-					alt={galleryImages[lightboxIndex]?.title}
-					class="lightbox-image"
-				/>
-				{#if galleryImages.length > 1}
-					<button
-						type="button"
-						class="lightbox-nav lightbox-prev"
-						onclick={previousImage}
-						aria-label="Previous image"><IconChevronLeft class="h-5 w-5" /></button
-					>
-					<button
-						type="button"
-						class="lightbox-nav lightbox-next"
-						onclick={nextImage}
-						aria-label="Next image"><IconChevronRight class="h-5 w-5" /></button
-					>
-				{/if}
-			</div>
-			{#if galleryImages.length > 1}
-				<div class="lightbox-thumbnails">
-					{#each galleryImages as asset, index}
-						<button
-							type="button"
-							class="thumbnail {index === lightboxIndex ? 'active' : ''}"
-							onclick={() => (lightboxIndex = index)}
-							aria-label="View image {index + 1}"
-						>
-							<img src={asset.href} alt={asset.title} />
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	</div>
+	<MicrositeGalleryLightbox
+		images={galleryImages}
+		startIndex={lightboxIndex}
+		onClose={closeLightbox}
+	/>
 {/if}
 
 <style>
@@ -398,155 +318,5 @@
 		backdrop-filter: blur(4px);
 		padding: 0.42rem 0.95rem;
 		border-radius: 9999px;
-	}
-
-	.lightbox-backdrop {
-		position: fixed;
-		inset: 0;
-		z-index: 20000;
-		background: color-mix(in oklab, var(--color-surface-950) 95%, transparent);
-		backdrop-filter: blur(8px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.35rem;
-	}
-
-	.lightbox-panel {
-		position: relative;
-		width: min(98vw, 1800px);
-		height: min(98dvh, 1200px);
-		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		border-radius: 1rem;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.lightbox-toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.55rem 0.85rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-	}
-
-	.lightbox-counter {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-surface-100);
-	}
-
-	.lightbox-counter span {
-		color: var(--color-surface-500);
-	}
-
-	.lightbox-close {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.5rem;
-		border-radius: 0.5rem;
-		color: var(--color-surface-100);
-		transition: background-color 0.15s ease;
-	}
-
-	.lightbox-close:hover {
-		background: color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-	}
-
-	.lightbox-stage {
-		position: relative;
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 0;
-		padding: 0.6rem;
-	}
-
-	.lightbox-image {
-		width: 100%;
-		height: 100%;
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-		border-radius: 0.5rem;
-	}
-
-	.lightbox-nav {
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: 9999px;
-		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 15%, transparent);
-		color: var(--color-surface-100);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.15s ease;
-		opacity: 0.7;
-	}
-
-	.lightbox-nav:hover {
-		opacity: 1;
-		background: color-mix(in oklab, var(--color-surface-950) 90%, transparent);
-	}
-
-	.lightbox-prev {
-		left: 1rem;
-	}
-
-	.lightbox-next {
-		right: 1rem;
-	}
-
-	.lightbox-thumbnails {
-		display: flex;
-		gap: 0.45rem;
-		padding: 0.5rem 0.75rem;
-		overflow-x: auto;
-		border-top: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
-	}
-
-	.lightbox-thumbnails::-webkit-scrollbar {
-		height: 4px;
-	}
-
-	.lightbox-thumbnails::-webkit-scrollbar-track {
-		background: transparent;
-	}
-
-	.lightbox-thumbnails::-webkit-scrollbar-thumb {
-		background: color-mix(in oklab, var(--color-surface-50) 30%, transparent);
-		border-radius: 2px;
-	}
-
-	.thumbnail {
-		flex-shrink: 0;
-		width: 3rem;
-		height: 3rem;
-		border-radius: 0.375rem;
-		overflow: hidden;
-		border: 2px solid transparent;
-		transition: all 0.15s ease;
-		opacity: 0.6;
-	}
-
-	.thumbnail:hover,
-	.thumbnail.active {
-		opacity: 1;
-		border-color: var(--color-primary-500);
-	}
-
-	.thumbnail img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
 	}
 </style>
