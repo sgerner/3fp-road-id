@@ -375,6 +375,20 @@
 		cursor: pointer;
 	}
 
+	.materials summary::after {
+		content: '';
+		flex: 0 0 0.55rem;
+		height: 0.55rem;
+		margin: 0.5rem 0.3rem 0 auto;
+		border-right: 2px solid currentColor;
+		border-bottom: 2px solid currentColor;
+		transform: rotate(45deg);
+	}
+
+	.materials[open] summary::after {
+		transform: rotate(225deg);
+	}
+
 	.materials summary strong {
 		font-size: 1.25rem;
 	}
