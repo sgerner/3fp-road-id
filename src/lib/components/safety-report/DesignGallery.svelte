@@ -291,8 +291,8 @@
 				{#if library === 'campaigns'}<p class="asset-meta">
 						{formatSize(item)} · {item.pageCount}-page set
 					</p>
-					<div class="campaign-guidance">
-						<p>Suggested use · draft to adapt</p>
+					<details class="campaign-guidance">
+						<summary>Suggested use</summary>
 						<dl>
 							<div>
 								<dt>Audience</dt>
@@ -311,7 +311,7 @@
 								<dd>{guidance.customize}</dd>
 							</div>
 						</dl>
-					</div>
+					</details>
 					<div class="card-actions">
 						{#if item.pdfUrl}<a
 								href={item.pdfUrl}
@@ -466,7 +466,9 @@
 		font-size: 0.85rem;
 		line-height: 1.45;
 	}
-	.campaign-guidance > p {
+	.campaign-guidance > summary {
+		cursor: pointer;
+		padding-block: 0.4rem;
 		margin: 0 0 0.45rem;
 		color: var(--color-surface-700);
 		font-size: 0.85rem;

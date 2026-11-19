@@ -42,7 +42,7 @@
 </svelte:head>
 
 <section
-	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh+2rem)] flex-col overflow-hidden"
+	class="bg-surface-950 text-surface-50 flex min-h-dvh flex-col overflow-hidden"
 	aria-label="Error"
 >
 	<div class="bg-primary-500 text-surface-950 grid flex-1 lg:grid-cols-[auto_minmax(0,1fr)]">

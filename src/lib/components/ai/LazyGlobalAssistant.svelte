@@ -20,7 +20,7 @@
 	{@const Assistant = assistantComponent}
 	<Assistant {userId} {pathname} initialOpen={true} />
 {:else}
-	<div class="fixed right-0 bottom-0 z-[80]">
+	<div class="md:fixed md:right-0 md:bottom-0 md:z-[80]">
 		<button
 			type="button"
 			class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"

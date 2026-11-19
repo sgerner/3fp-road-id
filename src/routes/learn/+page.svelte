@@ -17,6 +17,13 @@
 
 	let search = $state('');
 	let category = $state('all');
+	const pageSize = 12;
+	let visibleCount = $state(pageSize);
+	$effect(() => {
+		search;
+		category;
+		visibleCount = pageSize;
+	});
 
 	const articles = $derived(data?.articles ?? []);
 	const categories = $derived(
@@ -60,7 +67,7 @@
 	/>
 </svelte:head>
 
-<div class="-m-4 flex flex-col">
+<div class="flex flex-col">
 	{#if authRequired}
 		<section
 			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10"
@@ -166,11 +173,13 @@
 	<!-- SEARCH & FILTER BAND -->
 	<div
 		id="library"
-		class="bg-surface-900 text-surface-50 border-surface-800 scroll-mt-20 border-b-2 px-6 py-5 sm:px-10 lg:px-12"
+		class="bg-surface-900 text-surface-50 border-surface-800 sticky top-[var(--app-header-height)] z-10 scroll-mt-[var(--app-header-height)] border-b-2 px-4 py-2 sm:px-10 lg:px-12"
 	>
 		<div class="flex flex-col gap-4">
-			<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
-				<label class="relative block min-w-0">
+			<div
+				class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]"
+			>
+				<label class="relative col-span-2 block min-w-0 sm:col-span-1">
 					<span
 						class="text-surface-400 pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2"
 					>
@@ -186,7 +195,7 @@
 				</label>
 				<select
 					bind:value={category}
-					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					aria-label="Filter by category"
 				>
 					<option value="all">All topics</option>
@@ -205,9 +214,10 @@
 					</button>
 				{/if}
 			</div>
-
-			<LearnNavigator />
 		</div>
+	</div>
+	<div class="bg-surface-900 px-6 py-5 sm:px-10 lg:px-12">
+		<LearnNavigator />
 	</div>
 
 	<div class="bg-surface-950 border-surface-800 border-b px-6 py-4 sm:px-10 lg:px-12">
@@ -249,7 +259,7 @@
 
 		{#if filteredArticles.length}
 			<div class="border-surface-800 grid border-t-2 border-l-2 md:grid-cols-2 xl:grid-cols-3">
-				{#each filteredArticles as article, index (article.id ?? article.slug)}
+				{#each filteredArticles.slice(0, visibleCount) as article, index (article.id ?? article.slug)}
 					<a
 						class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 flex h-full flex-col justify-between border-r-2 border-b-2 transition hover:no-underline"
 						href={`/learn/${article.slug}`}
@@ -319,6 +329,13 @@
 					</a>
 				{/each}
 			</div>
+			{#if visibleCount < filteredArticles.length}
+				<button
+					type="button"
+					class="btn preset-tonal-primary mt-4 min-h-11"
+					onclick={() => (visibleCount += pageSize)}>Show more articles</button
+				>
+			{/if}
 		{:else}
 			<div class="border-surface-50 flex flex-col items-start gap-4 border-t-2 pt-8">
 				<p class="text-surface-50 m-0 text-2xl font-black uppercase italic">

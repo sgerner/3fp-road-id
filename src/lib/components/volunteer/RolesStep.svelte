@@ -50,7 +50,8 @@
 					</select>
 					<button
 						type="button"
-						class="btn-icon preset-tonal-error flex shrink-0 items-center gap-1.5"
+						class="btn-icon preset-tonal-error flex size-11 shrink-0 items-center justify-center"
+						aria-label="Remove role"
 						disabled={opportunities.length === 1}
 						onclick={() => onRemoveOpportunity(opportunity.id)}
 					>
@@ -193,7 +194,7 @@
 								</p>
 								<button
 									type="button"
-									class="text-error-600 hover:text-error-300 p-1 transition-colors"
+									class="text-error-600 hover:text-error-300 grid size-11 shrink-0 place-items-center transition-colors"
 									onclick={() => onRemoveShift(opportunity.id, shift.id)}
 									aria-label="Remove shift"
 								>
@@ -259,7 +260,7 @@
 
 					<button
 						type="button"
-						class="border-surface-500/20 text-surface-400 hover:text-surface-200 hover:border-surface-500/40 flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 transition-colors"
+						class="border-surface-500/20 text-surface-400 hover:text-surface-200 hover:border-surface-500/40 flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 transition-colors sm:min-h-[200px]"
 						onclick={() => onAddShift(opportunity.id)}
 					>
 						<div class="bg-surface-500/10 rounded-full p-2">

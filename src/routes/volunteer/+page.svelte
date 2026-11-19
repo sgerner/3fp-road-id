@@ -22,7 +22,7 @@
 	<title>Volunteer Hub</title>
 </svelte:head>
 
-<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+<div class="text-surface-50 -m-4 flex min-w-0 flex-col overflow-hidden">
 	{#if authRequired}
 		<section
 			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10 lg:px-14"

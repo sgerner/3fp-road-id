@@ -553,7 +553,8 @@
 							<h3 class="text-base font-bold">Question {idx + 1}</h3>
 							<button
 								type="button"
-								class="btn btn-sm preset-tonal-error flex items-center gap-2"
+								class="btn btn-sm preset-tonal-error flex min-h-11 min-w-11 items-center justify-center gap-2"
+								aria-label={`Remove question ${idx + 1}`}
 								on:click={() => onRemoveQuestion(question.id)}
 							>
 								<IconTrash class="h-4 w-4" />
@@ -641,7 +642,8 @@
 													{option}
 													<button
 														type="button"
-														class="text-error-400 hover:text-error-300 text-xs transition-colors"
+														class="text-error-400 hover:text-error-300 grid size-11 shrink-0 place-items-center transition-colors"
+														aria-label={`Remove option ${option}`}
 														on:click={() => removeOption(question, option)}
 													>
 														<IconTrash class="h-3.5 w-3.5" />
@@ -1131,7 +1133,7 @@
 				{/if}
 
 				<div class="mt-4 grid gap-4 md:grid-cols-2">
-					<label class="border-surface-500/15 flex flex-col gap-1.5 border-r pr-4">
+					<label class="border-surface-500/15 flex flex-col gap-1.5 md:border-r md:pr-4">
 						<span class="text-surface-200 text-sm font-medium">Send timing</span>
 						<div class="flex flex-col gap-2">
 							{#if timingMode !== 'now'}
@@ -1175,7 +1177,7 @@
 						</div>
 					</label>
 					{#if email.emailType === 'reminder'}
-						<div class="flex flex-col gap-1.5 pl-4">
+						<div class="flex flex-col gap-1.5 md:pl-4">
 							<span class="text-surface-200 text-sm font-medium" id={`email-confirm-${email.id}`}>
 								Require confirmation?
 							</span>
