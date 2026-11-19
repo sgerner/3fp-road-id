@@ -45,6 +45,10 @@ function formatFeedback(notice, errorMessage) {
 			return { type: 'success', message: 'Shift updated. We saved your new time.' };
 		case 'login_required':
 			return { type: 'info', message: 'Please sign in to manage your volunteer shifts.' };
+		case 'review_confirm':
+			return { type: 'info', message: 'Review your highlighted shift before confirming it.' };
+		case 'review_cancel':
+			return { type: 'info', message: 'Review your highlighted shift before cancelling it.' };
 		case 'forbidden':
 			return { type: 'error', message: 'We could not verify access to that shift.' };
 		case 'not_found':
