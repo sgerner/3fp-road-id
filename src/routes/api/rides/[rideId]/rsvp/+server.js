@@ -35,7 +35,7 @@ export async function POST({ params, request, cookies }) {
 		.eq('user_id', user.id)
 		.maybeSingle();
 
-	const participantName = profile?.full_name || user.email || 'Rider';
+	const participantName = profile?.full_name?.trim() || 'Rider';
 	const participantEmail = profile?.email || user.email;
 	if (!participantEmail) return invalid('Your account needs an email address to RSVP.', 400);
 
