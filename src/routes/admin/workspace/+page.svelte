@@ -24,8 +24,53 @@
 	let createPassword = $state('');
 	let resetPassword = $state('');
 
+	// Google's user list is eventually consistent: a reload right after a write
+	// often misses it. Keep confirmed changes from this session layered on top.
+	let createdUsers = $state([]);
+	let deletedUserIds = $state([]);
+	let aliasChanges = $state([]);
+
+	const users = $derived.by(() => {
+		const loadedIds = new Set(data.users.map((u) => u.id));
+		const pending = createdUsers.filter(
+			(u) =>
+				!loadedIds.has(u.id) &&
+				(!data.search ||
+					`${u.primaryEmail} ${displayName(u)}`.toLowerCase().includes(data.search.toLowerCase()))
+		);
+		return [...data.users, ...pending]
+			.filter((u) => !deletedUserIds.includes(u.id))
+			.map((u) => ({ ...u, aliases: applyAliasChanges(u) }))
+			.sort((a, b) => String(a.primaryEmail).localeCompare(String(b.primaryEmail)));
+	});
+
 	// Reactively find the selected user from the list
-	const selectedUser = $derived(data.users.find((u) => u.id === selectedUserId) || null);
+	const selectedUser = $derived(users.find((u) => u.id === selectedUserId) || null);
+
+	function applyAliasChanges(user) {
+		const aliases = new Set(user.aliases || []);
+		for (const change of aliasChanges) {
+			if (change.userId !== user.id) continue;
+			if (change.added) aliases.add(change.alias);
+			else aliases.delete(change.alias);
+		}
+		return [...aliases];
+	}
+
+	function trackResult(result) {
+		if (result.type !== 'success') return;
+		const { createdUser, deletedUserId, aliasChange } = result.data || {};
+		if (createdUser?.id) createdUsers = [...createdUsers, createdUser];
+		if (deletedUserId) deletedUserIds = [...deletedUserIds, deletedUserId];
+		if (aliasChange) aliasChanges = [...aliasChanges, aliasChange];
+	}
+
+	function handleAliasChange() {
+		return async ({ result, update }) => {
+			trackResult(result);
+			await update();
+		};
+	}
 	const createPasswordStrength = $derived(assessPassword(createPassword));
 	const resetPasswordStrength = $derived(assessPassword(resetPassword));
 
@@ -170,6 +215,7 @@
 
 	function handleCreateUser() {
 		return async ({ result, update }) => {
+			trackResult(result);
 			await update();
 			if (result.type === 'success') {
 				createPassword = '';
@@ -189,6 +235,7 @@
 
 	function handleDeleteUser() {
 		return async ({ result, update }) => {
+			trackResult(result);
 			await update();
 			if (result.type === 'success') {
 				selectedUserId = null;
@@ -299,7 +346,7 @@
 					<!-- List Header & Create Trigger -->
 					<div class="flex flex-col gap-3">
 						<div class="flex items-center justify-between">
-							<h2 class="h5 font-bold">Users ({data.users.length})</h2>
+							<h2 class="h5 font-bold">Users ({users.length})</h2>
 							<button
 								type="button"
 								class="btn btn-sm preset-filled-primary-500 font-semibold"
@@ -336,10 +383,10 @@
 
 					<!-- Scrollable Users List -->
 					<div class="max-h-[calc(100vh-22rem)] space-y-2 overflow-y-auto pr-1">
-						{#if !data.users.length}
+						{#if !users.length}
 							<div class="py-12 text-center text-sm opacity-60">No users found.</div>
 						{:else}
-							{#each data.users as user}
+							{#each users as user}
 								<button
 									type="button"
 									onclick={() => {
@@ -899,7 +946,12 @@
 												Add Email Alias
 											</h3>
 
-											<form method="POST" action="?/addAlias" use:enhance class="flex gap-2">
+											<form
+												method="POST"
+												action="?/addAlias"
+												use:enhance={handleAliasChange}
+												class="flex gap-2"
+											>
 												<input type="hidden" name="userKey" value={selectedUser.id} />
 												<div class="relative flex-1">
 													<span class="absolute start-3 top-1/2 -translate-y-1/2 opacity-40">
@@ -945,7 +997,11 @@
 																<span class="truncate">{alias}</span>
 															</div>
 
-															<form method="POST" action="?/deleteAlias" use:enhance>
+															<form
+																method="POST"
+																action="?/deleteAlias"
+																use:enhance={handleAliasChange}
+															>
 																<input type="hidden" name="userKey" value={selectedUser.id} />
 																<input type="hidden" name="alias" value={alias} />
 																<input type="hidden" name="confirmText" value="" />
