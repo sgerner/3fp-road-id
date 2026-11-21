@@ -120,7 +120,7 @@ export const actions = {
 				return fail(400, { error: 'First name, last name, email, and password are required.' });
 			}
 
-			await createWorkspaceUser({
+			const created = await createWorkspaceUser({
 				primaryEmail,
 				givenName,
 				familyName,
@@ -128,7 +128,16 @@ export const actions = {
 				changePasswordAtNextLogin,
 				orgUnitPath
 			});
-			return { success: true, message: `Created ${primaryEmail}.` };
+			// The Directory API list is eventually consistent, so hand the new user
+			// back for the page to show until the list catches up.
+			return {
+				success: true,
+				message: `Created ${primaryEmail}.`,
+				createdUser: {
+					...created,
+					aliases: normalizeWorkspaceAliases(created?.aliases)
+				}
+			};
 		} catch (error) {
 			return fail(400, { error: normalizeError(error, 'Unable to create user.') });
 		}
@@ -205,7 +214,7 @@ export const actions = {
 			}
 			await assertNotIntegrationAdmin(userKey, 'delete');
 			await deleteWorkspaceUser(userKey);
-			return { success: true, message: `Deleted ${userKey}.` };
+			return { success: true, message: `Deleted ${userKey}.`, deletedUserId: userKey };
 		} catch (error) {
 			return fail(400, { error: normalizeError(error, 'Unable to delete user.') });
 		}
@@ -270,7 +279,11 @@ export const actions = {
 			if (!userKey || !alias)
 				return fail(400, { error: 'User identifier and alias are required.' });
 			await addWorkspaceUserAlias(userKey, alias);
-			return { success: true, message: `Added alias ${alias} to ${userKey}.` };
+			return {
+				success: true,
+				message: `Added alias ${alias} to ${userKey}.`,
+				aliasChange: { userId: userKey, alias, added: true }
+			};
 		} catch (error) {
 			return fail(400, { error: normalizeError(error, 'Unable to add alias.') });
 		}
@@ -293,7 +306,11 @@ export const actions = {
 				return fail(400, { error: `Confirmation mismatch. Type exactly: ${expected}` });
 			}
 			await deleteWorkspaceUserAlias(userKey, alias);
-			return { success: true, message: `Deleted alias ${alias} from ${userKey}.` };
+			return {
+				success: true,
+				message: `Deleted alias ${alias} from ${userKey}.`,
+				aliasChange: { userId: userKey, alias, added: false }
+			};
 		} catch (error) {
 			return fail(400, { error: normalizeError(error, 'Unable to delete alias.') });
 		}
