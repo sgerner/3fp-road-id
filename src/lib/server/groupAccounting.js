@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fail } from '@sveltejs/kit';
 import * as env from '$app/env/private';
 import {
@@ -441,15 +441,22 @@ async function auditEvent(
 	});
 }
 
-async function fetchJson(url, options = {}) {
-	const target = new URL(url);
+async function fetchMercuryJson(apiKey, { path, query = {} }) {
+	const origin = 'https://api.mercury.com';
+	if (!['/api/v1/accounts', '/api/v1/transactions'].includes(path)) {
+		throw new Error('Mercury API endpoint is not supported.');
+	}
+	const target = new URL(path, origin);
+	for (const [name, value] of Object.entries(query)) {
+		if (value !== null && value !== undefined) target.searchParams.set(name, String(value));
+	}
 	const response = await fetchPublicHttp(
 		target.toString(),
 		{
-			...options,
+			method: 'GET',
 			headers: {
-				'content-type': 'application/json',
-				...(options.headers ?? {})
+				accept: 'application/json',
+				authorization: `Bearer ${apiKey}`
 			}
 		},
 		{
@@ -459,7 +466,7 @@ async function fetchJson(url, options = {}) {
 			allowedHosts: [target.hostname]
 		}
 	);
-	if (!response) throw new Error('Mercury relay request was blocked or timed out.');
+	if (!response) throw new Error('Mercury request was blocked or timed out.');
 	const raw = await response.text().catch(() => '');
 	let payload = {};
 	try {
@@ -469,74 +476,14 @@ async function fetchJson(url, options = {}) {
 	}
 	if (!response.ok) {
 		const error = new Error(
-			payload?.error_message || payload?.message || `Request failed (${response.status})`
+			payload?.error_message ||
+				payload?.message ||
+				`Mercury API request failed (${response.status})`
 		);
-		Object.assign(error, {
-			httpStatus: response.status,
-			...(response.status === 401
-				? {
-						code:
-							payload?.error === 'Authentication failed'
-								? 'relay_auth'
-								: response.headers.has('x-relay-request-id')
-									? 'provider_auth'
-									: 'relay_access'
-					}
-				: {})
-		});
+		Object.assign(error, { httpStatus: response.status });
 		throw error;
 	}
 	return payload;
-}
-
-function encryptMercuryRelayKey(apiKey) {
-	const key = Buffer.from(env.MERCURY_RELAY_ENCRYPTION_KEY_B64 || '', 'base64');
-	if (key.length !== 32) {
-		throw new Error('MERCURY_RELAY_ENCRYPTION_KEY_B64 must be a base64 encoded 32-byte key.');
-	}
-	const iv = randomBytes(16);
-	const cipher = createCipheriv('aes-256-gcm', key, iv);
-	let encrypted = cipher.update(apiKey, 'utf8', 'base64');
-	encrypted += cipher.final('base64');
-	return Buffer.from(
-		JSON.stringify({
-			iv: iv.toString('base64'),
-			authTag: cipher.getAuthTag().toString('base64'),
-			data: encrypted
-		})
-	).toString('base64');
-}
-
-async function mercuryRelayRequest(auth, connection, apiKey, mercury) {
-	const relayUrl = cleanText(env.MERCURY_RELAY_URL, 500);
-	const sharedSecret = env.MERCURY_RELAY_SHARED_SECRET;
-	if (!relayUrl) throw new Error('MERCURY_RELAY_URL is not configured.');
-	if (!sharedSecret) throw new Error('MERCURY_RELAY_SHARED_SECRET is not configured.');
-
-	const url = new URL(relayUrl);
-	if (url.protocol !== 'https:' || url.username || url.password || url.hash) {
-		throw new Error('MERCURY_RELAY_URL must be a public HTTPS endpoint.');
-	}
-	const timestamp = String(Date.now());
-	const nonce = randomBytes(16).toString('hex');
-	const body = JSON.stringify({
-		company_id: auth.group.id,
-		connection_id: connection?.id ?? null,
-		encrypted_key: encryptMercuryRelayKey(apiKey),
-		mercury
-	});
-	const signaturePayload = `${timestamp}.${nonce}.POST.${url.pathname}.${body}`;
-	const signature = createHmac('sha256', sharedSecret).update(signaturePayload).digest('hex');
-
-	return fetchJson(url.toString(), {
-		method: 'POST',
-		headers: {
-			'x-relay-timestamp': timestamp,
-			'x-relay-nonce': nonce,
-			'x-relay-signature': signature
-		},
-		body
-	});
 }
 
 function classifyReceipt(fileName = '', mimeType = '') {
@@ -3016,8 +2963,7 @@ async function performMercurySync(auth, options = {}) {
 	let legacyAccounts = [];
 	const mercuryAccountIds = new Set();
 	for await (const accountPage of mercuryAccountPages(async (query) => {
-		const payload = await mercuryRelayRequest(auth, resolved, resolvedApiKey, {
-			method: 'GET',
+		const payload = await fetchMercuryJson(resolvedApiKey, {
 			path: '/api/v1/accounts',
 			query
 		});
@@ -3045,8 +2991,7 @@ async function performMercurySync(auth, options = {}) {
 
 	const totals = { inserted: 0, updated: 0, corrections: 0, skipped: 0, auto_posted_transfers: 0 };
 	for await (const transactions of mercuryTransactionPages(async (query) =>
-		mercuryRelayRequest(auth, resolved, resolvedApiKey, {
-			method: 'GET',
+		fetchMercuryJson(resolvedApiKey, {
 			path: '/api/v1/transactions',
 			query
 		})

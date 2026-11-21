@@ -1,0 +1,49 @@
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: ops/farin/Dockerfile
+      secrets:
+        - production_env
+    image: 3fp-road-id:farin
+    container_name: 3fp-web
+    restart: unless-stopped
+    init: true
+    env_file:
+      - /etc/3fp/production.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      ORIGIN: https://3fp.org
+    mem_limit: 1g
+    cpus: 1.0
+    stop_grace_period: 30s
+    networks:
+      supabase_default:
+        aliases:
+          - 3fp-web
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('net').connect(3000,'127.0.0.1');s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+networks:
+  supabase_default:
+    external: true
+    name: supabase_default
+
+secrets:
+  production_env:
+    file: /etc/3fp/build.env

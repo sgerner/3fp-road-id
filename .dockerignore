@@ -1,0 +1,9 @@
+.git
+.vercel
+node_modules
+.svelte-kit
+build
+.env
+.env.*
+!.env.example
+*.log

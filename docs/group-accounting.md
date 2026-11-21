@@ -38,9 +38,6 @@ Existing required app variables still apply:
 - `STRIPE_CONNECT_STATE_SECRET` or `STRIPE_SECRET_KEY`
 - `SOCIAL_TOKEN_ENCRYPTION_KEY`
 - `CRON_SECRET` or `CRON_AUTH_TOKEN` or `VERCEL_CRON_SECRET`
-- `MERCURY_RELAY_URL`
-- `MERCURY_RELAY_SHARED_SECRET`
-- `MERCURY_RELAY_ENCRYPTION_KEY_B64`
 
 `SOCIAL_TOKEN_ENCRYPTION_KEY` is used for encrypted Mercury/Financial Connections metadata compatibility and must resolve to 32 bytes. The existing social token helper accepts a 64-character hex key, a base64 32-byte key, or hashes an arbitrary secret into a 32-byte key.
 
@@ -62,7 +59,7 @@ The group must already have a Stripe connected account through the existing dona
 ## Mercury
 
 Each group can store its own Mercury API key from the accounting settings panel. The key is encrypted before storage.
-Mercury sync requests are sent through the Mercury relay configured by `MERCURY_RELAY_URL`; the app signs relay requests with `MERCURY_RELAY_SHARED_SECRET` and encrypts the per-group Mercury key with `MERCURY_RELAY_ENCRYPTION_KEY_B64`.
+The app sends HTTPS requests directly to `api.mercury.com` using that group's key. On Farin, requests originate from the server's fixed public IP. Relay configuration is no longer required.
 Each group must save its own Mercury API key in accounting settings. A shared Mercury token is never used as a fallback, which keeps one group's bank data from being imported into another group's books.
 
 Sync imports:

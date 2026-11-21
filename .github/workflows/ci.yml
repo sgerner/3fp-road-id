@@ -3,6 +3,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  release:
+    types: [published]
 permissions:
   contents: read
 concurrency:
@@ -45,3 +47,44 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:server-sanitizer
+
+  deploy-farin:
+    if: github.event_name == 'push' || (github.event_name == 'release' && github.event.release.prerelease == false)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: farin-production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+      - id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Configure Farin SSH access
+        env:
+          FARIN_DEPLOY_KEY: ${{ secrets.FARIN_DEPLOY_KEY }}
+        run: |
+          install -m 0700 -d "$RUNNER_TEMP/farin-ssh"
+          printf '%s\n' "$FARIN_DEPLOY_KEY" > "$RUNNER_TEMP/farin-ssh/id_ed25519"
+          chmod 0600 "$RUNNER_TEMP/farin-ssh/id_ed25519"
+          cat > "$RUNNER_TEMP/farin-ssh/known_hosts" <<'EOF'
+          |1|urp2kSNXnF+vFdDWNmiubssBMkg=|Gir5NUSASb80nItU+dOzPqfiPsA= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHMqLpd1OkAh3mykfr8zgpUYE1HyJNHAuSDv3Bbz6LVm
+          EOF
+          chmod 0600 "$RUNNER_TEMP/farin-ssh/known_hosts"
+      - name: Deploy the checked commit or release
+        env:
+          DEPLOY_REF: ${{ github.ref }}
+          DEPLOY_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          printf '%s\n%s\n' "$DEPLOY_REF" "$DEPLOY_SHA" | ssh -T \
+            -i "$RUNNER_TEMP/farin-ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/farin-ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=40 \
+            3fp-deploy@45.142.194.24

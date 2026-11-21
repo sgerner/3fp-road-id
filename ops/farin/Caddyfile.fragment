@@ -1,0 +1,8 @@
+3fp.org, www.3fp.org {
+	import security_headers
+	import access_log
+	tls {
+		dns cloudflare {env.CLOUDFLARE_3FP_API_TOKEN}
+	}
+	reverse_proxy 3fp-web:3000
+}
