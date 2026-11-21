@@ -1,4 +1,5 @@
 import adapter from '@sveltejs/adapter-auto';
+import adapterNode from '@sveltejs/adapter-node';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
@@ -48,7 +49,7 @@ export default defineConfig(({ command }) => ({
 	},
 	plugins: [
 		sveltekit({
-			adapter: adapter(),
+			adapter: process.env.DEPLOY_TARGET === 'node' ? adapterNode() : adapter(),
 			preprocess: vitePreprocess(),
 			// Inline small route stylesheets so the first paint does not wait on
 			// another request. The larger shared stylesheet stays cacheable.

@@ -211,7 +211,7 @@
 		</div>
 		<div class="free-actions">
 			<button type="button" onclick={() => switchLibrary('campaigns')}
-				>Explore {report.meta.campaignAssetCount || 36} free design sets
+				>Explore {report.meta.campaignAssetCount || 28} free design sets
 				<span aria-hidden="true">↗</span></button
 			>
 			<p>Canva sign-in is required to make a copy. Editable PowerPoint files are available too.</p>

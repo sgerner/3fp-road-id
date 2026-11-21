@@ -26,7 +26,7 @@ History searches and pagination run on the server. Account filters retain comple
 - Svelte check: zero errors and warnings. Full ESLint passes.
 - Desktop (1440px) and mobile (390px) renders of seven accounting tabs used production reference data: no browser errors or horizontal overflow. Temporary preview routes were removed before release.
 - A live Stripe import under the corrected connection succeeded with zero balance transactions returned; success is recorded independently of cron dispatch.
-- Production has the Mercury relay configuration. The existing hourly Supabase cron is enabled. A deployed endpoint test succeeded for Stripe but returned a partial failure for Mercury before any imports; the relay client now preserves HTTP status for safe authentication/permission/rate-limit classification.
+- The original deployment used the Mercury relay and had a Mercury sync failure before its first import. The Farin deployment now connects directly to `api.mercury.com` using each tenant's encrypted API key; relay environment variables are no longer required. The hosted Supabase hourly cron remains enabled.
 - A quiet six-hour health monitor checks actual cron results and durable provider success, alerting only on meaningful failures, recovery, or required action.
 - Repository-wide Prettier checking reports existing formatting in `src/lib/server/micrositeRouting.js` and `src/lib/services/email.ts`; neither file is part of this accounting change.
 
