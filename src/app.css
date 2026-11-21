@@ -259,9 +259,11 @@ body::after {
 /*
  * Page-scoped styles still carry rounded corners, glows and blurred orbs.
  * Force the Lane Lines look everywhere inside the app shell. Avatars and
- * radio buttons keep their circles.
+ * radio buttons keep their circles. A preview of something that is not app UI
+ * (such as a generated email) opts out with `.keep-radius` so it shows its
+ * real corners.
  */
-.app-shell main *:not(.rounded-full):not([type='radio']) {
+.app-shell main *:not(.rounded-full):not([type='radio']):not(.keep-radius *) {
 	border-radius: 0 !important;
 }
 
