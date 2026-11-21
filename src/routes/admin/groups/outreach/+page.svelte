@@ -503,43 +503,17 @@
 		</ul>
 	</section>
 
-	<!-- DETAIL (desktop) -->
-	<section class="hidden min-w-0 lg:block" aria-label="Outreach details">
-		<div class="lg:sticky lg:top-4">
-			{#if selectedGroup}
-				{@render detailContent(selectedGroup)}
-			{:else}
-				<div
-					class="flex min-h-[24rem] flex-col items-start justify-center gap-5 px-10 py-12 lg:px-14"
-				>
-					<span class="bg-secondary-500 text-surface-50 flex h-16 w-16 items-center justify-center">
-						<IconSend class="h-8 w-8" aria-hidden="true" />
-					</span>
-					<h2 class="m-0 text-3xl leading-[0.92] sm:text-4xl">Select a group</h2>
-					<p class="text-surface-300 m-0 max-w-md text-base leading-snug font-medium">
-						Choose a group to compose your outreach message.
-					</p>
-				</div>
-			{/if}
-		</div>
-	</section>
-</div>
-
-<!-- DETAIL (mobile/tablet sheet) -->
-{#if selectedGroupId && selectedGroup}
-	<div class="fixed inset-0 z-50 lg:hidden" transition:fade={{ duration: 150 }}>
-		<button
-			type="button"
-			class="bg-surface-950/80 absolute inset-0"
-			aria-label="Close outreach panel"
-			onclick={() => (selectedGroupId = null)}
-		></button>
-		<div
-			class="bg-surface-950 border-primary-500 absolute inset-x-0 top-[var(--app-header-height)] bottom-0 flex flex-col overflow-hidden border-t-4"
-			transition:slide={{ duration: 200 }}
-		>
+	<!-- DETAIL: an inline pane from lg up, a full-screen sheet under the header below it. It is
+	     one element, so the form and its ids are rendered once. -->
+	<section
+		class="min-w-0 {selectedGroup
+			? 'bg-surface-950 border-primary-500 fixed inset-x-0 top-[var(--app-header-height)] bottom-0 z-50 flex flex-col overflow-hidden border-t-4 lg:static lg:z-auto lg:block lg:overflow-visible lg:border-t-0 lg:bg-transparent'
+			: 'hidden lg:block'}"
+		aria-label="Outreach details"
+	>
+		{#if selectedGroup}
 			<div
-				class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between border-b-2 px-4 py-3"
+				class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between border-b-2 px-4 py-3 lg:hidden"
 			>
 				<button
 					type="button"
@@ -551,12 +525,28 @@
 				<span class="text-surface-300 text-xs font-bold tracking-[0.22em] uppercase">Outreach</span>
 				<div class="w-16"></div>
 			</div>
-			<div class="flex-1 overflow-y-auto">
-				{@render detailContent(selectedGroup)}
+			<div class="min-h-0 flex-1 overflow-y-auto lg:flex-none lg:overflow-visible">
+				<div class="lg:sticky lg:top-4">
+					{@render detailContent(selectedGroup)}
+				</div>
 			</div>
-		</div>
-	</div>
-{/if}
+		{:else}
+			<div class="lg:sticky lg:top-4">
+				<div
+					class="flex min-h-[24rem] flex-col items-start justify-center gap-5 px-10 py-12 lg:px-14"
+				>
+					<span class="bg-secondary-500 text-surface-50 flex h-16 w-16 items-center justify-center">
+						<IconSend class="h-8 w-8" aria-hidden="true" />
+					</span>
+					<h2 class="m-0 text-3xl leading-[0.92] sm:text-4xl">Select a group</h2>
+					<p class="text-surface-300 m-0 max-w-md text-base leading-snug font-medium">
+						Choose a group to compose your outreach message.
+					</p>
+				</div>
+			</div>
+		{/if}
+	</section>
+</div>
 
 {#snippet detailContent(group)}
 	<form
