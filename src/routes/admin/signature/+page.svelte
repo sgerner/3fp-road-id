@@ -220,7 +220,7 @@
 					Preview
 				</p>
 				<div class="px-6 pt-16 pb-8 md:px-8">
-					<div class="signature-preview inline-block max-w-full overflow-hidden">
+					<div class="signature-preview keep-radius inline-block max-w-full overflow-hidden">
 						{@html generatedHtml}
 					</div>
 				</div>
