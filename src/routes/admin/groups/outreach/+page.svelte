@@ -349,12 +349,8 @@
 	class="bg-surface-900 border-surface-800 border-b-2 px-6 py-5 sm:px-10 lg:px-14"
 	aria-label="Outreach filters"
 >
-	<form
-		method="GET"
-		class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)]"
-		transition:fade
-	>
-		<div class="relative">
+	<form method="GET" class="flex flex-wrap gap-3" transition:fade>
+		<div class="relative flex-[1_1_16rem]">
 			<IconSearch
 				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
 			/>
@@ -367,7 +363,7 @@
 				class="input pl-9"
 			/>
 		</div>
-		<div class="relative">
+		<div class="relative flex-[1_1_11rem]">
 			<IconFilter
 				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
 			/>
@@ -383,7 +379,7 @@
 				<option value="none">No contacts</option>
 			</select>
 		</div>
-		<div class="relative">
+		<div class="relative flex-[1_1_14rem]">
 			<IconFilter
 				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
 			/>
@@ -399,7 +395,7 @@
 				<option value="80">80%+ complete</option>
 			</select>
 		</div>
-		<div class="flex items-center gap-3">
+		<div class="flex flex-[1_1_21rem] items-center gap-3">
 			<div class="relative min-w-0 flex-1">
 				<IconArrowUpDown
 					class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
