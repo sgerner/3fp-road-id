@@ -218,7 +218,7 @@
 				<div class="card preset-tonal-surface border-white/10 p-5">
 					<div class="relative">
 						<button
-							class="btn btn-xs preset-filled-primary-500 absolute top-3 right-3 z-10 gap-1.5"
+							class="btn btn-sm preset-filled-primary-500 absolute top-3 right-3 z-10 min-h-6 gap-1.5"
 							type="button"
 							onclick={copyHtml}
 						>

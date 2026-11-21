@@ -1,5 +1,5 @@
 <script>
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import IconBot from '@lucide/svelte/icons/bot';
 	import IconSendHorizontal from '@lucide/svelte/icons/send-horizontal';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
@@ -45,7 +45,17 @@
 	const messageShownAt = new Map();
 
 	$effect(() => {
-		if (initialOpen) openAssistant();
+		if (initialOpen) untrack(openAssistant);
+	});
+
+	$effect(() => {
+		if (!isOpen) return;
+		const root = document.documentElement;
+		const overflow = root.style.overflow;
+		root.style.overflow = 'hidden';
+		return () => {
+			root.style.overflow = overflow;
+		};
 	});
 
 	function openAssistant() {
@@ -58,7 +68,9 @@
 				: toggleButtonEl;
 		isOpen = true;
 		void tick().then(() => {
-			if (isOpen) inputTextareaEl?.focus();
+			if (!isOpen) return;
+			if (window.matchMedia('(min-width: 768px)').matches) inputTextareaEl?.focus();
+			else dialogEl?.focus();
 		});
 	}
 
@@ -104,7 +116,10 @@
 		const first = focusable[0];
 		const last = focusable[focusable.length - 1];
 		const activeElement = document.activeElement;
-		if (event.shiftKey && (activeElement === first || !dialogEl?.contains(activeElement))) {
+		if (
+			event.shiftKey &&
+			(activeElement === first || activeElement === dialogEl || !dialogEl?.contains(activeElement))
+		) {
 			event.preventDefault();
 			last.focus();
 		} else if (!event.shiftKey && (activeElement === last || !dialogEl?.contains(activeElement))) {
@@ -558,11 +573,11 @@
 	></button>
 {/if}
 
-<div class="fixed right-0 bottom-0 z-[80]">
+<div class="md:fixed md:right-0 md:bottom-0 md:z-[80]">
 	{#if isOpen}
 		<div
 			bind:this={dialogEl}
-			class="card preset-filled-surface-100-900 border-surface-300-700 absolute right-0 bottom-[calc(100%+0.5rem)] grid h-[min(75vh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur max-sm:h-[min(72vh,34rem)]"
+			class="card preset-filled-surface-100-900 border-surface-300-700 fixed right-2 bottom-2 z-[80] grid h-[min(75dvh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur md:absolute md:right-0 md:bottom-[calc(100%+0.5rem)]"
 			role="dialog"
 			aria-label="3FP assistant"
 			aria-modal="true"
@@ -652,10 +667,10 @@
 												<p class="mt-1 text-xs opacity-80">{rec.reason}</p>
 											</a>
 											{#if isArticleRecommendation(rec)}
-												<div class="mt-2 flex flex-wrap items-center gap-1.5">
+												<div class="mt-2 flex flex-wrap items-center gap-3">
 													<button
 														type="button"
-														class="btn btn-xs preset-tonal-primary"
+														class="btn btn-sm preset-tonal-primary min-h-11"
 														onclick={(event) => handleArticlePreference(event, entry, rec, 'save')}
 													>
 														{#if savedRecommendationKeys[recommendationKey(entry.id, rec)]}
@@ -666,7 +681,7 @@
 													</button>
 													<button
 														type="button"
-														class="btn btn-xs preset-tonal-warning"
+														class="btn btn-sm preset-tonal-warning min-h-11"
 														onclick={(event) => handleArticlePreference(event, entry, rec, 'hide')}
 													>
 														Hide

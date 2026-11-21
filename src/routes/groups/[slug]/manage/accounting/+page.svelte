@@ -1737,7 +1737,7 @@
 	{/if}
 
 	<!-- Metric Cards Grid -->
-	<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+	<section class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
 		<!-- Cash on Hand -->
 		<div
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
@@ -1828,21 +1828,21 @@
 	<div
 		role="navigation"
 		aria-label="Accounting sections"
-		class="card preset-tonal-surface border-surface-500/10 flex flex-wrap justify-center gap-1.5 rounded-xl border p-1.5 shadow-sm sm:justify-start"
+		class="card preset-tonal-surface border-surface-500/10 grid grid-cols-2 gap-1.5 rounded-xl border p-1.5 shadow-sm sm:grid-cols-3 lg:grid-cols-5 2xl:flex 2xl:flex-nowrap 2xl:overflow-x-auto"
 	>
 		{#each tabs as tab}
 			{@const Icon = tab.icon}
 			<button
 				type="button"
 				aria-current={activeTab === tab.id ? 'page' : undefined}
-				class="btn btn-sm flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 font-semibold tracking-wide transition-all {activeTab ===
+				class="btn btn-sm flex min-w-0 items-center justify-start gap-2 rounded-lg px-3 py-2.5 font-semibold tracking-wide transition-all 2xl:w-auto 2xl:shrink-0 2xl:px-4 {activeTab ===
 				tab.id
 					? 'preset-filled-primary-500 shadow-sm'
 					: 'text-surface-700-300 hover:bg-surface-500/10'}"
 				onclick={() => setActiveTab(tab.id)}
 			>
 				<Icon class="h-4 w-4" />
-				<span>{tab.label}</span>
+				<span class="min-w-0 truncate">{tab.label}</span>
 			</button>
 		{/each}
 	</div>
@@ -1917,7 +1917,7 @@
 				<div class="space-y-2">
 					{#if report.monthly.length > 0}
 						<div
-							class="text-surface-700-300 grid grid-cols-[minmax(80px,1.2fr)_1fr_1fr_1fr] gap-3 px-4 pb-1 text-xs font-bold tracking-wider uppercase"
+							class="text-surface-700-300 hidden grid-cols-[minmax(80px,1.2fr)_repeat(3,minmax(0,1fr))] gap-3 px-4 pb-1 text-xs font-bold tracking-wider uppercase sm:grid"
 						>
 							<div>Month</div>
 							<div class="text-success-700-300">Income</div>
@@ -1928,22 +1928,35 @@
 
 					{#each report.monthly as month}
 						<div
-							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid grid-cols-[minmax(80px,1.2fr)_1fr_1fr_1fr] items-center gap-3 rounded-xl border p-4 text-sm font-medium transition-colors duration-150"
+							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid grid-cols-2 items-center gap-x-3 gap-y-2 rounded-xl border p-3 text-sm font-medium transition-colors duration-150 sm:grid-cols-[minmax(80px,1.2fr)_repeat(3,minmax(0,1fr))] sm:gap-3 sm:p-4"
 						>
-							<div class="text-surface-900-100 font-semibold">
+							<div class="text-surface-900-100 min-w-0 font-semibold">
+								<span class="text-surface-500 mb-0.5 block text-[10px] font-semibold sm:hidden"
+									>Month</span
+								>
 								{monthLabel(month.month)}
 							</div>
-							<div class="text-success-700-300">
+							<div class="text-success-700-300 min-w-0 [overflow-wrap:anywhere] tabular-nums">
+								<span class="text-surface-500 mb-0.5 block text-[10px] font-semibold sm:hidden"
+									>Income</span
+								>
 								{formatCents(month.income_cents)}
 							</div>
-							<div class="text-warning-700-300">
+							<div class="text-warning-700-300 min-w-0 [overflow-wrap:anywhere] tabular-nums">
+								<span class="text-surface-500 mb-0.5 block text-[10px] font-semibold sm:hidden"
+									>Expenses</span
+								>
 								{formatCents(month.expense_cents)}
 							</div>
 							<div
-								class="text-right font-bold {month.net_cents >= 0
+								class="min-w-0 text-right font-bold [overflow-wrap:anywhere] tabular-nums {month.net_cents >=
+								0
 									? 'text-surface-900-100'
 									: 'text-error-700-300'}"
 							>
+								<span class="text-surface-500 mb-0.5 block text-[10px] font-semibold sm:hidden"
+									>Net</span
+								>
 								{formatCents(month.net_cents)}
 							</div>
 						</div>
@@ -2065,7 +2078,7 @@
 								<IconBanknote class="text-surface-400 mb-2 h-8 w-8 opacity-50" />
 								<p class="text-surface-500 text-sm font-medium">No activity recorded yet.</p>
 								<button
-									class="btn btn-xs preset-filled-primary-500 mt-3"
+									class="btn btn-sm preset-filled-primary-500 mt-3"
 									type="button"
 									onclick={() => setActiveTab('enter')}
 								>
@@ -2106,7 +2119,7 @@
 					<div class="card bg-surface-500/10 flex gap-1 rounded-lg p-1">
 						<button
 							type="button"
-							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'income'
 								? 'preset-filled-success-500 text-white shadow-sm'
 								: 'text-surface-700-300'}"
@@ -2116,7 +2129,7 @@
 						</button>
 						<button
 							type="button"
-							class="btn btn-xs rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
 							'expense'
 								? 'preset-filled-warning-500 text-white shadow-sm'
 								: 'text-surface-700-300'}"
@@ -3616,7 +3629,7 @@
 
 									<!-- Right side: Amount & Source & Actions -->
 									<div
-										class="border-surface-500/10 flex shrink-0 items-center justify-between gap-3 border-t pt-2.5 sm:justify-end sm:border-t-0 sm:pt-0"
+										class="border-surface-500/10 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t pt-2.5 sm:justify-end sm:border-t-0 sm:pt-0"
 									>
 										<!-- Source Badge for Mobile -->
 										<span
@@ -3625,9 +3638,11 @@
 											{entry.source || 'manual'}
 										</span>
 
-										<div class="flex items-center gap-2.5">
+										<div class="flex min-w-0 flex-wrap items-center justify-end gap-2.5">
 											<div class="text-right">
-												<p class="text-base font-bold tabular-nums {presentation.className}">
+												<p
+													class="text-base font-bold [overflow-wrap:anywhere] tabular-nums {presentation.className}"
+												>
 													{presentation.sign}{formatCents(
 														Math.abs(Number(entry.amount_cents || 0))
 													)}
@@ -3636,17 +3651,17 @@
 
 											{#if entry.status !== 'void' && !entry.locked_at}
 												<button
-													class="text-surface-400 hover:text-surface-900-100"
+													class="text-surface-400 hover:text-surface-900-100 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors"
 													type="button"
 													disabled={isReceiptUploading('entry', entry.id)}
 													onclick={() => startTransactionEdit(entry)}
 													aria-label={`Edit transaction ${entry.description}`}
 													title="Edit transaction"
 												>
-													<IconPencil class="h-3.5 w-3.5" />
+													<IconPencil class="h-4 w-4" />
 												</button>
 												<button
-													class="btn btn-sm preset-tonal-error px-2 py-1 text-xs font-semibold"
+													class="btn btn-sm preset-tonal-error min-h-11 px-3 text-sm font-semibold"
 													type="submit"
 													formaction="?/voidEntry"
 													name="reason"
@@ -3951,6 +3966,7 @@
 												<input
 													class="input preset-tonal-surface flex-1 text-sm"
 													type="password"
+													aria-label="Mercury API key"
 													name="mercuryApiKey"
 													placeholder={mercuryConnected
 														? 'Replace Mercury API key…'
@@ -4008,6 +4024,7 @@
 														<select
 															class="select preset-tonal-surface w-full text-xs sm:max-w-[240px]"
 															name="accountId"
+															aria-label={`Ledger account for ${bankFeedLabel(providerAccount)}`}
 															value={providerAccount.account_id || ''}
 															onchange={requestInlineSave}
 														>
@@ -4080,6 +4097,7 @@
 											<input
 												class="input preset-tonal-surface text-sm"
 												type="file"
+												aria-label="Bank transactions CSV file"
 												name="csvFile"
 												accept=".csv,text/csv"
 												required
@@ -4087,6 +4105,7 @@
 											<select
 												class="select preset-tonal-surface text-sm"
 												name="accountId"
+												aria-label="Import CSV into account"
 												bind:value={csvImportAccountId}
 												disabled={!cashAccounts.length}
 												required
@@ -4512,8 +4531,8 @@
 										{/if}
 
 										<!-- Line 2: category + actions -->
-										<div class="flex max-w-xl items-center gap-2">
-											<div class="min-w-0 flex-1">
+										<div class="flex w-full max-w-xl flex-col gap-2 sm:flex-row sm:items-center">
+											<div class="w-full min-w-0 flex-1 sm:w-auto">
 												<SearchableSelect
 													items={categoryOptions}
 													query={selection.categoryQuery}
@@ -4527,29 +4546,32 @@
 													onSelect={(account) => selectReviewCategory(item.id, account)}
 												/>
 											</div>
-											<button
-												class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
-												type="submit"
-												formnovalidate
-												disabled={isPostingFeedItem(item.id) ||
-													isReceiptUploading('feed', item.id) ||
-													(!group.accountId && !selection.accountId)}
-											>
-												{#if isPostingFeedItem(item.id)}
-													<IconRefreshCw class="h-3.5 w-3.5 animate-spin" />
-												{:else}
-													Post
-												{/if}
-											</button>
-											<button
-												class="btn btn-sm preset-tonal-error shrink-0 font-medium"
-												formaction="?/ignoreFeedItem"
-												type="submit"
-												formnovalidate
-												disabled={isPostingFeedItem(item.id) || isReceiptUploading('feed', item.id)}
-											>
-												Ignore
-											</button>
+											<div class="flex shrink-0 gap-2">
+												<button
+													class="btn btn-sm preset-filled-primary-500 min-h-11 flex-1 font-bold sm:min-h-0 sm:flex-none"
+													type="submit"
+													formnovalidate
+													disabled={isPostingFeedItem(item.id) ||
+														isReceiptUploading('feed', item.id) ||
+														(!group.accountId && !selection.accountId)}
+												>
+													{#if isPostingFeedItem(item.id)}
+														<IconRefreshCw class="h-3.5 w-3.5 animate-spin" />
+													{:else}
+														Post
+													{/if}
+												</button>
+												<button
+													class="btn btn-sm preset-tonal-error min-h-11 flex-1 font-medium sm:min-h-0 sm:flex-none"
+													formaction="?/ignoreFeedItem"
+													type="submit"
+													formnovalidate
+													disabled={isPostingFeedItem(item.id) ||
+														isReceiptUploading('feed', item.id)}
+												>
+													Ignore
+												</button>
+											</div>
 										</div>
 									</form>
 								{/each}

@@ -1,5 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { tick } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import IconSettings from '@lucide/svelte/icons/settings';
@@ -25,6 +26,8 @@
 	let productTypeFilter = $state('all');
 	let productModalId = $state('');
 	let productModalOpen = $state(false);
+	let productModalTrigger = null;
+	let productModalCloseButton = $state(null);
 	let manageTab = $state('orders');
 	let settingsPrintfulOpen = $state(false);
 	let settingsTaxOpen = $state(false);
@@ -115,19 +118,45 @@
 		);
 	}
 
-	function openProductModal(productId) {
+	async function openProductModal(productId, trigger) {
 		productModalId = cleanText(productId);
+		productModalTrigger = trigger;
 		productModalOpen = true;
+		await tick();
+		productModalCloseButton?.focus();
 	}
 
 	function closeProductModal() {
+		const trigger = productModalTrigger;
+		productModalTrigger = null;
 		productModalOpen = false;
 		productModalId = '';
+		void tick().then(() => trigger?.focus());
 	}
 
-	function onManageKeydown(event) {
-		if (!productModalOpen) return;
+	function handleProductModalKeydown(event) {
 		if (event.key === 'Escape') closeProductModal();
+		if (event.key !== 'Tab') return;
+
+		const focusable = Array.from(
+			event.currentTarget.querySelectorAll(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		).filter((element) => element.getClientRects().length > 0);
+		if (!focusable.length) {
+			event.preventDefault();
+			return;
+		}
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
 	}
 
 	const productTypeOptions = $derived(
@@ -182,8 +211,6 @@
 	);
 </script>
 
-<svelte:window onkeydown={onManageKeydown} />
-
 <svelte:head>
 	<title>Merch Manager • 3 Feet Please</title>
 	<meta name="robots" content="noindex,nofollow" />
@@ -191,9 +218,6 @@
 
 <div class="mx-auto w-full max-w-7xl space-y-6 pb-12" in:fade={{ duration: 180 }}>
 	<section class="manage-hero relative overflow-hidden rounded-3xl p-6 md:p-8">
-		<div class="app-orb app-orb-1" aria-hidden="true"></div>
-		<div class="app-orb app-orb-2" aria-hidden="true"></div>
-		<div class="app-orb app-orb-3" aria-hidden="true"></div>
 		<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
 			<div>
 				<h1 class="mt-2 text-3xl leading-tight font-black md:text-4xl">Manage Merch Store</h1>
@@ -724,7 +748,7 @@
 																			<form method="POST" action="?/deleteShippingRule">
 																				<input type="hidden" name="rule_id" value={rule.id} />
 																				<button
-																					class="btn btn-xs preset-filled-error-500"
+																					class="btn btn-sm preset-filled-error-500"
 																					type="submit">Delete</button
 																				>
 																			</form>
@@ -1068,7 +1092,7 @@
 													<button
 														type="button"
 														class="btn btn-sm preset-outlined-primary-500"
-														onclick={() => openProductModal(product.id)}
+														onclick={(event) => openProductModal(product.id, event.currentTarget)}
 													>
 														<IconPencil class="mr-1 h-3.5 w-3.5" />
 														Edit
@@ -1091,11 +1115,6 @@
 					{#if productModalOpen && selectedProduct}
 						<div
 							class="manage-modal-backdrop"
-							role="button"
-							tabindex="0"
-							aria-label="Close product editor"
-							onclick={closeProductModal}
-							onkeydown={(event) => event.key === 'Escape' && closeProductModal()}
 							in:fade={{ duration: 140 }}
 							out:fade={{ duration: 110 }}
 						>
@@ -1103,21 +1122,27 @@
 								class="manage-modal-panel"
 								role="dialog"
 								aria-modal="true"
-								aria-label={`Edit ${selectedProduct.name}`}
+								aria-labelledby={`product-editor-title-${selectedProduct.id}`}
 								tabindex="-1"
-								onclick={(event) => event.stopPropagation()}
-								onkeydown={(event) => event.stopPropagation()}
+								onkeydown={handleProductModalKeydown}
 								in:scale={{ duration: 170, start: 0.97 }}
 								out:fade={{ duration: 100 }}
 							>
 								<div class="flex items-center justify-between gap-3">
 									<div>
 										<div class="text-xs tracking-[0.2em] uppercase opacity-65">Product Editor</div>
-										<h3 class="text-lg font-semibold">{selectedProduct.name}</h3>
+										<h2
+											id={`product-editor-title-${selectedProduct.id}`}
+											class="text-lg font-semibold"
+										>
+											{selectedProduct.name}
+										</h2>
 									</div>
 									<button
 										type="button"
 										class="btn btn-sm preset-tonal-surface"
+										aria-label="Close product editor"
+										bind:this={productModalCloseButton}
 										onclick={closeProductModal}
 									>
 										<IconX class="h-4 w-4" />
@@ -1385,14 +1410,14 @@
 																		>Inactive</option
 																	>
 																</select>
-																<button class="btn btn-xs preset-outlined-primary-500" type="submit"
+																<button class="btn btn-sm preset-outlined-primary-500" type="submit"
 																	>Save Variant</button
 																>
 															</div>
 														</form>
 														<form method="POST" action="?/deleteVariant" class="mt-2 inline-block">
 															<input type="hidden" name="variant_id" value={variant.id} />
-															<button class="btn btn-xs preset-filled-error-500" type="submit"
+															<button class="btn btn-sm preset-filled-error-500" type="submit"
 																>Delete Variant</button
 															>
 														</form>
@@ -1576,7 +1601,7 @@
 										<div class="mt-3 flex flex-wrap gap-2">
 											<form method="POST" action="?/markFulfilled" class="flex items-center gap-2">
 												<input type="hidden" name="order_id" value={order.id} />
-												<button class="btn btn-xs preset-outlined-primary-500" type="submit"
+												<button class="btn btn-sm preset-outlined-primary-500" type="submit"
 													>Mark Fulfilled</button
 												>
 											</form>
@@ -1601,7 +1626,7 @@
 													<option value="duplicate">Duplicate</option>
 													<option value="fraudulent">Fraudulent</option>
 												</select>
-												<button class="btn btn-xs preset-filled-warning-500" type="submit"
+												<button class="btn btn-sm preset-filled-warning-500" type="submit"
 													>Refund</button
 												>
 											</form>
@@ -1619,8 +1644,22 @@
 
 <style>
 	.manage-hero {
+		position: relative;
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+	}
+	.manage-hero::before {
+		position: absolute;
+		inset: 0 0 0 auto;
+		width: min(22rem, 38%);
+		background: repeating-linear-gradient(
+			90deg,
+			transparent 0 1.25rem,
+			color-mix(in oklab, var(--color-primary-500) 45%, transparent) 1.25rem calc(1.25rem + 2px)
+		);
+		mask-image: linear-gradient(90deg, transparent, #000 28%);
+		content: '';
+		pointer-events: none;
 	}
 	.hero-pill {
 		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);

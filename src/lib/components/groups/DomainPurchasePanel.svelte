@@ -273,6 +273,7 @@
 	<div class="domain-search-row">
 		<input
 			class="input flex-1"
+			aria-label="Domain name to search"
 			bind:value={domainSearchQuery}
 			placeholder="biketempe"
 			onkeydown={(event) => {
@@ -348,21 +349,65 @@
 				Includes domain registration plus combined payment/service fee.
 			</p>
 			<div class="domain-checkout-fields mt-3">
-				<input class="input" bind:value={registrarContact.firstName} placeholder="First name" />
-				<input class="input" bind:value={registrarContact.lastName} placeholder="Last name" />
-				<input class="input" bind:value={registrarContact.email} placeholder="Email" />
-				<input class="input" bind:value={registrarContact.phone} placeholder="Phone" />
-				<input class="input" bind:value={registrarContact.address1} placeholder="Address line 1" />
 				<input
 					class="input"
+					aria-label="First name"
+					bind:value={registrarContact.firstName}
+					placeholder="First name"
+				/>
+				<input
+					class="input"
+					aria-label="Last name"
+					bind:value={registrarContact.lastName}
+					placeholder="Last name"
+				/>
+				<input
+					class="input"
+					type="email"
+					aria-label="Email address"
+					bind:value={registrarContact.email}
+					placeholder="Email"
+				/>
+				<input
+					class="input"
+					type="tel"
+					aria-label="Phone number"
+					bind:value={registrarContact.phone}
+					placeholder="Phone"
+				/>
+				<input
+					class="input"
+					aria-label="Address line 1"
+					bind:value={registrarContact.address1}
+					placeholder="Address line 1"
+				/>
+				<input
+					class="input"
+					aria-label="Address line 2, optional"
 					bind:value={registrarContact.address2}
 					placeholder="Address line 2 (optional)"
 				/>
-				<input class="input" bind:value={registrarContact.city} placeholder="City" />
-				<input class="input" bind:value={registrarContact.state} placeholder="State / Province" />
-				<input class="input" bind:value={registrarContact.zip} placeholder="Postal code" />
 				<input
 					class="input"
+					aria-label="City"
+					bind:value={registrarContact.city}
+					placeholder="City"
+				/>
+				<input
+					class="input"
+					aria-label="State or province"
+					bind:value={registrarContact.state}
+					placeholder="State / Province"
+				/>
+				<input
+					class="input"
+					aria-label="Postal code"
+					bind:value={registrarContact.zip}
+					placeholder="Postal code"
+				/>
+				<input
+					class="input"
+					aria-label="Country code"
 					bind:value={registrarContact.country}
 					placeholder="Country code (US)"
 					maxlength="2"

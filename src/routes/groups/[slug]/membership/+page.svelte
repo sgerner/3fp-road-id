@@ -785,17 +785,6 @@
 		const icons = [IconHeart, IconStar, IconCrown, IconShield, IconZap];
 		return icons[index % icons.length];
 	}
-
-	function getTierGradient(index) {
-		const gradients = [
-			'from-primary-500 to-secondary-500',
-			'from-secondary-500 to-tertiary-500',
-			'from-tertiary-500 to-primary-500',
-			'from-success-500 to-primary-500',
-			'from-warning-500 to-secondary-500'
-		];
-		return gradients[index % gradients.length];
-	}
 </script>
 
 <div class="membership-page">
@@ -858,7 +847,7 @@
 			<div class="empty-icon">
 				<IconUsers class="h-10 w-10" />
 			</div>
-			<h3 class="empty-title">Membership Unavailable</h3>
+			<h2 class="empty-title">Membership Unavailable</h2>
 			<p class="empty-description">No membership program is currently available for this group.</p>
 			<a href="/groups/{group?.slug}" class="btn preset-tonal-surface">Return to Group</a>
 		</section>
@@ -925,7 +914,7 @@
 								disabled={memberActionBusy}
 							>
 								<div class="tier-card-header">
-									<div class="tier-icon bg-gradient-to-br {getTierGradient(i)}">
+									<div class="tier-icon bg-primary-500 text-surface-950">
 										<TierIcon class="h-4 w-4 text-white" />
 									</div>
 									<div class="tier-name">{tier.name}</div>
@@ -1038,7 +1027,6 @@
 			<div class="membership-column">
 				<section class="tier-selection-card" in:fade={{ duration: 400, delay: 100 }}>
 					<div class="card-accent-bar"></div>
-					<div class="card-glow"></div>
 
 					<div class="section-header">
 						<div class="section-icon-ring">
@@ -1114,7 +1102,7 @@
 										>
 									{/if}
 									<div class="tier-card-header">
-										<div class="tier-icon bg-gradient-to-br {getTierGradient(i)}">
+										<div class="tier-icon bg-primary-500 text-surface-950">
 											<TierIcon class="h-4 w-4 text-white" />
 										</div>
 										<div class="tier-info">
@@ -1176,6 +1164,7 @@
 												<input
 													class="custom-input"
 													type="number"
+													aria-label={`Your ${selectedBillingInterval === 'year' ? 'annual' : 'monthly'} contribution`}
 													min={(Math.max(0, selectedTierMinAmountCents) / 100).toFixed(2)}
 													step="0.01"
 													inputmode="decimal"
@@ -1214,7 +1203,6 @@
 						<!-- Application Form -->
 						<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
 							<div class="card-accent-bar private"></div>
-							<div class="card-glow private"></div>
 
 							<div class="section-header">
 								<div class="section-icon-ring private">
@@ -1308,13 +1296,21 @@
 										<div class="custom-fields">
 											{#each formFields as field (field.id)}
 												<div class="custom-field">
-													<div class="field-label">{field.label}</div>
+													<div class="field-label" id={`custom-field-label-${field.id}`}>
+														{field.label}
+													</div>
 													{#if field.help_text}
-														<p class="field-help">{field.help_text}</p>
+														<p class="field-help" id={`custom-field-help-${field.id}`}>
+															{field.help_text}
+														</p>
 													{/if}
 													{#if field.field_type === 'textarea'}
 														<textarea
 															id={`custom-field-${field.id}`}
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1323,6 +1319,10 @@
 													{:else if field.field_type === 'select'}
 														<select
 															id={`custom-field-${field.id}`}
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															value={answers[field.id] || ''}
 															onchange={(e) =>
 																(answers = { ...answers, [field.id]: e.currentTarget.value })}
@@ -1333,7 +1333,14 @@
 															{/each}
 														</select>
 													{:else if field.field_type === 'multiselect'}
-														<div class="checkbox-group">
+														<div
+															class="checkbox-group"
+															role="group"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
+														>
 															{#each readOptions(field) as option}
 																<label class="checkbox-item">
 																	<input
@@ -1353,16 +1360,25 @@
 															<input
 																id={`custom-field-${field.id}`}
 																type="checkbox"
+																aria-labelledby={`custom-field-label-${field.id} custom-field-checkbox-yes-${field.id}`}
+																aria-describedby={field.help_text
+																	? `custom-field-help-${field.id}`
+																	: undefined}
 																checked={answers[field.id] === true}
 																onchange={(e) =>
 																	(answers = { ...answers, [field.id]: e.currentTarget.checked })}
 															/>
 															<span class="checkbox-check"></span>
-															<span>Yes</span>
+															<span id={`custom-field-checkbox-yes-${field.id}`}>Yes</span>
 														</label>
 													{:else if field.field_type === 'number'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="number"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="0"
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1370,14 +1386,24 @@
 														/>
 													{:else if field.field_type === 'date'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="date"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															value={answers[field.id] || ''}
 															onchange={(e) =>
 																(answers = { ...answers, [field.id]: e.currentTarget.value })}
 														/>
 													{:else if field.field_type === 'email'}
 														<input
+															id={`custom-field-${field.id}`}
 															type="email"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="email@example.com"
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1387,6 +1413,10 @@
 														<input
 															id={`custom-field-${field.id}`}
 															type="text"
+															aria-labelledby={`custom-field-label-${field.id}`}
+															aria-describedby={field.help_text
+																? `custom-field-help-${field.id}`
+																: undefined}
 															placeholder="Enter your answer..."
 															value={answers[field.id] || ''}
 															oninput={(e) =>
@@ -1417,7 +1447,6 @@
 						<!-- Join Form -->
 						<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
 							<div class="card-accent-bar"></div>
-							<div class="card-glow"></div>
 
 							<div class="section-header">
 								<div class="section-icon-ring">
@@ -1597,7 +1626,7 @@
 				{:else if currentUserId}
 					<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
 						<div class="card-accent-bar"></div>
-						<div class="card-glow"></div>
+
 						<div class="join-content">
 							<div class="empty-mini">
 								<IconInfo class="mb-2 h-8 w-8 opacity-50" />
@@ -1610,7 +1639,6 @@
 					<!-- Logged Out -->
 					<section class="join-card login-card" in:fade={{ duration: 400, delay: 200 }}>
 						<div class="card-accent-bar private"></div>
-						<div class="card-glow private"></div>
 
 						<div class="login-content">
 							<div class="login-icon-ring">
@@ -1620,12 +1648,13 @@
 							<p class="login-description">
 								Please log in to apply for membership or join this group. It only takes a moment.
 							</p>
-							<a
-								href="/login?returnTo=/groups/{group?.slug}/membership"
+							<button
+								type="button"
+								onclick={() => window.dispatchEvent(new CustomEvent('open-login'))}
 								class="btn preset-filled-primary-500"
 							>
 								Sign In / Register
-							</a>
+							</button>
 						</div>
 					</section>
 				{/if}
@@ -1850,7 +1879,7 @@
 	.empty-state {
 		position: relative;
 		overflow: hidden;
-		border-radius: 1.5rem;
+
 		background: color-mix(in oklab, var(--color-surface-900) 97%, var(--color-primary-500) 3%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 15%, transparent);
 		animation: card-in 400ms ease both;
@@ -1862,32 +1891,13 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		border-radius: 2rem 2rem 0 0;
+		background: var(--color-primary-500);
+
 		opacity: 0.8;
 	}
 
 	.card-accent-bar.private {
-		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
-	}
-
-	.card-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 60% 50% at 10% 0%,
-			color-mix(in oklab, var(--color-primary-500) 8%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
-	.card-glow.private {
-		background: radial-gradient(
-			ellipse 60% 50% at 10% 0%,
-			color-mix(in oklab, var(--color-tertiary-500) 8%, transparent),
-			transparent 70%
-		);
+		background: var(--color-tertiary-500);
 	}
 
 	/* ── Section Header ── */
@@ -1906,18 +1916,16 @@
 	.section-icon-ring {
 		width: 2.75rem;
 		height: 2.75rem;
-		border-radius: 0.875rem;
-		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+
+		background: var(--color-primary-500);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		box-shadow: 0 4px 14px -2px color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
 	.section-icon-ring.private {
-		background: linear-gradient(135deg, var(--color-tertiary-500), var(--color-primary-500));
-		box-shadow: 0 4px 14px -2px color-mix(in oklab, var(--color-tertiary-500) 30%, transparent);
+		background: var(--color-tertiary-500);
 	}
 
 	.section-icon-ring.small {
@@ -1986,7 +1994,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		padding: 0.875rem;
-		border-radius: 1rem;
+
 		border: 2px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
 		cursor: pointer;
@@ -2000,7 +2008,6 @@
 	.billing-option.active {
 		border-color: var(--color-primary-800);
 		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-950));
-		box-shadow: 0 0 20px -4px color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
 	}
 
 	.billing-label {
@@ -2097,7 +2104,7 @@
 	.tier-icon {
 		width: 2rem;
 		height: 2rem;
-		border-radius: 0.5rem;
+
 		display: flex;
 		align-items: center;
 		justify-content: center;

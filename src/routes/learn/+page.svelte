@@ -8,11 +8,22 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { page } from '$app/state';
 
 	const { data } = $props();
+	const authRequired = $derived(
+		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
+	);
 
 	let search = $state('');
 	let category = $state('all');
+	const pageSize = 12;
+	let visibleCount = $state(pageSize);
+	$effect(() => {
+		search;
+		category;
+		visibleCount = pageSize;
+	});
 
 	const articles = $derived(data?.articles ?? []);
 	const categories = $derived(
@@ -56,7 +67,27 @@
 	/>
 </svelte:head>
 
-<div class="-m-4 flex flex-col">
+<div class="flex flex-col">
+	{#if authRequired}
+		<section
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10"
+			aria-labelledby="learn-auth-heading"
+		>
+			<div class="flex flex-col gap-1">
+				<h2 id="learn-auth-heading" class="m-0 text-xl font-black uppercase">
+					Sign in to contribute a guide
+				</h2>
+				<p class="m-0 text-sm font-medium">After signing in, choose “Write a guide” to continue.</p>
+			</div>
+			<button
+				type="button"
+				class="bg-surface-950 text-primary-500 hover:bg-surface-50 inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase transition"
+				onclick={() => window.dispatchEvent(new Event('open-login'))}
+			>
+				Log in / Register
+			</button>
+		</section>
+	{/if}
 	<!-- HERO -->
 	<header
 		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]"
@@ -139,35 +170,16 @@
 		</div>
 	</header>
 
-	<!-- Featured research uses a dedicated interactive report layout. -->
-	<a href="/learn/safer-cycling-better-messages" class="research-feature">
-		<div class="research-feature-copy">
-			<p>NEW / INTERACTIVE RESEARCH</p>
-			<h2>Safer Cycling.<br /><span>Better Messages.</span></h2>
-			<p class="research-feature-deck">
-				Make a campaign people can understand and use. Explore the evidence, test a message, and see
-				the designs.
-			</p>
-			<span class="research-feature-link">Explore the report <span aria-hidden="true">↗</span></span
-			>
-		</div>
-		<div class="research-feature-art" aria-hidden="true">
-			<img
-				src="/reports/safer-cycling-better-messages/campaigns/01-give-people-space-poster-v9-page-01.webp"
-				alt=""
-				loading="lazy"
-			/><span>68 sources<br />Interactive tools<br />Free PDF guides</span>
-		</div>
-	</a>
-
 	<!-- SEARCH & FILTER BAND -->
 	<div
 		id="library"
-		class="bg-surface-900 text-surface-50 border-surface-800 scroll-mt-20 border-b-2 px-6 py-5 sm:px-10 lg:px-12"
+		class="bg-surface-900 text-surface-50 border-surface-800 sticky top-[var(--app-header-height)] z-10 scroll-mt-[var(--app-header-height)] border-b-2 px-4 py-2 sm:px-10 lg:px-12"
 	>
 		<div class="flex flex-col gap-4">
-			<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
-				<label class="relative block min-w-0">
+			<div
+				class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]"
+			>
+				<label class="relative col-span-2 block min-w-0 sm:col-span-1">
 					<span
 						class="text-surface-400 pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2"
 					>
@@ -175,7 +187,7 @@
 					</span>
 					<input
 						bind:value={search}
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						aria-label="Search articles"
 						placeholder="Search the field guide…"
@@ -183,7 +195,7 @@
 				</label>
 				<select
 					bind:value={category}
-					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 h-11 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					aria-label="Filter by category"
 				>
 					<option value="all">All topics</option>
@@ -202,11 +214,17 @@
 					</button>
 				{/if}
 			</div>
-
-			<LearnNavigator />
 		</div>
 	</div>
+	<div class="bg-surface-900 px-6 py-5 sm:px-10 lg:px-12">
+		<LearnNavigator />
+	</div>
 
+	<div class="bg-surface-950 border-surface-800 border-b px-6 py-4 sm:px-10 lg:px-12">
+		<a href="/learn/safer-cycling-better-messages" class="text-primary-500 font-bold underline"
+			>Safer Cycling, Better Messages research report</a
+		>
+	</div>
 	<!-- ARTICLES DIRECTORY -->
 	<section
 		class="bg-surface-950 px-6 py-10 sm:px-10 lg:px-12 lg:py-12"
@@ -241,7 +259,7 @@
 
 		{#if filteredArticles.length}
 			<div class="border-surface-800 grid border-t-2 border-l-2 md:grid-cols-2 xl:grid-cols-3">
-				{#each filteredArticles as article, index (article.id ?? article.slug)}
+				{#each filteredArticles.slice(0, visibleCount) as article, index (article.id ?? article.slug)}
 					<a
 						class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 flex h-full flex-col justify-between border-r-2 border-b-2 transition hover:no-underline"
 						href={`/learn/${article.slug}`}
@@ -311,6 +329,13 @@
 					</a>
 				{/each}
 			</div>
+			{#if visibleCount < filteredArticles.length}
+				<button
+					type="button"
+					class="btn preset-tonal-primary mt-4 min-h-11"
+					onclick={() => (visibleCount += pageSize)}>Show more articles</button
+				>
+			{/if}
 		{:else}
 			<div class="border-surface-50 flex flex-col items-start gap-4 border-t-2 pt-8">
 				<p class="text-surface-50 m-0 text-2xl font-black uppercase italic">
@@ -331,91 +356,3 @@
 		{/if}
 	</section>
 </div>
-
-<style>
-	.research-feature {
-		display: grid;
-		grid-template-columns: 1.3fr 1fr;
-		gap: 1.5rem;
-		background: #35125f;
-		color: white;
-		padding: clamp(1.5rem, 4vw, 3rem);
-		border-top: 5px solid #ff0180;
-		overflow: hidden;
-		text-decoration: none;
-		position: relative;
-	}
-	.research-feature:hover {
-		text-decoration: none;
-		background: #42166d;
-	}
-	.research-feature:focus-visible {
-		outline: 4px solid #ffff0a;
-		outline-offset: -7px;
-	}
-	.research-feature-copy > p:first-child {
-		font-size: 0.65rem;
-		font-weight: 900;
-		letter-spacing: 0.18em;
-		color: #ffff0a;
-		margin-bottom: 1rem;
-	}
-	.research-feature h2 {
-		font-size: clamp(2rem, 4vw, 3.7rem);
-		color: white !important;
-		line-height: 0.98;
-		letter-spacing: -0.04em;
-		margin: 0;
-	}
-	.research-feature h2 span {
-		color: #ffff0a;
-	}
-	.research-feature-deck {
-		font-size: 0.95rem;
-		line-height: 1.55;
-		max-width: 32rem;
-		color: #e4d5f0;
-		margin-top: 1.15rem;
-	}
-	.research-feature-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 2rem;
-		color: white;
-		font-size: 0.8rem;
-		font-weight: 900;
-		margin-top: 1.4rem;
-	}
-	.research-feature-link > span {
-		color: #ff0180;
-		font-size: 1.4rem;
-	}
-	.research-feature-art {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 2rem;
-	}
-	.research-feature-art img {
-		height: 250px;
-		width: auto;
-		max-width: 55%;
-		object-fit: contain;
-		transform: rotate(7deg);
-		box-shadow: 0 20px 30px #16052666;
-	}
-	.research-feature-art > span {
-		font-size: 0.75rem;
-		font-weight: 800;
-		line-height: 2;
-		color: #e4d5f0;
-	}
-	@media (max-width: 680px) {
-		.research-feature {
-			grid-template-columns: 1fr;
-		}
-		.research-feature-art {
-			display: none;
-		}
-	}
-</style>

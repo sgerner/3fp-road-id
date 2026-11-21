@@ -448,33 +448,35 @@
 					</div>
 				{/each}
 			</div>
-
-			<div class="flex flex-col gap-3">
-				<div class="flex items-center gap-2 text-xs font-black tracking-[0.22em] uppercase">
-					<IconSearch class="h-4 w-4" />
-					Search this category
-				</div>
-				<div class="relative">
-					<IconSearch
-						class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
-					/>
-					<input
-						bind:value={searchQuery}
-						class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 h-14 w-full border-[3px] pr-4 pl-12 text-base font-bold focus:outline-none"
-						type="search"
-						placeholder="Find an article…"
-						aria-label="Search this category"
-					/>
-				</div>
-				{#if searchQuery.trim()}
-					<p class="m-0 text-xs font-black tracking-wider uppercase">
-						{filteredArticles.length}
-						{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
-					</p>
-				{/if}
-			</div>
 		</div>
 	</section>
+
+	<div
+		class="bg-primary-500 text-surface-950 sticky top-[var(--app-header-height)] z-10 flex flex-col gap-1 px-4 py-2 sm:px-10 lg:px-14"
+	>
+		<div class="flex items-center gap-2 text-xs font-black tracking-[0.22em] uppercase">
+			<IconSearch class="h-4 w-4" />
+			Search this category
+		</div>
+		<div class="relative">
+			<IconSearch
+				class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
+			/>
+			<input
+				bind:value={searchQuery}
+				class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+				type="search"
+				placeholder="Find an article…"
+				aria-label="Search this category"
+			/>
+		</div>
+		{#if searchQuery.trim()}
+			<p class="m-0 text-xs font-black tracking-wider uppercase">
+				{filteredArticles.length}
+				{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
+			</p>
+		{/if}
+	</div>
 
 	<!-- ═══════════════════════════════════════════════
 	     NAVIGATOR & SUBCATEGORY FILTER BAND
@@ -501,7 +503,7 @@
 							<input
 								type="text"
 								name="name"
-								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 h-12 w-full border-2 px-4 text-sm font-bold focus:outline-none"
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus-visible:outline-primary-500 h-12 w-full border-2 px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 								placeholder="e.g. Response Templates"
 								required
 							/>

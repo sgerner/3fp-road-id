@@ -10,8 +10,44 @@ permissions:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+  PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+  PUBLIC_TURNSTILE_SITE_KEY: ''
+  PUBLIC_STRIPE_PUBLISHABLE_KEY: ''
+  PUBLIC_URL_BASE: https://3fp.org
 jobs:
   verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_TARGET: node
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:server-sanitizer
+  tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -29,37 +65,31 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
-      PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-      PUBLIC_TURNSTILE_SITE_KEY: ''
-      PUBLIC_STRIPE_PUBLISHABLE_KEY: ''
-      PUBLIC_URL_BASE: https://3fp.org
       ACCOUNTING_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run check
       - run: npm test
-      - run: npm run build
-      - run: npm run test:server-sanitizer
 
   deploy-farin:
     if: github.event_name == 'push' || (github.event_name == 'release' && github.event.release.prerelease == false)
-    needs: verify
+    needs: [verify, build, tests]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
       group: farin-production-deploy
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+          persist-credentials: false
       - id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Configure Farin SSH access
@@ -69,9 +99,9 @@ jobs:
           install -m 0700 -d "$RUNNER_TEMP/farin-ssh"
           printf '%s\n' "$FARIN_DEPLOY_KEY" > "$RUNNER_TEMP/farin-ssh/id_ed25519"
           chmod 0600 "$RUNNER_TEMP/farin-ssh/id_ed25519"
-          cat > "$RUNNER_TEMP/farin-ssh/known_hosts" <<'EOF'
+          cat > "$RUNNER_TEMP/farin-ssh/known_hosts" <<'KNOWN_HOSTS'
           |1|urp2kSNXnF+vFdDWNmiubssBMkg=|Gir5NUSASb80nItU+dOzPqfiPsA= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHMqLpd1OkAh3mykfr8zgpUYE1HyJNHAuSDv3Bbz6LVm
-          EOF
+          KNOWN_HOSTS
           chmod 0600 "$RUNNER_TEMP/farin-ssh/known_hosts"
       - name: Deploy the checked commit or release
         env:

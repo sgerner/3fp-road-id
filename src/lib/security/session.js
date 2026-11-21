@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 /**
  * Keep the server's authenticated view of the session in sync without

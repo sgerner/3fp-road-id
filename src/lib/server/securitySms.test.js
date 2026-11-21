@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import test from 'node:test';
-import { verifySignalWireWebhookRequest } from './security.js';
+import { readAuthenticatedSignalWirePayload, verifySignalWireWebhookRequest } from './security.js';
 
 const signingKey = 'PSK_test_signing_key';
 const url = 'https://3fp.org/api/webhooks/signalwire/inbound';
@@ -41,4 +41,82 @@ test('accepts canonical compatibility form signatures', () => {
 		body
 	});
 	assert.equal(verifySignalWireWebhookRequest(request, body, signingKey), true);
+});
+
+test('authenticates JSON SignalWire payloads with the exact signed request body', async () => {
+	const body = JSON.stringify({ MessageSid: 'SM123', Status: 'delivered' });
+	const request = new Request(url, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			'x-signalwire-signature': sha1Base64(`${url}${body}`)
+		},
+		body
+	});
+
+	const result = await readAuthenticatedSignalWirePayload(request, signingKey);
+
+	assert.deepEqual(result, {
+		ok: true,
+		payload: { MessageSid: 'SM123', Status: 'delivered' }
+	});
+});
+
+test('reads authenticated URL-encoded SignalWire payloads', async () => {
+	const body = 'From=%2B12025550123&Body=HELP';
+	const request = new Request(url, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			'x-twilio-signature': sha1Base64(`${url}${body}`)
+		},
+		body
+	});
+
+	const result = await readAuthenticatedSignalWirePayload(request, signingKey);
+
+	assert.deepEqual(result, {
+		ok: true,
+		payload: { From: '+12025550123', Body: 'HELP' }
+	});
+});
+
+test('reports SignalWire auth, JSON parsing, and body-size failures with their original statuses', async () => {
+	const invalidSignatureBody = '{}';
+	const invalidSignatureRequest = new Request(url, {
+		method: 'POST',
+		headers: { 'x-signalwire-signature': 'invalid' },
+		body: invalidSignatureBody
+	});
+	assert.deepEqual(await readAuthenticatedSignalWirePayload(invalidSignatureRequest, signingKey), {
+		ok: false,
+		status: 401,
+		error: 'Webhook authentication failed.'
+	});
+
+	const invalidJsonBody = '{';
+	const invalidJsonRequest = new Request(url, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			'x-signalwire-signature': sha1Base64(`${url}${invalidJsonBody}`)
+		},
+		body: invalidJsonBody
+	});
+	assert.deepEqual(await readAuthenticatedSignalWirePayload(invalidJsonRequest, signingKey), {
+		ok: false,
+		status: 400,
+		error: 'Invalid webhook payload.'
+	});
+
+	const largeBody = 'x'.repeat(64 * 1024 + 1);
+	const largeBodyRequest = new Request(url, {
+		method: 'POST',
+		body: largeBody
+	});
+	assert.deepEqual(await readAuthenticatedSignalWirePayload(largeBodyRequest, signingKey), {
+		ok: false,
+		status: 413,
+		error: 'Request body is too large.'
+	});
 });

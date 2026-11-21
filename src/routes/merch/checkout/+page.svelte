@@ -1019,6 +1019,7 @@
 						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
+								aria-pressed={Number(donationAmount) === 0}
 								class="border-surface-950 cursor-pointer border-[3px] px-4 py-2.5 text-xs font-black tracking-wide uppercase transition {Number(
 									donationAmount
 								) === 0
@@ -1034,6 +1035,7 @@
 							{#each donationPresets as preset (preset)}
 								<button
 									type="button"
+									aria-pressed={Number(donationAmount) === preset}
 									class="border-surface-950 cursor-pointer border-[3px] px-4 py-2.5 text-xs font-black tracking-wide uppercase tabular-nums transition {Number(
 										donationAmount
 									) === preset
@@ -1070,21 +1072,22 @@
 								/>
 							</div>
 						</div>
-
-						<div class="flex flex-col gap-1.5">
-							<label class="text-xs font-black tracking-[0.18em] uppercase" for="notes">
-								Order Notes <span class="font-medium tracking-normal normal-case italic"
-									>(optional)</span
-								>
-							</label>
-							<textarea
-								id="notes"
-								class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full resize-none border-2 p-3 text-sm font-medium focus:outline-none"
-								rows="3"
-								bind:value={notes}
-								placeholder="Any special instructions or requests…"></textarea>
-						</div>
 					</div>
+				</section>
+				<section
+					class="bg-surface-100-900 text-surface-950-50 flex flex-col gap-1.5 px-6 py-6 sm:px-10"
+				>
+					<label class="text-xs font-black tracking-[0.18em] uppercase" for="notes">
+						Order Notes <span class="font-medium tracking-normal normal-case italic"
+							>(optional)</span
+						>
+					</label>
+					<textarea
+						id="notes"
+						class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus-visible:outline-primary-500 w-full resize-none border-2 p-3 text-sm font-medium"
+						rows="3"
+						bind:value={notes}
+						placeholder="Any special instructions or requests…"></textarea>
 				</section>
 			</form>
 

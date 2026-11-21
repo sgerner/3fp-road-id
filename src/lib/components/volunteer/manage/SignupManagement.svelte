@@ -65,25 +65,25 @@
 		switch (value) {
 			case 'approved':
 				return active
-					? 'bg-success-500 text-white'
-					: 'bg-success-500/10 text-success-400 hover:bg-success-500/20';
+					? 'bg-success-500 text-surface-950'
+					: 'border border-success-500 text-success-700-300 hover:bg-success-500 hover:text-surface-950';
 			case 'pending':
 				return active
-					? 'bg-warning-500 text-white'
-					: 'bg-warning-500/10 text-warning-400 hover:bg-warning-500/20';
+					? 'bg-warning-500 text-surface-950'
+					: 'border border-warning-500 text-warning-700-300 hover:bg-warning-500 hover:text-surface-950';
 			case 'waitlisted':
 				return active
-					? 'bg-surface-500 text-white'
-					: 'bg-surface-500/10 text-surface-400 hover:bg-surface-500/20';
+					? 'bg-surface-500 text-surface-950'
+					: 'border border-surface-500 text-surface-800-200 hover:bg-surface-500 hover:text-surface-950';
 			case 'declined':
 			case 'cancelled':
 				return active
-					? 'bg-error-600 text-white'
-					: 'bg-error-500/10 text-error-400 hover:bg-error-500/20';
+					? 'bg-error-600 text-surface-50'
+					: 'border border-error-500 text-error-700-300 hover:bg-error-500 hover:text-surface-950';
 			default:
 				return active
-					? 'bg-primary-500 text-white'
-					: 'bg-surface-500/10 text-surface-300 hover:bg-surface-500/20';
+					? 'bg-primary-500 text-surface-950'
+					: 'border border-surface-500 text-surface-800-200 hover:bg-primary-500 hover:text-surface-950';
 		}
 	}
 
@@ -575,18 +575,18 @@
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
-				return 'bg-success-500/20 text-success-300 border border-success-500/30';
+				return 'border border-success-500 text-success-700-300';
 			case 'pending':
-				return 'bg-warning-500/20 text-warning-300 border border-warning-500/30';
+				return 'border border-warning-500 text-warning-700-300';
 			case 'waitlisted':
-				return 'bg-surface-500/20 text-surface-300 border border-surface-500/30';
+				return 'border border-surface-500 text-surface-800-200';
 			case 'declined':
 			case 'cancelled':
-				return 'bg-error-500/20 text-error-300 border border-error-500/30';
+				return 'border border-error-500 text-error-700-300';
 			case 'no_show':
-				return 'bg-error-700/30 text-error-200 border border-error-600/30';
+				return 'border border-error-600 text-error-700-300';
 			default:
-				return 'bg-surface-500/20 text-surface-300 border border-surface-500/30';
+				return 'border border-surface-500 text-surface-800-200';
 		}
 	}
 
@@ -594,17 +594,17 @@
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
-				return 'bg-success-500/20 text-success-300';
+				return 'bg-success-500 text-surface-950';
 			case 'pending':
-				return 'bg-warning-500/20 text-warning-300';
+				return 'bg-warning-500 text-surface-950';
 			case 'waitlisted':
-				return 'bg-surface-500/20 text-surface-300';
+				return 'bg-surface-500 text-surface-950';
 			case 'declined':
 			case 'cancelled':
 			case 'no_show':
-				return 'bg-error-500/20 text-error-300';
+				return 'bg-error-500 text-surface-950';
 			default:
-				return 'bg-primary-500/20 text-primary-300';
+				return 'bg-primary-500 text-surface-950';
 		}
 	}
 
@@ -630,18 +630,18 @@
 		<!-- Queue panel (open) -->
 		{#if emailQueueOpen}
 			<div
-				class="bg-surface-900/95 border-surface-600/40 mb-3 w-80 rounded-2xl border shadow-2xl backdrop-blur-xl"
+				class="bg-surface-100-900 border-surface-300-700 mb-3 w-80 border"
 				transition:slide={{ duration: 200 }}
 			>
-				<div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+				<div class="border-surface-300-700 flex items-center justify-between border-b px-4 py-3">
 					<div>
-						<span class="text-surface-50 text-sm font-semibold">Queued Emails</span>
-						<p class="text-surface-400 text-xs">Review before sending</p>
+						<span class="text-surface-950-50 text-sm font-semibold">Queued Emails</span>
+						<p class="text-surface-600-400 text-xs">Review before sending</p>
 					</div>
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							class="preset-filled-primary-500 rounded-lg px-3 py-1 text-xs font-semibold disabled:opacity-50"
+							class="preset-filled-primary-500 rounded-none! px-3 py-1 text-xs font-semibold disabled:opacity-50"
 							disabled={!emailQueue.length || emailQueueSending}
 							onclick={() => onSendAllQueuedEmails()}
 						>
@@ -649,7 +649,7 @@
 						</button>
 						<button
 							type="button"
-							class="text-surface-400 hover:text-surface-100 rounded p-1 transition-colors"
+							class="text-surface-600-400 hover:text-surface-950-50 rounded-none! p-1 transition-colors"
 							onclick={() => (emailQueueOpen = false)}
 						>
 							<IconX class="h-4 w-4" />
@@ -657,20 +657,24 @@
 					</div>
 				</div>
 				{#if emailQueueError}
-					<div class="bg-error-500/10 text-error-300 border-b border-white/10 px-4 py-2 text-xs">
+					<div
+						class="bg-error-500 text-surface-950 border-surface-300-700 border-b px-4 py-2 text-xs"
+					>
 						{emailQueueError}
 					</div>
 				{/if}
-				<ul class="max-h-64 divide-y divide-white/5 overflow-y-auto">
+				<ul class="divide-surface-300-700 max-h-64 divide-y overflow-y-auto">
 					{#each emailQueue as queueItem (queueItem.id)}
 						<li class="px-4 py-3">
 							<div class="flex items-start justify-between gap-2">
 								<div class="min-w-0 flex-1">
-									<div class="text-surface-100 truncate text-xs font-semibold">
+									<div class="text-surface-950-50 truncate text-xs font-semibold">
 										{queueItem.volunteerName}
 									</div>
-									<div class="text-surface-400 truncate text-xs">{queueItem.volunteerEmail}</div>
-									<div class="text-surface-500 mt-0.5 text-xs capitalize">
+									<div class="text-surface-700-300 truncate text-xs">
+										{queueItem.volunteerEmail}
+									</div>
+									<div class="text-surface-600-400 mt-0.5 text-xs capitalize">
 										{formatQueueStatus(queueItem.status)}
 										{#if queueItem.shiftLabel}
 											· {queueItem.shiftLabel}
@@ -680,7 +684,7 @@
 								<div class="flex flex-shrink-0 gap-1">
 									<button
 										type="button"
-										class="preset-filled-primary-500 rounded px-2 py-0.5 text-xs disabled:opacity-50"
+										class="preset-filled-primary-500 rounded-none! px-2 py-0.5 text-xs disabled:opacity-50"
 										disabled={emailQueueSending}
 										onclick={() => onSendQueuedEmail(queueItem.id)}
 									>
@@ -688,7 +692,7 @@
 									</button>
 									<button
 										type="button"
-										class="text-surface-500 hover:text-error-400 rounded p-0.5 transition-colors"
+										class="text-surface-600-400 hover:text-error-500 rounded-none! p-0.5 transition-colors"
 										onclick={() => onRemoveQueuedEmail(queueItem.id)}
 									>
 										<IconX class="h-3.5 w-3.5" />
@@ -704,14 +708,14 @@
 		<!-- Floating badge button -->
 		<button
 			type="button"
-			class="preset-filled-secondary-500 shadow-secondary-500/30 relative flex h-12 w-12 items-center justify-center rounded-full shadow-xl transition-transform hover:scale-105 active:scale-95"
+			class="preset-filled-secondary-500 relative flex h-12 w-12 items-center justify-center rounded-none! transition-transform hover:scale-105 active:scale-95"
 			onclick={() => (emailQueueOpen = !emailQueueOpen)}
 			title="Email queue"
 		>
 			<IconSend class="h-5 w-5" />
 			{#if emailQueue.length}
 				<span
-					class="text-primary-600 absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold"
+					class="text-surface-950 bg-primary-500 absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-none! text-xs font-bold"
 				>
 					{emailQueue.length}
 				</span>
@@ -722,10 +726,10 @@
 
 <!-- ── Main panel ─────────────────────────────────────────────────────────── -->
 <section
-	class="border-surface-300-700 bg-surface-100-900/70 overflow-clip rounded-2xl border shadow-xl"
+	class="border-surface-300-700 bg-surface-100-900 border-tertiary-500 overflow-clip border-t-4"
 >
 	<!-- ── Filter bar ──────────────────────────────────────────────────────── -->
-	<div class="border-surface-300-700/50 border-b px-4 py-3">
+	<div class="border-surface-300-700 border-b px-4 py-3">
 		<!-- Status pills row (desktop) -->
 		<div class="flex flex-wrap items-center gap-2">
 			<!-- Status pills: hidden on smallest screens, shown sm+ -->
@@ -733,7 +737,8 @@
 				{#each statusPills as pill (pill.value)}
 					<button
 						type="button"
-						class={`rounded-full px-3 py-1 text-xs font-medium transition-all ${pillClass(pill.value)}`}
+						class={`rounded-none! px-3 py-1 text-xs font-medium transition-all ${pillClass(pill.value)}`}
+						aria-pressed={selectedStatus === pill.value}
 						onclick={() => onStatusChange(pill.value)}
 					>
 						{pill.label}
@@ -744,7 +749,8 @@
 			<!-- Status dropdown: mobile only -->
 			<div class="flex sm:hidden">
 				<select
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-sm"
+					class="border-surface-400-600 bg-surface-50-950 rounded-none! border px-3 py-1.5 text-sm"
+					aria-label="Filter volunteer signups by status"
 					value={selectedStatus}
 					onchange={(e) => onStatusChange(e.currentTarget.value)}
 				>
@@ -757,7 +763,8 @@
 			<!-- Shift filter (only if multiple activities) -->
 			{#if activityFilters.length > 1}
 				<select
-					class="border-surface-400-600 bg-surface-50-950/60 ml-1 rounded-lg border px-3 py-1.5 text-xs"
+					class="border-surface-400-600 bg-surface-50-950 ml-1 rounded-none! border px-3 py-1.5 text-xs"
+					aria-label="Filter volunteer signups by activity"
 					value={selectedActivity}
 					onchange={(e) => onActivityChange(e.currentTarget.value)}
 				>
@@ -770,7 +777,8 @@
 
 			{#if selectedActivity !== 'all' && shiftFilters.length > 0}
 				<select
-					class="border-surface-400-600 bg-surface-50-950/60 rounded-lg border px-3 py-1.5 text-xs"
+					class="border-surface-400-600 bg-surface-50-950 rounded-none! border px-3 py-1.5 text-xs"
+					aria-label="Filter volunteer signups by shift time"
 					value={selectedShift}
 					onchange={(e) => onShiftChange(e.currentTarget.value)}
 				>
@@ -786,7 +794,8 @@
 				<IconSearch class="text-surface-500 pointer-events-none absolute left-2.5 h-3.5 w-3.5" />
 				<input
 					type="search"
-					class="border-surface-400-600 bg-surface-50-950/60 w-40 rounded-lg border py-1.5 pr-3 pl-8 text-sm transition-all focus:w-56"
+					class="border-surface-400-600 bg-surface-50-950 w-40 rounded-none! border py-1.5 pr-3 pl-8 text-sm transition-all focus:w-56"
+					aria-label="Search volunteer signups"
 					value={searchTerm}
 					oninput={(e) => onSearch(e.currentTarget.value)}
 					placeholder="Search…"
@@ -796,10 +805,10 @@
 			<!-- Add volunteer button -->
 			<button
 				type="button"
-				class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all
+				class="flex items-center gap-1.5 rounded-none! px-3 py-1.5 text-xs font-medium transition-all
 					{addVolunteer
 					? 'preset-tonal-tertiary'
-					: 'bg-primary-500/10 text-primary-400 hover:bg-primary-500/20'}"
+					: 'bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50'}"
 				onclick={() => (addVolunteer = !addVolunteer)}
 			>
 				<IconUserPlus class="h-3.5 w-3.5" />
@@ -810,8 +819,10 @@
 
 	<!-- ── Add volunteer drawer ─────────────────────────────────────────────── -->
 	{#if addVolunteer}
-		<div class="border-surface-300-700/50 bg-surface-50-950/30 border-b px-4 py-4" transition:slide>
-			<h3 class="text-surface-950-50 mb-3 !text-left text-sm font-semibold">Add a volunteer</h3>
+		<div class="border-surface-300-700 bg-surface-50-950 border-b px-4 py-4" transition:slide>
+			<h3 class="text-surface-950-50! mb-3 !text-left text-sm font-black uppercase">
+				Add a volunteer
+			</h3>
 			<form class="grid gap-3 md:grid-cols-2" onsubmit={submitAddVolunteer}>
 				<div class="md:col-span-1">
 					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-email">
@@ -820,7 +831,7 @@
 					<input
 						id="add-email"
 						type="email"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						placeholder="volunteer@example.com"
 						value={addForm.email}
 						oninput={(e) => handleEmailInput(e.currentTarget.value)}
@@ -830,11 +841,11 @@
 					{#if emailSuggestions.length > 0 && addForm.email.trim() && (!selectedProfile || selectedProfile.email.toLowerCase() !== addForm.email
 									.trim()
 									.toLowerCase())}
-						<div class="bg-surface-100-900/70 border-surface-300-700 mt-1 rounded-lg border p-1.5">
+						<div class="bg-surface-100-900 border-surface-300-700 mt-1 rounded-none! border p-1.5">
 							{#each emailSuggestions as profile (profile.email)}
 								<button
 									type="button"
-									class="hover:bg-primary-500/10 text-surface-900-100 flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs"
+									class="hover:bg-primary-500 hover:text-surface-950 text-surface-900-100 flex w-full items-center justify-between rounded-none! px-2 py-1 text-left text-xs"
 									onclick={() => applyProfileToForm(profile)}
 								>
 									<span class="font-medium">{profile.name || 'Unnamed'}</span>
@@ -857,7 +868,7 @@
 					<input
 						id="add-name"
 						type="text"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						placeholder="Alex Smith"
 						value={addForm.name}
 						oninput={(e) => (addForm = { ...addForm, name: e.currentTarget.value })}
@@ -873,7 +884,7 @@
 					</label>
 					<select
 						id="add-shift-activity"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						value={addForm.shiftActivityId}
 						onchange={(e) =>
 							(addForm = { ...addForm, shiftActivityId: e.currentTarget.value, shiftId: '' })}
@@ -897,7 +908,7 @@
 					</label>
 					<select
 						id="add-shift-time"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						value={addForm.shiftId}
 						onchange={(e) => (addForm = { ...addForm, shiftId: e.currentTarget.value })}
 						required
@@ -921,7 +932,7 @@
 					</label>
 					<select
 						id="add-status"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						value={addForm.status}
 						onchange={(e) => (addForm = { ...addForm, status: e.currentTarget.value })}
 					>
@@ -938,7 +949,7 @@
 					<input
 						id="add-phone"
 						type="tel"
-						class="border-surface-400-600 bg-surface-50-950/60 w-full rounded-lg border px-3 py-2 text-sm"
+						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
 						placeholder="(555) 555-1234"
 						value={addForm.phone}
 						oninput={(e) => (addForm = { ...addForm, phone: e.currentTarget.value })}
@@ -947,14 +958,14 @@
 
 				{#if selectedProfile}
 					<div
-						class="bg-primary-500/5 border-primary-500/30 rounded-lg border px-3 py-2 text-xs md:col-span-2"
+						class="bg-primary-500 text-surface-950 border-primary-500 rounded-none! border px-3 py-2 text-xs md:col-span-2"
 					>
-						<span class="text-surface-100 font-semibold">Existing profile:</span>
-						<span class="text-surface-400 ml-2">{selectedProfile.email}</span>
+						<span class="font-semibold">Existing profile:</span>
+						<span class="ml-2">{selectedProfile.email}</span>
 					</div>
 				{:else if addForm.email.trim() && !profileLookupLoading && !profileLookupError}
 					<div
-						class="bg-surface-500/5 border-surface-500/20 text-surface-400 rounded-lg border px-3 py-2 text-xs md:col-span-2"
+						class="bg-surface-200-800 border-surface-500 text-surface-800-200 rounded-none! border px-3 py-2 text-xs md:col-span-2"
 					>
 						No existing profile found — a new account will be created.
 					</div>
@@ -962,14 +973,14 @@
 
 				{#if addError}
 					<div
-						class="bg-error-500/10 border-error-500/30 text-error-300 rounded-lg border px-3 py-2 text-xs md:col-span-2"
+						class="bg-error-500 border-error-500 text-surface-950 rounded-none! border px-3 py-2 text-xs md:col-span-2"
 					>
 						{addError}
 					</div>
 				{/if}
 				{#if addSuccess}
 					<div
-						class="bg-success-500/10 border-success-500/30 text-success-300 rounded-lg border px-3 py-2 text-xs md:col-span-2"
+						class="bg-success-500 border-success-500 text-surface-950 rounded-none! border px-3 py-2 text-xs md:col-span-2"
 					>
 						{addSuccess}
 					</div>
@@ -978,7 +989,7 @@
 				<div class="flex justify-end md:col-span-2">
 					<button
 						type="submit"
-						class="preset-filled-primary-500 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+						class="preset-filled-primary-500 rounded-none! px-4 py-2 text-sm font-semibold disabled:opacity-60"
 						disabled={addLoading}
 					>
 						{addLoading ? 'Adding…' : 'Add to shift'}
@@ -989,7 +1000,7 @@
 	{/if}
 
 	<!-- ── Volunteer list ──────────────────────────────────────────────────── -->
-	<div class="divide-surface-300-700/30 divide-y">
+	<div class="divide-surface-300-700 divide-y">
 		{#if !groupedShiftBlocks.length}
 			<div class="text-surface-500 px-4 py-10 text-center text-sm" transition:slide>
 				No volunteers match the selected filters.
@@ -998,7 +1009,7 @@
 			{#each groupedShiftBlocks as group (group.key)}
 				<!-- Shift group header -->
 				<div
-					class="from-primary-500/5 to-secondary-500/5 border-surface-300-700/30 flex flex-wrap items-center justify-between gap-2 border-b bg-gradient-to-r px-4 py-2.5"
+					class="bg-surface-200-800 border-surface-300-700 border-primary-500 flex flex-wrap items-center justify-between gap-2 border-b-2 px-4 py-2.5"
 				>
 					<div class="flex flex-wrap items-center gap-2">
 						<span class="text-surface-800-200 text-xs font-medium">{group.activityLabel}</span>
@@ -1006,12 +1017,12 @@
 					</div>
 					<div class="flex items-center gap-2 text-xs">
 						{#if group.approvedCount > 0}
-							<span class="bg-success-500/15 text-success-400 rounded-full px-2 py-0.5 font-medium">
+							<span class="bg-success-500 text-surface-950 rounded-none! px-2 py-0.5 font-medium">
 								{group.approvedCount} approved
 							</span>
 						{/if}
 						{#if group.waitlistedCount > 0}
-							<span class="text-surface-400 bg-surface-500/15 rounded-full px-2 py-0.5 font-medium">
+							<span class="text-surface-950 bg-surface-500 rounded-none! px-2 py-0.5 font-medium">
 								{group.waitlistedCount} waitlisted
 							</span>
 						{/if}
@@ -1021,7 +1032,7 @@
 				<!-- Volunteer rows -->
 				{#each group.items as item (item.key)}
 					<div
-						class="border-surface-300-700/10 hover:bg-surface-50-950/5 border-b transition-colors last:border-0"
+						class="border-surface-300-700 hover:bg-primary-500 hover:text-surface-950 border-b transition-colors last:border-0"
 						transition:slide
 					>
 						<div
@@ -1038,7 +1049,7 @@
 							<div class="flex min-w-0 items-start gap-2">
 								<!-- Avatar circle -->
 								<div
-									class={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${orbClass(item.assignment.status)}`}
+									class={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-none! text-xs font-bold transition-colors ${orbClass(item.assignment.status)}`}
 								>
 									{(item.volunteer.name || '?')[0].toUpperCase()}
 								</div>
@@ -1046,7 +1057,9 @@
 									<div class="flex flex-wrap items-center gap-1.5">
 										<span class="text-surface-950-50 font-semibold">{item.volunteer.name}</span>
 										{#if item.hasMultipleShifts}
-											<span class="chip preset-outlined-secondary-500 px-1.5 py-0.5 text-[10px]">
+											<span
+												class="chip preset-outlined-secondary-500 rounded-none! px-1.5 py-0.5 text-[10px]"
+											>
 												Multi-shift
 											</span>
 										{/if}
@@ -1074,7 +1087,7 @@
 							<!-- Status badge (desktop, pushed to right) -->
 							<div class="hidden items-center md:flex">
 								<span
-									class={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${statusBadgeClass(item.assignment.status)}`}
+									class={`inline-flex rounded-none! px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${statusBadgeClass(item.assignment.status)}`}
 								>
 									{statusLabel(item.assignment.status)}
 								</span>
@@ -1098,7 +1111,7 @@
 							>
 								<!-- Mobile: status badge inline -->
 								<span
-									class={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize md:hidden ${statusBadgeClass(item.assignment.status)}`}
+									class={`inline-flex rounded-none! px-2 py-0.5 text-xs font-medium capitalize md:hidden ${statusBadgeClass(item.assignment.status)}`}
 								>
 									{statusLabel(item.assignment.status)}
 								</span>
@@ -1108,7 +1121,7 @@
 										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
 											<button
 												type="button"
-												class="chip preset-tonal-success min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
+												class="chip preset-tonal-success min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
 												onclick={() => onApprove(item.assignment.id)}
 											>
 												Approve
@@ -1117,7 +1130,7 @@
 										{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled' && item.assignment.status !== 'checked_in' && item.assignment.status !== 'no_show'}
 											<button
 												type="button"
-												class="chip preset-tonal-surface min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
+												class="chip preset-tonal-surface min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
 												onclick={() => onWaitlist(item.assignment.id)}
 											>
 												Waitlist
@@ -1126,7 +1139,7 @@
 										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
 											<button
 												type="button"
-												class="chip preset-tonal-error min-h-[44px] min-w-[44px] px-3 py-2 text-xs"
+												class="chip preset-tonal-error min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
 												onclick={() => onDecline(item.assignment.id)}
 											>
 												Decline
@@ -1141,7 +1154,7 @@
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<div
-								class="bg-surface-50-950/10 cursor-auto px-4 pt-1 pb-3 text-xs"
+								class="bg-surface-50-950 cursor-auto px-4 pt-1 pb-3 text-xs"
 								transition:slide
 								onclick={(e) => e.stopPropagation()}
 							>

@@ -6,34 +6,15 @@ import {
 	smsProviderMessageId,
 	smsProviderStatus
 } from '#lib/server/sms';
-import { readRawBody, verifySignalWireWebhookRequest } from '#lib/server/security';
-
-function parsePayload(raw, contentType) {
-	if (/application\/json/i.test(contentType || '')) {
-		try {
-			const parsed = raw ? JSON.parse(raw) : {};
-			return parsed && typeof parsed === 'object' ? parsed : {};
-		} catch {
-			return null;
-		}
-	}
-	return Object.fromEntries(new URLSearchParams(raw));
-}
+import { readAuthenticatedSignalWirePayload } from '#lib/server/security';
 
 export async function POST(event) {
-	const rawResult = await readRawBody(event.request, { maxBytes: 64 * 1024 });
-	if (!rawResult.ok) return json({ error: rawResult.error }, { status: rawResult.status });
-	const rawBody = rawResult.value;
-	if (
-		!verifySignalWireWebhookRequest(event.request, rawBody, env.SIGNALWIRE_SIGNING_KEY, {
-			publicUrl: event.request.url
-		})
-	) {
-		return json({ error: 'Webhook authentication failed.' }, { status: 401 });
-	}
-
-	const payload = parsePayload(rawBody, event.request.headers.get('content-type'));
-	if (!payload) return json({ error: 'Invalid webhook payload.' }, { status: 400 });
+	const webhook = await readAuthenticatedSignalWirePayload(
+		event.request,
+		env.SIGNALWIRE_SIGNING_KEY
+	);
+	if (!webhook.ok) return json({ error: webhook.error }, { status: webhook.status });
+	const { payload } = webhook;
 	const providerMessageId = smsProviderMessageId(payload);
 	const providerStatus = smsProviderStatus(payload);
 	if (!providerMessageId) return json({ ok: true, ignored: true });

@@ -169,9 +169,7 @@
 	</nav>
 
 	<!-- Hero Section -->
-	<section class="news-hero relative overflow-hidden rounded-2xl" in:fade={{ duration: 240 }}>
-		<div class="news-accent-bar" aria-hidden="true"></div>
-		<div class="news-glow" aria-hidden="true"></div>
+	<section class="news-hero relative overflow-hidden" in:fade={{ duration: 240 }}>
 		<div class="news-hero-cover">
 			{#if data.group.cover_photo_url}
 				<img
@@ -195,7 +193,7 @@
 					<span>Updates archive</span>
 				</div>
 				<a
-					class="btn btn-sm preset-tonal-surface/70 inline-flex items-center gap-2 backdrop-blur-sm"
+					class="btn btn-sm preset-tonal-surface/70 inline-flex items-center gap-2"
 					href={`/groups/${data.group.slug}`}
 				>
 					<IconChevronLeft class="h-4 w-4" />
@@ -203,7 +201,7 @@
 				</a>
 			</div>
 			<div>
-				<h1 class="text-2xl font-black text-white drop-shadow-sm md:text-3xl">{data.group.name}</h1>
+				<h1 class="text-2xl font-black text-white md:text-3xl">{data.group.name}</h1>
 				<p class="mt-2 max-w-2xl text-sm leading-6 text-white/80">
 					Announcements, route changes, event recaps, volunteer asks, and other updates from the
 					group, newest first.
@@ -217,7 +215,7 @@
 		<div class="mt-5 space-y-4">
 			{#each data.posts as post, i}
 				<article
-					class="news-card group relative overflow-hidden rounded-2xl border p-5 transition-all duration-200"
+					class="news-card group relative overflow-hidden border p-5 transition-all duration-200"
 					style="--stagger: {i}"
 					in:fade={{ duration: 200, delay: i * 50 }}
 				>
@@ -287,7 +285,7 @@
 	{:else}
 		<!-- Empty State -->
 		<section
-			class="border-surface-500/20 bg-surface-950/40 mt-5 rounded-2xl border border-dashed p-10 text-center"
+			class="border-surface-500/20 bg-surface-950/40 mt-5 border border-dashed p-10 text-center"
 			in:fade={{ duration: 200 }}
 		>
 			<div
@@ -303,9 +301,7 @@
 
 <style>
 	.news-hero {
-		background:
-			radial-gradient(circle at top right, rgb(234 179 8 / 0.18), transparent 36%),
-			linear-gradient(135deg, rgb(249 115 22 / 0.08), rgb(8 47 73 / 0.28));
+		background: var(--color-surface-950);
 		border: 1px solid rgb(251 191 36 / 0.18);
 	}
 
@@ -344,34 +340,13 @@
 		);
 	}
 
-	.news-accent-bar {
-		position: absolute;
-		inset: 0 auto auto 0;
-		width: 100%;
-		height: 4px;
-		background: linear-gradient(90deg, rgb(249 115 22), rgb(251 191 36), rgb(14 165 233));
-	}
-
-	.news-glow {
-		position: absolute;
-		right: -4rem;
-		top: -4rem;
-		width: 16rem;
-		height: 16rem;
-		border-radius: 9999px;
-		background: rgb(251 191 36 / 0.12);
-		filter: blur(52px);
-		pointer-events: none;
-	}
-
 	.news-hero-pill {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
 		border: 1px solid rgb(255 255 255 / 0.2);
 		background: rgb(7 12 26 / 0.55);
-		backdrop-filter: blur(4px);
-		border-radius: 9999px;
+
 		padding: 0.3rem 0.65rem;
 		font-size: 0.7rem;
 		font-weight: 700;
@@ -384,14 +359,14 @@
 	.news-card {
 		background: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-surface-800) 5%);
 		border-color: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
-		box-shadow: 0 4px 20px rgb(0 0 0 / 0.15);
+
 		animation: card-in 380ms ease both;
 		animation-delay: calc(var(--stagger, 0) * 60ms);
 	}
 
 	.news-card:hover {
 		border-color: color-mix(in oklab, var(--color-primary-500) 30%, transparent);
-		box-shadow: 0 8px 30px rgb(0 0 0 / 0.2);
+
 		transform: translateY(-2px);
 	}
 

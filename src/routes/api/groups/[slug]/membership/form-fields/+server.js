@@ -1,3 +1,4 @@
+import { respond } from '#lib/server/groupApiResponse';
 import { json } from '@sveltejs/kit';
 import {
 	listMembershipFormFields,
@@ -5,13 +6,6 @@ import {
 	updateMembershipFormField,
 	deleteMembershipFormField
 } from '#lib/server/memberships';
-
-function respond(result, successStatus = 200) {
-	if (!result?.ok) {
-		return json({ error: result?.error || 'Request failed.' }, { status: result?.status || 500 });
-	}
-	return json({ data: result.data }, { status: successStatus });
-}
 
 function resolveFieldId(url, payload = {}) {
 	return payload?.id || payload?.field_id || url.searchParams.get('id') || null;

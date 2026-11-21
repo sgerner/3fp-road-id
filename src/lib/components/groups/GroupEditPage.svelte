@@ -11,6 +11,7 @@
 	import '#lib/map/leaflet.css';
 	import * as env from '$app/env/public';
 	import { geocodeAddress } from '#lib/groups/geocoding';
+	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
@@ -641,90 +642,9 @@
 	}
 
 	function collectSocialLinksFromInputs() {
-		const getVal = (id) => document.getElementById(id)?.value?.trim() || '';
-		const parseInstagramPostUrls = (raw) => {
-			const lines = String(raw || '')
-				.split(/\r?\n/)
-				.map((line) => line.trim())
-				.filter(Boolean);
-			const out = [];
-			const seen = new Set();
-			for (const line of lines) {
-				let parsed = null;
-				try {
-					parsed = new URL(line);
-				} catch {
-					continue;
-				}
-				if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) continue;
-				const parts = parsed.pathname.split('/').filter(Boolean);
-				if (parts.length < 2) continue;
-				const kind = parts[0];
-				const shortcode = parts[1];
-				if (!['p', 'reel', 'tv'].includes(kind) || !shortcode) continue;
-				const canonical = `https://www.instagram.com/${kind}/${shortcode}/`;
-				if (seen.has(canonical)) continue;
-				seen.add(canonical);
-				out.push(canonical);
-			}
-			return out.slice(0, 3);
-		};
-		const buildUrl = (v, p) =>
-			!v ? null : /^https?:\/\//i.test(v) ? v : `${p}${v.replace(/^@/, '')}`;
-		const instagramPosts = parseInstagramPostUrls(getVal('social_instagram_posts'));
-		const socials = {
-			instagram: buildUrl(getVal('social_instagram'), 'https://www.instagram.com/'),
-			facebook: buildUrl(getVal('social_facebook'), 'https://www.facebook.com/'),
-			x: buildUrl(getVal('social_x'), 'https://x.com/'),
-			threads: buildUrl(getVal('social_threads'), 'https://www.threads.net/@'),
-			mastodon: (() => {
-				const v = getVal('social_mastodon');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				const s = v.replace(/^@/, '');
-				if (s.includes('@')) {
-					const [user, host] = s.split('@');
-					if (user && host) return `https://${host}/@${user}`;
-				}
-				// Fallback to mastodon.social if only username provided
-				return `https://mastodon.social/@${s}`;
-			})(),
-			youtube: (() => {
-				const v = getVal('social_youtube');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				const h = v.startsWith('@') ? v : `@${v}`;
-				return `https://www.youtube.com/${h}`;
-			})(),
-			tiktok: buildUrl(getVal('social_tiktok'), 'https://www.tiktok.com/@'),
-			strava: (() => {
-				const v = getVal('social_strava');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				return `https://www.strava.com/clubs/${v}`;
-			})(),
-			bluesky: (() => {
-				const v = getVal('social_bluesky');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				return `https://bsky.app/profile/${v.replace(/^@/, '')}`;
-			})(),
-			discord: (() => {
-				const v = getVal('social_discord');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				// Accept invite codes or vanity names
-				return `https://discord.gg/${v.replace(/^@/, '')}`;
-			})(),
-			linkedin: (() => {
-				const v = getVal('social_linkedin');
-				if (!v) return null;
-				if (/^https?:\/\//i.test(v)) return v;
-				return `https://www.linkedin.com/company/${v}`;
-			})(),
-			instagram_posts: instagramPosts.length ? instagramPosts : null
-		};
-		return Object.fromEntries(Object.entries(socials).filter(([_, v]) => !!v));
+		return collectGroupSocialLinkInputs(
+			(field) => document.getElementById(`social_${field}`)?.value?.trim() || ''
+		);
 	}
 
 	function onSocialsChange() {
@@ -1409,11 +1329,7 @@
 <div class="edit-page mx-auto w-full max-w-6xl space-y-5 pb-10">
 	{#if !embedded}
 		<!-- ── Cinematic header ── -->
-		<header class="edit-header relative overflow-hidden rounded-3xl">
-			<div class="edit-orb edit-orb-1" aria-hidden="true"></div>
-			<div class="edit-orb edit-orb-2" aria-hidden="true"></div>
-			<div class="edit-orb edit-orb-3" aria-hidden="true"></div>
-
+		<header class="edit-header relative overflow-hidden">
 			<div
 				class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-10"
 			>
@@ -1435,7 +1351,7 @@
 				</div>
 				<div class="flex shrink-0 flex-wrap gap-3">
 					{#if saving}
-						<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+						<div class="chip preset-tonal-primary text-xs motion-safe:animate-pulse">Saving…</div>
 					{:else}
 						<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
 					{/if}
@@ -1453,12 +1369,12 @@
 			</div>
 		</header>
 	{:else}
-		<section class="edit-embedded-meta card preset-tonal-surface rounded-2xl p-4">
+		<section class="edit-embedded-meta bg-surface-900 p-4">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<p class="text-surface-600-400 text-sm">Changes are saved automatically as you type.</p>
 				<div class="flex shrink-0 flex-wrap gap-2">
 					{#if saving}
-						<div class="chip preset-tonal-primary animate-pulse text-xs">Saving…</div>
+						<div class="chip preset-tonal-primary text-xs motion-safe:animate-pulse">Saving…</div>
 					{:else}
 						<div class="chip preset-tonal-surface text-xs opacity-60">Auto-saved</div>
 					{/if}
@@ -1491,7 +1407,7 @@
 		onsubmit={(event) => event.preventDefault()}
 	>
 		<!-- ── Identity ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Identity</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4">
@@ -1530,7 +1446,7 @@
 		</section>
 
 		<!-- ── Location ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Location</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4">
@@ -1597,7 +1513,7 @@
 				</div>
 
 				<!-- Map -->
-				<div class="edit-map-panel rounded-xl p-3">
+				<div class="edit-map-panel p-3">
 					<label class="label mb-2" for="map_location">Map Location</label>
 					<input
 						id="map_location"
@@ -1614,7 +1530,7 @@
 					{#if placesLoading}
 						<p class="text-surface-600-400 text-xs">Loading places…</p>
 					{/if}
-					<div class="mt-2 overflow-hidden rounded-lg" style="height: 300px;">
+					<div class="mt-2 overflow-hidden" style="height: 300px;">
 						<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
 					</div>
 					<p class="text-surface-600-400 mt-1.5 text-xs">
@@ -1671,7 +1587,7 @@
 		</section>
 
 		<!-- ── Contact ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Contact & Reach</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1800,13 +1716,13 @@
 		</section>
 
 		<!-- ── Donations ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Donations</h2>
 			<p class="text-surface-600-400 mt-1 text-sm">
 				Connect a Stripe account to accept donations on this group's public page.
 			</p>
-			<div class="mt-4 rounded-xl border border-white/10 p-4">
+			<div class="mt-4 border border-white/10 p-4">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="text-sm">
 						<div class="font-semibold">
@@ -1854,7 +1770,7 @@
 		</section>
 
 		<!-- ── Social links ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Social Links</h2>
 			<p class="text-surface-600-400 mt-1 mb-4 text-xs">
@@ -1897,7 +1813,7 @@
 		</section>
 
 		<!-- ── Activity details ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Activity Details</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1947,11 +1863,11 @@
 		</section>
 
 		<!-- ── Categories ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Categories & Tags</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-				<div class="edit-check-card rounded-xl p-3">
+				<div class="edit-check-card p-3">
 					<div class="mb-2 text-sm font-semibold">Group Types</div>
 					<div class="flex flex-col gap-2">
 						{#each data.group_types as gt}
@@ -1969,7 +1885,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="edit-check-card rounded-xl p-3">
+				<div class="edit-check-card p-3">
 					<div class="mb-2 text-sm font-semibold">Audience Focus</div>
 					<div class="flex flex-col gap-2">
 						{#each data.audience_focuses as af}
@@ -1987,7 +1903,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="edit-check-card rounded-xl p-3">
+				<div class="edit-check-card p-3">
 					<div class="mb-2 text-sm font-semibold">Riding Disciplines</div>
 					<div class="flex flex-col gap-2">
 						{#each data.riding_disciplines as rd}
@@ -2005,7 +1921,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="edit-check-card rounded-xl p-3">
+				<div class="edit-check-card p-3">
 					<div class="mb-2 text-sm font-semibold">Skill Levels</div>
 					<div class="flex flex-col gap-2">
 						{#each data.skill_levels as sl}
@@ -2027,7 +1943,7 @@
 		</section>
 
 		<!-- ── Photos ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Photos</h2>
 			<div class="mt-4">
@@ -2059,7 +1975,7 @@
 						>
 							<FileUpload.HiddenInput />
 							<FileUpload.Dropzone
-								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
+								class="edit-dropzone border-2 border-dashed p-6"
 								aria-label="Select logo file or drag here"
 							>
 								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
@@ -2070,13 +1986,11 @@
 					{/key}
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
-						<div
-							class="relative mt-1 aspect-square w-24 overflow-hidden rounded-xl border border-white/10"
-						>
+						<div class="relative mt-1 aspect-square w-24 overflow-hidden border border-white/10">
 							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
 							<button
 								type="button"
-								class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5"
+								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -2101,7 +2015,7 @@
 						>
 							<FileUpload.HiddenInput />
 							<FileUpload.Dropzone
-								class="edit-dropzone rounded-xl border-2 border-dashed p-6"
+								class="edit-dropzone border-2 border-dashed p-6"
 								aria-label="Select cover image or drag here"
 							>
 								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
@@ -2112,9 +2026,7 @@
 					{/key}
 					{#if coverTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if coverPreview}
-						<div
-							class="relative mt-1 aspect-[16/9] overflow-hidden rounded-xl border border-white/10"
-						>
+						<div class="relative mt-1 aspect-[16/9] overflow-hidden border border-white/10">
 							<img
 								src={coverPreview}
 								alt="Cover preview"
@@ -2122,7 +2034,7 @@
 							/>
 							<button
 								type="button"
-								class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5"
+								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('cover')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -2140,7 +2052,7 @@
 		</section>
 
 		<!-- ── Owners ── -->
-		<section class="edit-card relative overflow-hidden rounded-2xl p-5">
+		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar secondary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Owners</h2>
 			<p class="text-surface-600-400 mt-1 mb-4 text-sm">
@@ -2172,7 +2084,7 @@
 				</div>
 				<button
 					type="button"
-					class="btn preset-filled-primary-500 {ownerLoading ? 'animate-pulse' : ''}"
+					class="btn preset-filled-primary-500 {ownerLoading ? 'motion-safe:animate-pulse' : ''}"
 					disabled={!ownerValid || ownerLoading}
 					onclick={inviteOwner}>Send Invite</button
 				>
@@ -2185,7 +2097,7 @@
 					<div class="text-surface-600-400 mb-2 text-xs font-medium tracking-wider uppercase">
 						Current owners
 					</div>
-					<ul class="divide-surface-700/20 border-surface-700/20 divide-y rounded-xl border">
+					<ul class="divide-surface-700/20 border-surface-700/20 divide-y border">
 						{#each owners as o (o.user_id)}
 							<li class="flex items-center justify-between gap-3 px-3 py-2.5">
 								<div class="truncate text-sm">
@@ -2194,7 +2106,7 @@
 								{#if o.user_id !== data.current_user_id}
 									<button
 										type="button"
-										class="btn btn-xs preset-outlined-error-500"
+										class="btn btn-sm preset-outlined-error-500"
 										onclick={() => removeOwner(o.user_id, o.email)}>Remove</button
 									>
 								{/if}
@@ -2209,10 +2121,10 @@
 		{#if page.form?.error}<p class="text-error-600-400 text-sm">{page.form.error}</p>{/if}
 	</form>
 
-	<section class="edit-card danger relative overflow-hidden rounded-2xl p-5">
+	<section class="edit-card danger relative overflow-hidden p-5">
 		<div class="edit-card-accent-bar danger" aria-hidden="true"></div>
 		<div class="flex items-start gap-3">
-			<div class="bg-error-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+			<div class="bg-error-500/15 flex h-10 w-10 shrink-0 items-center justify-center">
 				<IconAlertTriangle class="text-error-500 h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
@@ -2238,7 +2150,7 @@
 	<!-- ── Crop modal ── -->
 	{#if cropping}
 		<div
-			class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -2246,7 +2158,7 @@
 			onpointerup={onCropPointerUp}
 			onpointercancel={onCropPointerUp}
 		>
-			<div class="edit-card w-full max-w-4xl rounded-2xl p-5">
+			<div class="edit-card w-full max-w-4xl p-5">
 				<div class="mb-4 flex items-center justify-between">
 					<h3 class="text-xl font-bold">
 						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
@@ -2259,7 +2171,7 @@
 				</div>
 				<div
 					bind:this={cropContainerEl}
-					class="relative mx-auto w-full overflow-hidden rounded-xl border border-white/10"
+					class="relative mx-auto w-full overflow-hidden border border-white/10"
 					style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
 				>
 					<img
@@ -2314,46 +2226,12 @@
 <style>
 	/* ── Edit page header ── */
 	.edit-header {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		background: var(--color-surface-900);
+		border-left: 4px solid var(--color-primary-500);
 	}
 
 	.edit-embedded-meta {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-	}
-
-	.edit-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(72px);
-		pointer-events: none;
-	}
-
-	.edit-orb-1 {
-		width: 55%;
-		height: 200%;
-		top: -50%;
-		left: -10%;
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
-		animation: orb-drift 18s ease-in-out infinite alternate;
-	}
-
-	.edit-orb-2 {
-		width: 40%;
-		height: 160%;
-		top: -30%;
-		right: 5%;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: orb-drift 24s ease-in-out infinite alternate-reverse;
-	}
-
-	.edit-orb-3 {
-		width: 35%;
-		height: 120%;
-		bottom: -40%;
-		left: 40%;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		animation: orb-drift 20s ease-in-out infinite alternate;
+		border-left: 4px solid var(--color-primary-500);
 	}
 
 	.group-headline {
@@ -2363,9 +2241,8 @@
 
 	/* ── Form section cards ── */
 	.edit-card {
-		background: color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-		animation: card-in 360ms ease both;
+		background: var(--color-surface-900);
+		border-top: 2px solid var(--color-surface-700);
 	}
 
 	.edit-card-accent-bar {
@@ -2373,28 +2250,22 @@
 		top: 0;
 		left: 0;
 		right: 0;
-		height: 3px;
-		border-radius: 2rem 2rem 0 0;
+		height: 5px;
 	}
 	.edit-card-accent-bar.primary {
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.7;
+		background: var(--color-primary-500);
 	}
 	.edit-card-accent-bar.secondary {
-		background: linear-gradient(90deg, var(--color-secondary-500), var(--color-tertiary-500));
-		opacity: 0.7;
+		background: var(--color-secondary-500);
 	}
 	.edit-card-accent-bar.tertiary {
-		background: linear-gradient(90deg, var(--color-tertiary-500), var(--color-primary-500));
-		opacity: 0.6;
+		background: var(--color-tertiary-500);
 	}
 	.edit-card.danger {
-		background: color-mix(in oklab, var(--color-error-500) 10%, var(--color-surface-900) 90%);
-		border-color: color-mix(in oklab, var(--color-error-500) 25%, transparent);
+		border-top-color: var(--color-error-500);
 	}
 	.edit-card-accent-bar.danger {
-		background: linear-gradient(90deg, var(--color-error-500), var(--color-warning-500));
-		opacity: 0.8;
+		background: var(--color-error-500);
 	}
 
 	.edit-section-title {
@@ -2402,20 +2273,21 @@
 		font-weight: 700;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		opacity: 0.55;
+		color: var(--color-primary-500);
+		opacity: 1;
 		margin-bottom: 0;
 	}
 
 	/* ── Map panel ── */
 	.edit-map-panel {
-		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		background: var(--color-surface-950);
+		border: 1px solid var(--color-surface-700);
 	}
 
 	/* ── Check cards ── */
 	.edit-check-card {
-		background: color-mix(in oklab, var(--color-surface-950) 55%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 14%, transparent);
+		background: var(--color-surface-950);
+		border: 1px solid var(--color-surface-700);
 	}
 
 	/* ── Dropzone ── */
@@ -2423,25 +2295,13 @@
 		width: 100%;
 		text-align: center;
 		border-color: color-mix(in oklab, var(--color-surface-500) 30%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
+		background: var(--color-surface-950);
 		transition:
 			background 180ms ease,
 			border-color 180ms ease;
 	}
 	.edit-dropzone:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 8%, transparent);
-		border-color: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
-	}
-
-	/* ── Card entrance ── */
-	@keyframes card-in {
-		from {
-			opacity: 0;
-			transform: translateY(12px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
+		background: var(--color-surface-800);
+		border-color: var(--color-primary-500);
 	}
 </style>

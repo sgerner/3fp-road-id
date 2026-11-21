@@ -6,6 +6,8 @@ import { safeNavigationUrl } from '../security/urls.js';
 test('internal redirect validation allows same-origin paths and rejects external destinations', () => {
 	assert.equal(isSafeInternalPath('/groups/example/manage/social?social=connected'), true);
 	assert.equal(isSafeInternalPath('/'), true);
+	assert.equal(isSafeInternalPath('/groups/../profile'), true);
+	assert.equal(isSafeInternalPath('/groups/..//profile'), false);
 	assert.equal(isSafeInternalPath('//attacker.example/path'), false);
 	assert.equal(isSafeInternalPath('/\\\\attacker.example'), false);
 	assert.equal(isSafeInternalPath('https://attacker.example'), false);

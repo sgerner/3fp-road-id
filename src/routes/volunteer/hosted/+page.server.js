@@ -1,9 +1,6 @@
+import { fetchList } from '#lib/server/internalApi';
 import { redirect } from '@sveltejs/kit';
-import {
-	fetchList,
-	loadManagedVolunteerEvents,
-	loadOwnedGroups
-} from '#lib/server/sectionNavigation';
+import { loadManagedVolunteerEvents, loadOwnedGroups } from '#lib/server/sectionNavigation';
 import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
@@ -12,7 +9,10 @@ export const load = async ({ fetch, cookies, parent, url }) => {
 	const userId = currentUser?.id ?? null;
 
 	if (!userId) {
-		throw redirect(303, `/volunteer?auth=required&returnTo=${encodeURIComponent(url.pathname)}`);
+		throw redirect(
+			303,
+			`/volunteer?auth=required&returnTo=${encodeURIComponent(url.pathname + url.search)}`
+		);
 	}
 
 	const ownedGroups = await loadOwnedGroups(fetch, userId);

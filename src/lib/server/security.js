@@ -78,7 +78,7 @@ export function enforceRateLimit(
 	);
 }
 
-async function readRequestBytes(request, maxBytes) {
+export async function readRequestBytes(request, maxBytes) {
 	const declaredLength = Number(request?.headers?.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
 		return { ok: false, status: 413, error: 'Request body is too large.' };
@@ -199,7 +199,7 @@ export function verifyWebhookRequest(
 		if (supplied && timingSafeStringEqual(supplied, configuredSecret)) return true;
 	}
 
-	const body = typeof rawBody === 'string' ? rawBody : String(rawBody ?? '');
+	const body = Buffer.isBuffer(rawBody) ? rawBody : String(rawBody ?? '');
 	const expected = createHmac('sha256', configuredSecret).update(body).digest();
 	const expectedHex = expected.toString('hex');
 	const expectedBase64 = expected.toString('base64');
@@ -218,6 +218,20 @@ export function verifyWebhookRequest(
 	}
 
 	return false;
+}
+
+export function verifyVercelWebhookRequest(request, rawBody, secret) {
+	const configuredSecret = cleanText(secret);
+	if (!configuredSecret) return false;
+	const signature = request.headers.get('x-vercel-signature');
+	if (signature) {
+		const expected = createHmac('sha1', configuredSecret).update(rawBody).digest('hex');
+		if (timingSafeStringEqual(signature, expected)) return true;
+	}
+	return verifyWebhookRequest(request, rawBody, configuredSecret, {
+		directHeaders: ['x-vercel-webhook-secret'],
+		signatureHeaders: ['x-vercel-signature', 'x-webhook-signature']
+	});
 }
 
 function signalWireSignatureCandidates(digest) {
@@ -300,6 +314,36 @@ export function verifySignalWireWebhookRequest(
 		.join('');
 	const expected = createHmac('sha1', key).update(`${url}${canonical}`).digest();
 	return signatureHeaderMatches(compatibilitySignature, signalWireSignatureCandidates(expected));
+}
+
+function parseSignalWireWebhookPayload(rawBody, contentType) {
+	if (/application\/json/i.test(contentType || '')) {
+		try {
+			const parsed = rawBody ? JSON.parse(rawBody) : {};
+			return parsed && typeof parsed === 'object' ? parsed : {};
+		} catch {
+			return null;
+		}
+	}
+	return Object.fromEntries(new URLSearchParams(rawBody));
+}
+
+export async function readAuthenticatedSignalWirePayload(request, signingKey) {
+	const rawResult = await readRawBody(request, { maxBytes: 64 * 1024 });
+	if (!rawResult.ok) return rawResult;
+
+	const rawBody = rawResult.value;
+	if (
+		!verifySignalWireWebhookRequest(request, rawBody, signingKey, {
+			publicUrl: request?.url
+		})
+	) {
+		return { ok: false, status: 401, error: 'Webhook authentication failed.' };
+	}
+
+	const payload = parseSignalWireWebhookPayload(rawBody, request.headers.get('content-type'));
+	if (!payload) return { ok: false, status: 400, error: 'Invalid webhook payload.' };
+	return { ok: true, payload };
 }
 
 function isPrivateIpv4(address) {

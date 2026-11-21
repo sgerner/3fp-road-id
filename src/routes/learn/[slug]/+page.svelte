@@ -21,6 +21,9 @@
 
 	const { data, form } = $props();
 	let showVersionHistory = $state(false);
+	const authRequired = $derived(
+		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
+	);
 
 	// ── Reading progress bar ─────────────────────────────────────────────
 	let scrollProgress = $state(0);
@@ -212,6 +215,28 @@
 </div>
 
 <div class="flex flex-col">
+	{#if authRequired}
+		<section
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10"
+			aria-labelledby="learn-edit-auth-heading"
+		>
+			<div class="flex flex-col gap-1">
+				<h2 id="learn-edit-auth-heading" class="m-0 text-xl font-black uppercase">
+					Sign in to edit this guide
+				</h2>
+				<p class="m-0 text-sm font-medium">
+					After signing in, return here and choose Edit guide to continue.
+				</p>
+			</div>
+			<button
+				type="button"
+				class="bg-surface-950 text-primary-500 hover:bg-surface-50 inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase transition"
+				onclick={() => window.dispatchEvent(new Event('open-login'))}
+			>
+				Log in / Register
+			</button>
+		</section>
+	{/if}
 	<!-- ═══ ARTICLE HERO ══════════════════════════════════════════════════ -->
 	<header
 		class="bg-primary-500 text-surface-950 {data.article.cover_image_url
@@ -542,7 +567,7 @@
 					{#if data.currentUser}
 						<form class="flex flex-col gap-3" method="POST" action="?/comment">
 							<textarea
-								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 min-h-32 w-full border-2 p-4 text-sm focus:outline-none"
+								class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 focus-visible:outline-primary-500 min-h-32 w-full border-2 p-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 								name="bodyMarkdown"
 								placeholder="Share context, corrections, follow-up questions, or examples from your city."
 							></textarea>

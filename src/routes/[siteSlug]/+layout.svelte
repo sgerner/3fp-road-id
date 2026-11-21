@@ -368,7 +368,7 @@
 			<div
 				class="microsite-nav microsite-nav--floating mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
 			>
-				<a href={homeHref} class="microsite-mark flex min-w-0 shrink-0 items-center gap-3">
+				<a href={homeHref} class="microsite-mark flex min-w-0 items-center gap-3">
 					{#if group?.logo_url}
 						<img
 							src={logoImageHref}
@@ -417,7 +417,7 @@
 					{/if}
 				</nav>
 
-				<div class="flex items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					{#if group?.slug === '3-feet-please'}
 						<a
 							href={communityHref}
@@ -447,9 +447,10 @@
 					</button>
 					<button
 						type="button"
-						class="microsite-menu-btn lg:hidden"
+						class="microsite-menu-btn"
 						onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
-						aria-label="Toggle site menu"
+						aria-label="Site menu"
+						aria-expanded={mobileMenuOpen}
 					>
 						{#if mobileMenuOpen}
 							<IconX class="h-5 w-5" />
@@ -489,7 +490,7 @@
 		</header>
 		<div class="microsite-nav-offset" aria-hidden="true"></div>
 
-		<main class="relative flex-1" use:scrollReveal>
+		<main id="main-content" tabindex="-1" class="relative flex-1" use:scrollReveal>
 			{#key routeTransitionKey}
 				<div
 					class="microsite-route"
@@ -985,6 +986,9 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	}
 
 	.microsite-mobile-menu {
+		max-height: calc(100dvh - 7rem);
+		overflow-y: auto;
+		overscroll-behavior: contain;
 		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
 		background: color-mix(in oklab, var(--color-surface-950) 80%, transparent);
 		backdrop-filter: blur(20px);
@@ -1082,7 +1086,7 @@ BACKGROUND STYLES — Aurora, Prism, Void
 		}
 	}
 
-	@media (min-width: 768px) {
+	@media (min-width: 1024px) {
 		.microsite-menu-btn {
 			display: none !important;
 		}

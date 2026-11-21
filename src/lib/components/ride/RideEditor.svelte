@@ -939,9 +939,7 @@
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
 	<!-- ── Hero ── -->
-	<section class="editor-hero relative overflow-hidden rounded-3xl">
-		<div class="editor-orb editor-orb-1" aria-hidden="true"></div>
-		<div class="editor-orb editor-orb-2" aria-hidden="true"></div>
+	<section class="editor-hero border-primary-500 relative overflow-hidden border-t-4">
 		<div
 			class="relative z-10 flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8"
 		>
@@ -973,14 +971,15 @@
 		</div>
 		{#if saveError}
 			<div
-				class="border-error-500/30 bg-error-500/10 relative z-10 mx-6 mb-4 rounded-xl border p-3 text-sm"
+				class="border-error-500 bg-error-500 text-surface-950 relative z-10 mx-6 mb-4 border p-3 text-sm"
+				role="alert"
 			>
 				{saveError}
 			</div>
 		{/if}
 		{#if saveSuccess}
 			<div
-				class="border-success-500/30 bg-success-500/10 relative z-10 mx-6 mb-4 rounded-xl border p-3 text-sm"
+				class="border-success-500 bg-success-500 text-surface-950 relative z-10 mx-6 mb-4 border p-3 text-sm"
 			>
 				{saveSuccess}
 			</div>
@@ -1162,9 +1161,7 @@
 					{#if form.imageUrls.length}
 						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 							{#each form.imageUrls as imageUrl, index (imageUrl)}
-								<div
-									class="ride-image-card border-surface-500/20 overflow-hidden rounded-2xl border"
-								>
+								<div class="ride-image-card border-surface-500 overflow-hidden border">
 									<img
 										src={imageUrl}
 										alt={`Ride image ${index + 1}`}
@@ -1197,9 +1194,7 @@
 							{/each}
 						</div>
 					{:else}
-						<div
-							class="border-surface-500/25 rounded-2xl border border-dashed p-6 text-sm opacity-70"
-						>
+						<div class="border-surface-500 border border-dashed p-6 text-sm opacity-70">
 							No ride images yet.
 						</div>
 					{/if}
@@ -1271,7 +1266,9 @@
 						</label>
 					</div>
 					{#if geocodeError}
-						<div class="card preset-tonal-warning mt-4 p-3 text-sm">{geocodeError}</div>
+						<div class="card preset-tonal-warning mt-4 p-3 text-sm" role="alert">
+							{geocodeError}
+						</div>
 					{/if}
 
 					<div class="mt-6 space-y-4">
@@ -1280,7 +1277,7 @@
 							<span class="font-medium">Recurring ride</span>
 						</label>
 						{#if form.recurrenceEnabled}
-							<div class="border-surface-500/20 grid gap-4 rounded-xl border p-4 md:grid-cols-2">
+							<div class="border-surface-500 grid gap-4 border p-4 md:grid-cols-2">
 								<label class="block">
 									<span class="label mb-1">Pattern</span>
 									<select class="select" bind:value={form.recurrenceFrequency}>
@@ -1294,10 +1291,11 @@
 								</label>
 								<div class="md:col-span-2">
 									<span class="label mb-2 block">Weekdays</span>
-									<div class="flex flex-wrap gap-2">
+									<div class="flex flex-wrap gap-2" role="group" aria-label="Ride weekdays">
 										{#each WEEKDAY_OPTIONS as option}
 											<button
 												type="button"
+												aria-pressed={form.recurrenceWeekdays.includes(option.value)}
 												class={`chip ${form.recurrenceWeekdays.includes(option.value) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
 												onclick={() => toggleSelection('recurrenceWeekdays', option.value)}
 											>
@@ -1342,7 +1340,7 @@
 							</div>
 						{/if}
 
-						<div class="border-surface-500/20 rounded-xl border p-4">
+						<div class="border-surface-500 border p-4">
 							<div class="mb-3 flex items-center justify-between">
 								<div>
 									<h3 class="font-semibold">Skipped dates</h3>
@@ -1353,6 +1351,7 @@
 								<button
 									type="button"
 									class="btn preset-outlined-secondary-500"
+									aria-label="Add a skipped date or date range"
 									onclick={addExclusion}
 								>
 									<IconPlus class="h-4 w-4" />
@@ -1360,13 +1359,14 @@
 								</button>
 							</div>
 							<div class="space-y-3">
-								{#each form.exclusions as exclusion (exclusion.id)}
+								{#each form.exclusions as exclusion, index (exclusion.id)}
 									<div
-										class="border-surface-500/20 grid gap-3 rounded-xl border p-3 md:grid-cols-[1fr_1fr_2fr_auto]"
+										class="border-surface-500 grid gap-3 border p-3 md:grid-cols-[1fr_1fr_2fr_auto]"
 									>
 										<input
 											type="date"
 											class="input"
+											aria-label={`Skip range start date ${index + 1}`}
 											value={exclusion.starts_on}
 											oninput={(event) =>
 												updateExclusion(exclusion.id, 'starts_on', event.currentTarget.value)}
@@ -1374,12 +1374,14 @@
 										<input
 											type="date"
 											class="input"
+											aria-label={`Skip range end date ${index + 1}`}
 											value={exclusion.ends_on}
 											oninput={(event) =>
 												updateExclusion(exclusion.id, 'ends_on', event.currentTarget.value)}
 										/>
 										<input
 											class="input"
+											aria-label={`Optional note for skipped date ${index + 1}`}
 											value={exclusion.note}
 											placeholder="Optional note"
 											oninput={(event) =>
@@ -1388,6 +1390,7 @@
 										<button
 											type="button"
 											class="btn preset-outlined-error-500"
+											aria-label={`Remove skipped date ${index + 1}`}
 											onclick={() => removeExclusion(exclusion.id)}
 										>
 											<IconTrash2 class="h-4 w-4" />
@@ -1412,10 +1415,11 @@
 					<div class="grid gap-5 md:grid-cols-2">
 						<div>
 							<span class="label mb-2 block">Difficulty</span>
-							<div class="flex flex-wrap gap-2">
+							<div class="flex flex-wrap gap-2" role="group" aria-label="Ride difficulty">
 								{#each difficultyLevels as level}
 									<button
 										type="button"
+										aria-pressed={form.difficultyLevelIds.includes(level.id)}
 										class={`chip ${form.difficultyLevelIds.includes(level.id) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('difficultyLevelIds', level.id)}
 									>
@@ -1426,10 +1430,11 @@
 						</div>
 						<div>
 							<span class="label mb-2 block">Discipline</span>
-							<div class="flex flex-wrap gap-2">
+							<div class="flex flex-wrap gap-2" role="group" aria-label="Riding disciplines">
 								{#each disciplines as discipline}
 									<button
 										type="button"
+										aria-pressed={form.ridingDisciplineIds.includes(discipline.id)}
 										class={`chip ${form.ridingDisciplineIds.includes(discipline.id) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('ridingDisciplineIds', discipline.id)}
 									>
@@ -1478,12 +1483,13 @@
 								<span>Waiver required</span>
 							</label>
 						</div>
-						<div class="md:col-span-2">
+						<div class="md:col-span-2" role="group" aria-label="Ride surface types">
 							<span class="label mb-2 block">Surface types</span>
 							<div class="flex flex-wrap gap-2">
 								{#each SURFACE_TYPE_OPTIONS as option}
 									<button
 										type="button"
+										aria-pressed={form.surfaceTypes.includes(option)}
 										class={`chip ${form.surfaceTypes.includes(option) ? 'preset-filled-success-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('surfaceTypes', option)}
 									>
@@ -1492,12 +1498,13 @@
 								{/each}
 							</div>
 						</div>
-						<div class="md:col-span-2">
+						<div class="md:col-span-2" role="group" aria-label="Bike suitability">
 							<span class="label mb-2 block">Bike suitability</span>
 							<div class="flex flex-wrap gap-2">
 								{#each BIKE_SUITABILITY_OPTIONS as option}
 									<button
 										type="button"
+										aria-pressed={form.bikeSuitability.includes(option)}
 										class={`chip ${form.bikeSuitability.includes(option) ? 'preset-filled-warning-500' : 'preset-tonal-surface'}`}
 										onclick={() => toggleSelection('bikeSuitability', option)}
 									>
@@ -1534,7 +1541,7 @@
 				<div class="p-5 pt-4">
 					<div class="space-y-4">
 						{#each form.emailTemplates as template (template.id)}
-							<div class="border-surface-500/20 rounded-xl border p-4">
+							<div class="border-surface-500 border p-4">
 								<div class="grid gap-3 md:grid-cols-2">
 									<label class="block">
 										<span class="label mb-1">Template name</span>
@@ -1594,6 +1601,7 @@
 									<button
 										type="button"
 										class="btn preset-outlined-error-500"
+										aria-label={`Remove ${template.name || 'email template'}`}
 										onclick={() => removeEmailTemplate(template.id)}
 									>
 										<IconTrash2 class="h-4 w-4" />
@@ -1695,9 +1703,7 @@
 							{/if}
 							<div class="space-y-2">
 								{#each hostEntries as host (host.userId)}
-									<div
-										class="border-surface-500/20 flex items-center justify-between rounded-xl border p-3"
-									>
+									<div class="border-surface-500 flex items-center justify-between border p-3">
 										<div>
 											<div class="font-medium">{host.profile?.fullName || 'Unnamed host'}</div>
 											<div class="text-sm opacity-70">
@@ -1728,7 +1734,11 @@
 								</p>
 							</div>
 							{#if occurrenceEntries.length}
-								<select class="select" bind:value={selectedManageOccurrenceId}>
+								<select
+									class="select"
+									aria-label="Roster occurrence"
+									bind:value={selectedManageOccurrenceId}
+								>
 									<option value="">Choose an occurrence</option>
 									{#each occurrenceEntries as occurrence}
 										<option value={occurrence.id}
@@ -1738,7 +1748,7 @@
 								</select>
 								<div class="space-y-2">
 									{#each selectedOccurrenceRsvps as rsvp (rsvp.id)}
-										<div class="border-surface-500/20 rounded-xl border p-3">
+										<div class="border-surface-500 border p-3">
 											<div class="font-medium">{rsvp.participantName}</div>
 											<div class="text-sm opacity-70">{rsvp.participantEmail}</div>
 										</div>
@@ -1949,15 +1959,15 @@
 						<div class="card preset-tonal-secondary flex items-center gap-3 p-3 text-xs">
 							<span class="relative flex h-3 w-3">
 								<span
-									class="bg-secondary-400 absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+									class="bg-secondary-400 absolute inline-flex h-full w-full animate-ping opacity-75"
 								></span>
-								<span class="bg-secondary-500 relative inline-flex h-3 w-3 rounded-full"></span>
+								<span class="bg-secondary-500 relative inline-flex h-3 w-3"></span>
 							</span>
 							<span>Ride Muse is shaping copy, timing, and structure from your prompt.</span>
 						</div>
 					{/if}
 					{#if aiError}
-						<div class="border-warning-500/30 bg-warning-500/10 rounded-lg border p-2.5 text-xs">
+						<div class="border-warning-500 bg-warning-500 text-surface-950 border p-2.5 text-xs">
 							{aiError}
 						</div>
 					{/if}
@@ -1987,61 +1997,25 @@
 <style>
 	/* ── Hero ── */
 	.editor-hero {
-		background: color-mix(in oklab, var(--color-primary-500) 14%, var(--color-surface-950) 86%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 28%, transparent);
-	}
-
-	.editor-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(64px);
-		pointer-events: none;
-	}
-
-	.editor-orb-1 {
-		width: 50%;
-		height: 250%;
-		top: -75%;
-		left: -8%;
-		background: color-mix(in oklab, var(--color-primary-500) 24%, transparent);
-		animation: editor-orb-drift 20s ease-in-out infinite alternate;
-	}
-
-	.editor-orb-2 {
-		width: 40%;
-		height: 200%;
-		top: -50%;
-		right: 0;
-		background: color-mix(in oklab, var(--color-secondary-500) 18%, transparent);
-		animation: editor-orb-drift 26s ease-in-out infinite alternate-reverse;
-	}
-
-	@keyframes editor-orb-drift {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		100% {
-			transform: translate(3%, 8%) scale(1.06);
-		}
+		background: var(--color-surface-900);
 	}
 
 	.editor-eyebrow {
-		font-size: 0.7rem;
-		font-weight: 600;
+		font-size: 0.75rem;
+		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.22em;
-		opacity: 0.6;
+		color: var(--color-primary-500);
 	}
 
 	.editor-title {
-		font-size: 1.875rem;
-		font-weight: 800;
-		color: var(--color-primary-50);
+		font-size: clamp(2.25rem, 4vw, 3.25rem);
+		font-weight: 900;
+		color: var(--color-primary-500);
 		text-align: left;
-		background: linear-gradient(120deg, var(--color-primary-200), var(--color-secondary-200));
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
+		text-transform: uppercase;
+		font-style: italic;
+		letter-spacing: -0.03em;
 	}
 
 	/* ── Section cards ── */
@@ -2054,15 +2028,14 @@
 		align-items: center;
 		gap: 0.625rem;
 		padding: 0.875rem 1.25rem;
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 18%, transparent);
-		background: color-mix(in oklab, var(--color-surface-500) 6%, transparent);
+		border-bottom: 2px solid var(--color-surface-800);
+		background: var(--color-surface-900);
 	}
 
 	.ai-loader-dot {
 		width: 0.5rem;
 		height: 0.5rem;
-		border-radius: 9999px;
-		background: color-mix(in oklab, var(--color-secondary-400) 75%, white);
+		background: var(--color-primary-500);
 		animation: ai-loader-bounce 1.2s ease-in-out infinite;
 	}
 
@@ -2097,9 +2070,8 @@
 		justify-content: center;
 		width: 1.75rem;
 		height: 1.75rem;
-		border-radius: 0.5rem;
-		background: color-mix(in oklab, var(--color-primary-500) 18%, transparent);
-		color: var(--color-primary-300);
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
 		flex-shrink: 0;
 	}
 
@@ -2107,7 +2079,7 @@
 		font-size: 0.95rem;
 		font-weight: 700;
 		text-align: left;
-		color: var(--color-primary-50);
+		color: var(--color-surface-50);
 		-webkit-text-fill-color: unset;
 		background: none;
 		-webkit-background-clip: unset;
@@ -2116,14 +2088,14 @@
 
 	/* ── AI panel ── */
 	.ai-panel {
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 30%, transparent);
-		background: color-mix(in oklab, var(--color-secondary-500) 8%, var(--color-surface-900) 92%);
+		border: 2px solid var(--color-secondary-500);
+		background: var(--color-surface-950);
 	}
 
 	.ai-panel-header {
-		border-bottom: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		color: var(--color-secondary-300);
+		border-bottom: 2px solid var(--color-secondary-500);
+		background: var(--color-secondary-500);
+		color: var(--color-surface-50);
 	}
 
 	.ai-messages {
@@ -2133,19 +2105,34 @@
 	}
 
 	.ai-bubble {
-		border-radius: 0.75rem;
 		padding: 0.625rem 0.875rem;
 	}
 
 	.ai-bubble-assistant {
-		background: color-mix(in oklab, var(--color-secondary-500) 12%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
+		background: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
 	}
 
 	.ai-bubble-user {
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		background: var(--color-secondary-500);
+		border: 1px solid var(--color-secondary-500);
+		color: var(--color-surface-50);
 		margin-left: 1rem;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ai-loader-dot {
+			animation: none;
+		}
+
+		.ai-messages {
+			scroll-behavior: auto;
+		}
+
+		:global(.animate-spin),
+		:global(.animate-ping) {
+			animation: none;
+		}
 	}
 
 	.ai-bubble-label {

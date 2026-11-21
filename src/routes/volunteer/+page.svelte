@@ -1,6 +1,7 @@
 <script>
 	import VolunteerEventsExplorer from '#lib/components/volunteer/VolunteerEventsExplorer.svelte';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import { page } from '$app/state';
 
 	const { data } = $props();
 
@@ -12,13 +13,33 @@
 		(data?.volunteer_opportunities ?? data?.volunteerOpportunities ?? []).filter(Boolean)
 	);
 	const currentUser = $derived(data?.user ?? null);
+	const authRequired = $derived(
+		page.url.searchParams.get('auth') === 'required' && !currentUser?.id
+	);
 </script>
 
 <svelte:head>
 	<title>Volunteer Hub</title>
 </svelte:head>
 
-<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+<div class="text-surface-50 -m-4 flex min-w-0 flex-col overflow-hidden">
+	{#if authRequired}
+		<section
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10 lg:px-14"
+		>
+			<div>
+				<p class="m-0 text-sm font-black tracking-wide uppercase">Sign in to continue</p>
+				<p class="m-0 mt-1 text-sm font-medium">We'll return you to the page you requested.</p>
+			</div>
+			<button
+				type="button"
+				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition"
+				onclick={() => window.dispatchEvent(new Event('open-login'))}
+			>
+				Sign in
+			</button>
+		</section>
+	{/if}
 	<VolunteerEventsExplorer
 		eventsData={events}
 		hostGroupsData={hostGroups}

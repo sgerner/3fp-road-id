@@ -794,7 +794,7 @@
 		</div>{/if}
 
 	<nav
-		class="card preset-outlined-surface-200-800 sticky top-2 z-30 p-1.5 shadow-lg"
+		class="card preset-outlined-surface-200-800 z-30 p-1.5 shadow-lg lg:sticky lg:top-2"
 		aria-label="Website workspace"
 	>
 		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-7" role="tablist">

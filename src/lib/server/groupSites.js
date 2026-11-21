@@ -399,14 +399,17 @@ async function loadInstagramPostsForGroup({ serviceSupabase, group }) {
 	return { connectedInstagram, instagramPosts, instagramPostsSource };
 }
 
-export async function loadMicrositeInstagram(siteSlug) {
-	const normalizedSiteSlug = normalizeMicrositeSlug(siteSlug);
-	if (!normalizedSiteSlug) return null;
-
-	const group = await loadGroupByMicrositeSlug(normalizedSiteSlug, siteSlug);
+export async function loadGroupInstagram(slug) {
+	const db = pickGroupSiteClient();
+	const { data: group, error } = await db
+		.from('groups')
+		.select('id,social_links')
+		.eq('slug', slug)
+		.maybeSingle();
+	if (error) throw error;
 	if (!group) return null;
 
-	return loadInstagramPostsForGroup({ serviceSupabase: pickGroupSiteClient(), group });
+	return loadInstagramPostsForGroup({ serviceSupabase: db, group });
 }
 
 function splitTextIntoParagraphs(value) {

@@ -11,7 +11,8 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconX from '@lucide/svelte/icons/x';
 	import { page } from '$app/state';
-	import { fade, fly, scale } from 'svelte/transition';
+	import { tick } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
 
@@ -25,7 +26,7 @@
 	);
 
 	let searchQuery = $state('');
-	let lightboxOpen = $state(false);
+	let lightboxDialog = $state(null);
 	let lightboxIndex = $state(0);
 	let lightboxItems = $state([]);
 
@@ -48,14 +49,14 @@
 		});
 	}
 
-	function openLightbox(index) {
+	async function openLightbox(index) {
 		lightboxItems = filteredAssets(activeBucket, searchQuery);
 		lightboxIndex = index;
-		lightboxOpen = true;
+		await tick();
+		if (!lightboxDialog.open) lightboxDialog.showModal();
 	}
 
 	function closeLightbox() {
-		lightboxOpen = false;
 		lightboxItems = [];
 		lightboxIndex = 0;
 	}
@@ -70,28 +71,15 @@
 		lightboxIndex = lightboxIndex >= lightboxItems.length - 1 ? 0 : lightboxIndex + 1;
 	}
 
-	function handleKeydown(event) {
-		if (!lightboxOpen) return;
-		if (event.key === 'Escape') closeLightbox();
-		if (event.key === 'ArrowLeft') previousImage();
-		if (event.key === 'ArrowRight') nextImage();
-	}
-
 	const activeAssets = $derived(filteredAssets(activeBucket, searchQuery));
 	const totalCount = $derived(
 		data.buckets.reduce((sum, bucket) => sum + (bucket.asset_count || 0), 0)
 	);
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 <div class="mx-auto max-w-6xl space-y-6 px-3 py-4 md:px-4 lg:px-6 lg:py-6">
 	<!-- Hero Section -->
-	<section class="asset-hero relative overflow-hidden rounded-3xl" in:fade={{ duration: 300 }}>
-		<div class="hero-orb hero-orb-1" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-2" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb-3" aria-hidden="true"></div>
-
+	<section class="asset-hero relative overflow-hidden" in:fade={{ duration: 300 }}>
 		<div
 			class="relative z-10 flex flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between lg:p-6"
 		>
@@ -227,7 +215,7 @@
 						<div class="empty-icon">
 							<IconImage class="h-8 w-8" />
 						</div>
-						<h3 class="empty-title">No photos found</h3>
+						<h2 class="empty-title">No photos found</h2>
 						<p class="empty-desc">
 							{searchQuery ? 'Try a different search term' : 'Photos will appear here when added'}
 						</p>
@@ -255,7 +243,7 @@
 									{/if}
 								</div>
 								<div class="min-w-0 flex-1">
-									<h3 class="truncate text-base font-semibold">{asset.title}</h3>
+									<h2 class="truncate text-base font-semibold">{asset.title}</h2>
 									{#if asset.description}
 										<p class="text-surface-400 mt-1 line-clamp-2 text-sm">{asset.description}</p>
 									{/if}
@@ -288,7 +276,7 @@
 								<IconFileText class="h-8 w-8" />
 							{/if}
 						</div>
-						<h3 class="empty-title">No {activeBucket.label.toLowerCase()} found</h3>
+						<h2 class="empty-title">No {activeBucket.label.toLowerCase()} found</h2>
 						<p class="empty-desc">
 							{searchQuery
 								? 'Try a different search term'
@@ -302,31 +290,18 @@
 </div>
 
 <!-- Lightbox Modal -->
-{#if lightboxOpen && lightboxItems.length}
-	<div
-		class="lightbox-backdrop"
-		role="dialog"
-		tabindex="0"
-		aria-modal="true"
-		aria-label={lightboxItems[lightboxIndex]?.title}
-		in:fade={{ duration: 140 }}
-		out:fade={{ duration: 120 }}
-		onclick={(event) => {
-			if (event.target === event.currentTarget) closeLightbox();
-		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') closeLightbox();
-			if (event.key === 'ArrowLeft') previousImage();
-			if (event.key === 'ArrowRight') nextImage();
-		}}
-	>
-		<div
-			class="lightbox-panel"
-			role="document"
-			tabindex="-1"
-			in:scale={{ start: 0.98, duration: 160 }}
-			out:scale={{ start: 0.98, duration: 120 }}
-		>
+<dialog
+	bind:this={lightboxDialog}
+	class="lightbox-backdrop"
+	aria-label="Group photo preview"
+	onclose={closeLightbox}
+	onkeydown={(event) => {
+		if (event.key === 'ArrowLeft') previousImage();
+		if (event.key === 'ArrowRight') nextImage();
+	}}
+>
+	{#if lightboxItems.length}
+		<div class="lightbox-panel">
 			<div class="lightbox-toolbar">
 				<div class="lightbox-counter">
 					{lightboxIndex + 1} <span class="text-white/40">/</span>
@@ -335,7 +310,7 @@
 				<button
 					type="button"
 					class="lightbox-close"
-					onclick={closeLightbox}
+					onclick={() => lightboxDialog.close()}
 					aria-label="Close lightbox"
 				>
 					<IconX class="h-5 w-5" />
@@ -383,8 +358,8 @@
 				</div>
 			{/if}
 		</div>
-	</div>
-{/if}
+	{/if}
+</dialog>
 
 <style>
 	/* Hero Section */
@@ -392,41 +367,6 @@
 		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
 		border: 1px solid color-mix(in oklab, var(--color-primary-500) 20%, transparent);
 		animation: hero-in 500ms ease both;
-	}
-
-	.hero-orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(60px);
-		pointer-events: none;
-		animation: orb-float 8s ease-in-out infinite;
-	}
-
-	.hero-orb-1 {
-		width: 280px;
-		height: 280px;
-		background: color-mix(in oklab, var(--color-primary-500) 25%, transparent);
-		top: -80px;
-		right: -40px;
-		animation-delay: 0s;
-	}
-
-	.hero-orb-2 {
-		width: 200px;
-		height: 200px;
-		background: color-mix(in oklab, var(--color-secondary-500) 20%, transparent);
-		bottom: -60px;
-		left: 10%;
-		animation-delay: -3s;
-	}
-
-	.hero-orb-3 {
-		width: 140px;
-		height: 140px;
-		background: color-mix(in oklab, var(--color-tertiary-500) 15%, transparent);
-		top: 30%;
-		left: 35%;
-		animation-delay: -5s;
 	}
 
 	.hero-logo-placeholder {
@@ -595,17 +535,18 @@
 	.lightbox-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 100;
-		display: grid;
-		place-items: center;
-		padding: 0.5rem;
-		background: rgba(0, 0, 0, 0.98);
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		padding: 0;
+		margin: 0;
+		background: var(--color-surface-950);
 	}
 
 	.lightbox-panel {
-		width: 99vw;
-		height: 99dvh;
-		border-radius: 1rem;
+		width: 100%;
+		height: 100%;
 		padding: 0.75rem;
 		background: transparent;
 		border: none;
@@ -669,15 +610,14 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.75rem;
-		background: rgba(255, 255, 255, 0.1);
+		background: var(--color-surface-900);
 		color: white;
-		backdrop-filter: blur(10px);
 		transition: all 200ms ease;
 		opacity: 0;
 	}
 
-	.lightbox-stage:hover .lightbox-nav {
+	.lightbox-stage:hover .lightbox-nav,
+	.lightbox-nav:focus-visible {
 		opacity: 1;
 	}
 
@@ -752,22 +692,6 @@
 		to {
 			opacity: 1;
 			transform: translateY(0);
-		}
-	}
-
-	@keyframes orb-float {
-		0%,
-		100% {
-			transform: translate(0, 0) scale(1);
-		}
-		25% {
-			transform: translate(10px, -15px) scale(1.05);
-		}
-		50% {
-			transform: translate(-5px, 10px) scale(0.95);
-		}
-		75% {
-			transform: translate(15px, 5px) scale(1.02);
 		}
 	}
 

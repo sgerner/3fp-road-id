@@ -227,17 +227,17 @@
 			{/if}
 		</article>
 
-		<section class="materials" aria-labelledby="materials-title">
-			<div class="step-heading">
+		<details class="materials">
+			<summary class="step-heading">
 				<span>03</span>
 				<div>
-					<h3 id="materials-title">Coordinate three pieces</h3>
+					<strong>Coordinate three pieces</strong>
 					<p>
 						Keep the action consistent across a poster, handout, and social post. Each example has a
 						placement and job in the campaign.
 					</p>
 				</div>
-			</div>
+			</summary>
 			{#if pieces.length}
 				<div class="material-grid">
 					{#each pieces as piece (`${active.id}-${piece.format}`)}
@@ -289,7 +289,7 @@
 			{:else}
 				<p class="empty">This pathway has no matching template previews in the report data yet.</p>
 			{/if}
-		</section>
+		</details>
 
 		<section class="evaluation" aria-labelledby="evaluation-title">
 			<div class="step-heading">
@@ -371,6 +371,28 @@
 		color: var(--planner-ink);
 		box-shadow: 0 18px 50px color-mix(in srgb, var(--planner-ink) 8%, transparent);
 	}
+	.materials summary {
+		cursor: pointer;
+	}
+
+	.materials summary::after {
+		content: '';
+		flex: 0 0 0.55rem;
+		height: 0.55rem;
+		margin: 0.5rem 0.3rem 0 auto;
+		border-right: 2px solid currentColor;
+		border-bottom: 2px solid currentColor;
+		transform: rotate(45deg);
+	}
+
+	.materials[open] summary::after {
+		transform: rotate(225deg);
+	}
+
+	.materials summary strong {
+		font-size: 1.25rem;
+	}
+
 	.intro {
 		max-width: 760px;
 		margin-bottom: 2rem;

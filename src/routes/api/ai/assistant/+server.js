@@ -1,3 +1,4 @@
+import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '#lib/server/activities';
 import { isAiModelConfigured, requireAiModel } from '#lib/server/ai/models';
@@ -191,37 +192,6 @@ function normalizeLearnedContext(raw) {
 		interests,
 		recommendation_focus: recommendationFocus
 	};
-}
-
-function safeParseJson(text) {
-	if (!text) return null;
-	const first = text.indexOf('{');
-	const last = text.lastIndexOf('}');
-	if (first === -1 || last === -1 || last <= first) return null;
-	const candidate = text.slice(first, last + 1).trim();
-	try {
-		return JSON.parse(candidate);
-	} catch {
-		const cleaned = candidate.replace(/^```json\s*/i, '').replace(/```$/i, '');
-		try {
-			return JSON.parse(cleaned);
-		} catch {
-			return null;
-		}
-	}
-}
-
-function isSchemaUnsupportedError(error) {
-	if (!error) return false;
-	const raw = error?.message;
-	if (typeof raw !== 'string') return false;
-	try {
-		const parsed = JSON.parse(raw);
-		const message = parsed?.error?.message || '';
-		return /response_schema/i.test(message) || /Invalid JSON payload/i.test(message);
-	} catch {
-		return /response_schema/i.test(raw) || /Invalid JSON payload/i.test(raw);
-	}
 }
 
 async function safeSelect(queryPromise, label) {
@@ -757,7 +727,6 @@ ${optionsBlock}
 			}
 		});
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const selectedIds = uniqStrings(
 			Array.isArray(parsed?.selected_ids) ? parsed.selected_ids : [],
@@ -890,7 +859,6 @@ Set learned_context to null when nothing explicit was provided.
 			config
 		});
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		const reply = safeTrim(parsed?.reply || text);
 		const followUpQuestion = safeTrim(parsed?.follow_up_question) || null;

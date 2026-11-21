@@ -162,9 +162,13 @@
 		handleProfileUpdate();
 	};
 
-	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Asprin'];
+	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Aspirin'];
+	const normalizeMedication = (medication) => {
+		const value = medication.trim();
+		return value.toLowerCase() === 'asprin' ? 'Aspirin' : value;
+	};
 	const getMedicationArray = () =>
-		profile?.medication ? profile.medication.split(',').map((s) => s.trim()) : [];
+		profile?.medication ? profile.medication.split(',').map(normalizeMedication) : [];
 	const isMedicationSelected = (med) => getMedicationArray().includes(med);
 	const toggleMedication = (med) => {
 		let current = getMedicationArray();
@@ -320,12 +324,12 @@
 	<!-- Skeleton UI Tabs -->
 	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
 		<div
-			class="bg-secondary-500 text-surface-50 border-surface-950 border-y-[3px] px-6 py-3 sm:px-10 lg:px-14"
+			class="bg-secondary-500 text-surface-50 border-surface-950 border-y-[3px] px-3 py-2 sm:px-10 sm:py-3 lg:px-14"
 		>
-			<Tabs.List class="flex flex-wrap gap-3 border-0">
+			<Tabs.List class="flex flex-wrap gap-1 border-0 sm:gap-3">
 				<Tabs.Trigger
 					value="profile"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'profile'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -334,7 +338,7 @@
 				</Tabs.Trigger>
 				<Tabs.Trigger
 					value="crash"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'crash'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -343,7 +347,7 @@
 				</Tabs.Trigger>
 				<Tabs.Trigger
 					value="alert"
-					class="px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition {group ===
+					class="inline-flex min-h-11 items-center justify-center px-2 text-[0.7rem] font-black tracking-[0.1em] whitespace-nowrap uppercase transition sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-[0.18em] {group ===
 					'alert'
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-950 border-2'}"
@@ -363,25 +367,20 @@
 						>
 							404
 						</span>
-						<h1
+						<h2
 							class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
 						>
 							Code Not Found
-						</h1>
+						</h2>
 						<p class="text-surface-200 m-0 text-lg leading-relaxed">
 							We haven't created a In Case bracelet for the code
 							<strong class="text-primary-500 font-black">{code}</strong> yet.
 						</p>
 						<p class="text-surface-300 m-0 text-base leading-relaxed">
-							For more information about ordering a bracelet, please visit
-							<a
-								href="https://3feetplease.org"
-								target="_blank"
-								rel="noopener noreferrer"
-								class="text-primary-500 font-bold underline"
-							>
-								3 Feet Please
-							</a>.
+							For details about In Case bracelets, see
+							<a href="/roadid" class="text-primary-500 font-bold underline"
+								>the bracelet information page</a
+							>.
 						</p>
 					</section>
 				{:else if !profile.claimed && !user}
@@ -445,17 +444,25 @@
 												? 'border-primary-500'
 												: 'border-surface-700'}"
 										required
+										aria-invalid={emailTouched && !emailIsValid}
+										aria-describedby={emailTouched && !emailIsValid
+											? 'email-validation-error'
+											: undefined}
 										oninput={() => (emailTouched = true)}
 									/>
-									{#if emailTouched && !emailIsValid}
-										<p class="text-tertiary-500 m-0 text-xs font-bold uppercase" transition:slide>
-											Please enter a valid email address.
-										</p>
-									{/if}
+									<p
+										id="email-validation-error"
+										class="text-tertiary-500 m-0 text-xs font-bold uppercase"
+										aria-live="polite"
+										transition:slide
+									>
+										{#if emailTouched && !emailIsValid}Please enter a valid email address.{/if}
+									</p>
 								</div>
 								{#if errorMessage}
 									<p
 										class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+										role="alert"
 										transition:slide
 									>
 										{errorMessage}
@@ -488,9 +495,9 @@
 									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 										Rider Medical Details
 									</p>
-									<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+									<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 										Emergency Information
-									</h6>
+									</h2>
 								</div>
 							</div>
 
@@ -522,9 +529,10 @@
 										Phone
 									</label>
 									<input
-										type="text"
+										type="tel"
 										id="phone"
 										value={profile?.phone}
+										autocomplete="tel"
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
 											profile.phone = e.target.value;
@@ -631,7 +639,7 @@
 										onblur={(e) => {
 											profile.medication = e.target.value;
 											handleProfileUpdate();
-										}}>{profile?.medication}</textarea
+										}}>{getMedicationArray().join(', ')}</textarea
 									>
 								</div>
 							</div>
@@ -650,14 +658,17 @@
 									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 										Who to Call
 									</p>
-									<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+									<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 										Emergency Contacts
-									</h6>
+									</h2>
 								</div>
 							</div>
 
 							{#if errorMessage}
-								<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+								<p
+									class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+									role="alert"
+								>
 									{errorMessage}
 								</p>
 							{/if}
@@ -700,9 +711,10 @@
 													Phone
 												</label>
 												<input
-													type="text"
+													type="tel"
 													id={`contact-phone-${contact.id}`}
 													bind:value={contact.contact_phone}
+													autocomplete="tel"
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
@@ -723,9 +735,9 @@
 
 								<!-- Add New Contact Form -->
 								<div class="border-surface-800 flex flex-col gap-4 border-t-2 pt-6">
-									<h6 class="text-surface-50! m-0 text-lg font-black uppercase">
+									<h3 class="text-surface-50! m-0 text-lg font-black uppercase">
 										Add a New Contact
-									</h6>
+									</h3>
 									<form class="flex flex-col gap-4" onsubmit={handleCreateContact}>
 										<div class="flex flex-col gap-1.5">
 											<label
@@ -765,9 +777,10 @@
 												Phone
 											</label>
 											<input
-												type="text"
+												type="tel"
 												id="contact_phone"
 												bind:value={newContact.contact_phone}
+												autocomplete="tel"
 												class="input bg-surface-900 border-surface-700 text-surface-50"
 												required
 											/>
@@ -788,32 +801,42 @@
 					<div class="flex flex-col gap-12">
 						<section class="grid gap-12 lg:grid-cols-2">
 							<div class="flex flex-col gap-6">
-								<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 									Emergency Information
-								</h6>
+								</h2>
 								<div class="border-surface-50 divide-surface-800 flex flex-col divide-y border-t-2">
-									<div class="flex items-center justify-between gap-4 py-4">
+									<div class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4">
 										<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 											Name
 										</span>
-										<strong class="text-lg font-black">{profile?.full_name}</strong>
+										<strong class="min-w-0 text-right text-lg font-black break-words"
+											>{profile?.full_name}</strong
+										>
 									</div>
 									{#if profile.phone}
-										<div class="flex items-center justify-between gap-4 py-4">
+										{@const profilePhone = normalizePhoneNumber(profile.phone)}
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Phone
 											</span>
-											<a
-												href="tel:{normalizePhoneNumber(profile.phone)}"
-												target="_blank"
-												class="text-primary-500 text-lg font-black underline"
-											>
-												{profile?.phone ? formatPhoneNumber(profile.phone) : ''}
-											</a>
+											{#if profilePhone}
+												<a
+													href={`tel:${profilePhone}`}
+													class="text-primary-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-lg font-black whitespace-nowrap underline"
+												>
+													{formatPhoneNumber(profile.phone)}
+												</a>
+											{:else}
+												<span class="text-lg font-black">{profile.phone}</span>
+											{/if}
 										</div>
 									{/if}
 									{#if profile.blood_type}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Blood Type
 											</span>
@@ -825,46 +848,60 @@
 										</div>
 									{/if}
 									{#if profile.allergies}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Allergies
 											</span>
-											<strong class="text-right font-bold">{profile?.allergies}</strong>
+											<strong class="max-w-[70%] min-w-0 text-right font-bold break-words"
+												>{profile?.allergies}</strong
+											>
 										</div>
 									{/if}
 									{#if profile.medication}
-										<div class="flex items-center justify-between gap-4 py-4">
+										<div
+											class="flex items-start justify-between gap-4 py-3 sm:items-center sm:py-4"
+										>
 											<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 												Medication
 											</span>
-											<strong class="text-right font-bold">{profile?.medication}</strong>
+											<strong class="max-w-[70%] min-w-0 text-right font-bold break-words"
+												>{getMedicationArray().join(', ')}</strong
+											>
 										</div>
 									{/if}
 								</div>
 							</div>
 
 							<div class="flex flex-col gap-6">
-								<h6 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								<h2 class="text-surface-50! m-0 text-2xl font-black uppercase">
 									Emergency Contacts
-								</h6>
+								</h2>
 								<div class="border-surface-50 border-t-2 pt-4">
 									{#if profile?.emergency_contacts && profile.emergency_contacts.length}
 										<ul class="divide-surface-800 m-0 list-none divide-y p-0">
 											{#each profile.emergency_contacts as contact (contact.id)}
-												<li class="flex flex-wrap items-center justify-between gap-2 py-4">
-													<span>
+												{@const contactPhone = normalizePhoneNumber(contact.contact_phone)}
+												<li
+													class="flex flex-wrap items-start justify-between gap-2 py-2 sm:items-center sm:py-4"
+												>
+													<span class="min-w-0">
 														<strong class="font-black uppercase">{contact.contact_name}</strong>
 														<span class="text-surface-300 text-sm">
 															({contact.contact_relationship})
 														</span>
 													</span>
-													<a
-														href="tel:{normalizePhoneNumber(contact.contact_phone)}"
-														target="_blank"
-														class="text-primary-500 font-black underline"
-													>
-														{contact.contact_phone ? formatPhoneNumber(contact.contact_phone) : ''}
-													</a>
+													{#if contactPhone}
+														<a
+															href={`tel:${contactPhone}`}
+															class="text-primary-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center font-black whitespace-nowrap underline"
+														>
+															{formatPhoneNumber(contact.contact_phone)}
+														</a>
+													{:else if contact.contact_phone}
+														<span class="font-black">{contact.contact_phone}</span>
+													{/if}
 												</li>
 											{/each}
 										</ul>
@@ -878,9 +915,9 @@
 						<section class="border-surface-800 border-t-2 pt-8">
 							{#if submissionSuccess}
 								<div class="bg-primary-500 text-surface-950 p-6" transition:slide>
-									<h4 class="text-surface-950! m-0 text-2xl font-black uppercase italic">
+									<h2 class="text-surface-950! m-0 text-2xl font-black uppercase italic">
 										Check Your Email
-									</h4>
+									</h2>
 									<p class="m-0 mt-2">
 										A link has been sent to <strong>{newProfile.email}</strong>.
 									</p>
@@ -926,20 +963,25 @@
 														? 'border-primary-500'
 														: 'border-surface-700'}"
 												required
+												aria-invalid={emailTouched && !emailIsValid}
+												aria-describedby={emailTouched && !emailIsValid
+													? 'email-validation-error'
+													: undefined}
 												oninput={() => (emailTouched = true)}
 											/>
-											{#if emailTouched && !emailIsValid}
-												<p
-													class="text-tertiary-500 m-0 text-xs font-bold uppercase"
-													transition:slide
-												>
-													Please enter a valid email address.
-												</p>
-											{/if}
+											<p
+												id="email-validation-error"
+												class="text-tertiary-500 m-0 text-xs font-bold uppercase"
+												aria-live="polite"
+												transition:slide
+											>
+												{#if emailTouched && !emailIsValid}Please enter a valid email address.{/if}
+											</p>
 										</div>
 										{#if errorMessage}
 											<p
 												class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"
+												role="alert"
 												transition:slide
 											>
 												{errorMessage}
@@ -963,12 +1005,12 @@
 			</div>
 		</Tabs.Content>
 		<Tabs.Content value="crash">
-			<div class="bg-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
 				<CrashResponse />
 			</div>
 		</Tabs.Content>
 		<Tabs.Content value="alert">
-			<div class="bg-surface-950 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
 				<AlertSystem />
 			</div>
 		</Tabs.Content>

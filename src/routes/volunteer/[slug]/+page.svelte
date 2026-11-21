@@ -42,8 +42,6 @@
 	import VolunteerSelectedShifts from '#lib/components/volunteer/VolunteerSelectedShifts.svelte';
 	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
 	import { slide, fade } from 'svelte/transition';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
@@ -72,7 +70,6 @@
 	const user = pageData.user ?? null;
 	let profile = pageData.profile ?? null;
 	let userSignups = [...(pageData.userSignups ?? [])];
-	let loginReturnTo = pageData.returnTo ?? '';
 
 	const opportunityTypeLabels = {
 		coordination: 'Coordination & Leads',
@@ -393,32 +390,6 @@
 	}
 
 	const selectedOpportunities = $derived(getSelectedOpportunities());
-	let loginEmail = $state(defaultEmail || '');
-	let loginError = $state('');
-	let loginSuccess = $state('');
-	let loginLoading = $state(false);
-	let loginHoneypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
 	let bulkSubmit = $state({ loading: false, success: '', error: '' });
 
 	const defaultQuestionSubject = event.title
@@ -558,9 +529,6 @@
 	const hasCoords = Number.isFinite(event.latitude) && Number.isFinite(event.longitude);
 
 	onMount(async () => {
-		if (!loginReturnTo && typeof window !== 'undefined') {
-			loginReturnTo = window.location.pathname + window.location.search + window.location.hash;
-		}
 		if (!hasCoords) return;
 		try {
 			const mod = await import('leaflet');
@@ -1248,63 +1216,6 @@
 		};
 	}
 
-	async function requestMagicLink(eventObj) {
-		eventObj?.preventDefault?.();
-		loginError = '';
-		loginSuccess = '';
-		const email = (loginEmail || '').trim();
-		if (!emailPattern.test(email)) {
-			loginError = 'Enter a valid email address to continue.';
-			return;
-		}
-		if (loginHoneypot.trim()) {
-			loginError = 'Invalid submission.';
-			return;
-		}
-		loginLoading = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					loginError = 'Verification failed. Please reload and try again.';
-					loginLoading = false;
-					return;
-				}
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
-				if (!turnstileToken) {
-					loginError = 'Verification failed. Please try again.';
-					loginLoading = false;
-					return;
-				}
-			}
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					createProfile: true,
-					returnTo: loginReturnTo,
-					honeypot: loginHoneypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.error || 'Unable to send magic link.');
-			}
-			loginSuccess = `Check ${email} for your login link.`;
-			loginHoneypot = '';
-		} catch (err) {
-			loginError = err.message || 'Something went wrong.';
-		} finally {
-			loginLoading = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				resetTurnstile(turnstileWidgetId);
-			}
-		}
-	}
-
 	// Notices via query params
 	const authFlag = $derived((page && page.url && page.url.searchParams.get('auth')) || '');
 
@@ -1455,55 +1366,13 @@
 					Log in to view this draft event
 				</h1>
 				<p class="m-0 text-lg leading-snug font-medium">
-					This event is still in draft. Enter your email to receive a magic link and continue.
+					This event is still in draft. Sign in to continue.
 				</p>
-				<form class="flex flex-col gap-4 pt-2" onsubmit={requestMagicLink}>
-					<div
-						aria-hidden="true"
-						style="position: absolute; width: 0; height: 0; overflow: hidden;"
-					>
-						<div bind:this={turnstileEl}></div>
-					</div>
-					<input
-						type="text"
-						name="website"
-						bind:value={loginHoneypot}
-						autocomplete="off"
-						tabindex="-1"
-						aria-hidden="true"
-						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-					/>
-					<label class="text-xs font-bold tracking-[0.2em] uppercase" for="draft-login-email">
-						Email
-					</label>
-					<input
-						id="draft-login-email"
-						type="email"
-						class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
-						bind:value={loginEmail}
-						required
-						placeholder="you@example.com"
-					/>
-					{#if loginError}
-						<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase">
-							{loginError}
-						</p>
-					{/if}
-					{#if loginSuccess}
-						<p class="bg-surface-950 text-primary-500 m-0 px-4 py-2 text-xs font-black uppercase">
-							{loginSuccess}
-						</p>
-					{/if}
-					<button
-						type="submit"
-						class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-7 py-4 text-base font-black tracking-wide uppercase transition {loginLoading
-							? 'opacity-70'
-							: ''}"
-						disabled={loginLoading}
-					>
-						{loginLoading ? 'Sending magic link…' : 'Email me a magic link'}
-					</button>
-				</form>
+				<button
+					type="button"
+					class="bg-surface-950 text-primary-500 self-start px-7 py-4 font-black uppercase"
+					onclick={() => window.dispatchEvent(new CustomEvent('open-login'))}>Sign in</button
+				>
 			</div>
 		</section>
 	{:else}
@@ -1531,7 +1400,7 @@
 			{/if}
 		</nav>
 
-		{#if authFlag === 'required' || authFlag === 'forbidden'}
+		{#if (authFlag === 'required' && !user?.id) || authFlag === 'forbidden'}
 			<section
 				class="border-surface-950 border-b-[3px] px-6 py-4 sm:px-10 lg:px-14 {authFlag ===
 				'required'
@@ -1540,8 +1409,15 @@
 			>
 				{#if authFlag === 'required'}
 					<div class="text-sm">
-						<strong class="font-black uppercase">Please log in to edit this event.</strong>
-						<div>Use the "Log in / Register" button in the header, then try again.</div>
+						<strong class="font-black uppercase">Sign in to manage this event</strong>
+						<div>We'll return you to the page you requested.</div>
+						<button
+							type="button"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 mt-3 min-h-11 px-4 text-xs font-black tracking-wide uppercase transition"
+							onclick={() => window.dispatchEvent(new Event('open-login'))}
+						>
+							Sign in
+						</button>
 					</div>
 				{:else}
 					<div class="text-sm">
@@ -1796,6 +1672,7 @@
 					<button
 						class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 mt-6 border-2 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
 						type="button"
+						aria-expanded={showFullOverview}
 						onclick={() => (showFullOverview = !showFullOverview)}
 					>
 						{showFullOverview ? 'Show less' : 'Show full details'}
@@ -1821,66 +1698,13 @@
 						Ready to volunteer?
 					</h2>
 					<p class="m-0 text-base leading-relaxed opacity-90 sm:text-lg">
-						Enter your email to get a magic link. Once you're logged in you'll be able to pick
-						shifts and share the details organizers need.
+						Sign in to pick shifts and share the details organizers need.
 					</p>
-					<form
-						class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end"
-						onsubmit={requestMagicLink}
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 self-start px-7 py-4 font-black uppercase"
+						onclick={() => window.dispatchEvent(new CustomEvent('open-login'))}>Sign in</button
 					>
-						<div
-							aria-hidden="true"
-							style="position: absolute; width: 0; height: 0; overflow: hidden;"
-						>
-							<div bind:this={turnstileEl}></div>
-						</div>
-						<input
-							type="text"
-							name="website"
-							bind:value={loginHoneypot}
-							autocomplete="off"
-							tabindex="-1"
-							aria-hidden="true"
-							style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-						/>
-						<label
-							class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase sm:flex-1"
-						>
-							<span>Your email</span>
-							<input
-								type="email"
-								class="border-surface-950 bg-surface-950 text-surface-50 placeholder:text-surface-400 border-[3px] px-4 py-3.5 text-base font-medium focus:outline-none"
-								bind:value={loginEmail}
-								required
-								placeholder="you@example.com"
-							/>
-						</label>
-						<button
-							type="submit"
-							class="bg-primary-500 text-surface-950 hover:bg-surface-50 shrink-0 px-7 py-4 text-sm font-black tracking-wide uppercase transition {loginLoading
-								? 'opacity-70'
-								: ''}"
-							disabled={loginLoading}
-						>
-							{loginLoading ? 'Sending link…' : 'Email me a magic link'}
-						</button>
-					</form>
-					{#if loginError}
-						<div
-							class="bg-tertiary-500 text-surface-950 mt-2 px-4 py-3 text-xs font-black uppercase"
-							transition:slide
-						>
-							{loginError}
-						</div>
-					{/if}
-					{#if loginSuccess}
-						<div
-							class="bg-primary-500 text-surface-950 mt-2 px-4 py-3 text-xs font-black uppercase"
-							transition:slide
-						>
-							{loginSuccess}
-						</div>
-					{/if}
 				</div>
 			</section>
 		{/if}
@@ -2016,6 +1840,7 @@
 												<button
 													class="text-primary-500 hover:text-surface-50 mt-3 text-xs font-black tracking-[0.16em] uppercase transition"
 													type="button"
+													aria-expanded={expandedOpportunityDescriptions.has(opportunity.id)}
 													onclick={() => toggleOpportunityDescription(opportunity.id)}
 												>
 													{expandedOpportunityDescriptions.has(opportunity.id)
@@ -2053,10 +1878,14 @@
 																	? 'border-primary-500 bg-primary-500 text-surface-950'
 																	: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'
 															}`}
-															aria-pressed={isSelected}
-															disabled={!user || eventFinished}
+															aria-pressed={user ? isSelected : undefined}
+															disabled={eventFinished}
 															onclick={() => {
-																if (!user || eventFinished) return;
+																if (!user) {
+																	window.dispatchEvent(new CustomEvent('open-login'));
+																	return;
+																}
+																if (eventFinished) return;
 																toggleShiftSelection(opportunity.id, shift.id);
 															}}
 														>
@@ -2111,6 +1940,9 @@
 															{#if shift.notes}
 																<p class="m-0 mt-2 text-xs opacity-85">{shift.notes}</p>
 															{/if}
+															{#if !user && !eventFinished}<span
+																	class="mt-2 block text-xs font-bold">Sign in to select</span
+																>{/if}
 														</button>
 														{#if calendarLinks.googleUrl || calendarLinks.icsUrl}
 															<div
@@ -2317,6 +2149,7 @@
 				<button
 					type="button"
 					class="text-surface-50 hover:text-primary-500 flex w-full items-center justify-between py-2 text-left transition"
+					aria-expanded={showQuestion}
 					onclick={() => (showQuestion = !showQuestion)}
 				>
 					<span class="text-2xl font-black uppercase italic sm:text-3xl">Have a question?</span>
@@ -2351,7 +2184,7 @@
 										<span class="text-primary-500">Your email</span>
 										<input
 											type="email"
-											class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+											class="border-surface-50 bg-surface-900 text-surface-50 focus-visible:outline-primary-500 border-2 px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 											autocomplete="email"
 											required
 											value={questionForm.replyTo}
@@ -2367,7 +2200,7 @@
 										<span class="text-primary-500">Subject</span>
 										<input
 											type="text"
-											class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+											class="border-surface-50 bg-surface-900 text-surface-50 focus-visible:outline-primary-500 border-2 px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 											required
 											minlength="3"
 											value={questionForm.subject}
@@ -2383,7 +2216,7 @@
 								<label class="flex flex-col gap-1.5 text-xs font-bold tracking-[0.2em] uppercase">
 									<span class="text-primary-500">Message</span>
 									<textarea
-										class="border-surface-50 bg-surface-900 text-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
+										class="border-surface-50 bg-surface-900 text-surface-50 focus-visible:outline-primary-500 border-2 px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 										required
 										rows="4"
 										bind:value={questionForm.message}></textarea>

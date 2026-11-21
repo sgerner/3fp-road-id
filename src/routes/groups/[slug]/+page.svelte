@@ -51,6 +51,7 @@
 	let marker;
 	let mapInitialized = $state(false);
 	let mapLoadPromise;
+	let instagramFeed = $state(null);
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
@@ -125,6 +126,30 @@
 		});
 		obs.observe(heroSentinel);
 		return () => obs.disconnect();
+	});
+
+	$effect(() => {
+		const groupSlug = data.group?.slug;
+		if (!groupSlug) return;
+
+		const controller = new AbortController();
+		instagramFeed = null;
+
+		fetch(`/api/groups/${encodeURIComponent(groupSlug)}/site/instagram`, {
+			signal: controller.signal
+		})
+			.then(async (response) => {
+				if (!response.ok) return null;
+				const payload = await response.json().catch(() => null);
+				return payload?.data ?? null;
+			})
+			.then((feed) => {
+				if (controller.signal.aborted || !feed) return;
+				instagramFeed = feed;
+			})
+			.catch(() => {});
+
+		return () => controller.abort();
 	});
 
 	function pickNames(all, ids) {
@@ -247,9 +272,9 @@
 	}
 
 	const contactLinks = $derived(buildContactLinks(data.group));
-	const connectedInstagram = $derived(data.connected_instagram ?? null);
+	const connectedInstagram = $derived(instagramFeed?.connectedInstagram ?? null);
 	const instagramPosts = $derived(
-		Array.isArray(data.instagram_posts) ? data.instagram_posts.slice(0, 3) : []
+		Array.isArray(instagramFeed?.instagramPosts) ? instagramFeed.instagramPosts.slice(0, 3) : []
 	);
 	const groupNewsPosts = $derived(
 		Array.isArray(data.group_news_posts) ? data.group_news_posts.slice(0, 3) : []
@@ -258,7 +283,7 @@
 		Array.isArray(data.accounting_public_reports) ? data.accounting_public_reports.slice(0, 3) : []
 	);
 	const latestAccountingReport = $derived(accountingReports[0] ?? null);
-	const instagramPostsSource = $derived(data.instagram_posts_source || 'none');
+	const instagramPostsSource = $derived(instagramFeed?.instagramPostsSource || 'none');
 	const connectedInstagramLabel = $derived(
 		connectedInstagram?.username
 			? `@${connectedInstagram.username}`
@@ -326,12 +351,8 @@
 	const followFlag = $derived((page.url.searchParams.get('follow') || '').trim());
 	const followMessage = $derived((page.url.searchParams.get('follow_msg') || '').trim());
 
-	let followModalOpen = $state(false);
-	let followEmail = $state('');
 	let followLoading = $state(false);
 	let followError = $state('');
-	let followSuccess = $state('');
-	const followEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(followEmail));
 	let donationStartAmount = $state(25);
 
 	async function joinSingleFreeTierNow() {
@@ -353,7 +374,7 @@
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				if (response.status === 401) {
-					followModalOpen = true;
+					openFollowLogin();
 					return;
 				}
 				throw new Error(payload?.error || 'Unable to follow right now.');
@@ -374,38 +395,25 @@
 			await joinSingleFreeTierNow();
 			return;
 		}
-		followModalOpen = true;
-		followError = '';
-		followSuccess = '';
+		openFollowLogin();
 	}
 
-	async function sendFollowMagicLink(event) {
-		event?.preventDefault?.();
-		if (!followEmailValid || !singleFreeFollowTier) return;
-		followLoading = true;
+	function openFollowLogin() {
+		if (!singleFreeFollowTier) return;
 		followError = '';
-		followSuccess = '';
-		try {
-			const returnTo = `/groups/${encodeURIComponent(data.group.slug)}?auto_follow=1&auto_follow_tier=${encodeURIComponent(singleFreeFollowTier.id)}`;
-			const response = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: followEmail,
-					createProfile: true,
-					returnTo
-				})
-			});
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to send magic link.');
-			}
-			followSuccess = `Check ${followEmail} for your login link. We’ll complete follow automatically after login.`;
-		} catch (err) {
-			followError = err?.message || 'Unable to send magic link.';
-		} finally {
-			followLoading = false;
-		}
+		const params = new URLSearchParams({
+			auto_follow: '1',
+			auto_follow_tier: singleFreeFollowTier.id
+		});
+		window.dispatchEvent(
+			new CustomEvent('open-login', {
+				detail: {
+					returnTo: `/groups/${encodeURIComponent(data.group.slug)}?${params}`,
+					message:
+						'Sign in to follow this group. We’ll add you as a follower after you open the magic link.'
+				}
+			})
+		);
 	}
 
 	function parseVolunteerDate(value) {
@@ -643,7 +651,7 @@
 	<!-- HERO -->
 	<section
 		bind:this={heroSentinel}
-		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+		class="bg-primary-500 text-surface-950 grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
 		aria-labelledby="group-hero-heading"
 	>
 		<div
@@ -677,7 +685,7 @@
 			</div>
 
 			<div class="flex flex-col gap-5">
-				<div class="flex items-start gap-5">
+				<div class="flex flex-col items-start gap-3 sm:flex-row sm:gap-5">
 					{#if logoImage}
 						<div
 							class="bg-surface-50 border-surface-950 flex h-16 w-16 shrink-0 items-center justify-center border-[3px] p-1.5 sm:h-20 sm:w-20"
@@ -695,7 +703,7 @@
 					{/if}
 					<h1
 						id="group-hero-heading"
-						class="text-surface-950! m-0 text-[clamp(2.4rem,6vw,5.4rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance uppercase italic"
+						class="text-surface-950! m-0 min-w-0 text-[clamp(2.4rem,6vw,5.4rem)] leading-[0.88] font-black tracking-[-0.04em] text-balance wrap-anywhere uppercase italic"
 					>
 						{data.group?.name}
 					</h1>
@@ -807,7 +815,7 @@
 	</section>
 
 	<!-- Auth notice -->
-	{#if authFlag === 'required' || authFlag === 'forbidden'}
+	{#if (authFlag === 'required' && !data.user?.id) || authFlag === 'forbidden'}
 		<section
 			class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-5 sm:px-10 lg:px-14"
 			in:fade={{ duration: 180 }}
@@ -816,10 +824,15 @@
 				<IconInfo class="mt-0.5 h-5 w-5 shrink-0" />
 				<div class="text-sm font-medium">
 					{#if authFlag === 'required'}
-						<strong class="font-black uppercase">Please log in to edit this group.</strong>
-						<div class="mt-0.5">
-							Use the "Log in / Register" button in the header, then try again.
-						</div>
+						<strong class="font-black uppercase">Sign in to manage this group</strong>
+						<div class="mt-0.5">We'll return you to the page you requested.</div>
+						<button
+							type="button"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 mt-3 min-h-11 px-4 text-xs font-black tracking-wide uppercase transition"
+							onclick={() => window.dispatchEvent(new Event('open-login'))}
+						>
+							Sign in
+						</button>
 					{:else}
 						<strong class="font-black uppercase"
 							>You don't have permission to edit this group.</strong
@@ -847,7 +860,7 @@
 				<strong class="text-sm font-black uppercase">You're now following this group.</strong>
 			</div>
 		</section>
-	{:else if followFlag === 'error'}
+	{:else if followFlag === 'error' || followError}
 		<section
 			class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-5 sm:px-10 lg:px-14"
 			in:fade={{ duration: 180 }}
@@ -855,7 +868,7 @@
 			<div class="flex items-center gap-3">
 				<IconInfo class="h-5 w-5 shrink-0" />
 				<strong class="text-sm font-black uppercase"
-					>{followMessage || 'Unable to complete follow.'}</strong
+					>{followError || followMessage || 'Unable to complete follow.'}</strong
 				>
 			</div>
 		</section>
@@ -876,9 +889,9 @@
 						<IconFlag class="h-6 w-6" />
 					</div>
 					<div>
-						<h3 id="claim-heading" class="text-surface-950! m-0 text-2xl font-black uppercase">
+						<h2 id="claim-heading" class="text-surface-950! m-0 text-2xl font-black uppercase">
 							This group hasn't been claimed yet
-						</h3>
+						</h2>
 						<p class="m-0 mt-1 text-base font-medium">
 							If you represent this group, claim it to manage details, photos, and more.
 						</p>
@@ -2038,67 +2051,3 @@
 		</section>
 	{/if}
 </div>
-
-{#if followModalOpen}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
-		role="button"
-		tabindex="0"
-		onclick={(event) => {
-			if (event.target === event.currentTarget) followModalOpen = false;
-		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') followModalOpen = false;
-		}}
-	>
-		<form
-			class="bg-surface-950 text-surface-50 border-primary-500 flex w-full max-w-md flex-col gap-5 border-[3px] p-6"
-			onsubmit={sendFollowMagicLink}
-		>
-			<div>
-				<h3 class="text-surface-50! m-0 text-2xl font-black uppercase italic">
-					Follow {data.group?.name}
-				</h3>
-				<p class="text-surface-300 m-0 mt-2 text-xs leading-relaxed">
-					Enter your email to log in or create an account. We'll add you as a follower right after
-					you open the magic link.
-				</p>
-			</div>
-			<label class="flex flex-col gap-2">
-				<span class="text-primary-500 text-xs font-bold tracking-[0.2em] uppercase"
-					>Email address</span
-				>
-				<input
-					type="email"
-					class="bg-surface-900 text-surface-50 border-surface-50 border-2 px-4 py-3 text-sm font-medium focus:outline-none"
-					bind:value={followEmail}
-					placeholder="you@example.com"
-					required
-				/>
-			</label>
-			{#if followError}
-				<p class="text-tertiary-400 m-0 text-xs font-bold">{followError}</p>
-			{/if}
-			{#if followSuccess}
-				<p class="text-primary-500 m-0 text-xs font-bold">{followSuccess}</p>
-			{/if}
-			<div class="flex items-center justify-end gap-3 pt-2">
-				<button
-					type="button"
-					class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 cursor-pointer border-2 px-5 py-2.5 text-xs font-black uppercase transition"
-					onclick={() => (followModalOpen = false)}
-					disabled={followLoading}
-				>
-					Cancel
-				</button>
-				<button
-					type="submit"
-					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-5 py-2.5 text-xs font-black uppercase transition disabled:opacity-50"
-					disabled={followLoading || !followEmailValid}
-				>
-					{followLoading ? 'Sending…' : 'Email Me A Login Link'}
-				</button>
-			</div>
-		</form>
-	</div>
-{/if}

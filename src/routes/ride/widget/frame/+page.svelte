@@ -1,6 +1,7 @@
 <script>
+	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { getRideImage } from '#lib/rides/media';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCalendarRange from '@lucide/svelte/icons/calendar-range';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -11,7 +12,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconX from '@lucide/svelte/icons/x';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import 'leaflet/dist/leaflet.css';
 	import {
@@ -56,6 +57,9 @@
 	let pageNumber = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
+	let dayDialog = $state(null);
+	let dayModalTrigger = null;
+	let dayModalCloseButton = $state(null);
 
 	let mapEl = $state(null);
 	let map;
@@ -150,7 +154,7 @@
 		}, {})
 	);
 
-	const calendarMatrix = $derived(buildCalendarMatrix(calendarReference, ridesByDate));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
 	const calendarHeader = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
@@ -238,32 +242,6 @@
 		return true;
 	}
 
-	function buildCalendarMatrix(reference, lookup) {
-		const monthStart = startOfMonth(reference);
-		const month = monthStart.getMonth();
-		const year = monthStart.getFullYear();
-		const firstWeekday = monthStart.getDay();
-		const firstDate = new Date(monthStart);
-		firstDate.setDate(firstDate.getDate() - firstWeekday);
-
-		const weeks = [];
-		for (let w = 0; w < 6; w += 1) {
-			const days = [];
-			for (let d = 0; d < 7; d += 1) {
-				const current = new Date(firstDate);
-				current.setDate(firstDate.getDate() + w * 7 + d);
-				const key = toDateKey(current);
-				days.push({
-					date: current,
-					inMonth: current.getMonth() === month && current.getFullYear() === year,
-					rides: key && lookup[key] ? lookup[key] : []
-				});
-			}
-			weeks.push(days);
-		}
-		return weeks;
-	}
-
 	const todayKey = toDateKey(new Date());
 
 	function formatNext(ride) {
@@ -292,8 +270,9 @@
 		calendarReference = startOfMonth(next);
 	}
 
-	function openDayModal(day) {
-		if (!day?.rides?.length) return;
+	async function openDayModal(day, trigger) {
+		if (!day?.items?.length) return;
+		dayModalTrigger = trigger;
 		dayModal = {
 			open: true,
 			dateLabel: new Intl.DateTimeFormat(undefined, {
@@ -301,12 +280,26 @@
 				month: 'long',
 				day: 'numeric'
 			}).format(day.date),
-			rides: day.rides
+			rides: day.items
 		};
+		await tick();
+		dayDialog?.showModal();
+		dayModalCloseButton?.focus();
 	}
 
 	function closeDayModal() {
+		if (dayDialog?.open) {
+			dayDialog.close();
+			return;
+		}
+		handleDayModalClose();
+	}
+
+	function handleDayModalClose() {
+		const trigger = dayModalTrigger;
+		dayModalTrigger = null;
 		dayModal = { open: false, dateLabel: '', rides: [] };
+		void tick().then(() => trigger?.focus());
 	}
 
 	function handleBackdropClick(event) {
@@ -443,6 +436,7 @@
 </svelte:head>
 
 <div class={`ride-widget-shell theme-${resolvedTheme} density-${config.density}`}>
+	<h1 class="sr-only">Ride directory</h1>
 	<!-- ── Header: subtitle + tabs ── -->
 	<div class="widget-header">
 		<div class="widget-title-wrap">
@@ -455,15 +449,27 @@
 		</div>
 		<div class="widget-tabs-wrap">
 			<div class="widget-tabs">
-				<button class:active={view === 'list'} onclick={() => (view = 'list')}>
+				<button
+					class:active={view === 'list'}
+					aria-pressed={view === 'list'}
+					onclick={() => (view = 'list')}
+				>
 					<IconList class="h-3.5 w-3.5" />
 					List
 				</button>
-				<button class:active={view === 'calendar'} onclick={() => (view = 'calendar')}>
+				<button
+					class:active={view === 'calendar'}
+					aria-pressed={view === 'calendar'}
+					onclick={() => (view = 'calendar')}
+				>
 					<IconCalendarRange class="h-3.5 w-3.5" />
 					Calendar
 				</button>
-				<button class:active={view === 'map'} onclick={() => (view = 'map')}>
+				<button
+					class:active={view === 'map'}
+					aria-pressed={view === 'map'}
+					onclick={() => (view = 'map')}
+				>
 					<IconMap class="h-3.5 w-3.5" />
 					Map
 				</button>
@@ -484,6 +490,7 @@
 				<button
 					type="button"
 					class={`legend-chip ${selectedDifficulty === 'all' ? 'active' : ''}`}
+					aria-pressed={selectedDifficulty === 'all'}
 					onclick={() => (selectedDifficulty = 'all')}
 				>
 					<i style="background: var(--widget-muted);"></i>
@@ -495,6 +502,7 @@
 					<button
 						type="button"
 						class={`legend-chip ${selectedDifficulty === entry.name ? 'active' : ''}`}
+						aria-pressed={selectedDifficulty === entry.name}
 						onclick={() => (selectedDifficulty = entry.name)}
 					>
 						<i style={`background:${entry.color}`}></i>
@@ -519,7 +527,12 @@
 					<IconSearch class="search-icon h-3.5 w-3.5" />
 					<input bind:value={search} placeholder="Title, location, host..." />
 					{#if search}
-						<button class="search-clear" onclick={() => (search = '')} type="button">
+						<button
+							class="search-clear"
+							aria-label="Clear search"
+							onclick={() => (search = '')}
+							type="button"
+						>
 							<IconX class="h-3 w-3" />
 						</button>
 					{/if}
@@ -598,15 +611,25 @@
 					{/each}
 				</div>
 				{#if totalPages > 1}
-					<div class="pagination">
-						<button disabled={pageNumber <= 1} onclick={() => (pageNumber -= 1)}>
+					<nav class="pagination" aria-label="Ride pages">
+						<button
+							type="button"
+							aria-label="Previous ride page"
+							disabled={pageNumber <= 1}
+							onclick={() => (pageNumber -= 1)}
+						>
 							<IconChevronLeft class="h-3.5 w-3.5" />
 						</button>
-						<span>{pageNumber} / {totalPages}</span>
-						<button disabled={pageNumber >= totalPages} onclick={() => (pageNumber += 1)}>
+						<span aria-current="page">Page {pageNumber} of {totalPages}</span>
+						<button
+							type="button"
+							aria-label="Next ride page"
+							disabled={pageNumber >= totalPages}
+							onclick={() => (pageNumber += 1)}
+						>
 							<IconChevronRight class="h-3.5 w-3.5" />
 						</button>
-					</div>
+					</nav>
 				{/if}
 			{:else}
 				<div class="app-empty-state">
@@ -643,6 +666,35 @@
 						</button>
 					</div>
 				</div>
+				<ul class="calendar-agenda space-y-4" aria-label="Rides this month">
+					{#each calendarMatrix
+						.flat()
+						.filter((day) => day.inMonth && day.items.length) as day (toDateKey(day.date))}
+						<li>
+							<h3 class="font-bold">
+								{day.date.toLocaleDateString(undefined, {
+									weekday: 'long',
+									month: 'short',
+									day: 'numeric'
+								})}
+							</h3>
+							<ul class="day-rides">
+								{#each day.items as ride (ride.slug)}
+									<li>
+										<a
+											class="flex min-h-11 items-center wrap-anywhere"
+											href={`/ride/${ride.slug}`}
+											target="_blank"
+											rel="noopener noreferrer">{rideTitle(ride)}</a
+										>
+									</li>
+								{/each}
+							</ul>
+						</li>
+					{:else}
+						<li>No rides this month.</li>
+					{/each}
+				</ul>
 				<div class="calendar-table" role="grid" aria-label="Ride calendar">
 					<div class="calendar-grid days" role="row">
 						<div role="columnheader">Sun</div>
@@ -673,7 +725,7 @@
 										{day.date.getDate()}
 									</div>
 									<div class="day-rides">
-										{#each day.rides.slice(0, 2) as ride}
+										{#each day.items.slice(0, 2) as ride}
 											{@const c = difficultyColor(primaryDifficulty(ride))}
 											<a
 												href={`/ride/${ride.slug}`}
@@ -685,12 +737,17 @@
 											</a>
 										{/each}
 									</div>
-									{#if day.rides.length > 2}
-										<button class="more" type="button" onclick={() => openDayModal(day)}>
-											+{day.rides.length - 2} more
+									{#if day.items.length > 2}
+										<button
+											class="more"
+											type="button"
+											aria-label={`Show ${day.items.length - 2} more rides on ${day.date.toLocaleDateString()}`}
+											onclick={(event) => openDayModal(day, event.currentTarget)}
+										>
+											+{day.items.length - 2} more
 										</button>
 									{/if}
-									{#if day.rides.length === 1 && day.rides.length <= 2}
+									{#if day.items.length === 1 && day.items.length <= 2}
 										<!-- spacer -->
 									{/if}
 								</div>
@@ -719,19 +776,24 @@
 
 	<!-- ── Day modal ── -->
 	{#if dayModal.open}
-		<div
+		<dialog
+			bind:this={dayDialog}
 			class="modal-backdrop"
-			role="dialog"
-			aria-modal="true"
-			tabindex="0"
+			aria-labelledby="day-modal-title"
 			onclick={handleBackdropClick}
-			onkeydown={(event) => event.key === 'Escape' && closeDayModal()}
+			onclose={handleDayModalClose}
 			transition:fade={{ duration: 150 }}
 		>
 			<div class="modal" transition:slide={{ duration: 200 }}>
 				<div class="modal-head">
-					<h3>{dayModal.dateLabel}</h3>
-					<button onclick={closeDayModal} class="modal-close" aria-label="Close ride details">
+					<h3 id="day-modal-title">{dayModal.dateLabel}</h3>
+					<button
+						bind:this={dayModalCloseButton}
+						type="button"
+						onclick={closeDayModal}
+						class="modal-close"
+						aria-label="Close ride details"
+					>
 						<IconX class="h-4 w-4" />
 					</button>
 				</div>
@@ -751,7 +813,7 @@
 					{/each}
 				</div>
 			</div>
-		</div>
+		</dialog>
 	{/if}
 </div>
 
@@ -1040,6 +1102,7 @@
 		flex-shrink: 0;
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
 		color: var(--widget-text-muted);
 		background: none;
 		border: none;
@@ -1293,6 +1356,40 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
+	.calendar-agenda {
+		display: none;
+	}
+
+	@media (max-width: 599px) {
+		.calendar-wrap .calendar-table {
+			display: none;
+		}
+
+		.calendar-agenda {
+			display: block;
+		}
+
+		.calendar-wrap .calendar-head {
+			flex-wrap: wrap;
+		}
+
+		.calendar-wrap .calendar-nav button,
+		.ride-widget-shell .search-clear,
+		.widget-tabs button,
+		.widget-filters select,
+		.pagination button,
+		.modal .modal-close {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+
+		.calendar-agenda .day-rides a {
+			padding: 0.5rem;
+			font-size: 0.875rem;
+			white-space: normal;
+		}
+	}
+
 	.calendar-table {
 		display: flex;
 		flex-direction: column;
@@ -1486,14 +1583,23 @@
 	.modal-backdrop {
 		position: fixed;
 		inset: 0;
-		background: rgba(2, 8, 23, 0.55);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		max-height: none;
+		margin: auto;
+		border: 0;
+		background: transparent;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
-		z-index: 80;
+		overflow: hidden;
+	}
+	.modal-backdrop::backdrop {
+		background: rgba(2, 8, 23, 0.55);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 	}
 	.modal {
 		width: min(620px, 100%);

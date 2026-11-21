@@ -18,6 +18,9 @@
 	let { data } = $props();
 
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
+	const MAX_TIER_PRICE_CENTS = 2_147_483_647;
+	const TIER_PRICE_ERROR =
+		'Enter a non-negative amount with up to two decimals (maximum $21,474,836.47).';
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
 	const DEFAULT_PROGRAM = {
 		enabled: true,
@@ -51,6 +54,7 @@
 			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
 		)
 	);
+	let tierPriceDrafts = $state({});
 	let formFields = $state(
 		untrack(() =>
 			Array.isArray(data?.program_data?.form_fields)
@@ -132,13 +136,48 @@
 	}
 
 	function centsToDollar(cents) {
-		if (!cents) return '';
+		if (cents === null || cents === undefined || cents === '') return '';
 		return (cents / 100).toFixed(2);
 	}
 
 	function dollarToCents(value) {
-		const num = parseFloat(value);
-		return isNaN(num) ? null : Math.round(num * 100);
+		const raw = String(value ?? '').trim();
+		if (!raw) return null;
+		if (!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(raw)) return undefined;
+		const num = Number(raw);
+		const cents = Math.round(num * 100);
+		return Number.isSafeInteger(cents) && cents <= MAX_TIER_PRICE_CENTS ? cents : undefined;
+	}
+
+	function getTierPriceDraft(id, field, cents) {
+		const key = `${id ?? 'new'}:${field}`;
+		return Object.hasOwn(tierPriceDrafts, key) ? tierPriceDrafts[key] : centsToDollar(cents);
+	}
+
+	function setTierPriceDraft(id, field, value) {
+		tierPriceDrafts[`${id ?? 'new'}:${field}`] = value;
+	}
+
+	function isTierPriceInvalid(id, field) {
+		const key = `${id ?? 'new'}:${field}`;
+		return Object.hasOwn(tierPriceDrafts, key) && dollarToCents(tierPriceDrafts[key]) === undefined;
+	}
+
+	function commitTierPriceDraft(id, tier, field) {
+		const key = `${id ?? 'new'}:${field}`;
+		if (!Object.hasOwn(tierPriceDrafts, key)) return true;
+
+		const cents = dollarToCents(tierPriceDrafts[key]);
+		if (cents === undefined) return false;
+		tier[field] = cents;
+		delete tierPriceDrafts[key];
+		return true;
+	}
+
+	function commitTierPriceDrafts(id, tier) {
+		const monthlyValid = commitTierPriceDraft(id, tier, 'monthly_amount_cents');
+		const annualValid = commitTierPriceDraft(id, tier, 'annual_amount_cents');
+		return monthlyValid && annualValid;
 	}
 
 	function formatCurrency(cents) {
@@ -312,6 +351,10 @@
 			setMessage('', 'Tier name is required');
 			return;
 		}
+		if (!commitTierPriceDrafts(null, newTier)) {
+			setMessage('', TIER_PRICE_ERROR);
+			return;
+		}
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
@@ -337,6 +380,10 @@
 	}
 
 	async function updateTier(tier) {
+		if (!commitTierPriceDrafts(tier.id, tier)) {
+			setMessage('', TIER_PRICE_ERROR);
+			return;
+		}
 		try {
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
@@ -476,6 +523,26 @@
 	});
 </script>
 
+{#snippet tierPriceInput(tier, tierId, cycle, label, id)}
+	{@const field = `${cycle}_amount_cents`}
+	<input
+		{id}
+		type="text"
+		inputmode="decimal"
+		class="tier-input price"
+		aria-label={label}
+		placeholder={cycle === 'monthly' ? 'Monthly' : 'Annual'}
+		aria-invalid={isTierPriceInvalid(tierId, field) || undefined}
+		aria-describedby={isTierPriceInvalid(tierId, field) ? `${id}-error` : undefined}
+		value={getTierPriceDraft(tierId, field, tier[field])}
+		oninput={(event) => setTierPriceDraft(tierId, field, event.currentTarget.value)}
+		onblur={() => commitTierPriceDraft(tierId, tier, field)}
+	/>
+	{#if isTierPriceInvalid(tierId, field)}
+		<p id="{id}-error" class="price-error">{TIER_PRICE_ERROR}</p>
+	{/if}
+{/snippet}
+
 <div class="membership-manage">
 	<!-- Notifications -->
 	{#if notice}
@@ -504,12 +571,12 @@
 	{/if}
 
 	{#if hasPaidTiers && !stripeReady}
-		<div class="banner preset-tonal-warning" role="alert">
+		<div class="banner stripe-connect-banner preset-tonal-warning" role="alert">
 			<div class="banner-content">
 				<div class="banner-icon warning">
 					<IconCreditCard class="h-4 w-4" />
 				</div>
-				<div class="flex-1">
+				<div class="min-w-0 flex-1">
 					<p class="banner-title">Connect Stripe to accept paid memberships</p>
 					<p class="banner-subtitle">
 						You have paid tiers configured. Members cannot complete payment until Stripe is
@@ -517,7 +584,7 @@
 					</p>
 				</div>
 				<a
-					class="btn preset-filled-primary-500"
+					class="btn preset-filled-primary-500 stripe-connect-action"
 					href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(slug)}"
 				>
 					<IconCreditCard class="h-4 w-4" />
@@ -974,6 +1041,7 @@
 							<div class="version-badge">Version {program.policy_version || 1}</div>
 							<textarea
 								class="policy-textarea"
+								aria-label="Membership policy"
 								bind:value={program.policy_markdown}
 								rows="8"
 								placeholder="Enter your membership policy..."></textarea>
@@ -1006,34 +1074,38 @@
 									{#each tiers as tier (tier.id)}
 										<div class="tier-row">
 											<div class="tier-fields">
-												<input class="tier-input" placeholder="Tier name" bind:value={tier.name} />
 												<input
 													class="tier-input"
+													aria-label={`Tier name for ${tier.name || 'tier'}`}
+													placeholder="Tier name"
+													bind:value={tier.name}
+												/>
+												<input
+													class="tier-input"
+													aria-label={`Description for ${tier.name || 'tier'}`}
 													placeholder="Description"
 													bind:value={tier.description}
 												/>
 												<div class="price-inputs">
 													<div class="price-field">
 														<span class="price-prefix">$</span>
-														<input
-															type="text"
-															class="tier-input price"
-															placeholder="Monthly"
-															value={centsToDollar(tier.monthly_amount_cents)}
-															oninput={(e) =>
-																(tier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
-														/>
+														{@render tierPriceInput(
+															tier,
+															tier.id,
+															'monthly',
+															`Monthly contribution for ${tier.name || 'tier'}`,
+															`tier-${tier.id}-monthly-price`
+														)}
 													</div>
 													<div class="price-field">
 														<span class="price-prefix">$</span>
-														<input
-															type="text"
-															class="tier-input price"
-															placeholder="Annual"
-															value={centsToDollar(tier.annual_amount_cents)}
-															oninput={(e) =>
-																(tier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
-														/>
+														{@render tierPriceInput(
+															tier,
+															tier.id,
+															'annual',
+															`Annual contribution for ${tier.name || 'tier'}`,
+															`tier-${tier.id}-annual-price`
+														)}
 													</div>
 												</div>
 											</div>
@@ -1057,6 +1129,7 @@
 												</button>
 												<button
 													class="btn-text danger"
+													aria-label={`Delete ${tier.name || 'tier'}`}
 													disabled={busy}
 													onclick={() => deleteTier(tier.id)}
 												>
@@ -1081,34 +1154,38 @@
 									</button>
 								</div>
 								<div class="tier-fields">
-									<input class="tier-input" placeholder="Tier name" bind:value={newTier.name} />
 									<input
 										class="tier-input"
+										aria-label="New tier name"
+										placeholder="Tier name"
+										bind:value={newTier.name}
+									/>
+									<input
+										class="tier-input"
+										aria-label="New tier description"
 										placeholder="Description"
 										bind:value={newTier.description}
 									/>
 									<div class="price-inputs">
 										<div class="price-field">
 											<span class="price-prefix">$</span>
-											<input
-												type="text"
-												class="tier-input price"
-												placeholder="Monthly"
-												value={centsToDollar(newTier.monthly_amount_cents)}
-												oninput={(e) =>
-													(newTier.monthly_amount_cents = dollarToCents(e.currentTarget.value))}
-											/>
+											{@render tierPriceInput(
+												newTier,
+												null,
+												'monthly',
+												'New tier monthly contribution',
+												'new-tier-monthly-price'
+											)}
 										</div>
 										<div class="price-field">
 											<span class="price-prefix">$</span>
-											<input
-												type="text"
-												class="tier-input price"
-												placeholder="Annual"
-												value={centsToDollar(newTier.annual_amount_cents)}
-												oninput={(e) =>
-													(newTier.annual_amount_cents = dollarToCents(e.currentTarget.value))}
-											/>
+											{@render tierPriceInput(
+												newTier,
+												null,
+												'annual',
+												'New tier annual contribution',
+												'new-tier-annual-price'
+											)}
 										</div>
 									</div>
 								</div>
@@ -1175,10 +1252,15 @@
 								<div class="field-row-inputs">
 									<input
 										class="setting-input"
+										aria-label="Application field label"
 										placeholder="Field label"
 										bind:value={newField.label}
 									/>
-									<select class="setting-select" bind:value={newField.field_type}>
+									<select
+										class="setting-select"
+										aria-label="Application field type"
+										bind:value={newField.field_type}
+									>
 										<option value="text">Text</option>
 										<option value="textarea">Textarea</option>
 										<option value="email">Email</option>
@@ -1193,6 +1275,7 @@
 								{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
 									<textarea
 										class="setting-input"
+										aria-label="Application field options"
 										placeholder="Options (one per line)"
 										bind:value={newField.options_text}
 										rows="3"></textarea>
@@ -1342,6 +1425,25 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.stripe-connect-banner .banner-content {
+		flex-wrap: wrap;
+	}
+
+	.stripe-connect-action {
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 639px) {
+		.stripe-connect-banner .banner-content {
+			align-items: flex-start;
+		}
+
+		.stripe-connect-action {
+			width: 100%;
+			justify-content: center;
+		}
 	}
 
 	.banner-icon {
@@ -2309,24 +2411,27 @@
 
 	.tier-fields {
 		display: grid;
-		grid-template-columns: 1.5fr 2fr 1fr;
+		grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 1fr);
 		gap: 0.5rem;
 		margin-bottom: 0.75rem;
 	}
 
 	@media (max-width: 640px) {
 		.tier-fields {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 
 	.price-inputs {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
 		gap: 0.5rem;
 	}
 
 	.price-field {
-		display: flex;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-content: start;
 		align-items: center;
 		background: var(--input-bg);
 		border-radius: 0.5rem;
@@ -2341,12 +2446,24 @@
 		border-right: 1px solid var(--input-border);
 	}
 
+	.tier-fields > .tier-input {
+		min-width: 0;
+	}
+
 	.tier-input.price {
 		border: none;
 		background: transparent;
 		border-radius: 0;
 		padding: 0.5rem;
-		min-width: 80px;
+		min-width: 0;
+	}
+
+	.price-error {
+		grid-column: 1 / -1;
+		margin: 0;
+		padding: 0.25rem 0.5rem;
+		color: var(--color-error-500);
+		overflow-wrap: anywhere;
 	}
 
 	.tier-actions {

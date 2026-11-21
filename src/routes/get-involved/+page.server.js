@@ -1,4 +1,4 @@
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { fail } from '@sveltejs/kit';
 import { TURNSTILE_SECRET_KEY } from '$app/env/private';
 import {
@@ -346,7 +346,15 @@ export const actions = {
 			message: message || null
 		}));
 
-		const { error: insertError } = await supabase
+		const serviceSupabase = createServiceSupabaseClient();
+		if (!serviceSupabase) {
+			return fail(503, {
+				interestError: 'Could not submit right now. Please try again shortly.',
+				interestValues
+			});
+		}
+
+		const { error: insertError } = await serviceSupabase
 			.from('get_involved_interest_submissions')
 			.insert(submissionRows);
 

@@ -1,5 +1,7 @@
 <script>
-	import { browser } from '$app/environment';
+	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import { browser } from '$app/env';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -112,7 +114,8 @@
 		return first ? startOfMonth(first) : startOfMonth(new Date());
 	});
 
-	const calendarMatrix = $derived(buildCalendarMatrix(calendarReference, ridesByDate));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
+	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
 	const calendarHeaderText = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, {
 			month: 'long',
@@ -121,7 +124,7 @@
 	);
 
 	const mobileMonthDays = $derived(
-		calendarMatrix.flat().filter((day) => day.inMonth && day.rides.length > 0)
+		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
@@ -185,33 +188,6 @@
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
 		calendarMonthTouched = true;
-	}
-
-	function buildCalendarMatrix(reference, lookup) {
-		const monthStart = startOfMonth(reference);
-		const month = monthStart.getMonth();
-		const year = monthStart.getFullYear();
-		const firstWeekday = monthStart.getDay();
-		const firstDate = new Date(monthStart);
-		firstDate.setDate(firstDate.getDate() - firstWeekday);
-
-		const weeks = [];
-		for (let w = 0; w < 6; w += 1) {
-			const days = [];
-			for (let d = 0; d < 7; d += 1) {
-				const current = new Date(firstDate);
-				current.setDate(firstDate.getDate() + w * 7 + d);
-				const key = toDateKey(current);
-				days.push({
-					date: current,
-					inMonth: current.getMonth() === month && current.getFullYear() === year,
-					key,
-					rides: key && lookup[key] ? lookup[key] : []
-				});
-			}
-			weeks.push(days);
-		}
-		return weeks;
 	}
 
 	function rideMeta(ride) {
@@ -350,7 +326,7 @@
 		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
 			if (calendarMonthTouched) return;
 			const currentMonthHasRide = calendarMatrix.some((week) =>
-				week.some((day) => day.rides.length)
+				week.some((day) => day.items.length)
 			);
 			if (!currentMonthHasRide) {
 				calendarReference = earliestRideMonth;
@@ -618,9 +594,8 @@
 					transition:slide={{ duration: 220 }}
 				>
 					{#each paginatedRides as ride, i (ride.id ?? ride.slug)}
-						<a
-							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 flex h-full flex-col border-r border-b transition hover:no-underline"
-							href={`/ride/${ride.slug}`}
+						<article
+							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 relative flex h-full flex-col border-r border-b transition"
 						>
 							{#if cardImage(ride)}
 								<div class="bg-surface-900 relative aspect-[16/10] w-full overflow-hidden">
@@ -667,11 +642,20 @@
 										</span>
 									{/if}
 									{#if ride.group?.name}
-										<span
-											class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
-										>
-											{ride.group.name}
-										</span>
+										{#if ride.group?.slug}
+											<a
+												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4"
+												href={`/groups/${encodeURIComponent(ride.group.slug)}`}
+											>
+												{ride.group.name}
+											</a>
+										{:else}
+											<span
+												class="bg-secondary-500 text-surface-50 px-2.5 py-1 text-xs font-bold uppercase"
+											>
+												{ride.group.name}
+											</span>
+										{/if}
 									{/if}
 									{#if ride.recurrenceEnabled}
 										<span
@@ -687,7 +671,11 @@
 									<h3
 										class="text-surface-50! group-hover:text-primary-500! m-0 text-2xl leading-tight font-black uppercase"
 									>
-										{ride.title}
+										<a
+											href={`/ride/${ride.slug}`}
+											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! hover:no-underline"
+											>{ride.title}</a
+										>
 									</h3>
 									{#if ride.summary}
 										<p class="text-surface-300 m-0 mt-2 line-clamp-2 text-sm leading-relaxed">
@@ -752,7 +740,7 @@
 									</span>
 								</div>
 							</div>
-						</a>
+						</article>
 					{/each}
 				</div>
 
@@ -882,11 +870,11 @@
 										}).format(day.date)}
 									</div>
 									<div class="text-primary-500 text-xs font-bold uppercase">
-										{day.rides.length} ride{day.rides.length === 1 ? '' : 's'}
+										{day.items.length} ride{day.items.length === 1 ? '' : 's'}
 									</div>
 								</div>
 								<div class="mt-3 flex flex-col gap-2">
-									{#each day.rides as ride (ride.id ?? ride.slug)}
+									{#each day.items as ride (ride.id ?? ride.slug)}
 										<a
 											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/ride/${ride.slug}`}
@@ -903,56 +891,75 @@
 					{/if}
 				</div>
 
-				<div class="hidden sm:block">
-					<div
-						class="bg-primary-500 text-surface-950 grid grid-cols-7 text-center text-xs font-black tracking-[0.2em] uppercase"
-					>
-						<div class="py-2.5">Sun</div>
-						<div class="py-2.5">Mon</div>
-						<div class="py-2.5">Tue</div>
-						<div class="py-2.5">Wed</div>
-						<div class="py-2.5">Thu</div>
-						<div class="py-2.5">Fri</div>
-						<div class="py-2.5">Sat</div>
-					</div>
-					<div class="border-surface-800 grid grid-cols-7 border-t border-l">
-						{#each calendarMatrix as week, i (i)}
-							{#each week as day (day.key)}
-								<div
-									class={`border-surface-800 flex h-32 flex-col border-r border-b p-2 text-left ${
-										day.inMonth
-											? 'bg-surface-950 text-surface-50'
-											: 'bg-surface-900 text-surface-300 opacity-50'
-									}`}
-								>
-									<div class="text-xs font-black tabular-nums">{day.date.getDate()}</div>
-									<div class="mt-1.5 flex flex-col gap-1 overflow-y-auto">
-										{#if day.rides.length === 0}
-											<p class="text-surface-300 m-0 text-[11px] opacity-50">No rides</p>
-										{:else}
-											{#each day.rides.slice(0, 3) as ride (ride.id ?? ride.slug)}
-												<a
-													class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
-													href={`/ride/${ride.slug}`}
-												>
-													<span class="font-black">
-														{tf.format(parseRideDate(ride.nextOccurrenceStart))}
-													</span>
-													{ride.title}
-												</a>
-											{/each}
-											{#if day.rides.length > 3}
-												<div class="text-primary-500 text-[10px] font-black uppercase">
-													+{day.rides.length - 3} more
-												</div>
+				<table
+					class="hidden w-full table-fixed border-collapse sm:table"
+					aria-label={calendarHeaderText}
+				>
+					<thead>
+						<tr
+							class="bg-primary-500 text-surface-950 text-center text-xs font-black tracking-[0.2em] uppercase"
+						>
+							<th scope="col" class="py-2.5">Sun</th>
+							<th scope="col" class="py-2.5">Mon</th>
+							<th scope="col" class="py-2.5">Tue</th>
+							<th scope="col" class="py-2.5">Wed</th>
+							<th scope="col" class="py-2.5">Thu</th>
+							<th scope="col" class="py-2.5">Fri</th>
+							<th scope="col" class="py-2.5">Sat</th>
+						</tr>
+					</thead>
+					<tbody class="border-surface-800 border-t border-l">
+						{#each calendarMatrix as week (week[0].key)}
+							<tr>
+								{#each week as day (day.key)}
+									<td
+										class={`border-surface-800 border-r border-b p-0 text-left align-top ${
+											day.inMonth
+												? 'bg-surface-950 text-surface-50'
+												: 'bg-surface-900 text-surface-300 opacity-50'
+										}`}
+									>
+										<div class="flex h-32 flex-col p-2">
+											<div class="text-xs font-black tabular-nums">
+												<span aria-hidden="true">{day.date.getDate()}</span>
+												<span class="sr-only">{calendarDayFormat.format(day.date)}</span>
+											</div>
+											<div class="mt-1.5 flex flex-col gap-1 overflow-y-auto">
+												{#if day.items.length === 0}
+													<p class="text-surface-300 m-0 text-[11px] opacity-50">No rides</p>
+												{:else}
+													{#each day.items.slice(0, 3) as ride (ride.id ?? ride.slug)}
+														<a
+															class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
+															href={`/ride/${ride.slug}`}
+														>
+															<span class="font-black">
+																{tf.format(parseRideDate(ride.nextOccurrenceStart))}
+															</span>
+															{ride.title}
+														</a>
+													{/each}
+												{/if}
+											</div>
+											{#if day.items.length > 3}
+												<CalendarDayOverflow
+													dateLabel={calendarDayFormat.format(day.date)}
+													itemLabel="rides"
+													hiddenCount={day.items.length - 3}
+													items={day.items.map((ride) => ({
+														href: `/ride/${ride.slug}`,
+														title: ride.title,
+														time: tf.format(parseRideDate(ride.nextOccurrenceStart))
+													}))}
+												/>
 											{/if}
-										{/if}
-									</div>
-								</div>
-							{/each}
+										</div>
+									</td>
+								{/each}
+							</tr>
 						{/each}
-					</div>
-				</div>
+					</tbody>
+				</table>
 			</div>
 		{:else if view === 'map'}
 			<div transition:slide class="border-surface-50 border-[3px]">
@@ -967,3 +974,21 @@
 		{/if}
 	</section>
 </div>
+
+<style>
+	.ride-card-title-link::after {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		content: '';
+	}
+
+	.ride-card-title-link:focus-visible {
+		outline: none;
+	}
+
+	.ride-card-title-link:focus-visible::after {
+		outline: 3px solid var(--color-primary-500);
+		outline-offset: 4px;
+	}
+</style>

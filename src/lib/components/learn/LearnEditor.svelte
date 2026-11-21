@@ -250,4 +250,20 @@
 	:global(.toastui-editor .ProseMirror) {
 		min-height: 200px !important;
 	}
+
+	@media only screen and (max-width: 480px) {
+		.learn-editor :global(.toastui-editor-popup) {
+			left: 0 !important;
+			max-width: min(300px, 100%);
+			margin-left: 0;
+		}
+
+		.learn-editor :global(.toastui-editor-dropdown-toolbar) {
+			left: 0 !important;
+			right: auto !important;
+			max-width: 100%;
+			height: auto;
+			flex-wrap: wrap;
+		}
+	}
 </style>

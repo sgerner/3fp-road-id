@@ -1,6 +1,5 @@
 <script>
 	import { page } from '$app/state';
-	import { fade } from 'svelte/transition';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
@@ -100,24 +99,21 @@
 </svelte:head>
 
 <div class="min-h-screen w-full">
-	<main class="mx-auto space-y-6 px-4 py-6 md:px-6">
-		<section
-			class="card preset-tonal-primary border-primary-500/20 overflow-hidden rounded-2xl border shadow-sm md:rounded-3xl"
-			in:fade={{ duration: 300 }}
-		>
-			<div class="flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+	<div class="mx-auto space-y-6 px-4 py-6 md:px-6">
+		<section class="border-primary-500 bg-surface-900 overflow-hidden border-y-2">
+			<div class="flex flex-col gap-6 p-5 md:flex-row md:items-center md:justify-between md:p-6">
 				<div class="flex items-center gap-4 text-left">
 					{#if data.group?.logo_url}
 						<img
 							src={data.group.logo_url}
 							alt="{groupName} logo"
-							class="ring-primary-500/20 h-16 w-16 flex-shrink-0 rounded-2xl object-cover shadow-md ring-2 lg:h-20 lg:w-20"
+							class="border-primary-500 h-16 w-16 flex-shrink-0 border-2 object-cover lg:h-20 lg:w-20"
 						/>
 					{:else}
 						<div
-							class="preset-filled-primary-500 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl shadow-md lg:h-20 lg:w-20"
+							class="preset-filled-primary-500 text-surface-950 flex h-16 w-16 flex-shrink-0 items-center justify-center lg:h-20 lg:w-20"
 						>
-							<IconUsers class="h-8 w-8 text-white" />
+							<IconUsers class="h-8 w-8" />
 						</div>
 					{/if}
 
@@ -137,12 +133,10 @@
 								</span>
 							{/if}
 						</div>
-						<h1
-							class="text-surface-900 dark:text-surface-50 text-2xl font-black tracking-tight lg:text-3xl"
-						>
+						<h1 class="text-surface-50! text-2xl font-black tracking-tight lg:text-3xl">
 							{groupName}
 						</h1>
-						<p class="text-surface-900-100 flex items-center gap-1.5 text-xs sm:text-sm">
+						<p class="text-surface-300 flex items-center gap-1.5 text-xs sm:text-sm">
 							<IconMapPin class="h-3.5 w-3.5" />
 							{locationLabel}
 						</p>
@@ -162,9 +156,9 @@
 			</div>
 
 			<!-- Navigation tabs (horizontally scrollable on mobile) -->
-			<div class="border-primary-500/10 bg-surface-50/30 dark:bg-surface-950/30 border-t">
+			<div class="border-surface-800 bg-surface-950 border-t-2">
 				<nav
-					class="flex items-stretch gap-1.5 overflow-x-auto p-2"
+					class="flex items-stretch gap-0 overflow-x-auto"
 					aria-label="Group management sections"
 				>
 					{#each allTabs as tab}
@@ -173,10 +167,10 @@
 						<a
 							href={tab.href}
 							data-sveltekit-preload-data="hover"
-							class="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150
+							class="flex shrink-0 items-center gap-2 border-b-4 border-transparent px-4 py-3 text-sm font-bold tracking-wide uppercase transition-colors
 								{active
-								? 'preset-filled-primary-500 shadow-sm'
-								: 'text-surface-900-100 hover:bg-primary-500/10 hover:text-primary-800 dark:hover:text-primary-200'}"
+								? 'border-primary-500 bg-surface-800 text-primary-500'
+								: 'text-surface-300 hover:border-surface-600 hover:bg-surface-800 hover:text-surface-50'}"
 							aria-current={active ? 'page' : undefined}
 						>
 							<Icon class="h-4 w-4 flex-shrink-0" />
@@ -188,9 +182,9 @@
 		</section>
 
 		{#key pathname}
-			<div class="manage-page-content" in:fade={{ duration: 220 }} out:fade={{ duration: 120 }}>
+			<div class="manage-page-content">
 				{@render children()}
 			</div>
 		{/key}
-	</main>
+	</div>
 </div>

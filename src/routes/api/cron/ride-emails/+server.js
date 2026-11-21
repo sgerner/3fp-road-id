@@ -46,7 +46,7 @@ export async function POST(event) {
 		let templateSent = 0;
 
 		const ride = await loadRideById(supabase, template.activity_event_id, {
-			includeTemplates: false
+			includePrivateRsvps: true
 		}).catch(() => null);
 		if (!ride || ride.activity.status !== 'published') continue;
 

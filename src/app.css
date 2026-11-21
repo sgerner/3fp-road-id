@@ -660,6 +660,13 @@ p {
 	}
 }
 
+@media (prefers-reduced-motion: reduce) {
+	body::before,
+	.app-orb {
+		animation: none;
+	}
+}
+
 /* ── Centralized empty states ── */
 .app-empty-state {
 	border: 1px solid color-mix(in oklab, var(--color-surface-500) 15%, transparent);

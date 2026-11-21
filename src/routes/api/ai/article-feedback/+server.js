@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '#lib/server/activities';
 import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 const ALLOWED_FEEDBACK_TYPES = new Set(['impression', 'click', 'dwell', 'save', 'hide']);
 const DEFAULT_WEIGHTS = {
@@ -113,15 +114,20 @@ export async function POST(event) {
 		return json({ error: 'Unsupported feedbackType.' }, { status: 400 });
 	}
 
-	const { error: feedbackError } = await supabase.from('learn_article_feedback_events').insert({
-		user_id: user?.id || null,
-		session_id: sessionId,
-		article_id: articleId,
-		chunk_id: chunkId,
-		feedback_type: feedbackType,
-		dwell_seconds: feedbackType === 'dwell' ? dwellSeconds : null,
-		context
-	});
+	const serviceSupabase = createServiceSupabaseClient();
+	if (!serviceSupabase) return json({ error: 'Unable to save feedback.' }, { status: 503 });
+
+	const { error: feedbackError } = await serviceSupabase
+		.from('learn_article_feedback_events')
+		.insert({
+			user_id: user?.id || null,
+			session_id: sessionId,
+			article_id: articleId,
+			chunk_id: chunkId,
+			feedback_type: feedbackType,
+			dwell_seconds: feedbackType === 'dwell' ? dwellSeconds : null,
+			context
+		});
 
 	if (feedbackError) {
 		console.warn('Unable to insert learn article feedback event', feedbackError);

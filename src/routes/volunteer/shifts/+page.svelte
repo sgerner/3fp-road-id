@@ -436,6 +436,7 @@
 													<button
 														type="button"
 														class="text-surface-300 hover:text-primary-500 flex w-full items-center justify-between gap-2 text-xs font-black tracking-[0.16em] uppercase transition"
+														aria-expanded={isRescheduleOpen(record.id)}
 														onclick={() => toggleReschedule(record.id)}
 													>
 														<span class="flex items-center gap-2">

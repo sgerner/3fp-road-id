@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fetchPublicHttp, isPublicHttpUrl, readFormData } from './security.js';
+import { createHmac } from 'node:crypto';
+import {
+	fetchPublicHttp,
+	isPublicHttpUrl,
+	readFormData,
+	verifyVercelWebhookRequest
+} from './security.js';
+
+test('Vercel webhook verification uses the original bytes and preserves legacy signatures', () => {
+	const secret = 'test-webhook-secret';
+	const body = Buffer.from('{ "type": "domain.event", "name": "vélo" }\n');
+	for (const algorithm of ['sha1', 'sha256']) {
+		const signature = createHmac(algorithm, secret).update(body).digest('hex');
+		const request = new Request('https://example.com/api/vercel/webhook', {
+			headers: { 'x-vercel-signature': signature }
+		});
+		assert.equal(verifyVercelWebhookRequest(request, body, secret), true);
+		assert.equal(verifyVercelWebhookRequest(request, body.subarray(0, -1), secret), false);
+		assert.equal(verifyVercelWebhookRequest(request, body, ''), false);
+	}
+});
 
 test('public HTTP validation blocks local, special-use, and nonstandard-port targets', async () => {
 	assert.equal(await isPublicHttpUrl('http://127.0.0.1/'), false);

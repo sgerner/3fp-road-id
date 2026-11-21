@@ -74,3 +74,34 @@ export function resetTurnstile(widgetId) {
 	if (!window.turnstile || widgetId == null) return;
 	window.turnstile.reset(widgetId);
 }
+
+export async function requestTurnstileToken(element, sitekey) {
+	const turnstile = await loadTurnstile();
+	if (!turnstile || !element?.isConnected) return null;
+
+	let widgetId;
+	let timeout;
+	try {
+		return await new Promise((resolve) => {
+			timeout = setTimeout(() => resolve(null), 120_000);
+			widgetId = turnstile.render(element, {
+				sitekey,
+				execution: 'execute',
+				appearance: 'interaction-only',
+				retry: 'never',
+				callback: resolve,
+				'error-callback': () => {
+					resolve(null);
+					return true;
+				},
+				'expired-callback': () => resolve(null),
+				'timeout-callback': () => resolve(null),
+				'unsupported-callback': () => resolve(null)
+			});
+			turnstile.execute(widgetId);
+		});
+	} finally {
+		clearTimeout(timeout);
+		if (widgetId != null) turnstile.remove(widgetId);
+	}
+}

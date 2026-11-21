@@ -21,39 +21,34 @@
 		currentProfile={data.currentProfile}
 	/>
 {:else}
-	<main class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-24">
+	<div class="-m-4">
 		<section
-			class="hero-section preset-outlined-surface-500 relative overflow-hidden rounded-3xl p-8 py-16 text-center shadow-2xl lg:p-16"
+			class="bg-surface-900 border-surface-700 border-primary-500 relative overflow-hidden border-t-4 px-6 py-16 text-center sm:px-10 lg:py-24"
 		>
-			<div class="app-orb app-orb-1 opacity-60" aria-hidden="true"></div>
-			<div class="app-orb app-orb-2 opacity-60" aria-hidden="true"></div>
-			<div class="app-orb app-orb-3 opacity-60" aria-hidden="true"></div>
-
-			<div class="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-6">
-				<h1 class="text-4xl font-extrabold tracking-tight text-balance md:text-5xl lg:text-6xl">
-					Log in to create a <br class="hidden sm:block" /><span
-						class="text-primary-500 drop-shadow-sm">ride event</span
-					>
+			<div class="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-6">
+				<h1
+					class="text-[clamp(2.9rem,7.4vw,5rem)] leading-[0.86] font-black tracking-[-0.04em] text-balance uppercase italic"
+				>
+					Log in to create a ride
+					<span class="text-primary-500">event</span>
 				</h1>
-				<p class="max-w-xl text-lg leading-relaxed text-balance opacity-80">
-					Please log in or register first using the <strong class="text-white"
-						>Log in / Register</strong
-					> button in the header before creating a new event.
+				<p class="max-w-xl text-lg leading-relaxed text-balance">
+					Use the button below to sign in or create an account. You can publish your ride as soon as
+					you're signed in.
 				</p>
 				<div class="mt-4 pt-2">
 					<button
-						class="btn preset-filled-primary-500 shadow-primary-500/20 mr-3 px-8 py-2.5 font-semibold shadow-xl transition hover:-translate-y-1"
+						class="btn preset-filled-primary-500 mr-3 px-8 py-3 font-black transition"
 						type="button"
 						onclick={() => window.dispatchEvent(new Event('open-login'))}
 					>
 						Log in / Register
 					</button>
-					<a
-						class="btn preset-filled-primary-500 shadow-primary-500/20 px-8 py-2.5 font-semibold shadow-xl transition hover:-translate-y-1"
-						href="/ride">Back to rides</a
+					<a class="btn preset-outlined-primary-500 px-8 py-3 font-black transition" href="/ride"
+						>Back to rides</a
 					>
 				</div>
 			</div>
 		</section>
-	</main>
+	</div>
 {/if}

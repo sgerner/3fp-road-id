@@ -1,4 +1,5 @@
 <script>
+	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { onMount } from 'svelte';
 	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
@@ -73,6 +74,11 @@
 	let uploadingMedia = $state(false);
 	let queuedMediaFiles = $state([]);
 	let composerModalOpen = $state(false);
+	let composerDialog = $state(null);
+
+	$effect(() => {
+		if (composerModalOpen && composerDialog && !composerDialog.open) composerDialog.showModal();
+	});
 	let composerPreviewExpanded = $state(false);
 	let mobilePreviewOpen = $state(false);
 	let mediaDropActive = $state(false);
@@ -173,7 +179,7 @@
 		}, {})
 	);
 
-	const monthMatrix = $derived(buildCalendarMatrix(calendarReference, postsByScheduleDay));
+	const monthMatrix = $derived(buildMonthGrid(calendarReference, postsByScheduleDay, toDateKey));
 	const weekDays = $derived(buildWeekDays(calendarReference, postsByScheduleDay));
 	const weekRows = $derived.by(() =>
 		CALENDAR_HOURS.map((hour) => ({
@@ -197,7 +203,7 @@
 			week.some((entry) => entry.date.toDateString() === today.toDateString())
 		);
 		if (weekWithToday) return weekWithToday;
-		const weekWithPosts = monthMatrix.find((week) => week.some((entry) => entry.posts.length > 0));
+		const weekWithPosts = monthMatrix.find((week) => week.some((entry) => entry.items.length > 0));
 		return weekWithPosts ?? monthMatrix[0] ?? [];
 	});
 
@@ -496,6 +502,7 @@
 	}
 
 	function closeComposerModal() {
+		if (composerDialog?.open) composerDialog.close();
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
 		mobilePreviewOpen = false;
@@ -549,30 +556,6 @@
 	function handleCalendarSlotClick(date, hour = 9) {
 		const slot = defaultSlotForDay(date, hour);
 		openComposerModal(slot);
-	}
-
-	function buildCalendarMatrix(reference, lookup) {
-		const monthStart = startOfMonth(reference);
-		const month = monthStart.getMonth();
-		const year = monthStart.getFullYear();
-		const firstDate = startOfWeek(monthStart);
-		const weeks = [];
-
-		for (let w = 0; w < 6; w += 1) {
-			const days = [];
-			for (let d = 0; d < 7; d += 1) {
-				const current = addDays(firstDate, w * 7 + d);
-				const key = toDateKey(current);
-				days.push({
-					date: current,
-					key,
-					inMonth: current.getMonth() === month && current.getFullYear() === year,
-					posts: key && lookup[key] ? lookup[key] : []
-				});
-			}
-			weeks.push(days);
-		}
-		return weeks;
 	}
 
 	function buildWeekDays(reference, lookup) {
@@ -1387,7 +1370,7 @@
 			await refreshPosts();
 			await loadContentLibrary(contentLibraryFilter);
 			if (intent !== 'save_draft') {
-				composerModalOpen = false;
+				closeComposerModal();
 			}
 		} catch (error) {
 			showActionError(error?.message || 'Unable to save post.');
@@ -1803,9 +1786,7 @@
 </script>
 
 {#if canManageSocial || showClaimMessage}
-	<section
-		class="card border-surface-300-700 bg-surface-100-900/70 space-y-6 rounded-2xl border p-5"
-	>
+	<section class="card border-surface-300-700 bg-surface-100-900 space-y-6 border p-5">
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div>
 				<h2 class="text-xl font-semibold">Social Media Manager</h2>
@@ -1832,32 +1813,31 @@
 		</div>
 
 		{#if showClaimMessage && !canManageSocial}
-			<div class="card border-warning-400-600/30 bg-warning-500/10 rounded-xl border p-4 text-sm">
+			<div class="card border-warning-400-600/30 bg-warning-500/10 border p-4 text-sm">
 				This group must be claimed first before social media management is available.
 			</div>
 		{:else}
 			{#if loadError}
-				<div class="card border-error-400-600/35 bg-error-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-error-400-600/35 bg-error-500/10 border p-3 text-sm">
 					{loadError}
 				</div>
 			{/if}
 			{#if actionError}
-				<div class="card border-error-400-600/35 bg-error-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-error-400-600/35 bg-error-500/10 border p-3 text-sm">
 					{actionError}
 				</div>
 			{/if}
 			{#if actionNotice}
-				<div class="card border-success-400-600/35 bg-success-500/10 rounded-xl border p-3 text-sm">
+				<div class="card border-success-400-600/35 bg-success-500/10 border p-3 text-sm">
 					{actionNotice}
 				</div>
 			{/if}
 
 			{#if shouldShowConnectionsPanel}
 				<section
-					class="tip-card relative overflow-hidden rounded-xl p-4"
+					class="bg-surface-200-800 border-surface-300-700 border p-4"
 					in:fade={{ duration: 250, delay: 100 }}
 				>
-					<div class="tip-glow" aria-hidden="true"></div>
 					<div class="relative z-10 mb-4 flex items-start gap-3">
 						<div
 							class="bg-secondary-500/15 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
@@ -1876,7 +1856,7 @@
 						{#each PLATFORMS as platform}
 							{@const account = accountByPlatform(platform)}
 							{@const pending = pendingByPlatform(platform)}
-							<div class="card border-surface-300-700 rounded-xl border p-4">
+							<div class="card border-surface-300-700 border p-4">
 								<div class="flex items-start justify-between gap-3">
 									<div>
 										<div class="font-semibold">{platformLabel(platform)}</div>
@@ -1919,7 +1899,7 @@
 
 								{#if pending && Array.isArray(pending.options) && pending.options.length}
 									<div
-										class="card border-warning-400-600/35 bg-warning-500/10 mt-3 space-y-2 rounded-lg border p-3"
+										class="card border-warning-400-600/35 bg-warning-500/10 mt-3 space-y-2 border p-3"
 									>
 										<div class="text-xs font-medium">
 											Choose the {platformLabel(platform)} account to connect
@@ -1935,7 +1915,7 @@
 												</div>
 												<button
 													type="button"
-													class="btn btn-xs preset-filled-primary-500"
+													class="btn btn-sm preset-filled-primary-500"
 													onclick={() =>
 														selectPendingConnection(platform, pending.id, option.option_id)}
 													disabled={Boolean(accountActionPending[optionKey])}
@@ -2061,13 +2041,7 @@
 							<div class="grid gap-2 sm:hidden">
 								{#each mobileMonthDays as day}
 									<div
-										role="button"
-										tabindex="0"
-										class={`event-card bg-surface-50-950/40 border-surface-500/20 rounded-xl border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
-										onclick={() => handleCalendarSlotClick(day.date, 9)}
-										onkeydown={(event) =>
-											(event.key === 'Enter' || event.key === ' ') &&
-											handleCalendarSlotClick(day.date, 9)}
+										class={`event-card bg-surface-50-950 border-surface-500/20 border p-3 text-left ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 									>
 										<div class="flex items-center justify-between">
 											<div class="text-xs font-semibold">
@@ -2077,11 +2051,19 @@
 													day: 'numeric'
 												}).format(day.date)}
 											</div>
-											<div class="text-[11px]">{day.posts.length} posts</div>
+											<div class="flex items-center gap-2">
+												<div class="text-[11px]">{day.items.length} posts</div>
+												<button
+													type="button"
+													class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-2 py-1 text-xs font-semibold"
+													aria-label={`Schedule a post on ${day.date.toLocaleDateString()}`}
+													onclick={() => handleCalendarSlotClick(day.date, 9)}>Add</button
+												>
+											</div>
 										</div>
-										{#if day.posts.length > 0}
+										{#if day.items.length > 0}
 											<div class="mt-2 space-y-1">
-												{#each day.posts.slice(0, 2) as post}
+												{#each day.items.slice(0, 2) as post}
 													<button
 														type="button"
 														class={`w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
@@ -2121,21 +2103,23 @@
 									{#each monthMatrix as week, i}
 										{#each week as day, j}
 											<div
-												role="button"
-												tabindex="0"
-												class={`event-card bg-surface-50-950/40 border-surface-500/20 hover:bg-surface-200-800/20 flex h-28 flex-col rounded-xl border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
+												class={`event-card bg-surface-50-950 border-surface-500/20 flex h-28 flex-col border p-2 text-left transition-colors ${day.inMonth ? 'text-surface-900-100' : 'text-surface-500'}`}
 												style="--stagger: {(i * 7 + j) % 21}"
-												onclick={() => handleCalendarSlotClick(day.date, 9)}
-												onkeydown={(event) =>
-													(event.key === 'Enter' || event.key === ' ') &&
-													handleCalendarSlotClick(day.date, 9)}
 											>
-												<div class="text-[11px] font-semibold">{day.date.getDate()}</div>
+												<div class="flex items-center justify-between gap-1">
+													<span class="text-[11px] font-semibold">{day.date.getDate()}</span>
+													<button
+														type="button"
+														class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-1 text-[10px] font-semibold"
+														aria-label={`Schedule a post on ${day.date.toLocaleDateString()}`}
+														onclick={() => handleCalendarSlotClick(day.date, 9)}>+</button
+													>
+												</div>
 												<div class="mt-1 space-y-1 overflow-y-auto">
-													{#if day.posts.length === 0}
+													{#if day.items.length === 0}
 														<p class="text-surface-500 text-[11px]">Open slot</p>
 													{:else}
-														{#each day.posts.slice(0, 3) as post}
+														{#each day.items.slice(0, 3) as post}
 															<button
 																type="button"
 																class={`block w-full rounded px-1 py-0.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
@@ -2154,9 +2138,9 @@
 																)}
 															</button>
 														{/each}
-														{#if day.posts.length > 3}
+														{#if day.items.length > 3}
 															<div class="text-secondary-700-300 text-[10px] font-medium">
-																+{day.posts.length - 3} more
+																+{day.items.length - 3} more
 															</div>
 														{/if}
 													{/if}
@@ -2192,14 +2176,17 @@
 												{#each row.slots as slot}
 													<td class="p-1 align-top">
 														<div
-															role="button"
-															tabindex="0"
-															class="hover:bg-surface-200-800/40 border-surface-400-600/40 min-h-16 w-full rounded-lg border p-2 text-left transition-colors"
-															onclick={() => handleCalendarSlotClick(slot.day.date, row.hour)}
-															onkeydown={(event) =>
-																(event.key === 'Enter' || event.key === ' ') &&
-																handleCalendarSlotClick(slot.day.date, row.hour)}
+															class="border-surface-400-600/40 min-h-16 w-full rounded-lg border p-2 text-left"
 														>
+															<div class="mb-1 flex justify-end">
+																<button
+																	type="button"
+																	class="text-secondary-700-300 text-[10px] font-semibold"
+																	aria-label={`Schedule a post at ${formatHourLabel(row.hour)} on ${slot.day.date.toLocaleDateString()}`}
+																	onclick={() => handleCalendarSlotClick(slot.day.date, row.hour)}
+																	>Add</button
+																>
+															</div>
 															{#if slot.posts.length === 0}
 																<div class="text-surface-600-400 text-[10px]">Open slot</div>
 															{:else}
@@ -2228,23 +2215,26 @@
 								</table>
 							</div>
 						{:else if calendarView === 'day'}
-							<div class="card border-surface-300-700 rounded-xl border p-3">
+							<div class="card border-surface-300-700 border p-3">
 								<div class="space-y-2">
 									{#each daySlots as slot}
 										<div
-											role="button"
-											tabindex="0"
-											class="hover:bg-surface-200-800/40 border-surface-400-600/40 flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
-											onclick={() => handleCalendarSlotClick(calendarReference, slot.hour)}
-											onkeydown={(event) =>
-												(event.key === 'Enter' || event.key === ' ') &&
-												handleCalendarSlotClick(calendarReference, slot.hour)}
+											class="border-surface-400-600/40 flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
 										>
-											<div class="w-20 text-sm font-semibold">
+											<div
+												class="flex w-20 shrink-0 flex-col items-start gap-2 text-sm font-semibold"
+											>
 												{new Intl.DateTimeFormat(undefined, {
 													hour: 'numeric',
 													minute: '2-digit'
 												}).format(slot.date)}
+												<button
+													type="button"
+													class="text-secondary-700-300 hover:bg-secondary-500/10 rounded px-2 py-1 text-xs font-semibold"
+													aria-label={`Schedule a post at ${formatHourLabel(slot.hour)} on ${calendarReference.toLocaleDateString()}`}
+													onclick={() => handleCalendarSlotClick(calendarReference, slot.hour)}
+													>Add</button
+												>
 											</div>
 											<div class="min-w-0 flex-1">
 												{#if slot.posts.length === 0}
@@ -2275,7 +2265,7 @@
 							<div class="space-y-3">
 								{#if upcomingCards.length === 0}
 									<div
-										class="card preset-filled-surface-100-900 border-surface-200-800 flex flex-col items-center justify-center rounded-xl border p-8 text-center"
+										class="card preset-filled-surface-100-900 border-surface-200-800 flex flex-col items-center justify-center border p-8 text-center"
 									>
 										<div
 											class="bg-surface-200-800 mb-3 flex h-12 w-12 items-center justify-center rounded-full"
@@ -2288,7 +2278,7 @@
 								{:else}
 									{#each upcomingCards as post}
 										<div
-											class="card preset-filled-surface-100-900 border-surface-200-800 group hover:border-primary-500/30 relative overflow-hidden rounded-xl border transition-all duration-200"
+											class="card preset-filled-surface-100-900 border-surface-200-800 group hover:border-primary-500/30 relative overflow-hidden border transition-all duration-200"
 										>
 											<!-- Status indicator line -->
 											<div
@@ -2455,15 +2445,12 @@
 			</section>
 
 			{#if composerModalOpen}
-				<div
-					class="composer-backdrop"
-					role="dialog"
-					aria-modal="true"
-					aria-label={composerReadOnly ? 'Post Details' : 'Schedule Content'}
-					tabindex="-1"
+				<dialog
+					bind:this={composerDialog}
+					class="composer-dialog"
+					aria-labelledby="social-composer-title"
+					onclose={closeComposerModal}
 					onclick={(event) => event.target === event.currentTarget && closeComposerModal()}
-					onkeydown={(event) => event.key === 'Escape' && closeComposerModal()}
-					transition:fade={{ duration: 200 }}
 				>
 					<div class="composer-panel">
 						<!-- Header -->
@@ -2473,7 +2460,7 @@
 									<IconSparkles class="h-4 w-4" />
 								</div>
 								<div>
-									<h3 class="composer-title">
+									<h3 id="social-composer-title" class="composer-title">
 										{composerReadOnly ? 'Scheduled Post Details' : 'Schedule Content'}
 									</h3>
 									<p class="composer-subtitle">
@@ -3125,8 +3112,7 @@
 						</div>
 					</div>
 					<!-- /composer-panel -->
-				</div>
-				<!-- /composer-backdrop -->
+				</dialog>
 			{/if}
 
 			<section class="space-y-3">
@@ -3182,7 +3168,7 @@
 						</button>
 					</div>
 				</div>
-				<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4">
+				<div class="card border-surface-300-700 bg-surface-50-950 border p-4">
 					<div class="flex flex-wrap items-end gap-3">
 						<label
 							class="btn btn-sm preset-filled-primary-500 cursor-pointer justify-center"
@@ -3211,16 +3197,14 @@
 					</p>
 				</div>
 				{#if filteredLibraryItems.length === 0}
-					<div
-						class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-4 text-sm"
-					>
+					<div class="card border-surface-300-700 bg-surface-50-950 border p-4 text-sm">
 						No content found for this filter. Save AI-generated drafts from the composer to build
 						your library.
 					</div>
 				{:else}
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 						{#each filteredLibraryItems as item}
-							<div class="card border-surface-300-700 bg-surface-50-950/40 rounded-xl border p-3">
+							<div class="card border-surface-300-700 bg-surface-50-950 border p-3">
 								{#if postPrimaryImageUrl(item)}
 									<img
 										src={postPrimaryImageUrl(item)}
@@ -3621,71 +3605,46 @@
 {/if}
 
 <style>
-	/* ─── Existing tip-card / glow (unchanged) ─── */
-	.tip-card {
-		background: color-mix(in oklab, var(--color-secondary-500) 6%, var(--color-surface-900) 94%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 15%, transparent);
-	}
-
-	.tip-glow {
-		position: absolute;
-		inset: 0;
-		background: radial-gradient(
-			ellipse 50% 40% at 0% 100%,
-			color-mix(in oklab, var(--color-secondary-500) 10%, transparent),
-			transparent 70%
-		);
-		pointer-events: none;
-	}
-
 	/* ─── Composer Modal ─── */
 
-	.composer-backdrop {
+	.composer-dialog {
 		position: fixed;
-		inset: 0;
-		margin: 0;
-		z-index: 120;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding: 0;
-		background: color-mix(in oklab, var(--color-surface-950) 85%, transparent);
-		backdrop-filter: blur(8px);
-		padding-bottom: env(safe-area-inset-bottom);
-	}
-
-	@media (min-width: 640px) {
-		.composer-backdrop {
-			align-items: center;
-		}
-	}
-
-	.composer-panel {
+		inset: auto 0 env(safe-area-inset-bottom);
+		margin: 0 auto;
 		width: 100%;
 		max-width: 42rem;
 		max-height: 95dvh;
+		padding: 0;
+		background: transparent;
+	}
+
+	.composer-dialog::backdrop {
+		background: rgb(0 0 0 / 85%);
+	}
+
+	.composer-panel {
+		max-height: 95dvh;
 		display: flex;
 		flex-direction: column;
-		border-radius: 1.5rem 1.5rem 0 0;
-		background: color-mix(in oklab, var(--color-surface-900) 97%, var(--color-secondary-500) 3%);
-		border: 1px solid
-			color-mix(in oklab, var(--color-surface-700) 60%, var(--color-secondary-500) 40%);
-		box-shadow:
-			0 -4px 40px -8px color-mix(in oklab, var(--color-secondary-500) 20%, transparent),
-			0 25px 60px -12px rgba(0, 0, 0, 0.6);
+		background: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
 		overflow: hidden;
 	}
 
 	@media (min-width: 640px) {
+		.composer-dialog {
+			inset: 0;
+			margin: auto;
+		}
+
+		.composer-dialog,
 		.composer-panel {
-			max-width: 42rem;
-			border-radius: 1.5rem;
 			max-height: 90dvh;
 		}
 	}
 
 	@media (min-width: 1024px) {
-		.composer-panel {
+		.composer-dialog {
 			max-width: 64rem;
 		}
 	}

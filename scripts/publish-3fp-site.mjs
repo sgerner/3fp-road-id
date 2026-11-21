@@ -16,7 +16,10 @@ function readEnvValue(source, key) {
 	return value;
 }
 
-const envSource = await readFile(new URL('../.env', import.meta.url), 'utf8');
+const envSource = await readFile(new URL('../.env', import.meta.url), 'utf8').catch((error) => {
+	if (error.code === 'ENOENT') return '';
+	throw error;
+});
 const supabaseUrl =
 	process.env.PUBLIC_SUPABASE_URL || readEnvValue(envSource, 'PUBLIC_SUPABASE_URL');
 const serviceRoleKey =

@@ -252,6 +252,7 @@
 	}
 	// Keep hidden fields in sync with user-provided AI inputs when no AI call is made
 	$effect(() => {
+		if (!data.groupsNavUser?.id) return;
 		// Suggested website falls back to AI Website field if visible Website is left blank
 		hiddenSuggestedWebsite = (aiWebsite || '').trim();
 		const socials = {};
@@ -267,6 +268,7 @@
 		}
 	});
 	$effect(() => {
+		if (!data.groupsNavUser?.id) return;
 		const aiAddress = (hiddenMeetingAddress || '').trim();
 		const cityPart = (city || '').trim();
 		const statePart = (stateRegion || '').trim();
@@ -291,11 +293,13 @@
 			.replace(/-+/g, '-');
 	}
 	$effect(() => {
+		if (!data.groupsNavUser?.id) return;
 		if (!handleTouched) handle = slugify(name);
 	});
 
 	// Debounced slug availability check
 	$effect(() => {
+		if (!data.groupsNavUser?.id) return;
 		if (!handle) {
 			handleStatus = '';
 			return;
@@ -318,7 +322,7 @@
 		}, 350);
 	});
 	onMount(() => {
-		if (typeof window === 'undefined') return;
+		if (typeof window === 'undefined' || !data.groupsNavUser?.id) return;
 		const read = (id) => document.getElementById(id)?.value?.trim() || '';
 		city = read('city');
 		stateRegion = read('state_region');
@@ -379,7 +383,42 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+{#if !data.groupsNavUser?.id}
+	<div class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-20">
+		<section
+			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] p-6 sm:p-10"
+		>
+			<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+				Community directory
+			</p>
+			<h1
+				class="text-surface-50! m-0 text-4xl leading-[0.92] font-black uppercase italic sm:text-6xl"
+			>
+				Sign in to add a cycling group
+			</h1>
+			<p class="text-surface-300 m-0 max-w-2xl text-lg leading-relaxed">
+				Sign in or create an account to add a group to the directory.
+			</p>
+			<div class="flex flex-wrap gap-3">
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-6 py-3 text-sm font-black uppercase transition"
+					onclick={() => window.dispatchEvent(new Event('open-login'))}
+				>
+					Log in / Register
+				</button>
+				<a
+					class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 border-2 px-6 py-3 text-sm font-black uppercase transition"
+					href="/groups"
+				>
+					Browse groups
+				</a>
+			</div>
+		</section>
+	</div>
+{/if}
+
+<div hidden={!data.groupsNavUser?.id} class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<header
 		class="bg-primary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1fr)_auto]"

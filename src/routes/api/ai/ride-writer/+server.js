@@ -1,3 +1,4 @@
+import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
 import { json } from '@sveltejs/kit';
 import {
 	getAiConfigurationError,
@@ -147,37 +148,6 @@ function formatMessages(messages) {
 		.slice(0, 20_000);
 }
 
-function safeParseJson(text) {
-	if (!text) return null;
-	const first = text.indexOf('{');
-	const last = text.lastIndexOf('}');
-	if (first === -1 || last === -1 || last <= first) return null;
-	const candidate = text.slice(first, last + 1);
-	try {
-		return JSON.parse(candidate);
-	} catch {
-		const cleaned = candidate.replace(/^```json\s*/i, '').replace(/```$/i, '');
-		try {
-			return JSON.parse(cleaned);
-		} catch {
-			return null;
-		}
-	}
-}
-
-function isSchemaUnsupportedError(error) {
-	if (!error) return false;
-	const raw = error?.message;
-	if (typeof raw !== 'string') return false;
-	try {
-		const parsed = JSON.parse(raw);
-		const message = parsed?.error?.message || '';
-		return /response_schema/i.test(message) || /Invalid JSON payload/i.test(message);
-	} catch {
-		return /response_schema/i.test(raw) || /Invalid JSON payload/i.test(raw);
-	}
-}
-
 async function generateRideDraft({ prompt, useSchema = true }) {
 	const { client, model } = requireAiModel('structured_text');
 	const config = {};
@@ -272,7 +242,6 @@ Respond with JSON matching the schema.`;
 		});
 
 		let text = response?.text ?? '';
-		if (typeof text === 'function') text = text();
 		const parsed = safeParseJson(text);
 		return json(normalizeAiPayload(parsed, text));
 	} catch (error) {
@@ -284,7 +253,6 @@ Respond with JSON matching the schema.`;
 					useSchema: false
 				});
 				let text = fallbackResponse?.text ?? '';
-				if (typeof text === 'function') text = text();
 				const parsed = safeParseJson(text);
 				return json(normalizeAiPayload(parsed, text));
 			} catch (fallbackError) {

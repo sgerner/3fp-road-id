@@ -423,12 +423,38 @@ async function syncStore(
 }
 
 Deno.serve(async (req) => {
+	if (req.method !== 'POST') {
+		return Response.json(
+			{ error: 'Method not allowed.' },
+			{ status: 405, headers: { Allow: 'POST' } }
+		);
+	}
+	const cronSecret = req.headers.get('x-cron-secret');
+	if (!cronSecret || cronSecret.length > 256) {
+		return Response.json({ error: 'Unauthorized.' }, { status: 401 });
+	}
+
 	if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 		return new Response(JSON.stringify({ error: 'Supabase service role is not configured.' }), {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
+	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+		auth: { persistSession: false }
+	});
+
+	const { data: authorized, error: authorizationError } = await supabase.rpc(
+		'verify_internal_cron_secret',
+		{ secret_name: 'merch_sync_printful', provided_secret: cronSecret }
+	);
+	if (authorizationError) {
+		return Response.json({ error: 'Sync authorization unavailable.' }, { status: 503 });
+	}
+	if (authorized !== true) {
+		return Response.json({ error: 'Unauthorized.' }, { status: 401 });
+	}
+
 	if (!PRINTFUL_CLIENT_ID || !PRINTFUL_CLIENT_SECRET) {
 		return new Response(
 			JSON.stringify({ error: 'Printful OAuth credentials are not configured.' }),
@@ -438,10 +464,6 @@ Deno.serve(async (req) => {
 			}
 		);
 	}
-
-	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-		auth: { persistSession: false }
-	});
 
 	const body = await req.json().catch(() => ({}));
 	const requestedStoreId = cleanText(body?.store_id || body?.storeId, 64);

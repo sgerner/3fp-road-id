@@ -171,7 +171,10 @@ export async function PUT({ params, request, cookies }) {
 	await syncActivityOccurrences(supabase, rideId, schedule, { cutoffStart });
 	await refreshActivityNextOccurrence(supabase, rideId);
 
-	const ride = await loadRideBySlug(supabase, slug, { includeTemplates: true });
+	const ride = await loadRideBySlug(supabase, slug, {
+		includeTemplates: true,
+		includePrivateRsvps: true
+	});
 	return json({ data: ride });
 }
 

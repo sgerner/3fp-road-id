@@ -36,6 +36,7 @@
 	let insertedAssetId = $state('');
 	let copiedNotice = $state('');
 	let previewAssetId = $state('');
+	let previewDialog = $state(null);
 	let results = $derived(uploaded);
 	const PAGE_SIZE = 12;
 
@@ -73,6 +74,10 @@
 
 	let displayItems = $derived(results.map(normalizeAsset));
 	let previewAsset = $derived(displayItems.find((item) => item.id === previewAssetId) ?? null);
+	$effect(() => {
+		if (previewAsset && previewDialog && !previewDialog.open) previewDialog.showModal();
+	});
+
 	let visibleFilters = $derived(
 		articleId ? [...FILTERS, { value: 'article', label: 'This article' }] : FILTERS
 	);
@@ -194,9 +199,7 @@
 	}
 </script>
 
-<section
-	class="border-surface-500/20 bg-surface-900/55 space-y-4 rounded-[1.75rem] border p-5 shadow-lg"
->
+<section class="border-surface-500/30 bg-surface-900 space-y-4 border-t p-5">
 	<div class="space-y-1">
 		<p class="label">{heading}</p>
 		<p class="text-sm opacity-70">
@@ -230,9 +233,7 @@
 	</div>
 
 	{#if copiedNotice}
-		<div
-			class="border-success-500/25 bg-success-500/10 flex items-start gap-3 rounded-2xl border p-3 text-sm"
-		>
+		<div class="border-success-500/25 bg-success-500/10 flex items-start gap-3 border p-3 text-sm">
 			<IconCheck class="text-success-500 mt-0.5 h-4 w-4" />
 			<p>{copiedNotice}</p>
 		</div>
@@ -280,12 +281,10 @@
 		{#if filteredItems.length}
 			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each pagedItems as item}
-					<div
-						class="border-surface-500/20 bg-surface-950/55 overflow-hidden rounded-[1.5rem] border shadow-md"
-					>
+					<div class="border-surface-500/20 bg-surface-950 overflow-hidden border">
 						<button
 							type="button"
-							class="asset-preview bg-surface-900/80 flex h-48 w-full items-center justify-center overflow-hidden"
+							class="asset-preview bg-surface-900 flex h-48 w-full items-center justify-center overflow-hidden"
 							onclick={() => {
 								previewAssetId = item.id;
 							}}
@@ -416,9 +415,7 @@
 				</div>
 			{/if}
 		{:else}
-			<div
-				class="border-surface-500/30 bg-surface-950/35 rounded-2xl border border-dashed p-6 text-sm opacity-70"
-			>
+			<div class="border-surface-500/30 bg-surface-950 border border-dashed p-6 text-sm opacity-70">
 				No assets match that search yet.
 			</div>
 		{/if}
@@ -426,15 +423,13 @@
 </section>
 
 {#if previewAsset}
-	<div
-		class="bg-surface-50-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+	<dialog
+		bind:this={previewDialog}
+		class="border-surface-500/20 bg-surface-950 text-surface-50 backdrop:bg-surface-50-950/80 fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-4xl overflow-hidden border p-0"
+		aria-label={`Preview ${previewAsset.fileName}`}
+		onclose={() => (previewAssetId = '')}
 	>
-		<div
-			class="border-surface-500/20 bg-surface-950 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border shadow-2xl"
-			role="dialog"
-			aria-modal="true"
-			aria-label={`Preview ${previewAsset.fileName}`}
-		>
+		<div class="flex max-h-[90dvh] flex-col">
 			<div class="border-surface-500/15 flex items-start justify-between gap-4 border-b p-5">
 				<div class="space-y-1">
 					<p class="text-lg font-semibold">{previewAsset.fileName}</p>
@@ -451,9 +446,8 @@
 				<button
 					class="btn btn-sm preset-tonal-surface"
 					type="button"
-					onclick={() => {
-						previewAssetId = '';
-					}}
+					aria-label="Close media preview"
+					onclick={() => previewDialog.close()}
 				>
 					<IconX class="h-4 w-4" />
 				</button>
@@ -462,20 +456,20 @@
 			<div class="flex-1 overflow-auto p-5">
 				{#if previewAsset.isImage}
 					<img
-						class="mx-auto max-h-[60vh] rounded-[1.5rem] object-contain"
+						class="mx-auto max-h-[60vh] object-contain"
 						src={previewAsset.url}
 						alt={previewAsset.fileName}
 					/>
 				{:else if previewAsset.isPdf}
 					<iframe
-						class="border-surface-500/20 bg-surface-900 h-[60vh] w-full rounded-[1.5rem] border"
+						class="border-surface-500/20 bg-surface-900 h-[60vh] w-full border"
 						src={previewAsset.url}
 						title={previewAsset.fileName}
 					></iframe>
 				{:else}
 					{@const PreviewIcon = getPreviewIcon(previewAsset)}
 					<div
-						class="border-surface-500/25 bg-surface-900/45 flex h-[32vh] flex-col items-center justify-center rounded-[1.5rem] border border-dashed px-6 text-center"
+						class="border-surface-500/25 bg-surface-900 flex h-[32vh] flex-col items-center justify-center border border-dashed px-6 text-center"
 					>
 						<PreviewIcon class="h-14 w-14 opacity-65" />
 						<p class="mt-4 text-base font-semibold">Preview not embedded for this file type</p>
@@ -490,8 +484,11 @@
 					<p class="mt-4 text-xs opacity-55">{previewAsset.sourcePath}</p>
 				{/if}
 
-				<textarea class="textarea mt-4 min-h-24 text-xs" readonly value={buildSnippet(previewAsset)}
-				></textarea>
+				<textarea
+					class="textarea mt-4 min-h-24 text-xs"
+					aria-label="Markdown snippet"
+					readonly
+					value={buildSnippet(previewAsset)}></textarea>
 			</div>
 
 			<div class="border-surface-500/15 flex flex-wrap gap-2 border-t p-5">
@@ -522,7 +519,7 @@
 				</a>
 			</div>
 		</div>
-	</div>
+	</dialog>
 {/if}
 
 <style>

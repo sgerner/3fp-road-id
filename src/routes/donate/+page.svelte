@@ -4,9 +4,6 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconShield from '@lucide/svelte/icons/shield';
 	import IconLock from '@lucide/svelte/icons/lock';
-	import IconBike from '@lucide/svelte/icons/bike';
-	import IconUsers from '@lucide/svelte/icons/users';
-	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconEyeOff from '@lucide/svelte/icons/eye-off';
 	import { loadStripe } from '@stripe/stripe-js';
@@ -329,7 +326,7 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]"
+		class="bg-surface-950 text-surface-50 border-surface-800 grid border-b-2"
 		aria-labelledby="donate-heading"
 	>
 		<div
@@ -420,55 +417,6 @@
 						Stripe connection failed. {data.stripeReason ? `Reason: ${data.stripeReason}` : ''}
 					</div>
 				{/if}
-			</div>
-		</div>
-
-		<!-- Right: impact stat blocks -->
-		<div
-			class="bg-surface-900 text-surface-50 border-surface-800 border-t-secondary-500 grid grid-rows-3 border-t-4 lg:border-l-2"
-		>
-			<div
-				class="border-surface-800 flex items-center justify-between gap-4 border-b-2 px-6 py-5 sm:px-8"
-			>
-				<div
-					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
-				>
-					<IconBike class="text-primary-500 h-4 w-4" />
-					{isGroupRecipient ? 'Direct Support' : 'Years Active'}
-				</div>
-				<div
-					class="text-primary-500 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
-				>
-					{isGroupRecipient ? 'Local' : '10+'}
-				</div>
-			</div>
-			<div
-				class="border-surface-800 flex items-center justify-between gap-4 border-b-2 px-6 py-5 sm:px-8"
-			>
-				<div
-					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
-				>
-					<IconUsers class="text-tertiary-500 h-4 w-4" />
-					{isGroupRecipient ? 'Funds Route' : 'Advocates'}
-				</div>
-				<div
-					class="text-surface-50 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
-				>
-					{isGroupRecipient ? 'Group' : '100+'}
-				</div>
-			</div>
-			<div class="flex items-center justify-between gap-4 px-6 py-5 sm:px-8">
-				<div
-					class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase"
-				>
-					<IconTrendingUp class="text-primary-500 h-4 w-4" />
-					{isGroupRecipient ? 'Tax Status' : 'Lives Impacted'}
-				</div>
-				<div
-					class="text-tertiary-500 text-3xl leading-none font-black tracking-tight uppercase italic tabular-nums sm:text-4xl"
-				>
-					{isGroupRecipient ? 'Varies' : '1000+'}
-				</div>
 			</div>
 		</div>
 	</section>
@@ -573,6 +521,12 @@
 				<p class="text-surface-300 m-0 text-lg">
 					This group has not been claimed yet, so donations are not enabled.
 				</p>
+				<a
+					href={`/groups/${encodeURIComponent(groupSlug)}`}
+					class="text-primary-500 self-start text-sm font-black uppercase underline"
+				>
+					Back to {recipientLabel}
+				</a>
 			</div>
 		{:else if !donationEnabled}
 			<div class="border-surface-50 flex flex-col gap-6 border-t-2 pt-10">
@@ -601,6 +555,12 @@
 							The main organization hasn't connected Stripe donations yet.
 						{/if}
 					</p>
+					<a
+						href={isGroupRecipient && groupSlug ? `/groups/${encodeURIComponent(groupSlug)}` : '/'}
+						class="text-primary-500 self-start text-sm font-black uppercase underline"
+					>
+						Back to {recipientLabel}
+					</a>
 				</div>
 			</div>
 		{:else}
@@ -633,33 +593,6 @@
 							class="my-2 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
 							aria-hidden="true"
 						></div>
-
-						<ol class="m-0 list-none p-0">
-							<li class="border-surface-800 flex gap-4 border-t py-4">
-								<span
-									class="text-tertiary-500 w-10 shrink-0 text-2xl leading-none font-black italic tabular-nums"
-								>
-									01
-								</span>
-								<p class="text-surface-300 m-0 text-sm leading-relaxed">
-									<strong class="text-surface-50 block font-black uppercase">Pick an amount</strong>
-									Select a preset or enter any custom contribution from $1 to $25,000.
-								</p>
-							</li>
-							<li class="border-surface-800 flex gap-4 border-t py-4">
-								<span
-									class="text-tertiary-500 w-10 shrink-0 text-2xl leading-none font-black italic tabular-nums"
-								>
-									02
-								</span>
-								<p class="text-surface-300 m-0 text-sm leading-relaxed">
-									<strong class="text-surface-50 block font-black uppercase"
-										>Receipt & privacy</strong
-									>
-									We send an instant confirmation to your email and honor anonymity requests.
-								</p>
-							</li>
-						</ol>
 					</div>
 
 					<p class="border-surface-800 text-surface-300 m-0 border-t pt-5 text-xs leading-relaxed">
@@ -684,6 +617,7 @@
 							{#each presetAmounts as preset (preset)}
 								<button
 									type="button"
+									aria-pressed={Number(amount) === preset}
 									class="border-[3px] px-4 py-3 text-lg font-black tracking-wide uppercase tabular-nums transition {Number(
 										amount
 									) === preset

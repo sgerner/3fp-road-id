@@ -848,7 +848,6 @@ async function runExtractionPass({ client, model, context, name }) {
 		}
 	});
 	let text = response.text ?? '';
-	if (typeof text === 'function') text = text();
 	const parsed = safeParseJson(text);
 	return { parsed, raw: text };
 }
@@ -899,7 +898,6 @@ ${evidenceLines.join('\n') || '(none provided)'}`;
 		}
 	});
 	let text = response.text ?? '';
-	if (typeof text === 'function') text = text();
 	return { parsed: safeParseJson(text), raw: text };
 }
 
@@ -2468,72 +2466,6 @@ function extractLikelyImageFromStructured(doc, keyPattern) {
 		}
 	}
 	return null;
-}
-
-function extractImageCandidatesFromDoc(doc) {
-	const logo = [];
-	const cover = [];
-	const seen = new Set();
-	const push = (list, url, baseUrl) => {
-		const normalized = normalizeAssetUrl(url, baseUrl) || normalizeAnyUrl(url);
-		if (!normalized || seen.has(normalized)) return;
-		seen.add(normalized);
-		list.push(normalized);
-	};
-
-	for (const candidate of doc?.pageSignals?.images?.logo || []) push(logo, candidate, doc?.url);
-	for (const candidate of doc?.pageSignals?.images?.cover || []) push(cover, candidate, doc?.url);
-
-	for (const snippet of doc?.structured || []) {
-		const parsed = safeParseJson(snippet?.json || '');
-		if (!parsed) continue;
-		collectImageCandidatesFromValue(parsed, [], { logo, cover }, doc?.url, push);
-	}
-
-	return { logo, cover };
-}
-
-function collectImageCandidatesFromValue(value, path, buckets, baseUrl, push) {
-	if (value == null) return;
-	if (typeof value === 'string') {
-		const normalized = normalizeAssetUrl(value, baseUrl) || normalizeAnyUrl(value);
-		if (!normalized) return;
-		const pathText = path.join('.').toLowerCase();
-		if (/(profile_pic|profilepicture|avatar|logo|favicon|icon|brand)/i.test(pathText)) {
-			push(buckets.logo, normalized, baseUrl);
-		} else if (
-			/(cover|hero|banner|header|poster|image|photo)/i.test(pathText) ||
-			/(^|\.)(og:image|twitter:image)(:|$)/i.test(pathText)
-		) {
-			push(buckets.cover, normalized, baseUrl);
-		}
-		return;
-	}
-	if (Array.isArray(value)) {
-		for (const [index, item] of value.entries()) {
-			collectImageCandidatesFromValue(item, [...path, String(index)], buckets, baseUrl, push);
-		}
-		return;
-	}
-	if (typeof value === 'object') {
-		for (const [key, item] of Object.entries(value)) {
-			const nextPath = [...path, key];
-			const keyLower = key.toLowerCase();
-			if (typeof item === 'string') {
-				const normalized = normalizeAssetUrl(item, baseUrl) || normalizeAnyUrl(item);
-				if (!normalized) continue;
-				if (/(profile_pic|profilepicture|avatar|logo|favicon|icon|brand)/i.test(keyLower)) {
-					push(buckets.logo, normalized, baseUrl);
-				} else if (
-					/(cover|hero|banner|header|poster|image|photo)/i.test(keyLower) ||
-					/(^|\.)(og:image|twitter:image)(:|$)/i.test(nextPath.join('.').toLowerCase())
-				) {
-					push(buckets.cover, normalized, baseUrl);
-				}
-			}
-			collectImageCandidatesFromValue(item, nextPath, buckets, baseUrl, push);
-		}
-	}
 }
 
 function extractEmailCandidates(text = '') {

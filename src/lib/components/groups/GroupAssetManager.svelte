@@ -20,6 +20,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { fade, slide } from 'svelte/transition';
+	import { tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 
 	function getFileIcon(filename) {
@@ -85,6 +86,8 @@
 	let lightboxOpen = $state(false);
 	let lightboxItems = $state([]);
 	let lightboxIndex = $state(0);
+	let lightboxTrigger = null;
+	let lightboxCloseButton = $state(null);
 
 	$effect(() => {
 		if (form?.success) {
@@ -246,19 +249,55 @@
 		};
 	}
 
-	function openLightbox(bucketAssets, imageAssetId) {
+	async function openLightbox(bucketAssets, imageAssetId, trigger) {
 		const images = (bucketAssets || []).filter((asset) => asset.isImage && asset.href);
 		if (!images.length) return;
 		const index = images.findIndex((asset) => asset.id === imageAssetId);
+		lightboxTrigger = trigger;
 		lightboxItems = images;
 		lightboxIndex = index >= 0 ? index : 0;
 		lightboxOpen = true;
+		await tick();
+		lightboxCloseButton?.focus();
 	}
 
 	function closeLightbox() {
+		const trigger = lightboxTrigger;
+		lightboxTrigger = null;
 		lightboxOpen = false;
 		lightboxItems = [];
 		lightboxIndex = 0;
+		void tick().then(() => trigger?.focus());
+	}
+
+	function handleLightboxKeydown(event) {
+		if (event.key === 'Escape') {
+			closeLightbox();
+			return;
+		}
+		if (event.key === 'ArrowLeft') previousLightboxImage();
+		if (event.key === 'ArrowRight') nextLightboxImage();
+		if (event.key !== 'Tab') return;
+
+		const focusable = Array.from(
+			event.currentTarget.querySelectorAll(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		).filter((element) => element.getClientRects().length > 0);
+		if (!focusable.length) {
+			event.preventDefault();
+			return;
+		}
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
 	}
 
 	function previousLightboxImage() {
@@ -306,12 +345,12 @@
 				{@const isActive = activeTab === bucket.slug}
 				<button
 					type="button"
-					class="tab-button flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all
+					class="tab-button flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-medium transition-all sm:gap-2 sm:px-4 sm:text-sm
 						{isActive ? 'bg-surface-50-950 shadow-sm' : 'hover:bg-surface-300-700/30 text-surface-600-400'}"
 					onclick={() => (activeTab = bucket.slug)}
 				>
 					<Icon class="h-4 w-4" />
-					<span class="hidden sm:inline">{bucket.label}</span>
+					<span>{bucket.label}</span>
 					<span class="tab-count bg-surface-400-600/30 rounded-full px-2 py-0.5 text-xs">
 						{bucket.asset_count || 0}
 					</span>
@@ -490,11 +529,13 @@
 										</div>
 
 										<!-- Inputs row -->
-										<div class="flex min-w-0 flex-1 items-center gap-2">
+										<div
+											class="flex min-w-0 flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+										>
 											<form
 												method="POST"
 												action="?/updateLink"
-												class="contents"
+												class="min-w-0 flex-1"
 												use:enhance={enhanceUpdateLink(asset.id)}
 											>
 												<input type="hidden" name="asset_id" value={asset.id} />
@@ -502,7 +543,7 @@
 													type="text"
 													name="title"
 													value={asset.title || ''}
-													class="input preset-tonal-surface max-w-[14rem] text-sm font-medium"
+													class="input preset-tonal-surface w-full min-w-0 text-sm font-medium sm:max-w-[14rem]"
 													disabled={pendingDeleteAssetId === asset.id}
 													onchange={(event) => event.currentTarget.form?.requestSubmit()}
 													placeholder="Title"
@@ -512,7 +553,7 @@
 											<form
 												method="POST"
 												action="?/updateLink"
-												class="contents"
+												class="min-w-0 flex-1"
 												use:enhance={enhanceUpdateLink(asset.id)}
 											>
 												<input type="hidden" name="asset_id" value={asset.id} />
@@ -520,7 +561,7 @@
 													type="url"
 													name="external_url"
 													value={asset.href || ''}
-													class="input preset-tonal-surface text-tertiary-400 flex-1 font-mono text-xs"
+													class="input preset-tonal-surface text-tertiary-400 w-full min-w-0 font-mono text-xs"
 													disabled={pendingDeleteAssetId === asset.id}
 													onchange={(event) => event.currentTarget.form?.requestSubmit()}
 													placeholder="https://..."
@@ -596,7 +637,8 @@
 												type="button"
 												class="h-full w-full cursor-zoom-in"
 												aria-label={`Preview ${asset.title}`}
-												onclick={() => openLightbox(bucket.assets, asset.id)}
+												onclick={(event) =>
+													openLightbox(bucket.assets, asset.id, event.currentTarget)}
 											>
 												<img
 													src={asset.href}
@@ -759,19 +801,17 @@
 		role="dialog"
 		tabindex="0"
 		aria-modal="true"
-		aria-label={lightboxItems[lightboxIndex]?.title}
+		aria-labelledby="asset-lightbox-title"
 		onclick={(event) => {
 			if (event.target === event.currentTarget) closeLightbox();
 		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') closeLightbox();
-			if (event.key === 'ArrowLeft') previousLightboxImage();
-			if (event.key === 'ArrowRight') nextLightboxImage();
-		}}
+		onkeydown={handleLightboxKeydown}
 	>
 		<div class="lightbox-panel" role="document" tabindex="-1">
 			<div class="lightbox-toolbar">
-				<div class="text-sm opacity-70">{lightboxIndex + 1} / {lightboxItems.length}</div>
+				<div class="text-sm opacity-70" aria-live="polite">
+					{lightboxIndex + 1} / {lightboxItems.length}
+				</div>
 				<div class="flex items-center gap-2">
 					<form
 						method="POST"
@@ -786,7 +826,7 @@
 							class="btn btn-icon btn-sm preset-filled-error-500"
 							disabled={pendingDeleteAssetId === lightboxItems[lightboxIndex]?.id}
 							onclick={(event) => !confirm('Remove this asset?') && event.preventDefault()}
-							aria-label="Remove asset"
+							aria-label={`Remove ${lightboxItems[lightboxIndex]?.title || 'asset'}`}
 						>
 							{#if pendingDeleteAssetId === lightboxItems[lightboxIndex]?.id}
 								<IconLoaderCircle class="h-4 w-4 animate-spin" />
@@ -795,7 +835,13 @@
 							{/if}
 						</button>
 					</form>
-					<button type="button" class="lightbox-close" onclick={closeLightbox}>
+					<button
+						bind:this={lightboxCloseButton}
+						type="button"
+						class="lightbox-close"
+						aria-label="Close image preview"
+						onclick={closeLightbox}
+					>
 						<IconX class="h-5 w-5" />
 					</button>
 				</div>
@@ -810,17 +856,25 @@
 					<button
 						type="button"
 						class="lightbox-nav lightbox-nav-left"
+						aria-label="Previous image"
 						onclick={previousLightboxImage}
 					>
 						<IconChevronLeft class="h-5 w-5" />
 					</button>
-					<button type="button" class="lightbox-nav lightbox-nav-right" onclick={nextLightboxImage}>
+					<button
+						type="button"
+						class="lightbox-nav lightbox-nav-right"
+						aria-label="Next image"
+						onclick={nextLightboxImage}
+					>
 						<IconChevronRight class="h-5 w-5" />
 					</button>
 				{/if}
 			</div>
 			<div class="pt-4 text-center">
-				<div class="font-semibold">{lightboxItems[lightboxIndex]?.title}</div>
+				<h2 id="asset-lightbox-title" class="font-semibold">
+					{lightboxItems[lightboxIndex]?.title}
+				</h2>
 			</div>
 		</div>
 	</div>

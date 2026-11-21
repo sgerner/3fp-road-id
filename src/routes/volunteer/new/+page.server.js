@@ -2,7 +2,7 @@ import { supabase } from '#lib/supabaseClient';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 
-export const load = async ({ cookies, url }) => {
+export const load = async ({ cookies }) => {
 	const { accessToken, user: currentUser } = await resolveVerifiedSession(cookies);
 	const userId = currentUser?.id ?? null;
 
@@ -43,7 +43,6 @@ export const load = async ({ cookies, url }) => {
 		eventTypes: eventTypesError ? [] : (eventTypes ?? []),
 		ownerGroupIds,
 		currentUser,
-		isAdmin,
-		returnTo: url.pathname + url.search
+		isAdmin
 	};
 };

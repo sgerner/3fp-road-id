@@ -3,7 +3,6 @@ import adapterNode from '@sveltejs/adapter-node';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ command }) => ({
@@ -46,11 +45,6 @@ export default defineConfig(({ command }) => ({
 					]
 				}
 			}
-		}
-	},
-	resolve: {
-		alias: {
-			'#lib': fileURLToPath(new URL('./src/lib', import.meta.url))
 		}
 	},
 	plugins: [

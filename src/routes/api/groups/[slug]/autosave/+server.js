@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
+import { uploadGroupEditorImageDataUrl } from '#lib/server/groupEditorImages';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -93,7 +93,7 @@ export const POST = async ({ params, request, cookies }) => {
 
 	// Handle cropped data URLs for logo / cover
 	if (payload.logo_file_cropped) {
-		const url = await uploadDataUrlToStorage(
+		const url = await uploadGroupEditorImageDataUrl(
 			supabase,
 			payload.logo_file_cropped,
 			`groups/${group_id}/logo`
@@ -101,7 +101,7 @@ export const POST = async ({ params, request, cookies }) => {
 		if (url) updates.logo_url = url;
 	}
 	if (payload.cover_file_cropped) {
-		const url = await uploadDataUrlToStorage(
+		const url = await uploadGroupEditorImageDataUrl(
 			supabase,
 			payload.cover_file_cropped,
 			`groups/${group_id}/cover`
@@ -176,38 +176,3 @@ export const POST = async ({ params, request, cookies }) => {
 
 	return json({ ok: true, saved: { fields: Object.keys(updates), gt, af, rd, sl } });
 };
-
-function parseDataUrl(dataUrl) {
-	if (!dataUrl || typeof dataUrl !== 'string') return null;
-	const m = dataUrl.match(/^data:(.+);base64,(.*)$/);
-	if (!m) return null;
-	const [, mime, b64] = m;
-	try {
-		const buf = Buffer.from(b64, 'base64');
-		return { mime, buffer: buf };
-	} catch {
-		return null;
-	}
-}
-
-async function uploadDataUrlToStorage(supabase, dataUrl, destBasePath) {
-	const parsed = parseDataUrl(dataUrl);
-	if (!parsed) return null;
-	const { mime, buffer } = parsed;
-	const ct = mime || 'image/jpeg';
-	if (!ct.startsWith('image/')) return null;
-	const optimized = await optimizeImageForStorage(buffer, {
-		contentType: ct,
-		maxWidth: 2400,
-		maxHeight: 1800,
-		quality: 82
-	});
-	const objectPath = `${destBasePath}.${optimized.extension}`;
-	const up = await supabase.storage.from('storage').upload(objectPath, optimized.buffer, {
-		contentType: optimized.contentType,
-		upsert: true
-	});
-	if (up.error) return null;
-	const { data } = supabase.storage.from('storage').getPublicUrl(objectPath);
-	return data?.publicUrl || null;
-}

@@ -8,9 +8,11 @@
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
+	import { isSafeInternalPath } from '#lib/security/navigation.js';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
+	import IconContact from '@lucide/svelte/icons/contact';
 	import IconHome from '@lucide/svelte/icons/home';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
@@ -67,6 +69,11 @@
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
+	let headerHeight = $state(73);
+	let loginIntent = $state(null);
+	const activeLoginIntent = $derived(
+		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
+	);
 	let showUserMenu = $state(false);
 	let email = $state('');
 	let loading = $state(false);
@@ -84,14 +91,11 @@
 	let colorMode = $state(defaultColorMode);
 	let supabaseClient = null;
 	let authSubscription = null;
-	let turnstileModule = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
 	);
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -149,6 +153,12 @@
 			label: 'Get involved',
 			icon: IconHeart,
 			match: (pathname) => pathname.startsWith('/get-involved')
+		},
+		{
+			href: '/roadid',
+			label: 'Road ID',
+			icon: IconContact,
+			match: (pathname) => pathname.startsWith('/roadid')
 		},
 		{
 			href: '/merch',
@@ -293,11 +303,6 @@
 		return supabaseClient;
 	}
 
-	async function getTurnstileModule() {
-		if (!turnstileModule) turnstileModule = await import('#lib/security/turnstile');
-		return turnstileModule;
-	}
-
 	async function syncSessionCookie(session) {
 		const synced = await syncServerSession(session);
 		if (session && !synced) {
@@ -326,20 +331,6 @@
 		await Promise.all([loadCurrentProfile(user), loadOwnedGroups(user)]);
 	}
 
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const { renderTurnstile } = await getTurnstileModule();
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
 	onMount(() => {
 		if (isMicrositeRoute) {
 			return;
@@ -362,7 +353,13 @@
 			if (loginContainerEl?.contains?.(t) || loginBtnEl?.contains?.(t)) return;
 			showLogin = false;
 		}
-		function openLogin() {
+		function openLogin(event) {
+			const intent = event.detail;
+			loginIntent = isSafeInternalPath(intent?.returnTo)
+				? { returnTo: intent.returnTo, message: intent.message, sourcePath: page.url.pathname }
+				: null;
+			error = '';
+			success = '';
 			showMobileMenu = false;
 			showLogin = true;
 			void initSession();
@@ -416,7 +413,8 @@
 		const onKeyMenu = (e) => {
 			if (e.key === 'Escape') showMobileMenu = false;
 		};
-		document.addEventListener('click', onDocClick);
+		// Dismiss before page buttons can request sign-in during the same click.
+		document.addEventListener('click', onDocClick, true);
 		document.addEventListener('keydown', onKey);
 		document.addEventListener('click', onDocClickUserMenu);
 		document.addEventListener('keydown', onKeyUserMenu);
@@ -427,7 +425,7 @@
 			window.removeEventListener('open-login', openLogin);
 			authSubscription?.unsubscribe?.();
 			authSubscription = null;
-			document.removeEventListener('click', onDocClick);
+			document.removeEventListener('click', onDocClick, true);
 			document.removeEventListener('keydown', onKey);
 			document.removeEventListener('click', onDocClickUserMenu);
 			document.removeEventListener('keydown', onKeyUserMenu);
@@ -438,10 +436,13 @@
 	});
 
 	async function doLogin(e) {
-		e?.preventDefault?.();
+		e.preventDefault();
+		if (loading) return;
+		const verificationEl = e.currentTarget.querySelector('[data-login-verification]');
 		error = '';
 		success = '';
 		loading = true;
+		const intent = activeLoginIntent;
 		try {
 			void initSession();
 			if (honeypot.trim()) {
@@ -454,29 +455,30 @@
 			}
 			let turnstileToken = '';
 			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					error = 'Verification failed. Please reload and try again.';
-					return;
-				}
-				const { executeTurnstile } = await getTurnstileModule();
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
+				const { requestTurnstileToken } = await import('#lib/security/turnstile');
+				turnstileToken = await requestTurnstileToken(verificationEl, PUBLIC_TURNSTILE_SITE_KEY);
 				if (!turnstileToken) {
 					error = 'Verification failed. Please try again.';
 					return;
 				}
 			}
-			const rt =
-				typeof window !== 'undefined'
-					? window.location.pathname + window.location.search + window.location.hash
-					: '/';
+			let rt = '/';
+			if (typeof window !== 'undefined') {
+				const currentUrl = new URL(window.location.href);
+				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
+				rt =
+					currentUrl.searchParams.get('auth') === 'required' &&
+					isSafeInternalPath(requestedReturnTo)
+						? requestedReturnTo
+						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+			}
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					email,
 					createProfile: true,
-					returnTo: rt,
+					returnTo: intent?.returnTo ?? rt,
 					honeypot,
 					turnstileToken
 				})
@@ -491,10 +493,6 @@
 			error = err.message || 'Login failed.';
 		} finally {
 			loading = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				const { resetTurnstile } = await getTurnstileModule();
-				resetTurnstile(turnstileWidgetId);
-			}
 		}
 	}
 
@@ -510,8 +508,15 @@
 	}
 
 	function toggleLogin() {
-		showLogin = !showLogin;
-		if (showLogin) void initSession();
+		if (showLogin) {
+			showLogin = false;
+			return;
+		}
+		loginIntent = null;
+		error = '';
+		success = '';
+		showLogin = true;
+		void initSession();
 	}
 
 	async function applyTheme(value, persist = true) {
@@ -565,22 +570,27 @@
 	<title>3 Feet Please</title>
 </svelte:head>
 
-<div class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}">
+<div
+	class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}"
+	style:--app-header-height={`${headerHeight}px`}
+>
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
-	{#if !isMicrositeRoute}
-		<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-			<div bind:this={turnstileEl}></div>
+	{#if isMicrositeRoute}
+		<div class="min-h-dvh min-w-0 overflow-x-clip">
+			{@render children()}
 		</div>
-	{/if}
-	{#if isEmbedRoute || isMicrositeRoute}
+	{:else if isEmbedRoute}
 		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
 	{:else}
-		<header class="app-header border-b-primary-500/25 sticky top-0 z-50 border-b">
-			<div class="flex items-center justify-between gap-4 p-4">
-				<div class="flex items-center gap-2">
+		<header
+			class="app-header border-b-primary-500/25 sticky top-0 z-[60] border-b"
+			bind:offsetHeight={headerHeight}
+		>
+			<div class="flex items-center justify-between gap-2 p-4 sm:gap-4">
+				<div class="flex min-w-0 items-center gap-2">
 					<button
 						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
 						bind:this={mobileMenuBtnEl}
@@ -590,22 +600,43 @@
 					>
 						<IconMenu class="h-5 w-5" />
 					</button>
-					<a href="/" class="text-surface-950-50 flex items-center gap-3">
+					<a
+						href="/"
+						aria-label="3 Feet Please"
+						class="text-surface-950-50 flex min-w-0 items-center gap-2 sm:gap-3"
+					>
 						<img
 							src="/3fp-64.webp"
-							alt="3 Feet Please"
-							class="h-9 w-9 rounded-md object-contain"
+							alt=""
+							class="size-9 shrink-0 rounded-md object-contain"
 							width="36"
 							height="36"
 							decoding="async"
 						/>
-						<div>
-							<p class="text-primary-950-50 m-0 text-lg font-bold tracking-wide">3 Feet Please</p>
+						<div class="min-w-0 max-sm:hidden">
+							<p class="text-primary-950-50 m-0 truncate text-lg font-bold tracking-wide">
+								3 Feet Please
+							</p>
 						</div>
 					</a>
 				</div>
 
-				<div class="flex items-center gap-3">
+				<div class="flex shrink-0 items-center gap-2 sm:gap-3">
+					<LazyGlobalAssistant userId={user?.id ?? null} pathname={page.url.pathname} />
+					{#if !user}
+						<button
+							type="button"
+							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border"
+							aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
+							onclick={toggleColorMode}
+						>
+							{#if colorMode === 'dark'}
+								<IconSun class="size-4" />
+							{:else}
+								<IconMoon class="size-4" />
+							{/if}
+						</button>
+					{/if}
 					<div class="relative">
 						{#if user}
 							<div class="relative flex items-center gap-2">
@@ -756,6 +787,9 @@
 												onclick={() => (showLogin = false)}>Close</button
 											>
 										</div>
+										{#if activeLoginIntent?.message}
+											<p class="text-surface-700-300 mb-2 text-sm">{activeLoginIntent.message}</p>
+										{/if}
 										<label for="login-email-m" class="text-surface-700-300 mb-1 block text-xs"
 											>Email</label
 										>
@@ -767,6 +801,7 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
+										<div data-login-verification></div>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -800,6 +835,9 @@
 											aria-hidden="true"
 											style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 										/>
+										{#if activeLoginIntent?.message}
+											<p class="text-surface-700-300 mb-2 text-sm">{activeLoginIntent.message}</p>
+										{/if}
 										<label for="login-email" class="text-surface-700-300 mb-1 block text-xs"
 											>Email</label
 										>
@@ -811,6 +849,7 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
+										<div data-login-verification></div>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -838,10 +877,12 @@
 			</div>
 		</header>
 
-		<div class="grid min-h-[calc(100dvh-73px)] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]">
+		<div
+			class="grid min-h-[calc(100dvh-var(--app-header-height))] grid-cols-1 md:grid-cols-[6.5rem_minmax(0,1fr)]"
+		>
 			<aside class="app-rail hidden md:block">
 				<div
-					class="app-rail__scroll sticky top-[73px] flex h-[calc(100dvh-73px)] flex-col overflow-y-auto"
+					class="app-rail__scroll sticky top-[var(--app-header-height)] flex h-[calc(100dvh-var(--app-header-height))] flex-col overflow-y-auto"
 				>
 					<nav aria-label="Primary" class="app-rail__nav flex w-full flex-col">
 						{#each navigationItems as item}
@@ -935,7 +976,7 @@
 				aria-label="Navigation"
 				tabindex="-1"
 				onkeydown={onMobileMenuKeydown}
-				class="fixed top-[73px] right-4 left-4 z-50 max-h-[calc(100dvh-90px)] overflow-y-auto md:hidden"
+				class="fixed top-[var(--app-header-height)] right-4 left-4 z-50 max-h-[calc(100dvh-var(--app-header-height)-1rem)] overflow-y-auto md:hidden"
 				bind:this={mobileMenuEl}
 			>
 				<div class="mobile-menu-panel shadow-2xl">
@@ -1021,8 +1062,6 @@
 				</div>
 			</div>
 		{/if}
-
-		<LazyGlobalAssistant userId={user?.id ?? null} pathname={page.url.pathname} />
 	{/if}
 </div>
 

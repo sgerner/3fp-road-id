@@ -14,13 +14,16 @@
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconLoader2 from '@lucide/svelte/icons/loader-2';
 	import { fade, slide } from 'svelte/transition';
-	import { navigating } from '$app/state';
+	import { navigating, page as appPage } from '$app/state';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	function getInitialFilters() {
 		return data.filters ?? {};
 	}
 	const initialFilters = getInitialFilters();
+	const authRequired = $derived(
+		appPage.url.searchParams.get('auth') === 'required' && !data?.user?.id
+	);
 	const heroGroup = $derived((data.groups ?? []).find((group) => group.cover_photo_url) ?? null);
 	const heroImage = $derived(
 		heroGroup?.cover_photo_url
@@ -407,6 +410,23 @@
 </script>
 
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+	{#if authRequired}
+		<section
+			class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-10 lg:px-14"
+		>
+			<div>
+				<p class="m-0 text-sm font-black tracking-wide uppercase">Sign in to continue</p>
+				<p class="m-0 mt-1 text-sm font-medium">We'll return you to the page you requested.</p>
+			</div>
+			<button
+				type="button"
+				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition"
+				onclick={() => window.dispatchEvent(new Event('open-login'))}
+			>
+				Sign in
+			</button>
+		</section>
+	{/if}
 	<!-- HERO (toned-down secondary landing header) -->
 	<section
 		class="bg-surface-950 border-surface-800 border-b-2"
@@ -598,6 +618,7 @@
 					</span>
 					<button
 						type="button"
+						aria-pressed={group_type_ids.length === 0}
 						class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.length ===
 						0
 							? 'bg-primary-500 text-surface-950'
@@ -612,6 +633,7 @@
 					{#each (data.group_types || []).slice(0, 6) as t (t.id)}
 						<button
 							type="button"
+							aria-pressed={group_type_ids.includes(t.id)}
 							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.includes(
 								t.id
 							)
@@ -664,6 +686,7 @@
 								{#each (data.group_types || []).slice(6) as t (t.id)}
 									<button
 										type="button"
+										aria-pressed={group_type_ids.includes(t.id)}
 										class="{filterChipClass(
 											group_type_ids.includes(t.id)
 										)} border-surface-700 border"
@@ -682,6 +705,7 @@
 							{#each data.skill_levels || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={skill_level_ids.includes(t.id)}
 									class="{filterChipClass(
 										skill_level_ids.includes(t.id)
 									)} border-surface-700 border"
@@ -699,6 +723,7 @@
 							{#each data.audience_focuses || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={audience_focus_ids.includes(t.id)}
 									class="{filterChipClass(
 										audience_focus_ids.includes(t.id)
 									)} border-surface-700 border"
@@ -716,6 +741,7 @@
 							{#each data.riding_disciplines || [] as t (t.id)}
 								<button
 									type="button"
+									aria-pressed={riding_discipline_ids.includes(t.id)}
 									class="{filterChipClass(
 										riding_discipline_ids.includes(t.id)
 									)} border-surface-700 border"

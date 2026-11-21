@@ -86,10 +86,7 @@
 			};
 		}}
 	>
-		<section
-			class="border-surface-500/20 bg-surface-950 space-y-5 rounded-3xl border p-4 shadow-xl sm:p-7"
-			aria-label="Article draft"
-		>
+		<section class="bg-surface-950 space-y-5 p-4 sm:p-7" aria-label="Article draft">
 			<label class="block space-y-2">
 				<span class="label">Article title</span>
 				<input
@@ -101,7 +98,7 @@
 				/>
 			</label>
 
-			<details class="border-surface-500/15 bg-surface-900/35 rounded-2xl border p-4 sm:p-5">
+			<details class="border-surface-500/30 bg-surface-900 border-t p-4 sm:p-5">
 				<summary class="cursor-pointer list-none font-semibold">
 					<span class="flex items-center justify-between gap-3"
 						>Writing help <span class="text-xs font-normal opacity-60">Optional AI assistant</span
@@ -133,7 +130,7 @@
 				}}
 			/>
 
-			<details class="border-surface-500/15 bg-surface-900/30 rounded-2xl border p-4 sm:p-5">
+			<details class="border-surface-500/30 bg-surface-900 border-t p-4 sm:p-5">
 				<summary class="cursor-pointer list-none font-semibold marker:hidden">
 					<span class="flex items-center justify-between gap-3"
 						>Article details <span class="text-xs font-normal opacity-60"
@@ -233,7 +230,7 @@
 			</div>
 		</section>
 
-		<details class="border-surface-500/15 bg-surface-900/25 rounded-2xl border p-4 sm:p-5">
+		<details class="border-surface-500/30 bg-surface-900 border-t p-4 sm:p-5">
 			<summary class="cursor-pointer font-semibold"
 				>Add or reuse photos, files, and media <span class="ml-1 text-sm font-normal opacity-60"
 					>(optional)</span

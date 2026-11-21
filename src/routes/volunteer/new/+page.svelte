@@ -12,8 +12,6 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconSave from '@lucide/svelte/icons/save';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { renderMarkdown } from '#lib/markdown';
 	import {
 		createVolunteerEvent,
@@ -25,9 +23,9 @@
 		listVolunteerOpportunities,
 		listVolunteerShifts,
 		listVolunteerCustomQuestions,
-		listVolunteerEventEmails,
-		notifyVolunteerHosts
-	} from '#lib';
+		listVolunteerEventEmails
+	} from '#lib/services/volunteers';
+	import { notifyVolunteerHosts } from '#lib/services/volunteerHostNotifications';
 	import {
 		buildVolunteerCommunicationsContextSnapshot,
 		createVolunteerEmailComposer
@@ -41,6 +39,13 @@
 		mapOpportunityRecordToFormDetails,
 		mapQuestionRecordToFormDetails
 	} from '#lib/components/volunteer/form-utils';
+	import {
+		FALLBACK_TIMEZONES,
+		statusOptions,
+		opportunityTypeOptions,
+		emailTypeOptions,
+		fieldTypeOptions
+	} from '#lib/components/volunteer/form-options';
 	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
@@ -49,55 +54,6 @@
 
 	const { data } = $props();
 
-	const FALLBACK_TIMEZONES = [
-		'America/Los_Angeles',
-		'America/Denver',
-		'America/Chicago',
-		'America/New_York',
-		'America/Toronto',
-		'America/Mexico_City',
-		'America/Phoenix',
-		'America/Anchorage',
-		'Pacific/Honolulu',
-		'Europe/London',
-		'Europe/Berlin',
-		'Europe/Paris',
-		'Europe/Madrid',
-		'Europe/Amsterdam',
-		'Europe/Copenhagen',
-		'Australia/Sydney',
-		'Australia/Melbourne',
-		'Pacific/Auckland',
-		'Asia/Tokyo',
-		'Asia/Singapore',
-		'Asia/Hong_Kong',
-		'UTC'
-	];
-
-	const statusOptions = ['draft', 'published', 'cancelled', 'archived'];
-	const opportunityTypeOptions = [
-		{ value: 'coordination', label: 'Coordination & Leads' },
-		{ value: 'check-in', label: 'Check-in & Registration' },
-		{ value: 'logistics', label: 'Logistics & Support' },
-		{ value: 'mechanic', label: 'Mechanics & Repairs' },
-		{ value: 'education', label: 'Education & Coaching' },
-		{ value: 'hospitality', label: 'Hospitality & Culture' },
-		{ value: 'safety', label: 'Safety & Course Marshals' },
-		{ value: 'outreach', label: 'Outreach & Info Booths' },
-		{ value: 'other', label: 'Other' }
-	];
-	const emailTypeOptions = ['reminder', 'thank_you', 'follow_up', 'custom'];
-	const fieldTypeOptions = [
-		'text',
-		'textarea',
-		'number',
-		'select',
-		'multiselect',
-		'checkbox',
-		'phone',
-		'email',
-		'url'
-	];
 	const optionFieldTypes = new Set(['select', 'multiselect', 'checkbox']);
 	const emailMergeTags = VOLUNTEER_MERGE_TAGS.map((tag) => tag.token);
 
@@ -218,36 +174,6 @@
 
 	const initialTimezone = FALLBACK_TIMEZONES[0];
 	const currentUser = $derived(data?.currentUser ?? null);
-	const loginReturnTo = $derived(data?.returnTo ?? '/volunteer/new');
-	const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	let loginEmail = $state('');
-	let loginLoading = $state(false);
-	let loginError = $state('');
-	let loginSuccess = $state('');
-	const loginEmailValid = $derived(emailPattern.test((loginEmail || '').trim()));
-	let loginHoneypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
-
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
 
 	function sanitizeEventTypeSlug(value) {
 		if (!eventTypeOptions.length) return value || '';
@@ -279,69 +205,6 @@
 			if (labelMatch) return labelMatch.value;
 		}
 		return 'other';
-	}
-
-	async function requestLoginLink(eventObj) {
-		eventObj?.preventDefault?.();
-		loginError = '';
-		loginSuccess = '';
-		const email = (loginEmail || '').trim();
-		if (!loginEmailValid) {
-			loginError = 'Enter a valid email address to continue.';
-			return;
-		}
-		if (loginHoneypot.trim()) {
-			loginError = 'Invalid submission.';
-			return;
-		}
-		loginLoading = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					loginError = 'Verification failed. Please reload and try again.';
-					loginLoading = false;
-					return;
-				}
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
-				if (!turnstileToken) {
-					loginError = 'Verification failed. Please try again.';
-					loginLoading = false;
-					return;
-				}
-			}
-			const fallbackReturnTo =
-				typeof window !== 'undefined'
-					? window.location.pathname + window.location.search + window.location.hash
-					: '/volunteer/new';
-			const targetReturnTo =
-				loginReturnTo && loginReturnTo.startsWith('/') ? loginReturnTo : fallbackReturnTo;
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					createProfile: true,
-					returnTo: targetReturnTo,
-					honeypot: loginHoneypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.error || 'Unable to send magic link.');
-			}
-			loginSuccess = `Check ${email} for your login link.`;
-			loginHoneypot = '';
-		} catch (err) {
-			loginError = err?.message || 'Something went wrong.';
-		} finally {
-			loginLoading = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				resetTurnstile(turnstileWidgetId);
-			}
-		}
 	}
 
 	let timezoneOptions = $state(FALLBACK_TIMEZONES);
@@ -973,7 +836,7 @@
 	let draftAppliedAt = $state(null);
 	let showAdvancedSettings = $state(false);
 	let showAdvancedCommunications = $state(false);
-	let isMuseOpen = $state(true);
+	let isMuseOpen = $state(false);
 	let isDirty = $state(false);
 
 	function handleManualInteraction() {
@@ -1776,7 +1639,7 @@
 </svelte:head>
 
 {#if currentUser?.id}
-	<main class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
+	<div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
 		<!-- ── Page Header ── -->
 		<header class="card preset-outlined-primary-500 bg-surface-50-950/80 p-6 shadow-lg">
 			<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1895,13 +1758,7 @@
 			aria-busy={aiLoading}
 		>
 			<!-- Collapsible header -->
-			<div
-				class="flex cursor-pointer items-center justify-between"
-				onclick={() => (isMuseOpen = !isMuseOpen)}
-				role="button"
-				tabindex="0"
-				onkeydown={(e) => e.key === 'Enter' && (isMuseOpen = !isMuseOpen)}
-			>
+			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<div class="bg-secondary-500/15 text-secondary-300 rounded-full p-2">
 						<IconSparkles class="h-5 w-5" />
@@ -1919,7 +1776,9 @@
 				<button
 					type="button"
 					class="btn-icon btn-icon-sm variant-soft-secondary shrink-0"
-					aria-label={isMuseOpen ? 'Collapse Volunteer Muse' : 'Expand Volunteer Muse'}
+					aria-label="Volunteer Muse"
+					aria-expanded={isMuseOpen}
+					onclick={() => (isMuseOpen = !isMuseOpen)}
 				>
 					{#if isMuseOpen}
 						<IconChevronUp class="h-4 w-4" />
@@ -2099,16 +1958,16 @@
 		<!-- ── Manual Builder ── -->
 		<section
 			id="manual-builder"
-			class="card preset-tonal-surface p-6"
+			class="card preset-tonal-surface min-w-0 p-4 sm:p-6"
 			onfocusin={handleManualInteraction}
 		>
 			<!-- Step navigation tabs -->
-			<nav class="mb-6 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+			<nav class="mb-6 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
 				{#each steps as step, idx}
 					<button
 						type="button"
 						onclick={() => goToStep(idx)}
-						class={`step-btn rounded-xl border px-3 py-2.5 text-left ${
+						class={`step-btn min-w-0 rounded-xl border px-2 py-2.5 text-left wrap-anywhere ${
 							idx === activeStep
 								? 'preset-tonal-primary'
 								: isStepComplete(idx)
@@ -2225,7 +2084,9 @@
 			</div>
 
 			<!-- Nav footer -->
-			<div class="border-surface-500/15 mt-8 flex items-center justify-between gap-3 border-t pt-6">
+			<div
+				class="border-surface-500/15 mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
+			>
 				<button
 					type="button"
 					class="btn preset-tonal-surface gap-2"
@@ -2257,119 +2118,34 @@
 				</button>
 			</div>
 		</section>
-	</main>
+	</div>
 {:else}
-	<!-- ═══════════════════════════════════════════════
-	     LOGGED-OUT: CINEMATIC HERO
-	═══════════════════════════════════════════════ -->
-	<main class="mx-auto w-full max-w-4xl px-4 py-10 lg:py-20">
+	<div class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-20">
 		<section
-			class="hero-section relative overflow-hidden rounded-3xl p-8 py-14 shadow-2xl lg:p-16 lg:py-20"
+			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] p-6 sm:p-10"
 		>
-			<div class="app-orb app-orb-1 opacity-60" aria-hidden="true"></div>
-			<div class="app-orb app-orb-2 opacity-60" aria-hidden="true"></div>
-			<div class="app-orb app-orb-3 opacity-60" aria-hidden="true"></div>
-
-			<div class="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-8 text-center">
-				<!-- Icon badge -->
-				<div class="bg-secondary-500/15 border-secondary-500/30 rounded-2xl border p-4">
-					<IconSparkles class="text-secondary-300 h-8 w-8" />
-				</div>
-
-				<div class="space-y-4">
-					<h1 class="text-4xl font-extrabold tracking-tight text-balance md:text-5xl lg:text-6xl">
-						Power your events <br class="hidden sm:block" /> with
-						<span class="hero-accent">volunteers</span>
-					</h1>
-					<p class="text-surface-300 max-w-xl text-lg leading-relaxed text-balance">
-						Create a volunteer event with AI-assisted planning, shift scheduling, and automatic
-						reminder emails. Log in to get started.
-					</p>
-				</div>
-
-				<!-- Feature chips -->
-				<div class="flex flex-wrap justify-center gap-2">
-					{#each ['AI event drafts', 'Shift scheduling', 'Reminder emails', 'Volunteer portal'] as feature}
-						<span class="chip preset-tonal-secondary text-sm">{feature}</span>
-					{/each}
-				</div>
-
-				<!-- Embedded login form -->
-				<div
-					class="card bg-surface-900/60 border-surface-500/20 w-full max-w-sm border p-5 text-left backdrop-blur-sm"
+			<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+				Volunteer event builder
+			</p>
+			<h1
+				class="text-surface-50! m-0 text-4xl leading-[0.92] font-black uppercase italic sm:text-6xl"
+			>
+				Sign in to create a volunteer event
+			</h1>
+			<p class="text-surface-300 m-0 max-w-2xl text-lg leading-relaxed">
+				Create an event with shifts, signup questions, and reminder emails. Your sign-in link will
+				return you here.
+			</p>
+			<div class="flex flex-wrap gap-3">
+				<button
+					type="button"
+					class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-6 py-3 text-sm font-black uppercase transition"
+					onclick={() => window.dispatchEvent(new Event('open-login'))}
 				>
-					<div class="mb-4">
-						<h2 class="!text-left text-base font-bold">Log in to continue</h2>
-						<p class="text-surface-400 mt-1 text-sm">
-							We'll send a magic link — no password needed.
-						</p>
-					</div>
-
-					<!-- Turnstile invisible widget -->
-					<div
-						aria-hidden="true"
-						style="position: absolute; width: 0; height: 0; overflow: hidden;"
-					>
-						<div bind:this={turnstileEl}></div>
-					</div>
-					<input
-						type="text"
-						name="website"
-						bind:value={loginHoneypot}
-						autocomplete="off"
-						tabindex="-1"
-						aria-hidden="true"
-						style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
-					/>
-
-					<form class="space-y-3" onsubmit={requestLoginLink}>
-						<div>
-							<label
-								for="login-email"
-								class="text-surface-300 mb-1 block text-xs font-semibold tracking-wider uppercase"
-								>Email address</label
-							>
-							<input
-								id="login-email"
-								type="email"
-								class="input preset-tonal-surface w-full rounded-lg"
-								bind:value={loginEmail}
-								placeholder="you@example.com"
-								required
-							/>
-						</div>
-						{#if loginError}
-							<div class="text-error-400 text-xs" transition:slide>{loginError}</div>
-						{/if}
-						{#if loginSuccess}
-							<div
-								class="border-success-500/30 bg-success-500/8 text-success-300 rounded-lg border p-2.5 text-sm"
-								transition:slide
-							>
-								{loginSuccess}
-							</div>
-						{/if}
-						<button
-							type="submit"
-							class={`btn preset-filled-primary-500 w-full gap-2 ${loginLoading ? 'animate-pulse' : ''}`}
-							disabled={!loginEmailValid || loginLoading}
-						>
-							{#if loginLoading}
-								<IconLoader class="h-4 w-4 animate-spin" />
-								<span>Sending…</span>
-							{:else}
-								<IconSend class="h-4 w-4" />
-								<span>Send Magic Link</span>
-							{/if}
-						</button>
-						<p class="text-surface-500 text-xs">
-							After you sign in, we'll return you here to start building.
-						</p>
-					</form>
-				</div>
-
+					Log in / Register
+				</button>
 				<a
-					class="btn preset-outlined-surface-500 gap-2 text-sm opacity-70 transition-opacity hover:opacity-100"
+					class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center gap-2 border-2 px-6 py-3 text-sm font-black uppercase transition"
 					href="/volunteer"
 				>
 					<IconArrowLeft class="h-4 w-4" />
@@ -2377,7 +2153,7 @@
 				</a>
 			</div>
 		</section>
-	</main>
+	</div>
 {/if}
 
 <style>

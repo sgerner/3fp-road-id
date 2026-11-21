@@ -115,9 +115,12 @@
 
 		<div class="flex flex-wrap items-center gap-3">
 			<form method="GET" class="flex items-center gap-2">
-				<span class="text-surface-600-400 text-sm font-medium">Time Window:</span>
+				<label for="group-health-window" class="text-surface-600-400 text-sm font-medium"
+					>Time Window:</label
+				>
 				<select
 					name="window_days"
+					id="group-health-window"
 					class="select preset-tonal-surface h-10 py-0 pr-10 pl-3 text-sm"
 					value={data.windowDays}
 					onchange={(e) => e.target.form.submit()}
@@ -134,6 +137,7 @@
 				<IconSearch class="text-surface-400 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<input
 					type="text"
+					aria-label="Search groups"
 					bind:value={searchTerm}
 					placeholder="Search groups..."
 					class="input preset-tonal-surface h-10 pr-10 pl-10 text-sm"
@@ -141,6 +145,8 @@
 				{#if searchTerm}
 					<button
 						class="text-surface-400 hover:text-surface-900 dark:hover:text-surface-50 absolute top-1/2 right-3 -translate-y-1/2"
+						type="button"
+						aria-label="Clear group search"
 						onclick={() => (searchTerm = '')}
 					>
 						<IconX class="size-4" />
@@ -283,7 +289,7 @@
 					<!-- Group Info -->
 					<div class="space-y-3 p-4">
 						<div>
-							<h3 class="text-lg leading-tight font-bold">{g.group.name}</h3>
+							<h2 class="text-lg leading-tight font-bold">{g.group.name}</h2>
 							<p class="text-surface-600-400 text-sm">
 								{g.group.city || 'Unknown'}{g.group.state_region ? `, ${g.group.state_region}` : ''}
 							</p>
@@ -459,7 +465,11 @@
 							filteredGroups.length
 						)} of {filteredGroups.length} groups
 					</span>
-					<select bind:value={pageSize} class="select h-8 w-24 py-0 pr-8 pl-2 text-xs">
+					<select
+						aria-label="Groups per page"
+						bind:value={pageSize}
+						class="select h-8 w-24 py-0 pr-8 pl-2 text-xs"
+					>
 						<option value={12}>12 / page</option>
 						<option value={24}>24 / page</option>
 						<option value={48}>48 / page</option>

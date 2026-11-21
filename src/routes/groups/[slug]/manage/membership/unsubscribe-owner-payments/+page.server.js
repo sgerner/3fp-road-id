@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
@@ -7,15 +7,15 @@ function normalizeMetadata(existing) {
 	return { ...existing };
 }
 
-export async function GET({ params, cookies, url }) {
+async function unsubscribe({ params, cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
-		throw redirect(302, `/login?returnTo=${encodeURIComponent(url.pathname + (url.search || ''))}`);
+		return fail(401, { error: 'Sign in to change your email preferences.' });
 	}
 
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) {
-		throw redirect(302, `/groups/${params.slug}/manage/membership?ownerPaymentEmails=error`);
+		return fail(503, { error: 'Email preferences are temporarily unavailable.' });
 	}
 
 	const { data: group } = await serviceSupabase
@@ -24,7 +24,7 @@ export async function GET({ params, cookies, url }) {
 		.eq('slug', params.slug)
 		.maybeSingle();
 	if (!group?.id) {
-		throw redirect(302, `/groups/${params.slug}/manage/membership?ownerPaymentEmails=error`);
+		return fail(404, { error: 'Group not found.' });
 	}
 
 	const { data: membership } = await serviceSupabase
@@ -35,14 +35,17 @@ export async function GET({ params, cookies, url }) {
 		.eq('role', 'owner')
 		.maybeSingle();
 	if (!membership?.user_id) {
-		throw redirect(302, `/groups/${group.slug}/manage/membership?ownerPaymentEmails=forbidden`);
+		return fail(403, { error: 'Only group owners can change this email preference.' });
 	}
 
-	const { data: profile } = await serviceSupabase
+	const { data: profile, error: profileError } = await serviceSupabase
 		.from('profiles')
 		.select('user_id,metadata')
 		.eq('user_id', user.id)
 		.maybeSingle();
+	if (profileError) {
+		return fail(503, { error: 'Email preferences are temporarily unavailable.' });
+	}
 
 	const metadata = normalizeMetadata(profile?.metadata);
 	if (!metadata.notification_preferences || typeof metadata.notification_preferences !== 'object') {
@@ -57,13 +60,17 @@ export async function GET({ params, cookies, url }) {
 	}
 	notificationPrefs.membership_owner_payment_emails[group.id] = false;
 
-	await serviceSupabase.from('profiles').upsert(
+	const { error: updateError } = await serviceSupabase.from('profiles').upsert(
 		{
 			user_id: user.id,
 			metadata
 		},
 		{ onConflict: 'user_id' }
 	);
-
-	throw redirect(302, `/groups/${group.slug}/manage/membership?ownerPaymentEmails=off`);
+	if (updateError) {
+		return fail(503, { error: 'Unable to update your email preferences.' });
+	}
+	return { unsubscribed: true };
 }
+
+export const actions = { default: unsubscribe };

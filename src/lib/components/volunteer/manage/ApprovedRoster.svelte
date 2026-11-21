@@ -144,14 +144,14 @@
 </script>
 
 <section
-	class="border-surface-300-700 bg-surface-100-900/70 printable-roster rounded-2xl border p-6 shadow-xl"
+	class="border-surface-300-700 bg-surface-100-900 printable-roster border-secondary-500 border-t-4 p-6"
 >
 	<div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
 		<div class="flex-1">
-			<h2 class="text-surface-950-50 !text-left text-xl font-semibold">
+			<h2 class="text-surface-950-50! !text-left text-xl font-black uppercase">
 				Approved Volunteers
 				<span
-					class="bg-surface-200-800 text-surface-800-200 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm"
+					class="bg-surface-200-800 text-surface-800-200 inline-flex items-center gap-2 rounded-none! px-3 py-1 text-sm"
 				>
 					<IconUsers class="h-4 w-4" />
 					{volunteers.length}
@@ -160,11 +160,11 @@
 			<p class="text-surface-700-300 text-sm">Day-of roster for quick reference and contact.</p>
 		</div>
 		<div class="no-print flex flex-wrap items-center gap-2">
-			<button class="chip preset-tonal-primary-500" onclick={exportCsv}>
+			<button class="chip preset-tonal-primary-500 rounded-none!" onclick={exportCsv}>
 				<IconDownload class="h-4 w-4" />
 				<span>Export</span>
 			</button>
-			<button class="chip preset-tonal-primary-500" onclick={printRoster}>
+			<button class="chip preset-tonal-primary-500 rounded-none!" onclick={printRoster}>
 				<IconPrinter class="h-4 w-4" />
 				<span>Print</span>
 			</button>
@@ -181,11 +181,13 @@
 						class="border-surface-300-700 flex flex-col items-center justify-between gap-3 border-b pb-3 md:flex-row md:items-center"
 					>
 						<div class="flex items-center gap-4">
-							<h3 class="h6 text-surface-950-50 font-semibold">{group.shift.opportunityTitle}</h3>
+							<h3 class="h6 text-surface-950-50! font-black uppercase">
+								{group.shift.opportunityTitle}
+							</h3>
 							<span class="font-bold">{group.shift.optionLabel}</span>
 						</div>
 						<button
-							class="no-print chip preset-filled-secondary-500"
+							class="no-print chip preset-filled-secondary-500 rounded-none!"
 							onclick={() => handleMarkAllPresent(group.volunteers)}
 						>
 							Check In All
@@ -195,7 +197,7 @@
 						{#each group.volunteers as volunteer (volunteer.assignmentId)}
 							{@const checkInSelected = volunteer.status === 'checked_in'}
 							{@const noShowSelected = volunteer.status === 'no_show'}
-							<article class="bg-surface-50-950/40 border-surface-300-700/60 rounded-xl border p-4">
+							<article class="border-surface-300-700 border-t p-4">
 								<header class="flex flex-wrap items-start justify-between gap-2">
 									<div class="flex w-full flex-wrap items-center justify-between gap-2">
 										<div class="text-surface-950-50 flex-grow text-lg font-semibold">
@@ -204,7 +206,7 @@
 										<div class="attendance-actions no-print flex gap-1">
 											<button
 												type="button"
-												class={`chip ${
+												class={`chip rounded-none! ${
 													checkInSelected
 														? 'preset-filled-success-500'
 														: 'preset-outlined-success-500'
@@ -215,7 +217,7 @@
 											</button>
 											<button
 												type="button"
-												class={`chip ${
+												class={`chip rounded-none! ${
 													noShowSelected ? 'preset-filled-error-500' : 'preset-outlined-error-500'
 												}`}
 												onclick={() => handleStatusChange(volunteer.assignmentId, 'no_show')}
@@ -224,7 +226,7 @@
 											</button>
 											<button
 												type="button"
-												class="chip preset-tonal-warning p-1"
+												class="chip preset-tonal-warning rounded-none! p-1"
 												onclick={() => handleStatusChange(volunteer.assignmentId, 'approved')}
 											>
 												<IconBrush class="h-4 w-4" />
@@ -251,7 +253,7 @@
 								{#if volunteer.emergencyContactName}
 									<div class="mt-4">
 										<button
-											class="chip preset-tonal-tertiary capitalize"
+											class="chip preset-tonal-tertiary rounded-none! capitalize"
 											onclick={() => toggleEmergencyVisibility(volunteer.assignmentId)}
 										>
 											Emergency Contact

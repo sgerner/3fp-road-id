@@ -1,4 +1,8 @@
-import { DEFAULT_CREATED_BY_USER_ID, importRideSeedData } from './ride-imports.js';
+import {
+	DEFAULT_CREATED_BY_USER_ID,
+	fetchExistingRideEventsBySourceId,
+	importRideSeedData
+} from './ride-imports.js';
 import { fetchPublicHttp, readResponseBuffer } from './security.js';
 
 const MEETUP_ORIGIN = 'https://www.meetup.com';
@@ -99,13 +103,6 @@ function hasCoordinates(row) {
 	return (
 		Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0)
 	);
-}
-
-function hasImage(row) {
-	const rideDetails = Array.isArray(row?.ride_details)
-		? row.ride_details[0] || null
-		: row?.ride_details || null;
-	return Array.isArray(rideDetails?.image_urls) && rideDetails.image_urls.some(Boolean);
 }
 
 function uniq(values) {
@@ -428,35 +425,6 @@ async function mapWithConcurrency(items, concurrency, worker) {
 	return results;
 }
 
-async function fetchExistingEventsBySourceId(supabase, sourceEventIds) {
-	const sourceIds = uniq(sourceEventIds.map((id) => safeTrim(id)).filter(Boolean));
-	if (!sourceIds.length) return new Map();
-	const existingBySourceId = new Map();
-	const chunkSize = 40;
-	for (let index = 0; index < sourceIds.length; index += chunkSize) {
-		const chunk = sourceIds.slice(index, index + chunkSize);
-		const { data, error } = await supabase
-			.from('activity_events')
-			.select(
-				'id,slug,title,source_event_id,start_latitude,start_longitude,ride_details(image_urls)'
-			)
-			.in('source_event_id', chunk);
-		if (error) throw error;
-		for (const row of data || []) {
-			existingBySourceId.set(safeTrim(row.source_event_id), {
-				sourceEventId: safeTrim(row.source_event_id),
-				activityId: row.id,
-				slug: row.slug,
-				title: row.title,
-				start_latitude: row.start_latitude,
-				start_longitude: row.start_longitude,
-				hasImage: hasImage(row)
-			});
-		}
-	}
-	return existingBySourceId;
-}
-
 export async function importMeetupRoadCyclingTopic(
 	supabase,
 	{
@@ -555,7 +523,7 @@ export async function importMeetupRoadCyclingTopic(
 	let candidateEvents = sourceEvents;
 	let preSkippedExisting = [];
 	if (maintenance === 'images' || maintenance === 'geocoding') {
-		const existingBySourceId = await fetchExistingEventsBySourceId(
+		const existingBySourceId = await fetchExistingRideEventsBySourceId(
 			supabase,
 			sourceEvents.map((event) => event.id)
 		);
@@ -566,7 +534,7 @@ export async function importMeetupRoadCyclingTopic(
 			return !hasCoordinates(existing);
 		});
 	} else if (onlyNew && !reconcileMissingImages) {
-		const existingBySourceId = await fetchExistingEventsBySourceId(
+		const existingBySourceId = await fetchExistingRideEventsBySourceId(
 			supabase,
 			sourceEvents.map((event) => event.id)
 		);

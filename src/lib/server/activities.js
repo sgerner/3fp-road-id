@@ -11,6 +11,7 @@ const ACTIVITY_SELECT = `
 	activity_type,
 	host_user_id,
 	host_group_id,
+	group:groups(id,slug,name),
 	created_by_user_id,
 	created_at,
 	updated_at,
@@ -669,20 +670,76 @@ function mapProfileSummary(profile) {
 function buildRsvpSummary(rsvp) {
 	return {
 		id: rsvp.id,
-		userId: rsvp.user_id,
 		status: rsvp.status,
 		participantName: rsvp.participant_name,
-		participantEmail: rsvp.participant_email,
-		participantPhone: rsvp.participant_phone,
 		createdAt: rsvp.created_at,
-		cancelledAt: rsvp.cancelled_at
+		...(rsvp.user_id
+			? {
+					userId: rsvp.user_id,
+					participantEmail: rsvp.participant_email,
+					participantPhone: rsvp.participant_phone,
+					cancelledAt: rsvp.cancelled_at
+				}
+			: {})
 	};
+}
+
+async function loadRideRsvps(supabase, activityId, { privateRsvps, rsvpViewerId }) {
+	const query = () =>
+		supabase
+			.from('activity_rsvps')
+			.select('*')
+			.eq('activity_event_id', activityId)
+			.order('created_at', { ascending: true });
+	if (privateRsvps) return query();
+	if (rsvpViewerId === undefined) return { data: [], error: null };
+
+	const [published, own] = await Promise.all([
+		supabase.rpc('list_public_ride_participants', { target_activity_event_id: activityId }),
+		rsvpViewerId ? query().eq('user_id', rsvpViewerId) : { data: [], error: null }
+	]);
+	if (own.error) return own;
+
+	let publicRows = published.data;
+	if (published.error?.code === 'PGRST202' || published.error?.code === '42883') {
+		// Until the matching database migration is applied, project the old public rows here.
+		const legacy = await query().eq('status', 'going');
+		if (legacy.error) return legacy;
+		publicRows = legacy.data;
+	} else if (published.error) {
+		return published;
+	}
+
+	const rows = new Map(
+		asArray(publicRows).map((rsvp) => [
+			rsvp.id,
+			{
+				id: rsvp.id,
+				activity_occurrence_id: rsvp.activity_occurrence_id,
+				status: 'going',
+				participant_name:
+					rsvp.participant_name?.trim() &&
+					!rsvp.participant_name.includes('@') &&
+					rsvp.participant_name.trim() !== rsvp.participant_phone?.trim()
+						? rsvp.participant_name
+						: 'Rider',
+				created_at: rsvp.created_at
+			}
+		])
+	);
+	for (const rsvp of asArray(own.data)) rows.set(rsvp.id, rsvp);
+	return { data: [...rows.values()], error: null };
 }
 
 async function loadRideRecord(
 	supabase,
 	filters,
-	{ includeTemplates = false, includePrivateProfiles = false } = {}
+	{
+		includeTemplates = false,
+		includePrivateProfiles = false,
+		includePrivateRsvps = false,
+		rsvpViewerId = undefined
+	} = {}
 ) {
 	let query = supabase.from('activity_events').select(ACTIVITY_SELECT).eq('activity_type', 'ride');
 	for (const [key, value] of Object.entries(filters)) {
@@ -691,6 +748,9 @@ async function loadRideRecord(
 	const { data: activity, error: activityError } = await query.maybeSingle();
 	if (activityError) throw activityError;
 	if (!activity) return null;
+	const canManageRsvps = rsvpViewerId
+		? await canManageActivity(supabase, activity.id).catch(() => false)
+		: false;
 
 	const [
 		{ data: rideDetails, error: rideDetailsError },
@@ -728,11 +788,10 @@ async function loadRideRecord(
 			.from('activity_x_riding_disciplines')
 			.select('riding_discipline_id,discipline:riding_disciplines(*)')
 			.eq('activity_event_id', activity.id),
-		supabase
-			.from('activity_rsvps')
-			.select('*')
-			.eq('activity_event_id', activity.id)
-			.order('created_at', { ascending: true }),
+		loadRideRsvps(supabase, activity.id, {
+			privateRsvps: includePrivateRsvps || canManageRsvps,
+			rsvpViewerId
+		}),
 		loadActivityHosts(supabase, activity.id, { includePrivateProfiles }),
 		loadGroupManagers(supabase, activity.host_group_id, { includePrivateProfiles }),
 		includeTemplates
@@ -765,6 +824,7 @@ async function loadRideRecord(
 
 	return {
 		activity,
+		canManageRsvps,
 		rideDetails: rideDetails ?? null,
 		occurrences: occurrenceRows.map((occurrence) => ({
 			...occurrence,

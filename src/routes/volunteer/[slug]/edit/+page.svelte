@@ -1,32 +1,4 @@
 <script>
-	function _nullishCoalesce(lhs, rhsFn) {
-		if (lhs != null) {
-			return lhs;
-		} else {
-			return rhsFn();
-		}
-	}
-	function _optionalChain(ops) {
-		let lastAccessLHS = undefined;
-		let value = ops[0];
-		let i = 1;
-		while (i < ops.length) {
-			const op = ops[i];
-			const fn = ops[i + 1];
-			i += 2;
-			if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) {
-				return undefined;
-			}
-			if (op === 'access' || op === 'optionalAccess') {
-				lastAccessLHS = value;
-				value = fn(value);
-			} else if (op === 'call' || op === 'optionalCall') {
-				value = fn((...args) => value.call(lastAccessLHS, ...args));
-				lastAccessLHS = undefined;
-			}
-		}
-		return value;
-	}
 	import { Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
 	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
 	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
@@ -47,6 +19,13 @@
 		ensureArray
 	} from '#lib/components/volunteer/form-utils';
 	import {
+		FALLBACK_TIMEZONES,
+		statusOptions,
+		opportunityTypeOptions,
+		emailTypeOptions,
+		fieldTypeOptions
+	} from '#lib/components/volunteer/form-options';
+	import {
 		getVolunteerEvent,
 		updateVolunteerEvent,
 		createVolunteerOpportunity,
@@ -66,7 +45,7 @@
 		updateVolunteerEventEmail,
 		deleteVolunteerEventEmail,
 		getVolunteerEventEmail
-	} from '#lib';
+	} from '#lib/services/volunteers';
 
 	let { data } = $props();
 
@@ -75,56 +54,6 @@
 	const notifySuccess = (message) => toaster.success({ title: message });
 	const notifyError = (message) => toaster.error({ title: message });
 	const notifyWarning = (message) => toaster.warning({ title: message });
-
-	const FALLBACK_TIMEZONES = [
-		'America/Los_Angeles',
-		'America/Denver',
-		'America/Chicago',
-		'America/New_York',
-		'America/Toronto',
-		'America/Mexico_City',
-		'America/Phoenix',
-		'America/Anchorage',
-		'Pacific/Honolulu',
-		'Europe/London',
-		'Europe/Berlin',
-		'Europe/Paris',
-		'Europe/Madrid',
-		'Europe/Amsterdam',
-		'Europe/Copenhagen',
-		'Australia/Sydney',
-		'Australia/Melbourne',
-		'Pacific/Auckland',
-		'Asia/Tokyo',
-		'Asia/Singapore',
-		'Asia/Hong_Kong',
-		'UTC'
-	];
-
-	const statusOptions = ['draft', 'published', 'cancelled', 'archived'];
-	const opportunityTypeOptions = [
-		{ value: 'coordination', label: 'Coordination & Leads' },
-		{ value: 'check-in', label: 'Check-in & Registration' },
-		{ value: 'logistics', label: 'Logistics & Support' },
-		{ value: 'mechanic', label: 'Mechanics & Repairs' },
-		{ value: 'education', label: 'Education & Coaching' },
-		{ value: 'hospitality', label: 'Hospitality & Culture' },
-		{ value: 'safety', label: 'Safety & Course Marshals' },
-		{ value: 'outreach', label: 'Outreach & Info Booths' },
-		{ value: 'other', label: 'Other' }
-	];
-	const emailTypeOptions = ['reminder', 'thank_you', 'follow_up', 'custom'];
-	const fieldTypeOptions = [
-		'text',
-		'textarea',
-		'number',
-		'select',
-		'multiselect',
-		'checkbox',
-		'phone',
-		'email',
-		'url'
-	];
 
 	function slugify(text) {
 		return (text || '')
@@ -150,22 +79,19 @@
 				timer = null;
 			}
 			saving = true;
-			_optionalChain([setSaving, 'optionalCall', (_) => _(true)]);
+			setSaving?.(true);
 			try {
 				await onSave(payload);
 				if (successMessage) {
 					notifySuccess(successMessage);
 				}
 			} catch (err) {
-				const message =
-					_optionalChain([err, 'optionalAccess', (_2) => _2.message]) ||
-					errorMessage ||
-					'Unable to save changes.';
+				const message = err?.message || errorMessage || 'Unable to save changes.';
 				notifyError(message);
 				throw err;
 			} finally {
 				saving = false;
-				_optionalChain([setSaving, 'optionalCall', (_3) => _3(false)]);
+				setSaving?.(false);
 			}
 		}
 
@@ -185,29 +111,27 @@
 	}
 
 	function getPageData() {
-		return _nullishCoalesce(data, () => ({}));
+		return data ?? {};
 	}
 	const pageData = getPageData();
-	const eventTypes = _nullishCoalesce(pageData.eventTypes, () => []);
+	const eventTypes = pageData.eventTypes ?? [];
 	const eventTypeOptions = eventTypes.map((item) => ({
-		value: String(_nullishCoalesce(item.slug, () => '')),
-		label: String(_nullishCoalesce(item.event_type, () => '')),
-		description: _nullishCoalesce(item.description, () => '')
+		value: String(item.slug ?? ''),
+		label: String(item.event_type ?? ''),
+		description: item.description ?? ''
 	}));
 
-	const eventRecordInitial = _nullishCoalesce(pageData.event, () => ({}));
-	const eventId = _nullishCoalesce(eventRecordInitial.id, () => '');
+	const eventRecordInitial = pageData.event ?? {};
+	const eventId = eventRecordInitial.id ?? '';
 	let eventRecord = $state({ ...eventRecordInitial });
 	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
-	const hostGroups = _nullishCoalesce(pageData.hostGroups, () => []);
+	const hostGroups = pageData.hostGroups ?? [];
 	const hostGroupOptions = hostGroups
-		.map((group) => ({ label: String(_nullishCoalesce(group.name, () => '')), value: group.id }))
+		.map((group) => ({ label: String(group.name ?? ''), value: group.id }))
 		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
-	const initialHostGroupId = _nullishCoalesce(
-		_nullishCoalesce(eventRecordInitial.host_group_id, () => eventRecordInitial.hostGroupId),
-		() => ''
-	);
+	const initialHostGroupId =
+		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
 	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
 	let filteredHostGroupOptions = $state(hostGroupOptions);
 	let showAdvancedSettings = $state(false);
@@ -216,37 +140,18 @@
 
 	function currentEventTypeDescription() {
 		const match = eventTypeOptions.find((option) => option.value === eventDetails.eventTypeSlug);
-		return _nullishCoalesce(
-			_optionalChain([match, 'optionalAccess', (_4) => _4.description]),
-			() => ''
-		);
+		return match?.description ?? '';
 	}
 
 	function handleHostGroupValueChange(value) {
-		const next = _nullishCoalesce(value, () => []);
+		const next = value ?? [];
 		hostGroupSelection = next;
 		updateEventDetails({
-			hostGroupId: _nullishCoalesce(
-				_optionalChain([next, 'optionalAccess', (_5) => _5[0]]),
-				() => ''
-			)
+			hostGroupId: next?.[0] ?? ''
 		});
 	}
 	function handleHostGroupSearch(inputValue) {
-		const query = _nullishCoalesce(
-			_optionalChain([
-				inputValue,
-				'optionalAccess',
-				(_6) => _6.trim,
-				'call',
-				(_7) => _7(),
-				'access',
-				(_8) => _8.toLowerCase,
-				'call',
-				(_9) => _9()
-			]),
-			() => ''
-		);
+		const query = inputValue?.trim().toLowerCase() ?? '';
 		if (!query) {
 			filteredHostGroupOptions = hostGroupOptions;
 			return;
@@ -265,10 +170,7 @@
 			const payload = buildEventUpdatePayload(patch);
 			await updateVolunteerEvent(eventId, payload);
 			const refreshed = await getVolunteerEvent(eventId);
-			const freshRecord = _nullishCoalesce(
-				_optionalChain([refreshed, 'optionalAccess', (_10) => _10.data]),
-				() => refreshed
-			);
+			const freshRecord = refreshed?.data ?? refreshed;
 			if (freshRecord && typeof freshRecord === 'object') {
 				eventRecord = { ...eventRecord, ...freshRecord };
 				const normalized = mapEventRecordToFormDetails(eventRecord);
@@ -294,30 +196,19 @@
 	const timezoneOptions = FALLBACK_TIMEZONES;
 
 	function overviewDetailsChange(...args) {
-		const patch = _nullishCoalesce(
-			_optionalChain([args, 'optionalAccess', (_11) => _11[0]]),
-			() => ({})
-		);
+		const patch = args?.[0] ?? {};
 		updateEventDetails(patch);
 	}
 
 	function scheduleDetailsChange(...args) {
-		const patch = _nullishCoalesce(
-			_optionalChain([args, 'optionalAccess', (_14) => _14[0]]),
-			() => ({})
-		);
+		const patch = args?.[0] ?? {};
 		updateEventDetails(patch);
 	}
 
-	const loadedOpportunities = ensureArray(_nullishCoalesce(pageData.opportunities, () => []));
+	const loadedOpportunities = ensureArray(pageData.opportunities ?? []);
 	let opportunities = $state(
 		loadedOpportunities.map((op) =>
-			mapOpportunityRecordToFormDetails(
-				op,
-				ensureArray(
-					_nullishCoalesce(_optionalChain([op, 'optionalAccess', (_15) => _15.shifts]), () => [])
-				)
-			)
+			mapOpportunityRecordToFormDetails(op, ensureArray(op?.shifts ?? []))
 		)
 	);
 	const opportunityAutosaves = new Map();
@@ -338,19 +229,11 @@
 							}
 						})
 					]);
-					const rawOpp = _nullishCoalesce(
-						_optionalChain([freshOpp, 'optionalAccess', (_16) => _16.data]),
-						() => freshOpp
-					);
+					const rawOpp = freshOpp?.data ?? freshOpp;
 
 					const normalized = mapOpportunityRecordToFormDetails(
-						{ id, ..._nullishCoalesce(rawOpp, () => ({})) },
-						ensureArray(
-							_nullishCoalesce(
-								_optionalChain([freshShifts, 'optionalAccess', (_17) => _17.data]),
-								() => freshShifts
-							)
-						)
+						{ id, ...(rawOpp ?? {}) },
+						ensureArray(freshShifts?.data ?? freshShifts)
 					);
 					opportunities = opportunities.map((op) => (op.id === id ? normalized : op));
 				},
@@ -369,13 +252,10 @@
 					const payload = buildShiftPayload(patch);
 					await updateVolunteerShift(id, payload);
 					const refreshed = await getVolunteerShift(id);
-					const freshRecord = _nullishCoalesce(
-						_optionalChain([refreshed, 'optionalAccess', (_18) => _18.data]),
-						() => refreshed
-					);
+					const freshRecord = refreshed?.data ?? refreshed;
 					const normalized = mapShiftRecordToFormDetails({
 						id,
-						..._nullishCoalesce(freshRecord, () => ({}))
+						...(freshRecord ?? {})
 					});
 					opportunities = opportunities.map((op) => {
 						if (op.id !== opportunityId) return op;
@@ -396,16 +276,7 @@
 			const payload = buildOpportunityPayload(
 				{
 					title: 'New activity',
-					opportunityType: _nullishCoalesce(
-						_optionalChain([
-							opportunityTypeOptions,
-							'access',
-							(_19) => _19[0],
-							'optionalAccess',
-							(_20) => _20.value
-						]),
-						() => 'coordination'
-					),
+					opportunityType: opportunityTypeOptions[0]?.value ?? 'coordination',
 					requiresApproval: false,
 					autoConfirmAttendance: true,
 					minVolunteers: '0',
@@ -415,10 +286,7 @@
 				eventId
 			);
 			const response = await createVolunteerOpportunity(payload);
-			const created = _nullishCoalesce(
-				_optionalChain([response, 'optionalAccess', (_21) => _21.data]),
-				() => response
-			);
+			const created = response?.data ?? response;
 			if (!created || typeof created !== 'object') throw new Error('Unable to create activity.');
 			const freshShifts = await listVolunteerShifts({
 				query: {
@@ -428,19 +296,12 @@
 			});
 			const normalized = mapOpportunityRecordToFormDetails(
 				created,
-				ensureArray(
-					_nullishCoalesce(
-						_optionalChain([freshShifts, 'optionalAccess', (_22) => _22.data]),
-						() => freshShifts
-					)
-				)
+				ensureArray(freshShifts?.data ?? freshShifts)
 			);
 			opportunities = [...opportunities, normalized];
 			notifySuccess('Activity added');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_23) => _23.message]) || 'Unable to add activity.'
-			);
+			notifyError(err?.message || 'Unable to add activity.');
 		}
 	}
 
@@ -457,10 +318,7 @@
 			}
 			notifySuccess('Activity removed');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_24) => _24.message]) ||
-					'Unable to remove activity.'
-			);
+			notifyError(err?.message || 'Unable to remove activity.');
 		}
 	}
 
@@ -472,26 +330,8 @@
 	async function addShift(opportunityId) {
 		try {
 			const opportunity = opportunities.find((op) => op.id === opportunityId);
-			const defaultStartsAt =
-				_optionalChain([
-					opportunity,
-					'optionalAccess',
-					(_25) => _25.shifts,
-					'optionalAccess',
-					(_26) => _26[0],
-					'optionalAccess',
-					(_27) => _27.startsAt
-				]) || eventDetails.eventStart;
-			const rawDefaultEndsAt =
-				_optionalChain([
-					opportunity,
-					'optionalAccess',
-					(_28) => _28.shifts,
-					'optionalAccess',
-					(_29) => _29[0],
-					'optionalAccess',
-					(_30) => _30.endsAt
-				]) || eventDetails.eventEnd;
+			const defaultStartsAt = opportunity?.shifts?.[0]?.startsAt || eventDetails.eventStart;
+			const rawDefaultEndsAt = opportunity?.shifts?.[0]?.endsAt || eventDetails.eventEnd;
 			let defaultEndsAt = rawDefaultEndsAt;
 			const startMs = defaultStartsAt ? Date.parse(String(defaultStartsAt)) : NaN;
 			const endMs = defaultEndsAt ? Date.parse(String(defaultEndsAt)) : NaN;
@@ -502,31 +342,15 @@
 				{
 					startsAt: defaultStartsAt,
 					endsAt: defaultEndsAt,
-					timezone:
-						_optionalChain([
-							opportunity,
-							'optionalAccess',
-							(_31) => _31.shifts,
-							'optionalAccess',
-							(_32) => _32[0],
-							'optionalAccess',
-							(_33) => _33.timezone
-						]) || eventDetails.timezone,
-					locationName:
-						_optionalChain([opportunity, 'optionalAccess', (_34) => _34.locationName]) ||
-						eventDetails.locationName,
-					locationAddress:
-						_optionalChain([opportunity, 'optionalAccess', (_35) => _35.locationNotes]) ||
-						eventDetails.locationAddress,
+					timezone: opportunity?.shifts?.[0]?.timezone || eventDetails.timezone,
+					locationName: opportunity?.locationName || eventDetails.locationName,
+					locationAddress: opportunity?.locationNotes || eventDetails.locationAddress,
 					notes: ''
 				},
 				opportunityId
 			);
 			const response = await createVolunteerShift(payload);
-			const created = _nullishCoalesce(
-				_optionalChain([response, 'optionalAccess', (_36) => _36.data]),
-				() => response
-			);
+			const created = response?.data ?? response;
 			if (!created || typeof created !== 'object') throw new Error('Unable to create shift.');
 			const normalized = mapShiftRecordToFormDetails(created);
 			opportunities = opportunities.map((op) =>
@@ -534,9 +358,7 @@
 			);
 			notifySuccess('Shift added');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_37) => _37.message]) || 'Unable to add shift.'
-			);
+			notifyError(err?.message || 'Unable to add shift.');
 		}
 	}
 
@@ -551,9 +373,7 @@
 			shiftAutosaves.delete(shiftId);
 			notifySuccess('Shift removed');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_38) => _38.message]) || 'Unable to remove shift.'
-			);
+			notifyError(err?.message || 'Unable to remove shift.');
 		}
 	}
 
@@ -585,7 +405,7 @@
 		}
 	}
 
-	const loadedQuestions = ensureArray(_nullishCoalesce(pageData.customQuestions, () => []));
+	const loadedQuestions = ensureArray(pageData.customQuestions ?? []);
 	let customQuestions = $state(
 		loadedQuestions.map((question) => mapQuestionRecordToFormDetails(question))
 	);
@@ -598,13 +418,10 @@
 					const payload = buildQuestionPayload(patch);
 					await updateVolunteerCustomQuestion(id, payload);
 					const refreshed = await getVolunteerCustomQuestion(id);
-					const freshRecord = _nullishCoalesce(
-						_optionalChain([refreshed, 'optionalAccess', (_39) => _39.data]),
-						() => refreshed
-					);
+					const freshRecord = refreshed?.data ?? refreshed;
 					const normalized = mapQuestionRecordToFormDetails({
 						id,
-						..._nullishCoalesce(freshRecord, () => ({}))
+						...(freshRecord ?? {})
 					});
 					customQuestions = customQuestions.map((question) =>
 						question.id === id ? normalized : question
@@ -639,18 +456,13 @@
 				eventId
 			);
 			const response = await createVolunteerCustomQuestion(payload);
-			const created = _nullishCoalesce(
-				_optionalChain([response, 'optionalAccess', (_40) => _40.data]),
-				() => response
-			);
+			const created = response?.data ?? response;
 			if (!created || typeof created !== 'object') throw new Error('Unable to add question.');
 			const normalized = mapQuestionRecordToFormDetails(created);
 			customQuestions = [...customQuestions, normalized];
 			notifySuccess('Question added');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_41) => _41.message]) || 'Unable to add question.'
-			);
+			notifyError(err?.message || 'Unable to add question.');
 		}
 	}
 
@@ -661,10 +473,7 @@
 			questionAutosaves.delete(id);
 			notifySuccess('Question removed');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_42) => _42.message]) ||
-					'Unable to remove question.'
-			);
+			notifyError(err?.message || 'Unable to remove question.');
 		}
 	}
 
@@ -675,7 +484,7 @@
 		getQuestionAutosave(id).queue(patch);
 	}
 
-	const loadedEmails = ensureArray(_nullishCoalesce(pageData.eventEmails, () => []));
+	const loadedEmails = ensureArray(pageData.eventEmails ?? []);
 	let eventEmails = $state(loadedEmails.map((email) => mapEmailRecordToFormDetails(email)));
 	const emailAutosaves = new Map();
 
@@ -686,13 +495,10 @@
 					const payload = buildEmailPayload(patch);
 					await updateVolunteerEventEmail(id, payload);
 					const refreshed = await getVolunteerEventEmail(id);
-					const freshRecord = _nullishCoalesce(
-						_optionalChain([refreshed, 'optionalAccess', (_43) => _43.data]),
-						() => refreshed
-					);
+					const freshRecord = refreshed?.data ?? refreshed;
 					const normalized = mapEmailRecordToFormDetails({
 						id,
-						..._nullishCoalesce(freshRecord, () => ({}))
+						...(freshRecord ?? {})
 					});
 					eventEmails = eventEmails.map((email) => (email.id === id ? normalized : email));
 				},
@@ -718,18 +524,13 @@
 				eventId
 			);
 			const response = await createVolunteerEventEmail(payload);
-			const created = _nullishCoalesce(
-				_optionalChain([response, 'optionalAccess', (_44) => _44.data]),
-				() => response
-			);
+			const created = response?.data ?? response;
 			if (!created || typeof created !== 'object') throw new Error('Unable to add email.');
 			const normalized = mapEmailRecordToFormDetails(created);
 			eventEmails = [...eventEmails, normalized];
 			notifySuccess('Email added');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_45) => _45.message]) || 'Unable to add email.'
-			);
+			notifyError(err?.message || 'Unable to add email.');
 		}
 	}
 
@@ -740,9 +541,7 @@
 			emailAutosaves.delete(id);
 			notifySuccess('Email removed');
 		} catch (err) {
-			notifyError(
-				_optionalChain([err, 'optionalAccess', (_46) => _46.message]) || 'Unable to remove email.'
-			);
+			notifyError(err?.message || 'Unable to remove email.');
 		}
 	}
 
@@ -769,7 +568,7 @@
 		addOpportunity();
 	};
 	function rolesRemoveOpportunityWrapper(...args) {
-		const id = _optionalChain([args, 'optionalAccess', (_47) => _47[0]]);
+		const id = args?.[0];
 		if (id === undefined) return;
 		removeOpportunity(id);
 	}
@@ -780,7 +579,7 @@
 		updateOpportunity(id, patch);
 	}
 	function rolesAddShiftWrapper(...args) {
-		const id = _optionalChain([args, 'optionalAccess', (_48) => _48[0]]);
+		const id = args?.[0];
 		if (id === undefined) return;
 		addShift(id);
 	}
@@ -801,7 +600,7 @@
 		addQuestion();
 	};
 	function commRemoveQuestionWrapper(...args) {
-		const id = _optionalChain([args, 'optionalAccess', (_49) => _49[0]]);
+		const id = args?.[0];
 		if (id === undefined) return;
 		removeQuestion(id);
 	}
@@ -815,7 +614,7 @@
 		addEmail();
 	};
 	function commRemoveEmailWrapper(...args) {
-		const id = _optionalChain([args, 'optionalAccess', (_50) => _50[0]]);
+		const id = args?.[0];
 		if (id === undefined) return;
 		removeEmail(id);
 	}
@@ -825,7 +624,7 @@
 		updateEmail(id, patch);
 	}
 	function commComposeEmailWrapper(...args) {
-		handleComposeEmail(_optionalChain([args, 'optionalAccess', (_51) => _51[0]]));
+		handleComposeEmail(args?.[0]);
 	}
 </script>
 
