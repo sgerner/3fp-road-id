@@ -4,6 +4,7 @@
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import Toggle from '#lib/components/ui/Toggle.svelte';
+	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import {
 		DEFAULT_SIGNATURE_FORM,
 		buildSignatureHtml,
@@ -82,160 +83,176 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto w-full max-w-6xl px-4 py-6 md:py-8">
-	<div
-		class="bg-surface-950/70 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl shadow-black/20"
-	>
-		<div
-			class="from-surface-950 via-surface-900 to-primary-950/40 border-b border-white/10 bg-gradient-to-br px-6 py-6 md:px-8"
-		>
-			<div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-				<div class="space-y-2">
-					<h1 class="h1 text-4xl md:text-5xl">Signature Builder</h1>
-				</div>
+<AdminHero eyebrow="Branding" title="Signature Builder">
+	{#snippet actions()}
+		<button class="btn preset-outlined-surface-500" type="button" onclick={resetForm}>
+			<IconRefreshCw class="size-4" />
+			Reset
+		</button>
+	{/snippet}
+</AdminHero>
 
-				<div class="flex flex-wrap gap-3">
-					<button class="btn btn-sm preset-tonal-surface gap-2" type="button" onclick={resetForm}>
-						<IconRefreshCw class="size-4" />
-						Reset
-					</button>
+<div class="grid flex-1 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+	<!-- FORM -->
+	<div class="flex flex-col gap-10 px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+		<section class="flex flex-col gap-5" aria-labelledby="signature-details-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">01</span
+				>
+				<h2 id="signature-details-heading" class="m-0 text-xl">Details</h2>
+			</div>
+
+			<label class="flex flex-col gap-2">
+				<span class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase">Name</span>
+				<input class="input" placeholder="Your Name" bind:value={form.fullName} />
+			</label>
+
+			<label class="flex flex-col gap-2">
+				<span class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase">Email</span>
+				<input class="input" placeholder="you@example.com" bind:value={form.email} />
+			</label>
+
+			<label class="flex flex-col gap-2">
+				<span class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase">Title</span>
+				<input class="input" placeholder="Volunteer" bind:value={form.title} />
+			</label>
+		</section>
+
+		<section class="flex flex-col gap-5" aria-labelledby="signature-rows-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">02</span
+				>
+				<h2 id="signature-rows-heading" class="m-0 text-xl">Contact rows</h2>
+			</div>
+
+			<div class="border-surface-800 flex flex-col border-t-2">
+				<div class="border-surface-800 flex items-center justify-between gap-3 border-b py-4">
+					<span class="text-sm font-black tracking-wide uppercase">Phone</span>
+					<Toggle ariaLabel="Show phone number on signature" bind:checked={form.showPhone} />
+				</div>
+				<div class="border-surface-800 border-b py-4">
+					<input
+						class="input"
+						aria-label="Phone number"
+						placeholder="(602) 555-0123"
+						value={form.phone}
+						oninput={handlePhoneInput}
+					/>
+				</div>
+				<div class="border-surface-800 flex items-center justify-between gap-3 border-b py-4">
+					<span class="text-sm font-black tracking-wide uppercase">Address</span>
+					<Toggle ariaLabel="Show address on signature" bind:checked={form.showAddress} />
 				</div>
 			</div>
-		</div>
+		</section>
 
-		<div class="grid gap-6 px-6 py-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
-			<section class="space-y-4">
-				<div class="card preset-tonal-surface border-white/10 p-5">
-					<label class="grid gap-2">
-						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Name</span>
-						<input
-							class="input preset-tonal-surface"
-							placeholder="Your Name"
-							bind:value={form.fullName}
-						/>
-					</label>
+		<section class="flex flex-col gap-5" aria-labelledby="signature-logo-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">03</span
+				>
+				<h2 id="signature-logo-heading" class="m-0 text-xl">Logo</h2>
+			</div>
 
-					<label class="mt-4 grid gap-2">
-						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Email</span>
-						<input
-							class="input preset-tonal-surface"
-							placeholder="you@example.com"
-							bind:value={form.email}
-						/>
-					</label>
-
-					<label class="mt-4 grid gap-2">
-						<span class="text-surface-400 text-xs font-bold tracking-wide uppercase">Title</span>
-						<input
-							class="input preset-tonal-surface"
-							placeholder="Volunteer"
-							bind:value={form.title}
-						/>
-					</label>
-				</div>
-
-				<div class="card preset-tonal-surface border-white/10 p-5">
-					<div class="space-y-3">
-						<div
-							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
-						>
-							<div class="text-surface-100 text-sm font-semibold">Phone</div>
-							<Toggle ariaLabel="Show phone number on signature" bind:checked={form.showPhone} />
-						</div>
-
-						<input
-							class="input preset-tonal-surface"
-							placeholder="(602) 555-0123"
-							value={form.phone}
-							oninput={handlePhoneInput}
-						/>
-
-						<div
-							class="bg-surface-950/70 flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3"
-						>
-							<div class="text-surface-100 text-sm font-semibold">Address</div>
-							<Toggle ariaLabel="Show address on signature" bind:checked={form.showAddress} />
-						</div>
-					</div>
-				</div>
-
-				<div class="card preset-tonal-surface border-white/10 p-5">
-					<span class="text-surface-400 mb-3 block text-xs font-bold tracking-wide uppercase"
-						>Logo</span
+			<!-- Logos are black art made for light backgrounds, so each sits on a white tile. -->
+			<div class="grid grid-cols-4 gap-3 sm:grid-cols-7">
+				{#each logoOptions as option (option.key)}
+					{@const isActive = form.logo === option.key}
+					<button
+						class="bg-surface-50 flex items-center justify-center p-1 transition {isActive
+							? 'outline-primary-500 outline-4 outline-offset-2'
+							: 'hover:outline-surface-400 hover:outline-2 hover:outline-offset-2'}"
+						type="button"
+						aria-label={option.label}
+						aria-pressed={isActive}
+						title={option.label}
+						onclick={() => (form.logo = option.key)}
 					>
-					<div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
-						{#each logoOptions as option}
-							{@const isActive = form.logo === option.key}
-							<button
-								class={'relative overflow-hidden rounded-xl border transition ' +
-									(isActive
-										? 'border-primary-500/60 ring-primary-500/40 ring-1'
-										: 'border-white/10 hover:border-white/30')}
-								type="button"
-								aria-label={option.label}
-								title={option.label}
-								onclick={() => (form.logo = option.key)}
-							>
-								<img src={option.url} alt={option.label} class="h-12 w-12 object-contain" />
-							</button>
-						{/each}
-					</div>
-				</div>
+						<img src={option.url} alt="" class="h-12 w-12 object-contain" />
+					</button>
+				{/each}
+			</div>
+		</section>
 
-				<div class="flex gap-3">
-					{#each accentOptions as option}
-						{@const isActive = form.accent === option.key}
-						<button
-							class={'flex h-11 w-11 items-center justify-center rounded-full border transition ' +
-								(isActive
-									? 'border-white/30 bg-white/10'
-									: 'bg-surface-950/70 border-white/10 hover:border-white/20')}
-							type="button"
-							aria-label={option.label}
-							title={option.label}
-							onclick={() => (form.accent = option.key)}
-						>
-							<span
-								class="h-5 w-5 rounded-full border border-white/20"
-								style={`background:${option.hex}`}
-							></span>
-						</button>
-					{/each}
+		<section class="flex flex-col gap-5" aria-labelledby="signature-accent-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">04</span
+				>
+				<h2 id="signature-accent-heading" class="m-0 text-xl">Accent</h2>
+			</div>
+
+			<div class="flex gap-4">
+				{#each accentOptions as option (option.key)}
+					{@const isActive = form.accent === option.key}
+					<button
+						class="h-12 w-12 transition {isActive
+							? 'outline-primary-500 outline-4 outline-offset-2'
+							: 'hover:outline-surface-400 hover:outline-2 hover:outline-offset-2'}"
+						type="button"
+						aria-label={option.label}
+						aria-pressed={isActive}
+						title={option.label}
+						style={`background:${option.hex}`}
+						onclick={() => (form.accent = option.key)}
+					></button>
+				{/each}
+			</div>
+		</section>
+	</div>
+
+	<!-- PREVIEW + HTML -->
+	<div class="bg-surface-900 border-surface-800 border-t-secondary-500 border-t-4 lg:border-l-2">
+		<div
+			class="flex flex-col gap-8 px-6 py-10 sm:px-10 lg:sticky lg:top-6 lg:self-start lg:px-12 lg:py-12"
+		>
+			<!-- The signature is an email canvas, so it stays on white. -->
+			<section class="bg-surface-50 text-surface-950 relative" aria-label="Signature preview">
+				<p
+					class="bg-primary-500 text-surface-950 absolute top-0 left-0 m-0 px-4 py-2 text-xs font-bold tracking-[0.22em] uppercase"
+				>
+					Preview
+				</p>
+				<div class="px-6 pt-16 pb-8 md:px-8">
+					<div class="signature-preview inline-block max-w-full overflow-hidden">
+						{@html generatedHtml}
+					</div>
 				</div>
 			</section>
 
-			<section class="space-y-4 lg:sticky lg:top-6 lg:self-start">
-				<div
-					class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-black/10"
+			<section class="relative" aria-label="Signature HTML">
+				<p
+					class="text-primary-500 m-0 mb-3 text-xs font-bold tracking-[0.22em] uppercase"
+					aria-hidden="true"
 				>
-					<div class="p-6 md:p-8">
-						<div class="signature-preview inline-block max-w-full overflow-hidden">
-							{@html generatedHtml}
-						</div>
-					</div>
-				</div>
-
-				<div class="card preset-tonal-surface border-white/10 p-5">
-					<div class="relative">
-						<button
-							class="btn btn-sm preset-filled-primary-500 absolute top-3 right-3 z-10 min-h-6 gap-1.5"
-							type="button"
-							onclick={copyHtml}
-						>
-							{#if copied}
-								<IconCheck class="size-3.5" />
-								Copied
-							{:else}
-								<IconCopy class="size-3.5" />
-								Copy
-							{/if}
-						</button>
-						<textarea
-							class="textarea preset-tonal-surface min-h-[20rem] pt-10 pr-28 font-mono text-xs leading-5"
-							readonly
-							spellcheck="false">{generatedHtml}</textarea
-						>
-					</div>
+					HTML
+				</p>
+				<div class="relative">
+					<button
+						class="btn btn-sm preset-filled-primary-500 absolute top-3 right-3 z-10 gap-1.5"
+						type="button"
+						onclick={copyHtml}
+					>
+						{#if copied}
+							<IconCheck class="size-3.5" />
+							Copied
+						{:else}
+							<IconCopy class="size-3.5" />
+							Copy
+						{/if}
+					</button>
+					<textarea
+						class="textarea min-h-[20rem] pt-14 pr-4 font-mono text-xs leading-5"
+						aria-label="Signature HTML source"
+						readonly
+						spellcheck="false">{generatedHtml}</textarea
+					>
 				</div>
 			</section>
 		</div>

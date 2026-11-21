@@ -1,9 +1,9 @@
 <script>
 	import { enhance } from '$app/forms';
 	import IconLoader from '@lucide/svelte/icons/loader-2';
-	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconCheckCircle from '@lucide/svelte/icons/circle-check';
-	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
+	import AdminHero from '#lib/components/admin/AdminHero.svelte';
+	import AdminNotice from '#lib/components/admin/AdminNotice.svelte';
 
 	let { data, form } = $props();
 
@@ -25,27 +25,30 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:py-8">
-	<header class="space-y-1">
-		<h1 class="h2 flex items-center gap-2">
-			<IconUpload class="h-6 w-6" />
-			Ride Import
-		</h1>
-		<p class="text-surface-600-400 max-w-2xl text-sm">
-			Paste monthly source JSON to import rides. Legacy titles like <code
-				class="bg-surface-100-900 rounded px-1">GIL (weekly):</code
-			>
-			are skipped, and existing <code class="bg-surface-100-900 rounded px-1">source_event_id</code> values
-			are not re-imported.
-		</p>
-	</header>
+<AdminHero eyebrow="Rides" title="Ride Import">
+	Paste monthly source JSON to import rides. Legacy titles like
+	<code class="bg-surface-800 text-surface-50 px-1.5 font-mono text-sm">GIL (weekly):</code>
+	are skipped, and existing
+	<code class="bg-surface-800 text-surface-50 px-1.5 font-mono text-sm">source_event_id</code>
+	values are not re-imported.
+</AdminHero>
 
-	<form method="POST" use:enhance={handleEnhance} class="space-y-4">
-		<!-- Settings -->
-		<div class="card preset-outlined-surface space-y-4 p-4">
-			<div class="grid gap-4 sm:grid-cols-2">
-				<label class="space-y-1">
-					<span class="text-sm font-medium">Created By User ID</span>
+<div class="flex flex-col gap-10 px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+	<form method="POST" use:enhance={handleEnhance} class="flex max-w-4xl flex-col gap-10">
+		<section class="flex flex-col gap-5" aria-labelledby="import-settings-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">01</span
+				>
+				<h2 id="import-settings-heading" class="m-0 text-xl">Settings</h2>
+			</div>
+
+			<div class="grid gap-5 sm:grid-cols-2">
+				<label class="flex flex-col gap-2">
+					<span class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase">
+						Created By User ID
+					</span>
 					<input
 						class="input"
 						type="text"
@@ -54,8 +57,10 @@
 						placeholder="UUID"
 					/>
 				</label>
-				<label class="space-y-1">
-					<span class="text-sm font-medium">Slug Prefix</span>
+				<label class="flex flex-col gap-2">
+					<span class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase">
+						Slug Prefix
+					</span>
 					<input
 						class="input"
 						type="text"
@@ -65,45 +70,47 @@
 					/>
 				</label>
 			</div>
-			<div class="flex flex-wrap gap-4">
-				<label class="flex items-center gap-2 text-sm">
+
+			<div class="flex flex-wrap gap-x-8 gap-y-3">
+				<label class="flex cursor-pointer items-center gap-3 text-sm font-bold">
 					<input type="checkbox" name="publish" checked={values.publish} class="checkbox" />
 					<span>Publish imported rides</span>
 				</label>
-				<label class="flex items-center gap-2 text-sm">
+				<label class="flex cursor-pointer items-center gap-3 text-sm font-bold">
 					<input type="checkbox" name="dryRun" checked={values.dryRun} class="checkbox" />
 					<span>Dry run only</span>
 				</label>
 			</div>
-		</div>
+		</section>
 
-		<!-- JSON Input -->
-		<div class="space-y-1">
-			<label class="text-sm font-medium" for="ride-json">Ride JSON</label>
+		<section class="flex flex-col gap-5" aria-labelledby="import-json-heading">
+			<div class="flex items-center gap-3">
+				<span
+					class="text-tertiary-500 text-2xl leading-none font-black italic tabular-nums"
+					aria-hidden="true">02</span
+				>
+				<h2 id="import-json-heading" class="m-0 text-xl">Ride JSON</h2>
+			</div>
 			<textarea
 				id="ride-json"
+				aria-labelledby="import-json-heading"
 				class="textarea min-h-[20rem] w-full font-mono text-sm"
 				name="json"
 				placeholder="Enter JSON here...">{values.json}</textarea
 			>
-		</div>
+		</section>
 
-		<!-- Error -->
 		{#if form?.error}
-			<div class="card preset-filled-error flex items-start gap-2 p-4 text-sm">
-				<IconAlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
-				<span>{form.error}</span>
-			</div>
+			<AdminNotice tone="error">{form.error}</AdminNotice>
 		{/if}
 
-		<!-- Submit -->
 		<button
-			class="btn preset-filled-primary-500 w-full sm:w-auto"
+			class="btn preset-filled-primary-500 w-full self-start px-7 py-4 sm:w-auto"
 			type="submit"
 			disabled={isSubmitting}
 		>
 			{#if isSubmitting}
-				<IconLoader class="h-4 w-4 animate-spin" />
+				<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
 				<span>Importing...</span>
 			{:else}
 				<span>Import Rides</span>
@@ -111,78 +118,76 @@
 		</button>
 	</form>
 
-	<!-- Loading State -->
 	{#if isSubmitting}
-		<div class="card preset-outlined-surface space-y-4 p-6">
-			<div class="flex items-center justify-between">
+		<section
+			class="bg-surface-900 border-secondary-500 flex max-w-4xl flex-col gap-5 border-t-4 px-6 py-6 sm:px-8"
+			aria-label="Import progress"
+		>
+			<div class="flex items-center justify-between gap-4">
 				<div>
-					<h2 class="h4">Processing</h2>
-					<p class="text-surface-600-400 text-sm">
+					<h2 class="m-0 text-xl">Processing</h2>
+					<p class="text-surface-300 m-0 text-sm">
 						Importing rides, geocoding, and uploading media...
 					</p>
 				</div>
-				<IconLoader class="text-primary-500 h-6 w-6 animate-spin" />
+				<IconLoader class="text-primary-500 h-6 w-6 motion-safe:animate-spin" aria-hidden="true" />
 			</div>
-			<div class="space-y-3">
-				<div class="placeholder rounded-token h-2 w-full animate-pulse"></div>
-				<div class="grid gap-3 sm:grid-cols-3">
-					<div class="placeholder rounded-token h-16"></div>
-					<div class="placeholder rounded-token h-16"></div>
-					<div class="placeholder rounded-token h-16"></div>
-				</div>
+			<div class="bg-surface-800 h-2 w-full motion-safe:animate-pulse"></div>
+			<div class="grid gap-3 sm:grid-cols-3">
+				<div class="bg-surface-800 h-16 motion-safe:animate-pulse"></div>
+				<div class="bg-surface-800 h-16 motion-safe:animate-pulse"></div>
+				<div class="bg-surface-800 h-16 motion-safe:animate-pulse"></div>
 			</div>
-		</div>
+		</section>
 	{/if}
 
-	<!-- Results -->
 	{#if result}
-		<div class="card preset-outlined-surface space-y-4 p-6">
-			<h2 class="h4 flex items-center gap-2">
-				<IconCheckCircle class="text-success-500 h-5 w-5" />
+		<section
+			class="bg-surface-900 border-secondary-500 flex max-w-4xl flex-col gap-8 border-t-4 px-6 py-8 sm:px-8"
+			aria-labelledby="import-result-heading"
+		>
+			<h2 id="import-result-heading" class="m-0 flex items-center gap-3 text-2xl">
+				<IconCheckCircle class="text-success-500 h-6 w-6" aria-hidden="true" />
 				Import Complete
 			</h2>
 
-			<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<div class="card preset-tonal-success p-3 text-center">
-					<div class="text-xs uppercase opacity-70">Inserted</div>
-					<div class="text-2xl font-bold">{result.inserted?.length ?? 0}</div>
-				</div>
-				<div class="card preset-tonal-surface p-3 text-center">
-					<div class="text-xs uppercase opacity-70">Skipped Legacy</div>
-					<div class="text-2xl font-bold">{result.skipped ?? 0}</div>
-				</div>
-				<div class="card preset-tonal-warning p-3 text-center">
-					<div class="text-xs uppercase opacity-70">Skipped Existing</div>
-					<div class="text-2xl font-bold">{result.skippedExisting?.length ?? 0}</div>
-				</div>
-				<div class="card preset-tonal-error p-3 text-center">
-					<div class="text-xs uppercase opacity-70">Skipped Invalid</div>
-					<div class="text-2xl font-bold">{result.skippedInvalid?.length ?? 0}</div>
-				</div>
-			</div>
+			<dl class="m-0 grid grid-cols-2 gap-6 lg:grid-cols-4">
+				{#each [{ label: 'Inserted', value: result.inserted?.length ?? 0, marker: 'bg-success-500', numeral: 'text-primary-500' }, { label: 'Skipped Legacy', value: result.skipped ?? 0, marker: 'bg-surface-400', numeral: '' }, { label: 'Skipped Existing', value: result.skippedExisting?.length ?? 0, marker: 'bg-warning-500', numeral: '' }, { label: 'Skipped Invalid', value: result.skippedInvalid?.length ?? 0, marker: 'bg-error-500', numeral: '' }] as stat (stat.label)}
+					<div class="border-surface-700 flex flex-col-reverse gap-1 border-l-2 pl-3">
+						<dt
+							class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.18em] uppercase"
+						>
+							<span class="{stat.marker} h-2.5 w-2.5" aria-hidden="true"></span>
+							{stat.label}
+						</dt>
+						<dd class="{stat.numeral} m-0 text-3xl leading-none font-black italic tabular-nums">
+							{stat.value}
+						</dd>
+					</div>
+				{/each}
+			</dl>
 
 			{#if result.reason}
-				<p class="text-surface-600-400 text-sm">{result.reason}</p>
+				<p class="text-surface-300 m-0 text-sm">{result.reason}</p>
 			{/if}
 
-			<!-- Inserted Items -->
 			{#if result.inserted?.length}
-				<div class="space-y-2">
-					<h3 class="text-sm font-bold uppercase opacity-70">Inserted Items</h3>
-					<div class="-mx-2 overflow-x-auto px-2">
+				<div class="border-surface-800 flex flex-col gap-3 border-t-2 pt-6">
+					<h3 class="m-0 text-base">Inserted Items</h3>
+					<div class="overflow-x-auto">
 						<table class="table w-full text-sm">
-							<thead class="bg-surface-100-900">
+							<thead class="text-surface-300 border-surface-700 border-b-2">
 								<tr>
-									<th class="px-3 py-2 text-left text-xs font-bold">Title</th>
-									<th class="px-3 py-2 text-left text-xs font-bold">Slug</th>
-									<th class="px-3 py-2 text-left text-xs font-bold">Source ID</th>
-									<th class="px-3 py-2 text-left text-xs font-bold">Images</th>
-									<th class="px-3 py-2 text-left text-xs font-bold">Occurs</th>
+									{#each ['Title', 'Slug', 'Source ID', 'Images', 'Occurs'] as heading (heading)}
+										<th class="px-3 py-2 text-left text-xs font-bold tracking-[0.18em] uppercase">
+											{heading}
+										</th>
+									{/each}
 								</tr>
 							</thead>
-							<tbody class="divide-surface-200-800 divide-y">
+							<tbody>
 								{#each result.inserted as item}
-									<tr>
+									<tr class="border-surface-800 border-b">
 										<td class="px-3 py-2">{item.title}</td>
 										<td class="px-3 py-2 font-mono text-xs">{item.slug}</td>
 										<td class="px-3 py-2 font-mono text-xs">{item.sourceEventId}</td>
@@ -196,40 +201,38 @@
 				</div>
 			{/if}
 
-			<!-- Skipped Existing -->
 			{#if result.skippedExisting?.length}
-				<div class="space-y-2">
-					<h3 class="text-sm font-bold uppercase opacity-70">Skipped Existing</h3>
-					<ul class="space-y-1 text-sm">
+				<div class="border-surface-800 flex flex-col gap-3 border-t-2 pt-6">
+					<h3 class="m-0 text-base">Skipped Existing</h3>
+					<ul class="m-0 flex list-none flex-col p-0 text-sm">
 						{#each result.skippedExisting as item}
-							<li class="flex flex-wrap items-center gap-2">
-								<code class="bg-surface-100-900 rounded px-1 text-xs">{item.sourceEventId}</code>
+							<li class="border-surface-800 flex flex-wrap items-center gap-2 border-b py-2">
+								<code class="bg-surface-800 px-1.5 font-mono text-xs">{item.sourceEventId}</code>
 								<span>→</span>
-								<code class="bg-surface-100-900 rounded px-1 text-xs">{item.slug}</code>
+								<code class="bg-surface-800 px-1.5 font-mono text-xs">{item.slug}</code>
 							</li>
 						{/each}
 					</ul>
 				</div>
 			{/if}
 
-			<!-- Skipped Invalid -->
 			{#if result.skippedInvalid?.length}
-				<div class="space-y-2">
-					<h3 class="text-sm font-bold uppercase opacity-70">Skipped Invalid</h3>
-					<ul class="space-y-1 text-sm">
+				<div class="border-surface-800 flex flex-col gap-3 border-t-2 pt-6">
+					<h3 class="m-0 text-base">Skipped Invalid</h3>
+					<ul class="m-0 flex list-none flex-col p-0 text-sm">
 						{#each result.skippedInvalid as item}
-							<li class="flex flex-wrap items-center gap-2">
-								<code class="bg-surface-100-900 rounded px-1 text-xs">{item.sourceEventId}</code>
+							<li class="border-surface-800 flex flex-wrap items-center gap-2 border-b py-2">
+								<code class="bg-surface-800 px-1.5 font-mono text-xs">{item.sourceEventId}</code>
 								<span>→</span>
 								<span>{item.title}</span>
 								{#if item.detail}
-									<span class="text-surface-500 text-xs">({item.detail})</span>
+									<span class="text-surface-300 text-xs">({item.detail})</span>
 								{/if}
 							</li>
 						{/each}
 					</ul>
 				</div>
 			{/if}
-		</div>
+		</section>
 	{/if}
 </div>
