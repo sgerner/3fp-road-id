@@ -3,7 +3,6 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import * as env from '$app/env/private';
 import { IMAGE_GENERATION_MODEL_IDS } from '#lib/ai/imageGenerationModels';
 import { createOpenAiTextProviderClient } from './openai.js';
-import { convertSchemaNode } from './schema.js';
 import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
 
 export const AI_CAPABILITIES = {
@@ -18,9 +17,9 @@ export const AI_CAPABILITIES = {
 };
 
 const MODEL_ID = {
-	MERCURY_3: 'inception/mercury-3',
 	OPENAI_GPT_6_LUNA: 'openai/gpt-6-luna',
 	GEMINI_25_FLASH: 'google/gemini-2.5-flash',
+	GEMINI_4_HYDROGEN: 'google/gemini-4-hydrogen',
 	GEMINI_38_FLASH: 'google/gemini-3.8-flash',
 	GEMINI_35_FLASH_LITE: 'google/gemini-3.5-flash-lite',
 	GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
@@ -32,22 +31,12 @@ const MODEL_ID = {
 };
 
 const MODEL_ID_ALIASES = {
-	'inception/mercury-2': MODEL_ID.MERCURY_3,
-	'inception/mercury-2.5': MODEL_ID.MERCURY_3
+	'inception/mercury-2': MODEL_ID.GEMINI_4_HYDROGEN,
+	'inception/mercury-2.5': MODEL_ID.GEMINI_4_HYDROGEN,
+	'inception/mercury-3': MODEL_ID.GEMINI_4_HYDROGEN
 };
 
 const AI_MODELS = {
-	[MODEL_ID.MERCURY_3]: {
-		id: MODEL_ID.MERCURY_3,
-		provider: 'inception',
-		model: 'mercury-3',
-		label: 'Mercury 3',
-		capabilities: [
-			AI_CAPABILITIES.TEXT_GENERATION,
-			AI_CAPABILITIES.STRUCTURED_OUTPUT,
-			AI_CAPABILITIES.TOOL_USE
-		]
-	},
 	[MODEL_ID.OPENAI_GPT_6_LUNA]: {
 		id: MODEL_ID.OPENAI_GPT_6_LUNA,
 		provider: 'openai',
@@ -66,6 +55,21 @@ const AI_MODELS = {
 		model: 'gemini-2.5-flash',
 		label: 'Gemini 2.5 Flash',
 		fallbackModel: 'gemini-3.5-flash-lite',
+		capabilities: [
+			AI_CAPABILITIES.TEXT_GENERATION,
+			AI_CAPABILITIES.STRUCTURED_OUTPUT,
+			AI_CAPABILITIES.TOOL_USE,
+			AI_CAPABILITIES.WEB_SEARCH,
+			AI_CAPABILITIES.URL_CONTEXT,
+			AI_CAPABILITIES.MULTIMODAL_INPUT
+		]
+	},
+	[MODEL_ID.GEMINI_4_HYDROGEN]: {
+		id: MODEL_ID.GEMINI_4_HYDROGEN,
+		provider: 'google',
+		model: 'gemini-4-hydrogen',
+		label: 'Gemini 4 Hydrogen',
+		fallbackModel: 'gemini-3.8-flash',
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -111,7 +115,7 @@ const AI_MODELS = {
 		label: 'Gemini 3 Flash Preview',
 		fallbackModel: 'gemini-3.8-flash',
 		deprecated: true,
-		replacementModelId: MODEL_ID.GEMINI_38_FLASH,
+		replacementModelId: MODEL_ID.GEMINI_4_HYDROGEN,
 		capabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -204,7 +208,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT',
-		fallbackModelId: MODEL_ID.GEMINI_38_FLASH,
+		fallbackModelId: MODEL_ID.GEMINI_4_HYDROGEN,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
 			AI_CAPABILITIES.STRUCTURED_OUTPUT,
@@ -215,7 +219,7 @@ const AI_MODEL_PROFILES = {
 	},
 	group_enrichment_retry: {
 		envVar: 'AI_MODEL_GROUP_ENRICHMENT_RETRY',
-		fallbackModelId: MODEL_ID.GEMINI_35_FLASH_LITE,
+		fallbackModelId: MODEL_ID.GEMINI_38_FLASH,
 		ignoreDefaultModel: true,
 		requiredCapabilities: [
 			AI_CAPABILITIES.TEXT_GENERATION,
@@ -256,26 +260,6 @@ const OPENAI_IMAGE_SIZE_BY_ASPECT_RATIO = {
 	'9:16': '576x1024',
 	'16:9': '1024x576'
 };
-
-function buildInceptionMessages(contents) {
-	if (typeof contents === 'string') {
-		return [{ role: 'user', content: contents }];
-	}
-
-	if (Array.isArray(contents)) {
-		const parts = contents
-			.map((item) => {
-				if (typeof item === 'string') return item.trim();
-				if (item == null) return '';
-				if (typeof item === 'object' && typeof item.text === 'string') return item.text.trim();
-				return String(item).trim();
-			})
-			.filter(Boolean);
-		return [{ role: 'user', content: parts.join('\n\n') }];
-	}
-
-	return [{ role: 'user', content: String(contents ?? '') }];
-}
 
 function getGoogleFallbackModel(model) {
 	return Object.values(AI_MODELS).find(
@@ -566,52 +550,6 @@ function createBedrockProviderClient({ client, bearerToken = '', region = '' }) 
 	};
 }
 
-function createInceptionProviderClient(apiKey) {
-	return {
-		async generateContent({ model, contents, config = {} }) {
-			const payload = {
-				model,
-				messages: buildInceptionMessages(contents)
-			};
-
-			if (config.tools) payload.tools = config.tools;
-			if (config.temperature != null) payload.temperature = config.temperature;
-			if (config.maxTokens != null) payload.max_tokens = config.maxTokens;
-			if (config.responseSchema) {
-				payload.response_format = {
-					type: 'json_schema',
-					json_schema: {
-						name: config.schemaName || 'structured_response',
-						strict: true,
-						schema: convertSchemaNode(config.responseSchema)
-					}
-				};
-			}
-
-			const response = await fetch('https://api.inceptionlabs.ai/v1/chat/completions', {
-				method: 'POST',
-				redirect: 'error',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${apiKey}`
-				},
-				body: JSON.stringify(payload)
-			});
-
-			if (!response.ok) {
-				const errorText = await response.text().catch(() => '');
-				throw new Error(
-					errorText || `Inception API request failed with status ${response.status}.`
-				);
-			}
-
-			const data = await response.json();
-			const text = data?.choices?.[0]?.message?.content ?? '';
-			return { text, raw: data };
-		}
-	};
-}
-
 function getGoogleClient() {
 	const apiKey = env.GENAI_API_KEY || null;
 	if (!apiKey) return null;
@@ -701,12 +639,6 @@ function getBedrockClient() {
 	return cachedBedrockClient;
 }
 
-function getInceptionClient() {
-	const apiKey = env.INCEPTION_API_KEY || null;
-	if (!apiKey) return null;
-	return createInceptionProviderClient(apiKey);
-}
-
 function hasCapabilities(model, requiredCapabilities = []) {
 	return requiredCapabilities.every((capability) => model.capabilities.includes(capability));
 }
@@ -769,7 +701,6 @@ function resolveProviderClient(provider) {
 	if (provider === 'google') return getGoogleClient();
 	if (provider === 'openai') return getOpenAiClient();
 	if (provider === 'bedrock') return getBedrockClient();
-	if (provider === 'inception') return getInceptionClient();
 	throw new Error(`Unsupported AI provider "${provider}".`);
 }
 
@@ -777,7 +708,6 @@ function missingApiKeyMessage(provider) {
 	if (provider === 'google') return 'GENAI_API_KEY not configured.';
 	if (provider === 'openai') return 'OPENAI_API_KEY not configured.';
 	if (provider === 'bedrock') return getBedrockConfigurationIssue() || 'Bedrock is not configured.';
-	if (provider === 'inception') return 'INCEPTION_API_KEY not configured.';
 	return 'AI provider not configured.';
 }
 
