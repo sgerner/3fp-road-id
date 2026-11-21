@@ -146,7 +146,7 @@
 				name="window_days"
 				id="group-health-window"
 				class="select h-10 py-0 pr-10 pl-3 text-sm"
-				value={data.windowDays}
+				value={String(data.windowDays)}
 				onchange={(e) => e.target.form.submit()}
 			>
 				<option value="7">7 Days</option>
