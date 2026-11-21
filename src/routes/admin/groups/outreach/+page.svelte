@@ -57,6 +57,15 @@
 	let coverCroppedDataUrl = $state('');
 	let imageFormEl = $state(null);
 	let generateFormEl = $state(null);
+	let imageDialogEl = $state(null);
+
+	// Keep the native dialog in step with imageModalOpen. showModal() provides the focus trap,
+	// Escape to close, an inert background and focus restore; onclose reports Escape back.
+	$effect(() => {
+		if (!imageDialogEl) return;
+		if (imageModalOpen && !imageDialogEl.open) imageDialogEl.showModal();
+		else if (!imageModalOpen && imageDialogEl.open) imageDialogEl.close();
+	});
 
 	const selectedGroup = $derived(groups.find((group) => group.id === selectedGroupId) || null);
 
@@ -856,22 +865,24 @@
 	</div>
 {/snippet}
 
-{#if imageModalOpen}
-	<div
-		class="bg-surface-950/80 fixed inset-0 z-50 flex items-center justify-center p-4"
-		transition:fade={{ duration: 150 }}
-	>
-		<div
-			class="bg-surface-950 border-surface-700 border-t-primary-500 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border-2 border-t-4"
-			transition:slide={{ duration: 200 }}
-		>
+<!-- m-auto: Tailwind's reset zeroes the margin that centers a modal dialog. -->
+<dialog
+	bind:this={imageDialogEl}
+	aria-labelledby="image-editor-heading"
+	onclose={() => (imageModalOpen = false)}
+	class="bg-surface-950 text-surface-50 border-surface-700 border-t-primary-500 backdrop:bg-surface-950/80 m-auto max-h-[90dvh] w-full max-w-[min(32rem,calc(100%-2rem))] flex-col overflow-hidden border-2 border-t-4 p-0 open:flex"
+>
+	{#if imageModalOpen}
+		<div class="flex min-h-0 flex-1 flex-col">
 			<!-- Header -->
 			<div
 				class="border-surface-800 flex shrink-0 items-center justify-between border-b-2 px-5 py-4"
 			>
 				<div class="flex items-center gap-2">
 					<IconImageUp class="text-primary-500 h-5 w-5" aria-hidden="true" />
-					<h2 class="m-0 text-xl">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h2>
+					<h2 id="image-editor-heading" class="m-0 text-xl">
+						Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}
+					</h2>
 				</div>
 				<button
 					type="button"
@@ -1032,5 +1043,5 @@
 				</form>
 			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
+</dialog>
