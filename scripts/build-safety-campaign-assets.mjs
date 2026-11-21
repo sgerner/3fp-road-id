@@ -3,9 +3,9 @@ import path from 'node:path';
 import os from 'node:os';
 import sharp from 'sharp';
 
-// Published artifacts are exported once; normal website builds use the checked-in assets.
+// Published v10 artifacts are exported once; normal website builds use the checked-in assets.
 const release =
-	process.env.CAMPAIGN_SOURCE_DIR || path.join(os.homedir(), 'Downloads/3fp/_release-v9');
+	process.env.CAMPAIGN_SOURCE_DIR || path.join(os.homedir(), 'Downloads/3fp/_release-v10');
 const campaignRoot = process.env.CAMPAIGN_ASSET_SOURCE_DIR || path.dirname(release);
 const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const validation = read(
@@ -23,22 +23,29 @@ const base = '/reports/safer-cycling-better-messages/downloads';
 const outputDir = `static${base}`;
 fs.rmSync(outputDir, { recursive: true, force: true });
 fs.mkdirSync(outputDir, { recursive: true });
+const retiredAssetMasters = new Set([
+	'3fp-poster-pass-with-room-letter-native-v9.pptx',
+	'3fp-poster-pass-with-room-11x17-native-v9.pptx'
+]);
 const resolve = (original, record, folder, filename) => {
 	if (original && fs.existsSync(original)) return original;
 	if (original && fs.existsSync(path.resolve(release, original)))
 		return path.resolve(release, original);
 	for (const campaign of record.campaigns) {
-		const candidate = path.join(campaignRoot, campaign, 'edition-v9', folder, filename);
+		const candidate = path.join(campaignRoot, campaign, 'edition-v10', folder, filename);
 		if (fs.existsSync(candidate)) return candidate;
 	}
 	throw new Error(
-		`Missing v9 campaign artifact: ${record.campaigns.join(', ')} / ${folder}/${filename}`
+		`Missing v10 campaign artifact: ${record.campaigns.join(', ')} / ${folder}/${filename}`
 	);
 };
+const recommendedRecords = validation.records.filter(
+	(record) =>
+		!record.campaigns.some((campaign) => excludedCampaigns.has(campaign)) &&
+		!retiredAssetMasters.has(path.basename(record.master))
+);
 let exports = 0;
-for (const record of validation.records.filter(
-	(record) => !record.campaigns.some((campaign) => excludedCampaigns.has(campaign))
-)) {
+for (const record of recommendedRecords) {
 	const master = path.basename(record.master);
 	const assetId = path.basename(master, '.pptx');
 	const template = Object.values(templates).find((item) => item.file === master);
@@ -86,6 +93,15 @@ for (const record of validation.records.filter(
 	}
 	exports++;
 }
+if (
+	recommendedRecords.length !== 28 ||
+	exports !== 28 ||
+	Object.keys(templates).length !== 28 ||
+	report.campaignGallery.length !== 68
+)
+	throw new Error(
+		`Unexpected v10 library coverage: ${exports} recommended designs, ${Object.keys(templates).length} Canva templates, ${report.campaignGallery.length} proof pages`
+	);
 report.meta.campaignAssetCount = exports;
 report.meta.campaignTemplateCount = Object.keys(templates).length;
 fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);

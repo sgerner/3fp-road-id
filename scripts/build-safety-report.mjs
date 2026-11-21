@@ -7,15 +7,19 @@ const { findAll, getText, getOuterHTML } = DomUtils;
 import sanitizeHtml from 'sanitize-html';
 import sharp from 'sharp';
 
-// Run from the repository root. Source files are the published report and v9 QA exports.
+// Run from the repository root. Source files are the published report and v10 campaign exports.
 const deliverables = path.join(os.homedir(), 'Downloads/3fp');
 const report =
 	process.env.SAFETY_REPORT_SOURCE_DIR || path.join(deliverables, 'public-research-review');
-const release = process.env.CAMPAIGN_SOURCE_DIR || path.join(deliverables, '_release-v9');
+const release = process.env.CAMPAIGN_SOURCE_DIR || path.join(deliverables, '_release-v10');
 const campaignRoot = process.env.CAMPAIGN_ASSET_SOURCE_DIR || deliverables;
 const output = 'static/reports/safer-cycling-better-messages';
 const base = '/reports/safer-cycling-better-messages';
 const excludedCampaigns = new Set(['04-practice-before-traffic', '12-partner-demonstrations']);
+const retiredAssetMasters = new Set([
+	'3fp-poster-pass-with-room-letter-native-v9.pptx',
+	'3fp-poster-pass-with-room-11x17-native-v9.pptx'
+]);
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const clean = (text) => text.replace(/\s+/g, ' ').trim();
 const descendants = (node, name) => findAll((el) => el.name === name, node.children || []);
@@ -26,10 +30,10 @@ const titleCase = (s) =>
 		.replace(/\b\w/g, (c) => c.toUpperCase());
 const campaignAsset = (campaigns, folder, filename) => {
 	for (const campaign of campaigns) {
-		const candidate = path.join(campaignRoot, campaign, 'edition-v9', folder, filename);
+		const candidate = path.join(campaignRoot, campaign, 'edition-v10', folder, filename);
 		if (fs.existsSync(candidate)) return candidate;
 	}
-	throw new Error(`Missing v9 campaign asset: ${campaigns.join(', ')} / ${folder}/${filename}`);
+	throw new Error(`Missing v10 campaign asset: ${campaigns.join(', ')} / ${folder}/${filename}`);
 };
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(`${output}/figures`, { recursive: true });
@@ -175,10 +179,21 @@ const validation = readJson(
 		? `${release}/qa/validation.json`
 		: `${release}/validation.json`
 );
+const recommendedRecords = validation.records.filter(
+	(record) =>
+		!record.campaigns.some((campaign) => excludedCampaigns.has(campaign)) &&
+		!retiredAssetMasters.has(path.basename(record.master))
+);
+const recommendedPageCount = recommendedRecords.reduce(
+	(sum, record) => sum + record.pages.length,
+	0
+);
+if (recommendedRecords.length !== 28 || recommendedPageCount !== 68)
+	throw new Error(
+		`Expected 28 recommended v10 masters and 68 proof pages, found ${recommendedRecords.length} masters and ${recommendedPageCount} pages`
+	);
 const campaignGallery = [];
-for (const record of validation.records.filter(
-	(record) => !record.campaigns.some((campaign) => excludedCampaigns.has(campaign))
-)) {
+for (const record of recommendedRecords) {
 	const campaigns = record.campaigns;
 	const campaign = campaigns.join(', ');
 	const label = record.campaigns
@@ -213,6 +228,13 @@ const quickGuidePath = process.env.QUICK_GUIDE_SOURCE || `${report}/quick-guide/
 const quickGuide = fs.existsSync(quickGuidePath)
 	? readJson(quickGuidePath)
 	: readJson('src/lib/content/safetyReport.json').quickGuide;
+const campaignGuide = readJson(path.join(report, 'campaign-guide.json'));
+for (const campaignPath of campaignGuide.paths || []) {
+	for (const piece of campaignPath.pieces || []) {
+		if (piece.assetId === '3fp-poster-pass-with-room-letter-native-v9')
+			piece.assetId = '01-give-people-space-poster-v9';
+	}
+}
 const data = {
 	meta: {
 		title: 'Safer Cycling, Better Messages',
@@ -229,21 +251,30 @@ const data = {
 	figures,
 	campaignGallery,
 	quickGuide,
-	campaignGuide: readJson(path.join(report, 'campaign-guide.json'))
+	campaignGuide
 };
 if (
 	sources.length !== 68 ||
 	figures.length !== 31 ||
-	campaignGallery.length !== 70 ||
+	campaignGallery.length !== 68 ||
 	sections.length !== 15
 )
 	throw new Error(
-		`Unexpected coverage: ${sources.length} sources, ${figures.length} figures, ${campaignGallery.length} proofs, ${sections.length} sections`
+		`Unexpected coverage: ${sources.length} sources, ${figures.length} figures, ${campaignGallery.length} campaign proof pages, ${sections.length} sections`
 	);
 fs.writeFileSync('src/lib/content/safetyReport.json', `${JSON.stringify(data, null, 2)}\n`);
-console.log(
-	`Built ${sections.length} sections, ${sources.length} sources, ${figures.length} figures, ${campaignGallery.length} proof pages.`
-);
 
 // Attach public downloads and verified copy-safe Canva template links.
 await import('./build-safety-campaign-assets.mjs');
+const finalReport = readJson('src/lib/content/safetyReport.json');
+if (
+	finalReport.campaignGallery.length !== 68 ||
+	finalReport.meta.campaignAssetCount !== 28 ||
+	finalReport.meta.campaignTemplateCount !== 28
+)
+	throw new Error(
+		`Unexpected final campaign library: ${finalReport.campaignGallery.length} proof pages, ${finalReport.meta.campaignAssetCount} design sets, ${finalReport.meta.campaignTemplateCount} Canva templates`
+	);
+console.log(
+	`Built ${sections.length} sections, ${sources.length} sources, ${figures.length} figures, ${finalReport.campaignGallery.length} campaign proof pages, ${finalReport.meta.campaignAssetCount} design sets.`
+);
