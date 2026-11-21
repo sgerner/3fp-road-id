@@ -19,6 +19,8 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconCheck from '@lucide/svelte/icons/check';
+	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 
 	let { data, form } = $props();
 	let removedGroupIds = $state(new Set());
@@ -285,19 +287,22 @@
 
 	function getSortValue(group) {
 		const sort = data.sort || 'priority';
+		// Solid tags keep dark text readable on asphalt rows and on the lemon selected/hover row.
+		const NEUTRAL_TAG = 'bg-surface-800 text-surface-50';
+		const PRIORITY_TAG = 'bg-tertiary-500 text-surface-950';
 		switch (sort) {
 			case 'priority':
-				return { label: 'Priority', value: group.priority_score, color: 'text-tertiary-600' };
+				return { label: 'Priority', value: group.priority_score, tag: PRIORITY_TAG };
 			case 'completeness':
 				return {
 					label: 'Complete',
 					value: `${group.completeness}%`,
-					color:
+					tag:
 						group.completeness >= 80
-							? 'text-success-600'
+							? 'bg-success-500 text-surface-950'
 							: group.completeness >= 50
-								? 'text-warning-600'
-								: 'text-error-600'
+								? 'bg-warning-500 text-surface-950'
+								: 'bg-error-500 text-surface-950'
 				};
 			case 'newest':
 				return {
@@ -305,7 +310,7 @@
 					value: group.enrichment?.created_at
 						? formatDistanceToNow(new Date(group.enrichment.created_at), { addSuffix: true })
 						: 'Unknown',
-					color: 'text-surface-600-400'
+					tag: NEUTRAL_TAG
 				};
 			case 'stale':
 				return {
@@ -313,10 +318,10 @@
 					value: group.last_contact
 						? formatDistanceToNow(new Date(group.last_contact.contacted_at), { addSuffix: true })
 						: 'Never',
-					color: 'text-surface-600-400'
+					tag: NEUTRAL_TAG
 				};
 			default:
-				return { label: 'Priority', value: group.priority_score, color: 'text-tertiary-600' };
+				return { label: 'Priority', value: group.priority_score, tag: PRIORITY_TAG };
 		}
 	}
 </script>
@@ -326,271 +331,223 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 md:py-8">
-	<!-- Header -->
-	<header class="flex flex-col gap-1">
-		<h1 class="h2 flex items-center gap-2">
-			<IconSparkles class="text-tertiary-500 h-6 w-6" />
-			Group Outreach
-		</h1>
-		<p class="text-surface-600-400 flex items-center gap-2 text-sm">
-			<IconUsers class="h-4 w-4" />
-			{total} groups waiting for outreach
-		</p>
-	</header>
+<AdminHero eyebrow="Groups" title="Group Outreach">
+	{total} groups waiting for outreach
+</AdminHero>
 
-	<!-- Filters -->
-	<form method="GET" class="card preset-outlined-surface-200-800 p-3" transition:fade>
-		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-			<div class="relative lg:col-span-2">
-				<IconSearch class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-				<input
-					type="search"
-					name="q"
-					value={data.q || ''}
-					placeholder="Search groups..."
-					class="input preset-tonal-surface pl-9"
+<!-- FILTERS -->
+<section
+	class="bg-surface-900 border-surface-800 border-b-2 px-6 py-5 sm:px-10 lg:px-14"
+	aria-label="Outreach filters"
+>
+	<form
+		method="GET"
+		class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)]"
+		transition:fade
+	>
+		<div class="relative">
+			<IconSearch
+				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+			/>
+			<input
+				type="search"
+				name="q"
+				aria-label="Search groups"
+				value={data.q || ''}
+				placeholder="Search groups..."
+				class="input pl-9"
+			/>
+		</div>
+		<div class="relative">
+			<IconFilter
+				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+			/>
+			<select
+				name="contact"
+				aria-label="Filter by contact type"
+				class="select pl-9"
+				value={data.contact || 'all'}
+			>
+				<option value="all">All contacts</option>
+				<option value="email">Has email</option>
+				<option value="social">Has social</option>
+				<option value="none">No contacts</option>
+			</select>
+		</div>
+		<div class="relative">
+			<IconFilter
+				class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+			/>
+			<select
+				name="min_completeness"
+				aria-label="Minimum completeness"
+				class="select pl-9"
+				value={String(data.minCompleteness || 0)}
+			>
+				<option value="0">Any completeness</option>
+				<option value="40">40%+ complete</option>
+				<option value="60">60%+ complete</option>
+				<option value="80">80%+ complete</option>
+			</select>
+		</div>
+		<div class="flex items-center gap-3">
+			<div class="relative min-w-0 flex-1">
+				<IconArrowUpDown
+					class="text-surface-300 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
 				/>
-			</div>
-			<div class="relative">
-				<IconFilter class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 				<select
-					name="contact"
-					class="select preset-tonal-surface pl-9"
-					value={data.contact || 'all'}
+					name="sort"
+					aria-label="Sort groups"
+					class="select pl-9"
+					value={data.sort || 'priority'}
 				>
-					<option value="all">All contacts</option>
-					<option value="email">Has email</option>
-					<option value="social">Has social</option>
-					<option value="none">No contacts</option>
+					<option value="priority">Priority (high first)</option>
+					<option value="completeness">Most complete</option>
+					<option value="newest">Newest first</option>
+					<option value="stale">Stalest contact</option>
 				</select>
 			</div>
-			<div class="relative">
-				<IconFilter class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-				<select
-					name="min_completeness"
-					class="select preset-tonal-surface pl-9"
-					value={String(data.minCompleteness || 0)}
-				>
-					<option value="0">Any completeness</option>
-					<option value="40">40%+ complete</option>
-					<option value="60">60%+ complete</option>
-					<option value="80">80%+ complete</option>
-				</select>
-			</div>
-			<div class="flex items-center gap-2">
-				<div class="relative min-w-0 flex-1">
-					<IconArrowUpDown
-						class="text-surface-500 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
-					/>
-					<select
-						name="sort"
-						class="select preset-tonal-surface pl-9"
-						value={data.sort || 'priority'}
-					>
-						<option value="priority">Priority (high first)</option>
-						<option value="completeness">Most complete</option>
-						<option value="newest">Newest first</option>
-						<option value="stale">Stalest contact</option>
-					</select>
-				</div>
-				<button type="submit" class="btn preset-filled-primary-500 px-4">Apply</button>
-			</div>
+			<button type="submit" class="btn preset-filled-primary-500 px-4">Apply</button>
 		</div>
 	</form>
+</section>
 
-	<!-- Desktop Layout -->
-	<div class="hidden items-start gap-5 lg:grid lg:grid-cols-[320px_1fr]">
-		<!-- Group List -->
-		<div class="flex max-h-[calc(100vh-11rem)] flex-col gap-1.5 overflow-y-auto pr-1">
+<div class="grid flex-1 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+	<!-- GROUP LIST (one list for every screen size) -->
+	<section
+		class="bg-surface-900 border-surface-800 border-t-secondary-500 border-t-4 lg:border-r-2"
+		aria-label="Groups awaiting outreach"
+	>
+		<ul class="m-0 flex list-none flex-col p-0 lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto">
 			{#each groups as g (g.id)}
 				{@const sortInfo = getSortValue(g)}
-				<button
-					type="button"
-					class="group rounded-lg border p-3 text-left transition-all duration-150 {selectedGroupId ===
-					g.id
-						? 'bg-primary-500/10 border-primary-500/40'
-						: 'bg-surface-50-950 border-surface-200-800 hover:border-surface-300-700'}"
-					onclick={() => selectGroup(g)}
-				>
-					<div class="flex items-center gap-3">
-						{#if g.logo_url}
-							<img
-								src={g.logo_url}
-								alt=""
-								class="ring-surface-500/20 h-9 w-9 shrink-0 rounded-lg object-cover ring-1"
-							/>
-						{:else}
-							<div
-								class="preset-tonal-surface flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-							>
-								<IconUsers class="h-4 w-4 opacity-40" />
-							</div>
-						{/if}
-						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								<span class="text-surface-900-100 truncate text-sm font-medium">{g.name}</span>
-								{#if g.is_low_priority}
-									<span
-										class="bg-warning-500/20 text-warning-700-300 rounded px-1.5 py-0.5 text-[9px]"
-										>LOW</span
-									>
-								{/if}
-							</div>
-							<div class="text-surface-600-400 text-xs">{g.city}, {g.state_region}</div>
-						</div>
-						<div class="flex shrink-0 flex-col items-end">
-							<span class="text-xs font-bold {sortInfo.color}">{sortInfo.value}</span>
-							<span class="text-surface-500 text-[10px] uppercase">{sortInfo.label}</span>
-						</div>
-					</div>
-					<div class="mt-2 flex flex-wrap gap-1">
-						{#each getContactItems(g).slice(0, 4) as c}
-							<span
-								class="bg-surface-200-800 text-surface-600-400 rounded px-1.5 py-0.5 text-[10px]"
-								>{c.label}</span
-							>
-						{/each}
-						{#if getContactItems(g).length > 4}
-							<span
-								class="bg-surface-200-800 text-surface-600-400 rounded px-1.5 py-0.5 text-[10px]"
-								>+{getContactItems(g).length - 4}</span
-							>
-						{/if}
-					</div>
-				</button>
-			{:else}
-				<div class="card preset-tonal-surface p-8 text-center">
-					<div
-						class="bg-surface-200-800 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
+				{@const contacts = getContactItems(g)}
+				{@const isSelected = selectedGroupId === g.id}
+				{@const muted = isSelected ? '' : 'text-surface-300 group-hover:text-surface-950'}
+				<li class="border-surface-800 border-b">
+					<button
+						type="button"
+						aria-pressed={isSelected}
+						class="group flex w-full cursor-pointer flex-col gap-2 px-5 py-3 text-left transition {isSelected
+							? 'bg-primary-500 text-surface-950'
+							: 'hover:bg-primary-500 hover:text-surface-950'}"
+						onclick={() => selectGroup(g)}
 					>
-						<IconSparkles class="text-surface-500 h-6 w-6" />
-					</div>
-					<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
-				</div>
+						<span class="flex items-center gap-3">
+							{#if g.logo_url}
+								<img
+									src={g.logo_url}
+									alt=""
+									class="bg-surface-50 h-10 w-10 shrink-0 object-cover"
+								/>
+							{:else}
+								<span
+									class="bg-surface-50 text-surface-950 flex h-10 w-10 shrink-0 items-center justify-center"
+								>
+									<IconUsers class="h-4 w-4" />
+								</span>
+							{/if}
+							<span class="min-w-0 flex-1">
+								<span class="flex items-center gap-2">
+									<span class="truncate text-sm font-black">{g.name}</span>
+									{#if g.is_low_priority}
+										<span
+											class="bg-warning-500 text-surface-950 shrink-0 px-1.5 py-0.5 text-[0.65rem] font-black tracking-wide uppercase"
+										>
+											Low
+										</span>
+									{/if}
+								</span>
+								<span class="block truncate text-xs {muted}">{g.city}, {g.state_region}</span>
+							</span>
+							<span class="flex shrink-0 flex-col items-end gap-1">
+								<span
+									class="{sortInfo.tag} px-2 py-0.5 text-xs font-black whitespace-nowrap tabular-nums"
+								>
+									{sortInfo.value}
+								</span>
+								<span class="text-[0.65rem] font-bold tracking-[0.14em] uppercase {muted}">
+									{sortInfo.label}
+								</span>
+							</span>
+						</span>
+						<span class="flex flex-wrap gap-1">
+							{#each contacts.slice(0, 4) as c}
+								<span class="bg-surface-800 text-surface-50 px-1.5 py-0.5 text-xs">{c.label}</span>
+							{/each}
+							{#if contacts.length > 4}
+								<span class="bg-surface-800 text-surface-50 px-1.5 py-0.5 text-xs">
+									+{contacts.length - 4}
+								</span>
+							{/if}
+						</span>
+					</button>
+				</li>
+			{:else}
+				<li class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+					<span class="bg-surface-50 text-surface-950 flex h-12 w-12 items-center justify-center">
+						<IconSparkles class="h-6 w-6" aria-hidden="true" />
+					</span>
+					<p class="m-0 text-sm font-black tracking-wide uppercase">All caught up!</p>
+				</li>
 			{/each}
-		</div>
+		</ul>
+	</section>
 
-		<!-- Detail Panel -->
-		<div class="sticky top-4">
+	<!-- DETAIL (desktop) -->
+	<section class="hidden min-w-0 lg:block" aria-label="Outreach details">
+		<div class="lg:sticky lg:top-4">
 			{#if selectedGroup}
-				<div
-					class="card bg-surface-50-950 border-surface-200-800 overflow-hidden rounded-xl border"
-				>
-					{@render detailContent(selectedGroup)}
-				</div>
+				{@render detailContent(selectedGroup)}
 			{:else}
-				<div class="card preset-tonal-surface p-10 text-center">
-					<div
-						class="bg-surface-200-800 mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl"
-					>
-						<IconSend class="text-surface-500 h-8 w-8" />
-					</div>
-					<h2 class="h5 text-surface-700-300">Select a group</h2>
-					<p class="text-surface-600-400 mt-1 text-sm">
+				<div
+					class="flex min-h-[24rem] flex-col items-start justify-center gap-5 px-10 py-12 lg:px-14"
+				>
+					<span class="bg-secondary-500 text-surface-50 flex h-16 w-16 items-center justify-center">
+						<IconSend class="h-8 w-8" aria-hidden="true" />
+					</span>
+					<h2 class="m-0 text-3xl leading-[0.92] sm:text-4xl">Select a group</h2>
+					<p class="text-surface-300 m-0 max-w-md text-base leading-snug font-medium">
 						Choose a group to compose your outreach message.
 					</p>
 				</div>
 			{/if}
 		</div>
-	</div>
+	</section>
+</div>
 
-	<!-- Mobile/Tablet Layout -->
-	<div class="flex flex-col gap-2 lg:hidden">
-		{#each groups as g (g.id)}
-			{@const sortInfo = getSortValue(g)}
-			<button
-				type="button"
-				class="group rounded-lg border p-3 text-left transition-all duration-150 {selectedGroupId ===
-				g.id
-					? 'bg-primary-500/10 border-primary-500/40'
-					: 'bg-surface-50-950 border-surface-200-800'}"
-				onclick={() => selectGroup(g)}
-			>
-				<div class="flex items-center gap-3">
-					{#if g.logo_url}
-						<img
-							src={g.logo_url}
-							alt=""
-							class="ring-surface-500/20 h-10 w-10 shrink-0 rounded-lg object-cover ring-1"
-						/>
-					{:else}
-						<div
-							class="preset-tonal-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-						>
-							<IconUsers class="h-5 w-5 opacity-40" />
-						</div>
-					{/if}
-					<div class="min-w-0 flex-1">
-						<div class="flex items-center gap-2">
-							<span class="text-surface-900-100 truncate font-medium">{g.name}</span>
-							{#if g.is_low_priority}
-								<span
-									class="bg-warning-500/20 text-warning-700-300 rounded px-1.5 py-0.5 text-[9px]"
-									>LOW</span
-								>
-							{/if}
-						</div>
-						<div class="text-surface-600-400 text-sm">{g.city}, {g.state_region}</div>
-					</div>
-					<div class="flex shrink-0 flex-col items-end">
-						<span class="text-sm font-bold {sortInfo.color}">{sortInfo.value}</span>
-						<span class="text-surface-500 text-[10px] uppercase">{sortInfo.label}</span>
-					</div>
-				</div>
-				<div class="mt-2 flex flex-wrap gap-1.5">
-					{#each getContactItems(g) as c}
-						<span class="bg-surface-200-800 text-surface-600-400 rounded px-2 py-0.5 text-xs"
-							>{c.label}</span
-						>
-					{/each}
-				</div>
-			</button>
-		{:else}
-			<div class="card preset-tonal-surface p-8 text-center">
-				<div
-					class="bg-surface-200-800 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full"
-				>
-					<IconSparkles class="text-surface-500 h-6 w-6" />
-				</div>
-				<p class="text-surface-700-300 text-sm font-medium">All caught up!</p>
-			</div>
-		{/each}
-	</div>
-
-	<!-- Mobile Detail Sheet -->
-	{#if selectedGroupId && selectedGroup}
-		<div class="fixed inset-0 z-50 lg:hidden" transition:fade={{ duration: 150 }}>
-			<button
-				type="button"
-				class="bg-surface-950/60 absolute inset-0 backdrop-blur-sm"
-				aria-label="Close outreach panel"
-				onclick={() => (selectedGroupId = null)}
-			></button>
+<!-- DETAIL (mobile/tablet sheet) -->
+{#if selectedGroupId && selectedGroup}
+	<div class="fixed inset-0 z-50 lg:hidden" transition:fade={{ duration: 150 }}>
+		<button
+			type="button"
+			class="bg-surface-950/80 absolute inset-0"
+			aria-label="Close outreach panel"
+			onclick={() => (selectedGroupId = null)}
+		></button>
+		<div
+			class="bg-surface-950 border-primary-500 absolute inset-x-0 top-[var(--app-header-height)] bottom-0 flex flex-col overflow-hidden border-t-4"
+			transition:slide={{ duration: 200 }}
+		>
 			<div
-				class="bg-surface-50-950 absolute inset-x-0 top-12 bottom-0 flex flex-col overflow-hidden rounded-t-2xl"
-				transition:slide={{ duration: 200 }}
+				class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between border-b-2 px-4 py-3"
 			>
-				<div
-					class="border-surface-200-800 flex shrink-0 items-center justify-between border-b px-4 py-2"
+				<button
+					type="button"
+					class="btn btn-sm preset-outlined-surface-500"
+					onclick={() => (selectedGroupId = null)}
 				>
-					<button
-						type="button"
-						class="btn btn-sm preset-tonal-surface"
-						onclick={() => (selectedGroupId = null)}
-					>
-						<IconChevronLeft class="h-4 w-4" /> Back
-					</button>
-					<span class="text-surface-500 text-xs font-medium">Outreach</span>
-					<div class="w-16"></div>
-				</div>
-				<div class="flex-1 overflow-y-auto">
-					{@render detailContent(selectedGroup)}
-				</div>
+					<IconChevronLeft class="h-4 w-4" /> Back
+				</button>
+				<span class="text-surface-300 text-xs font-bold tracking-[0.22em] uppercase">Outreach</span>
+				<div class="w-16"></div>
+			</div>
+			<div class="flex-1 overflow-y-auto">
+				{@render detailContent(selectedGroup)}
 			</div>
 		</div>
-	{/if}
-</div>
+	</div>
+{/if}
 
 {#snippet detailContent(group)}
 	<form
@@ -603,48 +560,42 @@
 		<input type="hidden" name="group_id" value={group.id} />
 	</form>
 
-	<!-- Group Header -->
-	<div class="border-surface-200-800 border-b p-4">
-		<div class="flex items-center gap-3">
-			{#if group.logo_url}
-				<img
-					src={group.logo_url}
-					alt=""
-					class="ring-surface-500/20 h-12 w-12 shrink-0 rounded-xl object-cover ring-1"
-				/>
-			{:else}
-				<div
-					class="preset-tonal-surface flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+	<!-- Group header -->
+	<div class="border-surface-800 flex items-center gap-4 border-b-2 px-6 py-5">
+		{#if group.logo_url}
+			<img src={group.logo_url} alt="" class="bg-surface-50 h-14 w-14 shrink-0 object-cover" />
+		{:else}
+			<span
+				class="bg-surface-50 text-surface-950 flex h-14 w-14 shrink-0 items-center justify-center"
+			>
+				<IconUsers class="h-6 w-6" />
+			</span>
+		{/if}
+		<div class="min-w-0 flex-1">
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+				<h2 class="m-0 truncate text-2xl leading-tight">{group.name}</h2>
+				<a
+					href="/groups/{group.slug}"
+					target="_blank"
+					class="btn btn-sm preset-outlined-surface-500 shrink-0"
+					onclick={(event) => event.stopPropagation()}
 				>
-					<IconUsers class="h-6 w-6 opacity-40" />
-				</div>
-			{/if}
-			<div class="min-w-0 flex-1">
-				<div class="flex items-center gap-2">
-					<h2 class="h5 truncate">{group.name}</h2>
-					<a
-						href="/groups/{group.slug}"
-						target="_blank"
-						class="btn btn-sm preset-tonal-tertiary shrink-0"
-						onclick={(event) => event.stopPropagation()}
-					>
-						<IconExternalLink class="h-4 w-4" />
-						Open group
-					</a>
-				</div>
-				<p class="text-surface-600-400 text-sm">{group.city}, {group.state_region}</p>
+					<IconExternalLink class="h-4 w-4" />
+					Open group
+				</a>
 			</div>
+			<p class="text-surface-300 m-0 text-sm">{group.city}, {group.state_region}</p>
 		</div>
 	</div>
 
-	<!-- Primary: Message Composer -->
-	<div class="space-y-3 p-4">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<IconSend class="text-primary-500 h-4 w-4" />
-				<h3 class="text-sm font-medium">Compose Message</h3>
-			</div>
-			<p class="text-surface-600-400 text-xs" role="status">
+	<!-- Compose -->
+	<section class="flex flex-col gap-4 px-6 py-6" aria-label="Compose message">
+		<div class="flex items-center justify-between gap-3">
+			<h3 class="m-0 flex items-center gap-2 text-lg">
+				<IconSend class="text-primary-500 h-4 w-4" aria-hidden="true" />
+				Compose Message
+			</h3>
+			<p class="text-surface-300 m-0 text-xs" role="status">
 				{generating ? 'Writing draft…' : ''}
 			</p>
 		</div>
@@ -654,55 +605,60 @@
 				method="POST"
 				action="?/sendMessage"
 				use:enhance={enhanceWithFlag((v) => (sending = v))}
-				class="space-y-3"
+				class="flex flex-col gap-4"
 			>
 				<input type="hidden" name="group_id" value={group.id} />
-				<div>
-					<label class="label text-surface-500 mb-1 text-xs" for={`subject-${group.id}`}
-						>Subject</label
+				<div class="flex flex-col gap-2">
+					<label
+						class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+						for={`subject-${group.id}`}>Subject</label
 					>
 					<input
 						id={`subject-${group.id}`}
 						type="text"
 						name="subject"
-						class="input preset-tonal-surface"
+						class="input"
 						value={getSubject(group)}
 						oninput={(e) => setSubject(group.id, e.currentTarget.value)}
 						disabled={generating}
 					/>
 				</div>
-				<div>
-					<label class="label text-surface-500 mb-1 text-xs" for={`message-${group.id}`}
-						>Message</label
+				<div class="flex flex-col gap-2">
+					<label
+						class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+						for={`message-${group.id}`}>Message</label
 					>
 					<textarea
 						id={`message-${group.id}`}
 						name="content"
-						class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
+						class="textarea min-h-44 w-full text-sm leading-relaxed"
 						value={getMessage(group)}
 						oninput={(e) => setMessage(group.id, e.currentTarget.value)}
 						disabled={generating}></textarea>
 				</div>
-				<div class="flex items-center gap-3">
+				<div class="flex flex-wrap items-center gap-4">
 					<button
 						type="submit"
-						class="btn preset-filled-primary-500"
+						class="btn preset-filled-primary-500 px-7 py-3"
 						disabled={sending || generating}
 					>
 						{#if sending}
-							<span class="loading loading-spinner loading-xs"></span>
+							<IconRefreshCw class="h-4 w-4 motion-safe:animate-spin" />
 						{:else}
 							<IconSend class="h-4 w-4" />
 						{/if}
 						{sending ? 'Sending...' : 'Send Email'}
 					</button>
 					{#if getEmailStatus(group.id)?.type === 'success'}
-						<span class="text-success-600 flex items-center gap-1 text-sm">
-							<IconAlertCircle class="h-4 w-4" />
+						<span
+							class="text-success-500 flex items-center gap-1.5 text-sm font-bold"
+							role="status"
+						>
+							<IconCheck class="h-4 w-4" />
 							{getEmailStatus(group.id)?.message}
 						</span>
 					{:else if getEmailStatus(group.id)?.type === 'error'}
-						<span class="text-error-600 flex items-center gap-1 text-sm">
+						<span class="text-error-500 flex items-center gap-1.5 text-sm font-bold" role="status">
 							<IconAlertCircle class="h-4 w-4" />
 							{getEmailStatus(group.id)?.message}
 						</span>
@@ -710,18 +666,19 @@
 				</div>
 			</form>
 		{:else}
-			<div>
-				<label class="label text-surface-500 mb-1 text-xs" for={`message-${group.id}`}
-					>Message</label
+			<div class="flex flex-col gap-2">
+				<label
+					class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+					for={`message-${group.id}`}>Message</label
 				>
 				<textarea
 					id={`message-${group.id}`}
-					class="textarea preset-tonal-surface min-h-44 w-full text-sm leading-relaxed"
+					class="textarea min-h-44 w-full text-sm leading-relaxed"
 					value={getMessage(group)}
 					oninput={(e) => setMessage(group.id, e.currentTarget.value)}
 					disabled={generating}></textarea>
 			</div>
-			<div class="text-warning-600 flex items-center gap-2 text-sm">
+			<div class="text-warning-500 flex items-center gap-2 text-sm font-bold">
 				<IconAlertCircle class="h-4 w-4" />
 				<span>No public email. Use social DMs below.</span>
 			</div>
@@ -732,7 +689,7 @@
 				{#each Object.entries(group.social_links || {}).filter(([, url]) => Boolean(url) && !String(url).includes('instagram.com/p/')) as [platform, url]}
 					<button
 						type="button"
-						class="btn btn-sm preset-tonal-surface"
+						class="btn btn-sm preset-outlined-surface-500"
 						onclick={(event) => openProfileAndCopy(url, getMessage(group), event)}
 						disabled={generating}
 					>
@@ -741,7 +698,7 @@
 				{/each}
 				<button
 					type="button"
-					class="btn btn-sm preset-tonal-secondary"
+					class="btn btn-sm preset-filled-secondary-500"
 					onclick={() => copyText(getMessage(group))}
 					disabled={generating}
 				>
@@ -749,188 +706,185 @@
 				</button>
 			</div>
 		{/if}
-	</div>
+	</section>
 
-	<!-- Collapsible: Actions -->
-	<div class="border-surface-200-800 border-t">
-		<div class="bg-surface-100-900/50 p-3">
-			<div class="flex flex-wrap gap-2">
-				<button
-					type="button"
-					class="btn btn-sm preset-tonal-surface"
-					onclick={(event) => copyClaimLink(group, event)}
-				>
-					<IconLink class="h-3.5 w-3.5" />
-					{copiedGroupId === group.id ? 'Copied!' : 'Claim URL'}
-				</button>
+	<!-- Actions -->
+	<div class="bg-surface-900 border-surface-800 flex flex-wrap gap-2 border-y-2 px-6 py-4">
+		<button
+			type="button"
+			class="btn btn-sm preset-outlined-surface-500"
+			onclick={(event) => copyClaimLink(group, event)}
+		>
+			<IconLink class="h-3.5 w-3.5" />
+			{copiedGroupId === group.id ? 'Copied!' : 'Claim URL'}
+		</button>
+		<form
+			method="POST"
+			action="?/enrich"
+			use:enhance={enhanceWithFlag((v) => (enriching = v))}
+			class="contents"
+		>
+			<input type="hidden" name="group_id" value={group.id} />
+			<button type="submit" class="btn btn-sm preset-filled-secondary-500" disabled={enriching}>
+				<IconWand2 class="h-3.5 w-3.5 {enriching ? 'motion-safe:animate-spin' : ''}" />
+				{enriching ? 'Enriching...' : 'Enrich'}
+			</button>
+		</form>
+		<form method="POST" action="?/toggleLowPriority" use:enhance class="contents">
+			<input type="hidden" name="group_id" value={group.id} />
+			<input type="hidden" name="value" value={group.is_low_priority ? 'false' : 'true'} />
+			<button
+				type="submit"
+				class="btn btn-sm {group.is_low_priority
+					? 'preset-outlined-surface-500'
+					: 'preset-outlined-warning-500'}"
+			>
+				{group.is_low_priority ? 'Restore' : 'Low Priority'}
+			</button>
+		</form>
+		{#if confirmDeleteFor === group.id}
+			<div
+				class="bg-error-500 text-surface-950 flex w-full items-center gap-3 px-3 py-2"
+				transition:slide
+			>
+				<IconAlertCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
+				<span class="flex-1 text-xs font-black tracking-wide uppercase">Delete permanently?</span>
 				<form
 					method="POST"
-					action="?/enrich"
-					use:enhance={enhanceWithFlag((v) => (enriching = v))}
-					class="contents"
+					action="?/deleteGroup"
+					use:enhance={enhanceWithFlag((v) => (deletingGroup = v))}
 				>
 					<input type="hidden" name="group_id" value={group.id} />
-					<button type="submit" class="btn btn-sm preset-tonal-secondary" disabled={enriching}>
-						<IconWand2 class="h-3.5 w-3.5 {enriching ? 'animate-spin' : ''}" />
-						{enriching ? 'Enriching...' : 'Enrich'}
-					</button>
-				</form>
-				<form method="POST" action="?/toggleLowPriority" use:enhance class="contents">
-					<input type="hidden" name="group_id" value={group.id} />
-					<input type="hidden" name="value" value={group.is_low_priority ? 'false' : 'true'} />
 					<button
 						type="submit"
-						class="btn btn-sm {group.is_low_priority
-							? 'preset-outlined-warning-300-700'
-							: 'preset-tonal-warning'}"
+						class="bg-surface-950 text-surface-50 hover:bg-surface-800 cursor-pointer px-3 py-1.5 text-xs font-black tracking-wide uppercase transition"
+						disabled={deletingGroup}
 					>
-						{group.is_low_priority ? 'Restore' : 'Low Priority'}
+						{deletingGroup ? '...' : 'Delete'}
 					</button>
 				</form>
-				{#if confirmDeleteFor === group.id}
-					<div
-						class="bg-error-500/10 border-error-500/30 mt-1 flex w-full items-center gap-2 rounded-lg border p-2"
-						transition:slide
-					>
-						<IconAlertCircle class="text-error-500 h-4 w-4 shrink-0" />
-						<span class="text-error-700-300 flex-1 text-xs">Delete permanently?</span>
-						<form
-							method="POST"
-							action="?/deleteGroup"
-							use:enhance={enhanceWithFlag((v) => (deletingGroup = v))}
-						>
-							<input type="hidden" name="group_id" value={group.id} />
-							<button
-								type="submit"
-								class="btn btn-sm preset-filled-error-500"
-								disabled={deletingGroup}
-							>
-								{deletingGroup ? '...' : 'Delete'}
-							</button>
-						</form>
-						<button
-							type="button"
-							class="btn btn-sm preset-tonal-surface"
-							onclick={() => (confirmDeleteFor = null)}>Cancel</button
-						>
-					</div>
-				{:else}
-					<button
-						type="button"
-						class="btn btn-sm preset-tonal-error"
-						onclick={() => (confirmDeleteFor = group.id)}
-					>
-						<IconTrash2 class="h-3.5 w-3.5" />
-					</button>
-				{/if}
+				<button
+					type="button"
+					class="border-surface-950 hover:bg-surface-950 hover:text-surface-50 cursor-pointer border-2 px-3 py-1 text-xs font-black tracking-wide uppercase transition"
+					onclick={() => (confirmDeleteFor = null)}>Cancel</button
+				>
 			</div>
-		</div>
+		{:else}
+			<button
+				type="button"
+				class="btn btn-sm preset-outlined-error-500"
+				aria-label="Delete group"
+				onclick={() => (confirmDeleteFor = group.id)}
+			>
+				<IconTrash2 class="h-3.5 w-3.5" />
+			</button>
+		{/if}
 	</div>
 
-	<!-- Collapsible: Assets (compact) -->
-	<div class="border-surface-200-800 border-t">
-		<div class="p-3">
-			<div class="flex items-center gap-4">
-				<!-- Logo thumbnail -->
-				<div class="flex items-center gap-2">
-					<div
-						class="ring-surface-500/20 bg-surface-100-900 h-10 w-10 overflow-hidden rounded-lg ring-1"
-					>
-						{#if group.logo_url}
-							<img src={group.logo_url} alt="" class="h-full w-full object-cover" />
-						{:else}
-							<div class="flex h-full w-full items-center justify-center">
-								<IconImageUp class="text-surface-400 h-4 w-4" />
-							</div>
-						{/if}
-					</div>
-					<button
-						type="button"
-						class="text-surface-500 hover:text-surface-900-100 text-xs transition-colors"
-						onclick={() => openImageModal(group, 'logo')}
-					>
-						Edit
-					</button>
-				</div>
-				<!-- Cover thumbnail -->
-				<div class="flex items-center gap-2">
-					<div
-						class="ring-surface-500/20 bg-surface-100-900 h-10 w-16 overflow-hidden rounded-lg ring-1"
-					>
-						{#if group.cover_photo_url}
-							<img src={group.cover_photo_url} alt="" class="h-full w-full object-cover" />
-						{:else}
-							<div class="flex h-full w-full items-center justify-center">
-								<IconImageUp class="text-surface-400 h-4 w-4" />
-							</div>
-						{/if}
-					</div>
-					<button
-						type="button"
-						class="text-surface-500 hover:text-surface-900-100 text-xs transition-colors"
-						onclick={() => openImageModal(group, 'cover')}
-					>
-						Edit
-					</button>
-				</div>
-				<!-- Stats -->
-				<div class="ml-auto flex items-center gap-4 text-xs">
-					<div class="text-center">
-						<div class="text-surface-500">Complete</div>
-						<div
-							class="font-bold {group.completeness >= 80
-								? 'text-success-600'
-								: group.completeness >= 50
-									? 'text-warning-600'
-									: 'text-error-600'}"
-						>
-							{group.completeness}%
-						</div>
-					</div>
-					<div class="text-center">
-						<div class="text-surface-500">Priority</div>
-						<div class="text-tertiary-600 font-bold">{group.priority_score}</div>
-					</div>
-					<div class="text-center">
-						<div class="text-surface-500">Contacts</div>
-						<div class="text-surface-900-100 font-bold">{group.contacts_count}</div>
-					</div>
-				</div>
+	<!-- Assets & stats -->
+	<div class="flex flex-wrap items-center gap-x-6 gap-y-4 px-6 py-5">
+		<div class="flex items-center gap-2">
+			<div
+				class="bg-surface-50 text-surface-950 flex h-10 w-10 items-center justify-center overflow-hidden"
+			>
+				{#if group.logo_url}
+					<img src={group.logo_url} alt="" class="h-full w-full object-cover" />
+				{:else}
+					<IconImageUp class="h-4 w-4" />
+				{/if}
 			</div>
+			<button
+				type="button"
+				class="text-surface-300 hover:text-primary-500 cursor-pointer text-xs font-black tracking-[0.14em] uppercase transition"
+				aria-label="Edit logo"
+				onclick={() => openImageModal(group, 'logo')}
+			>
+				Edit
+			</button>
 		</div>
+		<div class="flex items-center gap-2">
+			<div
+				class="bg-surface-50 text-surface-950 flex h-10 w-16 items-center justify-center overflow-hidden"
+			>
+				{#if group.cover_photo_url}
+					<img src={group.cover_photo_url} alt="" class="h-full w-full object-cover" />
+				{:else}
+					<IconImageUp class="h-4 w-4" />
+				{/if}
+			</div>
+			<button
+				type="button"
+				class="text-surface-300 hover:text-primary-500 cursor-pointer text-xs font-black tracking-[0.14em] uppercase transition"
+				aria-label="Edit cover"
+				onclick={() => openImageModal(group, 'cover')}
+			>
+				Edit
+			</button>
+		</div>
+		<dl class="m-0 ml-auto flex items-center gap-6">
+			<div class="border-surface-700 flex flex-col-reverse gap-1 border-l-2 pl-3">
+				<dt class="text-surface-300 text-[0.65rem] font-bold tracking-[0.16em] uppercase">
+					Complete
+				</dt>
+				<dd
+					class="m-0 text-xl leading-none font-black italic tabular-nums {group.completeness >= 80
+						? 'text-success-500'
+						: group.completeness >= 50
+							? 'text-warning-500'
+							: 'text-error-500'}"
+				>
+					{group.completeness}%
+				</dd>
+			</div>
+			<div class="border-surface-700 flex flex-col-reverse gap-1 border-l-2 pl-3">
+				<dt class="text-surface-300 text-[0.65rem] font-bold tracking-[0.16em] uppercase">
+					Priority
+				</dt>
+				<dd class="text-tertiary-500 m-0 text-xl leading-none font-black italic tabular-nums">
+					{group.priority_score}
+				</dd>
+			</div>
+			<div class="border-surface-700 flex flex-col-reverse gap-1 border-l-2 pl-3">
+				<dt class="text-surface-300 text-[0.65rem] font-bold tracking-[0.16em] uppercase">
+					Contacts
+				</dt>
+				<dd class="m-0 text-xl leading-none font-black italic tabular-nums">
+					{group.contacts_count}
+				</dd>
+			</div>
+		</dl>
 	</div>
 {/snippet}
 
 {#if imageModalOpen}
 	<div
-		class="bg-surface-950/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+		class="bg-surface-950/80 fixed inset-0 z-50 flex items-center justify-center p-4"
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="card bg-surface-50-950 border-surface-200-800 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
+			class="bg-surface-950 border-surface-700 border-t-primary-500 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border-2 border-t-4"
 			transition:slide={{ duration: 200 }}
 		>
 			<!-- Header -->
 			<div
-				class="border-surface-200-800 flex shrink-0 items-center justify-between border-b px-5 py-4"
+				class="border-surface-800 flex shrink-0 items-center justify-between border-b-2 px-5 py-4"
 			>
 				<div class="flex items-center gap-2">
-					<IconImageUp class="text-primary-500 h-5 w-5" />
-					<h2 class="h5">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h2>
+					<IconImageUp class="text-primary-500 h-5 w-5" aria-hidden="true" />
+					<h2 class="m-0 text-xl">Edit {imageEditTarget === 'logo' ? 'Logo' : 'Cover'}</h2>
 				</div>
 				<button
 					type="button"
-					class="btn-icon preset-tonal-surface"
+					class="btn-icon preset-outlined-surface-500"
+					aria-label="Close image editor"
 					onclick={() => (imageModalOpen = false)}
 				>
 					<IconX class="h-5 w-5" />
 				</button>
 			</div>
 
-			<!-- Preview (Hero) -->
-			<div
-				class="bg-surface-100-900 border-surface-200-800 relative shrink-0 overflow-hidden border-b"
-			>
+			<!-- Preview -->
+			<div class="bg-surface-900 border-surface-800 relative shrink-0 overflow-hidden border-b-2">
 				<div
 					class="relative mx-auto touch-none select-none"
 					class:w-48={imageEditTarget === 'logo'}
@@ -959,16 +913,16 @@
 						/>
 					{:else}
 						<div
-							class="text-surface-500 absolute inset-0 flex flex-col items-center justify-center gap-2"
+							class="text-surface-300 absolute inset-0 flex flex-col items-center justify-center gap-2"
 						>
-							<IconImageUp class="h-10 w-10 opacity-40" />
-							<span class="text-sm">Add an image to start</span>
+							<IconImageUp class="h-10 w-10" aria-hidden="true" />
+							<span class="text-sm font-medium">Add an image to start</span>
 						</div>
 					{/if}
 				</div>
 				{#if imagePreviewSrc}
 					<div
-						class="bg-surface-950/60 text-surface-100 absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs backdrop-blur-sm"
+						class="bg-surface-950 text-surface-50 absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-bold"
 					>
 						Drag to reposition
 					</div>
@@ -976,15 +930,15 @@
 			</div>
 
 			<!-- Controls -->
-			<div class="space-y-4 overflow-y-auto p-5">
-				<!-- Zoom -->
-				<div class="space-y-2">
+			<div class="flex flex-col gap-5 overflow-y-auto p-5">
+				<div class="flex flex-col gap-2">
 					<div class="flex items-center justify-between">
 						<label
-							class="text-surface-600-400 text-xs font-medium tracking-wider uppercase"
+							class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
 							for="crop-zoom">Zoom</label
 						>
-						<span class="text-surface-500 text-xs">{Math.round(cropScale * 100)}%</span>
+						<span class="text-surface-300 text-xs tabular-nums">{Math.round(cropScale * 100)}%</span
+						>
 					</div>
 					<input
 						id="crop-zoom"
@@ -997,13 +951,16 @@
 					/>
 				</div>
 
-				<!-- Source Tabs -->
-				<div class="bg-surface-100-900 grid grid-cols-2 gap-2 rounded-xl p-1">
+				<div
+					class="border-surface-500 grid grid-cols-2 border-2"
+					role="group"
+					aria-label="Image source"
+				>
 					<button
 						type="button"
-						class="rounded-lg px-3 py-2 text-sm font-medium transition-all {imageUrlDraft
-							? 'bg-surface-50-950 shadow-sm'
-							: 'text-surface-500 hover:text-surface-900-100'}"
+						class="cursor-pointer px-3 py-2 text-sm font-black tracking-wide uppercase transition {imageUrlDraft
+							? 'bg-primary-500 text-surface-950'
+							: 'text-surface-300 hover:text-surface-50'}"
 						onclick={() => {
 							imageUrlDraft = imagePreviewSrc || '';
 						}}
@@ -1011,10 +968,10 @@
 						URL
 					</button>
 					<label
-						class="cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-medium transition-all {imagePreviewSrc &&
+						class="cursor-pointer px-3 py-2 text-center text-sm font-black tracking-wide uppercase transition {imagePreviewSrc &&
 						!imageUrlDraft
-							? 'bg-surface-50-950 shadow-sm'
-							: 'text-surface-500 hover:text-surface-900-100'}"
+							? 'bg-primary-500 text-surface-950'
+							: 'text-surface-300 hover:text-surface-50'}"
 					>
 						Upload
 						<input
@@ -1026,23 +983,23 @@
 					</label>
 				</div>
 
-				<!-- URL Input -->
 				<div class="flex gap-2">
 					<input
 						type="text"
-						class="input preset-tonal-surface flex-1"
+						class="input flex-1"
+						aria-label="Image URL"
 						bind:value={imageUrlDraft}
 						placeholder="https://example.com/image.jpg"
 						onkeydown={(e) => e.key === 'Enter' && applyUrlPreview()}
 					/>
-					<button type="button" class="btn preset-tonal-surface" onclick={applyUrlPreview}>
+					<button type="button" class="btn preset-outlined-surface-500" onclick={applyUrlPreview}>
 						Load
 					</button>
 				</div>
 			</div>
 
 			<!-- Footer -->
-			<div class="border-surface-200-800 bg-surface-100-900/50 shrink-0 border-t px-5 py-4">
+			<div class="border-surface-800 bg-surface-900 shrink-0 border-t-2 px-5 py-4">
 				<form
 					bind:this={imageFormEl}
 					method="POST"
@@ -1060,7 +1017,7 @@
 					{/if}
 					<button
 						type="button"
-						class="btn preset-tonal-surface"
+						class="btn preset-outlined-surface-500"
 						onclick={() => (imageModalOpen = false)}>Cancel</button
 					>
 					<button
@@ -1069,7 +1026,7 @@
 						disabled={savingAssets || !imagePreviewSrc}
 						onclick={prepareCroppedAndSubmit}
 					>
-						{#if savingAssets}<span class="loading loading-spinner loading-xs"></span>{/if}
+						{#if savingAssets}<IconRefreshCw class="h-4 w-4 motion-safe:animate-spin" />{/if}
 						{savingAssets ? 'Saving...' : 'Save'}
 					</button>
 				</form>
