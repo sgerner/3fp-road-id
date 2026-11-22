@@ -12,4 +12,4 @@
 
 ## Checks
 
-- Before committing code changes, run `npm run lint`, `npm run check`, and `npm test`. Run `npm run build` followed by `npm run test:server-sanitizer` for production build or server dependency changes, and run `npm run test:stripe-webhook` for Stripe or accounting webhook changes. Use Node 24 (`package.json` engines); CI runs the same checks on pull requests.
+- Before committing code changes, run `npm run audit`, `npm run lint`, `npm run check`, and `npm test`. Run `npm run build` followed by `npm run test:server-sanitizer` for production build or server dependency changes, and run `npm run test:stripe-webhook` for Stripe or accounting webhook changes. Use Node 24 (`package.json` engines); CI runs the same checks on pull requests.
