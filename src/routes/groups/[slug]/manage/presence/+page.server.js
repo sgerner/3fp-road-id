@@ -18,6 +18,7 @@ import {
 	invalidateMicrositePageCache,
 	upsertGroupSiteConfig
 } from '#lib/server/groupSites';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
 import {
 	parseGroupEditorImageDataUrl,
@@ -607,6 +608,7 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		nextConfig: syncedSiteConfig,
 		groupId
 	});
+	invalidateGroupSnapshotCache({ groupId, slug: group.slug || slug });
 
 	const returnView = normalizePresenceStudioView(form.get('return_view'), 'profile');
 	throw redirect(
@@ -767,6 +769,7 @@ export const actions = {
 			});
 		}
 		invalidateMicrositePageCache(groupId);
+		invalidateGroupSnapshotCache({ groupId, slug: group.slug || slug });
 		await removeSponsorLogoObjects([...managedSponsorLogoObjectPaths(previousConfig, groupId)]);
 		throw redirect(303, `/groups/${encodeURIComponent(slug)}/manage/presence?reset=1&view=builder`);
 	},
@@ -774,7 +777,7 @@ export const actions = {
 		const auth = await requirePresenceManager(cookies, params.slug);
 		if (!auth.ok) return auth.response;
 
-		const { groupId, supabase } = auth;
+		const { group, groupId, supabase } = auth;
 		const { error: deleteError } = await supabase
 			.from('groups')
 			.update({
@@ -785,6 +788,7 @@ export const actions = {
 		if (deleteError) return fail(500, { error: deleteError.message });
 
 		invalidateMicrositePageCache(groupId);
+		invalidateGroupSnapshotCache({ groupId, slug: group?.slug || params.slug });
 		throw redirect(303, '/groups/my');
 	}
 };

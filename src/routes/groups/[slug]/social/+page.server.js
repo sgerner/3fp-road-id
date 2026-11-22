@@ -40,14 +40,16 @@ export const load = async ({ params, cookies, fetch }) => {
 	const serviceSupabase = createServiceSupabaseClient();
 
 	const [ownerRows, serviceClaimStatus] = await Promise.all([
-		fetchList(fetch, 'group-members', {
-			select: 'user_id',
-			group_id: `eq.${group.id}`,
-			role: 'eq.owner'
-		}).catch((err) => {
-			console.warn('Failed to load group owners for social manager page', err);
-			return [];
-		}),
+		sessionUserId
+			? fetchList(fetch, 'group-members', {
+					select: 'user_id',
+					group_id: `eq.${group.id}`,
+					role: 'eq.owner'
+				}).catch((err) => {
+					console.warn('Failed to load group owners for social manager page', err);
+					return [];
+				})
+			: Promise.resolve([]),
 		getGroupClaimStatus(serviceSupabase, group.id).catch((err) => {
 			console.warn('Failed to load public group claim status for social page', err);
 			return null;

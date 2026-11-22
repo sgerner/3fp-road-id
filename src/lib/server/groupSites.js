@@ -28,6 +28,7 @@ import {
 	TBAG_COLORS
 } from '#lib/microsites/tempeBicycleActionGroup';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { filterRidesForWidget } from '#lib/rides/widgetConfig';
 import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
 import { sniffRasterImageMimeType } from '#lib/server/storageImages';
@@ -686,6 +687,7 @@ export async function upsertGroupSiteConfig(groupId, config) {
 		.single();
 	if (error) throw error;
 	invalidateMicrositePageCache(groupId);
+	invalidateGroupSnapshotCache({ groupId });
 	return data;
 }
 

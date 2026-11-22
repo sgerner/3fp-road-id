@@ -17,6 +17,7 @@ import {
 	toGroupNewsFormValues
 } from '#lib/server/groupNews';
 import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 export const load = async ({ parent, cookies, url }) => {
 	const parentData = await parent();
@@ -104,6 +105,7 @@ export const actions = {
 					});
 				}
 
+				invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
 				throw redirect(303, `/groups/${group.slug}/manage/news`);
 			}
 
@@ -172,6 +174,8 @@ export const actions = {
 					});
 				}
 			}
+
+			invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
 
 			if (intent === 'publish' && shouldEmailMembers) {
 				if (!serviceSupabase) {
