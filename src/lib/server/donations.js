@@ -18,6 +18,7 @@ import {
 } from '#lib/server/stripe';
 import { postDonationToGroupAccounting } from '#lib/server/groupAccounting';
 import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { isSafeInternalPath, timingSafeStringEqual } from '#lib/server/security';
 
 function normalizeEmail(value) {
@@ -225,6 +226,7 @@ export async function upsertDonationAccountForGroup(group, stripeAccount) {
 		{ onConflict: 'id' }
 	);
 	if (error) throw new Error(error.message);
+	invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
 }
 
 export async function checkGroupStripeDisconnectAllowed(group, supabaseOverride = null) {
@@ -249,6 +251,9 @@ export async function clearDonationAccountConnection(accountId) {
 		})
 		.eq('id', cleaned);
 	if (error) throw new Error(error.message);
+	if (cleaned.startsWith('group:')) {
+		invalidateGroupSnapshotCache({ groupId: cleaned.slice('group:'.length) });
+	}
 }
 
 export async function getDonationRecipient({ recipientType, groupSlug }) {
