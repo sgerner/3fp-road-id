@@ -640,6 +640,7 @@
 					value={formBodyMarkdown}
 					height="320px"
 					label=""
+					ariaLabel="Update body"
 					placeholder="Write your update..."
 					onReady={(api) => {
 						editorApi = api;
