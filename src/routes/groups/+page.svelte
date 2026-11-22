@@ -15,7 +15,14 @@
 	import IconLoader2 from '@lucide/svelte/icons/loader-circle';
 	import { fade, slide } from 'svelte/transition';
 	import { navigating, page as appPage } from '$app/state';
-	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
+
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 
 	function getInitialFilters() {
 		return data.filters ?? {};
@@ -25,11 +32,12 @@
 		appPage.url.searchParams.get('auth') === 'required' && !data?.user?.id
 	);
 	const heroGroup = $derived((data.groups ?? []).find((group) => group.cover_photo_url) ?? null);
-	const heroImage = $derived(
+	const rawHeroImage = $derived(
 		heroGroup?.cover_photo_url
 			? optimizedImageUrl(heroGroup.cover_photo_url, { width: 1200, height: 736, quality: 68 })
 			: ''
 	);
+	const heroImage = $derived(rawHeroImage && !failedImageUrls[rawHeroImage] ? rawHeroImage : '');
 	const regionCount = $derived(
 		new Set((data.mapPoints || []).map((g) => g.state_region).filter(Boolean)).size || 0
 	);
@@ -360,6 +368,9 @@
 					width="1200"
 					height="736"
 					fetchpriority="high"
+					use:watchImageError={() => {
+						if (heroImage) markImageFailed(heroImage);
+					}}
 				/>
 				<div class="bg-tertiary-500 absolute inset-y-0 left-0 w-2" aria-hidden="true"></div>
 
@@ -721,6 +732,20 @@
 			{:else}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
 					{#each data.groups as g, index (g.id)}
+						{@const coverUrl = g.cover_photo_url
+							? optimizedImageUrl(g.cover_photo_url, {
+									width: 768,
+									height: 576,
+									quality: 64
+								})
+							: ''}
+						{@const logoUrl = g.logo_url
+							? optimizedImageUrl(g.logo_url, {
+									width: 96,
+									height: 96,
+									quality: 64
+								})
+							: ''}
 						<a
 							href={`/groups/${g.slug}`}
 							class="group border-surface-800 bg-surface-900/90 text-surface-50 hover:bg-surface-900 hover:border-primary-500 flex flex-col justify-between border-2 transition hover:no-underline"
@@ -730,19 +755,16 @@
 								<div
 									class="bg-surface-800 border-surface-800 relative aspect-[16/9] w-full overflow-hidden border-b-2"
 								>
-									{#if g.cover_photo_url}
+									{#if coverUrl && !failedImageUrls[coverUrl]}
 										<img
-											src={optimizedImageUrl(g.cover_photo_url, {
-												width: 768,
-												height: 576,
-												quality: 64
-											})}
+											src={coverUrl}
 											alt="{g.name} cover"
 											loading="lazy"
 											class="absolute inset-0 h-full w-full object-cover"
 											width="768"
 											height="576"
 											decoding="async"
+											use:watchImageError={() => markImageFailed(coverUrl)}
 										/>
 									{:else}
 										<div class="flex h-full w-full items-center justify-center">
@@ -783,19 +805,16 @@
 									<div
 										class="bg-surface-50 text-surface-950 flex h-12 w-12 shrink-0 items-center justify-center p-1"
 									>
-										{#if g.logo_url}
+										{#if logoUrl && !failedImageUrls[logoUrl]}
 											<img
-												src={optimizedImageUrl(g.logo_url, {
-													width: 96,
-													height: 96,
-													quality: 64
-												})}
+												src={logoUrl}
 												alt="{g.name} logo"
 												loading="lazy"
 												class="h-full w-full object-contain"
 												width="96"
 												height="96"
 												decoding="async"
+												use:watchImageError={() => markImageFailed(logoUrl)}
 											/>
 										{:else}
 											<IconUsers class="h-5 w-5" />
