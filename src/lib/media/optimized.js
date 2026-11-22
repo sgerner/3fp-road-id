@@ -21,9 +21,14 @@ export function isOptimizableImageHost(source) {
 	}
 }
 
+/**
+ * @param {any} source
+ * @param {{ width?: number | string, height?: number | string, quality?: number | string }} [options]
+ */
 export function optimizedImageUrl(source, options = {}) {
 	const value = String(source || '').trim();
-	if (!value || !/^https?:\/\//i.test(value) || !isOptimizableImageHost(value)) return value;
+	if (!value || !/^https?:\/\//i.test(value)) return value;
+	if (!isOptimizableImageHost(value)) return value.replace(/^http:\/\//i, 'https://');
 
 	const width = Math.min(1600, Math.max(32, Math.round(Number(options.width) || 768)));
 	const height = options.height
@@ -37,4 +42,54 @@ export function optimizedImageUrl(source, options = {}) {
 	});
 	if (height) params.set('height', String(height));
 	return `/api/media/image?${params.toString()}`;
+}
+
+export function watchImageError(node, options) {
+	let current = options;
+	let reportedSrc = '';
+
+	function applyFallback() {
+		if (!current) return;
+		const currentSrc = node.currentSrc || node.src || '';
+		if (currentSrc && currentSrc === reportedSrc) return;
+		reportedSrc = currentSrc;
+
+		if (typeof current === 'function') {
+			current(node);
+			return;
+		}
+		const fallbackSrc = typeof current === 'string' ? current : current.fallbackSrc;
+		if (fallbackSrc && !node.dataset?.fallback) {
+			if (node.dataset) node.dataset.fallback = '1';
+			node.src = fallbackSrc;
+		}
+		if (typeof current === 'object' && typeof current.onError === 'function') {
+			current.onError(node);
+		}
+	}
+
+	function checkBroken() {
+		const hasSrc =
+			!('src' in node) || Boolean(node.currentSrc || node.src || node.getAttribute?.('src'));
+		if (hasSrc && node.complete && node.naturalWidth === 0) {
+			applyFallback();
+		}
+	}
+
+	function handleError() {
+		applyFallback();
+	}
+
+	node.addEventListener?.('error', handleError);
+	checkBroken();
+
+	return {
+		update(nextOptions) {
+			current = nextOptions;
+			checkBroken();
+		},
+		destroy() {
+			node.removeEventListener?.('error', handleError);
+		}
+	};
 }

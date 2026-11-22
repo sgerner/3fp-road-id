@@ -17,10 +17,17 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { merchCart } from '#lib/merch/cart';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 	import { US_STATE_OPTIONS } from '#lib/geo/usStates';
 
 	/** @type {Record<string, any>} */
 	let { data } = $props();
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 
 	/** @type {any} */
 	let customerName = $state('');
@@ -1284,13 +1291,25 @@
 						<ul class="border-surface-50 m-0 list-none border-t-2 p-0">
 							{#each cartItems as line (line.variantId)}
 								{@const qty = Number(line.quantity || 1)}
+								{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
+									width: 128,
+									quality: 64
+								})}
 								<li class="border-surface-800 flex items-start gap-3 border-b py-4">
-									{#if line.productImageUrl}
+									{#if thumbUrl && !failedImageUrls[thumbUrl]}
 										<img
-											src={line.productImageUrl}
+											src={thumbUrl}
 											alt={line.productName}
 											class="bg-surface-50 h-14 w-14 shrink-0 object-contain p-1"
+											use:watchImageError={() => markImageFailed(thumbUrl)}
 										/>
+									{:else}
+										<div
+											class="bg-surface-900 border-surface-700 flex h-14 w-14 shrink-0 items-center justify-center border"
+											aria-hidden="true"
+										>
+											<IconSparkles class="text-surface-300 h-5 w-5" />
+										</div>
 									{/if}
 									<div class="min-w-0 flex-1">
 										<p class="m-0 truncate text-sm leading-tight font-black uppercase">
