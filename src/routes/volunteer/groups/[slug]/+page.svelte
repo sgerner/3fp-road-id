@@ -59,7 +59,7 @@
 </svelte:head>
 
 {#if group}
-	<div class="mx-auto mb-6 w-full max-w-7xl space-y-6">
+	<div class="-mx-4 -mt-4 mb-4">
 		<GroupHeroCard {group} canEdit={false} {contactLinks} {primaryCta} />
 	</div>
 {/if}
