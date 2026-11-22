@@ -384,14 +384,14 @@
 				<div class="flex flex-wrap gap-3">
 					<a
 						href="#ride-list"
-						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						Browse rides
 						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 					</a>
 					<a
 						href="/ride/new"
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						<IconPlus class="h-4 w-4" /> Share a ride
 					</a>
@@ -470,7 +470,7 @@
 			<div class="flex min-w-0 flex-col gap-3">
 				<div class="flex w-full">
 					<input
-						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Search rides"
 						bind:value={searchInput}
 						placeholder="Search by title, location, pace, discipline…"
@@ -483,7 +483,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						onclick={applySearch}
 						aria-label="Search rides"
 					>
@@ -495,7 +495,7 @@
 				<div class="flex flex-wrap gap-2">
 					<button
 						type="button"
-						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
+						class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							selectedDifficulty === 'all'
 								? 'bg-primary-500 text-surface-950 border-primary-500'
 								: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
@@ -508,7 +508,7 @@
 					{#each difficultyOptions as option (option)}
 						<button
 							type="button"
-							class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
+							class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 								selectedDifficulty === option
 									? 'bg-primary-500 text-surface-950 border-primary-500'
 									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
@@ -521,7 +521,7 @@
 					{/each}
 					<button
 						type="button"
-						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
+						class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
 						aria-pressed={needsHost}
 						onclick={() => {
 							needsHost = !needsHost;
@@ -539,7 +539,7 @@
 				<div class="border-surface-700 flex shrink-0 border-2">
 					<button
 						type="button"
-						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'list'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -551,7 +551,7 @@
 					</button>
 					<button
 						type="button"
-						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'calendar'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -563,7 +563,7 @@
 					</button>
 					<button
 						type="button"
-						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'map'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -644,7 +644,7 @@
 									{#if ride.group?.name}
 										{#if ride.group?.slug}
 											<a
-												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4"
+												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 inline-flex items-center px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 												href={`/groups/${encodeURIComponent(ride.group.slug)}`}
 											>
 												{ride.group.name}
@@ -673,7 +673,7 @@
 									>
 										<a
 											href={`/ride/${ride.slug}`}
-											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! hover:no-underline"
+											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! inline-flex items-center hover:no-underline pointer-coarse:min-h-11"
 											>{ride.title}</a
 										>
 									</h3>
@@ -758,21 +758,21 @@
 						<div class="border-surface-50 flex border-[3px]" aria-label="Pagination controls">
 							<button
 								type="button"
-								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40 pointer-coarse:min-h-11"
 								onclick={() => changeRidePage(currentPage - 1)}
 								disabled={currentPage === 1}
 							>
 								Previous
 							</button>
 							<span
-								class="border-surface-50 bg-surface-900 text-primary-500 border-x-[3px] px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
+								class="border-surface-50 bg-surface-900 text-primary-500 inline-flex items-center border-x-[3px] px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
 								aria-current="page"
 							>
 								Page {currentPage} of {totalPages}
 							</span>
 							<button
 								type="button"
-								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40 pointer-coarse:min-h-11"
 								onclick={() => changeRidePage(currentPage + 1)}
 								disabled={currentPage === totalPages}
 							>
@@ -824,14 +824,14 @@
 					<div class="border-surface-50 flex border-[3px]">
 						<button
 							type="button"
-							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
 							type="button"
-							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
+							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
 							onclick={() => {
 								calendarReference = startOfMonth(new Date());
 								calendarMonthTouched = true;
@@ -841,7 +841,7 @@
 						</button>
 						<button
 							type="button"
-							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -876,7 +876,7 @@
 								<div class="mt-3 flex flex-col gap-2">
 									{#each day.items as ride (ride.id ?? ride.slug)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
 											href={`/ride/${ride.slug}`}
 										>
 											<span class="text-primary-500 font-black">

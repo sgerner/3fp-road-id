@@ -23,7 +23,7 @@
 	<div class="md:fixed md:right-0 md:bottom-0 md:z-[80]">
 		<button
 			type="button"
-			class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"
+			class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 			onclick={openAssistant}
 			disabled={loading}
 			aria-label="Open AI assistant"

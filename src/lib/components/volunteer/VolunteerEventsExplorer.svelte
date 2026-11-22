@@ -416,7 +416,7 @@
 			<div class="border-surface-800 flex flex-wrap items-center gap-3 border-t pt-5">
 				<a
 					href="#volunteer-directory"
-					class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+					class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 				>
 					Find an opportunity
 					<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
@@ -424,7 +424,7 @@
 				{#if showCreateButton}
 					<a
 						href={createButtonHref}
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						<IconPlus class="h-4 w-4" /> Create an event
 					</a>
@@ -471,7 +471,7 @@
 				<div class="border-surface-700 bg-surface-950 flex border-2">
 					<input
 						type="search"
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Search volunteer opportunities"
 						bind:value={searchInput}
 						placeholder="Find by title, host, or description…"
@@ -484,7 +484,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						onclick={applySearchAndScroll}
 						aria-label="Search volunteer events"
 						title="Search"
@@ -496,7 +496,7 @@
 
 				<button
 					type="button"
-					class="border-surface-700 bg-surface-950 text-surface-50 flex items-center justify-between border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase sm:hidden"
+					class="border-surface-700 bg-surface-950 text-surface-50 flex items-center justify-between border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase sm:hidden pointer-coarse:min-h-11"
 					aria-expanded={mobileFiltersOpen}
 					aria-controls="volunteer-extra-filters"
 					onclick={() => (mobileFiltersOpen = !mobileFiltersOpen)}
@@ -513,7 +513,7 @@
 						<IconMapPin class="text-primary-500 pointer-events-none ml-3 h-4 w-4 shrink-0" />
 						<input
 							type="search"
-							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 							aria-label="Filter by city and state"
 							bind:value={locationQ}
 							placeholder="City and/or state"
@@ -521,7 +521,7 @@
 					</div>
 
 					<select
-						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Filter by host group"
 						bind:value={hostGroupId}
 					>
@@ -532,7 +532,7 @@
 					</select>
 
 					<select
-						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Filter by event type"
 						bind:value={eventType}
 					>
@@ -573,7 +573,7 @@
 					{#each ['list', 'calendar', 'map'] as mode (mode)}
 						<button
 							type="button"
-							class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+							class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 								view === mode
 									? 'bg-primary-500 text-surface-950'
 									: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -666,7 +666,7 @@
 											{/if}
 											{#if eventOpportunityCount}
 												<a
-													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
+													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline pointer-coarse:min-h-11"
 													href={`/volunteer/${event.slug}#opportunities`}
 												>
 													<IconHeartHandshake class="h-3.5 w-3.5" />
@@ -676,7 +676,7 @@
 										</div>
 
 										<a
-											class="text-surface-50 hover:text-primary-500 block text-2xl leading-tight font-black uppercase italic hover:no-underline sm:text-3xl"
+											class="text-surface-50 hover:text-primary-500 block text-2xl leading-tight font-black uppercase italic hover:no-underline sm:text-3xl pointer-coarse:min-h-11"
 											href={`/volunteer/${event.slug}`}
 										>
 											{event.title}
@@ -700,7 +700,7 @@
 												<span class="font-bold">Hosted by</span>
 												{#if hostGroup && hostGroup.slug}
 													<a
-														class="text-surface-50 decoration-primary-500 hover:text-primary-500 font-bold underline decoration-2 underline-offset-4"
+														class="text-surface-50 decoration-primary-500 hover:text-primary-500 inline-flex min-h-6 items-center font-bold underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 														href={`/volunteer/groups/${hostGroup.slug}`}
 													>
 														{hostGroup.name}
@@ -749,21 +749,21 @@
 					<div class="flex gap-2">
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
 							type="button"
-							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={() => (calendarReference = earliestEventMonth())}
 						>
 							Today
 						</button>
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -796,7 +796,7 @@
 								<div class="mt-2 flex flex-col gap-1.5">
 									{#each day.items as event (event.id)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
 											href={`/volunteer/${event.slug}`}
 										>
 											<span class="text-primary-500 font-mono text-xs">

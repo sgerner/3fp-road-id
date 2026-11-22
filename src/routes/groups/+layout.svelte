@@ -97,7 +97,7 @@
 
 	function itemClass(item) {
 		const base =
-			'inline-flex min-w-0 max-w-full items-center gap-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] whitespace-nowrap uppercase transition hover:no-underline';
+			'inline-flex min-w-0 max-w-full items-center gap-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] whitespace-nowrap uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11';
 		if (isActive(item)) {
 			return `${base} bg-primary-500 text-surface-950`;
 		}

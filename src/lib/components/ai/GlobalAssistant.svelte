@@ -598,7 +598,7 @@
 						<p class="text-[11px] opacity-65">Personalized rides, groups & activities</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-2">
+				<div class="flex shrink-0 items-center gap-3">
 					<button type="button" class="btn btn-sm preset-tonal-warning" onclick={clearChat}>
 						Clear
 					</button>
@@ -746,7 +746,7 @@
 	<button
 		bind:this={toggleButtonEl}
 		type="button"
-		class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"
+		class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 		onclick={toggleAssistant}
 		aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
 	>
