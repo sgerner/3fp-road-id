@@ -135,24 +135,6 @@ function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-u
 		group_x_riding_disciplines: () => ({ data: [{ riding_discipline_id: 3 }], error: null }),
 		group_x_skill_levels: () => ({ data: [{ skill_level_id: 4 }], error: null }),
 		donation_accounts_public: () => ({ data: { is_connected: true }, error: null }),
-		group_news_posts: () => ({
-			data: [
-				{
-					id: 'news-1',
-					group_id: groupId,
-					title: 'Spring Kickoff',
-					slug: 'spring-kickoff',
-					summary: null,
-					body_markdown: '**Meet** at 6pm at [Daley Park](https://example.com)!',
-					published_at: '2026-04-01T18:00:00.000Z',
-					created_at: '2026-04-01T17:00:00.000Z',
-					updated_at: '2026-04-01T17:30:00.000Z',
-					created_by_user_id: 'secret-author-user-id',
-					updated_by_user_id: 'secret-editor-user-id'
-				}
-			],
-			error: null
-		}),
 		volunteer_events: () => ({
 			data: [
 				{
@@ -247,7 +229,27 @@ function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-u
 					allow_custom_amount: false,
 					is_active: true,
 					is_default: true,
-					stripe_account_id: 'acct_secret_internal'
+					stripe_account_id: 'acct_secret_internal',
+					stripe_price_id: 'price_secret_internal',
+					stripe_product_id: 'prod_secret_internal'
+				}
+			],
+			error: null
+		}),
+		group_news_posts: () => ({
+			data: [
+				{
+					id: 'news-1',
+					group_id: groupId,
+					title: 'Spring Kickoff',
+					slug: 'spring-kickoff',
+					summary: null,
+					body_markdown: '**Meet** at 6pm at [Daley Park](https://example.com)!',
+					published_at: '2026-04-01T18:00:00.000Z',
+					created_at: '2026-04-01T17:00:00.000Z',
+					updated_at: '2026-04-01T17:30:00.000Z',
+					created_by_user_id: 'secret-author-user-id',
+					updated_by_user_id: 'secret-editor-user-id'
 				}
 			],
 			error: null
@@ -351,6 +353,8 @@ test('cold snapshot assembles public sections in parallel, deep-freezes data, an
 	assert.equal(snapshot.membership_program?.cta_label, 'Follow Club');
 	assert.equal(snapshot.membership_tiers.length, 1);
 	assert.equal('stripe_account_id' in snapshot.membership_tiers[0], false);
+	assert.equal('stripe_price_id' in snapshot.membership_tiers[0], false);
+	assert.equal('stripe_product_id' in snapshot.membership_tiers[0], false);
 	assert.equal(snapshot.membership_form_fields.length, 1);
 	assert.equal(snapshot.group_news_posts.length, 1);
 	assert.equal(snapshot.group_news_posts[0].preview_text, 'Meet at 6pm at Daley Park!');
@@ -366,9 +370,13 @@ test('cold snapshot assembles public sections in parallel, deep-freezes data, an
 	assert.equal('owners_count' in snapshot, false);
 	assert.equal('my_memberships' in snapshot, false);
 
-	// Zero anonymous queries against group_members or membership tables with RLS manager functions
+	// Zero anonymous queries against group_members, group_news_posts, or membership tables with RLS manager functions
 	assert.equal(
 		anonQueries.some((q) => q.table === 'group_members'),
+		false
+	);
+	assert.equal(
+		anonQueries.some((q) => q.table === 'group_news_posts'),
 		false
 	);
 	assert.equal(
@@ -377,6 +385,10 @@ test('cold snapshot assembles public sections in parallel, deep-freezes data, an
 	);
 	assert.equal(
 		serviceQueries.some((q) => q.table === 'group_members'),
+		true
+	);
+	assert.equal(
+		serviceQueries.some((q) => q.table === 'group_news_posts'),
 		true
 	);
 

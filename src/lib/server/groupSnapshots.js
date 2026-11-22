@@ -4,6 +4,13 @@ import { normalizeMicrositeSlug } from '#lib/microsites/host.js';
 import { publicAccountingReport } from '#lib/server/groupAccountingPublic.js';
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus.js';
 import {
+	PUBLIC_MEMBERSHIP_FORM_FIELD_COLUMNS,
+	PUBLIC_MEMBERSHIP_PROGRAM_COLUMNS,
+	PUBLIC_MEMBERSHIP_TIER_COLUMNS,
+	sanitizeMembershipTierForViewer
+} from '#lib/server/groupMembershipPublic.js';
+import { buildGroupNewsPreviewText } from '#lib/server/groupNewsPublic.js';
+import {
 	buildGroupPath,
 	buildGroupRedirectLocation,
 	cleanGroupSlug
@@ -38,27 +45,6 @@ function cleanText(value) {
 
 export function normalizeGroupSlug(value) {
 	return cleanText(value).toLowerCase();
-}
-
-function stripGroupNewsMarkdownPreview(markdown) {
-	return cleanText(markdown)
-		.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-		.replace(/`([^`]+)`/g, '$1')
-		.replace(/^#{1,6}\s+/gm, '')
-		.replace(/^>\s?/gm, '')
-		.replace(/^[-*+]\s+/gm, '')
-		.replace(/^\d+\.\s+/gm, '')
-		.replace(/(\*\*|__|\*|_|~~)/g, '')
-		.replace(/\n{2,}/g, '\n')
-		.trim();
-}
-
-function buildPublicNewsPreviewText(post, maxLength = 180) {
-	const summary = cleanText(post?.summary);
-	const source = summary || stripGroupNewsMarkdownPreview(post?.body_markdown || '');
-	if (!source) return '';
-	return source.length > maxLength ? `${source.slice(0, maxLength - 1).trimEnd()}…` : source;
 }
 
 export function deepFreezePlainData(value) {
@@ -255,16 +241,20 @@ async function loadPublicMembershipProgramBySlug(serviceSupabase, normalizedSlug
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_programs')
-			.select('*, groups!inner(slug,is_published)')
+			.select(`${PUBLIC_MEMBERSHIP_PROGRAM_COLUMNS}, groups!inner(slug,is_published)`)
 			.eq('groups.slug', normalizedSlug)
 			.eq('groups.is_published', true)
 			.eq('enabled', true)
+			.eq('access_mode', 'public')
 			.maybeSingle();
 		if (error) {
 			console.warn('Failed to load public membership program for group snapshot', error);
 			return null;
 		}
-		return data ?? null;
+		if (!data || data.enabled !== true || data.access_mode !== 'public') {
+			return null;
+		}
+		return data;
 	} catch (err) {
 		console.warn('Failed to load public membership program for group snapshot', err);
 		return null;
@@ -272,12 +262,30 @@ async function loadPublicMembershipProgramBySlug(serviceSupabase, normalizedSlug
 }
 
 function sanitizePublicMembershipProgram(program) {
-	if (!program) return null;
+	if (!program || program.enabled !== true || program.access_mode !== 'public') return null;
+	return {
+		id: program.id ?? null,
+		group_id: program.group_id ?? null,
+		enabled: true,
+		access_mode: 'public',
+		cta_label: program.cta_label ?? null,
+		contribution_mode: program.contribution_mode ?? 'donation',
+		default_tier_id: program.default_tier_id ?? null,
+		policy_markdown: program.policy_markdown ?? null,
+		policy_version: program.policy_version ?? 1,
+		policy_updated_at: program.policy_updated_at ?? null,
+		created_at: program.created_at ?? null,
+		updated_at: program.updated_at ?? null
+	};
+}
+
+function sanitizeViewerMembershipProgram(program) {
+	if (!program || program.enabled !== true) return null;
 	const isPublicAccess = program.access_mode === 'public';
 	return {
 		id: program.id ?? null,
 		group_id: program.group_id ?? null,
-		enabled: program.enabled === true,
+		enabled: true,
 		access_mode: program.access_mode ?? 'public',
 		cta_label: program.cta_label ?? null,
 		contribution_mode: program.contribution_mode ?? 'donation',
@@ -292,9 +300,7 @@ function sanitizePublicMembershipProgram(program) {
 
 function sanitizePublicMembershipTier(tier) {
 	if (!tier) return null;
-	const sanitized = { ...tier };
-	delete sanitized.stripe_account_id;
-	return sanitized;
+	return sanitizeMembershipTierForViewer(tier, { canManage: false });
 }
 
 async function loadPublicMembershipTiers(serviceSupabase, program) {
@@ -304,7 +310,7 @@ async function loadPublicMembershipTiers(serviceSupabase, program) {
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_tiers')
-			.select('*')
+			.select(PUBLIC_MEMBERSHIP_TIER_COLUMNS)
 			.eq('program_id', program.id)
 			.eq('is_active', true)
 			.order('sort_order', { ascending: true })
@@ -330,7 +336,7 @@ async function loadPublicMembershipFormFields(serviceSupabase, program) {
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_form_fields')
-			.select('*')
+			.select(PUBLIC_MEMBERSHIP_FORM_FIELD_COLUMNS)
 			.eq('program_id', program.id)
 			.eq('active', true)
 			.order('sort_order', { ascending: true })
@@ -402,12 +408,13 @@ async function loadPublicGroupAssetBuckets(assetSupabase, groupId) {
 	}
 }
 
-async function loadPublicGroupNews(publicSupabase, groupId) {
+async function loadPublicGroupNews(newsSupabase, groupId) {
+	if (!newsSupabase || !groupId) return [];
 	try {
-		const { data, error } = await publicSupabase
+		const { data, error } = await newsSupabase
 			.from('group_news_posts')
 			.select(
-				'id, group_id, title, slug, summary, body_markdown, published_at, created_at, updated_at, source_url, source_name, source_published_at, cover_image_url'
+				'id,group_id,title,slug,summary,body_markdown,published_at,created_at,updated_at,source_url,source_name,source_published_at,cover_image_url'
 			)
 			.eq('group_id', groupId)
 			.not('published_at', 'is', null)
@@ -419,21 +426,23 @@ async function loadPublicGroupNews(publicSupabase, groupId) {
 			console.warn('Failed to load group news for group snapshot', error);
 			return [];
 		}
-		return (data ?? []).map((post) => ({
-			id: post.id,
-			group_id: post.group_id,
-			title: post.title,
-			slug: post.slug,
-			summary: post.summary ?? null,
-			published_at: post.published_at ?? null,
-			created_at: post.created_at ?? null,
-			updated_at: post.updated_at ?? null,
-			source_url: post.source_url ?? null,
-			source_name: post.source_name ?? null,
-			source_published_at: post.source_published_at ?? null,
-			cover_image_url: post.cover_image_url ?? null,
-			preview_text: buildPublicNewsPreviewText(post)
-		}));
+		return (data ?? [])
+			.filter((post) => Boolean(post?.published_at) && post?.is_private !== true)
+			.map((post) => ({
+				id: post.id,
+				group_id: post.group_id,
+				title: post.title,
+				slug: post.slug,
+				summary: post.summary ?? null,
+				published_at: post.published_at ?? null,
+				created_at: post.created_at ?? null,
+				updated_at: post.updated_at ?? null,
+				source_url: post.source_url ?? null,
+				source_name: post.source_name ?? null,
+				source_published_at: post.source_published_at ?? null,
+				cover_image_url: post.cover_image_url ?? null,
+				preview_text: buildGroupNewsPreviewText(post)
+			}));
 	} catch (err) {
 		console.warn('Failed to load group news for group snapshot', err);
 		return [];
@@ -612,6 +621,7 @@ async function loadPublicGroupSnapshotUncached({
 			: null;
 	const nowIso = new Date(now).toISOString();
 	const assetClient = clients.serviceSupabase ?? clients.publicSupabase;
+	const newsClient = clients.serviceSupabase ?? clients.publicSupabase;
 	const accountingClient = clients.serviceSupabase ?? clients.publicSupabase;
 
 	// Wave 2: Load all public group sections in parallel without self-fetching internal routes or querying group_members as anon.
@@ -666,7 +676,7 @@ async function loadPublicGroupSnapshotUncached({
 		loadPublicMembershipTiers(clients.serviceSupabase, matchedProgram),
 		loadPublicMembershipFormFields(clients.serviceSupabase, matchedProgram),
 		loadPublicGroupAssetBuckets(assetClient, group.id),
-		loadPublicGroupNews(clients.publicSupabase, group.id),
+		loadPublicGroupNews(newsClient, group.id),
 		loadPublicGroupAccountingReports(accountingClient, group.id),
 		loadPublicVolunteerEvents(clients.publicSupabase, group.id, nowIso),
 		loadPublicGroupRides(clients.publicSupabase, group.id, nowIso)
@@ -773,6 +783,7 @@ export function createAnonymousViewerOverlay() {
 		is_owner: false,
 		is_social_manager: false,
 		my_memberships: [],
+		viewer_membership_program: null,
 		managed_volunteer_event_ids: []
 	};
 }
@@ -780,6 +791,7 @@ export function createAnonymousViewerOverlay() {
 export async function loadGroupViewerOverlay({
 	groupId,
 	volunteerEvents = [],
+	hasPublicMembershipProgram = true,
 	viewerUserId,
 	viewerIsAdmin,
 	requestSupabase,
@@ -918,11 +930,39 @@ export async function loadGroupViewerOverlay({
 		);
 	};
 
-	const [roleRows, myMemberships, resolvedAdmin, managedVolunteerEventIds] = await Promise.all([
+	const [
+		roleRows,
+		myMemberships,
+		resolvedAdmin,
+		managedVolunteerEventIds,
+		viewerMembershipProgram
+	] = await Promise.all([
 		loadViewerRoles(),
 		loadViewerMemberships(),
 		loadViewerAdminFlag(),
-		loadViewerHostedEventIds()
+		loadViewerHostedEventIds(),
+		hasPublicMembershipProgram
+			? Promise.resolve(null)
+			: Promise.resolve()
+					.then(() =>
+						viewerDb
+							.from('group_membership_programs')
+							.select(PUBLIC_MEMBERSHIP_PROGRAM_COLUMNS)
+							.eq('group_id', groupId)
+							.eq('enabled', true)
+							.maybeSingle()
+					)
+					.then(({ data, error }) => {
+						if (error) {
+							console.warn('Failed to load viewer membership program for group page', error);
+							return null;
+						}
+						return sanitizeViewerMembershipProgram(data);
+					})
+					.catch((err) => {
+						console.warn('Failed to load viewer membership program for group page', err);
+						return null;
+					})
 	]);
 
 	const isOwner = roleRows.some((row) => row?.role === 'owner');
@@ -934,6 +974,7 @@ export async function loadGroupViewerOverlay({
 		is_owner: isOwner,
 		is_social_manager: isSocialManager,
 		my_memberships: myMemberships,
+		viewer_membership_program: viewerMembershipProgram,
 		managed_volunteer_event_ids: managedVolunteerEventIds
 	};
 }
@@ -976,7 +1017,7 @@ export function applyGroupViewerOverlay(snapshot, overlay = null) {
 		session_user_id: sessionUserId,
 		can_edit: canEdit,
 		donation_enabled: snapshot.donation_enabled,
-		membership_program: snapshot.membership_program,
+		membership_program: snapshot.membership_program ?? viewer.viewer_membership_program ?? null,
 		membership_tiers: snapshot.membership_tiers,
 		membership_form_fields: snapshot.membership_form_fields,
 		my_memberships: Array.isArray(viewer.my_memberships) ? viewer.my_memberships : [],
@@ -1185,6 +1226,7 @@ export async function loadGroupProfilePageData({
 	const overlay = await loadGroupViewerOverlay({
 		groupId: snapshot.group.id,
 		volunteerEvents: snapshot.volunteer_events,
+		hasPublicMembershipProgram: Boolean(snapshot.membership_program),
 		viewerUserId,
 		viewerIsAdmin,
 		requestSupabase,

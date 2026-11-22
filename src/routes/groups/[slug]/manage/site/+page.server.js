@@ -12,6 +12,10 @@ import {
 	normalizeMicrositeSlug
 } from '#lib/microsites/host';
 import { buildDefaultGroupSiteConfig, parseGroupSiteFormData } from '#lib/microsites/config';
+import {
+	extractGroupSiteEditorFormValues,
+	normalizeGroupSiteEditorView
+} from '#lib/groups/siteEditor';
 import { recommendGroupSiteTemplate } from '#lib/microsites/templates';
 import { getGroupSiteConfig, upsertGroupSiteConfig } from '#lib/server/groupSites';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
@@ -181,17 +185,24 @@ async function prepareSiteSettingsForm({ auth, request }) {
 		};
 	}
 	const formData = parsedForm.value;
+	const values = extractGroupSiteEditorFormValues(formData, { group: auth.group });
 	const requestedMicrositeSlug = normalizeMicrositeSlug(formData.get('microsite_slug'));
 	if (!requestedMicrositeSlug) {
 		return {
 			ok: false,
-			response: fail(400, { error: 'Website slug is required and can only use letters/numbers.' })
+			response: fail(400, {
+				error: 'Website slug is required and can only use letters/numbers.',
+				values
+			})
 		};
 	}
 	if (isReservedMicrositeSlug(requestedMicrositeSlug)) {
 		return {
 			ok: false,
-			response: fail(400, { error: 'That website slug is reserved. Pick another one.' })
+			response: fail(400, {
+				error: 'That website slug is reserved. Pick another one.',
+				values
+			})
 		};
 	}
 
@@ -207,10 +218,13 @@ async function prepareSiteSettingsForm({ auth, request }) {
 			if (slugError.code === '23505' || message.includes('duplicate')) {
 				return {
 					ok: false,
-					response: fail(409, { error: 'That website slug is already taken. Try another one.' })
+					response: fail(409, {
+						error: 'That website slug is already taken. Try another one.',
+						values
+					})
 				};
 			}
-			return { ok: false, response: fail(400, { error: slugError.message }) };
+			return { ok: false, response: fail(400, { error: slugError.message, values }) };
 		}
 		slugChanged = true;
 	}
@@ -230,18 +244,18 @@ async function prepareSiteSettingsForm({ auth, request }) {
 		}
 		return {
 			ok: false,
-			response: fail(400, { error: error?.message || 'Unable to upload sponsor logo.' })
+			response: fail(400, {
+				error: error?.message || 'Unable to upload sponsor logo.',
+				values
+			})
 		};
 	}
 
 	return {
 		ok: true,
 		config: parseGroupSiteFormData(formData, { group: auth.group }),
-		returnView: ['builder', 'quick', 'appearance', 'rides', 'address', 'more'].includes(
-			String(formData.get('return_view') || '')
-		)
-			? String(formData.get('return_view'))
-			: 'builder',
+		values,
+		returnView: normalizeGroupSiteEditorView(formData.get('return_view'), 'builder'),
 		uploadedPaths,
 		slugChanged,
 		previousMicrositeSlug: currentMicrositeSlug
@@ -315,7 +329,10 @@ export const actions = {
 			await upsertGroupSiteConfig(auth.group.id, prepared.config);
 		} catch (error) {
 			await rollbackPreparedSiteSettings(auth, prepared);
-			return fail(400, { error: error?.message || 'Unable to publish website changes.' });
+			return fail(400, {
+				error: error?.message || 'Unable to publish website changes.',
+				values: prepared.values
+			});
 		}
 		await removeUnusedSponsorLogoObjects({
 			previousConfig,
@@ -328,16 +345,24 @@ export const actions = {
 			`/groups/${params.slug}/manage/site?saved=1&view=${encodeURIComponent(prepared.returnView)}`
 		);
 	},
-	reset: async ({ params, cookies }) => {
+	reset: async ({ params, request, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);
 		const { supabase } = auth;
+		const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
+		const values =
+			parsedForm.ok && [...parsedForm.value.keys()].length > 0
+				? extractGroupSiteEditorFormValues(parsedForm.value, { group: auth.group })
+				: null;
 		const previousConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
 		const { error } = await supabase
 			.from('group_site_configs')
 			.delete()
 			.eq('group_id', auth.group.id);
 		if (error) {
-			return fail(400, { error: error.message });
+			return fail(400, {
+				error: error.message,
+				...(values ? { values } : {})
+			});
 		}
 		await removeSponsorLogoObjects([
 			...managedSponsorLogoObjectPaths(previousConfig, auth.group.id)
