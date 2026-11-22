@@ -1,5 +1,14 @@
 <script>
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import {
+		formatEventTime,
+		getCachedDateTimeFormat,
+		getTimezoneBadge,
+		getViewerTimezone,
+		parseCalendarDate,
+		toEventDateKey
+	} from '#lib/calendar/monthGrid';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
@@ -11,6 +20,11 @@
 	const { data } = $props();
 
 	let searchTerm = $state('');
+	let viewerTimezone = $state('UTC');
+
+	onMount(() => {
+		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
+	});
 
 	const groups = $derived((data?.groups ?? []).filter((group) => group && group.events?.length));
 
@@ -30,32 +44,37 @@
 	const totalGroupEvents = $derived(groups.reduce((sum, g) => sum + (g.events?.length ?? 0), 0));
 
 	function parseDate(value) {
-		if (!value) return null;
-		const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? null : date;
+		return parseCalendarDate(value);
 	}
-
-	const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
-	const timeFormatter = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 
 	function eventDateRange(event) {
 		const start = parseDate(event?.event_start);
 		const end = parseDate(event?.event_end);
 		if (!start) return 'Date TBA';
-		if (!end || end.getTime() === start.getTime() || start.toDateString() === end.toDateString()) {
-			return dateFormatter.format(start);
+		const df = getCachedDateTimeFormat(event?.timezone, { dateStyle: 'medium' }, 'en-US');
+		if (
+			!end ||
+			end.getTime() === start.getTime() ||
+			toEventDateKey(start, event?.timezone) === toEventDateKey(end, event?.timezone)
+		) {
+			return df.format(start);
 		}
-		return `${dateFormatter.format(start)} – ${dateFormatter.format(end)}`;
+		return `${df.format(start)} – ${df.format(end)}`;
 	}
 
 	function eventTimeRange(event) {
 		const start = parseDate(event?.event_start);
 		const end = parseDate(event?.event_end);
 		if (!start) return '';
+		const startTime = formatEventTime(start, event?.timezone);
 		if (!end || end.getTime() === start.getTime()) {
-			return timeFormatter.format(start);
+			return startTime;
 		}
-		return `${timeFormatter.format(start)} – ${timeFormatter.format(end)}`;
+		return `${startTime} – ${formatEventTime(end, event?.timezone)}`;
+	}
+
+	function eventTimezoneBadge(event) {
+		return getTimezoneBadge(event?.event_start, event?.timezone, viewerTimezone);
 	}
 
 	function locationLabel(group) {
@@ -351,7 +370,17 @@
 												<strong>{eventDateRange(event)}</strong>
 											</span>
 											{#if eventTimeRange(event)}
-												<span>{eventTimeRange(event)}</span>
+												{@const groupEventTzBadge = eventTimezoneBadge(event)}
+												<span class="inline-flex flex-wrap items-center gap-1.5">
+													<span>{eventTimeRange(event)}</span>
+													{#if groupEventTzBadge}
+														<span
+															class="border-surface-600 bg-surface-900 text-primary-500 border px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+														>
+															{groupEventTzBadge}
+														</span>
+													{/if}
+												</span>
 											{/if}
 										</div>
 									</div>
