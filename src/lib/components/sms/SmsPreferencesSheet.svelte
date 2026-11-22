@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import IconMessageSquare from '@lucide/svelte/icons/message-square';
+	import { SMS_INLINE_DEFAULT_CONSENT_TEXT } from '#lib/sms/inlineEnrollment';
 
 	let {
 		rideSource = 'ride-rsvp',
@@ -13,9 +14,6 @@
 	const sheetHeadingId = `${id}-sheet`;
 	const phoneErrorId = `${id}-phone-error`;
 
-	const DEFAULT_CONSENT_TEXT =
-		'By checking the SMS consent box or selecting “Agree & enable SMS,” I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
-
 	let loading = $state(true);
 	let saving = $state(false);
 	let subscriptionStatus = $state('paused');
@@ -24,7 +22,7 @@
 	let adminMessages = $state(false);
 	let volunteerReminders = $state(false);
 	let bikeValetMessages = $state(false);
-	let consentText = $state(DEFAULT_CONSENT_TEXT);
+	let consentText = $state(SMS_INLINE_DEFAULT_CONSENT_TEXT);
 
 	let sheetPhone = $state('');
 	let sheetRideReminders = $state(false);
@@ -375,8 +373,7 @@
 		</label>
 
 		<p class="text-surface-200 m-0 text-xs leading-relaxed">
-			Message and data rates may apply. Message frequency varies. Reply STOP to opt out, START to
-			rejoin, or HELP for help. SMS is optional and not a condition of using 3FP. See our
+			SMS is optional and not a condition of using 3FP. See our
 			<a
 				class="text-primary-300 hover:text-surface-50 font-bold underline"
 				href="/terms"
