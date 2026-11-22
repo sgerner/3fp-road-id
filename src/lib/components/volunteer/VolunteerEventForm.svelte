@@ -1,7 +1,7 @@
 <script>
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import EventOverviewStep from './EventOverviewStep.svelte';
