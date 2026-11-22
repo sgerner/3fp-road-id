@@ -12,4 +12,4 @@
 
 ## Checks
 
-- Before committing code changes, run `npm run audit`, `npm run lint`, `npm run check`, and `npm test`. Run `npm run build` followed by `npm run test:server-sanitizer` for production build or server dependency changes. Use Node 24 (`package.json` engines); local runs use `npm run check` (to sync SvelteKit types first), while CI runs `npm run check:ci` after `npm ci` alongside the remaining checks on pull requests.
+- Before committing code changes, run `npm run audit`, `npm run lint`, `npm run check`, and `npm test`. Run `npm run build` followed by `npm run test:server-sanitizer` for production build or server dependency changes, and run `npm run test:stripe-webhook` for Stripe or accounting webhook changes. Use Node 24 (`package.json` engines); local runs use `npm run check` (to sync SvelteKit types first), while CI runs `npm run check:ci` after `npm ci` alongside the remaining checks on pull requests.
