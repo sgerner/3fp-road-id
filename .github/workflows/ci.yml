@@ -50,22 +50,8 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_USER: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      ACCOUNTING_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres
+      ACCOUNTING_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -75,7 +61,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Start local Supabase stack
+        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,mailpit,realtime,supavisor,postgres-meta
       - run: npm test
+      - run: npm run test:db
 
   deploy-farin:
     if: github.event_name == 'push' || (github.event_name == 'release' && github.event.release.prerelease == false)

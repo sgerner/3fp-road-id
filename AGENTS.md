@@ -13,3 +13,7 @@
 ## Checks
 
 - Before committing code changes, run `npm run lint`, `npm run check`, and `npm test`. Run `npm run build` followed by `npm run test:server-sanitizer` for production build or server dependency changes. Use Node 24 (`package.json` engines); CI runs the same checks on pull requests.
+- For Supabase migrations, triggers, RPC grants, or RLS changes, install Docker and PostgreSQL `psql` locally and use the pinned `supabase` CLI from `devDependencies` (configured in `supabase/config.toml` for PostgreSQL 17 on `127.0.0.1:54322`):
+  - Boot the minimal local Supabase stack: `npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,mailpit,realtime,supavisor,postgres-meta`
+  - Run Node unit, accounting, and Stripe ownership database tests against local Supabase: `ACCOUNTING_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test`
+  - Run all Supabase migrations and SQL suites (`ride_rsvp_privacy.sql`, `event_host_group_authorization.sql`, `activity_participant_rpc_grants.sql`, and `group_accounting_*.sql`): `npm run test:db` (starts the minimal stack if stopped, or runs `npx supabase db reset` when already running to replay the full migration history cleanly).
