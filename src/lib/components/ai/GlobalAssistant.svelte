@@ -6,15 +6,19 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
-	import { isSafeInternalPath } from '#lib/security/navigation';
-	import { safeHttpUrl } from '#lib/security/urls';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
+	import {
+		normalizeAssistantHref,
+		normalizeNavigationTarget,
+		renderAssistantMessageHtml
+	} from '#lib/ai/assistantMessage';
 
 	/** @type {any} */
 	const DEFAULT_WELCOME = {
 		id: 'welcome',
 		role: 'assistant',
 		content:
-			'I can help you find rides, groups, volunteer events, and learn articles that match your interests and location. Ask for recommendations or say “I want to post my own ride” and I will route you to the right page.',
+			'Ask for **rides**, **cycling groups**, **volunteer shifts**, **safety guides**, **Road ID** (`/roadid`), **merch** (`/merch`), or **donations** (`/donate`)—or tell me your city and state to search nearby.',
 		recommendations: [],
 		navigationTarget: null,
 		followUpQuestion: null
@@ -32,6 +36,7 @@
 	let error = $state('');
 	/** @type {any} */
 	let messages = $state([DEFAULT_WELCOME]);
+	let activeLocationHint = $state('');
 	/** @type {HTMLDivElement | null} */
 	let dialogEl = $state(null);
 	/** @type {any} */
@@ -54,6 +59,9 @@
 
 	/** @type {any} */
 	const storageKey = $derived(userId ? `3fp-assistant-chat-${userId}` : '3fp-assistant-chat-guest');
+	const locationStorageKey = $derived(
+		userId ? `3fp-assistant-location-${userId}` : '3fp-assistant-location-guest'
+	);
 	/** @type {any} */
 	const canSend = $derived(!sending && input.trim().length > 0);
 	const feedbackStorageKey = '3fp-assistant-session-id';
@@ -156,59 +164,15 @@
 	}
 
 	/**
-	 * @param {any} value
+	 * @param {MouseEvent} event
 	 */
-	function escapeHtml(value) {
-		return String(value)
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;')
-			.replace(/'/g, '&#39;');
-	}
-
-	/**
-	 * @param {any} raw
-	 */
-	function normalizeAssistantLink(raw) {
-		const candidate = String(raw || '').trim();
-		if (!candidate) return '';
-		if (isSafeInternalPath(candidate)) return candidate;
-		return safeHttpUrl(candidate);
-	}
-
-	/**
-	 * @param {any} content
-	 */
-	function renderAssistantMessageHtml(content) {
-		const source = String(content || '');
-		/** @type {any} */
-		const parts = [];
-		const tokenRegex =
-			/\((\/[^\s)]+|https?:\/\/[^\s)]+)\)|\b(https?:\/\/[^\s<>"')]+)|(\/(?:ride|groups|volunteer|learn|get-involved|profile|donate)[^\s<>"')]+)/gi;
-		let cursor = 0;
-		/** @type {any} */
-		let match;
-		while ((match = tokenRegex.exec(source)) !== null) {
-			const fullMatch = match[0];
-			const pathInParens = match[1] || '';
-			const absoluteUrl = match[2] || '';
-			const inlinePath = match[3] || '';
-			const href = normalizeAssistantLink(pathInParens || absoluteUrl || inlinePath);
-			if (!href) continue;
-			const start = match.index;
-			const end = start + fullMatch.length;
-			if (start > cursor) {
-				parts.push(escapeHtml(source.slice(cursor, start)));
-			}
-			const text = pathInParens || absoluteUrl || inlinePath;
-			parts.push(`<a href="${escapeHtml(href)}" class="anchor">${escapeHtml(text)}</a>`);
-			cursor = end;
+	function handleMessageBodyClick(event) {
+		const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+		if (!target) return;
+		const href = target.getAttribute('href') || '';
+		if (href.startsWith('/')) {
+			closeAssistant();
 		}
-		if (cursor < source.length) {
-			parts.push(escapeHtml(source.slice(cursor)));
-		}
-		return parts.join('').replace(/\n/g, '<br />');
 	}
 
 	/**
@@ -233,6 +197,13 @@
 	}
 
 	/**
+	 * @param {number} index
+	 */
+	function formatIndexNumeral(index) {
+		return String(index + 1).padStart(2, '0');
+	}
+
+	/**
 	 * @param {any} item
 	 */
 	function normalizeRecommendation(item) {
@@ -242,7 +213,7 @@
 		const articleId = item?.articleId ? String(item.articleId).trim() : null;
 		const id = item?.id ? String(item.id).trim() : articleId;
 		const rawUrl = String(item?.url || '').trim();
-		const url = isSafeInternalPath(rawUrl) ? rawUrl : safeHttpUrl(rawUrl);
+		const url = normalizeAssistantHref(rawUrl);
 		return {
 			id: id || null,
 			type,
@@ -370,17 +341,7 @@
 				const content = String(entry.content || '').trim();
 				if (!role || !content) return null;
 				const recommendations = normalizeRecommendations(entry.recommendations);
-				const rawNavigationUrl = String(entry.navigationTarget?.url || '').trim();
-				const navigationUrl = isSafeInternalPath(rawNavigationUrl)
-					? rawNavigationUrl
-					: safeHttpUrl(rawNavigationUrl);
-				const navigationTarget = navigationUrl
-					? {
-							url: navigationUrl,
-							label: String(entry.navigationTarget.label || 'Open'),
-							reason: String(entry.navigationTarget.reason || '')
-						}
-					: null;
+				const navigationTarget = normalizeNavigationTarget(entry.navigationTarget);
 				const followUpQuestion = entry.followUpQuestion
 					? String(entry.followUpQuestion).trim()
 					: null;
@@ -413,6 +374,11 @@
 				followUpQuestion: entry.followUpQuestion || null
 			}));
 			window.localStorage.setItem(storageKey, JSON.stringify(serializable));
+			if (activeLocationHint) {
+				window.localStorage.setItem(locationStorageKey, activeLocationHint);
+			} else {
+				window.localStorage.removeItem(locationStorageKey);
+			}
 		} catch {
 			// ignore persistence failures
 		}
@@ -426,8 +392,10 @@
 		try {
 			const saved = JSON.parse(window.localStorage.getItem(key) || '[]');
 			messages = normalizeSavedMessages(saved);
+			activeLocationHint = String(window.localStorage.getItem(locationStorageKey) || '').trim();
 		} catch {
 			messages = [DEFAULT_WELCOME];
+			activeLocationHint = '';
 		}
 		messageShownAt.clear();
 		for (const entry of messages) {
@@ -446,16 +414,19 @@
 		if (!chatBodyEl || !messageId) return;
 		const target = chatBodyEl.querySelector(`[data-message-id="${messageId}"]`);
 		if (!target) return;
+		const prefersReducedMotion =
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		chatBodyEl.scrollTo({
 			top: Math.max(0, target.offsetTop - 8),
-			behavior: 'smooth'
+			behavior: prefersReducedMotion ? 'auto' : 'smooth'
 		});
 	}
 
 	function resizeInputTextarea() {
 		if (!inputTextareaEl) return;
 		inputTextareaEl.style.height = 'auto';
-		const nextHeight = Math.max(38, Math.min(inputTextareaEl.scrollHeight, 180));
+		const nextHeight = Math.max(40, Math.min(inputTextareaEl.scrollHeight, 180));
 		inputTextareaEl.style.height = `${nextHeight}px`;
 	}
 
@@ -572,6 +543,10 @@
 			if (!response.ok) {
 				throw new Error(payload?.error || 'Unable to reach the assistant right now.');
 			}
+			const nextHint = String(payload?.context?.locationHint || '').trim();
+			if (nextHint) {
+				activeLocationHint = nextHint;
+			}
 			const assistantId = generateId('assistant');
 			/** @type {any} */
 			const assistantEntry = {
@@ -579,8 +554,8 @@
 				role: 'assistant',
 				content: String(payload?.reply || 'Here are your recommendations.'),
 				recommendations: normalizeRecommendations(payload?.recommendations),
-				navigationTarget: payload?.navigationTarget || null,
-				followUpQuestion: payload?.followUpQuestion || null
+				navigationTarget: normalizeNavigationTarget(payload?.navigationTarget),
+				followUpQuestion: payload?.followUpQuestion ? String(payload.followUpQuestion).trim() : null
 			};
 			messages = [...messages, assistantEntry];
 			messageShownAt.set(assistantId, Date.now());
@@ -611,6 +586,7 @@
 
 	function clearChat() {
 		messages = [DEFAULT_WELCOME];
+		activeLocationHint = '';
 		error = '';
 		savedRecommendationKeys = {};
 		messageShownAt.clear();
@@ -649,6 +625,7 @@
 
 	$effect(() => {
 		messages.length;
+		activeLocationHint;
 		saveMessages();
 	});
 
@@ -661,173 +638,243 @@
 {#if isOpen}
 	<button
 		type="button"
-		class="bg-surface-950/25 fixed inset-0 z-[79] cursor-default"
+		class="bg-surface-950/75 fixed inset-0 z-[79] cursor-default rounded-none"
 		tabindex="-1"
 		aria-label="Close 3FP assistant"
 		onclick={closeAssistant}
 	></button>
 {/if}
 
-<div class="md:fixed md:right-0 md:bottom-0 md:z-[80]">
+<div class="assistant-lane-root md:fixed md:right-0 md:bottom-0 md:z-[80]">
 	{#if isOpen}
 		<div
 			bind:this={dialogEl}
-			class="card preset-filled-surface-100-900 border-surface-300-700 fixed right-2 bottom-2 z-[80] grid h-[min(75dvh,38rem)] w-[min(25rem,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border shadow-2xl backdrop-blur md:absolute md:right-0 md:bottom-[calc(100%+0.5rem)]"
+			class="assistant-lane-dialog border-surface-700 border-t-primary-500 bg-surface-950 text-surface-50 fixed right-2 bottom-2 z-[80] grid h-[min(78dvh,40rem)] w-[min(26rem,calc(100vw-1rem))] grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden rounded-none border-2 border-t-4 md:absolute md:right-0 md:bottom-[calc(100%+0.5rem)]"
 			role="dialog"
 			aria-label="3FP assistant"
 			aria-modal="true"
 			tabindex="-1"
 			onkeydown={handleDialogKeydown}
 		>
-			<header
-				class="border-surface-500/20 flex items-center justify-between gap-3 border-b px-4 py-3"
-			>
-				<div class="flex min-w-0 items-center gap-2">
-					<div
-						class="bg-primary-500/20 text-primary-300 inline-flex h-7 w-7 items-center justify-center rounded-full"
-					>
-						<IconBot class="h-4 w-4" />
-					</div>
-					<div class="min-w-0">
-						<h2 class="text-sm leading-tight font-semibold">3FP Assistant</h2>
-						<p class="text-[11px] opacity-65">Personalized rides, groups & activities</p>
-					</div>
-				</div>
-				<div class="flex items-center gap-2">
-					<button type="button" class="btn btn-sm preset-tonal-warning" onclick={clearChat}>
-						Clear
-					</button>
-					<button
-						type="button"
-						class="btn btn-icon btn-sm preset-tonal-error"
-						onclick={closeAssistant}
-						aria-label="Close assistant"
-					>
-						<IconX class="h-4 w-4" />
-					</button>
-				</div>
-			</header>
-
-			<div class="flex flex-col gap-2 overflow-y-auto p-3" bind:this={chatBodyEl}>
-				{#each messages as entry (entry.id)}
-					<div
-						class={`flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}
-						data-message-id={entry.id}
-					>
+			<header class="border-surface-800 bg-surface-900 border-b-2 px-4 py-3">
+				<div class="flex items-center justify-between gap-3">
+					<div class="flex min-w-0 items-center gap-2.5">
 						<div
-							class={`card w-[92%] rounded-xl p-3 ${
-								entry.role === 'user' ? 'preset-tonal-tertiary' : 'preset-tonal-secondary'
-							}`}
+							class="bg-primary-500 text-surface-950 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-none"
+							aria-hidden="true"
 						>
-							<p class="text-sm leading-relaxed whitespace-pre-wrap">
-								{@html renderAssistantMessageHtml(entry.content)}
+							<IconBot class="h-4 w-4" />
+						</div>
+						<div class="min-w-0">
+							<h2
+								class="text-surface-50! m-0 text-base leading-none font-black tracking-tight uppercase italic"
+							>
+								3FP Assistant
+							</h2>
+							<p
+								class="text-surface-300 m-0 mt-1 text-[11px] font-bold tracking-[0.14em] uppercase"
+							>
+								Rides · Groups · Safety
 							</p>
-							{#if entry.followUpQuestion}
-								<p class="mt-2 text-xs opacity-70">{entry.followUpQuestion}</p>
-							{/if}
-							{#if entry.navigationTarget}
-								<a
-									href={entry.navigationTarget.url}
-									class="btn btn-sm preset-filled-primary-500 mt-2 inline-flex gap-1.5"
-									onclick={closeAssistant}
-								>
-									<IconArrowRight class="h-3.5 w-3.5" />
-									{entry.navigationTarget.label}
-								</a>
-								{#if entry.navigationTarget.reason}
-									<p class="mt-1 text-[11px] opacity-70">{entry.navigationTarget.reason}</p>
-								{/if}
-							{/if}
-							{#if entry.recommendations?.length}
-								<div class="mt-2 space-y-1.5">
-									{#each entry.recommendations as rec}
-										<div
-											class="card preset-tonal-surface border-surface-500/25 rounded-lg border p-2.5"
-										>
-											<a
-												href={rec.url}
-												class="hover:text-primary-300 block transition"
-												onclick={() => handleRecommendationClick(entry, rec)}
-											>
-												<div
-													class="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase opacity-70"
-												>
-													<IconSparkles class="h-3 w-3" />
-													{rec.type}
-												</div>
-												<p class="text-sm leading-tight font-medium">{rec.title}</p>
-												{#if rec.subtitle}
-													<p class="text-xs opacity-75">{rec.subtitle}</p>
-												{/if}
-												<p class="mt-1 text-xs opacity-80">{rec.reason}</p>
-											</a>
-											{#if isArticleRecommendation(rec)}
-												<div class="mt-2 flex flex-wrap items-center gap-3">
-													<button
-														type="button"
-														class="btn btn-sm preset-tonal-primary min-h-11"
-														onclick={(event) => handleArticlePreference(event, entry, rec, 'save')}
-													>
-														{#if savedRecommendationKeys[recommendationKey(entry.id, rec)]}
-															Saved
-														{:else}
-															Save
-														{/if}
-													</button>
-													<button
-														type="button"
-														class="btn btn-sm preset-tonal-warning min-h-11"
-														onclick={(event) => handleArticlePreference(event, entry, rec, 'hide')}
-													>
-														Hide
-													</button>
-												</div>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
 						</div>
 					</div>
+					<div class="flex shrink-0 items-center gap-2">
+						<button
+							type="button"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex min-h-9 items-center justify-center rounded-none border-2 px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-colors"
+							onclick={clearChat}
+						>
+							Clear
+						</button>
+						<button
+							type="button"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:bg-error-500 hover:border-error-500 hover:text-surface-950 inline-flex h-9 w-9 items-center justify-center rounded-none border-2 transition-colors"
+							onclick={closeAssistant}
+							aria-label="Close assistant"
+						>
+							<IconX class="h-4 w-4" />
+						</button>
+					</div>
+				</div>
+				{#if activeLocationHint}
+					<div
+						class="border-surface-800 mt-2.5 flex items-center gap-1.5 border-t pt-2 text-[11px]"
+						data-testid="assistant-location-hint"
+					>
+						<span
+							class="bg-primary-500 text-surface-950 inline-flex items-center gap-1 px-2 py-0.5 font-black tracking-[0.16em] uppercase"
+						>
+							<IconMapPin class="h-3 w-3" aria-hidden="true" />
+							Area
+						</span>
+						<span class="text-surface-200 truncate font-bold">{activeLocationHint}</span>
+					</div>
+				{/if}
+			</header>
+
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="divide-surface-800 flex flex-col divide-y overflow-y-auto"
+				bind:this={chatBodyEl}
+				onclick={handleMessageBodyClick}
+			>
+				{#each messages as entry (entry.id)}
+					<article
+						class={entry.role === 'user'
+							? 'border-l-tertiary-500 bg-surface-900 border-l-4 px-4 py-3.5'
+							: 'border-l-primary-500 bg-surface-950 border-l-4 px-4 py-3.5'}
+						data-message-id={entry.id}
+						data-message-role={entry.role}
+					>
+						<p
+							class={`m-0 mb-1.5 text-[10px] font-black tracking-[0.2em] uppercase ${
+								entry.role === 'user' ? 'text-tertiary-500' : 'text-primary-500'
+							}`}
+						>
+							{entry.role === 'user' ? 'You' : '3 Feet Please'}
+						</p>
+						<div class="assistant-message-copy text-surface-50 text-sm leading-relaxed font-medium">
+							{@html renderAssistantMessageHtml(entry.content)}
+						</div>
+						{#if entry.followUpQuestion}
+							<p class="text-surface-300 m-0 mt-2 text-xs font-medium">{entry.followUpQuestion}</p>
+						{/if}
+						{#if entry.navigationTarget}
+							<div class="mt-3">
+								<a
+									href={entry.navigationTarget.url}
+									class="group bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center gap-2 rounded-none px-4 py-2.5 text-xs font-black tracking-wider uppercase transition-colors"
+									data-testid="assistant-action-button"
+									onclick={closeAssistant}
+								>
+									<span>{entry.navigationTarget.label}</span>
+									<IconArrowRight
+										class="h-3.5 w-3.5 transition-transform motion-safe:group-hover:translate-x-1"
+									/>
+								</a>
+								{#if entry.navigationTarget.reason}
+									<p class="text-surface-300 m-0 mt-1.5 text-[11px]">
+										{entry.navigationTarget.reason}
+									</p>
+								{/if}
+							</div>
+						{/if}
+						{#if entry.recommendations?.length}
+							<div class="border-surface-800 mt-3 border-t-2">
+								{#each entry.recommendations as rec, recIndex}
+									<div class="border-surface-800 border-b py-2.5">
+										<a
+											href={rec.url}
+											class="group hover:bg-primary-500 hover:text-surface-950 -mx-2 block px-2 py-1.5 transition-colors"
+											onclick={() => handleRecommendationClick(entry, rec)}
+										>
+											<div class="flex items-baseline justify-between gap-2">
+												<div class="flex items-baseline gap-2">
+													<span
+														class="text-tertiary-500 group-hover:text-surface-950 text-xs font-black italic tabular-nums"
+													>
+														{formatIndexNumeral(recIndex)}
+													</span>
+													<span
+														class="text-primary-500 group-hover:text-surface-950 text-[10px] font-bold tracking-[0.2em] uppercase"
+													>
+														{rec.type}
+													</span>
+												</div>
+												<IconArrowRight
+													class="text-surface-300 group-hover:text-surface-950 h-3.5 w-3.5 shrink-0 transition-transform motion-safe:group-hover:translate-x-1"
+												/>
+											</div>
+											<p
+												class="text-surface-50 group-hover:text-surface-950 m-0 mt-0.5 text-sm leading-snug font-bold"
+											>
+												{rec.title}
+											</p>
+											{#if rec.subtitle}
+												<p class="text-surface-300 group-hover:text-surface-950 m-0 mt-0.5 text-xs">
+													{rec.subtitle}
+												</p>
+											{/if}
+											{#if rec.reason}
+												<p class="text-surface-300 group-hover:text-surface-950 m-0 mt-1 text-xs">
+													{rec.reason}
+												</p>
+											{/if}
+										</a>
+										{#if isArticleRecommendation(rec)}
+											<div class="mt-2 flex flex-wrap items-center gap-2">
+												<button
+													type="button"
+													class="border-surface-500 bg-surface-900 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 min-h-11 rounded-none border-2 px-3 py-1 text-xs font-black tracking-wider uppercase transition-colors"
+													onclick={(event) => handleArticlePreference(event, entry, rec, 'save')}
+												>
+													{#if savedRecommendationKeys[recommendationKey(entry.id, rec)]}
+														Saved
+													{:else}
+														Save
+													{/if}
+												</button>
+												<button
+													type="button"
+													class="border-surface-500 bg-surface-900 text-surface-300 hover:bg-surface-800 hover:text-surface-50 min-h-11 rounded-none border-2 px-3 py-1 text-xs font-black tracking-wider uppercase transition-colors"
+													onclick={(event) => handleArticlePreference(event, entry, rec, 'hide')}
+												>
+													Hide
+												</button>
+											</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</article>
 				{/each}
 				{#if sending}
-					<div class="flex justify-start">
+					<div class="border-l-primary-500 bg-surface-900 border-l-4 px-4 py-3.5">
 						<div
-							class="card preset-tonal-surface border-surface-500/20 w-[92%] rounded-xl border p-3"
+							class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.16em] uppercase"
 						>
-							<div class="flex items-center gap-2 text-sm opacity-75">
-								<IconLoader class="h-4 w-4 animate-spin" /> Thinking...
-							</div>
+							<IconLoader class="text-primary-500 h-4 w-4 motion-safe:animate-spin" />
+							Searching 3 Feet Please...
 						</div>
 					</div>
 				{/if}
 			</div>
 
 			{#if error}
-				<div class="text-error-500 px-4 pb-1 text-xs">{error}</div>
+				<div class="bg-error-500 text-surface-950 px-4 py-2 text-xs font-bold" role="alert">
+					{error}
+				</div>
 			{/if}
 
 			<form
-				class="border-surface-500/20 border-t p-3"
+				class="border-surface-800 bg-surface-900 border-t-2 p-3"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void sendMessage();
 				}}
 			>
+				<label
+					for="assistant-message-input"
+					class="text-surface-300 mb-1.5 block text-[10px] font-bold tracking-[0.18em] uppercase"
+				>
+					Ask 3FP Assistant
+				</label>
 				<div class="flex items-end gap-2">
 					<textarea
+						id="assistant-message-input"
 						bind:this={inputTextareaEl}
 						bind:value={input}
 						rows="1"
-						placeholder="Ask for rides, groups, volunteer events, articles, or posting help"
+						placeholder="Rides in Phoenix, AZ · Road ID · Madison, WI groups"
 						maxlength="500"
-						class="input w-full resize-none p-2"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full resize-none rounded-none border-2 px-3 py-2 text-sm focus:ring-0 focus:outline-none"
 						disabled={sending}
-						aria-label="Message to 3FP Assistant"
 						onkeydown={handleInputKeydown}></textarea>
 					<button
 						type="submit"
-						class="btn btn-icon preset-filled-primary-500"
+						class="bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:bg-surface-800 disabled:text-surface-400 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none font-black transition-colors"
 						disabled={!canSend}
 						aria-label="Send message"
 					>
@@ -841,15 +888,56 @@
 	<button
 		bind:this={toggleButtonEl}
 		type="button"
-		class="btn btn-sm preset-tonal-secondary inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 py-2 font-bold shadow-xl"
+		class="border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-wider uppercase transition-colors"
 		onclick={toggleAssistant}
 		aria-label={isOpen ? 'Close AI assistant' : 'Open AI assistant'}
 	>
 		{#if isOpen}
 			<IconX class="h-4 w-4" />
 		{:else}
-			<IconSparkles class="h-3.5 w-3.5" />
-			<span class="text-xs font-semibold tracking-wide uppercase">AI</span>
+			<IconSparkles class="text-primary-500 group-hover:text-surface-950 h-3.5 w-3.5" />
+			<span class="text-xs font-black tracking-wider uppercase">AI</span>
 		{/if}
 	</button>
 </div>
+
+<style>
+	.assistant-lane-root,
+	.assistant-lane-root * {
+		border-radius: 0 !important;
+		box-shadow: none !important;
+		backdrop-filter: none !important;
+	}
+
+	.assistant-message-copy :global(a.assistant-link) {
+		color: var(--color-primary-500);
+		font-weight: 700;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.assistant-message-copy :global(a.assistant-link:hover) {
+		background-color: var(--color-primary-500);
+		color: var(--color-surface-950);
+		text-decoration: none;
+	}
+
+	.assistant-message-copy :global(strong) {
+		color: var(--color-surface-50);
+		font-weight: 800;
+	}
+
+	.assistant-message-copy :global(code.assistant-inline-code) {
+		background-color: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
+		color: var(--color-primary-500);
+		font-size: 0.8125rem;
+		padding: 0.05rem 0.3rem;
+	}
+
+	.assistant-message-copy :global(a.assistant-link code.assistant-inline-code) {
+		color: inherit;
+		border-color: currentColor;
+		background: transparent;
+	}
+</style>

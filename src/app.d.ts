@@ -90,6 +90,7 @@ declare global {
 		initGooglePlaces?: () => void;
 		initVolunteerEventPlaces?: () => void;
 		initGroupsNewPlaces?: () => void;
+		__TEST_READY?: boolean;
 	}
 }
 
