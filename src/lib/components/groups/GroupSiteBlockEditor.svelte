@@ -17,7 +17,7 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import IconRedo from '@lucide/svelte/icons/redo-2';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconUndo from '@lucide/svelte/icons/undo-2';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import {
