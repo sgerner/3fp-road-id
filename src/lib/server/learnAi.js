@@ -3,8 +3,9 @@ import {
 	isAiModelConfigured,
 	requireAiModel
 } from '#lib/server/ai/models';
-import { generateLearnReadingAid } from '#lib/learn/readingAid';
-import { buildHybridArticleCandidates } from '#lib/server/learnRecommendations';
+import { buildLearnCardExcerpt, generateLearnReadingAid } from '#lib/learn/readingAid.js';
+import { buildHybridArticleCandidates } from '#lib/server/learnRecommendations.js';
+import { extractMatchedSnippet } from '#lib/server/learnSearch.js';
 import {
 	buildLearnNavigationExplanationPrompt,
 	buildLearnNavigationIntentPrompt,
@@ -158,19 +159,50 @@ export async function navigateLearnArticles({ supabase, question }) {
 				'I could not find a close match. Try a different phrase or browse the article categories.'
 		};
 	}
-	const articles = ranked.slice(0, 5).map(({ article }) => ({
-		id: article.id,
-		slug: article.slug,
-		title: article.title,
-		summary: article.summary,
-		category_name: article.category_name
-	}));
+	const groundedCandidates = ranked.slice(0, 5).map((entry) => {
+		const { article } = entry;
+		const cardExcerpt = buildLearnCardExcerpt(article, 240);
+		const snippet = entry.best_chunk_text
+			? extractMatchedSnippet({
+					query: `${query} ${originalQuery}`,
+					heading: entry.best_chunk_heading || '',
+					text: entry.best_chunk_text,
+					fallbackExcerpt: cardExcerpt,
+					maxLength: 240
+				})
+			: {
+					matched_heading: entry.best_chunk_heading || null,
+					matched_snippet: ''
+				};
+		return {
+			id: article.id,
+			slug: article.slug,
+			title: article.title,
+			summary: article.summary || cardExcerpt,
+			reader_summary: article.reader_summary || '',
+			key_takeaways: Array.isArray(article.key_takeaways) ? article.key_takeaways.slice(0, 4) : [],
+			category_name: article.category_name,
+			matched_heading: snippet.matched_heading,
+			matched_snippet: snippet.matched_snippet
+		};
+	});
 	const explanation = await generateJson(
-		buildLearnNavigationExplanationPrompt(question, articles),
+		buildLearnNavigationExplanationPrompt(question, groundedCandidates),
 		TEXT_SCHEMA,
 		'learn_navigation_explanation'
 	);
 	const answer = normalizeLearnAiTextResult(explanation, 800);
 	if (!answer) throw new Error('AI did not return a usable article explanation.');
+	const articles = groundedCandidates.map(
+		({ id, slug, title, summary, category_name, matched_heading, matched_snippet }) => ({
+			id,
+			slug,
+			title,
+			summary,
+			category_name,
+			...(matched_heading ? { matched_heading } : {}),
+			...(matched_snippet ? { matched_snippet } : {})
+		})
+	);
 	return { articles, answer };
 }

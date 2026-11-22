@@ -1,7 +1,8 @@
-import { ensureUniqueLearnSlug, listLearnRecentAssets, normalizeLearnPayload } from './learn';
-import { withLearnAiReadingAid } from './learnAi';
-import { enforceRateLimit } from './security';
-import { buildLearnArticleChunks, inferLearnArticleSearchSignals } from './learnDiscovery';
+import { ensureUniqueLearnSlug, listLearnRecentAssets, normalizeLearnPayload } from './learn.js';
+import { withLearnAiReadingAid } from './learnAi.js';
+import { assertEditableLearnArticle } from './learnCatalog.js';
+import { enforceRateLimit } from './security.js';
+import { buildLearnArticleChunks, inferLearnArticleSearchSignals } from './learnDiscovery.js';
 
 export async function loadLearnEditorOptions(supabase, userId) {
 	const [{ data: categories }, { data: subcategories }, recentAssets] = await Promise.all([
@@ -13,8 +14,13 @@ export async function loadLearnEditorOptions(supabase, userId) {
 	return { categories: categories ?? [], subcategories: subcategories ?? [], recentAssets };
 }
 
-export async function prepareLearnArticleSave(event, { supabase, user, formData, articleId }) {
+export async function prepareLearnArticleSave(
+	event,
+	{ supabase, user, formData, articleId, existingArticle = null }
+) {
+	await assertEditableLearnArticle(supabase, { articleId, existingArticle });
 	const normalized = normalizeLearnPayload(formData);
+	await assertEditableLearnArticle(supabase, { requestedSlug: normalized.slug });
 	const userLimited = enforceRateLimit(event, {
 		name: 'learn-ai-save-user',
 		key: user.id,

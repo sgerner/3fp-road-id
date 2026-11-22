@@ -1,5 +1,9 @@
 <script>
+	import { onDestroy, untrack } from 'svelte';
+	import { browser } from '$app/environment';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
+	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
 
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
@@ -15,14 +19,149 @@
 		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
 	);
 
-	let search = $state('');
-	let category = $state('all');
+	let search = $state(untrack(() => data?.initialQuery ?? ''));
+	let category = $state(untrack(() => data?.initialCategory || 'all'));
+	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	let serverResults = $state(untrack(() => data?.initialSearchResults ?? null));
+	let searching = $state(false);
+	let searchError = $state('');
+
 	const pageSize = 12;
 	let visibleCount = $state(pageSize);
-	$effect(() => {
-		search;
-		category;
+	let debounceTimer = null;
+	let activeController = null;
+
+	function clearPendingSearch() {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		if (activeController) {
+			activeController.abort();
+			activeController = null;
+		}
+	}
+
+	onDestroy(() => {
+		clearPendingSearch();
+	});
+
+	function syncUrlParams(nextQuery, nextCategory) {
+		if (!browser) return;
+		const nextUrl = new URL(page.url);
+		const trimmed = nextQuery.trim();
+		if (trimmed) {
+			nextUrl.searchParams.set('q', trimmed);
+		} else {
+			nextUrl.searchParams.delete('q');
+		}
+		if (nextCategory && nextCategory !== 'all') {
+			nextUrl.searchParams.set('category', nextCategory);
+		} else {
+			nextUrl.searchParams.delete('category');
+		}
+		if (nextUrl.search !== page.url.search) {
+			replaceState(nextUrl, page.state);
+		}
+	}
+
+	async function runServerSearch(trimmedQuery) {
+		syncUrlParams(trimmedQuery, category);
+		const controller = new AbortController();
+		activeController = controller;
+		searching = true;
+		searchError = '';
+
+		try {
+			const params = new URLSearchParams({ q: trimmedQuery });
+			const response = await fetch(`/api/learn/search?${params.toString()}`, {
+				signal: controller.signal
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (activeController !== controller) return;
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to search the Learn library right now.');
+			}
+			serverResults = Array.isArray(payload?.articles) ? payload.articles : [];
+			activeQuery = payload?.query ?? trimmedQuery;
+		} catch (err) {
+			if (err?.name === 'AbortError') return;
+			if (activeController === controller) {
+				searchError = err?.message || 'Unable to search the Learn library right now.';
+			}
+		} finally {
+			if (activeController === controller) {
+				searching = false;
+				activeController = null;
+			}
+		}
+	}
+
+	function handleSearchChange(nextValue) {
+		search = nextValue;
 		visibleCount = pageSize;
+		clearPendingSearch();
+
+		const trimmed = nextValue.trim();
+		if (!trimmed) {
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverResults = null;
+			syncUrlParams('', category);
+			return;
+		}
+
+		searching = true;
+		searchError = '';
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			runServerSearch(trimmed);
+		}, 250);
+	}
+
+	function handleCategoryChange(nextCategory) {
+		category = nextCategory;
+		visibleCount = pageSize;
+		syncUrlParams(search, nextCategory);
+	}
+
+	function resetFilters() {
+		clearPendingSearch();
+		search = '';
+		category = 'all';
+		visibleCount = pageSize;
+		searching = false;
+		searchError = '';
+		activeQuery = '';
+		serverResults = null;
+		syncUrlParams('', 'all');
+	}
+
+	afterNavigate(() => {
+		const urlQuery = page.url.searchParams.get('q') ?? '';
+		const urlCategory = page.url.searchParams.get('category') || 'all';
+		if (urlCategory !== category) {
+			category = urlCategory;
+		}
+		if (urlQuery !== search) {
+			search = urlQuery;
+			if (!urlQuery.trim()) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = '';
+				serverResults = null;
+			} else if (data?.initialQuery === urlQuery && data?.initialSearchResults) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = urlQuery;
+				serverResults = data.initialSearchResults;
+			} else {
+				handleSearchChange(urlQuery);
+			}
+		}
 	});
 
 	const articles = $derived(data?.articles ?? []);
@@ -38,16 +177,21 @@
 		}
 		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 	});
-	const filteredArticles = $derived(
-		articles.filter((article) => {
-			const query = search.trim().toLowerCase();
-			const matchesCategory = category === 'all' || article.category_name === category;
-			const haystack = [article.title, article.summary, article.category_name]
-				.filter(Boolean)
-				.join(' ');
-			return matchesCategory && (!query || haystack.toLowerCase().includes(query));
-		})
-	);
+	const hasActiveSearch = $derived(Boolean(search.trim()));
+	const filteredArticles = $derived.by(() => {
+		const source = hasActiveSearch && serverResults !== null ? serverResults : articles;
+		return source.filter((article) => category === 'all' || article.category_name === category);
+	});
+	const statusAnnouncement = $derived.by(() => {
+		if (searching) return 'Searching guides…';
+		if (searchError) return searchError;
+		const count = filteredArticles.length;
+		const noun = count === 1 ? 'article' : 'articles';
+		if (hasActiveSearch && activeQuery) {
+			return `${count} matching ${noun} for “${activeQuery}”`;
+		}
+		return `${count} ${noun}`;
+	});
 
 	function formatDate(value) {
 		if (!value) return 'Recently updated';
@@ -186,16 +330,18 @@
 						<IconSearch class="h-4 w-4" />
 					</span>
 					<input
-						bind:value={search}
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+						value={search}
+						oninput={(event) => handleSearchChange(event.currentTarget.value)}
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-500 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						aria-label="Search articles"
 						placeholder="Search the field guide…"
 					/>
 				</label>
 				<select
-					bind:value={category}
-					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+					value={category}
+					onchange={(event) => handleCategoryChange(event.currentTarget.value)}
+					class="bg-surface-950 text-surface-50 border-surface-500 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					aria-label="Filter by category"
 				>
 					<option value="all">All topics</option>
@@ -205,15 +351,17 @@
 					<button
 						type="button"
 						class="bg-primary-500 text-surface-950 h-11 px-4 text-xs font-black tracking-wide uppercase"
-						onclick={() => {
-							search = '';
-							category = 'all';
-						}}
+						onclick={resetFilters}
 					>
 						Reset
 					</button>
 				{/if}
 			</div>
+			{#if searchError}
+				<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-bold" role="alert">
+					{searchError}
+				</p>
+			{/if}
 		</div>
 	</div>
 	<div class="bg-surface-900 px-6 py-5 sm:px-10 lg:px-12">
@@ -244,10 +392,11 @@
 			</div>
 			<p
 				class="text-tertiary-500 m-0 text-sm font-black tracking-wide uppercase italic tabular-nums"
+				role="status"
 				aria-live="polite"
+				aria-busy={searching}
 			>
-				{filteredArticles.length}
-				{filteredArticles.length === 1 ? 'article' : 'articles'}
+				{statusAnnouncement}
 			</p>
 		</div>
 
@@ -309,9 +458,20 @@
 								>
 									{article.title}
 								</h3>
-								<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
-									{article.summary || 'Open the article to read the full guide and discussion.'}
-								</p>
+								{#if hasActiveSearch && serverResults !== null && article.matched_snippet}
+									{#if article.matched_heading && article.matched_heading.toLowerCase() !== 'overview'}
+										<p class="text-tertiary-500 m-0 text-xs font-bold tracking-[0.18em] uppercase">
+											Section · {article.matched_heading}
+										</p>
+									{/if}
+									<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
+										{article.matched_snippet}
+									</p>
+								{:else}
+									<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
+										{buildLearnCardExcerpt(article)}
+									</p>
+								{/if}
 							</div>
 							<div
 								class="border-surface-800 flex items-center justify-between gap-3 border-t pt-4 text-xs font-bold tracking-wider uppercase"
@@ -345,10 +505,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 px-7 py-4 text-sm font-black tracking-wide uppercase transition"
-					onclick={() => {
-						search = '';
-						category = 'all';
-					}}
+					onclick={resetFilters}
 				>
 					Clear filters
 				</button>

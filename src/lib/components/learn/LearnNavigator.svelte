@@ -63,7 +63,7 @@
 			<label class="min-w-0 flex-1">
 				<span class="sr-only">What would you like to learn?</span>
 				<input
-					class="border-surface-50 bg-surface-950 text-surface-50 placeholder:text-surface-300 focus:border-primary-500 h-12 w-full border-2 px-4 text-sm font-medium focus:outline-none"
+					class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 h-12 w-full border-2 px-4 text-sm font-medium focus:outline-none"
 					bind:value={question}
 					maxlength="1200"
 					required
@@ -78,10 +78,10 @@
 			</button>
 		</form>
 		<div class="flex flex-wrap gap-2">
-			{#each ['I’m new to cycling', 'Help me organize a community ride'] as example}
+			{#each ['What should I do after a bike crash?', 'How can I make my commute safer?', 'Help me organize a community ride'] as example}
 				<button
 					type="button"
-					class="border-surface-800 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+					class="border-surface-500 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 min-h-8 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
 					disabled={busy}
 					onclick={() => ask(example)}
 				>
@@ -119,8 +119,13 @@
 									<strong class="block truncate text-sm font-black uppercase">
 										{article.title}
 									</strong>
-									{#if article.summary}
-										<span class="block truncate text-xs opacity-75">{article.summary}</span>
+									{#if article.matched_snippet || article.summary}
+										<span class="line-clamp-2 block text-xs opacity-80">
+											{#if article.matched_heading && article.matched_heading.toLowerCase() !== 'overview'}
+												{article.matched_heading} ·
+											{/if}
+											{article.matched_snippet || article.summary}
+										</span>
 									{/if}
 								</span>
 								<IconArrowRight class="h-4 w-4 shrink-0 transition group-hover:translate-x-1" />

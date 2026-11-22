@@ -1,5 +1,9 @@
 <script>
+	import { onDestroy, untrack } from 'svelte';
+	import { browser } from '$app/environment';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
+	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -22,11 +26,35 @@
 		toJsonLd
 	} from '#lib/seo';
 
+	const FALLBACK_REPORT_ID = '00000000-0000-4000-8000-000000003f90';
+
 	let { data, form } = $props();
 
-	let searchQuery = $state('');
+	let searchQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	let serverSearchResults = $state(untrack(() => data?.initialSearchResults ?? null));
+	let searching = $state(false);
+	let searchError = $state('');
 	let activeSubcategory = $state('all');
 	let isReordering = $state(false);
+
+	let debounceTimer = null;
+	let activeController = null;
+
+	function clearPendingSearch() {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		if (activeController) {
+			activeController.abort();
+			activeController = null;
+		}
+	}
+
+	onDestroy(() => {
+		clearPendingSearch();
+	});
 
 	// Mutable local copies used by DnD
 	let subcategories = $state([]);
@@ -37,14 +65,136 @@
 		articles = [...data.articles];
 	});
 
-	const filteredArticles = $derived(
-		articles.filter((article) => {
-			if (!searchQuery.trim()) return true;
-			const query = searchQuery.trim().toLowerCase();
-			const haystack = [article.title, article.summary].filter(Boolean).join(' ');
-			return haystack.toLowerCase().includes(query);
-		})
-	);
+	const hasSearchFilter = $derived(Boolean(searchQuery.trim()));
+
+	// Disable manual DnD reordering whenever a search filter is active so filtered views
+	// can never overwrite full category order.
+	$effect(() => {
+		if (hasSearchFilter && isReordering) {
+			isReordering = false;
+		}
+	});
+
+	function syncCategoryQueryUrl(nextQuery) {
+		if (!browser) return;
+		const nextUrl = new URL(page.url);
+		const trimmed = nextQuery.trim();
+		if (trimmed) {
+			nextUrl.searchParams.set('q', trimmed);
+		} else {
+			nextUrl.searchParams.delete('q');
+		}
+		if (nextUrl.search !== page.url.search) {
+			replaceState(nextUrl, page.state);
+		}
+	}
+
+	async function runCategorySearch(trimmedQuery) {
+		syncCategoryQueryUrl(trimmedQuery);
+		const controller = new AbortController();
+		activeController = controller;
+		searching = true;
+		searchError = '';
+
+		try {
+			const params = new URLSearchParams({
+				q: trimmedQuery,
+				categorySlug: data.category.slug
+			});
+			const response = await fetch(`/api/learn/search?${params.toString()}`, {
+				signal: controller.signal
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (activeController !== controller) return;
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to search this category right now.');
+			}
+			serverSearchResults = Array.isArray(payload?.articles) ? payload.articles : [];
+			activeQuery = payload?.query ?? trimmedQuery;
+		} catch (err) {
+			if (err?.name === 'AbortError') return;
+			if (activeController === controller) {
+				searchError = err?.message || 'Unable to search this category right now.';
+			}
+		} finally {
+			if (activeController === controller) {
+				searching = false;
+				activeController = null;
+			}
+		}
+	}
+
+	function handleCategorySearchInput(nextValue) {
+		searchQuery = nextValue;
+		clearPendingSearch();
+
+		const trimmed = nextValue.trim();
+		if (!trimmed) {
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverSearchResults = null;
+			syncCategoryQueryUrl('');
+			return;
+		}
+
+		if (isReordering) {
+			isReordering = false;
+		}
+
+		searching = true;
+		searchError = '';
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			runCategorySearch(trimmed);
+		}, 250);
+	}
+
+	function clearCategorySearch() {
+		clearPendingSearch();
+		searchQuery = '';
+		searching = false;
+		searchError = '';
+		activeQuery = '';
+		serverSearchResults = null;
+		syncCategoryQueryUrl('');
+	}
+
+	afterNavigate(() => {
+		const urlQuery = page.url.searchParams.get('q') ?? '';
+		if (urlQuery !== searchQuery) {
+			searchQuery = urlQuery;
+			if (!urlQuery.trim()) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = '';
+				serverSearchResults = null;
+			} else if (data?.initialQuery === urlQuery && data?.initialSearchResults) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = urlQuery;
+				serverSearchResults = data.initialSearchResults;
+			} else {
+				handleCategorySearchInput(urlQuery);
+			}
+		}
+	});
+
+	const filteredArticles = $derived.by(() => {
+		if (!hasSearchFilter) return articles;
+		if (serverSearchResults !== null) return serverSearchResults;
+		return articles;
+	});
+
+	const searchStatusText = $derived.by(() => {
+		if (!hasSearchFilter) return '';
+		if (searching) return `Searching ${data.category.name}…`;
+		if (searchError) return searchError;
+		const count = filteredArticles.length;
+		return `${count} ${count === 1 ? 'result' : 'results'} in ${data.category.name}${activeQuery ? ` for “${activeQuery}”` : ''}`;
+	});
 
 	const groups = $derived.by(() => {
 		const items = [];
@@ -93,9 +243,10 @@
 	}
 
 	function enterReorderMode() {
+		if (hasSearchFilter) return;
 		const map = {};
 		for (const g of groups) {
-			map[g.id] = g.articles.map((a) => ({ ...a }));
+			map[g.id] = g.articles.filter((a) => a.id !== FALLBACK_REPORT_ID).map((a) => ({ ...a }));
 		}
 		// Ensure every group has an entry (even empty ones)
 		for (const sub of subcategories) {
@@ -117,6 +268,7 @@
 	}
 
 	function handleGroupFinalize(e) {
+		if (hasSearchFilter) return;
 		dndSubGroups = e.detail.items;
 		const newOrder = dndSubGroups.map((g) => g.sub);
 		newOrder.forEach((sub, i) => (sub.sort_order = i));
@@ -138,6 +290,7 @@
 	}
 
 	function handleArticleFinalize(groupId, e) {
+		if (hasSearchFilter) return;
 		const newItems = e.detail.items;
 
 		// Assign the correct subcategory_slug based on which zone this is
@@ -176,6 +329,7 @@
 
 	// ── Move to subcategory (dropdown fallback) ────────────────────────────
 	function assignSubcategory(articleId, subcategorySlug) {
+		if (hasSearchFilter) return;
 		const article = articles.find((a) => a.id === articleId);
 		if (!article) return;
 		const targetSlug = subcategorySlug || null;
@@ -312,11 +466,26 @@
 					>
 						{article.title}
 					</h3>
-					<p
-						class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
-					>
-						{article.summary || 'Open the article to read the full guide.'}
-					</p>
+					{#if hasSearchFilter && serverSearchResults !== null && article.matched_snippet}
+						{#if article.matched_heading && article.matched_heading.toLowerCase() !== 'overview'}
+							<p
+								class="text-tertiary-500 group-hover:text-surface-950 m-0 text-xs font-bold tracking-[0.18em] uppercase"
+							>
+								Section · {article.matched_heading}
+							</p>
+						{/if}
+						<p
+							class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
+						>
+							{article.matched_snippet}
+						</p>
+					{:else}
+						<p
+							class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
+						>
+							{buildLearnCardExcerpt(article)}
+						</p>
+					{/if}
 				</div>
 				<div
 					class="border-surface-800 group-hover:border-surface-950/30 flex items-center justify-between gap-3 border-t pt-4 text-xs font-bold tracking-wider uppercase"
@@ -416,13 +585,20 @@
 				{#if data.canEdit}
 					<button
 						type="button"
-						class="inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition {isReordering
+						disabled={hasSearchFilter}
+						aria-disabled={hasSearchFilter}
+						title={hasSearchFilter ? 'Clear search filter before reordering content' : undefined}
+						class="inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-50 {isReordering
 							? 'bg-tertiary-500 border-surface-950 text-surface-950'
-							: 'border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500'}"
+							: 'border-surface-950 text-surface-950 enabled:hover:bg-surface-950 enabled:hover:text-primary-500'}"
 						onclick={isReordering ? exitReorderMode : enterReorderMode}
 					>
 						<IconGripVertical class="h-4 w-4" />
-						{isReordering ? 'Done reordering' : 'Reorder content'}
+						{hasSearchFilter
+							? 'Clear search to reorder'
+							: isReordering
+								? 'Done reordering'
+								: 'Reorder content'}
 					</button>
 				{/if}
 			</div>
@@ -458,24 +634,39 @@
 			<IconSearch class="h-4 w-4" />
 			Search this category
 		</div>
-		<div class="relative">
-			<IconSearch
-				class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
-			/>
-			<input
-				bind:value={searchQuery}
-				class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
-				type="search"
-				placeholder="Find an article…"
-				aria-label="Search this category"
-			/>
+		<div class="flex items-center gap-2">
+			<div class="relative flex-1">
+				<IconSearch
+					class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
+				/>
+				<input
+					value={searchQuery}
+					oninput={(event) => handleCategorySearchInput(event.currentTarget.value)}
+					class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+					type="search"
+					placeholder="Find an article…"
+					aria-label="Search this category"
+				/>
+			</div>
+			{#if hasSearchFilter}
+				<button
+					type="button"
+					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 h-11 shrink-0 px-4 text-xs font-black tracking-wide uppercase transition"
+					onclick={clearCategorySearch}
+				>
+					Reset
+				</button>
+			{/if}
 		</div>
-		{#if searchQuery.trim()}
-			<p class="m-0 text-xs font-black tracking-wider uppercase">
-				{filteredArticles.length}
-				{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
-			</p>
-		{/if}
+		<p
+			class="m-0 text-xs font-black tracking-wider uppercase {hasSearchFilter ? '' : 'sr-only'}"
+			role="status"
+			aria-live="polite"
+			aria-busy={searching}
+		>
+			{searchStatusText ||
+				`${totalArticles} ${totalArticles === 1 ? 'article' : 'articles'} in ${data.category.name}`}
+		</p>
 	</div>
 
 	<!-- ═══════════════════════════════════════════════
@@ -528,7 +719,8 @@
 				<div class="flex flex-wrap items-center gap-2">
 					<button
 						type="button"
-						class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+						aria-pressed={activeSubcategory === 'all'}
+						class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 						'all'
 							? 'bg-primary-500 text-surface-950'
 							: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -539,7 +731,8 @@
 					{#if groups.some((g) => !g.subcategory && g.articles.length > 0)}
 						<button
 							type="button"
-							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							aria-pressed={activeSubcategory === 'uncategorized'}
+							class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 							'uncategorized'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -551,7 +744,8 @@
 					{#each subcategories as sub}
 						<button
 							type="button"
-							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							aria-pressed={activeSubcategory === sub.slug}
+							class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 							sub.slug
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -584,7 +778,7 @@
 	     ARTICLE GROUPS
 	═══════════════════════════════════════════════ -->
 	<div class="bg-surface-950 flex flex-col gap-16 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-		{#if isReordering && activeSubcategory === 'all'}
+		{#if isReordering && !hasSearchFilter && activeSubcategory === 'all'}
 			<!-- Uncategorized: always render the DnD zone -->
 			{#each groups.filter((g) => !g.subcategory) as group (group.id)}
 				{@const artItems = dndArticleMap[group.id] ?? []}
@@ -754,7 +948,7 @@
 						<button
 							type="button"
 							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-2 px-6 py-3 text-sm font-black uppercase transition"
-							onclick={() => (searchQuery = '')}
+							onclick={clearCategorySearch}
 						>
 							Clear search
 						</button>
@@ -781,11 +975,13 @@
 	class="hidden"
 >
 	<input type="hidden" name="type" value="subcategory" />
+	<input type="hidden" name="searchActive" value={hasSearchFilter ? 'true' : 'false'} />
 	<input type="hidden" name="items" id="reorder-subcategories-payload" />
 </form>
 
 <form id="reorder-articles-form" method="POST" action="?/updateOrder" use:enhance class="hidden">
 	<input type="hidden" name="type" value="article" />
+	<input type="hidden" name="searchActive" value={hasSearchFilter ? 'true' : 'false'} />
 	<input type="hidden" name="items" id="reorder-articles-payload" />
 </form>
 

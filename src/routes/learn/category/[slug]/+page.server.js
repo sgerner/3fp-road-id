@@ -1,30 +1,14 @@
 import { error, fail } from '@sveltejs/kit';
-import { getLearnClient, slugifyLearn } from '#lib/server/learn';
+import { enrichLearnArticleCards, getLearnClient, slugifyLearn } from '#lib/server/learn.js';
+import {
+	applyCategoryOrderUpdate,
+	mergeSafetyReportIntoCatalog
+} from '#lib/server/learnCatalog.js';
+import { sanitizeLearnSearchQuery, searchLearnArticles } from '#lib/server/learnSearch.js';
 
-function normalizeOrderItemList(type, value) {
-	if (!Array.isArray(value)) return [];
-	if (type === 'subcategory') {
-		return value
-			.map((item) => ({
-				id: String(item?.id || '').trim(),
-				sort_order: Number.parseInt(String(item?.sort_order), 10)
-			}))
-			.filter((item) => item.id && Number.isFinite(item.sort_order));
-	}
-	if (type === 'article') {
-		return value
-			.map((item) => ({
-				id: String(item?.id || '').trim(),
-				sort_order: Number.parseInt(String(item?.sort_order), 10),
-				subcategory_slug: item?.subcategory_slug ? String(item.subcategory_slug).trim() : null
-			}))
-			.filter((item) => item.id && Number.isFinite(item.sort_order));
-	}
-	return [];
-}
-
-export const load = async ({ params, cookies }) => {
+export const load = async ({ params, cookies, url }) => {
 	const { user, supabase } = await getLearnClient(cookies);
+	const initialQuery = sanitizeLearnSearchQuery(url.searchParams.get('q') ?? '');
 
 	const { data: category, error: categoryError } = await supabase
 		.from('learn_categories')
@@ -37,30 +21,45 @@ export const load = async ({ params, cookies }) => {
 		throw error(404, 'Category not found.');
 	}
 
-	const [{ data: subcategories, error: subError }, { data: articles, error: artError }] =
-		await Promise.all([
-			supabase
-				.from('learn_subcategories')
-				.select('*')
-				.eq('category_slug', category.slug)
-				.order('sort_order', { ascending: true }),
-			supabase
-				.from('learn_articles')
-				.select(
-					'id, title, slug, summary, category_slug, subcategory_slug, sort_order, updated_at, cover_image_url'
-				)
-				.eq('category_slug', category.slug)
-				.eq('is_published', true)
-				.order('sort_order', { ascending: true })
-		]);
+	const [
+		{ data: subcategories, error: subError },
+		{ data: rawArticles, error: artError },
+		searchResult
+	] = await Promise.all([
+		supabase
+			.from('learn_subcategories')
+			.select('*')
+			.eq('category_slug', category.slug)
+			.order('sort_order', { ascending: true }),
+		supabase
+			.from('learn_articles')
+			.select(
+				'id, title, slug, summary, reader_summary, key_takeaways, category_slug, category_name, subcategory_slug, subcategory_name, sort_order, content_type, import_source_path, updated_at, cover_image_url'
+			)
+			.eq('category_slug', category.slug)
+			.eq('is_published', true)
+			.order('sort_order', { ascending: true }),
+		initialQuery
+			? searchLearnArticles({
+					supabase,
+					query: initialQuery,
+					categorySlug: category.slug
+				})
+			: Promise.resolve(null)
+	]);
 
 	if (subError) throw subError;
 	if (artError) throw artError;
 
+	const enriched = await enrichLearnArticleCards(supabase, rawArticles ?? []);
+	const articles = mergeSafetyReportIntoCatalog(enriched, { categorySlug: category.slug });
+
 	return {
 		category,
 		subcategories: subcategories ?? [],
-		articles: articles ?? [],
+		articles,
+		initialQuery,
+		initialSearchResults: searchResult ? searchResult.articles : null,
 		canEdit: Boolean(user)
 	};
 };
@@ -88,30 +87,16 @@ export const actions = {
 		}
 		return { success: true };
 	},
-	updateOrder: async ({ request, cookies }) => {
+	updateOrder: async ({ request, cookies, params }) => {
 		const { user, supabase } = await getLearnClient(cookies);
 		if (!user) return fail(401, { error: 'Authentication required' });
 
 		const formData = await request.formData();
-		const type = formData.get('type');
-		const itemsStr = formData.get('items');
-		try {
-			if (type !== 'subcategory' && type !== 'article') {
-				return fail(400, { error: 'Invalid order update type' });
-			}
-
-			const parsedItems = JSON.parse(String(itemsStr || '[]'));
-			const normalizedItems = normalizeOrderItemList(type, parsedItems);
-
-			const { error: updateError } = await supabase.rpc('learn_apply_order_updates', {
-				p_type: type,
-				p_items: normalizedItems
-			});
-			if (updateError) return fail(400, { error: updateError.message });
-		} catch (e) {
-			return fail(400, { error: 'Invalid order data' });
-		}
-		return { success: true };
+		return applyCategoryOrderUpdate({
+			supabase,
+			categorySlug: params.slug,
+			formData
+		});
 	},
 	deleteSubcategory: async ({ request, cookies }) => {
 		const { user, supabase } = await getLearnClient(cookies);
