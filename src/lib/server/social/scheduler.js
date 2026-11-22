@@ -80,19 +80,3 @@ export function normalizeScheduledPostTime(value, { now = new Date() } = {}) {
 		scheduleBucketIso: scheduleBucket.toISOString()
 	};
 }
-
-export function listUpcomingScheduleBuckets({
-	from = new Date(),
-	count = 16,
-	minutes = SOCIAL_SCHEDULING_INTERVAL_MINUTES
-} = {}) {
-	const start = roundToNextScheduleBucket(from, minutes);
-	if (!start) return [];
-	const intervalMs = getScheduleIntervalMilliseconds(minutes);
-	const safeCount = Math.max(1, Math.min(96, Number.parseInt(String(count), 10) || 16));
-	const buckets = [];
-	for (let index = 0; index < safeCount; index += 1) {
-		buckets.push(new Date(start.getTime() + index * intervalMs));
-	}
-	return buckets;
-}

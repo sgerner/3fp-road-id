@@ -1,7 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { applyFormUpdate, refreshPageData } from '#lib/client/navigation';
-	import IconCheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+	import IconCheckCircle2 from '@lucide/svelte/icons/circle-check';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import { onDestroy } from 'svelte';

@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import IconHome from '@lucide/svelte/icons/home';
+	import IconHome from '@lucide/svelte/icons/house';
 
 	// Array of bicycle-themed puns for 404 errors
 	const notFoundPuns = [

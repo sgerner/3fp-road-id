@@ -8,7 +8,7 @@
 	import IconRefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import IconLayout from '@lucide/svelte/icons/layout-template';
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
-	import IconCode from '@lucide/svelte/icons/code-2';
+	import IconCode from '@lucide/svelte/icons/code-xml';
 	import IconBike from '@lucide/svelte/icons/bike';
 	import { slide } from 'svelte/transition';
 	import {

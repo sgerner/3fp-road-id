@@ -5,7 +5,7 @@
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconTrendingDown from '@lucide/svelte/icons/trending-down';
 	import IconFileText from '@lucide/svelte/icons/file-text';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 
 	let { data } = $props();
 

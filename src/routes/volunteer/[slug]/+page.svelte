@@ -28,13 +28,13 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLayers from '@lucide/svelte/icons/layers';
 	import IconBuilding from '@lucide/svelte/icons/building';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle-2';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import IconArrowUp from '@lucide/svelte/icons/arrow-up';
 	import IconArrowDown from '@lucide/svelte/icons/arrow-down';
 	import VolunteerQuestionFields from '#lib/components/volunteer/VolunteerQuestionFields.svelte';

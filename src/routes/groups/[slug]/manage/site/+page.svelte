@@ -11,7 +11,7 @@
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconEye from '@lucide/svelte/icons/eye';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconLayout from '@lucide/svelte/icons/layout-grid';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -19,7 +19,7 @@
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconSettings from '@lucide/svelte/icons/settings-2';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconType from '@lucide/svelte/icons/type';
 	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';
 	import GroupSiteBlockEditor from '#lib/components/groups/GroupSiteBlockEditor.svelte';
