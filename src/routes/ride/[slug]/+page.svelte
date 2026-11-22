@@ -279,10 +279,11 @@
 
 	let smsLoadedForUserId = '';
 
-	async function loadRideSmsPreferences() {
+	async function loadRideSmsPreferences(userId) {
 		smsLoading = true;
 		try {
-			const loaded = await smsPreferencesLoader.load();
+			const loaded = await smsPreferencesLoader.load({ cacheKey: userId });
+			if (String(currentUser?.id ?? '') !== userId) return;
 			smsPreferences = loaded.preferences;
 			smsConsentText = loaded.consentText;
 			if (!smsPhoneDirty && loaded.preferences.phone) {
@@ -291,15 +292,25 @@
 		} catch {
 			// Keep default preferences so RSVP remains usable even if SMS lookup fails.
 		} finally {
-			smsLoading = false;
+			if (String(currentUser?.id ?? '') === userId) smsLoading = false;
 		}
 	}
 
 	$effect(() => {
 		const userId = currentUser?.id ? String(currentUser.id) : '';
-		if (!userId || smsLoadedForUserId === userId) return;
+		if (smsLoadedForUserId === userId) return;
 		smsLoadedForUserId = userId;
-		void loadRideSmsPreferences();
+		smsPreferences = emptySmsPreferences();
+		smsConsentText = SMS_INLINE_DEFAULT_CONSENT_TEXT;
+		smsPhone = '';
+		smsPhoneDirty = false;
+		smsSelected = { ride_reminders: false, admin_messages: false };
+		smsConsentChecked = false;
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+		smsLoading = Boolean(userId);
+		if (userId) void loadRideSmsPreferences(userId);
 	});
 
 	$effect(() => {
@@ -416,10 +427,13 @@
 			if (outcome.smsSaved && outcome.smsResult?.preferences) {
 				smsPreferences = outcome.smsResult.preferences;
 				smsConsentText = outcome.smsResult.consentText || smsConsentText;
-				smsPreferencesLoader.setCached({
-					preferences: smsPreferences,
-					consentText: smsConsentText
-				});
+				smsPreferencesLoader.setCached(
+					{
+						preferences: smsPreferences,
+						consentText: smsConsentText
+					},
+					{ cacheKey: String(currentUser?.id ?? '') }
+				);
 				smsSelected = { ride_reminders: false, admin_messages: false };
 				smsConsentChecked = false;
 				rsvpConfirmedNotice = 'RSVP confirmed and text updates enabled.';
@@ -472,10 +486,13 @@
 			}
 			smsPreferences = smsResult.preferences;
 			smsConsentText = smsResult.consentText || smsConsentText;
-			smsPreferencesLoader.setCached({
-				preferences: smsPreferences,
-				consentText: smsConsentText
-			});
+			smsPreferencesLoader.setCached(
+				{
+					preferences: smsPreferences,
+					consentText: smsConsentText
+				},
+				{ cacheKey: String(currentUser?.id ?? '') }
+			);
 			smsSelected = { ride_reminders: false, admin_messages: false };
 			smsConsentChecked = false;
 			rsvpSavedPendingSmsRetry = false;

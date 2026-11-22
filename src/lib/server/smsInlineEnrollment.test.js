@@ -169,6 +169,36 @@ test('deduplicates concurrent and repeated SMS preferences reads to one GET requ
 	assert.equal(third.preferences.status, 'active');
 });
 
+test('keeps SMS preferences caches isolated by signed-in user', async () => {
+	let fetchCalls = 0;
+	const loader = createSingleFlightPreferencesLoader(async (url, init) => {
+		assert.equal(url, '/api/sms/preferences');
+		assert.equal(init, undefined);
+		fetchCalls += 1;
+		return new Response(
+			JSON.stringify({
+				preferences: {
+					phone: fetchCalls === 1 ? '+14805550101' : '+14805550102',
+					status: 'active',
+					admin_messages: true
+				},
+				consentText: SMS_INLINE_DEFAULT_CONSENT_TEXT
+			}),
+			{ status: 200, headers: { 'Content-Type': 'application/json' } }
+		);
+	});
+
+	const userA = await loader.load({ cacheKey: 'user-a' });
+	const userB = await loader.load({ cacheKey: 'user-b' });
+	const cachedUserA = await loader.load({ cacheKey: 'user-a' });
+
+	assert.equal(userA.preferences.phone, '+14805550101');
+	assert.equal(userB.preferences.phone, '+14805550102');
+	assert.equal(cachedUserA.preferences.phone, '+14805550101');
+	assert.equal(fetchCalls, 2);
+	assert.equal(loader.getCached({ cacheKey: 'user-b' }).preferences.phone, '+14805550102');
+});
+
 test('saves registration first and keeps registration saved with retry message on 400 or 409 SMS errors', async () => {
 	const steps = [];
 	const conflictFetch = async (url, init) => {

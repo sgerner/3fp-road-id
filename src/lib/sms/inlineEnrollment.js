@@ -196,36 +196,38 @@ export function validateInlineSmsInput({
 }
 
 export function createSingleFlightPreferencesLoader(fetchImpl = fetch) {
-	let inFlight = null;
-	let cached = null;
+	const inFlightByKey = new Map();
+	const cachedByKey = new Map();
 
 	return {
-		async load({ force = false } = {}) {
-			if (!force && cached) return cached;
-			if (!force && inFlight) return inFlight;
+		async load({ force = false, cacheKey = 'default' } = {}) {
+			const key = String(cacheKey ?? 'default');
+			if (!force && cachedByKey.has(key)) return cachedByKey.get(key);
+			if (!force && inFlightByKey.has(key)) return inFlightByKey.get(key);
 
-			inFlight = (async () => {
+			const request = (async () => {
 				const response = await fetchImpl('/api/sms/preferences');
 				const payload = await response.json().catch(() => ({}));
 				if (!response.ok) {
 					throw new Error(payload?.error || 'Unable to load SMS preferences.');
 				}
 				const normalized = normalizeLoadedSmsPreferences(payload);
-				cached = normalized;
+				cachedByKey.set(key, normalized);
 				return normalized;
 			})();
+			inFlightByKey.set(key, request);
 
 			try {
-				return await inFlight;
+				return await request;
 			} finally {
-				inFlight = null;
+				if (inFlightByKey.get(key) === request) inFlightByKey.delete(key);
 			}
 		},
-		setCached(nextValue) {
-			cached = nextValue;
+		setCached(nextValue, { cacheKey = 'default' } = {}) {
+			cachedByKey.set(String(cacheKey ?? 'default'), nextValue);
 		},
-		getCached() {
-			return cached;
+		getCached({ cacheKey = 'default' } = {}) {
+			return cachedByKey.get(String(cacheKey ?? 'default')) ?? null;
 		}
 	};
 }
