@@ -1,11 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import {
-	extractMarkdownHeadings,
-	parseMarkdownDocument,
-	renderLearnMarkdown
-} from '../learn/markdown.js';
+import * as learnMarkdown from '../learn/markdown.js';
+
+const { extractMarkdownHeadings, renderLearnMarkdown, splitMarkdownIntoSections } = learnMarkdown;
+
+async function readGuideFixture(relativePath) {
+	const raw = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+	return raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
+}
+
+test('learn markdown module exports only active heading, section, and rendering helpers', () => {
+	assert.deepEqual(Object.keys(learnMarkdown).sort(), [
+		'extractMarkdownHeadings',
+		'renderLearnMarkdown',
+		'splitMarkdownIntoSections'
+	]);
+	assert.equal('parseMarkdownDocument' in learnMarkdown, false);
+	assert.deepEqual(splitMarkdownIntoSections('Intro\n\n## Section One\n\nBody'), {
+		introMarkdown: 'Intro',
+		sections: [{ title: 'Section One', markdown: '## Section One\n\nBody' }]
+	});
+});
 
 test('article outline matches rendered headings including setext and duplicate headings', async () => {
 	const markdown =
@@ -83,46 +99,30 @@ test('tables nested inside list items preserve list structure and receive data-l
 });
 
 test('real Learn guide tables and templates stamp stackable cells and preserve template blocks', async () => {
-	const policyAuditDoc = parseMarkdownDocument(
-		await readFile(
-			new URL('../../../docs/3ftwiki/policies/complete-streets/policy-audit.md', import.meta.url),
-			'utf8'
-		)
+	const policyAuditHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/policies/complete-streets/policy-audit.md')
 	);
-	const policyAuditHtml = await renderLearnMarkdown(policyAuditDoc.body);
 	assert.ok(policyAuditHtml.includes('<table data-stackable="true">'));
 	assert.ok(policyAuditHtml.includes('<td data-label="Relevant Document Names (Example)">'));
 
-	const partnershipsDoc = parseMarkdownDocument(
-		await readFile(
-			new URL('../../../docs/3ftwiki/outreach/partnerships.md', import.meta.url),
-			'utf8'
-		)
+	const partnershipsHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/outreach/partnerships.md')
 	);
-	const partnershipsHtml = await renderLearnMarkdown(partnershipsDoc.body);
 	assert.ok(partnershipsHtml.includes('data-label="Organization Type"'));
 	assert.ok(partnershipsHtml.includes('data-label="Best Collaboration Strategies"'));
 	assert.ok(!partnershipsHtml.includes('data-label="<strong>'));
 
-	const advocacyMeetingDoc = parseMarkdownDocument(
-		await readFile(
-			new URL('../../../docs/3ftwiki/community/advocacy-meeting.md', import.meta.url),
-			'utf8'
-		)
+	const advocacyMeetingHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/community/advocacy-meeting.md')
 	);
-	const advocacyMeetingHtml = await renderLearnMarkdown(advocacyMeetingDoc.body);
 	assert.ok(
 		advocacyMeetingHtml.includes(
 			'<td data-label="I can help with: (circle) Testimony / Data Collection / Outreach / Other"></td>'
 		)
 	);
 
-	const tragedyGuideDoc = parseMarkdownDocument(
-		await readFile(
-			new URL('../../../docs/3ftwiki/policies/tragedy-action-guide.md', import.meta.url),
-			'utf8'
-		)
+	const tragedyGuideHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/policies/tragedy-action-guide.md')
 	);
-	const tragedyGuideHtml = await renderLearnMarkdown(tragedyGuideDoc.body);
 	assert.ok(tragedyGuideHtml.includes('<pre><code>Subject: Urgent Safety Improvements Needed'));
 });
