@@ -1,6 +1,7 @@
 <script>
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import { guardUnsavedNavigation, replaceShallowQueryParam } from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -283,10 +284,7 @@
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -600,9 +598,11 @@
 		setNavigationItems(next);
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !submitting && !confirm('Leave without publishing your website changes?'))
-			cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !submitting,
+			message: 'Leave without publishing your website changes?'
+		});
 	});
 
 	onMount(() => {

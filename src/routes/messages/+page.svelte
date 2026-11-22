@@ -1,6 +1,6 @@
 <script>
-	import { invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
+	import { refreshPageData } from '#lib/client/navigation';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
@@ -70,7 +70,7 @@
 			if (!response.ok) throw new Error(payload?.error || 'Unable to queue SMS.');
 			message = '';
 			sendSuccess = 'Reply queued. It will send as plain SMS when the dispatcher runs.';
-			await invalidateAll();
+			await refreshPageData();
 		} catch (error) {
 			sendError = error?.message || 'Unable to queue SMS.';
 		} finally {

@@ -1,5 +1,5 @@
 <script>
-	import { invalidateAll } from '$app/navigation';
+	import { refreshPageData } from '#lib/client/navigation';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconClock from '@lucide/svelte/icons/clock';
@@ -14,7 +14,7 @@
 		if (refreshing) return;
 		refreshing = true;
 		try {
-			await invalidateAll();
+			await refreshPageData();
 		} finally {
 			refreshing = false;
 		}
