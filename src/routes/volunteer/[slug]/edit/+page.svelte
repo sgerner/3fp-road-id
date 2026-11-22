@@ -4,6 +4,7 @@
 	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
 	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
 	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
+	import { HOST_GROUP_STATUS } from '#lib/groups/hostGroupDirectory';
 
 	import {
 		mapEventRecordToFormDetails,
@@ -126,14 +127,12 @@
 	let eventRecord = $state({ ...eventRecordInitial });
 	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
-	const hostGroups = pageData.hostGroups ?? [];
-	const hostGroupOptions = hostGroups
-		.map((group) => ({ label: String(group.name ?? ''), value: group.id }))
-		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+	let hostGroups = $state(pageData.hostGroups ?? []);
 	const initialHostGroupId =
 		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
-	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
-	let filteredHostGroupOptions = $state(hostGroupOptions);
+	let sponsorshipGroupId = $state('');
+	let sponsorshipMessage = $state('');
+	let activeSponsorshipRequest = $state(pageData.activeSponsorshipRequest ?? null);
 	let showAdvancedSettings = $state(false);
 	let showAdvancedCommunications = $state(false);
 	let eventSaving = $state(false);
@@ -143,26 +142,34 @@
 		return match?.description ?? '';
 	}
 
-	function handleHostGroupValueChange(value) {
-		const next = value ?? [];
-		hostGroupSelection = next;
-		updateEventDetails({
-			hostGroupId: next?.[0] ?? ''
-		});
-	}
-	function handleHostGroupSearch(inputValue) {
-		const query = inputValue?.trim().toLowerCase() ?? '';
-		if (!query) {
-			filteredHostGroupOptions = hostGroupOptions;
-			return;
+	async function handleHostGroupChange(nextGroupId) {
+		const normalizedId = nextGroupId || '';
+		if (String(eventDetails.hostGroupId || '') !== String(normalizedId)) {
+			updateEventDetails({ hostGroupId: normalizedId });
 		}
-		filteredHostGroupOptions = hostGroupOptions.filter((option) =>
-			option.label.toLowerCase().includes(query)
-		);
+		if (normalizedId && activeSponsorshipRequest?.status === 'pending') {
+			await fetch('/api/event-sponsorship-requests', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ requestId: activeSponsorshipRequest.id })
+			}).catch(() => {});
+			activeSponsorshipRequest = null;
+		}
 	}
-	function handleClearHostGroup() {
-		hostGroupSelection = [];
-		updateEventDetails({ hostGroupId: '' });
+
+	function handleSponsorshipChange({ groupId = '', message = '' } = {}) {
+		sponsorshipGroupId = groupId || '';
+		sponsorshipMessage = message || '';
+	}
+
+	function handleGroupClaimed(claimedGroup) {
+		if (!claimedGroup?.id) return;
+		const claimedId = String(claimedGroup.id);
+		hostGroups = hostGroups.map((group) =>
+			String(group.id) === claimedId
+				? { ...group, status: HOST_GROUP_STATUS.MANAGED, isClaimed: true, canManage: true }
+				: group
+		);
 	}
 
 	const eventAutosave = createAutosave({
@@ -175,7 +182,6 @@
 				eventRecord = { ...eventRecord, ...freshRecord };
 				const normalized = mapEventRecordToFormDetails(eventRecord);
 				eventDetails = normalized;
-				hostGroupSelection = normalized.hostGroupId ? [normalized.hostGroupId] : [];
 			}
 		},
 		successMessage: 'Event details saved',
@@ -665,15 +671,20 @@
 			{statusOptions}
 			{eventDetails}
 			{eventTypeOptions}
-			{hostGroupSelection}
-			{filteredHostGroupOptions}
+			{hostGroups}
+			{initialHostGroupId}
+			{sponsorshipGroupId}
+			{sponsorshipMessage}
+			{activeSponsorshipRequest}
+			immediateSponsorshipMode={true}
+			{eventId}
 			{showAdvancedSettings}
 			currentEventTypeDescription={currentEventTypeDescription()}
-			hasHostGroups={hostGroupOptions.length > 0}
 			onEventDetailsChange={overviewDetailsChange}
-			onHostGroupValueChange={handleHostGroupValueChange}
-			onHostGroupSearch={handleHostGroupSearch}
-			onClearHostGroup={handleClearHostGroup}
+			onHostGroupChange={handleHostGroupChange}
+			onSponsorshipChange={handleSponsorshipChange}
+			onActiveSponsorshipRequestChange={(nextReq) => (activeSponsorshipRequest = nextReq)}
+			onGroupClaimed={handleGroupClaimed}
 			onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
 		/>
 	</section>

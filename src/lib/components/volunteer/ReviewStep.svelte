@@ -5,6 +5,7 @@
 	export let opportunities = [];
 	export let customQuestions = [];
 	export let eventEmails = [];
+	export let hostOrganizationSummary = 'Personal hosting';
 	export let saveError = '';
 	export let saveSuccess = '';
 	export let saving = false;
@@ -63,10 +64,11 @@
 </script>
 
 <div class="space-y-6">
-	<div class="border-primary-500/30 bg-primary-500/10 rounded border p-4">
-		<h3 class="text-primary-900-100 font-semibold">Event snapshot</h3>
-		<ul class="text-primary-950-50 mt-3 space-y-1 text-sm">
+	<div class="border-primary-500 bg-surface-900 border-l-4 p-4">
+		<h3 class="text-surface-50 font-semibold">Event snapshot</h3>
+		<ul class="text-surface-200 mt-3 space-y-1 text-sm">
 			<li><strong>Title:</strong> {eventDetails.title || 'Unnamed event'}</li>
+			<li><strong>Hosting:</strong> {hostOrganizationSummary}</li>
 			<li><strong>When:</strong> {whenSummary}</li>
 			<li><strong>Where:</strong> {eventDetails.locationName || 'Meetup TBD'}</li>
 			<li><strong>Opportunities:</strong> {opportunities.length}</li>
@@ -76,14 +78,12 @@
 	</div>
 
 	{#if saveError}
-		<p class="border-error-500/40 bg-error-500/10 text-error-800-200 rounded border p-3 text-sm">
+		<p class="border-error-500 bg-surface-950 text-error-400 border-l-4 p-3 text-sm">
 			{saveError}
 		</p>
 	{/if}
 	{#if saveSuccess}
-		<p
-			class="border-success-500/40 bg-success-500/10 text-success-800-200 rounded border p-3 text-sm"
-		>
+		<p class="border-success-500 bg-surface-950 text-success-400 border-l-4 p-3 text-sm">
 			{saveSuccess}
 		</p>
 	{/if}
@@ -96,23 +96,23 @@
 		<div class="flex flex-col gap-2 md:flex-row">
 			<button
 				type="button"
-				class="btn preset-tonal-surface flex items-center gap-2"
+				class="btn preset-tonal-surface flex items-center gap-2 rounded-none"
 				onclick={() => onSaveDraft?.()}
 				disabled={saving}
 			>
 				{#if saving && saveIntent === 'draft'}
-					<IconLoader class="h-4 w-4 animate-spin" />
+					<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
 				{/if}
 				<span>{saving && saveIntent === 'draft' ? 'Saving draft…' : 'Save draft'}</span>
 			</button>
 			<button
 				type="button"
-				class="btn preset-filled-primary-500 flex items-center gap-2"
+				class="btn preset-filled-primary-500 flex items-center gap-2 rounded-none"
 				onclick={onSubmit}
 				disabled={saving}
 			>
 				{#if saving && saveIntent === 'publish'}
-					<IconLoader class="h-4 w-4 animate-spin" />
+					<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
 				{/if}
 				<span>
 					{#if saving && saveIntent === 'publish'}

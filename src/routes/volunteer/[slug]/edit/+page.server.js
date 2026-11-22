@@ -1,6 +1,9 @@
+import { loadActiveEventSponsorshipRequest } from '#lib/server/eventSponsorships';
+import { loadHostGroupDirectory } from '#lib/server/hostGroupDirectory';
 import { fetchSingle, fetchList } from '#lib/server/internalApi';
 import { redirect, error } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import {
 	listVolunteerEvents,
 	listVolunteerOpportunities,
@@ -28,7 +31,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const slug = params.slug?.trim();
 	if (!slug) throw error(404, 'Volunteer event not found');
 
-	const { user: currentUser } = await resolveVerifiedSession(cookies);
+	const { accessToken, user: currentUser } = await resolveVerifiedSession(cookies);
 	const userId = currentUser?.id ?? null;
 	if (!userId) {
 		throw redirect(
@@ -90,7 +93,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			const membershipRows = await fetchList(fetch, 'group-members', {
 				group_id: `eq.${hostGroupId}`,
 				user_id: `eq.${userId}`,
-				role: 'eq.owner'
+				role: 'in.(owner,admin)'
 			});
 			if (membershipRows.some((row) => row?.user_id === userId)) {
 				canManage = true;
@@ -166,10 +169,13 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		shifts: shiftsByOpportunity.get(opportunity.id) ?? []
 	}));
 
-	const [hostGroups, eventTypes, ownerMembershipRows] = await Promise.all([
-		fetchList(fetch, 'groups', { select: 'id,name', order: 'name.asc' }).catch((err) => {
-			console.warn('Failed to load host groups for volunteer edit page', err);
-			return [];
+	const supabaseReq = createRequestSupabaseClient(accessToken);
+	const [directory, eventTypes, activeSponsorshipRequest] = await Promise.all([
+		loadHostGroupDirectory({
+			supabase: supabaseReq,
+			userId,
+			isAdmin,
+			allowSiteAdmin: true
 		}),
 		fetchList(fetch, 'volunteer-event-types', {
 			select: 'slug,event_type,description',
@@ -178,30 +184,18 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			console.warn('Failed to load volunteer event types for edit page', err);
 			return [];
 		}),
-		fetchList(fetch, 'group-members', {
-			select: 'group_id',
-			user_id: `eq.${userId}`,
-			role: 'eq.owner'
-		}).catch((err) => {
-			console.warn('Failed to load group ownership for volunteer edit page', err);
-			return [];
-		})
+		loadActiveEventSponsorshipRequest({ volunteerEventId: eventId })
 	]);
-
-	const ownerGroupIds = isAdmin
-		? (hostGroups ?? []).map((g) => g.id)
-		: Array.isArray(ownerMembershipRows)
-			? ownerMembershipRows.map((row) => row?.group_id).filter((value) => Boolean(value))
-			: [];
 
 	return {
 		event: eventRecord,
 		opportunities,
 		customQuestions,
 		eventEmails,
-		hostGroups: hostGroups ?? [],
+		hostGroups: directory.hostGroups,
 		eventTypes: eventTypes ?? [],
-		ownerGroupIds,
+		ownerGroupIds: directory.managedGroupIds,
+		activeSponsorshipRequest,
 		currentUser,
 		isAdmin,
 		returnTo: url.pathname + url.search

@@ -1,6 +1,5 @@
 <script>
 	import { goto } from '$app/navigation';
-	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, tick } from 'svelte';
 	import {
 		DEFAULT_RIDE_FORM,
@@ -20,11 +19,14 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import HostOrganizationSelector from '#lib/components/groups/HostOrganizationSelector.svelte';
+	import { HOST_GROUP_STATUS } from '#lib/groups/hostGroupDirectory';
 
 	let {
 		pageTitle = 'New Ride',
 		pageDescription = '',
 		initialRide = null,
+		initialSponsorshipRequest = null,
 		difficultyLevels = [],
 		disciplines = [],
 		hostGroups = [],
@@ -150,6 +152,7 @@
 	}
 
 	function buildPayload() {
+		const isRequestingSponsorship = Boolean(sponsorshipGroupId);
 		return {
 			title: form.title,
 			slug: form.slug,
@@ -157,7 +160,7 @@
 			description: form.description,
 			status: form.status,
 			timezone: form.timezone,
-			isHost: form.isHost,
+			isHost: isRequestingSponsorship ? true : form.isHost,
 			startsAt: form.startsAt,
 			endsAt: form.endsAt,
 			startLocationName: form.startLocationName,
@@ -170,7 +173,9 @@
 			endLongitude: form.endLongitude,
 			contactEmail: form.contactEmail,
 			contactPhone: form.contactPhone,
-			hostGroupId: form.hostGroupId || null,
+			hostGroupId: isRequestingSponsorship ? null : form.hostGroupId || null,
+			sponsorshipGroupId: sponsorshipGroupId || null,
+			sponsorshipMessage: sponsorshipGroupId ? sponsorshipMessage : '',
 			imageUrls: form.imageUrls,
 			participantVisibility: form.participantVisibility,
 			estimatedDistanceMiles: form.estimatedDistanceMiles,
@@ -477,7 +482,18 @@
 			if (!response.ok) throw new Error(result?.error || 'Unable to save ride.');
 
 			const slug = result?.data?.activity?.slug;
-			saveSuccess = manageMode ? 'Ride updated.' : 'Ride created.';
+			if (result?.sponsorshipRequest) {
+				activeSponsorshipRequest = result.sponsorshipRequest;
+				sponsorshipGroupId = '';
+				sponsorshipMessage = '';
+			}
+			saveSuccess = result?.sponsorshipRequest
+				? manageMode
+					? 'Ride updated under personal hosting and sponsorship request sent.'
+					: 'Ride created under personal hosting and sponsorship request sent.'
+				: manageMode
+					? 'Ride updated.'
+					: 'Ride created.';
 			if (slug) {
 				await goto(`/ride/${slug}`, {
 					invalidateAll: true,
@@ -527,8 +543,9 @@
 	}
 
 	function buildRideImageContext() {
-		const selectedHostGroup = hostGroups.find(
-			(group) => String(group.id) === String(form.hostGroupId)
+		const contextGroupId = form.hostGroupId || sponsorshipGroupId;
+		const selectedHostGroup = localHostGroups.find(
+			(group) => String(group.id) === String(contextGroupId)
 		);
 		const startLocation = [safeTrim(form.startLocationName), safeTrim(form.startLocationAddress)]
 			.filter(Boolean)
@@ -801,11 +818,14 @@
 	let organizerEmailSuccess = $state('');
 	let selectedManageOccurrenceId = $state(null);
 	let applyFromOccurrenceStart = $state('');
-	let hostGroupSelection = $state([]);
-	let hostGroupItems = $state([]);
+	let localHostGroups = $state([]);
+	let sponsorshipGroupId = $state('');
+	let sponsorshipMessage = $state('');
+	let activeSponsorshipRequest = $state(null);
 	let deleteError = $state('');
 	let deleting = $state(false);
 	let timezoneOptions = $state(RIDE_TIMEZONES);
+	const initialRideHostGroupId = $derived(initialRide?.activity?.host_group_id || '');
 
 	const occurrenceEntries = $derived(initialRide?.occurrences ?? []);
 	const selectedOccurrence = $derived(
@@ -815,20 +835,6 @@
 	);
 	const selectedOccurrenceRsvps = $derived(selectedOccurrence?.rsvps ?? []);
 	const aiConversationStarted = $derived(aiMessages.length > 1);
-	const hostGroupOptions = $derived(
-		hostGroups.map((group) => ({
-			label: group.name,
-			value: String(group.id),
-			slug: group.slug
-		}))
-	);
-	const hostGroupCollection = $derived(
-		useListCollection({
-			items: hostGroupItems,
-			itemToString: (item) => item.label,
-			itemToValue: (item) => item.value
-		})
-	);
 
 	let initializedFromProps = $state(false);
 
@@ -845,14 +851,16 @@
 			null;
 		selectedManageOccurrenceId = nextOccurrence?.id ?? null;
 		applyFromOccurrenceStart = manageMode ? nextOccurrence?.starts_at || '' : '';
-		hostGroupSelection = form.hostGroupId ? [String(form.hostGroupId)] : [];
-		hostGroupItems = hostGroupOptions;
+		localHostGroups = Array.isArray(hostGroups) ? [...hostGroups] : [];
+		activeSponsorshipRequest = initialSponsorshipRequest ?? null;
 		initializedFromProps = true;
 	});
 
 	$effect(() => {
 		if (!initializedFromProps) return;
-		hostGroupItems = hostGroupOptions;
+		if (!localHostGroups.length && Array.isArray(hostGroups) && hostGroups.length) {
+			localHostGroups = [...hostGroups];
+		}
 	});
 
 	$effect(() => {
@@ -907,33 +915,26 @@
 		void syncTimezoneFromCoordinates(form.startLatitude, form.startLongitude);
 	});
 
-	function handleHostGroupValueChange(value) {
-		hostGroupSelection = value;
-		const nextId = value?.[0] ?? '';
-		form = { ...form, hostGroupId: nextId };
+	function handleHostGroupChange(nextGroupId) {
+		form = { ...form, hostGroupId: nextGroupId || '' };
 	}
 
-	function handleHostGroupSearch(inputValue) {
-		const query = safeTrim(inputValue).toLowerCase();
-		if (!query) {
-			hostGroupItems = hostGroupOptions;
-			return;
+	function handleSponsorshipChange({ groupId = '', message = '' } = {}) {
+		sponsorshipGroupId = groupId || '';
+		sponsorshipMessage = message || '';
+		if (sponsorshipGroupId) {
+			form = { ...form, hostGroupId: '', isHost: true };
 		}
-		const filtered = hostGroupOptions.filter(
-			(option) =>
-				option.label.toLowerCase().includes(query) || option.slug?.toLowerCase().includes(query)
+	}
+
+	function handleGroupClaimed(claimedGroup) {
+		if (!claimedGroup?.id) return;
+		const claimedId = String(claimedGroup.id);
+		localHostGroups = localHostGroups.map((group) =>
+			String(group.id) === claimedId
+				? { ...group, status: HOST_GROUP_STATUS.MANAGED, isClaimed: true, canManage: true }
+				: group
 		);
-		hostGroupItems = filtered.length ? filtered : hostGroupOptions;
-	}
-
-	function clearHostGroupSelection() {
-		hostGroupSelection = [];
-		hostGroupItems = hostGroupOptions;
-		form = { ...form, hostGroupId: '' };
-	}
-
-	function handleHostGroupOpenChange() {
-		hostGroupItems = hostGroupOptions;
 	}
 </script>
 
@@ -1064,47 +1065,24 @@
 								</label>
 							</div>
 						</div>
-						<div class="flex flex-col gap-2">
-							<Combobox
-								class="w-full"
-								placeholder="Search any organization..."
-								collection={hostGroupCollection}
-								value={hostGroupSelection}
-								onValueChange={(event) => handleHostGroupValueChange(event.value)}
-								onInputValueChange={(event) => handleHostGroupSearch(event.inputValue)}
-								onOpenChange={handleHostGroupOpenChange}
-								inputBehavior="autohighlight"
-							>
-								<Combobox.Label>Organization</Combobox.Label>
-								<Combobox.Control class="grid grid-cols-[1fr_auto]">
-									<Combobox.Input class="input col-span-1" />
-									<Combobox.Trigger />
-								</Combobox.Control>
-								<Combobox.ClearTrigger>Clear organization</Combobox.ClearTrigger>
-								<Portal>
-									<Combobox.Positioner>
-										<Combobox.Content class="card preset-tonal-surface p-2">
-											{#each hostGroupItems as item (item.value)}
-												<Combobox.Item {item} class="border-surface-500 border-b p-2">
-													<Combobox.ItemText>{item.label}</Combobox.ItemText>
-													<Combobox.ItemIndicator />
-												</Combobox.Item>
-											{/each}
-										</Combobox.Content>
-									</Combobox.Positioner>
-								</Portal>
-							</Combobox>
-							{#if hostGroupSelection.length}
-								<button
-									type="button"
-									class="text-primary-700-300 text-left text-xs underline"
-									onclick={clearHostGroupSelection}
-								>
-									Clear organization
-								</button>
-							{:else}
-								<p class="text-xs opacity-65">Leave blank for an independent organizer.</p>
-							{/if}
+						<div class="md:col-span-2">
+							<HostOrganizationSelector
+								hostGroups={localHostGroups}
+								hostGroupId={form.hostGroupId || ''}
+								initialHostGroupId={initialRideHostGroupId}
+								{sponsorshipGroupId}
+								{sponsorshipMessage}
+								{activeSponsorshipRequest}
+								eventType="ride"
+								eventId={rideId || ''}
+								label="Organization (optional)"
+								helperText="Leave blank for an independent organizer."
+								inputId="ride-host-organization"
+								onHostGroupChange={handleHostGroupChange}
+								onSponsorshipChange={handleSponsorshipChange}
+								onActiveSponsorshipRequestChange={(nextReq) => (activeSponsorshipRequest = nextReq)}
+								onGroupClaimed={handleGroupClaimed}
+							/>
 						</div>
 						<label class="block">
 							<span class="label mb-1">Participant list</span>
