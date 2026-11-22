@@ -19,10 +19,12 @@
 
 	const modes = $derived(
 		[
-			{ id: 'passing', number: '01', label: 'Passing' },
-			{ id: 'door', number: '02', label: 'Opening a door' },
-			{ id: 'turn', number: '03', label: 'Turning' }
-		].filter((item) => (initialMode === 'passing' ? item.id === 'passing' : item.id !== 'passing'))
+			{ id: 'passing', label: 'Passing' },
+			{ id: 'door', label: 'Opening a door' },
+			{ id: 'turn', label: 'Turning' }
+		]
+			.filter((item) => (initialMode === 'passing' ? item.id === 'passing' : item.id !== 'passing'))
+			.map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }))
 	);
 	let title = $derived(
 		mode === 'passing'
@@ -64,20 +66,24 @@
 <section class="lab" aria-labelledby={`${instanceId}-title`}>
 	<div class="intro">
 		<div>
-			<p class="eyebrow">Encounter lab <span>✳</span></p>
+			<p class="eyebrow">Encounter lab <span aria-hidden="true">✳</span></p>
 			<h2 id={`${instanceId}-title`}>See the decision<br /><em>in the street.</em></h2>
 		</div>
 		<p class="intro-copy">
-			Choose a situation, change the scene, and notice who needs to act next.
+			{modes.length > 1
+				? 'Choose a situation, change the scene, and notice who needs to act next.'
+				: 'Change the scene and notice who needs to act next.'}
 		</p>
 	</div>
-	<div class="mode-list" aria-label="Choose an encounter">
-		{#each modes as item}
-			<button type="button" aria-pressed={mode === item.id} onclick={() => (mode = item.id)}
-				><span>{item.number}</span>{item.label}<b aria-hidden="true">↗</b></button
-			>
-		{/each}
-	</div>
+	{#if modes.length > 1}
+		<div class="mode-list" style:--mode-cols={modes.length} aria-label="Choose an encounter">
+			{#each modes as item (item.id)}
+				<button type="button" aria-pressed={mode === item.id} onclick={() => (mode = item.id)}
+					><span>{item.number}</span>{item.label}<b aria-hidden="true">↗</b></button
+				>
+			{/each}
+		</div>
+	{/if}
 	<div class="workspace">
 		<div class="scene-wrap">
 			<div class="scene-top">
@@ -250,7 +256,7 @@
 			<p class="caption">Illustrative road scene. Check local rules and actual road layout.</p>
 		</div>
 		<div class="panel">
-			<p class="panel-kicker">The decision <span>✳</span></p>
+			<p class="panel-kicker">The decision <span aria-hidden="true">✳</span></p>
 			<h3>{title}</h3>
 			<div class="state" aria-live="polite">
 				<span>What happens next</span>
@@ -272,7 +278,7 @@
 			{:else if mode === 'door'}
 				<p class="control-label">Step through the check</p>
 				<div class="steps">
-					{#each [{ id: 'check', label: 'Check' }, { id: 'wait', label: 'Wait' }, { id: 'open', label: 'Open when clear' }] as step, i}<button
+					{#each [{ id: 'check', label: 'Check' }, { id: 'wait', label: 'Wait' }, { id: 'open', label: 'Open when clear' }] as step, i (step.id)}<button
 							type="button"
 							aria-pressed={doorStep === step.id}
 							onclick={() => (doorStep = step.id)}><span>{i + 1}</span>{step.label}</button
@@ -286,14 +292,15 @@
 					>
 				</div>
 				<p class="legend">
-					<span class="yellow-line"></span> Rider direction <span class="pink-line"></span> Intended turn
+					<span class="yellow-line" aria-hidden="true"></span> Rider direction
+					<span class="pink-line" aria-hidden="true"></span> Intended turn
 				</p>
 			{/if}
 			{#if onAsk}<button
 					class="ask"
 					type="button"
 					onclick={() => onAsk(`What should a driver do in this ${mode} encounter?`)}
-					>Ask about this encounter <span>↗</span></button
+					>Ask about this encounter <span aria-hidden="true">↗</span></button
 				>{/if}
 		</div>
 	</div>
@@ -314,8 +321,8 @@
 		--yellow: var(--color-primary-500);
 		background: var(--ink);
 		color: var(--color-surface-50);
-		border-radius: 28px;
-		padding: clamp(1.1rem, 3vw, 2.5rem);
+		border-top: 4px solid var(--yellow);
+		padding: clamp(1.1rem, 3vw, 2.25rem);
 		overflow: hidden;
 	}
 	.intro {
@@ -323,7 +330,7 @@
 		justify-content: space-between;
 		align-items: end;
 		gap: 2rem;
-		margin-bottom: 1.8rem;
+		margin-bottom: 1.5rem;
 	}
 	.eyebrow,
 	.panel-kicker,
@@ -331,20 +338,21 @@
 	.control-label,
 	.state > span {
 		font-size: 0.76rem;
-		letter-spacing: 0.06em;
+		letter-spacing: 0.08em;
 		font-weight: 800;
+		text-transform: uppercase;
 	}
 	.eyebrow {
 		color: var(--yellow);
-		margin: 0 0 1rem;
+		margin: 0 0 0.85rem;
 	}
 	.eyebrow span {
-		font-size: 1.2rem;
+		font-size: 1.1rem;
 	}
 	.intro h2 {
-		font-size: clamp(2.4rem, 5vw, 4.6rem);
+		font-size: clamp(2.1rem, 4.5vw, 3.8rem);
 		line-height: 0.94;
-		letter-spacing: -0.055em;
+		letter-spacing: -0.05em;
 		margin: 0;
 		font-weight: 900;
 	}
@@ -359,15 +367,14 @@
 	}
 	.mode-list {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(var(--mode-cols, 2), minmax(0, 1fr));
 		gap: 0.5rem;
-		margin-bottom: 0.7rem;
+		margin-bottom: 0.75rem;
 	}
 	button {
 		font: inherit;
 		cursor: pointer;
-	}
-	button {
+		border-radius: 0;
 		transition:
 			background-color 140ms ease,
 			border-color 140ms ease,
@@ -381,12 +388,11 @@
 		outline-offset: 3px;
 	}
 	.mode-list button {
-		border: 1px solid var(--color-surface-700);
+		border: 2px solid var(--color-surface-500);
 		background: var(--color-secondary-800);
 		color: var(--color-surface-50);
-		padding: 1rem;
+		padding: 0.9rem 1rem;
 		text-align: left;
-		border-radius: 12px;
 		font-weight: 800;
 		display: flex;
 		align-items: center;
@@ -394,7 +400,8 @@
 	}
 	.mode-list button span {
 		font-size: 0.8rem;
-		opacity: 0.7;
+		opacity: 0.8;
+		font-variant-numeric: tabular-nums;
 	}
 	.mode-list button b {
 		margin-left: auto;
@@ -407,11 +414,11 @@
 	.workspace {
 		display: grid;
 		grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.8fr);
-		gap: 0.7rem;
+		gap: 0.75rem;
 	}
 	.scene-wrap {
 		background: var(--color-secondary-800);
-		border-radius: 16px;
+		border-top: 3px solid var(--color-surface-500);
 		padding: 1rem;
 		min-width: 0;
 		overflow: hidden;
@@ -425,16 +432,9 @@
 	.scene {
 		margin: 1rem auto 0;
 	}
-	@media (prefers-reduced-motion: reduce) {
-		button,
-		.scene {
-			transition: none;
-		}
-	}
 	svg {
 		display: block;
 		width: 100%;
-		border-radius: 10px;
 	}
 	.svg-label {
 		fill: var(--report-soft);
@@ -451,8 +451,8 @@
 	.panel {
 		background: var(--cream);
 		color: var(--ink);
-		border-radius: 16px;
-		padding: clamp(1.2rem, 2.5vw, 2rem);
+		border-top: 3px solid var(--pink);
+		padding: clamp(1.2rem, 2.5vw, 1.8rem);
 		display: flex;
 		flex-direction: column;
 	}
@@ -463,13 +463,13 @@
 		margin: 0;
 	}
 	.panel-kicker span {
-		font-size: 1.4rem;
+		font-size: 1.2rem;
 	}
 	.panel h3 {
-		font-size: clamp(1.8rem, 3vw, 2.8rem);
+		font-size: clamp(1.7rem, 3vw, 2.5rem);
 		line-height: 1;
-		letter-spacing: -0.05em;
-		margin: 1rem 0;
+		letter-spacing: -0.04em;
+		margin: 0.85rem 0 1rem;
 	}
 	.lab h2,
 	.lab h3 {
@@ -478,7 +478,6 @@
 	.state {
 		background: var(--purple);
 		color: var(--color-surface-50);
-		border-radius: 12px;
 		padding: 1rem;
 	}
 	.state > span {
@@ -486,9 +485,9 @@
 	}
 	.state strong {
 		display: block;
-		font-size: 1.2rem;
-		line-height: 1.2;
-		margin: 0.6rem 0;
+		font-size: 1.15rem;
+		line-height: 1.25;
+		margin: 0.55rem 0;
 	}
 	.state p {
 		font-size: 0.95rem;
@@ -497,12 +496,12 @@
 		color: var(--color-surface-100);
 	}
 	.control-label {
-		margin: 1.5rem 0 0.65rem;
+		margin: 1.35rem 0 0.6rem;
 	}
 	.toggles,
 	.steps {
 		display: grid;
-		gap: 0.4rem;
+		gap: 0.45rem;
 	}
 	.toggles button,
 	.steps button {
@@ -510,19 +509,17 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		background: transparent;
+		background: var(--report-paper);
 		color: var(--ink);
-		border: 1px solid var(--report-border);
-		border-radius: 9px;
-		padding: 0.75rem;
+		border: 2px solid var(--report-border);
+		padding: 0.7rem 0.8rem;
 		text-align: left;
 		font-weight: 750;
 	}
 	.toggles button b {
 		font-size: 0.75rem;
 		background: var(--report-soft);
-		border-radius: 5px;
-		padding: 0.3rem 0.45rem;
+		padding: 0.25rem 0.5rem;
 	}
 	.toggles button[aria-pressed='true'] b {
 		background: var(--pink);
@@ -536,8 +533,9 @@
 		place-items: center;
 		width: 1.5rem;
 		height: 1.5rem;
-		border-radius: 50%;
 		background: var(--report-soft);
+		font-size: 0.8rem;
+		font-weight: 800;
 	}
 	.steps button[aria-pressed='true'] {
 		background: var(--ink);
@@ -554,6 +552,7 @@
 		align-items: center;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+		margin-top: 0.75rem;
 	}
 	.yellow-line,
 	.pink-line {
@@ -577,23 +576,20 @@
 	.ask span {
 		margin-left: 0.5rem;
 	}
-	button:focus-visible {
-		outline: 3px solid var(--pink);
-		outline-offset: 3px;
-	}
 	@media (max-width: 760px) {
 		.intro {
 			display: block;
 		}
 		.intro-copy {
+			margin-top: 0.75rem;
 			margin-bottom: 0;
 		}
 		.workspace {
 			grid-template-columns: 1fr;
 		}
 		.mode-list button {
-			padding: 0.7rem;
-			font-size: 0.8rem;
+			padding: 0.75rem;
+			font-size: 0.82rem;
 		}
 		.mode-list button span {
 			display: none;
@@ -601,10 +597,11 @@
 		.scene-top {
 			flex-wrap: wrap;
 			gap: 0.5rem;
-			font-size: 0.6rem;
+			font-size: 0.68rem;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
+		button,
 		.scene {
 			transition: none;
 		}

@@ -9,6 +9,7 @@ import {
 	sanitizeDispatchMessages
 } from './assistantDispatch.js';
 import {
+	buildSafetyReportPrompts,
 	getContextualModeDefaults,
 	getDiscoveryConfigForPathname,
 	matchSafetyReportTemplates,
@@ -461,6 +462,14 @@ test('mode metadata and report template matching cover standard pages and campai
 		topic: '4. Passing Encounters: Space'
 	});
 	assert.ok(reportDefaults.starterPrompts[0].includes('Passing Encounters'));
+	assert.ok(
+		buildSafetyReportPrompts('', 'Campaign Kit and Templates').some((prompt) =>
+			prompt.includes('pretest draft campaign templates')
+		)
+	);
+	assert.ok(
+		buildSafetyReportPrompts('', 'Evidence Table').some((prompt) => prompt.includes('R42'))
+	);
 
 	const mockReport = {
 		campaignGallery: [

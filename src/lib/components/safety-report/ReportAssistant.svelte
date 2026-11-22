@@ -2,19 +2,40 @@
 	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { buildSafetyReportPrompts, normalizeReportTopicLabel } from '#lib/ai/assistantHelpers.js';
 
-	let { report, initialQuestion = '', currentTopic = '', onCitationSelect = null } = $props();
+	/** @type {{ report: Record<string, any>, initialQuestion?: string, activeView?: string, currentTopic?: string, onNavigate?: (target: string) => void, onCitationSelect?: ((target: string) => void) | null }} */
+	let {
+		report,
+		initialQuestion = '',
+		activeView = 'Read Report',
+		currentTopic = '',
+		onNavigate = undefined,
+		onCitationSelect = null
+	} = $props();
+
 	const assistantContext = getAssistantContext();
 	let openBtnEl = $state(null);
 
 	const topicLabel = $derived(normalizeReportTopicLabel(currentTopic));
-	const prompts = $derived(buildSafetyReportPrompts(topicLabel));
+	const prompts = $derived(buildSafetyReportPrompts(topicLabel, activeView));
+	const dispatchTopic = $derived(
+		topicLabel || (activeView && activeView !== 'Read Report' ? activeView : '')
+	);
+	const contextSubtitle = $derived(
+		topicLabel
+			? `Research review · ${activeView && activeView !== 'Read Report' && topicLabel !== activeView ? `${activeView} · ` : ''}${topicLabel}`
+			: activeView && activeView !== 'Read Report'
+				? `Research review · ${activeView} (68 sources)`
+				: 'Grounded in Safer Cycling, Better Messages (68 sources)'
+	);
 
 	$effect(() => {
 		return assistantContext.register(() => ({
 			mode: 'safety-report',
-			topic: topicLabel,
+			topic: dispatchTopic,
+			subtitle: contextSubtitle,
+			starterPrompts: prompts,
 			report,
-			onCitationSelect
+			onCitationSelect: onCitationSelect ?? onNavigate ?? null
 		}));
 	});
 
@@ -25,7 +46,7 @@
 			mode: 'page',
 			prompt: trimmed,
 			submit: Boolean(trimmed),
-			topic: topicLabel,
+			topic: dispatchTopic,
 			triggerEl: triggerEl ?? openBtnEl
 		});
 	}
@@ -35,7 +56,7 @@
 			mode: 'page',
 			prompt: initialQuestion ? String(initialQuestion).trim().slice(0, 1200) : '',
 			submit: false,
-			topic: topicLabel,
+			topic: dispatchTopic,
 			triggerEl: triggerEl ?? openBtnEl
 		});
 	}
@@ -45,8 +66,7 @@
 	<div class="assistant-header">
 		<div class="intro">
 			<p class="eyebrow">
-				Explore the evidence{#if topicLabel}
-					· {topicLabel}{/if}
+				{`ASK THE REPORT · ${activeView}${topicLabel && topicLabel !== activeView ? ` · ${topicLabel}` : ''}`}
 			</p>
 			<h2>Ask the report</h2>
 			<p>
@@ -64,7 +84,7 @@
 		</button>
 	</div>
 	<div class="suggestions" aria-label="Suggested questions">
-		{#each prompts as prompt}
+		{#each prompts as prompt (prompt)}
 			<button type="button" onclick={(event) => ask(prompt, event.currentTarget)}>{prompt}</button>
 		{/each}
 	</div>
@@ -77,6 +97,8 @@
 	.assistant {
 		background: var(--report-paper);
 		border: 2px solid var(--color-secondary-950);
+		border-top: 5px solid var(--color-tertiary-700-300);
+		border-radius: 0;
 		color: var(--color-secondary-950);
 		padding: clamp(1.2rem, 3vw, 2rem);
 	}
@@ -102,13 +124,15 @@
 	}
 	.eyebrow {
 		color: var(--color-tertiary-700-300);
-		font-size: 0.82rem;
+		font-size: 0.78rem;
 		font-weight: 800;
-		letter-spacing: 0.02em;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 	.open-btn {
 		background: var(--color-secondary-950);
 		border: 2px solid var(--color-secondary-950);
+		border-radius: 0;
 		color: var(--color-primary-500);
 		cursor: pointer;
 		font: inherit;
@@ -130,13 +154,14 @@
 	}
 	.suggestions button {
 		background: var(--report-soft);
-		border: 1px solid var(--color-tertiary-700-300);
+		border: 2px solid var(--color-secondary-400);
+		border-radius: 0;
 		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
-		font-size: 0.9rem;
-		font-weight: 650;
-		padding: 0.55rem 0.8rem;
+		font-size: 0.88rem;
+		font-weight: 700;
+		padding: 0.55rem 0.85rem;
 		text-align: left;
 	}
 	.suggestions button:hover {

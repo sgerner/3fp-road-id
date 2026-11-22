@@ -31,7 +31,28 @@ export function normalizeReportTopicLabel(rawTopic) {
 		.trim();
 }
 
-export function buildSafetyReportPrompts(rawTopic) {
+const SAFETY_REPORT_VIEW_PROMPTS = Object.freeze({
+	'Read Report': [
+		'What makes a cycling safety campaign effective?',
+		'What does the evidence say about safe passing?',
+		'How should we evaluate a campaign?',
+		'What are the limitations of this review?'
+	],
+	'Campaign Kit and Templates': [
+		'How should we pretest draft campaign templates before printing?',
+		'What practical support should pair with a safe-passing campaign?',
+		'How do we avoid blaming riders in dooring and turning materials?',
+		'What should we record on the campaign evaluation sheet?'
+	],
+	'Evidence Table': [
+		'What did study R42 measure and what are its limitations?',
+		'Which studies measured actual on-road passing distance?',
+		'Why do some equipment confidence intervals cross 1?',
+		'How do survey comprehension studies differ from crash evaluations?'
+	]
+});
+
+export function buildSafetyReportPrompts(rawTopic, activeView = 'Read Report') {
 	const topicLabel = normalizeReportTopicLabel(rawTopic);
 	if (topicLabel) {
 		return [
@@ -40,12 +61,7 @@ export function buildSafetyReportPrompts(rawTopic) {
 			`What should a campaign test about ${topicLabel}?`
 		];
 	}
-	return [
-		'What makes a cycling safety campaign effective?',
-		'What does the evidence say about safe passing?',
-		'How should we evaluate a campaign?',
-		'What are the limitations of this review?'
-	];
+	return SAFETY_REPORT_VIEW_PROMPTS[activeView] ?? SAFETY_REPORT_VIEW_PROMPTS['Read Report'];
 }
 
 export function matchSafetyReportTemplates(report, question, rawTopic = '') {
