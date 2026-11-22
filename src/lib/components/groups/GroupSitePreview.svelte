@@ -1,6 +1,6 @@
 <script>
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconList from '@lucide/svelte/icons/layout-list';
 	import IconMonitor from '@lucide/svelte/icons/monitor';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';

@@ -8,8 +8,8 @@
 	import IconClock from '@lucide/svelte/icons/clock-3';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
-	import IconHistory from '@lucide/svelte/icons/history';
+	import IconGlobe from '@lucide/svelte/icons/earth';
+	import IconHistory from '@lucide/svelte/icons/rotate-ccw-clock';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPalette from '@lucide/svelte/icons/palette';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';

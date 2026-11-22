@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import { normalizeMicrositeSlug } from '#lib/microsites/host';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import IconUsers from '@lucide/svelte/icons/users';

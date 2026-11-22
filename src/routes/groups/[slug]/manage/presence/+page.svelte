@@ -5,7 +5,7 @@
 	import '#lib/map/leaflet.css';
 	import * as env from '$app/env/public';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
-	import IconAlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import IconAlertTriangle from '@lucide/svelte/icons/triangle-alert';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
@@ -16,7 +16,7 @@
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconEye from '@lucide/svelte/icons/eye';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconLayout from '@lucide/svelte/icons/layout-grid';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconList from '@lucide/svelte/icons/layout-list';
@@ -30,7 +30,7 @@
 	import IconSettings from '@lucide/svelte/icons/settings-2';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconType from '@lucide/svelte/icons/type';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';

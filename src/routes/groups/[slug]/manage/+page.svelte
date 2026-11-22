@@ -1,12 +1,12 @@
 <script>
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconMail from '@lucide/svelte/icons/mail';
