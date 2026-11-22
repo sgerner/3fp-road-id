@@ -19,6 +19,7 @@ const UPDATABLE_FIELDS = new Set([
 	'latitude',
 	'longitude',
 	'service_area_description',
+	'zip_code',
 	'activity_frequency',
 	'typical_activity_day_time',
 	'membership_info',
@@ -53,6 +54,11 @@ export const POST = async ({ params, request, cookies }) => {
 	const updates = {};
 	for (const [k, v] of Object.entries(payload.fields || {})) {
 		if (UPDATABLE_FIELDS.has(k)) updates[k] = v;
+	}
+
+	if (Object.prototype.hasOwnProperty.call(updates, 'zip_code')) {
+		updates.zip_code =
+			typeof updates.zip_code === 'string' ? updates.zip_code.trim() || null : null;
 	}
 
 	// Normalize preferred CTA

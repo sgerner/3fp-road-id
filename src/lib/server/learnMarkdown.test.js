@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import * as learnMarkdown from '../learn/markdown.js';
 
 const { extractMarkdownHeadings, renderLearnMarkdown, splitMarkdownIntoSections } = learnMarkdown;
+
+async function readGuideFixture(relativePath) {
+	const raw = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+	return raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
+}
 
 test('learn markdown module exports only active heading, section, and rendering helpers', () => {
 	assert.deepEqual(Object.keys(learnMarkdown).sort(), [
@@ -32,11 +38,91 @@ test('article outline matches rendered headings including setext and duplicate h
 
 test('article rendering removes executable HTML while retaining outline and safe links', async () => {
 	const html = await renderLearnMarkdown(
-		'## Hello\n\n<script>alert(1)</script>\n\n[Bad](javascript:alert)\n\n[Good](https://example.com)\n\n<img src="x" onerror="alert(1)">'
+		'## Hello\n\n<script>alert(1)</script>\n\n<button type="button">Injected</button>\n\n[Bad](javascript:alert)\n\n[Good](https://example.com)\n\n<img src="x" onerror="alert(1)">'
 	);
 	assert.ok(html.includes('id="hello"'));
 	assert.ok(html.includes('href="https://example.com"'));
 	assert.ok(!html.includes('<script'));
+	assert.ok(!html.includes('<button'));
 	assert.ok(!html.includes('javascript:'));
 	assert.ok(!html.includes('onerror'));
+});
+
+test('markdown tables receive data-stackable and plain-text data-label attributes from headers', async () => {
+	const markdown = [
+		'| **Organization Type** | *Role* & "Scope" | `Contact` [Guide](https://example.com) |',
+		'| :--- | :---: | ---: |',
+		'| Neighborhood Assoc. | Safety & speeds | `info@example.com` |',
+		'| Senior Center | | `555.555.5555` |'
+	].join('\n');
+
+	const html = await renderLearnMarkdown(markdown);
+	assert.ok(html.includes('<table data-stackable="true">'));
+	assert.ok(html.includes('<td data-label="Organization Type">Neighborhood Assoc.</td>'));
+	assert.ok(
+		html.includes('<td data-label="Role &amp; &quot;Scope&quot;">Safety &amp; speeds</td>')
+	);
+	assert.ok(html.includes('<td data-label="Contact Guide"><code>info@example.com</code></td>'));
+	assert.ok(html.includes('<td data-label="Role &amp; &quot;Scope&quot;"></td>'));
+});
+
+test('headerless tables omit data-stackable and strip untrusted table attributes', async () => {
+	const rawHeaderless = await renderLearnMarkdown(
+		'<table data-stackable="true"><tbody><tr><td data-label="Fake">Alpha</td><td>Beta</td></tr></tbody></table>'
+	);
+	assert.ok(rawHeaderless.includes('<table>'));
+	assert.ok(!rawHeaderless.includes('data-stackable'));
+	assert.ok(!rawHeaderless.includes('data-label'));
+
+	const emptyHeaderGfm = await renderLearnMarkdown('|   |   |\n| --- | --- |\n| Alpha | Beta |');
+	assert.ok(emptyHeaderGfm.includes('<table>'));
+	assert.ok(!emptyHeaderGfm.includes('data-stackable'));
+	assert.ok(!emptyHeaderGfm.includes('data-label'));
+});
+
+test('tables nested inside list items preserve list structure and receive data-label attributes', async () => {
+	const markdown = [
+		'1. **Summary Table of Document Relevance Scores:**',
+		'',
+		'   | Document Type | Overall Relevance Score (Average) | Summary of Relevance (Brief) |',
+		'   | :--- | :--- | :--- |',
+		'   | General/Comprehensive Plan | [Average Score] | [Brief Summary] |'
+	].join('\n');
+
+	const html = await renderLearnMarkdown(markdown);
+	assert.match(html, /<ol>\s*<li>[\s\S]*<table data-stackable="true">/);
+	assert.ok(html.includes('<td data-label="Document Type">General/Comprehensive Plan</td>'));
+	assert.ok(
+		html.includes('<td data-label="Overall Relevance Score (Average)">[Average Score]</td>')
+	);
+	assert.ok(html.includes('<td data-label="Summary of Relevance (Brief)">[Brief Summary]</td>'));
+});
+
+test('real Learn guide tables and templates stamp stackable cells and preserve template blocks', async () => {
+	const policyAuditHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/policies/complete-streets/policy-audit.md')
+	);
+	assert.ok(policyAuditHtml.includes('<table data-stackable="true">'));
+	assert.ok(policyAuditHtml.includes('<td data-label="Relevant Document Names (Example)">'));
+
+	const partnershipsHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/outreach/partnerships.md')
+	);
+	assert.ok(partnershipsHtml.includes('data-label="Organization Type"'));
+	assert.ok(partnershipsHtml.includes('data-label="Best Collaboration Strategies"'));
+	assert.ok(!partnershipsHtml.includes('data-label="<strong>'));
+
+	const advocacyMeetingHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/community/advocacy-meeting.md')
+	);
+	assert.ok(
+		advocacyMeetingHtml.includes(
+			'<td data-label="I can help with: (circle) Testimony / Data Collection / Outreach / Other"></td>'
+		)
+	);
+
+	const tragedyGuideHtml = await renderLearnMarkdown(
+		await readGuideFixture('../../../docs/3ftwiki/policies/tragedy-action-guide.md')
+	);
+	assert.ok(tragedyGuideHtml.includes('<pre><code>Subject: Urgent Safety Improvements Needed'));
 });

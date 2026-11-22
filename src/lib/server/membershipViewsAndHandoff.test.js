@@ -13,6 +13,10 @@ import {
 	getGroupStripeBillingGuard
 } from './groupStripeConnection.js';
 import {
+	buildViewerStripeConnection,
+	resolveMembershipProgramForViewer
+} from './groupMembershipPublic.js';
+import {
 	computeGlobalProfileBackfill,
 	ensureUserGlobalProfileDefaults,
 	executeUnifiedProgramAndTiersSave,
@@ -452,4 +456,111 @@ test('submitting a club join form with alternate display name or phone leaves an
 		full_name: 'Brand New',
 		phone: null
 	});
+});
+
+test('resolveMembershipProgramForViewer enriches manager stripe_connection with billing guard while redacting non-managers', async () => {
+	const store = createMembershipSupabaseMock({
+		programs: [{ id: 'prog-1', group_id: 'group-1', enabled: true, contribution_mode: 'paid' }],
+		tiers: [
+			{
+				id: 'tier-paid',
+				program_id: 'prog-1',
+				name: 'Paid Member',
+				is_active: true,
+				amount_cents: 1500,
+				monthly_amount_cents: 1500,
+				stripe_account_id: 'acct_live_123'
+			}
+		],
+		memberships: [{ id: 'mem-1', group_id: 'group-1', status: 'active' }],
+		billings: [{ membership_id: 'mem-1', stripe_subscription_id: 'sub_live_123' }]
+	});
+
+	const donationAccount = {
+		id: 'acct-row-1',
+		stripe_account_id: 'acct_live_123',
+		stripe_account_email: 'treasurer@club.example',
+		charges_enabled: true,
+		payouts_enabled: true,
+		connected_at: '2026-10-01T00:00:00.000Z'
+	};
+
+	const buildStripeConnectionFn = async (serviceSupabase, group, { canManage = false } = {}) => {
+		if (!canManage) {
+			return buildViewerStripeConnection(donationAccount, { canManage: false });
+		}
+		const guard = await getGroupStripeBillingGuard(serviceSupabase, group.id, group.slug);
+		return {
+			...buildViewerStripeConnection(donationAccount, { canManage: true }),
+			payouts_enabled: donationAccount.payouts_enabled,
+			stripe_account_email: donationAccount.stripe_account_email,
+			connected_at: donationAccount.connected_at,
+			...guard
+		};
+	};
+
+	const managerResult = await resolveMembershipProgramForViewer({
+		viewer: { userId: 'owner-1', isAdmin: false, requestSupabase: {} },
+		serviceSupabase: store,
+		groupSlug: 'metro-velo',
+		includeInactive: true,
+		loadGroupBySlugFn: async () => ({
+			id: 'group-1',
+			slug: 'metro-velo',
+			name: 'Metro Velo',
+			membership_info: 'Legacy club notes'
+		}),
+		isGroupManagerFn: async () => true,
+		loadDonationAccountFn: async () => donationAccount,
+		buildStripeConnectionFn,
+		ensureProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramBundleFn: async () => ({
+			tiers: store.tables.group_membership_tiers,
+			fields: []
+		})
+	});
+
+	assert.equal(managerResult.ok, true);
+	assert.equal(managerResult.data.can_manage, true);
+	assert.equal(managerResult.data.stripe_connection.stripe_account_id, 'acct_live_123');
+	assert.equal(managerResult.data.stripe_connection.stripe_account_email, 'treasurer@club.example');
+	assert.equal(managerResult.data.stripe_connection.active_paid_tier_count, 1);
+	assert.equal(managerResult.data.stripe_connection.active_subscription_count, 1);
+	assert.equal(managerResult.data.stripe_connection.can_disconnect, false);
+	assert.equal(
+		managerResult.data.stripe_connection.manage_url,
+		'/groups/metro-velo/manage/membership?view=program'
+	);
+
+	const riderResult = await resolveMembershipProgramForViewer({
+		viewer: { userId: 'rider-1', isAdmin: false, requestSupabase: {} },
+		serviceSupabase: store,
+		groupSlug: 'metro-velo',
+		includeInactive: true,
+		loadGroupBySlugFn: async () => ({
+			id: 'group-1',
+			slug: 'metro-velo',
+			name: 'Metro Velo'
+		}),
+		isGroupManagerFn: async () => false,
+		loadDonationAccountFn: async () => donationAccount,
+		buildStripeConnectionFn,
+		ensureProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramFn: async () => store.tables.group_membership_programs[0],
+		ensureDefaultApplicationFieldsFn: async () => {},
+		loadProgramBundleFn: async () => ({
+			tiers: store.tables.group_membership_tiers,
+			fields: []
+		})
+	});
+
+	assert.equal(riderResult.ok, true);
+	assert.equal(riderResult.data.can_manage, false);
+	assert.deepEqual(riderResult.data.stripe_connection, {
+		connected: true,
+		charges_enabled: true,
+		stripe_account_id: null
+	});
+	assert.equal('stripe_account_id' in riderResult.data.tiers[0], false);
 });
