@@ -83,13 +83,17 @@ export function sortEmergencyContacts(contacts) {
 export function reconcileRiderSafetyData({
 	profileRow = null,
 	roadIdRow = null,
-	emergencyContacts = []
+	emergencyContacts = [],
+	preferRoadIdIdentity = false
 } = {}) {
-	const fullName =
-		cleanText(profileRow?.full_name, MAX_NAME_LENGTH) ||
-		cleanText(roadIdRow?.full_name, MAX_NAME_LENGTH);
-	const phone =
-		cleanText(profileRow?.phone, MAX_PHONE_LENGTH) || cleanText(roadIdRow?.phone, MAX_PHONE_LENGTH);
+	const profileName = cleanText(profileRow?.full_name, MAX_NAME_LENGTH);
+	const roadName = cleanText(roadIdRow?.full_name, MAX_NAME_LENGTH);
+	const fullName = preferRoadIdIdentity ? roadName || profileName : profileName || roadName;
+
+	const profilePhone = cleanText(profileRow?.phone, MAX_PHONE_LENGTH);
+	const roadPhone = cleanText(roadIdRow?.phone, MAX_PHONE_LENGTH);
+	const phone = preferRoadIdIdentity ? roadPhone || profilePhone : profilePhone || roadPhone;
+
 	const bloodType = cleanText(roadIdRow?.blood_type, MAX_BLOOD_TYPE_LENGTH);
 	const allergies = cleanText(roadIdRow?.allergies, MAX_MEDICAL_TEXT_LENGTH);
 	const medication = formatMedicationList(roadIdRow?.medication);
@@ -137,10 +141,41 @@ export function validateSafetyPayload(body) {
 		};
 	}
 
-	const safetySource =
-		body.safety && typeof body.safety === 'object' && !Array.isArray(body.safety)
-			? body.safety
-			: body;
+	const hasNestedSafety =
+		Boolean(body.safety) && typeof body.safety === 'object' && !Array.isArray(body.safety);
+	const safetySource = hasNestedSafety ? body.safety : body;
+
+	const hasEmergencyName =
+		hasNestedSafety && Object.prototype.hasOwnProperty.call(safetySource, 'full_name');
+	const hasEmergencyPhone =
+		hasNestedSafety && Object.prototype.hasOwnProperty.call(safetySource, 'phone');
+
+	let emergencyFullName = '';
+	if (hasEmergencyName) {
+		const rawEmergencyName =
+			safetySource.full_name === null || safetySource.full_name === undefined
+				? ''
+				: String(safetySource.full_name).trim();
+		if (rawEmergencyName.length > MAX_NAME_LENGTH) {
+			return { ok: false, error: 'Emergency name is too long.' };
+		}
+		emergencyFullName = rawEmergencyName;
+	}
+
+	let emergencyPhone = '';
+	if (hasEmergencyPhone) {
+		const rawEmergencyPhone =
+			safetySource.phone === null || safetySource.phone === undefined
+				? ''
+				: String(safetySource.phone).trim();
+		if (rawEmergencyPhone.length > MAX_PHONE_LENGTH) {
+			return { ok: false, error: 'Emergency card phone number is too long.' };
+		}
+		if (rawEmergencyPhone && normalizePhoneNumber(rawEmergencyPhone).length < 7) {
+			return { ok: false, error: 'Enter a valid phone number for your Emergency ID card.' };
+		}
+		emergencyPhone = rawEmergencyPhone ? normalizeContactPhoneInput(rawEmergencyPhone) : '';
+	}
 
 	const hasBloodType = Object.prototype.hasOwnProperty.call(safetySource, 'blood_type');
 	const hasAllergies = Object.prototype.hasOwnProperty.call(safetySource, 'allergies');
@@ -232,6 +267,10 @@ export function validateSafetyPayload(body) {
 	return {
 		ok: true,
 		value: {
+			hasEmergencyName,
+			emergency_full_name: emergencyFullName,
+			hasEmergencyPhone,
+			emergency_phone: emergencyPhone,
 			hasMedicalFields,
 			blood_type: bloodType,
 			allergies,
@@ -247,14 +286,15 @@ export async function loadRiderSafetyState(supabase, userId) {
 		return {
 			roadIdProfile: null,
 			emergencyContacts: [],
-			claimedCodes: []
+			claimedCodes: [],
+			linkedCodes: []
 		};
 	}
 
 	const [roadIdResult, contactsResult, codesResult] = await Promise.all([
 		supabase
 			.from('road_id_profiles')
-			.select('user_id,full_name,phone,blood_type,allergies,medication')
+			.select('user_id,full_name,phone,blood_type,allergies,medication,created_at')
 			.eq('user_id', userId)
 			.maybeSingle(),
 		supabase
@@ -264,7 +304,7 @@ export async function loadRiderSafetyState(supabase, userId) {
 			.order('id', { ascending: true }),
 		supabase
 			.from('qr_codes')
-			.select('code')
+			.select('code,created_at')
 			.eq('profile_id', userId)
 			.order('code', { ascending: true })
 	]);
@@ -273,14 +313,27 @@ export async function loadRiderSafetyState(supabase, userId) {
 	if (contactsResult.error) throw contactsResult.error;
 	if (codesResult.error) throw codesResult.error;
 
-	const claimedCodes = Array.isArray(codesResult.data)
-		? codesResult.data.map((row) => cleanText(row?.code, 64)).filter(Boolean)
+	const linkedCodes = Array.isArray(codesResult.data)
+		? codesResult.data
+				.map((row) => ({
+					code: cleanText(row?.code, 64),
+					created_at: row?.created_at ?? null
+				}))
+				.filter((row) => Boolean(row.code))
+				.sort((a, b) => {
+					if (a.created_at && b.created_at && a.created_at !== b.created_at) {
+						return String(a.created_at).localeCompare(String(b.created_at));
+					}
+					return a.code.localeCompare(b.code);
+				})
 		: [];
+	const claimedCodes = linkedCodes.map((row) => row.code);
 
 	return {
 		roadIdProfile: roadIdResult.data ?? null,
 		emergencyContacts: sortEmergencyContacts(contactsResult.data ?? []),
-		claimedCodes
+		claimedCodes,
+		linkedCodes
 	};
 }
 
@@ -343,12 +396,16 @@ export async function saveUnifiedRiderSafety(
 	const cleanedName = cleanText(fullName, MAX_NAME_LENGTH);
 	const cleanedPhone = cleanText(phone, MAX_PHONE_LENGTH);
 
-	const nextFullName = allowBlankIdentity
-		? cleanedName
-		: cleanedName || cleanText(currentRoadId?.full_name, MAX_NAME_LENGTH);
-	const nextPhone = allowBlankIdentity
-		? cleanedPhone
-		: cleanedPhone || cleanText(currentRoadId?.phone, MAX_PHONE_LENGTH);
+	const nextFullName = safety?.hasEmergencyName
+		? cleanText(safety.emergency_full_name, MAX_NAME_LENGTH) || cleanedName
+		: allowBlankIdentity
+			? cleanedName
+			: cleanedName || cleanText(currentRoadId?.full_name, MAX_NAME_LENGTH);
+	const nextPhone = safety?.hasEmergencyPhone
+		? cleanText(safety.emergency_phone, MAX_PHONE_LENGTH) || cleanedPhone
+		: allowBlankIdentity
+			? cleanedPhone
+			: cleanedPhone || cleanText(currentRoadId?.phone, MAX_PHONE_LENGTH);
 
 	const nextBloodType = safety?.hasMedicalFields
 		? cleanText(safety.blood_type, MAX_BLOOD_TYPE_LENGTH)
@@ -745,6 +802,36 @@ export async function claimBraceletForUser({ serviceSupabase, userSupabase, user
 		return { ok: true, code, alreadyOwned: true };
 	}
 
+	if (typeof serviceSupabase.rpc === 'function') {
+		const rpcRes = await serviceSupabase.rpc('claim_road_id_code', {
+			target_code: code,
+			claimant_user_id: userId,
+			seed_full_name: reconciled.full_name || null,
+			seed_phone: reconciled.phone || null
+		});
+		if (!rpcRes.error) {
+			const row = Array.isArray(rpcRes.data) ? rpcRes.data[0] : rpcRes.data;
+			const outcome = row?.status || '';
+			if (outcome === 'claimed') {
+				return { ok: true, code: row?.code || code, alreadyOwned: false };
+			}
+			if (outcome === 'already_owned') {
+				return { ok: true, code: row?.code || code, alreadyOwned: true };
+			}
+			if (outcome === 'conflict') {
+				return {
+					ok: false,
+					status: 409,
+					reason: 'already_claimed',
+					error: 'This bracelet has already been claimed.'
+				};
+			}
+			if (outcome === 'not_found') {
+				return { ok: false, status: 404, reason: 'not_found', error: 'Bracelet code not found.' };
+			}
+		}
+	}
+
 	const claimRes = await serviceSupabase
 		.from('qr_codes')
 		.update({ profile_id: userId })
@@ -775,4 +862,84 @@ export async function claimBraceletForUser({ serviceSupabase, userSupabase, user
 	}
 
 	return { ok: true, code, alreadyOwned: false };
+}
+
+/**
+ * Reconciles profiles, road_id_profiles, and emergency_contacts under RLS after
+ * an atomic RPC bracelet claim so existing profile/medical fields stay synced.
+ */
+export async function reconcileAfterBraceletClaim(userSupabase, userId) {
+	if (!userSupabase || !userId) return;
+	const [profileRes, safetyState] = await Promise.all([
+		userSupabase
+			.from('profiles')
+			.select('id,user_id,full_name,phone,emergency_contact_name,emergency_contact_phone')
+			.eq('user_id', userId)
+			.maybeSingle(),
+		loadRiderSafetyState(userSupabase, userId)
+	]);
+	if (profileRes.error) return;
+
+	const profileRow = profileRes.data ?? null;
+	const roadIdRow = safetyState.roadIdProfile;
+	const contacts = safetyState.emergencyContacts;
+	const reconciled = reconcileRiderSafetyData({
+		profileRow,
+		roadIdRow,
+		emergencyContacts: contacts
+	});
+
+	if (
+		(!cleanText(roadIdRow?.full_name, MAX_NAME_LENGTH) && reconciled.full_name) ||
+		(!cleanText(roadIdRow?.phone, MAX_PHONE_LENGTH) && reconciled.phone)
+	) {
+		await userSupabase.from('road_id_profiles').upsert(
+			{
+				user_id: userId,
+				full_name: cleanText(roadIdRow?.full_name, MAX_NAME_LENGTH) || reconciled.full_name,
+				phone: cleanText(roadIdRow?.phone, MAX_PHONE_LENGTH) || reconciled.phone,
+				blood_type: reconciled.blood_type,
+				allergies: reconciled.allergies,
+				medication: reconciled.medication
+			},
+			{ onConflict: 'user_id' }
+		);
+	}
+
+	if (
+		contacts.length === 0 &&
+		reconciled.primary_emergency_contact?.contact_name &&
+		reconciled.primary_emergency_contact?.contact_phone
+	) {
+		await userSupabase.from('emergency_contacts').insert({
+			profile_id: userId,
+			contact_name: reconciled.primary_emergency_contact.contact_name,
+			contact_phone: reconciled.primary_emergency_contact.contact_phone,
+			contact_relationship:
+				reconciled.primary_emergency_contact.contact_relationship || 'Emergency contact'
+		});
+	}
+
+	const profileBackfill = {};
+	if (!cleanText(profileRow?.full_name, MAX_NAME_LENGTH) && reconciled.full_name) {
+		profileBackfill.full_name = reconciled.full_name;
+	}
+	if (!cleanText(profileRow?.phone, MAX_PHONE_LENGTH) && reconciled.phone) {
+		profileBackfill.phone = reconciled.phone;
+	}
+	if (
+		!cleanText(profileRow?.emergency_contact_name, MAX_NAME_LENGTH) &&
+		reconciled.primary_emergency_contact?.contact_name
+	) {
+		profileBackfill.emergency_contact_name = reconciled.primary_emergency_contact.contact_name;
+	}
+	if (
+		!cleanText(profileRow?.emergency_contact_phone, MAX_PHONE_LENGTH) &&
+		reconciled.primary_emergency_contact?.contact_phone
+	) {
+		profileBackfill.emergency_contact_phone = reconciled.primary_emergency_contact.contact_phone;
+	}
+	if (Object.keys(profileBackfill).length > 0) {
+		await upsertOwnProfileRow(userSupabase, userId, profileBackfill, 'id,user_id');
+	}
 }

@@ -73,6 +73,7 @@
 	let userProfile = $state(initialUserProfile);
 	let claimedCodes = $state(initialClaimedCodes);
 	let ownedGroups = $state(initialOwnedGroups);
+	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
 	let loginIntent = $state(null);
@@ -103,6 +104,12 @@
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
+	const canManageSms = $derived(
+		Boolean(user) &&
+			(userProfile?.admin === true ||
+				ownedGroups.length > 0 ||
+				(profileCanManageSms ?? (data?.user?.id === user?.id && Boolean(data?.canManageSms))))
+	);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -238,7 +245,9 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const targetIndex =
-			event.key === 'ArrowDown' ? 0 : themeOptions.length + 6 + visibleClaimedCodes.length;
+			event.key === 'ArrowDown'
+				? 0
+				: themeOptions.length + (canManageSms ? 6 : 5) + visibleClaimedCodes.length;
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -300,6 +309,7 @@
 		if (!nextUser?.id) {
 			userProfile = null;
 			claimedCodes = [];
+			profileCanManageSms = false;
 			return;
 		}
 		try {
@@ -307,6 +317,7 @@
 			if (!response.ok) {
 				userProfile = null;
 				claimedCodes = [];
+				profileCanManageSms = false;
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
@@ -314,9 +325,13 @@
 			claimedCodes = Array.isArray(payload?.claimedCodes)
 				? payload.claimedCodes.filter(Boolean)
 				: [];
+			if (typeof payload?.canManageSms === 'boolean') {
+				profileCanManageSms = payload.canManageSms;
+			}
 		} catch {
 			userProfile = null;
 			claimedCodes = [];
+			profileCanManageSms = false;
 		}
 	}
 
@@ -512,6 +527,9 @@
 			}
 			if (profile?.user_id && user?.id && String(profile.user_id) !== String(user.id)) return;
 			userProfile = profile;
+			if (typeof event?.detail?.canManageSms === 'boolean') {
+				profileCanManageSms = event.detail.canManageSms;
+			}
 		}
 		// Also close mobile menu on outside click / escape
 		const onDocClickMenu = (e) => {
@@ -612,6 +630,7 @@
 		userProfile = null;
 		claimedCodes = [];
 		ownedGroups = [];
+		profileCanManageSms = false;
 	}
 
 	function toggleLogin() {
@@ -840,14 +859,23 @@
 											Profile
 										</a>
 										<a
-											href="/profile#safety"
+											href="/profile#road-id"
 											class="profile-menu-item"
 											role="menuitem"
 											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
-											onclick={() => (showUserMenu = false)}
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
 										>
 											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
-											Safety &amp; Road ID
+											Emergency ID
 										</a>
 										{#each visibleClaimedCodes as braceletCode, braceletIdx (braceletCode)}
 											<a
@@ -889,19 +917,21 @@
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Volunteer shifts
 										</a>
-										<a
-											href="/messages"
-											class="profile-menu-item"
-											role="menuitem"
-											tabindex={userMenuFocusIndex ===
-											themeOptions.length + 5 + visibleClaimedCodes.length
-												? 0
-												: -1}
-											onclick={() => (showUserMenu = false)}
-										>
-											<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
-											SMS inbox
-										</a>
+										{#if canManageSms}
+											<a
+												href="/messages"
+												class="profile-menu-item"
+												role="menuitem"
+												tabindex={userMenuFocusIndex ===
+												themeOptions.length + 5 + visibleClaimedCodes.length
+													? 0
+													: -1}
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
+												SMS inbox
+											</a>
+										{/if}
 										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
 										<button
 											type="button"
@@ -909,7 +939,7 @@
 											onclick={doLogout}
 											role="menuitem"
 											tabindex={userMenuFocusIndex ===
-											themeOptions.length + 6 + visibleClaimedCodes.length
+											themeOptions.length + (canManageSms ? 6 : 5) + visibleClaimedCodes.length
 												? 0
 												: -1}
 										>

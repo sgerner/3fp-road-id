@@ -1,5 +1,6 @@
 import { isTurnstileEnabled } from '#lib/server/turnstile';
 import { loadOwnedGroups } from '#lib/server/sectionNavigation';
+import { getSmsServiceClient, hasSmsInboxAccess } from '#lib/server/sms';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 
@@ -12,6 +13,7 @@ export const load = async ({ cookies, fetch, route }) => {
 			claimedCodes: [],
 			ownedGroups: [],
 			isAdmin: false,
+			canManageSms: false,
 			turnstileEnabled: false,
 			isMicrosite: true
 		};
@@ -25,12 +27,14 @@ export const load = async ({ cookies, fetch, route }) => {
 			claimedCodes: [],
 			ownedGroups: [],
 			isAdmin: false,
+			canManageSms: false,
 			turnstileEnabled: isTurnstileEnabled(),
 			isMicrosite: false
 		};
 	}
 
 	let isAdmin = false;
+	let canManageSms = false;
 	let userProfile = null;
 	let ownedGroups = [];
 	let claimedCodes = [];
@@ -62,6 +66,14 @@ export const load = async ({ cookies, fetch, route }) => {
 	}
 
 	isAdmin = profile?.admin === true;
+	const smsAccessClient = getSmsServiceClient() ?? requestSupabase;
+	canManageSms =
+		isAdmin ||
+		ownedGroups.length > 0 ||
+		(await hasSmsInboxAccess(smsAccessClient, currentUser.id).catch((err) => {
+			console.warn('Failed to load SMS inbox access for app layout', err);
+			return false;
+		}));
 	userProfile = profile
 		? {
 				id: profile.id ?? null,
@@ -85,6 +97,7 @@ export const load = async ({ cookies, fetch, route }) => {
 		claimedCodes,
 		ownedGroups,
 		isAdmin,
+		canManageSms,
 		turnstileEnabled: isTurnstileEnabled(),
 		isMicrosite: false
 	};

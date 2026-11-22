@@ -9,6 +9,7 @@ import {
 	upsertOwnProfileRow,
 	validateSafetyPayload
 } from '#lib/server/roadIdProfile';
+import { getSmsServiceClient, hasSmsInboxAccess } from '#lib/server/sms';
 import { normalizeE164PhoneNumber } from '#lib/utils/phone';
 
 const MAX_FULL_NAME_LENGTH = 120;
@@ -132,17 +133,27 @@ export async function GET({ cookies }) {
 		emergencyContacts: safetyState.emergencyContacts
 	});
 	const profile = normalizeProfileShape(profileResult.data, reconciled);
+	const smsAccessClient = getSmsServiceClient() ?? supabase;
+	const canManageSms =
+		profile?.admin === true ||
+		(await hasSmsInboxAccess(smsAccessClient, user.id).catch((err) => {
+			console.warn('Unable to resolve SMS inbox access for profile', err);
+			return false;
+		}));
 
 	return json({
 		profile,
 		context: extractRecommendationContext(profile?.metadata ?? {}),
+		canManageSms,
+		roadIdProfile: safetyState.roadIdProfile,
 		safetyProfile: {
 			blood_type: reconciled.blood_type,
 			allergies: reconciled.allergies,
 			medication: reconciled.medication
 		},
 		emergencyContacts: reconciled.emergency_contacts,
-		claimedCodes: safetyState.claimedCodes
+		claimedCodes: safetyState.claimedCodes,
+		linkedCodes: safetyState.linkedCodes
 	});
 }
 
@@ -277,17 +288,27 @@ export async function PUT({ cookies, fetch, request }) {
 		emergencyContacts: savedSafety.emergencyContacts
 	});
 	const profile = normalizeProfileShape(data, reconciled);
+	const smsAccessClient = getSmsServiceClient() ?? supabase;
+	const canManageSms =
+		profile?.admin === true ||
+		(await hasSmsInboxAccess(smsAccessClient, user.id).catch((err) => {
+			console.warn('Unable to resolve SMS inbox access for profile update', err);
+			return false;
+		}));
 
 	return json({
 		profile,
 		context: extractRecommendationContext(profile?.metadata ?? {}),
+		canManageSms,
+		roadIdProfile: savedSafety.roadIdProfile,
 		safetyProfile: {
 			blood_type: reconciled.blood_type,
 			allergies: reconciled.allergies,
 			medication: reconciled.medication
 		},
 		emergencyContacts: reconciled.emergency_contacts,
-		claimedCodes: safetyState.claimedCodes
+		claimedCodes: safetyState.claimedCodes,
+		linkedCodes: safetyState.linkedCodes
 	});
 }
 
@@ -318,6 +339,7 @@ export async function PATCH({ cookies, request }) {
 		});
 		return json({
 			profile: normalizeProfileShape(synced.profile, reconciled),
+			roadIdProfile: synced.roadIdProfile,
 			safetyProfile: {
 				blood_type: reconciled.blood_type,
 				allergies: reconciled.allergies,

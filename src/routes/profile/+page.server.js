@@ -1,4 +1,5 @@
 import { getActivityClient } from '#lib/server/activities';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 import {
 	BLOOD_TYPE_OPTIONS,
 	isValidRoadIdCode,
@@ -80,6 +81,7 @@ function extractContext(metadata) {
 
 export const load = async ({ cookies, url }) => {
 	const { user, supabase } = await getActivityClient(cookies);
+	const publicOrigin = getConfiguredPublicOrigin();
 	const rawClaimed = url.searchParams.get('claimed') || '';
 	const claimedCode = isValidRoadIdCode(rawClaimed) ? rawClaimed : null;
 
@@ -87,11 +89,14 @@ export const load = async ({ cookies, url }) => {
 		return {
 			currentUser: null,
 			profile: null,
+			roadIdProfile: null,
 			safetyProfile: { blood_type: '', allergies: '', medication: '' },
 			emergencyContacts: [],
 			claimedCodes: [],
+			linkedCodes: [],
 			claimedCode: null,
 			bloodTypeOptions: BLOOD_TYPE_OPTIONS,
+			publicOrigin,
 			context: { location: '', home_location: {}, interests: [], recommendation_focus: [] },
 			hasSmsSubscription: false,
 			smsPreferences: null,
@@ -119,7 +124,7 @@ export const load = async ({ cookies, url }) => {
 			.maybeSingle(),
 		loadRiderSafetyState(supabase, user.id).catch((err) => {
 			console.warn('Unable to load rider safety state for profile page', err);
-			return { roadIdProfile: null, emergencyContacts: [], claimedCodes: [] };
+			return { roadIdProfile: null, emergencyContacts: [], claimedCodes: [], linkedCodes: [] };
 		})
 	]);
 
@@ -149,9 +154,19 @@ export const load = async ({ cookies, url }) => {
 				}
 			: null;
 
+	const roadIdProfile = safetyState.roadIdProfile
+		? {
+				...safetyState.roadIdProfile,
+				blood_type: reconciled.blood_type,
+				allergies: reconciled.allergies,
+				medication: reconciled.medication
+			}
+		: null;
+
 	return {
 		currentUser: user,
 		profile,
+		roadIdProfile,
 		safetyProfile: {
 			blood_type: reconciled.blood_type,
 			allergies: reconciled.allergies,
@@ -159,9 +174,11 @@ export const load = async ({ cookies, url }) => {
 		},
 		emergencyContacts: reconciled.emergency_contacts,
 		claimedCodes: safetyState.claimedCodes,
+		linkedCodes: safetyState.linkedCodes,
 		claimedCode:
 			claimedCode && safetyState.claimedCodes.includes(claimedCode) ? claimedCode : claimedCode,
 		bloodTypeOptions: BLOOD_TYPE_OPTIONS,
+		publicOrigin,
 		context: extractContext(profile?.metadata ?? {}),
 		hasSmsSubscription: Boolean(smsSubscription),
 		smsPreferences: smsSubscription

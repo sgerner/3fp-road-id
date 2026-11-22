@@ -3,6 +3,8 @@ import { resolveVerifiedSession } from '#lib/server/session';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
+import { ensureRoadIdProfileExists } from '#lib/server/roadId';
+import { normalizeContactPhoneInput } from '#lib/server/roadIdProfile';
 
 export async function POST({ request, cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -22,19 +24,21 @@ export async function POST({ request, cookies }) {
 	if (!safeFields) {
 		return json({ error: 'No valid contact fields were provided.' }, { status: 400 });
 	}
+	if (typeof safeFields.contact_phone === 'string') {
+		safeFields.contact_phone = normalizeContactPhoneInput(safeFields.contact_phone);
+	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const existingRoadId = await requestSupabase
-		.from('road_id_profiles')
-		.select('user_id')
-		.eq('user_id', user.id)
-		.maybeSingle();
-
-	if (!existingRoadId.error && !existingRoadId.data) {
-		const seedProfile = await requestSupabase.from('road_id_profiles').insert({ user_id: user.id });
-		if (seedProfile.error) {
-			return json({ error: seedProfile.error.message }, { status: 400 });
-		}
+	const ensured = await ensureRoadIdProfileExists({
+		client: requestSupabase,
+		userId: user.id,
+		fallbackFullName:
+			typeof user.user_metadata?.full_name === 'string'
+				? user.user_metadata.full_name.trim().slice(0, 200)
+				: ''
+	});
+	if (!ensured.ok) {
+		return json({ error: ensured.error }, { status: 400 });
 	}
 
 	const { data, error } = await requestSupabase
