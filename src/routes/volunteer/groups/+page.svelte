@@ -6,7 +6,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import IconBuilding2 from '@lucide/svelte/icons/building-2';
+	import IconBuilding2 from '@lucide/svelte/icons/building-complex';
 
 	const { data } = $props();
 

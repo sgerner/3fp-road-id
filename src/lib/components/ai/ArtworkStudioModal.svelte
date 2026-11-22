@@ -1,7 +1,7 @@
 <script>
 	import { tick } from 'svelte';
 	import IconCheck from '@lucide/svelte/icons/check';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconX from '@lucide/svelte/icons/x';

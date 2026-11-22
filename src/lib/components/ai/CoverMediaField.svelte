@@ -1,8 +1,8 @@
 <script>
 	import IconImage from '@lucide/svelte/icons/image';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconUpload from '@lucide/svelte/icons/upload';
 
 	let {
