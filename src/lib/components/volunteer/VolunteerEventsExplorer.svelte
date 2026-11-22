@@ -1,8 +1,19 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
-	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import {
+		buildMonthGrid,
+		formatEventTime,
+		formatVolunteerSchedule,
+		getTimezoneBadge,
+		getViewerTimezone,
+		parseCalendarDate,
+		startOfMonthFromDateKey,
+		toCivilDateKey,
+		toEventDateKey
+	} from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
-	import { tick } from 'svelte';
+	import { page } from '$app/state';
+	import { onMount, tick } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -64,25 +75,44 @@
 		return e?.host_org?.name ?? e?.host_org?.title ?? e?.host_org_name ?? '';
 	}
 
-	let searchInput = $state('');
-	let appliedSearch = $state('');
-	let locationQ = $state('');
-	let hostGroupId = $state('');
-	let eventType = $state('');
-	let view = $state('list');
-	let mobileFiltersOpen = $state(false);
+	function resolveExplorerView(rawView) {
+		return ['list', 'calendar', 'map'].includes(rawView) ? rawView : 'list';
+	}
+
+	const initialParams = page.url.searchParams;
+	let lastSyncedSearch = initialParams.toString();
+	let searchInput = $state(initialParams.get('search') ?? '');
+	let appliedSearch = $state(initialParams.get('search') ?? '');
+	let locationQ = $state(initialParams.get('location') ?? '');
+	let hostGroupId = $state(initialParams.get('hostGroupId') ?? '');
+	let eventType = $state(initialParams.get('eventType') ?? '');
+	let view = $state(resolveExplorerView(initialParams.get('view')));
+	let mobileFiltersOpen = $state(
+		Boolean(
+			initialParams.get('location') ||
+			initialParams.get('hostGroupId') ||
+			initialParams.get('eventType')
+		)
+	);
+	let viewerTimezone = $state('UTC');
 	let directoryTopEl = $state(null);
 
+	onMount(() => {
+		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
+	});
+
 	$effect(() => {
-		if (!browser) return;
-		const sp = new URLSearchParams(window.location.search);
+		const sp = page.url.searchParams;
+		const nextSearch = sp.toString();
+		if (nextSearch === lastSyncedSearch) return;
+		lastSyncedSearch = nextSearch;
 		searchInput = sp.get('search') ?? '';
 		appliedSearch = searchInput;
 		locationQ = sp.get('location') ?? '';
 		hostGroupId = sp.get('hostGroupId') ?? '';
 		eventType = sp.get('eventType') ?? '';
 		mobileFiltersOpen = Boolean(locationQ || hostGroupId || eventType);
-		view = sp.get('view') ?? 'list';
+		view = resolveExplorerView(sp.get('view'));
 	});
 
 	function scrollToDirectory() {
@@ -100,9 +130,7 @@
 		return id != null ? hostGroupMap.get(String(id)) : undefined;
 	}
 	function parseEventDate(value) {
-		if (!value) return null;
-		const d = new Date(value);
-		return Number.isNaN(d.getTime()) ? null : d;
+		return parseCalendarDate(value);
 	}
 	function hostGroupLocation(group) {
 		if (!group) return '';
@@ -124,21 +152,19 @@
 		return eventHostGroup(event)?.name || '';
 	}
 
-	const df = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
-	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
-
 	function eventTimeRange(event) {
-		const start = parseEventDate(event?.event_start);
-		const end = parseEventDate(event?.event_end);
-		if (!start) return 'Date to be announced';
-		if (!end || end.getTime() === start.getTime()) {
-			return `${df.format(start)} · ${tf.format(start)}`.trim();
-		}
-		const sameDay = start.toDateString() === end.toDateString();
-		if (sameDay) {
-			return `${df.format(start)} · ${tf.format(start)} – ${tf.format(end)}`.trim();
-		}
-		return `${df.format(start)} ${tf.format(start)} → ${df.format(end)} ${tf.format(end)}`.trim();
+		return (
+			formatVolunteerSchedule(event?.event_start, event?.event_end, event?.timezone) ||
+			'Date to be announced'
+		);
+	}
+
+	function eventStartTime(event) {
+		return formatEventTime(event?.event_start, event?.timezone);
+	}
+
+	function eventTimezoneBadge(event) {
+		return getTimezoneBadge(event?.event_start, event?.timezone, viewerTimezone);
 	}
 
 	function coordsFor(e) {
@@ -218,13 +244,9 @@
 	);
 	const totalUpcoming = $derived(filteredEvents.length);
 
-	function toDateKey(date) {
-		if (!date) return '';
-		return date.toISOString().slice(0, 10);
-	}
 	const eventsByDate = $derived(
 		filteredEvents.reduce((acc, e) => {
-			const key = toDateKey(parseEventDate(e.event_start));
+			const key = toEventDateKey(e.event_start, e.timezone);
 			if (!key) return acc;
 			(acc[key] ??= []).push(e);
 			return acc;
@@ -236,8 +258,8 @@
 	}
 	function earliestEventMonth() {
 		const first = filteredEvents[0] ?? sortedEvents[0];
-		const start = parseEventDate(first?.event_start);
-		return start ? startOfMonth(start) : startOfMonth(new Date());
+		const key = first ? toEventDateKey(first.event_start, first.timezone) : '';
+		return key ? startOfMonthFromDateKey(key) : startOfMonth(new Date());
 	}
 
 	let calendarReference = $state(earliestEventMonth());
@@ -247,11 +269,11 @@
 		calendarReference = startOfMonth(next);
 	}
 
-	const calendarMatrix = $derived(buildMonthGrid(calendarReference, eventsByDate, toDateKey));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, eventsByDate, toCivilDateKey));
 
-	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+	const calendarDayFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' });
 	const calendarHeaderText = $derived.by(() => {
-		const monthLabel = new Intl.DateTimeFormat(undefined, {
+		const monthLabel = new Intl.DateTimeFormat('en-US', {
 			month: 'long',
 			year: 'numeric'
 		}).format(calendarReference);
@@ -324,13 +346,31 @@
 			const m = leafletModule.marker(coords).addTo(markerLayer);
 			const popup = document.createElement('div');
 			popup.className = 'space-y-1 text-sm';
+			popup.style.maxWidth = '240px';
+			popup.style.overflowWrap = 'anywhere';
 			const link = document.createElement('a');
 			link.href = `/volunteer/${e.slug}`;
 			link.className = 'text-secondary-600-400 font-semibold hover:underline';
 			link.textContent = e.title || 'Volunteer event';
 			popup.appendChild(link);
 			const t = document.createElement('div');
-			t.textContent = eventTimeRange(e);
+			t.className = 'flex flex-wrap items-center gap-1.5';
+			const timeSpan = document.createElement('span');
+			timeSpan.textContent = eventTimeRange(e);
+			t.appendChild(timeSpan);
+			const tzBadge = eventTimezoneBadge(e);
+			if (tzBadge) {
+				const badgeEl = document.createElement('span');
+				badgeEl.textContent = tzBadge;
+				badgeEl.style.padding = '1px 5px';
+				badgeEl.style.fontSize = '10px';
+				badgeEl.style.fontWeight = '800';
+				badgeEl.style.letterSpacing = '0.08em';
+				badgeEl.style.textTransform = 'uppercase';
+				badgeEl.style.background = '#09090b';
+				badgeEl.style.color = '#eab308';
+				t.appendChild(badgeEl);
+			}
 			popup.appendChild(t);
 			const loc = eventLocation(e);
 			if (loc) {
@@ -364,6 +404,8 @@
 		if (browser && view === 'map') tick().then(() => activateMap());
 	});
 	$effect(() => {
+		void filteredEvents;
+		void viewerTimezone;
 		if (browser && view === 'map' && mapInstance) queueMarkerUpdate();
 	});
 	$effect(() => () => {
@@ -641,6 +683,7 @@
 					<ol class="border-surface-50 m-0 list-none border-t-2 p-0">
 						{#each filteredEvents as event, i (event.id)}
 							{@const hostGroup = eventHostGroup(event)}
+							{@const listTzBadge = eventTimezoneBadge(event)}
 							{@const eventOpportunityCount = opportunities.filter(
 								(opportunity) =>
 									String(opportunity?.event_id ?? opportunity?.eventId) === String(event.id)
@@ -682,8 +725,17 @@
 											{event.title}
 										</a>
 
-										<div class="text-primary-500 text-sm font-bold tracking-wide uppercase">
-											{eventTimeRange(event)}
+										<div
+											class="text-primary-500 flex flex-wrap items-center gap-2 text-sm font-bold tracking-wide uppercase"
+										>
+											<span>{eventTimeRange(event)}</span>
+											{#if listTzBadge}
+												<span
+													class="border-surface-600 bg-surface-900 text-primary-500 shrink-0 border px-2 py-0.5 text-[11px] leading-none font-black tracking-[0.14em] uppercase"
+												>
+													{listTzBadge}
+												</span>
+											{/if}
 										</div>
 
 										{#if event.summary}
@@ -795,14 +847,22 @@
 								</div>
 								<div class="mt-2 flex flex-col gap-1.5">
 									{#each day.items as event (event.id)}
+										{@const mobileTzBadge = eventTimezoneBadge(event)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline pointer-coarse:min-h-11"
 											href={`/volunteer/${event.slug}`}
 										>
-											<span class="text-primary-500 font-mono text-xs">
-												{tf.format(parseEventDate(event.event_start))} -
+											<span class="text-primary-500 shrink-0 font-mono text-xs tabular-nums">
+												{eventStartTime(event)}
 											</span>
-											{event.title}
+											{#if mobileTzBadge}
+												<span
+													class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+												>
+													{mobileTzBadge}
+												</span>
+											{/if}
+											<span class="min-w-0 wrap-anywhere">- {event.title}</span>
 										</a>
 									{/each}
 								</div>
@@ -849,14 +909,22 @@
 													<p class="text-surface-300 m-0 text-[11px] opacity-50">No events</p>
 												{:else}
 													{#each day.items.slice(0, 3) as event (event.id)}
+														{@const chipTzBadge = eventTimezoneBadge(event)}
 														<a
-															class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
+															class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex min-w-0 items-center gap-1 px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
 															href={`/volunteer/${event.slug}`}
 														>
-															<span class="font-mono text-[10px]">
-																{tf.format(parseEventDate(event.event_start))} -
+															<span class="shrink-0 font-mono text-[10px] tabular-nums">
+																{eventStartTime(event)}
 															</span>
-															{event.title}
+															{#if chipTzBadge}
+																<span
+																	class="bg-surface-950 text-primary-500 shrink-0 px-1 py-0.5 text-[9px] leading-none font-black tracking-wider uppercase"
+																>
+																	{chipTzBadge}
+																</span>
+															{/if}
+															<span class="min-w-0 truncate">{event.title}</span>
 														</a>
 													{/each}
 												{/if}
@@ -869,7 +937,8 @@
 													items={day.items.map((event) => ({
 														href: `/volunteer/${event.slug}`,
 														title: event.title,
-														time: tf.format(parseEventDate(event.event_start))
+														time: eventStartTime(event),
+														timezoneBadge: eventTimezoneBadge(event)
 													}))}
 												/>
 											{/if}
