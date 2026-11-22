@@ -64,7 +64,7 @@ jobs:
       - run: npm ci
       - name: Start local Supabase stack
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,mailpit,realtime,supavisor,postgres-meta
-      - run: npm test
+      - run: node scripts/with-webhook-test-server.mjs npm test
       - run: npm run test:db
 
   deploy-farin:
