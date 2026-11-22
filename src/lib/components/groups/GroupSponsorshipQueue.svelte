@@ -2,7 +2,7 @@
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconHandshake from '@lucide/svelte/icons/handshake';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconX from '@lucide/svelte/icons/x';
 
 	let {

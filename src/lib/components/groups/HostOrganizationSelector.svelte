@@ -1,7 +1,7 @@
 <script>
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconX from '@lucide/svelte/icons/x';
 	import {
@@ -342,7 +342,7 @@
 
 <svelte:window onclick={handleWindowClick} />
 
-<div class="host-org-selector flex flex-col gap-2" bind:this={containerEl}>
+<div class="host-org-selector flex min-w-0 flex-col gap-2" bind:this={containerEl}>
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<label class="text-surface-100 text-sm font-bold" for={inputId}>
 			{label}

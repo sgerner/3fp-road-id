@@ -1,5 +1,5 @@
 <script>
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 
 	export let eventDetails;
 	export let opportunities = [];
