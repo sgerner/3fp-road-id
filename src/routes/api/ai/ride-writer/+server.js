@@ -1,16 +1,6 @@
-import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
-import { json } from '@sveltejs/kit';
-import {
-	getAiConfigurationError,
-	isAiModelConfigured,
-	requireAiModel
-} from '#lib/server/ai/models';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
-import { resolveVerifiedSession } from '#lib/server/session';
+import { createAiWriterRoute } from '#lib/server/aiWriterRoute.js';
 
 export const config = { maxDuration: 60 };
-
-let schemaUnsupported = false;
 
 const RESPONSE_SCHEMA = {
 	type: 'object',
@@ -148,68 +138,8 @@ function formatMessages(messages) {
 		.slice(0, 20_000);
 }
 
-async function generateRideDraft({ prompt, useSchema = true }) {
-	const { client, model } = requireAiModel('structured_text');
-	const config = {};
-	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
-	config.responseMimeType = 'application/json';
-	return client.generateContent({
-		model: model.model,
-		contents: prompt,
-		config
-	});
-}
-
-function normalizeAiPayload(parsed, rawText = '') {
-	const draft = parsed?.draft ?? null;
-	const followUpQuestions = Array.isArray(parsed?.follow_up_questions)
-		? parsed.follow_up_questions.filter((item) => typeof item === 'string' && item.trim())
-		: null;
-	const reply =
-		typeof parsed?.reply === 'string' && parsed.reply.trim()
-			? parsed.reply.trim()
-			: rawText.trim() ||
-				(draft
-					? 'Draft is ready. Review it, tweak anything you want, then apply it to the form.'
-					: 'I need a little more detail to turn this into a ride draft.');
-
-	return {
-		reply,
-		follow_up_questions: followUpQuestions,
-		draft
-	};
-}
-
-export async function POST(event) {
-	const { request, cookies } = event;
-	const limitedByIp = enforceRateLimit(event, {
-		name: 'ai-ride-writer-ip',
-		limit: 60,
-		windowMs: 10 * 60 * 1000
-	});
-	if (limitedByIp) return limitedByIp;
-	const { user } = await resolveVerifiedSession(cookies);
-	if (!user?.id) return json({ error: 'Authentication required.' }, { status: 401 });
-	const limited = enforceRateLimit(event, {
-		name: 'ai-ride-writer-user',
-		limit: 30,
-		windowMs: 10 * 60 * 1000,
-		key: user.id
-	});
-	if (limited) return limited;
-
-	if (!isAiModelConfigured('structured_text')) {
-		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
-	}
-
-	const parsedBody = await readJsonBody(request, { maxBytes: 128 * 1024 });
-	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
-	const payload = parsedBody.value;
-	if (!payload || !Array.isArray(payload.messages)) {
-		return json({ error: 'messages array required' }, { status: 400 });
-	}
-
-	const prompt = `
+function buildPrompt(payload) {
+	return `
 You are Ride Muse, a concise and witty AI co-planner for community bike rides.
 
 Style:
@@ -234,34 +164,37 @@ Known context:
 ${formatContext(payload.context)}
 
 Respond with JSON matching the schema.`;
-
-	try {
-		const response = await generateRideDraft({
-			prompt,
-			useSchema: !schemaUnsupported
-		});
-
-		let text = response?.text ?? '';
-		const parsed = safeParseJson(text);
-		return json(normalizeAiPayload(parsed, text));
-	} catch (error) {
-		if (!schemaUnsupported && isSchemaUnsupportedError(error)) {
-			schemaUnsupported = true;
-			try {
-				const fallbackResponse = await generateRideDraft({
-					prompt,
-					useSchema: false
-				});
-				let text = fallbackResponse?.text ?? '';
-				const parsed = safeParseJson(text);
-				return json(normalizeAiPayload(parsed, text));
-			} catch (fallbackError) {
-				console.error('Ride writer fallback failed', fallbackError);
-				return json({ error: 'Unable to generate ride draft right now.' }, { status: 500 });
-			}
-		}
-
-		console.error('Ride writer failed', error);
-		return json({ error: 'Unable to generate ride draft right now.' }, { status: 500 });
-	}
 }
+
+function normalizeAiPayload(parsed, rawText = '') {
+	const draft = parsed?.draft ?? null;
+	const followUpQuestions = Array.isArray(parsed?.follow_up_questions)
+		? parsed.follow_up_questions.filter((item) => typeof item === 'string' && item.trim())
+		: null;
+	const reply =
+		typeof parsed?.reply === 'string' && parsed.reply.trim()
+			? parsed.reply.trim()
+			: rawText.trim() ||
+				(draft
+					? 'Draft is ready. Review it, tweak anything you want, then apply it to the form.'
+					: 'I need a little more detail to turn this into a ride draft.');
+
+	return {
+		reply,
+		follow_up_questions: followUpQuestions,
+		draft
+	};
+}
+
+export const POST = createAiWriterRoute({
+	rateLimit: {
+		ipName: 'ai-ride-writer-ip',
+		userName: 'ai-ride-writer-user'
+	},
+	responseSchema: RESPONSE_SCHEMA,
+	responseMimeType: 'application/json',
+	errorLabel: 'Ride writer',
+	errorMessage: 'Unable to generate ride draft right now.',
+	buildContents: buildPrompt,
+	normalizePayload: normalizeAiPayload
+});
