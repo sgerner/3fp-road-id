@@ -4,6 +4,7 @@ import {
 	assertFinancialConnectionsSessionOwnership,
 	dedupeRowsByKey,
 	feedItemAmountCents,
+	feedItemDescription,
 	forEachStripeListItem,
 	mercuryAccountPages,
 	mercuryInternalTransferPairs,
@@ -54,6 +55,38 @@ test('provider transaction amounts preserve provider-specific polarity and cents
 	assert.equal(feedItemAmountCents('mercury', { amount: -12.34 }), -1234);
 	assert.equal(feedItemAmountCents('stripe_financial_connections', { amount_cents: -1234 }), -1234);
 	assert.equal(feedItemAmountCents('stripe', { amount_cents: 2450 }), 2450);
+});
+
+test('provider feed item descriptions format Mercury and default activity with fallbacks', () => {
+	assert.equal(
+		feedItemDescription('mercury', {
+			counterpartyName: 'Local Bike Shop',
+			memo: 'Tubes and patch kits'
+		}),
+		'Local Bike Shop'
+	);
+	assert.equal(
+		feedItemDescription('mercury', { externalMemo: '  Permit reimbursement  ' }),
+		'Permit reimbursement'
+	);
+	assert.equal(
+		feedItemDescription('mercury', { counterpartyName: '   ', memo: '' }),
+		'Mercury activity'
+	);
+	assert.equal(feedItemDescription('mercury'), 'Mercury activity');
+	assert.equal(
+		feedItemDescription('stripe_financial_connections', {
+			name: 'Coffee Roasters',
+			description: 'Card purchase'
+		}),
+		'Coffee Roasters'
+	);
+	assert.equal(
+		feedItemDescription('stripe', { description: 'Monthly donation' }),
+		'Monthly donation'
+	);
+	assert.equal(feedItemDescription('stripe', { memo: 'Sponsor payout' }), 'Sponsor payout');
+	assert.equal(feedItemDescription('stripe', {}), 'Imported activity');
 });
 
 test('Stripe balance feed splits fees into deterministic signed rows that reconcile to net', () => {

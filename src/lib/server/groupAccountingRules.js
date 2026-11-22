@@ -335,7 +335,7 @@ export function normalizedMatchText(value) {
 		.trim();
 }
 
-export function entryUsesAccount(entry, accountId) {
+function entryUsesAccount(entry, accountId) {
 	if (!accountId) return false;
 	return (entry.lines ?? []).some((line) => line.account_id === accountId);
 }
