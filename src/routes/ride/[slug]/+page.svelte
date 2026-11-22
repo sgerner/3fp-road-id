@@ -15,6 +15,7 @@
 	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
 	import { escapeHtml } from '#lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
+	import { formatRideSchedule, getTimezoneBadge, getViewerTimezone } from '#lib/calendar/monthGrid';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
@@ -47,6 +48,7 @@
 	let nowMs = $state(Date.now());
 	let heroRsvpEl = $state(null);
 	let showStickyRsvpBar = $state(false);
+	let viewerTimezone = $state('UTC');
 	let mapEl = $state(null);
 	let map;
 	let marker;
@@ -254,6 +256,7 @@
 	});
 
 	onMount(() => {
+		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
 		const timer = window.setInterval(() => (nowMs = Date.now()), 60_000);
 		return () => window.clearInterval(timer);
 	});
@@ -263,10 +266,25 @@
 		return occurrence?.status === 'scheduled' && Number.isFinite(startsAt) && startsAt > nowMs;
 	}
 
+	function resolveOccurrenceTimezone(occurrence) {
+		return occurrence?.timezone || activity?.timezone || null;
+	}
+
 	function occurrenceLabel(occurrence) {
-		const start = new Date(occurrence.starts_at);
-		const end = new Date(occurrence.ends_at);
-		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+		return formatRideSchedule(
+			occurrence?.starts_at,
+			occurrence?.ends_at,
+			resolveOccurrenceTimezone(occurrence),
+			{ rangeSeparator: ' - ' }
+		);
+	}
+
+	function occurrenceTimezoneBadge(occurrence) {
+		return getTimezoneBadge(
+			occurrence?.starts_at,
+			resolveOccurrenceTimezone(occurrence),
+			viewerTimezone
+		);
 	}
 
 	function selectedOccurrenceCalendarLinks() {
@@ -491,12 +509,22 @@
 					</p>
 				{/if}
 				{#if selectedOccurrence}
+					{@const heroOccBadge = occurrenceTimezoneBadge(selectedOccurrence)}
 					<p
 						class="border-surface-950 m-0 inline-flex flex-wrap items-center gap-2 border-l-[4px] pl-3 text-sm font-black tracking-wide uppercase"
 					>
-						{activity?.start_location_name
-							? `${activity.start_location_name} · `
-							: ''}{occurrenceLabel(selectedOccurrence)}
+						<span
+							>{activity?.start_location_name
+								? `${activity.start_location_name} · `
+								: ''}{occurrenceLabel(selectedOccurrence)}</span
+						>
+						{#if heroOccBadge}
+							<span
+								class="bg-surface-950 text-primary-500 shrink-0 px-2 py-0.5 text-xs leading-none font-black tracking-[0.14em] uppercase"
+							>
+								{heroOccBadge}
+							</span>
+						{/if}
 					</p>
 				{/if}
 			</div>
@@ -925,6 +953,7 @@
 				<div class="border-surface-50 border-t-2">
 					{#if visibleOccurrences.length}
 						{#each visibleOccurrences as occurrence, i (occurrence.id)}
+							{@const occTzBadge = occurrenceTimezoneBadge(occurrence)}
 							<button
 								type="button"
 								class={`border-surface-800 flex w-full items-center justify-between gap-4 border-b px-4 py-5 text-left transition ${
@@ -946,8 +975,21 @@
 										{String(i + 1).padStart(2, '0')}
 									</span>
 									<div class="min-w-0">
-										<div class="text-base font-black uppercase sm:text-lg">
-											{occurrenceLabel(occurrence)}
+										<div
+											class="flex flex-wrap items-center gap-2 text-base font-black uppercase sm:text-lg"
+										>
+											<span>{occurrenceLabel(occurrence)}</span>
+											{#if occTzBadge}
+												<span
+													class={`shrink-0 border px-2 py-0.5 text-xs leading-none font-black tracking-[0.14em] uppercase ${
+														String(selectedOccurrence?.id) === String(occurrence.id)
+															? 'border-surface-950 bg-surface-950 text-primary-500'
+															: 'border-surface-500 bg-surface-900 text-primary-500'
+													}`}
+												>
+													{occTzBadge}
+												</span>
+											{/if}
 										</div>
 										<div class="mt-0.5 text-sm opacity-80">
 											{@html renderLinkifiedText(
@@ -1136,6 +1178,7 @@
 	{/if}
 
 	{#if selectedOccurrence && showStickyRsvpBar}
+		{@const stickyOccBadge = occurrenceTimezoneBadge(selectedOccurrence)}
 		<div
 			role="region"
 			aria-label="Selected occurrence RSVP actions"
@@ -1145,9 +1188,16 @@
 			<div class="flex flex-col gap-2 px-4 py-2.5">
 				<div class="flex items-center justify-between gap-2">
 					<p
-						class="text-surface-50 m-0 min-w-0 truncate text-xs font-black tracking-wide uppercase"
+						class="text-surface-50 m-0 flex min-w-0 items-center gap-2 text-xs font-black tracking-wide uppercase"
 					>
-						{occurrenceLabel(selectedOccurrence)}
+						<span class="min-w-0 truncate">{occurrenceLabel(selectedOccurrence)}</span>
+						{#if stickyOccBadge}
+							<span
+								class="border-surface-500 bg-surface-900 text-primary-300 shrink-0 border px-2 py-0.5 text-[0.65rem] leading-none font-black tracking-[0.14em] uppercase"
+							>
+								{stickyOccBadge}
+							</span>
+						{/if}
 					</p>
 					{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
 						<span
