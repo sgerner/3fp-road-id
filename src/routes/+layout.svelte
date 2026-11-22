@@ -5,7 +5,7 @@
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { toaster } from './toaster-svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
@@ -69,6 +69,7 @@
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
+	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
 	let loginIntent = $state(null);
@@ -78,7 +79,11 @@
 	let showUserMenu = $state(false);
 	let userMenuFocusIndex = $state(0);
 	let email = $state('');
-	let loading = $state(false);
+	let mobileLoginBusy = $state(false);
+	let desktopLoginBusy = $state(false);
+	let mobileLoginTurnstile = $state(null);
+	let desktopLoginTurnstile = $state(null);
+	const loading = $derived(mobileLoginBusy || desktopLoginBusy);
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
@@ -94,10 +99,13 @@
 	let supabaseClient = null;
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
-	const turnstileEnabled = $derived(
-		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
-	);
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
+	const canManageSms = $derived(
+		Boolean(user) &&
+			(userProfile?.admin === true ||
+				ownedGroups.length > 0 ||
+				(profileCanManageSms ?? (data?.user?.id === user?.id && Boolean(data?.canManageSms))))
+	);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -231,7 +239,8 @@
 		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 		event.preventDefault();
 		event.stopPropagation();
-		const targetIndex = event.key === 'ArrowDown' ? 0 : themeOptions.length + 5;
+		const targetIndex =
+			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 6 : 5);
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -292,18 +301,24 @@
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
+			profileCanManageSms = false;
 			return;
 		}
 		try {
 			const response = await fetch('/api/profile');
 			if (!response.ok) {
 				userProfile = null;
+				profileCanManageSms = false;
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
 			userProfile = payload?.profile ?? null;
+			if (typeof payload?.canManageSms === 'boolean') {
+				profileCanManageSms = payload.canManageSms;
+			}
 		} catch {
 			userProfile = null;
+			profileCanManageSms = false;
 		}
 	}
 
@@ -416,6 +431,8 @@
 				: null;
 			error = '';
 			success = '';
+			mobileLoginTurnstile?.clearError();
+			desktopLoginTurnstile?.clearError();
 			showMobileMenu = false;
 			showLogin = true;
 			void initSession();
@@ -427,7 +444,7 @@
 			if (e.key === 'Tab') {
 				const controls = Array.from(
 					loginContainerEl?.querySelectorAll(
-						'input:not([tabindex="-1"]), button:not(:disabled), a[href]'
+						'input:not([tabindex="-1"]), button:not(:disabled), a[href], [data-turnstile-interactive="true"]'
 					) || []
 				).filter((el) => el.getClientRects().length);
 				const first = controls[0];
@@ -494,6 +511,9 @@
 			}
 			if (profile?.user_id && user?.id && String(profile.user_id) !== String(user.id)) return;
 			userProfile = profile;
+			if (typeof event?.detail?.canManageSms === 'boolean') {
+				profileCanManageSms = event.detail.canManageSms;
+			}
 		}
 		// Also close mobile menu on outside click / escape
 		const onDocClickMenu = (e) => {
@@ -527,65 +547,61 @@
 		};
 	});
 
-	async function doLogin(e) {
+	async function doLogin(e, turnstileControl) {
 		e.preventDefault();
-		if (loading) return;
-		const verificationEl = e.currentTarget.querySelector('[data-login-verification]');
+		if (loading || !turnstileControl) return;
 		error = '';
 		success = '';
-		loading = true;
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		const intent = activeLoginIntent;
-		try {
-			void initSession();
-			if (honeypot.trim()) {
-				error = 'Invalid submission.';
-				return;
-			}
-			if (!emailValid) {
-				error = 'Enter a valid email address.';
-				return;
-			}
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				const { requestTurnstileToken } = await import('#lib/security/turnstile');
-				turnstileToken = await requestTurnstileToken(verificationEl, PUBLIC_TURNSTILE_SITE_KEY);
-				if (!turnstileToken) {
-					error = 'Verification failed. Please try again.';
-					return;
+		await turnstileControl.submit({
+			validate: () => {
+				void initSession();
+				if (honeypot.trim()) {
+					error = 'Invalid submission.';
+					return false;
+				}
+				if (!emailValid) {
+					error = 'Enter a valid email address.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					let rt = '/';
+					if (typeof window !== 'undefined') {
+						const currentUrl = new URL(window.location.href);
+						const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
+						rt =
+							currentUrl.searchParams.get('auth') === 'required' &&
+							isSafeInternalPath(requestedReturnTo)
+								? requestedReturnTo
+								: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+					}
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email,
+							createProfile: true,
+							returnTo: intent?.returnTo ?? rt,
+							honeypot,
+							turnstileToken
+						})
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send magic link');
+					}
+					success = `We sent a login link to ${email}.`;
+					honeypot = '';
+				} catch (err) {
+					error = err.message || 'Login failed.';
 				}
 			}
-			let rt = '/';
-			if (typeof window !== 'undefined') {
-				const currentUrl = new URL(window.location.href);
-				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
-				rt =
-					currentUrl.searchParams.get('auth') === 'required' &&
-					isSafeInternalPath(requestedReturnTo)
-						? requestedReturnTo
-						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
-			}
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					createProfile: true,
-					returnTo: intent?.returnTo ?? rt,
-					honeypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send magic link');
-			}
-			success = `We sent a login link to ${email}.`;
-			honeypot = '';
-		} catch (err) {
-			error = err.message || 'Login failed.';
-		} finally {
-			loading = false;
-		}
+		});
 	}
 
 	async function doLogout() {
@@ -597,6 +613,7 @@
 		email = '';
 		userProfile = null;
 		ownedGroups = [];
+		profileCanManageSms = false;
 	}
 
 	function toggleLogin() {
@@ -607,6 +624,8 @@
 		loginIntent = null;
 		error = '';
 		success = '';
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		showLogin = true;
 		void initSession();
 	}
@@ -823,10 +842,29 @@
 											Profile
 										</a>
 										<a
-											href={myGroupsMenuHref}
+											href="/profile#road-id"
 											class="profile-menu-item"
 											role="menuitem"
 											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
+										>
+											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
+											Emergency ID
+										</a>
+										<a
+											href={myGroupsMenuHref}
+											class="profile-menu-item"
+											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -836,29 +874,33 @@
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Volunteer shifts
 										</a>
-										<a
-											href="/messages"
-											class="profile-menu-item"
-											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
-											onclick={() => (showUserMenu = false)}
-										>
-											<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
-											SMS inbox
-										</a>
+										{#if canManageSms}
+											<a
+												href="/messages"
+												class="profile-menu-item"
+												role="menuitem"
+												tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
+												SMS inbox
+											</a>
+										{/if}
 										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
 										<button
 											type="button"
 											class="profile-menu-item w-full"
 											onclick={doLogout}
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 6 : 5)
+												? 0
+												: -1}
 										>
 											<IconLogOut class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Log out
@@ -891,7 +933,7 @@
 								<div bind:this={loginContainerEl}>
 									<form
 										class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, mobileLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -924,7 +966,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full pointer-coarse:min-h-11"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={mobileLoginTurnstile}
+											bind:busy={mobileLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -947,7 +994,7 @@
 
 									<form
 										class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, desktopLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -972,7 +1019,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={desktopLoginTurnstile}
+											bind:busy={desktopLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}

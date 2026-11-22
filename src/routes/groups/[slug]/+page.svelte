@@ -28,8 +28,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { fade, slide } from 'svelte/transition';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import {
 		buildAbsoluteUrl,
 		buildCanonicalUrl,
@@ -182,28 +181,7 @@
 	let claimSuccess = $state('');
 	let claimHoneypot = $state('');
 	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
-
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
+	let claimTurnstile = $state(null);
 
 	async function claimGroup() {
 		claimError = '';
@@ -232,6 +210,7 @@
 
 	async function sendClaimLogin(e) {
 		e?.preventDefault?.();
+		if (claimLoading || !claimTurnstile) return;
 		claimError = '';
 		claimSuccess = '';
 		const groupSlug = data.group?.slug;
@@ -239,59 +218,45 @@
 			claimError = 'Group is unavailable.';
 			return;
 		}
-		if (!claimEmailValid) {
-			claimError = 'Enter a valid email address.';
-			return;
-		}
-		if (claimHoneypot.trim()) {
-			claimError = 'Invalid submission.';
-			return;
-		}
-		claimLoading = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					claimError = 'Verification failed. Please reload and try again.';
-					claimLoading = false;
-					return;
+		await claimTurnstile.submit({
+			validate: () => {
+				if (!claimEmailValid) {
+					claimError = 'Enter a valid email address.';
+					return false;
 				}
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
-				if (!turnstileToken) {
-					claimError = 'Verification failed. Please try again.';
-					claimLoading = false;
-					return;
+				if (claimHoneypot.trim()) {
+					claimError = 'Invalid submission.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const url = new URL(window.location.href);
+					url.searchParams.set('auto_claim_group', groupSlug);
+					const rt = `${url.pathname}${url.search}${url.hash}`;
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email: claimEmail,
+							createProfile: true,
+							returnTo: rt,
+							honeypot: claimHoneypot,
+							turnstileToken
+						})
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send magic link');
+					}
+					claimSuccess = `We sent a login link to ${claimEmail}. After logging in, you'll be directed to the edit page for this group.`;
+					claimHoneypot = '';
+				} catch (err) {
+					claimError = err.message || 'Login failed.';
 				}
 			}
-			const url = new URL(window.location.href);
-			url.searchParams.set('auto_claim_group', groupSlug);
-			const rt = `${url.pathname}${url.search}${url.hash}`;
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: claimEmail,
-					createProfile: true,
-					returnTo: rt,
-					honeypot: claimHoneypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send magic link');
-			}
-			claimSuccess = `We sent a login link to ${claimEmail}. After logging in, you'll be directed to the edit page for this group.`;
-			claimHoneypot = '';
-		} catch (err) {
-			claimError = err.message || 'Login failed.';
-		} finally {
-			claimLoading = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				resetTurnstile(turnstileWidgetId);
-			}
-		}
+		});
 	}
 
 	const contactLinks = $derived(buildContactLinks(data.group));
@@ -950,12 +915,6 @@
 							class="bg-surface-950 text-surface-50 flex max-w-xl flex-col gap-4 p-6"
 							onsubmit={sendClaimLogin}
 						>
-							<div
-								aria-hidden="true"
-								style="position: absolute; width: 0; height: 0; overflow: hidden;"
-							>
-								<div bind:this={turnstileEl}></div>
-							</div>
 							<input
 								type="text"
 								name="website"
@@ -981,6 +940,11 @@
 									required
 								/>
 							</div>
+							<TurnstileVerification
+								bind:this={claimTurnstile}
+								bind:busy={claimLoading}
+								enabled={data.turnstileEnabled !== false}
+							/>
 							{#if claimError}
 								<div class="text-tertiary-400 text-xs font-bold">{claimError}</div>
 							{/if}

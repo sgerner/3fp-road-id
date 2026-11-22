@@ -1,8 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { onMount } from 'svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import IconHandshake from '@lucide/svelte/icons/handshake';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
@@ -21,13 +19,11 @@
 
 	let { data, form } = $props();
 
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
-	let captchaError = $state('');
+	let interestTurnstile = $state(null);
+	let interestSubmitting = $state(false);
+	let clientInterestError = $state('');
 
-	const turnstileEnabled = $derived(
-		!data?.user?.id && Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
-	);
+	const turnstileEnabled = $derived(!data?.user?.id && data.turnstileEnabled !== false);
 	const selectedOpportunityIds = $derived(
 		Array.isArray(form?.interestValues?.opportunityIds) ? form.interestValues.opportunityIds : []
 	);
@@ -46,8 +42,12 @@
 		})
 	);
 
-	// Local checkbox state for interactive selection
+	// Local checkbox and field state for interactive selection and retry preservation
 	let checkedIds = $derived([...selectedOpportunityIds]);
+	let fullName = $derived(form?.interestValues?.fullName ?? data.prefill?.fullName ?? '');
+	let email = $derived(form?.interestValues?.email ?? data.prefill?.email ?? '');
+	let phone = $derived(form?.interestValues?.phone ?? data.prefill?.phone ?? '');
+	let message = $derived(form?.interestValues?.message ?? '');
 
 	function toggleOpportunity(id) {
 		const s = new Set(checkedIds);
@@ -56,49 +56,37 @@
 		checkedIds = Array.from(s);
 	}
 
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
+	function validateInterestForm({ formData }) {
+		const opportunityIds = formData
+			.getAll('opportunityIds')
+			.map((value) => String(value ?? '').trim())
+			.filter(Boolean);
+		if (!opportunityIds.length) {
+			clientInterestError = 'Choose at least one opportunity.';
+			return false;
 		}
+		const fullName = String(formData.get('fullName') ?? '').trim();
+		if (!fullName) {
+			clientInterestError = 'Name is required.';
+			return false;
+		}
+		const email = String(formData.get('email') ?? '').trim();
+		if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+			clientInterestError = 'A valid email is required.';
+			return false;
+		}
+		return true;
 	}
 
-	onMount(() => {
-		if (turnstileEnabled) {
-			void initTurnstile();
+	function enhanceInterestForm(submitInput) {
+		clientInterestError = '';
+		if (!interestTurnstile) {
+			submitInput.cancel();
+			return;
 		}
-	});
-
-	async function enhanceInterestForm({ formData, cancel }) {
-		captchaError = '';
-		if (turnstileEnabled) {
-			await initTurnstile();
-			if (!turnstileWidgetId) {
-				captchaError = 'Verification failed. Please reload and try again.';
-				cancel();
-				return;
-			}
-			const token = await executeTurnstile(turnstileWidgetId);
-			if (!token) {
-				captchaError = 'Verification failed. Please try again.';
-				cancel();
-				return;
-			}
-			formData.set('turnstileToken', token);
-		}
-
-		return async ({ update }) => {
-			await update({ reset: false });
-			if (turnstileEnabled && turnstileWidgetId) {
-				resetTurnstile(turnstileWidgetId);
-			}
-		};
+		return interestTurnstile.enhance({
+			validate: validateInterestForm
+		})(submitInput);
 	}
 
 	// Pick an icon per opportunity based on keywords in the title
@@ -454,8 +442,6 @@
 					use:enhance={enhanceInterestForm}
 					class="flex flex-col gap-6"
 				>
-					<input type="hidden" name="turnstileToken" value="" />
-
 					<!-- Contact fields -->
 					<div class="grid gap-4 sm:grid-cols-2">
 						<div class="flex flex-col gap-1.5">
@@ -471,7 +457,7 @@
 								type="text"
 								required
 								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
-								value={form?.interestValues?.fullName ?? data.prefill?.fullName ?? ''}
+								bind:value={fullName}
 							/>
 						</div>
 						<div class="flex flex-col gap-1.5">
@@ -487,7 +473,7 @@
 								type="email"
 								required
 								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
-								value={form?.interestValues?.email ?? data.prefill?.email ?? ''}
+								bind:value={email}
 							/>
 						</div>
 					</div>
@@ -504,7 +490,7 @@
 							name="phone"
 							type="tel"
 							class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
-							value={form?.interestValues?.phone ?? data.prefill?.phone ?? ''}
+							bind:value={phone}
 						/>
 					</div>
 
@@ -521,34 +507,22 @@
 							class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 							rows="3"
 							placeholder="Tell us a bit about yourself, your availability, or anything else..."
-							>{form?.interestValues?.message ?? ''}</textarea
-						>
+							bind:value={message}></textarea>
 					</div>
 
-					{#if turnstileEnabled}
-						<p class="text-surface-300 m-0 text-xs">Protected by Cloudflare Turnstile.</p>
-						<div
-							aria-hidden="true"
-							style="position: absolute; width: 0; height: 0; overflow: hidden;"
-						>
-							<div bind:this={turnstileEl}></div>
-						</div>
-					{/if}
+					<TurnstileVerification
+						bind:this={interestTurnstile}
+						bind:busy={interestSubmitting}
+						name="turnstileToken"
+						enabled={turnstileEnabled}
+					/>
 
-					{#if form?.interestError}
+					{#if clientInterestError || form?.interestError}
 						<div
 							class="border-tertiary-500 bg-surface-900 text-surface-50 border-l-4 px-4 py-3 text-sm font-bold"
 							in:slide
 						>
-							{form.interestError}
-						</div>
-					{/if}
-					{#if captchaError}
-						<div
-							class="border-tertiary-500 bg-surface-900 text-surface-50 border-l-4 px-4 py-3 text-sm font-bold"
-							in:slide
-						>
-							{captchaError}
+							{clientInterestError || form.interestError}
 						</div>
 					{/if}
 					{#if form?.interestSuccess}
@@ -564,10 +538,13 @@
 					<div class="flex flex-wrap items-center gap-4 pt-2">
 						<button
 							type="submit"
-							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:text-surface-950 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+							disabled={interestSubmitting}
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:text-surface-950 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition {interestSubmitting
+								? 'cursor-not-allowed opacity-60 motion-safe:animate-pulse'
+								: ''}"
 						>
 							<IconHandshake class="h-5 w-5" />
-							Send Interest
+							{interestSubmitting ? 'Sending…' : 'Send Interest'}
 						</button>
 						<p class="text-surface-300 m-0 text-xs">We typically respond within a few days.</p>
 					</div>
