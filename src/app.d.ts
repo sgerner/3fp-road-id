@@ -6,7 +6,7 @@ interface TurnstileRenderOptions {
 	appearance?: string;
 	retry?: string;
 	callback?: (token: string) => void;
-	'error-callback'?: () => boolean | void;
+	'error-callback'?: (code?: string) => boolean | void;
 	'expired-callback'?: () => void;
 	'timeout-callback'?: () => void;
 	'unsupported-callback'?: () => void;
@@ -83,6 +83,7 @@ declare global {
 
 	interface Window {
 		turnstile?: TurnstileApi;
+		__TURNSTILE_TEST_SITE_KEY__?: string;
 		google?: {
 			maps?: GoogleMapsApi;
 		};

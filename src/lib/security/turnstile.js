@@ -1,3 +1,6 @@
+export const TURNSTILE_TIMEOUT_MS = 120_000;
+export const TURNSTILE_FAILURE_MESSAGE = 'Verification failed. Please try again.';
+
 let loadPromise;
 
 function appendScript() {
@@ -40,69 +43,293 @@ export async function loadTurnstile() {
 	return loadPromise;
 }
 
-export async function renderTurnstile(element, options = {}) {
-	if (!element) return null;
-	const turnstile = await loadTurnstile();
-	if (!turnstile) return null;
-	return turnstile.render(element, options);
-}
-
-export function executeTurnstile(widgetId, options = {}) {
-	if (typeof window === 'undefined') return Promise.resolve(null);
-	const turnstile = window.turnstile;
-	if (!turnstile || widgetId == null) return Promise.resolve(null);
-	return new Promise((resolve) => {
-		turnstile.execute(widgetId, {
-			...options,
-			callback(token) {
-				options?.callback?.(token);
-				resolve(token);
-			},
-			'error-callback': () => {
-				options?.['error-callback']?.();
-				resolve(null);
-			},
-			'expired-callback': () => {
-				options?.['expired-callback']?.();
-				resolve(null);
-			}
-		});
-	});
-}
-
-export function resetTurnstile(widgetId) {
-	if (typeof window === 'undefined') return;
-	if (!window.turnstile || widgetId == null) return;
-	window.turnstile.reset(widgetId);
-}
-
-export async function requestTurnstileToken(element, sitekey) {
-	const turnstile = await loadTurnstile();
-	if (!turnstile || !element?.isConnected) return null;
+/**
+ * @param {any} element
+ * @param {string} sitekey
+ * @param {Record<string, any>} [options]
+ */
+export async function requestTurnstileToken(
+	element,
+	sitekey,
+	{
+		timeoutMs = TURNSTILE_TIMEOUT_MS,
+		signal,
+		onBeforeInteractive,
+		onAfterInteractive,
+		loadTurnstileImpl = loadTurnstile
+	} = {}
+) {
+	if (!sitekey || signal?.aborted || !element?.isConnected) return null;
+	const turnstile = await loadTurnstileImpl();
+	if (!turnstile || signal?.aborted || !element?.isConnected) return null;
 
 	let widgetId;
 	let timeout;
+	let abortHandler;
 	try {
 		return await new Promise((resolve) => {
-			timeout = setTimeout(() => resolve(null), 120_000);
-			widgetId = turnstile.render(element, {
-				sitekey,
-				execution: 'execute',
-				appearance: 'interaction-only',
-				retry: 'never',
-				callback: resolve,
-				'error-callback': () => {
-					resolve(null);
-					return true;
-				},
-				'expired-callback': () => resolve(null),
-				'timeout-callback': () => resolve(null),
-				'unsupported-callback': () => resolve(null)
-			});
-			turnstile.execute(widgetId);
+			let settled = false;
+			const finish = (value) => {
+				if (settled) return;
+				settled = true;
+				resolve(value);
+			};
+
+			if (signal) {
+				if (signal.aborted) {
+					finish(null);
+					return;
+				}
+				abortHandler = () => finish(null);
+				signal.addEventListener('abort', abortHandler, { once: true });
+			}
+
+			timeout = setTimeout(() => finish(null), timeoutMs);
+
+			try {
+				widgetId = turnstile.render(element, {
+					sitekey,
+					size: 'flexible',
+					execution: 'execute',
+					appearance: 'interaction-only',
+					retry: 'never',
+					callback: (token) => finish(typeof token === 'string' && token ? token : null),
+					'before-interactive-callback': () => {
+						onBeforeInteractive?.();
+					},
+					'after-interactive-callback': () => {
+						onAfterInteractive?.();
+					},
+					'error-callback': () => {
+						finish(null);
+						return true;
+					},
+					'expired-callback': () => finish(null),
+					'timeout-callback': () => finish(null),
+					'unsupported-callback': () => finish(null)
+				});
+				if (widgetId == null) {
+					finish(null);
+					return;
+				}
+				turnstile.execute(widgetId);
+			} catch (error) {
+				console.error('Failed to execute Cloudflare Turnstile:', error);
+				finish(null);
+			}
 		});
 	} finally {
 		clearTimeout(timeout);
-		if (widgetId != null) turnstile.remove(widgetId);
+		if (signal && abortHandler) {
+			signal.removeEventListener('abort', abortHandler);
+		}
+		if (widgetId != null) {
+			try {
+				turnstile.remove(widgetId);
+			} catch {
+				// Ignore cleanup errors if widget container was already detached.
+			}
+		}
 	}
+}
+
+/**
+ * @param {Record<string, any>} [options]
+ */
+export function createTurnstileGate({
+	isEnabled = () => true,
+	getSiteKey = () => '',
+	prepareElement = async () => null,
+	requestTokenImpl = requestTurnstileToken,
+	timeoutMs = TURNSTILE_TIMEOUT_MS,
+	getTimeoutMs,
+	getFailureMessage = () => TURNSTILE_FAILURE_MESSAGE,
+	onStateChange = () => {}
+} = {}) {
+	let verifying = false;
+	let submitting = false;
+	let interactive = false;
+	let error = '';
+	/** @type {AbortController | null} */
+	let activeAbortController = null;
+
+	function sync() {
+		onStateChange({
+			verifying,
+			submitting,
+			busy: verifying || submitting,
+			interactive,
+			error
+		});
+	}
+
+	function clearError() {
+		if (!error) return;
+		error = '';
+		sync();
+	}
+
+	function abort() {
+		if (activeAbortController) {
+			activeAbortController.abort();
+			activeAbortController = null;
+		}
+		if (verifying || interactive) {
+			verifying = false;
+			interactive = false;
+			sync();
+		}
+	}
+
+	async function verifyInternal() {
+		const sitekey = getSiteKey();
+		if (!isEnabled() || !sitekey) {
+			return { ok: true, token: '', bypassed: true };
+		}
+
+		const abortController = new AbortController();
+		activeAbortController = abortController;
+		verifying = true;
+		interactive = false;
+		sync();
+
+		try {
+			const element = await prepareElement();
+			if (abortController.signal.aborted) {
+				return { ok: false, token: '', aborted: true };
+			}
+			const token = await requestTokenImpl(element, sitekey, {
+				timeoutMs: getTimeoutMs ? getTimeoutMs() : timeoutMs,
+				signal: abortController.signal,
+				onBeforeInteractive: () => {
+					if (activeAbortController !== abortController) return;
+					interactive = true;
+					sync();
+				},
+				onAfterInteractive: () => {
+					if (activeAbortController !== abortController) return;
+					interactive = false;
+					sync();
+				}
+			});
+			if (abortController.signal.aborted) {
+				return { ok: false, token: '', aborted: true };
+			}
+			if (!token) {
+				error = getFailureMessage() || TURNSTILE_FAILURE_MESSAGE;
+				return { ok: false, token: '' };
+			}
+			return { ok: true, token };
+		} finally {
+			if (activeAbortController === abortController) {
+				activeAbortController = null;
+			}
+			verifying = false;
+			interactive = false;
+			sync();
+		}
+	}
+
+	async function requestToken() {
+		if (verifying || submitting) {
+			return { ok: false, token: '', duplicate: true };
+		}
+		clearError();
+		return verifyInternal();
+	}
+
+	/**
+	 * @param {{ validate?: () => any, onSubmit?: (token: string) => any }} [options]
+	 */
+	async function submit({ validate, onSubmit } = {}) {
+		if (verifying || submitting) {
+			return { ok: false, duplicate: true };
+		}
+		clearError();
+		if (validate) {
+			const valid = await validate();
+			if (valid === false) {
+				return { ok: false, invalid: true };
+			}
+		}
+
+		const verification = await verifyInternal();
+		if (!verification.ok) {
+			return verification;
+		}
+
+		submitting = true;
+		sync();
+		try {
+			await onSubmit?.(verification.token);
+			return { ok: true, token: verification.token };
+		} finally {
+			submitting = false;
+			sync();
+		}
+	}
+
+	/**
+	 * @param {{ validate?: (input: any) => any, fieldName?: string, onResult?: (input: any) => any }} [options]
+	 */
+	function enhance({ validate, fieldName = 'turnstileToken', onResult } = {}) {
+		return async (submitInput) => {
+			const { formData, cancel } = submitInput;
+			if (verifying || submitting) {
+				cancel();
+				return;
+			}
+			clearError();
+			if (validate) {
+				const valid = await validate(submitInput);
+				if (valid === false) {
+					cancel();
+					return;
+				}
+			}
+
+			const verification = await verifyInternal();
+			if (!verification.ok) {
+				cancel();
+				return;
+			}
+
+			if (fieldName) {
+				formData.set(fieldName, verification.token);
+			}
+
+			submitting = true;
+			sync();
+
+			return async (resultInput) => {
+				try {
+					if (onResult) {
+						await onResult(resultInput);
+					} else {
+						await resultInput.update({ reset: false });
+					}
+				} finally {
+					submitting = false;
+					sync();
+				}
+			};
+		};
+	}
+
+	return {
+		get state() {
+			return {
+				verifying,
+				submitting,
+				busy: verifying || submitting,
+				interactive,
+				error
+			};
+		},
+		clearError,
+		abort,
+		requestToken,
+		submit,
+		enhance
+	};
 }

@@ -6,7 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { toaster } from './toaster-svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
@@ -80,7 +80,13 @@
 	let showUserMenu = $state(false);
 	let userMenuFocusIndex = $state(0);
 	let email = $state('');
-	let loading = $state(false);
+	let mobileLoginBusy = $state(false);
+	let desktopLoginBusy = $state(false);
+	/** @type {any} */
+	let mobileLoginTurnstile = $state(null);
+	/** @type {any} */
+	let desktopLoginTurnstile = $state(null);
+	const loading = $derived(mobileLoginBusy || desktopLoginBusy);
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
@@ -104,9 +110,6 @@
 	/** @type {any} */
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
-	const turnstileEnabled = $derived(
-		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
-	);
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
@@ -426,6 +429,8 @@
 				: null;
 			error = '';
 			success = '';
+			mobileLoginTurnstile?.clearError();
+			desktopLoginTurnstile?.clearError();
 			showMobileMenu = false;
 			showLogin = true;
 			void initSession();
@@ -437,7 +442,7 @@
 			if (e.key === 'Tab') {
 				const controls = Array.from(
 					loginContainerEl?.querySelectorAll(
-						'input:not([tabindex="-1"]), button:not(:disabled), a[href]'
+						'input:not([tabindex="-1"]), button:not(:disabled), a[href], [data-turnstile-interactive="true"]'
 					) || []
 				).filter((el) => el.getClientRects().length);
 				const first = controls[0];
@@ -537,65 +542,61 @@
 		};
 	});
 
-	async function doLogin(e) {
+	async function doLogin(e, turnstileControl) {
 		e.preventDefault();
-		if (loading) return;
-		const verificationEl = e.currentTarget.querySelector('[data-login-verification]');
+		if (loading || !turnstileControl) return;
 		error = '';
 		success = '';
-		loading = true;
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		const intent = activeLoginIntent;
-		try {
-			void initSession();
-			if (honeypot.trim()) {
-				error = 'Invalid submission.';
-				return;
-			}
-			if (!emailValid) {
-				error = 'Enter a valid email address.';
-				return;
-			}
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				const { requestTurnstileToken } = await import('#lib/security/turnstile');
-				turnstileToken = await requestTurnstileToken(verificationEl, PUBLIC_TURNSTILE_SITE_KEY);
-				if (!turnstileToken) {
-					error = 'Verification failed. Please try again.';
-					return;
+		await turnstileControl.submit({
+			validate: () => {
+				void initSession();
+				if (honeypot.trim()) {
+					error = 'Invalid submission.';
+					return false;
+				}
+				if (!emailValid) {
+					error = 'Enter a valid email address.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					let rt = '/';
+					if (typeof window !== 'undefined') {
+						const currentUrl = new URL(window.location.href);
+						const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
+						rt =
+							currentUrl.searchParams.get('auth') === 'required' &&
+							isSafeInternalPath(requestedReturnTo)
+								? requestedReturnTo
+								: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+					}
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email,
+							createProfile: true,
+							returnTo: intent?.returnTo ?? rt,
+							honeypot,
+							turnstileToken
+						})
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send magic link');
+					}
+					success = `We sent a login link to ${email}.`;
+					honeypot = '';
+				} catch (err) {
+					error = err.message || 'Login failed.';
 				}
 			}
-			let rt = '/';
-			if (typeof window !== 'undefined') {
-				const currentUrl = new URL(window.location.href);
-				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
-				rt =
-					currentUrl.searchParams.get('auth') === 'required' &&
-					isSafeInternalPath(requestedReturnTo)
-						? requestedReturnTo
-						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
-			}
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					createProfile: true,
-					returnTo: intent?.returnTo ?? rt,
-					honeypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send magic link');
-			}
-			success = `We sent a login link to ${email}.`;
-			honeypot = '';
-		} catch (err) {
-			error = err.message || 'Login failed.';
-		} finally {
-			loading = false;
-		}
+		});
 	}
 
 	async function doLogout() {
@@ -617,6 +618,8 @@
 		loginIntent = null;
 		error = '';
 		success = '';
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		showLogin = true;
 		void initSession();
 	}
@@ -901,7 +904,7 @@
 								<div bind:this={loginContainerEl}>
 									<form
 										class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, mobileLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -934,7 +937,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={mobileLoginTurnstile}
+											bind:busy={mobileLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -957,7 +965,7 @@
 
 									<form
 										class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, desktopLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -982,7 +990,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={desktopLoginTurnstile}
+											bind:busy={desktopLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
