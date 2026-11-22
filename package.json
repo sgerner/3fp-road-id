@@ -10,7 +10,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"test": "node --test src/lib/server/*.test.js",
+		"test": "node --test src/lib/server/*.test.js src/lib/security/*.test.js",
 		"test:server-sanitizer": "node --no-experimental-require-module scripts/check-server-sanitizer.mjs",
 		"prepare": "svelte-kit sync",
 		"seed:rides": "node scripts/seed-rides.mjs",
