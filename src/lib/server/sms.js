@@ -5,8 +5,11 @@ import { normalizeE164PhoneNumber } from '#lib/utils/phone';
 import {
 	SMS_MAX_BODY_LENGTH,
 	SMS_MAX_SEGMENTS,
+	SMS_STOP_FOOTER,
 	buildSmsContextKey,
 	classifySmsKeyword,
+	measureSmsBudget,
+	resolveSmsThreadReplyKind,
 	shouldApplySmsStatus,
 	smsSegmentCount,
 	smsProviderMessageId,
@@ -18,8 +21,11 @@ import {
 export {
 	SMS_MAX_BODY_LENGTH,
 	SMS_MAX_SEGMENTS,
+	SMS_STOP_FOOTER,
 	buildSmsContextKey,
 	classifySmsKeyword,
+	measureSmsBudget,
+	resolveSmsThreadReplyKind,
 	shouldApplySmsStatus,
 	smsSegmentCount,
 	smsProviderMessageId,
@@ -927,6 +933,52 @@ export async function loadSmsThreadsForUser(
 		byThread.get(message.thread_id).push(message);
 	}
 	return rows.map((thread) => ({ ...thread, messages: byThread.get(thread.id) ?? [] }));
+}
+
+export async function hasSmsInboxAccess(supabase, userId) {
+	const id = asId(userId);
+	if (!supabase || !id) return false;
+	const { data: profile, error: profileError } = await supabase
+		.from('profiles')
+		.select('admin')
+		.eq('user_id', id)
+		.maybeSingle();
+	if (profileError) throw profileError;
+	if (profile?.admin === true) return true;
+
+	const [
+		groupMemberships,
+		hostedActivities,
+		cohostedActivities,
+		hostedVolunteerEvents,
+		cohostedVolunteerEvents,
+		threadMemberships
+	] = await Promise.all([
+		supabase
+			.from('group_members')
+			.select('group_id')
+			.eq('user_id', id)
+			.in('role', MANAGER_ROLES)
+			.limit(1),
+		supabase.from('activity_events').select('id').eq('host_user_id', id).limit(1),
+		supabase.from('activity_hosts').select('activity_event_id').eq('user_id', id).limit(1),
+		supabase.from('volunteer_events').select('id').eq('host_user_id', id).limit(1),
+		supabase.from('volunteer_event_hosts').select('event_id').eq('user_id', id).limit(1),
+		supabase.from('sms_thread_members').select('thread_id').eq('user_id', id).limit(1)
+	]);
+
+	for (const result of [
+		groupMemberships,
+		hostedActivities,
+		cohostedActivities,
+		hostedVolunteerEvents,
+		cohostedVolunteerEvents,
+		threadMemberships
+	]) {
+		if (result.error) throw result.error;
+		if (asArray(result.data).length > 0) return true;
+	}
+	return false;
 }
 
 export async function canManageSmsThread(supabase, userId, threadId) {
