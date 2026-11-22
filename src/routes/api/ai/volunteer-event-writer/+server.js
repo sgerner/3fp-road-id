@@ -1,12 +1,5 @@
-import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
-import { json } from '@sveltejs/kit';
-import {
-	getAiConfigurationError,
-	isAiModelConfigured,
-	requireAiModel
-} from '#lib/server/ai/models';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
-import { resolveVerifiedSession } from '#lib/server/session';
+import { safeParseJson } from '#lib/server/aiJson.js';
+import { createAiWriterRoute } from '#lib/server/aiWriterRoute.js';
 
 export const config = { maxDuration: 60 };
 
@@ -146,19 +139,6 @@ const RESPONSE_SCHEMA = {
 	}
 };
 
-let schemaUnsupported = false;
-
-async function generateWithSchema({ contents, useSchema = true }) {
-	const { client, model } = requireAiModel('structured_text');
-	const config = {};
-	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
-	return client.generateContent({
-		model: model.model,
-		contents,
-		config: Object.keys(config).length ? config : undefined
-	});
-}
-
 const DEFAULT_ASSISTANT_NAME = 'Ride Muse';
 
 function formatContext(context) {
@@ -187,55 +167,7 @@ function formatMessages(messages) {
 	return parts.length ? parts.join('\n') : 'Conversation: (none yet)';
 }
 
-function normalizeAiPayload(parsed) {
-	if (!parsed || typeof parsed !== 'object') return parsed;
-
-	const reply = parsed.reply;
-	if (typeof reply !== 'string') return parsed;
-
-	const nested = safeParseJson(reply);
-	if (!nested || typeof nested !== 'object') return parsed;
-
-	if (
-		typeof nested.reply === 'string' ||
-		Object.prototype.hasOwnProperty.call(nested, 'follow_up_questions') ||
-		Object.prototype.hasOwnProperty.call(nested, 'draft')
-	) {
-		return nested;
-	}
-
-	return parsed;
-}
-
-export const POST = async (event) => {
-	const { request, cookies } = event;
-	const limitedByIp = enforceRateLimit(event, {
-		name: 'ai-volunteer-writer-ip',
-		limit: 60,
-		windowMs: 10 * 60 * 1000
-	});
-	if (limitedByIp) return limitedByIp;
-	const { user } = await resolveVerifiedSession(cookies);
-	if (!user?.id) return json({ error: 'Authentication required.' }, { status: 401 });
-	const limited = enforceRateLimit(event, {
-		name: 'ai-volunteer-writer-user',
-		limit: 30,
-		windowMs: 10 * 60 * 1000,
-		key: user.id
-	});
-	if (limited) return limited;
-
-	if (!isAiModelConfigured('structured_text')) {
-		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
-	}
-
-	const parsedBody = await readJsonBody(request, { maxBytes: 128 * 1024 });
-	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
-	const payload = parsedBody.value;
-	if (!payload || !Array.isArray(payload.messages)) {
-		return json({ error: 'messages array required' }, { status: 400 });
-	}
-
+function buildContents(payload) {
 	const conversation = formatMessages(payload.messages);
 	const contextBlock = formatContext(payload.context);
 	const goal = typeof payload.goal === 'string' ? payload.goal : '';
@@ -287,51 +219,40 @@ Use full ISO 8601 timestamps with timezone offsets (e.g. 2025-08-14T18:00:00-07:
 Default shift timezones to the event timezone when none is provided and mirror the event meetup location when shift-specific details are missing.
 `;
 
-	try {
-		const useSchema = !schemaUnsupported;
-		const response = await generateWithSchema({
-			contents: [
-				planner,
-				conversation,
-				preferDraft ? 'Provide draft suggestions when feasible.' : ''
-			],
-			useSchema
-		});
+	return [planner, conversation, preferDraft ? 'Provide draft suggestions when feasible.' : ''];
+}
 
-		let text = response?.text ?? '';
-		const parsed = normalizeAiPayload(safeParseJson(text));
-		if (!parsed) {
-			return json({ reply: text || '', follow_up_questions: null, draft: null });
-		}
-
-		return json(parsed);
-	} catch (error) {
-		if (!schemaUnsupported && isSchemaUnsupportedError(error)) {
-			schemaUnsupported = true;
-			try {
-				const fallbackResponse = await generateWithSchema({
-					contents: [
-						planner,
-						conversation,
-						preferDraft ? 'Provide draft suggestions when feasible.' : ''
-					],
-					useSchema: false
-				});
-
-				let text = fallbackResponse?.text ?? '';
-				const parsed = normalizeAiPayload(safeParseJson(text));
-				if (!parsed) {
-					return json({ reply: text || '', follow_up_questions: null, draft: null });
-				}
-
-				return json(parsed);
-			} catch (fallbackError) {
-				console.error('Volunteer event writer fallback failed', fallbackError);
-				return json({ error: 'Unable to generate an event draft right now.' }, { status: 500 });
-			}
-		}
-
-		console.error('Volunteer event writer failed', error);
-		return json({ error: 'Unable to generate an event draft right now.' }, { status: 500 });
+function normalizeAiPayload(parsed, rawText = '') {
+	if (!parsed || typeof parsed !== 'object') {
+		return { reply: rawText || '', follow_up_questions: null, draft: null };
 	}
-};
+
+	const reply = parsed.reply;
+	if (typeof reply !== 'string') return parsed;
+
+	const nested = safeParseJson(reply);
+	if (!nested || typeof nested !== 'object') return parsed;
+
+	if (
+		typeof nested.reply === 'string' ||
+		Object.prototype.hasOwnProperty.call(nested, 'follow_up_questions') ||
+		Object.prototype.hasOwnProperty.call(nested, 'draft')
+	) {
+		return nested;
+	}
+
+	return parsed;
+}
+
+export const POST = createAiWriterRoute({
+	rateLimit: {
+		ipName: 'ai-volunteer-writer-ip',
+		userName: 'ai-volunteer-writer-user'
+	},
+	responseSchema: RESPONSE_SCHEMA,
+	responseMimeType: undefined,
+	errorLabel: 'Volunteer event writer',
+	errorMessage: 'Unable to generate an event draft right now.',
+	buildContents,
+	normalizePayload: normalizeAiPayload
+});

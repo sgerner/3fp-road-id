@@ -1,7 +1,18 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
-	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import {
+		buildMonthGrid,
+		formatEventTime,
+		formatRideSchedule,
+		getTimezoneBadge,
+		getViewerTimezone,
+		parseCalendarDate,
+		startOfMonthFromDateKey,
+		toCivilDateKey,
+		toEventDateKey
+	} from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
+	import { page } from '$app/state';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -16,19 +27,35 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
+	import IconX from '@lucide/svelte/icons/x';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
-	let searchInput = $state('');
+	function resolveInitialView(rawView) {
+		return ['list', 'calendar', 'map'].includes(rawView) ? rawView : 'list';
+	}
+
+	function resolveDefaultCalendarMonth(items) {
+		const fallbackMonth = startOfMonth(new Date());
+		const currentPrefix = `${fallbackMonth.getFullYear()}-${String(fallbackMonth.getMonth() + 1).padStart(2, '0')}-`;
+		for (const item of items ?? []) {
+			if (item?._calendarDateKey?.startsWith(currentPrefix)) {
+				return fallbackMonth;
+			}
+		}
+		const firstKey = items?.[0]?._calendarDateKey;
+		return firstKey ? startOfMonthFromDateKey(firstKey, fallbackMonth) : fallbackMonth;
+	}
+
 	let search = $state('');
 	let selectedDifficulty = $state('all');
 	let needsHost = $state(false);
-	let view = $state('list');
+	let view = $state(resolveInitialView(page.url.searchParams.get('view')));
 	let currentPage = $state(1);
-	let calendarReference = $state(startOfMonth(new Date()));
-	let calendarMonthTouched = $state(false);
+	let manualCalendarReference = $state(null);
+	let viewerTimezone = $state('UTC');
 	let rideListEl = $state(null);
 
 	let mapEl = $state(null);
@@ -91,33 +118,37 @@
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
 
+	const hasActiveFilters = $derived(Boolean(search) || selectedDifficulty !== 'all' || needsHost);
+
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
 				const start = parseRideDate(ride?.nextOccurrenceStart);
-				return start ? { ...ride, _calendarStart: start } : null;
+				const dateKey = start ? toEventDateKey(start, ride?.timezone) : '';
+				return start && dateKey
+					? { ...ride, _calendarStart: start, _calendarDateKey: dateKey }
+					: null;
 			})
 			.filter(Boolean)
 	);
 
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
-			const key = toDateKey(ride._calendarStart);
+			const key = ride._calendarDateKey;
 			if (!key) return acc;
 			(acc[key] ??= []).push(ride);
 			return acc;
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
-	const earliestRideMonth = $derived.by(() => {
-		const first = datedRides[0]?._calendarStart;
-		return first ? startOfMonth(first) : startOfMonth(new Date());
-	});
+	const calendarReference = $derived(
+		manualCalendarReference ?? resolveDefaultCalendarMonth(datedRides)
+	);
 
-	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
-	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toCivilDateKey));
+	const calendarDayFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' });
 	const calendarHeaderText = $derived.by(() =>
-		new Intl.DateTimeFormat(undefined, {
+		new Intl.DateTimeFormat('en-US', {
 			month: 'long',
 			year: 'numeric'
 		}).format(calendarReference)
@@ -127,20 +158,17 @@
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
-	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
-
 	function scrollToRideCards() {
 		if (!rideListEl) return;
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	function applySearch() {
-		search = searchInput;
+	function clearSearch() {
+		search = '';
 		currentPage = 1;
 	}
 
 	function clearFilters() {
-		searchInput = '';
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
@@ -159,9 +187,18 @@
 
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
-		const start = new Date(ride.nextOccurrenceStart);
-		const end = new Date(ride.nextOccurrenceEnd || ride.nextOccurrenceStart);
-		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+		return (
+			formatRideSchedule(ride.nextOccurrenceStart, ride.nextOccurrenceEnd, ride.timezone) ||
+			'Schedule coming soon'
+		);
+	}
+
+	function formatRideTime(ride) {
+		return formatEventTime(ride?.nextOccurrenceStart, ride?.timezone);
+	}
+
+	function rideTimezoneBadge(ride) {
+		return getTimezoneBadge(ride?.nextOccurrenceStart, ride?.timezone, viewerTimezone);
 	}
 
 	function formatStatNumber(value) {
@@ -169,14 +206,7 @@
 	}
 
 	function parseRideDate(value) {
-		if (!value) return null;
-		const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? null : date;
-	}
-
-	function toDateKey(date) {
-		if (!date) return '';
-		return date.toISOString().slice(0, 10);
+		return parseCalendarDate(value);
 	}
 
 	function startOfMonth(date) {
@@ -186,8 +216,7 @@
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
-		calendarReference = startOfMonth(next);
-		calendarMonthTouched = true;
+		manualCalendarReference = startOfMonth(next);
 	}
 
 	function rideMeta(ride) {
@@ -268,6 +297,7 @@
 	});
 
 	onMount(() => {
+		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
 		return () => {
 			try {
 				map?.remove();
@@ -281,6 +311,49 @@
 		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
 	}
 
+	function buildRidePopupContent(r) {
+		const wrapper = document.createElement('div');
+		wrapper.style.minWidth = '180px';
+		wrapper.style.maxWidth = '240px';
+		wrapper.style.overflowWrap = 'anywhere';
+
+		const titleEl = document.createElement('strong');
+		titleEl.textContent = r.title || 'Ride';
+		wrapper.appendChild(titleEl);
+		wrapper.appendChild(document.createElement('br'));
+
+		const scheduleWrap = document.createElement('small');
+		scheduleWrap.style.display = 'inline-flex';
+		scheduleWrap.style.flexWrap = 'wrap';
+		scheduleWrap.style.alignItems = 'center';
+		scheduleWrap.style.gap = '4px';
+		const timeText = document.createElement('span');
+		timeText.textContent = formatNext(r);
+		scheduleWrap.appendChild(timeText);
+
+		const tzBadge = rideTimezoneBadge(r);
+		if (tzBadge) {
+			const badgeEl = document.createElement('span');
+			badgeEl.textContent = tzBadge;
+			badgeEl.style.padding = '1px 5px';
+			badgeEl.style.fontSize = '10px';
+			badgeEl.style.fontWeight = '800';
+			badgeEl.style.letterSpacing = '0.08em';
+			badgeEl.style.textTransform = 'uppercase';
+			badgeEl.style.background = '#09090b';
+			badgeEl.style.color = '#eab308';
+			scheduleWrap.appendChild(badgeEl);
+		}
+		wrapper.appendChild(scheduleWrap);
+		wrapper.appendChild(document.createElement('br'));
+
+		const linkEl = document.createElement('a');
+		linkEl.href = `/ride/${encodeURIComponent(r.slug)}`;
+		linkEl.textContent = 'View ride';
+		wrapper.appendChild(linkEl);
+		return wrapper;
+	}
+
 	function updateMarkers() {
 		if (!map || !clusterLayer) return;
 		clusterLayer.clearLayers();
@@ -291,10 +364,7 @@
 			const lat = Number(r.startLatitude);
 			const lng = Number(r.startLongitude);
 			const m = L.marker([lat, lng]);
-			const timeStr = formatNext(r);
-			m.bindPopup(
-				`<div style="min-width:180px"><strong>${r.title}</strong><br/><small>${timeStr}</small><br/><a href="/ride/${r.slug}">View ride</a></div>`
-			);
+			m.bindPopup(buildRidePopupContent(r));
 			clusterLayer.addLayer(m);
 			pts.push([lat, lng]);
 		}
@@ -309,6 +379,7 @@
 
 	$effect(() => {
 		void filteredRides;
+		void viewerTimezone;
 		updateMarkers();
 	});
 
@@ -320,18 +391,6 @@
 
 	$effect(() => {
 		if (currentPage > totalPages) currentPage = totalPages;
-	});
-
-	$effect(() => {
-		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
-			if (calendarMonthTouched) return;
-			const currentMonthHasRide = calendarMatrix.some((week) =>
-				week.some((day) => day.items.length)
-			);
-			if (!currentMonthHasRide) {
-				calendarReference = earliestRideMonth;
-			}
-		}
 	});
 
 	$effect(() => {
@@ -440,6 +499,7 @@
 			<div class="bg-tertiary-500 absolute inset-y-0 left-0 w-2" aria-hidden="true"></div>
 
 			{#if heroRide}
+				{@const heroTzBadge = rideTimezoneBadge(heroRide)}
 				<a
 					href={`/ride/${heroRide.slug}`}
 					class="group bg-surface-950/95 text-surface-50 hover:bg-surface-900 border-surface-800 absolute right-0 bottom-0 left-2 flex items-center justify-between gap-4 border-t-2 px-5 py-3.5 transition hover:no-underline"
@@ -451,7 +511,16 @@
 							Next up
 						</span>
 						<span class="block truncate text-sm font-black sm:text-base">{heroRide.title}</span>
-						<span class="block truncate text-xs opacity-75">{formatNext(heroRide)}</span>
+						<span class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs opacity-85">
+							<span class="truncate">{formatNext(heroRide)}</span>
+							{#if heroTzBadge}
+								<span
+									class="border-surface-600 bg-surface-900 text-primary-500 shrink-0 border px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+								>
+									{heroTzBadge}
+								</span>
+							{/if}
+						</span>
 					</span>
 					<IconArrowUpRight
 						class="text-primary-500 h-5 w-5 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -468,28 +537,45 @@
 	>
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
 			<div class="flex min-w-0 flex-col gap-3">
-				<div class="flex w-full">
-					<input
-						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
-						aria-label="Search rides"
-						bind:value={searchInput}
-						placeholder="Search by title, location, pace, discipline…"
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								applySearch();
-							}
-						}}
-					/>
-					<button
-						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
-						onclick={applySearch}
-						aria-label="Search rides"
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<div
+						class="bg-surface-950 border-surface-500 focus-within:border-primary-500 flex min-h-11 min-w-0 flex-1 items-center border-2"
 					>
-						<IconSearch class="h-4 w-4" />
-						<span class="hidden sm:inline">Search</span>
-					</button>
+						<IconSearch
+							class="text-surface-300 pointer-events-none ml-3.5 h-4 w-4 shrink-0"
+							aria-hidden="true"
+						/>
+						<input
+							class="text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-medium focus:ring-0 focus:outline-none"
+							type="text"
+							aria-label="Search rides"
+							bind:value={search}
+							oninput={() => {
+								currentPage = 1;
+							}}
+							placeholder="Search by title, location, pace, discipline…"
+						/>
+						{#if search}
+							<button
+								type="button"
+								class="text-surface-300 hover:bg-primary-500 hover:text-surface-950 inline-flex h-11 w-11 shrink-0 items-center justify-center transition"
+								onclick={clearSearch}
+								aria-label="Clear search"
+							>
+								<IconX class="h-4 w-4" />
+							</button>
+						{/if}
+					</div>
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition"
+							onclick={clearFilters}
+						>
+							<IconX class="h-3.5 w-3.5" />
+							Clear filters
+						</button>
+					{/if}
 				</div>
 
 				<div class="flex flex-wrap gap-2">
@@ -581,7 +667,7 @@
 	<!-- RIDE LISTING DIRECTORY -->
 	<section
 		id="ride-list"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-0 py-6 md:px-10 lg:px-12"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-6 sm:px-10 lg:px-12"
 		bind:this={rideListEl}
 		aria-labelledby="directory-heading"
 	>
@@ -594,6 +680,7 @@
 					transition:slide={{ duration: 220 }}
 				>
 					{#each paginatedRides as ride, i (ride.id ?? ride.slug)}
+						{@const cardTzBadge = rideTimezoneBadge(ride)}
 						<article
 							class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-surface-900 relative flex h-full flex-col border-r border-b transition"
 						>
@@ -615,13 +702,20 @@
 										}}
 									/>
 									<span
-										class="bg-primary-500 text-surface-950 absolute top-0 left-0 px-3 py-1.5 text-xs font-black tracking-[0.12em] uppercase"
+										class="bg-primary-500 text-surface-950 absolute top-0 left-0 inline-flex max-w-full flex-wrap items-center gap-1.5 px-3 py-1.5 text-xs leading-snug font-black tracking-[0.12em] wrap-anywhere uppercase"
 									>
-										{formatNext(ride)}
+										<span>{formatNext(ride)}</span>
+										{#if cardTzBadge}
+											<span
+												class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+											>
+												{cardTzBadge}
+											</span>
+										{/if}
 									</span>
 									{#if !ride.hostUserId && !ride.hostGroupId}
 										<span
-											class="bg-tertiary-500 text-surface-950 absolute top-0 right-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
+											class="bg-tertiary-500 text-surface-950 absolute right-0 bottom-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
 										>
 											Unclaimed
 										</span>
@@ -636,10 +730,24 @@
 									</span>
 									{#if !cardImage(ride)}
 										<span
-											class="bg-primary-500 text-surface-950 px-2.5 py-1 text-xs font-black uppercase"
+											class="bg-primary-500 text-surface-950 inline-flex max-w-full flex-wrap items-center gap-1.5 px-2.5 py-1 text-xs leading-snug font-black wrap-anywhere uppercase"
 										>
-											{formatNext(ride)}
+											<span>{formatNext(ride)}</span>
+											{#if cardTzBadge}
+												<span
+													class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+												>
+													{cardTzBadge}
+												</span>
+											{/if}
 										</span>
+										{#if !ride.hostUserId && !ride.hostGroupId}
+											<span
+												class="bg-tertiary-500 text-surface-950 px-2.5 py-1 text-xs font-black tracking-[0.16em] uppercase"
+											>
+												Unclaimed
+											</span>
+										{/if}
 									{/if}
 									{#if ride.group?.name}
 										{#if ride.group?.slug}
@@ -833,8 +941,7 @@
 							type="button"
 							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
 							onclick={() => {
-								calendarReference = startOfMonth(new Date());
-								calendarMonthTouched = true;
+								manualCalendarReference = startOfMonth(new Date());
 							}}
 						>
 							Today
@@ -875,14 +982,24 @@
 								</div>
 								<div class="mt-3 flex flex-col gap-2">
 									{#each day.items as ride (ride.id ?? ride.slug)}
+										{@const mobileTzBadge = rideTimezoneBadge(ride)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="group bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex min-h-11 flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/ride/${ride.slug}`}
 										>
-											<span class="text-primary-500 font-black">
-												{tf.format(parseRideDate(ride.nextOccurrenceStart))} —
+											<span
+												class="text-primary-500 group-hover:text-surface-950 shrink-0 font-black tabular-nums"
+											>
+												{formatRideTime(ride)}
 											</span>
-											{ride.title}
+											{#if mobileTzBadge}
+												<span
+													class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+												>
+													{mobileTzBadge}
+												</span>
+											{/if}
+											<span class="min-w-0 wrap-anywhere">— {ride.title}</span>
 										</a>
 									{/each}
 								</div>
@@ -929,14 +1046,22 @@
 													<p class="text-surface-300 m-0 text-[11px] opacity-50">No rides</p>
 												{:else}
 													{#each day.items.slice(0, 3) as ride (ride.id ?? ride.slug)}
+														{@const chipTzBadge = rideTimezoneBadge(ride)}
 														<a
-															class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block truncate px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
+															class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex min-w-0 items-center gap-1 px-1.5 py-1 text-[11px] font-bold transition hover:no-underline"
 															href={`/ride/${ride.slug}`}
 														>
-															<span class="font-black">
-																{tf.format(parseRideDate(ride.nextOccurrenceStart))}
+															<span class="shrink-0 font-black tabular-nums">
+																{formatRideTime(ride)}
 															</span>
-															{ride.title}
+															{#if chipTzBadge}
+																<span
+																	class="bg-surface-950 text-primary-500 shrink-0 px-1 py-0.5 text-[9px] leading-none font-black tracking-wider uppercase"
+																>
+																	{chipTzBadge}
+																</span>
+															{/if}
+															<span class="min-w-0 truncate">{ride.title}</span>
 														</a>
 													{/each}
 												{/if}
@@ -949,7 +1074,8 @@
 													items={day.items.map((ride) => ({
 														href: `/ride/${ride.slug}`,
 														title: ride.title,
-														time: tf.format(parseRideDate(ride.nextOccurrenceStart))
+														time: formatRideTime(ride),
+														timezoneBadge: rideTimezoneBadge(ride)
 													}))}
 												/>
 											{/if}

@@ -10,7 +10,7 @@
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import { tick } from 'svelte';
 	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
@@ -634,6 +634,7 @@
 					value={formBodyMarkdown}
 					height="320px"
 					label=""
+					ariaLabel="Update body"
 					placeholder="Write your update..."
 					onReady={(api) => {
 						editorApi = api;
