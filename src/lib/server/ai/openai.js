@@ -25,9 +25,78 @@ function textFromInputItem(item) {
 	return String(item).trim();
 }
 
+function parseToolCallArguments(rawArguments) {
+	if (rawArguments && typeof rawArguments === 'object' && !Array.isArray(rawArguments)) {
+		return { ...rawArguments };
+	}
+	if (typeof rawArguments !== 'string' || !rawArguments.trim()) {
+		return {};
+	}
+	try {
+		const parsed = JSON.parse(rawArguments);
+		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+	} catch {
+		return {};
+	}
+}
+
 export function buildOpenAiInput(contents) {
 	if (typeof contents === 'string') return contents;
 	if (Array.isArray(contents)) {
+		const hasToolLoopItems = contents.some(
+			(item) =>
+				item &&
+				typeof item === 'object' &&
+				(item.type === 'function_call' ||
+					item.type === 'function_call_output' ||
+					item.type === 'message')
+		);
+		if (hasToolLoopItems) {
+			return contents
+				.map((item, index) => {
+					if (!item) return null;
+					if (typeof item === 'string') {
+						return item.trim() ? { role: 'user', content: item.trim() } : null;
+					}
+					if (item.type === 'function_call') {
+						const callId = item.call_id || item.callId || item.id || `call_${index + 1}`;
+						const rawArgs =
+							typeof item.arguments === 'string'
+								? item.arguments
+								: JSON.stringify(item.arguments ?? item.args ?? {});
+						return {
+							type: 'function_call',
+							call_id: callId,
+							name: item.name,
+							arguments: rawArgs
+						};
+					}
+					if (item.type === 'function_call_output') {
+						const callId = item.call_id || item.callId || item.id || `call_${index + 1}`;
+						const output =
+							typeof item.output === 'string' ? item.output : JSON.stringify(item.output ?? null);
+						return {
+							type: 'function_call_output',
+							call_id: callId,
+							output
+						};
+					}
+					if (typeof item.role === 'string') {
+						if (Array.isArray(item.content)) {
+							return {
+								role: item.role,
+								content: item.content.map((part) => ({ ...part }))
+							};
+						}
+						const text = textFromInputItem(item);
+						return text ? { role: item.role, content: text } : null;
+					}
+					const fallbackText = textFromInputItem(item);
+					return fallbackText ? { role: 'user', content: fallbackText } : null;
+				})
+				.filter(Boolean);
+		}
+
 		// Responses API multimodal inputs use message content parts such as
 		// input_text, input_image, and input_file. Preserve these structured
 		// parts instead of flattening them into strings.
@@ -127,7 +196,12 @@ export function buildOpenAiResponseBody({ model, contents, config = {} }) {
 	if (config.maxTokens != null) body.max_output_tokens = config.maxTokens;
 	if (config.max_output_tokens != null) body.max_output_tokens = config.max_output_tokens;
 	if (config.temperature != null) body.temperature = config.temperature;
+	if (config.instructions) body.instructions = config.instructions;
 	if (config.tools) body.tools = mapOpenAiTools(config.tools);
+	if (config.toolChoice != null) body.tool_choice = config.toolChoice;
+	if (config.tool_choice != null) body.tool_choice = config.tool_choice;
+	if (config.parallelToolCalls != null) body.parallel_tool_calls = config.parallelToolCalls;
+	if (config.parallel_tool_calls != null) body.parallel_tool_calls = config.parallel_tool_calls;
 
 	if (config.responseSchema) {
 		body.text = {
@@ -167,6 +241,28 @@ export function extractOpenAiText(data) {
 		.join('');
 }
 
+export function extractOpenAiToolCalls(data) {
+	if (!Array.isArray(data?.output)) return [];
+
+	return data.output
+		.filter((item) => item && item.type === 'function_call' && typeof item.name === 'string')
+		.map((item, index) => {
+			const callId = item.call_id || item.id || `call_${index + 1}`;
+			const args = parseToolCallArguments(item.arguments);
+			const rawArguments =
+				typeof item.arguments === 'string' && item.arguments.trim()
+					? item.arguments
+					: JSON.stringify(args);
+			return {
+				id: callId,
+				callId,
+				name: item.name,
+				args,
+				rawArguments
+			};
+		});
+}
+
 export function createOpenAiTextProviderClient(apiKey, fetchImpl = globalThis.fetch) {
 	return {
 		async generateContent({ model, contents, config = {} }) {
@@ -174,14 +270,19 @@ export function createOpenAiTextProviderClient(apiKey, fetchImpl = globalThis.fe
 				throw new Error('Fetch is not available for the OpenAI Responses API.');
 			}
 
-			const response = await fetchImpl(OPENAI_RESPONSES_ENDPOINT, {
+			const fetchOptions = {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${apiKey}`
 				},
 				body: JSON.stringify(buildOpenAiResponseBody({ model, contents, config }))
-			});
+			};
+			if (config.signal) {
+				fetchOptions.signal = config.signal;
+			}
+
+			const response = await fetchImpl(OPENAI_RESPONSES_ENDPOINT, fetchOptions);
 
 			if (!response.ok) {
 				const errorText = await response.text().catch(() => '');
@@ -192,7 +293,8 @@ export function createOpenAiTextProviderClient(apiKey, fetchImpl = globalThis.fe
 
 			const data = await response.json();
 			const text = extractOpenAiText(data);
-			if (!text) {
+			const toolCalls = extractOpenAiToolCalls(data);
+			if (!text && toolCalls.length === 0) {
 				const incompleteReason = data?.incomplete_details?.reason;
 				if (incompleteReason) {
 					throw new Error(`OpenAI response was incomplete: ${incompleteReason}.`);
@@ -200,7 +302,7 @@ export function createOpenAiTextProviderClient(apiKey, fetchImpl = globalThis.fe
 				throw new Error('OpenAI Responses API returned no text.');
 			}
 
-			return { text, raw: data };
+			return { text, toolCalls, raw: data };
 		}
 	};
 }

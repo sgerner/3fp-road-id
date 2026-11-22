@@ -1,6 +1,12 @@
 <script>
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { enhance } from '$app/forms';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import {
+		applyFormUpdate,
+		guardUnsavedNavigation,
+		replaceShallowQueryParam
+	} from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -25,8 +31,16 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
-	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '#lib/groups/siteEditor';
+	import {
+		buildGroupSiteEditorState,
+		createGroupSiteEditorSnapshot,
+		GROUP_SITE_LOGO_MAX_BYTES,
+		mergeGroupSiteEditorConfig,
+		normalizeGroupSiteEditorView,
+		toIsoDateTimeValue
+	} from '#lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
+	import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '#lib/microsites/templates';
 	import {
 		createGroupSitePage,
@@ -52,36 +66,34 @@
 
 	let { data, form } = $props();
 	const clone = (value) => JSON.parse(JSON.stringify(value));
-	const baseConfig = untrack(() =>
-		mergeGroupSiteEditorConfig(data.defaultSiteConfig, data.siteConfig)
-	);
-	let siteConfig = $state(baseConfig);
-	let pageBlocks = $state(untrack(() => clone(baseConfig.page_blocks || [])));
-	let sitePages = $state(untrack(() => clone(baseConfig.site_pages || [])));
-	let selectedPageId = $state(untrack(() => baseConfig.site_pages?.[0]?.id || 'home'));
-	let sponsorSequence = 0;
-	let sponsorItems = $state(
-		untrack(() => {
-			const items = Array.isArray(baseConfig.sponsor_items) ? baseConfig.sponsor_items : [];
-			return items.map((item) => ({
-				_editorId: `sponsor-${sponsorSequence++}`,
-				name: String(item?.name || ''),
-				text: String(item?.text || ''),
-				logo: String(item?.logo || ''),
-				url: String(item?.url || '')
-			}));
+	const initialSavedState = untrack(() =>
+		buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group
 		})
 	);
-	let faqItems = $state(
-		untrack(() =>
-			[
-				{ question: baseConfig.faq_1_q || '', answer: baseConfig.faq_1_a || '' },
-				{ question: baseConfig.faq_2_q || '', answer: baseConfig.faq_2_a || '' }
-			].filter((item) => item.question || item.answer)
-		)
+	const initialEditorState = untrack(() =>
+		form?.values
+			? buildGroupSiteEditorState({
+					defaultSiteConfig: data.defaultSiteConfig,
+					siteConfig: data.siteConfig,
+					micrositeSlug: data.micrositeSlug,
+					group: data.group,
+					values: form.values
+				})
+			: initialSavedState
 	);
-	let slugInput = $state(untrack(() => data.micrositeSlug || ''));
-	let activeView = $state('builder');
+	let siteConfig = $state(initialEditorState.siteConfig);
+	let pageBlocks = $state(initialEditorState.pageBlocks);
+	let sitePages = $state(initialEditorState.sitePages);
+	let selectedPageId = $state(initialEditorState.selectedPageId);
+	let sponsorSequence = initialEditorState.nextSponsorSequence;
+	let sponsorItems = $state(initialEditorState.sponsorItems);
+	let faqItems = $state(initialEditorState.faqItems);
+	let slugInput = $state(initialEditorState.slugInput);
+	let activeView = $state(initialEditorState.activeView);
 	let showPreview = $state(false);
 	let previewVersion = $state(0);
 	let localNotice = $state('');
@@ -93,37 +105,18 @@
 	let sponsorFileNames = $state({});
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
-	const initialWidget = untrack(() => baseConfig.ride_widget_config || {});
-	let rideFilterMode = $state(
-		untrack(() =>
-			initialWidget.near || initialWidget.radiusMiles
-				? 'radius'
-				: initialWidget.location
-					? 'location'
-					: 'none'
-		)
-	);
-	let rideLocation = $state(untrack(() => initialWidget.location || ''));
-	let rideNear = $state(
-		untrack(
-			() =>
-				initialWidget.near ||
-				[data.group?.city, data.group?.state_region].filter(Boolean).join(', ')
-		)
-	);
-	let rideRadius = $state(untrack(() => initialWidget.radiusMiles || '50'));
-	let rideDefaultTab = $state(untrack(() => initialWidget.defaultTab || 'list'));
-	let rideTheme = $state(untrack(() => initialWidget.theme || 'auto'));
-	let rideDensity = $state(untrack(() => initialWidget.density || 'comfortable'));
-	let rideShowFilters = $state(untrack(() => initialWidget.showUserFilters ?? true));
-	let rideShowAdd = $state(untrack(() => initialWidget.showAddButton ?? true));
-	let ridePrefixCity = $state(untrack(() => initialWidget.prefixCity ?? false));
-	let rideDifficultyColors = $state(untrack(() => initialWidget.difficultyColors ?? true));
-	let selectedRideGroupIds = $state(
-		untrack(() =>
-			Array.isArray(baseConfig.ride_widget_group_ids) ? [...baseConfig.ride_widget_group_ids] : []
-		)
-	);
+	let rideFilterMode = $state(initialEditorState.rideFilterMode);
+	let rideLocation = $state(initialEditorState.rideLocation);
+	let rideNear = $state(initialEditorState.rideNear);
+	let rideRadius = $state(initialEditorState.rideRadius);
+	let rideDefaultTab = $state(initialEditorState.rideDefaultTab);
+	let rideTheme = $state(initialEditorState.rideTheme);
+	let rideDensity = $state(initialEditorState.rideDensity);
+	let rideShowFilters = $state(initialEditorState.rideShowFilters);
+	let rideShowAdd = $state(initialEditorState.rideShowAdd);
+	let ridePrefixCity = $state(initialEditorState.ridePrefixCity);
+	let rideDifficultyColors = $state(initialEditorState.rideDifficultyColors);
+	let selectedRideGroupIds = $state(initialEditorState.selectedRideGroupIds);
 	const selectedSitePage = $derived(
 		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
 	);
@@ -251,7 +244,7 @@
 	const previewPath = $derived(`${data.previewPath || '/'}?editor=${previewVersion}`);
 
 	function snapshot() {
-		return JSON.stringify({
+		return createGroupSiteEditorSnapshot({
 			siteConfig,
 			sitePages,
 			pageBlocks,
@@ -273,20 +266,121 @@
 			sponsorFileRevision
 		});
 	}
-	let savedSnapshot = $state(untrack(() => snapshot()));
+	let savedSnapshot = $state(untrack(() => createGroupSiteEditorSnapshot(initialSavedState)));
 	const dirty = $derived(snapshot() !== savedSnapshot);
-	function syncViewFromUrl() {
+	const pendingLogoWarning = $derived.by(() => {
+		const pendingFiles = Array.isArray(form?.values?.pending_sponsor_logo_files)
+			? form.values.pending_sponsor_logo_files.filter(Boolean)
+			: [];
+		if (!pendingFiles.length || Object.values(sponsorFileNames).some(Boolean)) return '';
+		return `Your draft text was kept, but the page reload cleared your selected partner logo (${pendingFiles.join(', ')}). Please choose the file again before publishing.`;
+	});
+	function syncViewFromUrl(fallbackView = null) {
 		const requested = new URL(window.location.href).searchParams.get('view');
-		const normalizedView = requested === 'buillder' ? 'builder' : requested;
-		if (views.some((view) => view.id === normalizedView)) activeView = normalizedView;
+		if (requested) {
+			activeView = normalizeGroupSiteEditorView(requested, activeView);
+		} else if (fallbackView) {
+			activeView = fallbackView;
+		}
+	}
+
+	function syncEditorStateFromData(formElement) {
+		const refreshedState = buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group,
+			startSponsorIndex: sponsorSequence
+		});
+		sponsorSequence = refreshedState.nextSponsorSequence;
+		siteConfig = refreshedState.siteConfig;
+		pageBlocks = refreshedState.pageBlocks;
+		sitePages = refreshedState.sitePages;
+		selectedPageId = refreshedState.selectedPageId;
+		sponsorItems = refreshedState.sponsorItems;
+		faqItems = refreshedState.faqItems;
+		slugInput = refreshedState.slugInput;
+		rideFilterMode = refreshedState.rideFilterMode;
+		rideLocation = refreshedState.rideLocation;
+		rideNear = refreshedState.rideNear;
+		rideRadius = refreshedState.rideRadius;
+		rideDefaultTab = refreshedState.rideDefaultTab;
+		rideTheme = refreshedState.rideTheme;
+		rideDensity = refreshedState.rideDensity;
+		rideShowFilters = refreshedState.rideShowFilters;
+		rideShowAdd = refreshedState.rideShowAdd;
+		ridePrefixCity = refreshedState.ridePrefixCity;
+		rideDifficultyColors = refreshedState.rideDifficultyColors;
+		selectedRideGroupIds = refreshedState.selectedRideGroupIds;
+		sponsorFileNames = {};
+		sponsorFileRevision = 0;
+		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
+			input.value = '';
+		}
+		localNotice = '';
+		localError = '';
+		previewVersion += 1;
+		savedSnapshot = createGroupSiteEditorSnapshot(refreshedState);
+		syncViewFromUrl('builder');
+	}
+
+	function enhanceSiteSettingsForm({ action, formData, cancel }) {
+		const isReset = action.searchParams.has('/reset');
+		if (!isReset) {
+			const normalizedSlug = normalizeMicrositeSlug(slugInput);
+			if (!normalizedSlug) {
+				localNotice = '';
+				localError = 'Website slug is required and can only use letters/numbers.';
+				cancel();
+				return;
+			}
+			if (isReservedMicrositeSlug(normalizedSlug)) {
+				localNotice = '';
+				localError = 'That website slug is reserved. Pick another one.';
+				cancel();
+				return;
+			}
+			for (const [key, entry] of formData.entries()) {
+				if (
+					key.startsWith('sponsor_logo_file_') &&
+					entry &&
+					typeof entry === 'object' &&
+					'size' in entry &&
+					Number(entry.size) > GROUP_SITE_LOGO_MAX_BYTES
+				) {
+					localNotice = '';
+					localError = `${entry.name || 'Sponsor logo'} exceeds the 5 MB limit.`;
+					cancel();
+					return;
+				}
+			}
+		}
+
+		localNotice = '';
+		localError = '';
+		submitting = true;
+
+		return async ({ result, update, formElement }) => {
+			try {
+				if (result.type === 'failure') {
+					await applyFormUpdate(update, { reset: false, navigate: false });
+					return;
+				}
+				if (result.type === 'error') {
+					localError = result.error?.message || 'Unable to publish website changes.';
+					return;
+				}
+				await update({ reset: false });
+				syncEditorStateFromData(formElement);
+			} finally {
+				submitting = false;
+			}
+		};
 	}
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -600,9 +694,11 @@
 		setNavigationItems(next);
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !submitting && !confirm('Leave without publishing your website changes?'))
-			cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !submitting,
+			message: 'Leave without publishing your website changes?'
+		});
 	});
 
 	onMount(() => {
@@ -613,10 +709,11 @@
 			event.returnValue = '';
 		};
 		window.addEventListener('beforeunload', warn);
-		window.addEventListener('popstate', syncViewFromUrl);
+		const handlePopState = () => syncViewFromUrl();
+		window.addEventListener('popstate', handlePopState);
 		return () => {
 			window.removeEventListener('beforeunload', warn);
-			window.removeEventListener('popstate', syncViewFromUrl);
+			window.removeEventListener('popstate', handlePopState);
 		};
 	});
 </script>
@@ -628,7 +725,7 @@
 	method="POST"
 	action="?/save"
 	enctype="multipart/form-data"
-	onsubmit={() => (submitting = true)}
+	use:enhance={enhanceSiteSettingsForm}
 >
 	<input type="hidden" name="microsite_slug" value={slugInput} />
 	<input type="hidden" name="return_view" value={activeView} />
@@ -787,10 +884,19 @@
 	{#if localError}<div class="card preset-tonal-error flex items-center gap-2 p-3" role="alert">
 			<IconCircleAlert class="h-4 w-4" />
 			{localError}
-		</div>{/if}
-	{#if form?.error}<div class="card preset-tonal-error flex items-center gap-2 p-3" role="alert">
+		</div>{:else if form?.error}<div
+			class="card preset-tonal-error flex items-center gap-2 p-3"
+			role="alert"
+		>
 			<IconCircleAlert class="h-4 w-4" />
 			{form.error}
+		</div>{/if}
+	{#if pendingLogoWarning}<div
+			class="card preset-tonal-warning flex items-center gap-2 p-3"
+			role="status"
+		>
+			<IconCircleAlert class="h-4 w-4 shrink-0" />
+			{pendingLogoWarning}
 		</div>{/if}
 
 	<nav
