@@ -1,6 +1,7 @@
 <script>
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import { guardUnsavedNavigation, replaceShallowQueryParam } from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconCheck from '@lucide/svelte/icons/check';
@@ -168,10 +169,7 @@
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -485,8 +483,11 @@
 		}
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !busy && !confirm('Leave without saving your email draft?')) cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !busy,
+			message: 'Leave without saving your email draft?'
+		});
 	});
 
 	onMount(() => {

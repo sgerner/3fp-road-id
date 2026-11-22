@@ -1,9 +1,14 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, untrack } from 'svelte';
+	import {
+		applyFormUpdate,
+		guardUnsavedNavigation,
+		replaceShallowQueryParam
+	} from '#lib/client/navigation';
 	import '#lib/map/leaflet.css';
 	import * as env from '$app/env/public';
 	import IconAlertTriangle from '@lucide/svelte/icons/triangle-alert';
@@ -859,7 +864,7 @@
 		return async ({ result, update, formElement }) => {
 			try {
 				if (result.type === 'failure') {
-					await update({ reset: false, invalidateAll: false, navigate: false });
+					await applyFormUpdate(update, { reset: false, navigate: false });
 					return;
 				}
 				if (result.type === 'error') {
@@ -891,10 +896,7 @@
 	function selectView(view) {
 		const resolved = normalizePresenceStudioView(view, 'profile');
 		activeView = resolved;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', resolved);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', resolved);
 	}
 
 	function openPreviewSurface(surface) {
@@ -1932,14 +1934,11 @@
 		submitting = true;
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (
-			dirty &&
-			!submitting &&
-			!window.confirm('Leave Public Presence Studio without publishing your changes?')
-		) {
-			cancel();
-		}
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !submitting,
+			message: 'Leave Public Presence Studio without publishing your changes?'
+		});
 	});
 
 	onMount(() => {
