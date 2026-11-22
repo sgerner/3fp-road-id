@@ -5,10 +5,9 @@ import {
 	canManageSmsThread,
 	getSmsServiceClient,
 	enqueueSms,
-	normalizeSmsPhone
+	normalizeSmsPhone,
+	resolveSmsThreadReplyKind
 } from '#lib/server/sms';
-
-const ALLOWED_KINDS = new Set(['admin', 'bike_valet']);
 
 function publicValidationError(error) {
 	const message = String(error?.message || '');
@@ -34,7 +33,6 @@ export async function POST(event) {
 	if (!parsed.ok) return json({ error: parsed.error }, { status: parsed.status });
 	const body = parsed.value && typeof parsed.value === 'object' ? parsed.value : {};
 	const message = typeof body.body === 'string' ? body.body : '';
-	const kind = ALLOWED_KINDS.has(body.kind) ? body.kind : 'admin';
 
 	try {
 		const service = getSmsServiceClient();
@@ -50,6 +48,7 @@ export async function POST(event) {
 		if (threadError) throw threadError;
 		if (!thread) return json({ error: 'SMS conversation not found.' }, { status: 404 });
 
+		const kind = resolveSmsThreadReplyKind(thread);
 		const result = await enqueueSms({
 			supabase: service,
 			userId: thread.user_id,

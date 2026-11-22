@@ -164,8 +164,8 @@
 								</h2>
 								<AutoLinkText
 									text={post.preview_text}
+									plainText
 									className="block text-surface-700-300 mt-2 text-sm leading-relaxed"
-									linkClass="text-primary-700-300 underline underline-offset-2"
 								/>
 							</div>
 							<div class="btn btn-sm preset-tonal-primary pointer-events-none flex-shrink-0 gap-1">

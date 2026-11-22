@@ -24,9 +24,9 @@
 	import IconUser from '@lucide/svelte/icons/user';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import { page } from '$app/state';
 	import { fade, fly } from 'svelte/transition';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import {
 		buildMembershipReturnPath,
 		parseMembershipHandoffParams
@@ -75,9 +75,6 @@
 	);
 	const currentUserProfile = $derived(data?.current_user_profile || null);
 	const currentUserId = $derived(data?.current_user_id || null);
-	const turnstileEnabled = $derived(
-		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data?.turnstile_enabled !== false
-	);
 
 	let selectedTierId = $state(
 		initialMatchedTier?.id || initialProgram?.default_tier_id || initialTiers?.[0]?.id || ''
@@ -92,7 +89,7 @@
 	let busy = $state(false);
 	let guestMagicLinkBusy = $state(false);
 	let guestHoneypot = $state('');
-	let guestTurnstileEl = $state(null);
+	let guestTurnstile = $state(null);
 	let magicLinkSentEmail = $state('');
 	let statusError = $state('');
 	let statusMessage = $state('');
@@ -725,78 +722,74 @@
 
 	async function submitGuestMagicLink(event) {
 		event?.preventDefault?.();
-		if (guestMagicLinkBusy) return;
-		if (!selectedTierId) {
-			setFeedback('', 'Select a membership tier first.');
-			return;
-		}
-		if (guestHoneypot.trim()) {
-			setFeedback('', 'Invalid submission.');
-			return;
-		}
-		const profilePayload = buildProfilePayload();
-		const profileError = validateProfilePayload(profilePayload);
-		if (profileError) {
-			setFeedback('', profileError);
-			return;
-		}
-		if (
-			selectedTierAllowsCustom &&
-			contributionMode === 'paid' &&
-			Number(customAmountCents || 0) < Math.max(1, selectedTierMinAmountCents)
-		) {
-			setFeedback(
-				'',
-				`Enter an amount of at least ${formatMembershipPrice(Math.max(1, selectedTierMinAmountCents))}.`
-			);
-			return;
-		}
+		if (guestMagicLinkBusy || !guestTurnstile) return;
+		let profilePayload = null;
+		let returnTo = '';
+		guestTurnstile.clearError();
+		await guestTurnstile.submit({
+			validate: () => {
+				if (!selectedTierId) {
+					setFeedback('', 'Select a membership tier first.');
+					return false;
+				}
+				if (guestHoneypot.trim()) {
+					setFeedback('', 'Invalid submission.');
+					return false;
+				}
+				profilePayload = buildProfilePayload();
+				const profileError = validateProfilePayload(profilePayload);
+				if (profileError) {
+					setFeedback('', profileError);
+					return false;
+				}
+				if (
+					selectedTierAllowsCustom &&
+					contributionMode === 'paid' &&
+					Number(customAmountCents || 0) < Math.max(1, selectedTierMinAmountCents)
+				) {
+					setFeedback(
+						'',
+						`Enter an amount of at least ${formatMembershipPrice(Math.max(1, selectedTierMinAmountCents))}.`
+					);
+					return false;
+				}
 
-		const returnTo = buildCurrentHandoffReturnPath();
-		if (!isSafeInternalPath(returnTo)) {
-			setFeedback('', 'Unable to prepare return link. Please reload and try again.');
-			return;
-		}
+				returnTo = buildCurrentHandoffReturnPath();
+				if (!isSafeInternalPath(returnTo)) {
+					setFeedback('', 'Unable to prepare return link. Please reload and try again.');
+					return false;
+				}
+				setFeedback();
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const response = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email: profilePayload.email.toLowerCase(),
+							createProfile: true,
+							returnTo,
+							honeypot: guestHoneypot,
+							turnstileToken
+						})
+					});
+					const payload = await response.json().catch(() => ({}));
+					if (!response.ok) {
+						throw new Error(payload?.error || 'Unable to send magic link.');
+					}
 
-		guestMagicLinkBusy = true;
-		setFeedback();
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				const { requestTurnstileToken } = await import('#lib/security/turnstile');
-				turnstileToken = await requestTurnstileToken(guestTurnstileEl, PUBLIC_TURNSTILE_SITE_KEY);
-				if (!turnstileToken) {
-					setFeedback('', 'Verification failed. Please try again.');
-					return;
+					magicLinkSentEmail = profilePayload.email.toLowerCase();
+					guestHoneypot = '';
+					setFeedback(
+						`We sent a magic link to ${magicLinkSentEmail}. Open it to continue with your saved membership details.`
+					);
+				} catch (magicError) {
+					setFeedback('', magicError?.message || 'Unable to send magic link right now.');
 				}
 			}
-
-			const response = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: profilePayload.email.toLowerCase(),
-					createProfile: true,
-					returnTo,
-					honeypot: guestHoneypot,
-					turnstileToken
-				})
-			});
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Unable to send magic link.');
-			}
-
-			magicLinkSentEmail = profilePayload.email.toLowerCase();
-			guestHoneypot = '';
-			setFeedback(
-				`We sent a magic link to ${magicLinkSentEmail}. Open it to continue with your saved membership details.`
-			);
-		} catch (magicError) {
-			setFeedback('', magicError?.message || 'Unable to send magic link right now.');
-		} finally {
-			guestMagicLinkBusy = false;
-		}
+		});
 	}
 
 	function switchBillingInterval(nextInterval) {
@@ -1562,12 +1555,12 @@
 										aria-hidden="true"
 										class="honeypot-field"
 									/>
-									<div
-										data-login-verification
-										aria-hidden="true"
-										class="turnstile-slot"
-										bind:this={guestTurnstileEl}
-									></div>
+									<TurnstileVerification
+										bind:this={guestTurnstile}
+										bind:busy={guestMagicLinkBusy}
+										variant="modal"
+										enabled={data?.turnstile_enabled !== false}
+									/>
 
 									{#if magicLinkSentEmail}
 										<div class="notice" role="status" data-testid="guest-magic-link-sent">
@@ -2831,10 +2824,6 @@
 		height: 1px;
 		opacity: 0;
 		pointer-events: none;
-	}
-
-	.turnstile-slot {
-		min-height: 0;
 	}
 
 	/* ── History Section ── */
