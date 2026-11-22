@@ -7,7 +7,9 @@ import { sanitizeLearnSearchQuery, searchLearnArticles } from '#lib/server/learn
 
 export const load = async ({ cookies, url }) => {
 	const { user, supabase } = await getLearnClient(cookies);
-	const initialQuery = sanitizeLearnSearchQuery(url.searchParams.get('q') ?? '');
+	const initialQuery = sanitizeLearnSearchQuery(
+		url.searchParams.get('q') ?? url.searchParams.get('search') ?? ''
+	);
 	const initialCategory = (url.searchParams.get('category') ?? '').trim();
 
 	const [articles, searchResult] = await Promise.all([

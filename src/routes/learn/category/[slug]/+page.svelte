@@ -1,6 +1,6 @@
 <script>
-	import { onDestroy, untrack } from 'svelte';
-	import { browser } from '$app/environment';
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
@@ -40,6 +40,7 @@
 
 	let debounceTimer = null;
 	let activeController = null;
+	let routerReady = false;
 
 	function clearPendingSearch() {
 		if (debounceTimer) {
@@ -76,16 +77,16 @@
 	});
 
 	function syncCategoryQueryUrl(nextQuery) {
-		if (!browser) return;
-		const nextUrl = new URL(page.url);
+		if (!browser || !routerReady) return;
+		const nextUrl = new URL(window.location.href);
 		const trimmed = nextQuery.trim();
 		if (trimmed) {
 			nextUrl.searchParams.set('q', trimmed);
 		} else {
 			nextUrl.searchParams.delete('q');
 		}
-		if (nextUrl.search !== page.url.search) {
-			replaceState(nextUrl, page.state);
+		if (nextUrl.href !== window.location.href) {
+			replaceState(nextUrl, { ...page.state });
 		}
 	}
 
@@ -160,7 +161,12 @@
 		syncCategoryQueryUrl('');
 	}
 
+	onMount(() => {
+		routerReady = true;
+	});
+
 	afterNavigate(() => {
+		routerReady = true;
 		const urlQuery = page.url.searchParams.get('q') ?? '';
 		if (urlQuery !== searchQuery) {
 			searchQuery = urlQuery;

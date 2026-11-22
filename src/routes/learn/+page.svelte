@@ -1,33 +1,67 @@
 <script>
-	import { onDestroy, untrack } from 'svelte';
-	import { browser } from '$app/environment';
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
-
+	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { applyLearnUrlState, parseLearnUrlState } from '#lib/url/directoryUrlState';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import { optimizedImageUrl } from '#lib/media/optimized';
-	import { page } from '$app/state';
 
 	const { data } = $props();
 	const authRequired = $derived(
 		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
 	);
 
-	let search = $state(untrack(() => data?.initialQuery ?? ''));
-	let category = $state(untrack(() => data?.initialCategory || 'all'));
+	const pageSize = 12;
+	const articles = $derived(data?.articles ?? []);
+	const categories = $derived(
+		Array.from(new Set(articles.map((article) => article.category_name).filter(Boolean))).sort()
+	);
+	const categoryPairs = $derived.by(() => {
+		const map = new Map();
+		for (const article of articles) {
+			if (article.category_name && article.category_slug && !map.has(article.category_name)) {
+				map.set(article.category_name, article.category_slug);
+			}
+		}
+		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+	});
+
+	function readUrlState(searchParamsInput) {
+		const currentArticles = data?.articles ?? [];
+		const currentCategories = Array.from(
+			new Set(currentArticles.map((article) => article.category_name).filter(Boolean))
+		).sort();
+		const pairsMap = new Map();
+		for (const article of currentArticles) {
+			if (article.category_name && article.category_slug && !pairsMap.has(article.category_name)) {
+				pairsMap.set(article.category_name, article.category_slug);
+			}
+		}
+		return parseLearnUrlState(searchParamsInput, {
+			pageSize,
+			categoryPairs: Array.from(pairsMap.entries()),
+			categories: currentCategories
+		});
+	}
+
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() => readUrlState(page.url.searchParams));
+	let search = $state(untrack(() => initialUrlState.search || data?.initialQuery || ''));
+	let category = $state(initialUrlState.category);
+	let visibleCount = $state(initialUrlState.visibleCount);
 	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
 	let serverResults = $state(untrack(() => data?.initialSearchResults ?? null));
 	let searching = $state(false);
 	let searchError = $state('');
-
-	const pageSize = 12;
-	let visibleCount = $state(pageSize);
+	let routerReady = false;
 	let debounceTimer = null;
 	let activeController = null;
 
@@ -46,27 +80,28 @@
 		clearPendingSearch();
 	});
 
-	function syncUrlParams(nextQuery, nextCategory) {
-		if (!browser) return;
-		const nextUrl = new URL(page.url);
-		const trimmed = nextQuery.trim();
-		if (trimmed) {
-			nextUrl.searchParams.set('q', trimmed);
-		} else {
-			nextUrl.searchParams.delete('q');
-		}
-		if (nextCategory && nextCategory !== 'all') {
-			nextUrl.searchParams.set('category', nextCategory);
-		} else {
-			nextUrl.searchParams.delete('category');
-		}
-		if (nextUrl.search !== page.url.search) {
-			replaceState(nextUrl, page.state);
+	function syncUrlToState(
+		nextSearch = search,
+		nextCategory = category,
+		nextVisibleCount = visibleCount
+	) {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyLearnUrlState(currentUrl, {
+			search: nextSearch,
+			category: nextCategory,
+			visibleCount: nextVisibleCount,
+			pageSize
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
 		}
 	}
 
-	async function runServerSearch(trimmedQuery) {
-		syncUrlParams(trimmedQuery, category);
+	async function runServerSearch(trimmedQuery, { syncUrl = true } = {}) {
+		if (syncUrl) {
+			syncUrlToState(trimmedQuery, category, visibleCount);
+		}
 		const controller = new AbortController();
 		activeController = controller;
 		searching = true;
@@ -97,6 +132,39 @@
 		}
 	}
 
+	function restoreStateFromUrl(searchParamsInput) {
+		const restored = readUrlState(searchParamsInput);
+		search = restored.search;
+		category = restored.category;
+		visibleCount = restored.visibleCount;
+
+		const trimmed = restored.search.trim();
+		if (!trimmed) {
+			clearPendingSearch();
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverResults = null;
+			return;
+		}
+
+		if (data?.initialQuery === trimmed && data?.initialSearchResults) {
+			clearPendingSearch();
+			searching = false;
+			searchError = '';
+			activeQuery = data.initialQuery;
+			serverResults = data.initialSearchResults;
+			return;
+		}
+
+		if (activeQuery === trimmed && serverResults !== null) {
+			return;
+		}
+
+		clearPendingSearch();
+		void runServerSearch(trimmed, { syncUrl: false });
+	}
+
 	function handleSearchChange(nextValue) {
 		search = nextValue;
 		visibleCount = pageSize;
@@ -108,7 +176,7 @@
 			searchError = '';
 			activeQuery = '';
 			serverResults = null;
-			syncUrlParams('', category);
+			syncUrlToState('', category, pageSize);
 			return;
 		}
 
@@ -116,17 +184,17 @@
 		searchError = '';
 		debounceTimer = setTimeout(() => {
 			debounceTimer = null;
-			runServerSearch(trimmed);
+			void runServerSearch(trimmed);
 		}, 250);
 	}
 
 	function handleCategoryChange(nextCategory) {
 		category = nextCategory;
 		visibleCount = pageSize;
-		syncUrlParams(search, nextCategory);
+		syncUrlToState(search, nextCategory, pageSize);
 	}
 
-	function resetFilters() {
+	function clearLearnFilters() {
 		clearPendingSearch();
 		search = '';
 		category = 'all';
@@ -135,52 +203,46 @@
 		searchError = '';
 		activeQuery = '';
 		serverResults = null;
-		syncUrlParams('', 'all');
+		syncUrlToState('', 'all', pageSize);
 	}
 
-	afterNavigate(() => {
-		const urlQuery = page.url.searchParams.get('q') ?? '';
-		const urlCategory = page.url.searchParams.get('category') || 'all';
-		if (urlCategory !== category) {
-			category = urlCategory;
-		}
-		if (urlQuery !== search) {
-			search = urlQuery;
-			if (!urlQuery.trim()) {
-				clearPendingSearch();
-				searching = false;
-				searchError = '';
-				activeQuery = '';
-				serverResults = null;
-			} else if (data?.initialQuery === urlQuery && data?.initialSearchResults) {
-				clearPendingSearch();
-				searching = false;
-				searchError = '';
-				activeQuery = urlQuery;
-				serverResults = data.initialSearchResults;
-			} else {
-				handleSearchChange(urlQuery);
-			}
+	function showMoreArticles() {
+		visibleCount += pageSize;
+		syncUrlToState(search, category, visibleCount);
+	}
+
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
 		}
 	});
 
-	const articles = $derived(data?.articles ?? []);
-	const categories = $derived(
-		Array.from(new Set(articles.map((article) => article.category_name).filter(Boolean))).sort()
-	);
-	const categoryPairs = $derived.by(() => {
-		const map = new Map();
-		for (const article of articles) {
-			if (article.category_name && article.category_slug && !map.has(article.category_name)) {
-				map.set(article.category_name, article.category_slug);
-			}
+	onMount(() => {
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			syncUrlToState();
 		}
-		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
+		return () => {
+			window.removeEventListener('popstate', handlePopState);
+		};
 	});
+
 	const hasActiveSearch = $derived(Boolean(search.trim()));
 	const filteredArticles = $derived.by(() => {
 		const source = hasActiveSearch && serverResults !== null ? serverResults : articles;
-		return source.filter((article) => category === 'all' || article.category_name === category);
+		return source.filter(
+			(article) =>
+				category === 'all' || (article.category_name ?? '').toLowerCase() === category.toLowerCase()
+		);
 	});
 	const statusAnnouncement = $derived.by(() => {
 		if (searching) return 'Searching guides…';
@@ -351,7 +413,7 @@
 					<button
 						type="button"
 						class="bg-primary-500 text-surface-950 h-11 px-4 text-xs font-black tracking-wide uppercase"
-						onclick={resetFilters}
+						onclick={clearLearnFilters}
 					>
 						Reset
 					</button>
@@ -493,7 +555,7 @@
 				<button
 					type="button"
 					class="btn preset-tonal-primary mt-4 min-h-11"
-					onclick={() => (visibleCount += pageSize)}>Show more articles</button
+					onclick={showMoreArticles}>Show more articles</button
 				>
 			{/if}
 		{:else}
@@ -505,7 +567,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 px-7 py-4 text-sm font-black tracking-wide uppercase transition"
-					onclick={resetFilters}
+					onclick={clearLearnFilters}
 				>
 					Clear filters
 				</button>
