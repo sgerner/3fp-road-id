@@ -146,6 +146,12 @@
 		}
 	};
 
+	const handleFullNameSave = (event) => {
+		const nextValue = event.currentTarget.value;
+		if ((profile.full_name ?? '') === nextValue) return;
+		profile.full_name = nextValue;
+		handleProfileUpdate();
+	};
 	// Common allergy & medication chip logic
 	const allergyOptions = ['Latex', 'Penicillin', 'Sulfa', 'Iodine'];
 	const getAllergyArray = () =>
@@ -436,6 +442,7 @@
 									<input
 										type="email"
 										id="email"
+										autocomplete="email"
 										bind:value={newProfile.email}
 										placeholder="jane@example.com"
 										class="input bg-surface-900 text-surface-50 {emailTouched && !emailIsValid
@@ -513,11 +520,10 @@
 										type="text"
 										id="full_name"
 										value={profile?.full_name}
+										autocomplete="name"
 										class="input bg-surface-900 border-surface-700 text-surface-50"
-										onblur={(e) => {
-											profile.full_name = e.target.value;
-											handleProfileUpdate();
-										}}
+										onchange={handleFullNameSave}
+										onblur={handleFullNameSave}
 									/>
 								</div>
 
@@ -688,6 +694,7 @@
 													type="text"
 													id={`contact-name-${contact.id}`}
 													bind:value={contact.contact_name}
+													autocomplete="off"
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
@@ -701,6 +708,7 @@
 													type="text"
 													id={`contact-relationship-${contact.id}`}
 													bind:value={contact.contact_relationship}
+													autocomplete="off"
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
@@ -714,7 +722,7 @@
 													type="tel"
 													id={`contact-phone-${contact.id}`}
 													bind:value={contact.contact_phone}
-													autocomplete="tel"
+													autocomplete="off"
 													class="input bg-surface-900 border-surface-700 text-surface-50"
 													onblur={() => handleUpdateContact(contact)}
 												/>
@@ -750,6 +758,7 @@
 												type="text"
 												id="contact_name"
 												bind:value={newContact.contact_name}
+												autocomplete="off"
 												class="input bg-surface-900 border-surface-700 text-surface-50"
 												required
 											/>
@@ -765,6 +774,7 @@
 												type="text"
 												id="contact_relationship"
 												bind:value={newContact.contact_relationship}
+												autocomplete="off"
 												class="input bg-surface-900 border-surface-700 text-surface-50"
 												required
 											/>
@@ -780,7 +790,7 @@
 												type="tel"
 												id="contact_phone"
 												bind:value={newContact.contact_phone}
-												autocomplete="tel"
+												autocomplete="off"
 												class="input bg-surface-900 border-surface-700 text-surface-50"
 												required
 											/>
@@ -955,6 +965,7 @@
 											<input
 												type="email"
 												id="email"
+												autocomplete="email"
 												bind:value={newProfile.email}
 												placeholder="jane@example.com"
 												class="input bg-surface-900 text-surface-50 {emailTouched && !emailIsValid

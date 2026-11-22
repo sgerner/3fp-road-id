@@ -324,6 +324,7 @@
 						<input
 							id="resend-email"
 							type="email"
+							autocomplete="email"
 							bind:value={resendEmail}
 							placeholder="you@example.com"
 							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500 w-full"

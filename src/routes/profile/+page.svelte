@@ -427,6 +427,7 @@
 						</span>
 						<input
 							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							autocomplete="name"
 							bind:value={fullName}
 							maxlength="120"
 							placeholder="How should we show your name?"

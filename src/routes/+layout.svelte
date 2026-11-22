@@ -796,6 +796,7 @@
 										<input
 											id="login-email-m"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
@@ -844,6 +845,7 @@
 										<input
 											id="login-email"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
