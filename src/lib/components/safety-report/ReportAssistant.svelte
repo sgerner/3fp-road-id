@@ -402,14 +402,30 @@
 <style>
 	h2,
 	h3 {
-		color: var(--color-secondary-950) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 	}
 	.assistant {
-		background: var(--report-paper);
-		border: 2px solid var(--color-secondary-950);
-		border-top: 5px solid var(--color-tertiary-700-300);
+		--ra-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--ra-muted: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
+		--ra-purple: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		--ra-pink: var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
+		--ra-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--ra-paper: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
+		--ra-soft: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
+		background: var(--ra-paper);
+		border: 2px solid var(--ra-ink);
+		border-top: 5px solid var(--ra-pink);
 		border-radius: 0;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		padding: clamp(1.2rem, 3vw, 2rem);
 	}
 	.assistant h2,
@@ -429,7 +445,7 @@
 		margin: 0;
 	}
 	.eyebrow {
-		color: var(--color-tertiary-700-300);
+		color: var(--ra-pink);
 		font-size: 0.78rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -442,10 +458,10 @@
 		margin: 1.25rem 0;
 	}
 	.suggestions button {
-		background: var(--report-soft);
-		border: 2px solid var(--color-secondary-400);
+		background: var(--ra-soft);
+		border: 2px solid var(--ra-border);
 		border-radius: 0;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		cursor: pointer;
 		font: inherit;
 		font-size: 0.88rem;
@@ -455,7 +471,8 @@
 	}
 	.suggestions button:hover:not(:disabled) {
 		background: var(--color-primary-500);
-		border-color: var(--color-secondary-950);
+		border-color: var(--ra-ink);
+		color: var(--color-primary-contrast-500);
 	}
 	.conversation {
 		display: grid;
@@ -463,13 +480,13 @@
 		margin: 1rem 0;
 	}
 	.answer-card {
-		background: var(--report-paper);
-		border: 1px solid var(--color-secondary-300);
-		border-top: 3px solid var(--color-secondary-700-300);
+		background: var(--ra-paper);
+		border: 1px solid var(--ra-border);
+		border-top: 3px solid var(--ra-purple);
 		padding: 1rem;
 	}
 	.question {
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		font-weight: 800;
 		margin: 0 0 0.75rem;
 	}
@@ -486,11 +503,11 @@
 		padding-left: 1.3rem;
 	}
 	.evidence {
-		border-top: 1px solid var(--color-secondary-300);
+		border-top: 1px solid var(--ra-border);
 		margin-top: 1rem;
 	}
 	.template-suggestions {
-		border-top: 1px solid var(--color-secondary-300);
+		border-top: 1px solid var(--ra-border);
 		margin-top: 1rem;
 	}
 	.template-suggestions h3 {
@@ -507,7 +524,7 @@
 	}
 	.template-card {
 		min-width: 0;
-		border: 1px solid var(--color-secondary-300);
+		border: 1px solid var(--ra-border);
 		overflow: hidden;
 	}
 	.template-card img {
@@ -515,7 +532,7 @@
 		width: 100%;
 		aspect-ratio: 4 / 3;
 		object-fit: contain;
-		background: var(--report-soft);
+		background: var(--color-surface-50);
 	}
 	.template-copy {
 		padding: 0.7rem;
@@ -533,7 +550,7 @@
 		font-size: 0.82rem;
 	}
 	a {
-		color: var(--color-secondary-700-300);
+		color: var(--ra-purple);
 		font-weight: 700;
 		text-decoration: underline;
 		text-underline-offset: 0.15em;
@@ -547,11 +564,11 @@
 		margin-bottom: 0.4rem;
 	}
 	textarea {
-		background: var(--report-paper);
-		border: 2px solid var(--color-secondary-400);
+		background: var(--ra-paper);
+		border: 2px solid var(--ra-border);
 		border-radius: 0;
 		box-sizing: border-box;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		font: inherit;
 		padding: 0.75rem;
 		resize: vertical;
@@ -566,12 +583,12 @@
 		margin-top: 0.5rem;
 	}
 	.form-footer span {
-		color: var(--color-surface-700);
+		color: var(--ra-muted);
 		font-size: 0.85rem;
 	}
 	.submit {
 		background: var(--color-primary-500);
-		border: 2px solid var(--color-secondary-950);
+		border: 2px solid var(--ra-ink);
 		border-radius: 0;
 		color: var(--color-primary-contrast-500);
 		cursor: pointer;
@@ -580,8 +597,8 @@
 		padding: 0.65rem 1.1rem;
 	}
 	.submit:hover:not(:disabled) {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
+		background: var(--ra-purple);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	button:disabled {
 		cursor: not-allowed;
@@ -590,16 +607,16 @@
 	button:focus-visible,
 	a:focus-visible,
 	textarea:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--ra-pink);
 		outline-offset: 3px;
 	}
 	.status {
 		line-height: 1.5;
 	}
 	.busy-card {
-		background: var(--report-soft);
-		border: 1px solid var(--color-secondary-300);
-		border-top: 3px solid var(--color-secondary-950);
+		background: var(--ra-soft);
+		border: 1px solid var(--ra-border);
+		border-top: 3px solid var(--ra-ink);
 		margin: 1rem 0;
 		padding: 1rem 1.1rem;
 	}
@@ -609,37 +626,37 @@
 		gap: 0.8rem;
 	}
 	.busy-heading strong {
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 	}
 	.busy-heading p {
-		color: var(--color-surface-700);
+		color: var(--ra-muted);
 		margin: 0.1rem 0 0;
 	}
 	.spinner {
 		animation: spin 0.85s linear infinite;
-		border: 3px solid var(--report-paper);
-		border-right-color: var(--color-tertiary-700-300);
-		border-top-color: var(--color-secondary-950);
+		border: 3px solid var(--ra-paper);
+		border-right-color: var(--ra-pink);
+		border-top-color: var(--ra-ink);
 		flex: 0 0 auto;
 		height: 1.25rem;
 		width: 1.25rem;
 	}
 	.progress-track {
-		background: var(--report-paper);
+		background: var(--ra-paper);
 		height: 0.35rem;
 		margin: 0.95rem 0 0.65rem;
 		overflow: hidden;
 	}
 	.progress-track span {
 		animation: progress 1.6s ease-in-out infinite;
-		background: var(--color-tertiary-700-300);
+		background: var(--ra-pink);
 		display: block;
 		height: 100%;
 		width: 38%;
 	}
 	.busy-footer {
 		align-items: center;
-		color: var(--color-surface-700);
+		color: var(--ra-muted);
 		display: flex;
 		flex-wrap: wrap;
 		font-size: 0.88rem;
@@ -647,14 +664,17 @@
 		justify-content: space-between;
 	}
 	.cancel {
-		background: var(--report-paper);
-		border: 2px solid var(--color-secondary-950);
+		background: var(--ra-paper);
+		border: 2px solid var(--ra-ink);
 		border-radius: 0;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		cursor: pointer;
 		font: inherit;
 		font-weight: 700;
 		padding: 0.35rem 0.65rem;
+	}
+	.cancel:hover {
+		background: var(--ra-soft);
 	}
 	@keyframes spin {
 		to {
@@ -682,7 +702,7 @@
 		}
 	}
 	.error {
-		color: var(--color-tertiary-700-300);
+		color: light-dark(var(--color-error-800), var(--color-error-200));
 		font-weight: 700;
 	}
 	.sr-only {

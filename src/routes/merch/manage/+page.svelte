@@ -219,8 +219,8 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto w-full max-w-7xl space-y-6 pb-12" in:fade={{ duration: 180 }}>
-	<section class="manage-hero relative overflow-hidden rounded-3xl p-6 md:p-8">
+<div class="manage-page mx-auto w-full max-w-7xl space-y-6 pb-12" in:fade={{ duration: 180 }}>
+	<section class="manage-hero relative overflow-hidden p-6 md:p-8">
 		<div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
 			<div>
 				<h1 class="mt-2 text-3xl leading-tight font-black md:text-4xl">Manage Merch Store</h1>
@@ -229,16 +229,16 @@
 				</p>
 			</div>
 			<div class="grid min-w-[15rem] gap-2 text-sm sm:grid-cols-3 sm:text-right">
-				<div class="hero-pill rounded-xl px-3 py-2">
-					<div class="opacity-70">Products</div>
+				<div class="hero-pill px-3 py-2">
+					<div class="opacity-75">Products</div>
 					<div class="text-xl font-bold">{data.products?.length ?? 0}</div>
 				</div>
-				<div class="hero-pill rounded-xl px-3 py-2">
-					<div class="opacity-70">Fulfillment</div>
+				<div class="hero-pill px-3 py-2">
+					<div class="opacity-75">Fulfillment</div>
 					<div class="text-xl font-bold">{data.fulfillmentMethods?.length ?? 0}</div>
 				</div>
-				<div class="hero-pill rounded-xl px-3 py-2">
-					<div class="opacity-70">Orders</div>
+				<div class="hero-pill px-3 py-2">
+					<div class="opacity-75">Orders</div>
 					<div class="text-xl font-bold">{data.orders?.length ?? 0}</div>
 				</div>
 			</div>
@@ -362,7 +362,9 @@
 												</div>
 											{/if}
 											{#if data.printfulAccount?.last_error}
-												<div class="mt-2 text-red-300">{data.printfulAccount.last_error}</div>
+												<div class="text-error-800 dark:text-error-200 mt-2">
+													{data.printfulAccount.last_error}
+												</div>
 											{/if}
 											{#if data.store?.printful_last_synced_at}
 												<div class="mt-0.5 opacity-70">
@@ -370,7 +372,9 @@
 												</div>
 											{/if}
 											{#if data.store?.printful_last_sync_error}
-												<div class="mt-2 text-red-300">{data.store.printful_last_sync_error}</div>
+												<div class="text-error-800 dark:text-error-200 mt-2">
+													{data.store.printful_last_sync_error}
+												</div>
 											{/if}
 										</div>
 										<div class="flex flex-wrap gap-2">
@@ -464,7 +468,7 @@
 											</div>
 											{#if printfulActionState === 'sync'}
 												<div
-													class="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm opacity-80 md:col-span-2"
+													class="manage-subcard px-3 py-2 text-sm opacity-80 md:col-span-2"
 													in:fade={{ duration: 120 }}
 													out:fade={{ duration: 90 }}
 												>
@@ -583,7 +587,7 @@
 										<div class="space-y-2">
 											{#each data.fulfillmentMethods as method (method.id)}
 												<div
-													class="rounded-xl border border-white/10 bg-black/15 p-3"
+													class="manage-subcard p-3"
 													in:fade={{ duration: 150 }}
 													out:fade={{ duration: 90 }}
 												>
@@ -729,7 +733,7 @@
 
 													{#if method.method_type === 'shipping'}
 														<div
-															class="mt-4 rounded-xl border border-white/10 bg-black/10 p-3"
+															class="manage-subcard mt-4 p-3"
 															in:fade={{ duration: 140 }}
 															out:fade={{ duration: 90 }}
 														>
@@ -738,7 +742,7 @@
 																<div class="mt-2 space-y-2">
 																	{#each method.shipping_rules as rule (rule.id)}
 																		<div
-																			class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-sm"
+																			class="manage-subcard flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
 																		>
 																			<div>
 																				<div class="font-semibold">{metricValueLabel(rule)}</div>
@@ -854,7 +858,7 @@
 									<form
 										method="POST"
 										action="?/createFulfillment"
-										class="mt-4 grid gap-3 rounded-xl border border-white/10 bg-black/10 p-3 md:grid-cols-2"
+										class="manage-subcard mt-4 grid gap-3 p-3 md:grid-cols-2"
 									>
 										<input type="hidden" name="store_id" value={data.store.id} />
 										<div>
@@ -943,7 +947,7 @@
 							method="POST"
 							action="?/saveProduct"
 							enctype="multipart/form-data"
-							class="rounded-xl border border-white/10 bg-black/12 p-4"
+							class="manage-subcard p-4"
 						>
 							<input type="hidden" name="store_id" value={data.store.id} />
 							<div class="grid gap-3 md:grid-cols-2">
@@ -1000,7 +1004,7 @@
 								No products created yet.
 							</p>
 						{:else}
-							<div class="mt-4 rounded-xl border border-white/10 bg-black/12 p-3">
+							<div class="manage-subcard mt-4 p-3">
 								<div class="grid gap-3 md:grid-cols-4">
 									<label class="md:col-span-2">
 										<span class="label">Search by Name</span>
@@ -1258,7 +1262,7 @@
 										<div class="md:col-span-2">
 											{#if productPreviewImage(selectedProduct)}
 												<div
-													class="mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/10 p-2 text-xs"
+													class="manage-subcard mb-2 flex flex-wrap items-center gap-3 p-2 text-xs"
 												>
 													<img
 														src={productPreviewImage(selectedProduct)}
@@ -1295,14 +1299,14 @@
 										</div>
 									</form>
 
-									<div class="rounded-xl border border-white/10 bg-black/15 p-3">
+									<div class="manage-subcard p-3">
 										<h4 class="text-sm font-semibold uppercase opacity-80">Variants</h4>
 										{#if (selectedProduct.variants?.length ?? 0) === 0}
 											<p class="mt-2 text-xs opacity-75">No variants yet.</p>
 										{:else}
 											<div class="mt-2 space-y-2">
 												{#each selectedProduct.variants as variant (variant.id)}
-													<div class="rounded-lg border border-white/10 bg-black/10 p-3">
+													<div class="manage-subcard p-3">
 														<form
 															method="POST"
 															action="?/saveVariant"
@@ -1432,7 +1436,7 @@
 										<form
 											method="POST"
 											action="?/saveVariant"
-											class="mt-3 grid gap-2 border-t border-white/10 pt-3 md:grid-cols-4"
+											class="border-surface-500/25 mt-3 grid gap-2 border-t pt-3 md:grid-cols-4"
 										>
 											<input type="hidden" name="product_id" value={selectedProduct.id} />
 											<div class="md:col-span-2">
@@ -1552,11 +1556,7 @@
 									{#each orderStatusOptions as status (status)}
 										<button
 											type="button"
-											class={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-												orderStatusFilter === status
-													? 'border-primary-400/60 bg-primary-500/20 text-white'
-													: 'text-surface-100 border-white/15 bg-black/15 hover:border-white/30 hover:bg-black/25'
-											}`}
+											class="order-status-btn px-3 py-1 text-xs font-semibold transition-colors"
 											aria-pressed={orderStatusFilter === status}
 											onclick={() => (orderStatusFilter = status)}
 										>
@@ -1566,7 +1566,7 @@
 								</div>
 								{#if filteredOrders.length === 0}
 									<p
-										class="rounded-xl border border-white/10 bg-black/12 px-3 py-2 text-sm opacity-80"
+										class="manage-subcard px-3 py-2 text-sm opacity-80"
 										in:fade={{ duration: 140 }}
 										out:fade={{ duration: 90 }}
 									>
@@ -1575,7 +1575,7 @@
 								{/if}
 								{#each filteredOrders as order (order.id)}
 									<article
-										class="rounded-xl border border-white/10 bg-black/12 p-3"
+										class="manage-subcard p-3"
 										in:fade={{ duration: 150 }}
 										out:fade={{ duration: 90 }}
 									>
@@ -1611,7 +1611,7 @@
 											<form
 												method="POST"
 												action="?/refundOrder"
-												class="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 px-2 py-1.5"
+												class="border-surface-500/25 flex flex-wrap items-center gap-2 border px-2 py-1.5"
 											>
 												<input type="hidden" name="order_id" value={order.id} />
 												<input
@@ -1646,10 +1646,34 @@
 </div>
 
 <style>
+	.manage-page {
+		--color-error-contrast-500: var(--color-surface-950);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+	}
+	.manage-page :global(.btn[class*='preset-outlined-primary']) {
+		border-width: 2px;
+		border-color: light-dark(var(--color-secondary-700), var(--color-primary-500));
+		color: light-dark(var(--color-secondary-700), var(--color-surface-50));
+	}
+	.manage-page :global(.btn[class*='preset-outlined-error']) {
+		border-width: 2px;
+		border-color: light-dark(var(--color-error-800), var(--color-error-400));
+		color: light-dark(var(--color-error-800), var(--color-error-200));
+	}
 	.manage-hero {
 		position: relative;
-		background: color-mix(in oklab, var(--color-primary-500) 12%, var(--color-surface-950) 88%);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 25%, transparent);
+		background: color-mix(
+			in oklab,
+			var(--color-primary-500) 12%,
+			light-dark(var(--color-surface-50), var(--color-surface-950)) 88%
+		);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-500), var(--color-primary-500)) 28%,
+				transparent
+			);
 	}
 	.manage-hero::before {
 		position: absolute;
@@ -1665,12 +1689,14 @@
 		pointer-events: none;
 	}
 	.hero-pill {
-		background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		background: light-dark(var(--color-surface-50), var(--color-surface-950));
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 26%, transparent);
 	}
 	.settings-accordion {
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-		background: color-mix(in oklab, var(--color-surface-950) 45%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 26%, transparent);
+		background: light-dark(var(--color-surface-50), var(--color-surface-950));
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
 	}
 	.settings-accordion-trigger {
 		width: 100%;
@@ -1679,10 +1705,10 @@
 		justify-content: space-between;
 		padding: 0.9rem 1rem;
 		font-weight: 700;
-		border-radius: 0.9rem;
+		color: inherit;
 	}
 	.settings-accordion-trigger:hover {
-		background: color-mix(in oklab, var(--color-surface-800) 62%, transparent);
+		background: light-dark(var(--color-surface-100), var(--color-surface-800));
 	}
 	.manage-tabs-rail {
 		display: flex;
@@ -1692,21 +1718,19 @@
 		display: flex;
 		gap: 0.35rem;
 		padding: 0.35rem;
-		border-radius: 0.9rem;
-		background: color-mix(in oklab, var(--color-surface-950) 55%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		background: light-dark(var(--color-surface-100), var(--color-surface-950));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 28%, transparent);
 		width: fit-content;
 		max-width: 100%;
 		overflow-x: auto;
 	}
 	.manage-tabs-rail :global([role='tab']) {
 		border: 1px solid transparent;
-		border-radius: 0.65rem;
 		padding: 0.45rem 0.9rem;
 		font-size: 0.92rem;
 		font-weight: 700;
 		line-height: 1;
-		color: color-mix(in oklab, white 84%, var(--color-surface-300) 16%);
+		color: light-dark(var(--color-surface-800), var(--color-surface-100));
 		transition:
 			background-color 140ms ease,
 			border-color 140ms ease,
@@ -1714,35 +1738,82 @@
 			box-shadow 140ms ease;
 	}
 	.manage-tabs-rail :global([role='tab']:hover) {
-		background: color-mix(in oklab, var(--color-surface-800) 68%, transparent);
-		border-color: color-mix(in oklab, var(--color-surface-500) 22%, transparent);
+		background: light-dark(var(--color-surface-200), var(--color-surface-800));
+		border-color: color-mix(in oklab, var(--color-surface-500) 28%, transparent);
 	}
 	.manage-tabs-rail :global([role='tab'][data-state='active']),
 	.manage-tabs-rail :global([role='tab'][aria-selected='true']) {
-		background: color-mix(in oklab, var(--color-primary-500) 20%, var(--color-surface-900) 80%);
-		border-color: color-mix(in oklab, var(--color-primary-500) 42%, transparent);
-		color: white;
+		background: color-mix(
+			in oklab,
+			var(--color-primary-500) 24%,
+			light-dark(var(--color-surface-50), var(--color-surface-900)) 76%
+		);
+		border-color: light-dark(
+			var(--color-secondary-700),
+			color-mix(in oklab, var(--color-primary-500) 42%, transparent)
+		);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
 		box-shadow: 0 8px 20px -14px color-mix(in oklab, var(--color-primary-500) 75%, transparent);
 	}
 	.manage-tabs-rail :global([role='tab']:focus-visible) {
-		outline: 2px solid color-mix(in oklab, var(--color-primary-500) 80%, white 20%);
+		outline: 2px solid light-dark(var(--color-secondary-700), var(--color-primary-500));
 		outline-offset: 1px;
 	}
 	.panel {
 		background: linear-gradient(
 			140deg,
-			color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%),
-			color-mix(in oklab, var(--color-surface-900) 90%, var(--color-secondary-500) 10%)
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 94%,
+				var(--color-primary-500) 6%
+			),
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 92%,
+				var(--color-secondary-500) 8%
+			)
 		);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 26%, transparent);
+	}
+	.manage-subcard {
+		background: light-dark(var(--color-surface-100), var(--color-surface-950));
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 26%, transparent);
+	}
+	.order-status-btn {
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 32%, transparent);
+		background: light-dark(var(--color-surface-100), var(--color-surface-950));
+		color: light-dark(var(--color-surface-900), var(--color-surface-100));
+	}
+	.order-status-btn:hover {
+		background: light-dark(var(--color-surface-200), var(--color-surface-800));
+	}
+	.order-status-btn[aria-pressed='true'] {
+		border-color: light-dark(var(--color-secondary-700), var(--color-primary-500));
+		background: color-mix(
+			in oklab,
+			var(--color-primary-500) 24%,
+			light-dark(var(--color-surface-50), var(--color-surface-900)) 76%
+		);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
 	}
 	.product-card {
 		background: linear-gradient(
 			150deg,
-			color-mix(in oklab, var(--color-surface-900) 94%, var(--color-primary-500) 6%),
-			color-mix(in oklab, var(--color-surface-900) 90%, var(--color-tertiary-500) 10%)
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 94%,
+				var(--color-primary-500) 6%
+			),
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 92%,
+				var(--color-tertiary-500) 8%
+			)
 		);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 22%, transparent);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 26%, transparent);
 		transition:
 			transform 160ms ease,
 			box-shadow 160ms ease;
@@ -1753,8 +1824,8 @@
 	}
 	.product-card-media {
 		aspect-ratio: 1 / 1;
-		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
-		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+		background: light-dark(var(--color-surface-100), var(--color-surface-950));
+		border-bottom: 1px solid color-mix(in oklab, var(--color-surface-500) 22%, transparent);
 	}
 	.manage-modal-backdrop {
 		position: fixed;
@@ -1764,19 +1835,26 @@
 		place-items: center;
 		padding: 1rem;
 		background: rgba(8, 9, 12, 0.82);
-		backdrop-filter: blur(6px);
 	}
 	.manage-modal-panel {
 		width: min(100%, 76rem);
 		max-height: 94vh;
 		overflow: auto;
-		border-radius: 1rem;
 		padding: 1rem;
 		background: linear-gradient(
 			140deg,
-			color-mix(in oklab, var(--color-surface-900) 95%, var(--color-primary-500) 5%),
-			color-mix(in oklab, var(--color-surface-900) 92%, var(--color-secondary-500) 8%)
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 95%,
+				var(--color-primary-500) 5%
+			),
+			color-mix(
+				in oklab,
+				light-dark(var(--color-surface-50), var(--color-surface-900)) 92%,
+				var(--color-secondary-500) 8%
+			)
 		);
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 24%, transparent);
+		color: light-dark(var(--color-surface-950), var(--color-surface-50));
+		border: 1px solid color-mix(in oklab, var(--color-surface-500) 28%, transparent);
 	}
 </style>

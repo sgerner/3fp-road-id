@@ -3,8 +3,8 @@
 	import { getRideImages } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { onMount } from 'svelte';
-	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { navigateAfterMutation, refreshPageData } from '#lib/client/navigation';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
@@ -402,7 +402,7 @@
 		if (!response.ok) {
 			return { ok: false, error: result?.error || 'Unable to update RSVP.' };
 		}
-		await invalidateAll();
+		await refreshPageData();
 		return { ok: true, data: result?.data };
 	}
 
@@ -555,7 +555,7 @@
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(result?.error || 'Unable to claim ride.');
-			await goto(`/ride/${activity.slug}`, { invalidateAll: true, replaceState: true });
+			await navigateAfterMutation(`/ride/${activity.slug}`);
 		} catch (error) {
 			claimError = error.message || 'Unable to claim ride.';
 		} finally {

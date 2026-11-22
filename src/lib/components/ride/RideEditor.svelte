@@ -1,5 +1,5 @@
 <script>
-	import { goto } from '$app/navigation';
+	import { navigateAfterMutation } from '#lib/client/navigation';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, tick } from 'svelte';
 	import {
@@ -478,9 +478,8 @@
 			const slug = result?.data?.activity?.slug;
 			saveSuccess = manageMode ? 'Ride updated.' : 'Ride created.';
 			if (slug) {
-				await goto(`/ride/${slug}`, {
-					invalidateAll: true,
-					replaceState: manageMode
+				await navigateAfterMutation(`/ride/${slug}`, {
+					replace: manageMode
 				});
 			}
 		} catch (error) {
@@ -660,7 +659,7 @@
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(result?.error || 'Unable to update occurrence.');
-			await goto(`/ride/${rideSlug}/manage`, { invalidateAll: true, replaceState: true });
+			await navigateAfterMutation(`/ride/${rideSlug}/manage`);
 		} catch (error) {
 			occurrenceSaveError = error.message || 'Unable to update occurrence.';
 		} finally {
@@ -750,7 +749,7 @@
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(result?.error || 'Unable to delete ride.');
-			await goto('/ride', { invalidateAll: true });
+			await navigateAfterMutation('/ride', { replace: false });
 		} catch (error) {
 			deleteError = error.message || 'Unable to delete ride.';
 		} finally {

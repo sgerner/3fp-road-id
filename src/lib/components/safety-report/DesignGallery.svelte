@@ -506,12 +506,32 @@
 </dialog>
 
 <style>
+	.gallery,
+	dialog {
+		--dg-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--dg-muted: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
+		--dg-purple: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		--dg-pink: var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
+		--dg-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--dg-line: var(--line, light-dark(var(--color-secondary-200), var(--color-surface-700)));
+		--dg-paper: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
+		--dg-soft: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
+	}
 	h2,
 	h3 {
-		color: var(--color-secondary-950) !important;
+		color: var(--dg-ink) !important;
 	}
 	.gallery {
-		color: var(--color-secondary-950);
+		color: var(--dg-ink);
 	}
 	.gallery h2,
 	.gallery h3 {
@@ -523,7 +543,7 @@
 	.eyebrow,
 	.item-label,
 	.notice-label {
-		color: var(--color-secondary-700-300);
+		color: var(--dg-purple);
 		letter-spacing: 0.08em;
 		font-size: 0.78rem;
 		font-weight: 800;
@@ -539,18 +559,18 @@
 		max-width: 52rem;
 	}
 	.customization-notice {
-		background: var(--report-soft);
-		border-left: 4px solid var(--color-tertiary-700-300);
+		background: var(--dg-soft);
+		border-left: 4px solid var(--dg-pink);
 		padding: 1.15rem 1.35rem;
 		margin: 1.75rem 0;
 	}
 	.customization-notice .notice-label {
-		color: var(--color-secondary-950);
+		color: var(--dg-ink);
 		margin-bottom: 0.35rem;
 	}
 	.customization-notice p:last-child {
 		font-size: 0.92rem;
-		color: var(--color-surface-700);
+		color: var(--dg-muted);
 		max-width: 60rem;
 	}
 	button,
@@ -565,7 +585,7 @@
 	a:focus-visible,
 	select:focus-visible,
 	summary:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--dg-pink);
 		outline-offset: 3px;
 	}
 	.controls {
@@ -589,9 +609,9 @@
 		box-sizing: border-box;
 		min-height: 44px;
 		padding: 0.7rem 2rem 0.7rem 0.8rem;
-		color: var(--color-secondary-950);
-		border: 2px solid var(--color-secondary-400);
-		background-color: var(--report-paper);
+		color: var(--dg-ink);
+		border: 2px solid var(--dg-border);
+		background-color: var(--dg-paper);
 		font-size: 0.95rem;
 		font-weight: 600;
 		text-transform: none;
@@ -599,7 +619,7 @@
 	.reset-filters {
 		min-height: 44px;
 		padding: 0.7rem 1rem;
-		border: 2px solid var(--color-secondary-950);
+		border: 2px solid var(--dg-ink);
 		background: var(--color-primary-500);
 		color: var(--color-primary-contrast-500);
 		font-size: 0.82rem;
@@ -618,14 +638,14 @@
 	.set-card {
 		display: flex;
 		flex-direction: column;
-		border: 1px solid var(--report-border);
-		border-top: 4px solid var(--color-secondary-700-300);
-		background: var(--report-paper);
+		border: 1px solid var(--dg-border);
+		border-top: 4px solid var(--dg-purple);
+		background: var(--dg-paper);
 		padding: 1rem;
 		scroll-margin-top: 140px;
 	}
 	.preview-frame {
-		background: var(--report-soft);
+		background: var(--dg-soft);
 	}
 	.image-button {
 		position: relative;
@@ -633,7 +653,7 @@
 		width: 100%;
 		padding: 0;
 		border: 0;
-		background: var(--report-soft);
+		background: var(--color-surface-50);
 	}
 	.image-button img {
 		display: block;
@@ -644,7 +664,7 @@
 		transition: transform 0.25s ease;
 	}
 	.image-button:hover {
-		box-shadow: inset 0 0 0 3px var(--color-tertiary-700-300);
+		box-shadow: inset 0 0 0 3px var(--dg-pink);
 	}
 	.image-button:hover img {
 		transform: scale(1.02);
@@ -665,15 +685,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		border-top: 1px solid var(--report-border);
-		background: var(--report-paper);
+		border-top: 1px solid var(--dg-border);
+		background: var(--dg-paper);
+		color: var(--dg-ink);
 		font-size: 0.78rem;
 		font-weight: 750;
 	}
 	.page-stepper button {
 		border: 0;
-		background: var(--report-soft);
-		color: var(--color-secondary-950);
+		background: var(--dg-soft);
+		color: var(--dg-ink);
 		padding: 0.35rem 0.7rem;
 		font-size: 1rem;
 		font-weight: 800;
@@ -694,14 +715,14 @@
 	.campaign-guidance {
 		margin-top: 0.75rem;
 		padding-top: 0.65rem;
-		border-top: 1px solid var(--color-secondary-200);
+		border-top: 1px solid var(--dg-line);
 		font-size: 0.85rem;
 		line-height: 1.45;
 	}
 	.campaign-guidance > summary {
 		cursor: pointer;
 		padding-block: 0.3rem;
-		color: var(--color-surface-700);
+		color: var(--dg-muted);
 		font-size: 0.84rem;
 		font-weight: 750;
 	}
@@ -731,25 +752,25 @@
 	.card-actions a {
 		font-size: 0.78rem;
 		padding: 0.48rem 0.6rem;
-		background: var(--report-soft);
-		color: var(--color-secondary-700-300);
-		border: 1px solid var(--report-border);
+		background: var(--dg-soft);
+		color: var(--dg-purple);
+		border: 1px solid var(--dg-border);
 		text-decoration: none;
 		font-weight: 800;
 	}
 	.card-actions a:last-child {
-		background: var(--color-secondary-700-300);
-		border-color: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
+		background: var(--dg-purple);
+		border-color: var(--dg-purple);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.card-actions a:hover {
 		background: var(--color-primary-500);
-		border-color: var(--color-secondary-950);
+		border-color: var(--dg-ink);
 		color: var(--color-primary-contrast-500);
 	}
 	.empty {
 		padding: 1.25rem 0;
-		color: var(--color-surface-700);
+		color: var(--dg-muted);
 	}
 	dialog {
 		box-sizing: border-box;
@@ -759,10 +780,10 @@
 		max-height: 90vh;
 		overflow: auto;
 		padding: clamp(1rem, 4vw, 2.25rem);
-		color: var(--color-secondary-950);
-		background: var(--report-paper);
-		border: 2px solid var(--color-secondary-950);
-		border-top: 6px solid var(--color-tertiary-700-300);
+		color: var(--dg-ink);
+		background: var(--dg-paper);
+		border: 2px solid var(--dg-ink);
+		border-top: 6px solid var(--dg-pink);
 		border-radius: 0;
 	}
 	dialog[open] {
@@ -790,7 +811,7 @@
 	.close {
 		border: 0;
 		background: transparent;
-		color: var(--color-secondary-950);
+		color: var(--dg-ink);
 		font-size: 2.25rem;
 		line-height: 1;
 		padding: 0.1rem 0.4rem;
@@ -807,15 +828,15 @@
 	}
 	.dialog-pages button {
 		padding: 0.4rem 0.7rem;
-		border: 2px solid var(--report-border);
-		background: var(--report-paper);
-		color: var(--color-secondary-950);
+		border: 2px solid var(--dg-border);
+		background: var(--dg-paper);
+		color: var(--dg-ink);
 		font-size: 0.82rem;
 		font-weight: 800;
 	}
 	.dialog-pages button[aria-pressed='true'] {
 		background: var(--color-primary-500);
-		border-color: var(--color-secondary-950);
+		border-color: var(--dg-ink);
 		color: var(--color-primary-contrast-500);
 	}
 	.full-image {
@@ -826,6 +847,7 @@
 		height: auto;
 		margin: 1.25rem auto;
 		object-fit: contain;
+		background: var(--color-surface-50);
 	}
 	.caption {
 		max-width: 65rem;
@@ -841,7 +863,7 @@
 	}
 	.actions a,
 	.actions button {
-		color: var(--color-secondary-700-300);
+		color: var(--dg-purple);
 		font-weight: 800;
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
@@ -852,8 +874,8 @@
 		text-decoration: none;
 	}
 	.actions .download-primary {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
+		background: var(--dg-purple);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.actions .template-link {
 		background: var(--color-primary-500);
@@ -863,7 +885,6 @@
 		display: block;
 		font-size: 0.74rem;
 		font-weight: 400;
-		opacity: 0.85;
 	}
 	.actions button {
 		border: 0;
@@ -873,17 +894,17 @@
 	.download-note {
 		font-size: 0.85rem;
 		line-height: 1.6;
-		color: var(--color-surface-700);
+		color: var(--dg-muted);
 		margin: 1rem 0;
 	}
 	.navigation {
 		justify-content: space-between;
 		margin-top: 1.5rem;
 		padding-top: 1rem;
-		border-top: 1px solid var(--report-border);
+		border-top: 1px solid var(--dg-border);
 	}
 	.navigation button {
-		border: 2px solid var(--color-secondary-950);
+		border: 2px solid var(--dg-ink);
 		background: var(--color-primary-500);
 		color: var(--color-primary-contrast-500);
 		padding: 0.6rem 0.9rem;

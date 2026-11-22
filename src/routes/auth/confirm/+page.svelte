@@ -2,7 +2,7 @@
 	let { data } = $props();
 	import { onMount } from 'svelte';
 	import { supabase } from '#lib/supabaseClient';
-	import { goto } from '$app/navigation';
+	import { replaceClientLocation } from '#lib/client/navigation';
 	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { isSafeInternalPath } from '#lib/security/navigation';
 	import { syncServerSession } from '#lib/security/session';
@@ -184,7 +184,7 @@
 			}
 
 			message = 'Logged in! Redirecting…';
-			setTimeout(() => goto(dest, { replaceState: true }), 250);
+			setTimeout(() => replaceClientLocation(dest), 250);
 		} catch (e) {
 			error = 'Unexpected error during confirmation.';
 			console.error(e);
