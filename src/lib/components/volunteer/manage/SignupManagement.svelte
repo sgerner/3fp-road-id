@@ -122,10 +122,6 @@
 		expandedRows = next;
 	}
 
-	function closeMenus() {
-		expandedRows = new Set();
-	}
-
 	const activityLabelMap = $derived.by(() => {
 		const map = new SvelteMap();
 		for (const option of activityFilters) {
@@ -1006,7 +1002,7 @@
 				No volunteers match the selected filters.
 			</div>
 		{:else}
-			{#each groupedShiftBlocks as group (group.key)}
+			{#each groupedShiftBlocks as group, groupIdx (group.key)}
 				<!-- Shift group header -->
 				<div
 					class="bg-surface-200-800 border-surface-300-700 border-primary-500 flex flex-wrap items-center justify-between gap-2 border-b-2 px-4 py-2.5"
@@ -1030,20 +1026,20 @@
 				</div>
 
 				<!-- Volunteer rows -->
-				{#each group.items as item (item.key)}
+				{#each group.items as item, itemIdx (item.key)}
+					{@const isExpanded = expandedRows.has(item.key)}
+					{@const detailsId = `volunteer-details-${groupIdx}-${itemIdx}`}
+					{@const volunteerLabel = item.volunteer.name || 'volunteer'}
+					{@const detailsAriaLabel =
+						item.hasMultipleShifts && group.timeLabel
+							? `Details for ${volunteerLabel}, ${group.timeLabel}`
+							: `Details for ${volunteerLabel}`}
 					<div
 						class="border-surface-300-700 hover:bg-primary-500 hover:text-surface-950 border-b transition-colors last:border-0"
 						transition:slide
 					>
 						<div
-							class="grid cursor-pointer grid-cols-1 gap-x-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto_auto]"
-							role="button"
-							tabindex="0"
-							onclick={(e) => {
-								e.stopPropagation();
-								toggleRow(item.key);
-							}}
-							onkeydown={(e) => e.key === 'Enter' && toggleRow(item.key)}
+							class="grid grid-cols-1 gap-x-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto_auto]"
 						>
 							<!-- Name + meta -->
 							<div class="flex min-w-0 items-start gap-2">
@@ -1103,18 +1099,28 @@
 							</div>
 
 							<!-- Actions -->
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<div
-								class="mt-2 flex items-center gap-1.5 md:mt-0"
-								onclick={(e) => e.stopPropagation()}
-							>
+							<div class="mt-2 flex flex-wrap items-center gap-1.5 md:mt-0">
 								<!-- Mobile: status badge inline -->
 								<span
 									class={`inline-flex rounded-none! px-2 py-0.5 text-xs font-medium capitalize md:hidden ${statusBadgeClass(item.assignment.status)}`}
 								>
 									{statusLabel(item.assignment.status)}
 								</span>
+
+								<button
+									type="button"
+									class="border-surface-500 bg-surface-50-950 text-surface-950-50 hover:bg-surface-950 hover:text-primary-500 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 border px-3 py-2 text-xs font-semibold uppercase transition-colors"
+									aria-expanded={isExpanded}
+									aria-controls={isExpanded ? detailsId : undefined}
+									aria-label={detailsAriaLabel}
+									onclick={() => toggleRow(item.key)}
+								>
+									<span>Details</span>
+									<IconChevronDown
+										class={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+										aria-hidden="true"
+									/>
+								</button>
 
 								{#if item.assignment.id}
 									<div class="flex items-center gap-1">
@@ -1150,13 +1156,11 @@
 							</div>
 						</div>
 						<!-- Expanded Details -->
-						{#if expandedRows.has(item.key)}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
+						{#if isExpanded}
 							<div
+								id={detailsId}
 								class="bg-surface-50-950 cursor-auto px-4 pt-1 pb-3 text-xs"
 								transition:slide
-								onclick={(e) => e.stopPropagation()}
 							>
 								<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 									<div class="flex flex-col gap-0.5">
@@ -1205,6 +1209,3 @@
 		{/if}
 	</div>
 </section>
-
-<!-- Close dropdowns on outside click -->
-<svelte:window onclick={closeMenus} />
