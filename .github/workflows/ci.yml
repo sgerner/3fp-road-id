@@ -29,8 +29,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache
+          key: ${{ runner.os }}-lint-${{ hashFiles('package-lock.json', 'eslint.config.js', '.prettierrc', '.prettierignore', '.gitignore', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-lint-${{ hashFiles('package-lock.json', 'eslint.config.js', '.prettierrc', '.prettierignore', '.gitignore', 'tsconfig.json') }}-
       - run: npm run lint
-      - run: npm run check
+      - run: npm run check:ci
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
