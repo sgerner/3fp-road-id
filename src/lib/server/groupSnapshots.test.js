@@ -632,6 +632,92 @@ test('missing slug throws HTTP 404 and evicts null entries immediately', async (
 	assert.equal(getGroupSnapshotCacheSize(), 0);
 });
 
+test('redirects stripped microsite_slug requests via 308 while preserving query parameters and skips empty microsite slugs', async () => {
+	clearGroupSnapshotCache();
+	const anonQueries = [];
+	const { publicHandlers, serviceHandlers } = buildSampleGroupFixtures({
+		slug: 'reston-bike-club-reston-va',
+		groupId: 'group-reston-1'
+	});
+	const publicSupabase = createMockSupabase({
+		role: 'anon',
+		onQuery: (q) => anonQueries.push(q),
+		handlers: {
+			...publicHandlers,
+			groups: (state) => {
+				const slugFilter = state.filters.find((f) => f.op === 'eq' && f.column === 'slug')?.value;
+				if (slugFilter === 'reston-bike-club-reston-va') {
+					return {
+						data: {
+							id: 'group-reston-1',
+							slug: 'reston-bike-club-reston-va',
+							microsite_slug: 'restonbikeclubrestonva',
+							name: 'Reston Bike Club',
+							is_published: true
+						},
+						error: null
+					};
+				}
+				const micrositeFilter = state.filters.find(
+					(f) => f.op === 'eq' && f.column === 'microsite_slug'
+				)?.value;
+				if (micrositeFilter === 'restonbikeclubrestonva') {
+					return {
+						data: { slug: 'reston-bike-club-reston-va' },
+						error: null
+					};
+				}
+				return { data: null, error: null };
+			}
+		}
+	});
+	const serviceSupabase = createMockSupabase({ role: 'service_role', handlers: serviceHandlers });
+
+	await assert.rejects(
+		() =>
+			loadGroupProfilePageData({
+				params: { slug: 'restonbikeclubrestonva' },
+				url: new URL(
+					'https://3fp.org/groups/restonbikeclubrestonva?auto_follow=1&auto_follow_tier=tier-free-1'
+				),
+				parent: async () => ({ groupsNavUser: null }),
+				publicSupabase,
+				serviceSupabase,
+				now: 11_000_000
+			}),
+		(redirectErr) => {
+			assert.equal(redirectErr?.status, 308);
+			assert.equal(
+				redirectErr?.location,
+				'/groups/reston-bike-club-reston-va?auto_follow=1&auto_follow_tier=tier-free-1'
+			);
+			return true;
+		}
+	);
+	assert.equal(getGroupSnapshotCacheSize(), 0);
+
+	anonQueries.length = 0;
+	await assert.rejects(
+		() =>
+			loadGroupProfilePageData({
+				params: { slug: '---' },
+				url: new URL('https://3fp.org/groups/---'),
+				parent: async () => ({ groupsNavUser: null }),
+				publicSupabase,
+				serviceSupabase,
+				now: 11_000_100
+			}),
+		(err) => {
+			assert.equal(err?.status, 404);
+			return true;
+		}
+	);
+	assert.equal(
+		anonQueries.some((q) => q.filters.some((f) => f.op === 'eq' && f.column === 'microsite_slug')),
+		false
+	);
+});
+
 test('failed group lookup throws HTTP 500 and evicts rejected promises immediately so retries recover', async () => {
 	clearGroupSnapshotCache();
 	let shouldFail = true;

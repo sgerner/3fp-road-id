@@ -285,66 +285,6 @@ export async function fetchManagedFacebookPages(userAccessToken) {
 	return Array.isArray(response?.data) ? response.data : [];
 }
 
-export async function resolveFacebookAccountConnection({ userAccessToken, scopes = [] } = {}) {
-	const userProfile = await fetchMetaUserProfile(userAccessToken);
-	const pages = await fetchManagedFacebookPages(userAccessToken);
-	if (!pages.length) {
-		throw new Error('No manageable Facebook Pages were found for this Meta account.');
-	}
-
-	const page = pages[0];
-	const pageToken = cleanText(page?.access_token, 5000) || userAccessToken;
-	const connected = normalizeConnectedAccountSummary(
-		{
-			meta_user_id: userProfile.id,
-			meta_page_id: cleanText(page?.id, 120) || null,
-			account_name: cleanText(page?.name, 240) || 'Facebook Page',
-			token_expires_at: null,
-			scopes,
-			metadata: {
-				meta_user_name: userProfile.name,
-				connected_via: 'facebook_page',
-				available_page_count: pages.length
-			}
-		},
-		'facebook'
-	);
-
-	return {
-		...connected,
-		accessToken: pageToken
-	};
-}
-
-export async function resolveInstagramAccountConnection({ userAccessToken, scopes = [] } = {}) {
-	const profile = await fetchInstagramLoginProfile(userAccessToken);
-	const igAccountId = cleanText(profile?.id || profile?.userId, 120);
-	if (!igAccountId) {
-		throw new Error('No Instagram professional account was found for this login.');
-	}
-	const connected = normalizeConnectedAccountSummary(
-		{
-			meta_user_id: igAccountId,
-			meta_page_id: null,
-			meta_instagram_account_id: igAccountId,
-			account_name:
-				cleanText(profile?.name, 240) || cleanText(profile?.username, 120) || 'Instagram account',
-			username: cleanText(profile?.username, 120) || null,
-			token_expires_at: null,
-			scopes,
-			metadata: {
-				meta_user_name: cleanText(profile?.name, 240) || null,
-				connected_via: 'instagram_login'
-			}
-		},
-		'instagram'
-	);
-	return {
-		...connected,
-		accessToken: userAccessToken
-	};
-}
-
 export async function listFacebookConnectionOptions({ userAccessToken, scopes = [] } = {}) {
 	const userProfile = await fetchMetaUserProfile(userAccessToken);
 	const pages = await fetchManagedFacebookPages(userAccessToken);

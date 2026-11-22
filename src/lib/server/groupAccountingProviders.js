@@ -97,7 +97,7 @@ function firstCleanText(values = [], limit = 200) {
 	return '';
 }
 
-export function mercuryTransactionDescription(transaction = {}) {
+function mercuryTransactionDescription(transaction = {}) {
 	return (
 		firstCleanText(
 			[
@@ -378,15 +378,6 @@ export function financialConnectionsRefreshState(account = {}) {
 		return { status: 'succeeded', refreshAt, nextRefreshAt };
 	}
 	return { status: 'not_requested', refreshAt: null, nextRefreshAt };
-}
-
-export function providerFeedFactsChanged(existing = {}, incoming = {}) {
-	return (
-		existing.transaction_date !== incoming.transaction_date ||
-		existing.description !== incoming.description ||
-		existing.amount_cents !== incoming.amount_cents ||
-		cleanText(existing.currency).toLowerCase() !== cleanText(incoming.currency).toLowerCase()
-	);
 }
 
 export function assertFinancialConnectionsSessionOwnership({

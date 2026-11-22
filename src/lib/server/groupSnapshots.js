@@ -1,7 +1,13 @@
 import { error, redirect } from '@sveltejs/kit';
 import { groupGroupAssetsByBucket } from '#lib/groups/assets.js';
+import { normalizeMicrositeSlug } from '#lib/microsites/host.js';
 import { publicAccountingReport } from '#lib/server/groupAccountingPublic.js';
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus.js';
+import {
+	buildGroupPath,
+	buildGroupRedirectLocation,
+	cleanGroupSlug
+} from '#lib/server/groupRouting.js';
 
 export const GROUP_SNAPSHOT_CACHE_TTL_MS = 60_000;
 export const GROUP_SNAPSHOT_CACHE_MAX_ENTRIES = 256;
@@ -1022,6 +1028,40 @@ export async function loadGroupProfilePageData({
 	}
 
 	if (!snapshot?.group?.slug) {
+		const requestedSlug = cleanGroupSlug(slug);
+		const micrositeCandidate = requestedSlug ? normalizeMicrositeSlug(requestedSlug) : '';
+		if (micrositeCandidate) {
+			let canonicalSlug = '';
+			try {
+				const clients = await resolveDefaultSupabaseClients({
+					publicSupabase,
+					serviceSupabase,
+					getPublicSupabase,
+					getServiceSupabase
+				});
+				if (!clients.publicSupabase) {
+					throw new Error('Supabase client is unavailable');
+				}
+				const { data: micrositeGroup, error: micrositeError } = await clients.publicSupabase
+					.from('groups')
+					.select('slug')
+					.eq('microsite_slug', micrositeCandidate)
+					.eq('is_published', true)
+					.maybeSingle();
+				if (micrositeError) {
+					throw micrositeError;
+				}
+				canonicalSlug = cleanGroupSlug(micrositeGroup?.slug);
+			} catch (err) {
+				console.warn('Failed to load group details', err);
+				throw error(500, 'Failed to load group');
+			}
+
+			if (canonicalSlug && requestedSlug !== canonicalSlug) {
+				throw redirect(308, buildGroupRedirectLocation(canonicalSlug, url?.search || ''));
+			}
+		}
+
 		throw error(404, 'Group not found');
 	}
 
@@ -1088,7 +1128,7 @@ export async function loadGroupProfilePageData({
 
 		const canonicalSlug = snapshot.group.slug;
 		const nextUrl = new URL(
-			`/groups/${encodeURIComponent(canonicalSlug)}`,
+			buildGroupPath(canonicalSlug) || `/groups/${encodeURIComponent(canonicalSlug)}`,
 			url?.origin || 'http://localhost'
 		);
 		if (canAutoFollow) {
