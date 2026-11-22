@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
 	ASSISTANT_TOOLS,
 	persistLearnedAssistantContext,
-	runAssistantTurn
+	runAssistantTurn,
+	searchRidesSql,
+	searchVolunteerEventsSql
 } from './assistantCore.js';
 import { isPlaceholderLearnArticle } from './learnRecommendations.js';
 import {
@@ -489,6 +491,51 @@ test('two-turn guest ride search checks geo-IP on turn 1, then searches and rank
 	});
 	assert.equal(noGeoTurn2.context.locationHint, 'Phoenix, AZ');
 	assert.equal(noGeoTurn2.recommendations[0]?.url, '/ride/downtown-phoenix-social-roll');
+});
+
+test('ride and volunteer searches reject same-city results in a different requested state', async () => {
+	const supabase = createMockSupabase({
+		groups: [
+			{
+				id: 'grp-phoenix-tx',
+				slug: 'phoenix-tx-cycling',
+				name: 'Phoenix Texas Cycling',
+				city: 'Phoenix',
+				state_region: 'TX',
+				country: 'US',
+				is_published: true
+			}
+		],
+		activity_events: [
+			{
+				id: 'ride-phoenix-tx',
+				slug: 'phoenix-texas-ride',
+				title: 'Phoenix Texas Ride',
+				activity_type: 'ride',
+				status: 'published',
+				start_location_name: 'Phoenix Park',
+				start_location_address: 'Phoenix, TX',
+				next_occurrence_start: '2026-11-24T18:00:00Z',
+				host_group_id: 'grp-phoenix-tx'
+			}
+		],
+		volunteer_events: [
+			{
+				id: 'volunteer-phoenix-tx',
+				slug: 'phoenix-texas-volunteer',
+				title: 'Phoenix Texas Bike Valet',
+				status: 'published',
+				event_start: '2026-11-24T18:00:00Z',
+				location_name: 'Phoenix Park',
+				location_address: 'Phoenix, TX',
+				host_group_id: 'grp-phoenix-tx'
+			}
+		]
+	});
+	const location = { city: 'Phoenix', state: 'AZ', now: new Date('2026-11-22T00:00:00Z') };
+
+	assert.deepEqual(await searchRidesSql(supabase, location), []);
+	assert.deepEqual(await searchVolunteerEventsSql(supabase, location), []);
 });
 
 test('group search in Madison, WI returns Madison Bikes, Inc. and /groups action button without out-of-state rides', async () => {

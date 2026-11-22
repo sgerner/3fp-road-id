@@ -1280,10 +1280,8 @@ export async function searchRidesSql(
 				matchesCityInText(hostGroup?.city || '', resolvedCity)
 			: false;
 
-		// Exclude out-of-state rides when a state filter is active.
-		if (resolvedState && !stateMatched && !cityMatched) {
-			continue;
-		}
+		// A city match must not override an explicit state filter.
+		if (resolvedState && !stateMatched) continue;
 		if (resolvedCity && !resolvedState && !cityMatched) {
 			continue;
 		}
@@ -1497,7 +1495,7 @@ export async function searchVolunteerEventsSql(
 				matchesCityInText(hostGroup?.city || '', resolvedCity)
 			: false;
 
-		if (resolvedState && !stateMatched && !cityMatched) continue;
+		if (resolvedState && !stateMatched) continue;
 		if (resolvedCity && !resolvedState && !cityMatched) continue;
 
 		let score = 10;
