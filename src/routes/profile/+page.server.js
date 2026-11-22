@@ -1,5 +1,8 @@
 import { getActivityClient } from '#lib/server/activities';
+import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
+import { loadUserRoadIdBundle } from '#lib/server/roadId';
 import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '#lib/server/sms';
+import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 /** @type {any} */
 const INTEREST_SUGGESTIONS = [
@@ -95,6 +98,7 @@ function extractContext(metadata) {
 
 export const load = async ({ cookies }) => {
 	const { user, supabase } = await getActivityClient(cookies);
+	const publicOrigin = getConfiguredPublicOrigin();
 
 	if (!user?.id) {
 		return {
@@ -104,25 +108,34 @@ export const load = async ({ cookies }) => {
 			smsPreferences: null,
 			smsConsentText: SMS_CONSENT_TEXT,
 			smsConsentVersion: SMS_CONSENT_VERSION,
+			roadIdProfile: null,
+			emergencyContacts: [],
+			linkedCodes: [],
+			publicOrigin,
 			interestSuggestions: INTEREST_SUGGESTIONS,
 			recommendationOptions: RECOMMENDATION_OPTIONS
 		};
 	}
 
-	const { data } = await supabase
-		.from('profiles')
-		.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
-		.eq('user_id', user.id)
-		.maybeSingle();
+	const serviceSupabase = createServiceSupabaseClient();
+	const roadIdClient = serviceSupabase ?? supabase;
 
-	const { data: smsSubscription } = await supabase
-		.from('sms_subscriptions')
-		.select(
-			'phone_e164,status,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages,consent_version,opted_in_at,opted_out_at' +
-				',phone_verified_at,verification_expires_at'
-		)
-		.eq('user_id', user.id)
-		.maybeSingle();
+	const [{ data }, { data: smsSubscription }, roadIdBundle] = await Promise.all([
+		supabase
+			.from('profiles')
+			.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
+			.eq('user_id', user.id)
+			.maybeSingle(),
+		supabase
+			.from('sms_subscriptions')
+			.select(
+				'phone_e164,status,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages,consent_version,opted_in_at,opted_out_at' +
+					',phone_verified_at,verification_expires_at'
+			)
+			.eq('user_id', user.id)
+			.maybeSingle(),
+		loadUserRoadIdBundle(roadIdClient, user.id)
+	]);
 
 	const profile = data
 		? {
@@ -145,7 +158,7 @@ export const load = async ({ cookies }) => {
 		context: extractContext(profile?.metadata ?? {}),
 		smsPreferences: smsSubscription
 			? {
-					phone: data?.phone ?? '',
+					phone: data?.phone || /** @type {any} */ (smsSubscription).phone_e164 || '',
 					status: /** @type {any} */ (smsSubscription).status ?? 'paused',
 					ride_reminders: /** @type {any} */ (smsSubscription).ride_reminders === true,
 					volunteer_reminders: /** @type {any} */ (smsSubscription).volunteer_reminders === true,
@@ -170,6 +183,10 @@ export const load = async ({ cookies }) => {
 				},
 		smsConsentText: SMS_CONSENT_TEXT,
 		smsConsentVersion: SMS_CONSENT_VERSION,
+		roadIdProfile: roadIdBundle.roadIdProfile,
+		emergencyContacts: roadIdBundle.emergencyContacts,
+		linkedCodes: roadIdBundle.linkedCodes,
+		publicOrigin,
 		interestSuggestions: INTEREST_SUGGESTIONS,
 		recommendationOptions: RECOMMENDATION_OPTIONS
 	};

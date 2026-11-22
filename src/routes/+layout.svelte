@@ -253,7 +253,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const targetIndex =
-			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 5 : 4);
+			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 6 : 5);
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -855,10 +855,29 @@
 											Profile
 										</a>
 										<a
-											href={myGroupsMenuHref}
+											href="/profile#road-id"
 											class="profile-menu-item"
 											role="menuitem"
 											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
+										>
+											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
+											Emergency ID
+										</a>
+										<a
+											href={myGroupsMenuHref}
+											class="profile-menu-item"
+											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -868,7 +887,7 @@
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -879,7 +898,7 @@
 												href="/messages"
 												class="profile-menu-item"
 												role="menuitem"
-												tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
+												tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
 												onclick={() => (showUserMenu = false)}
 											>
 												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -892,7 +911,7 @@
 											class="profile-menu-item w-full"
 											onclick={doLogout}
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 5 : 4)
+											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 6 : 5)
 												? 0
 												: -1}
 										>
