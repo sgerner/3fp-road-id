@@ -2,6 +2,7 @@
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
+	import { isValidRoadIdEmail, normalizeRoadIdProfile } from '#lib/utils/roadId';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
 	import RoadIdResponderCard from '#lib/components/RoadIdResponderCard.svelte';
@@ -12,7 +13,9 @@
 	const code = $derived(data?.code ?? '');
 	const notFound = $derived(Boolean(data?.notFound));
 	const user = $derived(data?.user ?? null);
-	const profile = $derived(data?.qrData?.profile ?? null);
+	const profile = $derived(
+		data?.qrData?.profile ? normalizeRoadIdProfile(data.qrData.profile, user) : null
+	);
 	const isClaimed = $derived(Boolean(profile?.claimed));
 	const isOwner = $derived(Boolean(profile?.is_owner));
 
@@ -30,7 +33,7 @@
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
 
-	let emailIsValid = $derived(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newProfile.email.trim()));
+	let emailIsValid = $derived(isValidRoadIdEmail(newProfile.email));
 
 	async function initTurnstile() {
 		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;

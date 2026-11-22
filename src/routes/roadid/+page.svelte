@@ -178,23 +178,19 @@
 		>
 			Roadside Safety Reference
 		</h2>
-		<details class="border-surface-500 bg-surface-900 border-2">
-			<summary
-				class="hover:bg-surface-800 flex min-h-11 cursor-pointer items-center px-5 py-3 text-sm font-black tracking-wider uppercase"
-			>
+		<details class="bg-surface-950 text-surface-50 border-surface-800 border-2 p-4">
+			<summary class="text-surface-50 flex min-h-11 cursor-pointer items-center font-bold">
 				Crash response checklist
 			</summary>
-			<div class="border-surface-800 border-t-2 p-5">
+			<div class="mt-4">
 				<CrashResponse />
 			</div>
 		</details>
-		<details class="border-surface-500 bg-surface-900 border-2">
-			<summary
-				class="hover:bg-surface-800 flex min-h-11 cursor-pointer items-center px-5 py-3 text-sm font-black tracking-wider uppercase"
-			>
+		<details class="bg-surface-950 text-surface-50 border-surface-800 border-2 p-4">
+			<summary class="text-surface-50 flex min-h-11 cursor-pointer items-center font-bold">
 				Cycling safety tips
 			</summary>
-			<div class="border-surface-800 border-t-2 p-5">
+			<div class="mt-4">
 				<AlertSystem />
 			</div>
 		</details>

@@ -6,7 +6,11 @@
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
 	import { isSafeInternalPath } from '#lib/security/navigation';
 	import { syncServerSession } from '#lib/security/session';
-	import { normalizeRoadIdCodeInput, resolveConfirmRedirectDestination } from '#lib/utils/roadId';
+	import {
+		isValidRoadIdEmail,
+		normalizeRoadIdCodeInput,
+		resolveConfirmRedirectDestination
+	} from '#lib/utils/roadId';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 
 	let error = $state('');
@@ -18,7 +22,7 @@
 	let resendError = $state('');
 	let ridParam = $state('');
 	let returnToParam = $state('');
-	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(resendEmail));
+	let emailValid = $derived(isValidRoadIdEmail(resendEmail));
 	let resendHoneypot = $state('');
 	let turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false

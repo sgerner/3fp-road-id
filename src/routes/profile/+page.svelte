@@ -1363,11 +1363,12 @@
 							</label>
 						</div>
 
-						<label class="flex max-w-xs flex-col gap-2">
+						<label class="flex max-w-xs flex-col gap-2" for="blood_type">
 							<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
 								Blood Type
 							</span>
 							<select
+								id="blood_type"
 								class="select bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
 								bind:value={emergencyBloodType}
 							>
