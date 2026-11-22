@@ -34,6 +34,8 @@
 	import { loadStripe } from '@stripe/stripe-js';
 	import SearchableSelect from '#lib/components/ui/SearchableSelect.svelte';
 	import ReconciliationWorkspace from '#lib/components/accounting/ReconciliationWorkspace.svelte';
+	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import { escapeHtml } from '#lib/markdown';
 
 	let { data, form } = $props();
@@ -1737,17 +1739,17 @@
 	{/if}
 
 	<!-- Metric Cards Grid -->
-	<section class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+	<section class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
 		<!-- Cash on Hand -->
 		<div
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<div class="space-y-1">
+				<div class="min-w-0 space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Net position
 					</p>
-					<p class="text-2xl font-bold tracking-tight">
+					<p class="text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">
 						{formatCents(report.totals?.assets_cents - report.totals?.liabilities_cents)}
 					</p>
 				</div>
@@ -1763,11 +1765,13 @@
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<div class="space-y-1">
+				<div class="min-w-0 space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Money in · {reportPeriodLabel}
 					</p>
-					<p class="text-success-700-300 text-2xl font-bold tracking-tight">
+					<p
+						class="text-success-700-300 text-2xl font-bold tracking-tight [overflow-wrap:anywhere]"
+					>
 						{formatCents(report.totals?.income_cents)}
 					</p>
 				</div>
@@ -1783,11 +1787,13 @@
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<div class="space-y-1">
+				<div class="min-w-0 space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Money out · {reportPeriodLabel}
 					</p>
-					<p class="text-warning-700-300 text-2xl font-bold tracking-tight">
+					<p
+						class="text-warning-700-300 text-2xl font-bold tracking-tight [overflow-wrap:anywhere]"
+					>
 						{formatCents(report.totals?.expense_cents)}
 					</p>
 				</div>
@@ -1803,12 +1809,13 @@
 			class="card preset-tonal-surface border-surface-500/10 border p-5 shadow-sm transition-all duration-200 hover:scale-[1.01] hover:shadow-md"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<div class="space-y-1">
+				<div class="min-w-0 space-y-1">
 					<p class="text-surface-700-300 text-xs font-semibold tracking-wider uppercase">
 						Net · {reportPeriodLabel}
 					</p>
 					<p
-						class="text-2xl font-bold tracking-tight {report.totals?.net_cents >= 0
+						class="text-2xl font-bold tracking-tight [overflow-wrap:anywhere] {report.totals
+							?.net_cents >= 0
 							? 'text-secondary-700-300'
 							: 'text-error-700-300'}"
 					>
@@ -1841,7 +1848,7 @@
 					: 'text-surface-700-300 hover:bg-surface-500/10'}"
 				onclick={() => setActiveTab(tab.id)}
 			>
-				<Icon class="h-4 w-4" />
+				<Icon class="h-4 w-4 shrink-0" />
 				<span class="min-w-0 truncate">{tab.label}</span>
 			</button>
 		{/each}
@@ -1850,25 +1857,24 @@
 	<!-- Tab Panels -->
 	{#if activeTab === 'overview'}
 		<section class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-			<div
-				class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+			<ManageCardHeader
+				title="Accounting setup"
+				titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+				subtitle={setupComplete
+					? 'Your account is ready for regular bookkeeping.'
+					: 'Complete these steps to make your reports and bank reviews reliable.'}
+				divider={true}
 			>
-				<div>
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Accounting setup</h2>
-					<p class="text-surface-600-400 mt-1 text-sm">
-						{setupComplete
-							? 'Your account is ready for regular bookkeeping.'
-							: 'Complete these steps to make your reports and bank reviews reliable.'}
-					</p>
-				</div>
-				<span
-					class="badge {setupComplete
-						? 'preset-tonal-success'
-						: 'preset-tonal-primary'} font-semibold"
-				>
-					{setupSteps.filter((step) => step.done).length} of {setupSteps.length} complete
-				</span>
-			</div>
+				{#snippet badges()}
+					<span
+						class="badge {setupComplete
+							? 'preset-tonal-success'
+							: 'preset-tonal-primary'} font-semibold"
+					>
+						{setupSteps.filter((step) => step.done).length} of {setupSteps.length} complete
+					</span>
+				{/snippet}
+			</ManageCardHeader>
 			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
 				{#each setupSteps as step, index}
 					<div
@@ -1899,20 +1905,21 @@
 				{/each}
 			</div>
 		</section>
-		<section class="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+		<section class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
 			<!-- Monthly Stats -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-				<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
-					<div class="flex items-center gap-2">
-						<IconChartColumn class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-							Monthly Performance
-						</h2>
-					</div>
-					<span class="badge preset-outlined-surface-500 font-semibold"
-						>{data.fiscal_year_label || `FY ${data.year}`}</span
-					>
-				</div>
+				<ManageCardHeader
+					icon={IconChartColumn}
+					title="Monthly Performance"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				>
+					{#snippet badges()}
+						<span class="badge preset-outlined-surface-500 font-semibold"
+							>{data.fiscal_year_label || `FY ${data.year}`}</span
+						>
+					{/snippet}
+				</ManageCardHeader>
 
 				<div class="space-y-2">
 					{#if report.monthly.length > 0}
@@ -1975,19 +1982,23 @@
 			<div class="space-y-6">
 				<!-- Needs Review -->
 				<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-					<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
-						<div class="flex items-center gap-2">
-							<IconListChecks class="text-warning-500 h-5 w-5" />
-							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Needs Review</h2>
-						</div>
-						<span
-							class="badge {bankReviewTotal > 0
-								? 'preset-filled-warning-500 animate-pulse'
-								: 'preset-tonal-success'} font-bold"
-						>
-							{bankReviewTotal}
-						</span>
-					</div>
+					<ManageCardHeader
+						icon={IconListChecks}
+						tone="warning"
+						title="Needs Review"
+						titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+						divider={true}
+					>
+						{#snippet badges()}
+							<span
+								class="badge {bankReviewTotal > 0
+									? 'preset-filled-warning-500 animate-pulse'
+									: 'preset-tonal-success'} font-bold"
+							>
+								{bankReviewTotal}
+							</span>
+						{/snippet}
+					</ManageCardHeader>
 
 					{#if bankReviewTotal > 0}
 						<p class="text-surface-700-300 text-sm leading-relaxed">
@@ -2015,12 +2026,13 @@
 
 				<!-- Recent Activity -->
 				<div class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-5 shadow-sm">
-					<div class="border-surface-500/10 flex items-center justify-between border-b pb-3">
-						<div class="flex items-center gap-2">
-							<IconReceipt class="text-secondary-500 h-5 w-5" />
-							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Recent Activity</h2>
-						</div>
-					</div>
+					<ManageCardHeader
+						icon={IconReceipt}
+						tone="secondary"
+						title="Recent Activity"
+						titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+						divider={true}
+					/>
 
 					<div class="space-y-2">
 						{#each recentEntries.slice(0, 6) as entry}
@@ -2029,11 +2041,11 @@
 								method="POST"
 								use:enhance
 								action="?/voidEntry"
-								class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-all duration-150"
+								class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-all duration-150"
 							>
 								<input type="hidden" name="entryId" value={entry.id} />
 								<input type="hidden" name="reason" value="Voided from dashboard" />
-								<div class="min-w-0 space-y-1">
+								<div class="min-w-[min(100%,10rem)] flex-1 space-y-1">
 									<p class="text-surface-900-100 truncate font-semibold">
 										{entry.description}
 									</p>
@@ -2055,7 +2067,7 @@
 										{/if}
 									</div>
 								</div>
-								<div class="flex shrink-0 items-center gap-2">
+								<ManageActionRow>
 									<span class="font-bold tabular-nums {presentation.className}"
 										>{presentation.sign}{formatCents(
 											Math.abs(Number(entry.amount_cents || 0))
@@ -2069,7 +2081,7 @@
 											onclick={(event) => confirmVoid(event, entry.description)}>Void</button
 										>
 									{/if}
-								</div>
+								</ManageActionRow>
 							</form>
 						{:else}
 							<div
@@ -2107,38 +2119,37 @@
 					name="requestId"
 					value={requestIds.recordMoney || data.posting_request_ids?.recordMoney || ''}
 				/>
-				<div
-					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-4 border-b pb-4"
+				<ManageCardHeader
+					icon={IconPlus}
+					title="Record Money"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
 				>
-					<div class="flex items-center gap-2">
-						<IconPlus class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Record Money</h2>
-					</div>
-
-					<!-- Segmented selector -->
-					<div class="card bg-surface-500/10 flex gap-1 rounded-lg p-1">
-						<button
-							type="button"
-							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
-							'income'
-								? 'preset-filled-success-500 text-white shadow-sm'
-								: 'text-surface-700-300'}"
-							onclick={() => (moneyFlow = 'income')}
-						>
-							Money in
-						</button>
-						<button
-							type="button"
-							class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
-							'expense'
-								? 'preset-filled-warning-500 text-white shadow-sm'
-								: 'text-surface-700-300'}"
-							onclick={() => (moneyFlow = 'expense')}
-						>
-							Money out
-						</button>
-					</div>
-				</div>
+					{#snippet actions()}
+						<div class="card bg-surface-500/10 flex flex-wrap gap-1 rounded-lg p-1">
+							<button
+								type="button"
+								class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+								'income'
+									? 'preset-filled-success-500 text-white shadow-sm'
+									: 'text-surface-700-300'}"
+								onclick={() => (moneyFlow = 'income')}
+							>
+								Money in
+							</button>
+							<button
+								type="button"
+								class="btn btn-sm rounded px-3 py-1.5 font-semibold transition-all {moneyFlow ===
+								'expense'
+									? 'preset-filled-warning-500 text-white shadow-sm'
+									: 'text-surface-700-300'}"
+								onclick={() => (moneyFlow = 'expense')}
+							>
+								Money out
+							</button>
+						</div>
+					{/snippet}
+				</ManageCardHeader>
 
 				<input type="hidden" name="flow" value={moneyFlow} />
 
@@ -2240,10 +2251,12 @@
 						name="requestId"
 						value={requestIds.transfer || data.posting_request_ids?.transfer || ''}
 					/>
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
-						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Move Money</h2>
-					</div>
+					<ManageCardHeader
+						icon={IconArrowRightLeft}
+						title="Move Money"
+						titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+						divider={true}
+					/>
 					<div class="space-y-4">
 						<input type="hidden" name="entryDate" value={today} />
 						<label class="label">
@@ -2303,10 +2316,13 @@
 						name="requestId"
 						value={requestIds.openingBalance || data.posting_request_ids?.openingBalance || ''}
 					/>
-					<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-						<IconBanknote class="text-secondary-500 h-5 w-5" />
-						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Starting Balance</h2>
-					</div>
+					<ManageCardHeader
+						icon={IconBanknote}
+						tone="secondary"
+						title="Starting Balance"
+						titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+						divider={true}
+					/>
 					<div class="space-y-4">
 						<input type="hidden" name="entryDate" value={today} />
 						<label class="label">
@@ -2345,19 +2361,21 @@
 	{/if}
 
 	{#if activeTab === 'accounts'}
-		<section class="grid gap-6 lg:grid-cols-[1fr_360px]">
+		<section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22.5rem)]">
 			<!-- Buckets & Categories list -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconWalletCards class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-						Buckets & Categories
-					</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconWalletCards}
+					title="Buckets & Categories"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each accountKinds as kind}
-						<div class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-2xl border p-4">
+						<div
+							class="bg-surface-500/5 border-surface-500/5 min-w-0 space-y-4 rounded-2xl border p-4"
+						>
 							<h3 class="text-surface-700-300 text-xs font-bold tracking-wider uppercase">
 								{kind === 'asset'
 									? '💼 Where money lives (Assets)'
@@ -2374,7 +2392,7 @@
 									{@const groupKeyValue = groupKey(kind, group.displayGroup)}
 									{@const isEditingGroup = editingGroupKey === groupKeyValue}
 									<div class="space-y-3">
-										<div class="flex items-center justify-between gap-3">
+										<div class="flex flex-wrap items-center justify-between gap-2">
 											{#if isEditingGroup}
 												<form
 													method="POST"
@@ -2493,10 +2511,12 @@
 				action="?/createAccount"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconPlus class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Add Bucket</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconPlus}
+					title="Add Bucket"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<div class="space-y-4">
 					<label class="label">
 						<span class="text-surface-700-300 text-xs font-semibold">Name</span>
@@ -2543,7 +2563,7 @@
 	{/if}
 
 	{#if activeTab === 'budgets'}
-		<section class="grid gap-6 lg:grid-cols-[360px_1fr]">
+		<section class="grid gap-6 lg:grid-cols-[minmax(0,22.5rem)_minmax(0,1fr)]">
 			<!-- Set Budget Form -->
 			<form
 				method="POST"
@@ -2551,12 +2571,12 @@
 				action="?/updateBudget"
 				class="card preset-tonal-surface border-surface-500/10 h-fit space-y-4 border p-5 shadow-sm"
 			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconBadgeDollarSign class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-						Set Budget · {data.fiscal_year_label || `FY ${data.year}`}
-					</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconBadgeDollarSign}
+					title="Set Budget · {data.fiscal_year_label || `FY ${data.year}`}"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<div class="space-y-4">
 					<input type="hidden" name="year" value={data.year} />
 					<label class="label">
@@ -2601,29 +2621,29 @@
 
 			<!-- Budget vs Actual list -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div
-					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
+				<ManageCardHeader
+					icon={IconChartColumn}
+					tone="secondary"
+					title="Budget vs Actual · {data.fiscal_year_label || `FY ${data.year}`}"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
 				>
-					<div class="flex items-center gap-2">
-						<IconChartColumn class="text-secondary-500 h-5 w-5" />
-						<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-							Budget vs Actual · {data.fiscal_year_label || `FY ${data.year}`}
-						</h2>
-					</div>
-					<label class="flex items-center gap-2 text-xs font-semibold">
-						<span>Fiscal year</span>
-						<select
-							class="select preset-tonal-surface h-9 text-sm"
-							value={selectedYear}
-							onchange={changeBudgetYear}
-							aria-label="Budget fiscal year"
-						>
-							{#each fiscalYearOptions as fiscalYear}
-								<option value={fiscalYear}>FY {fiscalYear}</option>
-							{/each}
-						</select>
-					</label>
-				</div>
+					{#snippet actions()}
+						<label class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+							<span>Fiscal year</span>
+							<select
+								class="select preset-tonal-surface h-9 text-sm"
+								value={selectedYear}
+								onchange={changeBudgetYear}
+								aria-label="Budget fiscal year"
+							>
+								{#each fiscalYearOptions as fiscalYear}
+									<option value={fiscalYear}>FY {fiscalYear}</option>
+								{/each}
+							</select>
+						</label>
+					{/snippet}
+				</ManageCardHeader>
 
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each data.budgets as budget}
@@ -2635,9 +2655,11 @@
 						{@const colorClass =
 							used < 75 ? 'bg-success-500' : used <= 100 ? 'bg-warning-500' : 'bg-error-500'}
 
-						<div class="bg-surface-500/5 border-surface-500/5 space-y-2 rounded-xl border p-4">
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0 space-y-0.5">
+						<div
+							class="bg-surface-500/5 border-surface-500/5 min-w-0 space-y-2 rounded-xl border p-4"
+						>
+							<div class="flex flex-wrap items-start justify-between gap-2">
+								<div class="min-w-0 flex-1 space-y-0.5">
 									<span class="text-surface-900-100 block truncate text-sm font-bold"
 										>{budget.account?.name}</span
 									>
@@ -2651,7 +2673,9 @@
 								>
 							</div>
 
-							<div class="flex items-baseline justify-between pt-1 text-xs font-semibold">
+							<div
+								class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 pt-1 text-xs font-semibold"
+							>
 								<span class="text-surface-700 dark:text-surface-300 font-medium"
 									>Actual: {formatCents(budget.actual_cents)}</span
 								>
@@ -2680,97 +2704,93 @@
 
 	{#if activeTab === 'reports'}
 		<!-- Reports toolbar -->
-		<div
-			class="card preset-tonal-surface border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border px-4 py-3 shadow-sm"
-		>
-			<!-- Left: title + period badge -->
-			<div class="flex min-w-0 items-center gap-3">
-				<IconFileText class="text-primary-500 h-4 w-4 shrink-0" />
-				<div class="min-w-0">
-					<span class="text-surface-900-100 text-sm font-bold">Financial Reports</span>
-					<span class="text-surface-500 mx-1.5 text-sm">·</span>
+		<div class="card preset-tonal-surface border-surface-500/10 border px-4 py-3 shadow-sm">
+			<ManageCardHeader
+				icon={IconFileText}
+				title="Financial Reports"
+				titleClass="text-surface-900-100 text-sm font-bold"
+			>
+				{#snippet badges()}
 					<span class="text-surface-500 text-xs font-medium">{reportPeriodLabel}</span>
 					{#if report.from && report.to}
-						<span class="text-surface-400 mx-1 text-xs"
+						<span class="text-surface-400 text-xs"
 							>{formatDate(report.from)} – {formatDate(report.to)}</span
 						>
 					{/if}
-				</div>
-			</div>
-			<!-- Right: controls -->
-			<div class="flex flex-wrap items-center gap-2">
-				<select
-					class="select preset-tonal-surface h-9 text-sm"
-					aria-label="Reporting period"
-					bind:value={reportPeriodKey}
-					onchange={(event) => {
-						const nextPeriod = event.currentTarget.value;
-						reportPeriodKey = nextPeriod;
-						if (nextPeriod !== 'custom') void applyReportFilters(nextPeriod);
-					}}
-				>
-					{#each reportPeriodOptions as option}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
-				{#if reportPeriodKey === 'custom'}
-					<label class="sr-only" for="report-period-from">From</label>
-					<input
-						id="report-period-from"
-						class="input preset-tonal-surface h-9 w-32 text-sm"
-						type="date"
-						aria-label="Report period start date"
-						bind:value={reportFrom}
-						required
-					/>
-					<label class="sr-only" for="report-period-to">To</label>
-					<input
-						id="report-period-to"
-						class="input preset-tonal-surface h-9 w-32 text-sm"
-						type="date"
-						aria-label="Report period end date"
-						bind:value={reportTo}
-						required
-					/>
-					<button
-						class="btn btn-sm preset-filled-primary-500 h-9 items-center gap-1.5 font-bold"
-						type="button"
-						disabled={!reportFrom || !reportTo || reportDateRangeInvalid}
-						onclick={() => void applyReportFilters('custom')}
+				{/snippet}
+				{#snippet actions()}
+					<select
+						class="select preset-tonal-surface h-9 text-sm"
+						aria-label="Reporting period"
+						bind:value={reportPeriodKey}
+						onchange={(event) => {
+							const nextPeriod = event.currentTarget.value;
+							reportPeriodKey = nextPeriod;
+							if (nextPeriod !== 'custom') void applyReportFilters(nextPeriod);
+						}}
 					>
-						<IconCheckCircle2 class="h-3.5 w-3.5" />
-						Apply
-					</button>
-					{#if reportDateRangeInvalid}
-						<p class="text-error-500 w-full text-xs font-semibold" role="status">
-							Start date must be on or before the end date.
-						</p>
+						{#each reportPeriodOptions as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+					{#if reportPeriodKey === 'custom'}
+						<label class="sr-only" for="report-period-from">From</label>
+						<input
+							id="report-period-from"
+							class="input preset-tonal-surface h-9 w-full text-sm sm:w-32"
+							type="date"
+							aria-label="Report period start date"
+							bind:value={reportFrom}
+							required
+						/>
+						<label class="sr-only" for="report-period-to">To</label>
+						<input
+							id="report-period-to"
+							class="input preset-tonal-surface h-9 w-full text-sm sm:w-32"
+							type="date"
+							aria-label="Report period end date"
+							bind:value={reportTo}
+							required
+						/>
+						<button
+							class="btn btn-sm preset-filled-primary-500 h-9 items-center gap-1.5 font-bold"
+							type="button"
+							disabled={!reportFrom || !reportTo || reportDateRangeInvalid}
+							onclick={() => void applyReportFilters('custom')}
+						>
+							<IconCheckCircle2 class="h-3.5 w-3.5" />
+							Apply
+						</button>
+						{#if reportDateRangeInvalid}
+							<p class="text-error-500 w-full text-xs font-semibold" role="status">
+								Start date must be on or before the end date.
+							</p>
+						{/if}
 					{/if}
-				{/if}
-			</div>
+				{/snippet}
+			</ManageCardHeader>
 		</div>
 
 		<!-- Report cards: P&L + Balance Sheet side by side -->
 		<section class="grid gap-6 lg:grid-cols-2">
 			<!-- Profit & Loss -->
 			<div class="card preset-tonal-surface border-surface-500/10 flex flex-col border shadow-sm">
-				<div class="border-surface-500/10 flex items-center justify-between border-b px-5 py-3">
-					<div class="flex items-center gap-3">
-						<div class="bg-primary-500/10 text-primary-500 shrink-0 rounded-lg p-2">
-							<IconFileText class="h-4 w-4" />
-						</div>
-						<div class="flex flex-wrap items-center gap-2">
-							<h2 class="text-surface-900-100 text-base font-bold tracking-tight">
-								Profit &amp; Loss
-							</h2>
-							<span
-								class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
-							>
-								P&amp;L
-							</span>
-						</div>
-					</div>
-					<div class="flex items-center gap-1.5">
+				<ManageCardHeader
+					icon={IconFileText}
+					iconVariant="tile"
+					padded={true}
+					divider={true}
+					title="Profit & Loss"
+					titleClass="text-surface-900-100 text-base font-bold tracking-tight"
+				>
+					{#snippet badges()}
+						<span
+							class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
+						>
+							P&amp;L
+						</span>
+					{/snippet}
+					{#snippet actions()}
 						<button
 							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
 							type="button"
@@ -2786,8 +2806,8 @@
 							<IconFileText class="h-3 w-3" />
 							CSV
 						</a>
-					</div>
-				</div>
+					{/snippet}
+				</ManageCardHeader>
 				<div class="divide-surface-500/10 flex-1 divide-y">
 					<div class="p-5">
 						<div class="mb-3 flex items-center justify-between">
@@ -2860,23 +2880,23 @@
 
 			<!-- Balance Sheet -->
 			<div class="card preset-tonal-surface border-surface-500/10 flex flex-col border shadow-sm">
-				<div class="border-surface-500/10 flex items-center justify-between border-b px-5 py-3">
-					<div class="flex items-center gap-3">
-						<div class="bg-secondary-500/10 text-secondary-500 shrink-0 rounded-lg p-2">
-							<IconLandmark class="h-4 w-4" />
-						</div>
-						<div class="flex flex-wrap items-center gap-2">
-							<h2 class="text-surface-900-100 text-base font-bold tracking-tight">
-								What We Have / Owe
-							</h2>
-							<span
-								class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
-							>
-								Balance Sheet
-							</span>
-						</div>
-					</div>
-					<div class="flex items-center gap-1.5">
+				<ManageCardHeader
+					icon={IconLandmark}
+					tone="secondary"
+					iconVariant="tile"
+					padded={true}
+					divider={true}
+					title="What We Have / Owe"
+					titleClass="text-surface-900-100 text-base font-bold tracking-tight"
+				>
+					{#snippet badges()}
+						<span
+							class="badge preset-outlined-surface-500 px-2 py-0.5 text-[10px] font-bold tracking-[0.2em] uppercase"
+						>
+							Balance Sheet
+						</span>
+					{/snippet}
+					{#snippet actions()}
 						<button
 							class="btn btn-sm preset-tonal-surface h-8 items-center gap-1 px-2.5 text-xs font-semibold"
 							type="button"
@@ -2892,8 +2912,8 @@
 							<IconFileText class="h-3 w-3" />
 							CSV
 						</a>
-					</div>
-				</div>
+					{/snippet}
+				</ManageCardHeader>
 				<div class="divide-surface-500/10 flex-1 divide-y">
 					<div class="p-5">
 						<div class="mb-3 flex items-center justify-between">
@@ -3001,12 +3021,12 @@
 				action="?/publishSnapshot"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconUpload class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-						Publish Fixed Snapshot
-					</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconUpload}
+					title="Publish Fixed Snapshot"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<div class="grid gap-4 md:grid-cols-3">
 					<label class="label">
 						<span class="text-surface-700-300 text-xs font-semibold">Title</span>
@@ -3130,36 +3150,28 @@
 		<section class="space-y-6">
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-6 border p-6 shadow-sm">
 				<!-- Header section -->
-				<div
-					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-4 border-b pb-4"
+				<ManageCardHeader
+					icon={IconArrowRightLeft}
+					iconVariant="tile"
+					divider={true}
+					title="Transactions Ledger"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					subtitle="{ledgerTotal
+						? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal} records`
+						: 'No records found'} · {transactionPeriodLabel}"
 				>
-					<div class="flex items-center gap-3">
-						<div
-							class="bg-surface-500/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-						>
-							<IconArrowRightLeft class="text-primary-500 h-5 w-5" />
-						</div>
-						<div class="min-w-0">
-							<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-								Transactions Ledger
-							</h2>
-							<p class="text-surface-500 text-xs font-semibold">
-								{ledgerTotal
-									? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal} records`
-									: 'No records found'} · {transactionPeriodLabel}
-							</p>
-						</div>
-					</div>
-					<form method="POST" use:enhance action="?/autoMatch">
-						<button
-							class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold shadow-sm transition-all hover:scale-[1.02]"
-							type="submit"
-						>
-							<IconListChecks class="h-4 w-4" />
-							<span>Auto-Match Activity</span>
-						</button>
-					</form>
-				</div>
+					{#snippet actions()}
+						<form method="POST" use:enhance action="?/autoMatch">
+							<button
+								class="btn btn-sm preset-filled-secondary-500 flex items-center gap-2 font-bold shadow-sm transition-all hover:scale-[1.02]"
+								type="submit"
+							>
+								<IconListChecks class="h-4 w-4" />
+								<span>Auto-Match Activity</span>
+							</button>
+						</form>
+					{/snippet}
+				</ManageCardHeader>
 
 				<!-- Filters section -->
 				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -3245,7 +3257,7 @@
 						</select>
 					</label>
 				</div>
-				<div class="flex flex-wrap items-center justify-end gap-2">
+				<ManageActionRow align="end">
 					{#if transactionViewMode === 'filtered' || ledgerFiltersActive}
 						<button
 							class="btn btn-sm preset-tonal-surface font-semibold"
@@ -3263,7 +3275,7 @@
 					>
 						Apply filters
 					</button>
-				</div>
+				</ManageActionRow>
 
 				<!-- Custom Date selectors -->
 				{#if transactionPeriodKey === 'custom'}
@@ -3325,31 +3337,27 @@
 									class="card preset-tonal-surface border-surface-500/15 border-l-secondary-500 space-y-5 rounded-2xl border border-l-4 p-5 shadow-md sm:p-6"
 								>
 									<!-- Header info -->
-									<div
-										class="border-surface-500/10 flex items-center justify-between gap-3 border-b pb-3"
+									<ManageCardHeader
+										as="h3"
+										icon={IconPencil}
+										tone="secondary"
+										iconVariant="tile"
+										divider={true}
+										title="Edit Transaction"
+										titleClass="text-surface-900-100 text-sm font-bold"
+										subtitle="{entry.entry_type} · {entry.source || 'manual'}"
 									>
-										<div class="flex min-w-0 items-center gap-2.5">
-											<div
-												class="bg-secondary-500/15 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+										{#snippet badges()}
+											<span
+												class="badge preset-tonal-secondary text-[10px] font-bold tracking-wider uppercase"
 											>
-												<IconPencil class="text-secondary-400 h-3.5 w-3.5" />
-											</div>
-											<div class="min-w-0">
-												<h3 class="text-surface-900-100 text-sm font-bold">Edit Transaction</h3>
-												<p class="text-surface-500 text-xs">
-													{entry.entry_type} · {entry.source || 'manual'}
-												</p>
-											</div>
-										</div>
-										<span
-											class="badge preset-tonal-secondary text-[10px] font-bold tracking-wider uppercase"
-										>
-											Editing
-										</span>
-									</div>
+												Editing
+											</span>
+										{/snippet}
+									</ManageCardHeader>
 
 									<!-- Edit Grid fields -->
-									<div class="grid gap-4 sm:grid-cols-[160px_1fr]">
+									<div class="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
 										<label class="label">
 											<span class="text-surface-700-300 text-xs font-semibold"> Date </span>
 											<input
@@ -3443,9 +3451,7 @@
 									</div>
 
 									<!-- Actions -->
-									<div
-										class="border-surface-500/10 flex items-center justify-end gap-2 border-t pt-4"
-									>
+									<ManageActionRow align="end" class="border-surface-500/10 border-t pt-4">
 										<button
 											class="btn btn-sm preset-outlined-surface-500 font-semibold"
 											type="button"
@@ -3466,7 +3472,7 @@
 												<span>Save Changes</span>
 											{/if}
 										</button>
-									</div>
+									</ManageActionRow>
 								</div>
 							{:else}
 								<!-- View Mode Layout -->
@@ -3501,13 +3507,13 @@
 
 										<!-- Details -->
 										<div class="min-w-0 flex-1 space-y-1">
-											<div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+											<div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
 												<h3
 													class="text-surface-900-100 min-w-0 truncate text-sm leading-snug font-semibold"
 												>
 													{entry.description}
 												</h3>
-												<div class="flex shrink-0 items-center gap-1">
+												<div class="flex min-w-0 flex-wrap items-center gap-1">
 													<span
 														class="badge preset-tonal-surface px-1.5 py-0.5 text-[9px] font-semibold capitalize"
 													>
@@ -3543,11 +3549,11 @@
 											</div>
 
 											<!-- Accounts & Memo -->
-											<div class="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
-												<div class="flex flex-wrap gap-1">
+											<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
+												<div class="flex min-w-0 flex-wrap gap-1">
 													{#each entry.lines ?? [] as line}
 														<span
-															class="bg-surface-500/10 text-surface-700-300 rounded px-1.5 py-0.5 font-mono text-xs font-medium"
+															class="bg-surface-500/10 text-surface-700-300 max-w-full truncate rounded px-1.5 py-0.5 font-mono text-xs font-medium"
 														>
 															{line.account?.code} · {line.account?.name || 'Unknown'}
 														</span>
@@ -3687,32 +3693,30 @@
 						</div>
 					{/each}
 				</div>
-				<div
-					class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-4"
-				>
-					<p class="text-surface-600-400 text-sm">
-						{ledgerTotal
-							? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal}`
-							: 'No ledger entries'}
-					</p>
-					<div class="flex items-center gap-2">
-						<button
-							class="btn btn-sm preset-tonal-surface font-semibold"
-							type="button"
-							disabled={ledgerPage <= 1}
-							onclick={() => void applyLedgerFilters(ledgerPage - 1)}>Previous</button
-						>
-						<span class="text-surface-500 text-xs font-semibold"
-							>Page {ledgerPage} of {ledgerTotalPages}</span
-						>
-						<button
-							class="btn btn-sm preset-tonal-surface font-semibold"
-							type="button"
-							disabled={ledgerPage >= ledgerTotalPages}
-							onclick={() => void applyLedgerFilters(ledgerPage + 1)}>Next</button
-						>
-					</div>
-				</div>
+				<ManageActionRow class="border-surface-500/10 border-t pt-4">
+					{#snippet lead()}
+						<p class="text-surface-600-400 text-sm">
+							{ledgerTotal
+								? `Showing ${ledgerRangeStart}-${ledgerRangeEnd} of ${ledgerTotal}`
+								: 'No ledger entries'}
+						</p>
+					{/snippet}
+					<button
+						class="btn btn-sm preset-tonal-surface font-semibold"
+						type="button"
+						disabled={ledgerPage <= 1}
+						onclick={() => void applyLedgerFilters(ledgerPage - 1)}>Previous</button
+					>
+					<span class="text-surface-500 text-xs font-semibold"
+						>Page {ledgerPage} of {ledgerTotalPages}</span
+					>
+					<button
+						class="btn btn-sm preset-tonal-surface font-semibold"
+						type="button"
+						disabled={ledgerPage >= ledgerTotalPages}
+						onclick={() => void applyLedgerFilters(ledgerPage + 1)}>Next</button
+					>
+				</ManageActionRow>
 			</div>
 		</section>
 	{/if}
@@ -3720,9 +3724,8 @@
 	{#if activeTab === 'banking'}
 		<section class="space-y-4">
 			<!-- Header -->
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div class="flex items-center gap-3">
-					<h2 class="text-2xl font-bold tracking-tight">Bank Feeds</h2>
+			<ManageCardHeader title="Bank Feeds" titleClass="text-2xl font-bold tracking-tight">
+				{#snippet badges()}
 					<span
 						class="badge {bankReviewTotal > 0
 							? 'preset-filled-warning-500'
@@ -3730,8 +3733,8 @@
 					>
 						{bankReviewTotal}
 					</span>
-				</div>
-				<div class="flex items-center gap-2">
+				{/snippet}
+				{#snippet actions()}
 					<form method="POST" use:enhance={enhanceSyncAll} action="?/syncAll">
 						<button
 							class="btn btn-sm preset-filled-primary-500 font-bold"
@@ -3742,18 +3745,18 @@
 							<span>{syncAllBusy ? 'Syncing…' : 'Sync All'}</span>
 						</button>
 					</form>
-				</div>
-			</div>
+				{/snippet}
+			</ManageCardHeader>
 
 			<section class="card preset-tonal-surface border-surface-500/10 space-y-4 border p-4 sm:p-5">
 				<button
-					class="flex w-full items-center justify-between gap-3 text-left"
+					class="flex w-full flex-wrap items-center justify-between gap-2 text-left"
 					type="button"
 					aria-expanded={showConnections}
 					aria-controls="bank-connections-content"
 					onclick={() => (showConnections = !showConnections)}
 				>
-					<span class="min-w-0"
+					<span class="min-w-[min(100%,11rem)] flex-1"
 						><span class="block text-base font-bold">Connections</span><span
 							class="text-surface-600-400 mt-1 block text-xs"
 							>{mercuryConnected
@@ -3763,14 +3766,14 @@
 								: 'Manage provider connections, account mappings, and imports'}</span
 						></span
 					>
-					<span class="flex shrink-0 items-center gap-2"
+					<span class="flex flex-wrap items-center gap-2"
 						>{#if mercuryConnected}<span
 								class="badge {mercuryScheduleActive
 									? 'preset-tonal-success'
 									: 'preset-tonal-surface'} text-[9px] font-bold uppercase"
 								>{mercuryScheduleActive ? 'Hourly sync on' : 'Sync off'}</span
 							>{/if}<IconChevronDown
-							class="h-4 w-4 transition-transform duration-180 {showConnections
+							class="h-4 w-4 shrink-0 transition-transform duration-180 {showConnections
 								? 'rotate-180'
 								: ''}"
 							aria-hidden="true"
@@ -3781,16 +3784,13 @@
 					{#if showConnections}
 						<div transition:slide={{ duration: 180 }} class="space-y-4">
 							<section class="space-y-4">
-								<div
-									class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-b pb-3"
-								>
-									<div>
-										<h3 class="text-base font-bold">Connection health</h3>
-										<p class="text-surface-600-400 mt-1 text-xs">
-											Connection, sync attempt, last success, and current data freshness.
-										</p>
-									</div>
-								</div>
+								<ManageCardHeader
+									as="h3"
+									title="Connection health"
+									titleClass="text-base font-bold"
+									subtitle="Connection, sync attempt, last success, and current data freshness."
+									divider={true}
+								/>
 								<div class="grid gap-3 lg:grid-cols-2">
 									{#each healthConnections as connection (connection.id)}
 										<div
@@ -3881,33 +3881,33 @@
 												>
 													{mercuryConnection.last_sync_error_message}
 												</p>{/if}
-											<div
-												class="border-surface-500/10 flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between"
-											>
-												<form
-													method="POST"
-													use:enhance
-													action="?/saveConnections"
-													class="flex min-w-0 flex-1 flex-wrap items-center gap-2"
-												>
-													<input type="hidden" name="mercurySyncEnabled" value="false" />
-													<label
-														class="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-xs font-medium"
-														><input
-															class="checkbox mt-0.5"
-															type="checkbox"
-															name="mercurySyncEnabled"
-															checked={data.settings?.mercury_sync_enabled === true}
-														/><span>Sync Mercury automatically each hour</span></label
+											<ManageActionRow class="border-surface-500/10 border-t pt-2">
+												{#snippet lead()}
+													<form
+														method="POST"
+														use:enhance
+														action="?/saveConnections"
+														class="flex min-w-0 flex-wrap items-center gap-2"
 													>
-													<button
-														class="btn btn-sm preset-tonal-surface font-semibold"
-														type="submit">Save</button
-													>
-												</form>
+														<input type="hidden" name="mercurySyncEnabled" value="false" />
+														<label
+															class="flex min-w-[min(100%,10rem)] flex-1 cursor-pointer items-start gap-2 text-xs font-medium"
+															><input
+																class="checkbox mt-0.5"
+																type="checkbox"
+																name="mercurySyncEnabled"
+																checked={data.settings?.mercury_sync_enabled === true}
+															/><span>Sync Mercury automatically each hour</span></label
+														>
+														<button
+															class="btn btn-sm preset-tonal-surface font-semibold"
+															type="submit">Save</button
+														>
+													</form>
+												{/snippet}
 												<form method="POST" use:enhance={enhanceSyncAll} action="?/syncMercury">
 													<button
-														class="btn btn-sm preset-outlined-primary-500 shrink-0 font-semibold"
+														class="btn btn-sm preset-outlined-primary-500 font-semibold"
 														type="submit"
 														disabled={syncAllBusy || mercuryConnection?.status === 'disabled'}
 														><IconRefreshCw
@@ -3915,7 +3915,7 @@
 														/>{syncAllBusy ? 'Syncing…' : 'Sync now'}</button
 													>
 												</form>
-											</div>
+											</ManageActionRow>
 											<p class="text-surface-500 text-xs leading-relaxed">
 												Confirmed transfers between two separately mapped Mercury accounts post as
 												one ledger transfer. Ambiguous or unmatched activity stays in Bank Review.
@@ -3927,17 +3927,17 @@
 							<div class="card preset-tonal-surface p-5">
 								<div class="grid gap-6 md:grid-cols-2">
 									<!-- Connected Accounts -->
-									<div class="space-y-3">
+									<div class="min-w-0 space-y-3">
 										<p class="text-xs font-bold tracking-wider uppercase opacity-60">
 											Connected Accounts
 										</p>
 
 										{#if mercuryConnected && !mercuryEditMode}
 											<div
-												class="card preset-tonal-success flex items-center justify-between gap-3 p-3"
+												class="card preset-tonal-success flex flex-wrap items-center justify-between gap-3 p-3"
 											>
-												<div>
-													<p class="text-sm font-semibold">
+												<div class="min-w-0">
+													<p class="text-sm font-semibold [overflow-wrap:anywhere]">
 														Mercury · ••••{data.settings?.mercury_api_key_hint || '????'}
 													</p>
 													{#if mercuryConnection?.last_synced_at}
@@ -3961,10 +3961,10 @@
 												method="POST"
 												use:enhance={enhanceSaveConnections}
 												action="?/saveConnections"
-												class="flex gap-2"
+												class="flex flex-wrap items-center gap-2"
 											>
 												<input
-													class="input preset-tonal-surface flex-1 text-sm"
+													class="input preset-tonal-surface min-w-[min(100%,11rem)] flex-1 text-sm"
 													type="password"
 													aria-label="Mercury API key"
 													name="mercuryApiKey"
@@ -3974,19 +3974,21 @@
 													autocomplete="off"
 													required={!mercuryConnected || mercuryEditMode}
 												/>
-												<button
-													class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold"
-													type="submit"
-												>
-													{mercuryConnected ? 'Update' : 'Save'}
-												</button>
-												{#if mercuryConnected}
+												<ManageActionRow>
 													<button
-														class="btn btn-sm preset-tonal-surface shrink-0"
-														type="button"
-														onclick={() => (mercuryEditMode = false)}>Cancel</button
+														class="btn btn-sm preset-filled-primary-500 font-bold"
+														type="submit"
 													>
-												{/if}
+														{mercuryConnected ? 'Update' : 'Save'}
+													</button>
+													{#if mercuryConnected}
+														<button
+															class="btn btn-sm preset-tonal-surface"
+															type="button"
+															onclick={() => (mercuryEditMode = false)}>Cancel</button
+														>
+													{/if}
+												</ManageActionRow>
 											</form>
 										{/if}
 
@@ -4040,18 +4042,20 @@
 
 										{#if !stripeConnected}
 											<div class="border-warning-500/20 bg-warning-500/10 rounded-xl border p-3">
-												<div class="flex items-center justify-between gap-3">
-													<p class="min-w-0 truncate text-sm leading-tight font-semibold">
-														Connect Stripe to link bank accounts
-													</p>
+												<ManageActionRow>
+													{#snippet lead()}
+														<p class="text-sm leading-snug font-semibold">
+															Connect Stripe to link bank accounts
+														</p>
+													{/snippet}
 													<a
-														class="btn btn-sm preset-filled-primary-500 shrink-0 font-bold whitespace-nowrap"
+														class="btn btn-sm preset-filled-primary-500 font-bold"
 														href={stripeConnectUrl}
 													>
 														<IconCreditCard class="h-4 w-4" />
 														<span>Connect Stripe</span>
 													</a>
-												</div>
+												</ManageActionRow>
 											</div>
 										{/if}
 										<button
@@ -4134,25 +4138,25 @@
 
 							{#if syncRuns.length}
 								{@const latestSync = syncRuns[0]}
-								<div
-									class="bg-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-2.5"
-								>
-									<div class="min-w-0">
-										<p class="text-xs font-semibold">Latest provider sync</p>
-										<p class="text-surface-500 mt-0.5 truncate text-xs">
-											{latestSync.provider.replaceAll('_', ' ')} · {latestSync.status} · {formatTimestamp(
-												latestSync.started_at
-											)}
-										</p>
-									</div>
+								<ManageActionRow class="bg-surface-500/5 rounded-xl px-3 py-2.5">
+									{#snippet lead()}
+										<div class="min-w-0">
+											<p class="text-xs font-semibold">Latest provider sync</p>
+											<p class="text-surface-500 mt-0.5 truncate text-xs">
+												{latestSync.provider.replaceAll('_', ' ')} · {latestSync.status} · {formatTimestamp(
+													latestSync.started_at
+												)}
+											</p>
+										</div>
+									{/snippet}
 									<button
-										class="btn btn-sm preset-tonal-surface shrink-0 font-semibold"
+										class="btn btn-sm preset-tonal-surface font-semibold"
 										type="button"
 										aria-label="View latest {latestSync.provider} sync details"
 										aria-haspopup="dialog"
 										onclick={() => openSyncDetails(latestSync)}>View details</button
 									>
-								</div>
+								</ManageActionRow>
 								<dialog
 									bind:this={syncDetailsDialog}
 									aria-labelledby="provider-sync-dialog-title"
@@ -4234,20 +4238,19 @@
 				<section
 					class="card preset-tonal-surface border-warning-500/20 space-y-3 border p-4 sm:p-5"
 				>
-					<div>
-						<h3 class="text-base font-bold">Provider correction review</h3>
-						<p class="text-surface-600-400 mt-1 text-xs">
-							Acknowledge or dismiss provider updates. Acknowledging a correction records the
-							review; posted ledger entries stay unchanged and any accounting edit remains manual.
-						</p>
-					</div>
+					<ManageCardHeader
+						as="h3"
+						title="Provider correction review"
+						titleClass="text-base font-bold"
+						subtitle="Acknowledge or dismiss provider updates. Acknowledging a correction records the review; posted ledger entries stay unchanged and any accounting edit remains manual."
+					/>
 					{#each providerCorrectionItems as item (item.id)}
 						{@const changes = providerCorrectionRows(item.provider_correction)}
 						<div
 							class="bg-surface-500/5 border-surface-500/10 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between"
 						>
 							<div class="min-w-0 flex-1">
-								<p class="text-sm font-semibold">
+								<p class="text-sm font-semibold [overflow-wrap:anywhere]">
 									{item.description || 'Provider activity'}
 									<span class="text-surface-500 font-normal">· {item.provider} · {item.status}</span
 									>
@@ -4257,7 +4260,7 @@
 								</p>
 								<div class="mt-2 space-y-1 text-xs">
 									{#each changes as change}
-										<p>
+										<p class="[overflow-wrap:anywhere]">
 											<span class="font-semibold">{change.label}:</span> provider {change.observed} ·
 											recorded {change.recorded}
 										</p>
@@ -4268,7 +4271,7 @@
 									{/each}
 								</div>
 							</div>
-							<div class="flex shrink-0 flex-wrap gap-2">
+							<ManageActionRow>
 								<form method="POST" use:enhance action="?/resolveProviderCorrection">
 									<input type="hidden" name="feedItemId" value={item.id} /><input
 										type="hidden"
@@ -4288,7 +4291,7 @@
 										>Dismiss</button
 									>
 								</form>
-							</div>
+							</ManageActionRow>
 						</div>
 					{/each}
 				</section>
@@ -4304,34 +4307,34 @@
 			/>
 
 			{#if bankReviewTotalPages > 1}
-				<div
-					class="border-surface-500/10 bg-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+				<ManageActionRow
+					class="border-surface-500/10 bg-surface-500/5 rounded-2xl border px-4 py-3"
 				>
-					<p class="text-sm font-semibold">
-						Showing {bankReviewRangeStart}-{bankReviewRangeEnd} of {bankReviewTotal}
-					</p>
-					<div class="flex items-center gap-2">
-						<button
-							class="btn btn-sm preset-tonal-surface font-semibold"
-							type="button"
-							disabled={!bankReviewHasPrev}
-							onclick={() => setBankReviewPage(bankReviewPage - 1)}
-						>
-							Previous
-						</button>
-						<span class="text-surface-500 text-xs font-semibold tracking-wider uppercase">
-							Page {bankReviewPage} of {bankReviewTotalPages}
-						</span>
-						<button
-							class="btn btn-sm preset-tonal-surface font-semibold"
-							type="button"
-							disabled={!bankReviewHasNext}
-							onclick={() => setBankReviewPage(bankReviewPage + 1)}
-						>
-							Next
-						</button>
-					</div>
-				</div>
+					{#snippet lead()}
+						<p class="text-sm font-semibold">
+							Showing {bankReviewRangeStart}-{bankReviewRangeEnd} of {bankReviewTotal}
+						</p>
+					{/snippet}
+					<button
+						class="btn btn-sm preset-tonal-surface font-semibold"
+						type="button"
+						disabled={!bankReviewHasPrev}
+						onclick={() => setBankReviewPage(bankReviewPage - 1)}
+					>
+						Previous
+					</button>
+					<span class="text-surface-500 text-xs font-semibold tracking-wider uppercase">
+						Page {bankReviewPage} of {bankReviewTotalPages}
+					</span>
+					<button
+						class="btn btn-sm preset-tonal-surface font-semibold"
+						type="button"
+						disabled={!bankReviewHasNext}
+						onclick={() => setBankReviewPage(bankReviewPage + 1)}
+					>
+						Next
+					</button>
+				</ManageActionRow>
 			{/if}
 
 			<!-- Transaction Review -->
@@ -4346,19 +4349,20 @@
 								: ''}"
 						>
 							<!-- Group header -->
-							<div
-								class="border-surface-500/15 flex flex-wrap items-center justify-between gap-2 rounded-t-xl border-b px-4 py-3"
+							<ManageCardHeader
+								as="h3"
+								icon={IconLandmark}
+								padded={true}
+								divider={true}
+								title={group.account ? accountLabel(group.account) : 'Unassigned'}
+								titleClass="text-sm font-bold"
 							>
-								<div class="flex min-w-0 items-center gap-2">
-									<IconLandmark class="text-primary-500 h-4 w-4 shrink-0" />
-									<span class="truncate font-bold">
-										{group.account ? accountLabel(group.account) : 'Unassigned'}
-									</span>
+								{#snippet badges()}
 									<span class="badge preset-tonal-surface px-2 py-0.5 text-[10px] font-semibold"
 										>{group.items.length}</span
 									>
-								</div>
-							</div>
+								{/snippet}
+							</ManageCardHeader>
 
 							<!-- Transactions -->
 							<div class="divide-surface-500/10 divide-y">
@@ -4389,26 +4393,30 @@
 										/>
 
 										<!-- Line 1: description + amount -->
-										<div class="mb-2 flex items-baseline gap-3">
-											<p class="truncate text-sm leading-snug font-semibold capitalize">
+										<div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+											<p
+												class="min-w-[min(100%,10rem)] flex-1 truncate text-sm leading-snug font-semibold capitalize"
+											>
 												{String(item.description || 'Bank activity').toLowerCase()}
 											</p>
-											<span
-												class="shrink-0 text-sm font-bold tabular-nums {item.amount_cents >= 0
-													? 'text-success-500'
-													: 'text-error-500'}"
-											>
-												{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
-											</span>
-											<span class="shrink-0 text-xs opacity-40"
-												>{formatDate(item.transaction_date)} · {item.provider}</span
-											>
-											{#if item.status === 'matched'}
+											<div class="flex min-w-0 flex-wrap items-center gap-2">
 												<span
-													class="badge preset-tonal-success shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase"
-													>Match found</span
+													class="text-sm font-bold tabular-nums {item.amount_cents >= 0
+														? 'text-success-500'
+														: 'text-error-500'}"
 												>
-											{/if}
+													{item.amount_cents >= 0 ? '+' : ''}{formatCents(item.amount_cents)}
+												</span>
+												<span class="text-xs opacity-40"
+													>{formatDate(item.transaction_date)} · {item.provider}</span
+												>
+												{#if item.status === 'matched'}
+													<span
+														class="badge preset-tonal-success px-1.5 py-0.5 text-[9px] font-bold uppercase"
+														>Match found</span
+													>
+												{/if}
+											</div>
 										</div>
 
 										{#if (item.match_candidates ?? []).length > 0}
@@ -4610,10 +4618,12 @@
 					name="requestId"
 					value={requestIds.journal || data.posting_request_ids?.journal || ''}
 				/>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconBookOpen class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Advanced Journal</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconBookOpen}
+					title="Advanced Journal"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<input type="hidden" name="linesJson" value={journalJson} />
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -4641,7 +4651,7 @@
 				<div class="mt-4 space-y-3">
 					<!-- Table Headers on desktop -->
 					<div
-						class="text-surface-500 hidden grid-cols-[1.5fr_1fr_1fr_1.5fr_auto] gap-2 px-2 text-xs font-bold tracking-wider uppercase md:grid"
+						class="text-surface-500 hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-2 px-2 text-xs font-bold tracking-wider uppercase md:grid"
 					>
 						<div>Account</div>
 						<div>Debit ($)</div>
@@ -4652,7 +4662,7 @@
 
 					{#each journalLines as line, index}
 						<div
-							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid gap-2 rounded-xl border p-3 transition-colors md:grid-cols-[1.5fr_1fr_1fr_1.5fr_auto]"
+							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid gap-2 rounded-xl border p-3 transition-colors md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
 						>
 							<span
 								class="text-surface-500 text-[10px] font-bold tracking-wider uppercase md:hidden"
@@ -4722,21 +4732,23 @@
 					{/each}
 				</div>
 
-				<div
-					class="bg-surface-500/5 border-surface-500/5 mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 text-sm font-semibold"
+				<ManageActionRow
+					class="bg-surface-500/5 border-surface-500/5 mt-4 rounded-xl border p-4 text-sm font-semibold"
 				>
-					<div class="flex gap-4">
-						<div>
-							Debits: <span class="text-success-700-300 font-bold"
-								>{formatCents(journalDebitTotal)}</span
-							>
+					{#snippet lead()}
+						<div class="flex flex-wrap gap-x-4 gap-y-1">
+							<div>
+								Debits: <span class="text-success-700-300 font-bold"
+									>{formatCents(journalDebitTotal)}</span
+								>
+							</div>
+							<div>
+								Credits: <span class="text-secondary-700-300 font-bold"
+									>{formatCents(journalCreditTotal)}</span
+								>
+							</div>
 						</div>
-						<div>
-							Credits: <span class="text-secondary-700-300 font-bold"
-								>{formatCents(journalCreditTotal)}</span
-							>
-						</div>
-					</div>
+					{/snippet}
 
 					<button
 						class="btn btn-sm preset-outlined-surface-500 font-semibold"
@@ -4745,9 +4757,9 @@
 					>
 						+ Add Line
 					</button>
-				</div>
+				</ManageActionRow>
 
-				<div class="flex items-center gap-4 pt-2">
+				<ManageActionRow gap="gap-3" class="pt-2">
 					<button
 						class="btn preset-filled-primary-500 flex items-center justify-center gap-2 font-bold"
 						type="submit"
@@ -4761,7 +4773,7 @@
 							>Debits and credits must balance.</span
 						>
 					{/if}
-				</div>
+				</ManageActionRow>
 			</form>
 		</section>
 	{/if}
@@ -4775,12 +4787,12 @@
 				action="?/saveSettings"
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm"
 			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconCog class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">
-						Public Reporting Defaults
-					</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconCog}
+					title="Public Reporting Defaults"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 
 				<div class="space-y-4">
 					<label class="flex cursor-pointer items-center gap-2.5 py-1 text-sm font-semibold">
@@ -4816,7 +4828,7 @@
 							>Visible Reports by Default</span
 						>
 						<div
-							class="bg-surface-500/5 border-surface-500/5 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border p-4"
+							class="bg-surface-500/5 border-surface-500/5 grid grid-cols-1 gap-x-4 gap-y-2 rounded-xl border p-4 sm:grid-cols-2"
 						>
 							<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
 								<input
@@ -4875,20 +4887,23 @@
 
 			<!-- Published Snapshots List -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconFileText class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Published Snapshots</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconFileText}
+					tone="secondary"
+					title="Published Snapshots"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<div class="space-y-3">
 					{#each data.public_reports as snapshot}
 						<form
 							method="POST"
 							use:enhance
 							action="?/unpublishSnapshot"
-							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex items-center justify-between gap-4 rounded-xl border p-4 text-sm transition-all duration-150"
+							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 text-sm transition-all duration-150"
 						>
 							<input type="hidden" name="reportId" value={snapshot.id} />
-							<div class="min-w-0 space-y-1">
+							<div class="min-w-[min(100%,10rem)] flex-1 space-y-1">
 								<p class="text-surface-900-100 truncate font-bold">
 									{snapshot.title}
 								</p>
@@ -4908,13 +4923,15 @@
 									</a>
 								{/if}
 							</div>
-							<button
-								class="btn btn-sm preset-outlined-surface-500 shrink-0 font-medium"
-								type="submit"
-								disabled={!snapshot.published}
-							>
-								Unpublish
-							</button>
+							<ManageActionRow>
+								<button
+									class="btn btn-sm preset-outlined-surface-500 font-medium"
+									type="submit"
+									disabled={!snapshot.published}
+								>
+									Unpublish
+								</button>
+							</ManageActionRow>
 						</form>
 					{:else}
 						<div
@@ -4929,10 +4946,12 @@
 
 			<!-- Exports -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconFileText class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Exports</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconFileText}
+					title="Exports"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<p class="text-surface-700-300 text-sm leading-relaxed">
 					Download the complete general ledger history for this group in CSV format for local backup
 					or importing into other tools.
@@ -4948,10 +4967,13 @@
 
 			<!-- Receipt Review -->
 			<div class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm">
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconReceipt class="text-secondary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Receipt Review</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconReceipt}
+					tone="secondary"
+					title="Receipt Review"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<form
 					method="POST"
 					use:enhance
@@ -5004,7 +5026,7 @@
 				</form>
 				<div class="space-y-3">
 					<div class="flex flex-wrap items-end justify-between gap-3">
-						<label class="label min-w-0 flex-1">
+						<label class="label min-w-[min(100%,11rem)] flex-1">
 							<span class="text-surface-700-300 text-xs font-semibold"
 								>Search receipt filenames</span
 							>
@@ -5029,23 +5051,27 @@
 							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-3 rounded-xl border p-4 transition-colors duration-150"
 						>
 							<input type="hidden" name="receiptId" value={receipt.id} />
-							<div
-								class="border-surface-500/10 flex items-start justify-between gap-2 border-b pb-2"
+							<ManageCardHeader
+								as="h4"
+								title={receipt.file_name}
+								titleClass="text-surface-900-100 text-sm font-bold"
+								divider={true}
 							>
-								<span class="text-surface-900-100 truncate text-sm font-bold"
-									>{receipt.file_name}</span
-								>
-								<span
-									class="badge preset-outlined-surface-500 px-1.5 py-0.5 text-[10px] font-semibold capitalize"
-									>{receipt.classification_status}</span
-								>
-								<a
-									class="btn btn-sm preset-outlined-primary-500 shrink-0 px-2 py-1 text-xs font-semibold"
-									href={receiptViewHref(receipt.id)}
-									target="_blank"
-									rel="noreferrer">View</a
-								>
-							</div>
+								{#snippet badges()}
+									<span
+										class="badge preset-outlined-surface-500 px-1.5 py-0.5 text-[10px] font-semibold capitalize"
+										>{receipt.classification_status}</span
+									>
+								{/snippet}
+								{#snippet actions()}
+									<a
+										class="btn btn-sm preset-outlined-primary-500 px-2 py-1 text-xs font-semibold"
+										href={receiptViewHref(receipt.id)}
+										target="_blank"
+										rel="noreferrer">View</a
+									>
+								{/snippet}
+							</ManageCardHeader>
 
 							<div class="grid gap-2 sm:grid-cols-3">
 								<input
@@ -5079,33 +5105,31 @@
 						</div>
 					{/each}
 					{#if receiptsTotalPages > 1}
-						<div
-							class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
-						>
-							<p class="text-surface-600-400 text-xs">
-								Showing {(receiptsPage - 1) * receiptsPageSize + 1}-{Math.min(
-									receiptsPage * receiptsPageSize,
-									receiptsTotal
-								)} of {receiptsTotal}
-							</p>
-							<div class="flex items-center gap-2">
-								<button
-									class="btn btn-sm preset-tonal-surface"
-									type="button"
-									disabled={receiptsPage <= 1}
-									onclick={() => setHistoryPage('receipt_page', receiptsPage - 1)}>Previous</button
-								>
-								<span class="text-surface-500 text-xs"
-									>Page {receiptsPage} of {receiptsTotalPages}</span
-								>
-								<button
-									class="btn btn-sm preset-tonal-surface"
-									type="button"
-									disabled={receiptsPage >= receiptsTotalPages}
-									onclick={() => setHistoryPage('receipt_page', receiptsPage + 1)}>Next</button
-								>
-							</div>
-						</div>
+						<ManageActionRow class="border-surface-500/10 border-t pt-3">
+							{#snippet lead()}
+								<p class="text-surface-600-400 text-xs">
+									Showing {(receiptsPage - 1) * receiptsPageSize + 1}-{Math.min(
+										receiptsPage * receiptsPageSize,
+										receiptsTotal
+									)} of {receiptsTotal}
+								</p>
+							{/snippet}
+							<button
+								class="btn btn-sm preset-tonal-surface"
+								type="button"
+								disabled={receiptsPage <= 1}
+								onclick={() => setHistoryPage('receipt_page', receiptsPage - 1)}>Previous</button
+							>
+							<span class="text-surface-500 text-xs"
+								>Page {receiptsPage} of {receiptsTotalPages}</span
+							>
+							<button
+								class="btn btn-sm preset-tonal-surface"
+								type="button"
+								disabled={receiptsPage >= receiptsTotalPages}
+								onclick={() => setHistoryPage('receipt_page', receiptsPage + 1)}>Next</button
+							>
+						</ManageActionRow>
 					{/if}
 				</div>
 			</div>
@@ -5114,12 +5138,14 @@
 			<div
 				class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-6 shadow-sm lg:col-span-2"
 			>
-				<div class="border-surface-500/10 flex items-center gap-2 border-b pb-3">
-					<IconCog class="text-primary-500 h-5 w-5" />
-					<h2 class="text-surface-900-100 text-lg font-bold tracking-tight">Audit Trail</h2>
-				</div>
+				<ManageCardHeader
+					icon={IconCog}
+					title="Audit Trail"
+					titleClass="text-surface-900-100 text-lg font-bold tracking-tight"
+					divider={true}
+				/>
 				<div class="flex flex-wrap items-end justify-between gap-3">
-					<label class="label min-w-0 flex-1">
+					<label class="label min-w-[min(100%,11rem)] flex-1">
 						<span class="text-surface-700-300 text-xs font-semibold">Search event types</span>
 						<input
 							class="input preset-tonal-surface"
@@ -5137,10 +5163,12 @@
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 					{#each auditEvents as event}
 						<div
-							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 space-y-1 rounded-xl border p-4 transition-colors duration-150"
+							class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 min-w-0 space-y-1 rounded-xl border p-4 transition-colors duration-150"
 						>
-							<div class="flex items-start justify-between gap-2">
-								<span class="text-surface-900-100 text-xs font-bold">{event.event_type}</span>
+							<div class="flex flex-wrap items-start justify-between gap-2">
+								<span class="text-surface-900-100 text-xs font-bold [overflow-wrap:anywhere]"
+									>{event.event_type}</span
+								>
 								<span class="text-surface-500 text-[9px] font-medium"
 									>{formatDate(event.created_at)}</span
 								>
@@ -5158,31 +5186,29 @@
 					{/each}
 				</div>
 				{#if auditTotalPages > 1}
-					<div
-						class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-3"
-					>
-						<p class="text-surface-600-400 text-xs">
-							Showing {(auditPage - 1) * auditPageSize + 1}-{Math.min(
-								auditPage * auditPageSize,
-								auditTotal
-							)} of {auditTotal}
-						</p>
-						<div class="flex items-center gap-2">
-							<button
-								class="btn btn-sm preset-tonal-surface"
-								type="button"
-								disabled={auditPage <= 1}
-								onclick={() => setHistoryPage('audit_page', auditPage - 1)}>Previous</button
-							>
-							<span class="text-surface-500 text-xs">Page {auditPage} of {auditTotalPages}</span>
-							<button
-								class="btn btn-sm preset-tonal-surface"
-								type="button"
-								disabled={auditPage >= auditTotalPages}
-								onclick={() => setHistoryPage('audit_page', auditPage + 1)}>Next</button
-							>
-						</div>
-					</div>
+					<ManageActionRow class="border-surface-500/10 border-t pt-3">
+						{#snippet lead()}
+							<p class="text-surface-600-400 text-xs">
+								Showing {(auditPage - 1) * auditPageSize + 1}-{Math.min(
+									auditPage * auditPageSize,
+									auditTotal
+								)} of {auditTotal}
+							</p>
+						{/snippet}
+						<button
+							class="btn btn-sm preset-tonal-surface"
+							type="button"
+							disabled={auditPage <= 1}
+							onclick={() => setHistoryPage('audit_page', auditPage - 1)}>Previous</button
+						>
+						<span class="text-surface-500 text-xs">Page {auditPage} of {auditTotalPages}</span>
+						<button
+							class="btn btn-sm preset-tonal-surface"
+							type="button"
+							disabled={auditPage >= auditTotalPages}
+							onclick={() => setHistoryPage('audit_page', auditPage + 1)}>Next</button
+						>
+					</ManageActionRow>
 				{/if}
 			</div>
 		</section>
