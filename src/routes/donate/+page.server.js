@@ -1,4 +1,9 @@
-import { ANONYMITY_NOTICE, GROUP_TAX_NOTICE, MAIN_ORG_TAX_NOTICE } from '#lib/donations/constants';
+import {
+	ANONYMITY_NOTICE,
+	GROUP_TAX_NOTICE,
+	MAIN_ORG_TAX_NOTICE,
+	resolveDonationPrefillAmount
+} from '#lib/donations/constants';
 import { getDonationRecipient } from '#lib/server/donations';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
@@ -8,6 +13,19 @@ function cleanSlug(value) {
 		.trim()
 		.toLowerCase();
 }
+
+const RESERVED_DONATE_QUERY_KEYS = new Set([
+	'group',
+	'groupslug',
+	'g',
+	'amount',
+	'name',
+	'email',
+	'canceled',
+	'stripe',
+	'reason',
+	'manage'
+]);
 
 function resolveGroupSlug(searchParams) {
 	const explicit =
@@ -22,7 +40,7 @@ function resolveGroupSlug(searchParams) {
 	for (const [key, value] of searchParams.entries()) {
 		if (!value) {
 			const candidate = cleanSlug(key);
-			if (candidate) return candidate;
+			if (candidate && !RESERVED_DONATE_QUERY_KEYS.has(candidate)) return candidate;
 		}
 	}
 
@@ -32,10 +50,7 @@ function resolveGroupSlug(searchParams) {
 export const load = async ({ url, cookies }) => {
 	const groupSlug = resolveGroupSlug(url.searchParams);
 	const recipientType = groupSlug ? 'group' : 'main';
-	const requestedAmount = Number(url.searchParams.get('amount') || 0);
-	const prefillAmount = Number.isFinite(requestedAmount)
-		? Math.max(1, Math.min(25000, Math.round(requestedAmount)))
-		: 25;
+	const prefillAmount = resolveDonationPrefillAmount(url.searchParams.get('amount'));
 	const prefillName = (url.searchParams.get('name') || '').trim().slice(0, 120);
 	const prefillEmail = (url.searchParams.get('email') || '').trim().slice(0, 254);
 

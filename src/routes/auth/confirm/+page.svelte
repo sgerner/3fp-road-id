@@ -3,10 +3,9 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '#lib/supabaseClient';
 	import { replaceClientLocation } from '#lib/client/navigation';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { isSafeInternalPath } from '#lib/security/navigation';
 	import { syncServerSession } from '#lib/security/session';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 
 	let error = $state('');
 	let message = $state('Completing login…');
@@ -18,30 +17,7 @@
 	let returnToParam = $state('');
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(resendEmail));
 	let resendHoneypot = $state('');
-	let turnstileEnabled = $derived(
-		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
-	);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
-
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
+	let resendTurnstile = $state(null);
 
 	function normalizeParamsFromWeirdPath() {
 		try {
@@ -188,64 +164,51 @@
 
 	async function resend(e) {
 		e?.preventDefault?.();
+		if (sending || !resendTurnstile) return;
 		resendError = '';
 		resendSuccess = '';
-		if (!emailValid) {
-			resendError = 'Enter a valid email address.';
-			return;
-		}
-		if (resendHoneypot.trim()) {
-			resendError = 'Invalid submission.';
-			return;
-		}
-		sending = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initTurnstile();
-				if (!turnstileWidgetId) {
-					resendError = 'Verification failed. Please reload and try again.';
-					sending = false;
-					return;
+		await resendTurnstile.submit({
+			validate: () => {
+				if (!emailValid) {
+					resendError = 'Enter a valid email address.';
+					return false;
 				}
-				turnstileToken = await executeTurnstile(turnstileWidgetId);
-				if (!turnstileToken) {
-					resendError = 'Verification failed. Please try again.';
-					sending = false;
-					return;
+				if (resendHoneypot.trim()) {
+					resendError = 'Invalid submission.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const body = {
+						email: resendEmail,
+						createProfile: true,
+						returnTo: isSafeInternalPath(returnToParam)
+							? returnToParam
+							: ridParam
+								? `/roadid/${ridParam}`
+								: '/',
+						honeypot: resendHoneypot,
+						turnstileToken
+					};
+					if (ridParam) body.code = ridParam;
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(body)
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send magic link');
+					}
+					resendSuccess = `We sent a new login link to ${resendEmail}.`;
+					resendHoneypot = '';
+				} catch (err) {
+					resendError = err.message || 'Unable to resend link.';
 				}
 			}
-			const body = {
-				email: resendEmail,
-				createProfile: true,
-				returnTo: isSafeInternalPath(returnToParam)
-					? returnToParam
-					: ridParam
-						? `/roadid/${ridParam}`
-						: '/',
-				honeypot: resendHoneypot,
-				turnstileToken
-			};
-			if (ridParam) body.code = ridParam;
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(body)
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send magic link');
-			}
-			resendSuccess = `We sent a new login link to ${resendEmail}.`;
-			resendHoneypot = '';
-		} catch (err) {
-			resendError = err.message || 'Unable to resend link.';
-		} finally {
-			sending = false;
-			if (turnstileEnabled && turnstileWidgetId) {
-				resetTurnstile(turnstileWidgetId);
-			}
-		}
+		});
 	}
 </script>
 
@@ -299,12 +262,6 @@
 				</div>
 
 				<form class="border-surface-50 flex flex-col gap-5 border-t-2 pt-8" onsubmit={resend}>
-					<div
-						aria-hidden="true"
-						style="position: absolute; width: 0; height: 0; overflow: hidden;"
-					>
-						<div bind:this={turnstileEl}></div>
-					</div>
 					<input
 						type="text"
 						name="website"
@@ -330,6 +287,11 @@
 							required
 						/>
 					</div>
+					<TurnstileVerification
+						bind:this={resendTurnstile}
+						bind:busy={sending}
+						enabled={data.turnstileEnabled !== false}
+					/>
 					{#if resendError}
 						<div class="bg-tertiary-500 text-surface-950 px-4 py-2 text-xs font-bold uppercase">
 							{resendError}
