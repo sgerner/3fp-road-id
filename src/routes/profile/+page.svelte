@@ -1165,7 +1165,6 @@
 							class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
 							autocomplete="name"
 							bind:value={fullName}
-							autocomplete="name"
 							oninput={() => {
 								if (!emergencyNameOverridden) {
 									emergencyFullName = fullName;
