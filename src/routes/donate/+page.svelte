@@ -687,6 +687,7 @@
 									id="donor_name"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 									type="text"
+									autocomplete="name"
 									maxlength="120"
 									placeholder="Your name"
 									bind:value={donorName}
@@ -703,6 +704,7 @@
 									id="donor_email"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 									type="email"
+									autocomplete="email"
 									maxlength="160"
 									placeholder="you@example.com"
 									bind:value={donorEmail}
