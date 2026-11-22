@@ -8,7 +8,7 @@
 	import IconFileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconImage from '@lucide/svelte/icons/image';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconUpload from '@lucide/svelte/icons/upload';

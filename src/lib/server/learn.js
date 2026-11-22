@@ -12,7 +12,7 @@ import {
 import { sanitizeAltText } from '#lib/learn/altText';
 import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
 
-export const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
+const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -28,7 +28,7 @@ export function slugifyLearn(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
-export function normalizeLearnCategory(categoryName) {
+function normalizeLearnCategory(categoryName) {
 	const label = safeTrim(categoryName) || 'General';
 	return {
 		name: label,
@@ -131,20 +131,6 @@ export function learnFormDataValues(formData) {
 		subcategorySlug: value('subcategorySlug', 180),
 		coverImageUrl: value('coverImageUrl', 2000),
 		coverImageAlt: value('coverImageAlt', 150)
-	};
-}
-
-export function withLearnReadingAid(payload) {
-	const readingAid = generateLearnReadingAid({
-		title: payload.title,
-		summary: payload.summary,
-		markdown: payload.body_markdown
-	});
-
-	return {
-		...payload,
-		reader_summary: readingAid.readerSummary,
-		key_takeaways: readingAid.keyTakeaways
 	};
 }
 
