@@ -5,6 +5,7 @@ import {
 } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 export async function POST(event) {
 	try {
@@ -72,6 +73,7 @@ export async function POST(event) {
 			.eq('role', 'owner');
 		if (delErr) return json({ error: 'Unable to remove group owner.' }, { status: 400 });
 
+		invalidateGroupSnapshotCache({ groupId: group.id, slug: event.params.slug });
 		return json({ ok: true });
 	} catch (e) {
 		console.error('Remove owner error', e);

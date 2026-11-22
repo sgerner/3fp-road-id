@@ -69,25 +69,6 @@ export async function listGroupSocialAccounts(supabase, groupId, { includeTokens
 	return Array.isArray(data) ? data : [];
 }
 
-export async function getGroupSocialAccountByPlatform(
-	supabase,
-	groupId,
-	platform,
-	{ includeTokens = false } = {}
-) {
-	let select =
-		'id,group_id,platform,meta_user_id,meta_page_id,meta_instagram_account_id,account_name,username,token_expires_at,scopes,status,metadata,created_by,created_at,updated_at,last_sync_at,last_error';
-	if (includeTokens) select += ',access_token_encrypted,refresh_token_encrypted';
-	const { data, error } = await supabase
-		.from('group_social_accounts')
-		.select(select)
-		.eq('group_id', groupId)
-		.eq('platform', platform)
-		.maybeSingle();
-	if (error) throw new Error(error.message);
-	return data ?? null;
-}
-
 export async function upsertGroupSocialAccount(supabase, payload) {
 	const nowIso = new Date().toISOString();
 	const insertPayload = {
@@ -340,18 +321,6 @@ export async function upsertGroupSocialCommentsBatch(supabase, payloads, { chunk
 	}
 
 	return processed;
-}
-
-export async function upsertGroupSocialComment(supabase, payload) {
-	const upsertPayload = buildGroupSocialCommentUpsertPayload(payload);
-
-	const { data, error } = await supabase
-		.from('group_social_comments')
-		.upsert(upsertPayload, { onConflict: 'platform,meta_comment_id' })
-		.select('*')
-		.single();
-	if (error) throw new Error(error.message);
-	return data;
 }
 
 export async function getGroupSocialCommentById(supabase, groupId, commentId) {
