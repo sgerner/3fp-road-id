@@ -16,6 +16,7 @@ import {
 	getTimezoneShortName,
 	matchesCivilDateRange,
 	normalizeEventTimezone,
+	parseCalendarDate,
 	startOfMonthFromDateKey,
 	toCivilDateKey,
 	toEventDateKey,
@@ -347,6 +348,14 @@ test('toLocalDateKey formats local year, month, and day with zero padding', () =
 	assert.equal(toLocalDateKey(new Date(2026, 0, 5, 0, 0, 0)), '2026-01-05');
 	assert.equal(toLocalDateKey(new Date(2026, 10, 23, 18, 0, 0)), '2026-11-23');
 	assert.equal(toLocalDateKey(new Date(2026, 11, 31, 23, 59, 59)), '2026-12-31');
+});
+
+test('parseCalendarDate accepts epoch zero and rejects missing or invalid values', () => {
+	assert.equal(parseCalendarDate(0)?.getTime(), 0);
+	assert.equal(parseCalendarDate(''), null);
+	assert.equal(parseCalendarDate(null), null);
+	assert.equal(parseCalendarDate(undefined), null);
+	assert.equal(parseCalendarDate('not-a-date'), null);
 });
 
 test('buildMonthGrid defaults to toLocalDateKey for local midnight cells and preserves custom toDateKey', () => {

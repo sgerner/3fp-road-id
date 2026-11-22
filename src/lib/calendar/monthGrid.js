@@ -117,7 +117,7 @@ export function getFormatterCacheSize() {
  * @returns {Date | null}
  */
 export function parseCalendarDate(value) {
-	if (!value) return null;
+	if (value === null || value === undefined || value === '') return null;
 	const date = value instanceof Date ? value : new Date(/** @type {string | number} */ (value));
 	return Number.isNaN(date.getTime()) ? null : date;
 }
