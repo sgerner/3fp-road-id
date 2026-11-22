@@ -1,6 +1,6 @@
 <script>
 	/** @type {Record<string, any>} */
-	let { text = '', className = '', linkClass = '' } = $props();
+	let { text = '', className = '', linkClass = '', plainText = false } = $props();
 
 	const LINK_PATTERN =
 		/(?:\[([^\]]+)\]\(((?:https?:\/\/|mailto:|tel:|\/)[^)]+)\))|((?:https?:\/\/|www\.)[^\s<]+)/gi;
@@ -84,7 +84,7 @@
 
 <span class={className}>
 	{#each segments as segment, idx (idx)}
-		{#if segment.type === 'link'}
+		{#if segment.type === 'link' && !plainText}
 			<a
 				href={segment.href}
 				target={/^https?:\/\//i.test(segment.href) ? '_blank' : undefined}
@@ -94,6 +94,8 @@
 			>
 				{segment.text}
 			</a>
+		{:else if segment.type === 'link'}
+			<span>{segment.text}</span>
 		{:else}
 			{segment.text}
 		{/if}

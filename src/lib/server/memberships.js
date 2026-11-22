@@ -23,6 +23,7 @@ import {
 	getPublicMembershipProgram,
 	resolveMembershipProgramForViewer
 } from '#lib/server/groupMembershipPublic';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 export { getPublicMembershipProgram };
 
@@ -1979,6 +1980,7 @@ export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2021,6 +2023,7 @@ export async function updateMembershipPolicy({ cookies, groupSlug, payload }) {
 		after_snapshot: { policy_markdown: data.policy_markdown, policy_version: data.policy_version }
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2183,6 +2186,7 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 	});
 
 	const { tiers } = await loadProgramBundle(serviceSupabase, program.id, { includeInactive: true });
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return {
 		ok: true,
 		data: {
@@ -2273,6 +2277,7 @@ export async function createMembershipTier({ cookies, groupSlug, payload }) {
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2407,6 +2412,7 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2442,6 +2448,7 @@ export async function deleteMembershipTier({ cookies, groupSlug, tierId }) {
 		before_snapshot: before
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data: { id: tierId } };
 }
 
@@ -2524,6 +2531,7 @@ export async function createMembershipFormField({ cookies, groupSlug, payload })
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2590,6 +2598,7 @@ export async function updateMembershipFormField({ cookies, groupSlug, fieldId, p
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2626,6 +2635,7 @@ export async function deleteMembershipFormField({ cookies, groupSlug, fieldId })
 		before_snapshot: before
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data: { id: fieldId } };
 }
 

@@ -9,6 +9,7 @@ import {
 import { resolveVerifiedSession } from '#lib/server/session';
 import { decryptSocialToken, encryptSocialToken } from '#lib/server/social/crypto';
 import { getStripeClient, getStripePublishableKey } from '#lib/server/stripe';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import {
 	centsFromAmount,
 	centsFromAmountAndDirection,
@@ -2139,6 +2140,7 @@ export async function publishSnapshot(auth, formData) {
 		published_by_user_id: auth.userId
 	});
 	if (error) throw new Error(error.message);
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug });
 }
 
 export async function unpublishSnapshot(auth, formData) {
@@ -2149,6 +2151,7 @@ export async function unpublishSnapshot(auth, formData) {
 		.eq('group_id', auth.group.id)
 		.eq('id', reportId);
 	if (error) throw new Error(error.message);
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug });
 }
 
 export async function voidEntry(auth, formData) {

@@ -18,6 +18,7 @@ import {
 } from '#lib/groups/siteEditor';
 import { recommendGroupSiteTemplate } from '#lib/microsites/templates';
 import { getGroupSiteConfig, upsertGroupSiteConfig } from '#lib/server/groupSites';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { readFormData } from '#lib/server/security';
 
@@ -375,6 +376,7 @@ export const actions = {
 			nextConfig: prepared.config,
 			groupId: auth.group.id
 		});
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		throw redirect(
 			303,
 			`/groups/${params.slug}/manage/site?saved=1&view=${encodeURIComponent(prepared.returnView)}`
@@ -402,6 +404,7 @@ export const actions = {
 		await removeSponsorLogoObjects([
 			...managedSponsorLogoObjectPaths(previousConfig, auth.group.id)
 		]);
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		throw redirect(303, `/groups/${params.slug}/manage/site?reset=1`);
 	}
 };
