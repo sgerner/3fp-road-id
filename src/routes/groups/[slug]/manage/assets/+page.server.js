@@ -13,6 +13,7 @@ import {
 } from '#lib/server/groupAssets';
 import { optimizeImageForStorage, replaceFileExtension } from '#lib/server/storageImages';
 import { readFormData } from '#lib/server/security';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 const MAX_UPLOAD_FILES = 8;
 
@@ -198,6 +199,7 @@ export const actions = {
 			return fail(result.status, { error: result.error });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		return { success: 'Photos uploaded successfully.' };
 	},
 
@@ -245,6 +247,7 @@ export const actions = {
 			return fail(500, { error: err?.message || 'Unable to update link.' });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		return { updated: true };
 	},
 
@@ -263,6 +266,7 @@ export const actions = {
 			return fail(result.status, { error: result.error });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		return { success: 'Files uploaded successfully.' };
 	},
 
@@ -316,6 +320,7 @@ export const actions = {
 			return fail(500, { error: err?.message || 'Unable to add link.' });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		return { success: 'Link added successfully.' };
 	},
 
@@ -350,6 +355,7 @@ export const actions = {
 			return fail(500, { error: err?.message || 'Unable to remove asset.' });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || params.slug });
 		return { success: 'Asset removed successfully.' };
 	}
 };

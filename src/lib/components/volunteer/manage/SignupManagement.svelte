@@ -1204,7 +1204,7 @@
 				No volunteers match the selected filters.
 			</div>
 		{:else}
-			{#each groupedShiftBlocks as group (group.key)}
+			{#each groupedShiftBlocks as group, groupIdx (group.key)}
 				<ManageShiftHeader
 					headingLevel="h3"
 					eyebrow={group.activityLabel}
@@ -1214,8 +1214,14 @@
 				/>
 
 				<!-- Volunteer rows -->
-				{#each group.items as item (item.key)}
+				{#each group.items as item, itemIdx (item.key)}
 					{@const isExpanded = expandedRows.has(item.key)}
+					{@const detailsId = `${uid}-volunteer-details-${groupIdx}-${itemIdx}`}
+					{@const volunteerLabel = item.volunteer.name || 'volunteer'}
+					{@const detailsAriaLabel =
+						item.hasMultipleShifts && group.timeLabel
+							? `${volunteerLabel} (${statusLabel(item.assignment.status)}), ${group.timeLabel} — ${isExpanded ? 'hide' : 'show'} contact details`
+							: `${volunteerLabel} (${statusLabel(item.assignment.status)}) — ${isExpanded ? 'hide' : 'show'} contact details`}
 					{@const canApprove =
 						item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
 					{@const canWaitlist =
@@ -1238,9 +1244,10 @@
 							<button
 								type="button"
 								aria-expanded={isExpanded}
-								aria-label={`${item.volunteer.name} (${statusLabel(item.assignment.status)}) — ${isExpanded ? 'hide' : 'show'} contact details`}
+								aria-controls={isExpanded ? detailsId : undefined}
+								aria-label={detailsAriaLabel}
 								onclick={() => toggleRow(item.key)}
-								class="hover:bg-surface-800 focus-visible:outline-primary-500 flex min-h-11 w-full min-w-0 flex-1 items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+								class="hover:bg-surface-800 focus-visible:outline-primary-500 flex min-h-[44px] min-w-[44px] flex-1 items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
 							>
 								<span class="flex min-w-0 flex-1 items-start gap-2.5">
 									<span
@@ -1344,6 +1351,7 @@
 						<!-- Expanded Contact & Emergency Details -->
 						{#if isExpanded}
 							<div
+								id={detailsId}
 								class="border-surface-800 bg-surface-950 border-t px-3 py-3 sm:px-4"
 								transition:slide
 							>
