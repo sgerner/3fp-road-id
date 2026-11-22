@@ -93,7 +93,7 @@ export function measureSmsBudget(
 		SMS_MAX_BODY_LENGTH
 	);
 	const footerUnits = footerIncluded ? SMS_STOP_FOOTER.length : 0;
-	const messageUnits = encoding === 'GSM-7' ? messageGsm7Units : normalized.length;
+	const messageUnits = messageGsm7Units !== null ? messageGsm7Units : normalized.length;
 	const totalUnits = normalized ? messageUnits + footerUnits : 0;
 	const maxMessageUnits = Math.max(0, maxUnits - footerUnits);
 	const remainingUnits = maxMessageUnits - messageUnits;

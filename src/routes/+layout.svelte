@@ -70,6 +70,7 @@
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
+	/** @type {boolean | null} */
 	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
