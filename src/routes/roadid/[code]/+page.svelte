@@ -2,6 +2,11 @@
 	import { slide } from 'svelte/transition';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import { normalizePhoneNumber, formatPhoneNumber } from '#lib/utils/phone';
+	import {
+		hasBloodTypeChanged,
+		isValidRoadIdEmail,
+		normalizeRoadIdProfile
+	} from '#lib/utils/roadId';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
 	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
@@ -15,18 +20,8 @@
 	const notFound = pageData.notFound;
 	const user = pageData.user;
 
-	// If there's no profile, create an empty one
-	const emptyProfile = {
-		user_id: user?.id,
-		claimed: Boolean(user?.id),
-		is_owner: Boolean(user?.id),
-		full_name: '',
-		phone: '',
-		blood_type: '',
-		allergies: '',
-		medication: ''
-	};
-	let profile = $state(pageData.qrData ? { ...pageData.qrData?.profile } : emptyProfile);
+	// Normalize nullable profile strings and create an empty default when missing
+	let profile = $state(normalizeRoadIdProfile(pageData.qrData?.profile, user));
 	let showLogin = $state(false);
 
 	// Control which tab is active. 'profile' is default.
@@ -42,7 +37,7 @@
 	let claimTurnstile = $state(null);
 
 	// Email validation
-	let emailIsValid = $derived(/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(newProfile.email));
+	let emailIsValid = $derived(isValidRoadIdEmail(newProfile.email));
 
 	// Claim/Login via magic link
 	const handleSubmit = async (event) => {
@@ -111,6 +106,13 @@
 			const err = await res.json();
 			errorMessage = err.error || 'Error updating profile';
 		}
+	};
+
+	const handleBloodTypeUpdate = (event) => {
+		const nextBloodType = event.currentTarget.value;
+		if (!hasBloodTypeChanged(profile?.blood_type, nextBloodType)) return;
+		profile.blood_type = nextBloodType;
+		handleProfileUpdate();
 	};
 
 	// Common allergy & medication chip logic
@@ -518,11 +520,10 @@
 									</label>
 									<select
 										id="blood_type"
+										value={profile?.blood_type ?? ''}
 										class="select bg-surface-900 border-surface-700 text-surface-50"
-										onblur={(e) => {
-											profile.blood_type = e.target.value;
-											handleProfileUpdate();
-										}}
+										onchange={handleBloodTypeUpdate}
+										onblur={handleBloodTypeUpdate}
 									>
 										<option value="">Select</option>
 										<option value="A+">A+</option>
