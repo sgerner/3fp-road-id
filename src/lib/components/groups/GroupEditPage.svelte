@@ -45,6 +45,11 @@
 	let submitError = $state('');
 	let logoPreview = $state('');
 	let coverPreview = $state('');
+	let coverAlt = $state('');
+	let effectiveCoverAlt = $derived(
+		coverAlt.trim() ||
+			(data.group?.name ? `Cover banner for ${data.group.name}` : 'Group cover banner')
+	);
 	let logoFiles = $state([]);
 	let coverFiles = $state([]);
 	let logoUploadKey = $state(0);
@@ -956,6 +961,9 @@
 		const url = result?.url || '';
 		if (!url) return;
 		coverPreview = url;
+		if (result?.alt_text || result?.altText) {
+			coverAlt = result.alt_text || result.altText;
+		}
 		queueSave({ fields: { cover_photo_url: url } });
 	}
 
@@ -1953,6 +1961,7 @@
 					description="Create a fresh comic-style banner from the current group details and save it directly to the cover photo."
 					helperText="This updates the live cover image immediately through autosave."
 					currentImageUrl={coverPreview}
+					bind:currentImageAlt={coverAlt}
 					buildContext={buildGroupImageContext}
 					onApply={applyGeneratedGroupCover}
 				/>
@@ -1987,9 +1996,14 @@
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
 						<div class="relative mt-1 aspect-square w-24 overflow-hidden border border-white/10">
-							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+							<img
+								src={logoPreview}
+								alt={data.group?.name ? `${data.group.name} logo` : 'Group logo'}
+								class="h-full w-full object-cover"
+							/>
 							<button
 								type="button"
+								aria-label="Remove logo"
 								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('logo')}
 							>
@@ -2029,11 +2043,12 @@
 						<div class="relative mt-1 aspect-[16/9] overflow-hidden border border-white/10">
 							<img
 								src={coverPreview}
-								alt="Cover preview"
+								alt={effectiveCoverAlt}
 								class="absolute inset-0 h-full w-full object-cover"
 							/>
 							<button
 								type="button"
+								aria-label="Remove cover photo"
 								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('cover')}
 							>

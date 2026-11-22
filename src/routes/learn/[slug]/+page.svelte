@@ -320,7 +320,7 @@
 				<img
 					class="absolute inset-0 h-full w-full object-cover"
 					src={optimizedArticleImage}
-					alt={data.article.title}
+					alt={data.article.coverImageAlt || data.article.title}
 					width="1200"
 					height="600"
 					decoding="async"

@@ -56,6 +56,7 @@
 	let hiddenTypicalTime = $state(initialValues.typical_activity_day_time || '');
 	let hiddenLogoUrl = $state(initialValues.logo_url || '');
 	let hiddenCoverUrl = $state(initialValues.cover_photo_url || '');
+	let hiddenCoverAlt = $state(initialValues.cover_photo_alt || '');
 	let formEl = $state();
 	function applyLocationValue(id, value) {
 		const v = value == null ? '' : `${value}`.trim();
@@ -375,6 +376,9 @@
 
 	function applyGeneratedGroupImage(result) {
 		hiddenCoverUrl = result?.url || hiddenCoverUrl;
+		if (result?.alt_text || result?.altText) {
+			hiddenCoverAlt = result.alt_text || result.altText;
+		}
 	}
 </script>
 
@@ -779,6 +783,7 @@
 					description="Build a comic-book group banner from the name, description, location, and community focus on this page."
 					helperText="Generated cover art is added to the hidden cover field now and will be stored with the group when you submit."
 					currentImageUrl={hiddenCoverUrl}
+					bind:currentImageAlt={hiddenCoverAlt}
 					buildContext={buildImageContext}
 					onApply={applyGeneratedGroupImage}
 				/>

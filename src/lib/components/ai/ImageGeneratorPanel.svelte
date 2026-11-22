@@ -11,6 +11,11 @@
 	} from '#lib/ai/imageStyles';
 	import { BIKE_VIBE_OPTIONS, getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
 	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '#lib/geo/usStates';
+	import {
+		LEARN_ALT_TEXT_MAX_LENGTH,
+		buildContextualCoverAlt,
+		sanitizeAltText
+	} from '#lib/learn/altText';
 
 	let {
 		target = 'ride',
@@ -20,9 +25,11 @@
 		aspectRatio = '16:9',
 		articleId = null,
 		currentImageUrl = '',
+		currentImageAlt = $bindable(''),
 		defaultStyleId = IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house',
 		buildContext = () => ({}),
-		onApply = () => {}
+		onApply = () => {},
+		onAltChange = () => {}
 	} = $props();
 
 	let styleId = $state('');
@@ -32,6 +39,9 @@
 	let generating = $state(false);
 	let error = $state('');
 	let lastGeneratedUrl = $state('');
+	let lastGeneratedAlt = $state('');
+	let altStatusMessage = $state('');
+	let cachedContext = $state({});
 	let selectedStateCode = $state('');
 	let selectedBikeVibeId = $state('');
 	let resolvingState = $state(false);
@@ -43,6 +53,20 @@
 	const requiresBikeVibeSelection = $derived(styleId === BIKE_VIBE_STYLE_ID);
 
 	const previewUrl = $derived(currentImageUrl || lastGeneratedUrl || '');
+	const fallbackAlt = $derived(
+		buildContextualCoverAlt({
+			target,
+			context: cachedContext,
+			styleLabel: selectedStyle?.label || '',
+			heading
+		})
+	);
+	const effectivePreviewAlt = $derived(
+		sanitizeAltText(currentImageAlt || lastGeneratedAlt, {
+			maxLength: LEARN_ALT_TEXT_MAX_LENGTH,
+			imageUrl: previewUrl
+		}) || fallbackAlt
+	);
 
 	function inferStateCodeFromContext(context = {}) {
 		if (!context || typeof context !== 'object') return '';
@@ -155,6 +179,11 @@
 	});
 
 	onMount(() => {
+		void Promise.resolve(buildContext?.())
+			.then((ctx) => {
+				if (ctx && typeof ctx === 'object') cachedContext = ctx;
+			})
+			.catch(() => {});
 		if (requiresStateSelection) {
 			void resolveDefaultStateSelection();
 		}
@@ -165,6 +194,7 @@
 
 	async function generateImage() {
 		error = '';
+		altStatusMessage = '';
 		if (requiresStateSelection && !selectedStateCode) {
 			error = 'Select a state or territory for this style.';
 			return;
@@ -177,6 +207,7 @@
 
 		try {
 			const context = (await buildContext?.()) ?? {};
+			if (context && typeof context === 'object') cachedContext = context;
 			const styleOptions = {
 				...(requiresStateSelection
 					? {
@@ -212,8 +243,30 @@
 			}
 
 			lastGeneratedUrl = result?.url || '';
+			const resolvedAlt =
+				sanitizeAltText(result?.alt_text || result?.altText || '', {
+					maxLength: LEARN_ALT_TEXT_MAX_LENGTH,
+					imageUrl: lastGeneratedUrl
+				}) ||
+				buildContextualCoverAlt({
+					target,
+					context,
+					styleLabel: selectedStyle?.label || '',
+					heading
+				});
+			lastGeneratedAlt = resolvedAlt;
+			currentImageAlt = resolvedAlt;
+			onAltChange?.(resolvedAlt);
+			altStatusMessage = result?.alt_generated
+				? 'Generated artwork and AI-drafted alt text. Review or edit the description below.'
+				: 'Generated artwork with a contextual alt description. Review or refine it below.';
+
 			if (lastGeneratedUrl) {
-				await onApply?.(result);
+				await onApply?.({
+					...result,
+					alt_text: resolvedAlt,
+					altText: resolvedAlt
+				});
 			}
 		} catch (generationError) {
 			error = generationError.message || 'Unable to generate image.';
@@ -223,7 +276,7 @@
 	}
 </script>
 
-<div class="border-surface-500/20 bg-surface-900/45 space-y-4 rounded-2xl border p-4">
+<div class="border-surface-500/20 bg-surface-900/45 space-y-4 border p-4">
 	<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 		<div class="space-y-1">
 			<div class="flex items-center gap-2 font-medium">
@@ -309,7 +362,7 @@
 			{/if}
 
 			{#if error}
-				<div class="card preset-tonal-warning p-3 text-sm">{error}</div>
+				<div class="card preset-tonal-warning p-3 text-sm" role="alert">{error}</div>
 			{/if}
 
 			<button
@@ -319,7 +372,7 @@
 				onclick={generateImage}
 			>
 				{#if generating}
-					<IconLoader class="h-4 w-4 animate-spin" />
+					<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
 					<span>Generating…</span>
 				{:else}
 					<IconSparkles class="h-4 w-4" />
@@ -328,19 +381,56 @@
 			</button>
 		</div>
 
-		<div class="space-y-2">
+		<div class="space-y-3">
 			<div class="label">Preview</div>
 			{#if previewUrl}
-				<div class="border-surface-500/20 overflow-hidden rounded-2xl border">
-					<img src={previewUrl} alt="Generated preview" class="aspect-[16/9] w-full object-cover" />
+				<div class="border-surface-500/20 overflow-hidden border">
+					<img
+						src={previewUrl}
+						alt={effectivePreviewAlt}
+						class="aspect-[16/9] w-full object-cover"
+					/>
+				</div>
+				<div class="space-y-1.5">
+					<div class="flex items-center justify-between gap-2">
+						<label class="label text-xs" for={`generated-image-alt-${target}`}>
+							Image alt text
+						</label>
+						<span class="text-xs tabular-nums opacity-65">
+							{(currentImageAlt || effectivePreviewAlt).length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+						</span>
+					</div>
+					<input
+						id={`generated-image-alt-${target}`}
+						class="input text-sm"
+						type="text"
+						maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+						value={currentImageAlt || effectivePreviewAlt}
+						placeholder="Concise description of the generated cover artwork…"
+						oninput={(event) => {
+							const next = event.currentTarget.value;
+							currentImageAlt = next;
+							onAltChange?.(next);
+						}}
+					/>
+					<p class="text-xs opacity-65">
+						Describes this artwork for screen readers ({LEARN_ALT_TEXT_MAX_LENGTH} character limit).
+					</p>
 				</div>
 			{:else}
 				<div
-					class="border-surface-500/25 flex aspect-[16/9] items-center justify-center rounded-2xl border border-dashed p-4 text-center text-sm opacity-60"
+					class="border-surface-500/25 flex aspect-[16/9] items-center justify-center border border-dashed p-4 text-center text-sm opacity-60"
 				>
 					Generated artwork will appear here.
 				</div>
 			{/if}
+			<div aria-live="polite" role="status">
+				{#if altStatusMessage}
+					<p class="border-surface-500/30 bg-surface-950 border-l-2 px-3 py-2 text-xs opacity-85">
+						{altStatusMessage}
+					</p>
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>

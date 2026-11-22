@@ -570,6 +570,14 @@
 	function applyGeneratedRideImage(result) {
 		const url = safeTrim(result?.url);
 		if (!url) return;
+		const generatedAlt = safeTrim(result?.alt_text || result?.altText);
+		if (generatedAlt) {
+			imageAltByUrl = {
+				...imageAltByUrl,
+				[url]: generatedAlt
+			};
+			leadImageAlt = generatedAlt;
+		}
 
 		form = {
 			...form,
@@ -773,6 +781,8 @@
 	let saveSuccess = $state('');
 	let imageUploading = $state(false);
 	let imageUploadError = $state('');
+	let imageAltByUrl = $state({});
+	let leadImageAlt = $state('');
 	let geocodeLoading = $state('');
 	let geocodeError = $state('');
 	let aiMessages = $state([
@@ -900,6 +910,11 @@
 		})();
 
 		return undefined;
+	});
+
+	$effect(() => {
+		const leadUrl = form.imageUrls[0] || '';
+		leadImageAlt = leadUrl ? imageAltByUrl[leadUrl] || '' : '';
 	});
 
 	$effect(() => {
@@ -1129,6 +1144,16 @@
 						description="Create a lead ride image from the ride details already on this page."
 						helperText=""
 						currentImageUrl={form.imageUrls[0] || ''}
+						bind:currentImageAlt={leadImageAlt}
+						onAltChange={(nextAlt) => {
+							const leadUrl = form.imageUrls[0] || '';
+							if (leadUrl) {
+								imageAltByUrl = {
+									...imageAltByUrl,
+									[leadUrl]: nextAlt
+								};
+							}
+						}}
 						buildContext={buildRideImageContext}
 						onApply={applyGeneratedRideImage}
 					/>
@@ -1164,7 +1189,10 @@
 								<div class="ride-image-card border-surface-500 overflow-hidden border">
 									<img
 										src={imageUrl}
-										alt={`Ride image ${index + 1}`}
+										alt={imageAltByUrl[imageUrl] ||
+											(form.title
+												? `${form.title} ride photo ${index + 1}`
+												: `Community bike ride photo ${index + 1}`)}
 										class="h-44 w-full object-cover"
 									/>
 									<div class="flex items-center justify-between gap-2 p-3">
@@ -1183,6 +1211,7 @@
 											{/if}
 											<button
 												type="button"
+												aria-label={`Remove ride image ${index + 1}`}
 												class="btn btn-sm preset-outlined-error-500"
 												onclick={() => removeImage(index)}
 											>

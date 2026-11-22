@@ -22,6 +22,8 @@
 	);
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let coverImageAlt = $state('');
+	let generatedCoverAssetId = $state('');
 	let summaryValue = $state('');
 	let editorApi = $state(null);
 	let editorReady = $state(false);
@@ -29,6 +31,7 @@
 
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
+		coverImageAlt = values.coverImageAlt || '';
 		summaryValue = values.summary || '';
 	});
 
@@ -48,6 +51,35 @@
 
 	function applyGeneratedImage(result) {
 		coverImageUrl = result?.url || coverImageUrl;
+		if (result?.alt_text || result?.altText) {
+			coverImageAlt = result.alt_text || result.altText;
+		}
+		if (result?.assetId) {
+			generatedCoverAssetId = result.assetId;
+		}
+	}
+
+	async function syncCoverAssetAlt(nextAlt) {
+		const targetAssetId =
+			generatedCoverAssetId ||
+			assetLibrary.find(
+				(asset) =>
+					(asset.public_url || asset.url) && (asset.public_url || asset.url) === coverImageUrl
+			)?.id ||
+			'';
+		if (!targetAssetId) return;
+		try {
+			await fetch('/api/learn/assets', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					id: targetAssetId,
+					altText: nextAlt
+				})
+			});
+		} catch {
+			// Best-effort sync; form submission also persists coverImageAlt to learn_assets.
+		}
 	}
 </script>
 
@@ -193,6 +225,7 @@
 								bind:value={coverImageUrl}
 							/>
 						</label>
+						<input type="hidden" name="coverImageAlt" value={coverImageAlt} />
 					</div>
 					<ImageGeneratorPanel
 						target="learn"
@@ -202,6 +235,8 @@
 						articleId={article?.id}
 						defaultStyleId="quiet_gouache"
 						currentImageUrl={coverImageUrl}
+						bind:currentImageAlt={coverImageAlt}
+						onAltChange={syncCoverAssetAlt}
 						buildContext
 						onApply={applyGeneratedImage}
 					/>
@@ -244,6 +279,7 @@
 					description={editing
 						? 'Browse assets attached to this article, reuse recent uploads, or add new files.'
 						: 'Add an upload and insert it into the draft, or reuse something from a recent upload.'}
+					getContext={buildContext}
 					onInsertSnippet={(snippet) => editorApi?.insertSnippet?.(snippet) ?? false}
 				/>
 			</div>

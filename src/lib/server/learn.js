@@ -9,6 +9,7 @@ import {
 	renderLearnMarkdown,
 	splitMarkdownIntoSections
 } from '#lib/learn/markdown';
+import { sanitizeAltText } from '#lib/learn/altText';
 import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
 
 export const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
@@ -128,7 +129,8 @@ export function learnFormDataValues(formData) {
 		editorMode: value('editorMode', 30) || 'wysiwyg',
 		categoryName: value('categoryName', 120),
 		subcategorySlug: value('subcategorySlug', 180),
-		coverImageUrl: value('coverImageUrl', 2000)
+		coverImageUrl: value('coverImageUrl', 2000),
+		coverImageAlt: value('coverImageAlt', 150)
 	};
 }
 
@@ -255,8 +257,18 @@ export async function buildLearnArticleView(
 		markdown: article?.body_markdown
 	});
 
+	const matchingCoverAsset = article?.cover_image_url
+		? (assets || []).find((asset) => asset?.public_url === article.cover_image_url)
+		: null;
+	const coverImageAlt =
+		sanitizeAltText(matchingCoverAsset?.alt_text || '', {
+			fileName: matchingCoverAsset?.file_name || '',
+			imageUrl: article?.cover_image_url || ''
+		}) || safeTrim(article?.title);
+
 	return {
 		...article,
+		coverImageAlt,
 		bodyHtml,
 		introHtml,
 		headings,
