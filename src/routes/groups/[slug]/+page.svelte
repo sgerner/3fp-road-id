@@ -37,11 +37,17 @@
 		toJsonLd
 	} from '#lib/seo';
 	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
-	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 
 	// UI state
 	let showSticky = $state(false);
 	let heroSentinel = $state(null);
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -59,16 +65,20 @@
 	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
-	const coverImage = $derived(
+	const rawCoverImage = $derived(
 		group?.cover_photo_url
 			? optimizedImageUrl(group.cover_photo_url, { width: 1200, height: 736, quality: 68 })
 			: ''
 	);
-	const logoImage = $derived(
+	const coverImage = $derived(
+		rawCoverImage && !failedImageUrls[rawCoverImage] ? rawCoverImage : ''
+	);
+	const rawLogoImage = $derived(
 		group?.logo_url
 			? optimizedImageUrl(group.logo_url, { width: 128, height: 128, quality: 68 })
 			: ''
 	);
+	const logoImage = $derived(rawLogoImage && !failedImageUrls[rawLogoImage] ? rawLogoImage : '');
 
 	async function initMap() {
 		if (!mapEl || map || mapInitialized) return;
@@ -175,8 +185,15 @@
 
 	async function claimGroup() {
 		claimError = '';
+		const groupSlug = data.group?.slug;
+		if (!groupSlug) {
+			claimError = 'Group is unavailable.';
+			return;
+		}
 		try {
-			const res = await fetch(`/api/groups/${data.group.slug}/claim`, { method: 'POST' });
+			const res = await fetch(`/api/groups/${encodeURIComponent(groupSlug)}/claim`, {
+				method: 'POST'
+			});
 			if (res.status === 401) {
 				claimOpen = true;
 				return;
@@ -185,7 +202,7 @@
 				const j = await res.json().catch(() => ({}));
 				throw new Error(j.error || 'Unable to claim group');
 			}
-			window.location.href = `/groups/${data.group.slug}/manage/edit`;
+			window.location.href = `/groups/${encodeURIComponent(groupSlug)}/manage/edit`;
 		} catch (e) {
 			claimError = e.message;
 		}
@@ -196,6 +213,11 @@
 		if (claimLoading || !claimTurnstile) return;
 		claimError = '';
 		claimSuccess = '';
+		const groupSlug = data.group?.slug;
+		if (!groupSlug) {
+			claimError = 'Group is unavailable.';
+			return;
+		}
 		await claimTurnstile.submit({
 			validate: () => {
 				if (!claimEmailValid) {
@@ -211,7 +233,7 @@
 			onSubmit: async (turnstileToken) => {
 				try {
 					const url = new URL(window.location.href);
-					url.searchParams.set('auto_claim_group', data.group.slug);
+					url.searchParams.set('auto_claim_group', groupSlug);
 					const rt = `${url.pathname}${url.search}${url.hash}`;
 					const res = await fetch('/api/v1/auth/login', {
 						method: 'POST',
@@ -289,9 +311,9 @@
 						: 'Join Membership')
 	);
 	const headerMembershipCta = $derived(
-		membershipEnabled
+		membershipEnabled && data.group?.slug
 			? {
-					href: `/groups/${data.group?.slug}/membership`,
+					href: `/groups/${encodeURIComponent(data.group.slug)}/membership`,
 					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
 					onClick: handleMembershipCtaClick
 				}
@@ -322,21 +344,19 @@
 	let donationStartAmount = $state(25);
 
 	async function joinSingleFreeTierNow() {
-		if (!singleFreeFollowTier) return;
+		const groupSlug = data.group?.slug;
+		if (!singleFreeFollowTier || !groupSlug) return;
 		followLoading = true;
 		followError = '';
 		try {
-			const response = await fetch(
-				`/api/groups/${encodeURIComponent(data.group.slug)}/membership/join`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						tier_id: singleFreeFollowTier.id,
-						billing_interval: 'month'
-					})
-				}
-			);
+			const response = await fetch(`/api/groups/${encodeURIComponent(groupSlug)}/membership/join`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					tier_id: singleFreeFollowTier.id,
+					billing_interval: 'month'
+				})
+			});
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				if (response.status === 401) {
@@ -345,7 +365,7 @@
 				}
 				throw new Error(payload?.error || 'Unable to follow right now.');
 			}
-			window.location.href = `/groups/${encodeURIComponent(data.group.slug)}?follow=success`;
+			window.location.href = `/groups/${encodeURIComponent(groupSlug)}?follow=success`;
 		} catch (err) {
 			followError = err?.message || 'Unable to follow right now.';
 		} finally {
@@ -365,7 +385,8 @@
 	}
 
 	function openFollowLogin() {
-		if (!singleFreeFollowTier) return;
+		const groupSlug = data.group?.slug;
+		if (!singleFreeFollowTier || !groupSlug) return;
 		followError = '';
 		const params = new URLSearchParams({
 			auto_follow: '1',
@@ -374,7 +395,7 @@
 		window.dispatchEvent(
 			new CustomEvent('open-login', {
 				detail: {
-					returnTo: `/groups/${encodeURIComponent(data.group.slug)}?${params}`,
+					returnTo: `/groups/${encodeURIComponent(groupSlug)}?${params}`,
 					message:
 						'Sign in to follow this group. We’ll add you as a follower after you open the magic link.'
 				}
@@ -665,6 +686,7 @@
 									width="96"
 									height="96"
 									decoding="async"
+									use:watchImageError={() => markImageFailed(logoImage)}
 								/>
 							</div>
 						{/if}
@@ -684,9 +706,9 @@
 				</div>
 
 				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-					{#if data.can_edit}
+					{#if data.can_edit && data.group?.slug}
 						<a
-							href={`/groups/${data.group?.slug ?? ''}/manage`}
+							href={`/groups/${encodeURIComponent(data.group.slug)}/manage`}
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 						>
 							Manage Group
@@ -731,6 +753,7 @@
 						height="576"
 						decoding="async"
 						class="absolute inset-0 h-full w-full object-cover"
+						use:watchImageError={() => markImageFailed(coverImage)}
 					/>
 				{:else}
 					<div class="bg-secondary-500 absolute inset-0 flex items-center justify-center">
@@ -842,7 +865,7 @@
 		{/if}
 
 		<!-- Claim banner -->
-		{#if !hasOwner}
+		{#if data.group?.slug && !hasOwner}
 			<section
 				class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-8 sm:px-10 lg:px-14"
 				in:fade={{ duration: 200 }}
@@ -952,11 +975,12 @@
 			>
 				<div class="flex items-center justify-between gap-3 px-6 py-3 sm:px-10 lg:px-14">
 					<div class="flex min-w-0 items-center gap-3">
-						{#if data.group?.logo_url}
+						{#if logoImage}
 							<img
-								src={data.group.logo_url}
+								src={logoImage}
 								alt="{groupName} logo"
 								class="bg-surface-50 h-8 w-8 object-contain p-0.5"
+								use:watchImageError={() => markImageFailed(logoImage)}
 							/>
 						{/if}
 						<div class="min-w-0">
@@ -967,9 +991,9 @@
 							</div>
 						</div>
 					</div>
-					{#if data.is_owner}
+					{#if data.is_owner && data.group?.slug}
 						<a
-							href={`/groups/${data.group.slug}/manage`}
+							href={`/groups/${encodeURIComponent(data.group.slug)}/manage`}
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase hover:no-underline"
 						>
 							Manage Group
@@ -1157,13 +1181,13 @@
 							</div>
 						</div>
 
-						{#if shouldShowDonationSetup}
+						{#if shouldShowDonationSetup && data.group?.slug}
 							<div class="flex flex-col gap-3">
 								<p class="m-0 text-sm leading-relaxed font-medium">
 									Connect Stripe in the edit page to enable donations for this claimed group.
 								</p>
 								<a
-									href={`/groups/${data.group?.slug}/manage/edit`}
+									href={`/groups/${encodeURIComponent(data.group.slug)}/manage/edit`}
 									class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 self-start px-6 py-3 text-sm font-black uppercase transition hover:no-underline"
 								>
 									Connect Stripe
@@ -1467,12 +1491,14 @@
 								Volunteer Opportunities
 							</h2>
 						</div>
-						<a
-							href={`/volunteer/groups/${data.group.slug}`}
-							class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-tertiary-400 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
-						>
-							All Events <IconArrowRight class="h-4 w-4" />
-						</a>
+						{#if data.group?.slug}
+							<a
+								href={`/volunteer/groups/${encodeURIComponent(data.group.slug)}`}
+								class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-tertiary-400 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+							>
+								All Events <IconArrowRight class="h-4 w-4" />
+							</a>
+						{/if}
 					</div>
 
 					<ol class="border-surface-950 m-0 list-none border-t-[3px] p-0">
@@ -1589,10 +1615,12 @@
 							</p>
 						</div>
 					</div>
-					{#if latestAccountingReport.slug}
+					{#if latestAccountingReport.slug && data.group?.slug}
 						<a
 							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
-							href="/groups/{data.group?.slug}/reports/{latestAccountingReport.slug}"
+							href="/groups/{encodeURIComponent(data.group.slug)}/reports/{encodeURIComponent(
+								latestAccountingReport.slug
+							)}"
 						>
 							Published {accountingSnapshotDate(latestAccountingReport.published_at)}
 							<IconExternalLink class="h-3.5 w-3.5" />
@@ -1780,10 +1808,12 @@
 						</span>
 						<div class="flex flex-wrap gap-2">
 							{#each accountingReports.slice(1) as report (report.slug ?? report.title)}
-								{#if report.slug}
+								{#if report.slug && data.group?.slug}
 									<a
 										class="border-surface-700 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-4 py-2 text-xs font-black uppercase transition hover:no-underline"
-										href="/groups/{data.group?.slug}/reports/{report.slug}"
+										href="/groups/{encodeURIComponent(data.group.slug)}/reports/{encodeURIComponent(
+											report.slug
+										)}"
 										aria-label="Open financial snapshot: {report.title}"
 									>
 										<IconBadgeDollarSign class="h-4 w-4" />
@@ -1825,19 +1855,23 @@
 							Latest Updates
 						</h2>
 					</div>
-					<a
-						href={`/groups/${data.group.slug}/news`}
-						class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
-					>
-						View All <IconArrowRight class="h-4 w-4" />
-					</a>
+					{#if data.group?.slug}
+						<a
+							href={`/groups/${encodeURIComponent(data.group.slug)}/news`}
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-[3px] px-6 py-3 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+						>
+							View All <IconArrowRight class="h-4 w-4" />
+						</a>
+					{/if}
 				</div>
 
 				<div class="grid gap-6 md:grid-cols-3">
 					{#each groupNewsPosts as post, i (post.slug ?? i)}
 						<a
 							class="group bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex flex-col justify-between gap-6 p-6 transition hover:no-underline"
-							href={`/groups/${data.group.slug}/news?open=${post.slug}`}
+							href={data.group?.slug
+								? `/groups/${encodeURIComponent(data.group.slug)}/news?open=${encodeURIComponent(post.slug)}`
+								: undefined}
 						>
 							<div class="flex flex-col gap-3">
 								<div class="flex items-center justify-between">
