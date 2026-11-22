@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import IconArrowDown from '@lucide/svelte/icons/arrow-down';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUp from '@lucide/svelte/icons/arrow-up';
 	import IconCalendar from '@lucide/svelte/icons/calendar-days';
 	import IconCheck from '@lucide/svelte/icons/check';
@@ -10,6 +11,7 @@
 	import IconLayout from '@lucide/svelte/icons/layout-template';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMail from '@lucide/svelte/icons/mail';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMonitor from '@lucide/svelte/icons/monitor';
 	import IconPhone from '@lucide/svelte/icons/smartphone';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -20,6 +22,8 @@
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconUndo from '@lucide/svelte/icons/undo-2';
 	import IconUsers from '@lucide/svelte/icons/users';
+	import { buildContactLinks, selectPrimaryCta } from '#lib/groups/contactLinks';
+	import { safeNavigationUrl } from '#lib/security/urls.js';
 	import {
 		createGroupSiteBlock,
 		GROUP_SITE_BLOCK_LIMIT,
@@ -70,6 +74,11 @@
 	const viewportClass = $derived(
 		device === 'phone' ? 'max-w-[24rem]' : device === 'tablet' ? 'max-w-[48rem]' : 'max-w-[72rem]'
 	);
+	const isPhonePreview = $derived(device === 'phone');
+	const isHomePage = $derived(page?.is_home !== false);
+	const previewHeroStyle = $derived(config.hero_style || 'immersive');
+	const isTbagPreview = $derived(config.site_variant === 'tbag');
+	const previewLocation = $derived([group?.city, group?.state_region].filter(Boolean).join(', '));
 	const safeColor = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(value) ? value : fallback);
 	const sitePrimary = $derived(safeColor(config.theme_colors?.primary, '#D7F205'));
 	const siteSecondary = $derived(safeColor(config.theme_colors?.secondary, '#5665E8'));
@@ -99,6 +108,65 @@
 		'resources'
 	];
 	const isThreeFeetPlease = $derived(group?.slug === '3-feet-please');
+	function heroPreviewActions(heroBlock) {
+		const configuredHeroLabel = String(heroBlock?.button_label || '').trim();
+		if (configuredHeroLabel) {
+			const actions = [configuredHeroLabel];
+			if (isThreeFeetPlease && isHomePage) actions.push('Find your community');
+			return actions;
+		}
+		if (!isHomePage) return [];
+		if (isThreeFeetPlease) return ['Explore safety resources', 'Find your community'];
+		const actions = [];
+		const primaryCta = selectPrimaryCta(group, buildContactLinks(group));
+		if (primaryCta?.label) {
+			actions.push(primaryCta.label);
+		} else if (safeNavigationUrl(group?.website_url)) {
+			actions.push('Website');
+		}
+		for (const candidate of blocks) {
+			if (!actionBlockTypes.includes(candidate?.type)) continue;
+			const label = String(candidate?.button_label || '').trim();
+			if (label && !actions.includes(label)) actions.push(label);
+			if (actions.length >= 2) break;
+		}
+		if (!actions.length) actions.push('Explore the group');
+		return actions.slice(0, 2);
+	}
+	const previewFacts = $derived.by(() => {
+		if (isTbagPreview) {
+			return [
+				{ label: 'Focus', value: 'Safer streets and better bicycling' },
+				{ label: 'Based in', value: previewLocation || 'Tempe, Arizona' },
+				{ label: 'Organization', value: 'Tempe-based 501(c)(3)' },
+				{ label: 'Get involved', value: 'Find your next step' }
+			];
+		}
+		const facts = [];
+		const addFact = (label, value) => {
+			const text = String(value || '').trim();
+			if (text) facts.push({ label, value: text });
+		};
+		addFact('When we ride', group?.activity_frequency);
+		addFact('Where we meet', group?.specific_meeting_point_address || previewLocation);
+		addFact('Who can join', group?.audience_focus);
+		addFact('How to join', group?.how_to_join_instructions || group?.membership_info);
+		addFact('Typical schedule', group?.typical_activity_day_time);
+		addFact('Primary discipline', group?.primary_discipline);
+		addFact('Typical skill level', group?.typical_skill_level);
+		addFact('ZIP code', group?.zip_code);
+		const websiteHref = safeNavigationUrl(group?.website_url);
+		if (websiteHref) addFact('Website', websiteHref.replace(/^https?:\/\//, ''));
+		addFact('Email', group?.public_contact_email);
+		addFact('Phone', group?.public_phone_number);
+		addFact('Best way to reach us', group?.preferred_contact_method_instructions);
+		if (facts.length) return facts;
+		return [
+			{ label: 'When we ride', value: 'Weekly rides' },
+			{ label: 'Where we meet', value: previewLocation || 'Shared in ride details' },
+			{ label: 'Who can join', value: 'Anyone on two wheels' }
+		];
+	});
 	const paletteGroups = $derived([
 		{
 			label: 'Grow your community',
@@ -541,74 +609,314 @@
 							</div>
 
 							{#if block.type === 'hero'}
-								<div
-									class="bg-surface-950 relative grid min-h-72 content-end overflow-hidden p-6 text-white sm:min-h-[26rem] sm:p-10"
-								>
-									{#if group.cover_photo_url}<img
-											class="absolute inset-0 h-full w-full object-cover opacity-55 transition-transform duration-700 group-hover:scale-105"
-											src={group.cover_photo_url}
-											alt=""
-										/>{/if}
+								{@const previewHeroTitle =
+									block.title ||
+									(isHomePage ? blockHeading(block) : page?.title || blockHeading(block))}
+								{@const previewHeroTagline = isHomePage
+									? group.tagline || config.site_tagline || 'A welcoming cycling community.'
+									: page?.description ||
+										group.tagline ||
+										config.site_tagline ||
+										'Add a short introduction for this page.'}
+								{@const previewActions = heroPreviewActions(block)}
+								{#if previewHeroStyle === 'bold'}
 									<div
-										class="from-surface-950 via-surface-950/65 to-surface-950/10 absolute inset-0 bg-gradient-to-t"
-									></div>
-									<div class="relative z-10 max-w-3xl">
-										<span class="badge preset-tonal-surface mb-4 w-fit"
-											>{page?.is_home ? `${group.city || 'Local'} community` : 'Website page'}</span
+										class="bg-surface-950 relative grid overflow-hidden text-white {isPhonePreview
+											? 'min-h-72 p-5'
+											: 'min-h-80 p-6 sm:aspect-[21/9] sm:p-10'}"
+										data-preview-hero-style="bold"
+									>
+										<div
+											class="absolute inset-0 [background:linear-gradient(105deg,color-mix(in_oklab,var(--color-primary-500)_10%,var(--color-surface-950))_0%,color-mix(in_oklab,var(--color-surface-950)_95%,transparent)_55%)] {isPhonePreview
+												? '[clip-path:polygon(0_0,70%_0,55%_100%,0_100%)]'
+												: '[clip-path:polygon(0_0,60%_0,45%_100%,0_100%)]'}"
+										></div>
+										<div
+											class="absolute inset-0 {isPhonePreview
+												? '[clip-path:polygon(65%_0,100%_0,100%_100%,50%_100%)]'
+												: '[clip-path:polygon(55%_0,100%_0,100%_100%,40%_100%)]'}"
 										>
-										<div class="flex items-center gap-4">
-											{#if group.logo_url}<img
-													class="h-14 w-14 object-cover shadow-xl sm:h-20 sm:w-20"
-													src={group.logo_url}
+											{#if group.cover_photo_url}<img
+													class="h-full w-full object-cover"
+													src={group.cover_photo_url}
 													alt=""
-												/>{/if}
-											<h2 class="text-3xl font-black tracking-tight sm:text-6xl">
-												{page?.is_home ? blockHeading(block) : page?.title || blockHeading(block)}
-											</h2>
+												/>{:else}<div
+													class="from-secondary-500/30 via-tertiary-500/25 to-primary-500/30 h-full w-full bg-gradient-to-br"
+												></div>{/if}
 										</div>
-										<p class="mt-4 max-w-2xl text-base opacity-85 sm:text-lg">
-											{page?.is_home
-												? group.tagline || config.site_tagline || 'A welcoming cycling community.'
-												: page?.description || 'Add a short introduction for this page.'}
-										</p>
-										<div class="mt-6 flex flex-wrap gap-2">
-											<span class="btn preset-filled-primary-500">Explore the group</span><span
-												class="btn preset-tonal-surface">Upcoming rides</span
+										<div class="relative z-10 flex h-full min-w-0 items-end">
+											<div
+												class="min-w-0 border [border-color:color-mix(in_oklab,var(--color-surface-50)_12%,transparent)] [background:color-mix(in_oklab,var(--color-surface-950)_86%,transparent)] {isPhonePreview
+													? 'w-full p-5'
+													: 'max-w-[37.5rem] p-6'}"
 											>
+												<span class="badge preset-tonal-surface inline-flex items-center gap-1.5"
+													>{#if previewLocation && isHomePage}<IconMapPin
+															class="h-3 w-3 shrink-0"
+														/>{/if}{isHomePage
+														? previewLocation || `${group.city || 'Local'} community`
+														: 'Website page'}</span
+												>
+												<div class="mt-4 flex min-w-0 items-start gap-4">
+													{#if group.logo_url}<img
+															class="shrink-0 object-cover shadow-xl {isPhonePreview
+																? 'h-14 w-14'
+																: 'h-14 w-14 sm:h-20 sm:w-20'}"
+															src={group.logo_url}
+															alt=""
+														/>{/if}
+													<h2
+														class="min-w-0 font-black tracking-tight break-words {isPhonePreview
+															? 'text-[2rem] leading-[0.95]'
+															: 'text-4xl leading-[0.92] sm:text-5xl'}"
+													>
+														{previewHeroTitle}
+													</h2>
+												</div>
+												<p
+													class="mt-4 max-w-xl break-words opacity-90 {isPhonePreview
+														? 'text-base'
+														: 'text-base sm:text-lg'}"
+												>
+													{previewHeroTagline}
+												</p>
+												{#if previewActions.length}
+													<div class="mt-6 flex min-w-0 flex-wrap items-center gap-2">
+														{#each previewActions as actionLabel, actionIndex}
+															<span
+																class="btn max-w-full gap-2 {isPhonePreview
+																	? 'btn-sm whitespace-normal'
+																	: 'whitespace-nowrap'} {actionIndex === 0
+																	? 'preset-filled-primary-500'
+																	: 'preset-tonal-surface'}"
+															>
+																<span class="min-w-0 [overflow-wrap:anywhere] break-words"
+																	>{actionLabel}</span
+																>
+																<IconArrowRight class="h-4 w-4 shrink-0" />
+															</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
 										</div>
 									</div>
-								</div>
+								{:else if previewHeroStyle === 'orbit'}
+									<div
+										class="bg-surface-950 relative grid overflow-hidden text-white {isPhonePreview
+											? 'min-h-72 p-5'
+											: 'min-h-80 p-5 sm:aspect-[21/9] sm:p-8'}"
+										data-preview-hero-style="orbit"
+									>
+										{#if group.cover_photo_url}<img
+												class="absolute inset-0 h-full w-full object-cover opacity-55"
+												src={group.cover_photo_url}
+												alt=""
+											/>{:else}<div
+												class="from-primary-500/25 via-surface-500/10 to-secondary-500/25 absolute inset-0 bg-gradient-to-br"
+											></div>{/if}
+										<div
+											class="from-surface-950/80 via-surface-950/50 to-surface-950/70 absolute inset-0 bg-gradient-to-b"
+										></div>
+										<div class="relative z-10 flex h-full min-w-0 items-center justify-center">
+											<div
+												class="border-surface-50/15 bg-surface-950/75 w-full max-w-xl min-w-0 border text-center {isPhonePreview
+													? 'px-4 py-6'
+													: 'px-6 py-8'}"
+											>
+												<div class="flex min-w-0 flex-col items-center">
+													{#if group.logo_url}<img
+															class="object-cover shadow-2xl {isPhonePreview
+																? 'h-16 w-16'
+																: 'h-16 w-16 sm:h-20 sm:w-20'}"
+															src={group.logo_url}
+															alt=""
+														/>{/if}
+													<p
+														class="mt-3 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.3em] uppercase opacity-70"
+													>
+														{#if previewLocation && isHomePage}<IconMapPin
+																class="h-3 w-3 shrink-0"
+															/>{/if}{isHomePage
+															? previewLocation || `${group.city || 'Local'} community`
+															: 'Website page'}
+													</p>
+													<h2
+														class="mt-3 max-w-full font-black tracking-tight break-words {isPhonePreview
+															? 'text-3xl leading-[0.95]'
+															: 'text-3xl leading-[0.95] sm:text-5xl'}"
+													>
+														{previewHeroTitle}
+													</h2>
+													<p class="mt-3 max-w-md text-base leading-relaxed break-words opacity-85">
+														{previewHeroTagline}
+													</p>
+												</div>
+												{#if previewActions.length}
+													<div
+														class="mt-6 flex min-w-0 flex-wrap items-center justify-center gap-2"
+													>
+														{#each previewActions as actionLabel, actionIndex}
+															<span
+																class="btn max-w-full gap-2 {isPhonePreview
+																	? 'btn-sm whitespace-normal'
+																	: 'whitespace-nowrap'} {actionIndex === 0
+																	? 'preset-filled-primary-500'
+																	: 'preset-tonal-secondary'}"
+															>
+																<span class="min-w-0 [overflow-wrap:anywhere] break-words"
+																	>{actionLabel}</span
+																>
+																<IconArrowRight class="h-4 w-4 shrink-0" />
+															</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{:else}
+									<div
+										class="bg-surface-950 relative grid overflow-hidden text-white {isPhonePreview
+											? 'min-h-72 p-5'
+											: 'min-h-80 p-5 sm:aspect-[21/9] sm:p-8'}"
+										data-preview-hero-style="immersive"
+									>
+										{#if group.cover_photo_url}<img
+												class="absolute inset-0 h-full w-full object-cover opacity-65 transition-transform duration-700 group-hover:scale-105"
+												src={group.cover_photo_url}
+												alt=""
+											/>{:else}<div
+												class="from-primary-500/30 via-secondary-500/20 to-tertiary-500/30 absolute inset-0 bg-gradient-to-br"
+											></div>{/if}
+										<div
+											class="from-surface-950 via-surface-950/65 to-surface-950/10 absolute inset-0 bg-gradient-to-t"
+										></div>
+										<div class="relative z-10 flex h-full min-w-0 flex-col justify-end gap-5">
+											<div class="flex min-w-0 items-start gap-4">
+												{#if group.logo_url}<img
+														class="shrink-0 object-cover shadow-xl {isPhonePreview
+															? 'h-16 w-16'
+															: 'h-16 w-16 sm:h-20 sm:w-20'}"
+														src={group.logo_url}
+														alt=""
+													/>{:else}<div
+														class="from-primary-500 to-secondary-500 flex shrink-0 items-center justify-center bg-gradient-to-br shadow-2xl {isPhonePreview
+															? 'h-16 w-16'
+															: 'h-16 w-16 sm:h-20 sm:w-20'}"
+													>
+														<IconUsers class="h-7 w-7 text-white/80" />
+													</div>{/if}
+												<div class="min-w-0 pb-0.5">
+													<p
+														class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.25em] uppercase opacity-75"
+													>
+														{#if previewLocation && isHomePage}<IconMapPin
+																class="h-3 w-3 shrink-0"
+															/>{/if}{isHomePage
+															? previewLocation || `${group.city || 'Local'} community`
+															: 'Website page'}
+													</p>
+													<h2
+														class="leading-tight font-black tracking-tight break-words {isPhonePreview
+															? 'text-3xl'
+															: 'text-3xl sm:text-5xl'}"
+													>
+														{previewHeroTitle}
+													</h2>
+												</div>
+											</div>
+											<div
+												class="flex min-w-0 flex-col gap-4 {isPhonePreview
+													? ''
+													: 'sm:flex-row sm:items-end sm:justify-between'}"
+											>
+												<p
+													class="max-w-xl leading-relaxed break-words opacity-90 {isPhonePreview
+														? 'text-base'
+														: 'text-lg sm:text-xl'}"
+												>
+													{previewHeroTagline}
+												</p>
+												{#if previewActions.length}
+													<div
+														class="flex max-w-full min-w-0 flex-wrap items-center gap-2 {isPhonePreview
+															? ''
+															: 'sm:flex-nowrap sm:gap-3'}"
+													>
+														{#each previewActions as actionLabel, actionIndex}
+															<span
+																class="btn max-w-full gap-2 {isPhonePreview
+																	? 'btn-sm whitespace-normal'
+																	: 'btn-sm sm:btn-base whitespace-nowrap'} {actionIndex === 0
+																	? 'preset-filled-primary-500'
+																	: 'preset-tonal-tertiary'}"
+															>
+																<span class="min-w-0 [overflow-wrap:anywhere] break-words"
+																	>{actionLabel}</span
+																>
+																<IconArrowRight class="h-4 w-4 shrink-0" />
+															</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/if}
 							{:else if block.type === 'story'}
-								<div class="grid gap-4 p-5 sm:grid-cols-[auto_1fr] sm:p-7">
-									<span class="card preset-tonal-primary h-fit p-3"
+								<div
+									class="grid min-w-0 gap-4 {isPhonePreview
+										? 'p-5'
+										: 'p-5 sm:grid-cols-[auto_1fr] sm:p-7'}"
+								>
+									<span class="card preset-tonal-primary h-fit w-fit p-3"
 										><IconUsers class="h-5 w-5" /></span
 									>
-									<div class="grid gap-2">
+									<div class="grid min-w-0 gap-2">
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
 										</p>
-										<h2 class="text-2xl font-bold">{blockHeading(block)}</h2>
-										<p class="max-w-3xl opacity-70">
+										<h2 class="text-2xl font-bold break-words">{blockHeading(block)}</h2>
+										<p class="max-w-3xl [overflow-wrap:anywhere] break-words opacity-70">
 											{group.description ||
 												config.home_intro ||
 												'Tell visitors what makes this group special.'}
 										</p>
-										<div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-											<span class="card preset-tonal-surface p-3 text-sm">When we ride</span><span
-												class="card preset-tonal-surface p-3 text-sm">Where we meet</span
-											><span class="card preset-tonal-surface p-3 text-sm">Who can join</span>
+										<div
+											class="mt-2 grid gap-2 {isPhonePreview
+												? isTbagPreview
+													? 'grid-cols-[repeat(2,minmax(0,1fr))]'
+													: 'grid-cols-[minmax(0,1fr)]'
+												: device === 'tablet'
+													? 'grid-cols-[repeat(2,minmax(0,1fr))]'
+													: 'grid-cols-[repeat(2,minmax(0,1fr))] md:grid-cols-[repeat(4,minmax(0,1fr))]'}"
+											data-preview-facts-grid
+										>
+											{#each previewFacts as fact}
+												<div class="card preset-tonal-surface min-w-0 p-3 text-sm">
+													<p
+														class="text-[0.6875rem] font-semibold tracking-[0.15em] uppercase opacity-70"
+													>
+														{fact.label}
+													</p>
+													<p class="mt-1 min-w-0 leading-snug [overflow-wrap:anywhere] break-words">
+														{fact.value}
+													</p>
+												</div>
+											{/each}
 										</div>
 									</div>
 								</div>
 							{:else if block.type === 'events'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div>
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
 										</p>
 										<h2 class="text-2xl font-bold">{blockHeading(block)}</h2>
 									</div>
-									<div class="grid gap-2 sm:grid-cols-3">
+									<div class="grid gap-2 {isPhonePreview ? 'grid-cols-1' : 'sm:grid-cols-3'}">
 										{#each ['Saturday ride', 'Volunteer day', 'Latest update'] as item, itemIndex}<div
 												class="card {itemIndex === 0
 													? 'preset-tonal-primary'
@@ -622,7 +930,7 @@
 									</div>
 								</div>
 							{:else if block.type === 'gallery'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div>
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
@@ -635,7 +943,7 @@
 									</div>
 								</div>
 							{:else if block.type === 'ride_calendar'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div class="flex items-center gap-3">
 										<span class="card preset-tonal-primary p-3"
 											><IconCalendar class="h-5 w-5" /></span
@@ -661,7 +969,7 @@
 									</div>
 								</div>
 							{:else if block.type === 'contact'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div>
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
@@ -676,7 +984,7 @@
 									</div>
 								</div>
 							{:else if block.type === 'sponsors'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div>
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
@@ -684,7 +992,7 @@
 										<h2 class="text-2xl font-bold">{blockHeading(block)}</h2>
 									</div>
 									{#if (config.sponsor_items || []).length}<div
-											class="grid grid-cols-2 gap-2 sm:grid-cols-4"
+											class="grid grid-cols-2 gap-2 {isPhonePreview ? '' : 'sm:grid-cols-4'}"
 										>
 											{#each config.sponsor_items.slice(0, 4) as sponsor}<span
 													class="card preset-tonal-surface grid min-h-16 place-items-center p-2 text-center text-xs font-semibold"
@@ -695,7 +1003,9 @@
 										</p>{/if}
 								</div>
 							{:else if block.type === 'donation'}
-								<div class="preset-tonal-primary grid gap-3 p-5 sm:p-7">
+								<div
+									class="preset-tonal-primary grid gap-3 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}"
+								>
 									<div class="mr-auto">
 										<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 											{block.eyebrow}
@@ -707,7 +1017,7 @@
 									</p>
 								</div>
 							{:else if block.type === 'law_directory'}
-								<div class="grid gap-4 p-5 sm:p-7">
+								<div class="grid gap-4 {isPhonePreview ? 'p-5' : 'p-5 sm:p-7'}">
 									<div class="flex items-start gap-3">
 										<span class="card preset-tonal-primary p-3"><IconSearch class="h-5 w-5" /></span
 										>
@@ -723,7 +1033,7 @@
 										<IconSearch class="h-4 w-4" />
 										<span>Search by state or statute</span>
 									</div>
-									<div class="grid gap-2 sm:grid-cols-2">
+									<div class="grid gap-2 {isPhonePreview ? 'grid-cols-1' : 'sm:grid-cols-2'}">
 										{#each ['Arizona · 3 feet', 'Massachusetts · 4 feet', 'Texas · no specific law'] as item}
 											<div class="card preset-tonal-surface p-3 text-sm font-semibold">{item}</div>
 										{/each}
@@ -731,17 +1041,30 @@
 								</div>
 							{:else}
 								<div
-									class="grid gap-3 p-5 sm:p-8 {actionBlockTypes.includes(block.type)
-										? `${previewToneClass(block, index)} text-center sm:justify-items-center`
+									class="grid min-w-0 gap-3 {isPhonePreview
+										? 'p-5'
+										: 'p-5 sm:p-8'} {actionBlockTypes.includes(block.type)
+										? `${previewToneClass(block, index)} text-center ${isPhonePreview ? 'justify-items-center' : 'sm:justify-items-center'}`
 										: ''}"
 								>
 									<p class="text-xs font-semibold tracking-wider uppercase opacity-55">
 										{block.eyebrow}
 									</p>
-									<h2 class="text-2xl font-bold sm:text-3xl">{blockHeading(block)}</h2>
-									{#if block.body}<p class="max-w-3xl opacity-70">{block.body}</p>{/if}
-									{#if block.button_label}<span class="btn preset-filled-primary-500 w-fit"
-											>{block.button_label}</span
+									<h2
+										class="font-bold break-words {isPhonePreview
+											? 'text-2xl'
+											: 'text-2xl sm:text-3xl'}"
+									>
+										{blockHeading(block)}
+									</h2>
+									{#if block.body}<p class="max-w-3xl break-words opacity-70">{block.body}</p>{/if}
+									{#if block.button_label}<span
+											class="btn preset-filled-primary-500 w-fit max-w-full {isPhonePreview
+												? 'whitespace-normal'
+												: ''}"
+											><span class="min-w-0 [overflow-wrap:anywhere] break-words"
+												>{block.button_label}</span
+											></span
 										>{/if}
 								</div>
 							{/if}
