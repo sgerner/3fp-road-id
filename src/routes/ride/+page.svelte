@@ -1,6 +1,6 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
-	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import { buildMonthGrid, toLocalDateKey } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -23,6 +23,7 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
+	import IconX from '@lucide/svelte/icons/x';
 	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -64,7 +65,6 @@
 		})
 	);
 
-	let searchInput = $state(initialUrlState.q);
 	let search = $state(initialUrlState.q);
 	let selectedDifficulty = $state(initialUrlState.difficulty);
 	let needsHost = $state(initialUrlState.needsHost);
@@ -133,7 +133,7 @@
 	);
 
 	const hasActiveFilters = $derived(
-		Boolean(searchInput.trim() || search.trim() || selectedDifficulty !== 'all' || needsHost)
+		Boolean(search.trim() || selectedDifficulty !== 'all' || needsHost)
 	);
 	const matchesServerScope = $derived(
 		allRidesOverride === null &&
@@ -181,7 +181,7 @@
 
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
-			const key = toDateKey(ride._calendarStart);
+			const key = toLocalDateKey(ride._calendarStart);
 			if (!key) return acc;
 			(acc[key] ??= []).push(ride);
 			return acc;
@@ -202,7 +202,7 @@
 		return hasRideInCurrentMonth ? currentMonth : earliestRideMonth;
 	});
 
-	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate));
 	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
 	const calendarHeaderText = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, {
@@ -238,7 +238,6 @@
 	function restoreStateFromUrl(searchParamsInput) {
 		clearTimeout(searchDebounceTimer);
 		const restored = parseRideUrlState(searchParamsInput, { difficultyOptions });
-		searchInput = restored.q;
 		search = restored.q;
 		selectedDifficulty = restored.difficulty;
 		needsHost = restored.needsHost;
@@ -266,25 +265,30 @@
 	}
 
 	function handleSearchInput() {
+		currentPage = 1;
+		void ensureFullRidesLoaded();
 		clearTimeout(searchDebounceTimer);
 		searchDebounceTimer = setTimeout(() => {
-			applySearch();
+			syncUrlToState();
 		}, 250);
 	}
 
-	function applySearch() {
+	function flushSearchSync() {
 		clearTimeout(searchDebounceTimer);
-		if (search !== searchInput) {
-			search = searchInput;
-			currentPage = 1;
-			void ensureFullRidesLoaded();
-		}
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function clearSearch() {
+		clearTimeout(searchDebounceTimer);
+		search = '';
+		currentPage = 1;
+		void ensureFullRidesLoaded();
 		syncUrlToState();
 	}
 
 	function clearFilters() {
 		clearTimeout(searchDebounceTimer);
-		searchInput = '';
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
@@ -336,11 +340,6 @@
 		if (!value) return null;
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? null : date;
-	}
-
-	function toDateKey(date) {
-		if (!date) return '';
-		return date.toISOString().slice(0, 10);
 	}
 
 	function startOfMonth(date) {
@@ -453,11 +452,6 @@
 		if (window.location.search !== initialSearchQuery) {
 			restoreStateFromUrl(new URL(window.location.href).searchParams);
 		} else {
-			if (searchInput !== search) {
-				search = searchInput;
-				currentPage = 1;
-				void ensureFullRidesLoaded();
-			}
 			syncUrlToState();
 		}
 		const handlePopState = () => {
@@ -671,29 +665,49 @@
 	>
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
 			<div class="flex min-w-0 flex-col gap-3">
-				<div class="flex w-full">
-					<input
-						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
-						aria-label="Search rides"
-						bind:value={searchInput}
-						oninput={handleSearchInput}
-						placeholder="Search by title, location, pace, discipline…"
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								applySearch();
-							}
-						}}
-					/>
-					<button
-						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
-						onclick={applySearch}
-						aria-label="Search rides"
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<div
+						class="bg-surface-950 border-surface-500 focus-within:border-primary-500 flex min-h-11 min-w-0 flex-1 items-center border-2"
 					>
-						<IconSearch class="h-4 w-4" />
-						<span class="hidden sm:inline">Search</span>
-					</button>
+						<IconSearch
+							class="text-surface-300 pointer-events-none ml-3.5 h-4 w-4 shrink-0"
+							aria-hidden="true"
+						/>
+						<input
+							class="text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-medium focus:ring-0 focus:outline-none"
+							type="text"
+							aria-label="Search rides"
+							bind:value={search}
+							oninput={handleSearchInput}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									flushSearchSync();
+								}
+							}}
+							placeholder="Search by title, location, pace, discipline…"
+						/>
+						{#if search}
+							<button
+								type="button"
+								class="text-surface-300 hover:bg-primary-500 hover:text-surface-950 inline-flex h-11 w-11 shrink-0 items-center justify-center transition"
+								onclick={clearSearch}
+								aria-label="Clear search"
+							>
+								<IconX class="h-4 w-4" />
+							</button>
+						{/if}
+					</div>
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition"
+							onclick={clearFilters}
+						>
+							<IconX class="h-3.5 w-3.5" />
+							Clear filters
+						</button>
+					{/if}
 				</div>
 
 				<div class="flex flex-wrap gap-2">
@@ -731,15 +745,6 @@
 					>
 						Needs Host
 					</button>
-					{#if hasActiveFilters}
-						<button
-							type="button"
-							class="border-surface-600 text-surface-200 hover:border-primary-500 hover:text-primary-500 border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition"
-							onclick={clearFilters}
-						>
-							Clear filters
-						</button>
-					{/if}
 				</div>
 			</div>
 			<div class="flex flex-col items-start gap-2 sm:items-end">
@@ -791,7 +796,7 @@
 	<!-- RIDE LISTING DIRECTORY -->
 	<section
 		id="ride-list"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-0 py-6 md:px-10 lg:px-12"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-6 sm:px-10 lg:px-12"
 		bind:this={rideListEl}
 		aria-labelledby="directory-heading"
 	>
@@ -825,13 +830,13 @@
 										}}
 									/>
 									<span
-										class="bg-primary-500 text-surface-950 absolute top-0 left-0 px-3 py-1.5 text-xs font-black tracking-[0.12em] uppercase"
+										class="bg-primary-500 text-surface-950 absolute top-0 left-0 max-w-full px-3 py-1.5 text-xs leading-snug font-black tracking-[0.12em] wrap-anywhere uppercase"
 									>
 										{formatNext(ride)}
 									</span>
 									{#if !ride.hostUserId && !ride.hostGroupId}
 										<span
-											class="bg-tertiary-500 text-surface-950 absolute top-0 right-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
+											class="bg-tertiary-500 text-surface-950 absolute right-0 bottom-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
 										>
 											Unclaimed
 										</span>
@@ -846,10 +851,17 @@
 									</span>
 									{#if !cardImage(ride)}
 										<span
-											class="bg-primary-500 text-surface-950 px-2.5 py-1 text-xs font-black uppercase"
+											class="bg-primary-500 text-surface-950 max-w-full px-2.5 py-1 text-xs leading-snug font-black wrap-anywhere uppercase"
 										>
 											{formatNext(ride)}
 										</span>
+										{#if !ride.hostUserId && !ride.hostGroupId}
+											<span
+												class="bg-tertiary-500 text-surface-950 px-2.5 py-1 text-xs font-black tracking-[0.16em] uppercase"
+											>
+												Unclaimed
+											</span>
+										{/if}
 									{/if}
 									{#if ride.group?.name}
 										{#if ride.group?.slug}
@@ -1083,13 +1095,15 @@
 								<div class="mt-3 flex flex-col gap-2">
 									{#each day.items as ride (ride.id ?? ride.slug)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 block px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="group bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex min-h-11 items-center px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/ride/${ride.slug}`}
 										>
-											<span class="text-primary-500 font-black">
-												{tf.format(parseRideDate(ride.nextOccurrenceStart))} —
+											<span class="min-w-0 wrap-anywhere">
+												<span class="text-primary-500 group-hover:text-surface-950 font-black">
+													{tf.format(parseRideDate(ride.nextOccurrenceStart))} —
+												</span>
+												{ride.title}
 											</span>
-											{ride.title}
 										</a>
 									{/each}
 								</div>
