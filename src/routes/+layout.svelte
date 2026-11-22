@@ -10,6 +10,7 @@
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
 	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -674,8 +675,14 @@
 		return page.url.pathname.startsWith('/get-involved');
 	}
 
-	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
+	let layoutWrapperMode = $derived(
+		resolveRootLayoutWrapperMode({
+			isMicrosite: isMicrositeRoute,
+			pathname: page.url.pathname,
+			hasError: page.error !== null && page.error !== undefined
+		})
+	);
 	const assistantContext = setAssistantContext();
 
 	$effect(() => {
@@ -693,11 +700,11 @@
 >
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
-	{#if isMicrositeRoute}
+	{#if layoutWrapperMode === 'microsite'}
 		<div class="min-h-dvh min-w-0 overflow-x-clip">
 			{@render children()}
 		</div>
-	{:else if isEmbedRoute}
+	{:else if layoutWrapperMode === 'standalone-main'}
 		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
