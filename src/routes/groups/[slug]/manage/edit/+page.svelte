@@ -1,6 +1,6 @@
 <script>
 	import EditPage from '#lib/components/groups/GroupEditPage.svelte';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 

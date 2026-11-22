@@ -5,7 +5,7 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
-	import IconHistory from '@lucide/svelte/icons/history';
+	import IconHistory from '@lucide/svelte/icons/rotate-ccw-clock';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
