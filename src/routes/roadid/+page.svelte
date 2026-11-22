@@ -51,14 +51,14 @@
 		</a>
 	</section>
 	<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border p-4">
-		<summary class="cursor-pointer font-bold">Crash response checklist</summary>
-		<div class="pt-4">
+		<summary class="text-surface-950-50 cursor-pointer font-bold">Crash response checklist</summary>
+		<div class="mt-4">
 			<CrashResponse />
 		</div>
 	</details>
 	<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border p-4">
-		<summary class="cursor-pointer font-bold">Cycling safety tips</summary>
-		<div class="pt-4">
+		<summary class="text-surface-950-50 cursor-pointer font-bold">Cycling safety tips</summary>
+		<div class="mt-4">
 			<AlertSystem />
 		</div>
 	</details>
