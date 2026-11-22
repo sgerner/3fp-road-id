@@ -272,6 +272,7 @@ export const actions = {
 				return Number.isFinite(n) ? n : null;
 			})(),
 			service_area_description: form.get('service_area_description')?.toString().trim() || null,
+			zip_code: form.get('zip_code')?.toString().trim() || null,
 			// skill_levels now managed via join table
 			activity_frequency: form.get('activity_frequency')?.toString().trim() || null,
 			typical_activity_day_time: form.get('typical_activity_day_time')?.toString().trim() || null,
