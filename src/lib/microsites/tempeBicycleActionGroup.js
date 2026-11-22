@@ -1,3 +1,4 @@
+import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
 import { createGroupSiteBlock } from './blocks.js';
 import {
 	normalizeGroupSiteNavigation,
@@ -9,6 +10,9 @@ export const TBAG_SOURCE_URL = 'https://www.biketempe.org';
 export const TBAG_SOURCE_NAME = 'Tempe Bicycle Action Group';
 export const TBAG_MICROSITE_VARIANT = 'tbag';
 export const TBAG_SOURCE_CONTENT_REVISION = '2026-08-31-source-audit';
+export const TBAG_FOLLOW_CALENDAR_REVISION = '2026-11-21-follow-calendar';
+
+const TBAG_FOLLOW_CALENDAR_PAGE_IDS = new Set(['take-action', 'calendar']);
 
 const TBAG_SOURCE_AUDITED_PAGE_IDS = new Set([
 	'about',
@@ -799,10 +803,17 @@ export function buildTempeBicycleActionGroupResourcePages() {
 
 export function ensureTempeBicycleActionGroupPages(value, { group = {}, homeBlocks = [] } = {}) {
 	const currentPages = normalizeGroupSitePages(value, { homeBlocks });
-	const defaultPages = buildTempeBicycleActionGroupSite(group).site_pages;
+	const defaultPages = buildTempeBicycleActionGroupSite(group || {}).site_pages;
 	const defaultById = new Map(defaultPages.map((page) => [page.id, page]));
 	const refreshedPages = currentPages.map((page) => {
 		const sourcePage = defaultById.get(page.id);
+		if (
+			sourcePage &&
+			TBAG_FOLLOW_CALENDAR_PAGE_IDS.has(page.id) &&
+			page.source_revision !== TBAG_FOLLOW_CALENDAR_REVISION
+		) {
+			return sourcePage;
+		}
 		// Pages created by the first importer were intentionally marked only after
 		// the source-audit pass. Refresh those unmarked source pages once, while
 		// preserving later owner edits to pages carrying a source revision.
@@ -817,6 +828,7 @@ export function ensureTempeBicycleActionGroupPages(value, { group = {}, homeBloc
 }
 
 export function buildTempeBicycleActionGroupSite(group = {}) {
+	const safeGroup = group && typeof group === 'object' ? group : {};
 	const homeBlocks = [
 		block('hero', {
 			eyebrow: 'Tempe’s bicycle advocacy organization',
@@ -884,6 +896,7 @@ export function buildTempeBicycleActionGroupSite(group = {}) {
 				nav_label: 'Take action',
 				slug: 'take-action',
 				description: 'Turn concern into practical, local action for safer streets.',
+				source_revision: TBAG_FOLLOW_CALENDAR_REVISION,
 				blocks: [
 					block('hero', {
 						title: 'Your voice belongs in the transportation conversation.',
@@ -964,29 +977,30 @@ export function buildTempeBicycleActionGroupSite(group = {}) {
 				title: 'Calendar',
 				nav_label: 'Calendar',
 				slug: 'calendar',
-				description: 'Public meetings, community events, and opportunities to show up.',
+				description:
+					'Tempe rides, public meetings, volunteer shifts, and opportunities to show up.',
+				source_revision: TBAG_FOLLOW_CALENDAR_REVISION,
 				blocks: [
 					block('hero', {
 						title: 'Find a good time to show up.',
-						button_label: 'Open the calendar',
-						button_url: TBAG_INTERNAL_ROUTES.calendar
+						button_label: 'Browse ride calendar',
+						button_url: '#rides-widget'
+					}),
+					block('ride_calendar', {
+						eyebrow: 'Plan your week',
+						title: 'Tempe ride calendar',
+						body: 'Browse recurring social rides, community rolls, and local bike rides around Tempe.'
+					}),
+					block('events', {
+						eyebrow: 'TBAG schedule',
+						title: 'Upcoming meetings, shifts, and updates',
+						body: 'Public meetings, volunteer shifts, and announcements shared by Tempe Bicycle Action Group.'
 					}),
 					block('text', {
 						eyebrow: 'Before you go',
 						title: 'Check the live calendar for the latest details.',
 						body: 'The calendar includes public meetings and community gatherings. Some events are not hosted or endorsed by TBAG, and dates can change, so confirm the details before attending.'
 					}),
-					block(
-						'call_to_action',
-						{
-							eyebrow: 'TBAG public calendar',
-							title: 'See current dates and event details.',
-							body: 'Check the public calendar before you go for the latest meeting times, locations, and event notes.',
-							button_label: 'Open the calendar',
-							button_url: TBAG_INTERNAL_ROUTES.calendar
-						},
-						'site-tbag-calendar'
-					),
 					block('email_signup', {
 						eyebrow: 'Never miss the useful part',
 						title: 'Get meeting reminders and action alerts.'
@@ -1042,7 +1056,7 @@ export function buildTempeBicycleActionGroupSite(group = {}) {
 
 	pages[0].navigation = { items: buildNavigation(pages) };
 
-	const name = clean(group.name) || TBAG_SOURCE_NAME;
+	const name = clean(safeGroup.name) || TBAG_SOURCE_NAME;
 	return {
 		site_title: name,
 		site_tagline: 'Safer streets. Better bicycling. A stronger Tempe.',
@@ -1079,11 +1093,18 @@ export function buildTempeBicycleActionGroupSite(group = {}) {
 			'Traffic laws and event details change. Check the linked source before you ride or attend.',
 		sponsor_links: [],
 		sponsor_items: [],
-		ride_widget_enabled: false,
-		ride_widget_title: 'Ride calendar',
-		ride_widget_host_scope: 'group_only',
+		ride_widget_enabled: true,
+		ride_widget_title: 'Tempe ride calendar',
+		ride_widget_host_scope: 'all',
 		ride_widget_group_ids: [],
-		ride_widget_config: {},
+		ride_widget_config: normalizeRideWidgetConfig({
+			city: 'Tempe',
+			state: 'AZ',
+			location: 'Tempe, AZ',
+			defaultTab: 'calendar',
+			showUserFilters: true,
+			showAddButton: true
+		}),
 		announcement_expires_at: null,
 		sections: {
 			story: true,

@@ -19,6 +19,10 @@ import {
 	normalizeGroupSiteConfig,
 	serializeGroupSiteConfig
 } from '#lib/microsites/config';
+import {
+	deriveMicrositeCapabilities,
+	resolveMicrositeActionHref
+} from '#lib/microsites/capabilities';
 import { normalizeMicrositeSlug } from '#lib/microsites/host';
 import { buildMicrositeThemeStyle, normalizePalette } from '#lib/microsites/theme';
 import { THREE_FEET_PLEASE_COLORS } from '#lib/microsites/threeFeetPlease';
@@ -913,7 +917,7 @@ function summarizeStats({ group, rides, volunteerEvents }) {
 	];
 }
 
-function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
+function buildActionButtons(group, primaryCta, { siteUrl, capabilities }) {
 	const actions = [];
 	if (primaryCta?.href) {
 		actions.push({
@@ -922,17 +926,17 @@ function buildActionButtons(group, primaryCta, { siteUrl, membershipProgram }) {
 			external: /^https?:\/\//i.test(primaryCta.href)
 		});
 	}
-	if (membershipProgram?.enabled === true) {
+	if (capabilities?.hasMembership) {
 		actions.push({
-			label: cleanText(membershipProgram?.cta_label) || 'Follow',
+			label: cleanText(capabilities.membershipCtaLabel) || 'Follow',
 			href: `${siteUrl}/join`,
 			external: false
 		});
 	}
-	if (!actions.length && group?.website_url) {
+	if (!actions.length && capabilities?.externalWebsiteUrl) {
 		actions.push({
 			label: 'Website',
-			href: toAbsoluteHref(group.website_url),
+			href: capabilities.externalWebsiteUrl,
 			external: true
 		});
 	}
@@ -1053,6 +1057,11 @@ async function loadGroupMicrositeUncached({ siteSlug, fetch: fetchImpl, url, pub
 			.map((item) => item?.id)
 			.filter(Boolean)
 	);
+	const allBlockTypes = new Set(
+		(siteConfig.site_pages || [])
+			.flatMap((page) => (page?.blocks || []).map((block) => block?.type))
+			.filter(Boolean)
+	);
 	const needsAssets =
 		routeSegment === 'gallery' ||
 		routeSegment === 'assets' ||
@@ -1066,15 +1075,17 @@ async function loadGroupMicrositeUncached({ siteSlug, fetch: fetchImpl, url, pub
 			currentBlockTypes.has('updates') ||
 			(siteConfig.sections?.news !== false && visibleNavigationIds.has('special:updates')));
 	const needsRides = currentBlockTypes.has('events') || currentBlockTypes.has('ride_calendar');
-	const needsVolunteer = currentBlockTypes.has('events');
-	const needsAllRides = Boolean(siteConfig.ride_widget_enabled);
+	const needsVolunteer = currentBlockTypes.has('events') || currentBlockTypes.has('volunteer');
+	const needsAllRides = Boolean(
+		siteConfig.ride_widget_enabled || currentBlockTypes.has('ride_calendar')
+	);
 	const needsMembership =
 		routeSegment === 'join' ||
-		currentBlockTypes.has('membership') ||
-		(siteConfig.sections?.join !== false && visibleNavigationIds.has('special:join'));
-	const needsDonation = routeSegment === 'join' || currentBlockTypes.has('donation');
+		siteConfig.sections?.join !== false ||
+		allBlockTypes.has('membership');
+	const needsDonation = true;
 	const needsTaxonomy = !isTbagSite && currentBlockTypes.has('story');
-	const needsTrust = currentBlockTypes.has('trust');
+	const needsTrust = true;
 	const needsInstagram = currentBlockTypes.has('gallery') && !currentPage?.is_home;
 	const palette =
 		siteConfig.theme_mode === 'repo'
@@ -1140,13 +1151,49 @@ async function loadGroupMicrositeUncached({ siteSlug, fetch: fetchImpl, url, pub
 	const rawPrimaryCta = selectPrimaryCta(group, rawContactLinks);
 	const contactLinks = rawContactLinks.map(serializeContactLink).filter(Boolean);
 	const serializedPrimaryCta = serializePrimaryCta(rawPrimaryCta);
-	const primaryCta =
+	const trust = {
+		isClaimed: ownerCount > 0,
+		ownerCount,
+		lastUpdatedAt: group?.updated_at || null
+	};
+	const capabilities = deriveMicrositeCapabilities({
+		group,
+		siteConfig,
+		contactLinks,
+		trust,
+		rides,
+		widgetRides,
+		volunteerEvents,
+		newsPosts,
+		membershipProgram: membership.program,
+		membershipTiers: membership.tiers,
+		donationEnabled
+	});
+	const mappedPrimaryCta =
 		isTbagSite && serializedPrimaryCta
 			? { ...serializedPrimaryCta, href: mapTbagLegacyUrl(serializedPrimaryCta.href) }
 			: serializedPrimaryCta;
+	const resolvedPrimaryHref = mappedPrimaryCta?.href
+		? resolveMicrositeActionHref(
+				{ button_url: mappedPrimaryCta.href },
+				{
+					site: { group, siteConfig, contactLinks, basePath, capabilities },
+					capabilities,
+					currentPage,
+					currentPathname: pathname || '/',
+					basePath,
+					origin: new URL(url).origin
+				}
+			)
+		: '';
+	const primaryCta = mappedPrimaryCta
+		? resolvedPrimaryHref
+			? { ...mappedPrimaryCta, href: resolvedPrimaryHref }
+			: null
+		: null;
 	const actions = buildActionButtons(group, primaryCta, {
 		siteUrl: basePath || siteUrl,
-		membershipProgram: membership.program
+		capabilities
 	});
 	const stats = summarizeStats({
 		group,
@@ -1165,16 +1212,12 @@ async function loadGroupMicrositeUncached({ siteSlug, fetch: fetchImpl, url, pub
 			? Boolean(cleanText(siteConfig.microsite_notice))
 			: new Date(announcementExpiry).getTime() >= now &&
 				Boolean(cleanText(siteConfig.microsite_notice));
-	const trust = {
-		isClaimed: ownerCount > 0,
-		ownerCount,
-		lastUpdatedAt: group?.updated_at || null
-	};
 
 	return {
 		group,
 		micrositeSlug,
 		siteConfig,
+		capabilities,
 		theme: {
 			dataTheme: siteConfig.theme_mode === 'repo' ? siteConfig.theme_name || '3fp' : '3fp',
 			style: themeStyle,
