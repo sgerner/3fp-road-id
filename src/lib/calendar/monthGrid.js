@@ -123,16 +123,28 @@ export function parseCalendarDate(value) {
 }
 
 /**
- * Format a `Date` using its civil local `YYYY-MM-DD` components (never slicing UTC `toISOString()`).
+ * Format a `Date` using its civil local `YYYY-MM-DD` components (never slicing UTC `toISOString()`),
+ * returning `''` for nullish, non-Date, or invalid `Date` inputs.
+ * @param {Date | null | undefined} date
+ * @returns {string}
+ */
+export function toLocalDateKey(date) {
+	if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
+		return '';
+	}
+	const year = String(date.getFullYear()).padStart(4, '0');
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+/**
+ * Alias of `toLocalDateKey` for civil `YYYY-MM-DD` calendar grid keys.
  * @param {Date | null | undefined} date
  * @returns {string}
  */
 export function toCivilDateKey(date) {
-	if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
+	return toLocalDateKey(date);
 }
 
 /**
@@ -419,10 +431,10 @@ export function formatVolunteerSchedule(startsAt, endsAt, timezone, { dateStyle 
  * Build six Sunday-first weeks for a month using civil `YYYY-MM-DD` date keys by default.
  * @template T
  * @param {Date} reference
- * @param {Record<string, T[]>} itemsByDate
- * @param {(date: Date) => string} [toDateKey=toCivilDateKey]
+ * @param {Record<string, T[]>} [itemsByDate]
+ * @param {(date: Date) => string} [toDateKey=toLocalDateKey]
  */
-export function buildMonthGrid(reference, itemsByDate, toDateKey = toCivilDateKey) {
+export function buildMonthGrid(reference, itemsByDate = {}, toDateKey = toLocalDateKey) {
 	const month = reference.getMonth();
 	const year = reference.getFullYear();
 	const firstOfMonth = new Date(year, month, 1);

@@ -27,6 +27,7 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
+	import IconX from '@lucide/svelte/icons/x';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -48,7 +49,6 @@
 		return firstKey ? startOfMonthFromDateKey(firstKey, fallbackMonth) : fallbackMonth;
 	}
 
-	let searchInput = $state('');
 	let search = $state('');
 	let selectedDifficulty = $state('all');
 	let needsHost = $state(false);
@@ -118,6 +118,8 @@
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
 
+	const hasActiveFilters = $derived(Boolean(search) || selectedDifficulty !== 'all' || needsHost);
+
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
@@ -161,13 +163,12 @@
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	function applySearch() {
-		search = searchInput;
+	function clearSearch() {
+		search = '';
 		currentPage = 1;
 	}
 
 	function clearFilters() {
-		searchInput = '';
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
@@ -536,28 +537,45 @@
 	>
 		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
 			<div class="flex min-w-0 flex-col gap-3">
-				<div class="flex w-full">
-					<input
-						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
-						aria-label="Search rides"
-						bind:value={searchInput}
-						placeholder="Search by title, location, pace, discipline…"
-						onkeydown={(event) => {
-							if (event.key === 'Enter') {
-								event.preventDefault();
-								applySearch();
-							}
-						}}
-					/>
-					<button
-						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 border-surface-700 inline-flex shrink-0 items-center justify-center gap-2 border-2 border-l-0 px-5 py-2.5 text-xs font-black tracking-wide uppercase transition"
-						onclick={applySearch}
-						aria-label="Search rides"
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<div
+						class="bg-surface-950 border-surface-500 focus-within:border-primary-500 flex min-h-11 min-w-0 flex-1 items-center border-2"
 					>
-						<IconSearch class="h-4 w-4" />
-						<span class="hidden sm:inline">Search</span>
-					</button>
+						<IconSearch
+							class="text-surface-300 pointer-events-none ml-3.5 h-4 w-4 shrink-0"
+							aria-hidden="true"
+						/>
+						<input
+							class="text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-medium focus:ring-0 focus:outline-none"
+							type="text"
+							aria-label="Search rides"
+							bind:value={search}
+							oninput={() => {
+								currentPage = 1;
+							}}
+							placeholder="Search by title, location, pace, discipline…"
+						/>
+						{#if search}
+							<button
+								type="button"
+								class="text-surface-300 hover:bg-primary-500 hover:text-surface-950 inline-flex h-11 w-11 shrink-0 items-center justify-center transition"
+								onclick={clearSearch}
+								aria-label="Clear search"
+							>
+								<IconX class="h-4 w-4" />
+							</button>
+						{/if}
+					</div>
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition"
+							onclick={clearFilters}
+						>
+							<IconX class="h-3.5 w-3.5" />
+							Clear filters
+						</button>
+					{/if}
 				</div>
 
 				<div class="flex flex-wrap gap-2">
@@ -649,7 +667,7 @@
 	<!-- RIDE LISTING DIRECTORY -->
 	<section
 		id="ride-list"
-		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-0 py-6 md:px-10 lg:px-12"
+		class="bg-surface-950 text-surface-50 flex flex-col gap-6 px-6 py-6 sm:px-10 lg:px-12"
 		bind:this={rideListEl}
 		aria-labelledby="directory-heading"
 	>
@@ -683,11 +701,36 @@
 											}
 										}}
 									/>
-									<div
-										class="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-1"
+									<span
+										class="bg-primary-500 text-surface-950 absolute top-0 left-0 inline-flex max-w-full flex-wrap items-center gap-1.5 px-3 py-1.5 text-xs leading-snug font-black tracking-[0.12em] wrap-anywhere uppercase"
 									>
+										<span>{formatNext(ride)}</span>
+										{#if cardTzBadge}
+											<span
+												class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+											>
+												{cardTzBadge}
+											</span>
+										{/if}
+									</span>
+									{#if !ride.hostUserId && !ride.hostGroupId}
 										<span
-											class="bg-primary-500 text-surface-950 inline-flex max-w-full flex-wrap items-center gap-1.5 px-3 py-1.5 text-xs font-black tracking-[0.12em] uppercase"
+											class="bg-tertiary-500 text-surface-950 absolute right-0 bottom-0 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
+										>
+											Unclaimed
+										</span>
+									{/if}
+								</div>
+							{/if}
+
+							<div class="flex flex-1 flex-col gap-4 p-6">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="text-tertiary-500 text-xl font-black italic tabular-nums">
+										{String((currentPage - 1) * ridesPerPage + i + 1).padStart(2, '0')}
+									</span>
+									{#if !cardImage(ride)}
+										<span
+											class="bg-primary-500 text-surface-950 inline-flex max-w-full flex-wrap items-center gap-1.5 px-2.5 py-1 text-xs leading-snug font-black wrap-anywhere uppercase"
 										>
 											<span>{formatNext(ride)}</span>
 											{#if cardTzBadge}
@@ -700,33 +743,11 @@
 										</span>
 										{#if !ride.hostUserId && !ride.hostGroupId}
 											<span
-												class="bg-tertiary-500 text-surface-950 ml-auto px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase"
+												class="bg-tertiary-500 text-surface-950 px-2.5 py-1 text-xs font-black tracking-[0.16em] uppercase"
 											>
 												Unclaimed
 											</span>
 										{/if}
-									</div>
-								</div>
-							{/if}
-
-							<div class="flex flex-1 flex-col gap-4 p-6">
-								<div class="flex flex-wrap items-center gap-2">
-									<span class="text-tertiary-500 text-xl font-black italic tabular-nums">
-										{String((currentPage - 1) * ridesPerPage + i + 1).padStart(2, '0')}
-									</span>
-									{#if !cardImage(ride)}
-										<span
-											class="bg-primary-500 text-surface-950 inline-flex max-w-full flex-wrap items-center gap-1.5 px-2.5 py-1 text-xs font-black uppercase"
-										>
-											<span>{formatNext(ride)}</span>
-											{#if cardTzBadge}
-												<span
-													class="bg-surface-950 text-primary-500 shrink-0 px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
-												>
-													{cardTzBadge}
-												</span>
-											{/if}
-										</span>
 									{/if}
 									{#if ride.group?.name}
 										{#if ride.group?.slug}
@@ -963,10 +984,12 @@
 									{#each day.items as ride (ride.id ?? ride.slug)}
 										{@const mobileTzBadge = rideTimezoneBadge(ride)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="group bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex min-h-11 flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline"
 											href={`/ride/${ride.slug}`}
 										>
-											<span class="text-primary-500 shrink-0 font-black tabular-nums">
+											<span
+												class="text-primary-500 group-hover:text-surface-950 shrink-0 font-black tabular-nums"
+											>
 												{formatRideTime(ride)}
 											</span>
 											{#if mobileTzBadge}
