@@ -4,7 +4,7 @@
 	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconImage from '@lucide/svelte/icons/image';
@@ -23,11 +23,11 @@
 	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconPlay from '@lucide/svelte/icons/play';
-	import IconEdit3 from '@lucide/svelte/icons/edit-3';
-	import IconMoreVertical from '@lucide/svelte/icons/more-vertical';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconEdit3 from '@lucide/svelte/icons/pen-line';
+	import IconMoreVertical from '@lucide/svelte/icons/ellipsis-vertical';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,

@@ -3,7 +3,7 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import GroupNewsEditorForm from '#lib/components/groups/GroupNewsEditorForm.svelte';
 
