@@ -47,20 +47,24 @@
 			See an example profile
 		</a>
 	</section>
-	<details class="border-surface-500 border">
-		<summary class="cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
+	<details class="bg-surface-950 text-surface-50 border-surface-800 border">
+		<summary class="text-surface-50 cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
 			Crash response checklist
 		</summary>
 		<div class="px-4 pb-4">
-			<CrashResponse />
+			<div class="mt-4">
+				<CrashResponse />
+			</div>
 		</div>
 	</details>
-	<details class="border-surface-500 border">
-		<summary class="cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
+	<details class="bg-surface-950 text-surface-50 border-surface-800 border">
+		<summary class="text-surface-50 cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
 			Cycling safety tips
 		</summary>
 		<div class="px-4 pb-4">
-			<AlertSystem />
+			<div class="mt-4">
+				<AlertSystem />
+			</div>
 		</div>
 	</details>
 </div>
