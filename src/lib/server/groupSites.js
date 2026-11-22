@@ -696,7 +696,7 @@ function micrositePageCacheKey({ siteSlug, url, publicPathname }) {
 	return `${origin}|${normalizedSlug}|${pathname}`;
 }
 
-function invalidateMicrositePageCache(groupId) {
+export function invalidateMicrositePageCache(groupId) {
 	for (const [key, entry] of MICROSITE_PAGE_CACHE) {
 		if (entry.groupId === groupId) MICROSITE_PAGE_CACHE.delete(key);
 	}

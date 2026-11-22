@@ -41,7 +41,7 @@ function digitsOnly(value) {
 }
 
 function resolveDomainPaymentReturnPath(groupSlug, rawPath) {
-	const defaultPath = `/groups/${groupSlug}/manage/site?domain_payment=return`;
+	const defaultPath = `/groups/${groupSlug}/manage/presence?view=address&domain_payment=return`;
 	const requestedPath = cleanText(rawPath);
 	if (!requestedPath.startsWith('/')) return defaultPath;
 	if (!requestedPath.startsWith(`/groups/${groupSlug}/manage/`)) return defaultPath;
@@ -432,8 +432,8 @@ export async function createDomainCheckoutForGroup({
 	});
 	const stripeConnectedAccountId = await getMainStripeConnectedAccount(serviceSupabase);
 	const stripe = getStripeClient();
-	const successUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_checkout=success&session_id={CHECKOUT_SESSION_ID}`;
-	const cancelUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/site?domain_checkout=cancel`;
+	const successUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/presence?view=address&domain_checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+	const cancelUrl = `${resolvePublicBaseUrl(url)}/groups/${group.slug}/manage/presence?view=address&domain_checkout=cancel`;
 
 	const session = await stripe.checkout.sessions.create(
 		{
@@ -1014,7 +1014,7 @@ export async function createDomainBillingPortalSession({
 		throw new Error('No Stripe connected account is configured for this domain.');
 	}
 	const stripe = getStripeClient();
-	const returnUrl = `${resolvePublicBaseUrl(url)}/groups/${groupSlug}/manage/site`;
+	const returnUrl = `${resolvePublicBaseUrl(url)}/groups/${groupSlug}/manage/presence?view=address`;
 	const session = await stripe.billingPortal.sessions.create(
 		{
 			customer: customerId,

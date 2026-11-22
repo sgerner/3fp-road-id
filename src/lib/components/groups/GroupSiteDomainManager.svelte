@@ -463,7 +463,7 @@
 						state: group.state_region || '',
 						country: 'US'
 					}}
-					returnPath={`/groups/${group.slug}/manage/site?view=address&domain_payment=return`}
+					returnPath={`/groups/${group.slug}/manage/presence?view=address&domain_payment=return`}
 					title="Find a domain"
 				/>
 			</div>

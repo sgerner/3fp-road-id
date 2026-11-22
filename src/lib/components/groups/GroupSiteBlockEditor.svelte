@@ -34,7 +34,8 @@
 		page = null,
 		onchange = () => {},
 		onconfigchange = () => {},
-		onpagechange = () => {}
+		onpagechange = () => {},
+		oneditcore = null
 	} = $props();
 
 	const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -318,7 +319,7 @@
 	}
 
 	function blockHeading(block) {
-		if (block.type === 'hero') return config.site_title || group.name || 'Your group';
+		if (block.type === 'hero') return group.name || config.site_title || 'Your group';
 		if (block.type === 'story') return block.title || 'Who we are';
 		if (block.type === 'ride_calendar') return block.title || config.ride_widget_title;
 		return block.title || GROUP_SITE_BLOCK_TYPES[block.type]?.label || 'Section';
@@ -567,7 +568,7 @@
 										</div>
 										<p class="mt-4 max-w-2xl text-base opacity-85 sm:text-lg">
 											{page?.is_home
-												? config.site_tagline || 'A welcoming cycling community.'
+												? group.tagline || config.site_tagline || 'A welcoming cycling community.'
 												: page?.description || 'Add a short introduction for this page.'}
 										</p>
 										<div class="mt-6 flex flex-wrap gap-2">
@@ -588,7 +589,9 @@
 										</p>
 										<h2 class="text-2xl font-bold">{blockHeading(block)}</h2>
 										<p class="max-w-3xl opacity-70">
-											{config.home_intro || 'Tell visitors what makes this group special.'}
+											{group.description ||
+												config.home_intro ||
+												'Tell visitors what makes this group special.'}
 										</p>
 										<div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
 											<span class="card preset-tonal-surface p-3 text-sm">When we ride</span><span
@@ -814,28 +817,41 @@
 
 			<div class="preset-divider-top grid gap-3 pt-4">
 				{#if selectedBlock.type === 'hero'}
-					<label class="label"
-						><span>{page?.is_home === false ? 'Page title' : 'Website title'}</span><input
-							class="input"
-							value={page?.is_home === false ? page.title || '' : config.site_title || ''}
-							maxlength="120"
-							oninput={(event) =>
-								page?.is_home === false
-									? onpagechange({ title: event.currentTarget.value })
-									: updateConfig('site_title', event.currentTarget.value)}
-						/></label
-					><label class="label"
-						><span>{page?.is_home === false ? 'Page introduction' : 'One-line promise'}</span
-						><textarea
-							class="textarea"
-							rows="3"
-							maxlength={page?.is_home === false ? 360 : 180}
-							value={page?.is_home === false ? page.description || '' : config.site_tagline || ''}
-							oninput={(event) =>
-								page?.is_home === false
-									? onpagechange({ description: event.currentTarget.value })
-									: updateConfig('site_tagline', event.currentTarget.value)}></textarea></label
-					>
+					{#if page?.is_home === false}
+						<label class="label"
+							><span>Page title</span><input
+								class="input"
+								value={page.title || ''}
+								maxlength="120"
+								oninput={(event) => onpagechange({ title: event.currentTarget.value })}
+							/></label
+						><label class="label"
+							><span>Page introduction</span><textarea
+								class="textarea"
+								rows="3"
+								maxlength={360}
+								value={page.description || ''}
+								oninput={(event) => onpagechange({ description: event.currentTarget.value })}
+							></textarea></label
+						>
+					{:else}
+						<div class="border-surface-700 bg-surface-950 grid gap-2 border p-3 text-xs">
+							<p class="text-surface-100 font-semibold">Synced with Core Profile</p>
+							<p class="text-surface-300 leading-relaxed">
+								Your homepage hero automatically uses your group name, tagline, logo, cover photo,
+								and primary call-to-action so the directory listing and custom website stay in sync.
+							</p>
+							{#if oneditcore}
+								<button
+									class="btn btn-sm preset-outlined-primary-500 mt-1 w-fit"
+									type="button"
+									onclick={() => oneditcore()}
+								>
+									Edit Core Profile
+								</button>
+							{/if}
+						</div>
+					{/if}
 					<p class="card preset-tonal-surface p-3 text-xs opacity-65">
 						The hero stays first so every page has a clear introduction.
 					</p>
@@ -860,14 +876,22 @@
 						/></label
 					>
 					{#if selectedBlock.type === 'story'}
-						<label class="label"
-							><span>Welcome message</span><textarea
-								class="textarea min-h-32"
-								maxlength="1400"
-								value={config.home_intro || ''}
-								oninput={(event) => updateConfig('home_intro', event.currentTarget.value)}
-							></textarea></label
-						>
+						<div class="border-surface-700 bg-surface-950 grid gap-2 border p-3 text-xs">
+							<p class="text-surface-100 font-semibold">Story text comes from Core Profile</p>
+							<p class="text-surface-300 leading-relaxed">
+								This section displays your group description, schedule, meeting area, and join
+								details from Core Profile.
+							</p>
+							{#if oneditcore}
+								<button
+									class="btn btn-sm preset-outlined-primary-500 mt-1 w-fit"
+									type="button"
+									onclick={() => oneditcore()}
+								>
+									Edit Core Profile
+								</button>
+							{/if}
+						</div>
 					{:else if selectedBlock.type === 'text' || actionBlockTypes.includes(selectedBlock.type)}
 						<label class="label"
 							><span>Body</span><textarea

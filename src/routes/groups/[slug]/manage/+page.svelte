@@ -1,5 +1,5 @@
 <script>
-	import IconSquarePen from '@lucide/svelte/icons/square-pen';
+	import IconGlobe from '@lucide/svelte/icons/globe-2';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -9,7 +9,6 @@
 	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
-	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 
@@ -39,24 +38,14 @@
 
 		return [
 			{
-				id: 'edit',
-				label: 'Edit Profile',
-				description: 'Name, description, location, photos, contact',
-				icon: IconSquarePen,
-				href: `/groups/${slug}/manage/edit`,
+				id: 'presence',
+				label: 'Public Presence',
+				description: 'Directory profile, custom website, domain & branding',
+				icon: IconGlobe,
+				href: `/groups/${slug}/manage/presence`,
 				accent: 'primary',
 				badge: completion < 100 ? `${completion}%` : null,
 				badgeVariant: completion < 50 ? 'error' : completion < 80 ? 'warning' : 'success'
-			},
-			{
-				id: 'site',
-				label: 'Microsite',
-				description: 'Customize your public website builder page',
-				icon: IconMonitorSmartphone,
-				href: `/groups/${slug}/manage/site`,
-				accent: 'primary',
-				badge: 'New',
-				badgeVariant: 'success'
 			},
 			{
 				id: 'email',
@@ -149,7 +138,7 @@
 	<!-- Profile completion reminder -->
 	{#if completionStats() < 100}
 		<a
-			href="/groups/{slug}/manage/edit"
+			href="/groups/{slug}/manage/presence"
 			class="group border-surface-700 bg-surface-900 hover:bg-warning-500 hover:text-surface-950 flex items-stretch gap-4 border-y-2 px-4 py-4 transition-colors"
 		>
 			<div

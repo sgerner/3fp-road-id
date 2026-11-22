@@ -514,7 +514,7 @@ export const actions = {
 			}
 		}
 
-		// Redirect to the manage edit page to complete optional details
-		throw redirect(303, `/groups/${groupRes.slug}/manage/edit`);
+		// Redirect to the unified Public Presence studio to complete optional details
+		throw redirect(303, `/groups/${groupRes.slug}/manage/presence`);
 	}
 };

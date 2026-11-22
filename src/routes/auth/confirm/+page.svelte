@@ -158,7 +158,7 @@
 						method: 'POST'
 					});
 					if (claimRes.ok) {
-						dest = `/groups/${encodeURIComponent(autoClaimSlug)}/manage/edit`;
+						dest = `/groups/${encodeURIComponent(autoClaimSlug)}/manage/presence`;
 					}
 				} catch {}
 			}
@@ -174,7 +174,7 @@
 						}
 					);
 					if (ownerRes.ok) {
-						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/manage/edit`;
+						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/manage/presence`;
 					}
 				} catch {}
 			}

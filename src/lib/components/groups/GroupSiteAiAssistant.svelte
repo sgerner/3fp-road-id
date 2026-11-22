@@ -84,11 +84,6 @@
 	async function applyProposal() {
 		if (!proposal?.config || applying) return;
 		error = '';
-		if (siteEditorConfigFingerprint(currentConfig) !== proposal.baseFingerprint) {
-			error =
-				'Your page changed after this draft was created. Ask the assistant again so it can use your latest edits.';
-			return;
-		}
 		try {
 			applying = true;
 			const applied = await onapplied(proposal.config, proposal.source);
