@@ -109,7 +109,9 @@
 		return pace;
 	});
 	const heroLocationLabel = $derived.by(() => {
-		const rawName = String(activity?.start_location_name ?? '').trim();
+		const rawName = String(
+			selectedOccurrence?.start_location_name || activity?.start_location_name || ''
+		).trim();
 		if (rawName && rawName.toLowerCase() !== 'meetup event') return rawName;
 		const rawAddress = String(activity?.start_location_address ?? '').trim();
 		if (!rawAddress) return '';
@@ -247,6 +249,28 @@
 		}
 		output += escapeHtml(input.slice(lastIndex));
 		return output.replace(/\n/g, '<br />');
+	}
+
+	function formatPlainLocationText(text) {
+		const input = String(text ?? '').replace(/\r\n?/g, '\n');
+		if (!input) return '';
+		let output = '';
+		let lastIndex = 0;
+		for (const match of input.matchAll(urlPattern)) {
+			const start = match.index ?? 0;
+			const rawUrl = match[0] ?? '';
+			const end = start + rawUrl.length;
+			output += input.slice(lastIndex, start);
+			const { value, trailing } = splitTrailingPunctuation(rawUrl);
+			if (value) {
+				const href = value.startsWith('www.') ? `https://${value}` : value;
+				output += formatLinkLabel(href, value);
+			}
+			output += trailing;
+			lastIndex = end;
+		}
+		output += input.slice(lastIndex);
+		return output;
 	}
 
 	$effect(() => {
@@ -767,11 +791,15 @@
 					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
 						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Meet</div>
 						<div class="text-surface-50 mt-1 text-lg font-black">
-							{@html renderLinkifiedText(heroLocationLabel || activity?.start_location_name)}
+							{@html renderLinkifiedText(
+								selectedOccurrence?.start_location_name || activity?.start_location_name
+							)}
 						</div>
-						{#if activity?.start_location_address}
+						{#if selectedOccurrence?.start_location_address || activity?.start_location_address}
 							<div class="text-surface-300 mt-0.5 text-sm">
-								{@html renderLinkifiedText(activity.start_location_address)}
+								{@html renderLinkifiedText(
+									selectedOccurrence?.start_location_address || activity?.start_location_address
+								)}
 							</div>
 						{/if}
 					</div>
@@ -1026,11 +1054,9 @@
 												</span>
 											{/if}
 										</div>
-										<div class="mt-0.5 text-sm opacity-80">
-											{@html renderLinkifiedText(
-												occurrence.start_location_name ||
-													heroLocationLabel ||
-													activity?.start_location_name
+										<div class="mt-0.5 text-sm whitespace-pre-line opacity-80">
+											{formatPlainLocationText(
+												occurrence.start_location_name || activity?.start_location_name
 											)}
 										</div>
 									</div>
