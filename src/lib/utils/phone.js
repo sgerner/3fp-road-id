@@ -29,19 +29,32 @@ export function normalizeE164PhoneNumber(phone, defaultCountryCode = '+1') {
 }
 
 export function formatPhoneNumber(phone) {
-	// Ensure we only have digits (in case it’s not already stripped)
-	let digits = normalizePhoneNumber(phone);
+	if (!phone || typeof phone !== 'string') {
+		return '';
+	}
+	const trimmed = phone.trim();
+	const digits = normalizePhoneNumber(trimmed);
 
-	// If we have fewer than 10 digits, we could return it as-is or handle accordingly
+	if (digits.length === 11 && digits.startsWith('1')) {
+		const usDigits = digits.slice(1);
+		return `(${usDigits.slice(0, 3)}) ${usDigits.slice(3, 6)}-${usDigits.slice(6, 10)}`;
+	}
+
+	if (trimmed.startsWith('+') && digits.length !== 10) {
+		return `+${digits}`;
+	}
+
 	if (digits.length < 10) {
 		return digits;
 	}
 
-	// Slice the parts we need
+	if (digits.length > 10) {
+		return trimmed;
+	}
+
 	const areaCode = digits.slice(0, 3);
 	const firstPart = digits.slice(3, 6);
 	const secondPart = digits.slice(6, 10);
 
-	// Construct the formatted string
 	return `(${areaCode}) ${firstPart}-${secondPart}`;
 }

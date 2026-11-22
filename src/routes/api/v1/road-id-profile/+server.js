@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
-import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
+import { ALLOWED_BLOOD_TYPES, formatMedicationList } from '#lib/server/roadIdProfile';
 
 const PROFILE_FIELDS = {
 	full_name: 200,
@@ -18,7 +18,9 @@ function pickProfileFields(value) {
 	for (const [field, maxLength] of Object.entries(PROFILE_FIELDS)) {
 		if (!Object.prototype.hasOwnProperty.call(value, field)) continue;
 		if (typeof value[field] !== 'string' || value[field].length > maxLength) return null;
-		result[field] = value[field].trim();
+		const trimmed = value[field].trim();
+		if (field === 'blood_type' && !ALLOWED_BLOOD_TYPES.has(trimmed)) return null;
+		result[field] = field === 'medication' ? formatMedicationList(trimmed) : trimmed;
 	}
 	return Object.keys(result).length ? result : null;
 }
@@ -29,15 +31,6 @@ export async function PUT({ request, cookies }) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
 
-	// Expect a JSON payload like:
-	// {
-	//   user_id: "<profile-uuid>",
-	//   full_name: "New Name",
-	//   phone: "New Phone",
-	//   blood_type: "New Blood Type",
-	//   allergies: "New Allergies Info",
-	//   medication: "New Medication Info"
-	// }
 	const parsedBody = await readJsonBody(request, { maxBytes: 8 * 1024 });
 	if (!parsedBody.ok) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
@@ -56,12 +49,9 @@ export async function PUT({ request, cookies }) {
 	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
-	const { data, error } = await client
+	const { data, error } = await requestSupabase
 		.from('road_id_profiles')
-		.update(safeFields)
-		.eq('user_id', user.id)
+		.upsert({ user_id: user.id, ...safeFields }, { onConflict: 'user_id' })
 		.select();
 
 	if (error) {

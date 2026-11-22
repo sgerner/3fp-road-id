@@ -86,7 +86,8 @@ export const handle = async ({ event, resolve }) => {
 	if (
 		routeId === '/auth/confirm' ||
 		routeId === '/roadid/[code]' ||
-		routeId === '/api/v1/code/[code]'
+		routeId === '/api/v1/code/[code]' ||
+		routeId === '/api/v1/code/[code]/claim'
 	) {
 		response.headers.set('cache-control', 'private, no-store');
 		response.headers.set('referrer-policy', 'no-referrer');

@@ -1,9 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
-import {
-	createRequestSupabaseClient,
-	createServiceSupabaseClient
-} from '#lib/server/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
 
@@ -13,13 +10,6 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
 
-	// Expect a JSON payload like:
-	// {
-	//   profile_id: "<profile-uuid>",
-	//   contact_name: "Contact Name",
-	//   contact_phone: "Contact Phone",
-	//   contact_relationship: "Relationship"
-	// }
 	const parsedBody = await readJsonBody(request, { maxBytes: 8 * 1024 });
 	if (!parsedBody.ok) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
@@ -34,10 +24,20 @@ export async function POST({ request, cookies }) {
 	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
+	const existingRoadId = await requestSupabase
+		.from('road_id_profiles')
+		.select('user_id')
+		.eq('user_id', user.id)
+		.maybeSingle();
 
-	const { data, error } = await client
+	if (!existingRoadId.error && !existingRoadId.data) {
+		const seedProfile = await requestSupabase.from('road_id_profiles').insert({ user_id: user.id });
+		if (seedProfile.error) {
+			return json({ error: seedProfile.error.message }, { status: 400 });
+		}
+	}
+
+	const { data, error } = await requestSupabase
 		.from('emergency_contacts')
 		.insert([{ ...safeFields, profile_id: user.id }])
 		.select();

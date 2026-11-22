@@ -1,16 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
-import {
-	createRequestSupabaseClient,
-	createServiceSupabaseClient
-} from '#lib/server/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
 
-/**
- * Update an existing emergency contact.
- * Expects a JSON payload with the updated fields.
- */
 export async function PUT({ request, cookies, params }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
@@ -28,10 +21,8 @@ export async function PUT({ request, cookies, params }) {
 		return json({ error: 'No valid contact fields were provided.' }, { status: 400 });
 	}
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
 
-	const { data: existing, error: existingError } = await client
+	const { data: existing, error: existingError } = await requestSupabase
 		.from('emergency_contacts')
 		.select('id, profile_id')
 		.eq('id', id)
@@ -46,7 +37,7 @@ export async function PUT({ request, cookies, params }) {
 		return json({ error: 'Contact not found.' }, { status: 404 });
 	}
 
-	const { data, error } = await client
+	const { data, error } = await requestSupabase
 		.from('emergency_contacts')
 		.update(safeFields)
 		.eq('id', id)
@@ -57,14 +48,10 @@ export async function PUT({ request, cookies, params }) {
 		return json({ error: error.message }, { status: 400 });
 	}
 
-	// data is an array with the updated contact as the first element.
 	return json(data[0]);
 }
 
-/**
- * Delete an emergency contact.
- */
-export async function DELETE({ request, cookies, params }) {
+export async function DELETE({ cookies, params }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
@@ -72,10 +59,8 @@ export async function DELETE({ request, cookies, params }) {
 
 	const { id } = params;
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
 
-	const { data, error } = await client
+	const { error } = await requestSupabase
 		.from('emergency_contacts')
 		.delete()
 		.eq('id', id)

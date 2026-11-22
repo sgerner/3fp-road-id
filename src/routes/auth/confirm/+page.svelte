@@ -149,7 +149,26 @@
 					dest = `${rtUrl.pathname}${rtUrl.search}${rtUrl.hash}`;
 				} catch {}
 			} else if (rid) {
-				dest = `/roadid/${encodeURIComponent(rid)}`;
+				dest = `/profile?claimed=${encodeURIComponent(rid)}#safety`;
+			}
+
+			if (rid) {
+				try {
+					const claimBraceletRes = await fetch(`/api/v1/code/${encodeURIComponent(rid)}/claim`, {
+						method: 'POST'
+					});
+					if (claimBraceletRes.ok) {
+						const isLegacyScanDest =
+							dest === '/' ||
+							dest.startsWith(`/roadid/${encodeURIComponent(rid)}`) ||
+							dest.startsWith(`/roadid/${rid}`);
+						if (isLegacyScanDest) {
+							dest = `/profile?claimed=${encodeURIComponent(rid)}#safety`;
+						}
+					} else if (claimBraceletRes.status === 409 || claimBraceletRes.status === 404) {
+						dest = `/roadid/${encodeURIComponent(rid)}`;
+					}
+				} catch {}
 			}
 
 			if (autoClaimSlug) {
@@ -221,7 +240,7 @@
 				returnTo: isSafeInternalPath(returnToParam)
 					? returnToParam
 					: ridParam
-						? `/roadid/${ridParam}`
+						? `/profile?claimed=${encodeURIComponent(ridParam)}#safety`
 						: '/',
 				honeypot: resendHoneypot,
 				turnstileToken

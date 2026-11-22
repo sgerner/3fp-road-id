@@ -52,6 +52,9 @@
 			.filter((group) => group.slug);
 	}
 	const initialOwnedGroups = normalizeOwnedGroups(initialLayoutData.ownedGroups);
+	const initialClaimedCodes = Array.isArray(initialLayoutData.claimedCodes)
+		? initialLayoutData.claimedCodes.filter(Boolean)
+		: [];
 	const themeOptions = [
 		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
@@ -67,6 +70,7 @@
 
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
+	let claimedCodes = $state(initialClaimedCodes);
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
@@ -236,18 +240,24 @@
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
+			claimedCodes = [];
 			return;
 		}
 		try {
 			const response = await fetch('/api/profile');
 			if (!response.ok) {
 				userProfile = null;
+				claimedCodes = [];
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
 			userProfile = payload?.profile ?? null;
+			claimedCodes = Array.isArray(payload?.claimedCodes)
+				? payload.claimedCodes.filter(Boolean)
+				: [];
 		} catch {
 			userProfile = null;
+			claimedCodes = [];
 		}
 	}
 
@@ -396,6 +406,9 @@
 		}
 		function onProfileUpdated(event) {
 			const profile = event?.detail?.profile;
+			if (Array.isArray(event?.detail?.claimedCodes)) {
+				claimedCodes = event.detail.claimedCodes.filter(Boolean);
+			}
 			if (!profile) {
 				void loadCurrentProfile(user);
 				return;
@@ -504,6 +517,7 @@
 		showUserMenu = false;
 		email = '';
 		userProfile = null;
+		claimedCodes = [];
 		ownedGroups = [];
 	}
 
@@ -709,6 +723,26 @@
 											<IconUserCircle2 class="h-4 w-4" />
 											Profile
 										</a>
+										<a
+											href="/profile#safety"
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => (showUserMenu = false)}
+										>
+											<IconContact class="h-4 w-4" />
+											Safety &amp; Road ID
+										</a>
+										{#each claimedCodes.slice(0, 3) as braceletCode (braceletCode)}
+											<a
+												href={`/roadid/${encodeURIComponent(braceletCode)}`}
+												class="profile-menu-item text-xs"
+												role="menuitem"
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconContact class="h-3.5 w-3.5 opacity-80" />
+												Bracelet: {braceletCode}
+											</a>
+										{/each}
 										<a
 											href={myGroupsMenuHref}
 											class="profile-menu-item"
