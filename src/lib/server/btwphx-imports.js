@@ -75,12 +75,27 @@ function normalizeBtwPhxEvent(rawEvent) {
 
 	const timezone = safeTrim(rawEvent?.timezone) || 'America/Phoenix';
 	const geocodeCountryCodes = inferGeocodeCountryCodeFromLocation(location) || 'us';
+	const primaryHttpLink =
+		linkItems.find((item) => /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(item.url)) || null;
+	const externalEventUrl = primaryHttpLink?.url || null;
+	const externalOrganizerName =
+		primaryHttpLink?.text || (externalEventUrl ? 'Bike To Work PHX' : null);
+	const venueName =
+		safeTrim(rawEvent?.venue) ||
+		location
+			.split(',')
+			.map((segment) => safeTrim(segment))
+			.find(Boolean) ||
+		'';
 
 	return {
 		id: sourceEventId,
 		title,
 		description: safeTrim(rawEvent?.description),
 		location,
+		venueName,
+		externalEventUrl,
+		externalOrganizerName,
 		timezone,
 		start: rawEvent?.start,
 		end: rawEvent?.end,

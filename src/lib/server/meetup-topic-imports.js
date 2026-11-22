@@ -243,18 +243,22 @@ function formatLocation(venue, group) {
 	return [name, address, cityState, country].filter(Boolean).join(', ');
 }
 
-function buildDescription(event, group, eventUrl, groupUrl) {
-	return [
-		safeTrim(event?.description),
-		group?.name ? `Meetup group: ${group.name}` : '',
-		eventUrl ? `Meetup event: ${eventUrl}` : '',
-		groupUrl ? `Meetup group page: ${groupUrl}` : ''
-	]
-		.filter(Boolean)
-		.join('\n\n');
+function extractMeetupVenueName(venue, group, isOnline) {
+	if (isOnline) return 'Online event';
+	const name = safeTrim(venue?.name);
+	if (name) return name;
+	const address = safeTrim(venue?.address);
+	if (address) return address;
+	const city = safeTrim(venue?.city || group?.city);
+	if (city) return city;
+	return 'Ride start';
 }
 
-function mapGroupEventToSeedEvent(group, event) {
+function buildDescription(event) {
+	return safeTrim(event?.description);
+}
+
+export function mapGroupEventToSeedEvent(group, event) {
 	const groupUrl = toMeetupGroupUrl(group?.urlname);
 	const eventUrl = normalizeMeetupUrl(event?.eventUrl);
 	const sourceEventId = safeTrim(
@@ -272,6 +276,8 @@ function mapGroupEventToSeedEvent(group, event) {
 	const isOnline =
 		Boolean(event?.isOnline) || safeTrim(event?.eventType).toUpperCase() === 'ONLINE';
 	const location = isOnline ? 'Online event' : formatLocation(event?.venue, group);
+	const venueName = extractMeetupVenueName(event?.venue, group, isOnline);
+	const externalOrganizerName = safeTrim(group?.name) || null;
 	const venueCountry = safeTrim(event?.venue?.country || group?.country).toLowerCase();
 	const geocodeCountryCodes = /^[a-z]{2}$/i.test(venueCountry) ? venueCountry : '';
 	const startLatitude = isOnline ? null : toFiniteNumber(event?.venue?.lat);
@@ -280,8 +286,11 @@ function mapGroupEventToSeedEvent(group, event) {
 	return {
 		id: sourceEventId,
 		title,
-		description: buildDescription(event, group, eventUrl, groupUrl),
+		description: buildDescription(event),
 		location,
+		venueName,
+		externalEventUrl: eventUrl || null,
+		externalOrganizerName,
 		timezone: safeTrim(group?.timezone) || 'America/Phoenix',
 		startDate: startParts.dateOnly,
 		endDate: endParts.dateOnly,
@@ -290,8 +299,8 @@ function mapGroupEventToSeedEvent(group, event) {
 		endHour: endParts.hour,
 		endMinutes: endParts.minute,
 		links: [
-			eventUrl ? { url: eventUrl, text: 'Meetup event' } : null,
-			groupUrl ? { url: groupUrl, text: safeTrim(group?.name) || 'Meetup group' } : null
+			eventUrl ? { url: eventUrl, text: externalOrganizerName || '' } : null,
+			groupUrl ? { url: groupUrl, text: externalOrganizerName || '' } : null
 		].filter(Boolean),
 		categories: {
 			cat_L7VpwwziHgCs0DV1r7T6p: [ROAD_BIKE_CATEGORY_OPTION_ID]

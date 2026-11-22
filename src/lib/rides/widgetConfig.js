@@ -195,28 +195,331 @@ function normalizeText(value) {
 	return safeTrim(value).toLowerCase();
 }
 
-function parseAddressParts(address) {
-	const parts = safeTrim(address)
+const US_STATE_CODES = new Set([
+	'AL',
+	'AK',
+	'AZ',
+	'AR',
+	'CA',
+	'CO',
+	'CT',
+	'DE',
+	'FL',
+	'GA',
+	'HI',
+	'ID',
+	'IL',
+	'IN',
+	'IA',
+	'KS',
+	'KY',
+	'LA',
+	'ME',
+	'MD',
+	'MA',
+	'MI',
+	'MN',
+	'MS',
+	'MO',
+	'MT',
+	'NE',
+	'NV',
+	'NH',
+	'NJ',
+	'NM',
+	'NY',
+	'NC',
+	'ND',
+	'OH',
+	'OK',
+	'OR',
+	'PA',
+	'RI',
+	'SC',
+	'SD',
+	'TN',
+	'TX',
+	'UT',
+	'VT',
+	'VA',
+	'WA',
+	'WV',
+	'WI',
+	'WY',
+	'DC',
+	'PR',
+	'VI',
+	'GU'
+]);
+
+const CA_PROVINCE_CODES = new Set([
+	'AB',
+	'BC',
+	'MB',
+	'NB',
+	'NL',
+	'NS',
+	'NT',
+	'NU',
+	'ON',
+	'PE',
+	'QC',
+	'SK',
+	'YT'
+]);
+
+const AU_STATE_CODES = new Set(['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']);
+
+const COUNTRY_NAME_TO_CODE = new Map([
+	['united states', 'US'],
+	['united states of america', 'US'],
+	['usa', 'US'],
+	['u.s.a.', 'US'],
+	['u.s.', 'US'],
+	['canada', 'CA'],
+	['united kingdom', 'GB'],
+	['uk', 'GB'],
+	['great britain', 'GB'],
+	['australia', 'AU'],
+	['mexico', 'MX'],
+	['spain', 'ES'],
+	['españa', 'ES'],
+	['italy', 'IT'],
+	['italia', 'IT'],
+	['france', 'FR'],
+	['germany', 'DE'],
+	['india', 'IN'],
+	['indonesia', 'ID'],
+	['oman', 'OM'],
+	['thailand', 'TH'],
+	['new zealand', 'NZ'],
+	['ireland', 'IE'],
+	['portugal', 'PT'],
+	['netherlands', 'NL'],
+	['belgium', 'BE'],
+	['switzerland', 'CH'],
+	['japan', 'JP'],
+	['brazil', 'BR']
+]);
+
+const INTERNATIONAL_REGIONS = new Set([
+	'kerala',
+	'karnataka',
+	'maharashtra',
+	'tamil nadu',
+	'telangana',
+	'rajasthan',
+	'gujarat',
+	'goa',
+	'west bengal',
+	'uttar pradesh',
+	'andalusia',
+	'catalonia',
+	'galicia',
+	'valencia',
+	'tuscany',
+	'lombardy',
+	'bavaria',
+	'jalisco',
+	'oaxaca',
+	'baja california',
+	'england',
+	'scotland',
+	'wales'
+]);
+
+function extractCityFromStreetAndCity(segment) {
+	const trimmed = safeTrim(segment);
+	if (!/^\d+\s+/.test(trimmed)) return trimmed;
+	const match =
+		/\b(?:st|street|ave|avenue|rd|road|dr|drive|blvd|boulevard|ln|lane|way|ct|court|pkwy|parkway|pl|place|cir|circle|trl|trail|hwy|highway)\.?\s+([A-Za-z][A-Za-z\s.'-]+)$/i.exec(
+			trimmed
+		);
+	return match ? safeTrim(match[1]) : trimmed;
+}
+
+function parseSubdivisionToken(segment) {
+	const trimmed = safeTrim(segment);
+	if (!trimmed) return null;
+
+	const usMatch = /^([A-Za-z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/.exec(trimmed);
+	if (usMatch && US_STATE_CODES.has(usMatch[1].toUpperCase())) {
+		return { code: usMatch[1].toUpperCase(), country: 'US' };
+	}
+
+	const caMatch = /^([A-Za-z]{2})(?:\s+[A-Za-z]\d[A-Za-z](?:\s?\d[A-Za-z]\d)?)?$/.exec(trimmed);
+	if (caMatch && CA_PROVINCE_CODES.has(caMatch[1].toUpperCase())) {
+		return { code: caMatch[1].toUpperCase(), country: 'CA' };
+	}
+
+	const auMatch = /^([A-Za-z]{2,3})(?:\s+\d{4})?$/.exec(trimmed);
+	if (auMatch && AU_STATE_CODES.has(auMatch[1].toUpperCase())) {
+		return { code: auMatch[1].toUpperCase(), country: 'AU' };
+	}
+
+	return null;
+}
+
+function collapseConsecutiveDuplicates(parts) {
+	const result = [];
+	for (const part of parts) {
+		const prev = result[result.length - 1];
+		if (prev && prev.toLowerCase() === part.toLowerCase()) continue;
+		result.push(part);
+	}
+	return result;
+}
+
+export function parseAddressParts(address) {
+	const rawParts = safeTrim(address)
 		.split(',')
 		.map((part) => safeTrim(part))
 		.filter(Boolean);
-	if (!parts.length) return { city: '', state: '' };
-	const city = parts.length >= 2 ? parts[parts.length - 2] : '';
-	const stateToken = parts[parts.length - 1];
-	const state = safeTrim(stateToken.split(/\s+/)[0]).toUpperCase();
-	return { city, state };
+	if (!rawParts.length || /^online\b/i.test(rawParts[0])) {
+		return { city: '', state: '' };
+	}
+
+	const parts = collapseConsecutiveDuplicates(rawParts);
+	if (parts.length === 1) {
+		return { city: '', state: '' };
+	}
+
+	if (parts.length === 2) {
+		const first = parts[0];
+		const second = parts[1];
+		const sub = parseSubdivisionToken(second);
+		if (sub) {
+			return { city: extractCityFromStreetAndCity(first), state: sub.code };
+		}
+		const mappedCountry = COUNTRY_NAME_TO_CODE.get(second.toLowerCase());
+		if (mappedCountry) {
+			return { city: first, state: mappedCountry };
+		}
+		if (/^[A-Za-z]{2}$/.test(second)) {
+			return { city: first, state: second.toUpperCase() };
+		}
+		const strippedPostal = safeTrim(second.replace(/\b\d{4,6}(?:-\d{4})?\b/g, ''));
+		return {
+			city: extractCityFromStreetAndCity(first),
+			state: strippedPostal.length <= 3 ? strippedPostal.toUpperCase() : strippedPostal
+		};
+	}
+
+	const working = [...parts];
+	const last = working[working.length - 1];
+	let countryCode = COUNTRY_NAME_TO_CODE.get(last.toLowerCase()) || '';
+	if (countryCode) {
+		working.pop();
+	} else if (/^[A-Za-z]{2}$/.test(last)) {
+		countryCode = last.toUpperCase();
+		working.pop();
+	}
+
+	if (countryCode) {
+		if (!working.length) return { city: '', state: countryCode };
+		if (countryCode === 'US' || countryCode === 'CA' || countryCode === 'AU') {
+			const tail = working[working.length - 1];
+			const sub = parseSubdivisionToken(tail);
+			const state =
+				sub?.code ||
+				safeTrim(tail.replace(/\b\d{4,6}(?:-\d{4})?\b/g, '')).toUpperCase() ||
+				countryCode;
+			const city =
+				working.length >= 2 ? extractCityFromStreetAndCity(working[working.length - 2]) : '';
+			return { city, state };
+		}
+
+		let idx = working.length - 1;
+		while (idx > 0) {
+			const candidate = working[idx];
+			const candidateCountry = COUNTRY_NAME_TO_CODE.get(candidate.toLowerCase());
+			if (
+				candidateCountry === countryCode ||
+				(/^[A-Za-z0-9]{1,3}$/.test(candidate) && /\d/.test(candidate))
+			) {
+				idx -= 1;
+				continue;
+			}
+			break;
+		}
+
+		const tail = working[idx];
+		if (idx >= 1) {
+			const prev = working[idx - 1];
+			if (/^[A-Za-z]{2,3}$/.test(tail) && tail === tail.toUpperCase()) {
+				return { city: prev, state: countryCode };
+			}
+			if (
+				INTERNATIONAL_REGIONS.has(tail.toLowerCase()) &&
+				!COUNTRY_NAME_TO_CODE.has(prev.toLowerCase()) &&
+				prev.toLowerCase() !== tail.toLowerCase()
+			) {
+				return { city: prev, state: tail };
+			}
+		}
+
+		return { city: tail, state: countryCode };
+	}
+
+	const tail = working[working.length - 1];
+	const prev = working[working.length - 2];
+	const sub = parseSubdivisionToken(tail);
+	if (sub) {
+		return { city: extractCityFromStreetAndCity(prev), state: sub.code };
+	}
+	const strippedState = safeTrim(tail.replace(/\b\d{4,6}(?:-\d{4})?\b/g, ''));
+	return {
+		city: extractCityFromStreetAndCity(prev),
+		state: strippedState.length <= 3 ? strippedState.toUpperCase() : strippedState
+	};
 }
 
 export function extractRideCity(ride) {
 	const groupCity = safeTrim(ride?.group?.city);
 	if (groupCity) return groupCity;
-	return parseAddressParts(ride?.startLocationAddress).city;
+	return parseAddressParts(ride?.startLocationAddress ?? ride?.start_location_address).city;
 }
 
 export function extractRideState(ride) {
 	const groupState = safeTrim(ride?.group?.state_region);
 	if (groupState) return groupState;
-	return parseAddressParts(ride?.startLocationAddress).state;
+	return parseAddressParts(ride?.startLocationAddress ?? ride?.start_location_address).state;
+}
+
+export function extractRideVenueName(ride) {
+	const rawName = safeTrim(ride?.startLocationName ?? ride?.start_location_name);
+	if (rawName && rawName.toLowerCase() !== 'meetup event') {
+		return rawName;
+	}
+	const rawAddress = safeTrim(ride?.startLocationAddress ?? ride?.start_location_address);
+	if (!rawAddress) return '';
+	if (/^online\b/i.test(rawAddress)) return 'Online event';
+	const firstSegment = rawAddress
+		.split(',')
+		.map((part) => safeTrim(part))
+		.find(Boolean);
+	return firstSegment || '';
+}
+
+export function formatRideCardLocation(ride) {
+	const venue = extractRideVenueName(ride);
+	const city = extractRideCity(ride);
+	const state = extractRideState(ride);
+	const cityState = [city, state].filter(Boolean).join(', ');
+
+	if (!venue) return cityState || 'Location coming soon';
+	if (!cityState) return venue;
+
+	const venueLower = venue.toLowerCase();
+	const cityLower = city.toLowerCase();
+	const cityStateLower = cityState.toLowerCase();
+	if (venueLower === cityLower || venueLower === cityStateLower) {
+		return cityState;
+	}
+	if (venueLower.includes(cityStateLower)) {
+		return venue;
+	}
+	return `${venue} · ${cityState}`;
 }
 
 export function formatRideWidgetTitle(ride, config = DEFAULT_RIDE_WIDGET_CONFIG) {

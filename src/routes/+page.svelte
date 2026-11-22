@@ -1,6 +1,7 @@
 <script>
 	import { buildAbsoluteUrl, limitSeoText, toJsonLd } from '#lib/seo';
 	import { getRideImage } from '#lib/rides/media';
+	import { formatRideCardLocation } from '#lib/rides/widgetConfig';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
@@ -174,7 +175,7 @@
 	}
 
 	function ridePlace(ride) {
-		return ride.startLocationName || ride.group?.city || 'Location coming soon';
+		return formatRideCardLocation(ride);
 	}
 </script>
 

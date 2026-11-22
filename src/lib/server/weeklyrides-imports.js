@@ -348,15 +348,64 @@ export function inferGeocodeCountryCodeFromLocation(location) {
 	return '';
 }
 
-function buildEventDescription({ location, category, itemUrl, externalUrl }) {
-	return [
-		location ? `Location: ${location}` : '',
-		category ? `Category: ${category}` : '',
-		externalUrl ? `Event link: ${externalUrl}` : '',
-		itemUrl ? `WeeklyRides listing: ${itemUrl}` : ''
-	]
+function buildEventDescription({ location, category }) {
+	return [location ? `Location: ${location}` : '', category ? `Category: ${category}` : '']
 		.filter(Boolean)
 		.join('\n');
+}
+
+function humanizeSlug(slug) {
+	return compactWhitespace(String(slug || '').replace(/[-_]+/g, ' ')).replace(
+		/\b[a-z]/g,
+		(letter) => letter.toUpperCase()
+	);
+}
+
+function deriveWeeklyRidesOrganizerName(externalLink, title) {
+	const text = compactWhitespace(externalLink?.text);
+	const normalizedTitle = compactWhitespace(title).toLowerCase();
+	if (
+		text &&
+		!/^https?:\/\//i.test(text) &&
+		text.toLowerCase() !== normalizedTitle &&
+		!/^(event link|weeklyrides listing|reference link|more info|more information|website|register|click here)$/i.test(
+			text
+		)
+	) {
+		return text;
+	}
+
+	const rawUrl = safeTrim(externalLink?.url);
+	if (rawUrl) {
+		try {
+			const parsed = new URL(rawUrl);
+			const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+			if (host === 'meetup.com') {
+				const groupSlug = parsed.pathname.split('/').filter(Boolean)[0];
+				if (groupSlug) return humanizeSlug(groupSlug);
+			}
+			if (
+				host &&
+				!['weeklyrides.com', 'facebook.com', 'fb.me', 'instagram.com', 'eventbrite.com'].some(
+					(domain) => host === domain || host.endsWith(`.${domain}`)
+				)
+			) {
+				return host;
+			}
+		} catch {
+			// Fall back to WeeklyRides below.
+		}
+	}
+
+	return 'WeeklyRides';
+}
+
+function extractWeeklyRidesVenueName(location) {
+	const firstSegment = String(location || '')
+		.split(',')
+		.map((part) => compactWhitespace(part))
+		.find(Boolean);
+	return firstSegment || 'Ride start';
 }
 
 function buildSeedEventFromRssItem(itemXml) {
@@ -376,6 +425,9 @@ function buildSeedEventFromRssItem(itemXml) {
 	const externalLink =
 		metadata.links.find((link) => !isWeeklyRidesUrl(link.url)) || metadata.links[0] || null;
 	const detailsLinks = uniq([externalLink?.url || '', itemLink]).filter(Boolean);
+	const externalEventUrl = externalLink?.url || itemLink || null;
+	const externalOrganizerName = deriveWeeklyRidesOrganizerName(externalLink, title);
+	const venueName = extractWeeklyRidesVenueName(metadata.location);
 	const { hour: startHour, minute: startMinutes } = getTimePartsInTimeZone(
 		publishedDate,
 		WEEKLYRIDES_TIMEZONE
@@ -400,11 +452,12 @@ function buildSeedEventFromRssItem(itemXml) {
 		title: compactWhitespace(title),
 		description: buildEventDescription({
 			location: metadata.location,
-			category: metadata.category,
-			itemUrl: itemLink,
-			externalUrl: externalLink?.url || ''
+			category: metadata.category
 		}),
 		location: metadata.location,
+		venueName,
+		externalEventUrl,
+		externalOrganizerName,
 		geocodeCountryCodes: inferGeocodeCountryCodeFromLocation(metadata.location),
 		timezone: WEEKLYRIDES_TIMEZONE,
 		startDate,

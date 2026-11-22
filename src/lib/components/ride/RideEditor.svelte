@@ -111,6 +111,8 @@
 			contactEmail: activity.contact_email || '',
 			contactPhone: activity.contact_phone || '',
 			hostGroupId: activity.host_group_id || '',
+			externalEventUrl: rideDetails.external_event_url || '',
+			externalOrganizerName: rideDetails.external_organizer_name || '',
 			imageUrls: rideDetails.image_urls ?? [],
 			participantVisibility: rideDetails.participant_visibility || 'public',
 			estimatedDistanceMiles: rideDetails.estimated_distance_miles ?? '',
@@ -171,6 +173,8 @@
 			contactEmail: form.contactEmail,
 			contactPhone: form.contactPhone,
 			hostGroupId: form.hostGroupId || null,
+			externalEventUrl: form.externalEventUrl,
+			externalOrganizerName: form.externalOrganizerName,
 			imageUrls: form.imageUrls,
 			participantVisibility: form.participantVisibility,
 			estimatedDistanceMiles: form.estimatedDistanceMiles,
@@ -228,6 +232,8 @@
 			bikeSuitability: rideDraft.bike_suitability ?? form.bikeSuitability,
 			accessibilityNotes: rideDraft.accessibility_notes ?? form.accessibilityNotes,
 			waiverRequired: rideDraft.waiver_required ?? form.waiverRequired,
+			externalEventUrl: rideDraft.external_event_url ?? form.externalEventUrl,
+			externalOrganizerName: rideDraft.external_organizer_name ?? form.externalOrganizerName,
 			recurrenceEnabled: recurrence.enabled ?? form.recurrenceEnabled,
 			recurrenceFrequency: recurrence.frequency ?? form.recurrenceFrequency,
 			recurrenceInterval: recurrence.interval_count ?? form.recurrenceInterval,
@@ -766,7 +772,8 @@
 
 	const rideId = $derived(initialRide?.activity?.id ?? null);
 	const rideSlug = $derived(initialRide?.activity?.slug ?? null);
-	let form = $state(cloneDefaultForm());
+	// svelte-ignore state_referenced_locally
+	let form = $state(initializeForm(initialRide));
 	let slugTouched = $state(false);
 	let saving = $state(false);
 	let saveError = $state('');
@@ -1113,6 +1120,61 @@
 								<option value="private">Private to hosts</option>
 							</select>
 						</label>
+						<div class="border-surface-500 grid gap-4 border p-4 md:col-span-2 md:grid-cols-2">
+							<div class="md:col-span-2">
+								<div class="font-medium">External registration &amp; attribution</div>
+								<p class="text-sm opacity-75">
+									Optional. Add an external event URL (Meetup, BikeReg, Eventbrite, etc.) to promote
+									external registration in the hero instead of local RSVPs.
+								</p>
+							</div>
+							<div class="flex flex-col gap-1.5">
+								<label class="label" for="ride-external-event-url">External registration link</label
+								>
+								<div class="flex gap-2">
+									<input
+										id="ride-external-event-url"
+										type="url"
+										class="input flex-1"
+										bind:value={form.externalEventUrl}
+										placeholder="https://www.meetup.com/..."
+									/>
+									{#if form.externalEventUrl}
+										<button
+											type="button"
+											aria-label="Clear external registration link"
+											class="btn preset-outlined-surface-500 min-h-9 shrink-0 px-3"
+											onclick={() => (form = { ...form, externalEventUrl: '' })}
+										>
+											Clear
+										</button>
+									{/if}
+								</div>
+							</div>
+							<div class="flex flex-col gap-1.5">
+								<label class="label" for="ride-external-organizer-name"
+									>External organizer name</label
+								>
+								<div class="flex gap-2">
+									<input
+										id="ride-external-organizer-name"
+										class="input flex-1"
+										bind:value={form.externalOrganizerName}
+										placeholder="Club or host name"
+									/>
+									{#if form.externalOrganizerName}
+										<button
+											type="button"
+											aria-label="Clear external organizer name"
+											class="btn preset-outlined-surface-500 min-h-9 shrink-0 px-3"
+											onclick={() => (form = { ...form, externalOrganizerName: '' })}
+										>
+											Clear
+										</button>
+									{/if}
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -1900,7 +1962,7 @@
 			{/if}
 		</div>
 
-		<aside class="order-2 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
+		<div class="order-2 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
 			<!-- AI Intake -->
 			<section class="ai-panel card overflow-hidden">
 				<div class="ai-panel-header p-4 pb-3">
@@ -1990,7 +2052,7 @@
 					</label>
 				</div>
 			</section>
-		</aside>
+		</div>
 	</div>
 </div>
 
@@ -2142,5 +2204,10 @@
 		letter-spacing: 0.18em;
 		opacity: 0.55;
 		margin-bottom: 0.25rem;
+	}
+
+	button.chip,
+	button.btn-sm {
+		min-height: 2rem;
 	}
 </style>

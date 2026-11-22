@@ -5,6 +5,7 @@ import {
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
+	isValidExternalEventUrlInput,
 	loadRideBySlug,
 	normalizeRidePayload,
 	refreshActivityNextOccurrence,
@@ -46,6 +47,9 @@ export async function PUT({ params, request, cookies }) {
 
 	const rawPayload = await request.json().catch(() => null);
 	if (!rawPayload) return invalid('Invalid request body.');
+	if (!isValidExternalEventUrlInput(rawPayload.externalEventUrl ?? rawPayload.external_event_url)) {
+		return invalid('External registration link must be a valid http:// or https:// URL.');
+	}
 	const payload = normalizeRidePayload(rawPayload);
 
 	if (payload.activity.host_group_id) {

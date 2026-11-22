@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
+import {
+	extractRideCity,
+	extractRideState,
+	formatRideCardLocation
+} from '../rides/widgetConfig.js';
+import { parseBtwPhxCalendarData } from './btwphx-imports.js';
+import { mapGroupEventToSeedEvent } from './meetup-topic-imports.js';
 import { fetchExistingRideEventsBySourceId, importRideSeedData } from './ride-imports.js';
+import { isValidExternalEventUrlInput, normalizeRidePayload } from './ridePayload.js';
+import { parseWeeklyRidesRssFeed } from './weeklyrides-imports.js';
 
 function createSourceLookupSupabase(rows) {
 	const queries = [];
@@ -359,4 +368,262 @@ test('importRideSeedData updates missing existing coordinates when requested', a
 	assert.deepEqual(result.coordinatesUpdated, [
 		{ sourceEventId: 'source-1', activityId: 'activity-1', title: 'Sample Ride' }
 	]);
+});
+
+test('Meetup import maps real venue, external URL, organizer name, clean description, and null pace_notes', async () => {
+	const seedEvent = mapGroupEventToSeedEvent(
+		{
+			name: 'One Love Cycling',
+			urlname: 'one-love-cycling',
+			city: 'Sunrise',
+			state: 'FL',
+			country: 'us',
+			timezone: 'America/New_York'
+		},
+		{
+			id: 'vxkztryjcpbcc',
+			title: 'One Love Cycling Club Ride',
+			description:
+				'We meet behind the 7Eleven/Exxon at the Westgate Square Shopping Centre.\n\nRoll out at 7:00am sharp.',
+			eventUrl: 'https://www.meetup.com/one-love-cycling/events/vxkztryjcpbcc/',
+			dateTime: '2026-11-21T07:00:00-05:00',
+			endTime: '2026-11-21T10:00:00-05:00',
+			venue: {
+				name: 'Westgate Square',
+				address: '15810 W State Road 84',
+				city: 'Sunrise',
+				state: 'FL',
+				country: 'us',
+				lat: 26.118,
+				lon: -80.36
+			}
+		}
+	);
+
+	const result = await importRideSeedData(
+		{},
+		{ events: [seedEvent] },
+		{
+			slugPrefix: 'meetup-',
+			dryRun: true,
+			requireGeocoding: false,
+			skipGeocoding: true
+		}
+	);
+
+	assert.equal(result.mapped.length, 1);
+	const [mapped] = result.mapped;
+	assert.equal(mapped.activity.start_location_name, 'Westgate Square');
+	assert.equal(
+		mapped.activity.start_location_address,
+		'Westgate Square, 15810 W State Road 84, Sunrise, FL, US'
+	);
+	assert.equal(
+		mapped.activity.description,
+		'We meet behind the 7Eleven/Exxon at the Westgate Square Shopping Centre.\n\nRoll out at 7:00am sharp.'
+	);
+	assert.doesNotMatch(
+		mapped.activity.description,
+		/Meetup group:|Meetup event:|More information:/i
+	);
+	assert.equal(
+		mapped.ride.external_event_url,
+		'https://www.meetup.com/one-love-cycling/events/vxkztryjcpbcc/'
+	);
+	assert.equal(mapped.ride.external_organizer_name, 'One Love Cycling');
+	assert.equal(mapped.ride.pace_notes, null);
+});
+
+test('WeeklyRides import populates venue, external registration URL, organizer, and clean description', async () => {
+	const rssXml = `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <lastBuildDate>Sat, 21 Nov 2026 10:00:00 GMT</lastBuildDate>
+    <item>
+      <title>NCCX 2026 Cyclo-Cross Series NCGP</title>
+      <link>https://www.weeklyrides.com/index.php/rides-events/9343-nccx-2026-cyclo-cross-series-ncgp-46348</link>
+      <guid>https://www.weeklyrides.com/index.php/rides-events/9343-nccx-2026-cyclo-cross-series-ncgp-46348</guid>
+      <pubDate>Sat, 21 Nov 2026 13:00:00 GMT</pubDate>
+      <description><![CDATA[
+        <div><strong>NOV</strong><br/><strong>21</strong></div>
+        <p><strong>Location:</strong> Hendersonville, NC</p>
+        <p><strong>Category:</strong> Gravel/Mtb</p>
+        <p><a href="https://www.nccyclocross.com/">NC Cyclocross</a></p>
+      ]]></description>
+    </item>
+  </channel>
+</rss>`;
+
+	const parsed = parseWeeklyRidesRssFeed(rssXml);
+	const result = await importRideSeedData(
+		{},
+		{ events: parsed.events },
+		{
+			slugPrefix: 'weeklyrides-',
+			dryRun: true,
+			requireGeocoding: false,
+			skipGeocoding: true
+		}
+	);
+
+	assert.equal(result.mapped.length, 1);
+	const [mapped] = result.mapped;
+	assert.equal(mapped.activity.start_location_name, 'Hendersonville');
+	assert.equal(mapped.activity.start_location_address, 'Hendersonville, NC');
+	assert.equal(mapped.activity.description, 'Location: Hendersonville, NC\nCategory: Gravel/Mtb');
+	assert.doesNotMatch(
+		mapped.activity.description,
+		/Event link:|WeeklyRides listing:|More information:/i
+	);
+	assert.equal(mapped.ride.external_event_url, 'https://www.nccyclocross.com/');
+	assert.equal(mapped.ride.external_organizer_name, 'NC Cyclocross');
+	assert.equal(mapped.ride.pace_notes, null);
+});
+
+test('BTWPHX and seed imports store external organizer/url without overwriting venue or appending link footers', async () => {
+	const parsed = parseBtwPhxCalendarData({
+		result: true,
+		value: [
+			{
+				id: 'btw-rar-1',
+				title: 'RAR Bikepacking Trip',
+				description: 'Come join us for our annual fall beginner bikepacking trip!',
+				location: '11570 N Oracle Rd, Tucson, AZ 85737, United States',
+				timezone: 'America/Phoenix',
+				startDate: '2026-11-21',
+				endDate: '2026-11-22',
+				startHour: 7,
+				startMinutes: 0,
+				endHour: 15,
+				endMinutes: 0,
+				links: [
+					{
+						text: 'RAR Tucson',
+						url: 'https://www.instagram.com/p/example-rar/'
+					}
+				]
+			}
+		]
+	});
+
+	const result = await importRideSeedData(
+		{},
+		{ events: parsed.events },
+		{
+			dryRun: true,
+			requireGeocoding: false,
+			skipGeocoding: true
+		}
+	);
+
+	assert.equal(result.mapped.length, 1);
+	const [mapped] = result.mapped;
+	assert.equal(mapped.activity.start_location_name, '11570 N Oracle Rd');
+	assert.equal(
+		mapped.activity.description,
+		'Come join us for our annual fall beginner bikepacking trip!'
+	);
+	assert.doesNotMatch(mapped.activity.description, /More information:/i);
+	assert.equal(mapped.ride.external_event_url, 'https://www.instagram.com/p/example-rar/');
+	assert.equal(mapped.ride.external_organizer_name, 'RAR Tucson');
+	assert.equal(mapped.ride.pace_notes, null);
+});
+
+test('normalizeRidePayload restricts external_event_url to null or http/https URLs and trims external_organizer_name', () => {
+	const validHttps = normalizeRidePayload({
+		title: 'Club Ride',
+		externalEventUrl: '  https://www.meetup.com/one-love-cycling/events/123/  ',
+		externalOrganizerName: '  One Love Cycling  '
+	});
+	assert.equal(
+		validHttps.ride.external_event_url,
+		'https://www.meetup.com/one-love-cycling/events/123/'
+	);
+	assert.equal(validHttps.ride.external_organizer_name, 'One Love Cycling');
+
+	const validHttp = normalizeRidePayload({
+		title: 'Local Ride',
+		external_event_url: 'http://nccyclocross.com/register',
+		external_organizer_name: '   '
+	});
+	assert.equal(validHttp.ride.external_event_url, 'http://nccyclocross.com/register');
+	assert.equal(validHttp.ride.external_organizer_name, null);
+
+	for (const unsafeUrl of [
+		'',
+		'   ',
+		'javascript:alert(1)',
+		'data:text/html,<script>alert(1)</script>',
+		'ftp://files.example.com/ride.gpx',
+		'//evil.example/ride',
+		'/ride/local-path',
+		'https://example.com/with spaces'
+	]) {
+		const normalized = normalizeRidePayload({
+			title: 'Unsafe Link Test',
+			externalEventUrl: unsafeUrl
+		});
+		assert.equal(
+			normalized.ride.external_event_url,
+			null,
+			`Expected ${JSON.stringify(unsafeUrl)} to normalize to null`
+		);
+	}
+
+	assert.equal(isValidExternalEventUrlInput(''), true);
+	assert.equal(isValidExternalEventUrlInput('https://www.bikereg.com/event'), true);
+	assert.equal(isValidExternalEventUrlInput('javascript:alert(1)'), false);
+	assert.equal(isValidExternalEventUrlInput('ftp://example.com'), false);
+});
+
+test('formatRideCardLocation formats venue plus city and state across US and international addresses', () => {
+	const usMeetup = {
+		startLocationName: 'Long Beach Windsurf Center',
+		startLocationAddress: 'Long Beach Windsurf Center, 3850 E Ocean Blvd, Long Beach, CA, US'
+	};
+	assert.equal(extractRideCity(usMeetup), 'Long Beach');
+	assert.equal(extractRideState(usMeetup), 'CA');
+	assert.equal(formatRideCardLocation(usMeetup), 'Long Beach Windsurf Center · Long Beach, CA');
+
+	const usZip = {
+		startLocationName: '8626 N Central Ave',
+		startLocationAddress: '8626 N Central Ave, Phoenix, AZ 85021, USA'
+	};
+	assert.equal(formatRideCardLocation(usZip), '8626 N Central Ave · Phoenix, AZ');
+
+	const cityOnly = {
+		startLocationName: 'Hendersonville',
+		startLocationAddress: 'Hendersonville, NC'
+	};
+	assert.equal(formatRideCardLocation(cityOnly), 'Hendersonville, NC');
+
+	const spainMeetup = {
+		startLocationName: 'Casa de Campo',
+		startLocationAddress: 'Casa de Campo, Pabellón Multiusos I, Madrid, ES'
+	};
+	assert.equal(extractRideCity(spainMeetup), 'Madrid');
+	assert.equal(extractRideState(spainMeetup), 'ES');
+	assert.equal(formatRideCardLocation(spainMeetup), 'Casa de Campo · Madrid, ES');
+
+	const ukMeetup = {
+		startLocationName: 'Tennis Court next to Maindy Velodrome',
+		startLocationAddress:
+			'Tennis Court next to Maindy Velodrome, Gelligaer Street Park 25, Gelligaer St, Cardiff, X5, GB'
+	};
+	assert.equal(
+		formatRideCardLocation(ukMeetup),
+		'Tennis Court next to Maindy Velodrome · Cardiff, GB'
+	);
+
+	const indiaMeetup = {
+		startLocationName: 'Town Hall',
+		startLocationAddress: 'Town Hall, Near by Palace Road, Thrissur, Kerala, IN'
+	};
+	assert.equal(formatRideCardLocation(indiaMeetup), 'Town Hall · Thrissur, Kerala');
+
+	const legacyPlaceholder = {
+		startLocationName: 'Meetup event',
+		startLocationAddress: 'Westgate Square, 15810 W State Road 84, Sunrise, FL, US'
+	};
+	assert.equal(formatRideCardLocation(legacyPlaceholder), 'Westgate Square · Sunrise, FL');
 });

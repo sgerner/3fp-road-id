@@ -3,12 +3,25 @@ import {
 	createServiceSupabaseClient
 } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
-import { normalizeTimezone, resolveTimezoneFromCoordinates } from '#lib/server/timezones';
+import {
+	isValidExternalEventUrlInput,
+	normalizeEmailTemplate,
+	normalizeExternalEventUrl,
+	normalizeRidePayload
+} from '#lib/server/ridePayload';
+
+export {
+	isValidExternalEventUrlInput,
+	normalizeEmailTemplate,
+	normalizeExternalEventUrl,
+	normalizeRidePayload
+};
 
 const MAX_OCCURRENCE_MONTHS = 18;
 const ACTIVITY_SELECT = `
 	id,
 	activity_type,
+	source_event_id,
 	host_user_id,
 	host_group_id,
 	group:groups(id,slug,name),
@@ -50,14 +63,6 @@ function slugify(value) {
 
 function asArray(value) {
 	return Array.isArray(value) ? value : [];
-}
-
-function normalizeUrlList(value) {
-	return uniq(
-		asArray(value)
-			.map((entry) => safeTrim(entry))
-			.filter((entry) => /^https?:\/\//i.test(entry))
-	);
 }
 
 function toIso(value) {
@@ -202,119 +207,6 @@ export async function ensureUniqueActivitySlug(supabase, source, excludeId = nul
 	}
 
 	return `${base}-${Date.now()}`;
-}
-
-export function normalizeEmailTemplate(template = {}, index = 0) {
-	return {
-		id: template.id ?? `template-${index + 1}`,
-		name: safeTrim(template.name) || `Reminder ${index + 1}`,
-		templateType: safeTrim(template.template_type ?? template.templateType) || 'reminder',
-		sendOffsetMinutes: toInteger(
-			template.send_offset_minutes ?? template.sendOffsetMinutes ?? template.offsetMinutes
-		),
-		subject: safeTrim(template.subject),
-		body: safeTrim(template.body),
-		isActive: coerceBoolean(template.is_active ?? template.isActive, true)
-	};
-}
-
-export function normalizeRidePayload(payload = {}) {
-	const submittedTimezone = safeTrim(payload.timezone);
-	const canonicalTimezone =
-		resolveTimezoneFromCoordinates(
-			payload.startLatitude ?? payload.start_latitude,
-			payload.startLongitude ?? payload.start_longitude
-		) || normalizeTimezone(submittedTimezone);
-
-	return {
-		activity: {
-			title: safeTrim(payload.title),
-			slug: safeTrim(payload.slug),
-			summary: safeTrim(payload.summary) || null,
-			description: safeTrim(payload.description) || null,
-			status: safeTrim(payload.status) || 'draft',
-			timezone: canonicalTimezone,
-			is_host: coerceBoolean(payload.isHost ?? payload.is_host, true),
-			starts_at: toIso(payload.startsAt ?? payload.starts_at),
-			ends_at: toIso(payload.endsAt ?? payload.ends_at),
-			start_location_name: safeTrim(payload.startLocationName ?? payload.start_location_name),
-			start_location_address:
-				safeTrim(payload.startLocationAddress ?? payload.start_location_address) || null,
-			start_latitude: toNumber(payload.startLatitude ?? payload.start_latitude),
-			start_longitude: toNumber(payload.startLongitude ?? payload.start_longitude),
-			contact_email: safeTrim(payload.contactEmail ?? payload.contact_email) || null,
-			contact_phone: safeTrim(payload.contactPhone ?? payload.contact_phone) || null,
-			host_group_id: safeTrim(payload.hostGroupId ?? payload.host_group_id) || null
-		},
-		ride: {
-			image_urls: normalizeUrlList(payload.imageUrls ?? payload.image_urls),
-			participant_visibility:
-				safeTrim(payload.participantVisibility ?? payload.participant_visibility) || 'public',
-			end_location_name: safeTrim(payload.endLocationName ?? payload.end_location_name) || null,
-			end_location_address:
-				safeTrim(payload.endLocationAddress ?? payload.end_location_address) || null,
-			end_latitude: toNumber(payload.endLatitude ?? payload.end_latitude),
-			end_longitude: toNumber(payload.endLongitude ?? payload.end_longitude),
-			estimated_distance_miles: toNumber(
-				payload.estimatedDistanceMiles ?? payload.estimated_distance_miles
-			),
-			estimated_duration_minutes: toInteger(
-				payload.estimatedDurationMinutes ?? payload.estimated_duration_minutes
-			),
-			elevation_gain_feet: toInteger(payload.elevationGainFeet ?? payload.elevation_gain_feet),
-			pace_notes: safeTrim(payload.paceNotes ?? payload.pace_notes) || null,
-			is_no_drop: coerceBoolean(payload.isNoDrop ?? payload.is_no_drop, true),
-			surface_types: uniq(
-				asArray(payload.surfaceTypes ?? payload.surface_types).map(safeTrim)
-			).filter(Boolean),
-			bike_suitability: uniq(
-				asArray(payload.bikeSuitability ?? payload.bike_suitability).map(safeTrim)
-			).filter(Boolean),
-			accessibility_notes:
-				safeTrim(payload.accessibilityNotes ?? payload.accessibility_notes) || null,
-			waiver_required: coerceBoolean(payload.waiverRequired ?? payload.waiver_required, false)
-		},
-		recurrence: {
-			enabled: coerceBoolean(payload.recurrenceEnabled ?? payload.recurrence_enabled, false),
-			frequency: safeTrim(payload.recurrenceFrequency ?? payload.recurrence_frequency) || 'weekly',
-			interval_count: Math.max(
-				1,
-				toInteger(payload.recurrenceInterval ?? payload.recurrence_interval) ?? 1
-			),
-			by_weekdays: uniq(
-				asArray(payload.recurrenceWeekdays ?? payload.recurrence_weekdays)
-					.map((value) => toInteger(value))
-					.filter((value) => value >= 1 && value <= 7)
-			),
-			by_set_positions: uniq(
-				asArray(payload.recurrenceMonthPositions ?? payload.recurrence_month_positions)
-					.map((value) => toInteger(value))
-					.filter((value) => [-1, 1, 2, 3, 4].includes(value))
-			),
-			until_on: safeTrim(payload.recurrenceUntilOn ?? payload.recurrence_until_on) || null
-		},
-		difficultyLevelIds: uniq(
-			asArray(payload.difficultyLevelIds ?? payload.difficulty_level_ids)
-				.map((value) => toInteger(value))
-				.filter(Boolean)
-		),
-		ridingDisciplineIds: uniq(
-			asArray(payload.ridingDisciplineIds ?? payload.riding_discipline_ids)
-				.map((value) => toInteger(value))
-				.filter(Boolean)
-		),
-		exclusions: asArray(payload.exclusions)
-			.map((entry) => ({
-				id: safeTrim(entry?.id) || null,
-				starts_on: safeTrim(entry?.starts_on ?? entry?.startsOn),
-				ends_on: safeTrim(entry?.ends_on ?? entry?.endsOn),
-				note: safeTrim(entry?.note) || null
-			}))
-			.filter((entry) => entry.starts_on && entry.ends_on),
-		emailTemplates: asArray(payload.emailTemplates ?? payload.email_templates)
-			.map((template, index) => normalizeEmailTemplate(template, index))
-			.filter((template) => template.subject && template.body)
-	};
 }
 
 function generateWeeklyOccurrences({ templateStart, durationMs, rule, horizonEnd, exclusions }) {
@@ -824,6 +716,9 @@ async function loadRideRecord(
 
 	return {
 		activity,
+		source_event_id: activity.source_event_id ?? null,
+		external_event_url: rideDetails?.external_event_url ?? null,
+		external_organizer_name: rideDetails?.external_organizer_name ?? null,
 		canManageRsvps,
 		rideDetails: rideDetails ?? null,
 		occurrences: occurrenceRows.map((occurrence) => ({

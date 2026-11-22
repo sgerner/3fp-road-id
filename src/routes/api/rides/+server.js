@@ -4,6 +4,7 @@ import {
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
+	isValidExternalEventUrlInput,
 	loadRideBySlug,
 	normalizeRidePayload,
 	refreshActivityNextOccurrence,
@@ -30,6 +31,7 @@ export async function GET({ url, cookies }) {
 		.select(
 			`
 				id,
+				source_event_id,
 				title,
 				slug,
 				summary,
@@ -44,7 +46,6 @@ export async function GET({ url, cookies }) {
 				start_longitude,
 				next_occurrence_start,
 				next_occurrence_end,
-				host_group_id,
 				ride_details(*),
 				group:groups(id,slug,name,city,state_region),
 				difficulty_links:activity_x_ride_difficulty_levels(level:ride_difficulty_levels(*)),
@@ -84,36 +85,47 @@ export async function GET({ url, cookies }) {
 	);
 
 	const rows = (activities ?? [])
-		.map((activity) => ({
-			id: activity.id,
-			title: activity.title,
-			slug: activity.slug,
-			summary: activity.summary,
-			description: activity.description,
-			timezone: activity.timezone,
-			hostUserId: activity.host_user_id,
-			hostGroupId: activity.host_group_id,
-			startLocationName: activity.start_location_name,
-			startLocationAddress: activity.start_location_address,
-			startLatitude: activity.start_latitude,
-			startLongitude: activity.start_longitude,
-			nextOccurrenceStart: activity.next_occurrence_start,
-			nextOccurrenceEnd: activity.next_occurrence_end,
-			recurrenceEnabled: recurringActivityIds.has(activity.id),
-			group: activity.group ?? null,
-			rideDetails: Array.isArray(activity.ride_details)
+		.map((activity) => {
+			const rideDetails = Array.isArray(activity.ride_details)
 				? (activity.ride_details[0] ?? null)
-				: (activity.ride_details ?? null),
-			imageUrls: Array.isArray(activity.ride_details)
-				? (activity.ride_details[0]?.image_urls ?? [])
-				: (activity.ride_details?.image_urls ?? []),
-			difficultyLevels: (activity.difficulty_links ?? [])
-				.map((entry) => entry?.level)
-				.filter(Boolean),
-			ridingDisciplines: (activity.discipline_links ?? [])
-				.map((entry) => entry?.discipline)
-				.filter(Boolean)
-		}))
+				: (activity.ride_details ?? null);
+			const externalEventUrl = rideDetails?.external_event_url ?? null;
+			const externalOrganizerName = rideDetails?.external_organizer_name ?? null;
+			const sourceEventId = activity.source_event_id ?? null;
+
+			return {
+				id: activity.id,
+				source_event_id: sourceEventId,
+				sourceEventId,
+				external_event_url: externalEventUrl,
+				externalEventUrl,
+				external_organizer_name: externalOrganizerName,
+				externalOrganizerName,
+				title: activity.title,
+				slug: activity.slug,
+				summary: activity.summary,
+				description: activity.description,
+				timezone: activity.timezone,
+				hostUserId: activity.host_user_id,
+				hostGroupId: activity.host_group_id,
+				startLocationName: activity.start_location_name,
+				startLocationAddress: activity.start_location_address,
+				startLatitude: activity.start_latitude,
+				startLongitude: activity.start_longitude,
+				nextOccurrenceStart: activity.next_occurrence_start,
+				nextOccurrenceEnd: activity.next_occurrence_end,
+				recurrenceEnabled: recurringActivityIds.has(activity.id),
+				group: activity.group ?? null,
+				rideDetails,
+				imageUrls: rideDetails?.image_urls ?? [],
+				difficultyLevels: (activity.difficulty_links ?? [])
+					.map((entry) => entry?.level)
+					.filter(Boolean),
+				ridingDisciplines: (activity.discipline_links ?? [])
+					.map((entry) => entry?.discipline)
+					.filter(Boolean)
+			};
+		})
 		.filter((activity) => {
 			if (!search) return true;
 			return [
@@ -123,6 +135,7 @@ export async function GET({ url, cookies }) {
 				activity.startLocationName,
 				activity.startLocationAddress,
 				activity.group?.name,
+				activity.externalOrganizerName,
 				...(activity.difficultyLevels ?? []).map((level) => level?.name),
 				...(activity.ridingDisciplines ?? []).map((discipline) => discipline?.name)
 			]
@@ -147,6 +160,9 @@ export async function POST({ request, cookies }) {
 
 	const rawPayload = await parseJson(request);
 	if (!rawPayload) return invalid('Invalid request body.');
+	if (!isValidExternalEventUrlInput(rawPayload.externalEventUrl ?? rawPayload.external_event_url)) {
+		return invalid('External registration link must be a valid http:// or https:// URL.');
+	}
 
 	const payload = normalizeRidePayload(rawPayload);
 	if (!payload.activity.title) return invalid('Ride title is required.');

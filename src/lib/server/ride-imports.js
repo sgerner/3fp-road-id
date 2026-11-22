@@ -373,27 +373,83 @@ function normalizeImportedTitle(title) {
 	return cleaned.replace(/[:-]+$/g, '').trim();
 }
 
-function extractLocationName(event) {
+const GENERIC_LINK_LABELS = new Set([
+	'meetup event',
+	'meetup group',
+	'weeklyrides listing',
+	'reference link',
+	'event link',
+	'more info',
+	'more information',
+	'website',
+	'register',
+	'click here'
+]);
+
+function normalizeExternalEventUrl(value) {
+	const raw = safeTrim(value);
+	if (!raw || /\s/.test(raw)) return null;
+	try {
+		const parsed = new URL(raw);
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+		if (!parsed.hostname) return null;
+		return raw;
+	} catch {
+		return null;
+	}
+}
+
+function extractExternalEventUrl(event) {
+	const explicit = normalizeExternalEventUrl(
+		event?.externalEventUrl ?? event?.external_event_url ?? null
+	);
+	if (explicit) return explicit;
+	for (const link of Array.isArray(event?.links) ? event.links : []) {
+		const candidate = normalizeExternalEventUrl(link?.url);
+		if (candidate) return candidate;
+	}
+	return null;
+}
+
+function extractExternalOrganizerName(event) {
+	const explicit = compactWhitespace(
+		event?.externalOrganizerName ?? event?.external_organizer_name ?? ''
+	);
+	if (explicit) return explicit;
 	const primaryLink = pickPrimaryLink(event);
-	if (primaryLink?.text) return compactWhitespace(primaryLink.text);
-	const cleanedTitle = normalizeImportedTitle(event.title);
-	return cleanedTitle || normalizeLocationText(event.location) || 'Ride start';
+	const linkText = compactWhitespace(primaryLink?.text);
+	if (
+		linkText &&
+		!/^https?:\/\//i.test(linkText) &&
+		!GENERIC_LINK_LABELS.has(linkText.toLowerCase())
+	) {
+		return linkText;
+	}
+	return null;
+}
+
+function extractLocationName(event) {
+	const explicitVenue = compactWhitespace(
+		event?.venueName ?? event?.startLocationName ?? event?.start_location_name ?? ''
+	);
+	if (explicitVenue && explicitVenue.toLowerCase() !== 'meetup event') {
+		return explicitVenue;
+	}
+	const location = normalizeLocationText(event?.location);
+	if (location) {
+		const firstSegment = location
+			.split(',')
+			.map((segment) => compactWhitespace(segment))
+			.find(Boolean);
+		if (firstSegment) return firstSegment;
+	}
+	const cleanedTitle = normalizeImportedTitle(event?.title);
+	return cleanedTitle || 'Ride start';
 }
 
 function buildDescription(event) {
-	const base = normalizeDescriptionText(event.description);
-	const baseLower = base.toLowerCase();
-	const linkLines = (event.links || [])
-		.map((link) => {
-			const text = compactWhitespace(link?.text);
-			const url = safeTrim(link?.url);
-			if (!url) return null;
-			if (baseLower && baseLower.includes(url.toLowerCase())) return null;
-			return text ? `${text}: ${url}` : url;
-		})
-		.filter(Boolean);
-	if (!linkLines.length) return base || null;
-	return [base, 'More information:', ...linkLines].filter(Boolean).join('\n\n');
+	const base = normalizeDescriptionText(event?.description);
+	return base || null;
 }
 
 function normalizeGeocodeText(value) {
@@ -614,7 +670,7 @@ function deriveRideTraits(event) {
 		ridingDisciplineIds,
 		bikeSuitability,
 		isNoDrop,
-		paceNotes: buildSummary(event.description)
+		paceNotes: safeTrim(event?.paceNotes ?? event?.pace_notes) || null
 	};
 }
 
@@ -750,7 +806,9 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeoco
 			bike_suitability: traits.bikeSuitability,
 			accessibility_notes: null,
 			waiver_required: false,
-			image_urls: []
+			image_urls: [],
+			external_event_url: extractExternalEventUrl(event),
+			external_organizer_name: extractExternalOrganizerName(event)
 		},
 		difficultyLevelIds: traits.difficultyLevelIds,
 		ridingDisciplineIds: traits.ridingDisciplineIds
