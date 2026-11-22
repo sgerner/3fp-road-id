@@ -2,9 +2,14 @@
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
-	/** @type {Record<string, any>} */
-	let { report, initialQuestion = '', currentTopic = '' } = $props();
-	/** @type {any} */
+	/** @type {{ report: Record<string, any>, initialQuestion?: string, activeView?: string, currentTopic?: string, onNavigate?: (target: string) => void }} */
+	let {
+		report,
+		initialQuestion = '',
+		activeView = 'Read Report',
+		currentTopic = '',
+		onNavigate = undefined
+	} = $props();
 	const topicLabel = $derived(
 		typeof currentTopic === 'string'
 			? currentTopic
@@ -37,6 +42,7 @@
 	let timedOut = false;
 	/** @type {any} */
 	let motionDuration = $state(0);
+
 	onMount(() => {
 		const preference = matchMedia('(prefers-reduced-motion: reduce)');
 		/** @type {any} */
@@ -55,14 +61,28 @@
 		controller?.abort();
 	}
 
-	/** @type {any} */
-	const defaultPrompts = [
-		'What makes a cycling safety campaign effective?',
-		'What does the evidence say about safe passing?',
-		'How should we evaluate a campaign?',
-		'What are the limitations of this review?'
-	];
-	/** @type {any} */
+	/** @type {Record<string, string[]>} */
+	const viewPrompts = {
+		'Read Report': [
+			'What makes a cycling safety campaign effective?',
+			'What does the evidence say about safe passing?',
+			'How should we evaluate a campaign?',
+			'What are the limitations of this review?'
+		],
+		'Campaign Kit and Templates': [
+			'How should we pretest draft campaign templates before printing?',
+			'What practical support should pair with a safe-passing campaign?',
+			'How do we avoid blaming riders in dooring and turning materials?',
+			'What should we record on the campaign evaluation sheet?'
+		],
+		'Evidence Table': [
+			'What did study R42 measure and what are its limitations?',
+			'Which studies measured actual on-road passing distance?',
+			'Why do some equipment confidence intervals cross 1?',
+			'How do survey comprehension studies differ from crash evaluations?'
+		]
+	};
+
 	const prompts = $derived(
 		topicLabel
 			? [
@@ -70,9 +90,9 @@
 					`Which sources support the findings on ${topicLabel}?`,
 					`What should a campaign test about ${topicLabel}?`
 				]
-			: defaultPrompts
+			: (viewPrompts[activeView] ?? viewPrompts['Read Report'])
 	);
-	/** @type {any} */
+
 	const templateRoutes = [
 		{ pattern: /\bpass(?:ing)?\b|\blane position\b/i, campaigns: ['01-give-people-space'] },
 		{ pattern: /\bdoor(?:ing)?\b|\bopening a door\b/i, campaigns: ['06-before-the-door'] },
@@ -114,9 +134,15 @@
 	}
 
 	/**
-	 * @param {any} id
+	 * @param {string} id
+	 * @param {MouseEvent} [event]
 	 */
-	function openTarget(id) {
+	function openTarget(id, event) {
+		if (onNavigate) {
+			event?.preventDefault();
+			onNavigate(id);
+			return;
+		}
 		const target = document.getElementById(id);
 		let parent = target;
 		while (parent) {
@@ -147,7 +173,13 @@
 		const question = draft.trim();
 		if (!question || busy) return;
 		draft = question.slice(0, 1200);
-		const topicContext = topicLabel ? `\nReport topic: ${topicLabel}` : '';
+		const isShortFollowup =
+			messages.length > 0 &&
+			/\b(it|its|they|them|those|that|these|their|more|limitations?|limits?)\b/i.test(draft) &&
+			draft.split(/\s+/).length <= 5;
+		const contextValue = topicLabel ? `${activeView} (${topicLabel})` : activeView;
+		const topicContext =
+			!isShortFollowup && contextValue ? `\nReport context: ${contextValue}` : '';
 		const retrievalQuestion =
 			topicContext && draft.length + topicContext.length <= 1200
 				? `${draft}${topicContext}`
@@ -197,7 +229,7 @@
 		}
 	}
 
-	/** Ask from another report control, such as the encounter lab. */
+	/** Ask from another report control, such as the encounter lab or planner. */
 	export async function ask(question) {
 		if (busy || typeof question !== 'string' || !question.trim()) return;
 		draft = question.trim().slice(0, 1200);
@@ -217,14 +249,13 @@
 <div class="assistant">
 	<div class="intro">
 		<p class="eyebrow">
-			Explore the evidence{#if topicLabel}
-				· {topicLabel}{/if}
+			{`ASK THE REPORT · ${activeView}${topicLabel && topicLabel !== activeView ? ` · ${topicLabel}` : ''}`}
 		</p>
-		<h2>Ask the report</h2>
-		<p>Answers use this review. Check linked sources.</p>
+		<h2>Ask a source-linked question</h2>
+		<p>Answers use this review and link back to cited chapters and studies.</p>
 	</div>
 	<div class="suggestions" aria-label="Suggested questions">
-		{#each prompts as prompt}
+		{#each prompts as prompt (prompt)}
 			<button type="button" disabled={busy} onclick={() => ask(prompt)}>{prompt}</button>
 		{/each}
 	</div>
@@ -235,14 +266,14 @@
 			aria-label="Questions and answers"
 			transition:fade={{ duration: motionDuration }}
 		>
-			{#each messages as message}
+			{#each messages as message, idx (idx)}
 				<article class="answer-card" in:fly={{ y: 8, duration: motionDuration }}>
 					<p class="question">{message.question}</p>
 					<p class="answer">{message.result.answer}</p>
 					{#if message.result.nextSteps?.length}
 						<h3>Explore next</h3>
 						<ul>
-							{#each message.result.nextSteps as step}<li>{step}</li>{/each}
+							{#each message.result.nextSteps as step, stepIdx (stepIdx)}<li>{step}</li>{/each}
 						</ul>
 					{/if}
 					{#if message.result.sections?.length || message.result.sources?.length}
@@ -250,8 +281,8 @@
 							{#if message.result.sections?.length}
 								<h3>Report sections</h3>
 								<ul>
-									{#each message.result.sections as section}<li>
-											<a href={'#' + section.id} onclick={() => openTarget(section.id)}
+									{#each message.result.sections as section (section.id)}<li>
+											<a href={'#' + section.id} onclick={(event) => openTarget(section.id, event)}
 												>{section.title}</a
 											>
 										</li>{/each}
@@ -260,10 +291,11 @@
 							{#if message.result.sources?.length}
 								<h3>Sources</h3>
 								<ul>
-									{#each message.result.sources as source}<li>
+									{#each message.result.sources as source (source.record)}<li>
 											<a
 												href={'#ref-' + source.record}
-												onclick={() => openTarget('ref-' + source.record)}>{source.record}</a
+												onclick={(event) => openTarget('ref-' + source.record, event)}
+												>{source.record}</a
 											>
 											· {source.title}{#if source.url}
 												<a href={source.url} target="_blank" rel="noopener noreferrer"
@@ -284,7 +316,7 @@
 									<li class="template-card">
 										<img src={template.src} alt={template.alt} loading="eager" />
 										<div class="template-copy">
-											<strong>{template.title}</strong>
+											<strong>{template.title.replace(/\s*\(page \d+\)$/i, '')}</strong>
 											<div class="template-links">
 												{#if template.pdfUrl}<a href={template.pdfUrl} download>PDF proof</a>{/if}
 												{#if template.editableUrl}<a href={template.editableUrl} download
@@ -321,7 +353,7 @@
 			bind:value={draft}
 			maxlength="1200"
 			rows="3"
-			placeholder="Ask about the findings, evidence, or limitations…"
+			placeholder="Ask about the findings, campaign pathways, evidence, or limitations…"
 			disabled={busy}></textarea>
 		<div class="form-footer">
 			<span>{draft.length} / 1,200 characters</span><button
@@ -357,8 +389,10 @@
 		{#if related.length}
 			<p>Related report sections:</p>
 			<ul>
-				{#each related as section}<li>
-						<a href={'#' + section.id} onclick={() => openTarget(section.id)}>{section.title}</a>
+				{#each related as section (section.id)}<li>
+						<a href={'#' + section.id} onclick={(event) => openTarget(section.id, event)}
+							>{section.title}</a
+						>
 					</li>{/each}
 			</ul>
 		{/if}
@@ -373,7 +407,8 @@
 	.assistant {
 		background: var(--report-paper);
 		border: 2px solid var(--color-secondary-950);
-		border-radius: 1.25rem;
+		border-top: 5px solid var(--color-tertiary-700-300);
+		border-radius: 0;
 		color: var(--color-secondary-950);
 		padding: clamp(1.2rem, 3vw, 2rem);
 	}
@@ -388,16 +423,17 @@
 	.intro h2 {
 		font-size: clamp(1.7rem, 3vw, 2.3rem);
 		line-height: 1.1;
-		margin: 0.25rem 0 0.55rem;
+		margin: 0.3rem 0 0.5rem;
 	}
 	.intro p {
 		margin: 0;
 	}
 	.eyebrow {
 		color: var(--color-tertiary-700-300);
-		font-size: 0.82rem;
+		font-size: 0.78rem;
 		font-weight: 800;
-		letter-spacing: 0.02em;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 	.suggestions {
 		display: flex;
@@ -407,18 +443,19 @@
 	}
 	.suggestions button {
 		background: var(--report-soft);
-		border: 1px solid var(--color-tertiary-700-300);
-		border-radius: 999px;
+		border: 2px solid var(--color-secondary-400);
+		border-radius: 0;
 		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
-		font-size: 0.9rem;
-		font-weight: 650;
-		padding: 0.55rem 0.8rem;
+		font-size: 0.88rem;
+		font-weight: 700;
+		padding: 0.55rem 0.85rem;
 		text-align: left;
 	}
-	.suggestions button:hover {
-		background: var(--report-soft);
+	.suggestions button:hover:not(:disabled) {
+		background: var(--color-primary-500);
+		border-color: var(--color-secondary-950);
 	}
 	.conversation {
 		display: grid;
@@ -428,7 +465,7 @@
 	.answer-card {
 		background: var(--report-paper);
 		border: 1px solid var(--color-secondary-300);
-		border-radius: 0.8rem;
+		border-top: 3px solid var(--color-secondary-700-300);
 		padding: 1rem;
 	}
 	.question {
@@ -471,7 +508,6 @@
 	.template-card {
 		min-width: 0;
 		border: 1px solid var(--color-secondary-300);
-		border-radius: 0.6rem;
 		overflow: hidden;
 	}
 	.template-card img {
@@ -498,7 +534,7 @@
 	}
 	a {
 		color: var(--color-secondary-700-300);
-		font-weight: 650;
+		font-weight: 700;
 		text-decoration: underline;
 		text-underline-offset: 0.15em;
 	}
@@ -512,8 +548,8 @@
 	}
 	textarea {
 		background: var(--report-paper);
-		border: 1px solid var(--color-surface-700);
-		border-radius: 0.6rem;
+		border: 2px solid var(--color-secondary-400);
+		border-radius: 0;
 		box-sizing: border-box;
 		color: var(--color-secondary-950);
 		font: inherit;
@@ -534,16 +570,16 @@
 		font-size: 0.85rem;
 	}
 	.submit {
-		background: var(--report-soft);
+		background: var(--color-primary-500);
 		border: 2px solid var(--color-secondary-950);
-		border-radius: 0.6rem;
-		color: var(--color-secondary-950);
+		border-radius: 0;
+		color: var(--color-primary-contrast-500);
 		cursor: pointer;
 		font: inherit;
 		font-weight: 800;
-		padding: 0.65rem 1rem;
+		padding: 0.65rem 1.1rem;
 	}
-	.submit:hover {
+	.submit:hover:not(:disabled) {
 		background: var(--color-secondary-700-300);
 		color: var(--color-surface-50);
 	}
@@ -561,10 +597,9 @@
 		line-height: 1.5;
 	}
 	.busy-card {
-		background: var(--report-paper);
+		background: var(--report-soft);
 		border: 1px solid var(--color-secondary-300);
-		border-radius: 0.8rem;
-		box-shadow: 0 8px 24px color-mix(in srgb, var(--color-secondary-950) 7%, transparent);
+		border-top: 3px solid var(--color-secondary-950);
 		margin: 1rem 0;
 		padding: 1rem 1.1rem;
 	}
@@ -582,30 +617,22 @@
 	}
 	.spinner {
 		animation: spin 0.85s linear infinite;
-		border: 3px solid var(--report-soft);
+		border: 3px solid var(--report-paper);
 		border-right-color: var(--color-tertiary-700-300);
 		border-top-color: var(--color-secondary-950);
-		border-radius: 50%;
 		flex: 0 0 auto;
-		height: 1.35rem;
-		width: 1.35rem;
+		height: 1.25rem;
+		width: 1.25rem;
 	}
 	.progress-track {
-		background: var(--report-soft);
-		border-radius: 99px;
+		background: var(--report-paper);
 		height: 0.35rem;
 		margin: 0.95rem 0 0.65rem;
 		overflow: hidden;
 	}
 	.progress-track span {
 		animation: progress 1.6s ease-in-out infinite;
-		background: linear-gradient(
-			90deg,
-			var(--color-secondary-950),
-			var(--color-tertiary-700-300),
-			var(--color-primary-500)
-		);
-		border-radius: inherit;
+		background: var(--color-tertiary-700-300);
 		display: block;
 		height: 100%;
 		width: 38%;
@@ -620,17 +647,14 @@
 		justify-content: space-between;
 	}
 	.cancel {
-		background: transparent;
-		border: 1px solid var(--color-surface-700);
-		border-radius: 0.45rem;
+		background: var(--report-paper);
+		border: 2px solid var(--color-secondary-950);
+		border-radius: 0;
 		color: var(--color-secondary-950);
 		cursor: pointer;
 		font: inherit;
 		font-weight: 700;
 		padding: 0.35rem 0.65rem;
-	}
-	.cancel:hover {
-		background: var(--report-paper);
 	}
 	@keyframes spin {
 		to {
