@@ -64,7 +64,6 @@
 		"@toast-ui/editor": "3.2.2",
 		"@vercel/sdk": "^1.28.40",
 		"date-fns": "^4.4.0",
-		"gray-matter": "^4.0.3",
 		"htmlparser2": "12.0.0",
 		"leaflet": "^1.9.4",
 		"leaflet.markercluster": "^1.5.3",
@@ -81,7 +80,6 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"overrides": {
-		"argparse": "2.0.1",
 		"dompurify": "3.4.18",
 		"htmlparser2": "12.0.0",
 		"postcss-selector-parser": "7.1.6"
