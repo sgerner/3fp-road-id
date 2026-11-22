@@ -62,7 +62,8 @@ function createRidesSupabaseMock({
 	const recorded = {
 		activityRanges: [],
 		activityCalls: [],
-		recurrenceBatches: []
+		recurrenceBatches: [],
+		relatedLimits: []
 	};
 
 	return {
@@ -117,6 +118,7 @@ function createRidesSupabaseMock({
 				},
 				limit(n) {
 					state.limit = n;
+					recorded.relatedLimits.push([table, n]);
 					return this;
 				},
 				range(from, to) {
@@ -222,6 +224,25 @@ function createRidesSupabaseMock({
 		}
 	};
 }
+
+test('queryPublishedUpcomingRides searches related records through the ride safety ceiling', async () => {
+	const supabase = createRidesSupabaseMock({
+		groups: [{ id: 'group-1' }],
+		rideDetailsMatches: [{ activity_event_id: 'ride-1' }]
+	});
+
+	await queryPublishedUpcomingRides(supabase, new URLSearchParams('search=community'), {
+		nowIso: '2026-11-21T00:00:00.000Z'
+	});
+
+	assert.deepEqual(
+		supabase.recorded.relatedLimits.filter(([table]) => ['groups', 'ride_details'].includes(table)),
+		[
+			['groups', 2000],
+			['ride_details', 2000]
+		]
+	);
+});
 
 test('queryPublishedUpcomingRides fetches past 200 rows across chunks and batches recurrence lookups', async () => {
 	const totalRows = 325;

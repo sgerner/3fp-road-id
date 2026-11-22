@@ -1,7 +1,7 @@
 export const RIDES_CHUNK_SIZE = 500;
 export const RIDES_SAFETY_CEILING = 2000;
 export const RECURRENCE_LOOKUP_BATCH_SIZE = 150;
-const MAX_RELATED_SEARCH_IDS = 200;
+const MAX_RELATED_SEARCH_IDS = RIDES_SAFETY_CEILING;
 
 const TRUTHY_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
