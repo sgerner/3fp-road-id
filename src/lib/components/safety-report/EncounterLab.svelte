@@ -311,11 +311,22 @@
 		color: var(--color-surface-50) !important;
 	}
 	.panel h3 {
-		color: var(--ink) !important;
+		color: var(--panel-ink) !important;
 	}
 	.lab {
 		--ink: var(--color-secondary-950);
-		--cream: var(--color-surface-100);
+		--cream: light-dark(var(--color-surface-100), var(--color-surface-900));
+		--panel-ink: light-dark(var(--color-secondary-950), var(--color-surface-50));
+		--panel-purple: light-dark(var(--color-secondary-700), var(--color-secondary-200));
+		--panel-pink: light-dark(var(--color-tertiary-800), var(--color-tertiary-300));
+		--panel-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--panel-chip: var(
+			--report-paper,
+			light-dark(var(--color-surface-50), var(--color-surface-950))
+		);
 		--purple: var(--color-secondary-700);
 		--pink: var(--color-tertiary-700);
 		--yellow: var(--color-primary-500);
@@ -384,7 +395,7 @@
 		border-color: var(--yellow);
 	}
 	button:focus-visible {
-		outline: 3px solid var(--pink);
+		outline: 3px solid var(--yellow);
 		outline-offset: 3px;
 	}
 	.mode-list button {
@@ -408,7 +419,7 @@
 	}
 	.mode-list button[aria-pressed='true'] {
 		background: var(--yellow);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 		border-color: var(--yellow);
 	}
 	.workspace {
@@ -437,7 +448,7 @@
 		width: 100%;
 	}
 	.svg-label {
-		fill: var(--report-soft);
+		fill: var(--color-surface-50);
 		font-size: 15px;
 		font-weight: 900;
 		letter-spacing: 1px;
@@ -450,14 +461,14 @@
 	}
 	.panel {
 		background: var(--cream);
-		color: var(--ink);
-		border-top: 3px solid var(--pink);
+		color: var(--panel-ink);
+		border-top: 3px solid var(--panel-pink);
 		padding: clamp(1.2rem, 2.5vw, 1.8rem);
 		display: flex;
 		flex-direction: column;
 	}
 	.panel-kicker {
-		color: var(--purple);
+		color: var(--panel-purple);
 		display: flex;
 		justify-content: space-between;
 		margin: 0;
@@ -509,21 +520,22 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		background: var(--report-paper);
-		color: var(--ink);
-		border: 2px solid var(--report-border);
+		background: var(--panel-chip);
+		color: var(--panel-ink);
+		border: 2px solid var(--panel-border);
 		padding: 0.7rem 0.8rem;
 		text-align: left;
 		font-weight: 750;
 	}
 	.toggles button b {
 		font-size: 0.75rem;
-		background: var(--report-soft);
+		background: var(--report-soft, light-dark(var(--color-surface-200), var(--color-surface-800)));
+		color: var(--panel-ink);
 		padding: 0.25rem 0.5rem;
 	}
 	.toggles button[aria-pressed='true'] b {
-		background: var(--pink);
-		color: var(--color-surface-50);
+		background: var(--panel-pink);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.steps button {
 		justify-content: flex-start;
@@ -533,18 +545,19 @@
 		place-items: center;
 		width: 1.5rem;
 		height: 1.5rem;
-		background: var(--report-soft);
+		background: var(--report-soft, light-dark(var(--color-surface-200), var(--color-surface-800)));
+		color: var(--panel-ink);
 		font-size: 0.8rem;
 		font-weight: 800;
 	}
 	.steps button[aria-pressed='true'] {
-		background: var(--ink);
+		background: light-dark(var(--color-secondary-950), var(--color-secondary-700));
 		color: var(--color-surface-50);
-		border-color: var(--ink);
+		border-color: light-dark(var(--color-secondary-950), var(--yellow));
 	}
 	.steps button[aria-pressed='true'] span {
 		background: var(--yellow);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 	}
 	.legend {
 		font-size: 0.85rem;
@@ -554,14 +567,18 @@
 		flex-wrap: wrap;
 		margin-top: 0.75rem;
 	}
-	.yellow-line,
-	.pink-line {
+	.yellow-line {
+		display: inline-block;
 		width: 22px;
-		border-top: 4px solid var(--color-primary-500);
+		height: 6px;
+		box-sizing: border-box;
+		background: var(--color-primary-500);
+		border: 1.5px solid light-dark(var(--color-secondary-950), var(--color-primary-500));
 	}
 	.pink-line {
-		border-color: var(--pink);
-		border-top-style: dashed;
+		display: inline-block;
+		width: 22px;
+		border-top: 4px dashed var(--panel-pink);
 		margin-left: 0.5rem;
 	}
 	.ask {
@@ -569,12 +586,16 @@
 		padding: 1rem 0 0;
 		background: none;
 		border: 0;
-		color: var(--purple);
+		color: var(--panel-purple);
 		font-weight: 900;
 		text-align: left;
 	}
 	.ask span {
 		margin-left: 0.5rem;
+	}
+	.panel button:focus-visible {
+		outline: 3px solid var(--panel-pink);
+		outline-offset: 3px;
 	}
 	@media (max-width: 760px) {
 		.intro {
