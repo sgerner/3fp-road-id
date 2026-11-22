@@ -158,6 +158,10 @@
 		}, 500);
 	}
 
+	function setCartLineQuantity(variantId, nextQuantity) {
+		merchCart.setQuantity(variantId, nextQuantity);
+	}
+
 	function removeCartLine(variantId) {
 		merchCart.remove(variantId);
 	}
@@ -648,6 +652,7 @@
 					{:else}
 						<ul class="border-surface-800 m-0 list-none border-t-2 p-0">
 							{#each $merchCart as line (line.variantId)}
+								{@const qty = Number(line.quantity || 1)}
 								{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
 									width: 128,
 									quality: 64
@@ -675,14 +680,41 @@
 											</p>
 											<p class="text-surface-400 m-0 mt-0.5 truncate text-xs">{line.variantName}</p>
 											<p class="text-primary-500 m-0 mt-1 text-xs font-black tabular-nums">
-												{line.quantity} × {formatCurrency(line.priceCents)}
+												{qty} × {formatCurrency(line.priceCents)}
 											</p>
+											<div class="mt-2 flex items-center">
+												<div
+													class="border-surface-700 bg-surface-950 inline-flex items-center border-2"
+												>
+													<button
+														type="button"
+														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+														disabled={qty <= 1}
+														onclick={() => setCartLineQuantity(line.variantId, qty - 1)}
+														aria-label={`Decrease quantity for ${line.productName}`}
+													>
+														<IconMinus class="h-3.5 w-3.5" />
+													</button>
+													<span class="min-w-8 px-1 text-center text-xs font-black tabular-nums">
+														{qty}
+													</span>
+													<button
+														type="button"
+														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+														disabled={qty >= 20}
+														onclick={() => setCartLineQuantity(line.variantId, qty + 1)}
+														aria-label={`Increase quantity for ${line.productName}`}
+													>
+														<IconPlus class="h-3.5 w-3.5" />
+													</button>
+												</div>
+											</div>
 										</div>
 										<button
 											type="button"
-											class="border-surface-700 text-surface-300 hover:border-primary-500 hover:text-primary-500 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center border-2 transition"
+											class="border-surface-700 text-surface-300 hover:border-primary-500 hover:text-primary-500 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition"
 											onclick={() => removeCartLine(line.variantId)}
-											aria-label="Remove item"
+											aria-label={`Remove ${line.productName}`}
 										>
 											<IconX class="h-3.5 w-3.5" />
 										</button>
@@ -853,6 +885,7 @@
 				<p class="py-4 text-center text-sm font-bold uppercase">Your cart is empty.</p>
 			{:else}
 				{#each $merchCart as line (line.variantId)}
+					{@const qty = Number(line.quantity || 1)}
 					{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
 						width: 128,
 						quality: 64
@@ -876,15 +909,42 @@
 						<div class="min-w-0 flex-1">
 							<p class="m-0 truncate text-sm font-black uppercase">{line.productName}</p>
 							<p class="m-0 text-xs opacity-85">{line.variantName}</p>
-							<p class="text-primary-500 m-0 text-xs font-black">
-								{line.quantity} × {formatCurrency(line.priceCents)}
+							<p class="text-primary-500 m-0 mt-0.5 text-xs font-black tabular-nums">
+								{qty} × {formatCurrency(line.priceCents)}
 							</p>
+							<div class="mt-2 flex items-center">
+								<div class="border-surface-50 bg-surface-950 inline-flex items-center border-2">
+									<button
+										type="button"
+										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+										disabled={qty <= 1}
+										onclick={() => setCartLineQuantity(line.variantId, qty - 1)}
+										aria-label={`Decrease quantity for ${line.productName}`}
+									>
+										<IconMinus class="h-3.5 w-3.5" />
+									</button>
+									<span
+										class="text-surface-50 min-w-8 px-1 text-center text-xs font-black tabular-nums"
+									>
+										{qty}
+									</span>
+									<button
+										type="button"
+										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+										disabled={qty >= 20}
+										onclick={() => setCartLineQuantity(line.variantId, qty + 1)}
+										aria-label={`Increase quantity for ${line.productName}`}
+									>
+										<IconPlus class="h-3.5 w-3.5" />
+									</button>
+								</div>
+							</div>
 						</div>
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 flex h-7 w-7 cursor-pointer items-center justify-center border-2"
+							class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition"
 							onclick={() => removeCartLine(line.variantId)}
-							aria-label="Remove item"
+							aria-label={`Remove ${line.productName}`}
 						>
 							<IconX class="h-3.5 w-3.5" />
 						</button>

@@ -1,18 +1,16 @@
 <script>
-	import {
-		Check,
-		CalendarClock,
-		MapPin,
-		RefreshCcw,
-		XCircle,
-		ChevronDown,
-		ChevronUp,
-		ClipboardList,
-		Clock,
-		AlertCircle,
-		CheckCircle2,
-		ArrowRight
-	} from '@lucide/svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import CalendarClock from '@lucide/svelte/icons/calendar-clock';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
+	import XCircle from '@lucide/svelte/icons/circle-x';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronUp from '@lucide/svelte/icons/chevron-up';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import Clock from '@lucide/svelte/icons/clock';
+	import AlertCircle from '@lucide/svelte/icons/circle-alert';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 
 	const { data, form } = $props();
 
