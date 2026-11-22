@@ -1,7 +1,25 @@
 import { buildDefaultGroupSiteConfig } from '#lib/microsites/config.js';
 import { deriveLegacySiteVisibility } from '#lib/microsites/blocks.js';
-import { mergeGroupSiteEditorConfig } from '#lib/groups/siteEditor.js';
+import {
+	extractGroupSiteEditorFormValues,
+	mergeGroupSiteEditorConfig
+} from '#lib/groups/siteEditor.js';
 import { cleanSeoText, limitSeoText } from '#lib/seo.js';
+
+const PRESENCE_SOCIAL_KEYS = [
+	'instagram',
+	'facebook',
+	'x',
+	'threads',
+	'youtube',
+	'mastodon',
+	'tiktok',
+	'strava',
+	'bluesky',
+	'discord',
+	'linkedin'
+];
+const MAX_SERIALIZED_CROP_LENGTH = 14 * 1024 * 1024;
 
 export const PRESENCE_STUDIO_VIEWS = [
 	'profile',
@@ -224,4 +242,101 @@ export function resolveMicrositeSeoDescription({
 	);
 	const tail = locality ? ` Join rides in ${locality}.` : ' Join local rides and events.';
 	return limitSeoText(`${primary || fallback}${tail}`, 165);
+}
+
+function parseSortedNumericIds(values) {
+	return [
+		...new Set(
+			(Array.isArray(values) ? values : [])
+				.map((value) => Number(value))
+				.filter((value) => Number.isFinite(value) && value > 0)
+		)
+	].sort((a, b) => a - b);
+}
+
+export function extractPresenceStudioFormValues(formData, { group = null } = {}) {
+	const siteValues = extractGroupSiteEditorFormValues(formData, { group });
+	const socialInputs = {};
+	for (const key of PRESENCE_SOCIAL_KEYS) {
+		socialInputs[key] = String(formData.get(`social_${key}`) ?? '');
+	}
+
+	const rawLogoCropped = String(formData.get('logo_file_cropped') ?? '');
+	const rawCoverCropped = String(formData.get('cover_file_cropped') ?? '');
+	const logoCropped = rawLogoCropped.length <= MAX_SERIALIZED_CROP_LENGTH ? rawLogoCropped : '';
+	const coverCropped = rawCoverCropped.length <= MAX_SERIALIZED_CROP_LENGTH ? rawCoverCropped : '';
+
+	const pendingProfileFiles = [];
+	const logoFile = formData.get('logo_file');
+	if (
+		!logoCropped &&
+		logoFile &&
+		typeof logoFile === 'object' &&
+		'size' in logoFile &&
+		Number(logoFile.size) > 0
+	) {
+		pendingProfileFiles.push(String(logoFile.name || 'Logo image'));
+	}
+	const coverFile = formData.get('cover_file');
+	if (
+		!coverCropped &&
+		coverFile &&
+		typeof coverFile === 'object' &&
+		'size' in coverFile &&
+		Number(coverFile.size) > 0
+	) {
+		pendingProfileFiles.push(String(coverFile.name || 'Cover image'));
+	}
+
+	const returnView = normalizePresenceStudioView(formData.get('return_view'), 'profile');
+	const seoDescription = cleanText(formData.get('seo_description'), 180);
+
+	return {
+		site: {
+			...siteValues,
+			seo_description: seoDescription
+		},
+		profile: {
+			name: String(formData.get('name') ?? ''),
+			tagline: String(formData.get('tagline') ?? ''),
+			description: String(formData.get('description') ?? ''),
+			city: String(formData.get('city') ?? ''),
+			state_region: String(formData.get('state_region') ?? ''),
+			country: String(formData.get('country') ?? 'US').toUpperCase(),
+			zip_code: String(formData.get('zip_code') ?? ''),
+			specific_meeting_point_address: String(formData.get('specific_meeting_point_address') ?? ''),
+			service_area_description: String(formData.get('service_area_description') ?? ''),
+			latitude: String(formData.get('latitude') ?? ''),
+			longitude: String(formData.get('longitude') ?? ''),
+			website_url: String(formData.get('website_url') ?? ''),
+			public_contact_email: String(formData.get('public_contact_email') ?? ''),
+			public_phone_number: String(formData.get('public_phone_number') ?? ''),
+			preferred_contact_method_instructions: String(
+				formData.get('preferred_contact_method_instructions') ?? ''
+			),
+			how_to_join_instructions: String(formData.get('how_to_join_instructions') ?? ''),
+			membership_info: String(formData.get('membership_info') ?? ''),
+			activity_frequency: String(formData.get('activity_frequency') ?? ''),
+			typical_activity_day_time: String(formData.get('typical_activity_day_time') ?? ''),
+			preferred_cta_kind: String(formData.get('preferred_cta_kind') || 'auto'),
+			preferred_cta_label: String(formData.get('preferred_cta_label') ?? ''),
+			preferred_cta_url: String(formData.get('preferred_cta_url') ?? ''),
+			socialInputs,
+			instagramPostsText: String(formData.get('social_instagram_posts') ?? ''),
+			group_type_ids: parseSortedNumericIds(formData.getAll('group_type_ids')),
+			audience_focus_ids: parseSortedNumericIds(formData.getAll('audience_focus_ids')),
+			riding_discipline_ids: parseSortedNumericIds(formData.getAll('riding_discipline_ids')),
+			skill_level_ids: parseSortedNumericIds(formData.getAll('skill_level_ids')),
+			logoUrl: String(formData.get('logo_url') ?? ''),
+			coverUrl: String(formData.get('cover_photo_url') ?? ''),
+			logoCropped,
+			coverCropped,
+			clearLogo: String(formData.get('clear_logo') ?? '') === '1',
+			clearCover: String(formData.get('clear_cover') ?? '') === '1'
+		},
+		seo_description: seoDescription,
+		return_view: returnView,
+		pending_sponsor_logo_files: siteValues.pending_sponsor_logo_files || [],
+		pending_profile_files: pendingProfileFiles
+	};
 }

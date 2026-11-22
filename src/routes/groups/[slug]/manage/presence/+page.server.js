@@ -27,6 +27,7 @@ import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/se
 import { readFormData } from '#lib/server/security';
 import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 import {
+	extractPresenceStudioFormValues,
 	normalizePresenceStudioView,
 	syncSiteConfigWithCoreGroup
 } from '#lib/groups/presenceStudio';
@@ -285,15 +286,23 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		return fail(parsedForm.status, { error: parsedForm.error });
 	}
 	const form = parsedForm.value;
+	const values = extractPresenceStudioFormValues(form, { group });
 
-	const requestedMicrositeSlug = normalizeMicrositeSlug(
-		form.get('microsite_slug') || group.microsite_slug || group.slug
-	);
+	const rawMicrositeSlug = form.has('microsite_slug')
+		? form.get('microsite_slug')
+		: group.microsite_slug || group.slug;
+	const requestedMicrositeSlug = normalizeMicrositeSlug(rawMicrositeSlug);
 	if (!requestedMicrositeSlug) {
-		return fail(400, { error: 'Website slug is required and can only use letters/numbers.' });
+		return fail(400, {
+			error: 'Website slug is required and can only use letters/numbers.',
+			values
+		});
 	}
 	if (isReservedMicrositeSlug(requestedMicrositeSlug)) {
-		return fail(400, { error: 'That website slug is reserved. Pick another one.' });
+		return fail(400, {
+			error: 'That website slug is reserved. Pick another one.',
+			values
+		});
 	}
 
 	const rawPreferredCtaKind = (form.get('preferred_cta_kind')?.toString() || 'auto')
@@ -310,18 +319,19 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		preferredCtaUrl = form.get('preferred_cta_url')?.toString().trim() || '';
 		if (!preferredCtaLabel) {
 			return fail(400, {
-				error: 'Custom CTA label is required and must be 10 characters or fewer.'
+				error: 'Custom CTA label is required and must be 10 characters or fewer.',
+				values
 			});
 		}
 		if (!preferredCtaUrl) {
-			return fail(400, { error: 'Custom CTA URL is required.' });
+			return fail(400, { error: 'Custom CTA URL is required.', values });
 		}
 	}
 
 	const stateRegion = form.get('state_region')?.toString().trim() ?? '';
 	const country = form.get('country')?.toString().trim().toUpperCase() ?? 'US';
 	if (!stateRegion || !country) {
-		return fail(400, { error: 'State/Region and Country are required.' });
+		return fail(400, { error: 'State/Region and Country are required.', values });
 	}
 
 	const logoFile = form.get('logo_file');
@@ -329,21 +339,21 @@ async function publishPresenceChanges({ params, request, cookies }) {
 	const logoCropped = form.get('logo_file_cropped')?.toString() || '';
 	const coverCropped = form.get('cover_file_cropped')?.toString() || '';
 	if (logoFile && logoFile.size && logoFile.size > MAX_IMAGE_BYTES) {
-		return fail(400, { error: 'Logo file exceeds 10MB limit.' });
+		return fail(400, { error: 'Logo file exceeds 10MB limit.', values });
 	}
 	if (coverFile && coverFile.size && coverFile.size > MAX_IMAGE_BYTES) {
-		return fail(400, { error: 'Cover image exceeds 10MB limit.' });
+		return fail(400, { error: 'Cover image exceeds 10MB limit.', values });
 	}
 	if (logoCropped) {
 		const parsed = parseGroupEditorImageDataUrl(logoCropped);
 		if (!parsed || parsed.buffer.length > MAX_IMAGE_BYTES) {
-			return fail(400, { error: 'Cropped logo exceeds 10MB limit.' });
+			return fail(400, { error: 'Cropped logo exceeds 10MB limit.', values });
 		}
 	}
 	if (coverCropped) {
 		const parsed = parseGroupEditorImageDataUrl(coverCropped);
 		if (!parsed || parsed.buffer.length > MAX_IMAGE_BYTES) {
-			return fail(400, { error: 'Cropped cover exceeds 10MB limit.' });
+			return fail(400, { error: 'Cropped cover exceeds 10MB limit.', values });
 		}
 	}
 
@@ -464,7 +474,10 @@ async function publishPresenceChanges({ params, request, cookies }) {
 			groupId
 		});
 	} catch (error) {
-		return fail(400, { error: error?.message || 'Unable to upload sponsor logo.' });
+		return fail(400, {
+			error: error?.message || 'Unable to upload sponsor logo.',
+			values
+		});
 	}
 
 	const rollbackGroupSnapshot = {};
@@ -482,9 +495,15 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		await removeSponsorLogoObjects(uploadedSponsorPaths);
 		const message = String(groupUpdateError.message || '').toLowerCase();
 		if (groupUpdateError.code === '23505' || message.includes('duplicate')) {
-			return fail(409, { error: 'That website slug is already taken. Try another one.' });
+			return fail(409, {
+				error: 'That website slug is already taken. Try another one.',
+				values
+			});
 		}
-		return fail(400, { error: groupUpdateError.message || 'Unable to save group profile.' });
+		return fail(400, {
+			error: groupUpdateError.message || 'Unable to save group profile.',
+			values
+		});
 	}
 
 	const groupTypeIds = form
@@ -513,7 +532,10 @@ async function publishPresenceChanges({ params, request, cookies }) {
 	const taxonomyDeleteError = deleteResults.find((result) => result.error)?.error;
 	if (taxonomyDeleteError) {
 		await removeSponsorLogoObjects(uploadedSponsorPaths);
-		return fail(500, { error: taxonomyDeleteError.message });
+		if (Object.keys(rollbackGroupSnapshot).length) {
+			await supabase.from('groups').update(rollbackGroupSnapshot).eq('id', groupId);
+		}
+		return fail(500, { error: taxonomyDeleteError.message, values });
 	}
 
 	const taxonomyInserts = [];
@@ -555,7 +577,10 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		const taxonomyInsertError = insertResults.find((result) => result.error)?.error;
 		if (taxonomyInsertError) {
 			await removeSponsorLogoObjects(uploadedSponsorPaths);
-			return fail(500, { error: taxonomyInsertError.message });
+			if (Object.keys(rollbackGroupSnapshot).length) {
+				await supabase.from('groups').update(rollbackGroupSnapshot).eq('id', groupId);
+			}
+			return fail(500, { error: taxonomyInsertError.message, values });
 		}
 	}
 
@@ -573,7 +598,10 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		if (Object.keys(rollbackGroupSnapshot).length) {
 			await supabase.from('groups').update(rollbackGroupSnapshot).eq('id', groupId);
 		}
-		return fail(400, { error: error?.message || 'Unable to publish presence changes.' });
+		return fail(400, {
+			error: error?.message || 'Unable to publish presence changes.',
+			values
+		});
 	}
 
 	await removeUnusedSponsorLogoObjects({
@@ -722,15 +750,23 @@ export const load = async ({ parent, url, cookies }) => {
 export const actions = {
 	publish: publishPresenceChanges,
 	save: publishPresenceChanges,
-	reset: async ({ params, cookies }) => {
+	reset: async ({ params, request, cookies }) => {
 		const auth = await requirePresenceManager(cookies, params.slug);
 		if (!auth.ok) return auth.response;
 		const { slug, group, groupId, supabase } = auth;
 
+		const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
+		const values =
+			parsedForm.ok && [...parsedForm.value.keys()].length > 0
+				? extractPresenceStudioFormValues(parsedForm.value, { group })
+				: null;
 		const previousConfig = await getGroupSiteConfig(groupId, { group });
 		const { error } = await supabase.from('group_site_configs').delete().eq('group_id', groupId);
 		if (error) {
-			return fail(400, { error: error.message });
+			return fail(400, {
+				error: error.message,
+				...(values ? { values } : {})
+			});
 		}
 		invalidateMicrositePageCache(groupId);
 		await removeSponsorLogoObjects([...managedSponsorLogoObjectPaths(previousConfig, groupId)]);

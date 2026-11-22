@@ -1,4 +1,5 @@
 <script>
+	import { enhance } from '$app/forms';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, untrack } from 'svelte';
@@ -45,7 +46,13 @@
 		normalizePresenceStudioView,
 		syncSiteConfigWithCoreGroup
 	} from '#lib/groups/presenceStudio';
-	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '#lib/groups/siteEditor';
+	import {
+		buildGroupSiteEditorState,
+		GROUP_SITE_LOGO_MAX_BYTES,
+		mergeGroupSiteEditorConfig,
+		toIsoDateTimeValue,
+		validateGroupSiteDraftSubmission
+	} from '#lib/groups/siteEditor';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import BrandDiscord from '#lib/icons/BrandDiscord.svelte';
 	import BrandFacebook from '#lib/icons/BrandFacebook.svelte';
@@ -187,42 +194,87 @@
 		};
 	}
 
-	const baseSiteConfig = untrack(() =>
-		mergeGroupSiteEditorConfig(data.defaultSiteConfig, data.siteConfig)
-	);
+	function applyProfileDraftValues(baseDraft, incomingProfile = null) {
+		if (!incomingProfile || typeof incomingProfile !== 'object') return baseDraft;
+		return {
+			...baseDraft,
+			...incomingProfile,
+			socialInputs: {
+				...(baseDraft.socialInputs || {}),
+				...(incomingProfile.socialInputs || {})
+			},
+			group_type_ids: Array.isArray(incomingProfile.group_type_ids)
+				? [...incomingProfile.group_type_ids].sort((a, b) => a - b)
+				: baseDraft.group_type_ids,
+			audience_focus_ids: Array.isArray(incomingProfile.audience_focus_ids)
+				? [...incomingProfile.audience_focus_ids].sort((a, b) => a - b)
+				: baseDraft.audience_focus_ids,
+			riding_discipline_ids: Array.isArray(incomingProfile.riding_discipline_ids)
+				? [...incomingProfile.riding_discipline_ids].sort((a, b) => a - b)
+				: baseDraft.riding_discipline_ids,
+			skill_level_ids: Array.isArray(incomingProfile.skill_level_ids)
+				? [...incomingProfile.skill_level_ids].sort((a, b) => a - b)
+				: baseDraft.skill_level_ids
+		};
+	}
 
-	let profileDraft = $state(untrack(() => buildInitialProfileDraft(data)));
-	let seoDescription = $state(untrack(() => String(baseSiteConfig.seo_description || '')));
-	let siteConfig = $state(baseSiteConfig);
-	let pageBlocks = $state(untrack(() => clone(baseSiteConfig.page_blocks || [])));
-	let sitePages = $state(untrack(() => clone(baseSiteConfig.site_pages || [])));
-	let selectedPageId = $state(untrack(() => baseSiteConfig.site_pages?.[0]?.id || 'home'));
-
-	let sponsorSequence = 0;
-	let sponsorItems = $state(
-		untrack(() => {
-			const items = Array.isArray(baseSiteConfig.sponsor_items) ? baseSiteConfig.sponsor_items : [];
-			return items.map((item) => ({
-				_editorId: `sponsor-${sponsorSequence++}`,
-				name: String(item?.name || ''),
-				text: String(item?.text || ''),
-				logo: String(item?.logo || ''),
-				url: String(item?.url || '')
-			}));
+	const initialSavedProfileDraft = untrack(() => buildInitialProfileDraft(data));
+	const initialSavedSiteState = untrack(() =>
+		buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group
 		})
 	);
-	let faqItems = $state(
+	const initialEditorProfileDraft = untrack(() =>
+		form?.values?.profile
+			? applyProfileDraftValues(initialSavedProfileDraft, form.values.profile)
+			: buildInitialProfileDraft(data)
+	);
+	const initialEditorSiteState = untrack(() =>
+		form?.values?.site
+			? buildGroupSiteEditorState({
+					defaultSiteConfig: data.defaultSiteConfig,
+					siteConfig: data.siteConfig,
+					micrositeSlug: data.micrositeSlug,
+					group: data.group,
+					values: form.values.site
+				})
+			: buildGroupSiteEditorState({
+					defaultSiteConfig: data.defaultSiteConfig,
+					siteConfig: data.siteConfig,
+					micrositeSlug: data.micrositeSlug,
+					group: data.group
+				})
+	);
+
+	let profileDraft = $state(initialEditorProfileDraft);
+	let seoDescription = $state(
 		untrack(() =>
-			[
-				{ question: baseSiteConfig.faq_1_q || '', answer: baseSiteConfig.faq_1_a || '' },
-				{ question: baseSiteConfig.faq_2_q || '', answer: baseSiteConfig.faq_2_a || '' }
-			].filter((item) => item.question || item.answer)
+			form?.values && 'seo_description' in form.values
+				? String(form.values.seo_description || '')
+				: String(initialSavedSiteState.siteConfig.seo_description || '')
 		)
 	);
-	let slugInput = $state(untrack(() => data.micrositeSlug || ''));
-	let activeView = $state(untrack(() => normalizePresenceStudioView(data.initialView, 'profile')));
+	let siteConfig = $state(initialEditorSiteState.siteConfig);
+	let pageBlocks = $state(initialEditorSiteState.pageBlocks);
+	let sitePages = $state(initialEditorSiteState.sitePages);
+	let selectedPageId = $state(initialEditorSiteState.selectedPageId);
+
+	let sponsorSequence = initialEditorSiteState.nextSponsorSequence;
+	let sponsorItems = $state(initialEditorSiteState.sponsorItems);
+	let faqItems = $state(initialEditorSiteState.faqItems);
+	let slugInput = $state(initialEditorSiteState.slugInput);
+	let activeView = $state(
+		untrack(() =>
+			normalizePresenceStudioView(form?.values?.return_view || data.initialView, 'profile')
+		)
+	);
 	let previewMode = $state(
-		untrack(() => (isWebsiteLayerView(data.initialView) ? 'website' : 'directory'))
+		untrack(() =>
+			isWebsiteLayerView(form?.values?.return_view || data.initialView) ? 'website' : 'directory'
+		)
 	);
 	let showPreview = $state(false);
 	let previewVersion = $state(0);
@@ -240,8 +292,26 @@
 	let coverRawFile = $state(null);
 	let logoFileRevision = $state(0);
 	let coverFileRevision = $state(0);
-	let logoPreview = $state(untrack(() => data.group?.logo_url || ''));
-	let coverPreview = $state(untrack(() => data.group?.cover_photo_url || ''));
+	let logoPreview = $state(
+		untrack(() =>
+			initialEditorProfileDraft.clearLogo
+				? ''
+				: initialEditorProfileDraft.logoCropped ||
+					initialEditorProfileDraft.logoUrl ||
+					data.group?.logo_url ||
+					''
+		)
+	);
+	let coverPreview = $state(
+		untrack(() =>
+			initialEditorProfileDraft.clearCover
+				? ''
+				: initialEditorProfileDraft.coverCropped ||
+					initialEditorProfileDraft.coverUrl ||
+					data.group?.cover_photo_url ||
+					''
+		)
+	);
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let logoUploadKey = $state(0);
@@ -301,39 +371,18 @@
 	let ownerTurnstileWidgetId = $state(null);
 
 	// Ride widget state
-	const initialWidget = untrack(() => baseSiteConfig.ride_widget_config || {});
-	let rideFilterMode = $state(
-		untrack(() =>
-			initialWidget.near || initialWidget.radiusMiles
-				? 'radius'
-				: initialWidget.location
-					? 'location'
-					: 'none'
-		)
-	);
-	let rideLocation = $state(untrack(() => initialWidget.location || ''));
-	let rideNear = $state(
-		untrack(
-			() =>
-				initialWidget.near ||
-				[data.group?.city, data.group?.state_region].filter(Boolean).join(', ')
-		)
-	);
-	let rideRadius = $state(untrack(() => initialWidget.radiusMiles || '50'));
-	let rideDefaultTab = $state(untrack(() => initialWidget.defaultTab || 'list'));
-	let rideTheme = $state(untrack(() => initialWidget.theme || 'auto'));
-	let rideDensity = $state(untrack(() => initialWidget.density || 'comfortable'));
-	let rideShowFilters = $state(untrack(() => initialWidget.showUserFilters ?? true));
-	let rideShowAdd = $state(untrack(() => initialWidget.showAddButton ?? true));
-	let ridePrefixCity = $state(untrack(() => initialWidget.prefixCity ?? false));
-	let rideDifficultyColors = $state(untrack(() => initialWidget.difficultyColors ?? true));
-	let selectedRideGroupIds = $state(
-		untrack(() =>
-			Array.isArray(baseSiteConfig.ride_widget_group_ids)
-				? [...baseSiteConfig.ride_widget_group_ids]
-				: []
-		)
-	);
+	let rideFilterMode = $state(initialEditorSiteState.rideFilterMode);
+	let rideLocation = $state(initialEditorSiteState.rideLocation);
+	let rideNear = $state(initialEditorSiteState.rideNear);
+	let rideRadius = $state(initialEditorSiteState.rideRadius);
+	let rideDefaultTab = $state(initialEditorSiteState.rideDefaultTab);
+	let rideTheme = $state(initialEditorSiteState.rideTheme);
+	let rideDensity = $state(initialEditorSiteState.rideDensity);
+	let rideShowFilters = $state(initialEditorSiteState.rideShowFilters);
+	let rideShowAdd = $state(initialEditorSiteState.rideShowAdd);
+	let ridePrefixCity = $state(initialEditorSiteState.ridePrefixCity);
+	let rideDifficultyColors = $state(initialEditorSiteState.rideDifficultyColors);
+	let selectedRideGroupIds = $state(initialEditorSiteState.selectedRideGroupIds);
 
 	// Sync raw uncropped File objects onto hidden file inputs in the form
 	$effect(() => {
@@ -603,17 +652,47 @@
 		`${data.directoryPreviewPath || `/groups/${data.group.slug}`}?editor=${previewVersion}`
 	);
 
-	function snapshot() {
+	function createPresenceStudioSnapshot(state) {
 		return JSON.stringify({
-			profileDraft,
-			seoDescription,
+			profileDraft: state.profileDraft,
+			seoDescription: state.seoDescription,
 			siteConfig: {
-				...siteConfig,
+				...state.siteConfig,
 				site_title: undefined,
 				site_tagline: undefined,
 				home_intro: undefined,
 				seo_description: undefined
 			},
+			sitePages: state.sitePages,
+			pageBlocks: state.pageBlocks,
+			sponsorItems: (Array.isArray(state.sponsorItems) ? state.sponsorItems : []).map(
+				({ name = '', text = '', logo = '', url = '' }) => ({ name, text, logo, url })
+			),
+			faqItems: state.faqItems,
+			slugInput: state.slugInput,
+			rideFilterMode: state.rideFilterMode,
+			rideLocation: state.rideLocation,
+			rideNear: state.rideNear,
+			rideRadius: state.rideRadius,
+			rideDefaultTab: state.rideDefaultTab,
+			rideTheme: state.rideTheme,
+			rideDensity: state.rideDensity,
+			rideShowFilters: state.rideShowFilters,
+			rideShowAdd: state.rideShowAdd,
+			ridePrefixCity: state.ridePrefixCity,
+			rideDifficultyColors: state.rideDifficultyColors,
+			selectedRideGroupIds: state.selectedRideGroupIds,
+			sponsorFileRevision: state.sponsorFileRevision ?? 0,
+			logoFileRevision: state.logoFileRevision ?? 0,
+			coverFileRevision: state.coverFileRevision ?? 0
+		});
+	}
+
+	function snapshot() {
+		return createPresenceStudioSnapshot({
+			profileDraft,
+			seoDescription,
+			siteConfig,
 			sitePages,
 			pageBlocks,
 			sponsorItems,
@@ -637,73 +716,178 @@
 		});
 	}
 
-	let savedSnapshot = $state(untrack(() => snapshot()));
+	let savedSnapshot = $state(
+		untrack(() =>
+			createPresenceStudioSnapshot({
+				profileDraft: initialSavedProfileDraft,
+				seoDescription: String(initialSavedSiteState.siteConfig.seo_description || ''),
+				...initialSavedSiteState,
+				sponsorFileRevision: 0,
+				logoFileRevision: 0,
+				coverFileRevision: 0
+			})
+		)
+	);
 	const dirty = $derived(snapshot() !== savedSnapshot);
 
-	function discardPendingChanges() {
-		if (!dirty || !window.confirm('Discard all unpublished changes in this session?')) return;
-		profileDraft = buildInitialProfileDraft(data);
-		const freshSite = mergeGroupSiteEditorConfig(data.defaultSiteConfig, data.siteConfig);
-		seoDescription = String(freshSite.seo_description || '');
-		siteConfig = freshSite;
-		pageBlocks = clone(freshSite.page_blocks || []);
-		sitePages = clone(freshSite.site_pages || []);
-		selectedPageId = freshSite.site_pages?.[0]?.id || 'home';
-		sponsorItems = (Array.isArray(freshSite.sponsor_items) ? freshSite.sponsor_items : []).map(
-			(item) => ({
-				_editorId: `sponsor-${sponsorSequence++}`,
-				name: String(item?.name || ''),
-				text: String(item?.text || ''),
-				logo: String(item?.logo || ''),
-				url: String(item?.url || '')
-			})
-		);
-		faqItems = [
-			{ question: freshSite.faq_1_q || '', answer: freshSite.faq_1_a || '' },
-			{ question: freshSite.faq_2_q || '', answer: freshSite.faq_2_a || '' }
-		].filter((item) => item.question || item.answer);
-		slugInput = data.micrositeSlug || '';
-		const widget = freshSite.ride_widget_config || {};
-		rideFilterMode =
-			widget.near || widget.radiusMiles ? 'radius' : widget.location ? 'location' : 'none';
-		rideLocation = widget.location || '';
-		rideNear =
-			widget.near || [data.group?.city, data.group?.state_region].filter(Boolean).join(', ');
-		rideRadius = widget.radiusMiles || '50';
-		rideDefaultTab = widget.defaultTab || 'list';
-		rideTheme = widget.theme || 'auto';
-		rideDensity = widget.density || 'comfortable';
-		rideShowFilters = widget.showUserFilters ?? true;
-		rideShowAdd = widget.showAddButton ?? true;
-		ridePrefixCity = widget.prefixCity ?? false;
-		rideDifficultyColors = widget.difficultyColors ?? true;
-		selectedRideGroupIds = Array.isArray(freshSite.ride_widget_group_ids)
-			? [...freshSite.ride_widget_group_ids]
+	const pendingFileWarning = $derived.by(() => {
+		const pendingSponsorFiles = Array.isArray(form?.values?.pending_sponsor_logo_files)
+			? form.values.pending_sponsor_logo_files.filter(Boolean)
 			: [];
+		const pendingProfileFiles = Array.isArray(form?.values?.pending_profile_files)
+			? form.values.pending_profile_files.filter(Boolean)
+			: [];
+		const clearedSponsorFiles = Object.values(sponsorFileNames).some(Boolean)
+			? []
+			: pendingSponsorFiles;
+		const clearedProfileFiles =
+			logoRawFile || coverRawFile || profileDraft.logoCropped || profileDraft.coverCropped
+				? []
+				: pendingProfileFiles;
+		const cleared = [...clearedProfileFiles, ...clearedSponsorFiles];
+		if (!cleared.length) return '';
+		return `Your draft text was kept, but the page reload cleared your selected image file (${cleared.join(', ')}). Please choose the file again before publishing.`;
+	});
+
+	function syncStudioStateFromData(formElement = null) {
+		profileDraft = buildInitialProfileDraft(data);
+		const refreshedSite = buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group,
+			startSponsorIndex: sponsorSequence
+		});
+		sponsorSequence = refreshedSite.nextSponsorSequence;
+		seoDescription = String(refreshedSite.siteConfig.seo_description || '');
+		siteConfig = refreshedSite.siteConfig;
+		pageBlocks = refreshedSite.pageBlocks;
+		sitePages = refreshedSite.sitePages;
+		selectedPageId = refreshedSite.selectedPageId;
+		sponsorItems = refreshedSite.sponsorItems;
+		faqItems = refreshedSite.faqItems;
+		slugInput = refreshedSite.slugInput;
+		rideFilterMode = refreshedSite.rideFilterMode;
+		rideLocation = refreshedSite.rideLocation;
+		rideNear = refreshedSite.rideNear;
+		rideRadius = refreshedSite.rideRadius;
+		rideDefaultTab = refreshedSite.rideDefaultTab;
+		rideTheme = refreshedSite.rideTheme;
+		rideDensity = refreshedSite.rideDensity;
+		rideShowFilters = refreshedSite.rideShowFilters;
+		rideShowAdd = refreshedSite.rideShowAdd;
+		ridePrefixCity = refreshedSite.ridePrefixCity;
+		rideDifficultyColors = refreshedSite.rideDifficultyColors;
+		selectedRideGroupIds = refreshedSite.selectedRideGroupIds;
 		logoRawFile = null;
 		coverRawFile = null;
 		logoFileRevision = 0;
 		coverFileRevision = 0;
 		sponsorFileRevision = 0;
 		sponsorFileNames = {};
+		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
+			input.value = '';
+		}
 		logoPreview = data.group?.logo_url || '';
 		coverPreview = data.group?.cover_photo_url || '';
 		logoUploadKey += 1;
 		coverUploadKey += 1;
+		localNotice = '';
+		localError = '';
+		previewVersion += 1;
 		savedSnapshot = snapshot();
+		syncViewFromUrl('profile');
+	}
+
+	function discardPendingChanges() {
+		if (!dirty || !window.confirm('Discard all unpublished changes in this session?')) return;
+		syncStudioStateFromData();
 		localNotice = 'Reverted to last published state.';
 		localError = '';
 	}
 
-	function syncViewFromUrl() {
+	function enhancePresenceStudioForm({ action, formData, cancel }) {
+		const isReset = action.searchParams.has('/reset');
+		if (!isReset) {
+			if (!profileDraft.state_region.trim() || !profileDraft.country.trim()) {
+				localNotice = '';
+				localError = 'State/Region and Country are required in Core Profile.';
+				selectView('profile');
+				cancel();
+				return;
+			}
+			if (profileDraft.preferred_cta_kind === 'custom') {
+				if (!profileDraft.preferred_cta_label.trim()) {
+					localNotice = '';
+					localError = 'Custom CTA label is required and must be 10 characters or fewer.';
+					selectView('profile');
+					cancel();
+					return;
+				}
+				if (!profileDraft.preferred_cta_url.trim() || !customUrlValid) {
+					localNotice = '';
+					localError = 'Custom CTA URL is required and must start with http:// or https://.';
+					selectView('profile');
+					cancel();
+					return;
+				}
+			}
+			const sponsorFiles = [];
+			for (const [key, entry] of formData.entries()) {
+				if (key.startsWith('sponsor_logo_file_')) {
+					sponsorFiles.push(entry);
+				}
+			}
+			const siteValidation = validateGroupSiteDraftSubmission({
+				slug: slugInput,
+				files: sponsorFiles,
+				maxLogoBytes: GROUP_SITE_LOGO_MAX_BYTES
+			});
+			if (!siteValidation.ok) {
+				localNotice = '';
+				localError = siteValidation.error;
+				if (siteValidation.reason === 'invalid_slug' || siteValidation.reason === 'reserved_slug') {
+					selectView('address');
+				}
+				cancel();
+				return;
+			}
+		}
+
+		localNotice = '';
+		localError = '';
+		submitting = true;
+
+		return async ({ result, update, formElement }) => {
+			try {
+				if (result.type === 'failure') {
+					await update({ reset: false, invalidateAll: false, navigate: false });
+					return;
+				}
+				if (result.type === 'error') {
+					localError = result.error?.message || 'Unable to publish presence changes.';
+					return;
+				}
+				await update({ reset: false });
+				syncStudioStateFromData(formElement);
+			} finally {
+				submitting = false;
+			}
+		};
+	}
+
+	function syncViewFromUrl(fallbackView = null) {
 		if (typeof window === 'undefined') return;
 		const params = new URL(window.location.href).searchParams;
 		const hasDomainReturn = params.has('domain_checkout') || params.has('domain_payment');
-		const resolved = normalizePresenceStudioView(
-			params.get('view'),
-			hasDomainReturn ? 'address' : 'profile'
-		);
-		activeView = resolved;
+		if (params.has('view') || hasDomainReturn) {
+			activeView = normalizePresenceStudioView(
+				params.get('view'),
+				hasDomainReturn ? 'address' : activeView
+			);
+		} else if (fallbackView) {
+			activeView = normalizePresenceStudioView(fallbackView, activeView);
+		}
 	}
 
 	function selectView(view) {
@@ -1796,11 +1980,12 @@
 			event.preventDefault();
 			event.returnValue = '';
 		};
+		const handlePopState = () => syncViewFromUrl();
 		window.addEventListener('beforeunload', warn);
-		window.addEventListener('popstate', syncViewFromUrl);
+		window.addEventListener('popstate', handlePopState);
 		return () => {
 			window.removeEventListener('beforeunload', warn);
-			window.removeEventListener('popstate', syncViewFromUrl);
+			window.removeEventListener('popstate', handlePopState);
 			if (locationGeocodeTimeout) clearTimeout(locationGeocodeTimeout);
 		};
 	});
@@ -1815,14 +2000,7 @@
 	method="POST"
 	action="?/publish"
 	enctype="multipart/form-data"
-	onsubmit={() => {
-		if (!profileDraft.state_region.trim() || !profileDraft.country.trim()) {
-			localError = 'State/Region and Country are required in Core Profile.';
-			selectView('profile');
-			return false;
-		}
-		submitting = true;
-	}}
+	use:enhance={enhancePresenceStudioForm}
 >
 	<!-- Core Profile fields -->
 	<input type="hidden" name="name" value={profileDraft.name} />
@@ -2143,14 +2321,22 @@
 			<IconCircleAlert class="text-error-400 h-4 w-4 shrink-0" />
 			<span>{localError}</span>
 		</div>
-	{/if}
-	{#if form?.error}
+	{:else if form?.error}
 		<div
 			class="border-error-500 bg-surface-900 text-surface-50 flex items-center gap-2 border-l-4 p-3 text-sm"
 			role="alert"
 		>
 			<IconCircleAlert class="text-error-400 h-4 w-4 shrink-0" />
 			<span>{form.error}</span>
+		</div>
+	{/if}
+	{#if pendingFileWarning}
+		<div
+			class="border-warning-500 bg-surface-900 text-surface-50 flex items-center gap-2 border-l-4 p-3 text-sm"
+			role="status"
+		>
+			<IconCircleAlert class="text-warning-400 h-4 w-4 shrink-0" />
+			<span>{pendingFileWarning}</span>
 		</div>
 	{/if}
 
@@ -3937,9 +4123,7 @@
 								)
 							) {
 								event.preventDefault();
-								return;
 							}
-							submitting = true;
 						}}
 					>
 						<IconRefresh class="h-4 w-4" /> Reset to defaults

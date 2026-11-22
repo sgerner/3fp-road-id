@@ -5,12 +5,14 @@ import { createGroupSitePage, normalizeGroupSitePages } from '#lib/microsites/pa
 import {
 	buildPresenceRedirectFromEdit,
 	buildPresenceRedirectFromSite,
+	extractPresenceStudioFormValues,
 	isWebsiteLayerView,
 	mergeAiProposalIntoPresenceDraft,
 	normalizePresenceStudioView,
 	resolveMicrositeSeoDescription,
 	syncSiteConfigWithCoreGroup
 } from '#lib/groups/presenceStudio.js';
+import { buildGroupSiteEditorState } from '#lib/groups/siteEditor.js';
 import { load as loadLegacyEdit } from '../../routes/groups/[slug]/manage/edit/+page.server.js';
 import { load as loadLegacySite } from '../../routes/groups/[slug]/manage/site/+page.server.js';
 import { GET as getLegacyRootEdit } from '../../routes/groups/[slug]/edit/+server.js';
@@ -231,4 +233,68 @@ test('resolveMicrositeSeoDescription outputs configured homepage seo_description
 	});
 	assert.match(fallback, /Friendly Tuesday night social rides across Tempe/i);
 	assert.match(fallback, /Tempe, AZ/);
+});
+
+test('extractPresenceStudioFormValues preserves profile and website drafts while omitting File objects', () => {
+	const defaultSiteConfig = buildDefaultGroupSiteConfig(sampleGroup);
+	const formData = new FormData();
+	formData.set('return_view', 'profile');
+	formData.set('name', 'Desert Spokes Updated');
+	formData.set('tagline', 'Updated tagline on error');
+	formData.set('description', 'Updated story draft');
+	formData.set('city', 'Tempe');
+	formData.set('state_region', 'AZ');
+	formData.set('country', 'us');
+	formData.set('social_instagram', '@desertspokes');
+	formData.append('group_type_ids', '4');
+	formData.append('group_type_ids', '2');
+	formData.set('seo_description', 'Draft search summary preserved across server validation');
+	formData.set('microsite_slug', 'taken-slug');
+	formData.set('faq_1_q', 'Bring water?');
+	formData.set('faq_1_a', 'Yes, two bottles in summer.');
+	formData.set('ride_widget_filter_mode', 'radius');
+	formData.set('ride_widget_near', 'Tempe, AZ');
+	formData.set('ride_widget_radius_miles', '25');
+	formData.set(
+		'logo_file',
+		new File([new Uint8Array([137, 80, 78, 71])], 'club-badge.png', { type: 'image/png' })
+	);
+	formData.set(
+		'sponsor_items_json',
+		JSON.stringify([{ name: 'Tempe Bike Co', text: 'Wrench support', logo: '', url: '' }])
+	);
+	formData.set(
+		'sponsor_logo_file_0',
+		new File([new Uint8Array([137, 80, 78, 71])], 'tempe-bike.png', { type: 'image/png' })
+	);
+
+	const values = extractPresenceStudioFormValues(formData, { group: sampleGroup });
+
+	assert.deepEqual(JSON.parse(JSON.stringify(values)), values);
+	assert.equal(values.return_view, 'profile');
+	assert.equal(values.seo_description, 'Draft search summary preserved across server validation');
+	assert.equal(values.profile.name, 'Desert Spokes Updated');
+	assert.equal(values.profile.tagline, 'Updated tagline on error');
+	assert.equal(values.profile.country, 'US');
+	assert.equal(values.profile.socialInputs.instagram, '@desertspokes');
+	assert.deepEqual(values.profile.group_type_ids, [2, 4]);
+	assert.deepEqual(values.pending_profile_files, ['club-badge.png']);
+	assert.deepEqual(values.pending_sponsor_logo_files, ['tempe-bike.png']);
+
+	const hydratedSite = buildGroupSiteEditorState({
+		defaultSiteConfig,
+		siteConfig: defaultSiteConfig,
+		micrositeSlug: 'desertspokes',
+		group: sampleGroup,
+		values: values.site
+	});
+	assert.equal(hydratedSite.slugInput, 'taken-slug');
+	assert.equal(hydratedSite.rideFilterMode, 'radius');
+	assert.equal(
+		hydratedSite.siteConfig.seo_description,
+		'Draft search summary preserved across server validation'
+	);
+	assert.deepEqual(hydratedSite.faqItems, [
+		{ question: 'Bring water?', answer: 'Yes, two bottles in summer.' }
+	]);
 });
