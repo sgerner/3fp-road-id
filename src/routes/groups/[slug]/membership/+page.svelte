@@ -3,9 +3,9 @@
 	import { tick, untrack } from 'svelte';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconCrown from '@lucide/svelte/icons/crown';
