@@ -12,9 +12,15 @@
 		toEventDateKey
 	} from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import {
+		applyRideUrlState,
+		formatMonthParam,
+		parseRideUrlState
+	} from '#lib/url/directoryUrlState';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -28,61 +34,21 @@
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
 	import IconX from '@lucide/svelte/icons/x';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
-	/**
-	 * @param {string | null | undefined} rawView
-	 */
-	function resolveInitialView(rawView) {
-		return rawView && ['list', 'calendar', 'map'].includes(rawView) ? rawView : 'list';
-	}
+	/** @type {any[] | null} */
+	let allRidesOverride = $state(null);
+	/** @type {Record<string, any> | null} */
+	let allRidesMetaOverride = $state(null);
+	let loadingAllRides = false;
 
-	/**
-	 * @param {any[]} items
-	 */
-	function resolveDefaultCalendarMonth(items) {
-		const fallbackMonth = startOfMonth(new Date());
-		const currentPrefix = `${fallbackMonth.getFullYear()}-${String(fallbackMonth.getMonth() + 1).padStart(2, '0')}-`;
-		for (const item of items ?? []) {
-			if (item?._calendarDateKey?.startsWith(currentPrefix)) {
-				return fallbackMonth;
-			}
-		}
-		const firstKey = items?.[0]?._calendarDateKey;
-		return firstKey ? startOfMonthFromDateKey(firstKey, fallbackMonth) : fallbackMonth;
-	}
-
-	/** @type {any} */
-	let search = $state('');
-	/** @type {any} */
-	let selectedDifficulty = $state('all');
-	/** @type {any} */
-	let needsHost = $state(false);
-	/** @type {any} */
-	let view = $state(resolveInitialView(page.url.searchParams.get('view')));
-	/** @type {any} */
-	let currentPage = $state(1);
-	/** @type {Date | null} */
-	let manualCalendarReference = $state(null);
-	let viewerTimezone = $state('UTC');
-	/** @type {HTMLElement | null} */
-	let rideListEl = $state(null);
-
-	/** @type {any} */
-	let mapEl = $state(null);
-	/** @type {any} */
-	let map;
-	/** @type {any} */
-	let clusterLayer;
-	/** @type {any} */
-	let L;
-
-	/** @type {any} */
-	const rides = $derived((data?.rides ?? []).filter(Boolean));
-	/** @type {any} */
+	/** @type {any[]} */
+	const rides = $derived((allRidesOverride ?? data?.rides ?? []).filter(Boolean));
+	const activeRidesMeta = $derived(allRidesMetaOverride ?? data?.ridesMeta ?? null);
+	/** @type {string[]} */
 	const difficultyOptions = $derived(
 		Array.from(
 			new Set(
@@ -94,7 +60,69 @@
 		)
 	);
 
+	/**
+	 * @param {any[] | null | undefined} rideRows
+	 * @returns {string[]}
+	 */
+	function collectDifficultyNames(rideRows) {
+		return Array.from(
+			new Set(
+				(rideRows ?? [])
+					.filter(Boolean)
+					.flatMap((ride) => ride.difficultyLevels ?? [])
+					.map((level) => level?.name)
+					.filter(Boolean)
+			)
+		);
+	}
+
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() =>
+		parseRideUrlState(page.url.searchParams, {
+			difficultyOptions: collectDifficultyNames(data?.rides)
+		})
+	);
+
+	let search = $state(initialUrlState.q);
+	let selectedDifficulty = $state(initialUrlState.difficulty);
+	let needsHost = $state(initialUrlState.needsHost);
+	let view = $state(initialUrlState.view);
+	let currentPage = $state(initialUrlState.page);
+	let viewerTimezone = $state('UTC');
+	/** @type {HTMLElement | null} */
+	let rideListEl = $state(null);
+	let routerReady = false;
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let searchDebounceTimer;
+
+	/** @type {HTMLElement | null} */
+	let mapEl = $state(null);
 	/** @type {any} */
+	let map;
+	/** @type {any} */
+	let clusterLayer;
+	/** @type {any} */
+	let L;
+
+	async function ensureFullRidesLoaded() {
+		if (!browser || !data?.serverFiltered || allRidesOverride || loadingAllRides) return;
+		loadingAllRides = true;
+		try {
+			const response = await fetch('/api/rides');
+			if (!response.ok) return;
+			const payload = await response.json().catch(() => null);
+			if (Array.isArray(payload?.data)) {
+				allRidesOverride = payload.data;
+				allRidesMetaOverride = payload.meta ?? null;
+			}
+		} catch {
+			// Ignore transient client hydration errors; existing data remains usable.
+		} finally {
+			loadingAllRides = false;
+		}
+	}
+
+	/** @type {any[]} */
 	const filteredRides = $derived(
 		rides.filter((ride) => {
 			const query = search.trim().toLowerCase();
@@ -118,7 +146,9 @@
 
 			const matchesDifficulty =
 				selectedDifficulty === 'all' ||
-				(ride.difficultyLevels ?? []).some((level) => level?.name === selectedDifficulty);
+				(ride.difficultyLevels ?? []).some(
+					(level) => (level?.name ?? '').toLowerCase() === selectedDifficulty.toLowerCase()
+				);
 
 			return (
 				matchesQuery && matchesDifficulty && (!needsHost || (!ride.hostUserId && !ride.hostGroupId))
@@ -126,6 +156,17 @@
 		})
 	);
 
+	const hasActiveFilters = $derived(
+		Boolean(search.trim() || selectedDifficulty !== 'all' || needsHost)
+	);
+	const matchesServerScope = $derived(
+		allRidesOverride === null &&
+			(data?.serverFiltered
+				? search.trim() === initialUrlState.q.trim() &&
+					selectedDifficulty.toLowerCase() === initialUrlState.difficulty.toLowerCase() &&
+					needsHost === initialUrlState.needsHost
+				: !search.trim() && selectedDifficulty === 'all' && !needsHost)
+	);
 	/** @type {any} */
 	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
 	/** @type {any} */
@@ -134,19 +175,30 @@
 	);
 	/** @type {any} */
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
-	/** @type {any} */
-	const totalUpcoming = $derived(filteredRides.length);
+	const loadedUpcomingCount = $derived(filteredRides.length);
+	const totalUpcoming = $derived.by(() => {
+		const exactTotal = activeRidesMeta?.total ?? data?.totalAvailable;
+		const canUseServerTotal =
+			typeof exactTotal === 'number' &&
+			Number.isFinite(exactTotal) &&
+			(matchesServerScope ||
+				(allRidesOverride !== null &&
+					!search.trim() &&
+					selectedDifficulty === 'all' &&
+					!needsHost));
+		if (canUseServerTotal && exactTotal > loadedUpcomingCount) {
+			return exactTotal;
+		}
+		return loadedUpcomingCount;
+	});
 	const ridesPerPage = 24;
-	/** @type {any} */
-	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / ridesPerPage)));
-	/** @type {any} */
+	const totalPages = $derived(Math.max(1, Math.ceil(loadedUpcomingCount / ridesPerPage)));
+	/** @type {any[]} */
 	const paginatedRides = $derived(
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
 
-	const hasActiveFilters = $derived(Boolean(search) || selectedDifficulty !== 'all' || needsHost);
-
-	/** @type {any} */
+	/** @type {any[]} */
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
@@ -169,9 +221,19 @@
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
-	const calendarReference = $derived(
-		manualCalendarReference ?? resolveDefaultCalendarMonth(datedRides)
-	);
+	const defaultCalendarMonth = $derived.by(() => {
+		const currentMonth = startOfMonth(new Date());
+		if (!datedRides.length) return currentMonth;
+		const currentPrefix = `${formatMonthParam(currentMonth)}-`;
+		if (datedRides.some((ride) => ride?._calendarDateKey?.startsWith(currentPrefix))) {
+			return currentMonth;
+		}
+		const firstKey = datedRides[0]?._calendarDateKey;
+		return firstKey ? startOfMonthFromDateKey(firstKey, currentMonth) : currentMonth;
+	});
+
+	let calendarReference = $state(untrack(() => initialUrlState.monthDate ?? defaultCalendarMonth));
+	let calendarMonthTouched = $state(Boolean(initialUrlState.monthDate));
 
 	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toCivilDateKey));
@@ -188,21 +250,86 @@
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
+	function syncUrlToState() {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyRideUrlState(currentUrl, {
+			q: search,
+			difficulty: selectedDifficulty,
+			needsHost,
+			view,
+			page: currentPage,
+			monthDate: calendarReference,
+			defaultMonthDate: defaultCalendarMonth,
+			monthTouched: calendarMonthTouched
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	function restoreStateFromUrl(searchParamsInput) {
+		clearTimeout(searchDebounceTimer);
+		const restored = parseRideUrlState(searchParamsInput, { difficultyOptions });
+		search = restored.q;
+		selectedDifficulty = restored.difficulty;
+		needsHost = restored.needsHost;
+		view = restored.view;
+		currentPage = restored.page;
+		if (restored.monthDate) {
+			calendarReference = restored.monthDate;
+			calendarMonthTouched = true;
+		} else {
+			calendarMonthTouched = false;
+			calendarReference = defaultCalendarMonth;
+		}
+		if (data?.serverFiltered && !allRidesOverride) {
+			const changedFromInitial =
+				restored.q.trim() !== initialUrlState.q.trim() ||
+				restored.difficulty.toLowerCase() !== initialUrlState.difficulty.toLowerCase() ||
+				restored.needsHost !== initialUrlState.needsHost;
+			if (changedFromInitial) void ensureFullRidesLoaded();
+		}
+	}
 	function scrollToRideCards() {
 		if (!rideListEl) return;
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
+	function handleSearchInput() {
+		currentPage = 1;
+		void ensureFullRidesLoaded();
+		clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			syncUrlToState();
+		}, 250);
+	}
+
+	function flushSearchSync() {
+		clearTimeout(searchDebounceTimer);
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
 	function clearSearch() {
+		clearTimeout(searchDebounceTimer);
 		search = '';
 		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
 	}
 
 	function clearFilters() {
+		clearTimeout(searchDebounceTimer);
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
+		view = 'list';
 		currentPage = 1;
+		calendarMonthTouched = false;
+		calendarReference = defaultCalendarMonth;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
 	}
 
 	/**
@@ -211,6 +338,20 @@
 	function selectDifficulty(difficulty) {
 		selectedDifficulty = difficulty;
 		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function toggleNeedsHost() {
+		needsHost = !needsHost;
+		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function selectView(nextView) {
+		view = nextView;
+		syncUrlToState();
 	}
 
 	/**
@@ -218,6 +359,7 @@
 	 */
 	function changeRidePage(nextPage) {
 		currentPage = Math.min(Math.max(nextPage, 1), totalPages);
+		syncUrlToState();
 		scrollToRideCards();
 	}
 
@@ -267,7 +409,16 @@
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
-		manualCalendarReference = startOfMonth(next);
+		calendarReference = startOfMonth(next);
+		calendarMonthTouched = true;
+		syncUrlToState();
+	}
+
+	function resetCalendarToToday() {
+		const todayMonth = startOfMonth(new Date());
+		calendarReference = todayMonth;
+		calendarMonthTouched = formatMonthParam(todayMonth) !== formatMonthParam(defaultCalendarMonth);
+		syncUrlToState();
 	}
 
 	/**
@@ -361,9 +512,30 @@
 		}
 	});
 
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		}
+	});
+
 	onMount(() => {
 		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			syncUrlToState();
+		}
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
 		return () => {
+			clearTimeout(searchDebounceTimer);
+			window.removeEventListener('popstate', handlePopState);
 			try {
 				map?.remove();
 				map = null;
@@ -453,6 +625,17 @@
 	});
 
 	$effect(() => {
+		if (selectedDifficulty !== 'all') {
+			const canonical = difficultyOptions.find(
+				(option) => option.toLowerCase() === selectedDifficulty.toLowerCase()
+			);
+			if (canonical && canonical !== selectedDifficulty) {
+				selectedDifficulty = canonical;
+			}
+		}
+	});
+
+	$effect(() => {
 		if (browser && !['list', 'calendar', 'map'].includes(view)) {
 			view = 'list';
 		}
@@ -460,6 +643,12 @@
 
 	$effect(() => {
 		if (currentPage > totalPages) currentPage = totalPages;
+	});
+
+	$effect(() => {
+		if (!calendarMonthTouched && calendarReference.getTime() !== defaultCalendarMonth.getTime()) {
+			calendarReference = defaultCalendarMonth;
+		}
 	});
 
 	$effect(() => {
@@ -619,8 +808,12 @@
 							type="text"
 							aria-label="Search rides"
 							bind:value={search}
-							oninput={() => {
-								currentPage = 1;
+							oninput={handleSearchInput}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									flushSearchSync();
+								}
 							}}
 							placeholder="Search by title, location, pace, discipline…"
 						/>
@@ -664,11 +857,11 @@
 						<button
 							type="button"
 							class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
-								selectedDifficulty === option
+								selectedDifficulty.toLowerCase() === option.toLowerCase()
 									? 'bg-primary-500 text-surface-950 border-primary-500'
 									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 							}`}
-							aria-pressed={selectedDifficulty === option}
+							aria-pressed={selectedDifficulty.toLowerCase() === option.toLowerCase()}
 							onclick={() => selectDifficulty(option)}
 						>
 							{option}
@@ -678,10 +871,7 @@
 						type="button"
 						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
 						aria-pressed={needsHost}
-						onclick={() => {
-							needsHost = !needsHost;
-							currentPage = 1;
-						}}
+						onclick={toggleNeedsHost}
 					>
 						Needs Host
 					</button>
@@ -689,7 +879,7 @@
 			</div>
 			<div class="flex flex-col items-start gap-2 sm:items-end">
 				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
-					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
+					{formatStatNumber(totalUpcoming)} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
 				<div class="border-surface-700 flex shrink-0 border-2">
 					<button
@@ -700,7 +890,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'list'}
-						onclick={() => (view = 'list')}
+						onclick={() => selectView('list')}
 					>
 						List
 					</button>
@@ -712,7 +902,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'calendar'}
-						onclick={() => (view = 'calendar')}
+						onclick={() => selectView('calendar')}
 					>
 						Calendar
 					</button>
@@ -724,7 +914,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'map'}
-						onclick={() => (view = 'map')}
+						onclick={() => selectView('map')}
 					>
 						Map
 					</button>
@@ -929,8 +1119,8 @@
 						<p class="text-surface-300 m-0 text-sm font-bold uppercase tabular-nums">
 							Showing {(currentPage - 1) * ridesPerPage + 1}–{Math.min(
 								currentPage * ridesPerPage,
-								totalUpcoming
-							)} of {totalUpcoming}
+								loadedUpcomingCount
+							)} of {formatStatNumber(totalUpcoming)}
 						</p>
 						<div class="border-surface-50 flex border-[3px]" aria-label="Pagination controls">
 							<button
@@ -1009,9 +1199,7 @@
 						<button
 							type="button"
 							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
-							onclick={() => {
-								manualCalendarReference = startOfMonth(new Date());
-							}}
+							onclick={resetCalendarToToday}
 						>
 							Today
 						</button>
