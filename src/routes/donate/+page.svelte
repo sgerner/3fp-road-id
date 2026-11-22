@@ -6,17 +6,23 @@
 	import IconLock from '@lucide/svelte/icons/lock';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconEyeOff from '@lucide/svelte/icons/eye-off';
+	import { DEFAULT_DONATION_AMOUNT, resolveDonationPrefillAmount } from '#lib/donations/constants';
 	import { loadStripe } from '@stripe/stripe-js';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const prefill = $derived(data?.prefill ?? {});
-	let amount = $state(25);
-	let donorName = $state('');
-	let donorEmail = $state('');
+	const initialPrefill = untrack(() => ({
+		amount: resolveDonationPrefillAmount(data?.prefill?.amount ?? DEFAULT_DONATION_AMOUNT),
+		donorName: data?.prefill?.donorName ?? '',
+		donorEmail: data?.prefill?.donorEmail ?? ''
+	}));
+	let amount = $state(initialPrefill.amount);
+	let donorName = $state(initialPrefill.donorName);
+	let donorEmail = $state(initialPrefill.donorEmail);
 	let donorMessage = $state('');
 	let requestAnonymity = $state(false);
 	let submitting = $state(false);
@@ -62,12 +68,28 @@
 	/** @type {any} */
 	let paymentElement = null;
 	let preparedSignature = '';
+	let lastPrefill = initialPrefill;
 
 	$effect(() => {
-		const amountValue = Number(prefill?.amount) || 25;
-		if (amount === 25 && amountValue !== 25) amount = amountValue;
-		if (!donorName && prefill?.donorName) donorName = prefill.donorName;
-		if (!donorEmail && prefill?.donorEmail) donorEmail = prefill.donorEmail;
+		const nextAmount = resolveDonationPrefillAmount(prefill?.amount ?? DEFAULT_DONATION_AMOUNT);
+		const nextDonorName = prefill?.donorName ?? '';
+		const nextDonorEmail = prefill?.donorEmail ?? '';
+
+		if (nextAmount !== lastPrefill.amount) {
+			amount = nextAmount;
+		}
+		if (nextDonorName !== lastPrefill.donorName) {
+			donorName = nextDonorName;
+		}
+		if (nextDonorEmail !== lastPrefill.donorEmail) {
+			donorEmail = nextDonorEmail;
+		}
+
+		lastPrefill = {
+			amount: nextAmount,
+			donorName: nextDonorName,
+			donorEmail: nextDonorEmail
+		};
 	});
 
 	function formatAmount(value) {

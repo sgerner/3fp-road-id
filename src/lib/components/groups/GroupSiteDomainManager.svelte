@@ -9,6 +9,7 @@
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
+	import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 
 	/** @type {Record<string, any>} */
 	let { group, slug = $bindable(''), currentSlug = '', liveUrl = '' } = $props();
@@ -30,14 +31,11 @@
 	let copyTimer;
 
 	const normalizedSlug = $derived(normalizeSlug(slug));
+	const normalizedCurrentSlug = $derived(normalizeMicrositeSlug(currentSlug));
 	const includedUrl = $derived(String(liveUrl || normalizedSlug || 'yourgroup').replace(/\/$/, ''));
 
 	function normalizeSlug(value) {
-		return String(value || '')
-			.toLowerCase()
-			.normalize('NFKD')
-			.replace(/[^a-z0-9]/g, '')
-			.slice(0, 40);
+		return normalizeMicrositeSlug(value).slice(0, 40);
 	}
 
 	function handleSlugInput(event) {
@@ -54,7 +52,15 @@
 			};
 			return;
 		}
-		if (next === currentSlug) {
+		if (isReservedMicrositeSlug(next)) {
+			availability = {
+				state: 'taken',
+				label: 'Reserved',
+				message: 'That address is reserved by the app.'
+			};
+			return;
+		}
+		if (next === normalizedCurrentSlug) {
 			availability = {
 				state: 'current',
 				label: 'Current',
