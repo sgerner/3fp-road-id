@@ -167,7 +167,7 @@
 						y1="15"
 						x2={axis(1)}
 						y2="103"
-						stroke="#7926cb"
+						class="chart-reference"
 						stroke-width="2"
 						stroke-dasharray="5 5"
 					/>
@@ -177,7 +177,7 @@
 						y1="60"
 						x2={axis(current.high)}
 						y2="60"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="6"
 					/>
 					<line
@@ -185,7 +185,7 @@
 						y1="49"
 						x2={axis(current.low)}
 						y2="71"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="3"
 					/>
 					<line
@@ -193,10 +193,10 @@
 						y1="49"
 						x2={axis(current.high)}
 						y2="71"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="3"
 					/>
-					<circle cx={axis(current.estimate)} cy="60" r="8" fill="#23143a" />
+					<circle cx={axis(current.estimate)} cy="60" r="8" class="chart-point" />
 					{#each [0.1, 0.3, 1, 3] as tick}<line
 							x1={axis(tick)}
 							y1="95"
@@ -231,10 +231,20 @@
 <style>
 	h2,
 	h3 {
-		color: var(--color-secondary-950) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 	}
 	.evidence-explorer {
-		color: var(--color-secondary-950);
+		--ee-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--ee-muted: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
+		--ee-purple: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		--ee-pink: var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
+		--ee-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--ee-line: var(--line, light-dark(var(--color-secondary-200), var(--color-surface-700)));
+		--ee-paper: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
+		color: var(--ee-ink);
 	}
 	.evidence-explorer h2,
 	.evidence-explorer h3 {
@@ -248,7 +258,7 @@
 		max-width: 48rem;
 	}
 	.eyebrow {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		letter-spacing: 0.02em;
 		font-size: 0.82rem;
 		font-weight: 800;
@@ -269,7 +279,7 @@
 		line-height: 1.6;
 	}
 	a {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		font-weight: 700;
 		text-underline-offset: 0.2em;
 	}
@@ -299,11 +309,11 @@
 	select {
 		box-sizing: border-box;
 		width: 100%;
-		border: 1px solid var(--color-secondary-300);
+		border: 1px solid var(--ee-border);
 		border-radius: 0.35rem;
-		background: var(--report-paper);
+		background: var(--ee-paper);
 		padding: 0.8rem;
-		color: var(--color-secondary-950);
+		color: var(--ee-ink);
 		font: inherit;
 	}
 	input:focus-visible,
@@ -311,7 +321,7 @@
 	a:focus-visible,
 	button:focus-visible,
 	summary:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--ee-pink);
 		outline-offset: 3px;
 	}
 	.count {
@@ -319,10 +329,10 @@
 		margin: 1.4rem 0 0.5rem;
 	}
 	details {
-		border-top: 1px solid var(--color-secondary-300);
+		border-top: 1px solid var(--ee-line);
 	}
 	details:last-child {
-		border-bottom: 1px solid var(--color-secondary-300);
+		border-bottom: 1px solid var(--ee-line);
 	}
 	summary {
 		display: grid;
@@ -344,14 +354,14 @@
 		margin-top: 0.3rem;
 		font-size: 0.9rem;
 		line-height: 1.5;
-		color: var(--color-surface-700);
+		color: var(--ee-muted);
 	}
 	.record-id {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		font-weight: 800;
 	}
 	.expand {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		font-size: 1.5rem;
 		line-height: 1;
 	}
@@ -397,10 +407,10 @@
 	}
 	button:hover,
 	a:hover {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 	}
 	.links button {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		border: 0;
 		background: none;
 		padding: 0;
@@ -410,16 +420,16 @@
 	.more {
 		margin: 1.5rem 0;
 		padding: 0.85rem 1.2rem;
-		border: 2px solid var(--color-secondary-700-300);
+		border: 2px solid var(--ee-purple);
 		border-radius: 0.35rem;
 		background: transparent;
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 	}
 	.interval {
 		margin-top: 4rem;
 		padding: clamp(1.25rem, 4vw, 2.5rem);
-		background: var(--report-paper);
-		border-top: 5px solid var(--color-tertiary-700-300);
+		background: var(--ee-paper);
+		border-top: 5px solid var(--ee-pink);
 	}
 	.interval label {
 		display: block;
@@ -435,8 +445,17 @@
 		margin: 1rem auto;
 		overflow: visible;
 	}
+	.chart-reference {
+		stroke: var(--ee-purple);
+	}
+	.chart-interval {
+		stroke: var(--ee-pink);
+	}
+	.chart-point {
+		fill: var(--ee-ink);
+	}
 	.chart-label {
-		fill: var(--color-secondary-950);
+		fill: var(--ee-ink);
 		font: 14px sans-serif;
 	}
 	.result {

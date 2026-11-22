@@ -43,16 +43,23 @@
 		<p class="pl-8 indent-[-1.5rem]">
 			🚀 Now your info is <strong>instantly accessible to first responders</strong> in an emergency.
 		</p>
-		<a class="btn btn-sm preset-outlined-success-500 mt-4 w-full" href="/roadid/3feetpls">
+		<a
+			class="btn btn-sm preset-outlined-success-500 border-success-800 dark:border-success-500 text-surface-950-50 mt-4 w-full"
+			href="/roadid/3feetpls"
+		>
 			See an example profile
 		</a>
 	</section>
-	<details class="border-surface-500 border p-4">
+	<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border p-4">
 		<summary class="cursor-pointer font-bold">Crash response checklist</summary>
-		<CrashResponse />
+		<div class="pt-4">
+			<CrashResponse />
+		</div>
 	</details>
-	<details class="border-surface-500 border p-4">
+	<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border p-4">
 		<summary class="cursor-pointer font-bold">Cycling safety tips</summary>
-		<AlertSystem />
+		<div class="pt-4">
+			<AlertSystem />
+		</div>
 	</details>
 </div>

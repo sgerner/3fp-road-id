@@ -304,11 +304,22 @@
 		color: var(--color-surface-50) !important;
 	}
 	.panel h3 {
-		color: var(--ink) !important;
+		color: var(--panel-ink) !important;
 	}
 	.lab {
 		--ink: var(--color-secondary-950);
-		--cream: var(--color-surface-100);
+		--cream: light-dark(var(--color-surface-100), var(--color-surface-900));
+		--panel-ink: light-dark(var(--color-secondary-950), var(--color-surface-50));
+		--panel-purple: light-dark(var(--color-secondary-700), var(--color-secondary-200));
+		--panel-pink: light-dark(var(--color-tertiary-800), var(--color-tertiary-300));
+		--panel-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--panel-chip: var(
+			--report-paper,
+			light-dark(var(--color-surface-50), var(--color-surface-950))
+		);
 		--purple: var(--color-secondary-700);
 		--pink: var(--color-tertiary-700);
 		--yellow: var(--color-primary-500);
@@ -377,7 +388,7 @@
 		border-color: var(--yellow);
 	}
 	button:focus-visible {
-		outline: 3px solid var(--pink);
+		outline: 3px solid var(--yellow);
 		outline-offset: 3px;
 	}
 	.mode-list button {
@@ -401,7 +412,7 @@
 	}
 	.mode-list button[aria-pressed='true'] {
 		background: var(--yellow);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 		border-color: var(--yellow);
 	}
 	.workspace {
@@ -437,7 +448,7 @@
 		border-radius: 10px;
 	}
 	.svg-label {
-		fill: var(--report-soft);
+		fill: var(--color-surface-50);
 		font-size: 15px;
 		font-weight: 900;
 		letter-spacing: 1px;
@@ -450,14 +461,14 @@
 	}
 	.panel {
 		background: var(--cream);
-		color: var(--ink);
+		color: var(--panel-ink);
 		border-radius: 16px;
 		padding: clamp(1.2rem, 2.5vw, 2rem);
 		display: flex;
 		flex-direction: column;
 	}
 	.panel-kicker {
-		color: var(--purple);
+		color: var(--panel-purple);
 		display: flex;
 		justify-content: space-between;
 		margin: 0;
@@ -511,8 +522,8 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 		background: transparent;
-		color: var(--ink);
-		border: 1px solid var(--report-border);
+		color: var(--panel-ink);
+		border: 1px solid var(--panel-border);
 		border-radius: 9px;
 		padding: 0.75rem;
 		text-align: left;
@@ -520,13 +531,14 @@
 	}
 	.toggles button b {
 		font-size: 0.75rem;
-		background: var(--report-soft);
+		background: var(--panel-chip);
+		color: var(--panel-ink);
 		border-radius: 5px;
 		padding: 0.3rem 0.45rem;
 	}
 	.toggles button[aria-pressed='true'] b {
-		background: var(--pink);
-		color: var(--color-surface-50);
+		background: var(--panel-pink);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.steps button {
 		justify-content: flex-start;
@@ -537,16 +549,17 @@
 		width: 1.5rem;
 		height: 1.5rem;
 		border-radius: 50%;
-		background: var(--report-soft);
+		background: var(--panel-chip);
+		color: var(--panel-ink);
 	}
 	.steps button[aria-pressed='true'] {
-		background: var(--ink);
+		background: light-dark(var(--color-secondary-950), var(--color-secondary-700));
 		color: var(--color-surface-50);
-		border-color: var(--ink);
+		border-color: light-dark(var(--color-secondary-950), var(--yellow));
 	}
 	.steps button[aria-pressed='true'] span {
 		background: var(--yellow);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 	}
 	.legend {
 		font-size: 0.85rem;
@@ -555,14 +568,18 @@
 		gap: 0.4rem;
 		flex-wrap: wrap;
 	}
-	.yellow-line,
-	.pink-line {
+	.yellow-line {
+		display: inline-block;
 		width: 22px;
-		border-top: 4px solid var(--color-primary-500);
+		height: 6px;
+		box-sizing: border-box;
+		background: var(--color-primary-500);
+		border: 1.5px solid light-dark(var(--color-secondary-950), var(--color-primary-500));
 	}
 	.pink-line {
-		border-color: var(--pink);
-		border-top-style: dashed;
+		display: inline-block;
+		width: 22px;
+		border-top: 4px dashed var(--panel-pink);
 		margin-left: 0.5rem;
 	}
 	.ask {
@@ -570,15 +587,15 @@
 		padding: 1rem 0 0;
 		background: none;
 		border: 0;
-		color: var(--purple);
+		color: var(--panel-purple);
 		font-weight: 900;
 		text-align: left;
 	}
 	.ask span {
 		margin-left: 0.5rem;
 	}
-	button:focus-visible {
-		outline: 3px solid var(--pink);
+	.panel button:focus-visible {
+		outline: 3px solid var(--panel-pink);
 		outline-offset: 3px;
 	}
 	@media (max-width: 760px) {

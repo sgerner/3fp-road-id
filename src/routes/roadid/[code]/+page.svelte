@@ -322,7 +322,7 @@
 	</header>
 
 	<!-- Skeleton UI Tabs -->
-	<Tabs value={group} onValueChange={(e) => (group = e.value)}>
+	<Tabs value={group} onValueChange={(e) => (group = e.value)} class="flex flex-1 flex-col">
 		<div
 			class="bg-secondary-500 text-surface-50 border-surface-950 border-y-[3px] px-3 py-2 sm:px-10 sm:py-3 lg:px-14"
 		>
@@ -1004,13 +1004,17 @@
 				{/if}
 			</div>
 		</Tabs.Content>
-		<Tabs.Content value="crash">
-			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
+		<Tabs.Content value="crash" class="bg-surface-50-950 text-surface-950-50 flex-1">
+			<div
+				class="bg-surface-50-950 text-surface-950-50 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16"
+			>
 				<CrashResponse />
 			</div>
 		</Tabs.Content>
-		<Tabs.Content value="alert">
-			<div class="bg-surface-950 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
+		<Tabs.Content value="alert" class="bg-surface-50-950 text-surface-950-50 flex-1">
+			<div
+				class="bg-surface-50-950 text-surface-950-50 px-6 py-7 sm:px-10 sm:py-12 lg:px-14 lg:py-16"
+			>
 				<AlertSystem />
 			</div>
 		</Tabs.Content>

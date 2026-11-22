@@ -497,12 +497,12 @@
 	.report-page :global(input),
 	.report-page :global(select),
 	.report-page :global(textarea) {
-		border-color: var(--color-secondary-400);
+		border-color: var(--report-border);
 	}
 
 	.report-page :global(h4),
 	.report-page :global(h5) {
-		color: var(--color-secondary-950);
+		color: var(--ink);
 	}
 
 	.chapter-jump {
@@ -583,7 +583,7 @@
 
 	.template-notice {
 		padding: 1.25rem;
-		border-left: 4px solid var(--color-tertiary-700-300);
+		border-left: 4px solid var(--pink);
 		background: var(--report-soft);
 		line-height: 1.6;
 		margin-bottom: 2rem;
@@ -599,6 +599,12 @@
 		font-size: 1.5rem;
 		margin: 0 0 1rem;
 	}
+	.chapter-examples a {
+		color: var(--purple);
+		font-weight: 700;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
 	.chapter-example-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -609,6 +615,7 @@
 		width: 100%;
 		max-height: 420px;
 		object-fit: contain;
+		background: var(--color-surface-50);
 	}
 	.chapter-example-grid a {
 		display: block;
@@ -673,13 +680,13 @@
 		align-items: center;
 		gap: 2rem;
 		background: var(--report-soft);
-		color: var(--color-surface-700);
+		color: var(--ink);
 		border-top: 5px solid var(--pink);
 		padding: clamp(1.4rem, 3vw, 2.5rem);
 		margin: 1.2rem 0 4rem;
 	}
 	.takeaway-example .kicker {
-		color: var(--color-secondary-700);
+		color: var(--purple);
 		font-size: 0.6rem;
 	}
 	.takeaway-example blockquote {
@@ -692,7 +699,7 @@
 	.takeaway-example p:last-child {
 		font-size: 0.85rem;
 		line-height: 1.65;
-		color: var(--color-surface-700);
+		color: var(--muted);
 	}
 	.takeaway-actions {
 		display: flex;
@@ -701,7 +708,7 @@
 		align-items: flex-start;
 	}
 	.takeaway-actions > a:last-child {
-		color: var(--color-surface-700);
+		color: var(--purple);
 		font-size: 0.78rem;
 		text-decoration: underline;
 		text-underline-offset: 3px;
@@ -728,25 +735,29 @@
 		overflow-y: visible;
 	}
 	.report-page h2,
-	.report-page h3 {
+	.report-page h3,
+	.report-page h4,
+	.report-page h5 {
 		color: var(--ink) !important;
 	}
 	.report-page {
-		--report-paper: var(--color-surface-50);
-		--report-soft: color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50));
-		--report-border: var(--color-secondary-300);
-		--purple: var(--color-secondary-700-300);
-		--pink: var(--color-tertiary-700-300);
+		--report-paper: light-dark(var(--color-surface-50), var(--color-surface-950));
+		--report-soft: light-dark(
+			color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+			var(--color-surface-900)
+		);
+		--report-border: light-dark(var(--color-secondary-400), var(--color-surface-400));
+		--purple: light-dark(var(--color-secondary-700), var(--color-secondary-200));
+		--pink: light-dark(var(--color-tertiary-700), var(--color-tertiary-300));
 		--lemon: var(--color-primary-500);
-		--ink: var(--color-secondary-950);
+		--ink: light-dark(var(--color-secondary-950), var(--color-surface-50));
 		--cream: var(--report-soft);
-		--muted: var(--color-surface-700);
-		--line: var(--color-secondary-200);
+		--muted: light-dark(var(--color-surface-700), var(--color-surface-200));
+		--line: light-dark(var(--color-secondary-200), var(--color-surface-700));
 		margin: -1rem;
 		background: var(--report-paper);
 		color: var(--ink);
 		font-family: Arial, Helvetica, sans-serif;
-		color-scheme: light;
 		overflow-wrap: anywhere;
 	}
 	.report-page h1,
@@ -822,7 +833,7 @@
 		grid-template-columns: 1.1fr 1fr;
 		gap: 1.5rem;
 		overflow: hidden;
-		color: var(--color-secondary-950);
+		color: var(--ink);
 		min-height: 650px;
 		align-items: center;
 	}
@@ -870,21 +881,21 @@
 		background: var(--pink);
 	}
 	.report-hero .kicker {
-		color: var(--color-secondary-700);
+		color: var(--purple);
 		margin-bottom: 2.3rem;
 	}
 	.report-hero h1 {
 		font-size: clamp(3.4rem, 5.8vw, 7rem);
 		line-height: 0.96;
 		letter-spacing: -0.06em;
-		color: var(--color-secondary-950);
+		color: var(--ink);
 	}
 	.report-page em {
 		font-style: normal;
 		color: var(--purple);
 	}
 	.report-hero h1 em {
-		color: var(--color-secondary-700);
+		color: var(--purple);
 	}
 	.hero-deck {
 		font-size: clamp(1.2rem, 1.7vw, 1.65rem);
@@ -898,7 +909,7 @@
 		margin-top: 1rem !important;
 		line-height: 1.6;
 		font-size: 1rem;
-		color: var(--color-surface-700);
+		color: var(--muted);
 	}
 	.hero-actions {
 		display: flex;
@@ -919,9 +930,10 @@
 	}
 	.primary-link:hover {
 		background: var(--report-paper);
+		color: var(--ink);
 	}
 	.text-link {
-		color: var(--color-secondary-950);
+		color: var(--ink);
 		font-size: 0.85rem;
 		font-weight: 700;
 	}
@@ -930,7 +942,7 @@
 	}
 	.edition {
 		font-size: 0.65rem;
-		color: var(--color-secondary-700-300);
+		color: var(--purple);
 		margin-top: 2rem;
 		line-height: 1.8;
 	}
@@ -947,7 +959,7 @@
 		display: block;
 		position: absolute;
 		width: 48%;
-		background: var(--report-paper);
+		background: var(--color-surface-50);
 		padding: 6px;
 		box-shadow: 0 25px 60px color-mix(in srgb, var(--color-surface-950) 50%, transparent);
 		transition: transform 0.25s;
@@ -962,7 +974,7 @@
 	.hero-poster > span {
 		display: block;
 		padding: 7px 5px 4px;
-		color: var(--ink);
+		color: var(--color-secondary-950);
 		font-size: 0.48rem;
 		font-weight: 800;
 		letter-spacing: 0.1em;
@@ -994,7 +1006,7 @@
 		position: absolute;
 		left: 0;
 		bottom: 0;
-		color: var(--color-surface-700);
+		color: var(--muted);
 		font-size: 0.78rem;
 		line-height: 1.45;
 		z-index: 3;
@@ -1012,8 +1024,8 @@
 		display: flex;
 		gap: 0;
 		overflow-x: auto;
-		background: var(--color-primary-100);
-		border-bottom: 1px solid var(--ink);
+		background: light-dark(var(--color-primary-100), var(--color-surface-900));
+		border-bottom: 1px solid var(--line);
 		padding: 0 clamp(1rem, 3vw, 3rem);
 		scrollbar-width: thin;
 	}
@@ -1300,7 +1312,7 @@
 		width: 100%;
 		height: auto;
 		display: block;
-		background: var(--report-paper);
+		background: var(--color-surface-50);
 	}
 	.chapter-copy :global(figcaption) {
 		font-size: 0.8rem;
@@ -1319,7 +1331,7 @@
 	}
 	.chapter-copy :global(td),
 	.chapter-copy :global(th) {
-		border: 1px solid var(--report-soft);
+		border: 1px solid var(--line);
 		padding: 0.8rem;
 		vertical-align: top;
 		min-width: 100px;
@@ -1339,7 +1351,7 @@
 		align-items: center;
 		gap: 1.5rem;
 		background: var(--report-soft);
-		color: var(--color-secondary-950);
+		color: var(--ink);
 		padding: 2.5rem clamp(1.25rem, 5vw, 5rem);
 	}
 	.report-footer img {
@@ -1356,12 +1368,12 @@
 	}
 	.report-footer span {
 		font-size: 0.75rem;
-		color: var(--color-surface-700);
+		color: var(--muted);
 		line-height: 1.6;
 	}
 	.report-footer > a {
 		margin-left: auto;
-		color: var(--color-secondary-700);
+		color: var(--purple);
 		font-size: 0.8rem;
 		white-space: nowrap;
 	}
@@ -1506,14 +1518,51 @@
 		}
 	}
 	@media print {
+		:global(html:has(.report-page)),
+		:global(html.dark:has(.report-page)),
+		:global(body:has(.report-page)) {
+			color-scheme: light;
+			background: var(--color-surface-50) !important;
+		}
+		:global(body:has(.report-page))::before,
+		:global(body:has(.report-page))::after,
+		:global(body:has(.report-page) .app-header),
+		:global(body:has(.report-page) .app-rail) {
+			display: none !important;
+		}
+		:global(body:has(.report-page) div:has(> main)) {
+			display: block !important;
+		}
+		:global(body:has(.report-page) main) {
+			padding: 0 !important;
+		}
+		.report-page,
+		.report-page :global(*) {
+			visibility: visible;
+			color-scheme: light;
+			transition: none !important;
+			animation: none !important;
+		}
 		.report-page {
+			--report-paper: var(--color-surface-50);
+			--report-soft: color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50));
+			--report-border: var(--color-secondary-400);
+			--purple: var(--color-secondary-700);
+			--pink: var(--color-tertiary-700);
+			--ink: var(--color-secondary-950);
+			--cream: var(--report-soft);
+			--muted: var(--color-surface-700);
+			--line: var(--color-secondary-200);
 			margin: 0;
 			background: var(--report-paper);
+			color: var(--ink);
+			color-scheme: light;
 		}
 		.download-bar,
 		.report-hero,
 		.report-nav,
 		.start-section,
+		.planner-section,
 		.encounter-section,
 		.gallery-section,
 		.evidence-section,

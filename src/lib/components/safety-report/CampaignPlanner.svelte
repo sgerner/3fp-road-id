@@ -354,14 +354,32 @@
 	}
 
 	.planner {
-		--planner-ink: var(--color-secondary-950);
-		--planner-muted: var(--color-surface-700);
-		--planner-line: var(--report-border);
-		--planner-panel: var(--report-paper);
-		--planner-soft: color-mix(in srgb, var(--report-soft) 35%, var(--report-paper));
+		--planner-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--planner-muted: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
+		--planner-line: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--planner-panel: var(
+			--report-paper,
+			light-dark(var(--color-surface-50), var(--color-surface-950))
+		);
+		--planner-soft: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
 		--planner-accent: var(--color-primary-500);
-		--planner-secondary: var(--color-secondary-700-300);
-		--planner-highlight: var(--color-tertiary-700-300);
+		--planner-secondary: var(
+			--purple,
+			light-dark(var(--color-secondary-700), var(--color-secondary-200))
+		);
+		--planner-highlight: var(
+			--pink,
+			light-dark(var(--color-tertiary-700), var(--color-tertiary-300))
+		);
 		max-width: 1100px;
 		margin: 0 auto;
 		padding: clamp(1rem, 3vw, 2rem);
@@ -479,7 +497,7 @@
 		line-height: 1.4;
 	}
 	.bundle.selected {
-		border: 2px solid var(--planner-accent);
+		border: 2px solid light-dark(var(--color-secondary-700), var(--planner-accent));
 		background: color-mix(in srgb, var(--planner-accent) 9%, var(--planner-panel));
 	}
 	.path-list {
@@ -621,7 +639,7 @@
 		width: 100%;
 		height: 210px;
 		border-radius: 0.55rem;
-		background: var(--planner-soft);
+		background: var(--color-surface-50);
 		object-fit: contain;
 	}
 	.material-topline {
@@ -747,6 +765,7 @@
 	}
 	button:focus-visible,
 	a:focus-visible,
+	summary:focus-visible,
 	input:focus-visible,
 	textarea:focus-visible {
 		outline: 3px solid var(--planner-highlight);

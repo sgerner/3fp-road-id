@@ -416,19 +416,20 @@
 		gap: 2rem;
 		align-items: center;
 		background: var(--report-soft);
-		color: var(--color-surface-700);
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
 		padding: clamp(1.3rem, 3vw, 2.3rem);
 		margin: 2rem 0;
-		border-top: 6px solid var(--color-tertiary-700-300);
+		border-top: 6px solid
+			var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
 	}
 	.free-label {
 		font-size: 0.82rem;
 		font-weight: 800;
-		color: var(--color-primary-contrast-500);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		letter-spacing: 0.02em;
 	}
 	.free-assets h3 {
-		color: var(--color-surface-700) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 		font-size: clamp(1.8rem, 3vw, 2.7rem);
 		line-height: 1.05;
 		margin: 0.8rem 0 1rem;
@@ -440,7 +441,7 @@
 	}
 	.free-actions button {
 		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 		border: 0;
 		padding: 1.1rem;
 		font-weight: 800;
@@ -451,18 +452,19 @@
 	}
 	.free-actions p {
 		margin: 1rem 0 0;
-		color: var(--color-surface-700);
+		color: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
 		font-size: 0.85rem;
 	}
 	.asset-meta {
 		font-size: 0.85rem;
-		color: var(--color-surface-700);
+		color: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
 		margin: 0.6rem 0;
 	}
 	.campaign-guidance {
 		margin-top: 0.75rem;
 		padding-top: 0.7rem;
-		border-top: 1px solid var(--color-secondary-300);
+		border-top: 1px solid
+			var(--line, light-dark(var(--color-secondary-200), var(--color-surface-700)));
 		font-size: 0.85rem;
 		line-height: 1.45;
 	}
@@ -470,7 +472,7 @@
 		cursor: pointer;
 		padding-block: 0.4rem;
 		margin: 0 0 0.45rem;
-		color: var(--color-surface-700);
+		color: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
 		font-size: 0.85rem;
 		font-weight: 750;
 	}
@@ -500,17 +502,17 @@
 		font-size: 0.8rem;
 		padding: 0.5rem 0.6rem;
 		background: var(--report-soft);
-		color: var(--color-secondary-700-300);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		text-decoration: none;
 		font-weight: 800;
 	}
 	.card-actions a:last-child {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
+		background: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.card-actions a:hover {
 		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 	}
 	.actions small {
 		display: block;
@@ -518,18 +520,10 @@
 		font-weight: 400;
 		opacity: 0.8;
 	}
-	.actions .download-primary {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
-	}
-	.actions .template-link {
-		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
-	}
 	.download-note {
 		font-size: 0.85rem;
 		line-height: 1.6;
-		color: var(--color-surface-700);
+		color: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
 		margin: 1rem 0;
 	}
 	dialog[open] {
@@ -571,14 +565,14 @@
 
 	h2,
 	h3 {
-		color: var(--color-secondary-950) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 	}
 	.gallery {
-		color: var(--color-secondary-950);
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
 	}
 	.eyebrow,
 	.item-label {
-		color: var(--color-secondary-700-300);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		letter-spacing: 0.02em;
 		font-size: 0.82rem;
 		font-weight: 800;
@@ -610,9 +604,10 @@
 	}
 	button:focus-visible,
 	a:focus-visible,
+	summary:focus-visible,
 	input:focus-visible,
 	select:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
 		outline-offset: 3px;
 	}
 	.switcher {
@@ -623,15 +618,16 @@
 	}
 	.switcher button {
 		padding: 0.75rem 1rem;
-		border: 2px solid var(--color-secondary-700-300);
+		border: 2px solid
+			var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		background: transparent;
-		color: var(--color-secondary-700-300);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		border-radius: 0.3rem;
 		font-weight: 800;
 	}
 	.switcher button.active {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
+		background: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
 	}
 	.switcher span {
 		opacity: 0.8;
@@ -655,10 +651,11 @@
 		width: 100%;
 		box-sizing: border-box;
 		padding: 0.8rem;
-		color: var(--color-secondary-950);
-		border: 1px solid var(--color-secondary-300);
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		border: 1px solid
+			var(--report-border, light-dark(var(--color-secondary-400), var(--color-surface-400)));
 		border-radius: 0.3rem;
-		background: var(--report-paper);
+		background: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
 	}
 	.count {
 		font-weight: 700;
@@ -674,7 +671,7 @@
 		width: 100%;
 		padding: 0;
 		border: 0;
-		background: var(--report-paper);
+		background: var(--color-surface-50);
 	}
 	.image-button img {
 		display: block;
@@ -684,7 +681,8 @@
 		object-fit: contain;
 	}
 	.image-button:hover {
-		box-shadow: 0 0 0 4px var(--color-tertiary-700-300);
+		box-shadow: 0 0 0 4px
+			var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
 	}
 	.item-label {
 		margin: 0.8rem 0 0.35rem;
@@ -697,10 +695,11 @@
 	.more {
 		margin: 2rem 0;
 		padding: 0.85rem 1.2rem;
-		border: 2px solid var(--color-secondary-700-300);
+		border: 2px solid
+			var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		border-radius: 0.3rem;
 		background: transparent;
-		color: var(--color-secondary-700-300);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		font-weight: 800;
 	}
 	dialog {
@@ -710,10 +709,11 @@
 		max-height: 90vh;
 		overflow: auto;
 		padding: clamp(1rem, 4vw, 2.5rem);
-		color: var(--color-secondary-950);
-		background: var(--report-paper);
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		background: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
 		border: 0;
-		border-top: 6px solid var(--color-tertiary-700-300);
+		border-top: 6px solid
+			var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
 	}
 	dialog::backdrop {
 		background: rgb(35 20 58 / 0.78);
@@ -727,7 +727,7 @@
 	.close {
 		border: 0;
 		background: transparent;
-		color: var(--color-secondary-950);
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
 		font-size: 2.5rem;
 		line-height: 1;
 	}
@@ -742,6 +742,7 @@
 		height: auto;
 		margin: 1.5rem auto;
 		object-fit: contain;
+		background: var(--color-surface-50);
 	}
 	.caption {
 		max-width: 65rem;
@@ -756,10 +757,22 @@
 	}
 	.actions a,
 	.actions button {
-		color: var(--color-secondary-700-300);
+		color: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
 		font-weight: 800;
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
+	}
+	.actions .download-primary {
+		padding: 0.5rem 0.75rem;
+		background: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
+		text-decoration: none;
+	}
+	.actions .template-link {
+		padding: 0.5rem 0.75rem;
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
+		text-decoration: none;
 	}
 	.actions button {
 		border: 0;
@@ -775,7 +788,7 @@
 	.navigation button {
 		border: 0;
 		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
+		color: var(--color-surface-950);
 		padding: 0.65rem 0.9rem;
 		font-weight: 800;
 	}
