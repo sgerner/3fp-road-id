@@ -1,6 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { applyFormUpdate, refreshPageData } from '#lib/client/navigation';
 	import IconCheckCircle2 from '@lucide/svelte/icons/circle-check';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconUpload from '@lucide/svelte/icons/upload';
@@ -644,7 +644,7 @@
 			}
 			return async ({ result, update }) => {
 				try {
-					await update({ reset: false, invalidateAll: false });
+					await applyFormUpdate(update);
 					if (result?.type === 'success') {
 						if (kind === 'analyze') {
 							applyAnalysis(result.data?.analysis || {});
@@ -668,7 +668,7 @@
 									: verificationMode === 'balance_only'
 										? 'Balance-only draft saved. Review the selected activity and explicit attestation before approving it.'
 										: 'Draft saved pending review. Complete the statement lines and resolve discrepancies before approval.';
-							await invalidateAll();
+							await refreshPageData();
 						} else {
 							const savedReconciliation = result.data?.reconciliation;
 							workspaceDraftId = savedReconciliation?.id || workspaceDraftId;
@@ -677,7 +677,7 @@
 							workspaceNotice = workspaceClosed
 								? 'Reconciliation approved and closed.'
 								: 'The draft was saved but is still open. Review its status and remaining checks before approving it.';
-							await invalidateAll();
+							await refreshPageData();
 						}
 					} else if (result?.type === 'failure') {
 						workspaceError =
