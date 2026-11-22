@@ -52,7 +52,7 @@
 	const eventEmailsRaw = pageData.eventEmails ?? [];
 	const customQuestions = customQuestionsRaw ?? [];
 	let profileRecords = $state(pageData.profiles ?? []);
-	const eventHosts = pageData.eventHosts ?? [];
+	let eventHosts = $state(pageData.eventHosts ?? []);
 	const groupOwners = pageData.groupOwners ?? [];
 	const primaryHost =
 		pageData.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
@@ -1717,6 +1717,9 @@
 	];
 
 	let activeSection = $state(sections[0].id);
+	let rosterSelectedShift = $state('all');
+	let rosterSearchTerm = $state('');
+	let rosterCheckInMode = $state(false);
 
 	function setActiveSection(id) {
 		if (sections.some((section) => section.id === id)) {
@@ -1727,6 +1730,20 @@
 	function isSectionActive(id) {
 		return activeSection === id;
 	}
+
+	function openMobileCheckIn() {
+		rosterCheckInMode = true;
+		activeSection = 'roster';
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('checkin') === '1' || params.get('mode') === 'checkin') {
+			rosterCheckInMode = true;
+			activeSection = 'roster';
+		}
+	});
 
 	$effect(() => {
 		if (!sections.some((section) => section.id === activeSection)) {
@@ -1764,13 +1781,13 @@
 		</div>
 
 		<!-- Tab navigation -->
-		<nav class="mt-3 -mb-px flex gap-0" aria-label="Management sections">
+		<nav class="mt-3 -mb-px flex flex-wrap gap-1 sm:gap-2" aria-label="Management sections">
 			{#each sections as section}
 				{@const active = isSectionActive(section.id)}
 				{@const Icon = section.icon}
 				<button
 					type="button"
-					class="flex items-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors
+					class="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors
 						{active
 						? 'border-primary-500 bg-primary-500 text-surface-950'
 						: 'text-surface-700-300 hover:text-surface-950-50 hover:border-surface-500 border-transparent'}"
@@ -1778,7 +1795,7 @@
 					aria-label={section.label}
 					onclick={() => setActiveSection(section.id)}
 				>
-					<Icon class="h-4 w-4 flex-shrink-0" />
+					<Icon class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
 					<span class="hidden sm:inline">{section.label}</span>
 				</button>
 			{/each}
@@ -1839,6 +1856,10 @@
 				{volunteers}
 				{event}
 				{shiftMap}
+				shifts={shiftOptions}
+				bind:selectedShift={rosterSelectedShift}
+				bind:searchTerm={rosterSearchTerm}
+				bind:checkInMode={rosterCheckInMode}
 				onStatusChange={setAssignmentPresent}
 				onBulkStatusChange={setAssignmentsPresent}
 			/>
@@ -1877,7 +1898,7 @@
 			<EventHostManagement
 				{event}
 				{groupOwners}
-				hosts={eventHosts}
+				bind:hosts={eventHosts}
 				{primaryHost}
 				currentUser={data.session?.user}
 			/>
