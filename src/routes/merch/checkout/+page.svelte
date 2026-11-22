@@ -18,7 +18,7 @@
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { merchCart } from '#lib/merch/cart';
 	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
-	import { US_STATE_OPTIONS } from '#lib/geo/usStates';
+	import { US_STATE_OPTIONS, normalizeUsStateCode } from '#lib/geo/usStates';
 
 	let { data } = $props();
 	let failedImageUrls = $state({});
@@ -92,14 +92,25 @@
 	);
 	const cartControlsDisabled = $derived(submitting || preparingPayment);
 
+	const syncStateFromInput = (raw, { commitShortCode = false } = {}) => {
+		const trimmed = String(raw || '').trim();
+		const normalized = normalizeUsStateCode(trimmed);
+		if (!normalized) return false;
+		if (!commitShortCode && trimmed.length <= 2 && trimmed !== normalized) {
+			return false;
+		}
+		stateRegion = normalized;
+		scheduleQuote();
+		return true;
+	};
+
 	const onStateOpenChange = () => {
 		stateItems = usStates;
 	};
 
 	const onStateInputValueChange = (event) => {
-		const inputValue = String(event?.inputValue || '')
-			.toLowerCase()
-			.trim();
+		const rawInput = String(event?.inputValue || '').trim();
+		const inputValue = rawInput.toLowerCase();
 		if (!inputValue) {
 			stateItems = usStates;
 			return;
@@ -108,12 +119,37 @@
 			`${region.code} ${region.name}`.toLowerCase().includes(inputValue)
 		);
 		stateItems = filtered.length ? filtered : usStates;
+		syncStateFromInput(rawInput, { commitShortCode: event?.reason !== 'input-change' });
 	};
 
 	const onStateValueChange = (event) => {
 		const next = Array.isArray(event?.value) ? String(event.value[0] || '') : '';
-		stateRegion = next.toUpperCase();
+		stateRegion = normalizeUsStateCode(next);
 		scheduleQuote();
+	};
+
+	const onStateDomInput = (event) => {
+		const target = event?.currentTarget;
+		if (!target) return;
+		const isSingleCharTyping =
+			typeof InputEvent !== 'undefined' &&
+			event instanceof InputEvent &&
+			event.inputType === 'insertText' &&
+			typeof event.data === 'string' &&
+			event.data.length === 1 &&
+			typeof document !== 'undefined' &&
+			document.activeElement === target;
+		if (syncStateFromInput(target.value, { commitShortCode: !isSingleCharTyping })) {
+			target.value = stateRegion;
+		}
+	};
+
+	const onStateDomChange = (event) => {
+		const target = event?.currentTarget;
+		if (!target) return;
+		if (syncStateFromInput(target.value, { commitShortCode: true })) {
+			target.value = stateRegion;
+		}
 	};
 
 	let stripe = null;
@@ -720,6 +756,7 @@
 							</label>
 							<input
 								id="customer_name"
+								autocomplete="name"
 								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 								bind:value={customerName}
 								maxlength="140"
@@ -736,6 +773,7 @@
 							<input
 								id="customer_email"
 								type="email"
+								autocomplete="email"
 								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 								bind:value={customerEmail}
 								required
@@ -753,6 +791,8 @@
 							</label>
 							<input
 								id="customer_phone"
+								type="tel"
+								autocomplete="tel"
 								class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 								bind:value={customerPhone}
 								maxlength="40"
@@ -874,6 +914,7 @@
 								</label>
 								<input
 									id="line1"
+									autocomplete="shipping address-line1"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 									bind:value={line1}
 									required={needsAddress}
@@ -893,6 +934,7 @@
 								</label>
 								<input
 									id="line2"
+									autocomplete="shipping address-line2"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 									bind:value={line2}
 									oninput={scheduleQuote}
@@ -908,6 +950,7 @@
 								</label>
 								<input
 									id="city"
+									autocomplete="shipping address-level2"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 									bind:value={city}
 									required={needsAddress}
@@ -936,6 +979,9 @@
 									<Combobox.Control class="w-full">
 										<Combobox.Input
 											id="state"
+											autocomplete="shipping address-level1"
+											oninput={onStateDomInput}
+											onchange={onStateDomChange}
 											class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 										/>
 									</Combobox.Control>
@@ -975,6 +1021,7 @@
 								</label>
 								<input
 									id="postal"
+									autocomplete="shipping postal-code"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-sm font-medium focus:outline-none"
 									bind:value={postalCode}
 									required={needsAddress}

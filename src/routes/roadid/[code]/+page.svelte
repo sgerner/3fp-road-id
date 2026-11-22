@@ -337,6 +337,7 @@
 									<input
 										type="email"
 										id="claim-email"
+										autocomplete="email"
 										bind:value={newProfile.email}
 										placeholder="jane@example.com"
 										class="input bg-surface-950 text-surface-50 min-h-11 border-2 {emailTouched &&
@@ -474,6 +475,7 @@
 												<input
 													type="email"
 													id="owner-email"
+													autocomplete="email"
 													bind:value={newProfile.email}
 													placeholder="jane@example.com"
 													class="input bg-surface-950 text-surface-50 min-h-11 border-2 {emailTouched &&
