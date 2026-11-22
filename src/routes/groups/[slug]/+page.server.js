@@ -3,7 +3,11 @@ import { buildGroupPath, resolveGroupRoute } from '#lib/server/groupRouting';
 import { redirect } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '#lib/server/groupAssets';
-import { listPublishedGroupNewsPosts } from '#lib/server/groupNews';
+import {
+	getGroupNewsPublicReadClient,
+	listPublicGroupNewsPosts,
+	listPublishedGroupNewsPosts
+} from '#lib/server/groupNews';
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
 import { joinMembership } from '#lib/server/memberships';
 import {
@@ -103,22 +107,26 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			console.warn('Failed to load skill level selections', err);
 			return [];
 		}),
-		fetchList(fetch, 'group-members', {
-			select: 'user_id',
-			group_id: `eq.${group.id}`,
-			role: 'eq.owner'
-		}).catch((err) => {
-			console.warn('Failed to load group owners', err);
-			return [];
-		}),
-		fetchList(fetch, 'group-members', {
-			select: 'user_id,role',
-			group_id: `eq.${group.id}`,
-			role: 'in.(owner,admin)'
-		}).catch((err) => {
-			console.warn('Failed to load group social managers', err);
-			return [];
-		}),
+		sessionUserId
+			? fetchList(fetch, 'group-members', {
+					select: 'user_id',
+					group_id: `eq.${group.id}`,
+					role: 'eq.owner'
+				}).catch((err) => {
+					console.warn('Failed to load group owners', err);
+					return [];
+				})
+			: Promise.resolve([]),
+		sessionUserId
+			? fetchList(fetch, 'group-members', {
+					select: 'user_id,role',
+					group_id: `eq.${group.id}`,
+					role: 'in.(owner,admin)'
+				}).catch((err) => {
+					console.warn('Failed to load group social managers', err);
+					return [];
+				})
+			: Promise.resolve([]),
 		publicClaimStatus
 	]);
 
@@ -248,7 +256,9 @@ export const load = async ({ params, cookies, fetch, url }) => {
 
 	let groupNewsPosts = [];
 	try {
-		groupNewsPosts = await listPublishedGroupNewsPosts(supabase, group.id, { limit: 3 });
+		groupNewsPosts = sessionUserId
+			? await listPublishedGroupNewsPosts(requestSupabase, group.id, { limit: 3 })
+			: await listPublicGroupNewsPosts(getGroupNewsPublicReadClient(), group.id, { limit: 3 });
 	} catch (err) {
 		console.warn('Failed to load group news for group page', err);
 		groupNewsPosts = [];
