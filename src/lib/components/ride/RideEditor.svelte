@@ -984,7 +984,7 @@
 
 	{#if manageMode}
 		<div class="min-w-0">
-			<nav class="flex flex-wrap gap-1" aria-label="Ride management sections">
+			<div class="flex flex-wrap gap-1" role="group" aria-label="Ride management sections">
 				{#each manageSections as section (section.id)}
 					{@const active = activeManageTab === section.id}
 					{@const Icon = section.icon}
@@ -995,14 +995,14 @@
 								? 'border-primary-500 bg-primary-500 text-surface-950'
 								: 'text-surface-700-300 hover:text-surface-950-50 hover:border-surface-500 border-transparent'
 						}`}
-						aria-current={active ? 'page' : undefined}
+						aria-pressed={active}
 						onclick={() => (activeManageTab = section.id)}
 					>
 						<Icon class="h-4 w-4 shrink-0" />
 						<span>{section.label}</span>
 					</button>
 				{/each}
-			</nav>
+			</div>
 			<div
 				aria-hidden="true"
 				class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
