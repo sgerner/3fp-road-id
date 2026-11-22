@@ -1,10 +1,10 @@
 <script lang="ts">
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconUserPlus from '@lucide/svelte/icons/user-plus';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconSend from '@lucide/svelte/icons/send';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 	import ManageActionButton from './ManageActionButton.svelte';

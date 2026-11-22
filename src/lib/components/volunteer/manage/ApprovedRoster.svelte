@@ -3,7 +3,7 @@
 	import IconDownload from '@lucide/svelte/icons/download';
 	import IconPrinter from '@lucide/svelte/icons/printer';
 	import IconBrush from '@lucide/svelte/icons/brush-cleaning';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ManageActionButton from './ManageActionButton.svelte';
 	import ManageActionGrid from './ManageActionGrid.svelte';
