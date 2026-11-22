@@ -6,8 +6,14 @@
 	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { isSafeInternalPath } from '#lib/security/navigation';
 	import { syncServerSession } from '#lib/security/session';
+	import {
+		isValidRoadIdEmail,
+		normalizeRoadIdCodeInput,
+		resolveConfirmRedirectDestination
+	} from '#lib/utils/roadId';
 
 	let error = $state('');
+	let claimError = $state('');
 	let message = $state('Completing login…');
 	let sending = $state(false);
 	let resendEmail = $state('');
@@ -15,7 +21,7 @@
 	let resendError = $state('');
 	let ridParam = $state('');
 	let returnToParam = $state('');
-	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(resendEmail));
+	let emailValid = $derived(isValidRoadIdEmail(resendEmail));
 	let resendHoneypot = $state('');
 	let resendTurnstile = $state(null);
 
@@ -29,19 +35,20 @@
 				history.replaceState(null, '', base + qs);
 				return new URLSearchParams(qs);
 			}
-		} catch {}
+		} catch {
+			// Ignore malformed history paths
+		}
 		return new URLSearchParams(window.location.search);
 	}
 
 	onMount(async () => {
 		try {
-			const url = new URL(window.location.href);
 			let params = normalizeParamsFromWeirdPath();
 			const hashParams = new URLSearchParams(
 				window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
 			);
 			const supaCode = params.get('code');
-			const rid = params.get('rid');
+			const rid = normalizeRoadIdCodeInput(params.get('rid') || '');
 			const returnTo = params.get('return_to');
 			ridParam = rid || '';
 			returnToParam = returnTo || '';
@@ -50,19 +57,18 @@
 			const tokenType = tokenTypeRaw === 'magiclink' ? 'email' : tokenTypeRaw;
 			const hashAccessToken = hashParams.get('access_token');
 			const hashRefreshToken = hashParams.get('refresh_token');
-			const hashTypeRaw = (hashParams.get('type') || '').toLowerCase();
 			let session = null;
 
 			if (tokenHash) {
 				let verified = null;
 				let verifyError = null;
 				for (const type of [tokenType, 'email']) {
-					const { data, error: vErr } = await supabase.auth.verifyOtp({
+					const { data: otpData, error: vErr } = await supabase.auth.verifyOtp({
 						token_hash: tokenHash,
 						type
 					});
 					if (!vErr) {
-						verified = data;
+						verified = otpData;
 						verifyError = null;
 						break;
 					}
@@ -74,14 +80,15 @@
 				}
 				session = verified?.session || null;
 			} else if (supaCode) {
-				const { data, error: exErr } = await supabase.auth.exchangeCodeForSession(supaCode);
+				const { data: codeData, error: exErr } =
+					await supabase.auth.exchangeCodeForSession(supaCode);
 				if (exErr) {
 					error = exErr.message || 'Failed to complete sign-in.';
 					return;
 				}
-				session = data?.session || null;
+				session = codeData?.session || null;
 			} else if (hashAccessToken && hashRefreshToken) {
-				const { data, error: setErr } = await supabase.auth.setSession({
+				const { data: sessionData, error: setErr } = await supabase.auth.setSession({
 					access_token: hashAccessToken,
 					refresh_token: hashRefreshToken
 				});
@@ -89,31 +96,30 @@
 					error = setErr.message || 'Failed to complete sign-in.';
 					return;
 				}
-				session = data?.session || null;
+				session = sessionData?.session || null;
 				try {
 					const cleaned = new URL(window.location.href);
 					cleaned.hash = '';
 					history.replaceState(null, '', cleaned.toString());
-				} catch {}
+				} catch {
+					// Ignore history cleanup errors
+				}
 			} else {
 				error = 'Invalid confirmation link.';
 				return;
 			}
 
-			// Session persisted by supabase client; redirect appropriately
-			message = 'Logged in! Redirecting…';
+			message = 'Logged in! Syncing session…';
 			if (session && !(await syncServerSession(session))) {
 				error = 'Unable to establish your authenticated session. Please try again.';
 				return;
 			}
 
-			// Auto-claim group if requested
-			let dest = '/';
+			let dest = resolveConfirmRedirectDestination({ rid, returnTo });
 			let autoClaimSlug = '';
 			let autoAddOwnerSlug = '';
 			let ownerInviteToken = '';
 			if (isSafeInternalPath(returnTo)) {
-				dest = returnTo;
 				try {
 					const rtUrl = new URL(returnTo, window.location.origin);
 					autoClaimSlug = rtUrl.searchParams.get('auto_claim_group') || '';
@@ -122,10 +128,27 @@
 					rtUrl.searchParams.delete('auto_claim_group');
 					rtUrl.searchParams.delete('auto_add_owner');
 					rtUrl.searchParams.delete('owner_invite');
-					dest = `${rtUrl.pathname}${rtUrl.search}${rtUrl.hash}`;
-				} catch {}
-			} else if (rid) {
-				dest = `/roadid/${encodeURIComponent(rid)}`;
+					const cleanedReturn = `${rtUrl.pathname}${rtUrl.search}${rtUrl.hash}`;
+					dest = resolveConfirmRedirectDestination({ rid, returnTo: cleanedReturn });
+				} catch {
+					// Keep resolved destination
+				}
+			}
+
+			if (rid) {
+				message = 'Linking your bracelet…';
+				const claimRes = await fetch('/api/v1/road-id-profile/codes', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ code: rid, allowAlreadyOwned: true })
+				});
+				if (!claimRes.ok) {
+					const claimPayload = await claimRes.json().catch(() => ({}));
+					claimError =
+						claimPayload?.error || 'Unable to link this bracelet code to your Emergency ID.';
+					return;
+				}
+				dest = '/profile#road-id';
 			}
 
 			if (autoClaimSlug) {
@@ -136,7 +159,9 @@
 					if (claimRes.ok) {
 						dest = `/groups/${encodeURIComponent(autoClaimSlug)}/manage/edit`;
 					}
-				} catch {}
+				} catch {
+					// Continue to fallback destination
+				}
 			}
 
 			if (autoAddOwnerSlug && ownerInviteToken) {
@@ -152,9 +177,12 @@
 					if (ownerRes.ok) {
 						dest = `/groups/${encodeURIComponent(autoAddOwnerSlug)}/manage/edit`;
 					}
-				} catch {}
+				} catch {
+					// Continue to fallback destination
+				}
 			}
 
+			message = 'Logged in! Redirecting…';
 			setTimeout(() => replaceClientLocation(dest), 250);
 		} catch (e) {
 			error = 'Unexpected error during confirmation.';
@@ -184,11 +212,10 @@
 					const body = {
 						email: resendEmail,
 						createProfile: true,
-						returnTo: isSafeInternalPath(returnToParam)
-							? returnToParam
-							: ridParam
-								? `/roadid/${ridParam}`
-								: '/',
+						returnTo: resolveConfirmRedirectDestination({
+							rid: ridParam,
+							returnTo: returnToParam
+						}),
 						honeypot: resendHoneypot,
 						turnstileToken
 					};
@@ -251,13 +278,32 @@
 	<section
 		class="bg-surface-950 border-surface-950 flex-1 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14 lg:py-16"
 	>
-		{#if error}
+		{#if claimError}
+			<div class="flex max-w-2xl flex-col gap-6">
+				<div class="bg-tertiary-500 text-surface-950 flex flex-col gap-2 p-6 sm:p-8" role="alert">
+					<p class="m-0 text-xs font-bold tracking-[0.22em] uppercase">Bracelet Claim Issue</p>
+					<p class="m-0 text-2xl font-black uppercase italic">{claimError}</p>
+					<p class="m-0 text-sm font-medium">
+						Your account sign-in succeeded. You can manage your Emergency ID or claim a different
+						bracelet code on your profile.
+					</p>
+				</div>
+				<div class="flex flex-wrap items-center gap-4">
+					<a
+						href="/profile#road-id"
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center justify-center px-8 py-3.5 text-base font-black tracking-wide uppercase transition"
+					>
+						Open Emergency ID
+					</a>
+				</div>
+			</div>
+		{:else if error}
 			<div class="flex max-w-2xl flex-col gap-8">
-				<div class="bg-tertiary-500 text-surface-950 flex flex-col gap-2 p-6 sm:p-8">
+				<div class="bg-tertiary-500 text-surface-950 flex flex-col gap-2 p-6 sm:p-8" role="alert">
 					<p class="m-0 text-xs font-bold tracking-[0.22em] uppercase">Verification Issue</p>
 					<p class="m-0 text-2xl font-black uppercase italic">{error}</p>
 					<p class="m-0 text-sm font-medium">
-						Your link may be invalid or expired. You can request a new link below.
+						Your link may be invalid or expired. Request a fresh magic link below.
 					</p>
 				</div>
 
@@ -283,7 +329,7 @@
 							type="email"
 							bind:value={resendEmail}
 							placeholder="you@example.com"
-							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500 w-full"
+							class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 w-full border-2"
 							required
 						/>
 					</div>
@@ -293,7 +339,10 @@
 						enabled={data.turnstileEnabled !== false}
 					/>
 					{#if resendError}
-						<div class="bg-tertiary-500 text-surface-950 px-4 py-2 text-xs font-bold uppercase">
+						<div
+							class="bg-tertiary-500 text-surface-950 px-4 py-2 text-xs font-bold uppercase"
+							role="alert"
+						>
 							{resendError}
 						</div>
 					{/if}
@@ -305,8 +354,8 @@
 					<div class="flex flex-wrap items-center gap-4">
 						<button
 							type="submit"
-							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-8 py-4 text-base font-black tracking-wide uppercase transition {sending
-								? 'animate-pulse'
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center justify-center px-8 py-3.5 text-base font-black tracking-wide uppercase transition {sending
+								? 'motion-safe:animate-pulse'
 								: ''} {!emailValid || sending ? 'cursor-not-allowed opacity-50' : ''}"
 							disabled={!emailValid || sending}
 						>

@@ -1,13 +1,29 @@
 <script>
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconCamera from '@lucide/svelte/icons/camera';
+	import IconContact from '@lucide/svelte/icons/contact';
+	import IconDownload from '@lucide/svelte/icons/download';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
+	import IconLink2 from '@lucide/svelte/icons/link-2';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconPlus from '@lucide/svelte/icons/plus';
+	import IconPrinter from '@lucide/svelte/icons/printer';
+	import IconQrCode from '@lucide/svelte/icons/qr-code';
 	import IconSave from '@lucide/svelte/icons/save';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import IconX from '@lucide/svelte/icons/x';
+	import RoadIdResponderCard from '#lib/components/RoadIdResponderCard.svelte';
+	import { renderPrintableQrSheetSvg, renderQrSvg } from '#lib/utils/qr';
+	import {
+		ALLERGY_OPTIONS,
+		BLOOD_TYPE_OPTIONS,
+		MEDICATION_OPTIONS,
+		normalizeMedicationItem,
+		splitCommaItems
+	} from '#lib/utils/roadId';
 
 	const { data } = $props();
 	function getPageData() {
@@ -19,15 +35,19 @@
 	const recommendationOptions = (pageData.recommendationOptions ?? []).filter(Boolean);
 	const interestSuggestions = (pageData.interestSuggestions ?? []).filter(Boolean);
 	const existingProfile = pageData.profile ?? null;
+	const existingRoadId = pageData.roadIdProfile ?? null;
+	const publicOrigin = String(pageData.publicOrigin || 'https://3fp.org').replace(/\/+$/, '');
 	const existingContext = pageData.context ?? {
 		location: '',
 		interests: [],
 		recommendation_focus: []
 	};
 
-	let fullName = $state(
-		existingProfile?.full_name ?? currentUser?.user_metadata?.full_name ?? currentUser?.email ?? ''
-	);
+	const defaultAccountName =
+		existingProfile?.full_name ?? currentUser?.user_metadata?.full_name ?? '';
+	const defaultAccountPhone = existingProfile?.phone ?? pageData.smsPreferences?.phone ?? '';
+
+	let fullName = $state(defaultAccountName || currentUser?.email || '');
 	let avatarUrl = $state(existingProfile?.avatar_url ?? '');
 	let bio = $state(existingProfile?.bio ?? '');
 	let smsPhone = $state(pageData.smsPreferences?.phone ?? existingProfile?.phone ?? '');
@@ -47,6 +67,105 @@
 	let uploadingAvatar = $state(false);
 	let avatarError = $state('');
 	let fileInputEl = $state(null);
+
+	// ---------------------------
+	// Road ID / Emergency ID State (decoupled from SMS & general profile save)
+	// ---------------------------
+	let emergencyFullName = $state(
+		String(existingRoadId?.full_name || defaultAccountName || '').trim()
+	);
+	let emergencyPhone = $state(String(existingRoadId?.phone || defaultAccountPhone || '').trim());
+	let emergencyNameOverridden = $state(Boolean(String(existingRoadId?.full_name ?? '').trim()));
+	let emergencyPhoneOverridden = $state(Boolean(String(existingRoadId?.phone ?? '').trim()));
+	let emergencyBloodType = $state(existingRoadId?.blood_type ?? '');
+	let emergencyAllergies = $state(existingRoadId?.allergies ?? '');
+	let emergencyMedication = $state(existingRoadId?.medication ?? '');
+
+	let emergencyContacts = $state(
+		(pageData.emergencyContacts ?? []).map((contact) => ({
+			id: contact.id,
+			contact_name: contact.contact_name ?? '',
+			contact_phone: contact.contact_phone ?? '',
+			contact_relationship: contact.contact_relationship ?? ''
+		}))
+	);
+	let newContact = $state({
+		contact_name: '',
+		contact_phone: '',
+		contact_relationship: ''
+	});
+
+	let linkedCodes = $state([...(pageData.linkedCodes ?? [])]);
+	let claimCodeInput = $state('');
+	let claimingCode = $state(false);
+	let claimError = $state('');
+	let claimSuccess = $state('');
+	let confirmUnlinkCode = $state('');
+	let unlinkingCode = $state('');
+
+	let savingEmergency = $state(false);
+	let emergencySaveError = $state('');
+	let emergencySaveSuccess = $state('');
+	let contactError = $state('');
+	let contactSuccess = $state('');
+	let addingContact = $state(false);
+	let busyContactId = $state(null);
+
+	let qrScope = $state('all');
+	let qrCopiesPerCode = $state(2);
+
+	const activePreviewCode = $derived.by(() => {
+		if (!linkedCodes.length) return '';
+		if (qrScope !== 'all' && linkedCodes.some((item) => item.code === qrScope)) {
+			return qrScope;
+		}
+		return linkedCodes[0]?.code ?? '';
+	});
+
+	const selectedQrCodes = $derived.by(() => {
+		if (!linkedCodes.length) return [];
+		if (qrScope === 'all') return linkedCodes.map((item) => item.code);
+		const matched = linkedCodes.find((item) => item.code === qrScope);
+		return matched ? [matched.code] : [linkedCodes[0].code];
+	});
+
+	const liveEmergencyProfile = $derived({
+		full_name: emergencyFullName,
+		phone: emergencyPhone,
+		blood_type: emergencyBloodType,
+		allergies: emergencyAllergies,
+		medication: emergencyMedication
+	});
+
+	const singleQrPreviewUrl = $derived(
+		activePreviewCode ? `${publicOrigin}/roadid/${encodeURIComponent(activePreviewCode)}` : ''
+	);
+
+	const singleQrPreviewSvg = $derived.by(() => {
+		if (!singleQrPreviewUrl) return '';
+		try {
+			return renderQrSvg(singleQrPreviewUrl, {
+				pixelSize: 184,
+				label: `Emergency ID QR code for ${activePreviewCode}`
+			});
+		} catch {
+			return '';
+		}
+	});
+
+	const printableSheetSvg = $derived.by(() => {
+		if (!selectedQrCodes.length) return '';
+		try {
+			return renderPrintableQrSheetSvg({
+				codes: selectedQrCodes,
+				origin: publicOrigin,
+				riderName: emergencyFullName,
+				copiesPerCode: qrCopiesPerCode
+			});
+		} catch {
+			return '';
+		}
+	});
 
 	const completionScore = $derived.by(() => {
 		let score = 0;
@@ -124,6 +243,52 @@
 
 	const avatarFallback = $derived.by(() => toInitials(fullName || currentUser?.email || 'Rider'));
 
+	// Allergy & Medication chip helpers
+	function isAllergySelected(option) {
+		return splitCommaItems(emergencyAllergies).some(
+			(item) => item.toLowerCase() === option.toLowerCase()
+		);
+	}
+
+	function toggleAllergyChip(option) {
+		const current = splitCommaItems(emergencyAllergies);
+		if (current.some((item) => item.toLowerCase() === option.toLowerCase())) {
+			emergencyAllergies = current
+				.filter((item) => item.toLowerCase() !== option.toLowerCase())
+				.join(', ');
+		} else {
+			emergencyAllergies = [...current, option].join(', ');
+		}
+	}
+
+	function isMedicationSelected(option) {
+		return splitCommaItems(emergencyMedication, normalizeMedicationItem).some(
+			(item) => item.toLowerCase() === option.toLowerCase()
+		);
+	}
+
+	function toggleMedicationChip(option) {
+		const current = splitCommaItems(emergencyMedication, normalizeMedicationItem);
+		if (current.some((item) => item.toLowerCase() === option.toLowerCase())) {
+			emergencyMedication = current
+				.filter((item) => item.toLowerCase() !== option.toLowerCase())
+				.join(', ');
+		} else {
+			emergencyMedication = [...current, option].join(', ');
+		}
+	}
+
+	function syncDefaultsFromRiderProfile() {
+		if (String(fullName || '').trim()) {
+			emergencyFullName = String(fullName).trim();
+			emergencyNameOverridden = true;
+		}
+		if (String(smsPhone || '').trim()) {
+			emergencyPhone = String(smsPhone).trim();
+			emergencyPhoneOverridden = true;
+		}
+	}
+
 	async function handleAvatarInput(event) {
 		const file = event?.currentTarget?.files?.[0];
 		if (!file) return;
@@ -191,6 +356,10 @@
 				? payload.context.recommendation_focus
 				: recommendationFocus;
 
+			if (!emergencyNameOverridden && savedProfile?.full_name) {
+				emergencyFullName = savedProfile.full_name;
+			}
+
 			const smsResponse = await fetch('/api/sms/preferences', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -215,6 +384,9 @@
 				smsVolunteerReminders = savedSms.volunteer_reminders === true;
 				smsAdminMessages = savedSms.admin_messages === true;
 				smsBikeValetMessages = savedSms.bike_valet_messages === true;
+				if (!emergencyPhoneOverridden && savedSms.phone) {
+					emergencyPhone = savedSms.phone;
+				}
 			}
 
 			saveSuccess = 'Profile and SMS preferences saved.';
@@ -234,19 +406,324 @@
 			saving = false;
 		}
 	}
+
+	async function saveEmergencyProfile(event) {
+		event?.preventDefault?.();
+		if (!currentUser?.id || savingEmergency) return;
+
+		savingEmergency = true;
+		emergencySaveError = '';
+		emergencySaveSuccess = '';
+		contactError = '';
+
+		try {
+			const normalizedMedication = splitCommaItems(
+				emergencyMedication,
+				normalizeMedicationItem
+			).join(', ');
+			const normalizedAllergies = splitCommaItems(emergencyAllergies).join(', ');
+
+			const res = await fetch('/api/v1/road-id-profile', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					full_name: emergencyFullName.trim(),
+					phone: emergencyPhone.trim(),
+					blood_type: emergencyBloodType.trim(),
+					allergies: normalizedAllergies,
+					medication: normalizedMedication
+				})
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to save Emergency ID.');
+			}
+
+			const saved = payload?.profile ?? null;
+			if (saved) {
+				emergencyFullName = saved.full_name ?? emergencyFullName;
+				emergencyPhone = saved.phone ?? emergencyPhone;
+				emergencyBloodType = saved.blood_type ?? emergencyBloodType;
+				emergencyAllergies = saved.allergies ?? normalizedAllergies;
+				emergencyMedication = saved.medication ?? normalizedMedication;
+				emergencyNameOverridden = Boolean(String(emergencyFullName || '').trim());
+				emergencyPhoneOverridden = Boolean(String(emergencyPhone || '').trim());
+			}
+
+			// Persist any inline edits to existing emergency contacts as well.
+			for (const contact of emergencyContacts) {
+				if (!contact?.id) continue;
+				const cName = String(contact.contact_name ?? '').trim();
+				const cPhone = String(contact.contact_phone ?? '').trim();
+				const cRel = String(contact.contact_relationship ?? '').trim();
+				if (!cName || !cPhone) {
+					throw new Error('Each emergency contact requires both a name and phone number.');
+				}
+				const cRes = await fetch(`/api/v1/emergency-contacts/${contact.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						contact_name: cName,
+						contact_phone: cPhone,
+						contact_relationship: cRel
+					})
+				});
+				if (!cRes.ok) {
+					const cErr = await cRes.json().catch(() => ({}));
+					throw new Error(cErr?.error || 'Unable to update emergency contact.');
+				}
+			}
+
+			// If the rider also filled in the new contact fields, save that contact too.
+			if (newContact.contact_name.trim() && newContact.contact_phone.trim()) {
+				const addRes = await fetch('/api/v1/emergency-contacts', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						profile_id: currentUser.id,
+						contact_name: newContact.contact_name.trim(),
+						contact_phone: newContact.contact_phone.trim(),
+						contact_relationship: newContact.contact_relationship.trim()
+					})
+				});
+				const addPayload = await addRes.json().catch(() => ({}));
+				if (!addRes.ok) {
+					throw new Error(addPayload?.error || 'Unable to create emergency contact.');
+				}
+				if (addPayload?.contact) {
+					emergencyContacts = [...emergencyContacts, addPayload.contact];
+					newContact = { contact_name: '', contact_phone: '', contact_relationship: '' };
+				}
+			}
+
+			emergencySaveSuccess = 'Emergency ID saved.';
+		} catch (err) {
+			emergencySaveError = err?.message || 'Unable to save Emergency ID.';
+		} finally {
+			savingEmergency = false;
+		}
+	}
+
+	async function handleAddContact(event) {
+		event?.preventDefault?.();
+		if (!currentUser?.id || addingContact) return;
+
+		const name = newContact.contact_name.trim();
+		const phone = newContact.contact_phone.trim();
+		const relationship = newContact.contact_relationship.trim();
+		if (!name || !phone) {
+			contactError = 'Enter both a contact name and phone number.';
+			return;
+		}
+
+		addingContact = true;
+		contactError = '';
+		contactSuccess = '';
+		try {
+			const res = await fetch('/api/v1/emergency-contacts', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					profile_id: currentUser.id,
+					contact_name: name,
+					contact_phone: phone,
+					contact_relationship: relationship
+				})
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to add emergency contact.');
+			}
+			if (payload?.contact) {
+				emergencyContacts = [...emergencyContacts, payload.contact];
+			}
+			newContact = { contact_name: '', contact_phone: '', contact_relationship: '' };
+			contactSuccess = 'Emergency contact added.';
+		} catch (err) {
+			contactError = err?.message || 'Unable to add emergency contact.';
+		} finally {
+			addingContact = false;
+		}
+	}
+
+	async function handleSaveExistingContact(contact) {
+		if (!contact?.id || busyContactId === contact.id) return;
+		const name = String(contact.contact_name ?? '').trim();
+		const phone = String(contact.contact_phone ?? '').trim();
+		const relationship = String(contact.contact_relationship ?? '').trim();
+		if (!name || !phone) {
+			contactError = 'Contact name and phone number are required.';
+			return;
+		}
+
+		busyContactId = contact.id;
+		contactError = '';
+		contactSuccess = '';
+		try {
+			const res = await fetch(`/api/v1/emergency-contacts/${contact.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					contact_name: name,
+					contact_phone: phone,
+					contact_relationship: relationship
+				})
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to update emergency contact.');
+			}
+			contactSuccess = `Saved ${name}.`;
+		} catch (err) {
+			contactError = err?.message || 'Unable to update emergency contact.';
+		} finally {
+			busyContactId = null;
+		}
+	}
+
+	async function handleDeleteContact(contactId) {
+		if (!contactId || busyContactId === contactId) return;
+		busyContactId = contactId;
+		contactError = '';
+		contactSuccess = '';
+		try {
+			const res = await fetch(`/api/v1/emergency-contacts/${contactId}`, {
+				method: 'DELETE'
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to remove emergency contact.');
+			}
+			emergencyContacts = emergencyContacts.filter((item) => item.id !== contactId);
+			contactSuccess = 'Emergency contact removed.';
+		} catch (err) {
+			contactError = err?.message || 'Unable to remove emergency contact.';
+		} finally {
+			busyContactId = null;
+		}
+	}
+
+	async function handleClaimBracelet(event) {
+		event?.preventDefault?.();
+		if (!currentUser?.id || claimingCode) return;
+
+		const raw = claimCodeInput.trim();
+		if (!raw) {
+			claimError = 'Enter the bracelet code printed on your band.';
+			return;
+		}
+
+		claimingCode = true;
+		claimError = '';
+		claimSuccess = '';
+		try {
+			const res = await fetch('/api/v1/road-id-profile/codes', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: raw })
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to claim bracelet code.');
+			}
+
+			if (Array.isArray(payload?.codes)) {
+				linkedCodes = payload.codes;
+			}
+			if (payload?.profile) {
+				if (!emergencyFullName.trim() && payload.profile.full_name) {
+					emergencyFullName = payload.profile.full_name;
+				}
+				if (!emergencyPhone.trim() && payload.profile.phone) {
+					emergencyPhone = payload.profile.phone;
+				}
+			}
+			if (payload?.code) {
+				qrScope = linkedCodes.length > 1 ? 'all' : payload.code;
+			}
+			claimCodeInput = '';
+			claimSuccess = `Bracelet ${payload?.code || ''} linked to your Emergency ID.`;
+		} catch (err) {
+			claimError = err?.message || 'Unable to claim bracelet code.';
+		} finally {
+			claimingCode = false;
+		}
+	}
+
+	async function handleUnlinkBracelet(code) {
+		if (!code || unlinkingCode) return;
+		unlinkingCode = code;
+		claimError = '';
+		claimSuccess = '';
+		try {
+			const res = await fetch(`/api/v1/road-id-profile/codes/${encodeURIComponent(code)}`, {
+				method: 'DELETE'
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(payload?.error || 'Unable to unlink bracelet code.');
+			}
+			linkedCodes = Array.isArray(payload?.codes)
+				? payload.codes
+				: linkedCodes.filter((item) => item.code !== code);
+			if (qrScope === code) {
+				qrScope = 'all';
+			}
+			confirmUnlinkCode = '';
+			claimSuccess = `Bracelet ${code} unlinked.`;
+		} catch (err) {
+			claimError = err?.message || 'Unable to unlink bracelet code.';
+		} finally {
+			unlinkingCode = '';
+		}
+	}
+
+	function downloadQrSheetSvg() {
+		if (!printableSheetSvg || typeof window === 'undefined') return;
+		const blob = new Blob([printableSheetSvg], { type: 'image/svg+xml;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		const suffix =
+			selectedQrCodes.length === 1 ? selectedQrCodes[0] : `${selectedQrCodes.length}-codes`;
+		anchor.href = url;
+		anchor.download = `3fp-emergency-id-${suffix}.svg`;
+		document.body.appendChild(anchor);
+		anchor.click();
+		anchor.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
+
+	function printQrSheet() {
+		if (!printableSheetSvg || typeof window === 'undefined') return;
+		document.body.classList.add('printing-roadid-qr');
+		const cleanup = () => {
+			document.body.classList.remove('printing-roadid-qr');
+			window.removeEventListener('afterprint', cleanup);
+		};
+		window.addEventListener('afterprint', cleanup);
+		window.print();
+		setTimeout(cleanup, 1500);
+	}
 </script>
 
 <svelte:head>
-	<title>Profile · 3 Feet Please</title>
+	<title>Profile &amp; Emergency ID · 3 Feet Please</title>
 	<meta
 		name="description"
-		content="Set your profile basics so 3 Feet Please can suggest better groups, rides, and volunteer opportunities."
+		content="Manage your 3 Feet Please rider profile, SMS notifications, Emergency ID medical details, bracelets, and printable QR labels."
 	/>
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
+{#if printableSheetSvg}
+	<div class="roadid-qr-print-only" aria-hidden="true">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html printableSheetSvg}
+	</div>
+{/if}
+
 <div
-	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
+	class="roadid-screen-workspace bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
 >
 	<!-- HERO -->
 	<section
@@ -261,7 +738,7 @@
 			>
 				<span class="bg-tertiary-500 h-2.5 w-2.5" aria-hidden="true"></span>
 				<IconUserCircle2 class="h-4 w-4" />
-				<span>Profile</span>
+				<span>Profile &amp; Emergency ID</span>
 			</p>
 
 			<div class="flex flex-col gap-3">
@@ -269,10 +746,11 @@
 					id="profile-heading"
 					class="text-surface-50! m-0 text-3xl leading-[0.94] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-5xl"
 				>
-					Shape your experience. <span class="text-primary-500">Get better suggestions.</span>
+					Shape your experience. <span class="text-primary-500">Ride prepared.</span>
 				</h1>
 				<p class="text-surface-300 m-0 max-w-2xl text-base leading-snug font-medium">
-					Better match with local groups, upcoming rides, and volunteer opportunities.
+					Manage local group and ride recommendations, SMS preferences, Emergency ID medical
+					details, and linked In Case bracelets in one workspace.
 				</p>
 			</div>
 		</div>
@@ -282,16 +760,22 @@
 		>
 			{#if currentUser}
 				<div class="flex flex-col gap-4">
-					<div class="flex items-center justify-between gap-3">
+					<div class="flex flex-wrap items-center justify-between gap-2">
 						<span
-							class="bg-primary-500 text-surface-950 px-2.5 py-0.5 text-xs font-black tracking-[0.2em] uppercase"
+							class="bg-primary-500 text-surface-950 px-2.5 py-1 text-xs font-black tracking-[0.2em] uppercase"
 						>
 							{completionScore}% Complete
+						</span>
+						<span
+							class="border-surface-500 text-surface-200 border px-2.5 py-1 text-xs font-bold tracking-[0.16em] uppercase"
+						>
+							{linkedCodes.length}
+							{linkedCodes.length === 1 ? 'Bracelet' : 'Bracelets'}
 						</span>
 					</div>
 					<div class="flex items-center gap-4">
 						<div
-							class="bg-surface-950 text-primary-500 border-primary-500 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-base font-black"
+							class="bg-surface-950 text-primary-500 border-primary-500 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border-2 text-base font-black"
 						>
 							{#if avatarUrl}
 								<img src={avatarUrl} alt="Profile" class="h-full w-full object-cover" />
@@ -307,15 +791,24 @@
 						</div>
 					</div>
 				</div>
-				<button
-					type="button"
-					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
-					onclick={saveProfile}
-					disabled={saving}
-				>
-					<IconSave class="h-4 w-4" />
-					{saving ? 'Saving…' : 'Save profile'}
-				</button>
+				<div class="flex flex-wrap gap-3">
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex min-h-11 flex-1 items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
+						onclick={saveProfile}
+						disabled={saving}
+					>
+						<IconSave class="h-4 w-4" />
+						{saving ? 'Saving…' : 'Save profile'}
+					</button>
+					<a
+						href="#road-id"
+						class="border-surface-50 text-surface-50 hover:bg-tertiary-500 hover:border-tertiary-500 hover:text-surface-950 inline-flex min-h-11 items-center justify-center gap-2 border-2 px-4 py-2.5 text-sm font-black tracking-wide uppercase transition"
+					>
+						<IconContact class="h-4 w-4" />
+						Emergency ID
+					</a>
+				</div>
 			{:else}
 				<div class="flex flex-col gap-3">
 					<span
@@ -324,18 +817,30 @@
 						Members
 					</span>
 					<h2 class="text-surface-50! m-0 text-2xl leading-none font-black uppercase italic">
-						Log in to create your profile
+						Log in to access your profile &amp; Emergency ID
 					</h2>
 					<p class="text-surface-300 m-0 text-sm leading-relaxed">
-						Sign in to save your location and personalize your recommendations.
+						Sign in to personalize recommendations, update medical information, and manage In Case
+						bracelets.
 					</p>
 				</div>
 				<button
 					type="button"
-					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 self-start px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex min-h-11 items-center justify-center gap-2 self-start px-5 py-2.5 text-sm font-black tracking-wide uppercase transition"
 					onclick={(event) => {
 						event.stopPropagation();
-						window.dispatchEvent(new Event('open-login'));
+						const returnTo =
+							typeof window !== 'undefined' && window.location.hash === '#road-id'
+								? '/profile#road-id'
+								: '/profile';
+						window.dispatchEvent(
+							new CustomEvent('open-login', {
+								detail: {
+									returnTo,
+									message: 'Sign in to manage your profile and Emergency ID.'
+								}
+							})
+						);
 					}}
 				>
 					Log in / Register
@@ -375,7 +880,7 @@
 
 				<div class="border-surface-800 flex flex-wrap items-center gap-5 border-t pt-6">
 					<div
-						class="bg-secondary-500 text-surface-50 border-primary-500 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] text-xl font-black"
+						class="bg-secondary-500 text-surface-50 border-primary-500 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-[3px] text-xl font-black"
 					>
 						{#if avatarUrl}
 							<img src={avatarUrl} alt="Profile" class="h-full w-full object-cover" />
@@ -393,7 +898,7 @@
 						/>
 						<button
 							type="button"
-							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center gap-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
+							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex min-h-11 items-center gap-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
 							onclick={() => fileInputEl?.click()}
 							disabled={uploadingAvatar}
 						>
@@ -403,7 +908,7 @@
 						{#if avatarUrl}
 							<button
 								type="button"
-								class="border-surface-50 text-surface-50 hover:bg-tertiary-500 hover:border-tertiary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
+								class="border-surface-50 text-surface-50 hover:bg-tertiary-500 hover:border-tertiary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition"
 								onclick={() => {
 									avatarUrl = '';
 									avatarError = '';
@@ -415,7 +920,7 @@
 					</div>
 				</div>
 				{#if avatarError}
-					<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold">
+					<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold" role="alert">
 						{avatarError}
 					</p>
 				{/if}
@@ -426,8 +931,13 @@
 							Display name
 						</span>
 						<input
-							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
 							bind:value={fullName}
+							oninput={() => {
+								if (!emergencyNameOverridden) {
+									emergencyFullName = fullName;
+								}
+							}}
 							maxlength="120"
 							placeholder="How should we show your name?"
 						/>
@@ -441,7 +951,7 @@
 							General location
 						</span>
 						<input
-							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
 							bind:value={location}
 							maxlength="120"
 							placeholder="City, State (example: Phoenix, AZ)"
@@ -462,7 +972,7 @@
 							Short bio (optional)
 						</span>
 						<textarea
-							class="textarea bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500 min-h-32"
+							class="textarea bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-32 border-2"
 							bind:value={bio}
 							maxlength="600"
 							placeholder="A sentence or two about your riding style or what you care about."
@@ -503,10 +1013,11 @@
 							)}
 							<button
 								type="button"
-								class={`border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition ${
+								aria-pressed={active}
+								class={`inline-flex min-h-11 items-center border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition ${
 									active
 										? 'bg-primary-500 text-surface-950 border-primary-500'
-										: 'bg-surface-900 text-surface-50 border-surface-700 hover:border-primary-500'
+										: 'bg-surface-900 text-surface-50 border-surface-500 hover:border-primary-500'
 								}`}
 								onclick={() => toggleInterest(suggestion)}
 							>
@@ -519,16 +1030,16 @@
 						<div class="flex flex-wrap gap-2">
 							{#each interests as interest (interest)}
 								<span
-									class="bg-secondary-500 text-surface-50 inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black uppercase"
+									class="bg-secondary-500 text-surface-50 inline-flex min-h-11 items-center gap-1 pr-1 pl-3.5 text-xs font-black uppercase"
 								>
 									{interest}
 									<button
 										type="button"
-										class="hover:text-primary-500 inline-flex p-0.5"
+										class="hover:text-primary-500 inline-flex min-h-11 min-w-11 items-center justify-center"
 										onclick={() => removeInterest(interest)}
 										aria-label={`Remove ${interest}`}
 									>
-										<IconX class="h-3.5 w-3.5" />
+										<IconX class="h-4 w-4" />
 									</button>
 								</span>
 							{/each}
@@ -537,10 +1048,11 @@
 
 					<div class="flex gap-2">
 						<input
-							class="input bg-surface-900 border-surface-700 text-surface-50 focus:border-primary-500"
+							class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
 							bind:value={customInterest}
 							placeholder="Add interest"
 							maxlength="40"
+							aria-label="Custom interest"
 							onkeydown={(event) => {
 								if (event.key === 'Enter') {
 									event.preventDefault();
@@ -550,7 +1062,7 @@
 						/>
 						<button
 							type="button"
-							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex shrink-0 items-center gap-1.5 px-5 py-2.5 text-sm font-black uppercase transition"
+							class="bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex min-h-11 shrink-0 items-center gap-1.5 px-5 py-2.5 text-sm font-black uppercase transition"
 							onclick={addCustomInterest}
 						>
 							<IconPlus class="h-4 w-4" />
@@ -585,7 +1097,8 @@
 							{@const selected = recommendationFocus.includes(option.value)}
 							<button
 								type="button"
-								class={`border-surface-800 flex w-full items-start gap-4 border-b px-4 py-4 text-left transition ${
+								aria-pressed={selected}
+								class={`border-surface-800 flex min-h-11 w-full items-start gap-4 border-b px-4 py-4 text-left transition ${
 									selected
 										? 'bg-primary-500 text-surface-950'
 										: 'text-surface-50 hover:bg-surface-900'
@@ -635,8 +1148,13 @@
 					Mobile number
 				</span>
 				<input
-					class="input bg-surface-950 border-surface-50 text-surface-50"
+					class="input bg-surface-950 border-surface-50 text-surface-50 min-h-11 border-2"
 					bind:value={smsPhone}
+					oninput={() => {
+						if (!emergencyPhoneOverridden) {
+							emergencyPhone = smsPhone;
+						}
+					}}
 					type="tel"
 					autocomplete="tel"
 					maxlength="20"
@@ -716,22 +1234,23 @@
 			</p>
 		</section>
 
-		<!-- SAVE BAR -->
+		<!-- GENERAL PROFILE + SMS SAVE BAR -->
 		<section
 			class="bg-tertiary-500 text-surface-950 border-surface-950 flex flex-wrap items-center justify-between gap-4 border-t-[3px] px-6 py-8 sm:px-10 lg:px-14"
+			aria-label="Save general profile and SMS settings"
 		>
 			<div class="flex flex-wrap items-center gap-4">
 				<button
 					type="button"
-					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-3 px-8 py-4 text-base font-black tracking-wide uppercase transition"
+					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex min-h-11 items-center gap-3 px-8 py-4 text-base font-black tracking-wide uppercase transition"
 					onclick={saveProfile}
 					disabled={saving}
 				>
 					<IconSave class="h-5 w-5" />
-					{saving ? 'Saving…' : 'Save profile'}
+					{saving ? 'Saving…' : 'Save profile & SMS'}
 				</button>
 				{#if saveError}
-					<p class="bg-surface-950 text-tertiary-400 m-0 px-4 py-2 text-sm font-bold">
+					<p class="bg-surface-950 text-tertiary-400 m-0 px-4 py-2 text-sm font-bold" role="alert">
 						{saveError}
 					</p>
 				{/if}
@@ -744,19 +1263,680 @@
 			<span class="text-xs font-black tracking-[0.22em] uppercase">Give 3 Feet · Ride Together</span
 			>
 		</section>
+
+		<!-- 05 · ROAD ID / EMERGENCY ID WORKSPACE -->
+		<section
+			id="road-id"
+			class="bg-surface-950 border-surface-950 scroll-mt-24 border-t-[3px]"
+			aria-labelledby="road-id-heading"
+		>
+			<!-- Section Intro Band -->
+			<div
+				class="border-surface-800 flex flex-wrap items-end justify-between gap-6 border-b-2 px-6 py-12 sm:px-10 lg:px-14"
+			>
+				<div class="flex max-w-3xl items-start gap-4">
+					<span
+						class="text-tertiary-500 text-4xl leading-none font-black italic tabular-nums sm:text-6xl"
+						aria-hidden="true"
+					>
+						05
+					</span>
+					<div class="flex flex-col gap-2">
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							In Case Bracelet · Roadside Profile
+						</p>
+						<h2
+							id="road-id-heading"
+							class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+						>
+							Emergency ID
+						</h2>
+						<p class="text-surface-300 m-0 text-base leading-relaxed">
+							Medical details, emergency contacts, and linked bracelets save independently of
+							location and SMS settings—and appear on every bracelet linked below.
+						</p>
+					</div>
+				</div>
+
+				<button
+					type="button"
+					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-2 border-2 px-5 py-2.5 text-xs font-black tracking-wider uppercase transition"
+					onclick={syncDefaultsFromRiderProfile}
+				>
+					Copy name &amp; phone from profile
+				</button>
+			</div>
+
+			<div class="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+				<!-- LEFT COLUMN: Medical Details + Emergency Contacts -->
+				<div
+					class="lg:border-surface-800 divide-surface-800 flex flex-col divide-y-2 lg:border-r-2"
+				>
+					<!-- Medical Details Form -->
+					<form
+						class="flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-14 lg:py-12"
+						onsubmit={saveEmergencyProfile}
+					>
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Rider Medical Details
+							</p>
+							<h3 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								Emergency Information
+							</h3>
+						</div>
+
+						<div class="grid gap-5 sm:grid-cols-2">
+							<label class="flex flex-col gap-2">
+								<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+									Emergency Name
+								</span>
+								<input
+									type="text"
+									class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+									bind:value={emergencyFullName}
+									oninput={() => (emergencyNameOverridden = true)}
+									maxlength="200"
+									placeholder="Full legal name for responders"
+								/>
+								<span class="text-surface-300 text-xs">
+									Seeded from your profile; override if responders need your full legal name.
+								</span>
+							</label>
+
+							<label class="flex flex-col gap-2">
+								<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+									Rider Phone (Emergency Card)
+								</span>
+								<input
+									type="tel"
+									autocomplete="tel"
+									class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+									bind:value={emergencyPhone}
+									oninput={() => (emergencyPhoneOverridden = true)}
+									maxlength="64"
+									placeholder="(480) 555-0123"
+								/>
+								<span class="text-surface-300 text-xs">
+									Shown on your responder card; independent of SMS opt-in.
+								</span>
+							</label>
+						</div>
+
+						<label class="flex max-w-xs flex-col gap-2" for="blood_type">
+							<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
+								Blood Type
+							</span>
+							<select
+								id="blood_type"
+								class="select bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+								bind:value={emergencyBloodType}
+							>
+								<option value="">Not listed</option>
+								{#each BLOOD_TYPE_OPTIONS as bt (bt)}
+									<option value={bt}>{bt}</option>
+								{/each}
+							</select>
+						</label>
+
+						<div class="flex flex-col gap-2.5">
+							<p
+								id="emergency-allergies-label"
+								class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+							>
+								Allergies
+							</p>
+							<div
+								class="flex flex-wrap gap-2"
+								role="group"
+								aria-labelledby="emergency-allergies-label"
+							>
+								{#each ALLERGY_OPTIONS as allergy (allergy)}
+									{@const active = isAllergySelected(allergy)}
+									<button
+										type="button"
+										aria-pressed={active}
+										class={`inline-flex min-h-11 items-center border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition ${
+											active
+												? 'bg-primary-500 text-surface-950 border-primary-500'
+												: 'bg-surface-900 text-surface-50 border-surface-500 hover:border-primary-500'
+										}`}
+										onclick={() => toggleAllergyChip(allergy)}
+									>
+										{allergy}
+									</button>
+								{/each}
+							</div>
+							<label class="flex flex-col gap-1.5">
+								<span class="text-surface-300 text-xs font-medium">
+									All allergies (comma-separated)
+								</span>
+								<input
+									type="text"
+									class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+									bind:value={emergencyAllergies}
+									maxlength="2000"
+									placeholder="Penicillin, Bee stings, Latex"
+								/>
+							</label>
+						</div>
+
+						<div class="flex flex-col gap-2.5">
+							<p
+								id="emergency-medication-label"
+								class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+							>
+								Medications
+							</p>
+							<div
+								class="flex flex-wrap gap-2"
+								role="group"
+								aria-labelledby="emergency-medication-label"
+							>
+								{#each MEDICATION_OPTIONS as med (med)}
+									{@const active = isMedicationSelected(med)}
+									<button
+										type="button"
+										aria-pressed={active}
+										class={`inline-flex min-h-11 items-center border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition ${
+											active
+												? 'bg-primary-500 text-surface-950 border-primary-500'
+												: 'bg-surface-900 text-surface-50 border-surface-500 hover:border-primary-500'
+										}`}
+										onclick={() => toggleMedicationChip(med)}
+									>
+										{med}
+									</button>
+								{/each}
+							</div>
+							<label class="flex flex-col gap-1.5">
+								<span class="text-surface-300 text-xs font-medium">
+									All medications (comma-separated)
+								</span>
+								<textarea
+									rows="3"
+									class="textarea bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 border-2"
+									bind:value={emergencyMedication}
+									maxlength="2000"
+									placeholder="Albuterol inhaler, Eliquis 5mg"></textarea>
+							</label>
+						</div>
+
+						<div class="flex flex-wrap items-center gap-4 pt-2">
+							<button
+								type="submit"
+								class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center gap-2.5 px-7 py-3.5 text-sm font-black tracking-wide uppercase transition"
+								disabled={savingEmergency}
+							>
+								<IconSave class="h-4 w-4" />
+								{savingEmergency ? 'Saving Emergency ID…' : 'Save Emergency ID'}
+							</button>
+							{#if emergencySaveError}
+								<p
+									class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-bold uppercase"
+									role="alert"
+								>
+									{emergencySaveError}
+								</p>
+							{/if}
+							{#if emergencySaveSuccess}
+								<p
+									class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase"
+								>
+									{emergencySaveSuccess}
+								</p>
+							{/if}
+						</div>
+					</form>
+
+					<!-- Emergency Contacts Section -->
+					<div class="flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-14 lg:py-12">
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Who First Responders Should Call
+							</p>
+							<h3 class="text-surface-50! m-0 text-2xl font-black uppercase">Emergency Contacts</h3>
+						</div>
+
+						{#if contactError}
+							<p
+								class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-bold uppercase"
+								role="alert"
+							>
+								{contactError}
+							</p>
+						{/if}
+						{#if contactSuccess}
+							<p class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase">
+								{contactSuccess}
+							</p>
+						{/if}
+
+						{#if emergencyContacts.length}
+							<div class="border-surface-50 divide-surface-800 flex flex-col divide-y border-t-2">
+								{#each emergencyContacts as contact (contact.id)}
+									<div class="flex flex-col gap-4 py-5">
+										<div class="grid gap-3 sm:grid-cols-3">
+											<label class="flex flex-col gap-1.5">
+												<span
+													class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase"
+												>
+													Name
+												</span>
+												<input
+													type="text"
+													class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+													bind:value={contact.contact_name}
+													maxlength="200"
+												/>
+											</label>
+											<label class="flex flex-col gap-1.5">
+												<span
+													class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase"
+												>
+													Relationship
+												</span>
+												<input
+													type="text"
+													class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+													bind:value={contact.contact_relationship}
+													maxlength="120"
+												/>
+											</label>
+											<label class="flex flex-col gap-1.5">
+												<span
+													class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase"
+												>
+													Phone
+												</span>
+												<input
+													type="tel"
+													autocomplete="tel"
+													class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+													bind:value={contact.contact_phone}
+													maxlength="64"
+												/>
+											</label>
+										</div>
+										<div class="flex flex-wrap items-center gap-3">
+											<button
+												type="button"
+												class="bg-surface-900 border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-2 border-2 px-4 py-2 text-xs font-black uppercase transition"
+												onclick={() => handleSaveExistingContact(contact)}
+												disabled={busyContactId === contact.id}
+											>
+												<IconSave class="h-3.5 w-3.5" />
+												Save Contact
+											</button>
+											<button
+												type="button"
+												class="border-tertiary-500 text-tertiary-500 hover:bg-tertiary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-2 border-2 px-4 py-2 text-xs font-black uppercase transition"
+												aria-label={`Remove emergency contact ${contact.contact_name || 'contact'}`}
+												onclick={() => handleDeleteContact(contact.id)}
+												disabled={busyContactId === contact.id}
+											>
+												<IconTrash2 class="h-3.5 w-3.5" />
+												Remove
+											</button>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-surface-300 m-0 text-sm">
+								No emergency contacts added yet. Add at least one person first responders can call.
+							</p>
+						{/if}
+
+						<form
+							class="bg-surface-900 border-t-secondary-500 flex flex-col gap-4 border-t-4 p-5 sm:p-6"
+							onsubmit={handleAddContact}
+						>
+							<h4 class="text-surface-50! m-0 text-base font-black uppercase">
+								Add Emergency Contact
+							</h4>
+							<div class="grid gap-3 sm:grid-cols-3">
+								<label class="flex flex-col gap-1.5">
+									<span class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase">
+										Name
+									</span>
+									<input
+										type="text"
+										class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+										bind:value={newContact.contact_name}
+										maxlength="200"
+										placeholder="Alex Rivera"
+										required
+									/>
+								</label>
+								<label class="flex flex-col gap-1.5">
+									<span class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase">
+										Relationship
+									</span>
+									<input
+										type="text"
+										class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+										bind:value={newContact.contact_relationship}
+										maxlength="120"
+										placeholder="Partner / Parent"
+									/>
+								</label>
+								<label class="flex flex-col gap-1.5">
+									<span class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase">
+										Phone
+									</span>
+									<input
+										type="tel"
+										autocomplete="tel"
+										class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+										bind:value={newContact.contact_phone}
+										maxlength="64"
+										placeholder="(480) 555-0199"
+										required
+									/>
+								</label>
+							</div>
+							<button
+								type="submit"
+								class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center gap-2 self-start px-6 py-2.5 text-xs font-black tracking-wider uppercase transition"
+								disabled={addingContact}
+							>
+								<IconPlus class="h-4 w-4" />
+								{addingContact ? 'Adding…' : 'Add Contact'}
+							</button>
+						</form>
+					</div>
+				</div>
+
+				<!-- RIGHT COLUMN: Bracelets + Live Responder Preview + Printable Vector QR Generator -->
+				<div class="divide-surface-800 flex flex-col divide-y-2">
+					<!-- Bracelets & Linked Codes -->
+					<div class="flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Wristbands &amp; Spare Tags
+							</p>
+							<h3 class="text-surface-50! m-0 text-2xl font-black uppercase">Linked Bracelets</h3>
+							<p class="text-surface-300 m-0 text-sm leading-relaxed">
+								Link multiple In Case bracelets to share this Emergency ID, or unlink retired bands.
+							</p>
+						</div>
+
+						<form class="flex flex-wrap gap-2.5" onsubmit={handleClaimBracelet}>
+							<label class="sr-only" for="claim-bracelet-code">Bracelet code</label>
+							<input
+								id="claim-bracelet-code"
+								type="text"
+								class="input bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 min-w-[12rem] flex-1 border-2"
+								bind:value={claimCodeInput}
+								maxlength="120"
+								placeholder="Enter bracelet code (e.g. ABC12345)"
+							/>
+							<button
+								type="submit"
+								class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 shrink-0 items-center gap-2 px-5 py-2.5 text-xs font-black tracking-wider uppercase transition"
+								disabled={claimingCode}
+							>
+								<IconLink2 class="h-4 w-4" />
+								{claimingCode ? 'Claiming…' : 'Claim Bracelet'}
+							</button>
+						</form>
+
+						{#if claimError}
+							<p
+								class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-bold uppercase"
+								role="alert"
+							>
+								{claimError}
+							</p>
+						{/if}
+						{#if claimSuccess}
+							<p class="bg-primary-500 text-surface-950 m-0 px-4 py-2 text-xs font-black uppercase">
+								{claimSuccess}
+							</p>
+						{/if}
+
+						{#if linkedCodes.length}
+							<ul
+								class="border-surface-50 divide-surface-800 m-0 list-none divide-y border-t-2 p-0"
+							>
+								{#each linkedCodes as item (item.code)}
+									<li class="flex flex-col gap-3 py-4">
+										<div class="flex flex-wrap items-center justify-between gap-3">
+											<div class="flex items-center gap-3">
+												<span
+													class="bg-primary-500 text-surface-950 px-3 py-1 font-mono text-sm font-black"
+												>
+													{item.code}
+												</span>
+												<span class="text-surface-300 font-mono text-xs break-all">
+													/roadid/{item.code}
+												</span>
+											</div>
+											<div class="flex flex-wrap items-center gap-2">
+												<a
+													href={`/roadid/${encodeURIComponent(item.code)}`}
+													class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-1.5 border-2 px-3.5 py-2 text-xs font-black uppercase transition"
+												>
+													<span>Responder View</span>
+													<IconExternalLink class="h-3.5 w-3.5" />
+												</a>
+												{#if confirmUnlinkCode === item.code}
+													<button
+														type="button"
+														class="bg-tertiary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center px-3.5 py-2 text-xs font-black uppercase transition"
+														onclick={() => handleUnlinkBracelet(item.code)}
+														disabled={unlinkingCode === item.code}
+													>
+														{unlinkingCode === item.code ? 'Unlinking…' : 'Confirm Unlink'}
+													</button>
+													<button
+														type="button"
+														class="border-surface-500 text-surface-200 hover:border-surface-50 inline-flex min-h-11 items-center border-2 px-3.5 py-2 text-xs font-black uppercase transition"
+														onclick={() => (confirmUnlinkCode = '')}
+													>
+														Cancel
+													</button>
+												{:else}
+													<button
+														type="button"
+														class="border-tertiary-500 text-tertiary-500 hover:bg-tertiary-500 hover:text-surface-950 inline-flex min-h-11 items-center border-2 px-3.5 py-2 text-xs font-black uppercase transition"
+														aria-label={`Unlink bracelet ${item.code}`}
+														onclick={() => (confirmUnlinkCode = item.code)}
+													>
+														Unlink
+													</button>
+												{/if}
+											</div>
+										</div>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<div class="bg-surface-900 border-t-primary-500 border-t-4 p-5">
+								<p class="m-0 text-sm font-bold uppercase">No bracelets linked yet</p>
+								<p class="text-surface-300 m-0 mt-1 text-xs leading-relaxed">
+									Scan an unclaimed In Case wristband or enter its code above to bind it to your
+									Emergency ID.
+								</p>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Live Responder Preview Card -->
+					<div class="flex flex-col gap-5 px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
+						<div class="flex flex-col gap-1">
+							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+								Roadside Formatting Check
+							</p>
+							<h3 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								Live Responder Preview
+							</h3>
+							<p class="text-surface-300 m-0 text-sm leading-relaxed">
+								Updates as you type so you can verify what paramedics and fellow riders see.
+							</p>
+						</div>
+
+						<RoadIdResponderCard
+							preview={true}
+							code={activePreviewCode}
+							profile={liveEmergencyProfile}
+							contacts={emergencyContacts}
+						/>
+					</div>
+
+					<!-- Printable Vector QR Sticker & Sheet Generator -->
+					<div class="flex flex-col gap-6 px-6 py-10 sm:px-10 lg:px-12 lg:py-12">
+						<div class="flex flex-col gap-1">
+							<p
+								class="text-primary-500 m-0 flex items-center gap-2 text-xs font-bold tracking-[0.22em] uppercase"
+							>
+								<IconQrCode class="h-4 w-4" />
+								<span>Local Vector QR Generator</span>
+							</p>
+							<h3 class="text-surface-50! m-0 text-2xl font-black uppercase">
+								Backup QR Labels &amp; Print Sheet
+							</h3>
+							<p class="text-surface-300 m-0 text-sm leading-relaxed">
+								Generate crisp vector QR stickers locally in your browser for helmets, bike frames,
+								or wallet cards.
+							</p>
+						</div>
+
+						{#if linkedCodes.length}
+							<div class="grid gap-4 sm:grid-cols-2">
+								<label class="flex flex-col gap-1.5">
+									<span class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase">
+										Codes to include
+									</span>
+									<select
+										class="select bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+										bind:value={qrScope}
+									>
+										{#if linkedCodes.length > 1}
+											<option value="all">All linked bracelets ({linkedCodes.length})</option>
+										{/if}
+										{#each linkedCodes as item (item.code)}
+											<option value={item.code}>Code: {item.code}</option>
+										{/each}
+									</select>
+								</label>
+
+								<label class="flex flex-col gap-1.5">
+									<span class="text-primary-500 text-xs font-bold tracking-[0.18em] uppercase">
+										Stickers per code
+									</span>
+									<select
+										class="select bg-surface-950 border-surface-500 text-surface-50 focus:border-primary-500 min-h-11 border-2"
+										bind:value={qrCopiesPerCode}
+									>
+										<option value={1}>1 label</option>
+										<option value={2}>2 labels</option>
+										<option value={4}>4 labels</option>
+										<option value={6}>6 labels</option>
+									</select>
+								</label>
+							</div>
+
+							<div
+								class="bg-surface-900 border-t-secondary-500 flex flex-wrap items-center gap-6 border-t-4 p-5"
+							>
+								{#if singleQrPreviewSvg}
+									<div class="bg-surface-50 shrink-0 p-2">
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+										{@html singleQrPreviewSvg}
+									</div>
+								{/if}
+								<div class="flex min-w-[12rem] flex-1 flex-col gap-3">
+									<div>
+										<p class="text-primary-500 m-0 text-xs font-black tracking-[0.18em] uppercase">
+											Scannable Target URL
+										</p>
+										<p class="m-0 mt-1 font-mono text-sm font-bold break-all">
+											{singleQrPreviewUrl}
+										</p>
+									</div>
+									<p class="text-surface-300 m-0 text-xs leading-relaxed">
+										Sheet includes {selectedQrCodes.length * qrCopiesPerCode} high-contrast vector
+										{selectedQrCodes.length * qrCopiesPerCode === 1 ? 'label' : 'labels'}.
+									</p>
+									<div class="flex flex-wrap gap-3 pt-1">
+										<button
+											type="button"
+											class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center gap-2 px-5 py-2.5 text-xs font-black tracking-wider uppercase transition"
+											onclick={printQrSheet}
+										>
+											<IconPrinter class="h-4 w-4" />
+											Print QR Sheet
+										</button>
+										<button
+											type="button"
+											class="border-surface-50 text-surface-50 hover:bg-secondary-500 hover:border-secondary-500 inline-flex min-h-11 items-center gap-2 border-2 px-5 py-2.5 text-xs font-black tracking-wider uppercase transition"
+											onclick={downloadQrSheetSvg}
+										>
+											<IconDownload class="h-4 w-4" />
+											Download Vector SVG
+										</button>
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div class="bg-surface-900 border-t-secondary-500 border-t-4 p-5">
+								<p class="m-0 text-sm font-bold uppercase">
+									Claim a bracelet code to unlock QR label printing
+								</p>
+								<p class="text-surface-300 m-0 mt-1 text-xs leading-relaxed">
+									Once at least one bracelet code is linked above, you can download vector SVG
+									stickers or print multi-label backup sheets right here.
+								</p>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</section>
 	{:else}
 		<section
-			class="bg-surface-950 flex flex-1 flex-col justify-between gap-8 px-6 py-12 sm:px-10 lg:px-14"
+			id="road-id"
+			class="bg-surface-950 flex flex-1 scroll-mt-24 flex-col justify-between gap-8 px-6 py-12 sm:px-10 lg:px-14"
 		>
-			<div class="flex max-w-2xl flex-col gap-3">
-				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
-					Why create a profile
-				</p>
-				<h2
-					class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
-				>
-					Local groups, rides, and shifts tailored to your area.
-				</h2>
+			<div class="grid gap-8 lg:grid-cols-2">
+				<div class="flex max-w-2xl flex-col gap-3">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+						Why create a profile
+					</p>
+					<h2
+						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+					>
+						Local groups, rides, and Emergency ID in one place.
+					</h2>
+				</div>
+				<div class="bg-surface-900 border-t-tertiary-500 flex flex-col gap-4 border-t-4 p-6">
+					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+						In Case Bracelet · Emergency ID
+					</p>
+					<p class="text-surface-200 m-0 text-sm leading-relaxed">
+						Sign in to claim wristbands, update allergies, medications, and emergency contacts, and
+						print replacement vector QR labels.
+					</p>
+					<button
+						type="button"
+						class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex min-h-11 items-center justify-center self-start px-6 py-3 text-xs font-black tracking-wider uppercase transition"
+						onclick={(event) => {
+							event.stopPropagation();
+							window.dispatchEvent(
+								new CustomEvent('open-login', {
+									detail: {
+										returnTo: '/profile#road-id',
+										message: 'Sign in to manage your Emergency ID and bracelets.'
+									}
+								})
+							);
+						}}
+					>
+						Sign in for Emergency ID
+					</button>
+				</div>
 			</div>
 			<div
 				class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
@@ -767,6 +1947,28 @@
 </div>
 
 <style>
+	.roadid-qr-print-only {
+		display: none;
+	}
+
+	:global(body.printing-roadid-qr .app-header),
+	:global(body.printing-roadid-qr .app-rail),
+	:global(body.printing-roadid-qr .roadid-screen-workspace) {
+		display: none !important;
+	}
+
+	:global(body.printing-roadid-qr .roadid-qr-print-only) {
+		display: block !important;
+		background: #ffffff;
+		padding: 0;
+	}
+
+	@media print {
+		:global(body.printing-roadid-qr) {
+			background: #ffffff !important;
+		}
+	}
+
 	.sms-option {
 		display: flex;
 		align-items: center;
