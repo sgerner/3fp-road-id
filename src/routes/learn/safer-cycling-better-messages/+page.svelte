@@ -116,9 +116,8 @@
 		});
 	}
 	async function askReport(question) {
-		navigateTo('assistant');
 		await tick();
-		assistant?.ask(question);
+		await assistant?.ask(question, document.activeElement);
 	}
 	function chapterLinks(section) {
 		return [...section.html.matchAll(/<h3 id="([^"]+)">([\s\S]*?)<\/h3>/g)].map((match) => ({
@@ -239,7 +238,11 @@
 			<div class="hero-actions">
 				<a href="#start" class="primary-link">Start with the key takeaways <span>↓</span></a><a
 					href="#assistant"
-					class="text-link">Ask the report ↗</a
+					class="text-link"
+					onclick={(event) => {
+						event.preventDefault();
+						assistant?.openReportAssistant?.(event.currentTarget);
+					}}>Ask the report ↗</a
 				>
 			</div>
 			<div class="edition">
@@ -478,7 +481,7 @@
 	</section>
 
 	<section id="assistant" class="section-pad assistant-section motion-reveal">
-		<ReportAssistant {currentTopic} bind:this={assistant} {report} />
+		<ReportAssistant {currentTopic} bind:this={assistant} {report} onCitationSelect={navigateTo} />
 	</section>
 	<footer class="report-footer">
 		<img src="/logos/3FeetPlease_WhiteOutline.png" alt="3 Feet Please" width="64" height="64" />

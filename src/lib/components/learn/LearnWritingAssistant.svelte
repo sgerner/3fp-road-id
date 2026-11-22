@@ -1,235 +1,264 @@
 <script>
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconUndo2 from '@lucide/svelte/icons/undo-2';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
 
 	let {
 		articleId = null,
 		canAsk = false,
 		getContext,
 		getEditor,
+		getSummary = null,
 		setSummary = () => {},
 		heading = 'Writing assistant'
 	} = $props();
 
-	let prompt = $state('');
-	let suggestion = $state('');
-	let answer = $state('');
-	let takeaways = $state([]);
-	let takeawaySummary = $state('');
-	let pending = $state('');
-	let error = $state('');
+	const assistantContext = getAssistantContext();
+	let openBtnEl = $state(null);
 	let appliedPrevious = $state(null);
 	let appliedText = $state(null);
-	let undoConflict = $state(false);
+	let summaryPrevious = $state(null);
+	let summaryApplied = $state(null);
+	let undoConflictMessage = $state('');
 
-	async function run(action) {
-		const context = getContext?.() ?? {};
-		const content = context.bodyMarkdown || getEditor?.()?.getMarkdown?.() || '';
-		const title = context.title || '';
-		const promptText = prompt.trim();
-
-		if (action === 'write' && !promptText) {
-			error = 'Add a short instruction for the writing assistant first.';
-			return;
-		}
-		if (action === 'ask' && !promptText) {
-			error = 'Ask a question about this saved article first.';
-			return;
-		}
-		if (!content.trim() && action === 'takeaways') {
-			error = 'Add some article text before generating takeaways.';
-			return;
-		}
-
-		pending = action;
-		error = '';
-		suggestion = '';
-		answer = '';
-		takeaways = [];
-		takeawaySummary = '';
-		try {
-			const response = await fetch('/api/learn/ai', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					action,
-					...(articleId ? { articleId } : {}),
-					...(action === 'ask' ? { question: promptText, articleId } : {}),
-					...(action === 'write' ? { prompt: promptText } : {}),
-					...(action !== 'ask' ? { content, title } : {})
-				})
-			});
-			const result = await response.json().catch(() => ({}));
-			if (!response.ok)
-				throw new Error(
-					result.message || result.error || 'The assistant could not complete that request.'
-				);
-			if (action === 'write') {
-				suggestion = String(result.draft ?? result.suggestion ?? '').trim();
-				if (!suggestion) throw new Error('The assistant returned an empty draft.');
-			} else if (action === 'ask') {
-				answer = String(result.answer ?? '').trim();
-				if (!answer) throw new Error('The assistant returned an empty answer.');
-			} else {
-				const items = Array.isArray(result.takeaways) ? result.takeaways : [];
-				takeaways = items.map((item) => String(item).trim()).filter(Boolean);
-				takeawaySummary = String(result.summary ?? '').trim();
-				if (!takeaways.length) throw new Error('No takeaways were returned for this draft.');
-			}
-		} catch (cause) {
-			error =
-				cause instanceof Error ? cause.message : 'The assistant could not complete that request.';
-		} finally {
-			pending = '';
-		}
+	function readLiveMarkdown() {
+		const editorVal = getEditor?.()?.getMarkdown?.();
+		if (typeof editorVal === 'string') return editorVal;
+		return String(getContext?.()?.bodyMarkdown ?? '');
 	}
 
-	function applySuggestion() {
+	function readLiveSummary() {
+		if (typeof getSummary === 'function') return String(getSummary() ?? '');
+		return String(getContext?.()?.summary ?? '');
+	}
+
+	function buildAssistantEditorContext() {
+		const context = getContext?.() ?? {};
+		const bodyMarkdown = readLiveMarkdown();
+		const summary = readLiveSummary();
+		return {
+			...context,
+			articleId,
+			bodyMarkdown,
+			summary,
+			baseMarkdown: bodyMarkdown,
+			baseSummary: summary
+		};
+	}
+
+	function applyDraft(proposal) {
 		const editor = getEditor?.();
-		if (!editor || !suggestion) return;
-		appliedPrevious = editor.getMarkdown?.() ?? '';
+		const suggestion = String(proposal?.draft ?? '').trim();
+		if (!editor || !suggestion) {
+			return {
+				ok: false,
+				error: 'The article editor is still loading. Try applying again in a moment.'
+			};
+		}
+		const currentMarkdown = editor.getMarkdown?.() ?? '';
+		const check = verifyBaseFingerprint(
+			currentMarkdown,
+			proposal?.baseMarkdown,
+			'Your article draft changed after this suggestion was created. Ask the writing assistant again so your latest edits are preserved.'
+		);
+		if (!check.ok) return check;
+
+		appliedPrevious = currentMarkdown;
 		appliedText = suggestion;
-		undoConflict = false;
+		undoConflictMessage = '';
 		if (editor.setMarkdown?.(suggestion)) {
 			appliedText = editor.getMarkdown?.() ?? suggestion;
-			suggestion = '';
-		} else {
-			appliedPrevious = null;
-			appliedText = null;
+			return { ok: true };
 		}
+		appliedPrevious = null;
+		appliedText = null;
+		return { ok: false, error: 'Unable to apply this draft right now.' };
 	}
 
-	function undoSuggestion() {
-		if (appliedPrevious === null) return;
-		if ((getEditor?.()?.getMarkdown?.() ?? '') !== appliedText) {
-			undoConflict = true;
-			return;
+	function undoDraft() {
+		if (appliedPrevious === null) {
+			return { ok: false, error: 'No applied draft to undo.' };
+		}
+		const currentMarkdown = getEditor?.()?.getMarkdown?.() ?? '';
+		const check = verifyAppliedFingerprint(
+			currentMarkdown,
+			appliedText,
+			'The draft changed after you applied this suggestion. Use the editor’s undo command to step back without losing newer edits.'
+		);
+		if (!check.ok) {
+			undoConflictMessage = check.error;
+			return check;
 		}
 		getEditor?.()?.setMarkdown?.(appliedPrevious);
 		appliedPrevious = null;
 		appliedText = null;
-		undoConflict = false;
+		undoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function applySummaryProposal(proposal) {
+		const nextSummary = String(proposal?.summary ?? '').trim();
+		if (!nextSummary) return { ok: false, error: 'No summary suggestion to apply.' };
+		const currentSummary = readLiveSummary();
+		const check = verifyBaseFingerprint(
+			currentSummary,
+			proposal?.baseSummary,
+			'Your summary changed after this suggestion was created. Preview takeaways again to refresh.'
+		);
+		if (!check.ok) return check;
+
+		summaryPrevious = currentSummary;
+		summaryApplied = nextSummary;
+		undoConflictMessage = '';
+		setSummary(nextSummary);
+		return { ok: true };
+	}
+
+	function undoSummaryProposal() {
+		if (summaryPrevious === null) {
+			return { ok: false, error: 'No applied summary to undo.' };
+		}
+		const currentSummary = readLiveSummary();
+		const check = verifyAppliedFingerprint(
+			currentSummary,
+			summaryApplied,
+			'The summary changed after applying, so undo was skipped to protect your newer edits.'
+		);
+		if (!check.ok) {
+			undoConflictMessage = check.error;
+			return check;
+		}
+		setSummary(summaryPrevious);
+		summaryPrevious = null;
+		summaryApplied = null;
+		undoConflictMessage = '';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'learn-write',
+			articleId,
+			canAskSavedArticle: Boolean(canAsk),
+			getContext: buildAssistantEditorContext,
+			applyDraft,
+			undoDraft,
+			applySummary: applySummaryProposal,
+			undoSummary: undoSummaryProposal,
+			canUndoDraft: appliedPrevious !== null && !undoConflictMessage,
+			canUndoSummary: summaryPrevious !== null && !undoConflictMessage,
+			undoConflictMessage
+		}));
+	});
+
+	function openStudio({ prompt = '', learnAction = '', triggerEl = openBtnEl } = {}) {
+		assistantContext.open({
+			mode: 'page',
+			prompt,
+			submit: Boolean(prompt && !learnAction),
+			learnAction,
+			triggerEl
+		});
 	}
 </script>
 
 <section
-	class="border-surface-500/15 bg-surface-900/35 space-y-4 rounded-2xl border p-4 sm:p-5"
+	class="border-surface-500/30 bg-surface-900 space-y-3 border-t-2 p-4 sm:p-5"
 	aria-labelledby="writing-assistant-title"
 >
-	<div class="flex items-start gap-3">
-		<span class="bg-primary-500/15 text-primary-300 mt-0.5 rounded-xl p-2" aria-hidden="true"
-			><IconSparkles class="h-5 w-5" /></span
-		>
-		<div>
-			<h2 id="writing-assistant-title" class="font-semibold">{heading}</h2>
-			<p class="text-sm opacity-70">
-				Get a starting point while you write. Suggestions need your review before they enter the
-				article.
-			</p>
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<div class="flex min-w-0 items-start gap-3">
+			<span
+				class="bg-primary-500 text-surface-950 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center"
+				aria-hidden="true"
+			>
+				<IconSparkles class="h-4 w-4" />
+			</span>
+			<div class="min-w-0">
+				<h2 id="writing-assistant-title" class="text-sm font-black tracking-wide uppercase">
+					{heading}
+				</h2>
+				<p class="text-surface-300 text-xs leading-relaxed">
+					Draft revisions, takeaway previews, and saved-article questions open in the 3FP Assistant
+					so you can review changes before applying.
+				</p>
+			</div>
 		</div>
+		<button
+			bind:this={openBtnEl}
+			type="button"
+			class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition"
+			onclick={() => openStudio({ triggerEl: openBtnEl })}
+		>
+			<span>Open writing assistant</span>
+			<IconArrowRight class="h-3.5 w-3.5" />
+		</button>
 	</div>
-
-	<label class="block space-y-2">
-		<span class="label">What would you like help with?</span>
-		<textarea
-			class="textarea min-h-20"
-			bind:value={prompt}
-			placeholder="For example: Make this clearer for first-time riders."
-			aria-describedby="writing-assistant-help"></textarea>
-	</label>
-	<p id="writing-assistant-help" class="-mt-2 text-xs opacity-65">
-		{canAsk
-			? 'Draft tools use your current text. Questions use the saved article.'
-			: 'Your current title and article text provide context.'}
-	</p>
 
 	<div class="flex flex-wrap gap-2">
 		<button
-			class="btn btn-sm preset-filled-primary-500"
 			type="button"
-			disabled={!!pending}
-			onclick={() => run('write')}
+			class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+			onclick={(event) =>
+				openStudio({
+					prompt: 'Make this clearer and more welcoming for first-time riders',
+					triggerEl: event.currentTarget
+				})}
 		>
-			{pending === 'write' ? 'Drafting…' : 'Suggest a draft'}
+			Suggest a draft
+		</button>
+		<button
+			type="button"
+			class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+			onclick={(event) =>
+				openStudio({
+					prompt: 'Preview key takeaways for my current draft',
+					learnAction: 'takeaways',
+					triggerEl: event.currentTarget
+				})}
+		>
+			Preview takeaways
 		</button>
 		{#if canAsk}
 			<button
-				class="btn btn-sm preset-tonal-surface"
 				type="button"
-				disabled={!!pending}
-				onclick={() => run('ask')}
+				class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+				onclick={(event) =>
+					openStudio({
+						prompt: 'Summarize what the saved article covers so far',
+						learnAction: 'ask',
+						triggerEl: event.currentTarget
+					})}
 			>
-				{pending === 'ask' ? 'Thinking…' : 'Ask about saved article'}
+				Ask about saved article
 			</button>
 		{/if}
-		<button
-			class="btn btn-sm preset-tonal-surface"
-			type="button"
-			disabled={!!pending}
-			onclick={() => run('takeaways')}
-		>
-			{pending === 'takeaways' ? 'Finding takeaways…' : 'Preview takeaways'}
-		</button>
 	</div>
 
-	{#if error}
-		<p class="text-error-400 text-sm" role="alert">{error}</p>
-	{/if}
-	{#if suggestion}
-		<div
-			class="border-primary-400/25 bg-primary-500/5 space-y-3 rounded-xl border p-4"
-			aria-live="polite"
-		>
-			<div class="flex flex-wrap items-center justify-between gap-2">
-				<p class="text-sm font-semibold">Draft suggestion</p>
-				<button class="btn btn-sm preset-filled-primary-500" type="button" onclick={applySuggestion}
-					>Use this draft</button
+	{#if undoConflictMessage}
+		<p class="text-surface-300 m-0 text-xs" role="status">{undoConflictMessage}</p>
+	{:else if appliedPrevious !== null || summaryPrevious !== null}
+		<div class="flex flex-wrap items-center gap-2 pt-1">
+			{#if appliedPrevious !== null}
+				<button
+					class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-1.5 border-2 px-3 py-1.5 text-xs font-black uppercase transition"
+					type="button"
+					onclick={undoDraft}
 				>
-			</div>
-			<div class="max-h-72 overflow-auto text-sm leading-6 whitespace-pre-wrap">{suggestion}</div>
-			<p class="text-xs opacity-65">
-				Review it before applying. Applying replaces the article body, and you can undo that change.
-			</p>
-		</div>
-	{/if}
-	{#if answer}
-		<div class="bg-surface-800/60 rounded-xl p-4 text-sm leading-6" aria-live="polite">
-			<p class="mb-2 font-semibold">Assistant answer</p>
-			<div class="whitespace-pre-wrap">{answer}</div>
-		</div>
-	{/if}
-	{#if takeaways.length}
-		<div class="bg-surface-800/60 rounded-xl p-4" aria-live="polite">
-			{#if takeawaySummary}
-				<div class="mb-4 space-y-2">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<p class="text-sm font-semibold">Summary suggestion</p>
-						<button
-							class="btn btn-sm preset-tonal-surface"
-							type="button"
-							onclick={() => setSummary(takeawaySummary)}>Use summary</button
-						>
-					</div>
-					<p class="text-sm leading-6 opacity-80">{takeawaySummary}</p>
-				</div>
+					<IconUndo2 class="h-3.5 w-3.5" /> Undo applied suggestion
+				</button>
 			{/if}
-			<p class="mb-2 text-sm font-semibold">Takeaway preview</p>
-			<ul class="list-disc space-y-1 pl-5 text-sm leading-6">
-				{#each takeaways as takeaway}<li>{takeaway}</li>{/each}
-			</ul>
-			<p class="mt-2 text-xs opacity-65">Saving the article refreshes its published takeaways.</p>
+			{#if summaryPrevious !== null}
+				<button
+					class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-1.5 border-2 px-3 py-1.5 text-xs font-black uppercase transition"
+					type="button"
+					onclick={undoSummaryProposal}
+				>
+					<IconUndo2 class="h-3.5 w-3.5" /> Undo applied summary
+				</button>
+			{/if}
 		</div>
-	{/if}
-	{#if appliedPrevious !== null}
-		{#if undoConflict}
-			<p class="text-sm opacity-70" role="status">
-				The draft changed after you applied this suggestion. Use the editor’s undo command to step
-				back without losing newer edits.
-			</p>
-		{:else}
-			<button class="btn btn-sm preset-tonal-surface gap-2" type="button" onclick={undoSuggestion}>
-				<IconUndo2 class="h-4 w-4" /> Undo applied suggestion
-			</button>
-		{/if}
 	{/if}
 </section>

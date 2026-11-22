@@ -9,6 +9,7 @@
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -564,6 +565,11 @@
 
 	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
+	const assistantContext = setAssistantContext();
+
+	$effect(() => {
+		assistantContext.setPathname(page.url.pathname);
+	});
 </script>
 
 <svelte:head>

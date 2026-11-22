@@ -393,7 +393,7 @@
 		<div class="article-page-root">
 			<div class="article-main">
 				{#if !data.viewingRevision}
-					<ArticleAssistant articleSlug={data.article.slug} />
+					<ArticleAssistant articleSlug={data.article.slug} articleTitle={data.article.title} />
 				{/if}
 
 				<!-- ── MOBILE-ONLY TOC ACCORDION ──────────────────────────────── -->
