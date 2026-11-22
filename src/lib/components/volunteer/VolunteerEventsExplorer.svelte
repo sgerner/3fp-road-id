@@ -2,7 +2,10 @@
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
-	import { tick } from 'svelte';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { applyVolunteerUrlState, parseVolunteerUrlState } from '#lib/url/directoryUrlState';
+	import { onMount, tick, untrack } from 'svelte';
 	import 'leaflet/dist/leaflet.css';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -64,35 +67,76 @@
 		return e?.host_org?.name ?? e?.host_org?.title ?? e?.host_org_name ?? '';
 	}
 
-	let searchInput = $state('');
-	let appliedSearch = $state('');
-	let locationQ = $state('');
-	let hostGroupId = $state('');
-	let eventType = $state('');
-	let view = $state('list');
-	let mobileFiltersOpen = $state(false);
-	let directoryTopEl = $state(null);
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() => parseVolunteerUrlState(page.url.searchParams));
 
-	$effect(() => {
-		if (!browser) return;
-		const sp = new URLSearchParams(window.location.search);
-		searchInput = sp.get('search') ?? '';
-		appliedSearch = searchInput;
-		locationQ = sp.get('location') ?? '';
-		hostGroupId = sp.get('hostGroupId') ?? '';
-		eventType = sp.get('eventType') ?? '';
-		mobileFiltersOpen = Boolean(locationQ || hostGroupId || eventType);
-		view = sp.get('view') ?? 'list';
-	});
+	let searchInput = $state(initialUrlState.search);
+	let appliedSearch = $state(initialUrlState.search);
+	let locationInput = $state(initialUrlState.location);
+	let locationQ = $state(initialUrlState.location);
+	let hostGroupId = $state(initialUrlState.hostGroupId);
+	let eventType = $state(initialUrlState.eventType);
+	let view = $state(initialUrlState.view);
+	let mobileFiltersOpen = $state(
+		Boolean(initialUrlState.location || initialUrlState.hostGroupId || initialUrlState.eventType)
+	);
+	let directoryTopEl = $state(null);
+	let routerReady = false;
+	let searchDebounceTimer;
+	let locationDebounceTimer;
+
+	const hasActiveFilters = $derived(
+		Boolean(
+			searchInput.trim() ||
+			appliedSearch.trim() ||
+			locationInput.trim() ||
+			locationQ.trim() ||
+			hostGroupId ||
+			eventType
+		)
+	);
 
 	function scrollToDirectory() {
 		if (!directoryTopEl) return;
 		directoryTopEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
+	function handleSearchInput() {
+		clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			appliedSearch = searchInput;
+			syncUrlToState();
+		}, 250);
+	}
+
+	function handleLocationInput() {
+		clearTimeout(locationDebounceTimer);
+		locationDebounceTimer = setTimeout(() => {
+			locationQ = locationInput;
+			syncUrlToState();
+		}, 250);
+	}
+
+	function applyLocationImmediately() {
+		clearTimeout(locationDebounceTimer);
+		locationQ = locationInput;
+		syncUrlToState();
+	}
+
 	function applySearchAndScroll() {
+		clearTimeout(searchDebounceTimer);
 		appliedSearch = searchInput;
+		syncUrlToState();
 		scrollToDirectory();
+	}
+
+	function handleSelectFilterChange() {
+		syncUrlToState();
+	}
+
+	function selectView(nextView) {
+		view = nextView;
+		syncUrlToState();
 	}
 
 	function eventHostGroup(event) {
@@ -234,18 +278,117 @@
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
-	function earliestEventMonth() {
+	const defaultCalendarMonth = $derived.by(() => {
 		const first = filteredEvents[0] ?? sortedEvents[0];
 		const start = parseEventDate(first?.event_start);
 		return start ? startOfMonth(start) : startOfMonth(new Date());
+	});
+
+	let calendarReference = $state(untrack(() => initialUrlState.monthDate ?? defaultCalendarMonth));
+	let calendarMonthTouched = $state(Boolean(initialUrlState.monthDate));
+
+	$effect(() => {
+		if (!calendarMonthTouched && calendarReference.getTime() !== defaultCalendarMonth.getTime()) {
+			calendarReference = defaultCalendarMonth;
+		}
+	});
+
+	function syncUrlToState() {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyVolunteerUrlState(currentUrl, {
+			search: appliedSearch,
+			location: locationQ,
+			hostGroupId,
+			eventType,
+			view,
+			monthDate: calendarReference,
+			defaultMonthDate: defaultCalendarMonth,
+			monthTouched: calendarMonthTouched
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
 	}
 
-	let calendarReference = $state(earliestEventMonth());
+	function restoreStateFromUrl(searchParamsInput) {
+		clearTimeout(searchDebounceTimer);
+		clearTimeout(locationDebounceTimer);
+		const restored = parseVolunteerUrlState(searchParamsInput);
+		searchInput = restored.search;
+		appliedSearch = restored.search;
+		locationInput = restored.location;
+		locationQ = restored.location;
+		hostGroupId = restored.hostGroupId;
+		eventType = restored.eventType;
+		mobileFiltersOpen = Boolean(restored.location || restored.hostGroupId || restored.eventType);
+		view = restored.view;
+		if (restored.monthDate) {
+			calendarReference = restored.monthDate;
+			calendarMonthTouched = true;
+		} else {
+			calendarMonthTouched = false;
+			calendarReference = defaultCalendarMonth;
+		}
+	}
+
+	function clearVolunteerFilters() {
+		clearTimeout(searchDebounceTimer);
+		clearTimeout(locationDebounceTimer);
+		searchInput = '';
+		appliedSearch = '';
+		locationInput = '';
+		locationQ = '';
+		hostGroupId = '';
+		eventType = '';
+		view = 'list';
+		calendarMonthTouched = false;
+		calendarReference = defaultCalendarMonth;
+		syncUrlToState();
+	}
+
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
+		calendarMonthTouched = true;
+		syncUrlToState();
 	}
+
+	function resetCalendarToToday() {
+		calendarReference = defaultCalendarMonth;
+		calendarMonthTouched = false;
+		syncUrlToState();
+	}
+
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		}
+	});
+
+	onMount(() => {
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			if (searchInput !== appliedSearch) appliedSearch = searchInput;
+			if (locationInput !== locationQ) locationQ = locationInput;
+			syncUrlToState();
+		}
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
+		return () => {
+			clearTimeout(searchDebounceTimer);
+			clearTimeout(locationDebounceTimer);
+			window.removeEventListener('popstate', handlePopState);
+		};
+	});
 
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, eventsByDate, toDateKey));
 
@@ -474,6 +617,7 @@
 						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none"
 						aria-label="Search volunteer opportunities"
 						bind:value={searchInput}
+						oninput={handleSearchInput}
 						placeholder="Find by title, host, or description…"
 						onkeydown={(event) => {
 							if (event.key === 'Enter') {
@@ -515,7 +659,14 @@
 							type="search"
 							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
 							aria-label="Filter by city and state"
-							bind:value={locationQ}
+							bind:value={locationInput}
+							oninput={handleLocationInput}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									applyLocationImmediately();
+								}
+							}}
 							placeholder="City and/or state"
 						/>
 					</div>
@@ -524,10 +675,11 @@
 						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
 						aria-label="Filter by host group"
 						bind:value={hostGroupId}
+						onchange={handleSelectFilterChange}
 					>
 						<option value="">All groups</option>
 						{#each hostGroups as host (host.id)}
-							<option value={host.id}>{host.name}</option>
+							<option value={String(host.id)}>{host.name}</option>
 						{/each}
 					</select>
 
@@ -535,6 +687,7 @@
 						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
 						aria-label="Filter by event type"
 						bind:value={eventType}
+						onchange={handleSelectFilterChange}
 					>
 						<option value="">All types</option>
 						{#each eventTypes as option (option.slug)}
@@ -543,6 +696,17 @@
 					</select>
 				</div>
 			</div>
+			{#if hasActiveFilters}
+				<div class="flex justify-end">
+					<button
+						type="button"
+						class="border-surface-600 text-surface-200 hover:border-primary-500 hover:text-primary-500 border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition"
+						onclick={clearVolunteerFilters}
+					>
+						Clear filters
+					</button>
+				</div>
+			{/if}
 		</div>
 	</section>
 
@@ -579,7 +743,7 @@
 									: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 							}`}
 							aria-pressed={view === mode}
-							onclick={() => (view = mode)}
+							onclick={() => selectView(mode)}
 						>
 							{mode}
 						</button>
@@ -611,17 +775,11 @@
 							opportunity in this area!
 						</p>
 						<div class="flex flex-wrap gap-3 pt-2">
-							{#if searchInput || locationQ || hostGroupId || eventType}
+							{#if hasActiveFilters}
 								<button
 									type="button"
 									class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-3 text-sm font-black tracking-wide uppercase transition"
-									onclick={() => {
-										searchInput = '';
-										appliedSearch = '';
-										locationQ = '';
-										hostGroupId = '';
-										eventType = '';
-									}}
+									onclick={clearVolunteerFilters}
 								>
 									Clear filters
 								</button>
@@ -757,7 +915,7 @@
 						<button
 							type="button"
 							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
-							onclick={() => (calendarReference = earliestEventMonth())}
+							onclick={resetCalendarToToday}
 						>
 							Today
 						</button>

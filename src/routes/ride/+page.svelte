@@ -2,8 +2,15 @@
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import {
+		applyRideUrlState,
+		formatMonthParam,
+		parseRideUrlState
+	} from '#lib/url/directoryUrlState';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -16,27 +23,17 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
-	let searchInput = $state('');
-	let search = $state('');
-	let selectedDifficulty = $state('all');
-	let needsHost = $state(false);
-	let view = $state('list');
-	let currentPage = $state(1);
-	let calendarReference = $state(startOfMonth(new Date()));
-	let calendarMonthTouched = $state(false);
-	let rideListEl = $state(null);
+	let allRidesOverride = $state(null);
+	let allRidesMetaOverride = $state(null);
+	let loadingAllRides = false;
 
-	let mapEl = $state(null);
-	let map;
-	let clusterLayer;
-	let L;
-
-	const rides = $derived((data?.rides ?? []).filter(Boolean));
+	const rides = $derived((allRidesOverride ?? data?.rides ?? []).filter(Boolean));
+	const activeRidesMeta = $derived(allRidesMetaOverride ?? data?.ridesMeta ?? null);
 	const difficultyOptions = $derived(
 		Array.from(
 			new Set(
@@ -47,6 +44,60 @@
 			)
 		)
 	);
+
+	function collectDifficultyNames(rideRows) {
+		return Array.from(
+			new Set(
+				(rideRows ?? [])
+					.filter(Boolean)
+					.flatMap((ride) => ride.difficultyLevels ?? [])
+					.map((level) => level?.name)
+					.filter(Boolean)
+			)
+		);
+	}
+
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() =>
+		parseRideUrlState(page.url.searchParams, {
+			difficultyOptions: collectDifficultyNames(data?.rides)
+		})
+	);
+
+	let searchInput = $state(initialUrlState.q);
+	let search = $state(initialUrlState.q);
+	let selectedDifficulty = $state(initialUrlState.difficulty);
+	let needsHost = $state(initialUrlState.needsHost);
+	let view = $state(initialUrlState.view);
+	let currentPage = $state(initialUrlState.page);
+	let calendarReference = $state(initialUrlState.monthDate ?? startOfMonth(new Date()));
+	let calendarMonthTouched = $state(Boolean(initialUrlState.monthDate));
+	let rideListEl = $state(null);
+	let routerReady = false;
+	let searchDebounceTimer;
+
+	let mapEl = $state(null);
+	let map;
+	let clusterLayer;
+	let L;
+
+	async function ensureFullRidesLoaded() {
+		if (!browser || !data?.serverFiltered || allRidesOverride || loadingAllRides) return;
+		loadingAllRides = true;
+		try {
+			const response = await fetch('/api/rides');
+			if (!response.ok) return;
+			const payload = await response.json().catch(() => null);
+			if (Array.isArray(payload?.data)) {
+				allRidesOverride = payload.data;
+				allRidesMetaOverride = payload.meta ?? null;
+			}
+		} catch {
+			// Ignore transient client hydration errors; existing data remains usable.
+		} finally {
+			loadingAllRides = false;
+		}
+	}
 
 	const filteredRides = $derived(
 		rides.filter((ride) => {
@@ -71,7 +122,9 @@
 
 			const matchesDifficulty =
 				selectedDifficulty === 'all' ||
-				(ride.difficultyLevels ?? []).some((level) => level?.name === selectedDifficulty);
+				(ride.difficultyLevels ?? []).some(
+					(level) => (level?.name ?? '').toLowerCase() === selectedDifficulty.toLowerCase()
+				);
 
 			return (
 				matchesQuery && matchesDifficulty && (!needsHost || (!ride.hostUserId && !ride.hostGroupId))
@@ -79,14 +132,40 @@
 		})
 	);
 
+	const hasActiveFilters = $derived(
+		Boolean(searchInput.trim() || search.trim() || selectedDifficulty !== 'all' || needsHost)
+	);
+	const matchesServerScope = $derived(
+		allRidesOverride === null &&
+			(data?.serverFiltered
+				? search.trim() === initialUrlState.q.trim() &&
+					selectedDifficulty.toLowerCase() === initialUrlState.difficulty.toLowerCase() &&
+					needsHost === initialUrlState.needsHost
+				: !search.trim() && selectedDifficulty === 'all' && !needsHost)
+	);
 	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
 	const claimableRides = $derived(
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
 	);
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
-	const totalUpcoming = $derived(filteredRides.length);
+	const loadedUpcomingCount = $derived(filteredRides.length);
+	const totalUpcoming = $derived.by(() => {
+		const exactTotal = activeRidesMeta?.total ?? data?.totalAvailable;
+		const canUseServerTotal =
+			typeof exactTotal === 'number' &&
+			Number.isFinite(exactTotal) &&
+			(matchesServerScope ||
+				(allRidesOverride !== null &&
+					!search.trim() &&
+					selectedDifficulty === 'all' &&
+					!needsHost));
+		if (canUseServerTotal && exactTotal > loadedUpcomingCount) {
+			return exactTotal;
+		}
+		return loadedUpcomingCount;
+	});
 	const ridesPerPage = 24;
-	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / ridesPerPage)));
+	const totalPages = $derived(Math.max(1, Math.ceil(loadedUpcomingCount / ridesPerPage)));
 	const paginatedRides = $derived(
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
@@ -113,6 +192,15 @@
 		const first = datedRides[0]?._calendarStart;
 		return first ? startOfMonth(first) : startOfMonth(new Date());
 	});
+	const defaultCalendarMonth = $derived.by(() => {
+		const currentMonth = startOfMonth(new Date());
+		if (!datedRides.length) return currentMonth;
+		const currentKey = formatMonthParam(currentMonth);
+		const hasRideInCurrentMonth = datedRides.some(
+			(ride) => formatMonthParam(ride._calendarStart) === currentKey
+		);
+		return hasRideInCurrentMonth ? currentMonth : earliestRideMonth;
+	});
 
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
 	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
@@ -129,31 +217,107 @@
 
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 
+	function syncUrlToState() {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyRideUrlState(currentUrl, {
+			q: search,
+			difficulty: selectedDifficulty,
+			needsHost,
+			view,
+			page: currentPage,
+			monthDate: calendarReference,
+			defaultMonthDate: defaultCalendarMonth,
+			monthTouched: calendarMonthTouched
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	function restoreStateFromUrl(searchParamsInput) {
+		clearTimeout(searchDebounceTimer);
+		const restored = parseRideUrlState(searchParamsInput, { difficultyOptions });
+		searchInput = restored.q;
+		search = restored.q;
+		selectedDifficulty = restored.difficulty;
+		needsHost = restored.needsHost;
+		view = restored.view;
+		currentPage = restored.page;
+		if (restored.monthDate) {
+			calendarReference = restored.monthDate;
+			calendarMonthTouched = true;
+		} else {
+			calendarMonthTouched = false;
+			calendarReference = defaultCalendarMonth;
+		}
+		if (data?.serverFiltered && !allRidesOverride) {
+			const changedFromInitial =
+				restored.q.trim() !== initialUrlState.q.trim() ||
+				restored.difficulty.toLowerCase() !== initialUrlState.difficulty.toLowerCase() ||
+				restored.needsHost !== initialUrlState.needsHost;
+			if (changedFromInitial) void ensureFullRidesLoaded();
+		}
+	}
+
 	function scrollToRideCards() {
 		if (!rideListEl) return;
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
+	function handleSearchInput() {
+		clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			applySearch();
+		}, 250);
+	}
+
 	function applySearch() {
-		search = searchInput;
-		currentPage = 1;
+		clearTimeout(searchDebounceTimer);
+		if (search !== searchInput) {
+			search = searchInput;
+			currentPage = 1;
+			void ensureFullRidesLoaded();
+		}
+		syncUrlToState();
 	}
 
 	function clearFilters() {
+		clearTimeout(searchDebounceTimer);
 		searchInput = '';
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
+		view = 'list';
 		currentPage = 1;
+		calendarMonthTouched = false;
+		calendarReference = defaultCalendarMonth;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
 	}
 
 	function selectDifficulty(difficulty) {
 		selectedDifficulty = difficulty;
 		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function toggleNeedsHost() {
+		needsHost = !needsHost;
+		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function selectView(nextView) {
+		view = nextView;
+		syncUrlToState();
 	}
 
 	function changeRidePage(nextPage) {
 		currentPage = Math.min(Math.max(nextPage, 1), totalPages);
+		syncUrlToState();
 		scrollToRideCards();
 	}
 
@@ -188,6 +352,14 @@
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
 		calendarMonthTouched = true;
+		syncUrlToState();
+	}
+
+	function resetCalendarToToday() {
+		const todayMonth = startOfMonth(new Date());
+		calendarReference = todayMonth;
+		calendarMonthTouched = formatMonthParam(todayMonth) !== formatMonthParam(defaultCalendarMonth);
+		syncUrlToState();
 	}
 
 	function rideMeta(ride) {
@@ -267,8 +439,34 @@
 		}
 	});
 
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		}
+	});
+
 	onMount(() => {
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			if (searchInput !== search) {
+				search = searchInput;
+				currentPage = 1;
+				void ensureFullRidesLoaded();
+			}
+			syncUrlToState();
+		}
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
 		return () => {
+			clearTimeout(searchDebounceTimer);
+			window.removeEventListener('popstate', handlePopState);
 			try {
 				map?.remove();
 				map = null;
@@ -313,6 +511,17 @@
 	});
 
 	$effect(() => {
+		if (selectedDifficulty !== 'all') {
+			const canonical = difficultyOptions.find(
+				(option) => option.toLowerCase() === selectedDifficulty.toLowerCase()
+			);
+			if (canonical && canonical !== selectedDifficulty) {
+				selectedDifficulty = canonical;
+			}
+		}
+	});
+
+	$effect(() => {
 		if (browser && !['list', 'calendar', 'map'].includes(view)) {
 			view = 'list';
 		}
@@ -323,14 +532,8 @@
 	});
 
 	$effect(() => {
-		if (datedRides.length && calendarReference.getTime() !== earliestRideMonth.getTime()) {
-			if (calendarMonthTouched) return;
-			const currentMonthHasRide = calendarMatrix.some((week) =>
-				week.some((day) => day.items.length)
-			);
-			if (!currentMonthHasRide) {
-				calendarReference = earliestRideMonth;
-			}
+		if (!calendarMonthTouched && calendarReference.getTime() !== defaultCalendarMonth.getTime()) {
+			calendarReference = defaultCalendarMonth;
 		}
 	});
 
@@ -473,6 +676,7 @@
 						class="bg-surface-950 text-surface-50 border-surface-700 placeholder:text-surface-400 focus:border-primary-500 min-w-0 flex-1 border-2 px-4 py-2.5 text-sm font-medium focus:outline-none"
 						aria-label="Search rides"
 						bind:value={searchInput}
+						oninput={handleSearchInput}
 						placeholder="Search by title, location, pace, discipline…"
 						onkeydown={(event) => {
 							if (event.key === 'Enter') {
@@ -509,11 +713,11 @@
 						<button
 							type="button"
 							class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
-								selectedDifficulty === option
+								selectedDifficulty.toLowerCase() === option.toLowerCase()
 									? 'bg-primary-500 text-surface-950 border-primary-500'
 									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 							}`}
-							aria-pressed={selectedDifficulty === option}
+							aria-pressed={selectedDifficulty.toLowerCase() === option.toLowerCase()}
 							onclick={() => selectDifficulty(option)}
 						>
 							{option}
@@ -523,18 +727,24 @@
 						type="button"
 						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
 						aria-pressed={needsHost}
-						onclick={() => {
-							needsHost = !needsHost;
-							currentPage = 1;
-						}}
+						onclick={toggleNeedsHost}
 					>
 						Needs Host
 					</button>
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							class="border-surface-600 text-surface-200 hover:border-primary-500 hover:text-primary-500 border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition"
+							onclick={clearFilters}
+						>
+							Clear filters
+						</button>
+					{/if}
 				</div>
 			</div>
 			<div class="flex flex-col items-start gap-2 sm:items-end">
 				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
-					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
+					{formatStatNumber(totalUpcoming)} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
 				<div class="border-surface-700 flex shrink-0 border-2">
 					<button
@@ -545,7 +755,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'list'}
-						onclick={() => (view = 'list')}
+						onclick={() => selectView('list')}
 					>
 						List
 					</button>
@@ -557,7 +767,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'calendar'}
-						onclick={() => (view = 'calendar')}
+						onclick={() => selectView('calendar')}
 					>
 						Calendar
 					</button>
@@ -569,7 +779,7 @@
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'map'}
-						onclick={() => (view = 'map')}
+						onclick={() => selectView('map')}
 					>
 						Map
 					</button>
@@ -752,8 +962,8 @@
 						<p class="text-surface-300 m-0 text-sm font-bold uppercase tabular-nums">
 							Showing {(currentPage - 1) * ridesPerPage + 1}–{Math.min(
 								currentPage * ridesPerPage,
-								totalUpcoming
-							)} of {totalUpcoming}
+								loadedUpcomingCount
+							)} of {formatStatNumber(totalUpcoming)}
 						</p>
 						<div class="border-surface-50 flex border-[3px]" aria-label="Pagination controls">
 							<button
@@ -832,10 +1042,7 @@
 						<button
 							type="button"
 							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
-							onclick={() => {
-								calendarReference = startOfMonth(new Date());
-								calendarMonthTouched = true;
-							}}
+							onclick={resetCalendarToToday}
 						>
 							Today
 						</button>
