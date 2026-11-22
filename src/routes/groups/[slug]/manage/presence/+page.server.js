@@ -376,6 +376,7 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		latitude: parseFiniteCoordinate(form.get('latitude')),
 		longitude: parseFiniteCoordinate(form.get('longitude')),
 		service_area_description: form.get('service_area_description')?.toString().trim() || null,
+		zip_code: form.get('zip_code')?.toString().trim() || null,
 		activity_frequency: form.get('activity_frequency')?.toString().trim() || null,
 		typical_activity_day_time: form.get('typical_activity_day_time')?.toString().trim() || null,
 		membership_info: form.get('membership_info')?.toString().trim() || null,
@@ -393,9 +394,6 @@ async function publishPresenceChanges({ params, request, cookies }) {
 	const incomingName = form.get('name')?.toString().trim() || '';
 	if (incomingName) {
 		groupPayload.name = incomingName;
-	}
-	if (Object.prototype.hasOwnProperty.call(group, 'zip_code')) {
-		groupPayload.zip_code = form.get('zip_code')?.toString().trim() || null;
 	}
 
 	const currentMicrositeSlug = normalizeMicrositeSlug(group.microsite_slug || group.slug);
