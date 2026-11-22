@@ -9,12 +9,13 @@ import { getStripeConnectClientId, resolvePublicBaseUrl } from '#lib/server/stri
 export const GET = async ({ url, cookies }) => {
 	const recipientType = (url.searchParams.get('recipient') || 'main').toLowerCase();
 	const groupSlug = (url.searchParams.get('group') || '').trim();
+	const returnTo = (url.searchParams.get('return_to') || '').trim();
 
 	let auth = null;
 	let target = null;
 	if (recipientType === 'group') {
 		auth = await requireGroupDonationManager(cookies, groupSlug);
-		target = { type: 'group', slug: groupSlug };
+		target = { type: 'group', slug: groupSlug, returnTo };
 	} else {
 		auth = await requireMainDonationManager(cookies);
 		target = { type: 'main' };

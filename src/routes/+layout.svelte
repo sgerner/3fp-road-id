@@ -464,13 +464,18 @@
 			}
 			let rt = '/';
 			if (typeof window !== 'undefined') {
+				const customBuilder = window.__3fpLoginReturnPathBuilder;
+				const customReturnTo =
+					typeof customBuilder === 'function' ? String(customBuilder() || '').trim() : '';
 				const currentUrl = new URL(window.location.href);
 				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
 				rt =
 					currentUrl.searchParams.get('auth') === 'required' &&
 					isSafeInternalPath(requestedReturnTo)
 						? requestedReturnTo
-						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+						: isSafeInternalPath(customReturnTo)
+							? customReturnTo
+							: currentUrl.pathname + currentUrl.search + currentUrl.hash;
 			}
 			const res = await fetch('/api/v1/auth/login', {
 				method: 'POST',

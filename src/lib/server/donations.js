@@ -17,7 +17,8 @@ import {
 	verifySignedConnectState
 } from '#lib/server/stripe';
 import { postDonationToGroupAccounting } from '#lib/server/groupAccounting';
-import { timingSafeStringEqual } from '#lib/server/security';
+import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection';
+import { isSafeInternalPath, timingSafeStringEqual } from '#lib/server/security';
 
 function normalizeEmail(value) {
 	if (!value || typeof value !== 'string') return '';
@@ -130,16 +131,39 @@ export async function requireGroupDonationManager(cookies, groupSlug) {
 	return { ok: true, ...auth, group };
 }
 
+function sanitizeGroupConnectReturnPath(slug, returnTo) {
+	const cleanSlug = cleanText(slug);
+	const candidate = cleanText(returnTo, 512);
+	if (!cleanSlug || !candidate || !isSafeInternalPath(candidate)) return '';
+	const allowedPrefix = `/groups/${encodeURIComponent(cleanSlug)}/manage`;
+	if (
+		candidate === allowedPrefix ||
+		candidate.startsWith(`${allowedPrefix}/`) ||
+		candidate.startsWith(`${allowedPrefix}?`)
+	) {
+		return candidate;
+	}
+	return '';
+}
+
 function buildConnectReturnPath(target) {
 	if (!target || target.type === 'main') return '/donate?manage=1';
-	if (target.type === 'group') return `/groups/${encodeURIComponent(target.slug)}/manage/edit`;
+	if (target.type === 'group') {
+		const customReturn = sanitizeGroupConnectReturnPath(target.slug, target.returnTo);
+		if (customReturn) return customReturn;
+		return `/groups/${encodeURIComponent(target.slug)}/manage/edit`;
+	}
 	return '/donate';
 }
 
 export function createConnectStateToken(target, userId) {
+	const isGroup = target?.type === 'group';
+	const slug = isGroup ? target?.slug || null : null;
+	const returnTo = isGroup ? sanitizeGroupConnectReturnPath(slug, target?.returnTo) || null : null;
 	return createSignedConnectState({
-		type: target?.type === 'group' ? 'group' : 'main',
-		slug: target?.slug || null,
+		type: isGroup ? 'group' : 'main',
+		slug,
+		returnTo,
 		userId
 	});
 }
@@ -201,6 +225,11 @@ export async function upsertDonationAccountForGroup(group, stripeAccount) {
 		{ onConflict: 'id' }
 	);
 	if (error) throw new Error(error.message);
+}
+
+export async function checkGroupStripeDisconnectAllowed(group, supabaseOverride = null) {
+	const supabase = supabaseOverride || (await getServiceSupabase());
+	return getGroupStripeBillingGuard(supabase, group?.id, group?.slug || '');
 }
 
 export async function clearDonationAccountConnection(accountId) {

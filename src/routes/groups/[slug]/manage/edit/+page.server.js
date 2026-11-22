@@ -11,6 +11,7 @@ import {
 import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
 import { readFormData } from '#lib/server/security';
 import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
+import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -195,6 +196,17 @@ export const load = async ({ params, cookies, url }) => {
 		donationAccount = null;
 	}
 
+	let membershipBillingGuard = null;
+	try {
+		membershipBillingGuard = await getGroupStripeBillingGuard(
+			privateSupabase,
+			group.id,
+			group.slug
+		);
+	} catch {
+		membershipBillingGuard = null;
+	}
+
 	return {
 		group,
 		group_types: gt.data ?? [],
@@ -212,6 +224,7 @@ export const load = async ({ params, cookies, url }) => {
 			email: ownerEmails.find((e) => e.user_id === r.user_id)?.email || ''
 		})),
 		donation_account: donationAccount,
+		membership_billing_guard: membershipBillingGuard,
 		stripe_status: url.searchParams.get('stripe') || '',
 		stripe_reason: url.searchParams.get('reason') || '',
 		current_user_id: user.id,

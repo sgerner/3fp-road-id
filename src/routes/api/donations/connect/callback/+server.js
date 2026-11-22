@@ -28,7 +28,9 @@ export const GET = async ({ url, cookies }) => {
 	}
 
 	const returnPath = buildConnectReturnPath(
-		state.type === 'group' ? { type: 'group', slug: state.slug } : { type: 'main' }
+		state.type === 'group'
+			? { type: 'group', slug: state.slug, returnTo: state.returnTo }
+			: { type: 'main' }
 	);
 
 	if (oauthError) {

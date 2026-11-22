@@ -11,7 +11,7 @@ async function safeJson(fetchPromise, fallback) {
 	}
 }
 
-export const load = async ({ params, fetch }) => {
+export const load = async ({ params, fetch, url }) => {
 	const slug = params.slug;
 
 	const [programData, applications, members] = await Promise.all([
@@ -24,6 +24,9 @@ export const load = async ({ params, fetch }) => {
 		slug,
 		program_data: programData,
 		applications,
-		members
+		members,
+		initial_view: url.searchParams.get('view') || url.searchParams.get('tab') || '',
+		stripe_status: url.searchParams.get('stripe') || '',
+		stripe_reason: url.searchParams.get('reason') || ''
 	};
 };

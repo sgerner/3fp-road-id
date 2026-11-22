@@ -13,6 +13,7 @@
 	import { geocodeAddress } from '#lib/groups/geocoding';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import GroupStripePaymentCard from '#lib/components/groups/GroupStripePaymentCard.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -61,17 +62,13 @@
 	let cropReady = $state(false);
 	let formEl = $state();
 	let stripeAccount = $state(pageData.donation_account || null);
-	let stripeBusy = $state(false);
-	let stripeError = $state('');
-	let stripeMessage = $state(
-		pageData.stripe_status === 'connected'
-			? 'Stripe account connected.'
-			: pageData.stripe_status === 'error'
-				? `Stripe connection failed${pageData.stripe_reason ? `: ${pageData.stripe_reason}` : ''}`
-				: ''
+	let membershipInfoValue = $state((pageData.group?.membership_info || '').trim());
+	const activeMembershipTierCount = $derived(
+		Number(pageData.membership_billing_guard?.active_tier_count || 0)
 	);
-	let stripeConnected = $derived(Boolean(stripeAccount?.stripe_account_id));
-	let stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
+	const showProgramAndTiersShortcut = $derived(
+		Boolean(membershipInfoValue) && activeMembershipTierCount === 0
+	);
 
 	// Crop viewport container ref (no measurements used)
 	let cropContainerEl = $state(null);
@@ -620,6 +617,7 @@
 		if (key === 'website_url') websiteLocal = val;
 		if (key === 'public_contact_email') emailLocal = val;
 		if (key === 'public_phone_number') phoneLocal = val;
+		if (key === 'membership_info') membershipInfoValue = (val || '').trim();
 		queueSave({ fields: { [key]: val } });
 	}
 
@@ -984,52 +982,12 @@
 		}
 	}
 
-	function connectStripeForGroup() {
-		const slug = data.group?.slug || '';
-		if (!slug) return;
-		window.location.href = `/api/donations/connect/start?recipient=group&group=${encodeURIComponent(slug)}`;
-	}
-
 	function confirmDeleteGroup(event) {
 		if (typeof window === 'undefined') return;
 		const ok = window.confirm(
 			'Delete this group from display? This will hide it from the public group list and public pages.'
 		);
 		if (!ok) event.preventDefault();
-	}
-
-	async function disconnectStripeForGroup() {
-		if (typeof window !== 'undefined') {
-			const ok = window.confirm('Disconnect this group Stripe account?');
-			if (!ok) return;
-		}
-		stripeError = '';
-		stripeMessage = '';
-		stripeBusy = true;
-		try {
-			const res = await fetch('/api/donations/connect/disconnect', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ recipient: 'group', group: data.group?.slug || '' })
-			});
-			const payload = await res.json().catch(() => ({}));
-			if (!res.ok) {
-				throw new Error(payload?.error || 'Failed to disconnect Stripe account.');
-			}
-			stripeAccount = {
-				...(stripeAccount || {}),
-				stripe_account_id: null,
-				stripe_account_email: null,
-				charges_enabled: false,
-				payouts_enabled: false,
-				connected_at: null
-			};
-			stripeMessage = 'Stripe account disconnected.';
-		} catch (error) {
-			stripeError = error?.message || 'Failed to disconnect Stripe account.';
-		} finally {
-			stripeBusy = false;
-		}
 	}
 
 	// Owner invite
@@ -1715,58 +1673,29 @@
 			</div>
 		</section>
 
-		<!-- ── Donations ── -->
+		<!-- ── Donations & Membership Payments ── -->
 		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar tertiary" aria-hidden="true"></div>
-			<h2 class="edit-section-title">Donations</h2>
-			<p class="text-surface-600-400 mt-1 text-sm">
-				Connect a Stripe account to accept donations on this group's public page.
-			</p>
-			<div class="mt-4 border border-white/10 p-4">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div class="text-sm">
-						<div class="font-semibold">
-							{stripeConnected ? 'Stripe account connected' : 'Stripe not connected'}
-						</div>
-						{#if stripeConnected}
-							<div class="text-surface-600-400 mt-0.5">
-								{stripeAccount?.stripe_account_email || stripeAccount?.stripe_account_id}
-							</div>
-							<div class="text-surface-600-400 mt-0.5">
-								{stripeReady
-									? 'Account can accept charges.'
-									: 'Account connected but not yet ready for charges.'}
-							</div>
-						{/if}
-					</div>
-					<div class="flex flex-wrap gap-2">
-						<button
-							type="button"
-							class="btn preset-filled-primary-500"
-							disabled={stripeBusy}
-							onclick={connectStripeForGroup}
-						>
-							{stripeConnected ? 'Reconnect Stripe' : 'Connect Stripe'}
-						</button>
-						{#if stripeConnected}
-							<button
-								type="button"
-								class="btn preset-outlined-error-500"
-								disabled={stripeBusy}
-								onclick={disconnectStripeForGroup}
-							>
-								{stripeBusy ? 'Disconnecting…' : 'Disconnect'}
-							</button>
-						{/if}
-					</div>
-				</div>
-				{#if stripeError}
-					<div class="text-error-600-400 mt-3 text-sm">{stripeError}</div>
-				{/if}
-				{#if stripeMessage}
-					<div class="text-success-600-400 mt-3 text-sm">{stripeMessage}</div>
-				{/if}
-			</div>
+			<GroupStripePaymentCard
+				slug={data.group?.slug || ''}
+				stripeConnection={stripeAccount}
+				billingGuard={data.membership_billing_guard || null}
+				title="Donations & Membership Payments"
+				description="Connect a Stripe account to accept donations and paid membership tiers on this group's public pages."
+				returnTo={data.group?.slug ? `/groups/${data.group.slug}/manage/edit` : ''}
+				stripeStatus={data.stripe_status || ''}
+				stripeReason={data.stripe_reason || ''}
+				onDisconnected={() => {
+					stripeAccount = {
+						...(stripeAccount || {}),
+						stripe_account_id: null,
+						stripe_account_email: null,
+						charges_enabled: false,
+						payouts_enabled: false,
+						connected_at: null
+					};
+				}}
+			/>
 		</section>
 
 		<!-- ── Social links ── -->
@@ -1858,6 +1787,26 @@
 						rows="3"
 						oninput={onField}>{data.group?.membership_info || ''}</textarea
 					>
+					{#if showProgramAndTiersShortcut && data.group?.slug}
+						<div
+							class="border-primary-500/35 bg-primary-500/10 mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm"
+							data-testid="membership-info-program-shortcut"
+						>
+							<div class="space-y-0.5">
+								<div class="font-semibold">Turn membership notes into structured tiers</div>
+								<p class="text-surface-600-400 text-xs">
+									This group has membership notes saved here, but no active membership tiers yet.
+									Set up online join options, policies, and pricing in Program and Tiers.
+								</p>
+							</div>
+							<a
+								class="btn btn-sm preset-filled-primary-500"
+								href={`/groups/${data.group.slug}/manage/membership?view=program`}
+							>
+								Set up Program and Tiers
+							</a>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</section>
