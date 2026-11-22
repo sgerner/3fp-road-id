@@ -1,4 +1,12 @@
 import { supabase } from '#lib/supabaseClient';
+import { fetchNearbyGroups, resolveGroupsDirectoryScope } from '#lib/server/proximity';
+import {
+	AU_STATES,
+	CA_PROVINCES,
+	US_STATES,
+	expandRegionCandidates,
+	normalizeRegionCode
+} from '#lib/server/visitorLocation';
 
 const SEARCH_STOP_WORDS = new Set([
 	'a',
@@ -87,119 +95,41 @@ function buildSearchQueryText(input) {
 	return tokenExpressions.filter(Boolean).join(' ');
 }
 
-export const load = async ({ url }) => {
-	const q = (url.searchParams.get('q') || '').trim();
-	const country = (url.searchParams.get('country') || '').trim().toUpperCase();
-	const state_region = (url.searchParams.get('state_region') || '').trim();
-	const page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-	const limit = parseInt(url.searchParams.get('limit') || '24', 10) || 24;
+function buildStateFilterClauses(country, stateRegion) {
+	const trimmed = (stateRegion || '').trim();
+	if (!trimmed) return [];
 
-	// Flexible state/region candidates (abbrev <-> full names)
-	const US_STATES = {
-		AL: 'Alabama',
-		AK: 'Alaska',
-		AZ: 'Arizona',
-		AR: 'Arkansas',
-		CA: 'California',
-		CO: 'Colorado',
-		CT: 'Connecticut',
-		DE: 'Delaware',
-		FL: 'Florida',
-		GA: 'Georgia',
-		HI: 'Hawaii',
-		ID: 'Idaho',
-		IL: 'Illinois',
-		IN: 'Indiana',
-		IA: 'Iowa',
-		KS: 'Kansas',
-		KY: 'Kentucky',
-		LA: 'Louisiana',
-		ME: 'Maine',
-		MD: 'Maryland',
-		MA: 'Massachusetts',
-		MI: 'Michigan',
-		MN: 'Minnesota',
-		MS: 'Mississippi',
-		MO: 'Missouri',
-		MT: 'Montana',
-		NE: 'Nebraska',
-		NV: 'Nevada',
-		NH: 'New Hampshire',
-		NJ: 'New Jersey',
-		NM: 'New Mexico',
-		NY: 'New York',
-		NC: 'North Carolina',
-		ND: 'North Dakota',
-		OH: 'Ohio',
-		OK: 'Oklahoma',
-		OR: 'Oregon',
-		PA: 'Pennsylvania',
-		RI: 'Rhode Island',
-		SC: 'South Carolina',
-		SD: 'South Dakota',
-		TN: 'Tennessee',
-		TX: 'Texas',
-		UT: 'Utah',
-		VT: 'Vermont',
-		VA: 'Virginia',
-		WA: 'Washington',
-		WV: 'West Virginia',
-		WI: 'Wisconsin',
-		WY: 'Wyoming',
-		DC: 'District of Columbia'
-	};
-	const CA_PROVINCES = {
-		AB: 'Alberta',
-		BC: 'British Columbia',
-		MB: 'Manitoba',
-		NB: 'New Brunswick',
-		NL: 'Newfoundland and Labrador',
-		NT: 'Northwest Territories',
-		NS: 'Nova Scotia',
-		NU: 'Nunavut',
-		ON: 'Ontario',
-		PE: 'Prince Edward Island',
-		QC: 'Quebec',
-		SK: 'Saskatchewan',
-		YT: 'Yukon'
-	};
-	const AU_STATES = {
-		ACT: 'Australian Capital Territory',
-		NSW: 'New South Wales',
-		NT: 'Northern Territory',
-		QLD: 'Queensland',
-		SA: 'South Australia',
-		TAS: 'Tasmania',
-		VIC: 'Victoria',
-		WA: 'Western Australia'
-	};
+	const normalizedCode = normalizeRegionCode(country, trimmed);
+	const isKnownSubdivision = Boolean(
+		((!country || country === 'US') && US_STATES[normalizedCode]) ||
+		((!country || country === 'CA') && CA_PROVINCES[normalizedCode]) ||
+		((!country || country === 'AU') && AU_STATES[normalizedCode])
+	);
 
-	function expandStateCandidates(cn, input) {
-		const val = (input || '').trim();
-		if (!val) return [];
-		const up = val.toUpperCase();
-		const list = [];
-		function add(x) {
-			if (x && !list.includes(x)) list.push(x);
-		}
-		add(val);
-		add(up);
-		const tcase = val.replace(
-			/\w\S*/g,
-			(w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+	if (isKnownSubdivision) {
+		// Exact case-insensitive matching for known codes and full names prevents
+		// 2-letter codes like 'IA' from matching 'California' or 'VA' from matching 'West Virginia'.
+		return expandRegionCandidates(country, trimmed).map(
+			(candidate) => `state_region.ilike.${candidate}`
 		);
-		add(tcase);
-		const maps = [];
-		if (!cn || cn === 'US') maps.push(US_STATES);
-		if (!cn || cn === 'CA') maps.push(CA_PROVINCES);
-		if (!cn || cn === 'AU') maps.push(AU_STATES);
-		for (const MAP of maps) {
-			if (MAP[up]) (add(MAP[up]), add(MAP[up].toUpperCase()));
-			for (const [code, name] of Object.entries(MAP)) {
-				if (name.toLowerCase() === val.toLowerCase()) (add(code), add(code.toUpperCase()));
-			}
-		}
-		return list;
+	}
+
+	return [`state_region.ilike.%${trimmed}%`];
+}
+
+export const load = async ({ url, locals, setHeaders }) => {
+	const q = (url.searchParams.get('q') || '').trim();
+	const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
+	const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '24', 10) || 24);
+
+	const visitorLocation = locals?.visitorLocation ?? null;
+	const scope = resolveGroupsDirectoryScope({ url, visitorLocation });
+	const { country, state_region, sort, proximityActive, proximityLabel, proximitySource } = scope;
+
+	if (scope.shouldSetPrivateNoStore) {
+		setHeaders({
+			'cache-control': 'private, no-store'
+		});
 	}
 
 	const skill_level_ids = url.searchParams
@@ -279,6 +209,7 @@ export const load = async ({ url }) => {
 		q,
 		country,
 		state_region,
+		sort,
 		skill_level_ids,
 		group_type_ids,
 		audience_focus_ids,
@@ -300,6 +231,9 @@ export const load = async ({ url }) => {
 			totalGroups: 0,
 			error: null,
 			filters: commonContext,
+			proximityActive,
+			proximityLabel,
+			proximitySource,
 			skill_levels: levels.data || [],
 			group_types: types.data || [],
 			audience_focuses: af.data || [],
@@ -318,10 +252,9 @@ export const load = async ({ url }) => {
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
-			const candidates = expandStateCandidates(country, state_region).map((t) => `%${t}%`);
-			if (candidates.length) {
-				const ors = candidates.map((c) => `state_region.ilike.${c}`).join(',');
-				query = query.or(ors);
+			const clauses = buildStateFilterClauses(country, state_region);
+			if (clauses.length) {
+				query = query.or(clauses.join(','));
 			}
 		}
 		if (filterIds !== null) query = query.in('id', filterIds);
@@ -353,14 +286,6 @@ export const load = async ({ url }) => {
 		}
 		return map;
 	}
-
-	let listQuery = supabase
-		.from('groups')
-		.select(SEARCH_COLUMN_LIST, { count: 'exact' })
-		.order('name')
-		.range((page - 1) * limit, page * limit - 1);
-
-	listQuery = applyCommonFilters(listQuery, { includeSearch: true });
 
 	function buildMapChunkQuery(from, to, includeCount = false) {
 		let query = supabase
@@ -400,8 +325,87 @@ export const load = async ({ url }) => {
 		return { data: points, error: null, count: Number.isFinite(total) ? total : points.length };
 	}
 
+	async function fetchCatalogOrderIds() {
+		const pageSize = 1000;
+		let from = 0;
+		let total = null;
+		const rows = [];
+		while (true) {
+			const includeCount = total === null;
+			let query = supabase
+				.from('groups')
+				.select('id, name', includeCount ? { count: 'exact' } : undefined)
+				.order('name')
+				.range(from, from + pageSize - 1);
+			if (hasActiveFilters) query = applyCommonFilters(query, { includeSearch: true });
+			const { data, error, count } = await query;
+			if (error) return { data: [], error };
+			if (includeCount && Number.isFinite(count)) total = count;
+			const chunk = data || [];
+			rows.push(...chunk);
+			if (chunk.length < pageSize) break;
+			from += pageSize;
+			if (Number.isFinite(total) && rows.length >= total) break;
+		}
+		return { data: rows, error: null };
+	}
+
+	async function fetchProximityOrderedPage() {
+		const [nearbyRes, catalogRes] = await Promise.all([
+			fetchNearbyGroups(supabase, visitorLocation, { maxMiles: 250, limit: 5000 }),
+			fetchCatalogOrderIds()
+		]);
+		if (catalogRes.error) {
+			return { data: [], count: 0, error: catalogRes.error };
+		}
+
+		const catalogRows = catalogRes.data || [];
+		const catalogIdSet = new Set(catalogRows.map((row) => row.id));
+		const nearbyRows = (nearbyRes.data || []).filter((row) => catalogIdSet.has(row.id));
+		const nearbyById = new Map(nearbyRows.map((row) => [row.id, row]));
+
+		const orderedIds = [
+			...nearbyRows.map((row) => row.id),
+			...catalogRows.filter((row) => !nearbyById.has(row.id)).map((row) => row.id)
+		];
+		const totalCount = orderedIds.length;
+		const pageIds = orderedIds.slice((page - 1) * limit, page * limit);
+		if (!pageIds.length) {
+			return { data: [], count: totalCount, error: null };
+		}
+
+		const missingIds = pageIds.filter((id) => !nearbyById.has(id));
+		let fetchedById = new Map();
+		if (missingIds.length) {
+			const { data: missingRows, error: missingErr } = await supabase
+				.from('groups')
+				.select(SEARCH_COLUMN_LIST)
+				.in('id', missingIds);
+			if (missingErr) {
+				return { data: [], count: totalCount, error: missingErr };
+			}
+			fetchedById = new Map((missingRows || []).map((row) => [row.id, row]));
+		}
+
+		const pageRows = pageIds.map((id) => nearbyById.get(id) || fetchedById.get(id)).filter(Boolean);
+		return { data: pageRows, count: totalCount, error: null };
+	}
+
+	let listPromise;
+	if (proximityActive) {
+		listPromise = fetchProximityOrderedPage();
+	} else {
+		let listQuery = supabase
+			.from('groups')
+			.select(SEARCH_COLUMN_LIST, { count: 'exact' })
+			.order('name')
+			.range((page - 1) * limit, page * limit - 1);
+		listQuery = applyCommonFilters(listQuery, { includeSearch: true });
+		listPromise = listQuery;
+	}
+
 	const [groupsRes, mapRes, facetResults] = await Promise.all([
-		listQuery,
+		listPromise,
 		fetchAllMapPoints(),
 		fetchFacets()
 	]);
@@ -418,6 +422,9 @@ export const load = async ({ url }) => {
 		totalGroups,
 		error: groupsRes.error?.message || mapRes.error?.message || null,
 		filters: commonContext,
+		proximityActive,
+		proximityLabel,
+		proximitySource,
 		skill_levels: levelsRes.data || [],
 		group_types_map,
 		group_types: typesAllRes.data || [],

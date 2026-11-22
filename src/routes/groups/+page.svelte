@@ -37,12 +37,26 @@
 	let q = $state(initialFilters.q || '');
 	let country = $state(initialFilters.country || '');
 	let state_region = $state(initialFilters.state_region || '');
+	let sort = $state(initialFilters.sort || 'name');
 	let group_type_ids = $state((initialFilters.group_type_ids || []).slice());
 	let skill_level_ids = $state((initialFilters.skill_level_ids || []).slice());
 	let audience_focus_ids = $state((initialFilters.audience_focus_ids || []).slice());
 	let riding_discipline_ids = $state((initialFilters.riding_discipline_ids || []).slice());
 	let page = $state(initialFilters.page || 1);
-	const limit = initialFilters.limit || 24;
+	const limit = $derived(data.filters?.limit || 24);
+
+	$effect(() => {
+		const next = data.filters ?? {};
+		q = next.q || '';
+		country = next.country || '';
+		state_region = next.state_region || '';
+		sort = next.sort || 'name';
+		group_type_ids = (next.group_type_ids || []).slice();
+		skill_level_ids = (next.skill_level_ids || []).slice();
+		audience_focus_ids = (next.audience_focus_ids || []).slice();
+		riding_discipline_ids = (next.riding_discipline_ids || []).slice();
+		page = next.page || 1;
+	});
 
 	// Advanced filters collapse state
 	let showAdvanced = $state(false);
@@ -60,7 +74,7 @@
 		page = p;
 		applyFilters(false);
 	}
-	function applyFilters(resetPage = true) {
+	function applyFilters(resetPage = true, options = {}) {
 		try {
 			if (resetPage) page = 1;
 
@@ -76,6 +90,18 @@
 			else p.delete('country');
 			if ((state_region || '').trim()) p.set('state_region', state_region.trim());
 			else p.delete('state_region');
+
+			if (options.sortOverride !== undefined) {
+				if (options.sortOverride) p.set('sort', options.sortOverride);
+				else p.delete('sort');
+			} else if ((country || '').trim() || (state_region || '').trim()) {
+				p.delete('sort');
+			} else if (sort === 'name' && p.get('sort') === 'name') {
+				p.set('sort', 'name');
+			} else {
+				p.delete('sort');
+			}
+
 			p.delete('skill_level_ids');
 			p.delete('group_type_ids');
 			p.delete('audience_focus_ids');
@@ -105,15 +131,29 @@
 		applyFilters(true);
 	}
 
+	function setSortMode(nextSort) {
+		if (nextSort === 'proximity') {
+			country = '';
+			state_region = '';
+			sort = 'proximity';
+			applyFilters(true, { sortOverride: '' });
+			return;
+		}
+		sort = 'name';
+		applyFilters(true, { sortOverride: 'name' });
+	}
+
 	function clearAll() {
+		const shouldDisableProximity = Boolean(data.proximityActive || country || state_region);
 		q = '';
 		country = '';
 		state_region = '';
+		sort = 'name';
 		group_type_ids = [];
 		skill_level_ids = [];
 		audience_focus_ids = [];
 		riding_discipline_ids = [];
-		applyFilters();
+		applyFilters(true, { sortOverride: shouldDisableProximity ? 'name' : '' });
 	}
 
 	function toggleType(id) {
@@ -156,6 +196,10 @@
 			skill_level_ids.length +
 			audience_focus_ids.length +
 			riding_discipline_ids.length
+	);
+	const hasClearableScope = $derived(activeFilterCount > 0 || Boolean(data.proximityActive));
+	const showSortControls = $derived(
+		Boolean(data.proximityActive || appPage.url.searchParams.get('sort') === 'name')
 	);
 
 	function filterChipClass(active) {
@@ -570,6 +614,9 @@
 						<option value="GB">United Kingdom</option>
 						<option value="AU">Australia</option>
 						<option value="NZ">New Zealand</option>
+						{#if country && !['US', 'CA', 'MX', 'GB', 'AU', 'NZ', 'OTHER'].includes(country)}
+							<option value={country}>{country}</option>
+						{/if}
 						<option value="OTHER">Other</option>
 					</select>
 
@@ -596,17 +643,59 @@
 					{/if}
 				</div>
 
-				{#if activeFilterCount > 0}
+				{#if hasClearableScope}
 					<button
 						type="button"
 						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
 						onclick={clearAll}
 						in:fade={{ duration: 120 }}
 					>
-						Clear ({activeFilterCount})
+						{activeFilterCount > 0 ? `Clear (${activeFilterCount})` : 'Clear local sort'}
 					</button>
 				{/if}
 			</div>
+
+			{#if showSortControls}
+				<div
+					class="border-surface-800 bg-surface-950 flex flex-wrap items-center justify-between gap-3 border-2 px-4 py-2.5"
+					role="group"
+					aria-label="Directory sort order"
+				>
+					<span
+						class="text-surface-300 flex items-center gap-2 text-xs font-bold tracking-[0.18em] uppercase"
+					>
+						<IconMapPin class="text-primary-500 h-3.5 w-3.5 shrink-0" />
+						{#if data.proximityActive}
+							Sorted near {data.proximityLabel || 'you'}
+						{:else}
+							Sorted alphabetically (A–Z)
+						{/if}
+					</span>
+
+					<div class="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							aria-pressed={Boolean(data.proximityActive)}
+							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {data.proximityActive
+								? 'bg-primary-500 text-surface-950 border-primary-500 border-2'
+								: 'border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 border-2'}"
+							onclick={() => setSortMode('proximity')}
+						>
+							{data.proximityLabel ? `Near ${data.proximityLabel}` : 'Near you'}
+						</button>
+						<button
+							type="button"
+							aria-pressed={!data.proximityActive}
+							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {!data.proximityActive
+								? 'bg-primary-500 text-surface-950 border-primary-500 border-2'
+								: 'border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 border-2'}"
+							onclick={() => setSortMode('name')}
+						>
+							A–Z
+						</button>
+					</div>
+				</div>
+			{/if}
 
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<div class="flex flex-wrap items-center gap-2">
@@ -964,6 +1053,10 @@
 											class="text-surface-400 m-0 mt-1 flex items-center gap-1 truncate text-xs font-bold tracking-[0.12em] uppercase"
 										>
 											<IconMapPin class="h-3.5 w-3.5 shrink-0" />
+											{#if data.proximityActive && Number.isFinite(g.distance_miles)}
+												<span class="text-primary-500">{Math.round(g.distance_miles)} mi</span>
+												·
+											{/if}
 											{#if g.city}{g.city},{/if}
 											{g.state_region}
 											{#if g.state_region && g.country}
