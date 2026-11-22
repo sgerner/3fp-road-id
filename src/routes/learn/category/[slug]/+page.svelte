@@ -1,17 +1,18 @@
 <script>
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
-	import { dndzone } from 'svelte-dnd-action';
-	import { flip } from 'svelte/animate';
+	import PositionAssignmentBar from '#lib/components/ui/PositionAssignmentBar.svelte';
+	import { reassignAndOrderLearnArticles, reorderListItem } from '#lib/ui/formControlHelpers';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
-	import IconGripVertical from '@lucide/svelte/icons/grip-vertical';
 	import IconLayersThree from '@lucide/svelte/icons/layers-3';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import {
@@ -28,9 +29,10 @@
 	let activeSubcategory = $state('all');
 	let isReordering = $state(false);
 
-	// Mutable local copies used by DnD
+	// Mutable local copies used for deterministic ordering
 	let subcategories = $state([]);
 	let articles = $state([]);
+	let reorderAnnouncement = $state('');
 
 	$effect(() => {
 		subcategories = [...data.subcategories];
@@ -80,128 +82,93 @@
 		});
 	}
 
-	// ── DnD state ─────────────────────────────────────────────────────────
-	// dndArticleMap: groupId → article[]
-	// All article zones share type:'article' so items can cross between zones.
-	let dndArticleMap = $state({});
-	// Subcategory-level drag list
-	let dndSubGroups = $state([]);
+	const sectionOptions = $derived([
+		{ value: '', label: 'General' },
+		...subcategories.map((sub) => ({ value: sub.slug, label: sub.name }))
+	]);
 
-	// groupId → subcategory_slug (null for uncategorized)
-	function groupIdToSlug(groupId) {
-		return groupId === 'uncategorized' ? null : groupId;
+	async function restoreControlFocus(focusKey) {
+		if (!focusKey) return;
+		await tick();
+		let el = document.querySelector(`[data-focus-key="${CSS.escape(focusKey)}"]`);
+		if (el?.disabled) {
+			const fallbackKey = focusKey.endsWith('-up')
+				? focusKey.replace(/-up$/, '-down')
+				: focusKey.endsWith('-down')
+					? focusKey.replace(/-down$/, '-up')
+					: focusKey;
+			const fallback = document.querySelector(`[data-focus-key="${CSS.escape(fallbackKey)}"]`);
+			if (fallback && !fallback.disabled) {
+				el = fallback;
+			} else {
+				const posKey = focusKey.replace(/-(up|down|group)$/, '-pos');
+				el = document.querySelector(`[data-focus-key="${CSS.escape(posKey)}"]`);
+			}
+		}
+		el?.focus?.();
 	}
 
 	function enterReorderMode() {
-		const map = {};
-		for (const g of groups) {
-			map[g.id] = g.articles.map((a) => ({ ...a }));
-		}
-		// Ensure every group has an entry (even empty ones)
-		for (const sub of subcategories) {
-			if (!(sub.slug in map)) map[sub.slug] = [];
-		}
-		if (!('uncategorized' in map)) map['uncategorized'] = [];
-		dndArticleMap = map;
-		dndSubGroups = subcategories.map((sub, i) => ({ id: sub.slug, sub, sort_order: i }));
+		searchQuery = '';
+		activeSubcategory = 'all';
 		isReordering = true;
+		reorderAnnouncement =
+			'Reorder mode active. Use Position, Section, Move up, and Move down controls to organize guides and subcategories.';
 	}
 
 	function exitReorderMode() {
 		isReordering = false;
+		reorderAnnouncement = 'Exited reorder mode.';
 	}
 
-	// ── Subcategory section reordering ────────────────────────────────────
-	function handleGroupConsider(e) {
-		dndSubGroups = e.detail.items;
-	}
-
-	function handleGroupFinalize(e) {
-		dndSubGroups = e.detail.items;
-		const newOrder = dndSubGroups.map((g) => g.sub);
-		newOrder.forEach((sub, i) => (sub.sort_order = i));
-		subcategories = newOrder;
+	function moveSubcategory(slug, targetIndex, focusKey = '') {
+		const fromIndex = subcategories.findIndex((sub) => sub.slug === slug);
+		if (fromIndex === -1) return;
+		const nextOrder = reorderListItem(subcategories, fromIndex, targetIndex).map((sub, idx) => ({
+			...sub,
+			sort_order: idx
+		}));
+		subcategories = nextOrder;
+		const movedIndex = nextOrder.findIndex((sub) => sub.slug === slug);
+		const movedSub = nextOrder[movedIndex];
+		if (movedSub) {
+			reorderAnnouncement = `Moved section ${movedSub.name} to position ${movedIndex + 1} of ${nextOrder.length}.`;
+		}
 		document.getElementById('reorder-subcategories-payload').value = JSON.stringify(
-			newOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
+			nextOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
 		);
 		document.getElementById('reorder-subcategories-form').requestSubmit();
+		void restoreControlFocus(focusKey);
 	}
 
-	// ── Article reordering (within-zone AND cross-zone) ───────────────────
-	//
-	// svelte-dnd-action fires consider/finalize on BOTH source and target
-	// zones when an item crosses zones. We just update dndArticleMap for
-	// whichever zone called us — the library keeps both in sync during
-	// the consider phase and commits on finalize.
-	function handleArticleConsider(groupId, e) {
-		dndArticleMap = { ...dndArticleMap, [groupId]: e.detail.items };
-	}
-
-	function handleArticleFinalize(groupId, e) {
-		const newItems = e.detail.items;
-
-		// Assign the correct subcategory_slug based on which zone this is
-		const targetSlug = groupIdToSlug(groupId);
-		newItems.forEach((a, i) => {
-			a.sort_order = i;
-			a.subcategory_slug = targetSlug;
+	function moveArticleInSection(articleId, targetIndex, focusKey = '') {
+		const result = reassignAndOrderLearnArticles(articles, subcategories, {
+			articleId,
+			targetIndex
 		});
-
-		// Commit to the full map
-		dndArticleMap = { ...dndArticleMap, [groupId]: newItems };
-
-		// Also update the canonical articles array so the rest of the UI stays in sync
-		for (const item of newItems) {
-			const orig = articles.find((a) => a.id === item.id);
-			if (orig) {
-				orig.sort_order = item.sort_order;
-				orig.subcategory_slug = item.subcategory_slug;
-			}
-		}
-
-		// Collect ALL articles across every zone so we save a complete snapshot.
-		// This ensures the source zone's items get their new sort_orders saved too.
-		const allChanged = Object.entries(dndArticleMap).flatMap(([gid, items]) => {
-			const slug = groupIdToSlug(gid);
-			return items.map((a, i) => ({
-				id: a.id,
-				sort_order: i,
-				subcategory_slug: slug
-			}));
-		});
-
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(allChanged);
+		if (!result.movedArticle) return;
+		articles = result.articles;
+		reorderAnnouncement = `Moved ${result.movedArticle.title} to position ${result.position} of ${result.sectionCount}.`;
+		document.getElementById('reorder-articles-payload').value = JSON.stringify(result.payload);
 		document.getElementById('reorder-articles-form').requestSubmit();
+		void restoreControlFocus(focusKey);
 	}
 
-	// ── Move to subcategory (dropdown fallback) ────────────────────────────
-	function assignSubcategory(articleId, subcategorySlug) {
-		const article = articles.find((a) => a.id === articleId);
-		if (!article) return;
-		const targetSlug = subcategorySlug || null;
-		article.subcategory_slug = targetSlug;
-
-		// Also update the dnd map so the UI stays in sync
-		const newMap = {};
-		for (const [gid, items] of Object.entries(dndArticleMap)) {
-			newMap[gid] = items.filter((a) => a.id !== articleId);
-		}
-		const targetGroupId = targetSlug ?? 'uncategorized';
-		if (!newMap[targetGroupId]) newMap[targetGroupId] = [];
-		const movedArticle = { ...article, subcategory_slug: targetSlug };
-		newMap[targetGroupId] = [...newMap[targetGroupId], movedArticle];
-		dndArticleMap = newMap;
-
-		// Re-index sort orders
-		const allChanged = Object.entries(newMap).flatMap(([gid, items]) => {
-			const slug = groupIdToSlug(gid);
-			return items.map((a, i) => ({ id: a.id, sort_order: i, subcategory_slug: slug }));
+	function assignSubcategory(articleId, subcategorySlug, focusKey = '') {
+		const result = reassignAndOrderLearnArticles(articles, subcategories, {
+			articleId,
+			targetSubcategorySlug: subcategorySlug
 		});
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(allChanged);
+		if (!result.movedArticle) return;
+		articles = result.articles;
+		const sectionLabel = result.sectionSlug
+			? subcategories.find((sub) => sub.slug === result.sectionSlug)?.name || result.sectionSlug
+			: 'General';
+		reorderAnnouncement = `Moved ${result.movedArticle.title} to ${sectionLabel}, position ${result.position} of ${result.sectionCount}.`;
+		document.getElementById('reorder-articles-payload').value = JSON.stringify(result.payload);
 		document.getElementById('reorder-articles-form').requestSubmit();
+		void restoreControlFocus(focusKey);
 	}
-
-	const FLIP_MS = 200;
 	const seoTitle = $derived.by(() => cleanSeoText(data.category.name || 'Learn Category'));
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
@@ -274,22 +241,13 @@
 </svelte:head>
 
 <!-- ── Article card snippet ───────────────────────────────────────────── -->
-{#snippet articleCard(article, index = 0)}
+{#snippet articleCard(article, index = 0, sectionCount = 1)}
 	<div
 		class="group bg-surface-950 text-surface-50 border-surface-800 hover:bg-primary-500 hover:text-surface-950 relative flex h-full flex-col justify-between border-2 transition"
 	>
-		{#if isReordering}
-			<div
-				class="bg-tertiary-500 text-surface-950 border-surface-950 flex cursor-grab items-center gap-2 border-b-2 px-4 py-2 text-xs font-black tracking-wider uppercase active:cursor-grabbing"
-			>
-				<IconGripVertical class="h-4 w-4" />
-				<span>Drag to reorder</span>
-			</div>
-		{/if}
-
 		<a
 			href={`/learn/${article.slug}`}
-			class="flex flex-1 flex-col justify-between hover:no-underline"
+			class="focus-visible:outline-primary-500 flex flex-1 flex-col justify-between hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 		>
 			{#if article.cover_image_url}
 				<div class="border-surface-800 aspect-[16/9] overflow-hidden border-b-2">
@@ -333,29 +291,20 @@
 			</div>
 		</a>
 
-		<!-- Reorder controls (drag hint + Move-to dropdown) -->
+		<!-- Reorder controls (Position, Section, Move up / Move down) -->
 		{#if isReordering}
 			<div class="border-surface-800 bg-surface-900 text-surface-50 border-t-2 p-3">
-				<div
-					class="text-primary-500 mb-2 flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
-				>
-					<IconGripVertical class="h-3.5 w-3.5" />
-					<span>Drag between sections to move</span>
-				</div>
-				<div class="flex items-center gap-2">
-					<span class="text-surface-300 text-xs font-black tracking-widest uppercase">Move to</span>
-					<select
-						class="border-surface-50 bg-surface-950 text-surface-50 flex-1 border-2 px-2 py-1 text-xs font-bold uppercase"
-						onchange={(e) => assignSubcategory(article.id, e.target.value)}
-					>
-						<option value="" selected={!article.subcategory_slug}>General</option>
-						{#each subcategories as sub}
-							<option value={sub.slug} selected={sub.slug === article.subcategory_slug}
-								>{sub.name}</option
-							>
-						{/each}
-					</select>
-				</div>
+				<PositionAssignmentBar
+					itemLabel={article.title}
+					{index}
+					count={sectionCount}
+					groups={sectionOptions}
+					groupValue={article.subcategory_slug ?? ''}
+					groupLabel="Section"
+					focusKey={`article-${article.id}`}
+					onPositionChange={(targetIdx, fk) => moveArticleInSection(article.id, targetIdx, fk)}
+					onGroupChange={(nextSlug, fk) => assignSubcategory(article.id, nextSlug, fk)}
+				/>
 			</div>
 		{/if}
 	</div>
@@ -416,12 +365,13 @@
 				{#if data.canEdit}
 					<button
 						type="button"
-						class="inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition {isReordering
+						aria-pressed={isReordering}
+						class="focus-visible:outline-surface-950 inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 {isReordering
 							? 'bg-tertiary-500 border-surface-950 text-surface-950'
 							: 'border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500'}"
 						onclick={isReordering ? exitReorderMode : enterReorderMode}
 					>
-						<IconGripVertical class="h-4 w-4" />
+						<IconArrowUpDown class="h-4 w-4" aria-hidden="true" />
 						{isReordering ? 'Done reordering' : 'Reorder content'}
 					</button>
 				{/if}
@@ -572,115 +522,119 @@
 		<div
 			class="bg-tertiary-500 text-surface-950 flex items-center gap-3 px-6 py-4 text-sm font-bold sm:px-10 lg:px-14"
 		>
-			<IconGripVertical class="h-5 w-5 shrink-0" />
+			<IconArrowUpDown class="h-5 w-5 shrink-0" aria-hidden="true" />
 			<span>
-				Drag <strong>article cards</strong> within or <em>between</em> sections to reorder and
-				reassign them · Drag <strong>section headers</strong> to reorder subcategories.
+				Choose a <strong>Position</strong> or <strong>Section</strong>, or activate
+				<strong>Move up</strong> and <strong>Move down</strong> on any guide card or subcategory header
+				to update order immediately.
 			</span>
 		</div>
 	{/if}
+
+	<p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+		{reorderAnnouncement}
+	</p>
 
 	<!-- ═══════════════════════════════════════════════
 	     ARTICLE GROUPS
 	═══════════════════════════════════════════════ -->
 	<div class="bg-surface-950 flex flex-col gap-16 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
 		{#if isReordering && activeSubcategory === 'all'}
-			<!-- Uncategorized: always render the DnD zone -->
-			{#each groups.filter((g) => !g.subcategory) as group (group.id)}
-				{@const artItems = dndArticleMap[group.id] ?? []}
-				<section class="flex flex-col gap-6">
-					<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
-						<span class="bg-primary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
-						<div>
-							<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
-								Category
-							</p>
-							<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
-								General
-							</h2>
-						</div>
+			{@const generalArticles = articles.filter((a) => !a.subcategory_slug)}
+			<section class="flex flex-col gap-6" aria-labelledby="reorder-section-general">
+				<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
+					<span class="bg-primary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
+					<div>
+						<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+							Category
+						</p>
+						<h2
+							id="reorder-section-general"
+							class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl"
+						>
+							General
+						</h2>
 					</div>
-					<div
-						use:dndzone={{ items: artItems, flipDurationMs: FLIP_MS, type: 'article' }}
-						onconsider={(e) => handleArticleConsider(group.id, e)}
-						onfinalize={(e) => handleArticleFinalize(group.id, e)}
-						class={artItems.length > 0
-							? 'dnd-article-zone grid gap-5 sm:grid-cols-2 lg:grid-cols-3'
-							: 'dnd-empty-zone'}
-					>
-						{#each artItems as article, idx (article.id)}
-							<div animate:flip={{ duration: FLIP_MS }}>
-								{@render articleCard(article, idx)}
-							</div>
+				</div>
+				{#if generalArticles.length > 0}
+					<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+						{#each generalArticles as article, idx (article.id)}
+							{@render articleCard(article, idx, generalArticles.length)}
 						{/each}
-						{#if artItems.length === 0}
-							<div class="dnd-empty-placeholder" aria-hidden="true">Drop articles here</div>
-						{/if}
 					</div>
-				</section>
-			{/each}
+				{:else}
+					<div
+						class="border-surface-700 bg-surface-900 text-surface-300 border-2 p-6 text-sm font-bold"
+					>
+						No guides in General. Select General in any guide's Section menu to move it here.
+					</div>
+				{/if}
+			</section>
 
-			<!-- ── Subcategory groups: draggable ── -->
-			{#if dndSubGroups.length > 0}
-				<div
-					use:dndzone={{ items: dndSubGroups, flipDurationMs: FLIP_MS, type: 'subgroup' }}
-					onconsider={handleGroupConsider}
-					onfinalize={handleGroupFinalize}
-					class="dnd-group-zone flex flex-col gap-16"
-				>
-					{#each dndSubGroups as groupItem (groupItem.id)}
-						{@const artItems = dndArticleMap[groupItem.id] ?? []}
+			{#if subcategories.length > 0}
+				<div class="flex flex-col gap-16">
+					{#each subcategories as sub, subIndex (sub.slug)}
+						{@const artItems = articles.filter((a) => a.subcategory_slug === sub.slug)}
 						{@const isEmpty = artItems.length === 0}
-						<section class="flex flex-col gap-6" animate:flip={{ duration: FLIP_MS }}>
-							<!-- Draggable heading bar -->
-							<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
-								<div class="dnd-drag-handle" title="Drag to reorder subcategory">
-									<IconGripVertical class="h-5 w-5" />
+						<section class="flex flex-col gap-6" aria-labelledby={`reorder-section-${sub.slug}`}>
+							<div
+								class="border-surface-50 flex flex-wrap items-end justify-between gap-4 border-b-2 pb-4"
+							>
+								<div class="flex items-center gap-4">
+									<span class="bg-tertiary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
+									<div>
+										<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+											Subcategory
+										</p>
+										<h2
+											id={`reorder-section-${sub.slug}`}
+											class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl"
+										>
+											{sub.name}
+										</h2>
+									</div>
 								</div>
-								<span class="bg-tertiary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
-								<div class="flex-1">
-									<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
-										Subcategory
-									</p>
-									<h2 class="text-surface-50! m-0 text-3xl font-black uppercase italic sm:text-4xl">
-										{groupItem.sub.name}
-									</h2>
+
+								<div class="flex flex-wrap items-end gap-3">
+									<PositionAssignmentBar
+										itemLabel={sub.name}
+										index={subIndex}
+										count={subcategories.length}
+										positionLabel="Section position"
+										focusKey={`subcategory-${sub.slug}`}
+										onPositionChange={(targetIdx, fk) => moveSubcategory(sub.slug, targetIdx, fk)}
+									/>
+
+									{#if isEmpty}
+										<button
+											type="button"
+											class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center gap-2 px-4 text-xs font-black tracking-wider uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+											aria-label={`Delete empty subcategory ${sub.name}`}
+											onclick={() => {
+												document.getElementById('delete-subcategory-slug').value = sub.slug;
+												document.getElementById('delete-subcategory-form').requestSubmit();
+											}}
+										>
+											<IconTrash2 class="h-4 w-4" aria-hidden="true" />
+											<span>Delete</span>
+										</button>
+									{/if}
 								</div>
-								<!-- Delete button (only when empty) -->
-								{#if isEmpty}
-									<button
-										type="button"
-										class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-wider uppercase transition"
-										title="Delete empty subcategory"
-										onclick={() => {
-											document.getElementById('delete-subcategory-slug').value = groupItem.id;
-											document.getElementById('delete-subcategory-form').requestSubmit();
-										}}
-									>
-										<IconTrash2 class="h-4 w-4" />
-										<span>Delete</span>
-									</button>
-								{/if}
 							</div>
 
-							<!-- Articles within this subcategory — always a live DnD zone -->
-							<div
-								use:dndzone={{ items: artItems, flipDurationMs: FLIP_MS, type: 'article' }}
-								onconsider={(e) => handleArticleConsider(groupItem.id, e)}
-								onfinalize={(e) => handleArticleFinalize(groupItem.id, e)}
-								class={artItems.length > 0
-									? 'dnd-article-zone grid gap-5 sm:grid-cols-2 lg:grid-cols-3'
-									: 'dnd-empty-zone'}
-							>
-								{#each artItems as article, idx (article.id)}
-									<div animate:flip={{ duration: FLIP_MS }}>
-										{@render articleCard(article, idx)}
-									</div>
-								{/each}
-								{#if artItems.length === 0}
-									<div class="dnd-empty-placeholder" aria-hidden="true">Drop articles here</div>
-								{/if}
-							</div>
+							{#if artItems.length > 0}
+								<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+									{#each artItems as article, idx (article.id)}
+										{@render articleCard(article, idx, artItems.length)}
+									{/each}
+								</div>
+							{:else}
+								<div
+									class="border-surface-700 bg-surface-900 text-surface-300 border-2 p-6 text-sm font-bold"
+								>
+									No guides in {sub.name}. Select {sub.name} in any guide's Section menu to move it here.
+								</div>
+							{/if}
 						</section>
 					{/each}
 				</div>
@@ -728,7 +682,7 @@
 					{#if group.articles.length > 0}
 						<div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
 							{#each group.articles as article, articleIndex (article.id ?? article.slug)}
-								{@render articleCard(article, articleIndex)}
+								{@render articleCard(article, articleIndex, group.articles.length)}
 							{/each}
 						</div>
 					{:else}
@@ -802,51 +756,3 @@
 >
 	<input type="hidden" name="slug" id="delete-subcategory-slug" />
 </form>
-
-<style>
-	/* ── DnD ── */
-	.dnd-group-zone {
-		outline: none;
-	}
-
-	.dnd-article-zone {
-		outline: none;
-		min-height: 80px;
-	}
-
-	.dnd-drag-handle {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		cursor: grab;
-		color: var(--color-surface-950);
-		background: var(--color-primary-500);
-		flex-shrink: 0;
-	}
-
-	.dnd-drag-handle:active {
-		cursor: grabbing;
-	}
-
-	.dnd-empty-zone {
-		outline: none;
-		min-height: 110px;
-		border: 2px dashed var(--color-primary-500);
-		background: var(--color-surface-900);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.dnd-empty-placeholder {
-		font-size: 0.8rem;
-		font-weight: 900;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: var(--color-primary-500);
-		pointer-events: none;
-		user-select: none;
-	}
-</style>
