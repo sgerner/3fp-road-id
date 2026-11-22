@@ -4,9 +4,9 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSend from '@lucide/svelte/icons/send';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
 	import Toggle from '#lib/components/ui/Toggle.svelte';
 	import { tick, onMount } from 'svelte';

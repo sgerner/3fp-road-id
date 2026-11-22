@@ -9,7 +9,7 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconShieldAlert from '@lucide/svelte/icons/shield-alert';
 	import IconLogOut from '@lucide/svelte/icons/log-out';
 	import IconCheck from '@lucide/svelte/icons/check';

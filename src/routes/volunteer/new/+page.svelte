@@ -8,7 +8,7 @@
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 	import IconSave from '@lucide/svelte/icons/save';

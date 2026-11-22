@@ -77,7 +77,7 @@ export function sanitizeProviderSyncError(error, provider) {
 	return { code: errorCode, message: safeMessage };
 }
 
-export async function beginProviderSyncRun(auth, provider, options = {}) {
+async function beginProviderSyncRun(auth, provider, options = {}) {
 	const trigger = ['cron', 'webhook', 'manual', 'system'].includes(options.trigger)
 		? options.trigger
 		: 'manual';
@@ -94,7 +94,7 @@ export async function beginProviderSyncRun(auth, provider, options = {}) {
 	return data && typeof data === 'object' ? data : { acquired: false, reason: 'sync_failed' };
 }
 
-export async function finishProviderSyncRun(auth, runId, status, result = {}, failure = null) {
+async function finishProviderSyncRun(auth, runId, status, result = {}, failure = null) {
 	const reportedFailure =
 		failure ||
 		(result.error_code

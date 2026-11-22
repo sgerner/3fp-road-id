@@ -4,7 +4,7 @@
 	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconImage from '@lucide/svelte/icons/image';
@@ -23,11 +23,11 @@
 	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconPlay from '@lucide/svelte/icons/play';
-	import IconEdit3 from '@lucide/svelte/icons/edit-3';
-	import IconMoreVertical from '@lucide/svelte/icons/more-vertical';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconEdit3 from '@lucide/svelte/icons/pen-line';
+	import IconMoreVertical from '@lucide/svelte/icons/ellipsis-vertical';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
@@ -506,13 +506,6 @@
 	/**
 	 * @param {any} date
 	 */
-	function startOfMonth(date) {
-		return new Date(date.getFullYear(), date.getMonth(), 1);
-	}
-
-	/**
-	 * @param {any} date
-	 */
 	function startOfWeek(date) {
 		const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 		dayStart.setDate(dayStart.getDate() - dayStart.getDay());
@@ -832,23 +825,6 @@
 	/**
 	 * @param {any} comment
 	 */
-	function linkedPostImageUrl(comment) {
-		const linked = comment?.linked_post;
-		const url = linked?.image_url;
-		if (typeof url === 'string' && url.trim()) return url.trim();
-		return '';
-	}
-
-	/**
-	 * @param {any} comment
-	 */
-	function linkedPostCaption(comment) {
-		return captionPreview(comment?.linked_post?.caption || '', 140);
-	}
-
-	/**
-	 * @param {any} comment
-	 */
 	function commentAuthorLabel(comment) {
 		const primary = String(comment?.author_name || comment?.author_username || '').trim();
 		if (primary) return primary;
@@ -916,51 +892,6 @@
 				return 'text-warning-400 bg-warning-500/10 border-warning-500/20';
 			default:
 				return 'text-surface-400 bg-surface-500/10 border-surface-500/20';
-		}
-	}
-
-	/**
-	 * @param {any} post
-	 */
-	function postPlatformsLabel(post) {
-		const values = Array.isArray(post?.platforms) ? post.platforms : [];
-		if (!values.length) return 'No platforms selected';
-		return values.map(platformLabel).join(', ');
-	}
-
-	/**
-	 * @param {any} post
-	 */
-	function postTimeLabel(post) {
-		const status = normalizeStatus(post?.status);
-		if (status === 'published') {
-			return `Published: ${formatDateTime(post?.published_at || post?.updated_at)}`;
-		}
-		if (status === 'scheduled' || status === 'queued') {
-			return `Scheduled: ${formatDateTime(post?.scheduled_for)}`;
-		}
-		if (status === 'publishing') {
-			return `Publishing since: ${formatDateTime(post?.updated_at)}`;
-		}
-		return `Updated: ${formatDateTime(post?.updated_at || post?.created_at)}`;
-	}
-
-	/**
-	 * @param {any} status
-	 */
-	function postStatusClass(status) {
-		switch (normalizeStatus(status)) {
-			case 'published':
-				return 'inline-flex items-center rounded-full border border-success-400/60 bg-success-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-success-300';
-			case 'scheduled':
-			case 'queued':
-				return 'inline-flex items-center rounded-full border border-primary-400/60 bg-primary-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-200';
-			case 'publishing':
-				return 'inline-flex items-center rounded-full border border-warning-400/60 bg-warning-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-300';
-			case 'failed':
-				return 'inline-flex items-center rounded-full border border-error-400/60 bg-error-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-error-300';
-			default:
-				return 'inline-flex items-center rounded-full border border-surface-500/50 bg-surface-700/35 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-surface-200';
 		}
 	}
 

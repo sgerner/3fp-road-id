@@ -7,7 +7,7 @@
 	import IconMonitor from '@lucide/svelte/icons/monitor';
 	import IconRedo from '@lucide/svelte/icons/redo-2';
 	import IconSmartphone from '@lucide/svelte/icons/smartphone';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconUndo from '@lucide/svelte/icons/undo-2';
 	import IconLayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import IconX from '@lucide/svelte/icons/x';

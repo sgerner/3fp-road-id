@@ -8,8 +8,12 @@ const target = /** @type {any} */ (process.env.ACCOUNTING_TEST_WEBHOOK_URL);
 const secret = /** @type {any} */ (process.env.ACCOUNTING_TEST_WEBHOOK_SECRET);
 test(
 	'signed Financial Connections completion reaches accounting handling instead of the ignored-event path',
-	{ skip: !target || !secret },
+	{ skip: !target && !secret },
 	async () => {
+		assert.ok(
+			target?.trim() && secret?.trim(),
+			'Both ACCOUNTING_TEST_WEBHOOK_URL and ACCOUNTING_TEST_WEBHOOK_SECRET must be set.'
+		);
 		const url = new URL(target);
 		assert.ok(
 			['localhost', '127.0.0.1', '[::1]'].includes(url.hostname),

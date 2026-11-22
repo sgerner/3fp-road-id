@@ -2,7 +2,7 @@
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
 	import IconClock from '@lucide/svelte/icons/clock';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 

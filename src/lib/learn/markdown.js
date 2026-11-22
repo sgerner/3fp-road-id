@@ -1,4 +1,3 @@
-import matter from 'gray-matter';
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
 
@@ -44,14 +43,6 @@ const sanitizeOptions = {
 		a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true)
 	}
 };
-
-export function parseMarkdownDocument(source) {
-	const parsed = matter(source || '');
-	return {
-		frontmatter: parsed.data || {},
-		body: (parsed.content || '').trim()
-	};
-}
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';

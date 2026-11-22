@@ -32,7 +32,7 @@
 	import { slide } from 'svelte/transition';
 	import { toaster } from '../../../toaster-svelte';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconBarChart2 from '@lucide/svelte/icons/bar-chart-2';
+	import IconBarChart2 from '@lucide/svelte/icons/chart-no-axes-column';
 	import IconList from '@lucide/svelte/icons/list';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconShield from '@lucide/svelte/icons/shield';

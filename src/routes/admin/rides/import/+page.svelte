@@ -1,6 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconCheckCircle from '@lucide/svelte/icons/circle-check';
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import AdminNotice from '#lib/components/admin/AdminNotice.svelte';

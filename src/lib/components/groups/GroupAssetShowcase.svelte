@@ -6,7 +6,7 @@
 	import IconFile from '@lucide/svelte/icons/file';
 	import IconFileImage from '@lucide/svelte/icons/file-image';
 	import IconFileText from '@lucide/svelte/icons/file-text';
-	import IconFileVideo from '@lucide/svelte/icons/file-video';
+	import IconFileVideo from '@lucide/svelte/icons/file-play';
 	import IconImage from '@lucide/svelte/icons/image';
 	import IconLayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import IconLink from '@lucide/svelte/icons/link';

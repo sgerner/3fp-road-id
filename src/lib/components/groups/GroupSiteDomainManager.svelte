@@ -5,9 +5,9 @@
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
 
 	/** @type {Record<string, any>} */

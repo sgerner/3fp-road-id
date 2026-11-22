@@ -14,7 +14,7 @@
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconContact from '@lucide/svelte/icons/contact';
-	import IconHome from '@lucide/svelte/icons/home';
+	import IconHome from '@lucide/svelte/icons/house';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconHandHeart from '@lucide/svelte/icons/hand-heart';
 	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
@@ -22,7 +22,7 @@
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
 	import IconLogOut from '@lucide/svelte/icons/log-out';
-	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconMoon from '@lucide/svelte/icons/moon';
 	import IconSun from '@lucide/svelte/icons/sun';

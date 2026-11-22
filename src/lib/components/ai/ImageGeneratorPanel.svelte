@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { IMAGE_TONE_OPTIONS, getImageTonePreset } from '#lib/ai/imageTones';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,

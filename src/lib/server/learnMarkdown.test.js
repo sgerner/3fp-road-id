@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractMarkdownHeadings, renderLearnMarkdown } from '../learn/markdown.js';
+import * as learnMarkdown from '../learn/markdown.js';
+
+const { extractMarkdownHeadings, renderLearnMarkdown, splitMarkdownIntoSections } = learnMarkdown;
+
+test('learn markdown module exports only active heading, section, and rendering helpers', () => {
+	assert.deepEqual(Object.keys(learnMarkdown).sort(), [
+		'extractMarkdownHeadings',
+		'renderLearnMarkdown',
+		'splitMarkdownIntoSections'
+	]);
+	assert.equal('parseMarkdownDocument' in learnMarkdown, false);
+	assert.deepEqual(splitMarkdownIntoSections('Intro\n\n## Section One\n\nBody'), {
+		introMarkdown: 'Intro',
+		sections: [{ title: 'Section One', markdown: '## Section One\n\nBody' }]
+	});
+});
 
 test('article outline matches rendered headings including setext and duplicate headings', async () => {
 	const markdown =

@@ -1,5 +1,5 @@
 <script>
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
 

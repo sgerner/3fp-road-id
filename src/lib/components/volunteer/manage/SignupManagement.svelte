@@ -1,9 +1,9 @@
 <script>
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import IconFilter from '@lucide/svelte/icons/filter';
+	import IconFilter from '@lucide/svelte/icons/funnel';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconUserPlus from '@lucide/svelte/icons/user-plus';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';

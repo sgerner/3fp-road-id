@@ -16,9 +16,9 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconSave from '@lucide/svelte/icons/save';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 
 	/** @type {Record<string, any>} */
