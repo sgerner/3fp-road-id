@@ -11,6 +11,7 @@ import {
 import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
 import { readFormData } from '#lib/server/security';
 import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -453,6 +454,7 @@ export const actions = {
 			if (insErr) return fail(500, { error: insErr.message });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: group_id, slug });
 		throw redirect(303, `/groups/${slug}/manage/edit?saved=1`);
 	},
 	delete: async ({ params, cookies }) => {
@@ -469,6 +471,7 @@ export const actions = {
 			.eq('id', group_id);
 		if (deleteError) return fail(500, { error: deleteError.message });
 
+		invalidateGroupSnapshotCache({ groupId: group_id, slug: params.slug });
 		throw redirect(303, `/groups/my`);
 	}
 };
