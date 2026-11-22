@@ -413,7 +413,7 @@ test('Road ID routes share email/profile helpers and bind #blood_type in unified
 	);
 });
 
-test('Road ID checklists pair light text with dark asphalt surfaces', () => {
+test('Road ID checklists pair adaptive foreground and surface tokens across color modes', () => {
 	const roadIdLanding = readSource('../../routes/roadid/+page.svelte');
 	const crashResponse = readSource('../components/CrashResponse.svelte');
 	const alertSystem = readSource('../components/AlertSystem.svelte');
@@ -423,14 +423,20 @@ test('Road ID checklists pair light text with dark asphalt surfaces', () => {
 	];
 	assert.equal(detailsMatches.length, 2);
 	for (const [, detailsClass, summaryClass] of detailsMatches) {
-		assert.match(detailsClass, /\bbg-surface-950\b/);
-		assert.match(detailsClass, /\btext-surface-50\b/);
-		assert.match(detailsClass, /\bborder-surface-800\b/);
-		assert.match(summaryClass, /\btext-surface-50\b/);
+		assert.match(detailsClass, /\bbg-surface-50-950\b/);
+		assert.match(detailsClass, /\btext-surface-950-50\b/);
+		assert.match(detailsClass, /\bborder-surface-700-300\b/);
+		assert.match(summaryClass, /\btext-surface-950-50\b/);
 	}
 	assert.match(roadIdLanding, /<div class="mt-4">\s*<CrashResponse \/>\s*<\/div>/);
 	assert.match(roadIdLanding, /<div class="mt-4">\s*<AlertSystem \/>\s*<\/div>/);
 
-	assert.match(crashResponse, /<div class="[^"]*\bbg-surface-950\b[^"]*\btext-surface-50\b[^"]*">/);
-	assert.match(alertSystem, /<div class="[^"]*\bbg-surface-950\b[^"]*\btext-surface-50\b[^"]*">/);
+	assert.match(
+		crashResponse,
+		/<div class="[^"]*\bbg-surface-50-950\b[^"]*\btext-surface-950-50\b[^"]*">/
+	);
+	assert.match(
+		alertSystem,
+		/<div class="[^"]*\bbg-surface-50-950\b[^"]*\btext-surface-950-50\b[^"]*">/
+	);
 });
