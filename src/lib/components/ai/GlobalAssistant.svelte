@@ -5,7 +5,7 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import {
 		normalizeAssistantHref,

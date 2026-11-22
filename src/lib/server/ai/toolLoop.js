@@ -37,34 +37,6 @@ export function normalizeGeminiGenerationConfig(config = {}) {
 		normalizedConfig.tools = clonePlainValue(normalizedConfig.tools);
 	}
 
-	for (const key of [
-		'temperature',
-		'topP',
-		'topK',
-		'top_p',
-		'top_k',
-		'thinkingBudget',
-		'thinking_budget'
-	]) {
-		delete normalizedConfig[key];
-	}
-
-	for (const key of ['thinkingConfig', 'thinking_config']) {
-		const thinkingConfig = normalizedConfig[key];
-		if (!thinkingConfig || typeof thinkingConfig !== 'object' || Array.isArray(thinkingConfig)) {
-			continue;
-		}
-
-		const normalizedThinkingConfig = { ...thinkingConfig };
-		delete normalizedThinkingConfig.thinkingBudget;
-		delete normalizedThinkingConfig.thinking_budget;
-		if (Object.keys(normalizedThinkingConfig).length > 0) {
-			normalizedConfig[key] = normalizedThinkingConfig;
-		} else {
-			delete normalizedConfig[key];
-		}
-	}
-
 	const mappedThinkingLevel = GEMINI_THINKING_LEVEL_BY_EFFORT[requestedEffort] || null;
 	if (mappedThinkingLevel) {
 		const existingThinking =
