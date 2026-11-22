@@ -18,6 +18,10 @@ test('SvelteKit 3 option builders emit non-deprecated option keys', () => {
 	const formReset = buildDeferredFormUpdateOptions({ reset: true });
 	assert.deepEqual(formReset, { reset: true, refreshAll: false });
 
+	const formNoNavigate = buildDeferredFormUpdateOptions({ reset: false, navigate: false });
+	assert.deepEqual(formNoNavigate, { reset: false, refreshAll: false, navigate: false });
+	assert.equal('invalidateAll' in formNoNavigate, false);
+
 	const shallowOpts = buildShallowReplaceGotoOptions({ modal: 'compose' });
 	assert.deepEqual(shallowOpts, {
 		state: { modal: 'compose' },
@@ -95,6 +99,15 @@ test('completeFormUpdate preserves update -> onSuccess -> refreshAll callback or
 	);
 	assert.equal(didCompleteWithoutUpdateFn, true);
 	assert.deepEqual(events, ['rotated', 'refreshAll']);
+
+	events.length = 0;
+	await helpers.applyFormUpdate(
+		async (opts) => {
+			events.push(['apply', opts]);
+		},
+		{ reset: false, navigate: false }
+	);
+	assert.deepEqual(events, [['apply', { reset: false, refreshAll: false, navigate: false }]]);
 });
 
 test('replaceShallowQueryParam updates query parameters in place via shallow goto and no-ops without href', async () => {

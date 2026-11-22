@@ -4,11 +4,15 @@
  * server/Node test suites can verify option mappings and execution ordering directly.
  */
 
-export function buildDeferredFormUpdateOptions({ reset = false } = {}) {
-	return {
+export function buildDeferredFormUpdateOptions({ reset = false, navigate } = {}) {
+	const options = {
 		reset: Boolean(reset),
 		refreshAll: false
 	};
+	if (typeof navigate === 'boolean') {
+		options.navigate = navigate;
+	}
+	return options;
 }
 
 export function buildShallowReplaceGotoOptions(state = {}) {
@@ -71,9 +75,9 @@ export function createClientNavigationHelpers({
 		return refreshAll();
 	}
 
-	async function applyFormUpdate(update, { reset = false } = {}) {
+	async function applyFormUpdate(update, { reset = false, navigate } = {}) {
 		if (typeof update === 'function') {
-			await update(buildDeferredFormUpdateOptions({ reset }));
+			await update(buildDeferredFormUpdateOptions({ reset, navigate }));
 		}
 	}
 
