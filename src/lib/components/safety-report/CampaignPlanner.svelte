@@ -1,7 +1,6 @@
 <script>
-	/** @type {{ report: Record<string, any>, onNavigate?: (target: string) => void, onAsk?: (question: string) => void }} */
-	let { report, onNavigate, onAsk } = $props();
-	let activePath = $state('passing');
+	/** @type {{ report: Record<string, any>, activePath?: string, onNavigate?: (target: string) => void, onAsk?: (question: string) => void }} */
+	let { report, activePath = $bindable('passing'), onNavigate, onAsk } = $props();
 	let audience = $state('');
 	let setting = $state('');
 	let partner = $state('');
@@ -141,7 +140,7 @@
 			</div>
 		</div>
 		<div class="bundle-grid" aria-label="Choose a campaign package">
-			{#each bundles as bundle}
+			{#each bundles as bundle (bundle.id)}
 				<button
 					type="button"
 					class="bundle"
@@ -164,9 +163,10 @@
 			</div>
 		</div>
 		<div class="path-list" aria-label="Choose a campaign pathway">
-			{#each paths as path}
+			{#each paths as path (path.id)}
 				<button
 					type="button"
+					id={`pathway-${path.id}`}
 					class="path-button"
 					class:active={activePath === path.id}
 					aria-pressed={activePath === path.id}
@@ -204,9 +204,15 @@
 			{#if sources.length}
 				<div class="evidence">
 					<strong>Evidence in this report</strong>
-					{#each sources as source, index}
-						<a href={sourceLink(source.record)} onclick={() => onNavigate?.(`ref-${source.record}`)}
-							>{source.record}<span class="sr-only">: {source.title}</span></a
+					{#each sources as source, index (source.record)}
+						<a
+							href={sourceLink(source.record)}
+							onclick={(event) => {
+								if (onNavigate) {
+									event.preventDefault();
+									onNavigate(`ref-${source.record}`);
+								}
+							}}>{source.record}<span class="sr-only">: {source.title}</span></a
 						>{index < sources.length - 1 ? ', ' : ''}
 					{/each}
 					<p>
@@ -227,7 +233,7 @@
 			{/if}
 		</article>
 
-		<details class="materials">
+		<details class="materials" open>
 			<summary class="step-heading">
 				<span>03</span>
 				<div>
@@ -277,6 +283,20 @@
 											target="_blank"
 											rel="noopener noreferrer">Make Canva copy ↗</a
 										>{/if}
+									{#if onNavigate}<button
+											type="button"
+											class="link-button"
+											onclick={() => onNavigate(`asset-${piece.asset.assetId}`)}
+											>View set in gallery ↓</button
+										>{/if}
+								</div>
+							{:else if piece.figure && onNavigate}
+								<div class="material-links">
+									<button
+										type="button"
+										class="link-button"
+										onclick={() => onNavigate(piece.figure.id)}>View figure in report →</button
+									>
 								</div>
 							{:else}
 								<p class="figure-note">
@@ -362,17 +382,16 @@
 		--planner-accent: var(--color-primary-500);
 		--planner-secondary: var(--color-secondary-700-300);
 		--planner-highlight: var(--color-tertiary-700-300);
-		max-width: 1100px;
-		margin: 0 auto;
-		padding: clamp(1rem, 3vw, 2rem);
-		border: 1px solid var(--planner-line);
-		border-radius: 1.5rem;
-		background: var(--planner-panel);
+		padding: 0;
+		background: transparent;
 		color: var(--planner-ink);
-		box-shadow: 0 18px 50px color-mix(in srgb, var(--planner-ink) 8%, transparent);
 	}
 	.materials summary {
 		cursor: pointer;
+		list-style: none;
+	}
+	.materials summary::-webkit-details-marker {
+		display: none;
 	}
 
 	.materials summary::after {
@@ -394,7 +413,7 @@
 	}
 
 	.intro {
-		max-width: 760px;
+		max-width: 780px;
 		margin-bottom: 2rem;
 	}
 	.eyebrow,
@@ -404,7 +423,7 @@
 		color: var(--planner-secondary);
 		font-size: 0.76rem;
 		font-weight: 800;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
 	}
 	.intro h2 {
@@ -420,9 +439,9 @@
 		line-height: 1.6;
 	}
 	.priority {
+		margin-top: 1rem;
 		padding: 0.85rem 1rem;
 		border-left: 4px solid var(--planner-accent);
-		border-radius: 0 0.75rem 0.75rem 0;
 		background: var(--planner-soft);
 		line-height: 1.5;
 	}
@@ -438,15 +457,16 @@
 		width: 2rem;
 		height: 2rem;
 		place-items: center;
-		border-radius: 50%;
 		background: var(--planner-accent);
 		color: var(--color-primary-contrast-500);
 		font-size: 0.82rem;
 		font-weight: 850;
+		font-variant-numeric: tabular-nums;
 	}
 	.step-heading h3 {
 		margin: 0;
 		font-size: 1.25rem;
+		scroll-margin-top: 1rem;
 	}
 	.step-heading p {
 		margin: 0.25rem 0 0;
@@ -464,8 +484,8 @@
 		min-height: 140px;
 		gap: 0.55rem;
 		padding: 1rem;
-		border: 1px solid var(--planner-line);
-		border-radius: 1rem;
+		border: 2px solid var(--planner-line);
+		border-radius: 0;
 		background: var(--planner-soft);
 		color: var(--planner-ink);
 		text-align: left;
@@ -479,8 +499,9 @@
 		line-height: 1.4;
 	}
 	.bundle.selected {
-		border: 2px solid var(--planner-accent);
-		background: color-mix(in srgb, var(--planner-accent) 9%, var(--planner-panel));
+		border-color: var(--planner-ink);
+		border-top: 4px solid var(--planner-accent);
+		background: var(--planner-panel);
 	}
 	.path-list {
 		display: flex;
@@ -491,19 +512,20 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.65rem;
-		padding: 0.68rem 0.9rem;
-		border: 1px solid var(--planner-line);
-		border-radius: 999px;
+		padding: 0.7rem 0.95rem;
+		border: 2px solid var(--planner-line);
+		border-radius: 0;
 		background: var(--planner-panel);
 		color: var(--planner-ink);
-		font-weight: 700;
+		font-weight: 750;
 		cursor: pointer;
+		scroll-margin-top: 1rem;
 	}
 	.path-button span {
 		color: var(--planner-secondary);
 	}
 	.path-button.active {
-		border-color: var(--planner-accent);
+		border-color: var(--planner-ink);
 		background: var(--planner-accent);
 		color: var(--color-primary-contrast-500);
 	}
@@ -513,9 +535,8 @@
 	.recommendation {
 		margin-top: 1.1rem;
 		padding: clamp(1rem, 3vw, 1.6rem);
-		border-radius: 1.2rem;
 		background: var(--planner-soft);
-		border-top: 5px solid var(--planner-accent);
+		border-top: 4px solid var(--planner-accent);
 	}
 	.recommendation-top {
 		display: flex;
@@ -526,6 +547,7 @@
 	.bundle-tag {
 		color: var(--planner-muted);
 		font-size: 0.78rem;
+		font-weight: 700;
 	}
 	.recommendation h3 {
 		max-width: 880px;
@@ -539,9 +561,8 @@
 		gap: 0.85rem;
 	}
 	.recommendation-grid > div {
-		padding: 0.9rem;
+		padding: 0.95rem;
 		border: 1px solid var(--planner-line);
-		border-radius: 0.8rem;
 		background: var(--planner-panel);
 	}
 	.recommendation-grid h4 {
@@ -557,7 +578,7 @@
 		margin: 0;
 		padding-left: 0.8rem;
 		border-left: 3px solid var(--planner-highlight);
-		font-size: 1.08rem;
+		font-size: 1.05rem;
 		font-weight: 750;
 		line-height: 1.5;
 	}
@@ -576,6 +597,8 @@
 	.evidence a {
 		color: var(--planner-secondary);
 		font-weight: 800;
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
 	}
 	.evidence p {
 		margin: 0.5rem 0 0;
@@ -584,11 +607,11 @@
 	.primary-action,
 	.secondary-action {
 		min-height: 44px;
-		padding: 0.7rem 0.95rem;
-		border: 1px solid var(--planner-line);
-		border-radius: 0.7rem;
+		padding: 0.7rem 1rem;
+		border: 2px solid var(--planner-ink);
+		border-radius: 0;
 		font: inherit;
-		font-weight: 750;
+		font-weight: 800;
 		cursor: pointer;
 	}
 	.ask-button {
@@ -611,16 +634,15 @@
 		justify-content: space-between;
 		gap: 0.8rem;
 		min-width: 0;
-		padding: 0.9rem;
+		padding: 0.95rem;
 		border: 1px solid var(--planner-line);
-		border-radius: 0.8rem;
+		border-top: 3px solid var(--planner-secondary);
 		background: var(--planner-panel);
 	}
 	.material-preview {
 		display: block;
 		width: 100%;
 		height: 210px;
-		border-radius: 0.55rem;
 		background: var(--planner-soft);
 		object-fit: contain;
 	}
@@ -640,7 +662,7 @@
 		font-size: 1rem;
 	}
 	.material-kind {
-		font-size: 0.66rem;
+		font-size: 0.68rem;
 	}
 	.piece-copy,
 	.piece-details {
@@ -669,11 +691,21 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem 0.85rem;
+		align-items: center;
 	}
-	.material-links a {
+	.material-links a,
+	.link-button {
 		color: var(--planner-secondary);
 		font-size: 0.86rem;
 		font-weight: 750;
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
+	}
+	.link-button {
+		border: 0;
+		background: none;
+		padding: 0;
+		cursor: pointer;
 	}
 	.empty {
 		padding: 1rem;
@@ -682,7 +714,7 @@
 	.fields {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.65rem;
+		gap: 0.75rem;
 	}
 	.fields label,
 	.kit-label {
@@ -696,8 +728,8 @@
 		width: 100%;
 		min-height: 44px;
 		padding: 0.7rem;
-		border: 1px solid var(--planner-line);
-		border-radius: 0.65rem;
+		border: 2px solid var(--planner-line);
+		border-radius: 0;
 		background: var(--planner-panel);
 		color: var(--planner-ink);
 		font: inherit;
@@ -707,10 +739,10 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.55rem;
-		margin-top: 0.8rem;
+		margin-top: 0.85rem;
 	}
 	.primary-action {
-		border-color: var(--planner-accent);
+		border-color: var(--planner-ink);
 		background: var(--planner-accent);
 		color: var(--color-primary-contrast-500);
 	}
