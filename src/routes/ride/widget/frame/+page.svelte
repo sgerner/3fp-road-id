@@ -1,5 +1,7 @@
 <script>
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -12,9 +14,8 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconX from '@lucide/svelte/icons/x';
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import 'leaflet/dist/leaflet.css';
 	import {
 		extractRideCity,
 		extractRideState,
@@ -60,11 +61,6 @@
 	let dayDialog = $state(null);
 	let dayModalTrigger = null;
 	let dayModalCloseButton = $state(null);
-
-	let mapEl = $state(null);
-	let map;
-	let markerLayer;
-	let L;
 
 	const PAGE_SIZE = 8;
 	const config = $derived(data?.config ?? {});
@@ -338,96 +334,26 @@
 		return getRideDifficultyLabel(ride);
 	}
 
-	function validCoords(ride) {
-		return (
-			Number.isFinite(Number(ride?.startLatitude)) && Number.isFinite(Number(ride?.startLongitude))
-		);
-	}
-
-	function markerOptions(ride) {
-		const color = config.difficultyColors ? difficultyColor(primaryDifficulty(ride)) : '#0ea5e9';
-		return {
-			radius: 8,
-			color,
-			weight: 2,
-			opacity: 1,
-			fillColor: color,
-			fillOpacity: 0.65
-		};
-	}
-
-	async function initMap() {
-		if (!mapEl || map) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (error) {
-			console.error('Failed to load map for widget', error);
-			return;
-		}
-
-		if (!mapEl || map) return;
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		markerLayer = L.layerGroup().addTo(map);
-		updateMarkers();
-	}
-
-	function updateMarkers() {
-		if (!map || !markerLayer || !L) return;
-		markerLayer.clearLayers();
-		const points = [];
-
-		for (const ride of filteredRides || []) {
-			if (!validCoords(ride)) continue;
-			const lat = Number(ride.startLatitude);
-			const lng = Number(ride.startLongitude);
-			const marker = L.circleMarker([lat, lng], markerOptions(ride));
-			marker.bindPopup(
-				`<div style="min-width:180px"><strong>${rideTitle(ride)}</strong><br/><small>${formatNext(ride)}</small><br/><a href="/ride/${ride.slug}" target="_blank" rel="noopener noreferrer">View ride →</a></div>`
-			);
-			markerLayer.addLayer(marker);
-			points.push([lat, lng]);
-		}
-
-		if (points.length) {
-			map.fitBounds(L.latLngBounds(points).pad(0.12));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		}
-	});
-
-	$effect(() => {
-		void filteredRides;
-		updateMarkers();
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 120);
-		}
-	});
-
-	onMount(() => {
-		return () => {
-			try {
-				map?.remove();
-				map = null;
-				markerLayer = null;
-			} catch {
-				// ignore
-			}
-		};
-	});
+	const widgetMapItems = $derived(
+		filteredRides
+			.filter((ride) => isValidLatLng(ride?.startLatitude, ride?.startLongitude))
+			.map((ride) => {
+				const diff = primaryDifficulty(ride);
+				return {
+					id: ride.id ?? ride.slug,
+					lat: Number(ride.startLatitude),
+					lng: Number(ride.startLongitude),
+					title: rideTitle(ride),
+					subtitle: formatNext(ride),
+					meta: [ride.startLocationName, ride.group?.name].filter(Boolean).join(' · '),
+					badge: config.difficultyColors ? diff : '',
+					href: `/ride/${ride.slug}`,
+					ctaLabel: 'View ride',
+					external: true,
+					accentColor: config.difficultyColors ? difficultyColor(diff) : '#0ea5e9'
+				};
+			})
+	);
 </script>
 
 <svelte:head>
@@ -758,11 +684,16 @@
 			</div>
 		{:else}
 			<div class="map-wrap">
-				<div bind:this={mapEl} class="map-canvas"></div>
-				<div class="map-hint">
-					<IconMapPin class="h-3.5 w-3.5" />
-					{filteredRides.length} listing{filteredRides.length === 1 ? '' : 's'} on map
-				</div>
+				<DirectoryMapExplorer
+					variant="widget"
+					cluster={false}
+					regionLabel="Ride directory map"
+					items={widgetMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					canvasClass="map-canvas"
+					footerHint={`${filteredRides.length} listing${filteredRides.length === 1 ? '' : 's'} matching current filters`}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -1532,22 +1463,13 @@
 	════════════════════════════════════════════ */
 	.map-wrap {
 		background: var(--widget-surface);
-		border: 1px solid var(--widget-line);
-		border-radius: var(--widget-radius);
+		border: 2px solid var(--widget-line);
+		border-radius: 0;
 		overflow: hidden;
-		box-shadow: var(--widget-shadow);
 	}
-	.map-canvas {
+	.map-wrap :global(.map-canvas) {
 		height: clamp(320px, 55vh, 560px);
-	}
-	.map-hint {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		font-size: 0.76rem;
-		padding: 0.5rem 0.75rem;
-		color: var(--widget-text-muted);
-		border-top: 1px solid var(--widget-line);
+		width: 100%;
 	}
 
 	/* ════════════════════════════════════════════

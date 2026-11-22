@@ -37,27 +37,20 @@
 		limitSeoText,
 		toJsonLd
 	} from '#lib/seo';
-	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
 	// UI state
 	let showSticky = $state(false);
 	let heroSentinel = $state(null);
-
-	// Leaflet map (loaded client-side)
-	let L;
-	let mapEl = $state(null);
-	let map;
-	let marker;
-	let mapInitialized = $state(false);
-	let mapLoadPromise;
 	let instagramFeed = $state(null);
 
 	const group = $derived(data.group ?? null);
 	const selected = $derived(data.selected ?? {});
-	const hasCoords = $derived(Number.isFinite(group?.latitude) && Number.isFinite(group?.longitude));
-	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
-	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
+	const hasCoords = $derived(isValidLatLng(group?.latitude, group?.longitude));
+	const lat = $derived(hasCoords ? Number(group.latitude) : 37.8);
+	const lng = $derived(hasCoords ? Number(group.longitude) : -96);
 
 	const coverImage = $derived(
 		group?.cover_photo_url
@@ -69,53 +62,6 @@
 			? optimizedImageUrl(group.logo_url, { width: 128, height: 128, quality: 68 })
 			: ''
 	);
-
-	async function initMap() {
-		if (!mapEl || map || mapInitialized) return;
-		await new Promise((resolve) => setTimeout(resolve, 100));
-		try {
-			if (!mapLoadPromise) {
-				mapLoadPromise = Promise.all([import('#lib/map/leaflet.css'), import('leaflet')]).then(
-					([, mod]) => {
-						L = mod.default || mod;
-						return L;
-					}
-				);
-			}
-			await mapLoadPromise;
-			await ensureLeafletDefaultIcon(L);
-		} catch (error) {
-			console.error('Failed to load Leaflet', error);
-			return;
-		}
-		const z = 12;
-		map = L.map(mapEl).setView([lat, lng], z);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		marker = L.marker([lat, lng]).addTo(map);
-		mapInitialized = true;
-	}
-
-	onMount(() => {
-		if (!hasCoords || !mapEl) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (!entries[0]?.isIntersecting) return;
-				observer.disconnect();
-				void initMap();
-			},
-			{ rootMargin: '1500px' }
-		);
-		observer.observe(mapEl);
-	});
-
-	$effect(() => {
-		if (mapEl && !map && L) {
-			requestAnimationFrame(() => initMap());
-		}
-	});
 
 	// Sticky subheader observer
 	onMount(() => {
@@ -1393,9 +1339,16 @@
 			</div>
 
 			{#if hasCoords}
-				<div class="border-surface-950 border-[3px]">
-					<div bind:this={mapEl} class="z-10 h-60 w-full"></div>
-				</div>
+				<AccessibleMapShell
+					regionLabel={`Location map for ${group?.name || 'cycling group'}`}
+					lazy
+					lazyRootMargin="600px"
+					center={[lat, lng]}
+					zoom={12}
+					staticMarker={{ lat, lng }}
+					shellClass="border-surface-950 border-[3px]"
+					canvasClass="z-10 h-60 w-full"
+				/>
 			{/if}
 		</aside>
 	</section>

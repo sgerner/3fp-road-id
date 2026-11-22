@@ -1,7 +1,9 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -16,7 +18,6 @@
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
-	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
@@ -30,11 +31,6 @@
 	let calendarReference = $state(startOfMonth(new Date()));
 	let calendarMonthTouched = $state(false);
 	let rideListEl = $state(null);
-
-	let mapEl = $state(null);
-	let map;
-	let clusterLayer;
-	let L;
 
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
 	const difficultyOptions = $derived(
@@ -221,96 +217,23 @@
 		return getRideImage(ride);
 	}
 
-	let mapLoadPromise;
-
-	async function initMap() {
-		if (!mapEl || map) return;
-
-		try {
-			if (!mapLoadPromise) {
-				mapLoadPromise = (async () => {
-					await import('#lib/map/leaflet.css');
-					const mod = await import('leaflet');
-					L = mod.default || mod;
-					// markercluster is a legacy UMD bundle and reads Leaflet from the global scope.
-					globalThis.L = L;
-					await import('leaflet.markercluster');
-					return L;
-				})();
-			}
-			await mapLoadPromise;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet or clustering', e);
-			return;
-		}
-
-		if (!mapEl || map) return; // verify after await
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		clusterLayer = L.markerClusterGroup();
-		map.addLayer(clusterLayer);
-		updateMarkers();
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		} else if (view !== 'map' && map) {
-			map.remove();
-			map = null;
-			clusterLayer = null;
-		}
-	});
-
-	onMount(() => {
-		return () => {
-			try {
-				map?.remove();
-				map = null;
-				clusterLayer = null;
-			} catch {}
-		};
-	});
-
-	function validCoords(r) {
-		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
-	}
-
-	function updateMarkers() {
-		if (!map || !clusterLayer) return;
-		clusterLayer.clearLayers();
-		const pts = [];
-
-		for (const r of filteredRides || []) {
-			if (!validCoords(r)) continue;
-			const lat = Number(r.startLatitude);
-			const lng = Number(r.startLongitude);
-			const m = L.marker([lat, lng]);
-			const timeStr = formatNext(r);
-			m.bindPopup(
-				`<div style="min-width:180px"><strong>${r.title}</strong><br/><small>${timeStr}</small><br/><a href="/ride/${r.slug}">View ride</a></div>`
-			);
-			clusterLayer.addLayer(m);
-			pts.push([lat, lng]);
-		}
-
-		if (pts.length) {
-			const b = L.latLngBounds(pts);
-			map.fitBounds(b.pad(0.1));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		void filteredRides;
-		updateMarkers();
-	});
+	const rideMapItems = $derived(
+		filteredRides
+			.filter((r) => isValidLatLng(r?.startLatitude, r?.startLongitude))
+			.map((r) => ({
+				id: r.id ?? r.slug,
+				lat: Number(r.startLatitude),
+				lng: Number(r.startLongitude),
+				title: r.title || 'Community ride',
+				subtitle: formatNext(r),
+				meta: [r.startLocationName, r.group?.name ? `Hosted by ${r.group.name}` : '']
+					.filter(Boolean)
+					.join(' · '),
+				badge: (r.difficultyLevels ?? [])[0]?.name || '',
+				href: `/ride/${r.slug}`,
+				ctaLabel: 'View ride'
+			}))
+	);
 
 	$effect(() => {
 		if (browser && !['list', 'calendar', 'map'].includes(view)) {
@@ -331,12 +254,6 @@
 			if (!currentMonthHasRide) {
 				calendarReference = earliestRideMonth;
 			}
-		}
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 180);
 		}
 	});
 </script>
@@ -962,14 +879,17 @@
 				</table>
 			</div>
 		{:else if view === 'map'}
-			<div transition:slide class="border-surface-50 border-[3px]">
-				<div bind:this={mapEl} class="h-[480px] w-full"></div>
-				<div
-					class="bg-surface-900 text-surface-300 border-surface-50 border-t-[3px] px-6 py-4 text-sm font-medium"
-				>
-					Zoom and click markers to preview ride details. Listings without mapped coordinates are
-					hidden from the map view.
-				</div>
+			<div transition:slide>
+				<DirectoryMapExplorer
+					regionLabel="Community ride locations map"
+					items={rideMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					cluster
+					shellClass="border-surface-50 border-[3px]"
+					canvasClass="h-[480px] w-full"
+					footerHint="Activate a ride pin or cluster to inspect details here. Listings without mapped coordinates are hidden from the map view."
+				/>
 			</div>
 		{/if}
 	</section>
