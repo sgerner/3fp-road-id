@@ -40,7 +40,18 @@
 	import VolunteerQuestionFields from '#lib/components/volunteer/VolunteerQuestionFields.svelte';
 	import VolunteerContactFields from '#lib/components/volunteer/VolunteerContactFields.svelte';
 	import VolunteerSelectedShifts from '#lib/components/volunteer/VolunteerSelectedShifts.svelte';
-	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
+	import SmsInlineSection from '#lib/components/sms/SmsInlineSection.svelte';
+	import {
+		SMS_INLINE_DEFAULT_CONSENT_TEXT,
+		VOLUNTEER_SIGNUP_SMS_CATEGORIES,
+		createSingleFlightPreferencesLoader,
+		emptySmsPreferences,
+		getInlineSmsMode,
+		getSelectedNewCategoryKeys,
+		resolveInlineConsentSource,
+		saveInlineSmsPreferences,
+		validateInlineSmsInput
+	} from '#lib/sms/inlineEnrollment';
 	import { slide, fade } from 'svelte/transition';
 	import {
 		buildAbsoluteUrl,
@@ -374,7 +385,54 @@
 		const nextDetails = { ...sharedDetails, [key]: value };
 		sharedDetails = nextDetails;
 		applySharedDetailsToForms(nextDetails);
+		if (key === 'volunteerPhone') {
+			volunteerPhoneEdited = true;
+			volunteerPhoneError = '';
+			volunteerSmsError = '';
+		}
 	}
+
+	const smsPreferencesLoader = createSingleFlightPreferencesLoader();
+	let smsLoading = $state(false);
+	let smsPreferences = $state(emptySmsPreferences());
+	let smsConsentText = $state(SMS_INLINE_DEFAULT_CONSENT_TEXT);
+	let volunteerPhoneEdited = $state(false);
+	let volunteerPhoneError = $state('');
+	let volunteerSmsSelected = $state({ volunteer_reminders: false, admin_messages: false });
+	let volunteerSmsConsent = $state(false);
+	let volunteerSmsConsentError = $state('');
+	let volunteerSmsError = $state('');
+	let volunteerSmsSuccess = $state('');
+	let volunteerSmsSaving = $state(false);
+	let volunteerSmsRetryNeeded = $state(false);
+	const volunteerSmsMode = $derived(
+		getInlineSmsMode(smsPreferences, VOLUNTEER_SIGNUP_SMS_CATEGORIES)
+	);
+	const selectedVolunteerSmsKeys = $derived(
+		getSelectedNewCategoryKeys(volunteerSmsMode.availableCategories, volunteerSmsSelected)
+	);
+
+	onMount(async () => {
+		if (!user?.id || eventFinished) return;
+		smsLoading = true;
+		try {
+			const loaded = await smsPreferencesLoader.load();
+			smsPreferences = loaded.preferences;
+			smsConsentText = loaded.consentText;
+			if (
+				!volunteerPhoneEdited &&
+				!(sharedDetails.volunteerPhone || '').trim() &&
+				loaded.preferences.phone
+			) {
+				updateSharedDetail('volunteerPhone', loaded.preferences.phone);
+				volunteerPhoneEdited = false;
+			}
+		} catch {
+			// Keep default SMS state so shift signup stays available.
+		} finally {
+			smsLoading = false;
+		}
+	});
 
 	function updateEventQuestionResponse(questionId, value) {
 		eventQuestionResponses = { ...eventQuestionResponses, [questionId]: value };
@@ -785,6 +843,30 @@
 			};
 			return;
 		}
+
+		volunteerPhoneError = '';
+		volunteerSmsConsentError = '';
+		volunteerSmsError = '';
+		volunteerSmsSuccess = '';
+
+		if (selectedVolunteerSmsKeys.length > 0) {
+			const smsValidation = validateInlineSmsInput({
+				selectedKeys: selectedVolunteerSmsKeys,
+				phone: sharedDetails.volunteerPhone,
+				consentChecked: volunteerSmsConsent
+			});
+			if (!smsValidation.ok) {
+				volunteerPhoneError = smsValidation.phoneError;
+				volunteerSmsConsentError = smsValidation.consentError;
+				bulkSubmit = {
+					loading: false,
+					success: '',
+					error: smsValidation.error
+				};
+				return;
+			}
+		}
+
 		bulkSubmit = { loading: true, success: '', error: '' };
 
 		const allCreatedAssignmentIds = [];
@@ -846,12 +928,93 @@
 				success: "Thanks for volunteering! We'll be in touch soon.",
 				error: ''
 			};
+
+			if (selectedVolunteerSmsKeys.length > 0) {
+				volunteerSmsSaving = true;
+				try {
+					const smsResult = await saveInlineSmsPreferences({
+						phone: sharedDetails.volunteerPhone,
+						selectedKeys: selectedVolunteerSmsKeys,
+						source: resolveInlineConsentSource('volunteer-signup', selectedVolunteerSmsKeys),
+						registrationLabel: 'shift signup'
+					});
+					if (smsResult.ok) {
+						smsPreferences = smsResult.preferences;
+						smsConsentText = smsResult.consentText || smsConsentText;
+						smsPreferencesLoader.setCached({
+							preferences: smsPreferences,
+							consentText: smsConsentText
+						});
+						volunteerSmsSelected = { volunteer_reminders: false, admin_messages: false };
+						volunteerSmsConsent = false;
+						volunteerSmsRetryNeeded = false;
+						volunteerSmsSuccess = 'Text updates are enabled for your volunteer shifts.';
+					} else {
+						volunteerSmsRetryNeeded = true;
+						volunteerSmsError = smsResult.retryMessage;
+						if (smsResult.phoneInvalid) {
+							volunteerPhoneError = smsResult.error;
+						}
+					}
+				} finally {
+					volunteerSmsSaving = false;
+				}
+			}
 		} catch (err) {
 			bulkSubmit = {
 				loading: false,
 				success: '',
 				error: err?.message || 'Unable to save signups. Please try again.'
 			};
+		}
+	}
+
+	async function retryVolunteerSms() {
+		if (volunteerSmsSaving) return;
+		volunteerPhoneError = '';
+		volunteerSmsConsentError = '';
+		volunteerSmsError = '';
+
+		const validation = validateInlineSmsInput({
+			selectedKeys: selectedVolunteerSmsKeys,
+			phone: sharedDetails.volunteerPhone,
+			consentChecked: volunteerSmsConsent,
+			requireSelection: true
+		});
+		if (!validation.ok) {
+			volunteerPhoneError = validation.phoneError;
+			volunteerSmsConsentError = validation.consentError;
+			volunteerSmsError = validation.error;
+			return;
+		}
+
+		volunteerSmsSaving = true;
+		try {
+			const smsResult = await saveInlineSmsPreferences({
+				phone: sharedDetails.volunteerPhone,
+				selectedKeys: selectedVolunteerSmsKeys,
+				source: resolveInlineConsentSource('volunteer-signup', selectedVolunteerSmsKeys),
+				registrationLabel: 'shift signup'
+			});
+			if (!smsResult.ok) {
+				volunteerSmsError = smsResult.retryMessage;
+				if (smsResult.phoneInvalid) {
+					volunteerPhoneError = smsResult.error;
+				}
+				return;
+			}
+			smsPreferences = smsResult.preferences;
+			smsConsentText = smsResult.consentText || smsConsentText;
+			smsPreferencesLoader.setCached({
+				preferences: smsPreferences,
+				consentText: smsConsentText
+			});
+			volunteerSmsSelected = { volunteer_reminders: false, admin_messages: false };
+			volunteerSmsConsent = false;
+			volunteerSmsRetryNeeded = false;
+			volunteerSmsSuccess = 'Text updates are enabled for your volunteer shifts.';
+		} finally {
+			volunteerSmsSaving = false;
 		}
 	}
 
@@ -1743,6 +1906,51 @@
 							View my shifts
 						</a>
 					</div>
+					{#if volunteerSmsSuccess}
+						<p
+							class="bg-surface-950 text-primary-500 m-0 px-4 py-3 text-xs font-black tracking-wide uppercase"
+							role="status"
+						>
+							{volunteerSmsSuccess}
+						</p>
+					{/if}
+					{#if volunteerSmsRetryNeeded}
+						<div class="border-surface-950 flex flex-col gap-4 border-t-[3px] pt-6">
+							<SmsInlineSection
+								categories={VOLUNTEER_SIGNUP_SMS_CATEGORIES}
+								preferences={smsPreferences}
+								consentText={smsConsentText}
+								loading={smsLoading}
+								saving={volunteerSmsSaving}
+								tone="lemon"
+								eyebrow="Finish optional text setup"
+								heading="Retry SMS enrollment"
+								selected={volunteerSmsSelected}
+								phone={sharedDetails.volunteerPhone ?? ''}
+								consentChecked={volunteerSmsConsent}
+								showPhoneInput={true}
+								phoneError={volunteerPhoneError}
+								consentError={volunteerSmsConsentError}
+								errorMessage={volunteerSmsError}
+								standalone={true}
+								submitLabel="Retry SMS signup"
+								savingLabel="Retrying…"
+								onToggleCategory={(key, checked) => {
+									volunteerSmsSelected = { ...volunteerSmsSelected, [key]: checked };
+									volunteerPhoneError = '';
+									volunteerSmsConsentError = '';
+									volunteerSmsError = '';
+								}}
+								onPhoneChange={(value) => updateSharedDetail('volunteerPhone', value)}
+								onConsentChange={(checked) => {
+									volunteerSmsConsent = checked;
+									volunteerSmsConsentError = '';
+									volunteerSmsError = '';
+								}}
+								onSubmit={retryVolunteerSms}
+							/>
+						</div>
+					{/if}
 				</div>
 			</section>
 		{/if}
@@ -2028,21 +2236,6 @@
 						</p>
 					</div>
 
-					<div class="flex flex-col gap-3">
-						<SmsContextOptIn
-							category="volunteer_reminders"
-							source="volunteer-signup"
-							title="Text me reminders for my volunteer shifts"
-							description="Get concise reminders for shifts you select at this event."
-						/>
-						<SmsContextOptIn
-							category="admin_messages"
-							source="volunteer-signup-admin-messages"
-							title="Let volunteer organizers text me about my shifts"
-							description="Receive and reply to messages from organizers about volunteer shifts you select."
-						/>
-					</div>
-
 					{#if selectedOpportunities.length}
 						<div
 							class="border-surface-950 flex flex-col gap-6 border-t-[3px] pt-6"
@@ -2101,7 +2294,44 @@
 								These contact details apply to every role you sign up for above.
 							</p>
 						</div>
-						<VolunteerContactFields values={sharedDetails} onChange={updateSharedDetail} />
+						<VolunteerContactFields
+							values={sharedDetails}
+							onChange={updateSharedDetail}
+							disabled={bulkSubmit.loading}
+							phoneRequired={selectedOpportunities.length > 0 &&
+								selectedVolunteerSmsKeys.length > 0}
+							phoneError={volunteerPhoneError}
+						/>
+						{#if selectedOpportunities.length > 0}
+							<div class="border-surface-950 border-t-2 pt-5" transition:slide>
+								<SmsInlineSection
+									categories={VOLUNTEER_SIGNUP_SMS_CATEGORIES}
+									preferences={smsPreferences}
+									consentText={smsConsentText}
+									loading={smsLoading}
+									saving={bulkSubmit.loading}
+									tone="violet"
+									eyebrow="Optional text updates"
+									selected={volunteerSmsSelected}
+									phone={sharedDetails.volunteerPhone ?? ''}
+									consentChecked={volunteerSmsConsent}
+									showPhoneInput={false}
+									consentError={volunteerSmsConsentError}
+									errorMessage={volunteerSmsError}
+									onToggleCategory={(key, checked) => {
+										volunteerSmsSelected = { ...volunteerSmsSelected, [key]: checked };
+										volunteerPhoneError = '';
+										volunteerSmsConsentError = '';
+										volunteerSmsError = '';
+									}}
+									onConsentChange={(checked) => {
+										volunteerSmsConsent = checked;
+										volunteerSmsConsentError = '';
+										volunteerSmsError = '';
+									}}
+								/>
+							</div>
+						{/if}
 						{#if eventQuestions.length}
 							<VolunteerQuestionFields
 								questions={eventQuestions}
