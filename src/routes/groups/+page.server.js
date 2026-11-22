@@ -1,206 +1,21 @@
 import { supabase } from '#lib/supabaseClient';
-
-const SEARCH_STOP_WORDS = new Set([
-	'a',
-	'an',
-	'and',
-	'are',
-	'as',
-	'at',
-	'for',
-	'from',
-	'in',
-	'is',
-	'of',
-	'on',
-	'or',
-	'the',
-	'to',
-	'with'
-]);
-
-const SEARCH_SYNONYM_GROUPS = [
-	['bike', 'bikes', 'bicycle', 'bicycles', 'biking', 'cycling', 'cyclist', 'cyclists'],
-	['ride', 'rides', 'riding', 'rider', 'riders', 'peloton'],
-	['club', 'clubs', 'group', 'groups', 'community', 'communities', 'team', 'teams'],
-	['advocacy', 'advocate', 'advocates', 'activism', 'campaign'],
-	['mountain', 'mtb', 'trail'],
-	['road', 'gravel', 'commute', 'commuter', 'commuting']
-];
+import { searchGeocode } from '#lib/server/geocoding';
+import {
+	applyGroupSearchFilter,
+	expandStateCandidates,
+	isPostalCodeQuery,
+	resolvePostalGeocodeBounds
+} from '#lib/server/groupSearch';
 
 const SEARCH_COLUMN_LIST =
 	'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude';
 
-const SEARCH_SYNONYMS = (() => {
-	const map = new Map();
-	for (const group of SEARCH_SYNONYM_GROUPS) {
-		const normalized = group.map((term) => normalizeSearchText(term)).filter(Boolean);
-		for (const term of normalized) {
-			if (!map.has(term)) map.set(term, new Set());
-			const set = map.get(term);
-			for (const candidate of normalized) set.add(candidate);
-		}
-	}
-	return map;
-})();
-
-function normalizeSearchText(text) {
-	return (text || '')
-		.toString()
-		.toLowerCase()
-		.normalize('NFKD')
-		.replace(/[\u0300-\u036f]/g, '')
-		.replace(/[^a-z0-9\s]/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim();
-}
-
-function tokenizeSearch(text) {
-	return normalizeSearchText(text)
-		.split(' ')
-		.map((token) => token.trim())
-		.filter((token) => token.length >= 2 && !SEARCH_STOP_WORDS.has(token));
-}
-
-function expandTokenVariants(token) {
-	const normalized = normalizeSearchText(token);
-	if (!normalized) return [];
-	const out = new Set([normalized]);
-	for (const key of [normalized]) {
-		if (!key) continue;
-		for (const synonym of SEARCH_SYNONYMS.get(key) || []) out.add(synonym);
-	}
-	return Array.from(out).filter(Boolean);
-}
-
-function buildSearchQueryText(input) {
-	const tokens = tokenizeSearch(input);
-	if (!tokens.length) return normalizeSearchText(input);
-	const tokenExpressions = tokens.map((token) => {
-		const variants = expandTokenVariants(token)
-			.filter((value) => value.length >= 2)
-			.slice(0, 8);
-		if (!variants.length) return '';
-		if (variants.length === 1) return variants[0];
-		return `(${variants.join(' OR ')})`;
-	});
-	return tokenExpressions.filter(Boolean).join(' ');
-}
-
-export const load = async ({ url }) => {
+export const load = async ({ url, fetch }) => {
 	const q = (url.searchParams.get('q') || '').trim();
 	const country = (url.searchParams.get('country') || '').trim().toUpperCase();
 	const state_region = (url.searchParams.get('state_region') || '').trim();
 	const page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
 	const limit = parseInt(url.searchParams.get('limit') || '24', 10) || 24;
-
-	// Flexible state/region candidates (abbrev <-> full names)
-	const US_STATES = {
-		AL: 'Alabama',
-		AK: 'Alaska',
-		AZ: 'Arizona',
-		AR: 'Arkansas',
-		CA: 'California',
-		CO: 'Colorado',
-		CT: 'Connecticut',
-		DE: 'Delaware',
-		FL: 'Florida',
-		GA: 'Georgia',
-		HI: 'Hawaii',
-		ID: 'Idaho',
-		IL: 'Illinois',
-		IN: 'Indiana',
-		IA: 'Iowa',
-		KS: 'Kansas',
-		KY: 'Kentucky',
-		LA: 'Louisiana',
-		ME: 'Maine',
-		MD: 'Maryland',
-		MA: 'Massachusetts',
-		MI: 'Michigan',
-		MN: 'Minnesota',
-		MS: 'Mississippi',
-		MO: 'Missouri',
-		MT: 'Montana',
-		NE: 'Nebraska',
-		NV: 'Nevada',
-		NH: 'New Hampshire',
-		NJ: 'New Jersey',
-		NM: 'New Mexico',
-		NY: 'New York',
-		NC: 'North Carolina',
-		ND: 'North Dakota',
-		OH: 'Ohio',
-		OK: 'Oklahoma',
-		OR: 'Oregon',
-		PA: 'Pennsylvania',
-		RI: 'Rhode Island',
-		SC: 'South Carolina',
-		SD: 'South Dakota',
-		TN: 'Tennessee',
-		TX: 'Texas',
-		UT: 'Utah',
-		VT: 'Vermont',
-		VA: 'Virginia',
-		WA: 'Washington',
-		WV: 'West Virginia',
-		WI: 'Wisconsin',
-		WY: 'Wyoming',
-		DC: 'District of Columbia'
-	};
-	const CA_PROVINCES = {
-		AB: 'Alberta',
-		BC: 'British Columbia',
-		MB: 'Manitoba',
-		NB: 'New Brunswick',
-		NL: 'Newfoundland and Labrador',
-		NT: 'Northwest Territories',
-		NS: 'Nova Scotia',
-		NU: 'Nunavut',
-		ON: 'Ontario',
-		PE: 'Prince Edward Island',
-		QC: 'Quebec',
-		SK: 'Saskatchewan',
-		YT: 'Yukon'
-	};
-	const AU_STATES = {
-		ACT: 'Australian Capital Territory',
-		NSW: 'New South Wales',
-		NT: 'Northern Territory',
-		QLD: 'Queensland',
-		SA: 'South Australia',
-		TAS: 'Tasmania',
-		VIC: 'Victoria',
-		WA: 'Western Australia'
-	};
-
-	function expandStateCandidates(cn, input) {
-		const val = (input || '').trim();
-		if (!val) return [];
-		const up = val.toUpperCase();
-		const list = [];
-		function add(x) {
-			if (x && !list.includes(x)) list.push(x);
-		}
-		add(val);
-		add(up);
-		const tcase = val.replace(
-			/\w\S*/g,
-			(w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-		);
-		add(tcase);
-		const maps = [];
-		if (!cn || cn === 'US') maps.push(US_STATES);
-		if (!cn || cn === 'CA') maps.push(CA_PROVINCES);
-		if (!cn || cn === 'AU') maps.push(AU_STATES);
-		for (const MAP of maps) {
-			if (MAP[up]) (add(MAP[up]), add(MAP[up].toUpperCase()));
-			for (const [code, name] of Object.entries(MAP)) {
-				if (name.toLowerCase() === val.toLowerCase()) (add(code), add(code.toUpperCase()));
-			}
-		}
-		return list;
-	}
 
 	const skill_level_ids = url.searchParams
 		.getAll('skill_level_ids')
@@ -308,13 +123,10 @@ export const load = async ({ url }) => {
 		};
 	}
 
-	function applyCommonFilters(qBuilder, { includeSearch = true } = {}) {
+	function applyCommonFilters(qBuilder, { includeSearch = true, postalBounds = null } = {}) {
 		let query = qBuilder;
 		if (includeSearch && q) {
-			const searchQuery = buildSearchQueryText(q);
-			if (searchQuery) {
-				query = query.textSearch('search_document', searchQuery, { type: 'websearch' });
-			}
+			query = applyGroupSearchFilter(query, { q, country, postalBounds });
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
@@ -354,15 +166,16 @@ export const load = async ({ url }) => {
 		return map;
 	}
 
-	let listQuery = supabase
-		.from('groups')
-		.select(SEARCH_COLUMN_LIST, { count: 'exact' })
-		.order('name')
-		.range((page - 1) * limit, page * limit - 1);
+	function buildListQuery({ postalBounds = null } = {}) {
+		const query = supabase
+			.from('groups')
+			.select(SEARCH_COLUMN_LIST, { count: 'exact' })
+			.order('name')
+			.range((page - 1) * limit, page * limit - 1);
+		return applyCommonFilters(query, { includeSearch: true, postalBounds });
+	}
 
-	listQuery = applyCommonFilters(listQuery, { includeSearch: true });
-
-	function buildMapChunkQuery(from, to, includeCount = false) {
+	function buildMapChunkQuery(from, to, includeCount = false, postalBounds = null) {
 		let query = supabase
 			.from('groups')
 			.select(
@@ -373,11 +186,13 @@ export const load = async ({ url }) => {
 			.not('longitude', 'is', null)
 			.order('id')
 			.range(from, to);
-		if (hasActiveFilters) query = applyCommonFilters(query, { includeSearch: true });
+		if (hasActiveFilters) {
+			query = applyCommonFilters(query, { includeSearch: true, postalBounds });
+		}
 		return query;
 	}
 
-	async function fetchAllMapPoints() {
+	async function fetchAllMapPoints(postalBounds = null) {
 		const pageSize = 1000;
 		let from = 0;
 		let total = null;
@@ -387,7 +202,8 @@ export const load = async ({ url }) => {
 			const { data, error, count } = await buildMapChunkQuery(
 				from,
 				from + pageSize - 1,
-				includeCount
+				includeCount,
+				postalBounds
 			);
 			if (error) return { data: [], error, count: 0 };
 			if (includeCount && Number.isFinite(count)) total = count;
@@ -400,11 +216,31 @@ export const load = async ({ url }) => {
 		return { data: points, error: null, count: Number.isFinite(total) ? total : points.length };
 	}
 
-	const [groupsRes, mapRes, facetResults] = await Promise.all([
-		listQuery,
+	let [groupsRes, mapRes, facetResults] = await Promise.all([
+		buildListQuery(),
 		fetchAllMapPoints(),
 		fetchFacets()
 	]);
+
+	if (
+		q &&
+		!groupsRes.error &&
+		(groupsRes.count ?? (groupsRes.data || []).length) === 0 &&
+		isPostalCodeQuery(q, country)
+	) {
+		const postalBounds = await resolvePostalGeocodeBounds(q, {
+			country,
+			geocode: searchGeocode,
+			fetchImpl: fetch
+		});
+		if (postalBounds) {
+			[groupsRes, mapRes] = await Promise.all([
+				buildListQuery({ postalBounds }),
+				fetchAllMapPoints(postalBounds)
+			]);
+		}
+	}
+
 	const [levelsRes, typesAllRes, afRes, rdRes] = facetResults;
 
 	const groups = groupsRes.data || [];

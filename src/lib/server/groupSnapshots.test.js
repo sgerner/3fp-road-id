@@ -103,7 +103,11 @@ function createMockSupabase({ role = 'anon', handlers = {}, onQuery = null } = {
 	};
 }
 
-function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-uuid-1' } = {}) {
+function buildSampleGroupFixtures({
+	slug = 'tempe-bike-club',
+	groupId = 'group-uuid-1',
+	membershipAccessMode = 'public'
+} = {}) {
 	const groupRow = {
 		id: groupId,
 		slug,
@@ -219,13 +223,18 @@ function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-u
 			const slugFilter = state.filters.find(
 				(f) => f.op === 'eq' && f.column === 'groups.slug'
 			)?.value;
-			if (slugFilter !== slug) return { data: null, error: null };
+			const accessModeFilter = state.filters.find(
+				(f) => f.op === 'eq' && f.column === 'access_mode'
+			)?.value;
+			if (slugFilter !== slug || (accessModeFilter && membershipAccessMode !== accessModeFilter)) {
+				return { data: null, error: null };
+			}
 			return {
 				data: {
 					id: 'prog-1',
 					group_id: groupId,
 					enabled: true,
-					access_mode: 'public',
+					access_mode: membershipAccessMode,
 					cta_label: 'Follow Club',
 					contribution_mode: 'donation',
 					default_tier_id: 'tier-free-1',
@@ -247,7 +256,9 @@ function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-u
 					allow_custom_amount: false,
 					is_active: true,
 					is_default: true,
-					stripe_account_id: 'acct_secret_internal'
+					stripe_account_id: 'acct_secret_internal',
+					stripe_price_id: 'price_secret_internal',
+					stripe_product_id: 'prod_secret_internal'
 				}
 			],
 			error: null
@@ -259,7 +270,8 @@ function buildSampleGroupFixtures({ slug = 'tempe-bike-club', groupId = 'group-u
 					program_id: 'prog-1',
 					field_type: 'text',
 					label: 'Favorite bike',
-					active: true
+					active: true,
+					private_notes: 'must not be returned'
 				}
 			],
 			error: null
@@ -351,7 +363,10 @@ test('cold snapshot assembles public sections in parallel, deep-freezes data, an
 	assert.equal(snapshot.membership_program?.cta_label, 'Follow Club');
 	assert.equal(snapshot.membership_tiers.length, 1);
 	assert.equal('stripe_account_id' in snapshot.membership_tiers[0], false);
+	assert.equal('stripe_price_id' in snapshot.membership_tiers[0], false);
+	assert.equal('stripe_product_id' in snapshot.membership_tiers[0], false);
 	assert.equal(snapshot.membership_form_fields.length, 1);
+	assert.equal('private_notes' in snapshot.membership_form_fields[0], false);
 	assert.equal(snapshot.group_news_posts.length, 1);
 	assert.equal(snapshot.group_news_posts[0].preview_text, 'Meet at 6pm at Daley Park!');
 	assert.equal('created_by_user_id' in snapshot.group_news_posts[0], false);
@@ -378,6 +393,14 @@ test('cold snapshot assembles public sections in parallel, deep-freezes data, an
 	assert.equal(
 		serviceQueries.some((q) => q.table === 'group_members'),
 		true
+	);
+	assert.notEqual(
+		serviceQueries.find((q) => q.table === 'group_membership_tiers')?.selectArgs?.columns,
+		'*'
+	);
+	assert.notEqual(
+		serviceQueries.find((q) => q.table === 'group_membership_form_fields')?.selectArgs?.columns,
+		'*'
 	);
 
 	assertDeeplyFrozen(snapshot);
@@ -604,6 +627,64 @@ test('warm snapshot is shared across anonymous and signed-in viewers while isola
 	assert.equal(secondAnonData.is_owner, false);
 	assert.equal(secondAnonData.my_memberships.length, 0);
 	assert.equal(secondAnonData.volunteer_events[1].can_manage, false);
+});
+
+test('private request membership metadata is exposed only in the signed-in viewer overlay', async () => {
+	clearGroupSnapshotCache();
+	const { publicHandlers, serviceHandlers } = buildSampleGroupFixtures({
+		slug: 'private-club',
+		groupId: 'group-private',
+		membershipAccessMode: 'private_request'
+	});
+	const publicSupabase = createMockSupabase({ role: 'anon', handlers: publicHandlers });
+	const serviceSupabase = createMockSupabase({ role: 'service_role', handlers: serviceHandlers });
+	const signedIn = await loadGroupProfilePageData({
+		params: { slug: 'private-club' },
+		cookies: {},
+		url: new URL('https://3fp.org/groups/private-club'),
+		parent: async () => ({ groupsNavUser: { id: 'member-1' }, isAdmin: false }),
+		setHeaders: () => {},
+		publicSupabase,
+		serviceSupabase,
+		getRequestSupabase: () => createMockSupabase({ role: 'authenticated' }),
+		resolveSessionImpl: async () => ({
+			user: { id: 'member-1' },
+			accessToken: 'verified-token'
+		}),
+		getMembershipProgramImpl: async ({ includeInactive }) => {
+			assert.equal(includeInactive, false);
+			return {
+				ok: true,
+				data: {
+					program: {
+						id: 'private-prog',
+						group_id: 'group-private',
+						enabled: true,
+						access_mode: 'private_request',
+						cta_label: 'Request to join',
+						policy_markdown: 'private policy'
+					}
+				}
+			};
+		}
+	});
+
+	assert.equal(signedIn.membership_program?.access_mode, 'private_request');
+	assert.equal(signedIn.membership_program?.policy_markdown, null);
+
+	const anonymous = await loadGroupProfilePageData({
+		params: { slug: 'private-club' },
+		cookies: {},
+		url: new URL('https://3fp.org/groups/private-club'),
+		parent: async () => ({ groupsNavUser: null, isAdmin: false }),
+		setHeaders: () => {},
+		publicSupabase,
+		serviceSupabase,
+		getMembershipProgramImpl: async () => {
+			assert.fail('anonymous viewers must not load private membership metadata');
+		}
+	});
+	assert.equal(anonymous.membership_program, null);
 });
 
 test('missing slug throws HTTP 404 and evicts null entries immediately', async () => {

@@ -4,6 +4,12 @@ import { normalizeMicrositeSlug } from '#lib/microsites/host.js';
 import { publicAccountingReport } from '#lib/server/groupAccountingPublic.js';
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus.js';
 import {
+	PUBLIC_MEMBERSHIP_FORM_FIELD_COLUMNS,
+	PUBLIC_MEMBERSHIP_PROGRAM_COLUMNS,
+	PUBLIC_MEMBERSHIP_TIER_COLUMNS,
+	sanitizeMembershipTierForViewer
+} from '#lib/server/groupMembershipPublic.js';
+import {
 	buildGroupPath,
 	buildGroupRedirectLocation,
 	cleanGroupSlug
@@ -255,10 +261,11 @@ async function loadPublicMembershipProgramBySlug(serviceSupabase, normalizedSlug
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_programs')
-			.select('*, groups!inner(slug,is_published)')
+			.select(`${PUBLIC_MEMBERSHIP_PROGRAM_COLUMNS}, groups!inner(slug,is_published)`)
 			.eq('groups.slug', normalizedSlug)
 			.eq('groups.is_published', true)
 			.eq('enabled', true)
+			.eq('access_mode', 'public')
 			.maybeSingle();
 		if (error) {
 			console.warn('Failed to load public membership program for group snapshot', error);
@@ -290,11 +297,14 @@ function sanitizePublicMembershipProgram(program) {
 	};
 }
 
-function sanitizePublicMembershipTier(tier) {
-	if (!tier) return null;
-	const sanitized = { ...tier };
-	delete sanitized.stripe_account_id;
-	return sanitized;
+function pickPublicColumns(row, columns) {
+	if (!row || typeof row !== 'object') return null;
+	return Object.fromEntries(
+		columns
+			.split(',')
+			.filter((column) => row[column] !== undefined)
+			.map((column) => [column, row[column]])
+	);
 }
 
 async function loadPublicMembershipTiers(serviceSupabase, program) {
@@ -304,7 +314,7 @@ async function loadPublicMembershipTiers(serviceSupabase, program) {
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_tiers')
-			.select('*')
+			.select(PUBLIC_MEMBERSHIP_TIER_COLUMNS)
 			.eq('program_id', program.id)
 			.eq('is_active', true)
 			.order('sort_order', { ascending: true })
@@ -315,7 +325,7 @@ async function loadPublicMembershipTiers(serviceSupabase, program) {
 		}
 		return (data ?? [])
 			.filter((tier) => tier?.is_active !== false)
-			.map(sanitizePublicMembershipTier)
+			.map((tier) => sanitizeMembershipTierForViewer(tier))
 			.filter(Boolean);
 	} catch (err) {
 		console.warn('Failed to load public membership tiers for group snapshot', err);
@@ -330,7 +340,7 @@ async function loadPublicMembershipFormFields(serviceSupabase, program) {
 	try {
 		const { data, error } = await serviceSupabase
 			.from('group_membership_form_fields')
-			.select('*')
+			.select(PUBLIC_MEMBERSHIP_FORM_FIELD_COLUMNS)
 			.eq('program_id', program.id)
 			.eq('active', true)
 			.order('sort_order', { ascending: true })
@@ -339,7 +349,10 @@ async function loadPublicMembershipFormFields(serviceSupabase, program) {
 			console.warn('Failed to load public membership form fields for group snapshot', error);
 			return [];
 		}
-		return (data ?? []).filter((field) => field?.active !== false);
+		return (data ?? [])
+			.filter((field) => field?.active !== false)
+			.map((field) => pickPublicColumns(field, PUBLIC_MEMBERSHIP_FORM_FIELD_COLUMNS))
+			.filter(Boolean);
 	} catch (err) {
 		console.warn('Failed to load public membership form fields for group snapshot', err);
 		return [];
@@ -976,7 +989,7 @@ export function applyGroupViewerOverlay(snapshot, overlay = null) {
 		session_user_id: sessionUserId,
 		can_edit: canEdit,
 		donation_enabled: snapshot.donation_enabled,
-		membership_program: snapshot.membership_program,
+		membership_program: viewer.membership_program ?? snapshot.membership_program,
 		membership_tiers: snapshot.membership_tiers,
 		membership_form_fields: snapshot.membership_form_fields,
 		my_memberships: Array.isArray(viewer.my_memberships) ? viewer.my_memberships : [],
@@ -1000,6 +1013,7 @@ export async function loadGroupProfilePageData({
 	getRequestSupabase,
 	resolveSessionImpl,
 	joinMembershipImpl,
+	getMembershipProgramImpl,
 	now,
 	ttlMs,
 	maxEntries,
@@ -1191,5 +1205,31 @@ export async function loadGroupProfilePageData({
 		serviceSupabase: resolvedServiceSupabase
 	});
 
-	return applyGroupViewerOverlay(snapshot, overlay);
+	let privateMembershipProgram = null;
+	if (!snapshot.membership_program) {
+		try {
+			const getProgram =
+				getMembershipProgramImpl ??
+				(async (args) => {
+					const mod = await import('#lib/server/memberships.js');
+					return mod.getMembershipProgramForViewer(args);
+				});
+			const programResult = await getProgram({
+				cookies,
+				groupSlug: snapshot.group.slug,
+				includeInactive: false
+			});
+			const program = programResult?.ok ? programResult.data?.program : null;
+			if (program?.enabled === true && program.access_mode === 'private_request') {
+				privateMembershipProgram = sanitizePublicMembershipProgram(program);
+			}
+		} catch (err) {
+			console.warn('Failed to load private membership status for group page', err);
+		}
+	}
+
+	return applyGroupViewerOverlay(snapshot, {
+		...overlay,
+		membership_program: privateMembershipProgram ?? undefined
+	});
 }
