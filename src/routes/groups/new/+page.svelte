@@ -1,7 +1,7 @@
 <script>
 	let { data, form } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import * as env from '$app/env/public';
 	import { geocodeAddress } from '#lib/groups/geocoding';
@@ -56,6 +56,8 @@
 	let hiddenTypicalTime = $state(initialValues.typical_activity_day_time || '');
 	let hiddenLogoUrl = $state(initialValues.logo_url || '');
 	let hiddenCoverUrl = $state(initialValues.cover_photo_url || '');
+	let coverUploading = $state(false);
+	let coverUploadError = $state('');
 	let formEl = $state();
 	function applyLocationValue(id, value) {
 		const v = value == null ? '' : `${value}`.trim();
@@ -374,7 +376,41 @@
 	}
 
 	function applyGeneratedGroupImage(result) {
+		coverUploadError = '';
 		hiddenCoverUrl = result?.url || hiddenCoverUrl;
+	}
+
+	async function uploadNewGroupCoverFiles(files) {
+		const file = files?.[0];
+		if (!file) return;
+		coverUploadError = '';
+		if (file.size > 10 * 1024 * 1024) {
+			coverUploadError = 'Cover image exceeds the 10 MB upload limit.';
+			return;
+		}
+		coverUploading = true;
+		try {
+			const payload = new FormData();
+			payload.append('file', file);
+			const response = await fetch('/api/groups/cover', {
+				method: 'POST',
+				body: payload
+			});
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok || !result?.url) {
+				throw new Error(result?.error || 'Unable to upload cover image.');
+			}
+			hiddenCoverUrl = result.url;
+		} catch (uploadError) {
+			coverUploadError = uploadError?.message || 'Unable to upload cover image.';
+		} finally {
+			coverUploading = false;
+		}
+	}
+
+	function removeNewGroupCover() {
+		coverUploadError = '';
+		hiddenCoverUrl = '';
 	}
 </script>
 
@@ -750,7 +786,7 @@
 			</div>
 		</section>
 
-		<!-- 02 · AI COVER ART -->
+		<!-- 02 · COVER PHOTO -->
 		<section
 			class="bg-surface-950 border-surface-800 flex flex-col gap-6 border-t-[3px] px-6 py-12 sm:px-10 lg:px-14"
 			aria-labelledby="cover-art-heading"
@@ -768,19 +804,27 @@
 						id="cover-art-heading"
 						class="text-surface-50! m-0 text-3xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-4xl"
 					>
-						AI Cover Art
+						Cover Photo
 					</h2>
 				</div>
 			</div>
 			<div>
-				<ImageGeneratorPanel
+				<CoverMediaField
+					label="Group cover photo"
+					description="Upload a banner photo directly, or open the studio to create an illustrated cover."
+					helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9 recommended"
+					accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+					imageUrl={hiddenCoverUrl}
+					uploading={coverUploading}
+					error={coverUploadError}
 					target="group"
-					heading="Generate group cover art"
-					description="Build a comic-book group banner from the name, description, location, and community focus on this page."
-					helperText="Generated cover art is added to the hidden cover field now and will be stored with the group when you submit."
-					currentImageUrl={hiddenCoverUrl}
+					studioHeading="Create group cover art"
+					studioDescription="Build an illustrated banner from the group name, description, location, and community focus on this page."
+					studioHelperText="Confirming artwork sets your draft cover and stores it with the group when you submit."
 					buildContext={buildImageContext}
-					onApply={applyGeneratedGroupImage}
+					onSelectFiles={uploadNewGroupCoverFiles}
+					onRemove={removeNewGroupCover}
+					onApplyArtwork={applyGeneratedGroupImage}
 				/>
 			</div>
 		</section>
