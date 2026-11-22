@@ -2,13 +2,12 @@
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
-	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import { normalizePhoneNumber, formatPhoneNumber } from '#lib/utils/phone';
 	import { isValidRoadIdEmail, normalizeRoadIdProfile } from '#lib/utils/roadId';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 
 	let { data } = $props();
 	const code = $derived(data?.code ?? '');
@@ -31,9 +30,7 @@
 	let errorMessage = $state('');
 	let submissionSuccess = $state(false);
 	let honeypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let turnstileEl = $state(null);
-	let turnstileWidgetId = $state(null);
+	let claimTurnstile = $state(null);
 
 	// Email validation
 	let emailIsValid = $derived(isValidRoadIdEmail(newProfile.email));
@@ -50,84 +47,54 @@
 			.join(', ');
 	});
 
-	async function initTurnstile() {
-		if (!turnstileEnabled || !turnstileEl || turnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(turnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			turnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && turnstileEl && !turnstileWidgetId) {
-			initTurnstile();
-		}
-	});
-
 	// Claim unclaimed bracelet via magic link when signed out
 	const handleSubmit = async (event) => {
 		event.preventDefault();
-		loading = true;
+		if (loading || !claimTurnstile) return;
 		emailTouched = true;
-		if (!emailIsValid) {
-			errorMessage = 'Please enter a valid email address';
-			loading = false;
-			return;
-		}
-		if (honeypot.trim()) {
-			errorMessage = 'Invalid submission.';
-			loading = false;
-			return;
-		}
 		errorMessage = '';
 
-		let turnstileToken = '';
-		if (turnstileEnabled) {
-			await initTurnstile();
-			if (!turnstileWidgetId) {
-				errorMessage = 'Verification failed. Please reload and try again.';
-				loading = false;
-				return;
-			}
-			turnstileToken = await executeTurnstile(turnstileWidgetId);
-			if (!turnstileToken) {
-				errorMessage = 'Verification failed. Please try again.';
-				loading = false;
-				return;
-			}
-		}
+		await claimTurnstile.submit({
+			validate: () => {
+				if (!emailIsValid) {
+					errorMessage = 'Please enter a valid email address';
+					return false;
+				}
+				if (honeypot.trim()) {
+					errorMessage = 'Invalid submission.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				const payload = {
+					code,
+					email: newProfile.email.trim(),
+					createProfile: true,
+					returnTo: `/profile?claimed=${encodeURIComponent(code)}#safety`,
+					honeypot,
+					turnstileToken
+				};
 
-		const payload = {
-			code,
-			email: newProfile.email.trim(),
-			createProfile: true,
-			returnTo: `/profile?claimed=${encodeURIComponent(code)}#safety`,
-			honeypot,
-			turnstileToken
-		};
+				try {
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload)
+					});
 
-		const res = await fetch('/api/v1/auth/login', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
+					if (res.ok) {
+						submissionSuccess = true;
+						honeypot = '';
+					} else {
+						const err = await res.json().catch(() => ({}));
+						errorMessage = err.error || 'An error occurred';
+					}
+				} catch (err) {
+					errorMessage = err.message || 'An error occurred';
+				}
+			}
 		});
-
-		if (res.ok) {
-			submissionSuccess = true;
-			honeypot = '';
-		} else {
-			const err = await res.json().catch(() => ({}));
-			errorMessage = err.error || 'An error occurred';
-		}
-		loading = false;
-		if (turnstileEnabled && turnstileWidgetId) {
-			resetTurnstile(turnstileWidgetId);
-		}
 	};
 
 	// Claim unclaimed bracelet immediately when already signed in
@@ -159,10 +126,6 @@
 <div
 	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-x-clip"
 >
-	<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-		<div bind:this={turnstileEl}></div>
-	</div>
-
 	<!-- HERO -->
 	<header
 		class="bg-tertiary-500 text-surface-950 grid lg:grid-cols-[minmax(0,1fr)_auto]"
@@ -393,6 +356,11 @@
 										{#if emailTouched && !emailIsValid}Please enter a valid email address.{/if}
 									</p>
 								</div>
+								<TurnstileVerification
+									bind:this={claimTurnstile}
+									bind:busy={loading}
+									enabled={data?.turnstileEnabled !== false}
+								/>
 								{#if errorMessage}
 									<p
 										class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-sm font-bold"

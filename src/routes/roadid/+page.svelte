@@ -2,7 +2,7 @@
 	import IconContact from '@lucide/svelte/icons/contact';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconHeartPulse from '@lucide/svelte/icons/heart-pulse';
-	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
 
