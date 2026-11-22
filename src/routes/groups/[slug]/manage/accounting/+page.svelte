@@ -27,11 +27,12 @@
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
 	import { enhance } from '$app/forms';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { loadStripe } from '@stripe/stripe-js';
+	import { completeFormUpdate, refreshPageData } from '#lib/client/navigation';
 	import SearchableSelect from '#lib/components/ui/SearchableSelect.svelte';
 	import ReconciliationWorkspace from '#lib/components/accounting/ReconciliationWorkspace.svelte';
 	import { escapeHtml } from '#lib/markdown';
@@ -1033,18 +1034,16 @@
 			else setSavingTransaction(entryId, true);
 			return async ({ result, update, formElement }) => {
 				try {
-					if (typeof update === 'function') {
-						await update({ reset: false, invalidateAll: false });
-					}
-					if (result?.type === 'success') {
-						if (isReceiptUpload) {
-							clearReceiptInput(formElement);
-							receiptUploadEntryId = '';
-						} else {
-							stopTransactionEdit();
+					await completeFormUpdate(update, result, {
+						onSuccess: () => {
+							if (isReceiptUpload) {
+								clearReceiptInput(formElement);
+								receiptUploadEntryId = '';
+							} else {
+								stopTransactionEdit();
+							}
 						}
-						await invalidateAll();
-					}
+					});
 				} finally {
 					if (isReceiptUpload) uploadingReceiptTarget = '';
 					else setSavingTransaction(entryId, false);
@@ -1103,11 +1102,13 @@
 		return () =>
 			async ({ result, update }) => {
 				const succeeded = result?.type === 'success' && !result.data?.accounting_error;
-				await update({ reset: succeeded, invalidateAll: false });
-				if (succeeded) {
-					rotateRequestId(key);
-					await invalidateAll();
-				}
+				await completeFormUpdate(update, result, {
+					reset: succeeded,
+					succeeded,
+					onSuccess: () => {
+						rotateRequestId(key);
+					}
+				});
 			};
 	}
 
@@ -1120,16 +1121,16 @@
 			else setPostingFeedItem(feedItemId, true);
 			return async ({ result, update, formElement }) => {
 				try {
-					await update({ reset: false, invalidateAll: false });
-					if (result.type === 'success') {
-						if (isReceiptUpload) {
-							clearReceiptInput(formElement);
-							receiptUploadFeedItemId = '';
-						} else {
-							rotateRequestId(`feed:${feedItemId}`);
+					await completeFormUpdate(update, result, {
+						onSuccess: () => {
+							if (isReceiptUpload) {
+								clearReceiptInput(formElement);
+								receiptUploadFeedItemId = '';
+							} else {
+								rotateRequestId(`feed:${feedItemId}`);
+							}
 						}
-						await invalidateAll();
-					}
+					});
 				} finally {
 					if (isReceiptUpload) uploadingReceiptTarget = '';
 					else setPostingFeedItem(feedItemId, false);
@@ -1140,10 +1141,7 @@
 
 	function enhanceInlineAccount() {
 		return async ({ result, update }) => {
-			await update({ reset: false, invalidateAll: false });
-			if (result.type === 'success') {
-				await invalidateAll();
-			}
+			await completeFormUpdate(update, result);
 		};
 	}
 
@@ -1161,21 +1159,21 @@
 
 	function enhanceGroupEdit() {
 		return async ({ result, update }) => {
-			await update({ reset: false, invalidateAll: false });
-			if (result.type === 'success') {
-				stopGroupEdit();
-				await invalidateAll();
-			}
+			await completeFormUpdate(update, result, {
+				onSuccess: () => {
+					stopGroupEdit();
+				}
+			});
 		};
 	}
 
 	function enhanceSaveConnections() {
 		return async ({ result, update }) => {
-			await update({ reset: false, invalidateAll: false });
-			if (result.type === 'success') {
-				mercuryEditMode = false;
-				await invalidateAll();
-			}
+			await completeFormUpdate(update, result, {
+				onSuccess: () => {
+					mercuryEditMode = false;
+				}
+			});
 		};
 	}
 
@@ -1183,10 +1181,7 @@
 		syncAllBusy = true;
 		return async ({ result, update }) => {
 			try {
-				await update({ reset: false, invalidateAll: false });
-				if (result.type === 'success') {
-					await invalidateAll();
-				}
+				await completeFormUpdate(update, result);
 			} finally {
 				syncAllBusy = false;
 			}
@@ -1630,7 +1625,7 @@
 				throw new Error(completePayload.error || 'Unable to finish bank linking.');
 			}
 			financialConnectionsMessage = 'Bank accounts linked. Refreshing activity...';
-			await invalidateAll();
+			await refreshPageData();
 		} catch (error) {
 			financialConnectionsMessage = error?.message || 'Unable to link bank accounts.';
 		} finally {
