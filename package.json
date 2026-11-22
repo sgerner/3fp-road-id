@@ -11,6 +11,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "node --test src/lib/server/*.test.js",
+		"test:stripe-webhook": "node scripts/with-webhook-test-server.mjs",
 		"test:server-sanitizer": "node --no-experimental-require-module scripts/check-server-sanitizer.mjs",
 		"prepare": "svelte-kit sync",
 		"seed:rides": "node scripts/seed-rides.mjs",
