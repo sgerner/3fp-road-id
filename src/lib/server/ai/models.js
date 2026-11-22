@@ -3,7 +3,15 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import * as env from '$app/env/private';
 import { IMAGE_GENERATION_MODEL_IDS } from '#lib/ai/imageGenerationModels';
 import { createOpenAiTextProviderClient } from './openai.js';
+import {
+	createGoogleTextProviderClient,
+	extractGeminiResponseContent,
+	normalizeGeminiGenerationConfig,
+	runBoundedToolLoop
+} from './toolLoop.js';
 import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
+
+export { extractGeminiResponseContent, normalizeGeminiGenerationConfig, runBoundedToolLoop };
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',
@@ -267,26 +275,13 @@ function getGoogleFallbackModel(model) {
 	)?.fallbackModel;
 }
 
-function createGoogleProviderClient(ai) {
+export function createGoogleProviderClient(ai) {
+	const textClient = createGoogleTextProviderClient(ai, {
+		getFallbackModel: getGoogleFallbackModel
+	});
+
 	return {
-		async generateContent({ model, contents, config }) {
-			const generationConfig = config ?? {};
-			try {
-				return await ai.models.generateContent({
-					model,
-					contents,
-					config: generationConfig
-				});
-			} catch (error) {
-				const fallbackModel = getGoogleFallbackModel(model);
-				if (!fallbackModel) throw error;
-				return ai.models.generateContent({
-					model: fallbackModel,
-					contents,
-					config: generationConfig
-				});
-			}
-		},
+		...textClient,
 		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '1K' }) {
 			const generateImage = (imageModel) =>
 				ai.models.generateContent({

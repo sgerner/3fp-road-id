@@ -3,7 +3,7 @@
 	import { getRideImages } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
@@ -11,7 +11,19 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question-mark';
-	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
+	import SmsInlineSection from '#lib/components/sms/SmsInlineSection.svelte';
+	import {
+		RIDE_RSVP_SMS_CATEGORIES,
+		SMS_INLINE_DEFAULT_CONSENT_TEXT,
+		createSingleFlightPreferencesLoader,
+		emptySmsPreferences,
+		getInlineSmsMode,
+		getSelectedNewCategoryKeys,
+		resolveInlineConsentSource,
+		saveInlineSmsPreferences,
+		submitRegistrationThenSms,
+		validateInlineSmsInput
+	} from '#lib/sms/inlineEnrollment';
 	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
 	import { escapeHtml } from '#lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
@@ -40,6 +52,21 @@
 	const occurrences = $derived.by(() => ride?.occurrences ?? []);
 	let rsvpLoadingId = $state('');
 	let rsvpError = $state('');
+	let rsvpPanelOpen = $state(false);
+	let rsvpSavedPendingSmsRetry = $state(false);
+	let rsvpConfirmedNotice = $state('');
+	let smsLoading = $state(false);
+	let smsSaving = $state(false);
+	let smsPreferences = $state(emptySmsPreferences());
+	let smsConsentText = $state(SMS_INLINE_DEFAULT_CONSENT_TEXT);
+	let smsSelected = $state({ ride_reminders: false, admin_messages: false });
+	let smsPhone = $state('');
+	let smsPhoneDirty = $state(false);
+	let smsConsentChecked = $state(false);
+	let smsPhoneError = $state('');
+	let smsConsentError = $state('');
+	let smsSaveError = $state('');
+	const smsPreferencesLoader = createSingleFlightPreferencesLoader();
 	let claimLoading = $state(false);
 	let claimError = $state('');
 	let selectedOccurrenceId = $state(null);
@@ -52,6 +79,10 @@
 
 	const canManage = $derived(Boolean(data?.canManage));
 	const currentUser = $derived(data?.currentUser ?? null);
+	const rideSmsMode = $derived(getInlineSmsMode(smsPreferences, RIDE_RSVP_SMS_CATEGORIES));
+	const selectedRideSmsKeys = $derived(
+		getSelectedNewCategoryKeys(rideSmsMode.availableCategories, smsSelected)
+	);
 	const upcomingOccurrences = $derived(
 		occurrences.filter((occurrence) => isUpcomingOccurrence(occurrence))
 	);
@@ -198,6 +229,28 @@
 		return output.replace(/\n/g, '<br />');
 	}
 
+	function formatPlainLocationText(text) {
+		const input = String(text ?? '').replace(/\r\n?/g, '\n');
+		if (!input) return '';
+		let output = '';
+		let lastIndex = 0;
+		for (const match of input.matchAll(urlPattern)) {
+			const start = match.index ?? 0;
+			const rawUrl = match[0] ?? '';
+			const end = start + rawUrl.length;
+			output += input.slice(lastIndex, start);
+			const { value, trailing } = splitTrailingPunctuation(rawUrl);
+			if (value) {
+				const href = value.startsWith('www.') ? `https://${value}` : value;
+				output += formatLinkLabel(href, value);
+			}
+			output += trailing;
+			lastIndex = end;
+		}
+		output += input.slice(lastIndex);
+		return output;
+	}
+
 	$effect(() => {
 		if (
 			upcomingOccurrences.some(
@@ -264,31 +317,229 @@
 		return { googleUrl, icsUrl };
 	}
 
+	let smsLoadedForUserId = '';
+
+	async function loadRideSmsPreferences(userId) {
+		smsLoading = true;
+		try {
+			const loaded = await smsPreferencesLoader.load({ cacheKey: userId });
+			if (String(currentUser?.id ?? '') !== userId) return;
+			smsPreferences = loaded.preferences;
+			smsConsentText = loaded.consentText;
+			if (!smsPhoneDirty && loaded.preferences.phone) {
+				smsPhone = loaded.preferences.phone;
+			}
+		} catch {
+			// Keep default preferences so RSVP remains usable even if SMS lookup fails.
+		} finally {
+			if (String(currentUser?.id ?? '') === userId) smsLoading = false;
+		}
+	}
+
+	$effect(() => {
+		const userId = currentUser?.id ? String(currentUser.id) : '';
+		if (smsLoadedForUserId === userId) return;
+		smsLoadedForUserId = userId;
+		smsPreferences = emptySmsPreferences();
+		smsConsentText = SMS_INLINE_DEFAULT_CONSENT_TEXT;
+		smsPhone = '';
+		smsPhoneDirty = false;
+		smsSelected = { ride_reminders: false, admin_messages: false };
+		smsConsentChecked = false;
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+		smsLoading = Boolean(userId);
+		if (userId) void loadRideSmsPreferences(userId);
+	});
+
+	$effect(() => {
+		if (!rsvpSavedPendingSmsRetry && currentUserRsvp(selectedOccurrence)?.status === 'going') {
+			rsvpPanelOpen = false;
+		}
+	});
+
 	function currentUserRsvp(occurrence) {
 		if (!currentUser?.id) return null;
 		return occurrence?.rsvps?.find((entry) => entry.userId === currentUser.id) ?? null;
 	}
 
-	async function submitRsvp(status) {
+	function toggleRsvpPanel() {
+		rsvpError = '';
+		rsvpConfirmedNotice = '';
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+		if (rsvpSavedPendingSmsRetry) {
+			rsvpSavedPendingSmsRetry = false;
+		}
+		rsvpPanelOpen = !rsvpPanelOpen;
+		if (rsvpPanelOpen) {
+			smsConsentChecked = false;
+		}
+	}
+
+	function closeRsvpPanel() {
+		rsvpPanelOpen = false;
+		rsvpSavedPendingSmsRetry = false;
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+	}
+
+	async function postRideRsvp(status) {
+		const response = await fetch(`/api/rides/${activity.id}/rsvp`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				occurrenceId: selectedOccurrence.id,
+				status
+			})
+		});
+		const result = await response.json().catch(() => ({}));
+		if (!response.ok) {
+			return { ok: false, error: result?.error || 'Unable to update RSVP.' };
+		}
+		await invalidateAll();
+		return { ok: true, data: result?.data };
+	}
+
+	async function cancelRideRsvp() {
 		if (!selectedOccurrence?.id) return;
 		rsvpLoadingId = selectedOccurrence.id;
 		rsvpError = '';
+		rsvpConfirmedNotice = '';
 		try {
-			const response = await fetch(`/api/rides/${activity.id}/rsvp`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					occurrenceId: selectedOccurrence.id,
-					status
-				})
-			});
-			const result = await response.json().catch(() => ({}));
-			if (!response.ok) throw new Error(result?.error || 'Unable to update RSVP.');
-			await goto(`/ride/${activity.slug}`, { invalidateAll: true, replaceState: true });
+			const result = await postRideRsvp('cancelled');
+			if (!result.ok) {
+				rsvpError = result.error;
+				return;
+			}
+			closeRsvpPanel();
 		} catch (error) {
-			rsvpError = error.message || 'Unable to update RSVP.';
+			rsvpError = error?.message || 'Unable to update RSVP.';
 		} finally {
 			rsvpLoadingId = '';
+		}
+	}
+
+	async function confirmRideRsvp() {
+		if (!selectedOccurrence?.id) return;
+		rsvpError = '';
+		rsvpConfirmedNotice = '';
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+		rsvpLoadingId = selectedOccurrence.id;
+
+		try {
+			const outcome = await submitRegistrationThenSms({
+				selectedKeys: selectedRideSmsKeys,
+				phone: smsPhone,
+				consentChecked: smsConsentChecked,
+				source: resolveInlineConsentSource('ride-rsvp', selectedRideSmsKeys),
+				registrationLabel: 'RSVP',
+				register: () => postRideRsvp('going')
+			});
+
+			if (outcome.stage === 'sms_validation') {
+				smsPhoneError = outcome.validation.phoneError;
+				smsConsentError = outcome.validation.consentError;
+				return;
+			}
+
+			if (outcome.stage === 'registration') {
+				rsvpError = outcome.registrationResult?.error || 'Unable to update RSVP.';
+				return;
+			}
+
+			if (outcome.stage === 'sms_save') {
+				rsvpSavedPendingSmsRetry = true;
+				rsvpPanelOpen = true;
+				rsvpConfirmedNotice = 'Your RSVP is confirmed.';
+				smsSaveError = outcome.smsResult.retryMessage;
+				if (outcome.smsResult.phoneInvalid) {
+					smsPhoneError = outcome.smsResult.error;
+				}
+				return;
+			}
+
+			if (outcome.smsSaved && outcome.smsResult?.preferences) {
+				smsPreferences = outcome.smsResult.preferences;
+				smsConsentText = outcome.smsResult.consentText || smsConsentText;
+				smsPreferencesLoader.setCached(
+					{
+						preferences: smsPreferences,
+						consentText: smsConsentText
+					},
+					{ cacheKey: String(currentUser?.id ?? '') }
+				);
+				smsSelected = { ride_reminders: false, admin_messages: false };
+				smsConsentChecked = false;
+				rsvpConfirmedNotice = 'RSVP confirmed and text updates enabled.';
+			} else {
+				rsvpConfirmedNotice = 'Your RSVP is confirmed.';
+			}
+
+			rsvpSavedPendingSmsRetry = false;
+			rsvpPanelOpen = false;
+		} catch (error) {
+			rsvpError = error?.message || 'Unable to update RSVP.';
+		} finally {
+			rsvpLoadingId = '';
+		}
+	}
+
+	async function retryRideSms() {
+		if (smsSaving) return;
+		smsPhoneError = '';
+		smsConsentError = '';
+		smsSaveError = '';
+
+		const validation = validateInlineSmsInput({
+			selectedKeys: selectedRideSmsKeys,
+			phone: smsPhone,
+			consentChecked: smsConsentChecked,
+			requireSelection: true
+		});
+		if (!validation.ok) {
+			smsPhoneError = validation.phoneError;
+			smsConsentError = validation.consentError;
+			smsSaveError = validation.error;
+			return;
+		}
+
+		smsSaving = true;
+		try {
+			const smsResult = await saveInlineSmsPreferences({
+				phone: smsPhone,
+				selectedKeys: selectedRideSmsKeys,
+				source: resolveInlineConsentSource('ride-rsvp', selectedRideSmsKeys),
+				registrationLabel: 'RSVP'
+			});
+			if (!smsResult.ok) {
+				smsSaveError = smsResult.retryMessage;
+				if (smsResult.phoneInvalid) {
+					smsPhoneError = smsResult.error;
+				}
+				return;
+			}
+			smsPreferences = smsResult.preferences;
+			smsConsentText = smsResult.consentText || smsConsentText;
+			smsPreferencesLoader.setCached(
+				{
+					preferences: smsPreferences,
+					consentText: smsConsentText
+				},
+				{ cacheKey: String(currentUser?.id ?? '') }
+			);
+			smsSelected = { ride_reminders: false, admin_messages: false };
+			smsConsentChecked = false;
+			rsvpSavedPendingSmsRetry = false;
+			rsvpPanelOpen = false;
+			rsvpConfirmedNotice = 'RSVP confirmed and text updates enabled.';
+		} finally {
+			smsSaving = false;
 		}
 	}
 
@@ -468,21 +719,27 @@
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-wrap items-center gap-3">
 					{#if selectedOccurrence && currentUser}
-						<button
-							type="button"
-							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
-							onclick={() =>
-								submitRsvp(
-									currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
-								)}
-							disabled={rsvpLoadingId === selectedOccurrence?.id}
-						>
-							{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+						{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+							<button
+								type="button"
+								class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+								onclick={cancelRideRsvp}
+								disabled={rsvpLoadingId === selectedOccurrence?.id}
+							>
 								Leave ride
-							{:else}
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
+								aria-expanded={rsvpPanelOpen}
+								aria-controls="inline-ride-rsvp-panel"
+								onclick={toggleRsvpPanel}
+								disabled={rsvpLoadingId === selectedOccurrence?.id}
+							>
 								RSVP
-							{/if}
-						</button>
+							</button>
+						{/if}
 					{:else if selectedOccurrence}
 						<button
 							type="button"
@@ -536,20 +793,100 @@
 					<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="ride" />
 				</div>
 
-				{#if currentUser}
-					<div class="flex max-w-xl flex-col gap-3">
-						<SmsContextOptIn
-							category="ride_reminders"
-							source="ride-rsvp"
-							title="Text me reminders for rides I RSVP for"
-							description="Get concise reminders for upcoming rides you choose to attend. You can manage this preference from your Profile."
+				{#if currentUser && selectedOccurrence && (rsvpPanelOpen || rsvpSavedPendingSmsRetry)}
+					<div
+						id="inline-ride-rsvp-panel"
+						class="border-surface-950 flex max-w-2xl flex-col gap-5 border-t-[3px] pt-5"
+					>
+						<div class="flex flex-col gap-1">
+							<p class="m-0 text-xs font-black tracking-[0.22em] uppercase">
+								{rsvpSavedPendingSmsRetry ? 'RSVP saved · Finish SMS setup' : 'Confirm attendance'}
+							</p>
+							<h2 class="text-surface-950! m-0 text-2xl font-black uppercase italic">
+								{rsvpSavedPendingSmsRetry
+									? "You're registered for this ride"
+									: `RSVP for ${occurrenceLabel(selectedOccurrence)}`}
+							</h2>
+						</div>
+
+						<SmsInlineSection
+							categories={RIDE_RSVP_SMS_CATEGORIES}
+							preferences={smsPreferences}
+							consentText={smsConsentText}
+							loading={smsLoading}
+							saving={rsvpLoadingId === selectedOccurrence?.id || smsSaving}
+							tone="lemon"
+							eyebrow="Optional text updates"
+							selected={smsSelected}
+							phone={smsPhone}
+							consentChecked={smsConsentChecked}
+							showPhoneInput={true}
+							phoneError={smsPhoneError}
+							consentError={smsConsentError}
+							errorMessage={smsSaveError}
+							onToggleCategory={(key, checked) => {
+								smsSelected = { ...smsSelected, [key]: checked };
+								smsPhoneError = '';
+								smsConsentError = '';
+								smsSaveError = '';
+							}}
+							onPhoneChange={(value) => {
+								smsPhone = value;
+								smsPhoneDirty = true;
+								smsPhoneError = '';
+								smsSaveError = '';
+							}}
+							onConsentChange={(checked) => {
+								smsConsentChecked = checked;
+								smsConsentError = '';
+								smsSaveError = '';
+							}}
 						/>
-						<SmsContextOptIn
-							category="admin_messages"
-							source="ride-rsvp-admin-messages"
-							title="Let ride organizers text me about my RSVP"
-							description="Receive and reply to messages from organizers about rides you attend."
-						/>
+
+						<div class="flex flex-wrap items-center gap-3">
+							{#if rsvpSavedPendingSmsRetry}
+								<button
+									type="button"
+									class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center px-7 py-4 text-sm font-black tracking-wide uppercase transition"
+									onclick={retryRideSms}
+									disabled={smsSaving}
+								>
+									{smsSaving ? 'Retrying…' : 'Retry SMS signup'}
+								</button>
+								<button
+									type="button"
+									class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center border-[3px] px-5 py-3.5 text-sm font-black tracking-wide uppercase transition"
+									onclick={closeRsvpPanel}
+									disabled={smsSaving}
+								>
+									Keep RSVP without SMS
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center px-7 py-4 text-sm font-black tracking-wide uppercase transition"
+									onclick={confirmRideRsvp}
+									disabled={rsvpLoadingId === selectedOccurrence?.id}
+								>
+									{rsvpLoadingId === selectedOccurrence?.id ? 'Confirming…' : 'Confirm RSVP'}
+								</button>
+								<button
+									type="button"
+									class="border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500 inline-flex items-center justify-center border-[3px] px-5 py-3.5 text-sm font-black tracking-wide uppercase transition"
+									onclick={closeRsvpPanel}
+									disabled={rsvpLoadingId === selectedOccurrence?.id}
+								>
+									Cancel
+								</button>
+							{/if}
+						</div>
+					</div>
+				{:else if rsvpConfirmedNotice}
+					<div
+						class="bg-surface-950 text-primary-500 max-w-xl px-4 py-3 text-xs font-black tracking-wide uppercase"
+						role="status"
+					>
+						{rsvpConfirmedNotice}
 					</div>
 				{/if}
 
@@ -700,11 +1037,15 @@
 					<div class="border-surface-800 border-b py-5 sm:border-r sm:pr-6">
 						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Meet</div>
 						<div class="text-surface-50 mt-1 text-lg font-black">
-							{@html renderLinkifiedText(activity?.start_location_name)}
+							{@html renderLinkifiedText(
+								selectedOccurrence?.start_location_name || activity?.start_location_name
+							)}
 						</div>
-						{#if activity?.start_location_address}
+						{#if selectedOccurrence?.start_location_address || activity?.start_location_address}
 							<div class="text-surface-300 mt-0.5 text-sm">
-								{@html renderLinkifiedText(activity.start_location_address)}
+								{@html renderLinkifiedText(
+									selectedOccurrence?.start_location_address || activity?.start_location_address
+								)}
 							</div>
 						{/if}
 					</div>
@@ -940,8 +1281,8 @@
 												</span>
 											{/if}
 										</div>
-										<div class="mt-0.5 text-sm opacity-80">
-											{@html renderLinkifiedText(
+										<div class="mt-0.5 text-sm whitespace-pre-line opacity-80">
+											{formatPlainLocationText(
 												occurrence.start_location_name || activity?.start_location_name
 											)}
 										</div>
