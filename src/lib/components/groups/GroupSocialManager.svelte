@@ -4,7 +4,7 @@
 	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
 	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconImage from '@lucide/svelte/icons/image';
@@ -23,11 +23,11 @@
 	import BrandInstagram from '#lib/icons/BrandInstagram.svelte';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconCornerDownRight from '@lucide/svelte/icons/corner-down-right';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconPlay from '@lucide/svelte/icons/play';
-	import IconEdit3 from '@lucide/svelte/icons/edit-3';
-	import IconMoreVertical from '@lucide/svelte/icons/more-vertical';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconEdit3 from '@lucide/svelte/icons/pen-line';
+	import IconMoreVertical from '@lucide/svelte/icons/ellipsis-vertical';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import {
 		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
@@ -124,6 +124,9 @@
 	const composerPreviewHasImage = $derived.by(() => Boolean(getDraftPreviewImage()?.url));
 	const composerPreviewExpandedEffective = $derived.by(
 		() => composerPreviewExpanded && composerPreviewHasImage
+	);
+	const mobilePreviewOpenEffective = $derived.by(
+		() => mobilePreviewOpen && composerPreviewHasImage
 	);
 	const selectedAiStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === aiStyleId) ?? null
@@ -400,10 +403,6 @@
 		return `${year}-${month}-${day}`;
 	}
 
-	function startOfMonth(date) {
-		return new Date(date.getFullYear(), date.getMonth(), 1);
-	}
-
 	function startOfWeek(date) {
 		const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 		dayStart.setDate(dayStart.getDate() - dayStart.getDay());
@@ -655,17 +654,6 @@
 		return `${text.slice(0, maxLength - 1)}…`;
 	}
 
-	function linkedPostImageUrl(comment) {
-		const linked = comment?.linked_post;
-		const url = linked?.image_url;
-		if (typeof url === 'string' && url.trim()) return url.trim();
-		return '';
-	}
-
-	function linkedPostCaption(comment) {
-		return captionPreview(comment?.linked_post?.caption || '', 140);
-	}
-
 	function commentAuthorLabel(comment) {
 		const primary = String(comment?.author_name || comment?.author_username || '').trim();
 		if (primary) return primary;
@@ -718,42 +706,6 @@
 				return 'text-warning-400 bg-warning-500/10 border-warning-500/20';
 			default:
 				return 'text-surface-400 bg-surface-500/10 border-surface-500/20';
-		}
-	}
-
-	function postPlatformsLabel(post) {
-		const values = Array.isArray(post?.platforms) ? post.platforms : [];
-		if (!values.length) return 'No platforms selected';
-		return values.map(platformLabel).join(', ');
-	}
-
-	function postTimeLabel(post) {
-		const status = normalizeStatus(post?.status);
-		if (status === 'published') {
-			return `Published: ${formatDateTime(post?.published_at || post?.updated_at)}`;
-		}
-		if (status === 'scheduled' || status === 'queued') {
-			return `Scheduled: ${formatDateTime(post?.scheduled_for)}`;
-		}
-		if (status === 'publishing') {
-			return `Publishing since: ${formatDateTime(post?.updated_at)}`;
-		}
-		return `Updated: ${formatDateTime(post?.updated_at || post?.created_at)}`;
-	}
-
-	function postStatusClass(status) {
-		switch (normalizeStatus(status)) {
-			case 'published':
-				return 'inline-flex items-center rounded-full border border-success-400/60 bg-success-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-success-300';
-			case 'scheduled':
-			case 'queued':
-				return 'inline-flex items-center rounded-full border border-primary-400/60 bg-primary-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-200';
-			case 'publishing':
-				return 'inline-flex items-center rounded-full border border-warning-400/60 bg-warning-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-300';
-			case 'failed':
-				return 'inline-flex items-center rounded-full border border-error-400/60 bg-error-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-error-300';
-			default:
-				return 'inline-flex items-center rounded-full border border-surface-500/50 bg-surface-700/35 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-surface-200';
 		}
 	}
 
@@ -2151,7 +2103,58 @@
 								</div>
 							</div>
 						{:else if calendarView === 'week'}
-							<div class="overflow-x-auto">
+							<div class="grid gap-2 lg:hidden">
+								{#each weekDays as day (day.key)}
+									<div
+										class="event-card bg-surface-50-950 border-surface-500/20 text-surface-900-100 border p-3 text-left"
+									>
+										<div class="flex items-center justify-between gap-2">
+											<div class="text-xs font-semibold">
+												{new Intl.DateTimeFormat(undefined, {
+													weekday: 'short',
+													month: 'short',
+													day: 'numeric'
+												}).format(day.date)}
+											</div>
+											<div class="flex items-center gap-2">
+												<div class="text-[11px]">{day.posts.length} posts</div>
+												<button
+													type="button"
+													class="text-secondary-700-300 hover:bg-secondary-500/10 inline-flex min-h-[44px] items-center rounded px-2.5 py-1 text-xs font-semibold"
+													aria-label={`Schedule a post on ${day.date.toLocaleDateString()}`}
+													onclick={() => handleCalendarSlotClick(day.date, 9)}>Add</button
+												>
+											</div>
+										</div>
+										{#if day.posts.length > 0}
+											<div class="mt-2 space-y-1">
+												{#each day.posts as post}
+													<button
+														type="button"
+														class={`inline-flex min-h-[44px] w-full items-center rounded px-2 py-1.5 text-left text-[11px] font-medium ${calendarPostClass(post)}`}
+														onclick={(event) => {
+															event.stopPropagation();
+															handleCalendarPostClick(post);
+														}}
+													>
+														{new Intl.DateTimeFormat(undefined, {
+															hour: 'numeric',
+															minute: '2-digit'
+														}).format(post._scheduledAt)}
+														- [{postTargetLabel(post?.post_target)}] {captionPreview(
+															post.caption,
+															40
+														)}
+													</button>
+												{/each}
+											</div>
+										{:else}
+											<p class="text-surface-500 mt-1 text-[11px]">Open slot</p>
+										{/if}
+									</div>
+								{/each}
+							</div>
+							<div class="hidden overflow-x-auto lg:block">
 								<table class="table min-w-[1100px]">
 									<thead>
 										<tr>
@@ -2494,7 +2497,7 @@
 						{:else if actionNotice}
 							<div class="composer-feedback composer-feedback--success">{actionNotice}</div>
 						{/if}
-						{#if composerPreviewHasImage && !mobilePreviewOpen}
+						{#if composerPreviewHasImage && !mobilePreviewOpenEffective}
 							<div class="composer-mobile-preview-row">
 								<button
 									type="button"
@@ -2516,6 +2519,7 @@
 							<div
 								class="composer-form"
 								class:composer-form--hidden={composerPreviewExpandedEffective}
+								class:composer-form--mobile-hidden={mobilePreviewOpenEffective}
 							>
 								<div class="field-group">
 									<div class="field-label">Post Type</div>
@@ -2986,7 +2990,7 @@
 							<aside
 								class="composer-preview"
 								class:composer-preview--expanded={composerPreviewExpandedEffective}
-								class:composer-preview--mobile-open={mobilePreviewOpen}
+								class:composer-preview--mobile-open={mobilePreviewOpenEffective}
 							>
 								<div class="composer-preview__header">
 									<div class="flex items-center gap-2">
@@ -3004,7 +3008,7 @@
 											<IconMaximize2 class="h-3.5 w-3.5" />
 											View large
 										</button>
-										{#if mobilePreviewOpen}
+										{#if mobilePreviewOpenEffective}
 											<button
 												type="button"
 												class="composer-preview-toggle composer-preview-toggle--mobile lg:hidden"
@@ -3762,6 +3766,12 @@
 		overflow-y: auto;
 		min-height: 0;
 		scrollbar-gutter: stable;
+	}
+
+	@media (max-width: 1023px) {
+		.composer-form--mobile-hidden {
+			display: none;
+		}
 	}
 
 	@media (min-width: 1024px) {
@@ -4548,8 +4558,10 @@
 	.composer-mobile-preview-toggle {
 		display: inline-flex;
 		align-items: center;
+		justify-content: center;
+		min-height: 44px;
 		gap: 0.375rem;
-		padding: 0.375rem 0.75rem;
+		padding: 0.5rem 0.875rem;
 		border-radius: 9999px;
 		font-size: 0.75rem;
 		font-weight: 600;
@@ -4566,6 +4578,39 @@
 		border-top: 1px solid color-mix(in oklab, var(--color-surface-700) 50%, transparent);
 	}
 
+	.composer-preview__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.composer-preview-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 9999px;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-primary-300);
+		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+		transition: background 0.15s;
+	}
+
+	.composer-preview-toggle:hover {
+		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
+	}
+
+	.composer-preview-toggle--mobile {
+		justify-content: center;
+		min-height: 44px;
+		gap: 0.375rem;
+		padding: 0.5rem 0.875rem;
+		font-size: 0.75rem;
+	}
+
 	@media (max-width: 1023px) {
 		.composer-mobile-preview-row {
 			display: flex;
@@ -4579,6 +4624,9 @@
 
 		.composer-preview--mobile-open {
 			display: flex;
+			flex: 1 0 auto;
+			width: 100%;
+			border-top: none;
 		}
 
 		.composer-preview-toggle--desktop {
@@ -4610,31 +4658,6 @@
 			overflow-y: auto;
 			background: color-mix(in oklab, var(--color-surface-950) 60%, transparent);
 		}
-	}
-
-	.composer-preview__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-
-	.composer-preview-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.5rem;
-		border-radius: 9999px;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-primary-300);
-		background: color-mix(in oklab, var(--color-primary-500) 15%, transparent);
-		border: 1px solid color-mix(in oklab, var(--color-primary-500) 35%, transparent);
-		transition: background 0.15s;
-	}
-
-	.composer-preview-toggle:hover {
-		background: color-mix(in oklab, var(--color-primary-500) 22%, transparent);
 	}
 
 	.preview-label {
@@ -5505,7 +5528,7 @@
 
 	/* ─── Compact AI Settings Panel ─── */
 	.ai-settings-panel {
-		padding: 0.3rem;
+		padding: 0.5rem;
 		background: color-mix(in oklab, var(--color-surface-800) 38%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 28%, transparent);
 		border-radius: 0.7rem;
@@ -5513,39 +5536,34 @@
 
 	.ai-settings-row {
 		display: flex;
-		flex-wrap: nowrap;
-		align-items: end;
-		gap: 0.45rem;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 0.5rem;
 		padding: 0;
 		background: transparent;
 		border: none;
-		overflow-x: auto;
-		scrollbar-width: none;
-		-ms-overflow-style: none;
-	}
-
-	.ai-settings-row::-webkit-scrollbar {
-		display: none;
 	}
 
 	.ai-setting {
 		display: flex;
 		flex-direction: column;
-		gap: 0.18rem;
+		gap: 0.25rem;
 		min-width: 0;
-		width: auto;
-		flex: 0 0 auto;
+		max-width: 100%;
+		flex: 1 1 10.5rem;
 	}
 
 	.ai-setting--grow {
 		min-width: 0;
-		flex: 0 0 auto;
+		max-width: 100%;
+		flex: 1.25 1 11rem;
 	}
 
 	.ai-setting--model {
 		min-width: 0;
-		width: fit-content;
-		flex: 0 0 auto;
+		max-width: 100%;
+		width: auto;
+		flex: 0 1 auto;
 	}
 
 	.ai-setting--switch {
@@ -5560,6 +5578,8 @@
 	.ai-switch {
 		display: inline-flex;
 		align-items: center;
+		min-height: 44px;
+		min-width: 44px;
 		width: fit-content;
 		cursor: pointer;
 		user-select: none;
@@ -5616,11 +5636,14 @@
 	}
 
 	.ai-setting__select {
-		width: max-content;
+		width: 100%;
+		max-width: 100%;
 		min-width: 0;
-		padding: 0.3rem 0.5rem;
-		font-size: 0.7rem;
-		line-height: 1.2;
+		min-height: 44px;
+		padding: 0.5rem 1.75rem 0.5rem 0.65rem;
+		font-size: 0.8125rem;
+		line-height: 1.25;
+		text-overflow: ellipsis;
 		color: var(--color-surface-100);
 		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
@@ -5631,9 +5654,8 @@
 		appearance: none;
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' /%3E%3C/svg%3E");
 		background-repeat: no-repeat;
-		background-position: right 0.35rem center;
-		background-size: 0.85rem;
-		padding-right: 1.25rem;
+		background-position: right 0.5rem center;
+		background-size: 0.95rem;
 	}
 
 	.ai-setting__select:hover:not(:disabled) {
@@ -5654,7 +5676,9 @@
 	/* Model Toggle */
 	.ai-model-toggle {
 		width: fit-content;
+		max-width: 100%;
 		display: flex;
+		flex-wrap: wrap;
 		background: color-mix(in oklab, var(--color-surface-700) 60%, transparent);
 		border: 1px solid color-mix(in oklab, var(--color-surface-600) 50%, transparent);
 		border-radius: 0.5rem;
@@ -5662,8 +5686,12 @@
 	}
 
 	.ai-model-toggle__btn {
-		padding: 0.3rem 0.5rem;
-		font-size: 0.7rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.75rem;
 		line-height: 1.2;
 		font-weight: 500;
 		color: var(--color-surface-400);

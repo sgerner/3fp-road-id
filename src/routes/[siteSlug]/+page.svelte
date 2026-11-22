@@ -9,7 +9,7 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconImage from '@lucide/svelte/icons/image';
-	import IconHelpCircle from '@lucide/svelte/icons/circle-help';
+	import IconHelpCircle from '@lucide/svelte/icons/circle-question-mark';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconSearch from '@lucide/svelte/icons/search';
@@ -520,7 +520,7 @@ HERO — cinematic cover with integrated CTAs
 							class="relative z-10 flex h-full items-end p-6 pb-[clamp(1.5rem,5vw,3rem)] pl-[clamp(1.5rem,5vw,3rem)] md:p-10 md:pb-[clamp(1.5rem,5vw,3rem)] md:pl-[clamp(1.5rem,5vw,3rem)]"
 						>
 							<div
-								class="site-advocacy-hero-copy max-w-[600px] rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
+								class="site-advocacy-hero-copy max-w-[600px] min-w-0 rounded-2xl border [border-color:color-mix(in_oklab,var(--color-surface-50)_8%,transparent)] p-[clamp(1.25rem,3vw,2rem)] [backdrop-filter:blur(12px)] [background:color-mix(in_oklab,var(--color-surface-950)_85%,transparent)] [webkit-backdrop-filter:blur(12px)] max-md:max-w-full"
 							>
 								<!-- Location badge -->
 								{#if location && !isAdvocacySite}
@@ -565,7 +565,7 @@ HERO — cinematic cover with integrated CTAs
 								{#if heroTagline}
 									<AutoLinkText
 										text={heroTagline}
-										className="!text-white block mt-4 max-w-xl text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
+										className="!text-white block mt-4 max-w-xl break-words text-base [text-shadow:0_1px_12px_color-mix(in_oklab,black_30%,transparent)] md:text-lg"
 										linkClass="!text-white underline underline-offset-2"
 									/>
 								{:else}
@@ -573,19 +573,19 @@ HERO — cinematic cover with integrated CTAs
 								{/if}
 								<!-- CTAs -->
 								{#if heroActions.length}
-									<div class="mt-6 flex flex-wrap items-center gap-3">
+									<div class="mt-6 flex min-w-0 flex-wrap items-center gap-3">
 										{#each heroActions as action, i}
 											<a
 												href={action.href}
 												target={action.external ? '_blank' : undefined}
 												rel={action.external ? 'noopener noreferrer' : undefined}
-												class="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 max-md:px-4 max-md:py-2.5 {i ===
+												class="inline-flex max-w-full items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all duration-150 max-md:px-4 max-md:py-2.5 max-md:whitespace-normal {i ===
 												0
 													? 'bg-primary-500 text-primary-contrast-500 shadow-lg [box-shadow:0_4px_20px_-4px_color-mix(in_oklab,var(--color-primary-500)_50%,transparent)] hover:-translate-y-0.5 hover:[box-shadow:0_8px_28px_-4px_color-mix(in_oklab,var(--color-primary-500)_60%,transparent)]'
 													: 'text-surface-100 border [border-color:color-mix(in_oklab,var(--color-surface-50)_15%,transparent)] [background:color-mix(in_oklab,var(--color-surface-50)_10%,transparent)] hover:[background:color-mix(in_oklab,var(--color-surface-50)_18%,transparent)]'}"
 											>
-												<span>{action.label}</span>
-												<IconArrowRight class="h-4 w-4" />
+												<span class="min-w-0 break-words">{action.label}</span>
+												<IconArrowRight class="h-4 w-4 shrink-0" />
 											</a>
 										{/each}
 									</div>
@@ -634,7 +634,7 @@ HERO — cinematic cover with integrated CTAs
 						></div>
 						<!-- Content -->
 						<div class="relative z-10 flex h-full items-center justify-center p-5 md:p-8">
-							<div class="relative w-full max-w-xl">
+							<div class="relative w-full max-w-xl min-w-0">
 								<!-- Ambient glow behind card -->
 								<div
 									class="from-primary-500/40 via-secondary-500/30 to-tertiary-500/40 absolute -inset-1 rounded-[1.75rem] bg-gradient-to-br opacity-60 blur-xl"
@@ -643,7 +643,7 @@ HERO — cinematic cover with integrated CTAs
 								<div
 									class="border-surface-50/10 bg-surface-950/70 relative rounded-3xl border px-6 py-8 shadow-2xl shadow-black/50 backdrop-blur-xl max-md:px-4 max-md:py-6"
 								>
-									<div class="flex flex-col items-center text-center">
+									<div class="flex min-w-0 flex-col items-center text-center">
 										{#if group.logo_url}
 											<img
 												src={logoImageHref}
@@ -665,7 +665,7 @@ HERO — cinematic cover with integrated CTAs
 										{/if}
 										{#if heroTitle}
 											<h1
-												class="text-primary-500 mt-3 text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
+												class="text-primary-500 mt-3 max-w-full text-3xl leading-[0.95] font-black tracking-tight break-words [text-shadow:0_4px_20px_color-mix(in_oklab,black_40%,transparent)] md:text-5xl"
 											>
 												{heroTitle}
 											</h1>
@@ -675,7 +675,7 @@ HERO — cinematic cover with integrated CTAs
 										{#if heroTagline}
 											<AutoLinkText
 												text={heroTagline}
-												className="mt-3 block max-w-md text-base leading-relaxed text-surface-50/80"
+												className="mt-3 block max-w-md break-words text-base leading-relaxed text-surface-50/80"
 												linkClass="text-surface-50 underline underline-offset-2"
 											/>
 										{:else}
@@ -683,18 +683,20 @@ HERO — cinematic cover with integrated CTAs
 										{/if}
 									</div>
 									{#if heroActions.length}
-										<div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:mt-8">
+										<div
+											class="mt-6 flex min-w-0 flex-wrap items-center justify-center gap-3 md:mt-8"
+										>
 											{#each heroActions as action, i}
 												<a
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
 													rel={action.external ? 'noopener noreferrer' : undefined}
-													class="btn {i === 0
+													class="btn max-w-full {i === 0
 														? 'preset-filled-primary-500 shadow-primary-500/25 shadow-lg'
-														: 'preset-tonal-secondary border-surface-50/20 border'} gap-2 px-5 py-2.5 text-sm font-bold"
+														: 'preset-tonal-secondary border-surface-50/20 border'} gap-2 px-5 py-2.5 text-sm font-bold max-md:whitespace-normal"
 												>
-													{action.label}
-													<IconArrowRight class="h-4 w-4" />
+													<span class="min-w-0 break-words">{action.label}</span>
+													<IconArrowRight class="h-4 w-4 shrink-0" />
 												</a>
 											{/each}
 										</div>
@@ -705,7 +707,7 @@ HERO — cinematic cover with integrated CTAs
 					</div>
 				{:else}
 					<div
-						class="card relative aspect-[21/9] overflow-hidden rounded-3xl border-0 max-md:aspect-auto"
+						class="card relative grid aspect-[21/9] min-h-72 overflow-hidden rounded-3xl border-0 max-md:aspect-auto md:min-h-80"
 					>
 						{#if group.cover_photo_url}
 							<picture class="site-advocacy-hero-image absolute inset-0 block">
@@ -737,13 +739,13 @@ HERO — cinematic cover with integrated CTAs
 							class="site-advocacy-hero-wash absolute inset-0 bg-gradient-to-br from-[#071923]/40 via-transparent to-[#071923]/20 opacity-55"
 						></div>
 						<div
-							class="site-advocacy-hero-content absolute inset-0 z-10 flex flex-col justify-end p-5 md:p-8"
+							class="site-advocacy-hero-content relative z-10 flex h-full min-w-0 flex-col justify-end p-5 md:p-8"
 						>
-							<div class="flex flex-col gap-6">
+							<div class="flex min-w-0 flex-col gap-6">
 								{#if isAdvocacySite && currentPage?.is_home && heroBlock?.eyebrow}
 									<div class="site-advocacy-hero-kicker">{heroBlock.eyebrow}</div>
 								{/if}
-								<div class="flex items-start gap-4 md:items-end">
+								<div class="flex min-w-0 items-start gap-4 md:items-end">
 									{#if group.logo_url}
 										<img
 											src={logoImageHref}
@@ -763,7 +765,7 @@ HERO — cinematic cover with integrated CTAs
 											<p
 												class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-[0.3em] text-white/70 uppercase"
 											>
-												<IconMapPin class="h-3 w-3" />{location}
+												<IconMapPin class="h-3 w-3 shrink-0" />{location}
 											</p>
 										{/if}
 										<h1
@@ -773,27 +775,32 @@ HERO — cinematic cover with integrated CTAs
 										</h1>
 									</div>
 								</div>
-								<div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+								<div
+									class="flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between"
+								>
 									{#if heroTagline}
 										<AutoLinkText
 											text={heroTagline}
-											className="block max-w-xl text-lg leading-relaxed font-medium text-white/90 md:text-xl"
+											className="block max-w-xl break-words text-lg leading-relaxed font-medium text-white/90 md:text-xl"
 											linkClass="text-white underline underline-offset-2"
 										/>
 									{/if}
 									{#if heroActions.length}
-										<div class="flex flex-wrap items-center gap-2 md:flex-nowrap md:gap-3">
+										<div
+											class="flex max-w-full min-w-0 flex-wrap items-center gap-2 md:flex-nowrap md:gap-3"
+										>
 											{#each heroActions as action, i}
 												<a
 													href={action.href}
 													target={action.external ? '_blank' : undefined}
 													rel={action.external ? 'noopener noreferrer' : undefined}
-													class="btn btn-sm md:btn-base whitespace-nowrap {i === 0
+													class="btn btn-sm md:btn-base max-w-full whitespace-nowrap max-md:whitespace-normal {i ===
+													0
 														? 'preset-filled-primary-500'
 														: 'preset-tonal-tertiary'} gap-2"
 												>
-													{action.label}
-													<IconArrowRight class="h-4 w-4" />
+													<span class="min-w-0 break-words">{action.label}</span>
+													<IconArrowRight class="h-4 w-4 shrink-0" />
 												</a>
 											{/each}
 										</div>
@@ -1051,8 +1058,8 @@ ABOUT — Comprehensive group profile
 							<div class="about-fact">
 								<p class="about-fact-label">Get involved</p>
 								<a href={siteChildHref('/take-action')} class="about-fact-link">
-									Find your next step
-									<IconArrowRight class="h-3.5 w-3.5" />
+									<span class="min-w-0 break-words">Find your next step</span>
+									<IconArrowRight class="h-3.5 w-3.5 shrink-0" />
 								</a>
 							</div>
 						</div>
@@ -1061,7 +1068,12 @@ ABOUT — Comprehensive group profile
 							{#if group?.activity_frequency}
 								<div class="about-fact">
 									<p class="about-fact-label">When we ride</p>
-									<p class="about-fact-value">{group.activity_frequency}</p>
+									<p class="about-fact-value">
+										<AutoLinkText
+											text={group.activity_frequency}
+											linkClass="about-fact-inline-link"
+										/>
+									</p>
 								</div>
 							{/if}
 
@@ -1075,11 +1087,20 @@ ABOUT — Comprehensive group profile
 											rel="noopener noreferrer"
 											class="about-fact-link"
 										>
-											{group?.specific_meeting_point_address || location}
-											<IconArrowRight class="h-3.5 w-3.5" />
+											<span class="min-w-0 break-words"
+												>{group?.specific_meeting_point_address || location}</span
+											>
+											<IconArrowRight class="h-3.5 w-3.5 shrink-0" />
 										</a>
 									{:else}
-										<p class="about-fact-value">{location || 'Shared in ride details'}</p>
+										<p class="about-fact-value">
+											<AutoLinkText
+												text={group?.specific_meeting_point_address ||
+													location ||
+													'Shared in ride details'}
+												linkClass="about-fact-inline-link"
+											/>
+										</p>
 									{/if}
 								</div>
 							{/if}
@@ -1088,7 +1109,12 @@ ABOUT — Comprehensive group profile
 								<div class="about-fact">
 									<p class="about-fact-label">Who can join</p>
 									<p class="about-fact-value">
-										{taxonomy?.audiences?.[0] || group?.audience_focus || 'Anyone on two wheels'}
+										<AutoLinkText
+											text={taxonomy?.audiences?.[0] ||
+												group?.audience_focus ||
+												'Anyone on two wheels'}
+											linkClass="about-fact-inline-link"
+										/>
 									</p>
 								</div>
 							{/if}
@@ -1097,7 +1123,10 @@ ABOUT — Comprehensive group profile
 								<div class="about-fact">
 									<p class="about-fact-label">How to join</p>
 									<p class="about-fact-value">
-										{group?.how_to_join_instructions || group?.membership_info}
+										<AutoLinkText
+											text={group?.how_to_join_instructions || group?.membership_info}
+											linkClass="about-fact-inline-link"
+										/>
 									</p>
 								</div>
 							{/if}
@@ -1105,28 +1134,45 @@ ABOUT — Comprehensive group profile
 							{#if group?.typical_activity_day_time}
 								<div class="about-fact">
 									<p class="about-fact-label">Typical schedule</p>
-									<p class="about-fact-value">{group.typical_activity_day_time}</p>
+									<p class="about-fact-value">
+										<AutoLinkText
+											text={group.typical_activity_day_time}
+											linkClass="about-fact-inline-link"
+										/>
+									</p>
 								</div>
 							{/if}
 
 							{#if group?.primary_discipline}
 								<div class="about-fact">
 									<p class="about-fact-label">Primary discipline</p>
-									<p class="about-fact-value">{group.primary_discipline}</p>
+									<p class="about-fact-value">
+										<AutoLinkText
+											text={group.primary_discipline}
+											linkClass="about-fact-inline-link"
+										/>
+									</p>
 								</div>
 							{/if}
 
 							{#if group?.typical_skill_level}
 								<div class="about-fact">
 									<p class="about-fact-label">Typical skill level</p>
-									<p class="about-fact-value">{group.typical_skill_level}</p>
+									<p class="about-fact-value">
+										<AutoLinkText
+											text={group.typical_skill_level}
+											linkClass="about-fact-inline-link"
+										/>
+									</p>
 								</div>
 							{/if}
 
 							{#if group?.zip_code}
 								<div class="about-fact">
 									<p class="about-fact-label">ZIP code</p>
-									<p class="about-fact-value">{group.zip_code}</p>
+									<p class="about-fact-value">
+										<AutoLinkText text={group.zip_code} linkClass="about-fact-inline-link" />
+									</p>
 								</div>
 							{/if}
 
@@ -1139,8 +1185,10 @@ ABOUT — Comprehensive group profile
 										rel="noopener noreferrer"
 										class="about-fact-link"
 									>
-										{groupWebsiteUrl.replace(/^https?:\/\//, '')}
-										<IconArrowRight class="h-3.5 w-3.5" />
+										<span class="min-w-0 break-words"
+											>{groupWebsiteUrl.replace(/^https?:\/\//, '')}</span
+										>
+										<IconArrowRight class="h-3.5 w-3.5 shrink-0" />
 									</a>
 								</div>
 							{/if}
@@ -1149,8 +1197,8 @@ ABOUT — Comprehensive group profile
 								<div class="about-fact">
 									<p class="about-fact-label">Email</p>
 									<a href="mailto:{group.public_contact_email}" class="about-fact-link">
-										{group.public_contact_email}
-										<IconArrowRight class="h-3.5 w-3.5" />
+										<span class="min-w-0 break-words">{group.public_contact_email}</span>
+										<IconArrowRight class="h-3.5 w-3.5 shrink-0" />
 									</a>
 								</div>
 							{/if}
@@ -1159,8 +1207,8 @@ ABOUT — Comprehensive group profile
 								<div class="about-fact">
 									<p class="about-fact-label">Phone</p>
 									<a href="tel:{group.public_phone_number}" class="about-fact-link">
-										{group.public_phone_number}
-										<IconArrowRight class="h-3.5 w-3.5" />
+										<span class="min-w-0 break-words">{group.public_phone_number}</span>
+										<IconArrowRight class="h-3.5 w-3.5 shrink-0" />
 									</a>
 								</div>
 							{/if}
@@ -1168,7 +1216,12 @@ ABOUT — Comprehensive group profile
 							{#if group?.preferred_contact_method_instructions}
 								<div class="about-fact">
 									<p class="about-fact-label">Best way to reach us</p>
-									<p class="about-fact-value">{group.preferred_contact_method_instructions}</p>
+									<p class="about-fact-value">
+										<AutoLinkText
+											text={group.preferred_contact_method_instructions}
+											linkClass="about-fact-inline-link"
+										/>
+									</p>
 								</div>
 							{/if}
 						</div>
@@ -1918,434 +1971,6 @@ FOOTER — Simple, clean
 	}
 
 	/* ═══════════════════════════════════════════════════════════
-HERO SECTION — All variants
-═══════════════════════════════════════════════════════════ */
-	.hero-section {
-		border-radius: 1.25rem;
-		overflow: hidden;
-	}
-	.hero-image,
-	.hero-image-full {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.hero-gradient-fallback {
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-primary-500) 30%, transparent),
-			color-mix(in oklab, var(--color-secondary-500) 25%, transparent)
-		);
-	}
-	.hero-gradient-fallback-full {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-primary-500) 30%, transparent),
-			color-mix(in oklab, var(--color-secondary-500) 25%, transparent)
-		);
-	}
-	/* ─────────────────────────────────────────────────────────
-   HERO: BOLD (Diagonal split)
-   ───────────────────────────────────────────────────────── */
-	.hero-bold {
-		position: relative;
-		aspect-ratio: 21/9;
-		min-height: 320px;
-		background: var(--color-surface-950);
-	}
-	@media (max-width: 768px) {
-		.hero-bold {
-			aspect-ratio: 16/10;
-			min-height: 400px;
-		}
-	}
-	.hero-bold-bg {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			105deg,
-			color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950)) 0%,
-			color-mix(in oklab, var(--color-surface-950) 95%, transparent) 55%
-		);
-		clip-path: polygon(0 0, 60% 0, 45% 100%, 0 100%);
-	}
-	@media (max-width: 768px) {
-		.hero-bold-bg {
-			clip-path: polygon(0 0, 70% 0, 55% 100%, 0 100%);
-		}
-	}
-	.hero-bold-image-wrap {
-		position: absolute;
-		inset: 0;
-		clip-path: polygon(55% 0, 100% 0, 100% 100%, 40% 100%);
-	}
-	@media (max-width: 768px) {
-		.hero-bold-image-wrap {
-			clip-path: polygon(65% 0, 100% 0, 100% 100%, 50% 100%);
-		}
-	}
-	.hero-content {
-		position: relative;
-		z-index: 10;
-		height: 100%;
-		display: flex;
-		align-items: flex-end;
-		padding: 1.5rem;
-	}
-	@media (min-width: 768px) {
-		.hero-content {
-			padding: 2rem;
-		}
-	}
-	.hero-card {
-		background: color-mix(in oklab, var(--color-surface-950) 85%, transparent);
-		backdrop-filter: blur(12px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 8%, transparent);
-		border-radius: 1rem;
-		padding: 1.25rem;
-		max-width: 500px;
-	}
-	@media (min-width: 768px) {
-		.hero-card {
-			padding: 1.5rem;
-		}
-	}
-	.location-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		background: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
-		color: var(--color-primary-200);
-		font-size: 0.75rem;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		padding: 0.5rem 0.75rem;
-		border-radius: 9999px;
-		margin-bottom: 0.75rem;
-	}
-	.title-row {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-	.hero-logo {
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 0.75rem;
-		object-fit: cover;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-		border: 2px solid color-mix(in oklab, var(--color-surface-50) 20%, transparent);
-		flex-shrink: 0;
-	}
-	@media (min-width: 768px) {
-		.hero-logo {
-			width: 4.5rem;
-			height: 4.5rem;
-		}
-	}
-	.hero-title {
-		font-size: 1.75rem;
-		font-weight: 900;
-		line-height: 1.1;
-		color: #ffffff;
-		text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
-	}
-	@media (min-width: 768px) {
-		.hero-title {
-			font-size: 2.25rem;
-		}
-	}
-	.hero-tagline {
-		font-size: 0.9375rem;
-		color: rgba(255, 255, 255, 0.9);
-		margin-top: 0.75rem;
-		line-height: 1.5;
-		display: block;
-	}
-	.hero-tagline-link {
-		color: #ffffff;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-	.hero-ctas {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-top: 1rem;
-	}
-	.hero-cta {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		font-size: 0.875rem;
-		font-weight: 700;
-		padding: 0.625rem 1.25rem;
-		border-radius: 9999px;
-		transition: all 0.15s ease;
-	}
-	.cta-primary {
-		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
-		box-shadow: 0 4px 14px color-mix(in oklab, var(--color-primary-500) 40%, transparent);
-	}
-	.cta-primary:hover {
-		transform: translateY(-1px);
-		box-shadow: 0 6px 20px color-mix(in oklab, var(--color-primary-500) 50%, transparent);
-	}
-	.cta-secondary {
-		background: color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		color: var(--color-surface-100);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 15%, transparent);
-	}
-	.cta-secondary:hover {
-		background: color-mix(in oklab, var(--color-surface-50) 18%, transparent);
-	}
-	/* ─────────────────────────────────────────────────────────
-   HERO: ORBIT (Centered floating card)
-   ───────────────────────────────────────────────────────── */
-	.hero-orbit {
-		position: relative;
-		aspect-ratio: 21/9;
-		min-height: 320px;
-		background: var(--color-surface-950);
-		overflow: hidden;
-	}
-	@media (max-width: 768px) {
-		.hero-orbit {
-			aspect-ratio: 16/11;
-		}
-	}
-	.hero-orbit-vignette {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			to bottom,
-			color-mix(in oklab, var(--color-surface-950) 80%, transparent),
-			color-mix(in oklab, var(--color-surface-950) 50%, transparent),
-			color-mix(in oklab, var(--color-surface-950) 70%, transparent)
-		);
-	}
-	.hero-orbit-content {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 1.25rem;
-	}
-	.hero-orbit-card {
-		position: relative;
-		background: color-mix(in oklab, var(--color-surface-950) 70%, transparent);
-		backdrop-filter: blur(20px);
-		border: 1px solid color-mix(in oklab, var(--color-surface-50) 10%, transparent);
-		border-radius: 1.25rem;
-		padding: 1.5rem;
-		text-align: center;
-		max-width: 400px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-	}
-	.hero-orbit-card::before {
-		content: '';
-		position: absolute;
-		inset: -2px;
-		background: linear-gradient(
-			135deg,
-			color-mix(in oklab, var(--color-primary-500) 40%, transparent),
-			color-mix(in oklab, var(--color-secondary-500) 30%, transparent)
-		);
-		border-radius: 1.35rem;
-		z-index: -1;
-		opacity: 0.6;
-		filter: blur(16px);
-	}
-	.hero-logo-center {
-		width: 4rem;
-		height: 4rem;
-		border-radius: 1rem;
-		object-fit: cover;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-		border: 2px solid color-mix(in oklab, var(--color-surface-50) 30%, transparent);
-		margin: 0 auto;
-	}
-	@media (min-width: 768px) {
-		.hero-logo-center {
-			width: 5rem;
-			height: 5rem;
-		}
-	}
-	.hero-location {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-surface-300);
-		letter-spacing: 0.2em;
-		text-transform: uppercase;
-		margin-top: 1rem;
-	}
-	.hero-title-center {
-		font-size: 1.75rem;
-		font-weight: 900;
-		color: var(--color-surface-50);
-		margin-top: 0.5rem;
-		text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-	}
-	@media (min-width: 768px) {
-		.hero-title-center {
-			font-size: 2.5rem;
-		}
-	}
-	.hero-tagline-center {
-		font-size: 0.9375rem;
-		color: var(--color-surface-300);
-		margin-top: 0.5rem;
-		line-height: 1.5;
-		display: block;
-	}
-	.hero-ctas-center {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0.5rem;
-		margin-top: 1.25rem;
-	}
-	/* ─────────────────────────────────────────────────────────
-   HERO: IMMERSIVE (Classic gradient overlay)
-   ───────────────────────────────────────────────────────── */
-	.hero-immersive {
-		position: relative;
-		aspect-ratio: 21/9;
-		min-height: 320px;
-		overflow: hidden;
-		border-radius: 1.25rem;
-	}
-	@media (max-width: 768px) {
-		.hero-immersive {
-			aspect-ratio: 16/10;
-		}
-	}
-	.hero-immersive-gradient {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			to top,
-			var(--color-surface-950) 0%,
-			color-mix(in oklab, var(--color-surface-950) 60%, transparent) 50%,
-			color-mix(in oklab, var(--color-surface-950) 40%, transparent) 100%
-		);
-	}
-	.hero-immersive-content {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
-		padding: 1.25rem;
-	}
-	@media (min-width: 768px) {
-		.hero-immersive-content {
-			padding: 1.5rem;
-		}
-	}
-	.hero-immersive-header {
-		display: flex;
-		align-items: flex-start;
-	}
-	.title-block {
-		display: flex;
-		align-items: flex-end;
-		gap: 1rem;
-	}
-	.hero-logo-immersive {
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 0.75rem;
-		object-fit: cover;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-		border: 2px solid color-mix(in oklab, var(--color-surface-50) 20%, transparent);
-		flex-shrink: 0;
-	}
-	@media (min-width: 768px) {
-		.hero-logo-immersive {
-			width: 4.5rem;
-			height: 4.5rem;
-		}
-	}
-	.hero-logo-fallback {
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 0.75rem;
-		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-		flex-shrink: 0;
-	}
-	@media (min-width: 768px) {
-		.hero-logo-fallback {
-			width: 4.5rem;
-			height: 4.5rem;
-		}
-	}
-	.title-text {
-		padding-bottom: 0.25rem;
-	}
-	.hero-location-immersive {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-surface-400);
-		letter-spacing: 0.2em;
-		text-transform: uppercase;
-		margin-bottom: 0.25rem;
-	}
-	.hero-title-immersive {
-		font-size: 1.5rem;
-		font-weight: 900;
-		color: var(--color-surface-50);
-		text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-	}
-	@media (min-width: 768px) {
-		.hero-title-immersive {
-			font-size: 2rem;
-		}
-	}
-	.hero-immersive-footer {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	@media (min-width: 640px) {
-		.hero-immersive-footer {
-			flex-direction: row;
-			align-items: flex-end;
-			justify-content: space-between;
-		}
-	}
-	.hero-tagline-immersive {
-		font-size: 1rem;
-		color: var(--color-surface-200);
-		line-height: 1.5;
-		max-width: 28rem;
-	}
-	.hero-ctas-immersive {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		flex-shrink: 0;
-	}
-
-	/* ═══════════════════════════════════════════════════════════
    NEW RIDER NOTE
    ═══════════════════════════════════════════════════════════ */
 	.new-rider-note {
@@ -2648,14 +2273,24 @@ HERO SECTION — All variants
 	/* About facts grid */
 	.about-facts-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: minmax(0, 1fr);
 		gap: 1rem;
 		margin: 1.25rem 0;
 	}
 
+	.about-facts-grid--tbag {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	@media (min-width: 640px) {
+		.about-facts-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
 	@media (min-width: 768px) {
 		.about-facts-grid {
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 		}
 	}
 
@@ -2663,6 +2298,7 @@ HERO SECTION — All variants
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+		min-width: 0;
 	}
 
 	.about-fact-label {
@@ -2681,10 +2317,28 @@ HERO SECTION — All variants
 		font-size: 0.875rem;
 		color: var(--color-surface-900);
 		line-height: 1.4;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 
 	:global([data-color-mode='dark']) .about-fact-value {
 		color: var(--color-surface-100);
+	}
+
+	:global(.about-fact-inline-link) {
+		color: inherit;
+		overflow-wrap: anywhere;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		transition: color 0.15s ease;
+	}
+
+	:global(.about-fact-inline-link:hover) {
+		color: var(--color-primary-500);
+	}
+
+	:global([data-color-mode='dark']) :global(.about-fact-inline-link:hover) {
+		color: var(--color-primary-400);
 	}
 
 	.about-fact-link {
@@ -2694,9 +2348,17 @@ HERO SECTION — All variants
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
+		width: fit-content;
+		max-width: 100%;
+		min-width: 0;
+		overflow-wrap: anywhere;
 		text-decoration: underline;
 		text-underline-offset: 2px;
 		transition: color 0.15s ease;
+	}
+
+	.about-fact-link > span {
+		overflow-wrap: anywhere;
 	}
 
 	.about-fact-link:hover {

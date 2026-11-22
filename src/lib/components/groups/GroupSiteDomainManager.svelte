@@ -5,10 +5,11 @@
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
+	import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 
 	let { group, slug = $bindable(''), currentSlug = '', liveUrl = '' } = $props();
 	let availability = $state({
@@ -28,14 +29,11 @@
 	let copyTimer;
 
 	const normalizedSlug = $derived(normalizeSlug(slug));
+	const normalizedCurrentSlug = $derived(normalizeMicrositeSlug(currentSlug));
 	const includedUrl = $derived(String(liveUrl || normalizedSlug || 'yourgroup').replace(/\/$/, ''));
 
 	function normalizeSlug(value) {
-		return String(value || '')
-			.toLowerCase()
-			.normalize('NFKD')
-			.replace(/[^a-z0-9]/g, '')
-			.slice(0, 40);
+		return normalizeMicrositeSlug(value).slice(0, 40);
 	}
 
 	function handleSlugInput(event) {
@@ -52,7 +50,15 @@
 			};
 			return;
 		}
-		if (next === currentSlug) {
+		if (isReservedMicrositeSlug(next)) {
+			availability = {
+				state: 'taken',
+				label: 'Reserved',
+				message: 'That address is reserved by the app.'
+			};
+			return;
+		}
+		if (next === normalizedCurrentSlug) {
 			availability = {
 				state: 'current',
 				label: 'Current',
