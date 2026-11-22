@@ -1,12 +1,4 @@
-import { safeParseJson, isSchemaUnsupportedError } from '#lib/server/aiJson';
-import { json } from '@sveltejs/kit';
-import {
-	getAiConfigurationError,
-	isAiModelConfigured,
-	requireAiModel
-} from '#lib/server/ai/models';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
-import { resolveVerifiedSession } from '#lib/server/session';
+import { createAiWriterRoute } from '#lib/server/aiWriterRoute.js';
 
 export const config = { maxDuration: 60 };
 
@@ -56,8 +48,6 @@ const RESPONSE_SCHEMA = {
 		}
 	}
 };
-
-let schemaUnsupported = false;
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -114,15 +104,43 @@ function formatMessages(messages) {
 		.join('\n');
 }
 
-async function generateDraft({ prompt, useSchema = true }) {
-	const { client, model } = requireAiModel('structured_text');
-	const config = { responseMimeType: 'application/json' };
-	if (useSchema) config.responseSchema = RESPONSE_SCHEMA;
-	return client.generateContent({
-		model: model.model,
-		contents: prompt,
-		config
-	});
+function buildPrompt(payload) {
+	const messages = normalizeMessages(payload.messages);
+	const context = normalizeContext(payload.context);
+	const stylePreset = STYLE_PRESETS[safeTrim(payload.style_preset).toLowerCase()]
+		? safeTrim(payload.style_preset).toLowerCase()
+		: 'warm_community';
+	const style = STYLE_PRESETS[stylePreset];
+
+	return `
+You are Update Muse, an expert editorial assistant helping group owners draft polished public updates for their group page.
+
+Your job:
+- Draft clean, beautiful, publish-ready update copy.
+- Revise the draft when the owner asks for changes.
+- Preserve real details from the conversation and current draft context.
+- Never invent dates, links, locations, or logistics that were not provided.
+
+Output rules:
+- Return JSON matching the schema.
+- Put the ready-to-publish headline in draft.title.
+- Put a short preview blurb in draft.summary. 1 to 2 sentences, max 240 characters when possible.
+- Put the full formatted content in draft.body_markdown.
+- Use tasteful markdown formatting: short headings only when useful, bullet lists for logistics, bold for key details, links when given.
+- Do not use code fences, frontmatter, emojis, or fake placeholders like [insert link].
+- Keep the copy concise. Most updates should be readable in under a minute.
+- When revising, improve the current draft instead of starting from scratch unless the owner asks for a different direction.
+
+Style preset:
+- ${style.label}: ${style.guidance}
+
+Conversation:
+${formatMessages(messages)}
+
+Known context:
+${formatContext(context)}
+
+Respond with JSON only.`;
 }
 
 function normalizeAiPayload(parsed, rawText = '') {
@@ -156,100 +174,15 @@ function normalizeAiPayload(parsed, rawText = '') {
 	};
 }
 
-export async function POST(event) {
-	const { request, cookies } = event;
-	const limitedByIp = enforceRateLimit(event, {
-		name: 'ai-group-writer-ip',
-		limit: 60,
-		windowMs: 10 * 60 * 1000
-	});
-	if (limitedByIp) return limitedByIp;
-	const { user } = await resolveVerifiedSession(cookies);
-	if (!user?.id) return json({ error: 'Authentication required.' }, { status: 401 });
-	const limited = enforceRateLimit(event, {
-		name: 'ai-group-writer-user',
-		limit: 30,
-		windowMs: 10 * 60 * 1000,
-		key: user.id
-	});
-	if (limited) return limited;
-
-	if (!isAiModelConfigured('structured_text')) {
-		return json({ error: getAiConfigurationError('structured_text') }, { status: 503 });
-	}
-
-	const parsedBody = await readJsonBody(request, { maxBytes: 128 * 1024 });
-	if (!parsedBody.ok) return json({ error: parsedBody.error }, { status: parsedBody.status });
-	const payload = parsedBody.value;
-	if (!payload || !Array.isArray(payload.messages)) {
-		return json({ error: 'messages array required' }, { status: 400 });
-	}
-
-	const messages = normalizeMessages(payload.messages);
-	const context = normalizeContext(payload.context);
-	const stylePreset = STYLE_PRESETS[safeTrim(payload.style_preset).toLowerCase()]
-		? safeTrim(payload.style_preset).toLowerCase()
-		: 'warm_community';
-	const style = STYLE_PRESETS[stylePreset];
-
-	const prompt = `
-You are Update Muse, an expert editorial assistant helping group owners draft polished public updates for their group page.
-
-Your job:
-- Draft clean, beautiful, publish-ready update copy.
-- Revise the draft when the owner asks for changes.
-- Preserve real details from the conversation and current draft context.
-- Never invent dates, links, locations, or logistics that were not provided.
-
-Output rules:
-- Return JSON matching the schema.
-- Put the ready-to-publish headline in draft.title.
-- Put a short preview blurb in draft.summary. 1 to 2 sentences, max 240 characters when possible.
-- Put the full formatted content in draft.body_markdown.
-- Use tasteful markdown formatting: short headings only when useful, bullet lists for logistics, bold for key details, links when given.
-- Do not use code fences, frontmatter, emojis, or fake placeholders like [insert link].
-- Keep the copy concise. Most updates should be readable in under a minute.
-- When revising, improve the current draft instead of starting from scratch unless the owner asks for a different direction.
-
-Style preset:
-- ${style.label}: ${style.guidance}
-
-Conversation:
-${formatMessages(messages)}
-
-Known context:
-${formatContext(context)}
-
-Respond with JSON only.`;
-
-	try {
-		const response = await generateDraft({
-			prompt,
-			useSchema: !schemaUnsupported
-		});
-
-		let text = response?.text ?? '';
-		const parsed = safeParseJson(text);
-		return json(normalizeAiPayload(parsed, text));
-	} catch (error) {
-		if (!schemaUnsupported && isSchemaUnsupportedError(error)) {
-			schemaUnsupported = true;
-			try {
-				const fallbackResponse = await generateDraft({
-					prompt,
-					useSchema: false
-				});
-				let fallbackText = fallbackResponse?.text ?? '';
-				if (typeof fallbackText === 'function') fallbackText = fallbackText();
-				const fallbackParsed = safeParseJson(fallbackText);
-				return json(normalizeAiPayload(fallbackParsed, fallbackText));
-			} catch (fallbackError) {
-				console.error('Group update writer fallback failed', fallbackError);
-				return json({ error: 'Unable to generate an update right now.' }, { status: 500 });
-			}
-		}
-
-		console.error('Group update writer failed', error);
-		return json({ error: 'Unable to generate an update right now.' }, { status: 500 });
-	}
-}
+export const POST = createAiWriterRoute({
+	rateLimit: {
+		ipName: 'ai-group-writer-ip',
+		userName: 'ai-group-writer-user'
+	},
+	responseSchema: RESPONSE_SCHEMA,
+	responseMimeType: 'application/json',
+	errorLabel: 'Group update writer',
+	errorMessage: 'Unable to generate an update right now.',
+	buildContents: buildPrompt,
+	normalizePayload: normalizeAiPayload
+});
