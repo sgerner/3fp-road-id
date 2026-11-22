@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import '@toast-ui/editor/dist/toastui-editor.css';
+	import { attachLearnEditorAccessibility } from '#lib/learn/editorAccessibility.js';
 
 	let {
 		name = 'bodyMarkdown',
@@ -10,8 +11,19 @@
 		height = '560px',
 		placeholder = 'Write something useful.',
 		label = 'Article',
+		ariaLabel = '',
 		onReady = null
 	} = $props();
+
+	const instanceId = $props.id();
+	const labelId = `${instanceId}-label`;
+	const hasVisibleLabel = $derived(Boolean(String(label ?? '').trim()));
+	const resolvedAriaLabel = $derived(
+		String(ariaLabel ?? '').trim() ||
+			String(label ?? '').trim() ||
+			String(placeholder ?? '').trim() ||
+			'Rich text editor'
+	);
 
 	let editorEl = $state(null);
 	let textareaEl = $state(null);
@@ -19,12 +31,23 @@
 	let currentMode = $state('wysiwyg');
 	let lastExternalValue = '';
 	let editor = null;
+	let detachAccessibility = null;
 	let ready = $state(false);
 
 	$effect(() => {
 		if (!ready) {
 			currentMode = mode === 'markdown' ? 'markdown' : 'wysiwyg';
 		}
+	});
+
+	$effect(() => {
+		const nextLabelId = hasVisibleLabel ? labelId : '';
+		const nextAriaLabel = resolvedAriaLabel;
+		if (!ready || !detachAccessibility) return;
+		detachAccessibility.sync({
+			labelId: nextLabelId,
+			ariaLabel: nextAriaLabel
+		});
 	});
 
 	function syncHiddenFields() {
@@ -37,6 +60,10 @@
 	function changeMode(nextMode) {
 		if (!editor || !ready) return;
 		editor.changeMode(nextMode === 'markdown' ? 'markdown' : 'wysiwyg', true);
+		detachAccessibility?.sync({
+			labelId: hasVisibleLabel ? labelId : '',
+			ariaLabel: resolvedAriaLabel
+		});
 		syncHiddenFields();
 	}
 
@@ -100,6 +127,12 @@
 				}
 			});
 
+			detachAccessibility = attachLearnEditorAccessibility(editorEl, {
+				editor,
+				labelId: hasVisibleLabel ? labelId : '',
+				ariaLabel: resolvedAriaLabel
+			});
+
 			ready = true;
 			syncHiddenFields();
 			onReady?.({
@@ -114,6 +147,8 @@
 			destroyed = true;
 			ready = false;
 			onReady?.(null);
+			detachAccessibility?.destroy?.();
+			detachAccessibility = null;
 			editor?.destroy?.();
 			editor = null;
 		};
@@ -122,7 +157,9 @@
 
 <div class="learn-editor-shell space-y-3">
 	<div class="flex flex-wrap items-center justify-between gap-3">
-		<p class="label">{label}</p>
+		{#if hasVisibleLabel}
+			<p id={labelId} class="label">{label}</p>
+		{/if}
 		<div
 			class="border-surface-500/20 bg-surface-900/60 inline-flex rounded-full border p-1"
 			role="group"

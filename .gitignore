@@ -32,3 +32,8 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Linter caches
+.cache/
+.eslintcache
+.prettiercache
