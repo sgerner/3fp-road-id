@@ -7,11 +7,11 @@
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
-	import IconLayersThree from '@lucide/svelte/icons/layers-3';
+	import IconLayersThree from '@lucide/svelte/icons/layers';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';

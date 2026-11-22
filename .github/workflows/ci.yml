@@ -29,6 +29,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run audit
       - run: npm run lint
       - run: npm run check
   build:
@@ -75,7 +76,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: node scripts/with-webhook-test-server.mjs npm test
 
   deploy-farin:
     if: github.event_name == 'push' || (github.event_name == 'release' && github.event.release.prerelease == false)

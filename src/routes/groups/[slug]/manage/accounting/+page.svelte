@@ -6,7 +6,7 @@
 	import IconBanknote from '@lucide/svelte/icons/banknote';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconChartColumn from '@lucide/svelte/icons/chart-column';
-	import IconCheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+	import IconCheckCircle2 from '@lucide/svelte/icons/circle-check';
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconCog from '@lucide/svelte/icons/cog';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
