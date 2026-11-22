@@ -10,7 +10,7 @@
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconRoute from '@lucide/svelte/icons/route';
-	import IconShieldQuestion from '@lucide/svelte/icons/shield-question';
+	import IconShieldQuestion from '@lucide/svelte/icons/shield-question-mark';
 	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
 	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
 	import { isValidLatLng } from '#lib/map/leaflet';

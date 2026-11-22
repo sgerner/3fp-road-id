@@ -4,8 +4,8 @@
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
 	import IconRemove from '@lucide/svelte/icons/circle-x';
-	import IconAlertTriangle from '@lucide/svelte/icons/alert-triangle';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconAlertTriangle from '@lucide/svelte/icons/triangle-alert';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';

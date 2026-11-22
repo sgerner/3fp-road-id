@@ -1,5 +1,5 @@
 <script>
-	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import { buildMonthGrid, toLocalDateKey } from '#lib/calendar/monthGrid';
 	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
@@ -143,14 +143,14 @@
 
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
-			const key = toDateKey(ride._calendarStart);
+			const key = toLocalDateKey(ride._calendarStart);
 			if (!key) return acc;
 			(acc[key] ??= []).push(ride);
 			return acc;
 		}, {})
 	);
 
-	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate));
 	const calendarHeader = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
@@ -190,11 +190,6 @@
 
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
-	}
-
-	function toDateKey(date) {
-		if (!date) return '';
-		return date.toISOString().slice(0, 10);
 	}
 
 	function matchesDateRange(date, preset, startDateRaw, endDateRaw) {
@@ -238,7 +233,7 @@
 		return true;
 	}
 
-	const todayKey = toDateKey(new Date());
+	const todayKey = toLocalDateKey(new Date());
 
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
@@ -595,7 +590,7 @@
 				<ul class="calendar-agenda space-y-4" aria-label="Rides this month">
 					{#each calendarMatrix
 						.flat()
-						.filter((day) => day.inMonth && day.items.length) as day (toDateKey(day.date))}
+						.filter((day) => day.inMonth && day.items.length) as day (toLocalDateKey(day.date))}
 						<li>
 							<h3 class="font-bold">
 								{day.date.toLocaleDateString(undefined, {
@@ -634,7 +629,7 @@
 					{#each calendarMatrix as week}
 						<div role="row" class="calendar-grid calendar-week">
 							{#each week as day}
-								{@const isToday = toDateKey(day.date) === todayKey}
+								{@const isToday = toLocalDateKey(day.date) === todayKey}
 								<div
 									role="gridcell"
 									aria-label={day.date.toLocaleDateString(undefined, {

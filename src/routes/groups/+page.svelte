@@ -12,7 +12,7 @@
 	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-	import IconLoader2 from '@lucide/svelte/icons/loader-2';
+	import IconLoader2 from '@lucide/svelte/icons/loader-circle';
 	import { fade, slide } from 'svelte/transition';
 	import { navigating, page as appPage } from '$app/state';
 	import { optimizedImageUrl } from '#lib/media/optimized';
