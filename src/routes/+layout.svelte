@@ -710,6 +710,24 @@
 											Profile
 										</a>
 										<a
+											href="/profile#road-id"
+											class="profile-menu-item"
+											role="menuitem"
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
+										>
+											<IconContact class="h-4 w-4" />
+											Emergency ID
+										</a>
+										<a
 											href={myGroupsMenuHref}
 											class="profile-menu-item"
 											role="menuitem"
