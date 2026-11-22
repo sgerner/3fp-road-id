@@ -11,7 +11,7 @@ export const POST = async ({ params, cookies, request }) => {
 	const { serviceSupabase, group, userId } = auth;
 
 	const body = await request.json().catch(() => null);
-	const { tier_id, interval_unit } = body ?? {};
+	const { tier_id, interval_unit, custom_amount_cents } = body ?? {};
 	if (!tier_id) throw error(400, 'tier_id is required');
 
 	// Load program
@@ -26,7 +26,7 @@ export const POST = async ({ params, cookies, request }) => {
 	const { data: tier } = await serviceSupabase
 		.from('group_membership_tiers')
 		.select(
-			'id,name,amount_cents,billing_type,interval_unit,monthly_amount_cents,annual_amount_cents,stripe_price_id,allow_custom_amount'
+			'id,name,amount_cents,billing_type,interval_unit,monthly_amount_cents,annual_amount_cents,stripe_price_id,allow_custom_amount,min_amount_cents'
 		)
 		.eq('id', tier_id)
 		.eq('program_id', program.id)
@@ -34,12 +34,15 @@ export const POST = async ({ params, cookies, request }) => {
 		.maybeSingle();
 	if (!tier) throw error(404, 'Tier not found');
 
-	// Check for existing membership
+	// Check for existing active/past_due/paused membership
 	const { data: existing, error: membershipError } = await serviceSupabase
 		.from('group_memberships')
-		.select('id,tier_id,status,renews_at')
+		.select('id,tier_id,status,renews_at,interval_unit')
 		.eq('group_id', group.id)
 		.eq('user_id', userId)
+		.in('status', ['active', 'past_due', 'paused'])
+		.order('created_at', { ascending: false })
+		.limit(1)
 		.maybeSingle();
 	if (membershipError) throw error(500, 'Unable to load the current membership.');
 
@@ -49,12 +52,34 @@ export const POST = async ({ params, cookies, request }) => {
 	) {
 		throw error(403, 'This group requires an approved application before joining.');
 	}
-	if (existing?.tier_id === tier_id) {
+
+	const customAmount = tier.allow_custom_amount ? Number(custom_amount_cents || 0) : 0;
+	const sameInterval =
+		!interval_unit || !existing?.interval_unit || interval_unit === existing.interval_unit;
+	if (
+		existing?.tier_id === tier_id &&
+		sameInterval &&
+		!(tier.allow_custom_amount && customAmount > 0)
+	) {
 		return json({ success: true, action: 'no_change' });
 	}
 
-	if (membershipTierRequiresPayment(program, tier)) {
-		if (existing?.renews_at && tier.billing_type === 'recurring' && !tier.allow_custom_amount) {
+	const requiresPayment =
+		membershipTierRequiresPayment(program, tier) ||
+		(tier.allow_custom_amount && (customAmount > 0 || Number(tier.min_amount_cents || 0) > 0));
+
+	if (requiresPayment) {
+		const effectiveInterval =
+			tier.billing_type === 'one_time'
+				? null
+				: interval_unit || existing?.interval_unit || tier.interval_unit || 'month';
+		if (
+			existing?.renews_at &&
+			existing.tier_id !== tier.id &&
+			tier.billing_type === 'recurring' &&
+			!tier.allow_custom_amount &&
+			sameInterval
+		) {
 			const result = await requestMembershipTierChange({
 				cookies,
 				groupSlug: params.slug,
@@ -69,7 +94,7 @@ export const POST = async ({ params, cookies, request }) => {
 			requires_payment: true,
 			tier_id: tier.id,
 			tier_name: tier.name,
-			interval_unit: interval_unit || tier.interval_unit
+			interval_unit: effectiveInterval
 		});
 	}
 
@@ -82,7 +107,8 @@ export const POST = async ({ params, cookies, request }) => {
 				tier_id: tier.id,
 				status: 'active',
 				source: 'online',
-				interval_unit: interval_unit || tier.interval_unit || null,
+				interval_unit:
+					tier.billing_type === 'one_time' ? null : interval_unit || tier.interval_unit || null,
 				contribution_amount_cents: 0,
 				started_at: new Date().toISOString()
 			})
@@ -105,7 +131,9 @@ export const POST = async ({ params, cookies, request }) => {
 		.update({
 			tier_id: tier.id,
 			contribution_amount_cents: 0,
-			interval_unit: interval_unit || tier.interval_unit || null
+			renews_at: tier.billing_type === 'one_time' ? null : existing.renews_at,
+			interval_unit:
+				tier.billing_type === 'one_time' ? null : interval_unit || tier.interval_unit || null
 		})
 		.eq('id', existing.id);
 
