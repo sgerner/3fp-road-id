@@ -13,21 +13,12 @@ import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/reading
 import {
 	enrichLearnArticleCards,
 	ensureUniqueLearnSlug,
-	LEARN_EDITOR_MODES,
 	mergeSafetyReportIntoCatalog,
-	normalizeLearnCategory,
 	normalizeLearnPayload,
 	slugifyLearn
 } from '#lib/server/learnCatalog.js';
 
-export {
-	enrichLearnArticleCards,
-	ensureUniqueLearnSlug,
-	LEARN_EDITOR_MODES,
-	normalizeLearnCategory,
-	normalizeLearnPayload,
-	slugifyLearn
-};
+export { enrichLearnArticleCards, ensureUniqueLearnSlug, normalizeLearnPayload, slugifyLearn };
 
 export async function getLearnClient(cookies) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -67,20 +58,6 @@ export function learnFormDataValues(formData) {
 		categoryName: value('categoryName', 120),
 		subcategorySlug: value('subcategorySlug', 180),
 		coverImageUrl: value('coverImageUrl', 2000)
-	};
-}
-
-export function withLearnReadingAid(payload) {
-	const readingAid = generateLearnReadingAid({
-		title: payload.title,
-		summary: payload.summary,
-		markdown: payload.body_markdown
-	});
-
-	return {
-		...payload,
-		reader_summary: readingAid.readerSummary,
-		key_takeaways: readingAid.keyTakeaways
 	};
 }
 

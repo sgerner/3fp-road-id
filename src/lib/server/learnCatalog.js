@@ -11,7 +11,7 @@ import {
 	syncLearnArticleChunks
 } from '#lib/server/learnDiscovery.js';
 
-export const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
+const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 export const SAFETY_REPORT_SLUG = 'safer-cycling-better-messages';
 export const SAFETY_REPORT_SOURCE_PATH = 'src/lib/content/safetyReport.json';
 export const SAFETY_REPORT_CATEGORY_SLUG = 'education';
@@ -42,7 +42,7 @@ export function slugifyLearn(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
-export function normalizeLearnCategory(categoryName) {
+function normalizeLearnCategory(categoryName) {
 	const label = safeTrim(categoryName) || 'General';
 	return {
 		name: label,
